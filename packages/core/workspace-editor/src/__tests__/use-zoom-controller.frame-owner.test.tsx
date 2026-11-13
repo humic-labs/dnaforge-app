@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { installNativeWheelSource } from '@waypoint/platform/wheel-motion';
+import { installNativeWheelSource } from '../../../platform/src/wheel-input.test-helper';
 import { act, renderHook } from '@testing-library/react';
 import { useZoomController } from '../use-zoom-controller';
 import {
@@ -21,7 +21,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function setup(zoomLevel = 100, nativeWheelGestureOwnership = false) {
+function setup(zoomLevel = 100, browserWheelGestureOwnership = false) {
   const requestFrame = vi.fn();
   const transactions: Array<{ kind: 'forecast' | 'commit'; zoom: number }> = [];
   const animationFrame = vi.spyOn(globalThis, 'requestAnimationFrame');
@@ -35,7 +35,7 @@ function setup(zoomLevel = 100, nativeWheelGestureOwnership = false) {
       const { config, layout } = buildLayoutAt(zoomLevel, { circular: true });
       return useZoomController({
         continuous: true,
-        nativeWheelGestureOwnership,
+        browserWheelGestureOwnership,
         requestFrame,
         zoomLevel,
         topBp: 0,

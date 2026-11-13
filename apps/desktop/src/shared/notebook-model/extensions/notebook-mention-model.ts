@@ -5,6 +5,22 @@ import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 export const NotebookMentionNode = Mention.extend({
   addAttributes() {
     return {
+      resourceReference: {
+        default: null,
+        parseHTML: (element) => {
+          const value = readNotebookElementAttribute(element, 'data-resource-reference');
+          if (!value) return null;
+          try {
+            return JSON.parse(value);
+          } catch {
+            return null;
+          }
+        },
+        renderHTML: (attributes) =>
+          attributes.resourceReference
+            ? { 'data-resource-reference': JSON.stringify(attributes.resourceReference) }
+            : {},
+      },
       referenceUri: {
         default: null,
         parseHTML: (element) => readNotebookElementAttribute(element, 'data-reference-uri'),

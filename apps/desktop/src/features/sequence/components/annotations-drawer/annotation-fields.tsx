@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../../presentation/PresentationSurface';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Annotation } from '@waypoint/sequence-utils';
 import { ANNOTATION_TYPES, COLOR_PALETTES } from './helpers';
@@ -220,6 +221,8 @@ export function ColorPaletteSelector({
   onChange: (color: string) => void;
   compact?: boolean;
 }) {
+  const presentationEvents = usePresentationListener();
+
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const activePaletteIndex = COLOR_PALETTES.findIndex((p) => p.colors.includes(value));
@@ -238,13 +241,13 @@ export function ColorPaletteSelector({
         setOpen(false);
       }
     };
-    document.addEventListener('keydown', handleKey);
+    presentationEvents.add(document, 'keydown', handleKey);
     document.addEventListener('mousedown', handleClick);
     return () => {
-      document.removeEventListener('keydown', handleKey);
+      presentationEvents.remove(document, 'keydown', handleKey);
       document.removeEventListener('mousedown', handleClick);
     };
-  }, [open]);
+  }, [open, presentationEvents]);
 
   return (
     <div>

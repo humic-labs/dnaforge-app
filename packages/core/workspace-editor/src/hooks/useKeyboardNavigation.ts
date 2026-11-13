@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, type RefObject } from 'react';
+import { inputTargetAllows } from '@waypoint/platform/input-ownership';
 import type { MutableRefObject } from 'react';
 import type { Selection, EditorState, EditorAction, EditorPasteFragment } from '../types';
 import type { AnnotatedSequence } from '@waypoint/sequence-utils';
@@ -8,6 +9,7 @@ export { normalizePlainDnaClipboardText } from '@waypoint/sequence-utils';
 
 interface UseKeyboardNavigationProps {
   keyboardActive?: boolean;
+  keyboardTargetRef?: RefObject<HTMLElement | null>;
   editable: boolean;
   editorState: EditorState;
   editorDispatch: (action: EditorAction) => void;
@@ -39,6 +41,7 @@ interface UseKeyboardNavigationProps {
 export function useKeyboardNavigation({
   editable,
   keyboardActive = true,
+  keyboardTargetRef,
   editorState,
   editorDispatch,
   selection,
@@ -77,6 +80,8 @@ export function useKeyboardNavigation({
     const handleKeyDown = (e: KeyboardEvent) => {
       const owner = keyboardStateRef.current;
       if (!owner.keyboardActive) return;
+      const target = keyboardTargetRef?.current;
+      if (target && !inputTargetAllows(target, 'keyboard', e)) return;
       handleSequenceEditorKeyDown(e, {
         editable: owner.editable,
         editorState: editorStateRef.current,
@@ -102,6 +107,7 @@ export function useKeyboardNavigation({
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    keyboardTargetRef,
     editorDispatch,
     handleSelectionChange,
     effectiveCharsPerLine,

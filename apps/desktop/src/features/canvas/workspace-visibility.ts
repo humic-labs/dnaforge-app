@@ -1,7 +1,5 @@
-import { createContext, useContext } from 'react';
-
-export const WorkspaceVisibilityContext = createContext(true);
+import { usePresentationEligibility } from '../../presentation/PresentationSurface';
 
 export function useWorkspaceVisibility(): boolean {
-  return useContext(WorkspaceVisibilityContext);
+  return usePresentationEligibility('presentation');
 }

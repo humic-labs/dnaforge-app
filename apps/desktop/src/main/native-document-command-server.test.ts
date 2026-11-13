@@ -103,6 +103,7 @@ async function fixture() {
   servers.push(server);
   const body = {
     ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
     command: 'annotation.inspect',
     target: { operationId: 'op-1', targetDocumentId: 'doc-1' },
     authority: { schema: 'opaque-authority-validated-by-owner' },
@@ -153,6 +154,7 @@ it('routes bounded public notebook commands directly to the native owner and ref
   const request = { pageId: 'notebook-1', operation: { kind: 'inspect' } };
   const response = await f.call({
     ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
     command: 'notebook.execute',
     request,
   });
@@ -166,6 +168,7 @@ it('routes bounded public notebook commands directly to the native owner and ref
   });
   const privateInput = await f.call({
     ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
     command: 'notebook.execute',
     request: { documentId: 'notebook-1', operation: { kind: 'apply-steps', steps: [] } },
   });
@@ -178,6 +181,7 @@ it('dispatches a native file request without a canvas tab or renderer bridge', a
   const input = { target: { path: '/workspace/closed.txt' }, operation: { kind: 'inspect' } };
   const response = await f.call({
     ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
     command: 'file.execute',
     agent: { identityId: 'agent-1', capabilities: ['read-workspace', 'write-workspace'] },
     request: input,
@@ -210,6 +214,7 @@ it('returns the next native sequence mutation input to agents without private sa
   const execute = (operation: Record<string, unknown>, expectedVersion?: number) =>
     f.call({
       ownerInstanceId: 'native-1',
+      projectScope: { kind: 'app-following' },
       command: 'sequence.execute',
       request: { documentId: 'sequence-1', expectedVersion, operation },
     });
@@ -253,7 +258,12 @@ it('requires trusted current authority when dispatching retained import actions'
     project: '/workspace',
     operation: { kind: 'execute', id: 'review-1', command: { kind: 'inspect' } },
   };
-  const body = { ownerInstanceId: 'native-1', command: 'import-review.execute', request };
+  const body = {
+    ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
+    command: 'import-review.execute',
+    request,
+  };
   expect((await f.call(body)).status).toBe(400);
   expect(f.importReviews.executeAgent).not.toHaveBeenCalled();
   const agent = { identityId: 'agent-1', capabilities: ['read-workspace'] };
@@ -276,6 +286,7 @@ it('retains an explicit native file stale refusal without implying a write occur
   );
   const response = await f.call({
     ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
     command: 'file.execute',
     agent: { identityId: 'agent-1', capabilities: ['read-workspace', 'write-workspace'] },
     request: {
@@ -300,6 +311,7 @@ it('refuses an untyped native file mutation before calling its owner', async () 
   const f = await fixture();
   const response = await f.call({
     ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
     command: 'file.execute',
     agent: { identityId: 'agent-1', capabilities: ['read-workspace', 'write-workspace'] },
     request: {
@@ -318,6 +330,7 @@ it('does not infer no effect from an untyped FILE_CHANGED message after acceptan
   );
   const response = await f.call({
     ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
     command: 'file.execute',
     agent: { identityId: 'agent-1', capabilities: ['read-workspace', 'write-workspace'] },
     request: {
@@ -382,6 +395,7 @@ it('forwards only an admitted Apply request and preserves its concrete result', 
   };
   const response = await f.call({
     ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
     command: 'annotation.apply',
     request,
   });

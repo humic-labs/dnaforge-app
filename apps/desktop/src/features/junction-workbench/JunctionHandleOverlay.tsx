@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../presentation/PresentationSurface';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import {
@@ -97,6 +98,8 @@ export function JunctionHandleOverlay({
   onLivePreviewEnd,
   onPanRequest,
 }: JunctionHandleOverlayProps) {
+  const presentationEvents = usePresentationListener();
+
   const { darkMode } = useDarkMode();
   const primerHandleVisual = assemblyPrimerHandleVisualForMode(darkMode ? 'dark' : 'light');
   assertLiveSyncPreviewWiringForHandles(handles, onLivePreview, onLivePreviewEnd);
@@ -257,16 +260,16 @@ export function JunctionHandleOverlay({
     window.addEventListener('pointercancel', cancel);
     window.addEventListener('mousemove', mouseMove);
     window.addEventListener('mouseup', mouseUp);
-    window.addEventListener('keydown', keyDown);
+    presentationEvents.add(window, 'keydown', keyDown);
     return () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', cancel);
       window.removeEventListener('mousemove', mouseMove);
       window.removeEventListener('mouseup', mouseUp);
-      window.removeEventListener('keydown', keyDown);
+      presentationEvents.remove(window, 'keydown', keyDown);
     };
-  }, [endDrag, updateDrag]);
+  }, [endDrag, updateDrag, presentationEvents]);
 
   useEffect(
     () => () => {

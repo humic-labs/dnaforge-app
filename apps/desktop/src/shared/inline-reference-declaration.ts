@@ -4,6 +4,10 @@ export type InlineReferenceEntityType = (typeof INLINE_REFERENCE_ENTITY_TYPES)[n
 
 export type InlineReferenceDeclaration =
   | {
+      kind: 'project-resource';
+      resource: import('./project-resource-reference').ProjectResourceReference;
+    }
+  | {
       kind: 'molecular-document';
       document: import('./molecular-document-reference').MolecularDocumentReference;
     }

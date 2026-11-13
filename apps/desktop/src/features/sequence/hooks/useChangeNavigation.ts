@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { useCallback, useEffect, useMemo } from 'react';
 import { matchesShortcut } from '@waypoint/ui-components/keyboard';
 import type { SequenceChange } from '../diff/sequence-diff';
@@ -13,6 +14,8 @@ export function useChangeNavigation(
   currentPosition: number,
   onScrollToPosition: (position: number) => void
 ): UseChangeNavigationResult {
+  const presentationEvents = usePresentationListener();
+
   const sortedChanges = useMemo(
     () => [...changes].sort((a, b) => a.position - b.position),
     [changes]
@@ -52,9 +55,9 @@ export function useChangeNavigation(
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [jumpToNext, jumpToPrev]);
+    presentationEvents.add(window, 'keydown', handleKeyDown);
+    return () => presentationEvents.remove(window, 'keydown', handleKeyDown);
+  }, [jumpToNext, jumpToPrev, presentationEvents]);
 
   return {
     jumpToNext,

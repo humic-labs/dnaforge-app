@@ -19,13 +19,16 @@ def register_agent_artifact(
     agent_identity_id: str,
     action_id: str,
     store: ControlPlaneStore | None = None,
+    workspace_roots: list[Path] | None = None,
 ) -> dict[str, Any]:
     """Normalize, validate, and persist an agent artifact registration."""
     store = store or get_control_plane_store()
     normalized = normalize_artifact_args(
         args,
-        workspace_roots=artifact_workspace_roots(
-            store.get_agent_identity(agent_identity_id)
+        workspace_roots=(
+            workspace_roots
+            if workspace_roots is not None
+            else artifact_workspace_roots(store.get_agent_identity(agent_identity_id))
         ),
     )
     store.ensure_agent_identity(agent_identity_id)

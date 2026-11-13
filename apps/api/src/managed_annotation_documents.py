@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic import TypeAdapter, ValidationError
 
+from .agent_workspace_authority import agent_project_scope
 from .annotation_document_contract import (
     AnnotationDocumentSelection,
     AnnotationDocumentTarget,
@@ -23,7 +24,9 @@ from .native_document_dispatch import (
     dispatch_native_document_command,
 )
 from .operations import (
+    ActorKind,
     ManagedOperationError,
+    OperationAccessDenied,
     OperationPrincipal,
     OperationQueueFull,
     SubmissionConflict,
@@ -101,16 +104,32 @@ class ManagedAnnotationDocuments:
             )
         return authority
 
+    def _project_scope(self, principal: OperationPrincipal) -> dict[str, Any]:
+        service = self.actions.service
+        if not service.principal_validator(principal):
+            raise OperationAccessDenied(
+                "The operation principal is no longer authorized"
+            )
+        if principal.actor_kind == ActorKind.HUMAN:
+            return {"kind": "app-following"}
+        identity = service.store.get_agent_identity(principal.actor_id)
+        if principal.actor_kind != ActorKind.AGENT or identity is None:
+            raise OperationAccessDenied("The current agent grant is unavailable")
+        return agent_project_scope(identity)
+
     async def inspect(
         self, principal: OperationPrincipal, target: AnnotationDocumentTarget
     ) -> AnnotationDocumentInspection:
         connection = self._connection()
         target = target.model_copy(deep=True)
-        authority = self.actions.inspection_authority(principal, target)
+        with self.actions.service.store.transaction():
+            project_scope = self._project_scope(principal)
+            authority = self.actions.inspection_authority(principal, target)
         response = await self.dispatch(
             connection,
             {
                 "command": "annotation.inspect",
+                "projectScope": project_scope,
                 "target": target.model_dump(mode="json", by_alias=True),
                 "authority": authority,
             },
@@ -134,7 +153,9 @@ class ManagedAnnotationDocuments:
     ) -> AnnotationDocumentApplyResponse:
         connection = self._connection()
         selection = selection.model_copy(deep=True)
-        admitted = self.actions.admit(principal, selection)
+        with self.actions.service.store.transaction():
+            project_scope = self._project_scope(principal)
+            admitted = self.actions.admit(principal, selection)
         if admitted.status == "full":
             raise OperationQueueFull("The native document action capacity is full.")
         if admitted.status != "admitted" or admitted.record is None:
@@ -146,6 +167,7 @@ class ManagedAnnotationDocuments:
             connection,
             {
                 "command": "annotation.apply",
+                "projectScope": project_scope,
                 "request": {
                     "actionId": action_id,
                     "requestSha256": selection.request_sha256(),

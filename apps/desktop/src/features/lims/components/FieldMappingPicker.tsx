@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { UI_POPOVER_LAYER_CLASS } from '../../../components/ui/styles';
@@ -28,6 +29,8 @@ export function FieldMappingPicker({
   onChange: (value: string | null) => void;
   onIgnore: () => void;
 }) {
+  const presentationEvents = usePresentationListener();
+
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -80,12 +83,12 @@ export function FieldMappingPicker({
       if (event.key === 'Escape') setOpen(false);
     };
     document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
+    presentationEvents.add(document, 'keydown', onKey);
     return () => {
       document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
+      presentationEvents.remove(document, 'keydown', onKey);
     };
-  }, [open]);
+  }, [open, presentationEvents]);
 
   const pick = (next: string) => {
     setOpen(false);

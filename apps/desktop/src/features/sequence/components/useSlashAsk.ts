@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { useEffect, useRef } from 'react';
 import { canOpenSlashAsk } from '../slash-ask/gate';
 import {
@@ -24,6 +25,8 @@ export function useSlashAsk({
   onTrigger,
   disabled,
 }: UseSlashAskArgs): void {
+  const presentationEvents = usePresentationListener();
+
   const isEditModeRef = useRef(isEditMode);
   isEditModeRef.current = isEditMode;
   const disabledRef = useRef(disabled);
@@ -66,10 +69,10 @@ export function useSlashAsk({
       onTriggerRef.current(payload);
     };
 
-    document.addEventListener('keydown', handler);
+    presentationEvents.add(document, 'keydown', handler);
     return () => {
-      document.removeEventListener('keydown', handler);
+      presentationEvents.remove(document, 'keydown', handler);
       if (inFlightTimerRef.current) clearTimeout(inFlightTimerRef.current);
     };
-  }, []);
+  }, [presentationEvents]);
 }

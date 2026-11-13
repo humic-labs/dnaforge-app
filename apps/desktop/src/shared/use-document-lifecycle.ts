@@ -62,8 +62,12 @@ export function saveFocusedDocument(): boolean {
 
 export function useDocumentSaveCommand(): void {
   const { getDebugState } = useCommandRegistry();
-  useCommandHandler(COMMAND_IDS.fileSave, () => {
-    const scope = getHighestActiveFocusScope(new Set(getDebugState().activeScopes));
-    return scope !== COMMAND_SCOPES.sidebarFileTree && saveFocusedDocument();
-  });
+  useCommandHandler(
+    COMMAND_IDS.fileSave,
+    () => {
+      const scope = getHighestActiveFocusScope(new Set(getDebugState().activeScopes));
+      return scope !== COMMAND_SCOPES.sidebarFileTree && saveFocusedDocument();
+    },
+    { surfaceId: 'workspace' }
+  );
 }

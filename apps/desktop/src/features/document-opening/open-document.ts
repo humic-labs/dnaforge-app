@@ -92,12 +92,17 @@ async function openTrackViewTarget(
       panel.tabs.map((tab) => tab.id)
     )
   );
-  const tabId = await requestGenomeViewFileOpen(
-    id,
-    request.placement,
-    request.signal,
-    request.label
+  return awaitTrackViewPresentation(
+    requestGenomeViewFileOpen(id, request.placement, request.signal, request.label),
+    previousIds
   );
+}
+
+export async function awaitTrackViewPresentation(
+  opening: Promise<string | null>,
+  previousIds: ReadonlySet<string>
+): Promise<DocumentOpenResult> {
+  const tabId = await opening;
   if (!tabId) return cancelledDocumentOpen();
   const panel = Object.values(useCanvasStore.getState().panels).find((candidate) =>
     candidate.tabs.some((tab) => tab.id === tabId)

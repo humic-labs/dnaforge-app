@@ -2,14 +2,7 @@ import { useVerificationStore } from '../../features/alignment-manager/store';
 import type { HostedAiBridge } from '../../shared/hosted-ai-bridge';
 import { useCanvasStore } from '../../features/canvas/store';
 import type { Tab } from '../../features/canvas/types';
-import {
-  NATIVE_WORKSPACE_MANIFEST_PATH,
-  NATIVE_WORKSPACE_MANIFEST_V2_SCHEMA,
-  nativeWorkspaceEntityPlacement,
-  parseNativeWorkspaceManifest,
-  serializeNativeWorkspaceManifest,
-  type NativeWorkspaceManifestEntityV2,
-} from '../../shared/native-workspace-manifest';
+import type { ScenarioFixtureFile } from '../../shared/internal-fixtures';
 import { useDesignStore } from '../../features/design/store';
 import { normalizeAssemblySlots } from '../../features/design/assembly-slots';
 import { useRichSequenceClipboardStore } from '../../features/sequence-clipboard/store';
@@ -457,11 +450,14 @@ export async function replayLastAppliedDevScenario(): Promise<DevScenarioReplayR
     return { status: 'skipped-no-auto-replay', presetId: preset.id };
   }
 
-  await applyResolvedDevScenarioPreset(preset);
+  await applyResolvedDevScenarioPreset(preset, { reuseMaterializedProjects: true });
   return { status: 'applied', presetId: preset.id, label: preset.label };
 }
 
-async function applyResolvedDevScenarioPreset(preset: DevScenarioPreset): Promise<void> {
+async function applyResolvedDevScenarioPreset(
+  preset: DevScenarioPreset,
+  options: Pick<ApplyScenarioDevOptions, 'reuseMaterializedProjects'> = {}
+): Promise<void> {
   activeDevScenarioPresetId = null;
   clearLastAppliedDevScenarioPreset();
   if (preset.projectLibrary) {
@@ -485,6 +481,7 @@ async function applyResolvedDevScenarioPreset(preset: DevScenarioPreset): Promis
     await Promise.resolve(
       applyScenarioDev(scenario, {
         deferStreamedInlineReferenceText: deferInlineReferenceText,
+        reuseMaterializedProjects: options.reuseMaterializedProjects,
       })
     );
     if (openReferenceAfterScenario) {
@@ -845,6 +842,7 @@ export async function rebindScenarioWorkspaceAfterRendererSettles(): Promise<voi
 
 interface ApplyScenarioDevOptions {
   deferStreamedInlineReferenceText?: boolean;
+  reuseMaterializedProjects?: boolean;
 }
 
 export function applyScenarioDev(
@@ -864,8 +862,11 @@ export function applyScenarioDev(
   assertScenarioMutationAllowed('applyScenarioDev');
 
   if (shouldMaterializeScenarioFilesForRuntime(scenario)) {
-    return materializeScenarioFilesForRuntime(scenario, (runtimeScenario, beforeHydrate) =>
-      applyMaterializedScenario(runtimeScenario, options, beforeHydrate)
+    return materializeScenarioFilesForRuntime(
+      scenario,
+      (runtimeScenario, beforeHydrate) =>
+        applyMaterializedScenario(runtimeScenario, options, beforeHydrate),
+      options.reuseMaterializedProjects === true
     );
   }
 
@@ -1719,9 +1720,52 @@ async function applyVariantSourceDirective(
   });
 }
 
+const DEV_SCENARIO_PROJECTS_STORAGE_KEY = 'waypoint:dev-scenario-projects';
+
+function readScenarioProjectRecords(): Record<string, unknown> {
+  try {
+    const parsed: unknown = JSON.parse(
+      getBrowserStorage()?.getItem(DEV_SCENARIO_PROJECTS_STORAGE_KEY) ?? '{}'
+    );
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function recordScenarioProjectRoots(scenarioId: string, roots: ReadonlyMap<string, string>): void {
+  getBrowserStorage()?.setItem(
+    DEV_SCENARIO_PROJECTS_STORAGE_KEY,
+    JSON.stringify({ ...readScenarioProjectRecords(), [scenarioId]: Object.fromEntries(roots) })
+  );
+}
+
+async function reusableScenarioProjectRoots(scenarioId: string): Promise<Map<string, string>> {
+  const entry = readScenarioProjectRecords()[scenarioId];
+  const recorded = new Map(
+    entry && typeof entry === 'object'
+      ? Object.entries(entry).filter(
+          (pair): pair is [string, string] => typeof pair[1] === 'string'
+        )
+      : []
+  );
+  if (recorded.size === 0) return recorded;
+  const { listWorkspaceLibrary } =
+    await import('../../features/workspace-loader/workspace-library');
+  const activeProjects = new Set(
+    (await listWorkspaceLibrary()).active
+      .filter((project) => !project.rootState)
+      .map((project) => project.repoPath)
+  );
+  return new Map([...recorded].filter(([, root]) => activeProjects.has(root)));
+}
+
 async function materializeScenarioFilesForRuntime(
   inputScenario: AppScenario,
-  apply: (runtimeScenario: AppScenario, beforeHydrate?: () => void) => Promise<void>
+  apply: (runtimeScenario: AppScenario, beforeHydrate?: () => void) => Promise<void>,
+  reuseMaterializedProjects = false
 ): Promise<void> {
   if (!isDesktopRuntime() || (!inputScenario.files && !inputScenario.assets?.length))
     return apply(inputScenario);
@@ -1766,6 +1810,10 @@ async function materializeScenarioFilesForRuntime(
         selectedPath: BROWSER_MOCK_WORKSPACE_ROOT,
       };
 
+  const previousRoots = reuseMaterializedProjects
+    ? await reusableScenarioProjectRoots(scenarioId)
+    : new Map<string, string>();
+  const reusedRoots = new Set(previousRoots.values());
   const referenceRoots = new Map<string, string | undefined>();
   const authoringRoots = new Set<string>();
   for (const folder of workspace.folders) {
@@ -1774,8 +1822,11 @@ async function materializeScenarioFilesForRuntime(
       pathMap.set(folder.path, root);
       referenceRoots.set(root, folder.name);
     } else {
-      const created = await bridge.workspace.createEmptyWorkspace({ name: folder.name });
-      const root = stripTrailingSlash(created.rootPath);
+      const root =
+        previousRoots.get(folder.path) ??
+        stripTrailingSlash(
+          (await bridge.workspace.createEmptyWorkspace({ name: folder.name })).rootPath
+        );
       pathMap.set(folder.path, root);
       authoringRoots.add(root);
     }
@@ -1830,8 +1881,14 @@ async function materializeScenarioFilesForRuntime(
     if (managedDocuments.has(document.id)) {
       throw new Error(`Sequence fixture identity is repeated: ${document.id}`);
     }
-    const packageId = crypto.randomUUID();
-    const targetRoot = `${pathMap.get(owner.path)}${packageRoot.slice(stripTrailingSlash(owner.path).length)}`;
+    const ownerRoot = pathMap.get(owner.path);
+    if (!ownerRoot) throw new Error(`Dev project was not created: ${owner.name}.`);
+    const targetRoot = `${ownerRoot}${packageRoot.slice(stripTrailingSlash(owner.path).length)}`;
+    const existingMeta = sequencePackagePaths(targetRoot).metaPath;
+    const packageId =
+      reusedRoots.has(ownerRoot) && (await bridge.fs.exists(existingMeta))
+        ? parseSequencePackageDocument(await bridge.fs.readTextFile(existingMeta)).id
+        : crypto.randomUUID();
     managedDocuments.set(document.id, {
       kind: 'managed-sequence',
       packageId,
@@ -1846,7 +1903,7 @@ async function materializeScenarioFilesForRuntime(
   const auxiliaryPaths = new Set<string>();
   for (const folder of workspace.folders) {
     const root = pathMap.get(folder.path)!;
-    const entities: NativeWorkspaceManifestEntityV2[] = [];
+    const files: ScenarioFixtureFile[] = [];
     for (const [sourcePath, content] of Object.entries(scenario.files)) {
       if (!sourcePath.startsWith(`${stripTrailingSlash(folder.path)}/`)) continue;
       if (
@@ -1868,47 +1925,26 @@ async function materializeScenarioFilesForRuntime(
       if (scenario.files[sequencePackagePaths(parent).metaPath]) continue;
       const relativePath = sourcePath.slice(stripTrailingSlash(folder.path).length + 1);
       const path = `${root}/${relativePath}`;
-      await bridge.fs.mkdir(path.slice(0, path.lastIndexOf('/')), { recursive: true });
+      const directory = path.slice(0, path.lastIndexOf('/'));
+      if (!authoringRoots.has(directory)) await bridge.fs.mkdir(directory, { recursive: true });
       await bridge.fs.writeTextFile(path, textContent(content, sourcePath));
       pathMap.set(sourcePath, path);
       materializedFiles[path] = content;
       auxiliaryPaths.add(sourcePath);
       const extension = getExtension(sourcePath);
-      entities.push({
-        id: crypto.randomUUID(),
-        type: 'file',
+      files.push({
+        relativePath,
         name: getFilename(relativePath),
-        placement: {
-          kind: 'file',
-          relativePath,
-          fileKind:
-            extension === 'gb' || extension === 'gbk' || extension === 'genbank'
-              ? 'genbank'
-              : extension === 'dna'
-                ? 'snapgene'
-                : 'fasta',
-        },
+        fileKind:
+          extension === 'gb' || extension === 'gbk' || extension === 'genbank'
+            ? 'genbank'
+            : extension === 'dna'
+              ? 'snapgene'
+              : 'fasta',
       });
     }
-    if (entities.length === 0) continue;
-    const manifestPath = `${root}/${NATIVE_WORKSPACE_MANIFEST_PATH}`;
-    const existing = (await bridge.fs.exists(manifestPath))
-      ? parseNativeWorkspaceManifest(await bridge.fs.readTextFile(manifestPath))
-      : { entities: [], links: [] };
-    const portableEntities = existing.entities.map((entity): NativeWorkspaceManifestEntityV2 => {
-      if ('placement' in entity) return entity;
-      const { path: _path, fileKind: _fileKind, ...record } = entity;
-      return { ...record, placement: nativeWorkspaceEntityPlacement(entity) };
-    });
-    await bridge.fs.mkdir(`${root}/.forge`, { recursive: true });
-    await bridge.fs.writeTextFile(
-      manifestPath,
-      serializeNativeWorkspaceManifest({
-        ...existing,
-        schema: NATIVE_WORKSPACE_MANIFEST_V2_SCHEMA,
-        entities: [...portableEntities, ...entities],
-      })
-    );
+    if (files.length === 0) continue;
+    await bridge.internalFixtures.registerScenarioFiles({ workspaceRoot: root, files });
   }
 
   for (const [sourcePath, sourceContent] of Object.entries(scenario.files)) {
@@ -1929,7 +1965,7 @@ async function materializeScenarioFilesForRuntime(
         targetRoot: workspaceRoot,
         relativePath: targetPath.slice(workspaceRoot.length + 1),
         content: textContent(content, sourcePath),
-        collisionPolicy: 'refuse',
+        collisionPolicy: reusedRoots.has(workspaceRoot) ? 'replace' : 'refuse',
       });
       if (imported.kind !== 'imported' || imported.packageRoots.length !== 1) {
         throw new Error(`Could not import dev sequence ${sourcePath}: ${JSON.stringify(imported)}`);
@@ -2050,6 +2086,15 @@ async function materializeScenarioFilesForRuntime(
     assertCurrent?.();
     return apply(scoped, assertCurrent);
   };
+  recordScenarioProjectRoots(
+    scenarioId,
+    new Map(
+      workspace.folders.flatMap((folder) => {
+        const root = folder.pinned ? undefined : pathMap.get(folder.path);
+        return root ? [[folder.path, root] as const] : [];
+      })
+    )
+  );
   if (scenario.dev?.initializeGit) {
     return settleMarkdownScenarioBaseline(
       bridge,

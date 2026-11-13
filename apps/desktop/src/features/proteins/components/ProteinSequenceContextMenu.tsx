@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { clampFixedMenuPosition } from '@waypoint/ui-components';
@@ -29,6 +30,8 @@ export function ProteinSequenceContextMenu({
   onViewStructure,
   onPredictStructure,
 }: ProteinSequenceContextMenuProps) {
+  const presentationEvents = usePresentationListener();
+
   const menuRef = useRef<HTMLDivElement>(null);
   const [adjustedPosition, setAdjustedPosition] = useState({ x, y });
 
@@ -45,12 +48,12 @@ export function ProteinSequenceContextMenu({
       }
     };
     document.addEventListener('mousedown', handleClickOutside, true);
-    document.addEventListener('keydown', handleEscape, true);
+    presentationEvents.add(document, 'keydown', handleEscape, true);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside, true);
-      document.removeEventListener('keydown', handleEscape, true);
+      presentationEvents.remove(document, 'keydown', handleEscape, true);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, presentationEvents]);
 
   useLayoutEffect(() => {
     if (!isOpen) return;

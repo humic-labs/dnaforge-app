@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { decodeSequenceDocument, serializeGenBank } from '@waypoint/sequence-utils';
 import { useCanvasStore } from '../canvas/store';
 import { useSequenceStore } from './store';
@@ -174,6 +175,18 @@ describe('createEmptyDnaSequence', () => {
     await createEmptyDnaSequence({ ...enrolledRequest(), publication: pending.creation });
     expect(mocks.publish.mock.calls[1][0]).toEqual(mocks.publish.mock.calls[0][0]);
     expect(mocks.importFileFromContent).not.toHaveBeenCalled();
+  });
+
+  it('reports a pending accepted creation through its catalog message instead of a creation failure', async () => {
+    mocks.namespace.mockResolvedValue(namespace());
+    mocks.publish.mockRejectedValueOnce(
+      new NativeArtifactPublicationPendingError(accepted, 'EACCES')
+    );
+    const failure = await createEmptyDnaSequence(enrolledRequest()).catch((error) => error);
+    expect(failure).toBeInstanceOf(SequenceCreationPendingError);
+    expect(toUserMessage(failure, 'failure.failed-to-create-dna-sequence')).toBe(
+      userMessage('document.saveRefreshPending')
+    );
   });
 
   it('publishes filled imported bytes and required Git paths before returning without opening a tab', async () => {

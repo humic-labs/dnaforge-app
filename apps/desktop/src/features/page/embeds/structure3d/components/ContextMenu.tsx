@@ -1,4 +1,9 @@
-'use client';
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../../../../../presentation/PresentationSurface';
+('use client');
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -30,6 +35,9 @@ export function ContextMenu({
   onCenterSelection,
   onAskAI,
 }: ContextMenuProps) {
+  const presentationOverlay = usePresentationOverlay('keyboard');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const menuRef = useRef<HTMLDivElement>(null);
   const [placement, setPlacement] = useState({ x: 8, y: 8 });
   const isOpen = Boolean(position);
@@ -79,15 +87,15 @@ export function ContextMenu({
 
     const timer = setTimeout(() => {
       document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleEscape);
+      presentationEvents.add(document, 'keydown', handleEscape);
     }, 0);
 
     return () => {
       clearTimeout(timer);
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
+      presentationEvents.remove(document, 'keydown', handleEscape);
     };
-  }, [position, onClose]);
+  }, [position, onClose, presentationEvents]);
 
   if (!position) return null;
 
@@ -136,68 +144,70 @@ export function ContextMenu({
   ];
 
   return createPortal(
-    <div
-      ref={menuRef}
-      role="menu"
-      aria-label="Structure actions"
-      tabIndex={-1}
-      className="fixed z-[10050] min-w-[160px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-auto py-1 bg-bg text-fg border border-border rounded-lg shadow-lg"
-      style={{
-        left: placement.x,
-        top: placement.y,
-      }}
-      data-testid="structure-context-menu"
-      onKeyDown={(event) => {
-        const controls = Array.from(
-          menuRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled)') ?? []
-        );
-        const index = controls.indexOf(document.activeElement as HTMLElement);
-        let next: number;
-        switch (event.key) {
-          case 'ArrowDown':
-            next = (index + 1) % controls.length;
-            break;
-          case 'ArrowUp':
-            next = (index - 1 + controls.length) % controls.length;
-            break;
-          case 'Home':
-            next = 0;
-            break;
-          case 'End':
-            next = controls.length - 1;
-            break;
-          case 'Escape':
-            event.preventDefault();
-            event.stopPropagation();
-            onClose();
-            return;
-          case 'Tab':
-            onClose();
-            return;
-          default:
-            return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        safeFocus(controls[next]);
-      }}
-    >
-      {actions.map((action) => (
-        <button
-          key={action.id}
-          type="button"
-          role="menuitem"
-          onClick={action.onClick}
-          disabled={action.disabled}
-          className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors focus-visible:outline-none focus-visible:bg-bg-muted focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent ${
-            action.disabled ? 'text-fg-subtle cursor-not-allowed' : 'text-fg hover:bg-bg-subtle'
-          }`}
-        >
-          {action.icon && <span className="text-fg-muted">{action.icon}</span>}
-          {action.label}
-        </button>
-      ))}
-    </div>,
+    <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+      <div
+        ref={presentationOverlay.bindRef(menuRef, '0')}
+        role="menu"
+        aria-label="Structure actions"
+        tabIndex={-1}
+        className="fixed z-[10050] min-w-[160px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-auto py-1 bg-bg text-fg border border-border rounded-lg shadow-lg"
+        style={{
+          left: placement.x,
+          top: placement.y,
+        }}
+        data-testid="structure-context-menu"
+        onKeyDown={(event) => {
+          const controls = Array.from(
+            menuRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled)') ?? []
+          );
+          const index = controls.indexOf(document.activeElement as HTMLElement);
+          let next: number;
+          switch (event.key) {
+            case 'ArrowDown':
+              next = (index + 1) % controls.length;
+              break;
+            case 'ArrowUp':
+              next = (index - 1 + controls.length) % controls.length;
+              break;
+            case 'Home':
+              next = 0;
+              break;
+            case 'End':
+              next = controls.length - 1;
+              break;
+            case 'Escape':
+              event.preventDefault();
+              event.stopPropagation();
+              onClose();
+              return;
+            case 'Tab':
+              onClose();
+              return;
+            default:
+              return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          safeFocus(controls[next]);
+        }}
+      >
+        {actions.map((action) => (
+          <button
+            key={action.id}
+            type="button"
+            role="menuitem"
+            onClick={action.onClick}
+            disabled={action.disabled}
+            className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors focus-visible:outline-none focus-visible:bg-bg-muted focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent ${
+              action.disabled ? 'text-fg-subtle cursor-not-allowed' : 'text-fg hover:bg-bg-subtle'
+            }`}
+          >
+            {action.icon && <span className="text-fg-muted">{action.icon}</span>}
+            {action.label}
+          </button>
+        ))}
+      </div>
+    </PresentationScopeContext.Provider>,
     document.body
   );
 }

@@ -1,24 +1,16 @@
 import { toUserMessage } from '@waypoint/user-messages';
 import { initDevConsole } from './shared/utils/devConsoleInit';
 initDevConsole();
-import { installSequenceWheelRegionPublisher } from './services/sequence-wheel-region';
-import { dispatchNativeWheel, installNativeWheelSource } from '@waypoint/platform/wheel-motion';
+import { installNativeWheelMetadataSource } from '@waypoint/platform/wheel-motion';
+import { installPresentationInput } from './presentation/browser-input';
+const disposePresentationInput = installPresentationInput(document);
+import.meta.hot?.dispose(disposePresentationInput);
 const sequenceWheel = window.electronAPI?.sequenceWheel;
-if (sequenceWheel?.nativeGestureOwnership) {
-  const disposeWheelRegions = installSequenceWheelRegionPublisher((regions) =>
-    sequenceWheel.setZoomRegions(regions)
+if (sequenceWheel?.nativeWheelMetadata) {
+  const dispose = installNativeWheelMetadataSource(document, (handler) =>
+    sequenceWheel.onWheelMetadata(handler)
   );
-  import.meta.hot?.dispose(disposeWheelRegions);
-  if (sequenceWheel.nativeDiscreteWheelMotion) {
-    const disposeSource = installNativeWheelSource(document);
-    const disposeMouse = sequenceWheel.onMouseWheel((packet) =>
-      dispatchNativeWheel(document, packet, (unowned) => sequenceWheel.returnMouseWheel(unowned))
-    );
-    import.meta.hot?.dispose(() => {
-      disposeMouse();
-      disposeSource();
-    });
-  }
+  import.meta.hot?.dispose(dispose);
 }
 
 document.documentElement.dataset.dnaforgeMacTeamIdCutoverBuild =
@@ -726,10 +718,6 @@ if (import.meta.env.DEV || import.meta.env.MODE === 'test') {
       const tool = createImportSequenceTool(folders);
       if (!tool.execute) throw new Error('import_sequence tool has no execute');
       return tool.execute(args as never, { toolCallId: 'test-bridge', messages: [] } as never);
-    },
-    dismissWelcome: async () => {
-      const appData = await platform().path.appDataDir();
-      await platform().fs.writeTextFile(`${appData}/.welcome-seen`, '1');
     },
     closeAllTabs: () => {
       const store = useCanvasStore.getState();

@@ -126,6 +126,12 @@ const recordFileTarget = z.object({
   workspaceId: z.number().int(),
   artifactRelativePath: z.string(),
 });
+const primerTarget = z.object({
+  kind: z.literal('primer'),
+  ...targetIdentity,
+  workspaceId: z.number().int().nullable(),
+  artifactRelativePath: z.string(),
+});
 const recordDetailTarget = z.object({
   kind: z.literal('record_detail'),
   ...targetIdentity,
@@ -154,6 +160,7 @@ export const limsOpenTargetOutputSchema = z.discriminatedUnion('kind', [
   trackTarget,
   molecularDocumentTarget,
   recordFileTarget,
+  primerTarget,
   recordDetailTarget,
   missingTarget,
 ]);
@@ -174,6 +181,7 @@ const limsRegistrySummary = z.object({
   representation: z.object({
     kind: z.enum([
       'record_file',
+      'primer',
       'file_sequence',
       'protein_sequence',
       'track_view',
@@ -334,6 +342,12 @@ export const limsOpenEntityOutputSchema = z.discriminatedUnion('status', [
     status: z.literal('opened_record'),
     tabId: z.string(),
     target: z.discriminatedUnion('kind', [recordFileTarget, recordDetailTarget]),
+  }),
+  z.object({
+    ok: z.literal(true),
+    status: z.literal('opened_primer'),
+    tabId: z.string(),
+    target: primerTarget,
   }),
   z.object({
     ok: z.literal(true),

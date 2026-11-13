@@ -1,3 +1,7 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+} from '../../../presentation/PresentationSurface';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useEffect, useRef, useState } from 'react';
 import { Button, TextField, UI_MODAL_LAYER_CLASS } from '../../../components/ui';
@@ -41,6 +45,8 @@ export function CreateAminoAcidSequenceDialog({
   isCreating = false,
   roots,
 }: CreateAminoAcidSequenceDialogProps) {
+  const presentationOverlay = usePresentationOverlay('modal');
+
   const [name, setName] = useState('');
   const [destinationPath, setDestinationPath] = useState<string | null>(null);
   const [destinationError, setDestinationError] = useState<string | null>(null);
@@ -101,100 +107,107 @@ export function CreateAminoAcidSequenceDialog({
 
   return (
     <div
+      ref={presentationOverlay.bindRef(undefined, '0')}
       className={`fixed inset-0 ${UI_MODAL_LAYER_CLASS} flex items-center justify-center bg-black/40`}
       data-testid="create-amino-acid-sequence-backdrop"
       onMouseDown={() => !isCreating && onCancel()}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-amino-acid-sequence-title"
-        data-testid="create-amino-acid-sequence-dialog"
-        className="mx-4 w-full max-w-lg rounded-lg border border-border bg-bg-subtle p-4 shadow-xl"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <h3 id="create-amino-acid-sequence-title" className="text-sm font-semibold text-fg">
-          Create amino acid sequence
-        </h3>
-
-        <label className="mt-3 block text-xs font-medium text-fg-muted" htmlFor="aa-creation-name">
-          Name
-        </label>
-        <div className="mt-1">
-          <TextField
-            ref={nameInputRef}
-            id="aa-creation-name"
-            data-testid="create-amino-acid-sequence-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={isCreating}
-          />
-        </div>
-
-        <div className="mt-3 text-xs font-medium text-fg-muted">Sequence preview</div>
+      <PresentationScopeContext.Provider value={presentationOverlay.scope}>
         <div
-          data-testid="create-amino-acid-sequence-preview"
-          className="mt-1 max-h-24 overflow-y-auto rounded border border-border bg-bg px-2 py-1.5 font-mono text-xs leading-5 text-fg break-all"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-amino-acid-sequence-title"
+          data-testid="create-amino-acid-sequence-dialog"
+          className="mx-4 w-full max-w-lg rounded-lg border border-border bg-bg-subtle p-4 shadow-xl"
+          onMouseDown={(e) => e.stopPropagation()}
         >
-          {pending.sequence}
-        </div>
-        <div className="mt-1 text-xs text-fg-muted">{pending.sequence.length} residues</div>
+          <h3 id="create-amino-acid-sequence-title" className="text-sm font-semibold text-fg">
+            Create amino acid sequence
+          </h3>
 
-        {roots.length > 0 && (
-          <div className="mt-3">
-            <div className="text-xs font-medium text-fg-muted">Save location</div>
-            <div className="mt-1">
-              <ProteinSaveLocationPicker
-                roots={roots}
-                initialDir={defaultDir}
-                selectedDir={chosenDir ?? defaultDir}
-                onSelectFolder={setChosenDir}
-              />
+          <label
+            className="mt-3 block text-xs font-medium text-fg-muted"
+            htmlFor="aa-creation-name"
+          >
+            Name
+          </label>
+          <div className="mt-1">
+            <TextField
+              ref={nameInputRef}
+              id="aa-creation-name"
+              data-testid="create-amino-acid-sequence-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={isCreating}
+            />
+          </div>
+
+          <div className="mt-3 text-xs font-medium text-fg-muted">Sequence preview</div>
+          <div
+            data-testid="create-amino-acid-sequence-preview"
+            className="mt-1 max-h-24 overflow-y-auto rounded border border-border bg-bg px-2 py-1.5 font-mono text-xs leading-5 text-fg break-all"
+          >
+            {pending.sequence}
+          </div>
+          <div className="mt-1 text-xs text-fg-muted">{pending.sequence.length} residues</div>
+
+          {roots.length > 0 && (
+            <div className="mt-3">
+              <div className="text-xs font-medium text-fg-muted">Save location</div>
+              <div className="mt-1">
+                <ProteinSaveLocationPicker
+                  roots={roots}
+                  initialDir={defaultDir}
+                  selectedDir={chosenDir ?? defaultDir}
+                  onSelectFolder={setChosenDir}
+                />
+              </div>
             </div>
-          </div>
-        )}
-        <div className="mt-2 text-xs font-medium text-fg-muted">Will be saved to</div>
-        {destinationError ? (
-          <div
-            data-testid="create-amino-acid-sequence-destination-error"
-            role="alert"
-            className="mt-1 rounded border border-error/50 bg-error/10 px-2 py-1.5 text-xs text-error"
-          >
-            {toUserMessage(destinationError, 'failure.invalid-destination-folder')}
-          </div>
-        ) : (
-          <div
-            data-testid="create-amino-acid-sequence-destination"
-            className="mt-1 truncate rounded border border-border bg-bg px-2 py-1.5 font-mono text-xs text-fg"
-            title={destinationPath ?? undefined}
-          >
-            {destinationPath ?? '…'}
-          </div>
-        )}
+          )}
+          <div className="mt-2 text-xs font-medium text-fg-muted">Will be saved to</div>
+          {destinationError ? (
+            <div
+              data-testid="create-amino-acid-sequence-destination-error"
+              role="alert"
+              className="mt-1 rounded border border-error/50 bg-error/10 px-2 py-1.5 text-xs text-error"
+            >
+              {toUserMessage(destinationError, 'failure.invalid-destination-folder')}
+            </div>
+          ) : (
+            <div
+              data-testid="create-amino-acid-sequence-destination"
+              className="mt-1 truncate rounded border border-border bg-bg px-2 py-1.5 font-mono text-xs text-fg"
+              title={destinationPath ?? undefined}
+            >
+              {destinationPath ?? '…'}
+            </div>
+          )}
 
-        <div className="mt-4 flex justify-end gap-2">
-          <Button
-            type="button"
-            data-testid="create-amino-acid-sequence-cancel"
-            onClick={onCancel}
-            disabled={isCreating}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            data-testid="create-amino-acid-sequence-confirm"
-            onClick={() =>
-              canConfirm && onConfirm(trimmedName, chosenDir ?? defaultDir, effectiveWorkspaceRoot)
-            }
-            disabled={!canConfirm}
-            variant="primary"
-          >
-            {isCreating ? 'Creating…' : 'Create'}
-          </Button>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button
+              type="button"
+              data-testid="create-amino-acid-sequence-cancel"
+              onClick={onCancel}
+              disabled={isCreating}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              data-testid="create-amino-acid-sequence-confirm"
+              onClick={() =>
+                canConfirm &&
+                onConfirm(trimmedName, chosenDir ?? defaultDir, effectiveWorkspaceRoot)
+              }
+              disabled={!canConfirm}
+              variant="primary"
+            >
+              {isCreating ? 'Creating…' : 'Create'}
+            </Button>
+          </div>
         </div>
-      </div>
+      </PresentationScopeContext.Provider>
     </div>
   );
 }

@@ -109,7 +109,9 @@ let acceptedInstallIntent: UpdateInstallIntent | null = null;
 let installCandidate: DownloadedUpdateCandidate | null = null;
 let restartRequestId: string | undefined;
 let previousInstallAttempt:
-  | { measurement: UpdateInstallMeasurement; targetVersion: string }
+  | (Pick<UpdateInstallIntent, 'fromVersion' | 'targetVersion'> & {
+      measurement: UpdateInstallMeasurement;
+    })
   | undefined;
 type UpdaterPhase = 'idle' | 'checking' | 'downloading' | 'downloaded' | 'installing' | 'failed';
 let updaterPhase: UpdaterPhase = 'idle';
@@ -1542,19 +1544,20 @@ export function prepareUpdateInstallIntent(
     !acceptedInstallIntent.measurement?.terminal
   )
     return { status: 'started' };
+  const fromVersion = app.getVersion();
   const priorIntent = readInstallIntent();
-  const parentMeasurement =
-    priorIntent?.targetVersion === candidate.version
-      ? priorIntent.measurement
-      : previousInstallAttempt?.targetVersion === candidate.version
-        ? previousInstallAttempt.measurement
-        : undefined;
+  const matchesTransition = (intent: Pick<UpdateInstallIntent, 'fromVersion' | 'targetVersion'>) =>
+    intent.fromVersion === fromVersion && intent.targetVersion === candidate.version;
+  const parentIntent = [priorIntent, previousInstallAttempt].find(
+    (intent) => intent && matchesTransition(intent)
+  );
+  const parentMeasurement = parentIntent?.measurement;
 
   const parentAttemptId = isUpdateInstallMeasurementPermitted(updaterDatabase, parentMeasurement)
     ? parentMeasurement?.operationId
     : undefined;
   const intent: UpdateInstallIntent = {
-    fromVersion: app.getVersion(),
+    fromVersion,
     targetVersion: candidate.version,
     attemptedAt: Date.now(),
     measurement: createUpdateInstallMeasurement(
@@ -1588,6 +1591,7 @@ export function recordUpdateInstallOutcome(
   const intent = acceptedInstallIntent;
   if (!intent?.measurement || intent.measurement.terminal) return;
   previousInstallAttempt = {
+    fromVersion: intent.fromVersion,
     measurement: intent.measurement,
     targetVersion: intent.targetVersion,
   };
@@ -1669,8 +1673,9 @@ export function checkForVersionUpgrade(db: Database.Database): void {
     versionChanged &&
     (exactDownloadedTransition || exactIntentTransition || legacyUnmarkedTransition)
   ) {
+    const transitionMeasurement = exactIntentTransition ? permittedInstallMeasurement : undefined;
     trackEvent('app_update_installed', {
-      $insert_id: permittedInstallMeasurement?.launchEventId ?? UPDATE_BOOT_ID,
+      $insert_id: transitionMeasurement?.launchEventId ?? UPDATE_BOOT_ID,
       from_version: lastVersion,
       to_version: currentVersion,
       update_qualification: exactIntentTransition
@@ -1682,9 +1687,7 @@ export function checkForVersionUpgrade(db: Database.Database): void {
           ? 'exact_download_marker'
           : 'legacy_bridge',
       update_boot_id: UPDATE_BOOT_ID,
-      ...(exactIntentTransition && permittedInstallMeasurement
-        ? { operation_id: permittedInstallMeasurement.operationId }
-        : {}),
+      ...(transitionMeasurement ? { operation_id: transitionMeasurement.operationId } : {}),
     });
   }
 

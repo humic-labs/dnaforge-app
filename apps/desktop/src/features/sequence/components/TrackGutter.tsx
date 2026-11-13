@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import {
   TRACK_MANAGEMENT_STACKED_CONTROL_MIN_HEIGHT_PX,
   TRACK_STACK_ABOVE_ZONE_PAD_PX,
@@ -14,6 +15,8 @@ import {
   type Ref,
 } from 'react';
 
+import type { TrackPresentationDrag } from '@waypoint/genome-renderer/pure';
+import { cn } from '../../../shared/lib/cn';
 import { Tooltip } from '../../../shared/components/Tooltip';
 import { safeFocus } from '../../../shared/utils/safeFocus';
 import { SettingsIcon, TrashIcon } from '../../../components/icons';
@@ -45,6 +48,7 @@ interface TrackGutterProps {
   onMoveDataRow?: (trackId: string, targetTrackId: string, placement: TrackMovePlacement) => void;
   dataRowOrder?: ReadonlyArray<string>;
   onPreviewDataRowOrder?: (orderedTrackIds: ReadonlyArray<string>) => void;
+  onPreviewDataRowDrag?: (preview: TrackPresentationDrag | null) => void;
   onCommitDataRowOrder?: (orderedTrackIds: ReadonlyArray<string>) => void;
   onCancelDataRowOrder?: () => void;
   onPreviewDataRowHeight?: (row: GutterRow, heightPx: number) => void;
@@ -84,8 +88,6 @@ export function trackReorderPlacementFromPointerY(
 ): TrackMovePlacement {
   return clientY < rowTop + rowHeight / 2 ? 'before' : 'after';
 }
-
-const TRACK_REORDER_MIME = 'application/x-dnaforge-track-reorder';
 
 export function moveTrackOrder(
   orderedTrackIds: ReadonlyArray<string>,
@@ -255,6 +257,8 @@ function TrackHeightResizeHandle({
   onCommit: (row: GutterRow, startingHeightPx: number, heightPx: number) => void;
   onCancel?: (row: GutterRow, startingHeightPx: number) => void;
 }) {
+  const presentationEvents = usePresentationListener();
+
   const [active, setActive] = useState(false);
   const cancelActiveGestureRef = useRef<(() => void) | null>(null);
 
@@ -281,7 +285,7 @@ function TrackHeightResizeHandle({
       document.removeEventListener('pointermove', handlePointerMove);
       document.removeEventListener('pointerup', handlePointerUp);
       document.removeEventListener('pointercancel', handlePointerCancel);
-      document.removeEventListener('keydown', handleKeyDown, true);
+      presentationEvents.remove(document, 'keydown', handleKeyDown, true);
       window.removeEventListener('blur', handleWindowBlur);
       cancelActiveGestureRef.current = null;
     };
@@ -325,7 +329,7 @@ function TrackHeightResizeHandle({
     document.addEventListener('pointermove', handlePointerMove);
     document.addEventListener('pointerup', handlePointerUp);
     document.addEventListener('pointercancel', handlePointerCancel);
-    document.addEventListener('keydown', handleKeyDown, true);
+    presentationEvents.add(document, 'keydown', handleKeyDown, true);
     window.addEventListener('blur', handleWindowBlur);
   };
 
@@ -376,24 +380,20 @@ function TrackDragHandle({
   row,
   onMoveUp,
   onMoveDown,
-  onDragStart,
-  onDragEnd,
+  onPointerDown,
 }: {
   row: GutterRow;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
-  onDragStart: (event: React.DragEvent<HTMLButtonElement>) => void;
-  onDragEnd: () => void;
+  onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <button
       type="button"
-      draggable
       data-testid={`track-gutter-drag-${row.id}`}
       aria-label={`Move ${row.label}`}
       title="Drag to reorder. Use ↑ or ↓ from the keyboard."
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      onPointerDown={onPointerDown}
       onKeyDown={(event) => {
         if (event.key === 'ArrowUp' && onMoveUp) {
           event.preventDefault();
@@ -657,6 +657,8 @@ function TrackSettingsPopover({
   onDismiss: () => void;
   children: ReactNode;
 }) {
+  const presentationEvents = usePresentationListener();
+
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [placement, setPlacement] = useState<TrackSettingsPopoverPlacement | null>(null);
   const updatePosition = useCallback(() => {
@@ -707,7 +709,7 @@ function TrackSettingsPopover({
       safeFocus(anchor);
     };
     document.addEventListener('pointerdown', handlePointerDown, true);
-    document.addEventListener('keydown', handleKeyDown, true);
+    presentationEvents.add(document, 'keydown', handleKeyDown, true);
     window.addEventListener('resize', updatePosition);
 
     const resizeObserver =
@@ -729,12 +731,12 @@ function TrackSettingsPopover({
 
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown, true);
-      document.removeEventListener('keydown', handleKeyDown, true);
+      presentationEvents.remove(document, 'keydown', handleKeyDown, true);
       window.removeEventListener('resize', updatePosition);
       resizeObserver?.disconnect();
       scrollObserver?.disconnect();
     };
-  }, [anchor, gutter, onDismiss, updatePosition]);
+  }, [anchor, gutter, onDismiss, updatePosition, presentationEvents]);
 
   return (
     <div
@@ -879,6 +881,7 @@ export function TrackGutter({
   onMoveDataRow,
   dataRowOrder,
   onPreviewDataRowOrder,
+  onPreviewDataRowDrag,
   onCommitDataRowOrder,
   onCancelDataRowOrder,
   onPreviewDataRowHeight,
@@ -901,14 +904,14 @@ export function TrackGutter({
   onVerticalScroll,
   scrollLayerRef,
 }: TrackGutterProps) {
+  const presentationEvents = usePresentationListener();
+
   const [draggingTrackId, setDraggingTrackId] = useState<string | null>(null);
   const [previewTrackOrder, setPreviewTrackOrder] = useState<ReadonlyArray<string> | null>(null);
   const [expandedDataRowId, setExpandedDataRowId] = useState<string | null>(null);
   const previewTrackOrderRef = useRef<ReadonlyArray<string> | null>(null);
-  const draggingTrackIdRef = useRef<string | null>(null);
-  const dropCommittedRef = useRef(false);
-  const dropAllowedRef = useRef(false);
-  const dragCanceledRef = useRef(false);
+  const cancelReorderRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => cancelReorderRef.current?.(), []);
   const aligned = rows.some((r) => r.band);
   const gutterRef = useRef<HTMLDivElement | null>(null);
   const settingsButtonRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -936,16 +939,6 @@ export function TrackGutter({
     gutter.addEventListener('wheel', handleWheel, { passive: false });
     return () => gutter.removeEventListener('wheel', handleWheel);
   }, [onVerticalScroll]);
-  useEffect(() => {
-    if (!draggingTrackId) return;
-    const cancelOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      dragCanceledRef.current = true;
-      dropAllowedRef.current = false;
-    };
-    document.addEventListener('keydown', cancelOnEscape, true);
-    return () => document.removeEventListener('keydown', cancelOnEscape, true);
-  }, [draggingTrackId]);
   useEffect(() => {
     if (expandedDataRowId && !rows.some((row) => row.id === expandedDataRowId)) {
       setExpandedDataRowId(null);
@@ -1009,7 +1002,10 @@ export function TrackGutter({
   }
   const positioned = basePositioned.map((entry) => ({
     ...entry,
-    top: entry.row.trackId ? (previewPositions.get(entry.row.trackId) ?? entry.top) : entry.top,
+    top:
+      !onPreviewDataRowDrag && entry.row.trackId
+        ? (previewPositions.get(entry.row.trackId) ?? entry.top)
+        : entry.top,
   }));
   const dragHandleFor = (row: GutterRow): ReactNode => {
     if (
@@ -1035,44 +1031,135 @@ export function TrackGutter({
         onMoveDown={
           next && onMoveDataRow ? () => onMoveDataRow(trackId, next.trackId, 'after') : undefined
         }
-        onDragStart={(event) => {
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          const gutter = gutterRef.current;
+          const rowElement = event.currentTarget.closest<HTMLElement>('[data-track-gutter-row]');
+          if (!gutter || !rowElement) return;
+          event.preventDefault();
+          event.stopPropagation();
+          cancelReorderRef.current?.();
+          const pointerId = event.pointerId;
+          const ownsCursor = !document.body.classList.contains('dragging-track-row');
+          document.body.classList.add('dragging-track-row');
+          const gutterBounds = gutter.getBoundingClientRect();
+          const bounds = rowElement.getBoundingClientRect();
+          const grabOffset = event.clientY - bounds.top;
           const initialOrder = [...stableDataRowOrder];
+          const elements = Array.from(
+            gutter.querySelectorAll<HTMLElement>('[data-track-gutter-row]')
+          );
+          const peers = movableRows.flatMap((candidate) => {
+            if (candidate.trackId === trackId) return [];
+            const element = elements.find(
+              (entry) => entry.dataset.testid === `track-gutter-row-${candidate.id}`
+            );
+            if (!element || !candidate.visible) return [];
+            const peerBounds = element.getBoundingClientRect();
+            return [{ trackId: candidate.trackId, center: peerBounds.top + peerBounds.height / 2 }];
+          });
+          let finished = false;
           setDraggingTrackId(trackId);
-          draggingTrackIdRef.current = trackId;
           previewTrackOrderRef.current = initialOrder;
           setPreviewTrackOrder(initialOrder);
-          dropCommittedRef.current = false;
-          dropAllowedRef.current = false;
-          dragCanceledRef.current = false;
-          event.dataTransfer.effectAllowed = 'move';
-          event.dataTransfer.setData(TRACK_REORDER_MIME, trackId);
-          const rowElement = event.currentTarget.closest<HTMLElement>('[data-track-gutter-row]');
-          if (rowElement) {
-            const bounds = rowElement.getBoundingClientRect();
-            const clientX = Number.isFinite(event.clientX) ? event.clientX : bounds.left;
-            const clientY = Number.isFinite(event.clientY) ? event.clientY : bounds.top;
-            event.dataTransfer.setDragImage(
-              rowElement,
-              Math.max(0, clientX - bounds.left),
-              Math.max(0, clientY - bounds.top)
-            );
-          }
-        }}
-        onDragEnd={() => {
-          if (!dropCommittedRef.current && previewTrackOrderRef.current) {
-            if (!dragCanceledRef.current && dropAllowedRef.current && onCommitDataRowOrder) {
-              onCommitDataRowOrder(previewTrackOrderRef.current);
-            } else {
-              onCancelDataRowOrder?.();
+          onPreviewDataRowDrag?.({ trackId, topPx: bounds.top - gutterBounds.top });
+          const removeListeners = () => {
+            document.removeEventListener('pointermove', move);
+            document.removeEventListener('pointerup', up);
+            document.removeEventListener('pointercancel', cancel);
+            presentationEvents.remove(document, 'keydown', keyDown, true);
+            window.removeEventListener('blur', cancel);
+            gutter.removeEventListener('lostpointercapture', lostCapture);
+            if (gutter.hasPointerCapture?.(pointerId)) {
+              gutter.releasePointerCapture(pointerId);
             }
+            if (ownsCursor) document.body.classList.remove('dragging-track-row');
+            cancelReorderRef.current = null;
+          };
+          const finish = (commit: boolean) => {
+            if (finished) return;
+            finished = true;
+            removeListeners();
+            if (commit) {
+              const order = previewTrackOrderRef.current ?? initialOrder;
+              if (onCommitDataRowOrder) onCommitDataRowOrder(order);
+              else if (!order.every((id, position) => id === initialOrder[position])) {
+                const position = order.indexOf(trackId);
+                const target = position > 0 ? order[position - 1] : order[position + 1];
+                if (target) onMoveDataRow?.(trackId, target, position > 0 ? 'after' : 'before');
+              }
+            } else onCancelDataRowOrder?.();
+            onPreviewDataRowDrag?.(null);
+            previewTrackOrderRef.current = null;
+            setDraggingTrackId(null);
+            setPreviewTrackOrder(null);
+          };
+          const preview = (clientY: number) => {
+            const target = peers.find((peer) => clientY < peer.center) ?? peers.at(-1);
+            const order = target
+              ? moveTrackOrder(
+                  initialOrder,
+                  trackId,
+                  target.trackId,
+                  clientY < target.center ? 'before' : 'after'
+                )
+              : initialOrder;
+            if (!order.every((id, position) => id === previewTrackOrderRef.current?.[position])) {
+              previewTrackOrderRef.current = order;
+              setPreviewTrackOrder(order);
+              onPreviewDataRowOrder?.(order);
+            }
+            onPreviewDataRowDrag?.({
+              trackId,
+              topPx: clientY - grabOffset - gutterBounds.top,
+            });
+          };
+          function move(moveEvent: PointerEvent) {
+            if (moveEvent.pointerId !== pointerId) return;
+            moveEvent.preventDefault();
+            preview(moveEvent.clientY);
           }
-          draggingTrackIdRef.current = null;
-          previewTrackOrderRef.current = null;
-          dropAllowedRef.current = false;
-          dragCanceledRef.current = false;
-          setDraggingTrackId(null);
-          setPreviewTrackOrder(null);
-          dropCommittedRef.current = false;
+          function up(upEvent: PointerEvent) {
+            if (upEvent.pointerId !== pointerId) return;
+            const parentBounds = gutter!.parentElement?.getBoundingClientRect();
+            const dropBounds =
+              parentBounds && parentBounds.width > 0 && parentBounds.height > 0
+                ? parentBounds
+                : gutterBounds;
+            const inside =
+              upEvent.clientX >= dropBounds.left &&
+              upEvent.clientX <= dropBounds.right &&
+              upEvent.clientY >= dropBounds.top &&
+              upEvent.clientY <= dropBounds.bottom;
+            if (inside) preview(upEvent.clientY);
+            finish(inside);
+          }
+          function cancel(cancelEvent?: Event) {
+            if (
+              cancelEvent &&
+              'pointerId' in cancelEvent &&
+              (cancelEvent as PointerEvent).pointerId !== pointerId
+            )
+              return;
+            finish(false);
+          }
+          function lostCapture(captureEvent: PointerEvent) {
+            if (captureEvent.pointerId === pointerId) finish(false);
+          }
+          function keyDown(keyEvent: KeyboardEvent) {
+            if (keyEvent.key !== 'Escape') return;
+            keyEvent.preventDefault();
+            keyEvent.stopPropagation();
+            finish(false);
+          }
+          cancelReorderRef.current = cancel;
+          document.addEventListener('pointermove', move);
+          document.addEventListener('pointerup', up);
+          document.addEventListener('pointercancel', cancel);
+          presentationEvents.add(document, 'keydown', keyDown, true);
+          window.addEventListener('blur', cancel);
+          gutter.addEventListener('lostpointercapture', lostCapture);
+          gutter.setPointerCapture?.(pointerId);
         }}
       />
     );
@@ -1095,54 +1182,6 @@ export function TrackGutter({
         onCancel={onCancelDataRowHeight}
       />
     );
-  };
-  const rowDropHandlers = (row: GutterRow) => {
-    if (
-      (!onMoveDataRow && !onCommitDataRowOrder) ||
-      row.kind !== 'data' ||
-      !row.reorderable ||
-      !row.trackId
-    ) {
-      return {};
-    }
-    const targetTrackId = row.trackId;
-    const previewAgainstTarget = (event: React.DragEvent<HTMLDivElement>) => {
-      const sourceTrackId =
-        draggingTrackIdRef.current || event.dataTransfer.getData(TRACK_REORDER_MIME) || null;
-      if (!sourceTrackId || sourceTrackId === targetTrackId) return null;
-      const bounds = event.currentTarget.getBoundingClientRect();
-      const placement = trackReorderPlacementFromPointerY(event.clientY, bounds.top, bounds.height);
-      const currentOrder = previewTrackOrderRef.current ?? stableDataRowOrder;
-      const nextOrder = moveTrackOrder(currentOrder, sourceTrackId, targetTrackId, placement);
-      if (nextOrder !== currentOrder) {
-        previewTrackOrderRef.current = nextOrder;
-        setPreviewTrackOrder(nextOrder);
-        onPreviewDataRowOrder?.(nextOrder);
-      }
-      return { sourceTrackId, placement, order: nextOrder };
-    };
-    return {
-      onDragOver: (event: React.DragEvent<HTMLDivElement>) => {
-        const preview = previewAgainstTarget(event);
-        if (!preview) return;
-        dropAllowedRef.current = true;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-      },
-      onDrop: (event: React.DragEvent<HTMLDivElement>) => {
-        const preview = previewAgainstTarget(event);
-        if (!preview) return;
-        event.preventDefault();
-        dropCommittedRef.current = true;
-        if (onCommitDataRowOrder) onCommitDataRowOrder(preview.order);
-        else onMoveDataRow?.(preview.sourceTrackId, targetTrackId, preview.placement);
-        draggingTrackIdRef.current = null;
-        previewTrackOrderRef.current = null;
-        dropAllowedRef.current = false;
-        setDraggingTrackId(null);
-        setPreviewTrackOrder(null);
-      },
-    };
   };
   const positionedBottom = positioned.reduce(
     (bottom, entry) => Math.max(bottom, entry.top + entry.height),
@@ -1264,54 +1303,10 @@ export function TrackGutter({
       <div
         data-testid="track-gutter-row-container"
         className={aligned ? 'relative h-full' : 'flex h-full min-h-0 flex-col overflow-y-auto'}
-        onDragOverCapture={(event) => {
-          if (!draggingTrackIdRef.current) return;
-          const target = event.target instanceof Element ? event.target : null;
-          const targetRow = target?.closest<HTMLElement>('[data-track-gutter-row]') ?? null;
-          const allowed = targetRow?.dataset.trackReorderable === 'true';
-          dropAllowedRef.current = allowed;
-          if (allowed) {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = 'move';
-          }
-        }}
-        onDragLeave={(event) => {
-          const relatedTarget = event.relatedTarget;
-          if (relatedTarget instanceof Node && event.currentTarget.contains(relatedTarget)) return;
-
-          const bounds = event.currentTarget.getBoundingClientRect();
-          const pointerStillInside =
-            Number.isFinite(event.clientX) &&
-            Number.isFinite(event.clientY) &&
-            event.clientX >= bounds.left &&
-            event.clientX <= bounds.right &&
-            event.clientY >= bounds.top &&
-            event.clientY <= bounds.bottom;
-          if (!pointerStillInside) dropAllowedRef.current = false;
-        }}
-        onDrop={(event) => {
-          if (
-            dropCommittedRef.current ||
-            !dropAllowedRef.current ||
-            !previewTrackOrderRef.current ||
-            !onCommitDataRowOrder
-          ) {
-            return;
-          }
-          event.preventDefault();
-          dropCommittedRef.current = true;
-          onCommitDataRowOrder(previewTrackOrderRef.current);
-          draggingTrackIdRef.current = null;
-          previewTrackOrderRef.current = null;
-          dropAllowedRef.current = false;
-          setDraggingTrackId(null);
-          setPreviewTrackOrder(null);
-        }}
       >
         {scrollingRows.map(({ row, top, height }) => {
           const settingsExpanded = row.kind === 'data' && expandedDataRowId === row.id;
           const heightResizeHandle = heightResizeHandleFor(row);
-          const rowDividerClass = heightResizeHandle ? '' : GUTTER_STYLE.rowDivider;
           return (
             <div
               key={row.id}
@@ -1334,16 +1329,12 @@ export function TrackGutter({
                   : undefined
               }
               data-drag-state={draggingTrackId === row.trackId ? 'dragging' : undefined}
-              className={`${
+              className={cn(
                 aligned
-                  ? 'group flex items-start gap-1.5 overflow-hidden px-2 transition-[top,box-shadow,transform] duration-150 ease-out'
-                  : 'group relative flex items-center gap-1.5 overflow-visible px-2 py-1.5 transition-[box-shadow,transform] duration-150 ease-out hover:bg-bg-subtle'
-              } ${rowDividerClass} ${
-                draggingTrackId === row.trackId
-                  ? 'z-30 scale-[1.01] bg-bg shadow-lg ring-1 ring-fg-subtle/30'
-                  : ''
-              }`}
-              {...rowDropHandlers(row)}
+                  ? 'group flex items-start gap-1.5 overflow-hidden px-2'
+                  : 'group relative flex items-center gap-1.5 overflow-visible px-2 py-1.5 hover:bg-bg-subtle',
+                draggingTrackId === row.trackId && 'z-30 bg-bg shadow-lg ring-1 ring-fg-subtle/30'
+              )}
             >
               <RowBody
                 row={row}

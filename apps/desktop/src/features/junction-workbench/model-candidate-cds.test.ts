@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { getCodonsForSingleCDS } from '@waypoint/workspace-editor';
+import { parseGenBankFull } from '@waypoint/sequence-utils';
+import PUBLIC_PUC19_GB from '../../../../../test-fixtures/sequences/circular/pUC19.gb?raw';
 import type { DesignAnnotation, DesignRegion, SequenceDesign } from '../design/types';
 import { computeDraftAssembly } from '../design/algorithms/draft-assembly';
+import {
+  createAssemblyFixtureApi,
+  normalizeFixture,
+} from '../design/public/assembly-real-fixture-api';
 import { applyOverrideToCanonicalModels, buildJunctionWorkbenchModels } from './model';
 import { SourceContextRegistry, createJunctionSourceWindowRequests } from './SourceContextRegistry';
 import { buildProductOwnerPreviewSequence } from './WorkbenchPaintingContract';
-import { realAssemblyPipelineAppScenario } from '../../test/scenarios/assembly-real-pipeline';
 
 function qualifierValue(
   qualifiers: Record<string, string | string[]> | undefined,
@@ -917,28 +922,30 @@ describe('candidate CDS continuation across junction', () => {
   });
 
   it('continues a real pUC19 source-cache CDS across a spacer-containing workbench junction', () => {
-    const scenario = realAssemblyPipelineAppScenario('gibson-pcr-rd-pcr-two-spacers');
-    const design = scenario.designs.designs[scenario.designs.activeDesignId!];
-    const firstRegion = design.regions[0];
-    const source = scenario.sequences[firstRegion.sourceSequenceId];
-    design.regions[0] = {
-      ...firstRegion,
-      sourceStart: 2000,
-      sourceEnd: 2360,
-      sequence: source.sequence.slice(2000, 2360),
-    };
-    design.regions[2] = {
-      ...design.regions[2],
-      sourceStart: firstRegion.sourceStart,
-      sourceEnd: firstRegion.sourceEnd,
-      sequence: firstRegion.sequence,
-    };
+    const fixture = normalizeFixture({
+      id: 'public-puc19-reverse-cds',
+      label: 'pUC19',
+      source: 'test-fixtures/sequences/circular/pUC19.gb',
+      parsed: parseGenBankFull(PUBLIC_PUC19_GB),
+    });
+    const api = createAssemblyFixtureApi({ puc19: fixture });
+    const design = api.design(
+      [
+        api.pcrRegion(fixture, 'puc19-pcr-left', 2000, 360),
+        api.rdRegion(fixture, 'BsmBI', 'puc19-bsmbi-rd', { minLength: 20, noWrap: true }).region,
+        api.pcrRegion(fixture, 'puc19-pcr-right', 240, 360),
+      ],
+      {
+        assemblyMethod: 'gibson',
+        spacers: [api.realSpacer(fixture, 1912, 5, 0), api.realSpacer(fixture, 2184, 7, 2)],
+      }
+    );
     const draft = computeDraftAssembly(design);
     design.homologyRegions = draft.homologyRegions;
     design.designPrimers = draft.designPrimers;
-    const sourceWindows = new SourceContextRegistry(scenario.sequences).resolveWindows(
-      createJunctionSourceWindowRequests(design, { maxWindowBp: 500 })
-    );
+    const sourceWindows = new SourceContextRegistry({
+      [fixture.id]: { ...fixture.parsed, id: fixture.id },
+    }).resolveWindows(createJunctionSourceWindowRequests(design, { maxWindowBp: 500 }));
     const models = buildJunctionWorkbenchModels(design, { maxWindowBp: 500, sourceWindows });
     const model = models.find((candidateModel) => candidateModel.junctionIndex === 2);
     const productRow = model?.rows.find((row) => row.kind === 'product');

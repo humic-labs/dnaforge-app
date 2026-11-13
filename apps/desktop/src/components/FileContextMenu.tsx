@@ -1,6 +1,10 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../presentation/PresentationSurface';
 import { useEffect, useRef, useCallback, useState } from 'react';
 import type { FolderGitState } from '../hooks/useFolderGitState';
-import { COMMAND_SCOPES, useCommandScope } from '../commands';
 import { ChevronRightIcon } from './icons';
 import { formatShortcutHint, type ShortcutDefinition } from './menuShortcuts';
 import { shortcutChord } from '../keyboard/shortcutRegistry';
@@ -157,11 +161,13 @@ export function FileContextMenu({
   onFindInFolder,
   onCollapseOthers,
 }: FileContextMenuProps) {
+  const presentationOverlay = usePresentationOverlay('keyboard');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const menuRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [openSubmenuLabel, setOpenSubmenuLabel] = useState<string | null>(null);
   const menuAim = useMenuAim();
-  useCommandScope(COMMAND_SCOPES.menuContext, { claimOnMount: true });
 
   const executeAction = useCallback(
     (action: () => void) => {
@@ -439,9 +445,9 @@ export function FileContextMenu({
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+    presentationEvents.add(document, 'keydown', handleKeyDown);
+    return () => presentationEvents.remove(document, 'keydown', handleKeyDown);
+  }, [onClose, presentationEvents]);
 
   const handleMenuKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLButtonElement>, item: MenuItem, index: number) => {
@@ -486,110 +492,120 @@ export function FileContextMenu({
   let actionIndex = 0;
 
   return (
-    <div
-      ref={menuRef}
-      role="menu"
-      aria-label={`File actions for ${displayName}`}
-      className="fixed z-50 min-w-[280px] bg-bg-subtle border border-border rounded-md shadow-lg py-1"
-      style={{ left: `${position.x}px`, top: `${position.y}px` }}
-    >
-      {menuItems.map((item, index) => {
-        if (item === 'separator') {
+    <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+      <div
+        ref={presentationOverlay.bindRef(menuRef, '0')}
+        role="menu"
+        aria-label={`File actions for ${displayName}`}
+        className="fixed z-50 min-w-[280px] bg-bg-subtle border border-border rounded-md shadow-lg py-1"
+        style={{ left: `${position.x}px`, top: `${position.y}px` }}
+      >
+        {menuItems.map((item, index) => {
+          if (item === 'separator') {
+            return (
+              <div key={`separator-${index}`} role="separator" className={MENU_SEPARATOR_CLASS} />
+            );
+          }
+
+          const currentActionIndex = actionIndex;
+          actionIndex++;
+
           return (
-            <div key={`separator-${index}`} role="separator" className={MENU_SEPARATOR_CLASS} />
-          );
-        }
-
-        const currentActionIndex = actionIndex;
-        actionIndex++;
-
-        return (
-          <div
-            key={item.label}
-            className="relative"
-            onPointerEnter={(event) => {
-              if (openSubmenuLabel === item.label) return;
-              const row = event.currentTarget;
-              menuAim.requestActivation({
-                pointer: event,
-                submenuElement: getOpenSubmenuElement(),
-                activate: () => {
+            <div
+              key={item.label}
+              className="relative"
+              onPointerEnter={(event) => {
+                if (openSubmenuLabel === item.label) return;
+                const row = event.currentTarget;
+                menuAim.requestActivation({
+                  pointer: event,
+                  submenuElement: getOpenSubmenuElement(),
+                  activate: () => {
+                    if (isCascadeItem(item)) {
+                      setOpenSubmenuLabel(item.label);
+                      openLinkedCascade(row);
+                      return;
+                    }
+                    setOpenSubmenuLabel(isSubmenuItem(item) ? item.label : null);
+                    onCloseAddPicker?.();
+                  },
+                });
+              }}
+            >
+              <button
+                role="menuitem"
+                data-context-menu-root-item="true"
+                data-menu-label={item.label}
+                tabIndex={currentActionIndex === focusedIndex ? 0 : -1}
+                disabled={item.disabled}
+                aria-haspopup={isSubmenuItem(item) || isCascadeItem(item) ? 'menu' : undefined}
+                aria-expanded={
+                  isSubmenuItem(item) || isCascadeItem(item)
+                    ? openSubmenuLabel === item.label
+                    : undefined
+                }
+                onClick={(event) => {
+                  if (item.disabled) return;
+                  menuAim.cancelPendingActivation();
                   if (isCascadeItem(item)) {
                     setOpenSubmenuLabel(item.label);
-                    openLinkedCascade(row);
-                    return;
+                    openLinkedCascade(event.currentTarget);
+                  } else if (isActionItem(item)) {
+                    executeAction(item.action);
+                  } else {
+                    setOpenSubmenuLabel((current) => (current === item.label ? null : item.label));
                   }
-                  setOpenSubmenuLabel(isSubmenuItem(item) ? item.label : null);
-                  onCloseAddPicker?.();
-                },
-              });
-            }}
-          >
-            <button
-              role="menuitem"
-              data-context-menu-root-item="true"
-              data-menu-label={item.label}
-              tabIndex={currentActionIndex === focusedIndex ? 0 : -1}
-              disabled={item.disabled}
-              aria-haspopup={isSubmenuItem(item) || isCascadeItem(item) ? 'menu' : undefined}
-              aria-expanded={
-                isSubmenuItem(item) || isCascadeItem(item)
-                  ? openSubmenuLabel === item.label
-                  : undefined
-              }
-              onClick={(event) => {
-                if (item.disabled) return;
-                menuAim.cancelPendingActivation();
-                if (isCascadeItem(item)) {
-                  setOpenSubmenuLabel(item.label);
-                  openLinkedCascade(event.currentTarget);
-                } else if (isActionItem(item)) {
-                  executeAction(item.action);
-                } else {
-                  setOpenSubmenuLabel((current) => (current === item.label ? null : item.label));
-                }
-              }}
-              onKeyDown={(e) => !item.disabled && handleMenuKeyDown(e, item, currentActionIndex)}
-              className={[
-                MENU_ROW_CLASS,
-                item.disabled ? MENU_ROW_DISABLED_CLASS : MENU_ROW_INTERACTIVE_CLASS,
-                item.isDestructive && !item.disabled ? MENU_ROW_DESTRUCTIVE_CLASS : '',
-              ].join(' ')}
-            >
-              <MenuItemContents
-                label={item.label}
-                shortcut={item.shortcut}
-                hasSubmenu={isSubmenuItem(item) || isCascadeItem(item)}
-              />
-            </button>
-            {isSubmenuItem(item) && openSubmenuLabel === item.label && (
-              <div
-                role="menu"
-                aria-label={`${item.label} options`}
-                data-menu-aim-submenu="true"
-                onPointerEnter={menuAim.cancelPendingActivation}
-                className="absolute left-full top-0 z-50 min-w-[240px] bg-bg-subtle border border-border rounded-md shadow-lg py-1"
+                }}
+                onKeyDown={(e) => !item.disabled && handleMenuKeyDown(e, item, currentActionIndex)}
+                className={[
+                  MENU_ROW_CLASS,
+                  item.disabled ? MENU_ROW_DISABLED_CLASS : MENU_ROW_INTERACTIVE_CLASS,
+                  item.isDestructive && !item.disabled ? MENU_ROW_DESTRUCTIVE_CLASS : '',
+                ].join(' ')}
               >
-                {item.submenu.map((submenuItem) => (
-                  <button
-                    key={submenuItem.label}
-                    role="menuitem"
-                    data-menu-label={submenuItem.label}
-                    disabled={submenuItem.disabled}
-                    onClick={() => !submenuItem.disabled && executeAction(submenuItem.action)}
-                    className={[
-                      MENU_ROW_CLASS,
-                      submenuItem.disabled ? MENU_ROW_DISABLED_CLASS : MENU_ROW_INTERACTIVE_CLASS,
-                    ].join(' ')}
+                <MenuItemContents
+                  label={item.label}
+                  shortcut={item.shortcut}
+                  hasSubmenu={isSubmenuItem(item) || isCascadeItem(item)}
+                />
+              </button>
+              {isSubmenuItem(item) && openSubmenuLabel === item.label && (
+                <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+                  <div
+                    role="menu"
+                    aria-label={`${item.label} options`}
+                    data-menu-aim-submenu="true"
+                    onPointerEnter={menuAim.cancelPendingActivation}
+                    className="absolute left-full top-0 z-50 min-w-[240px] bg-bg-subtle border border-border rounded-md shadow-lg py-1"
+                    ref={presentationOverlay.bindRef(undefined, '1')}
                   >
-                    <MenuItemContents label={submenuItem.label} shortcut={submenuItem.shortcut} />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
+                    {item.submenu.map((submenuItem) => (
+                      <button
+                        key={submenuItem.label}
+                        role="menuitem"
+                        data-menu-label={submenuItem.label}
+                        disabled={submenuItem.disabled}
+                        onClick={() => !submenuItem.disabled && executeAction(submenuItem.action)}
+                        className={[
+                          MENU_ROW_CLASS,
+                          submenuItem.disabled
+                            ? MENU_ROW_DISABLED_CLASS
+                            : MENU_ROW_INTERACTIVE_CLASS,
+                        ].join(' ')}
+                      >
+                        <MenuItemContents
+                          label={submenuItem.label}
+                          shortcut={submenuItem.shortcut}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </PresentationScopeContext.Provider>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </PresentationScopeContext.Provider>
   );
 }

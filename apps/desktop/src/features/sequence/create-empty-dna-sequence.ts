@@ -1,3 +1,4 @@
+import { withUserMessage } from '@waypoint/user-messages';
 import { decodeSequenceDocument, serializeGenBank } from '@waypoint/sequence-utils';
 import { platform } from '../../platform';
 import { openSequenceFile } from '../document-opening/public/compat';
@@ -53,6 +54,7 @@ export class SequenceCreationPendingError extends Error {
   ) {
     super(`Sequence creation accepted; ${reason}`);
     this.name = 'SequenceCreationPendingError';
+    withUserMessage(this, 'document.saveRefreshPending');
   }
 }
 

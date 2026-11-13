@@ -4,9 +4,12 @@ import { z } from 'zod';
 import nativeAuthoringContract from '../../../../../../packages/core/agent-tools/native-authoring-contract.json';
 import { useCanvasStore } from '../../canvas/public/store';
 import { useWorkspaceStore, workspaceScopeFromState } from '../../../stores/workspaceStore';
+import type { WorkspaceFolder } from '../../../stores/workspaceStore';
+import type { AgentProjectScope } from '../../../shared/agent-project-scope';
+import { normalizePathForBoundary } from '../../../shared/path-boundary';
 
 export const GET_WORKSPACE_DESCRIPTION =
-  'Read mounted authoring projects, reference folders, tabs and current caller capabilities. Choose notebook and design destinations from projects; pinned referenceFolders are sources, not authoring destinations. ' +
+  'Read authorized registered authoring projects, reference folders, displayed folders, tabs and current caller capabilities. Choose notebook and design destinations from projects; pinned referenceFolders are sources, not authoring destinations. Displayed folders and the current selection do not define project access. ' +
   nativeAuthoringContract.instructions;
 
 export const getWorkspaceSchema = z.object({}).strict();
@@ -33,25 +36,32 @@ export const getWorkspaceOutputSchema = z.object({
   ),
 });
 
-export function createGetWorkspaceTool(grantedCapabilities?: readonly string[]) {
+export function createGetWorkspaceTool(grantedCapabilities?: readonly string[], authorizedProjects?: readonly WorkspaceFolder[], projectScope?: AgentProjectScope) {
   return resultTool({
     description: GET_WORKSPACE_DESCRIPTION,
     inputSchema: getWorkspaceSchema as z.ZodTypeAny,
     execute: async (_params: z.infer<typeof getWorkspaceSchema>) => {
       const canvasState = useCanvasStore.getState();
       const workspaceState = useWorkspaceStore.getState();
+      const projects = authorizedProjects ?? workspaceState.folders;
+      const restricted = projectScope?.kind === 'project-roots';
+      const approvedRoots = new Set(projects.map((project) => normalizePathForBoundary(project.path)));
+      const displayedFolders = restricted
+        ? workspaceState.folders.filter((folder) => approvedRoots.has(normalizePathForBoundary(folder.path)))
+        : workspaceState.folders;
+      const workspaceFile = restricted ? null : workspaceState.activeWorkspaceFile;
       return toolSuccess({
         ...(grantedCapabilities ? { capabilities: [...grantedCapabilities] } : {}),
-        workspaceId: workspaceScopeFromState(workspaceState),
-        workspaceFile: workspaceState.activeWorkspaceFile,
+        workspaceId: workspaceScopeFromState({ activeWorkspaceFile: workspaceFile, folders: displayedFolders }),
+        workspaceFile,
         focusedPanelId: canvasState.focusedPanelId,
-        projects: workspaceState.folders
+        projects: projects
           .filter((folder) => !folder.pinned)
           .map((folder) => ({ name: folder.name, path: folder.path })),
-        referenceFolders: workspaceState.folders
+        referenceFolders: projects
           .filter((folder) => folder.pinned)
           .map((folder) => ({ name: folder.name, path: folder.path })),
-        folders: workspaceState.folders.map((folder) => ({
+        folders: displayedFolders.map((folder) => ({
           name: folder.name,
           path: folder.path,
           ...(folder.pinned ? { pinned: true } : {}),

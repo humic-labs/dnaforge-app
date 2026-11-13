@@ -2,6 +2,7 @@ import React from 'react';
 import { toUserMessage } from '@waypoint/user-messages';
 import ReactDOM from 'react-dom/client';
 import App from '../App';
+import { CommandScopeProvider } from '../commands';
 import { BrandWordmarkText } from '../components/BrandWordmark';
 import { rebindCatalogFilePath } from '../db/workspace-catalog';
 import { initPlatform } from '../platform';
@@ -104,7 +105,9 @@ void (async () => {
     root.render(
       <React.StrictMode>
         <Providers>
-          <App />
+          <CommandScopeProvider>
+            <App />
+          </CommandScopeProvider>
         </Providers>
       </React.StrictMode>
     )

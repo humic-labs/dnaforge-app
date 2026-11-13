@@ -1,7 +1,15 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from 'vitest';
-import type { FeatureHitPayload, Genome, RenderState } from '@waypoint/genome-renderer';
+import {
+  CYTOBAND_TYPE,
+  PixiCytobandTrackRenderer,
+  PixiLinearRenderer,
+  type FeatureHitPayload,
+  type Genome,
+  type RenderState,
+} from '@waypoint/genome-renderer';
+import { Application, Container } from 'pixi.js';
 import { attachPixiInteractionAdapter } from './interaction-adapter';
 import type { UsePixiMapOptions } from './types';
 import { PrimerOverlay } from '../renderers/pixi/overlays/primer-overlay';
@@ -43,6 +51,90 @@ const hit: FeatureHitPayload = {
 };
 
 describe('attachPixiInteractionAdapter rich annotation bridge', () => {
+  it(' gives an active row reorder exclusive canvas input and restores hover after release', async () => {
+    const canvasEl = document.createElement('canvas');
+    canvasEl.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 800, height: 220 }) as DOMRect;
+    document.body.appendChild(canvasEl);
+    const state = makeState();
+    state.highlightRange = [50, 60];
+    state.cursorPosition = 50;
+    const renderer = new PixiLinearRenderer();
+    await renderer.init(
+      { stage: new Container(), canvas: canvasEl, renderer: {} } as unknown as Application,
+      genome,
+      () => state
+    );
+    renderer.registerTrack({
+      type: 'DNA-4991-input-row',
+      mount: () => new Container(),
+      unmount: (container) => container.destroy(),
+      paint: () => undefined,
+    });
+    renderer.setTrackInstances([
+      {
+        id: 'DNA-4991-input-row',
+        type: 'DNA-4991-input-row',
+        order: 0,
+        visible: true,
+        assemblyId: 'test',
+        zone: 'below-legacy',
+        sizing: { kind: 'fixed', pixels: 80 },
+      },
+    ]);
+    renderer.render(state);
+    const interaction = attachPixiInteractionAdapter({
+      canvasEl,
+      stateRef: { current: state },
+      optionsRef: { current: { genome, circular: false, width: 800, height: 220 } },
+      renderer,
+      activeGenome: genome,
+      circular: false,
+    });
+    const move = (x: number) =>
+      canvasEl.dispatchEvent(
+        new MouseEvent('pointermove', { bubbles: true, clientX: x, clientY: 100 })
+      );
+    try {
+      move(200);
+      interaction.flushInteraction();
+      expect(state.hoverPosition).not.toBeNull();
+      const camera = { zoom: state.zoom, viewOffset: state.viewOffset };
+      renderer.setTrackPresentationDrag({ trackId: 'DNA-4991-input-row', topPx: 100 });
+      expect(state.hoverPosition).toBeNull();
+      move(300);
+      canvasEl.dispatchEvent(
+        new MouseEvent('pointerdown', { bubbles: true, clientX: 300, clientY: 100 })
+      );
+      move(400);
+      canvasEl.dispatchEvent(
+        new MouseEvent('pointerup', { bubbles: true, clientX: 400, clientY: 100 })
+      );
+      canvasEl.dispatchEvent(
+        new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: -120, ctrlKey: true })
+      );
+      interaction.flushInteraction();
+      expect(state.hoverPosition).toBeNull();
+      expect(state.hoveredId).toBeNull();
+      expect(state.highlightRange).toEqual([50, 60]);
+      expect(state.cursorPosition).toBe(50);
+      expect({ zoom: state.zoom, viewOffset: state.viewOffset }).toEqual(camera);
+      renderer.setTrackPresentationDrag(null);
+      move(450);
+      interaction.flushInteraction();
+      expect(state.hoverPosition).not.toBeNull();
+      canvasEl.dispatchEvent(
+        new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: -120, ctrlKey: true })
+      );
+      interaction.flushInteraction();
+      expect(state.zoom).not.toBe(camera.zoom);
+    } finally {
+      interaction.cleanup();
+      renderer.destroy();
+      canvasEl.remove();
+    }
+  });
+
   it('converts intron hover to renderer coordinates without adding a click target', () => {
     const canvasEl = document.createElement('canvas');
     canvasEl.getBoundingClientRect = () =>
@@ -485,4 +577,60 @@ describe('attachPixiInteractionAdapter rich annotation bridge', () => {
     interaction.cleanup();
     primerOverlay.destroy();
   });
+});
+
+it(' excludes pinned-header coordinates from legacy annotation click and hover', async () => {
+  const canvasEl = document.createElement('canvas');
+  canvasEl.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 220 }) as DOMRect;
+  const state = makeState();
+  const renderer = new PixiLinearRenderer();
+  await renderer.init(
+    { stage: new Container(), canvas: canvasEl, renderer: {} } as unknown as Application,
+    genome,
+    () => state
+  );
+  renderer.setChromosome({
+    id: 'chr-test',
+    displayName: 'chr-test',
+    length: genome.length,
+    cytobands: [],
+  });
+  renderer.registerTrack(new PixiCytobandTrackRenderer());
+  renderer.setTrackInstances([
+    {
+      id: 'DNA-4991-header',
+      type: CYTOBAND_TYPE.type,
+      order: 0,
+      visible: true,
+      assemblyId: 'test',
+      zone: 'above-legacy',
+      sizing: CYTOBAND_TYPE.defaultSizing,
+    },
+  ]);
+  renderer.render(state);
+  const feature = { kind: 'feature' as const, payload: hit };
+  const hitTestAll = vi.fn(() => feature);
+  vi.spyOn(renderer, 'getOverlayRegistry').mockReturnValue({
+    get: () => undefined,
+    hitTestAll,
+  } as never);
+  vi.spyOn(renderer, 'hitTestIntron').mockReturnValue(hit as never);
+  const interaction = attachPixiInteractionAdapter({
+    canvasEl,
+    stateRef: { current: state },
+    optionsRef: { current: { genome, circular: false, width: 800, height: 220 } },
+    renderer,
+    activeGenome: genome,
+    circular: false,
+  });
+  try {
+    expect(interaction.hitTestFn?.(100, 16)).toBeNull();
+    expect(interaction.hitTestHoverFeatureFn?.(100, 16)).toBeNull();
+    expect(hitTestAll).not.toHaveBeenCalled();
+    expect(interaction.hitTestFn?.(100, 64)).toEqual(feature);
+    expect(interaction.hitTestHoverFeatureFn?.(100, 64)).toEqual(hit);
+  } finally {
+    interaction.cleanup();
+    renderer.destroy();
+  }
 });

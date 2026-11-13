@@ -180,9 +180,16 @@ def native_outputs(monkeypatch):
 @pytest.fixture
 def native_runtime(monkeypatch):
     state = {"result": {}, "calls": [], "disposition": "completed"}
-    agent = {"identityId": "caller", "capabilities": ["*"]}
     store = SimpleNamespace(get_agent_identity=lambda _: {"id": "caller"})
-    monkeypatch.setattr(native_workflow_tools, "_current_agent", lambda *_: agent)
+    monkeypatch.setattr(
+        native_workflow_tools,
+        "_current_agent",
+        lambda *_: {
+            "identityId": "caller",
+            "capabilities": ["*"],
+            "projectScope": {"kind": "app-following"},
+        },
+    )
     monkeypatch.setattr(native_file_document_tools, "check_grant", lambda *_: None)
     monkeypatch.setattr(
         native_file_document_tools, "get_control_plane_store", lambda: store

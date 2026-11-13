@@ -2,11 +2,11 @@ import type { ComponentProps } from 'react';
 import { act, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { WebGLMapHandle } from '@waypoint/plasmid-viewer';
+import { getNativeWheelInput } from '@waypoint/platform/wheel-motion';
 import {
   dispatchNativeWheel,
-  getNativeWheelInput,
   installNativeWheelSource,
-} from '@waypoint/platform/wheel-motion';
+} from '../../../../../../packages/core/platform/src/wheel-input.test-helper';
 import { setupInteraction } from '../../../../../../packages/core/genome-renderer/src/renderers/pixi/interaction';
 import type { RenderState } from '../../../../../../packages/core/genome-renderer/src/types';
 import { WorkspaceViewerMapPane } from './WorkspaceViewerMapPane';

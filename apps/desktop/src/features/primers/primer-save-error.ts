@@ -1,3 +1,5 @@
+import { renderUserMessagePayload, userMessagePayloadFromError } from '@waypoint/user-messages';
+
 export function primerSaveErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : 'Failed to save';
   if (message.includes('WORKSPACE_MUTATION_DECLARED_ROOT_MISMATCH')) {
@@ -9,5 +11,6 @@ export function primerSaveErrorMessage(error: unknown): string {
   if (message.includes('WORKSPACE_MUTATION_TOKEN_INVALID')) {
     return 'The project changed while saving. Check the save location and save again. Your primer draft is still here.';
   }
-  return message;
+  const declared = userMessagePayloadFromError(error);
+  return declared ? renderUserMessagePayload(declared) : message;
 }

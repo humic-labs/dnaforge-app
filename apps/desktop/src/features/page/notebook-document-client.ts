@@ -1,6 +1,7 @@
 import { userMessage, userMessageWithValues, userMessageValue } from '@waypoint/user-messages';
 import { Extension, type Editor, type JSONContent } from '@tiptap/core';
 import type { Transaction } from '@tiptap/pm/state';
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { undo as undoPM, redo as redoPM } from '@tiptap/pm/history';
 import { platform } from '../../platform';
 import type { FileDocumentFlushPurpose } from '../../shared/file-document-client-sync';
@@ -30,6 +31,22 @@ import {
 } from './notebook-workflow';
 
 const clients = new Map<string, NativeNotebookDocumentClient>();
+function sameNotebookPositions(before: ProseMirrorNode, after: ProseMirrorNode): boolean {
+  if (before.eq(after)) return true;
+  if (
+    before.type !== after.type ||
+    before.nodeSize !== after.nodeSize ||
+    before.childCount !== after.childCount ||
+    before.marks.length !== after.marks.length ||
+    before.marks.some((mark, index) => !mark.eq(after.marks[index]))
+  )
+    return false;
+  if (before.type.name === 'mention' && before.isLeaf && after.isLeaf) return true;
+  if (!before.sameMarkup(after) || before.text !== after.text) return false;
+  for (let index = 0; index < before.childCount; index++)
+    if (!sameNotebookPositions(before.child(index), after.child(index))) return false;
+  return true;
+}
 let subscribed = false;
 export function getNativeNotebookDocumentClient(pageId: string): NativeNotebookDocumentClient {
   let client = clients.get(pageId);
@@ -117,6 +134,11 @@ export class NativeNotebookDocumentClient {
   private listeners = new Set<() => void>();
   private readonly editors = new Set<Editor>();
   private applying = false;
+  private acknowledgedCapture: {
+    revision: string;
+    optimisticAfter: ProseMirrorNode;
+    nativeAfter: ProseMirrorNode;
+  } | null = null;
   constructor(readonly pageId: string) {}
   get nativeDocumentId(): string {
     return this.snapshot?.documentId ?? this.pageId;
@@ -210,9 +232,19 @@ export class NativeNotebookDocumentClient {
     const work = this.tail
       .then(async () => {
         if (this.error) throw new Error(this.error);
+        const current = this.snapshot!,
+          acknowledgement = this.acknowledgedCapture;
+        let before = transaction.before;
+        if (
+          acknowledgement?.revision === current.revision &&
+          before.eq(acknowledgement.optimisticAfter)
+        ) {
+          const canonical = before.type.schema.nodeFromJSON(current.copy.content);
+          if (canonical.eq(acknowledgement.nativeAfter)) before = canonical;
+        }
         const snapshot = await platform().notebook.execute({
           documentId: this.nativeDocumentId,
-          expectedRevision: this.snapshot!.revision,
+          expectedRevision: current.revision,
           requestId: crypto.randomUUID(),
           operation: {
             kind: 'apply-steps',
@@ -221,9 +253,14 @@ export class NativeNotebookDocumentClient {
             separateHistory: transaction.getMeta('closeHistory$') === true,
             steps,
             selection,
-            baseFingerprint: contentFingerprint(canonicalNotebookJson(transaction.before.toJSON())),
+            baseFingerprint: contentFingerprint(canonicalNotebookJson(before.toJSON())),
           },
         });
+        const nativeAfter = transaction.doc.type.schema.nodeFromJSON(snapshot.copy.content);
+        this.acknowledgedCapture =
+          !transaction.doc.eq(nativeAfter) && sameNotebookPositions(transaction.doc, nativeAfter)
+            ? { revision: snapshot.revision, optimisticAfter: transaction.doc, nativeAfter }
+            : null;
         this.observe(snapshot);
       })
       .catch((error) => {
@@ -248,7 +285,7 @@ export class NativeNotebookDocumentClient {
   }
   async command(operation: NativeNotebookRequest['operation']): Promise<NotebookDocumentSnapshot> {
     if (
-      !['inspect', 'inspect-copy', 'schema', 'capture-save', 'await-save'].includes(
+      !['inspect', 'inspect-copy', 'schema', 'capture-save', 'await-save', 'keep-local'].includes(
         operation.kind
       ) &&
       !(operation.kind === 'table' && operation.command.kind === 'inspect')
@@ -261,12 +298,25 @@ export class NativeNotebookDocumentClient {
       await this.loading;
       if (this.error) throw new Error(this.error);
       if (!this.snapshot) throw new Error('The notebook owner is not ready.');
+      const current = this.snapshot,
+        acknowledgement = this.acknowledgedCapture;
       const snapshot = await platform().notebook.execute({
         documentId: this.nativeDocumentId,
-        expectedRevision: this.snapshot.revision,
+        expectedRevision: current.revision,
         requestId: crypto.randomUUID(),
         operation,
       });
+      if (
+        acknowledgement?.revision === current.revision &&
+        ['capture-save', 'save', 'rename', 'set-title', 'table-view'].includes(operation.kind)
+      ) {
+        const schema = acknowledgement.nativeAfter.type.schema;
+        if (
+          schema.nodeFromJSON(current.copy.content).eq(acknowledgement.nativeAfter) &&
+          schema.nodeFromJSON(snapshot.copy.content).eq(acknowledgement.nativeAfter)
+        )
+          this.acknowledgedCapture = { ...acknowledgement, revision: snapshot.revision };
+      }
       this.observe(snapshot);
       return snapshot;
     });

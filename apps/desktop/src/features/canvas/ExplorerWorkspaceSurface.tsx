@@ -1,5 +1,8 @@
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
-import { WorkspaceVisibilityContext, useWorkspaceVisibility } from './workspace-visibility';
+import { type ReactNode } from 'react';
+import {
+  PresentationScopeContext,
+  usePresentationSurface,
+} from '../../presentation/PresentationSurface';
 
 interface ExplorerWorkspaceSurfaceProps {
   occluded?: boolean;
@@ -16,22 +19,14 @@ export function ExplorerWorkspaceSurface({
   explorerInset,
   children,
 }: ExplorerWorkspaceSurfaceProps) {
-  const surfaceRef = useRef<HTMLDivElement>(null);
   const parked = takeoverActive || emptyFilesHomeActive;
-  const visible = useWorkspaceVisibility() && !occluded && !parked;
-  useLayoutEffect(() => {
-    const surface = surfaceRef.current;
-    if (!surface) return;
-    if (!visible) {
-      surface.setAttribute('inert', '');
-    } else {
-      surface.removeAttribute('inert');
-    }
-  }, [visible]);
+  const surface = usePresentationSurface({ id: 'workspace', active: !occluded && !parked });
+  const visible = surface.visible;
 
   return (
     <div
-      ref={surfaceRef}
+      data-presentation-surface={surface.id}
+      ref={surface.bindRef}
       data-testid="explorer-workspace-surface"
       aria-hidden={!visible}
       className={`flex flex-col overflow-hidden ${
@@ -46,9 +41,9 @@ export function ExplorerWorkspaceSurface({
         contentVisibility: visible ? undefined : 'hidden',
       }}
     >
-      <WorkspaceVisibilityContext.Provider value={visible}>
+      <PresentationScopeContext.Provider value={surface.scope}>
         {children}
-      </WorkspaceVisibilityContext.Provider>
+      </PresentationScopeContext.Provider>
     </div>
   );
 }

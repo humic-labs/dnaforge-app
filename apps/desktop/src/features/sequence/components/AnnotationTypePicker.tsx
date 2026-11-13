@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -255,6 +256,8 @@ export function AnnotationTypePicker({
   onToggleVisibleType,
   onSetVisibleTypes,
 }: AnnotationTypePickerProps) {
+  const presentationEvents = usePresentationListener();
+
   const [open, setOpen] = useState(false);
   const [morphed, setMorphed] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -384,13 +387,13 @@ export function AnnotationTypePicker({
       if (panelRef.current?.contains(t)) return;
       beginClose();
     };
-    document.addEventListener('keydown', onKey);
+    presentationEvents.add(document, 'keydown', onKey);
     document.addEventListener('mousedown', onPointer);
     return () => {
-      document.removeEventListener('keydown', onKey);
+      presentationEvents.remove(document, 'keydown', onKey);
       document.removeEventListener('mousedown', onPointer);
     };
-  }, [open]);
+  }, [open, presentationEvents]);
 
   const summaryTitle =
     selectedCount === 0

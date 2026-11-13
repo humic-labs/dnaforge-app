@@ -86,6 +86,7 @@ const mocks = vi.hoisted(() => ({
   runWorkspaceReconcileOperation: vi.fn(),
   resolveReconcileWorkspaceRoot: vi.fn(),
   writeAcceptedAssemblyFiles: vi.fn(),
+  writeWorkspaceTextFileAtomic: vi.fn(),
   registerAcceptedAssemblyAsLimsEntity: vi.fn(),
   recordAcceptedAssemblyPrimers: vi.fn(),
   commitPrimerBatchHistory: vi.fn(),
@@ -125,7 +126,12 @@ vi.mock('../../services/workspace-mutation-transaction', () => ({
   withRendererWorkspaceMutation: mocks.withRendererWorkspaceMutation,
 }));
 vi.mock('../../platform', () => ({
-  platform: () => ({ fs: { exists: vi.fn(async () => mocks.packagePresent) } }),
+  platform: () => ({
+    fs: {
+      exists: vi.fn(async () => mocks.packagePresent),
+      writeWorkspaceTextFileAtomic: mocks.writeWorkspaceTextFileAtomic,
+    },
+  }),
 }));
 vi.mock('../../db/sequence-package-working-copy-storage', () => ({
   readPackageAssemblyWorkingCopy: mocks.readPackageCopy.mockImplementation(
@@ -415,6 +421,34 @@ describe('accepted assembly finalization workflow: workspace reconstruction owne
     expect(mocks.drainMirrors.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.withRendererWorkspaceMutation.mock.invocationCallOrder[0]
     );
+  });
+
+  it('upgrades an older package marker in the owning project under the finalization token', async () => {
+    const markerUpgrade = {
+      path: `${PACKAGE_ROOT}/.forge/plasmid.json`,
+      content: '{"formatVersion":9}',
+      mode: 'replace' as const,
+      expectedContentHash: 'legacy-marker-hash',
+      artifactNoun: 'sequence package',
+    };
+    mocks.writeAcceptedAssemblyFiles.mockImplementationOnce(
+      async (
+        _files: unknown,
+        ops: { writeWorkspaceTextFileAtomic(request: Record<string, unknown>): Promise<unknown> }
+      ) => {
+        await ops.writeWorkspaceTextFileAtomic({ ...markerUpgrade, workspaceRoot: PACKAGE_ROOT });
+        return { migratedPaths: [] };
+      }
+    );
+
+    await finalizeAcceptedAssemblyWorkflow({ candidate: candidate(), notify: false });
+
+    expect(mocks.writeWorkspaceTextFileAtomic).toHaveBeenCalledOnce();
+    expect(mocks.writeWorkspaceTextFileAtomic).toHaveBeenCalledWith({
+      ...markerUpgrade,
+      workspaceRoot: ROOT,
+      mutationToken: 'finalization-token',
+    });
   });
 
   it('fences a loose draft during publication and releases it after a write failure', async () => {

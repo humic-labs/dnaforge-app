@@ -87,7 +87,7 @@ import {
 } from '../workspace-sync-mutation-lease';
 import { drainMainAnalyticsOutbox } from '../analytics';
 import {
-  enqueueBenchlingMigrationDiscardDisposition,
+  publishBenchlingMigrationDiscardDisposition,
   reconcileBenchlingMigrationTelemetryOutbox,
 } from './telemetry-outbox';
 
@@ -1509,6 +1509,8 @@ export class LocalBenchlingMigrationCoordinator {
     ) {
       throw new Error('Cancel the active migration before discarding it.');
     }
+    const telemetry = this.deps.telemetry;
+    const origin = telemetry?.captureOrigin();
     const run = await this.requireRun(runId);
     if (run.workspaceOrigin?.kind === 'adopted_existing') {
       throw new Error('Adopted workspace history cannot discard its owning workspace.');
@@ -1536,9 +1538,8 @@ export class LocalBenchlingMigrationCoordinator {
       store.close();
     }
     await this.deps.discardWorkspace(dirname(expectedPath));
-    if (priorOutcome) {
-      enqueueBenchlingMigrationDiscardDisposition(this.deps.globalDb, priorOutcome, this.nowMs);
-      drainMainAnalyticsOutbox(this.deps.globalDb);
+    if (priorOutcome && telemetry && origin) {
+      publishBenchlingMigrationDiscardDisposition(telemetry, origin, priorOutcome, this.nowMs());
     }
     this.runPaths.delete(runId);
     this.preparedLocalBundleZips.delete(runId);

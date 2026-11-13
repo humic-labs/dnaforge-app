@@ -8,6 +8,8 @@ const {
   mockConversationLedgerAppendEvent,
   mockScanWorkspaceFiles,
   mockReconcileCliWorkspaceChanges,
+  mockResolveRegisteredProject,
+  mockListRegisteredProjects,
 } = vi.hoisted(() => ({
   mockAgentSessionStart: vi.fn(),
   mockAgentSessionCancel: vi.fn(),
@@ -16,6 +18,8 @@ const {
   mockConversationLedgerAppendEvent: vi.fn().mockResolvedValue({ ok: true }),
   mockScanWorkspaceFiles: vi.fn(),
   mockReconcileCliWorkspaceChanges: vi.fn(),
+  mockResolveRegisteredProject: vi.fn(),
+  mockListRegisteredProjects: vi.fn(),
 }));
 
 const useChatConversationHarness = {
@@ -26,6 +30,8 @@ const useChatConversationHarness = {
   mockConversationLedgerAppendEvent,
   mockScanWorkspaceFiles,
   mockReconcileCliWorkspaceChanges,
+  mockResolveRegisteredProject,
+  mockListRegisteredProjects,
 };
 
 export function getUseChatConversationHarness(): typeof useChatConversationHarness {
@@ -156,6 +162,10 @@ vi.mock('../../features/ai/settings', () => ({
 
 vi.mock('../../platform', () => ({
   platform: vi.fn(() => ({
+    workspace: {
+      resolveRegisteredProject: mockResolveRegisteredProject,
+      listRegisteredProjects: mockListRegisteredProjects,
+    },
     path: { appDataDir: async () => '/app-data' },
     administration: {
       onChanged: vi.fn(() => () => {}),
@@ -370,6 +380,16 @@ export function resetUseChatConversationHarness(): void {
     lastRemovedFolderPath: null,
     expandedPaths: new Set(),
   });
+  const registeredProjects = [
+    { path: '/workspace', name: 'Registered workspace', addedAt: 1, pinned: false },
+  ];
+  mockListRegisteredProjects.mockReset().mockResolvedValue(registeredProjects);
+  mockResolveRegisteredProject
+    .mockReset()
+    .mockImplementation(
+      async (reference: string) =>
+        registeredProjects.find((project) => project.path === reference) ?? null
+    );
 
   vi.mocked(db.getConversation).mockResolvedValue(null);
   vi.mocked(db.getConversations).mockResolvedValue([]);

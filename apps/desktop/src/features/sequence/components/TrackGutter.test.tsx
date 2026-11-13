@@ -1,8 +1,11 @@
-import { cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react';
-import type { ComponentProps } from 'react';
+import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react';
+import { createRef, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { IndexedPixiLinearRenderer } from '@waypoint/genome-renderer';
 
 import type { GutterRow } from './track-gutter-rows';
+import type { IndexedGenomeTileNativeMapHandle } from './IndexedGenomeTileNativeMap';
+import { useLaneScreenBands } from './useLaneScreenBands';
 import * as trackGutterModule from './TrackGutter';
 
 const {
@@ -44,50 +47,6 @@ function dataRow(over: Partial<GutterRow> = {}): GutterRow {
 
 const noop = () => {};
 
-function dragTransfer() {
-  const data = new Map<string, string>();
-  return {
-    effectAllowed: 'none',
-    dropEffect: 'none',
-    setData: vi.fn((type: string, value: string) => data.set(type, value)),
-    getData: vi.fn((type: string) => data.get(type) ?? ''),
-    setDragImage: vi.fn(),
-  };
-}
-
-function fireDragStartWithPointer(
-  target: Element,
-  dataTransfer: ReturnType<typeof dragTransfer>,
-  clientX: number,
-  clientY: number
-): void {
-  const event = createEvent.dragStart(target, { dataTransfer });
-  Object.defineProperties(event, {
-    clientX: { value: clientX },
-    clientY: { value: clientY },
-  });
-  fireEvent(target, event);
-}
-
-function fireDragOverWithPointer(
-  target: Element,
-  dataTransfer: ReturnType<typeof dragTransfer>,
-  clientY: number
-): void {
-  const event = createEvent.dragOver(target, { dataTransfer });
-  Object.defineProperty(event, 'clientY', { value: clientY });
-  fireEvent(target, event);
-}
-
-function fireDragLeaveWithPointer(target: Element, clientX: number, clientY: number): void {
-  const event = createEvent.dragLeave(target, { relatedTarget: null });
-  Object.defineProperties(event, {
-    clientX: { value: clientX },
-    clientY: { value: clientY },
-  });
-  fireEvent(target, event);
-}
-
 describe('trackReorderPlacementFromPointerY', () => {
   it('treats the row midpoint as after, not before', () => {
     expect(trackReorderPlacementFromPointerY(119, 100, 40)).toBe('before');
@@ -110,6 +69,7 @@ function firePointerAt(
         : createEvent.pointerUp(target);
   Object.defineProperties(event, {
     button: { value: 0 },
+    clientX: { value: 10 },
     clientY: { value: clientY },
     pointerId: { value: pointerId },
   });
@@ -669,7 +629,7 @@ describe('TrackGutter', () => {
     );
 
     const handle = screen.getByRole('button', { name: 'Move CpG Islands' });
-    expect(handle).toHaveAttribute('draggable', 'true');
+    expect(handle).not.toHaveAttribute('draggable', 'true');
     const grip = screen.getByTestId('track-gutter-drag-grip-tab:interval');
     const dots = [...grip.querySelectorAll('circle')];
     expect(dots).toHaveLength(6);
@@ -751,8 +711,8 @@ describe('TrackGutter', () => {
     );
     const signalRow = screen.getByTestId('track-gutter-row-tab:signal');
     const intervalRow = screen.getByTestId('track-gutter-row-tab:interval');
-    const rowContainer = screen.getByTestId('track-gutter-row-container');
-    vi.spyOn(rowContainer, 'getBoundingClientRect').mockReturnValue({
+    const gutter = screen.getByTestId('track-gutter');
+    vi.spyOn(gutter, 'getBoundingClientRect').mockReturnValue({
       top: 0,
       bottom: 800,
       left: 0,
@@ -785,35 +745,32 @@ describe('TrackGutter', () => {
       y: 140,
       toJSON: () => ({}),
     });
-    const transfer = dragTransfer();
     const handle = screen.getByRole('button', { name: 'Move CpG Islands' });
 
-    fireDragStartWithPointer(handle, transfer, 12, 150);
-    expect(transfer.setDragImage).toHaveBeenCalledWith(intervalRow, 12, 10);
+    firePointerAt('down', handle, 150, 11);
     expect(intervalRow).toHaveAttribute('data-drag-state', 'dragging');
 
-    fireDragOverWithPointer(signalRow, transfer, 120);
+    firePointerAt('move', document, 120, 11);
     expect(onPreviewDataRowOrder).not.toHaveBeenCalled();
 
-    fireDragOverWithPointer(signalRow, transfer, 110);
+    firePointerAt('move', document, 110, 11);
 
     expect(onPreviewDataRowOrder).toHaveBeenCalledWith(['interval', 'signal']);
     expect(onCommitDataRowOrder).not.toHaveBeenCalled();
     expect(intervalRow.style.top).toBe('100px');
     expect(signalRow.style.top).toBe('180px');
     expect(intervalRow.style.height).toBe('80px');
-    expect(intervalRow.className).toContain('transition-[top,box-shadow,transform]');
+    expect(intervalRow.className).not.toMatch(/transition-\[[^\]]*\btop\b/);
     expect(intervalRow.className).not.toContain('transition-[top,height');
 
-    fireDragLeaveWithPointer(signalRow, 40, 110);
-    fireEvent.dragEnd(handle, { dataTransfer: transfer });
+    firePointerAt('up', document, 110, 11);
 
     expect(onCommitDataRowOrder).toHaveBeenCalledOnce();
     expect(onCommitDataRowOrder).toHaveBeenCalledWith(['interval', 'signal']);
     expect(onCancelDataRowOrder).not.toHaveBeenCalled();
   });
 
-  it('restores the durable presentation when a native drag ends without a drop', () => {
+  it('restores the durable presentation when a pointer reorder is canceled', () => {
     const onPreviewDataRowOrder = vi.fn();
     const onCancelDataRowOrder = vi.fn();
     render(
@@ -848,12 +805,23 @@ describe('TrackGutter', () => {
       y: 440,
       toJSON: () => ({}),
     });
-    const transfer = dragTransfer();
+    const sourceRow = screen.getByTestId('track-gutter-row-tab:interval');
+    vi.spyOn(sourceRow, 'getBoundingClientRect').mockReturnValue({
+      top: 500,
+      bottom: 560,
+      left: 0,
+      right: 220,
+      width: 220,
+      height: 60,
+      x: 0,
+      y: 500,
+      toJSON: () => ({}),
+    });
     const handle = screen.getByRole('button', { name: 'Move CpG Islands' });
-    fireDragStartWithPointer(handle, transfer, 8, 510);
-    fireDragOverWithPointer(signalRow, transfer, 450);
+    firePointerAt('down', handle, 510, 12);
+    firePointerAt('move', document, 450, 12);
     fireEvent.keyDown(document, { key: 'Escape' });
-    fireEvent.dragEnd(handle, { dataTransfer: transfer });
+    firePointerAt('up', document, 450, 12);
 
     expect(onPreviewDataRowOrder).toHaveBeenCalledWith(['interval', 'signal']);
     expect(onCancelDataRowOrder).toHaveBeenCalledOnce();
@@ -925,6 +893,280 @@ describe('TrackGutter', () => {
 
     expect(onVerticalScroll).toHaveBeenCalledWith(-12);
     expect(onOuterWheel).not.toHaveBeenCalled();
+  });
+
+  it.each(['release', 'Escape', 'lost capture', 'unmount', 'existing cursor owner'])(
+    ' owns pointer capture and the grabbing cursor through %s',
+    (ending) => {
+      const priorCursor = document.body.style.cursor;
+      const priorClass = document.body.classList.contains('dragging-track-row');
+      const preserveOwner = ending === 'existing cursor owner';
+      document.body.style.cursor = 'progress';
+      document.body.classList.toggle('dragging-track-row', preserveOwner);
+      const cancel = vi.fn();
+      const commit = vi.fn();
+      const rendered = render(
+        <TrackGutter
+          rows={[
+            dataRow({
+              id: 'tab:signal',
+              trackId: 'signal',
+              label: 'Signal',
+              reorderable: true,
+              band: { topPx: 100, heightPx: 40 },
+            }),
+            dataRow({
+              id: 'tab:interval',
+              trackId: 'interval',
+              label: 'CpG Islands',
+              reorderable: true,
+              band: { topPx: 140, heightPx: 80 },
+            }),
+          ]}
+          dataRowOrder={['signal', 'interval']}
+          onToggleVisible={noop}
+          onRemove={noop}
+          onPreviewDataRowDrag={vi.fn()}
+          onCommitDataRowOrder={commit}
+          onCancelDataRowOrder={cancel}
+        />
+      );
+      const gutter = screen.getByTestId('track-gutter');
+      const rectangle = (top: number, height: number) => ({
+        top,
+        bottom: top + height,
+        left: 0,
+        right: 220,
+        width: 220,
+        height,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      });
+      vi.spyOn(gutter, 'getBoundingClientRect').mockReturnValue(rectangle(0, 800));
+      vi.spyOn(
+        screen.getByTestId('track-gutter-row-tab:signal'),
+        'getBoundingClientRect'
+      ).mockReturnValue(rectangle(100, 40));
+      vi.spyOn(
+        screen.getByTestId('track-gutter-row-tab:interval'),
+        'getBoundingClientRect'
+      ).mockReturnValue(rectangle(140, 80));
+      const captured = new Set<number>();
+      const setPointerCapture = vi.fn((id: number) => captured.add(id));
+      const releasePointerCapture = vi.fn((id: number) => captured.delete(id));
+      Object.defineProperties(gutter, {
+        setPointerCapture: { configurable: true, value: setPointerCapture },
+        hasPointerCapture: { configurable: true, value: (id: number) => captured.has(id) },
+        releasePointerCapture: { configurable: true, value: releasePointerCapture },
+      });
+      try {
+        const handle = screen.getByRole('button', { name: 'Move CpG Islands' });
+        firePointerAt('down', handle, 150, 91);
+        expect(setPointerCapture).toHaveBeenCalledWith(91);
+        expect(captured.has(91)).toBe(true);
+        expect(document.body).toHaveClass('dragging-track-row');
+        expect(document.body.style.cursor).toBe('progress');
+        firePointerAt('move', document, 115, 91);
+        if (ending === 'Escape') fireEvent.keyDown(document, { key: 'Escape' });
+        else if (ending === 'lost capture') {
+          captured.delete(91);
+          const event = new Event('lostpointercapture', { bubbles: true });
+          Object.defineProperty(event, 'pointerId', { value: 91 });
+          fireEvent(gutter, event);
+        } else if (ending === 'unmount') rendered.unmount();
+        else firePointerAt('up', document, 115, 91);
+        expect(captured.has(91)).toBe(false);
+        if (ending !== 'lost capture') expect(releasePointerCapture).toHaveBeenCalledWith(91);
+        expect(document.body.classList.contains('dragging-track-row')).toBe(preserveOwner);
+        expect(document.body.style.cursor).toBe('progress');
+        if (['Escape', 'lost capture', 'unmount'].includes(ending)) {
+          expect(cancel).toHaveBeenCalledOnce();
+          expect(commit).not.toHaveBeenCalled();
+        } else expect(commit).toHaveBeenCalledOnce();
+      } finally {
+        rendered.unmount();
+        document.body.style.cursor = priorCursor;
+        document.body.classList.toggle('dragging-track-row', priorClass);
+      }
+    }
+  );
+
+  it(' keeps the grab offset through continuous row reorder and clears cancel and drop previews', () => {
+    const onPreviewDataRowDrag = vi.fn();
+    const onPreviewDataRowOrder = vi.fn();
+    const onCommitDataRowOrder = vi.fn();
+    const onCancelDataRowOrder = vi.fn();
+    render(
+      <TrackGutter
+        rows={[
+          dataRow({
+            id: 'tab:signal',
+            trackId: 'signal',
+            label: 'Signal',
+            reorderable: true,
+            band: { topPx: 100, heightPx: 40 },
+          }),
+          dataRow({
+            id: 'tab:interval',
+            trackId: 'interval',
+            label: 'CpG Islands',
+            reorderable: true,
+            band: { topPx: 140, heightPx: 80 },
+          }),
+        ]}
+        dataRowOrder={['signal', 'interval']}
+        onToggleVisible={noop}
+        onRemove={noop}
+        onPreviewDataRowOrder={onPreviewDataRowOrder}
+        onPreviewDataRowDrag={onPreviewDataRowDrag}
+        onCommitDataRowOrder={onCommitDataRowOrder}
+        onCancelDataRowOrder={onCancelDataRowOrder}
+      />
+    );
+    const rectangle = (top: number, height: number) => ({
+      top,
+      bottom: top + height,
+      left: 0,
+      right: 220,
+      width: 220,
+      height,
+      x: 0,
+      y: top,
+      toJSON: () => ({}),
+    });
+    for (const id of ['track-gutter', 'track-gutter-row-container']) {
+      vi.spyOn(screen.getByTestId(id), 'getBoundingClientRect').mockReturnValue(rectangle(0, 800));
+    }
+    vi.spyOn(
+      screen.getByTestId('track-gutter-row-tab:signal'),
+      'getBoundingClientRect'
+    ).mockReturnValue(rectangle(100, 40));
+    vi.spyOn(
+      screen.getByTestId('track-gutter-row-tab:interval'),
+      'getBoundingClientRect'
+    ).mockReturnValue(rectangle(140, 80));
+    const handle = screen.getByRole('button', { name: 'Move CpG Islands' });
+    firePointerAt('down', handle, 150, 31);
+    firePointerAt('move', document, 181, 31);
+    expect(onPreviewDataRowDrag).toHaveBeenLastCalledWith({ trackId: 'interval', topPx: 171 });
+    firePointerAt('move', document, 125, 31);
+    expect(onPreviewDataRowDrag).toHaveBeenLastCalledWith({ trackId: 'interval', topPx: 115 });
+    expect(onCommitDataRowOrder).not.toHaveBeenCalled();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancelDataRowOrder).toHaveBeenCalledOnce();
+    expect(onPreviewDataRowDrag).toHaveBeenLastCalledWith(null);
+    expect(onCommitDataRowOrder).not.toHaveBeenCalled();
+    firePointerAt('down', handle, 150, 32);
+    firePointerAt('move', document, 110, 32);
+    firePointerAt('up', document, 110, 32);
+    expect(onCommitDataRowOrder).toHaveBeenCalledOnce();
+    expect(onCommitDataRowOrder).toHaveBeenCalledWith(['interval', 'signal']);
+    expect(onPreviewDataRowDrag).toHaveBeenLastCalledWith(null);
+  });
+
+  it(' presents resized row and following divider geometry in the same completed frame', () => {
+    vi.useFakeTimers();
+    const renderer = new IndexedPixiLinearRenderer();
+    const baseSnapshot = renderer.getLaneScreenSnapshot();
+    const screenSnapshot = (
+      heightPx: number
+    ): ReturnType<typeof renderer.getLaneScreenSnapshot> => ({
+      ...baseSnapshot,
+      overlayLayout: {
+        totalHeight: 0,
+        offset: 0,
+        annotationHeight: 0,
+        strandEnvelopeTop: 0,
+        strandEnvelopeBottom: 0,
+        fwdStrandTop: 0,
+        revStrandBottom: 0,
+        trackScrollTop: 40,
+      },
+      trackScreenBounds: {
+        p1: { topPx: 74, heightPx, bottomPx: 74 + heightPx, scrollsVertically: true },
+        p2: {
+          topPx: 74 + heightPx,
+          heightPx: 80,
+          bottomPx: 154 + heightPx,
+          scrollsVertically: true,
+        },
+      },
+    });
+    let snapshot = screenSnapshot(80);
+    vi.spyOn(renderer, 'getLaneScreenSnapshot').mockImplementation(() => snapshot);
+    const listeners = new Set<
+      Parameters<IndexedGenomeTileNativeMapHandle['subscribeToPresentedFrames']>[0]
+    >();
+    const subscribe: IndexedGenomeTileNativeMapHandle['subscribeToPresentedFrames'] = (
+      listener
+    ) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    };
+    const webglRef = createRef<IndexedGenomeTileNativeMapHandle>();
+    webglRef.current = {
+      getLinearRenderer: () => renderer,
+      requestRender: vi.fn(),
+      subscribeToPresentedFrames: subscribe,
+      subscribeToCurrentGenomeFrames: subscribe,
+      setViewport: (range) => range,
+      schedulePostPresentWork: noop,
+      getViewCenter: () => null,
+      getViewportRange: () => null,
+      setViewCenter: noop,
+      setSelection: noop,
+      getSelection: () => null,
+      setProteinSearchHighlightRanges: noop,
+      setDisplaySize: noop,
+      setTrackStackEndReserve: () => false,
+      scrollTracksBy: () => false,
+      setTrackPresentationOrder: () => false,
+      setTrackPresentationDrag: () => false,
+    };
+    function PresentedRows() {
+      const bands = useLaneScreenBands(webglRef);
+      return (
+        <TrackGutter
+          rows={[
+            dataRow({ band: bands.dataBounds.p1, requestedHeightPx: 112 }),
+            dataRow({
+              id: '__legacy__:p2',
+              trackId: 'p2',
+              label: 'Following row',
+              band: bands.dataBounds.p2,
+            }),
+          ]}
+          onToggleVisible={noop}
+          onRemove={noop}
+          onPreviewDataRowHeight={noop}
+          onCommitDataRowHeight={noop}
+        />
+      );
+    }
+    try {
+      render(<PresentedRows />);
+      const resized = screen.getByTestId('track-gutter-row-__legacy__:p1');
+      const following = screen.getByTestId('track-gutter-row-__legacy__:p2');
+      expect(resized.style.height).toBe('80px');
+      expect(following.style.top).toBe('194px');
+      snapshot = screenSnapshot(112);
+      act(() => {
+        for (const listener of listeners) listener({ frameEpoch: 1, presentedAtMs: 0 });
+        expect(resized.style.height).toBe('112px');
+        expect(following.style.top).toBe('226px');
+      });
+      expect(resized.querySelector('[role="separator"]')).not.toBeNull();
+      expect(resized.querySelector<HTMLElement>('[role="separator"]')?.className).toContain(
+        'bottom-0'
+      );
+      expect(following.className).not.toMatch(/transition-\[[^\]]*\btop\b/);
+    } finally {
+      cleanup();
+      vi.useRealTimers();
+    }
   });
 
   it('applies one renderer-completed-frame scroll receipt synchronously to the row layer', () => {

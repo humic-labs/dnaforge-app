@@ -47,6 +47,7 @@ interface ChatHistorySurfaceProps {
   pinned: boolean;
   setPinned: (pinned: boolean) => void;
   isOpen: boolean;
+  isVisible?: boolean;
   isBusy: boolean;
   queuedMessageCount: number;
   historyPaneGenerationId?: string | null;
@@ -69,6 +70,7 @@ export function ChatHistorySurface({
   pinned,
   setPinned,
   isOpen,
+  isVisible = isOpen,
   isBusy,
   queuedMessageCount,
   onConversationIdChange,
@@ -213,23 +215,23 @@ export function ChatHistorySurface({
   );
 
   useLayoutEffect(() => {
-    if (!isOpen || !onPinnedLayoutChange) return;
+    if (!isVisible || !onPinnedLayoutChange) return;
     onPinnedLayoutChange(pinned);
     return () => onPinnedLayoutChange(false);
-  }, [isOpen, onPinnedLayoutChange, pinned]);
+  }, [isVisible, onPinnedLayoutChange, pinned]);
 
   useLayoutEffect(() => {
+    if (!isVisible) setPosition(null);
     if (!isOpen) {
-      setPosition(null);
       setHoverOpen(false);
       setFocusOpen(false);
       setHoverSuppressed(false);
       setTitleExpanded(false);
     }
-  }, [isOpen]);
+  }, [isOpen, isVisible]);
 
   useLayoutEffect(() => {
-    if (!isOpen) return;
+    if (!isVisible) return;
     if (!anchor) {
       setPosition(null);
       return;
@@ -275,7 +277,7 @@ export function ChatHistorySurface({
       window.removeEventListener('scroll', updatePosition, true);
       window.removeEventListener(TAB_PORTAL_HOST_ATTACHED_EVENT, updatePosition);
     };
-  }, [anchor, isOpen]);
+  }, [anchor, isVisible]);
 
   const dismissTransientSurface = useCallback(() => {
     if (pinned) return;
@@ -498,7 +500,7 @@ export function ChatHistorySurface({
     if (!query) return conversations;
     return conversations.filter((conversation) => conversation.title.toLowerCase().includes(query));
   }, [conversations, search]);
-  const showPanel = pinned || (!hoverSuppressed && (hoverOpen || focusOpen));
+  const showPanel = pinned || (isOpen && !hoverSuppressed && (hoverOpen || focusOpen));
   filterSnapshot.current = {
     search,
     count: filteredConversations.length,
@@ -667,7 +669,7 @@ export function ChatHistorySurface({
     void (observed ? loadConversations(observed) : loadConversations()).catch(() => undefined);
   }, [loadConversations, observe]);
 
-  if (!isOpen || !position) return null;
+  if (!isVisible || !position) return null;
   const mode = pinned ? 'pinned' : 'floating';
 
   const conversationList =

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { userMessagePayload, withUserMessage } from '@waypoint/user-messages';
 import type {
   SavedPrimerArtifact,
   WriteAndProjectedPrimerArtifact,
@@ -253,6 +254,26 @@ describe('recordPrimers seam  / A7)', () => {
     expect(result.failed).toHaveLength(1);
     expect(result.failed[0]).toMatchObject({ reason: 'projection' });
     expect(result.failed[0].input.name).toBe('B');
+  });
+
+  it('keeps the catalog message a failed save declares on its failure entry', async () => {
+    svc.savePrimerArtifact.mockRejectedValue(
+      withUserMessage(
+        new Error('Save accepted; file delivery remains pending'),
+        'document.saveRefreshPending'
+      )
+    );
+
+    const result = await recordPrimers({
+      primers: [P('A')],
+      workspaceRoot: '/ws',
+      origin: 'manual',
+    });
+
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0].declaredMessage).toEqual(
+      userMessagePayload('document.saveRefreshPending')
+    );
   });
 
   it('a genuine path-collision surfaces as a first-class failure, never a silent skip', async () => {

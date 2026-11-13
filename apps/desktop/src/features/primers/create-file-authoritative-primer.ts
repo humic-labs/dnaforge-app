@@ -1,3 +1,4 @@
+import { withUserMessage } from '@waypoint/user-messages';
 import { runWorkflowAction } from '../../lib/workflow-telemetry';
 import { isFileAuthoritativePrimerInput } from './primer-artifact-service';
 import type { SavedPrimerArtifact } from './primer-artifact-service';
@@ -106,10 +107,11 @@ export async function createFileAuthoritativePrimer(
       });
       const failure = result.failed[0];
       if (failure) {
-        throw new PrimerCreationError(
+        const error = new PrimerCreationError(
           failure.reason === 'error' ? 'primer_record_failed' : `primer_${failure.reason}`,
           failure.message
         );
+        throw failure.declaredMessage ? withUserMessage(error, failure.declaredMessage) : error;
       }
       return result;
     },

@@ -1,3 +1,4 @@
+import { createRegisteredProjectAuthorityFixture } from './__tests__/registered-project-authority-fixture';
 // @vitest-environment node
 
 import { createHash } from 'node:crypto';
@@ -157,7 +158,8 @@ async function fixture(
 
 describe('native sequence working copy without a view', () => {
   it('does not extend a prior Save continuation to a revision accepted after its publication', async () => {
-    const workspaces = new NativeDocumentWorkspaces({ resolveRoot: async (root) => root });
+    const registry = createRegisteredProjectAuthorityFixture();
+    const workspaces = new NativeDocumentWorkspaces({ authority: registry.authority });
     const product = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
     const f = await fixture(undefined, false, {
@@ -167,6 +169,7 @@ describe('native sequence working copy without a view', () => {
         await release.promise;
       },
     });
+    registry.register(f.root);
     await workspaces.replaceRoots([f.root]);
     const initial = await f.inspect();
     const edited = await f.command(initial, {
@@ -190,6 +193,7 @@ describe('native sequence working copy without a view', () => {
         kind: 'client-command',
         command: { method: 'dispatchEdit', action: { type: 'INSERT', text: 'C' } },
       });
+      registry.remove(f.root);
       await workspaces.replaceRoots([]);
       for (const snapshot of [published, later])
         await expect(
@@ -208,8 +212,9 @@ describe('native sequence working copy without a view', () => {
       await f.owner.close();
     }
   });
-  it('continues only the native revision accepted by a previous captured Save after unenrollment', async () => {
-    const workspaces = new NativeDocumentWorkspaces({ resolveRoot: async (root) => root });
+  it('continues only the native revision accepted by a previous captured Save after registered project revocation', async () => {
+    const registry = createRegisteredProjectAuthorityFixture();
+    const workspaces = new NativeDocumentWorkspaces({ authority: registry.authority });
     const product = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
     let historyCalls = 0;
@@ -224,6 +229,7 @@ describe('native sequence working copy without a view', () => {
         return { status: 'committed' };
       },
     });
+    registry.register(f.root);
     await workspaces.replaceRoots([f.root]);
     const initial = await f.inspect();
     const edited = await f.command(initial, {
@@ -238,6 +244,7 @@ describe('native sequence working copy without a view', () => {
         kind: 'client-command',
         command: { method: 'dispatchEdit', action: { type: 'INSERT', text: 'G' } },
       });
+      registry.remove(f.root);
       await workspaces.replaceRoots([]);
       release.resolve();
       const published = await f.command(captured, {
@@ -263,7 +270,7 @@ describe('native sequence working copy without a view', () => {
       ).rejects.toThrow('STALE_SEQUENCE_SAVE_CONTINUATION');
       await expect(
         f.command(published, { kind: 'capture-save', message: 'New unscoped Save' })
-      ).rejects.toThrow('not enrolled');
+      ).rejects.toThrow('registered project');
       const operation = {
         kind: 'capture-save' as const,
         message: 'Continue accepted revision',
@@ -457,8 +464,9 @@ describe('native sequence working copy without a view', () => {
     expect(f.owner.model.getState().isDirty(f.documentId)).toBe(true);
     await f.owner.close();
   });
-  it('finishes an admitted captured Save after project replacement while refusing new unenrolled input', async () => {
-    const workspaces = new NativeDocumentWorkspaces({ resolveRoot: async (root) => root });
+  it('finishes an admitted captured Save after project replacement while refusing new unauthorized input', async () => {
+    const registry = createRegisteredProjectAuthorityFixture();
+    const workspaces = new NativeDocumentWorkspaces({ authority: registry.authority });
     const product = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
     const f = await fixture(undefined, false, {
@@ -472,6 +480,8 @@ describe('native sequence working copy without a view', () => {
     directories.push(otherRoot);
     const otherPath = join(otherRoot, 'other.txt');
     await writeFile(otherPath, 'other project remains unchanged');
+    registry.register(f.root);
+    registry.register(otherRoot);
     await workspaces.replaceRoots([f.root, otherRoot]);
     const originalPermit = workspaces.capture(f.root);
     const initial = await f.inspect();
@@ -495,17 +505,18 @@ describe('native sequence working copy without a view', () => {
         kind: 'client-command',
         command: { method: 'dispatchEdit', action: { type: 'INSERT', text: 'G' } },
       });
+      registry.remove(f.root);
       await workspaces.replaceRoots([otherRoot]);
-      expect(() => originalPermit()).toThrow('enrollment changed');
+      expect(() => originalPermit()).toThrow('registered project authority changed');
       await expect(
         f.command(newer, {
           kind: 'client-command',
           command: { method: 'dispatchEdit', action: { type: 'INSERT', text: 'T' } },
         })
-      ).rejects.toThrow('not enrolled');
+      ).rejects.toThrow('registered project');
       await expect(
         f.command(newer, { kind: 'capture-save', message: 'Unenrolled new Save' })
-      ).rejects.toThrow('not enrolled');
+      ).rejects.toThrow('registered project');
       release.resolve();
       expect(await completed).toMatchObject({
         status: 'fulfilled',

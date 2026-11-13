@@ -1,13 +1,8 @@
 {
-  "name": "waypoint",
+  "name": "dnaforge",
   "private": true,
   "version": "0.0.0",
-  "description": "Scientific coordination platform connecting researchers, AI, and shared knowledge in pursuit of collective intelligence",
-  "main": "index.js",
-  "directories": {
-    "doc": "docs",
-    "test": "tests"
-  },
+  "description": "Desktop application for molecular biology: sequence editor, genome browser, cloning and primer design, read alignment, protein structure viewer and lab notebook",
   "scripts": {
     "agent-tools:generate": "pnpm --dir apps/desktop run agent-tools:generate",
     "agent-tools:check": "pnpm --dir apps/desktop run agent-tools:check",

@@ -1,4 +1,9 @@
 import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../../../presentation/PresentationSurface';
+import {
   userMessageWithValues,
   userMessageValue,
   type UserMessage,
@@ -124,6 +129,9 @@ export function CopyTranslationDialog({
   geneticCode = STANDARD_GENETIC_CODE_ID,
   onClose,
 }: CopyTranslationDialogProps) {
+  const presentationOverlay = usePresentationOverlay('modal');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const tooLarge = sequence.length > MAX_TRANSLATION_BP;
   const frames = useMemo(
     () => (tooLarge ? [] : computeSixFrameTranslations(sequence, geneticCode)),
@@ -192,78 +200,87 @@ export function CopyTranslationDialog({
         closeDialog();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [closeDialog]);
+    presentationEvents.add(window, 'keydown', handleKeyDown);
+    return () => presentationEvents.remove(window, 'keydown', handleKeyDown);
+  }, [closeDialog, presentationEvents]);
 
   return (
     <div
+      ref={presentationOverlay.bindRef(undefined, '0')}
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50"
       data-testid="copy-translation-dialog"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) closeDialog();
       }}
     >
-      <div
-        className="bg-bg border border-border rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="copy-translation-dialog-title"
-      >
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <div>
-            <h2 id="copy-translation-dialog-title" className="text-sm font-medium text-fg">
-              Copy Translation
-            </h2>
-            <p className="mt-0.5 text-xs text-fg-muted" data-testid="copy-translation-genetic-code">
-              {label ? `${label} · ` : ''}
-              {`Genetic code ${geneticCodeLabel(geneticCode)}`}
-            </p>
-            {}
-            {nonStandardResidueLegend(geneticCode) ? (
-              <p className="mt-0.5 text-xs text-fg-subtle" data-testid="copy-translation-residues">
-                {nonStandardResidueLegend(geneticCode)}
+      <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+        <div
+          className="bg-bg border border-border rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="copy-translation-dialog-title"
+        >
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <div>
+              <h2 id="copy-translation-dialog-title" className="text-sm font-medium text-fg">
+                Copy Translation
+              </h2>
+              <p
+                className="mt-0.5 text-xs text-fg-muted"
+                data-testid="copy-translation-genetic-code"
+              >
+                {label ? `${label} · ` : ''}
+                {`Genetic code ${geneticCodeLabel(geneticCode)}`}
               </p>
-            ) : null}
+              {}
+              {nonStandardResidueLegend(geneticCode) ? (
+                <p
+                  className="mt-0.5 text-xs text-fg-subtle"
+                  data-testid="copy-translation-residues"
+                >
+                  {nonStandardResidueLegend(geneticCode)}
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={closeDialog}
+              className="px-2 py-1 text-xs text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors"
+              data-testid="copy-translation-dialog-close"
+              aria-label="Close"
+            >
+              Close
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={closeDialog}
-            className="px-2 py-1 text-xs text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors"
-            data-testid="copy-translation-dialog-close"
-            aria-label="Close"
-          >
-            Close
-          </button>
-        </div>
 
-        <div className="overflow-y-auto">
-          {tooLarge ? (
-            <p className="px-4 py-6 text-xs text-fg-muted" data-testid="translation-too-large">
-              Selection is too large to translate ({sequence.length.toLocaleString()} bp). Select up
-              to {MAX_TRANSLATION_BP.toLocaleString()} bp to view its reading frames.
-            </p>
-          ) : (
-            FRAME_STRANDS.map((strand) => (
-              <section key={strand} data-testid={`translation-strand-${strand}`}>
-                <div className="px-4 py-1.5 bg-bg-subtle text-[11px] font-semibold uppercase tracking-wide text-fg-muted sticky top-0">
-                  {STRAND_HEADINGS[strand]}
-                </div>
-                {frames
-                  .filter((frame) => frame.strand === strand)
-                  .map((frame) => (
-                    <FrameRow
-                      key={`${frame.strand}-${frame.frame}`}
-                      frame={frame}
-                      isCopyPending={isCopyPending}
-                      onCopy={handleCopy}
-                    />
-                  ))}
-              </section>
-            ))
-          )}
+          <div className="overflow-y-auto">
+            {tooLarge ? (
+              <p className="px-4 py-6 text-xs text-fg-muted" data-testid="translation-too-large">
+                Selection is too large to translate ({sequence.length.toLocaleString()} bp). Select
+                up to {MAX_TRANSLATION_BP.toLocaleString()} bp to view its reading frames.
+              </p>
+            ) : (
+              FRAME_STRANDS.map((strand) => (
+                <section key={strand} data-testid={`translation-strand-${strand}`}>
+                  <div className="px-4 py-1.5 bg-bg-subtle text-[11px] font-semibold uppercase tracking-wide text-fg-muted sticky top-0">
+                    {STRAND_HEADINGS[strand]}
+                  </div>
+                  {frames
+                    .filter((frame) => frame.strand === strand)
+                    .map((frame) => (
+                      <FrameRow
+                        key={`${frame.strand}-${frame.frame}`}
+                        frame={frame}
+                        isCopyPending={isCopyPending}
+                        onCopy={handleCopy}
+                      />
+                    ))}
+                </section>
+              ))
+            )}
+          </div>
         </div>
-      </div>
+      </PresentationScopeContext.Provider>
     </div>
   );
 }

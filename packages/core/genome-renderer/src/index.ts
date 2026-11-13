@@ -568,6 +568,7 @@ export type {
   TrackLayout,
   TrackLayoutEntry,
   TrackPresentationMetadata,
+  TrackPresentationDrag,
   TrackSizingProfile,
   TrackSource,
   TrackType,

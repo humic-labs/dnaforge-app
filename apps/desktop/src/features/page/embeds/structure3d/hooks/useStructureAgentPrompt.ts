@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../../../presentation/PresentationSurface';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { canOpenSlashAsk } from '../../../../sequence/public/slash-ask/gate';
@@ -19,6 +20,7 @@ interface StructureAgentPromptOptions {
 }
 
 export function useStructureAgentPrompt(options: StructureAgentPromptOptions) {
+  const presentationEvents = usePresentationListener();
   const current = useRef(options);
   current.current = options;
   const opening = useRef(false);
@@ -77,7 +79,7 @@ export function useStructureAgentPrompt(options: StructureAgentPromptOptions) {
         !canOpenSlashAsk({
           isEditMode: false,
           activeElement: doc.activeElement,
-          hasOpenDialog: !!doc.querySelector('[role="dialog"], [aria-modal="true"]'),
+          hasOpenDialog: false,
         })
       )
         return;
@@ -101,13 +103,13 @@ export function useStructureAgentPrompt(options: StructureAgentPromptOptions) {
       void ask();
     };
     root.addEventListener('pointerdown', activate, true);
-    doc.addEventListener('keydown', keydown, true);
+    presentationEvents.add(doc, 'keydown', keydown, true);
     return () => {
       root.removeEventListener('pointerdown', activate, true);
-      doc.removeEventListener('keydown', keydown, true);
+      presentationEvents.remove(doc, 'keydown', keydown, true);
       if (activeViewers.get(doc) === root) activeViewers.delete(doc);
     };
-  }, [options.rootRef, options.enabled, ask]);
+  }, [options.rootRef, options.enabled, ask, presentationEvents]);
 
   return { ask, busy, error };
 }

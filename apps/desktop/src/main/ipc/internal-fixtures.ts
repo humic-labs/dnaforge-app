@@ -13,11 +13,26 @@ import type {
   InternalAssemblyFixtureStatusResult,
 } from '../../shared/internal-fixtures';
 import { internalFixturesContract } from '../../shared/ipc/internal-fixtures.contract';
+import { isDisposableScenarioProfileAuthorized } from '../scenario-profile';
+import { isScenarioMutationRequested } from '../../shared/scenario-mutation';
+import { registerScenarioFixtureFiles } from '../scenario-fixture-files';
+import { withDeclaredWorkspaceMutation } from '../workspace-sync-mutation-lease';
+import { getDb } from './database';
+import { withSafeWritablePath } from './path-allowlist';
 
 declare const __INTERNAL_FIXTURES_ENABLED__: boolean | undefined;
 
 const INTERNAL_FIXTURES_ENABLED =
   typeof __INTERNAL_FIXTURES_ENABLED__ === 'boolean' && __INTERNAL_FIXTURES_ENABLED__;
+
+function scenarioFixtureWritesAllowed(): boolean {
+  return (
+    INTERNAL_FIXTURES_ENABLED &&
+    !app.isPackaged &&
+    isScenarioMutationRequested(process.argv, process.env) &&
+    isDisposableScenarioProfileAuthorized(app.getPath('userData'))
+  );
+}
 
 export function registerInternalFixtureHandlers(): void {
   handleGroup(internalFixturesContract, {
@@ -52,6 +67,20 @@ export function registerInternalFixtureHandlers(): void {
       });
       registerSelectedLocalIndexedTrackPaths([path]);
       return { path };
+    },
+    registerScenarioFiles: async (_event, request) => {
+      if (!scenarioFixtureWritesAllowed())
+        throw new Error(
+          'Registering scenario files requires an approved disposable scenario profile.'
+        );
+      return withSafeWritablePath(
+        request.workspaceRoot,
+        (workspaceRoot) =>
+          withDeclaredWorkspaceMutation(getDb(), workspaceRoot, [workspaceRoot], () =>
+            registerScenarioFixtureFiles({ db: getDb(), workspaceRoot, files: request.files })
+          ),
+        { requireAbsolute: true }
+      );
     },
     materialize: async (
       _event,

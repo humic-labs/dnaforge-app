@@ -817,27 +817,34 @@ setInterval(() => {}, 1000);
       healthCheckIntervalMs: 0,
     });
     cleanup.push(() => runtime.stopAll());
-    const originalLease = await runtime.connect(request);
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const originalLease = await runtime.connect(request);
 
-    provider.emitClosed(first.materialization.sessionId);
-    await vi.waitFor(() => expect(connect).toHaveBeenCalledTimes(2));
+      provider.emitClosed(first.materialization.sessionId);
+      await vi.waitFor(() => expect(connect).toHaveBeenCalledTimes(2));
 
-    await expect(runtime.connect(request)).rejects.toThrow(
-      'Connection to cluster-a is taking too long'
-    );
-    expect(runtime.listStatuses()).toEqual([
-      expect.objectContaining({ state: 'retrying', transportGeneration: 1 }),
-    ]);
+      const joining = expect(runtime.connect(request)).rejects.toThrow(
+        'Connection to cluster-a is taking too long'
+      );
+      await vi.advanceTimersByTimeAsync(30);
+      await joining;
+      expect(runtime.listStatuses()).toEqual([
+        expect.objectContaining({ state: 'retrying', transportGeneration: 1 }),
+      ]);
 
-    replacement.resolve(recovered.materialization);
-    await vi.waitFor(() =>
-      expect(runtime.listStatuses()[0]).toMatchObject({
-        state: 'online',
-        transportGeneration: 2,
-      })
-    );
-    await expect(fetchText(originalLease.bamUrl)).resolves.toBe('recovered-generation');
-    expect(connect).toHaveBeenCalledTimes(2);
+      replacement.resolve(recovered.materialization);
+      await vi.waitFor(() =>
+        expect(runtime.listStatuses()[0]).toMatchObject({
+          state: 'online',
+          transportGeneration: 2,
+        })
+      );
+      await expect(fetchText(originalLease.bamUrl)).resolves.toBe('recovered-generation');
+      expect(connect).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('holds an established source at authentication failure until Retry is clicked', async () => {

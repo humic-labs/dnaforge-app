@@ -17,6 +17,7 @@ type RecoveryOptions = { nativeOwnerInstanceId: string; profileKey: string; owne
 
 const mocks = vi.hoisted(() => ({
   handlers: new Map<string, Handler>(),
+  registeredRoots: [] as string[],
   owners: [] as OwnerOptions[],
   recoveries: [] as Array<{
     options: RecoveryOptions;
@@ -40,6 +41,31 @@ const mocks = vi.hoisted(() => ({
   createBarrier: vi.fn(),
   fetch: vi.fn(),
   flush: vi.fn(async () => {}),
+}));
+
+vi.mock('../registered-project-authority', () => ({
+  withAgentProjectScope: (_scope: unknown, operation: () => unknown) => operation(),
+  createRegisteredProjectAuthority: () => {
+    const list = () =>
+      mocks.registeredRoots.map((path) => ({
+        id: 1,
+        projectId: 'project-alpha',
+        name: 'Alpha',
+        path,
+        accessMode: 'writable',
+        pinned: false,
+      }));
+    return {
+      list,
+      resolve: (reference: string) =>
+        list().find((project) => project.path === reference || project.projectId === reference) ??
+        null,
+      capture: (projectId: string) => () => {
+        if (!list().some((project) => project.projectId === projectId))
+          throw new Error('PROJECT_ACCESS_CHANGED: The registered project authority changed.');
+      },
+    };
+  },
 }));
 
 vi.mock('../file-document-client-sync', () => ({
@@ -143,6 +169,7 @@ function owner(): OwnerOptions {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.handlers.clear();
+  mocks.registeredRoots.length = 0;
   mocks.owners.length = 0;
   mocks.recoveries.length = 0;
   mocks.authority.value = AUTHORITY;
@@ -203,14 +230,16 @@ describe('native documents main feature', () => {
   it('requests startup recovery at start when workspaces are already enrolled', async () => {
     const documents = createNativeDocuments();
     documents.bindProfile('/user-data');
+    mocks.registeredRoots.push(ROOT);
     await documents.workspaces.replaceRoots([ROOT]);
     await documents.start({ editingClient: 'none', canAssertNoEditingClient: () => true });
     expect(mocks.recoveries[0]?.request).toHaveBeenCalledTimes(1);
   });
 
-  it('protects a renderer edit with the renderer barrier and the workspace enrollment', async () => {
+  it('protects a renderer edit with registered project authority independently of display', async () => {
     const { documents, start } = started('renderer');
     await start;
+    mocks.registeredRoots.push(ROOT);
     await documents.workspaces.replaceRoots([ROOT]);
 
     await expect(owner().prepare('action-1', DOCUMENT)).rejects.toThrow(
@@ -228,8 +257,10 @@ describe('native documents main feature', () => {
     barrier.assertCurrent();
     expect(mocks.barrier.assertCurrent).toHaveBeenCalledTimes(1);
     await documents.workspaces.replaceRoots([]);
+    expect(() => barrier.assertCurrent()).not.toThrow();
+    mocks.registeredRoots.length = 0;
     expect(() => barrier.assertCurrent()).toThrow(
-      'The document workspace enrollment changed before publication.'
+      'PROJECT_ACCESS_CHANGED: The registered project authority changed.'
     );
   });
 
@@ -237,6 +268,7 @@ describe('native documents main feature', () => {
     let noEditingClient = false;
     const { documents, start } = started('none', () => noEditingClient);
     await start;
+    mocks.registeredRoots.push(ROOT);
     await documents.workspaces.replaceRoots([ROOT]);
 
     await expect(owner().prepare('action-1', DOCUMENT)).rejects.toThrow(
@@ -275,6 +307,7 @@ describe('native documents main feature', () => {
     );
     expect(documents.workspaces.roots()).toEqual([]);
 
+    mocks.registeredRoots.push(ROOT);
     await expect(handler(event, trusted('current'))).resolves.toBe(true);
     expect(documents.workspaces.roots()).toEqual([ROOT]);
     expect(mocks.recoveries[0]?.request).toHaveBeenCalledTimes(1);

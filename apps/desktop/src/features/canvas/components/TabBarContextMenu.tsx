@@ -1,3 +1,8 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../../../presentation/PresentationSurface';
 import { useEffect, useRef, useState } from 'react';
 import { useCanvasStore } from '../store';
 import { useTabMenuPanels } from '../tab-menu-presentation';
@@ -10,6 +15,9 @@ interface TabBarContextMenuProps {
 }
 
 export function TabBarContextMenu({ position, panelId, onClose }: TabBarContextMenuProps) {
+  const presentationOverlay = usePresentationOverlay('keyboard');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const menuRef = useRef<HTMLDivElement>(null);
   const submenuRef = useRef<HTMLDivElement>(null);
   const [showSubmenu, setShowSubmenu] = useState(false);
@@ -38,7 +46,7 @@ export function TabBarContextMenu({ position, panelId, onClose }: TabBarContextM
 
     const timer = setTimeout(() => {
       document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleEscape);
+      presentationEvents.add(document, 'keydown', handleEscape);
       listenersAdded = true;
     }, 0);
 
@@ -46,10 +54,10 @@ export function TabBarContextMenu({ position, panelId, onClose }: TabBarContextM
       clearTimeout(timer);
       if (listenersAdded) {
         document.removeEventListener('mousedown', handleClickOutside);
-        document.removeEventListener('keydown', handleEscape);
+        presentationEvents.remove(document, 'keydown', handleEscape);
       }
     };
-  }, [onClose]);
+  }, [onClose, presentationEvents]);
 
   const handleMerge = (targetPanelId: string) => {
     mergePanels(panelId, targetPanelId);
@@ -70,7 +78,8 @@ export function TabBarContextMenu({ position, panelId, onClose }: TabBarContextM
 
   return (
     <div
-      ref={menuRef}
+      ref={presentationOverlay.bindRef(menuRef, 'main')}
+      role="menu"
       className="fixed z-50 min-w-[180px] py-1 bg-bg border border-border rounded-md shadow-lg"
       style={{
         left: adjustedX,
@@ -113,22 +122,24 @@ export function TabBarContextMenu({ position, panelId, onClose }: TabBarContextM
         </button>
 
         {showSubmenu && hasOtherPanels && (
-          <div
-            ref={submenuRef}
-            role="menu"
-            onPointerEnter={menuAim.cancelPendingActivation}
-            className="absolute top-0 left-full -ml-px min-w-[160px] py-1 bg-bg border border-border rounded-md shadow-lg"
-          >
-            {otherPanels.map(([id, panel]) => (
-              <button
-                key={id}
-                onClick={() => handleMerge(id)}
-                className="w-full flex items-center px-3 py-1.5 text-xs text-left text-fg hover:bg-bg-subtle transition-colors"
-              >
-                <span className="truncate">{getPanelLabel(panel)}</span>
-              </button>
-            ))}
-          </div>
+          <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+            <div
+              ref={presentationOverlay.bindRef(submenuRef, '0')}
+              role="menu"
+              onPointerEnter={menuAim.cancelPendingActivation}
+              className="absolute top-0 left-full -ml-px min-w-[160px] py-1 bg-bg border border-border rounded-md shadow-lg"
+            >
+              {otherPanels.map(([id, panel]) => (
+                <button
+                  key={id}
+                  onClick={() => handleMerge(id)}
+                  className="w-full flex items-center px-3 py-1.5 text-xs text-left text-fg hover:bg-bg-subtle transition-colors"
+                >
+                  <span className="truncate">{getPanelLabel(panel)}</span>
+                </button>
+              ))}
+            </div>
+          </PresentationScopeContext.Provider>
         )}
       </div>
     </div>

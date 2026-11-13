@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { DEFAULT_COMMAND_BINDINGS } from './defaultBindings';
 import { registerMountedCommandRegistry } from './mounted-command-registry';
+import { presentationAllows, presentationOwner } from '../presentation/ownership';
 import {
   createCommandResult,
   isCommandBlockedByScope,
@@ -18,6 +19,7 @@ import {
   resolveCommandHandler,
 } from './commandRegistry';
 import {
+  DOCUMENT_COMMAND_SCOPES,
   FOCUS_COMMAND_SCOPES,
   COMMAND_SCOPES,
   type CommandContext,
@@ -65,20 +67,27 @@ function publishDebugState(getDebugState: () => CommandSystemDebugState): void {
 
 export function CommandScopeProvider({ children }: CommandScopeProviderProps) {
   const handlersRef = useRef(new Map<string, CommandHandlerRegistration>());
-  const scopeClaimsRef = useRef(new Map<CommandScope, Set<string>>());
+  const scopeClaimsRef = useRef(new Map<CommandScope, Map<string, string>>());
   const lastCommandRef = useRef<CommandDispatchResult | null>(null);
   const keyboardListenerAttachedRef = useRef(false);
   const keyboardEventCountRef = useRef(0);
   const lastKeyboardEventRef = useRef<CommandSystemDebugState['lastKeyboardEvent']>(null);
 
-  const getActiveScopes = useCallback((): Set<CommandScope> => {
+  const getActiveScopes = useCallback((event?: KeyboardEvent): Set<CommandScope> => {
     const active = new Set<CommandScope>([COMMAND_SCOPES.appGlobal]);
 
-    if (document.querySelector('[aria-modal="true"]')) {
-      active.add(COMMAND_SCOPES.modal);
+    const presentation = presentationOwner.getSnapshot(event);
+    for (const id of presentation.overlays) {
+      if (!presentationAllows(presentation, id, 'presentation')) continue;
+      active.add(
+        presentation.surfaces[id].capture === 'modal'
+          ? COMMAND_SCOPES.modal
+          : COMMAND_SCOPES.menuContext
+      );
     }
     for (const [scope, owners] of scopeClaimsRef.current) {
-      if (owners.size > 0) active.add(scope);
+      if ([...owners.values()].some((id) => presentationAllows(presentation, id, 'keyboard')))
+        active.add(scope);
     }
     return active;
   }, []);
@@ -94,17 +103,18 @@ export function CommandScopeProvider({ children }: CommandScopeProviderProps) {
     [getActiveScopes]
   );
 
-  const claimScope = useCallback((scope: CommandScope, ownerId: string) => {
-    if (FOCUS_COMMAND_SCOPES.has(scope)) {
+  const claimScope = useCallback((scope: CommandScope, ownerId: string, surfaceId = 'window') => {
+    if (FOCUS_COMMAND_SCOPES.has(scope) && presentationOwner.allows(surfaceId, 'keyboard')) {
       for (const claimedScope of scopeClaimsRef.current.keys()) {
-        if (claimedScope !== scope && FOCUS_COMMAND_SCOPES.has(claimedScope)) {
-          scopeClaimsRef.current.delete(claimedScope);
-        }
+        if (claimedScope === scope || !FOCUS_COMMAND_SCOPES.has(claimedScope)) continue;
+        if (DOCUMENT_COMMAND_SCOPES.has(claimedScope) && !DOCUMENT_COMMAND_SCOPES.has(scope))
+          continue;
+        scopeClaimsRef.current.delete(claimedScope);
       }
     }
 
-    const owners = scopeClaimsRef.current.get(scope) ?? new Set<string>();
-    owners.add(ownerId);
+    const owners = scopeClaimsRef.current.get(scope) ?? new Map<string, string>();
+    owners.set(ownerId, surfaceId);
     scopeClaimsRef.current.set(scope, owners);
   }, []);
 
@@ -134,9 +144,17 @@ export function CommandScopeProvider({ children }: CommandScopeProviderProps) {
       command: CommandId,
       context: Partial<CommandContext<Payload>> = {}
     ): CommandDispatchResult => {
-      const activeScopes = getActiveScopes();
       const source = context.source ?? 'ui';
-      const registrations = Array.from(handlersRef.current.values());
+      const event = source === 'keyboard' ? context.event : undefined;
+      const activeScopes = getActiveScopes(event);
+      const registrations = Array.from(handlersRef.current.values()).filter((registration) =>
+        event
+          ? presentationOwner.allowsEvent(registration.surfaceId ?? 'window', 'keyboard', event)
+          : presentationOwner.allows(
+              registration.surfaceId ?? 'window',
+              source === 'ui' ? 'presentation' : 'keyboard'
+            )
+      );
       const handler = resolveCommandHandler(command, registrations, activeScopes);
       const bypassBlockingScopes = new Set(context.bypassBlockingScopes ?? []);
       const blocked =

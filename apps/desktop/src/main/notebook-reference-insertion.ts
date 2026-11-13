@@ -81,6 +81,8 @@ export async function prepareNotebookReferenceInsertion(
     block: { type: 'paragraph', content: [notebookReferenceFromHref(href, label)!] },
     verify: async () => {
       scope.assertCurrent();
+      if (operation.documentReference)
+        await prepareNotebookReferenceInsertion(db, scope, operation);
       if (reference) {
         const current = db
           .prepare('SELECT * FROM entity_references WHERE id=?')

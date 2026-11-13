@@ -1,4 +1,5 @@
-'use client';
+import { usePresentationListener } from '../../../../../presentation/PresentationSurface';
+('use client');
 
 import { toUserMessage } from '@waypoint/user-messages';
 import { useEffect, useState, useRef, type RefObject } from 'react';
@@ -30,6 +31,8 @@ export function SelectionsDrawer({
   triggerRef,
   layout = 'bar',
 }: SelectionsDrawerProps) {
+  const presentationEvents = usePresentationListener();
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
@@ -68,7 +71,7 @@ export function SelectionsDrawer({
         safeFocus(triggerRef.current?.querySelector<HTMLButtonElement>('button'))
       );
     };
-    document.addEventListener('keydown', handleEscape);
+    presentationEvents.add(document, 'keydown', handleEscape);
 
     const timer = setTimeout(() => {
       document.addEventListener('mousedown', handleClickOutside);
@@ -77,9 +80,9 @@ export function SelectionsDrawer({
     return () => {
       clearTimeout(timer);
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
+      presentationEvents.remove(document, 'keydown', handleEscape);
     };
-  }, [isOpen, onClose, triggerRef]);
+  }, [isOpen, onClose, triggerRef, presentationEvents]);
 
   useEffect(() => {
     if (!isOpen) {

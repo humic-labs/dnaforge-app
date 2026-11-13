@@ -20,7 +20,6 @@ import type { OpenWorkspaceOptions, WorkspaceSource } from '../features/workspac
 import type { TabType } from '../features/canvas/types';
 import type { FileActivationDelivery } from '../shared/file-association-ipc';
 import type { UseWorkspaceReturn } from './useWorkspace';
-import type { WorkspaceLibraryEntry } from '../features/workspace-loader/workspace-library';
 import type { WorkspaceLibraryState } from './useWorkspaceLibrary';
 import { confirmDialog, promptDialog } from '../components/confirm-dialog-store';
 import { useWorkspaceStore } from '../stores/workspaceStore';
@@ -61,6 +60,7 @@ import {
   listWorkspaceLibrary,
   renameWorkspaceByPath,
   trashWorkspaceByPath,
+  type WorkspaceLibraryEntry,
 } from '../features/workspace-loader/workspace-library';
 import { renameProject } from '../features/workspace-loader/rename-project';
 import { registerWorkspaceProjectControl } from '../features/workspace-loader/workspace-project-control';

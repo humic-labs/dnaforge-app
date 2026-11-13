@@ -65,6 +65,17 @@ export const INTERNAL_ASSEMBLY_FIXTURE_PRESETS: InternalAssemblyFixturePresetDef
   },
 ];
 
+export interface ScenarioFixtureFile {
+  relativePath: string;
+  name: string;
+  fileKind: 'genbank' | 'snapgene' | 'fasta';
+}
+
+export interface RegisterScenarioFixtureFilesRequest {
+  workspaceRoot: string;
+  files: ScenarioFixtureFile[];
+}
+
 export interface InternalAssemblyFixtureMaterializeRequest {
   preset: InternalAssemblyFixturePreset;
   forceRecompute?: boolean;

@@ -106,9 +106,7 @@ describe('ReadonlyPlasmidViewer', () => {
     expect(plasmid.circular).toBe(true);
     expect(readonlyViewer().getAttribute('data-view')).toBe('stadium');
     expect(
-      container.querySelector(
-        'svg[role="img"][aria-label="Stadium annotation map for SYNPUC19CV"]'
-      )
+      container.querySelector('svg[role="img"][aria-label="Stadium annotation map for SYNPUC19CV"]')
     ).toBeTruthy();
     expect(container.textContent).toContain('2,686 bp · circular');
 

@@ -1,3 +1,8 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../../presentation/PresentationSurface';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { useEffect, useRef, useState } from 'react';
 import { useToastStore } from '../../stores/toast-store';
@@ -23,6 +28,9 @@ export function SequenceRegistrationSection({
   length,
   readOnly = false,
 }: SequenceRegistrationSectionProps) {
+  const presentationOverlay = usePresentationOverlay('keyboard');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const { status, error } = useLimsRegistrationBadge(documentId, sourcePath);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [registering, setRegistering] = useState(false);
@@ -43,12 +51,12 @@ export function SequenceRegistrationSection({
       if (event.key === 'Escape') setPickerOpen(false);
     };
     window.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('keydown', onKeyDown);
+    presentationEvents.add(window, 'keydown', onKeyDown);
     return () => {
       window.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('keydown', onKeyDown);
+      presentationEvents.remove(window, 'keydown', onKeyDown);
     };
-  }, [pickerOpen]);
+  }, [pickerOpen, presentationEvents]);
 
   useEffect(() => {
     if (!canRegister) setPickerOpen(false);
@@ -112,27 +120,30 @@ export function SequenceRegistrationSection({
             {registering ? 'Registering…' : 'Register'}
           </button>
           {pickerOpen && (
-            <div
-              role="menu"
-              data-testid="lims-registration-kind-picker"
-              className="absolute left-0 top-8 z-50 w-44 rounded border border-border bg-bg p-1 shadow-lg"
-            >
-              {options.map((option) => (
-                <button
-                  key={option.kind}
-                  type="button"
-                  role="menuitem"
-                  data-testid={`lims-registration-kind-${option.kind}`}
-                  title={option.title}
-                  disabled={option.disabled}
-                  onClick={() => void register(option.kind)}
-                  className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-[11px] text-fg hover:bg-bg-muted focus:bg-bg-muted focus:outline-none disabled:cursor-not-allowed disabled:text-fg-subtle"
-                >
-                  <span>{option.label}</span>
-                  {option.disabled && <span title={option.disabledReason}>Unavailable</span>}
-                </button>
-              ))}
-            </div>
+            <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+              <div
+                role="menu"
+                data-testid="lims-registration-kind-picker"
+                className="absolute left-0 top-8 z-50 w-44 rounded border border-border bg-bg p-1 shadow-lg"
+                ref={presentationOverlay.bindRef(undefined, '0')}
+              >
+                {options.map((option) => (
+                  <button
+                    key={option.kind}
+                    type="button"
+                    role="menuitem"
+                    data-testid={`lims-registration-kind-${option.kind}`}
+                    title={option.title}
+                    disabled={option.disabled}
+                    onClick={() => void register(option.kind)}
+                    className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-[11px] text-fg hover:bg-bg-muted focus:bg-bg-muted focus:outline-none disabled:cursor-not-allowed disabled:text-fg-subtle"
+                  >
+                    <span>{option.label}</span>
+                    {option.disabled && <span title={option.disabledReason}>Unavailable</span>}
+                  </button>
+                ))}
+              </div>
+            </PresentationScopeContext.Provider>
           )}
         </div>
       )}

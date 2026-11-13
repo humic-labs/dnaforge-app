@@ -1,3 +1,4 @@
+import { inputTargetAllows, subscribeInputRevocation } from '@waypoint/platform/input-ownership';
 import { WheelMotion, shouldAnimateWheel } from '@waypoint/platform/wheel-motion';
 
 export function installAnimatedWheelScroll(
@@ -47,7 +48,9 @@ export function installAnimatedWheelScroll(
     if (container.scrollTop !== previous) paintViewport();
     if (motion.pending) raf = window.requestAnimationFrame(step);
   };
+  const disposeOwnership = subscribeInputRevocation(container, cancel);
   const onWheel = (event: WheelEvent) => {
+    if (!inputTargetAllows(container, 'pointer')) return;
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey) {
       cancel();
       return;
@@ -83,6 +86,7 @@ export function installAnimatedWheelScroll(
   return {
     cancel,
     dispose: () => {
+      disposeOwnership();
       cancel();
       container.removeEventListener('wheel', onWheel);
       window.removeEventListener('wheel', onModifiedWheel, { capture: true });

@@ -266,6 +266,39 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
       .__tileEnginePublishedFeedSnapshot;
   });
 
+  it('starts a restored stationary read lane when its pane gets its first width', async () => {
+    const renderer = fakeRenderer();
+    const range = { start: 100_000, end: 102_000 };
+    const assembly = rendererAssembly();
+    const datasets = [pileupDataset({ bamPath: '/fixtures/restored-pane.bam' })];
+    const webglRef = {
+      current: {
+        getLinearRenderer: () => renderer,
+        getViewportRange: () => range,
+        requestRender: vi.fn(),
+      },
+    };
+    const { result, rerender } = renderHook(
+      ({ width }: { width: number }) =>
+        useIndexedPileupStreaming({
+          webglRef,
+          rendererAssembly: assembly,
+          containerWidth: width,
+          activeStressDatasets: datasets,
+        }),
+      { initialProps: { width: 0 } }
+    );
+    act(() => {
+      result.current.noteLaneContractWired(renderer, range, [datasets[0].trackId]);
+      expect(result.current.streamPileupViaTileEngine(range)).toBe(false);
+    });
+    expect(driverMock.instances).toHaveLength(0);
+
+    rerender({ width: 286 });
+    await waitFor(() => expect(driverMock.instances).toHaveLength(1));
+    expect(driverMock.instances[0]?.setViewport).toHaveBeenLastCalledWith(range, 572, 286);
+  });
+
   it('replans a stationary read viewport when its pane expands without another camera gesture', async () => {
     const renderer = fakeRenderer();
     const range = { start: 100_000, end: 102_000 };

@@ -1,3 +1,8 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../../presentation/PresentationSurface';
 import { toUserMessage, userMessageWithValues, userMessageValue } from '@waypoint/user-messages';
 import { SchemaOriginBadge } from '../../shared/components/SchemaOriginBadge';
 import { Button, UI_CARD_CLASS } from '../../components/ui';
@@ -24,6 +29,9 @@ interface EntityCreationHostProps {
 }
 
 export function EntityCreationHost({ onOpenRegistryEntity }: EntityCreationHostProps = {}) {
+  const presentationOverlay = usePresentationOverlay('modal');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const request = useEntityCreationStore((state) => state.request);
   const close = useEntityCreationStore((state) => state.close);
   const folders = useWorkspaceStore((state) => state.folders);
@@ -96,9 +104,9 @@ export function EntityCreationHost({ onOpenRegistryEntity }: EntityCreationHostP
       event.preventDefault();
       close();
     };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [close, request]);
+    presentationEvents.add(document, 'keydown', handleKeyDown);
+    return () => presentationEvents.remove(document, 'keydown', handleKeyDown);
+  }, [close, request, presentationEvents]);
 
   if (!request || (request.entityType !== 'strains' && request.entityType !== 'registry-types')) {
     return null;
@@ -155,112 +163,117 @@ export function EntityCreationHost({ onOpenRegistryEntity }: EntityCreationHostP
 
   return (
     <div
+      ref={presentationOverlay.bindRef(undefined, '0')}
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
       data-testid="entity-creation-backdrop"
       onMouseDown={close}
     >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="entity-creation-title"
-        data-testid="entity-creation-dialog"
-        className="mx-4 flex max-h-[calc(100vh-48px)] w-full max-w-xl flex-col overflow-hidden rounded-lg border border-border bg-bg shadow-xl"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="border-b border-border px-4 py-3">
-          <h2 id="entity-creation-title" className="text-sm font-semibold text-fg">
-            {title}
-          </h2>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col">
-          {pendingProjection ? (
-            <div className="space-y-3 p-4" data-testid="entity-projection-recovery">
-              <p>Your record file is saved. Retry Registry to finish registration.</p>
-              <p role="alert" className="text-sm text-error">
-                {toUserMessage(pendingProjection.error, 'operation.failed')}
-              </p>
-              <button
-                type="button"
-                disabled={retrying}
-                onClick={async () => {
-                  setRetrying(true);
-                  try {
-                    await handleSave(pendingProjection.input);
-                  } catch (error) {
-                    if (useEntityCreationStore.getState().request === request) {
-                      setPendingProjection({
-                        ...pendingProjection,
-                        error: toUserMessage(error, 'failure.registry-retry-failed'),
-                      });
-                    }
-                  } finally {
-                    if (useEntityCreationStore.getState().request === request) setRetrying(false);
-                  }
-                }}
-                className="rounded border border-border px-3 py-2 text-sm"
-              >
-                {retrying ? 'Retrying…' : 'Retry Registry'}
-              </button>
-            </div>
-          ) : !owner ? (
-            <div role="alert" className="p-4 text-sm text-error">
-              Choose a folder inside an open project before creating this item.
-            </div>
-          ) : request.entityType === 'strains' ? (
-            <StrainCreationForm
-              workspaceRoot={owner.path}
-              initialSaveDir={request.destinationPath}
-              onSave={handleSave}
-              onCancel={close}
-            />
-          ) : schemasLoading ? (
-            <p role="status" className="p-4 text-sm text-fg-muted">
-              Loading schemas…
-            </p>
-          ) : schemaError ? (
-            <div role="alert" className="space-y-3 p-4 text-sm">
-              <p>{toUserMessage(schemaError, 'operation.failed')}</p>
-              <Button onClick={() => setSchemaReload((value) => value + 1)}>Retry schemas</Button>
-            </div>
-          ) : selectedSchema ? (
-            <SchemaEntityCreationForm
-              key={`${selectedSchema.schemaId}:${selectedSchema.currentRevisionId}`}
-              schema={selectedSchema}
-              workspaceRoot={owner.path}
-              initialSaveDir={request.destinationPath}
-              onBack={() => setSelectedSchemaId(null)}
-              onSave={handleSave}
-              onCancel={close}
-            />
-          ) : (
-            <div
-              data-testid="schema-entity-type-picker"
-              className="grid min-h-0 flex-1 grid-cols-2 gap-2 overflow-y-auto p-4"
-            >
-              {genericSchemas.length === 0 ? (
-                <p className="col-span-2 text-sm text-fg-muted">No record schemas are available.</p>
-              ) : null}
-              {genericSchemas.map((schema) => (
+      <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="entity-creation-title"
+          data-testid="entity-creation-dialog"
+          className="mx-4 flex max-h-[calc(100vh-48px)] w-full max-w-xl flex-col overflow-hidden rounded-lg border border-border bg-bg shadow-xl"
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <div className="border-b border-border px-4 py-3">
+            <h2 id="entity-creation-title" className="text-sm font-semibold text-fg">
+              {title}
+            </h2>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col">
+            {pendingProjection ? (
+              <div className="space-y-3 p-4" data-testid="entity-projection-recovery">
+                <p>Your record file is saved. Retry Registry to finish registration.</p>
+                <p role="alert" className="text-sm text-error">
+                  {toUserMessage(pendingProjection.error, 'operation.failed')}
+                </p>
                 <button
-                  key={schema.schemaId}
                   type="button"
-                  data-testid={`schema-entity-type-${schema.entityKind}`}
-                  onClick={() => setSelectedSchemaId(schema.schemaId)}
-                  className={`${UI_CARD_CLASS} text-left hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40`}
+                  disabled={retrying}
+                  onClick={async () => {
+                    setRetrying(true);
+                    try {
+                      await handleSave(pendingProjection.input);
+                    } catch (error) {
+                      if (useEntityCreationStore.getState().request === request) {
+                        setPendingProjection({
+                          ...pendingProjection,
+                          error: toUserMessage(error, 'failure.registry-retry-failed'),
+                        });
+                      }
+                    } finally {
+                      if (useEntityCreationStore.getState().request === request) setRetrying(false);
+                    }
+                  }}
+                  className="rounded border border-border px-3 py-2 text-sm"
                 >
-                  <span className="flex items-center gap-2 text-sm font-medium text-fg">
-                    <span>{schema.displayName}</span>
-                    <SchemaOriginBadge builtin={schema.builtin} />
-                  </span>
-                  <span className="mt-1 block text-xs leading-snug text-fg-muted">
-                    {schema.description}
-                  </span>
+                  {retrying ? 'Retrying…' : 'Retry Registry'}
                 </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+              </div>
+            ) : !owner ? (
+              <div role="alert" className="p-4 text-sm text-error">
+                Choose a folder inside an open project before creating this item.
+              </div>
+            ) : request.entityType === 'strains' ? (
+              <StrainCreationForm
+                workspaceRoot={owner.path}
+                initialSaveDir={request.destinationPath}
+                onSave={handleSave}
+                onCancel={close}
+              />
+            ) : schemasLoading ? (
+              <p role="status" className="p-4 text-sm text-fg-muted">
+                Loading schemas…
+              </p>
+            ) : schemaError ? (
+              <div role="alert" className="space-y-3 p-4 text-sm">
+                <p>{toUserMessage(schemaError, 'operation.failed')}</p>
+                <Button onClick={() => setSchemaReload((value) => value + 1)}>Retry schemas</Button>
+              </div>
+            ) : selectedSchema ? (
+              <SchemaEntityCreationForm
+                key={`${selectedSchema.schemaId}:${selectedSchema.currentRevisionId}`}
+                schema={selectedSchema}
+                workspaceRoot={owner.path}
+                initialSaveDir={request.destinationPath}
+                onBack={() => setSelectedSchemaId(null)}
+                onSave={handleSave}
+                onCancel={close}
+              />
+            ) : (
+              <div
+                data-testid="schema-entity-type-picker"
+                className="grid min-h-0 flex-1 grid-cols-2 gap-2 overflow-y-auto p-4"
+              >
+                {genericSchemas.length === 0 ? (
+                  <p className="col-span-2 text-sm text-fg-muted">
+                    No record schemas are available.
+                  </p>
+                ) : null}
+                {genericSchemas.map((schema) => (
+                  <button
+                    key={schema.schemaId}
+                    type="button"
+                    data-testid={`schema-entity-type-${schema.entityKind}`}
+                    onClick={() => setSelectedSchemaId(schema.schemaId)}
+                    className={`${UI_CARD_CLASS} text-left hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40`}
+                  >
+                    <span className="flex items-center gap-2 text-sm font-medium text-fg">
+                      <span>{schema.displayName}</span>
+                      <SchemaOriginBadge builtin={schema.builtin} />
+                    </span>
+                    <span className="mt-1 block text-xs leading-snug text-fg-muted">
+                      {schema.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      </PresentationScopeContext.Provider>
     </div>
   );
 }

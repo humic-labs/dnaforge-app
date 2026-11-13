@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../presentation/PresentationSurface';
 import { Button } from './ui';
 import { dispatchWorkspaceFileRelocated } from '../features/workspace/relocate-registry-file';
 import { getWorkspaceProjectControl } from '../features/workspace-loader/workspace-project-control';
@@ -45,6 +46,8 @@ export function ProjectSwitcherPopover({
   onImportProject,
   onCreateProject,
 }: ProjectSwitcherPopoverProps) {
+  const presentationEvents = usePresentationListener();
+
   const ref = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<WorkspaceLibraryEntry[]>([]);
   const [archived, setArchived] = useState<WorkspaceLibraryEntry[]>([]);
@@ -108,12 +111,12 @@ export function ProjectSwitcherPopover({
       if (event.key === 'Escape') onClose();
     };
     document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
+    presentationEvents.add(document, 'keydown', handleKeyDown);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
+      presentationEvents.remove(document, 'keydown', handleKeyDown);
     };
-  }, [onClose]);
+  }, [onClose, presentationEvents]);
 
   const filteredActive = useMemo(() => filterProjects(active, query), [active, query]);
   const filteredArchived = useMemo(() => filterProjects(archived, query), [archived, query]);

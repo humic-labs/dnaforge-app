@@ -1,6 +1,11 @@
 import {
+  MAX_SEQUENCE_WINDOW_BASES,
+  sequenceWindowRequestIssue,
+} from '../../shared/genome-sequence-window';
+import {
   createAnnotationViewportTile,
   createFeatureTrackTile,
+  estimateFeatureBytes,
   validateAnnotationViewportTileRequest,
 } from '../../shared/genome-annotation-tiles';
 import { compiledBroadRasterCellToWireV1 } from '../../shared/compiled-broad-raster-wire';
@@ -178,7 +183,6 @@ import {
   ASSEMBLY_SEQUENCE_SEARCH_MAX_CONCURRENCY,
   searchAssemblySequence,
 } from './assembly-sequence-search';
-import { estimateFeatureBytes } from './genome-annotation-tile-budget';
 import {
   GenomeDataWorkerThreadSource,
   getGenomeDataWorkerThreadStats,
@@ -475,7 +479,6 @@ const genomeRendererLifecycle = new GenomeRendererLifecycle((ownerId) => {
   assemblyAnnotationSceneResourceRegistry.releaseOwner(ownerId);
   compiledBroadRasterCatalogCapabilities.releaseOwner(ownerId);
 });
-const MAX_SEQUENCE_WINDOW_BASES = 512 * 1024;
 const MAX_RECENT_DEBUG_REQUESTS = 80;
 const ASSEMBLY_SEQUENCE_SEARCH_BLOCK_SIZE = 1024 * 1024;
 const ASSEMBLY_SEQUENCE_SEARCH_CHUNK_SIZE = 16 * 1024 * 1024;
@@ -2183,19 +2186,17 @@ async function getGenomeSequenceWindow(
     if (!request || typeof request.chrom !== 'string' || request.chrom.trim().length === 0) {
       throw new Error('[genome] Sequence window chrom is required.');
     }
-    if (!Number.isFinite(request.start) || !Number.isFinite(request.end)) {
-      throw new Error('[genome] Sequence window start/end must be finite.');
-    }
-    if (!Number.isFinite(request.generation)) {
-      throw new Error('[genome] Sequence window generation must be finite.');
-    }
-    if (request.start < 0 || request.end < request.start) {
-      throw new Error(`[genome] Invalid sequence window range: ${request.start}-${request.end}`);
-    }
-    if (request.end - request.start > MAX_SEQUENCE_WINDOW_BASES) {
-      throw new Error(
-        `[genome] Sequence window exceeds ${MAX_SEQUENCE_WINDOW_BASES} bp: ${request.start}-${request.end}`
-      );
+    switch (sequenceWindowRequestIssue(request)) {
+      case 'start-end-not-finite':
+        throw new Error('[genome] Sequence window start/end must be finite.');
+      case 'generation-not-finite':
+        throw new Error('[genome] Sequence window generation must be finite.');
+      case 'invalid-range':
+        throw new Error(`[genome] Invalid sequence window range: ${request.start}-${request.end}`);
+      case 'too-large':
+        throw new Error(
+          `[genome] Sequence window exceeds ${MAX_SEQUENCE_WINDOW_BASES} bp: ${request.start}-${request.end}`
+        );
     }
     const length = session.length ?? manifest.length;
     if (typeof length === 'number' && Number.isFinite(length) && request.end > length) {

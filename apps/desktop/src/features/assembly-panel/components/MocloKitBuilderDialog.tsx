@@ -1,4 +1,9 @@
-'use client';
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../../../presentation/PresentationSurface';
+('use client');
 
 import { toUserMessage, userEntityLabel } from '@waypoint/user-messages';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -63,6 +68,9 @@ export function MocloKitBuilderDialog({
   onSaved,
   onEditExisting,
 }: MocloKitBuilderDialogProps) {
+  const presentationOverlay = usePresentationOverlay('modal');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const [state, setState] = useState<KitBuilderState>(() => stateFromDefinition(kit));
   const [savedPayload, setSavedPayload] = useState(() => savePayload(state, kit));
   const hasChanges = !kit || !metadataValuesEqual(savePayload(state, kit), savedPayload);
@@ -96,9 +104,9 @@ export function MocloKitBuilderDialog({
         onClose();
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose, saving]);
+    presentationEvents.add(window, 'keydown', onKeyDown);
+    return () => presentationEvents.remove(window, 'keydown', onKeyDown);
+  }, [onClose, saving, presentationEvents]);
 
   const issues = useMemo(() => validateKitBuilderState(state), [state]);
   const activeLayout =
@@ -153,224 +161,229 @@ export function MocloKitBuilderDialog({
 
   return (
     <div
+      ref={presentationOverlay.bindRef(undefined, '0')}
       className="fixed inset-0 z-[10100] flex items-center justify-center bg-black/45 p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !saving) onClose();
       }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="moclo-kit-builder-title"
-        data-testid="moclo-kit-builder"
-        className="flex max-h-[min(760px,88vh)] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-border bg-bg shadow-2xl"
-      >
-        <header className="border-b border-border px-5 py-4">
-          <h2 id="moclo-kit-builder-title" className="text-base font-semibold text-fg">
-            {kit ? `Edit ${kit.name}` : 'New MoClo kit'}
-          </h2>
-          <p className="mt-1 text-sm text-fg-muted">
-            A kit is a named set of layouts: the ordered positions a part goes into, and the
-            four-base junction that joins each position to the next.
-          </p>
-        </header>
+      <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="moclo-kit-builder-title"
+          data-testid="moclo-kit-builder"
+          className="flex max-h-[min(760px,88vh)] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-border bg-bg shadow-2xl"
+        >
+          <header className="border-b border-border px-5 py-4">
+            <h2 id="moclo-kit-builder-title" className="text-base font-semibold text-fg">
+              {kit ? `Edit ${kit.name}` : 'New MoClo kit'}
+            </h2>
+            <p className="mt-1 text-sm text-fg-muted">
+              A kit is a named set of layouts: the ordered positions a part goes into, and the
+              four-base junction that joins each position to the next.
+            </p>
+          </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          {kit ? (
-            <div
-              data-testid="moclo-kit-builder-experimental-notice"
-              className="mb-4 rounded border border-amber-500/40 bg-amber-100 px-3 py-2 text-[11px] leading-relaxed text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-            >
-              <span className="mr-1.5 rounded bg-amber-500/25 px-1.5 py-0.5 font-semibold uppercase tracking-wide">
-                Experimental
-              </span>
-              Editing an existing kit is rough. This dialog changes layouts only — the kit&rsquo;s
-              parts, part types and multi-step recipes are kept untouched but are not shown here, so
-              you cannot check them before saving. Removing a layout does not change assemblies
-              already built on it.
-            </div>
-          ) : null}
-          {!kit && templates.length ? (
-            <label className="mb-4 flex items-center gap-2 text-xs">
-              <span className="w-28 shrink-0 font-medium text-fg-muted">Start from</span>
-              <FilterableSelect
-                label="Kit template"
-                value=""
-                placeholder="A published kit architecture…"
-                testId="moclo-kit-template-picker"
-                options={templates.map((template) => ({
-                  value: template.id,
-                  label: template.name,
-                  hint: template.addgene
-                    ? `${template.organism} · Addgene ${template.addgene.kitId}`
-                    : template.organism,
-                }))}
-                onChange={applyTemplate}
-              />
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            {kit ? (
+              <div
+                data-testid="moclo-kit-builder-experimental-notice"
+                className="mb-4 rounded border border-amber-500/40 bg-amber-100 px-3 py-2 text-[11px] leading-relaxed text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+              >
+                <span className="mr-1.5 rounded bg-amber-500/25 px-1.5 py-0.5 font-semibold uppercase tracking-wide">
+                  Experimental
+                </span>
+                Editing an existing kit is rough. This dialog changes layouts only — the kit&rsquo;s
+                parts, part types and multi-step recipes are kept untouched but are not shown here,
+                so you cannot check them before saving. Removing a layout does not change assemblies
+                already built on it.
+              </div>
+            ) : null}
+            {!kit && templates.length ? (
+              <label className="mb-4 flex items-center gap-2 text-xs">
+                <span className="w-28 shrink-0 font-medium text-fg-muted">Start from</span>
+                <FilterableSelect
+                  label="Kit template"
+                  value=""
+                  placeholder="A published kit architecture…"
+                  testId="moclo-kit-template-picker"
+                  options={templates.map((template) => ({
+                    value: template.id,
+                    label: template.name,
+                    hint: template.addgene
+                      ? `${template.organism} · Addgene ${template.addgene.kitId}`
+                      : template.organism,
+                  }))}
+                  onChange={applyTemplate}
+                />
+              </label>
+            ) : null}
+
+            <label className="mb-3 flex items-center gap-2 text-xs">
+              <span className="w-28 shrink-0 font-medium text-fg-muted">Kit name</span>
+              <div className="min-w-0 flex-1">
+                <TextField
+                  ref={nameRef}
+                  aria-label="Kit name"
+                  value={state.name}
+                  disabled={Boolean(kit)}
+                  onChange={(event) =>
+                    setState((current) => ({ ...current, name: event.target.value }))
+                  }
+                />
+              </div>
             </label>
-          ) : null}
+            <label className="mb-1 flex items-start gap-2 text-xs">
+              <span className="mt-1.5 w-28 shrink-0 font-medium text-fg-muted">Description</span>
+              <div className="min-w-0 flex-1">
+                <TextArea
+                  aria-label="Kit description"
+                  rows={2}
+                  value={state.description}
+                  onChange={(event) =>
+                    setState((current) => ({ ...current, description: event.target.value }))
+                  }
+                />
+              </div>
+            </label>
+            {state.citations.length ? (
+              <p className="mb-1 pl-[7.5rem] text-[11px] text-fg-subtle">
+                Source: {state.citations.map((citation) => citation.label).join('; ')}
+              </p>
+            ) : null}
+            {kitId ? (
+              <p className="mb-1 pl-[7.5rem] text-[11px] text-fg-subtle">
+                Saved in this project as <span className="font-mono">{kitId}.json</span>
+              </p>
+            ) : null}
+            {duplicate ? (
+              <div
+                data-testid="moclo-kit-duplicate-warning"
+                className="mb-4 ml-[7.5rem] rounded border border-amber-500/40 bg-amber-100 px-3 py-2 text-[11px] leading-relaxed text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+              >
+                {duplicate.kind === 'same-id'
+                  ? `This project already has a kit saved as ${kitId}.json.`
+                  : `This project already has “${duplicate.existingKitName}”, which looks like the same kit.`}{' '}
+                Saving creates a second one.
+                {onEditExisting ? (
+                  <button
+                    type="button"
+                    data-testid="moclo-kit-duplicate-edit"
+                    className="ml-1 underline underline-offset-2 hover:no-underline"
+                    onClick={() => onEditExisting(duplicate.existingKitId)}
+                  >
+                    Edit {duplicate.existingKitName} instead
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="mb-4" />
+            )}
 
-          <label className="mb-3 flex items-center gap-2 text-xs">
-            <span className="w-28 shrink-0 font-medium text-fg-muted">Kit name</span>
-            <div className="min-w-0 flex-1">
-              <TextField
-                ref={nameRef}
-                aria-label="Kit name"
-                value={state.name}
-                disabled={Boolean(kit)}
-                onChange={(event) =>
-                  setState((current) => ({ ...current, name: event.target.value }))
+            <KitMembersSection
+              projectRoot={projectRoot}
+              members={state.members}
+              onChange={(members) => setState((current) => ({ ...current, members }))}
+            />
+
+            <div className="mb-2 flex items-center justify-between border-t border-border pt-3">
+              <h3 className="text-xs font-semibold text-fg">Layouts</h3>
+              <button
+                type="button"
+                className="rounded border border-border px-2 py-1 text-[11px] text-fg hover:bg-bg-muted"
+                onClick={() =>
+                  setState((current) => {
+                    const layout = emptyLayout(current.layouts.map((entry) => entry.id));
+                    return {
+                      ...current,
+                      layouts: [...current.layouts, layout],
+                      activeLayoutId: layout.id,
+                    };
+                  })
+                }
+              >
+                Add layout
+              </button>
+            </div>
+
+            {state.layouts.length > 1 ? (
+              <div role="tablist" aria-label="Layouts" className="mb-3 flex flex-wrap gap-1">
+                {state.layouts.map((layout) => (
+                  <button
+                    key={layout.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={layout.id === activeLayout?.id}
+                    onClick={() =>
+                      setState((current) => ({ ...current, activeLayoutId: layout.id }))
+                    }
+                    className={`rounded px-2 py-1 text-[11px] ${
+                      layout.id === activeLayout?.id
+                        ? 'bg-bg-muted text-fg ring-1 ring-inset ring-accent/40'
+                        : 'text-fg-muted hover:bg-bg-muted'
+                    }`}
+                  >
+                    {userEntityLabel(layout.name)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {activeLayout ? (
+              <LayoutEditor
+                layout={activeLayout}
+                onPatch={(patch) => patchLayout(activeLayout.id, patch)}
+                onRemove={
+                  state.layouts.length > 1
+                    ? () =>
+                        setState((current) => {
+                          const layouts = current.layouts.filter(
+                            (layout) => layout.id !== activeLayout.id
+                          );
+                          return {
+                            ...current,
+                            layouts,
+                            activeLayoutId: layouts[0]?.id ?? null,
+                          };
+                        })
+                    : undefined
                 }
               />
-            </div>
-          </label>
-          <label className="mb-1 flex items-start gap-2 text-xs">
-            <span className="mt-1.5 w-28 shrink-0 font-medium text-fg-muted">Description</span>
-            <div className="min-w-0 flex-1">
-              <TextArea
-                aria-label="Kit description"
-                rows={2}
-                value={state.description}
-                onChange={(event) =>
-                  setState((current) => ({ ...current, description: event.target.value }))
-                }
-              />
-            </div>
-          </label>
-          {state.citations.length ? (
-            <p className="mb-1 pl-[7.5rem] text-[11px] text-fg-subtle">
-              Source: {state.citations.map((citation) => citation.label).join('; ')}
-            </p>
-          ) : null}
-          {kitId ? (
-            <p className="mb-1 pl-[7.5rem] text-[11px] text-fg-subtle">
-              Saved in this project as <span className="font-mono">{kitId}.json</span>
-            </p>
-          ) : null}
-          {duplicate ? (
-            <div
-              data-testid="moclo-kit-duplicate-warning"
-              className="mb-4 ml-[7.5rem] rounded border border-amber-500/40 bg-amber-100 px-3 py-2 text-[11px] leading-relaxed text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-            >
-              {duplicate.kind === 'same-id'
-                ? `This project already has a kit saved as ${kitId}.json.`
-                : `This project already has “${duplicate.existingKitName}”, which looks like the same kit.`}{' '}
-              Saving creates a second one.
-              {onEditExisting ? (
-                <button
-                  type="button"
-                  data-testid="moclo-kit-duplicate-edit"
-                  className="ml-1 underline underline-offset-2 hover:no-underline"
-                  onClick={() => onEditExisting(duplicate.existingKitId)}
-                >
-                  Edit {duplicate.existingKitName} instead
-                </button>
-              ) : null}
-            </div>
-          ) : (
-            <div className="mb-4" />
-          )}
+            ) : null}
 
-          <KitMembersSection
-            projectRoot={projectRoot}
-            members={state.members}
-            onChange={(members) => setState((current) => ({ ...current, members }))}
-          />
-
-          <div className="mb-2 flex items-center justify-between border-t border-border pt-3">
-            <h3 className="text-xs font-semibold text-fg">Layouts</h3>
-            <button
-              type="button"
-              className="rounded border border-border px-2 py-1 text-[11px] text-fg hover:bg-bg-muted"
-              onClick={() =>
-                setState((current) => {
-                  const layout = emptyLayout(current.layouts.map((entry) => entry.id));
-                  return {
-                    ...current,
-                    layouts: [...current.layouts, layout],
-                    activeLayoutId: layout.id,
-                  };
-                })
-              }
-            >
-              Add layout
-            </button>
+            {showIssues && issues.length ? (
+              <ul role="alert" className="mt-4 space-y-1 text-[11px] text-error">
+                {issues.map((issue, index) => (
+                  <li key={`${issue.layoutId ?? 'kit'}-${index}`}>
+                    {toUserMessage(issue.message, 'assembly.failed')}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {saveError ? (
+              <p role="alert" className="mt-3 text-[11px] text-error">
+                {toUserMessage(saveError, 'assembly.failed')}
+              </p>
+            ) : null}
           </div>
 
-          {state.layouts.length > 1 ? (
-            <div role="tablist" aria-label="Layouts" className="mb-3 flex flex-wrap gap-1">
-              {state.layouts.map((layout) => (
-                <button
-                  key={layout.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={layout.id === activeLayout?.id}
-                  onClick={() => setState((current) => ({ ...current, activeLayoutId: layout.id }))}
-                  className={`rounded px-2 py-1 text-[11px] ${
-                    layout.id === activeLayout?.id
-                      ? 'bg-bg-muted text-fg ring-1 ring-inset ring-accent/40'
-                      : 'text-fg-muted hover:bg-bg-muted'
-                  }`}
-                >
-                  {userEntityLabel(layout.name)}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {activeLayout ? (
-            <LayoutEditor
-              layout={activeLayout}
-              onPatch={(patch) => patchLayout(activeLayout.id, patch)}
-              onRemove={
-                state.layouts.length > 1
-                  ? () =>
-                      setState((current) => {
-                        const layouts = current.layouts.filter(
-                          (layout) => layout.id !== activeLayout.id
-                        );
-                        return {
-                          ...current,
-                          layouts,
-                          activeLayoutId: layouts[0]?.id ?? null,
-                        };
-                      })
-                  : undefined
-              }
-            />
-          ) : null}
-
-          {showIssues && issues.length ? (
-            <ul role="alert" className="mt-4 space-y-1 text-[11px] text-error">
-              {issues.map((issue, index) => (
-                <li key={`${issue.layoutId ?? 'kit'}-${index}`}>
-                  {toUserMessage(issue.message, 'assembly.failed')}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {saveError ? (
-            <p role="alert" className="mt-3 text-[11px] text-error">
-              {toUserMessage(saveError, 'assembly.failed')}
-            </p>
-          ) : null}
+          <footer className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+            <Button type="button" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <MetadataSaveButton
+              type="button"
+              hasChanges={hasChanges}
+              data-testid="moclo-kit-builder-save"
+              onClick={save}
+              disabled={saving}
+            >
+              {saving ? 'Saving…' : kit ? 'Save changes' : 'Create kit'}
+            </MetadataSaveButton>
+          </footer>
         </div>
-
-        <footer className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
-          <Button type="button" onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <MetadataSaveButton
-            type="button"
-            hasChanges={hasChanges}
-            data-testid="moclo-kit-builder-save"
-            onClick={save}
-            disabled={saving}
-          >
-            {saving ? 'Saving…' : kit ? 'Save changes' : 'Create kit'}
-          </MetadataSaveButton>
-        </footer>
-      </div>
+      </PresentationScopeContext.Provider>
     </div>
   );
 }

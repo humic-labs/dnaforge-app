@@ -12,6 +12,12 @@ export function registerNotebookOwnerHandlers(
   markdownImporter: MarkdownNotebookImporter
 ): () => void {
   handleGroup(notebookContract, {
+    resolveResourceReference: async (event, request) => {
+      const sender = getTarget();
+      if (!sender || sender.isDestroyed() || event.sender !== sender)
+        throw new Error('The notebook client changed.');
+      return owner.resolveResourceReference(request);
+    },
     inspectConflict: async (event, documentId) => {
       const sender = getTarget();
       if (!sender || sender.isDestroyed() || event.sender !== sender)

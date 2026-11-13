@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../../presentation/PresentationSurface';
 import { type UserMessage, toUserMessage, userMessage } from '@waypoint/user-messages';
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -95,6 +96,8 @@ export function AnnotationsDrawerContent({
   onPendingNewDraftChange,
   draftSessionId,
 }: AnnotationsDrawerContentProps) {
+  const presentationEvents = usePresentationListener();
+
   const hasReviewSession = hasReviewSessionProp && !!reviewPanel;
 
   const rangeControl = usePlannotateRangeControl(
@@ -196,13 +199,13 @@ export function AnnotationsDrawerContent({
         setShowTypeFilter(false);
       }
     };
-    document.addEventListener('keydown', handleKey);
+    presentationEvents.add(document, 'keydown', handleKey);
     document.addEventListener('mousedown', handleClick);
     return () => {
-      document.removeEventListener('keydown', handleKey);
+      presentationEvents.remove(document, 'keydown', handleKey);
       document.removeEventListener('mousedown', handleClick);
     };
-  }, [showTypeFilter]);
+  }, [showTypeFilter, presentationEvents]);
 
   useEffect(() => {
     if (tab !== 'annotations') {

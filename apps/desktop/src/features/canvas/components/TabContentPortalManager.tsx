@@ -2,6 +2,7 @@ import { createContext, useContext, useRef, useMemo, useLayoutEffect, useEffect 
 import { createPortal } from 'react-dom';
 import { useCanvasStore } from '../store';
 import { useWorkspaceVisibility } from '../workspace-visibility';
+import { PresentationHost } from '../../../presentation/PresentationSurface';
 import { debugLog } from '../../../utils/debug-log';
 import type { Tab } from '../types';
 import { PanelContent } from './PanelContent';
@@ -165,15 +166,22 @@ export function TabPortalProvider({
         );
 
         return createPortal(
-          <ErrorBoundary>
-            {budgeted ? (
-              <HiddenMapIdlePolicyContext.Provider value="host-retained">
-                {content}
-              </HiddenMapIdlePolicyContext.Provider>
-            ) : (
-              content
-            )}
-          </ErrorBoundary>,
+          <PresentationHost
+            id={`tab-${tab.id}`}
+            parentId={`panel-${panelId}`}
+            active={isActive}
+            element={host}
+          >
+            <ErrorBoundary>
+              {budgeted ? (
+                <HiddenMapIdlePolicyContext.Provider value="host-retained">
+                  {content}
+                </HiddenMapIdlePolicyContext.Provider>
+              ) : (
+                content
+              )}
+            </ErrorBoundary>
+          </PresentationHost>,
           host,
           tab.id
         );

@@ -350,9 +350,9 @@ describe('accepted assembly service', () => {
         expect.objectContaining({
           name: 'AmpR',
           type: 'CDS',
-          start: 1625,
-          end: 2486,
-          strand: 'reverse',
+          start: 1283,
+          end: 2144,
+          strand: 'forward',
         }),
       ])
     );

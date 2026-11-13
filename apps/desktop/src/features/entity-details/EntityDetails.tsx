@@ -244,7 +244,9 @@ function BoundEntityDetails({
       ? 'Update the entity or discard your changes before this action.'
       : preview?.summary.archived
         ? undefined
-        : record?.readOnlyReason;
+        : record?.lifecycleReadOnlyReason === undefined
+          ? record?.readOnlyReason
+          : (record.lifecycleReadOnlyReason ?? undefined);
   const related = record ? (
     <>
       {record.sequence?.document || acceptedAssemblyRecord || assemblyReopenError ? (

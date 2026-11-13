@@ -1,4 +1,8 @@
 import {
+  usePresentationListener,
+  usePresentationScope,
+} from '../../../presentation/PresentationSurface';
+import {
   toOptionalUserMessage,
   toUserMessage,
   userMessage,
@@ -173,7 +177,10 @@ import {
   type PendingAminoAcidCreation,
 } from '../../proteins/public/components/CreateAminoAcidSequenceDialog';
 import { openLimsEntity } from '../../lims/public/open-entity';
-import { createPlatformIndexedGenomeDataSource } from '../../../shared/platform-indexed-genome-data-source';
+import {
+  createPlatformIndexedGenomeDataSource,
+  isIndexedSourceUnavailable,
+} from '../../../shared/platform-indexed-genome-data-source';
 import { withoutSessionReadinessDemotion } from '../../../shared/genome-session-readiness';
 import {
   IndexedGenomeIsoformDialog,
@@ -372,6 +379,9 @@ type IndexedViewportRange = { start: number; end: number };
 export { indexedAnnotationBadgeType };
 
 export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps) {
+  const presentationEvents = usePresentationListener();
+  const presentation = usePresentationScope();
+
   useEffect(() => retainLaneOwner(tab.id), [tab.id]);
   const mountedRef = useRef(false);
   useEffect(() => {
@@ -1789,7 +1799,11 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         if (!terminalSessionUpdateSeen) startRecoveryPoll(shell.sessionId);
       } catch (err) {
         if (!isCurrent) return;
-        lifecycle.operation.end({ outcome: 'failed', reason: 'session' });
+        lifecycle.operation.end(
+          isIndexedSourceUnavailable(err)
+            ? { outcome: 'refused', reason: 'source_unavailable' }
+            : { outcome: 'failed', reason: 'session' }
+        );
         const message = toUserMessage(err, 'tracks.loadFailed');
         const failed: IndexedGenomeTabState = {
           sourcePath: genomeOpenSourcePath,
@@ -2604,9 +2618,9 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
       event.preventDefault();
       void copyIndexedSelection('read', selectedActionTarget);
     };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [copyIndexedSelection, isActive, selectedActionTarget]);
+    presentationEvents.add(document, 'keydown', handleKeyDown);
+    return () => presentationEvents.remove(document, 'keydown', handleKeyDown);
+  }, [copyIndexedSelection, isActive, selectedActionTarget, presentationEvents]);
 
   const handleSelectMutation = useCallback(
     (variant: VariantSummary) => {
@@ -2841,11 +2855,13 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
   }, [search.annotationAuthorityRevision]);
   useEffect(() => {
     if (!isActive || !search.isOpen) setSearchHighlight(null);
-  }, [isActive, search.isOpen]);
+  }, [isActive, search.isOpen, presentation]);
 
   useEffect(() => {
     if (!isActive || !search.isOpen) return;
+    const lease = presentation.owner.captureFocus(presentation.id);
     const id = requestAnimationFrame(() => {
+      if (!presentation.owner.isCurrent(lease)) return;
       const input = document.querySelector<HTMLInputElement>(
         '[data-testid="findbar-shell"] input[aria-label="Search pattern"]'
       );
@@ -2853,7 +2869,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
       input?.select();
     });
     return () => cancelAnimationFrame(id);
-  }, [isActive, search.isOpen]);
+  }, [isActive, search.isOpen, presentation]);
 
   const sequenceScope = useCommandScope(COMMAND_SCOPES.tabSequence, {
     claimOnMount: true,

@@ -10,7 +10,7 @@ describe('useLaneScreenBands', () => {
     vi.useRealTimers();
   });
 
-  it('polls the renderer projection used to align the lane gutter', () => {
+  it('reads the presented renderer projection used to align the lane gutter', () => {
     vi.useFakeTimers();
     const getLaneScreenSnapshot = vi.fn(() => ({
       overlayLayout: {
@@ -33,8 +33,19 @@ describe('useLaneScreenBands', () => {
     const getRendererDebugSnapshot = vi.fn(() => {
       throw new Error('the DOM gutter must not materialize the forensic renderer snapshot');
     });
+    const listeners = new Set<() => void>();
+    const unsubscribe = vi.fn();
+    const requestRender = vi.fn();
     const webglRef = {
       current: {
+        requestRender,
+        subscribeToPresentedFrames: (listener: () => void) => {
+          listeners.add(listener);
+          return () => {
+            listeners.delete(listener);
+            unsubscribe();
+          };
+        },
         getLinearRenderer: () => ({
           getLaneScreenSnapshot,
           getRendererDebugSnapshot,
@@ -57,9 +68,16 @@ describe('useLaneScreenBands', () => {
     act(() => {
       vi.advanceTimersByTime(200);
     });
+    expect(getLaneScreenSnapshot).toHaveBeenCalledTimes(1);
+    expect(requestRender).toHaveBeenCalledOnce();
+    act(() => {
+      for (const listener of listeners) listener();
+    });
     expect(getLaneScreenSnapshot).toHaveBeenCalledTimes(2);
     expect(getRendererDebugSnapshot).not.toHaveBeenCalled();
 
     unmount();
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(listeners.size).toBe(0);
   });
 });

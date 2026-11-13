@@ -8,6 +8,7 @@ import { stageOrganizationSavedSequenceMembers } from './org-registry-saved-sequ
 import { createHash } from 'node:crypto';
 import {
   prepareSequenceMetadataEdit,
+  resolvePublishedSequenceMetadataRevision,
   stableSequencePackageRequestJson as stableJson,
 } from '../db/sequence-package-metadata-edit';
 import { readFile, realpath, stat } from 'node:fs/promises';
@@ -1274,24 +1275,13 @@ export async function publishSequenceMetadataRevisionInMain(
   const revisionId = `metadata-update:${request.operationId}`;
   const requestFingerprint = sha256(stableJson(request));
   const onDisk = parseSequencePackageDocument(markerContent);
-  const alreadyPublished = onDisk.versionHistory.revisions.find(
-    (revision) => revision.operationId === revisionId
-  );
-  if (alreadyPublished) {
-    if (alreadyPublished.requestFingerprint !== requestFingerprint) {
-      throw new Error('This metadata operation ID was already used for a different edit.');
-    }
-    const parent = onDisk.versionHistory.revisions.find(
-      (revision) => revision.id === alreadyPublished.parentId
-    );
-    return {
-      updatedMarkerContent: markerContent,
-      revisionId,
-      productChanged: parent?.productSnapshot.sha256 !== alreadyPublished.productSnapshot.sha256,
-      snapshotPaths: [],
-      alreadyPublished: true,
-    };
-  }
+  const previousResult = resolvePublishedSequenceMetadataRevision({
+    current: onDisk,
+    markerContent,
+    revisionId,
+    requestFingerprint,
+  });
+  if (previousResult) return previousResult;
   if (sha256(markerContent) !== request.expectedMarkerSha256) {
     throw new Error('Sequence metadata changed after it was opened. Reopen and retry.');
   }

@@ -474,7 +474,11 @@ async function writePreparedFiles(
     mkdir: (path, options) => fs.mkdir(path, options, mutationToken),
     writeTextFile: (path, content) => fs.writeTextFile(path, content, undefined, mutationToken),
     writeWorkspaceTextFileAtomic: (request) =>
-      fs.writeWorkspaceTextFileAtomic({ ...request, mutationToken }),
+      fs.writeWorkspaceTextFileAtomic({
+        ...request,
+        workspaceRoot: workspaceRoot ?? request.workspaceRoot,
+        mutationToken,
+      }),
     publishAcceptedAssemblyRevision: workspaceRoot
       ? (request) =>
           fs.publishAcceptedAssemblyRevision({

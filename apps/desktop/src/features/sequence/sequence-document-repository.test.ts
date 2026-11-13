@@ -19,6 +19,7 @@ const ref = {
 };
 const file = {
   entity_id: ref.packageId,
+  workspace_id: 7,
   path: ref.packageRoot,
   file_kind: 'waypoint-sequence',
   status: 'current',
@@ -102,6 +103,24 @@ describe('sequence document identity resolution', () => {
     );
     expect(mocks.select).toHaveBeenCalledOnce();
     expect(mocks.resolve).not.toHaveBeenCalled();
+  });
+
+  it('reads a file that no project owns from a project-scoped request', async () => {
+    const outside = {
+      ...file,
+      entity_id: 'opened-outside-projects',
+      workspace_id: null,
+      file_kind: 'genbank',
+      path: '/Users/someone/Downloads/pUC19.gb',
+    };
+    mocks.select.mockResolvedValue([outside]);
+    await expect(
+      resolveSequenceDocumentById(outside.entity_id, ['/projects/ytk'])
+    ).resolves.toMatchObject({
+      documentId: outside.entity_id,
+      sourcePath: outside.path,
+    });
+    expect(mocks.findById).not.toHaveBeenCalled();
   });
 
   it('keeps a loose sequence as a catalog document', async () => {

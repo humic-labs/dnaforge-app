@@ -67,6 +67,11 @@ export interface TrackPresentationMetadata {
   quantitativeSourceSummary?: QuantitativeSourceSummaryV1;
 }
 
+export interface TrackPresentationDrag {
+  readonly trackId: string;
+  readonly topPx: number;
+}
+
 export interface Track extends TrackPresentationMetadata {
   id: string;
   type: TrackType;
@@ -125,6 +130,7 @@ export type TrackContentHeightResolver = (track: Track) => number;
 
 export interface ComputeTracksLayoutOptions {
   availableHeight: number;
+  overflow?: 'shrink' | 'scroll';
 }
 
 export class TrackLayoutInputError extends Error {

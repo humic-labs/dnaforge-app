@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../presentation/PresentationSurface';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { platform } from '../platform';
@@ -24,6 +25,8 @@ interface DevPanelProps {
 }
 
 export function DevPanel({ isOpen, onClose }: DevPanelProps) {
+  const presentationEvents = usePresentationListener();
+
   const [view, setView] = useState<'scenarios' | 'toasts'>('scenarios');
   const [activePreset, setActivePreset] = useState<string | null>(() =>
     getLastAppliedDevScenarioPresetId()
@@ -105,9 +108,9 @@ export function DevPanel({ isOpen, onClose }: DevPanelProps) {
       }
       onClose();
     };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+    presentationEvents.add(document, 'keydown', handleKeyDown);
+    return () => presentationEvents.remove(document, 'keydown', handleKeyDown);
+  }, [isOpen, onClose, presentationEvents]);
 
   return (
     <div

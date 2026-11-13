@@ -566,7 +566,7 @@ export interface WorkspaceEditorHandle {
 }
 
 export interface WorkspaceEditorProps {
-  nativeWheelGestureOwnership?: boolean;
+  browserWheelGestureOwnership?: boolean;
 
   sequence: AnnotatedSequence;
 

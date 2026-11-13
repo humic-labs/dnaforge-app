@@ -5,6 +5,10 @@ import {
 } from './inline-reference-declaration';
 import { savedReferenceHref, savedReferenceIdFromHref } from './saved-reference-url';
 import {
+  projectResourceReferenceFromHref,
+  projectResourceReferenceHref,
+} from './project-resource-reference';
+import {
   molecularDocumentReferenceFromHref,
   molecularDocumentReferenceHref,
 } from './molecular-document-reference';
@@ -88,6 +92,9 @@ export function decodeInlineReferenceUrl(url: string): InlineReferenceDecodeResu
   if (byteLength(url) > MAX_INLINE_REFERENCE_URI_BYTES) {
     return { ok: false, code: 'uri-too-long' };
   }
+  const resource = projectResourceReferenceFromHref(url);
+  if (resource && url.startsWith(`${INLINE_REFERENCE_SCHEME}://`))
+    return { ok: true, declaration: { kind: 'project-resource', resource } };
   const document = molecularDocumentReferenceFromHref(url);
   if (document && url.startsWith(`${INLINE_REFERENCE_SCHEME}://`))
     return { ok: true, declaration: { kind: 'molecular-document', document } };
@@ -155,6 +162,9 @@ function encodeSegment(value: string): string {
 export function encodeInlineReferenceDeclaration(declaration: InlineReferenceDeclaration): string {
   let url: string;
   switch (declaration.kind) {
+    case 'project-resource':
+      url = projectResourceReferenceHref(declaration.resource);
+      break;
     case 'molecular-document':
       url = molecularDocumentReferenceHref(declaration.document);
       break;

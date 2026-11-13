@@ -1,13 +1,15 @@
 import { act, fireEvent, render, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import {
-  dispatchNativeWheel,
   forwardWheelZoom,
   getNativeWheelInput,
-  installNativeWheelSource,
   registerWheelZoomTarget,
   shouldAnimateWheel,
 } from '@waypoint/platform/wheel-motion';
+import {
+  dispatchNativeWheel,
+  installNativeWheelSource,
+} from '../../../../../../packages/core/platform/src/wheel-input.test-helper';
 import { useZoomController } from '../../../../../../packages/core/workspace-editor/src/use-zoom-controller';
 import {
   BASE,

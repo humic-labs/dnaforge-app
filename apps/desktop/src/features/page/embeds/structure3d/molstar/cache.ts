@@ -425,6 +425,7 @@ export function unregisterActiveWrapper(
   for (const [key, handle] of handles.entries()) {
     if (handle.wrapper === wrapper && (cacheKey === undefined || handle.cacheKey === cacheKey)) {
       handles.delete(key);
+      viewerCache.get(key)?.plugin?.canvas3d?.input?.cancelInput?.();
     }
   }
   if (handles.size === 0) {

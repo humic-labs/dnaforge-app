@@ -254,6 +254,59 @@ describe('useIndexedLaneContractTracks pileup ownership', () => {
     unmount();
   });
 
+  it.each(['generic-interval', 'imported-transcript', 'repeat', 'variant'] as const)(
+    ' applies the persisted %s row height on mount and resize',
+    (trackType) => {
+      const renderer = fakeRenderer();
+      const dataset: ActiveStressDataset = {
+        ...quantitativeDataset('local:resizable-' + trackType),
+        trackType,
+        kind: trackType === 'variant' ? 'variant' : 'annotation',
+        trackPx: 148,
+      };
+      const { rerender, unmount } = renderHook(
+        ({ height }) =>
+          useIndexedLaneContractTracks({
+            webglRef: {
+              current: {
+                getLinearRenderer: () => renderer,
+                getViewportRange: () => ({ start: 0, end: 1_000_000 }),
+                setViewport: vi.fn(),
+                setViewCenter: vi.fn(),
+              },
+            },
+            rendererAssembly: rendererAssembly(),
+            manifestChrom: 'chr11',
+            activeStressDatasets: [{ ...dataset, trackPx: height }],
+            pileupStreaming: { streamPileupViaTileEngine: vi.fn(() => true) },
+            recordEvent: vi.fn(),
+          }),
+        { initialProps: { height: 148 } }
+      );
+      try {
+        expect(renderer.setTrackInstances).toHaveBeenLastCalledWith(
+          expect.arrayContaining([
+            expect.objectContaining({
+              id: dataset.trackId,
+              sizing: { kind: 'fixed', pixels: 148 },
+            }),
+          ])
+        );
+        rerender({ height: 236 });
+        expect(renderer.setTrackInstances).toHaveBeenLastCalledWith(
+          expect.arrayContaining([
+            expect.objectContaining({
+              id: dataset.trackId,
+              sizing: { kind: 'fixed', pixels: 236 },
+            }),
+          ])
+        );
+      } finally {
+        unmount();
+      }
+    }
+  );
+
   it('registers variant lanes with the dedicated variant-marker renderer', () => {
     vi.mocked(PixiVariantTrackRenderer).mockClear();
     const renderer = fakeRenderer();

@@ -5,6 +5,8 @@ import { EntityReferenceChip } from '../../../../components/entity-reference/Ent
 import { iconForEntityKind } from '../../../../components/icons/entity-icon-registry';
 import { readMentionReference } from '../../../../shared/notebook-reference';
 import { SavedReferenceChip } from './SavedReferenceChip';
+import { ProjectResourceReferenceChip } from './ProjectResourceReferenceChip';
+import { isProjectResourceReferenceHref } from '../../../../shared/project-resource-reference';
 import { registryKindIconKind, registryKindLabel } from '../lib/registry-kind';
 
 export interface MentionChipIntent {
@@ -124,6 +126,12 @@ function WorkspaceMentionChip({ node, extension }: NodeViewProps) {
 }
 
 function MentionChipInner(props: NodeViewProps) {
+  if (
+    props.node.attrs.entityType === 'project-resource' ||
+    (typeof props.node.attrs.referenceUri === 'string' &&
+      isProjectResourceReferenceHref(props.node.attrs.referenceUri))
+  )
+    return <ProjectResourceReferenceChip {...props} />;
   return typeof props.node.attrs.referenceUri === 'string' ? (
     <SavedReferenceChip {...props} />
   ) : (
@@ -143,6 +151,7 @@ export const MentionChip = memo(MentionChipInner, (prev, next) => {
     a.objectUuid === b.objectUuid &&
     a.referenceUri === b.referenceUri &&
     a.registryKind === b.registryKind &&
-    a.projectId === b.projectId
+    a.projectId === b.projectId &&
+    a.resourceReference === b.resourceReference
   );
 });

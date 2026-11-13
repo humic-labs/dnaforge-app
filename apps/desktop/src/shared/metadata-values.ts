@@ -33,5 +33,6 @@ export function metadataFieldDraftValue(
     entry === null ||
     entry === '' ||
     (field.type === 'string_array' && Array.isArray(entry) && entry.length === 0);
-  return empty(value) && empty(savedValue) ? savedValue : value;
+  if (!empty(value)) return value;
+  return empty(savedValue) ? savedValue : null;
 }

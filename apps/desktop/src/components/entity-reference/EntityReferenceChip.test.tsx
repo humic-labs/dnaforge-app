@@ -13,6 +13,22 @@ async function nextFrame(): Promise<void> {
 }
 
 describe('EntityReferenceChip', () => {
+  it('keeps private hover detail outside the scrolling surface', () => {
+    render(
+      <div data-testid="scrolling-surface" style={{ overflow: 'auto', width: 84 }}>
+        <EntityReferenceChip entityType="file" label="Original pilot selection" onOpen={vi.fn()} />
+      </div>
+    );
+    const chip = screen.getByTestId('entity-reference-chip');
+    fireEvent.mouseEnter(chip);
+    const detail = screen.getByRole('tooltip');
+    expect(screen.getByTestId('scrolling-surface')).not.toContainElement(detail);
+    expect(detail).toHaveAttribute('data-analytics-block');
+    expect(chip).toHaveAttribute('aria-describedby', detail.id);
+    fireEvent.mouseLeave(chip);
+    expect(detail).not.toBeInTheDocument();
+  });
+
   it('has one fixed shared visual contract without a host or prototype style switch', () => {
     render(
       <EntityReferenceChip

@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { trackBindingId } from '@waypoint/genome-data/annotation-catalog';
 import { useCanvasStore } from '../../canvas/public/store';
@@ -18,7 +18,16 @@ import {
 import { checkedToolFactory } from '../../../test-utils/mcp-output-test-helper';
 
 const documentId = 'fixture:sequence:agent-annotation-tracks';
-const tool = checkedToolFactory(createAppViewsTool, appViewsOutputSchema)();
+vi.mock('../../../db/workspace-catalog', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../db/workspace-catalog')>()),
+  getCatalogEntity: async () => ({ workspace_id: 1 }),
+  getWorkspaceRootById: async () => '/workspace',
+}));
+
+const tool = checkedToolFactory(
+  createAppViewsTool,
+  appViewsOutputSchema
+)([{ path: '/workspace', name: 'Registered workspace', addedAt: 0 }]);
 const execute = (operation: unknown) =>
   tool.execute!(appViewsSchema.parse({ operation }), {
     toolCallId: 'annotation-tracks-proof',

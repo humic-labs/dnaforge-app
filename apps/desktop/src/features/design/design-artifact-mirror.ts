@@ -1,4 +1,5 @@
 import { useDesignStore } from './store';
+import type { SequenceDesign } from './types';
 import { writeDesignArtifactSnapshot } from '../../db/workspace-artifacts';
 import { writePackageAssemblyWorkingCopySnapshot } from '../../db/sequence-package-working-copy-storage';
 import { isPackageAssemblyWorkingCopyDesign } from './package-working-copy-identity';
@@ -211,6 +212,37 @@ export async function retireDesignArtifactMirror(designId: string): Promise<void
   if (timer) clearTimeout(timer);
   timers.delete(designId);
   await writes.get(designId);
+}
+
+export async function discardDesignArtifactChanges(designId: string): Promise<void> {
+  await writes.get(designId);
+  const record = useDesignRecoveryStore.getState().records[designId];
+  if (!record?.pending || record.retired) return;
+  const base = record.base;
+  const saved = base ? (JSON.parse(base) as SequenceDesign | null) : null;
+  if (!base || !saved) throw new Error('The saved assembly is unavailable.');
+  const timer = timers.get(designId);
+  if (timer) clearTimeout(timer);
+  timers.delete(designId);
+  persistDesignRecovery(designId, {
+    ...record,
+    design: saved,
+    revision: base,
+    attempted: undefined,
+    conflict: undefined,
+    pending: false,
+    status: 'saved',
+  });
+  if (!useDesignRecoveryStore.getState().records[designId].durable) {
+    persistDesignRecovery(designId, record);
+    schedule(designId);
+    throw new Error(
+      'The assembly recovery record could not be saved. Keep the assembly open until saving recovers.'
+    );
+  }
+  failures.delete(designId);
+  nextAttempts.delete(designId);
+  useDesignStore.getState().upsertDesignFromArtifact(saved);
 }
 
 export function resumeDesignArtifactMirror(designId: string): void {

@@ -226,7 +226,9 @@ export function SequencePackageHistoryPanel({
   const [preview, setPreview] = useState<SequenceRestorePreviewResult | null>(null);
   const [operationId, setOperationId] = useState<string | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [previewPending, setPreviewPending] = useState(false);
+  const [mutationPending, setMutationPending] = useState(false);
+  const busy = previewPending || mutationPending;
   const [showDirtyDecision, setShowDirtyDecision] = useState(false);
   const previewSerial = useRef(0);
   const previewContext = useRef({ index: history.index, dirty: restore?.isDirty });
@@ -239,7 +241,7 @@ export function SequencePackageHistoryPanel({
     previewSerial.current += 1;
     setPreview(null);
     setOperationId(null);
-    setBusy(false);
+    setPreviewPending(false);
     setShowDirtyDecision(false);
   }, [history.index, restore?.isDirty]);
   const selections = useMemo<SequenceRestoreSelection[]>(
@@ -256,13 +258,13 @@ export function SequencePackageHistoryPanel({
     setPreview(null);
     setOperationId(null);
     setRestoreError(null);
-    setBusy(false);
+    setPreviewPending(false);
     setShowDirtyDecision(false);
   };
   const previewRestore = async () => {
     if (!restore || !history.index || selections.length === 0) return;
     const serial = ++previewSerial.current;
-    setBusy(true);
+    setPreviewPending(true);
     setRestoreError(null);
     try {
       const result = await platform().fs.previewSequenceRestore({
@@ -279,7 +281,7 @@ export function SequencePackageHistoryPanel({
         setRestoreError(toUserMessage(error, 'tracks.loadFailed'));
       }
     } finally {
-      if (serial === previewSerial.current) setBusy(false);
+      if (serial === previewSerial.current) setPreviewPending(false);
     }
   };
   const applyRestore = async () => {
@@ -288,7 +290,7 @@ export function SequencePackageHistoryPanel({
       setShowDirtyDecision(true);
       return;
     }
-    setBusy(true);
+    setMutationPending(true);
     setRestoreError(null);
     try {
       await restore.apply({
@@ -308,20 +310,20 @@ export function SequencePackageHistoryPanel({
     } catch (error) {
       setRestoreError(toUserMessage(error, 'tracks.loadFailed'));
     } finally {
-      setBusy(false);
+      setMutationPending(false);
     }
   };
   const resolveDirty = async (choice: 'save' | 'discard' | 'cancel') => {
     setShowDirtyDecision(false);
     if (choice === 'cancel' || !restore) return;
     if (choice === 'save') {
-      setBusy(true);
+      setMutationPending(true);
       let saveError: string | null = null;
       const saved = await restore.savePending().catch((error: unknown) => {
         saveError = error instanceof Error ? error.message : String(error);
         return false;
       });
-      setBusy(false);
+      setMutationPending(false);
       if (!saved) {
         setRestoreError(
           saveError != null

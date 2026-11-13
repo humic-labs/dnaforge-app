@@ -38,7 +38,7 @@ import {
 } from '../shared/lims';
 import type { ProjectableEntitySchemaRevisionSnapshot } from '../shared/entity-schema';
 import { resolveEntityRecordFieldValues } from '../shared/entity-record';
-import { LIMS_ENTITY_QUERY_HARD_MAX } from '../shared/lims-registry';
+import { createLimsEntityQuery } from '../shared/lims-entity-query';
 import {
   buildEntitySearchableText,
   createRegistryQuery,
@@ -461,38 +461,8 @@ export function queryLimsEntitiesInDb(
 ): LimsEntity[] {
   seedLimsBuiltinsInDb(db);
   const where: string[] = [registrySourceEligibilitySql(db)];
-  const params: unknown[] = [];
-  if (!input.includeArchived) where.push('tombstone = 0');
-  if (input.id) {
-    where.push('id = ?');
-    params.push(input.id);
-  }
-  if (input.kind) {
-    where.push('kind = ?');
-    params.push(input.kind);
-  }
-  if (input.workspaceId !== undefined) {
-    where.push('workspace_id = ?');
-    params.push(input.workspaceId);
-  }
-  if (input.sequenceDocumentId) {
-    where.push("json_extract(fields, '$.sequence.mode') = 'file'");
-    where.push("json_extract(fields, '$.sequence.documentId') = ?");
-    params.push(input.sequenceDocumentId);
-  }
-  if (input.registrationStatus) {
-    where.push('registration_status = ?');
-    params.push(input.registrationStatus);
-  }
-  if (input.nameLike?.trim()) {
-    where.push('name LIKE ?');
-    params.push(`%${input.nameLike.trim()}%`);
-  }
-
-  const limit = Math.min(Math.max(input.limit ?? 100, 1), LIMS_ENTITY_QUERY_HARD_MAX);
-  const hasFieldEquals = Boolean(input.fieldEquals && Object.keys(input.fieldEquals).length > 0);
-
-  const fetchLimit = hasFieldEquals ? LIMS_ENTITY_QUERY_HARD_MAX : limit;
+  const query = createLimsEntityQuery(input);
+  where.push(...query.where);
   const rows = db
     .prepare(
       `SELECT * FROM lims_entity
@@ -500,15 +470,8 @@ export function queryLimsEntitiesInDb(
        ORDER BY updated_at DESC
        LIMIT ?`
     )
-    .all(...params, fetchLimit) as LimsEntityRow[];
-  let entities = rows.map(limsEntityFromRow);
-  if (hasFieldEquals) {
-    entities = entities.filter((entity) =>
-      Object.entries(input.fieldEquals ?? {}).every(([key, value]) => entity.fields[key] === value)
-    );
-    entities = entities.slice(0, limit);
-  }
-  return entities;
+    .all(...query.params, query.fetchLimit) as LimsEntityRow[];
+  return query.finishRows(rows.map(limsEntityFromRow));
 }
 
 export function countLimsEntitiesByKindInDb(db: Database.Database): Record<string, number> {

@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type Database from 'better-sqlite3';
 
 import { WORKSPACE_SYNC_DATABASE_BUSY_MESSAGE } from '../shared/workspace-sync-errors';
@@ -25,6 +26,7 @@ interface FenceState {
 const states = new WeakMap<Database.Database, FenceState>();
 const heldFences = new WeakMap<Release, Database.Database>();
 const rendererTransactionCleanupSenders = new Set<number>();
+const heldFenceScope = new AsyncLocalStorage<Release>();
 
 export function assertWorkspaceSyncDatabaseFence(db: Database.Database, release: Release): void {
   if (heldFences.get(release) !== db) throw new Error('WORKSPACE_DATABASE_FENCE_INVALID');
@@ -56,6 +58,18 @@ export async function acquireWorkspaceSyncDatabaseFence(db: Database.Database): 
   return release;
 }
 
+export async function withWorkspaceSyncDatabaseFence<T>(
+  db: Database.Database,
+  operation: (release: Release) => Promise<T>
+): Promise<T> {
+  const release = await acquireWorkspaceSyncDatabaseFence(db);
+  try {
+    return await heldFenceScope.run(release, () => operation(release));
+  } finally {
+    release();
+  }
+}
+
 export function assertRendererDatabaseStatementAllowed(
   db: Database.Database,
   senderId?: number
@@ -78,9 +92,15 @@ export function assertCommittedDatabaseReadAllowed(
   db: Database.Database,
   databaseFence?: Release
 ): void {
-  if (databaseFence) assertWorkspaceSyncDatabaseFence(db, databaseFence);
+  const fence = databaseFence ?? heldWorkspaceSyncDatabaseFence(db);
+  if (fence) assertWorkspaceSyncDatabaseFence(db, fence);
   else assertRendererDatabaseStatementAllowed(db);
   if (db.inTransaction) throw new Error('DATABASE_UNCOMMITTED_AUTHORITY_READ');
+}
+
+function heldWorkspaceSyncDatabaseFence(db: Database.Database): Release | undefined {
+  const release = heldFenceScope.getStore();
+  return release && heldFences.get(release) === db ? release : undefined;
 }
 
 export function notifyRendererDatabaseStatementSettled(

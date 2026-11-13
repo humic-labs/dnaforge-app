@@ -1,3 +1,7 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+} from '../../../presentation/PresentationSurface';
 import { useDocumentLifecycle } from '../../../shared/use-document-lifecycle';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -39,6 +43,8 @@ export function TrackViewActions({
   isActive: boolean;
   readyForDirtyCheck?: boolean;
 }) {
+  const presentationOverlay = usePresentationOverlay('keyboard');
+
   const lanes = useLaneContractStore((state) => state.lanesByOwnerId[tab.id]);
   const [name, setName] = useState(tab.trackView?.document.name ?? `${referenceName} view`);
   const [surface, setSurface] = useState<'menu' | 'save' | 'rename' | 'copy' | null>(null);
@@ -393,32 +399,35 @@ export function TrackViewActions({
         }}
       />
       {surface === 'menu' && (
-        <div
-          role="menu"
-          aria-label="Track view actions"
-          className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-bg p-1 shadow-lg"
-        >
-          {tab.trackView && (
-            <>
-              <button
-                type="button"
-                role="menuitem"
-                className="w-full rounded px-3 py-2 text-left text-sm text-fg hover:bg-bg-muted focus:bg-bg-muted"
-                onClick={() => beginNaming('rename')}
-              >
-                Rename…
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="w-full rounded px-3 py-2 text-left text-sm text-fg hover:bg-bg-muted focus:bg-bg-muted"
-                onClick={() => beginNaming('copy')}
-              >
-                Save As…
-              </button>
-            </>
-          )}
-        </div>
+        <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+          <div
+            role="menu"
+            aria-label="Track view actions"
+            className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-bg p-1 shadow-lg"
+            ref={presentationOverlay.bindRef(undefined, '0')}
+          >
+            {tab.trackView && (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="w-full rounded px-3 py-2 text-left text-sm text-fg hover:bg-bg-muted focus:bg-bg-muted"
+                  onClick={() => beginNaming('rename')}
+                >
+                  Rename…
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="w-full rounded px-3 py-2 text-left text-sm text-fg hover:bg-bg-muted focus:bg-bg-muted"
+                  onClick={() => beginNaming('copy')}
+                >
+                  Save As…
+                </button>
+              </>
+            )}
+          </div>
+        </PresentationScopeContext.Provider>
       )}
       {(surface === 'save' || surface === 'copy') && (
         <TrackViewSaveDialog

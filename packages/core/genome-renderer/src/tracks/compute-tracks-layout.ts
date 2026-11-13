@@ -28,7 +28,7 @@ export function computeTracksLayout(
     seen.add(t.id);
   }
 
-  const availableHeight = Math.max(0, options.availableHeight);
+  const requestedHeight = Math.max(0, options.availableHeight);
 
   const visibleIndices: number[] = [];
   const hiddenIndices: number[] = [];
@@ -57,6 +57,17 @@ export function computeTracksLayout(
     const desired = desiredHeight(profile, content);
     return { inputIndex: idx, profile, contentHeight: content, desired };
   });
+  const availableHeight =
+    options.overflow === 'scroll'
+      ? Math.max(
+          requestedHeight,
+          slots.reduce(
+            (height, slot) =>
+              height + (slot.profile.kind === 'flex' ? slot.profile.minHeight : slot.desired),
+            0
+          )
+        )
+      : requestedHeight;
 
   const nonFlexDesired = slots.reduce(
     (sum, s) => sum + (s.profile.kind === 'flex' ? 0 : s.desired),
@@ -182,7 +193,10 @@ export function layoutMemoKey(
   contentHeightFor: TrackContentHeightResolver,
   options: ComputeTracksLayoutOptions
 ): string {
-  const parts: string[] = [`avail=${Math.max(0, options.availableHeight)}`];
+  const parts: string[] = [
+    `avail=${Math.max(0, options.availableHeight)}`,
+    `overflow=${options.overflow ?? 'shrink'}`,
+  ];
   for (const t of tracks) {
     const profile = encodeSizingProfile(t.sizing);
     const content = Math.max(0, Math.floor(contentHeightFor(t)));

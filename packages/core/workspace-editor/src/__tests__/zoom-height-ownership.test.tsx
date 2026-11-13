@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { act, renderHook } from '@testing-library/react';
-import { installNativeWheelSource } from '@waypoint/platform/wheel-motion';
+import { installNativeWheelSource } from '../../../platform/src/wheel-input.test-helper';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   computeNextZoomFromDelta,

@@ -1,5 +1,5 @@
 import { documentLifecycle } from '../../../shared/document-lifecycle';
-import { CommandScopeProvider } from '../../../commands/CommandScopeProvider';
+import { WorkspaceCommandProvider as CommandScopeProvider } from '../../../test/document-save-commands';
 import { DocumentSaveCommands } from '../../../test/document-save-commands';
 import type { ReactElement, ReactNode } from 'react';
 import {

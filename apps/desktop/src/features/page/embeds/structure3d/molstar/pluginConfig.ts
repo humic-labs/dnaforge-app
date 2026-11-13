@@ -1,3 +1,4 @@
+import { installMolstarInputOwnership } from './inputOwnership';
 import { DefaultTrackballBindings } from 'molstar/lib/mol-canvas3d/controls/trackball';
 import { Binding } from 'molstar/lib/mol-util/binding';
 import { ButtonsType, ModifiersKeys } from 'molstar/lib/mol-util/input/input-observer';
@@ -184,6 +185,7 @@ export async function initializePlugin(
   if (!success) throw new Error('Failed to initialize 3D canvas');
 
   if (plugin.canvas3d) {
+    installMolstarInputOwnership(plugin.canvas3d.input, canvas);
     plugin.canvas3d.setProps(buildInitialCanvas3dProps(plugin.canvas3d.props));
     configureCanvas3dZoomBindings(plugin);
     installViewerSelectionInteractions(plugin);

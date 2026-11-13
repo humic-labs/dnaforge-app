@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../presentation/PresentationSurface';
 import { useEffect, useRef } from 'react';
 
 interface KeyboardShortcut {
@@ -13,6 +14,8 @@ interface KeyboardShortcut {
 }
 
 export function useKeyboard(shortcuts: KeyboardShortcut[]) {
+  const presentationEvents = usePresentationListener();
+
   const shortcutsRef = useRef(shortcuts);
   shortcutsRef.current = shortcuts;
 
@@ -52,7 +55,7 @@ export function useKeyboard(shortcuts: KeyboardShortcut[]) {
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+    presentationEvents.add(document, 'keydown', handleKeyDown);
+    return () => presentationEvents.remove(document, 'keydown', handleKeyDown);
+  }, [presentationEvents]);
 }

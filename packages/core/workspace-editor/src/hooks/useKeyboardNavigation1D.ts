@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { inputTargetAllows } from '@waypoint/platform/input-ownership';
 import type { Selection } from '../types';
 import { createDirectionalSelection } from '../selection-model';
 import { biologicalColumn } from '../utils/circular-cols';
@@ -42,7 +43,8 @@ export function useKeyboardNavigation1D(props: UseKeyboardNavigation1DProps): vo
     if (!el || columnCount <= 0) return;
 
     const handler = (e: KeyboardEvent) => {
-      if (isTextInputFocused(document.activeElement)) return;
+      if (!inputTargetAllows(el, 'keyboard', e) || isTextInputFocused(document.activeElement))
+        return;
 
       let key = e.key;
       const shift = e.shiftKey;

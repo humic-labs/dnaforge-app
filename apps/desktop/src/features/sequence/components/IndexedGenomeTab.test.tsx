@@ -5,6 +5,7 @@ import { annotationTypeBadgeStyle } from '@waypoint/genome-renderer/pure';
 import type { Tab } from '../../canvas/types';
 import { useCanvasStore } from '../../canvas/store';
 import { useWorkspaceStore } from '../../../stores/workspaceStore';
+import * as analytics from '../../../lib/analytics';
 import type { GenomeOpenSource, IndexedGenomeUcscTrackState } from '../../../shared/indexed-genome';
 import { useLaneContractStore } from '../lane-contract-store';
 import { buildGenomeAssembly, referenceAssemblyById } from '../reference-catalog';
@@ -793,6 +794,41 @@ describe('IndexedGenomeTab', () => {
     expect(screen.queryByText('135,086,622 bp')).toBeNull();
     expect(screen.queryByText('1-2,000 of 135,086,622')).not.toBeInTheDocument();
     expect(screen.queryByTestId('genome-session-shell')).not.toBeInTheDocument();
+  });
+
+  it('reports a missing native admission source as one correlated open refusal', async () => {
+    workspaceState.loading = false;
+    const tab = indexedTab();
+    resetCanvasStore(tab);
+    mockOpen.mockRejectedValueOnce(
+      new Error(
+        "Error invoking remote method 'genome:open': Error: ENOENT: no such file or directory"
+      )
+    );
+    const ready = vi.spyOn(analytics, 'isAnalyticsCaptureReady').mockReturnValue(true);
+    const track = vi.spyOn(analytics, 'trackRendererEvent').mockReturnValue(true);
+    try {
+      const view = render(<IndexedGenomeTab tab={tab} />);
+      await waitFor(() =>
+        expect(screen.getByTestId('indexed-genome-loading').dataset.loadPhase).toBe('error')
+      );
+      view.unmount();
+      const rows = track.mock.calls
+        .filter(([event]) => event === 'indexed_genome_stage')
+        .map(([, properties]) => properties);
+      expect(rows.map((row) => row?.genome_stage)).toEqual(['open_accepted', 'open_refused']);
+      expect(rows[1]).toMatchObject({
+        operation_id: rows[0]?.operation_id,
+        genome_generation_id: rows[0]?.genome_generation_id,
+        genome_started_at_ms: rows[0]?.genome_started_at_ms,
+        genome_reason: 'source_unavailable',
+      });
+      expect(mockOpen).toHaveBeenCalledTimes(1);
+      expect(mockCloseSession).not.toHaveBeenCalled();
+    } finally {
+      track.mockRestore();
+      ready.mockRestore();
+    }
   });
 
   it('opens a source-ready coordinate shell while mounted hosted view re-admission is pending', async () => {

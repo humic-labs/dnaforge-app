@@ -2,6 +2,8 @@ import { getEntityReference } from '../../db/entity-references';
 import type { WorkspaceFolder } from '../../stores/workspaceStore';
 import { hasCompleteStructureResidueIdentities } from '../ai/public/selection-descriptor/structure';
 import { resolveWorkspaceBinding } from './workspace-binding';
+import { legacyProjectScope, type AgentProjectScope } from '../../shared/agent-project-scope';
+import { normalizePathForBoundary } from '../../shared/path-boundary';
 
 export interface RendererResourceReference {
   id: string;
@@ -23,7 +25,8 @@ export interface RendererResourceReadContext {
   expectedSessionToken: string;
   providedSessionToken: string;
   agentCapabilities: readonly string[];
-  boundWorkspaceId: string | null;
+  boundWorkspaceId?: string | null;
+  projectScope?: AgentProjectScope;
   currentWorkspaceId: string | null;
   folders?: WorkspaceFolder[];
 }
@@ -76,6 +79,7 @@ export async function readSelectionResource(
     boundWorkspaceId: context.boundWorkspaceId,
     currentWorkspaceId: context.currentWorkspaceId,
     folders: context.folders ?? [],
+    projectScope: context.projectScope,
   });
   if (!workspaceBinding.ok) {
     return resourceError(
@@ -103,9 +107,17 @@ export async function readSelectionResource(
       'Legacy selection reference has no workspace ownership and cannot be exposed to an agent.'
     );
   }
+  const referenceScope = legacyProjectScope(row.workspace_scope);
+  const authorizedRoots = new Set(
+    workspaceBinding.folders.map((folder) => normalizePathForBoundary(folder.path))
+  );
+  const registeredScopeMatches =
+    referenceScope.kind === 'project-roots' &&
+    referenceScope.roots.length > 0 &&
+    referenceScope.roots.every((root) => authorizedRoots.has(normalizePathForBoundary(root)));
   if (
-    workspaceBinding.workspaceId === null ||
-    row.workspace_scope !== workspaceBinding.workspaceId
+    !registeredScopeMatches &&
+    (workspaceBinding.workspaceId === null || row.workspace_scope !== workspaceBinding.workspaceId)
   ) {
     return resourceError(
       'REFERENCE_SCOPE_MISMATCH',

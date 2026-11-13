@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { importReceiptMessage, sequenceRegistrationFailureMessage } from '../import-user-messages';
 import {
   userMessage,
@@ -14,6 +15,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ComponentProps,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
@@ -37,8 +39,7 @@ import {
   type LimsRegistrySummaryPage,
   type LimsSchemaDefinitionView,
 } from '../../../shared/lims';
-import type { ExternalProviderSourceRequest } from '../../../shared/benchling-migration-raw-source';
-import { safeFocus } from '../../../shared/utils/safeFocus';
+import { safeFocus, scheduleFocus } from '../../../shared/utils/safeFocus';
 import { findContainingPathBoundary, pathRelativeToBoundary } from '../../../shared/path-boundary';
 import { DEFAULT_PROJECT_DISPLAY_NAME } from '../../../shared/first-project';
 import { platform } from '../../../platform';
@@ -259,6 +260,8 @@ export function LimsPanel({
   onImportProjectWithAgent,
   onMigrateFromBenchling,
 }: LimsPanelProps = {}) {
+  const presentationEvents = usePresentationListener();
+
   const registryRequest = useLimsOverlayStore((state) => state.registryRequest);
   const consumeRegistryRequest = useLimsOverlayStore((state) => state.consumeRegistryRequest);
   const [seedingDemo, setSeedingDemo] = useState(false);
@@ -333,7 +336,7 @@ export function LimsPanel({
   } | null>(null);
   const [limsSchemas, setLimsSchemas] = useState<LimsSchemaDefinitionView[]>([]);
   const [originalSourceDialog, setOriginalSourceDialog] = useState<{
-    request: ExternalProviderSourceRequest;
+    request: ComponentProps<typeof OriginalProviderSourceDialog>['request'];
     label: string;
   } | null>(null);
 
@@ -840,12 +843,12 @@ export function LimsPanel({
       if (event.key === 'Escape') setOpenFilterKey(null);
     };
     document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
+    presentationEvents.add(document, 'keydown', onKey);
     return () => {
       document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
+      presentationEvents.remove(document, 'keydown', onKey);
     };
-  }, [openFilterKey, registryColumns]);
+  }, [openFilterKey, registryColumns, presentationEvents]);
 
   useEffect(() => {
     if (!sortMenuOpen) return;
@@ -858,17 +861,16 @@ export function LimsPanel({
       if (event.key === 'Escape') setSortMenuOpen(false);
     };
     document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
+    presentationEvents.add(document, 'keydown', onKey);
     return () => {
       document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
+      presentationEvents.remove(document, 'keydown', onKey);
     };
-  }, [sortMenuOpen]);
+  }, [sortMenuOpen, presentationEvents]);
 
   useEffect(() => {
     if (!registryExpanded || preview) return;
-    const timer = window.setTimeout(() => safeFocus(registrySearchRef.current), 0);
-    return () => window.clearTimeout(timer);
+    return scheduleFocus(registrySearchRef.current);
   }, [preview, registryExpanded]);
 
   const handleImportFile = useCallback(

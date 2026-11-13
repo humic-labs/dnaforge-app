@@ -1294,6 +1294,17 @@ export function onFeatureFlagsReady(cb: () => void): () => void {
   return posthog.onFeatureFlags(() => cb());
 }
 
+export async function hasTelemetryDestination(): Promise<boolean> {
+  if (import.meta.env.VITE_SENTRY_DSN || import.meta.env.VITE_POSTHOG_API_KEY) return true;
+  const analyticsBridge = electronApi()?.analytics;
+  if (!analyticsBridge?.getRuntimeConfig) return false;
+  try {
+    return (await analyticsBridge.getRuntimeConfig()) !== null;
+  } catch {
+    return true;
+  }
+}
+
 async function resolveRendererRuntimeConfig(): Promise<AnalyticsRuntimeConfig | null> {
   const analyticsBridge = electronApi()?.analytics;
   if (analyticsBridge?.getRuntimeConfig) {

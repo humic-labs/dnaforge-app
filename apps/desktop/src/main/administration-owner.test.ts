@@ -1,3 +1,4 @@
+import { createRegisteredProjectAuthorityFixture } from './__tests__/registered-project-authority-fixture';
 // @vitest-environment node
 
 import { describe, expect, it, vi } from 'vitest';
@@ -162,8 +163,10 @@ describe('native administration owner', () => {
     });
     expect(deps.storage.readSettings()).toEqual({ assemblyColorScheme: 'carbon' });
   });
-  it('refuses an old prepared action after its real project enrollment is removed and renewed', async () => {
-    const workspaces = new NativeDocumentWorkspaces({ resolveRoot: async (root) => root });
+  it('refuses an old prepared action after its registered project owner is replaced', async () => {
+    const registry = createRegisteredProjectAuthorityFixture();
+    const workspaces = new NativeDocumentWorkspaces({ authority: registry.authority });
+    registry.register('/managed/project');
     await workspaces.replaceRoots(['/managed/project']);
     const { owner, deps } = fixture({
       captureTargetAuthority: async () => workspaces.capture('/managed/project'),
@@ -171,6 +174,8 @@ describe('native administration owner', () => {
     const prepared = action(
       await owner.execute({ operation: { kind: 'prepare-share', selection } }, allowed)
     );
+    registry.remove('/managed/project');
+    registry.register('/managed/project');
     await workspaces.replaceRoots([]);
     await workspaces.replaceRoots(['/managed/project']);
     const result = await owner.execute(

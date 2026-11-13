@@ -143,6 +143,7 @@ export function createNativeSequenceWorkingCopies(options: {
     const root = workspaceMutationRootIdentity(document.workspaceRoot),
       path = workspaceMutationRootIdentity(document.sourcePath),
       bindingPath = workspaceMutationRootIdentity(binding.path);
+    if (mutating) assertNativeSequenceContentWritable(database, id, root);
     const assertEnrollment = options.captureWorkspace(root, mutating);
     const writable = () =>
       options

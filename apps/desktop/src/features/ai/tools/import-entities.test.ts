@@ -12,6 +12,7 @@ const folders: WorkspaceFolder[] = [{ name: 'project', path: '/workspace/project
 function dependencies(): ImportEntitiesDependencies {
   return {
     readSource: vi.fn(async () => ({ text: 'Name,Sequence\nAlpha,MSTNPKPQR' })),
+    ensureDestination: vi.fn(async () => {}),
     createPlan: vi.fn(async (input) => {
       const protein = input.forcedKind === 'protein';
       const rna = input.forcedKind === 'rna_oligo';
@@ -131,6 +132,10 @@ describe('import_entities tool', () => {
         destinationDir: '/workspace/project/imports/proteins',
         source: { sourcePath: '/workspace/project/orders/proteins.csv' },
       })
+    );
+    expect(deps.ensureDestination).toHaveBeenCalledWith('/workspace/project/imports/proteins');
+    expect(vi.mocked(deps.ensureDestination).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(deps.recordProteins).mock.invocationCallOrder[0]
     );
     expect(result).toEqual(
       expect.objectContaining({

@@ -4,7 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useLaneContractStore } from '../lane-contract-store';
 import type { IndexedGenomeTileNativeMapHandle } from './IndexedGenomeTileNativeMap';
+
 import { IndexedQuantitativeTrackAxes } from './IndexedQuantitativeTrackAxes';
+
+type LinearRenderer = NonNullable<
+  ReturnType<IndexedGenomeTileNativeMapHandle['getLinearRenderer']>
+>;
+type PresentedScrollReceipt = NonNullable<
+  ReturnType<LinearRenderer['getPresentedTrackScrollReceipt']>
+>;
 
 const OWNER_ID = 'axis-owner';
 const TRACK_ID = 'axis-signal';
@@ -55,9 +63,10 @@ describe('IndexedQuantitativeTrackAxes', () => {
       subscribeToPresentedFrames,
       getLinearRenderer: () =>
         ({
-          getPresentedTrackScrollReceipt: () => ({
+          getPresentedTrackScrollReceipt: (): PresentedScrollReceipt => ({
             completedFrameEpoch: 4,
             trackScrollTop: 0,
+            contentClipTopPx: 0,
           }),
         }) as never,
     } as IndexedGenomeTileNativeMapHandle;
@@ -82,16 +91,29 @@ describe('IndexedQuantitativeTrackAxes', () => {
       scaleTransform: 'log1p',
       scaleMode: 'full-global',
     };
+    let receipt: PresentedScrollReceipt = {
+      completedFrameEpoch: 4,
+      trackScrollTop: 40,
+      contentClipTopPx: 48,
+    };
+    const listeners = new Set<
+      Parameters<IndexedGenomeTileNativeMapHandle['subscribeToPresentedFrames']>[0]
+    >();
+    const subscribe: IndexedGenomeTileNativeMapHandle['subscribeToPresentedFrames'] = (
+      listener
+    ) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    };
     const webglRef = createRef<IndexedGenomeTileNativeMapHandle | null>();
     webglRef.current = {
-      subscribeToPresentedFrames: vi.fn(() => () => undefined),
+      subscribeToPresentedFrames: vi.fn(subscribe),
       getLinearRenderer: () =>
         ({
           getTrackDiagnostics: () => diagnostics,
-          getPresentedTrackScrollReceipt: () => ({
-            completedFrameEpoch: 4,
-            trackScrollTop: 40,
-          }),
+          getPresentedTrackScrollReceipt: () => receipt,
         }) as never,
     } as IndexedGenomeTileNativeMapHandle;
 
@@ -119,6 +141,17 @@ describe('IndexedQuantitativeTrackAxes', () => {
     expect(axis).toHaveAttribute('data-scale-transform', 'log1p');
     expect(axis).toHaveAttribute('data-tick-count', '6');
     expect(screen.queryByText('log')).toBeNull();
+    const viewport = screen.getByTestId('quantitative-y-axis-layer');
+    expect(viewport.style.clipPath).toBe('inset(48px 0px 0px)');
+    receipt = { completedFrameEpoch: 5, trackScrollTop: 40, contentClipTopPx: 64 };
+    act(() => {
+      for (const listener of listeners) listener({ frameEpoch: 5, presentedAtMs: 1 });
+    });
+    expect(viewport.style.clipPath).toBe('inset(64px 0px 0px)');
+    expect(band).toHaveStyle({ top: '300px', height: '96px' });
+    expect(screen.getByTestId('quantitative-y-axis-scroll-layer')).toHaveStyle({
+      transform: 'translate3d(0, -40px, 0)',
+    });
 
     diagnostics = { ...diagnostics, scaleTransform: 'linear' };
     act(() => {

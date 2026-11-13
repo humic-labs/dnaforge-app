@@ -15,6 +15,8 @@ import {
 import { assertWorkspaceDocumentsClean } from '../../workspace/public/workspace-document-guards';
 import { getCurrentWorkspaceScope, useWorkspaceStore } from '../../../stores/workspaceStore';
 import { contentFingerprint } from '../../../db/entity-substrate/adapter';
+import type { AgentProjectScope } from '../../../shared/agent-project-scope';
+import { normalizePathForBoundary } from '../../../shared/path-boundary';
 
 const identity = { projectId: z.string().min(1), expectedRevision: z.string().min(1) };
 export const workspaceProjectsSchema = z
@@ -82,10 +84,10 @@ export const workspaceProjectsSchema = z
   })
   .strict();
 
-export function createWorkspaceProjectsTool() {
+export function createWorkspaceProjectsTool(projectScope?: AgentProjectScope) {
   return resultTool({
     description:
-      'List, create, open/switch, import, rename, close, archive, trash or restore native projects through the human project lifecycle. List provides exact stable project IDs and revision tokens. Trash retains the native recovery period; no permanent purge. Dirty work and the last open project are protected. Creating or switching projects changes session routing; a workspace-bound external client must reconnect to its intended workspace afterward.',
+      'List, create, show, import, rename, hide, archive, trash or restore native projects through the human project lifecycle. List provides exact stable project IDs and revision tokens. Trash retains the native recovery period; no permanent purge. Dirty work and the last displayed project are protected. Showing or selecting a project changes presentation and defaults. Registered project access and explicit caller restrictions remain independent.',
     inputSchema: workspaceProjectsSchema,
     execute: async ({ operation }) => {
       let attempted = false;
@@ -105,6 +107,8 @@ export function createWorkspaceProjectsTool() {
         const library = await listWorkspaceLibrary();
         const mounted = useWorkspaceStore.getState().folders;
         const managed = [...library.active, ...library.archived, ...library.trashed];
+        const approvedRoots = projectScope?.kind === 'project-roots'
+          ? new Set(projectScope.roots.map((root) => normalizePathForBoundary(root))) : null;
         const entries = [
           ...managed.map((project) => ({
             projectId: project.repoUuid ?? project.repoPath,
@@ -131,7 +135,7 @@ export function createWorkspaceProjectsTool() {
               readOnly: Boolean(folder.pinned),
               revision: contentFingerprint(JSON.stringify(folder)),
             })),
-        ];
+        ].filter((project) => !approvedRoots || approvedRoots.has(normalizePathForBoundary(project.path)));
         if (operation.kind === 'list')
           return toolSuccess({
             projects: entries.slice(operation.offset, operation.offset + operation.limit),
@@ -148,6 +152,8 @@ export function createWorkspaceProjectsTool() {
             'Wait for the application workspace to finish mounting.'
           );
         if (operation.kind === 'create' || operation.kind === 'import') {
+          if (approvedRoots)
+            return fail('PROJECT_SCOPE_RESTRICTED', 'Project creation and import require an app-following grant.');
           attempted = true;
           const opened = await control.open(
             operation.kind === 'create'

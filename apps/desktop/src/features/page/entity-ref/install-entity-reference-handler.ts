@@ -146,7 +146,9 @@ export function installEntityReferenceHandler({
     intent: ReferenceIntent,
     ...args: Parameters<typeof openSelectedDocument>
   ) => {
-    const result = await openSelectedDocument(...args);
+    const result = intent.placement
+      ? await openSelectedDocument(args[0], args[1], args[2], args[3], intent.placement)
+      : await openSelectedDocument(...args);
     if (!current(intent)) return;
     if (result.status === 'presented') documentResult(intent, result);
     else intent.finish({ kind: 'document', result });
@@ -195,6 +197,7 @@ export function installEntityReferenceHandler({
           label: input.label,
           sourceSurface: 'mention',
           signal: controller.signal,
+          strategy: intent.placement,
         })
       );
     }

@@ -8,7 +8,7 @@ import {
 import { getTelemetryCorrelationContext } from '../../../lib/telemetry-correlation';
 import { beginWorkflowAction, type WorkflowOperation } from '../../../lib/workflow-telemetry';
 import type { WorkflowOutcomeKind } from '../../../shared/scientific-workflow-vocab';
-import type { DocumentOpenResult } from '../../canvas/public/document-presentation';
+import type { DocumentOpenResult, OpenStrategy } from '../../canvas/public/document-presentation';
 
 export type ReferenceFailure =
   | 'handler_unavailable'
@@ -28,6 +28,7 @@ type ReferenceDisposition =
 
 export interface ReferenceIntent {
   readonly finished: boolean;
+  readonly placement?: OpenStrategy;
   finish(disposition: ReferenceDisposition): void;
 }
 

@@ -1,3 +1,8 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../presentation/PresentationSurface';
 import { toUserMessage, renderUserMessage, type UserMessage } from '@waypoint/user-messages';
 import { useEffect, useState } from 'react';
 import { platform } from '../platform';
@@ -29,6 +34,9 @@ export function OriginalProjectRecoveryDialog() {
 }
 
 function OriginalProjectChoice({ onClose }: { onClose(): void }) {
+  const presentationOverlay = usePresentationOverlay('modal');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const [projects, setProjects] = useState<ProjectChoice[]>([]);
   const [selected, setSelected] = useState('');
   const [loading, setLoading] = useState(true);
@@ -71,9 +79,9 @@ function OriginalProjectChoice({ onClose }: { onClose(): void }) {
         onClose();
       }
     };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [busy, onClose]);
+    presentationEvents.add(document, 'keydown', onKey);
+    return () => presentationEvents.remove(document, 'keydown', onKey);
+  }, [busy, onClose, presentationEvents]);
 
   const identify = async () => {
     const project = projects.find((candidate) => String(candidate.id) === selected);
@@ -98,83 +106,88 @@ function OriginalProjectChoice({ onClose }: { onClose(): void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[10060] flex items-center justify-center bg-black/40">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="original-project-recovery-title"
-        data-testid="original-project-recovery-dialog"
-        className="mx-4 w-full max-w-xl rounded-lg border border-border bg-bg p-5 text-fg shadow-xl"
-      >
-        <h2 id="original-project-recovery-title" className="text-sm font-semibold">
-          Identify the original My Project
-        </h2>
-        <p className="mt-2 text-sm text-fg-muted">
-          Choose the existing project DNAForge first created as My Project, even if you renamed it.
-          Records without a project will be recovered there.
-        </p>
-        <label className="mt-4 block text-sm">
-          Original project
-          <select
-            aria-label="Original project"
-            value={selected}
-            disabled={loading || busy}
-            onChange={(event) => setSelected(event.target.value)}
-            className="mt-2 w-full rounded border border-border bg-bg px-2 py-2 text-sm"
-          >
-            <option value="">
-              {loading ? 'Loading projects…' : 'Choose the original project…'}
-            </option>
-            {projects.map((project) => {
-              const state =
-                project.trashed_at != null
-                  ? 'In Trash'
-                  : project.archived_at != null
-                    ? 'Archived'
-                    : project.access_mode !== 'writable'
-                      ? 'Read only'
-                      : '';
-              return (
-                <option key={project.repo_uuid} value={project.id} disabled={Boolean(state)}>
-                  {project.name} — {project.path}
-                  {state ? ` (${state})` : ''}
-                </option>
-              );
-            })}
-          </select>
-        </label>
-        <p className="mt-2 text-xs text-fg-muted">
-          Restore an archived or trashed original from Projects before choosing it here.
-        </p>
-        {!loading && projects.length === 0 && !error ? (
-          <p role="alert" className="mt-3 text-sm text-error">
-            No existing project is available. Restore the original project before recovery.
+    <div
+      ref={presentationOverlay.bindRef(undefined, '0')}
+      className="fixed inset-0 z-[10060] flex items-center justify-center bg-black/40"
+    >
+      <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="original-project-recovery-title"
+          data-testid="original-project-recovery-dialog"
+          className="mx-4 w-full max-w-xl rounded-lg border border-border bg-bg p-5 text-fg shadow-xl"
+        >
+          <h2 id="original-project-recovery-title" className="text-sm font-semibold">
+            Identify the original My Project
+          </h2>
+          <p className="mt-2 text-sm text-fg-muted">
+            Choose the existing project DNAForge first created as My Project, even if you renamed
+            it. Records without a project will be recovered there.
           </p>
-        ) : null}
-        {error ? (
-          <p role="alert" className="mt-3 text-sm text-error">
-            {renderUserMessage(error)}
+          <label className="mt-4 block text-sm">
+            Original project
+            <select
+              aria-label="Original project"
+              value={selected}
+              disabled={loading || busy}
+              onChange={(event) => setSelected(event.target.value)}
+              className="mt-2 w-full rounded border border-border bg-bg px-2 py-2 text-sm"
+            >
+              <option value="">
+                {loading ? 'Loading projects…' : 'Choose the original project…'}
+              </option>
+              {projects.map((project) => {
+                const state =
+                  project.trashed_at != null
+                    ? 'In Trash'
+                    : project.archived_at != null
+                      ? 'Archived'
+                      : project.access_mode !== 'writable'
+                        ? 'Read only'
+                        : '';
+                return (
+                  <option key={project.repo_uuid} value={project.id} disabled={Boolean(state)}>
+                    {project.name} — {project.path}
+                    {state ? ` (${state})` : ''}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+          <p className="mt-2 text-xs text-fg-muted">
+            Restore an archived or trashed original from Projects before choosing it here.
           </p>
-        ) : null}
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onClose}
-            className="rounded border border-border px-3 py-1.5 text-sm"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={!selected || loading || busy}
-            onClick={() => void identify()}
-            className="rounded bg-accent px-3 py-1.5 text-sm text-white disabled:opacity-50"
-          >
-            {busy ? 'Recovering…' : 'Identify and recover'}
-          </button>
-        </div>
-      </section>
+          {!loading && projects.length === 0 && !error ? (
+            <p role="alert" className="mt-3 text-sm text-error">
+              No existing project is available. Restore the original project before recovery.
+            </p>
+          ) : null}
+          {error ? (
+            <p role="alert" className="mt-3 text-sm text-error">
+              {renderUserMessage(error)}
+            </p>
+          ) : null}
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onClose}
+              className="rounded border border-border px-3 py-1.5 text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!selected || loading || busy}
+              onClick={() => void identify()}
+              className="rounded bg-accent px-3 py-1.5 text-sm text-white disabled:opacity-50"
+            >
+              {busy ? 'Recovering…' : 'Identify and recover'}
+            </button>
+          </div>
+        </section>
+      </PresentationScopeContext.Provider>
     </div>
   );
 }

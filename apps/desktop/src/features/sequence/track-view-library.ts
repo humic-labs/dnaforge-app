@@ -6,26 +6,35 @@ import { useWorkspaceStore } from '../../stores/workspaceStore';
 
 export const TRACK_VIEW_LIBRARY_CHANGED = 'dnaforge:track-view-library-changed';
 
-const inFlightProjections = new Map<string, Promise<void>>();
+const inFlightProjections = new Map<string, { key: string; promise: Promise<void> }>();
 
 export async function projectSavedTrackView(saved: SavedTrackView): Promise<void> {
+  const key = JSON.stringify([
+    saved.document,
+    saved.path,
+    saved.workspaceRoot ?? null,
+    saved.revision,
+  ]);
   const existing = inFlightProjections.get(saved.document.id);
-  if (existing) return existing;
+  if (existing?.key === key) return existing.promise;
 
-  const projection = trackViewAdapter
-    .writeProjection(
-      saved.document,
-      saved.document.id,
-      Date.parse(saved.document.updatedAt),
-      saved.path,
-      { workspaceRoot: saved.workspaceRoot ?? null }
-    )
-    .then(() => undefined);
-  inFlightProjections.set(saved.document.id, projection);
+  const project = () =>
+    trackViewAdapter
+      .writeProjection(
+        saved.document,
+        saved.document.id,
+        Date.parse(saved.document.updatedAt),
+        saved.path,
+        { workspaceRoot: saved.workspaceRoot ?? null }
+      )
+      .then(() => undefined);
+  const projection = existing ? existing.promise.then(project, project) : project();
+  const pending = { key, promise: projection };
+  inFlightProjections.set(saved.document.id, pending);
   try {
     await projection;
   } finally {
-    if (inFlightProjections.get(saved.document.id) === projection) {
+    if (inFlightProjections.get(saved.document.id) === pending) {
       inFlightProjections.delete(saved.document.id);
     }
   }

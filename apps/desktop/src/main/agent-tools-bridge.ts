@@ -23,8 +23,30 @@ import {
   recordCompletedResourceRead,
   recordCompletedToolCall,
 } from './agent-sdk/turn-workspace-provenance';
+import {
+  agentProjectScopeSchema,
+  legacyProjectScope,
+  type AgentProjectScope,
+  type AuthorizedProjectFolder,
+} from '../shared/agent-project-scope';
+import {
+  createRegisteredProjectAuthority,
+  type RegisteredProjectAuthority,
+} from './registered-project-authority';
+import { getDb } from './ipc/database';
 
 const MAX_BODY_BYTES = 1024 * 1024;
+
+function requestProjectScope(req: IncomingMessage): AgentProjectScope {
+  const supplied = readHeader(req, 'x-dnaforge-project-scope');
+  if (!supplied)
+    return legacyProjectScope(readHeader(req, 'x-dnaforge-bound-workspace') || undefined);
+  try {
+    return agentProjectScopeSchema.parse(JSON.parse(supplied));
+  } catch {
+    return { kind: 'project-roots', roots: [] };
+  }
+}
 
 function tokensEqual(a: string, b: string): boolean {
   const left = Buffer.from(a);
@@ -62,6 +84,8 @@ interface RendererBridgePayload {
   expectedSessionToken: string;
   agentCapabilities: string[];
   boundWorkspaceId?: string;
+  projectScope?: AgentProjectScope;
+  authorizedFolders?: AuthorizedProjectFolder[];
   trustedContext?: unknown;
 }
 
@@ -97,6 +121,7 @@ export async function startAgentToolsBridge(
     timeoutMs?: number;
     observationSessionToken?: () => string | null;
     resolveRendererTarget?: (turnId?: string) => WebContents | null | undefined;
+    projectAuthority?: RegisteredProjectAuthority;
   } = {}
 ): Promise<AgentToolsBridgeServer> {
   const grant = mintInAppChatGrant({
@@ -107,11 +132,14 @@ export async function startAgentToolsBridge(
   const agentIdentityId = grant.agentIdentityId;
   const capabilities = grant.capabilities;
   const timeoutMs = options.timeoutMs ?? 30_000;
+  const projectAuthority =
+    options.projectAuthority ?? createRegisteredProjectAuthority({ db: getDb });
 
   const operations = new RendererOperations(
     mainWindow,
     timeoutMs,
-    options.resolveRendererTarget ?? proteinExperimentRendererForTurn
+    options.resolveRendererTarget ?? proteinExperimentRendererForTurn,
+    projectAuthority
   );
   const server = createServer((req, res) => {
     void handleRequest(req, res, {
@@ -119,6 +147,7 @@ export async function startAgentToolsBridge(
       sessionToken,
       timeoutMs,
       operations,
+      projectAuthority,
       ...(options.observationSessionToken
         ? { observationSessionToken: options.observationSessionToken }
         : {}),
@@ -194,6 +223,7 @@ async function handleRequest(
     sessionToken: string;
     timeoutMs: number;
     operations: RendererOperations;
+    projectAuthority: RegisteredProjectAuthority;
     observationSessionToken?: () => string | null;
   }
 ): Promise<void> {
@@ -351,6 +381,7 @@ async function handleRequest(
     sessionToken: providedSession,
     expectedSessionToken: options.sessionToken,
     agentCapabilities: parseCapabilities(readHeader(req, 'x-dnaforge-agent-capabilities')),
+    projectScope: requestProjectScope(req),
     ...(readHeader(req, 'x-dnaforge-bound-workspace')
       ? { boundWorkspaceId: readHeader(req, 'x-dnaforge-bound-workspace') }
       : {}),
@@ -382,6 +413,7 @@ async function handleResourceRead(
     mainWindow: BrowserWindow;
     sessionToken: string;
     timeoutMs: number;
+    projectAuthority: RegisteredProjectAuthority;
   }
 ): Promise<void> {
   const providedSession = readHeader(req, 'x-dnaforge-session');
@@ -430,6 +462,7 @@ async function handleResourceRead(
       readHeader(req, 'x-dnaforge-agent-identity') || IN_APP_CHAT_AGENT_IDENTITY;
     const boundWorkspaceId = readHeader(req, 'x-dnaforge-bound-workspace') || undefined;
     const turnId = readHeader(req, 'x-dnaforge-turn-id') || undefined;
+    const projectScope = requestProjectScope(req);
     const response = await sendRendererResourceRead(
       options.mainWindow,
       {
@@ -439,6 +472,8 @@ async function handleResourceRead(
         expectedSessionToken: options.sessionToken,
         agentIdentity,
         agentCapabilities: parseCapabilities(readHeader(req, 'x-dnaforge-agent-capabilities')),
+        projectScope,
+        authorizedFolders: options.projectAuthority.folders(projectScope),
         ...(boundWorkspaceId ? { boundWorkspaceId } : {}),
       },
       options.timeoutMs
@@ -466,6 +501,8 @@ function sendRendererResourceRead(
     agentIdentity: string;
     agentCapabilities: string[];
     boundWorkspaceId?: string;
+    projectScope?: AgentProjectScope;
+    authorizedFolders?: AuthorizedProjectFolder[];
   },
   timeoutMs: number
 ): Promise<unknown> {
@@ -683,7 +720,8 @@ class RendererOperations {
   constructor(
     private readonly mainWindow: BrowserWindow,
     private readonly timeoutMs: number,
-    private readonly resolveRendererTarget: (turnId?: string) => WebContents | null | undefined
+    private readonly resolveRendererTarget: (turnId?: string) => WebContents | null | undefined,
+    private readonly projectAuthority: RegisteredProjectAuthority
   ) {
     this.renderer = mainWindow.webContents;
     this.renderer.on?.('destroyed', this.lost);
@@ -728,6 +766,12 @@ class RendererOperations {
     cancelable: boolean,
     mainOwned = false
   ): Promise<RendererToolCallResponseShape> {
+    const projectScope = payload.projectScope ?? legacyProjectScope(payload.boundWorkspaceId);
+    payload = {
+      ...payload,
+      projectScope,
+      authorizedFolders: this.projectAuthority.folders(projectScope),
+    };
     this.prune();
     const key = this.key(payload.request.agent_identity, payload.request.action_id);
     const fingerprint = JSON.stringify([

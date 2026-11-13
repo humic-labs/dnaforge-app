@@ -1,4 +1,8 @@
 import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+} from '../../../presentation/PresentationSurface';
+import {
   toUserMessage,
   userMessage,
   userMessageWithValues,
@@ -165,6 +169,8 @@ export function LimsImportWizard({
 
   initialDataMode?: 'upload' | 'paste';
 }) {
+  const presentationOverlay = usePresentationOverlay('modal');
+
   const kind = job?.kind ?? chosenKind;
   const activeSchema = kind ? schemas.find((s) => s.entityKind === kind) : undefined;
   const view = plan ? computeImportPlanView(plan, idSchemes, undefined, activeSchema) : null;
@@ -234,266 +240,269 @@ export function LimsImportWizard({
     step === 'type' || !kind ? 'Import to registry' : `Import ${kindNoun(kind, schemas, true)}`;
 
   return (
-    <div
-      data-testid="lims-import-wizard"
-      data-review-id={plan?.review?.id}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Import to registry"
-      className={`fixed inset-0 ${UI_MODAL_LAYER_CLASS} bg-black/40`}
-      onKeyDown={(event) => {
-        if (event.key !== 'Escape') return;
-
-        const target = event.target as HTMLElement | null;
-        const tag = target?.tagName;
-        if (
-          tag === 'INPUT' ||
-          tag === 'TEXTAREA' ||
-          tag === 'SELECT' ||
-          target?.closest('[aria-expanded="true"],[role="listbox"]')
-        ) {
-          return;
-        }
-        event.preventDefault();
-        onCancel();
-      }}
-    >
+    <PresentationScopeContext.Provider value={presentationOverlay.scope}>
       <div
-        ref={cardRef}
-        tabIndex={-1}
-        data-testid="lims-import-wizard-card"
-        style={{ position: 'fixed', left: box.x, top: box.y, width: box.w, height: box.h }}
-        className="flex flex-col overflow-hidden rounded-lg border border-border bg-bg shadow-xl outline-none"
+        data-testid="lims-import-wizard"
+        data-review-id={plan?.review?.id}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Import to registry"
+        className={`fixed inset-0 ${UI_MODAL_LAYER_CLASS} bg-black/40`}
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape') return;
+
+          const target = event.target as HTMLElement | null;
+          const tag = target?.tagName;
+          if (
+            tag === 'INPUT' ||
+            tag === 'TEXTAREA' ||
+            tag === 'SELECT' ||
+            target?.closest('[aria-expanded="true"],[role="listbox"]')
+          ) {
+            return;
+          }
+          event.preventDefault();
+          onCancel();
+        }}
+        ref={presentationOverlay.bindRef(undefined, '0')}
       >
-        {}
-        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <div
-            data-testid="lims-import-wizard-drag"
-            onMouseDown={(event) => beginGesture('drag', event)}
-            className="min-w-0 flex-1 cursor-move select-none"
-          >
-            <div className="truncate text-sm font-semibold text-fg">{titleText}</div>
-            {}
-            {plan && view ? (
-              <div
-                data-testid="lims-import-status-line"
-                className="truncate text-[11px] font-normal text-fg-muted"
-              >
-                <span data-testid="lims-import-plan-source" className="font-medium text-fg">
-                  {plan.sourceName}
-                </span>{' '}
-                · {view.detectedRecordsText} · {view.newCount} new
-                {view.idRange ? ` · ${view.idRange}` : ''}
-              </div>
-            ) : job ? (
-              <div
-                data-testid="lims-import-status-line"
-                className="truncate text-[11px] font-normal text-fg-muted"
-              >
-                {job.fileName}
-              </div>
-            ) : null}
+        <div
+          ref={cardRef}
+          tabIndex={-1}
+          data-testid="lims-import-wizard-card"
+          style={{ position: 'fixed', left: box.x, top: box.y, width: box.w, height: box.h }}
+          className="flex flex-col overflow-hidden rounded-lg border border-border bg-bg shadow-xl outline-none"
+        >
+          {}
+          <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+            <div
+              data-testid="lims-import-wizard-drag"
+              onMouseDown={(event) => beginGesture('drag', event)}
+              className="min-w-0 flex-1 cursor-move select-none"
+            >
+              <div className="truncate text-sm font-semibold text-fg">{titleText}</div>
+              {}
+              {plan && view ? (
+                <div
+                  data-testid="lims-import-status-line"
+                  className="truncate text-[11px] font-normal text-fg-muted"
+                >
+                  <span data-testid="lims-import-plan-source" className="font-medium text-fg">
+                    {plan.sourceName}
+                  </span>{' '}
+                  · {view.detectedRecordsText} · {view.newCount} new
+                  {view.idRange ? ` · ${view.idRange}` : ''}
+                </div>
+              ) : job ? (
+                <div
+                  data-testid="lims-import-status-line"
+                  className="truncate text-[11px] font-normal text-fg-muted"
+                >
+                  {job.fileName}
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              data-testid="lims-import-cancel"
+              aria-label="Close"
+              onClick={onCancel}
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-fg-muted hover:bg-bg-muted hover:text-fg"
+            >
+              <XIcon />
+            </button>
           </div>
-          <button
-            type="button"
-            data-testid="lims-import-cancel"
-            aria-label="Close"
-            onClick={onCancel}
-            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-fg-muted hover:bg-bg-muted hover:text-fg"
-          >
-            <XIcon />
-          </button>
-        </div>
 
-        {}
-        {job?.phase === 'done' ? (
-          <DonePane job={job} />
-        ) : (
-          <div className="flex min-h-0 flex-1">
-            <StepRail
-              step={step}
-              hasType={!!chosenKind}
-              hasContent={hasContent}
-              onGoto={onGotoStep}
-            />
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col border-l border-border">
-              {step === 'type' && (
-                <TypeStep
-                  schemas={schemas}
-                  chosen={chosenKind}
-                  suggested={suggestedKind}
-                  onChoose={onChooseKind}
-                />
-              )}
+          {}
+          {job?.phase === 'done' ? (
+            <DonePane job={job} />
+          ) : (
+            <div className="flex min-h-0 flex-1">
+              <StepRail
+                step={step}
+                hasType={!!chosenKind}
+                hasContent={hasContent}
+                onGoto={onGotoStep}
+              />
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col border-l border-border">
+                {step === 'type' && (
+                  <TypeStep
+                    schemas={schemas}
+                    chosen={chosenKind}
+                    suggested={suggestedKind}
+                    onChoose={onChooseKind}
+                  />
+                )}
 
-              {step === 'file' &&
-                (job ? (
-                  <SheetPickerPane
+                {step === 'file' &&
+                  (job ? (
+                    <SheetPickerPane
+                      job={job}
+                      onSelectTab={onSelectTab}
+                      onToggleTabSelected={onToggleTabSelected}
+                    />
+                  ) : (
+                    <DataStepPane
+                      kind={kind ?? undefined}
+                      schemas={schemas}
+                      canPaste={canPaste}
+                      mode={dataMode}
+                      onModeChange={setDataMode}
+                      onFile={onFile}
+                      pasteText={pasteText}
+                      onPasteTextChange={setPasteText}
+                      pasteHasHeader={pasteHasHeader}
+                      onPasteHasHeaderChange={setPasteHasHeader}
+                    />
+                  ))}
+
+                {step === 'destination' && (
+                  <ImportDestinationPicker
+                    folders={folders}
+                    value={destinationRoot}
+                    onChange={onChooseDestination}
+                  />
+                )}
+
+                {step === 'review' && (
+                  <ReviewPane
                     job={job}
+                    plan={plan}
+                    view={view}
                     onSelectTab={onSelectTab}
                     onToggleTabSelected={onToggleTabSelected}
+                    onColumnMappingsChange={onColumnMappingsChange}
+                    onRecordAcceptedChange={onRecordAcceptedChange}
+                    onRecordsAcceptedChange={onRecordsAcceptedChange}
                   />
-                ) : (
-                  <DataStepPane
-                    kind={kind ?? undefined}
-                    schemas={schemas}
-                    canPaste={canPaste}
-                    mode={dataMode}
-                    onModeChange={setDataMode}
-                    onFile={onFile}
-                    pasteText={pasteText}
-                    onPasteTextChange={setPasteText}
-                    pasteHasHeader={pasteHasHeader}
-                    onPasteHasHeaderChange={setPasteHasHeader}
-                  />
-                ))}
-
-              {step === 'destination' && (
-                <ImportDestinationPicker
-                  folders={folders}
-                  value={destinationRoot}
-                  onChange={onChooseDestination}
-                />
-              )}
-
-              {step === 'review' && (
-                <ReviewPane
-                  job={job}
-                  plan={plan}
-                  view={view}
-                  onSelectTab={onSelectTab}
-                  onToggleTabSelected={onToggleTabSelected}
-                  onColumnMappingsChange={onColumnMappingsChange}
-                  onRecordAcceptedChange={onRecordAcceptedChange}
-                  onRecordsAcceptedChange={onRecordsAcceptedChange}
-                />
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {}
-        <div className="flex min-h-[3.5rem] items-center justify-between border-t border-border px-4 py-3">
-          <div>
-            {step === 'type' ? (
-              <Button type="button" data-testid="lims-import-cancel-footer" onClick={onCancel}>
-                Cancel
-              </Button>
-            ) : job?.phase !== 'done' ? (
-              <Button
-                type="button"
-                data-testid="lims-import-back"
-                onClick={() =>
-                  onGotoStep(
-                    step === 'destination' ? 'review' : step === 'review' ? 'file' : 'type'
-                  )
-                }
-              >
-                ← Back
-              </Button>
-            ) : null}
-          </div>
-          <div>
-            {}
-            {job?.phase === 'done' ? (
-              <Button
-                type="button"
-                data-testid="lims-import-done"
-                onClick={onDone ?? onCancel}
-                variant="primary"
-              >
-                Done
-              </Button>
-            ) : (
-              <>
-                {}
-                {step === 'file' && !job && canPaste && dataMode === 'paste' && (
-                  <Button
-                    type="button"
-                    data-testid="lims-import-paste-preview"
-                    onClick={() => onPasteImport(pasteText, pasteHasHeader)}
-                    disabled={!pasteText.trim()}
-                    variant="primary"
-                  >
-                    Preview records →
-                  </Button>
-                )}
-                {}
-                {step === 'file' && job && (
-                  <Button
-                    type="button"
-                    data-testid="lims-import-next"
-                    onClick={onNext}
-                    disabled={selectedCount === 0}
-                    variant="primary"
-                  >
-                    Next → ({selectedCount} sheet{selectedCount === 1 ? '' : 's'})
-                  </Button>
-                )}
-                {}
-                {step === 'review' &&
-                  (!job && view?.allAlreadyRegistered ? (
+          {}
+          <div className="flex min-h-[3.5rem] items-center justify-between border-t border-border px-4 py-3">
+            <div>
+              {step === 'type' ? (
+                <Button type="button" data-testid="lims-import-cancel-footer" onClick={onCancel}>
+                  Cancel
+                </Button>
+              ) : job?.phase !== 'done' ? (
+                <Button
+                  type="button"
+                  data-testid="lims-import-back"
+                  onClick={() =>
+                    onGotoStep(
+                      step === 'destination' ? 'review' : step === 'review' ? 'file' : 'type'
+                    )
+                  }
+                >
+                  ← Back
+                </Button>
+              ) : null}
+            </div>
+            <div>
+              {}
+              {job?.phase === 'done' ? (
+                <Button
+                  type="button"
+                  data-testid="lims-import-done"
+                  onClick={onDone ?? onCancel}
+                  variant="primary"
+                >
+                  Done
+                </Button>
+              ) : (
+                <>
+                  {}
+                  {step === 'file' && !job && canPaste && dataMode === 'paste' && (
                     <Button
                       type="button"
-                      data-testid="lims-import-done"
-                      onClick={onDone ?? onCancel}
+                      data-testid="lims-import-paste-preview"
+                      onClick={() => onPasteImport(pasteText, pasteHasHeader)}
+                      disabled={!pasteText.trim()}
                       variant="primary"
                     >
-                      Done
+                      Preview records →
                     </Button>
-                  ) : (
+                  )}
+                  {}
+                  {step === 'file' && job && (
                     <Button
                       type="button"
                       data-testid="lims-import-next"
-                      onClick={() => onGotoStep('destination')}
-                      disabled={job ? false : !view?.canApply}
+                      onClick={onNext}
+                      disabled={selectedCount === 0}
                       variant="primary"
                     >
-                      Next → Destination
+                      Next → ({selectedCount} sheet{selectedCount === 1 ? '' : 's'})
                     </Button>
-                  ))}
-                {}
-                {step === 'destination' &&
-                  (job?.phase === 'importing' ? (
-                    <Button type="button" disabled variant="primary">
-                      Importing…
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      data-testid="lims-import-apply"
-                      onClick={job ? onImportAll : onApply}
-                      disabled={folders.length > 0 && !destinationRoot}
-                      variant="primary"
-                    >
-                      Add {job ? (totalCount ?? 0) : (view?.acceptedCount ?? 0)}{' '}
-                      {kindNoun(
-                        job ? job.kind : (kind ?? 'oligo'),
-                        schemas,
-                        (job ? (totalCount ?? 0) : (view?.acceptedCount ?? 0)) !== 1
-                      )}
-                    </Button>
-                  ))}
-              </>
-            )}
+                  )}
+                  {}
+                  {step === 'review' &&
+                    (!job && view?.allAlreadyRegistered ? (
+                      <Button
+                        type="button"
+                        data-testid="lims-import-done"
+                        onClick={onDone ?? onCancel}
+                        variant="primary"
+                      >
+                        Done
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        data-testid="lims-import-next"
+                        onClick={() => onGotoStep('destination')}
+                        disabled={job ? false : !view?.canApply}
+                        variant="primary"
+                      >
+                        Next → Destination
+                      </Button>
+                    ))}
+                  {}
+                  {step === 'destination' &&
+                    (job?.phase === 'importing' ? (
+                      <Button type="button" disabled variant="primary">
+                        Importing…
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        data-testid="lims-import-apply"
+                        onClick={job ? onImportAll : onApply}
+                        disabled={folders.length > 0 && !destinationRoot}
+                        variant="primary"
+                      >
+                        Add {job ? (totalCount ?? 0) : (view?.acceptedCount ?? 0)}{' '}
+                        {kindNoun(
+                          job ? job.kind : (kind ?? 'oligo'),
+                          schemas,
+                          (job ? (totalCount ?? 0) : (view?.acceptedCount ?? 0)) !== 1
+                        )}
+                      </Button>
+                    ))}
+                </>
+              )}
+            </div>
+          </div>
+
+          {}
+          <div
+            data-testid="lims-import-wizard-resize-w"
+            onMouseDown={(event) => beginGesture('resize-w', event)}
+            className="absolute right-0 top-0 h-full w-1.5 cursor-ew-resize hover:bg-accent/30"
+          />
+          <div
+            data-testid="lims-import-wizard-resize"
+            onMouseDown={(event) => beginGesture('resize', event)}
+            className="absolute bottom-0 right-0 flex h-4 w-4 cursor-nwse-resize items-end justify-end p-0.5"
+          >
+            <span className="h-2 w-2 border-b-2 border-r-2 border-fg-subtle/50" />
           </div>
         </div>
-
-        {}
-        <div
-          data-testid="lims-import-wizard-resize-w"
-          onMouseDown={(event) => beginGesture('resize-w', event)}
-          className="absolute right-0 top-0 h-full w-1.5 cursor-ew-resize hover:bg-accent/30"
-        />
-        <div
-          data-testid="lims-import-wizard-resize"
-          onMouseDown={(event) => beginGesture('resize', event)}
-          className="absolute bottom-0 right-0 flex h-4 w-4 cursor-nwse-resize items-end justify-end p-0.5"
-        >
-          <span className="h-2 w-2 border-b-2 border-r-2 border-fg-subtle/50" />
-        </div>
       </div>
-    </div>
+    </PresentationScopeContext.Provider>
   );
 }
 

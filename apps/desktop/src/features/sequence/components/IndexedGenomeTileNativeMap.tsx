@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import {
   toUserMessage,
   userMessage,
@@ -94,6 +95,9 @@ export interface IndexedGenomeTileNativeMapHandle {
   scrollTracksBy: (deltaY: number) => boolean;
 
   setTrackPresentationOrder: (orderedTrackIds: ReadonlyArray<string>) => boolean;
+  setTrackPresentationDrag: (
+    preview: import('@waypoint/genome-renderer').TrackPresentationDrag | null
+  ) => boolean;
 }
 
 export interface IndexedGenomeTileNativeMapProps {
@@ -169,6 +173,8 @@ type PinnedReadState =
 export const IndexedGenomeTileNativeMap = memo(
   forwardRef<IndexedGenomeTileNativeMapHandle, IndexedGenomeTileNativeMapProps>(
     function IndexedGenomeTileNativeMap(props, ref) {
+      const presentationEvents = usePresentationListener();
+
       const {
         genome,
         themeMode,
@@ -647,9 +653,9 @@ export const IndexedGenomeTileNativeMap = memo(
         const onKeyDown = (event: KeyboardEvent) => {
           if (event.key === 'Escape') dismissPinnedRead();
         };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-      }, [dismissPinnedRead, pinnedReadIdentity]);
+        presentationEvents.add(window, 'keydown', onKeyDown);
+        return () => presentationEvents.remove(window, 'keydown', onKeyDown);
+      }, [dismissPinnedRead, pinnedReadIdentity, presentationEvents]);
 
       useEffect(() => () => readRequestRef.current?.abort(), []);
 
@@ -773,6 +779,12 @@ export const IndexedGenomeTileNativeMap = memo(
           setTrackPresentationOrder: (orderedTrackIds) => {
             const renderer = handle.getLinearRenderer();
             if (!renderer?.setTrackPresentationOrder(orderedTrackIds)) return false;
+            handle.requestRender();
+            return true;
+          },
+          setTrackPresentationDrag: (preview) => {
+            const renderer = handle.getLinearRenderer();
+            if (!renderer?.setTrackPresentationDrag(preview)) return false;
             handle.requestRender();
             return true;
           },

@@ -18,6 +18,17 @@ import {
 import { useSequenceStore } from '../../sequence/public/store';
 import { useCanvasStore } from '../../canvas/public/store';
 import { describeVariantCalls } from '../../alignment-manager/public/variant-analysis';
+import {
+  trackNgsReadAnalysisSettled,
+  trackNgsReadAnalysisStarted,
+  trackNgsReadAnalysisSubmitFailed,
+} from '../../alignment-manager/public/ngs-read-telemetry';
+
+function observeTelemetry(record: () => void): void {
+  try {
+    record();
+  } catch {}
+}
 const NGS_ANALYSIS_PREVIEW_CALLS = 25;
 
 export const analyzeNgsReadsSchema = z
@@ -68,6 +79,7 @@ export function createAnalyzeNgsReadsTool(folders: WorkspaceFolder[]) {
           throw new Error('The raw reads must be inside their open project.');
         const sequence =
           useSequenceStore.getState().getSequence(loaded.documentId) ?? loaded.biology.sequence;
+        observeTelemetry(() => trackNgsReadAnalysisStarted(preset));
         return toolSuccess({
           documentId: loaded.documentId,
           name,
@@ -82,6 +94,7 @@ export function createAnalyzeNgsReadsTool(folders: WorkspaceFolder[]) {
           },
         });
       } catch (error) {
+        observeTelemetry(() => trackNgsReadAnalysisSubmitFailed(preset, error));
         return failure(error);
       }
     },
@@ -192,12 +205,24 @@ export function createGetNgsAnalysisTool(folders: WorkspaceFolder[]) {
         );
         if (opened.error) throw new Error(opened.error);
         retainNgsReadOperation(loaded.documentId, operationId, name);
-        if (operation.state !== 'succeeded')
+        if (operation.state !== 'succeeded') {
+          if (['failed', 'canceled', 'interrupted'].includes(operation.state))
+            observeTelemetry(() => trackNgsReadAnalysisSettled(operation, {}));
           return toolSuccess({ operationId, status: operation.state, error: operation.error });
+        }
         const sequence =
           useSequenceStore.getState().getSequence(loaded.documentId) ?? loaded.biology.sequence;
-        const result = await importNgsReadAnalysis(operationId, loaded.documentId, sequence, name),
-          evidence = result.data.readEvidence!;
+        let result: Awaited<ReturnType<typeof importNgsReadAnalysis>>;
+        try {
+          result = await importNgsReadAnalysis(operationId, loaded.documentId, sequence, name);
+        } catch (error) {
+          observeTelemetry(() => trackNgsReadAnalysisSettled(operation, { error }));
+          throw error;
+        }
+        const evidence = result.data.readEvidence!;
+        observeTelemetry(() =>
+          trackNgsReadAnalysisSettled(operation, { evidence, candidateCount: result.data.calls.length })
+        );
         return toolSuccess({
           operationId,
           status: 'imported',

@@ -25,6 +25,11 @@ import {
 } from '../shared/notebook-document';
 import type { NativeDirtyDocument } from '../shared/native-document-drafts';
 import { NativeDocumentCommandError } from '../shared/native-document-error';
+import {
+  resolveNotebookResourceReferenceRequestSchema,
+  type ResolveNotebookResourceReferenceRequest,
+  type ResolvedProjectResourceReference,
+} from '../shared/project-resource-reference';
 
 export interface NativeNotebookScope {
   documentId: string;
@@ -58,6 +63,15 @@ export interface NativeNotebookRecord {
   publication?: import('../shared/notebook-publication').NotebookPublicationState;
 }
 export interface NativeNotebookOptions {
+  resolveResourceReference?(
+    scope: NativeNotebookScope,
+    reference: ResolveNotebookResourceReferenceRequest['reference']
+  ): Promise<ResolvedProjectResourceReference>;
+  prepareResourceReferences?(
+    scope: NativeNotebookScope,
+    content: JSONContent,
+    previousContent: JSONContent
+  ): Promise<{ content: JSONContent; verify(): Promise<void> }>;
   inspectConflict?(scope: NativeNotebookScope): Promise<NotebookConflictComparison>;
   resolveConflict?(
     scope: NativeNotebookScope,
@@ -141,6 +155,30 @@ export class NativeNotebookWorkingCopyOwner {
   private closed = false;
   private pendingRequestBytes = 0;
   constructor(private readonly options: NativeNotebookOptions) {}
+  async resolveResourceReference(
+    input: ResolveNotebookResourceReferenceRequest
+  ): Promise<ResolvedProjectResourceReference> {
+    const request = resolveNotebookResourceReferenceRequestSchema.parse(input);
+    if (this.closed) throw refused('NOTEBOOK_OWNER_CLOSED', 'The native notebook owner is closed.');
+    const scope = await this.options.resolve(request.documentId, false);
+    if (!this.options.resolveResourceReference)
+      throw refused(
+        'NOTEBOOK_REFERENCE_UNAVAILABLE',
+        'Project resource references are unavailable.'
+      );
+    const result = await this.options.resolveResourceReference(scope, request.reference);
+    scope.assertCurrent();
+    return result;
+  }
+  private async prepareResourceReferences(
+    scope: NativeNotebookScope,
+    content: JSONContent,
+    previousContent: JSONContent
+  ) {
+    if (this.options.prepareResourceReferences)
+      return this.options.prepareResourceReferences(scope, content, previousContent);
+    return { content, verify: async () => scope.assertCurrent() };
+  }
   async locate(id: string): Promise<{ path: string; workspaceRoot: string }> {
     const scope = await this.options.resolve(id, false);
     scope.assertCurrent();
@@ -417,14 +455,51 @@ export class NativeNotebookWorkingCopyOwner {
                 'STALE_NOTEBOOK_TRANSACTION',
                 'This view edited another notebook revision. Its unsent content remains preserved.'
               );
-            copy.model.applySteps(
+            const candidate = new NotebookDocumentModel(copy.model.content, copy.model.title);
+            candidate.applySteps(
               operation.steps,
               operation.selection,
               operation.separateHistory,
               operation.time,
               operation.addToHistory
             );
+            const prepared = await this.prepareResourceReferences(
+              scope,
+              candidate.content,
+              copy.model.content
+            );
+            await prepared.verify();
+            scope.assertCurrent();
+            copy.model.applySteps(
+              operation.steps,
+              operation.selection,
+              operation.separateHistory,
+              operation.time,
+              operation.addToHistory,
+              prepared.content
+            );
             copy.version++;
+          } else if (operation.kind === 'splice-blocks') {
+            const candidate = new NotebookDocumentModel(copy.model.content, copy.model.title);
+            candidate.execute(operation);
+            const prepared = await this.prepareResourceReferences(
+              scope,
+              candidate.content,
+              copy.model.content
+            );
+            await prepared.verify();
+            scope.assertCurrent();
+            copy.model.splice(
+              operation.index,
+              operation.deleteCount,
+              prepared.content.content!.slice(
+                operation.index,
+                operation.index + operation.blocks.length
+              ),
+              prepared.content
+            );
+            copy.version++;
+            result = { changed: true };
           } else if (operation.kind === 'insert' || operation.kind === 'insert-reference') {
             if (operation.kind === 'insert-reference' && !this.options.prepareReferenceInsertion)
               throw new Error('Reference insertion is unavailable.');
@@ -436,7 +511,22 @@ export class NativeNotebookWorkingCopyOwner {
             await prepared.verify();
             scope.assertCurrent();
             this.assertUnprotected(scope.path);
-            copy.model.splice(operation.index, 0, [prepared.block]);
+            const candidate = new NotebookDocumentModel(copy.model.content, copy.model.title);
+            candidate.splice(operation.index, 0, [prepared.block]);
+            const references = await this.prepareResourceReferences(
+              scope,
+              candidate.content,
+              copy.model.content
+            );
+            await references.verify();
+            await prepared.verify();
+            scope.assertCurrent();
+            copy.model.splice(
+              operation.index,
+              0,
+              [references.content.content![operation.index]],
+              references.content
+            );
             copy.version++;
             result = { changed: true };
           } else if (['create', 'list', 'search'].includes(operation.kind))
@@ -870,6 +960,9 @@ export class NativeNotebookWorkingCopyOwner {
       this.assertUnprotected(scope.path);
       if (this.options.normalizePath(scope.path) !== this.options.normalizePath(copy.scope.path))
         throw refused('NOTEBOOK_BINDING_CHANGED', 'The notebook moved before this save began.');
+      const references = await this.prepareResourceReferences(scope, content, copy.source.content);
+      await references.verify();
+      scope.assertCurrent();
       const result = await this.options.publish(scope, copy.source, content, title);
       published = true;
       copy.source = result.source;

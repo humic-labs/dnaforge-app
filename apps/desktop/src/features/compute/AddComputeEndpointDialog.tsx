@@ -1,3 +1,7 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+} from '../../presentation/PresentationSurface';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useMemo, useState } from 'react';
 import { Button, Notice, TextArea, TextField, UI_MODAL_LAYER_CLASS } from '../../components/ui';
@@ -85,6 +89,8 @@ export function AddComputeEndpointDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const presentationOverlay = usePresentationOverlay('modal');
+
   const installManifest = useComputeStore((state) => state.installManifest);
   const [mode, setMode] = useState<Mode>('runpod');
   const [name, setName] = useState('');
@@ -134,142 +140,145 @@ export function AddComputeEndpointDialog({
   }
 
   return (
-    <div
-      className={`fixed inset-0 ${UI_MODAL_LAYER_CLASS} flex items-center justify-center bg-black/40 p-4`}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Add compute endpoint"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !busy) onClose();
-      }}
-    >
-      <div className="flex max-h-[88vh] w-full max-w-2xl flex-col rounded-xl border border-border bg-bg shadow-xl">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <div>
-            <h2 className="text-sm font-medium text-fg">Add compute endpoint</h2>
-            <p className="mt-0.5 text-[11px] text-fg-subtle">
-              Install configuration only. API keys are verified and stored separately.
-            </p>
-          </div>
-          <button
-            type="button"
-            aria-label="Close"
-            className="text-fg-subtle hover:text-fg disabled:opacity-50"
-            disabled={busy}
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-          <div className="flex gap-2" role="tablist" aria-label="Endpoint type">
-            <Button
+    <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+      <div
+        className={`fixed inset-0 ${UI_MODAL_LAYER_CLASS} flex items-center justify-center bg-black/40 p-4`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add compute endpoint"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !busy) onClose();
+        }}
+        ref={presentationOverlay.bindRef(undefined, '0')}
+      >
+        <div className="flex max-h-[88vh] w-full max-w-2xl flex-col rounded-xl border border-border bg-bg shadow-xl">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div>
+              <h2 className="text-sm font-medium text-fg">Add compute endpoint</h2>
+              <p className="mt-0.5 text-[11px] text-fg-subtle">
+                Install configuration only. API keys are verified and stored separately.
+              </p>
+            </div>
+            <button
               type="button"
-              role="tab"
-              aria-selected={mode === 'runpod'}
-              variant={mode === 'runpod' ? 'primary' : 'secondary'}
-              onClick={() => setMode('runpod')}
+              aria-label="Close"
+              className="text-fg-subtle hover:text-fg disabled:opacity-50"
+              disabled={busy}
+              onClick={onClose}
             >
-              Runpod Serverless
-            </Button>
-            <Button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'advanced'}
-              variant={mode === 'advanced' ? 'primary' : 'secondary'}
-              onClick={() => setMode('advanced')}
-            >
-              Advanced manifest
-            </Button>
+              ×
+            </button>
           </div>
 
-          {mode === 'runpod' ? (
-            <div className="space-y-4">
-              <p className="text-xs leading-5 text-fg-muted">
-                Point DNAForge at one existing Runpod Serverless endpoint. Its model and worker stay
-                provider-native; DNAForge owns only the job lifecycle, audit trail, and imported
-                result.
-              </p>
-              <p className="text-xs leading-5 text-fg-muted">
-                This optional template is protocol-tested, not live-qualified. You do not need a
-                Runpod account to use Jobs or the other providers.
-              </p>
-              <div className="space-y-1.5">
-                <label htmlFor="compute-endpoint-name" className="text-xs font-medium text-fg">
-                  Endpoint name
-                </label>
-                <TextField
-                  id="compute-endpoint-name"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Protein Lab GPU"
-                  disabled={busy}
-                />
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+            <div className="flex gap-2" role="tablist" aria-label="Endpoint type">
+              <Button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'runpod'}
+                variant={mode === 'runpod' ? 'primary' : 'secondary'}
+                onClick={() => setMode('runpod')}
+              >
+                Runpod Serverless
+              </Button>
+              <Button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'advanced'}
+                variant={mode === 'advanced' ? 'primary' : 'secondary'}
+                onClick={() => setMode('advanced')}
+              >
+                Advanced manifest
+              </Button>
+            </div>
+
+            {mode === 'runpod' ? (
+              <div className="space-y-4">
+                <p className="text-xs leading-5 text-fg-muted">
+                  Point DNAForge at one existing Runpod Serverless endpoint. Its model and worker
+                  stay provider-native; DNAForge owns only the job lifecycle, audit trail, and
+                  imported result.
+                </p>
+                <p className="text-xs leading-5 text-fg-muted">
+                  This optional template is protocol-tested, not live-qualified. You do not need a
+                  Runpod account to use Jobs or the other providers.
+                </p>
+                <div className="space-y-1.5">
+                  <label htmlFor="compute-endpoint-name" className="text-xs font-medium text-fg">
+                    Endpoint name
+                  </label>
+                  <TextField
+                    id="compute-endpoint-name"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Protein Lab GPU"
+                    disabled={busy}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="runpod-endpoint-id" className="text-xs font-medium text-fg">
+                    Runpod endpoint ID
+                  </label>
+                  <TextField
+                    id="runpod-endpoint-id"
+                    value={endpointId}
+                    onChange={(event) => setEndpointId(event.target.value)}
+                    placeholder="Your endpoint ID, not the API key"
+                    spellCheck={false}
+                    disabled={busy}
+                  />
+                  <p className="text-[11px] text-fg-subtle">
+                    The API key is requested after installation and never enters this manifest.
+                  </p>
+                </div>
+                {runpodProblem && <Notice tone="error">{runpodProblem}</Notice>}
               </div>
-              <div className="space-y-1.5">
-                <label htmlFor="runpod-endpoint-id" className="text-xs font-medium text-fg">
-                  Runpod endpoint ID
+            ) : (
+              <div className="space-y-2">
+                <label htmlFor="compute-manifest-json" className="text-xs font-medium text-fg">
+                  Manifest JSON
                 </label>
-                <TextField
-                  id="runpod-endpoint-id"
-                  value={endpointId}
-                  onChange={(event) => setEndpointId(event.target.value)}
-                  placeholder="Your endpoint ID, not the API key"
+                <TextArea
+                  id="compute-manifest-json"
+                  monospace
+                  rows={12}
+                  value={manifestJson}
+                  onChange={(event) => setManifestJson(event.target.value)}
+                  placeholder="Paste a schemaVersion 2 compute manifest"
                   spellCheck={false}
                   disabled={busy}
                 />
-                <p className="text-[11px] text-fg-subtle">
-                  The API key is requested after installation and never enters this manifest.
+                <p className="text-[11px] leading-4 text-fg-subtle">
+                  Supported reusable drivers: MCP tool map, NVIDIA Cloud Functions, and asynchronous
+                  HTTP jobs. Credential or routing headers in a manifest are rejected.
                 </p>
               </div>
-              {runpodProblem && <Notice tone="error">{runpodProblem}</Notice>}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <label htmlFor="compute-manifest-json" className="text-xs font-medium text-fg">
-                Manifest JSON
-              </label>
-              <TextArea
-                id="compute-manifest-json"
-                monospace
-                rows={12}
-                value={manifestJson}
-                onChange={(event) => setManifestJson(event.target.value)}
-                placeholder="Paste a schemaVersion 2 compute manifest"
-                spellCheck={false}
-                disabled={busy}
-              />
-              <p className="text-[11px] leading-4 text-fg-subtle">
-                Supported reusable drivers: MCP tool map, NVIDIA Cloud Functions, and asynchronous
-                HTTP jobs. Credential or routing headers in a manifest are rejected.
-              </p>
-            </div>
-          )}
+            )}
 
-          {error && (
-            <Notice tone="error">
-              <span className="whitespace-pre-wrap">
-                {toUserMessage(error, 'operation.failed')}
-              </span>
-            </Notice>
-          )}
-        </div>
+            {error && (
+              <Notice tone="error">
+                <span className="whitespace-pre-wrap">
+                  {toUserMessage(error, 'operation.failed')}
+                </span>
+              </Notice>
+            )}
+          </div>
 
-        <div className="flex justify-end gap-2 border-t border-border px-4 py-3">
-          <Button type="button" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="primary"
-            onClick={() => void submit()}
-            disabled={!canSubmit}
-          >
-            {busy ? 'Installing and restarting…' : 'Install endpoint'}
-          </Button>
+          <div className="flex justify-end gap-2 border-t border-border px-4 py-3">
+            <Button type="button" onClick={onClose} disabled={busy}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => void submit()}
+              disabled={!canSubmit}
+            >
+              {busy ? 'Installing and restarting…' : 'Install endpoint'}
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
+    </PresentationScopeContext.Provider>
   );
 }

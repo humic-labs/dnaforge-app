@@ -238,7 +238,7 @@ function publishSequenceLogicalScroll(scrollTop: number, enabled: boolean): void
 function WorkspaceEditorInner(
   {
     sequence,
-    nativeWheelGestureOwnership = false,
+    browserWheelGestureOwnership = false,
     config: partialConfig,
     coordinateSpace,
     selection: controlledSelection,
@@ -1192,6 +1192,7 @@ function WorkspaceEditorInner(
   }, [baseConfig.charsPerLine, baseConfig.marginLeft, baseConfig.charWidth, containerWidth]);
 
   useKeyboardNavigation({
+    keyboardTargetRef: containerRef,
     editable: effectiveEditable,
     keyboardActive,
     editorState,
@@ -2319,7 +2320,7 @@ function WorkspaceEditorInner(
   const scrollEnd = linearScrollEndGeometry(layout, renderViewport.height);
 
   const newZoomController = useZoomController({
-    nativeWheelGestureOwnership,
+    browserWheelGestureOwnership,
     zoomLevel: zoomLevel ?? 100,
     topBp: effectiveSequence?.circular ? circularOffset + bpOffset : bpOffset,
     circularOffset,
@@ -3644,7 +3645,7 @@ function WorkspaceEditorInner(
       {}
       <div
         data-testid="sequence-scroll-container"
-        data-sequence-wheel-zoom-viewport={nativeWheelGestureOwnership ? '' : undefined}
+        data-sequence-wheel-zoom-viewport={browserWheelGestureOwnership ? '' : undefined}
         ref={bindScrollContainer}
         onScroll={handleScroll}
         onPointerDownCapture={() => {

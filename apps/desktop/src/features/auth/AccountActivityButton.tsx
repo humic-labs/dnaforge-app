@@ -1,3 +1,7 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+} from '../../presentation/PresentationSurface';
 import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '../../stores/auth-store';
 import { CloudBackupModal } from './CloudBackupModal';
@@ -33,6 +37,8 @@ function ProfileIcon({ className }: { className?: string }) {
 }
 
 export function AccountActivityButton() {
+  const presentationOverlay = usePresentationOverlay('keyboard');
+
   const enabled = useDesktopSignInEnabled();
   const cloudSyncEnabled = useWorkspaceCloudSyncEnabled();
   const state = useAuthStore((s) => s.state);
@@ -141,118 +147,125 @@ export function AccountActivityButton() {
       </button>
 
       {menuOpen && (
-        <div
-          role="menu"
-          data-testid="account-menu"
-          className="absolute bottom-0 left-12 z-50 ml-1 w-60 rounded-md border border-border bg-bg p-1 shadow-xl"
-        >
-          {}
-          <div className="flex items-center gap-2.5 px-2 py-2">
-            <div
-              data-testid="account-avatar"
-              className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-muted text-fg-muted"
-            >
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="h-5 w-5">
-                  <ProfileIcon className="h-full w-full" />
-                </div>
-              )}
+        <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+          <div
+            role="menu"
+            data-testid="account-menu"
+            className="absolute bottom-0 left-12 z-50 ml-1 w-60 rounded-md border border-border bg-bg p-1 shadow-xl"
+            ref={presentationOverlay.bindRef(undefined, '0')}
+          >
+            {}
+            <div className="flex items-center gap-2.5 px-2 py-2">
+              <div
+                data-testid="account-avatar"
+                className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-muted text-fg-muted"
+              >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-5 w-5">
+                    <ProfileIcon className="h-full w-full" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wide text-fg-muted">
+                  {signedIn ? 'Signed in as' : 'Account'}
+                </p>
+                <p
+                  className="truncate text-sm text-fg"
+                  title={identity}
+                  data-testid="account-email"
+                >
+                  {identity}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wide text-fg-muted">
-                {signedIn ? 'Signed in as' : 'Account'}
-              </p>
-              <p className="truncate text-sm text-fg" title={identity} data-testid="account-email">
-                {identity}
-              </p>
-            </div>
-          </div>
 
-          <div className="my-1 h-px bg-border" />
+            <div className="my-1 h-px bg-border" />
 
-          {showCloudSurface ? (
-            <button
-              type="button"
-              role="menuitem"
-              data-testid="account-cloud-backup"
-              onClick={() => {
-                setMenuOpen(false);
-                setCloudModalOpen(true);
-              }}
-              className="w-full rounded px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-bg-muted hover:text-fg"
-            >
-              Cloud backup
-            </button>
-          ) : null}
-
-          {signedIn ? (
-            <button
-              type="button"
-              role="menuitem"
-              data-testid="account-manage-orgs"
-              onClick={() => {
-                setMenuOpen(false);
-                openOrganizationsSettings();
-              }}
-              className="w-full rounded px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-bg-muted hover:text-fg"
-            >
-              Organizations
-            </button>
-          ) : null}
-
-          {signedIn || showCloudSurface ? <div className="my-1 h-px bg-border" /> : null}
-
-          {signedIn ? (
-            <>
+            {showCloudSurface ? (
               <button
                 type="button"
                 role="menuitem"
-                data-testid="account-settings"
-                title="Profile settings"
+                data-testid="account-cloud-backup"
                 onClick={() => {
                   setMenuOpen(false);
-                  openAccountSettings();
+                  setCloudModalOpen(true);
                 }}
                 className="w-full rounded px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-bg-muted hover:text-fg"
               >
-                Account settings
+                Cloud backup
               </button>
-              <div className="my-1 h-px bg-border" />
-            </>
-          ) : null}
+            ) : null}
 
-          {}
-          {signedIn ? (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                void signOut();
-              }}
-              data-testid="account-sign-out"
-              className="w-full rounded px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-bg-muted hover:text-fg"
-            >
-              Sign out
-            </button>
-          ) : (
-            <button
-              type="button"
-              role="menuitem"
-              disabled={busy}
-              onClick={() => {
-                setMenuOpen(false);
-                void startSignIn();
-              }}
-              data-testid="account-sign-in"
-              className="w-full rounded px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-bg-muted hover:text-fg disabled:opacity-60 disabled:hover:bg-transparent"
-            >
-              {busy ? 'Signing in…' : 'Sign in'}
-            </button>
-          )}
-        </div>
+            {signedIn ? (
+              <button
+                type="button"
+                role="menuitem"
+                data-testid="account-manage-orgs"
+                onClick={() => {
+                  setMenuOpen(false);
+                  openOrganizationsSettings();
+                }}
+                className="w-full rounded px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-bg-muted hover:text-fg"
+              >
+                Organizations
+              </button>
+            ) : null}
+
+            {signedIn || showCloudSurface ? <div className="my-1 h-px bg-border" /> : null}
+
+            {signedIn ? (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-testid="account-settings"
+                  title="Profile settings"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    openAccountSettings();
+                  }}
+                  className="w-full rounded px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-bg-muted hover:text-fg"
+                >
+                  Account settings
+                </button>
+                <div className="my-1 h-px bg-border" />
+              </>
+            ) : null}
+
+            {}
+            {signedIn ? (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void signOut();
+                }}
+                data-testid="account-sign-out"
+                className="w-full rounded px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-bg-muted hover:text-fg"
+              >
+                Sign out
+              </button>
+            ) : (
+              <button
+                type="button"
+                role="menuitem"
+                disabled={busy}
+                onClick={() => {
+                  setMenuOpen(false);
+                  void startSignIn();
+                }}
+                data-testid="account-sign-in"
+                className="w-full rounded px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-bg-muted hover:text-fg disabled:opacity-60 disabled:hover:bg-transparent"
+              >
+                {busy ? 'Signing in…' : 'Sign in'}
+              </button>
+            )}
+          </div>
+        </PresentationScopeContext.Provider>
       )}
 
       <CloudBackupModal

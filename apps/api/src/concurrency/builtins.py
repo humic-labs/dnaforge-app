@@ -14,6 +14,8 @@ from ..agent_workflows import (
     build_workflow_run_preparation,
     owned_workflow_ledger_filter,
 )
+from ..agent_workspace_authority import resolve_artifact_workspace_roots
+from ..control_plane import get_control_plane_store
 from ..managed_annotation_agent_tools import register_managed_annotation_agent_tools
 from ..managed_annotation_document_tools import (
     register_managed_annotation_document_tools,
@@ -84,10 +86,15 @@ async def register_artifact_handler(
     if context.cancel_event.is_set():
         return {"canceled": True, "jobId": context.job_id}
     try:
+        roots = await resolve_artifact_workspace_roots(
+            get_control_plane_store().get_agent_identity(context.agent_identity_id),
+            context.native_document_authority,
+        )
         return register_agent_artifact(
             args,
             agent_identity_id=context.agent_identity_id,
             action_id=context.job_id,
+            workspace_roots=roots,
         )
     except (ValueError, FileNotFoundError) as error:
         raise ToolExecutionFailure(

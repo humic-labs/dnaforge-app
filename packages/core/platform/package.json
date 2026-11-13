@@ -20,6 +20,11 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./input-ownership": {
+      "types": "./src/input-ownership.ts",
+      "import": "./src/input-ownership.ts",
+      "default": "./src/input-ownership.ts"
     }
   },
   "scripts": {
@@ -40,5 +45,12 @@
     "@types/node": "^20.0.0",
     "typescript": "^5.3.0",
     "vitest": "^4.0.18"
+  },
+  "typesVersions": {
+    "*": {
+      "input-ownership": [
+        "./src/input-ownership.ts"
+      ]
+    }
   }
 }

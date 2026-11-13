@@ -140,3 +140,9 @@ jobs:
           set -euo pipefail
           cp apps/desktop/.env.local.example apps/desktop/.env.local
           pnpm --dir apps/desktop run check:run-from-source
+
+      - name: Set up and start the app with the one-command script
+        run: |
+          set -euo pipefail
+          rm apps/desktop/.env.local
+          node start.mjs --yes --check

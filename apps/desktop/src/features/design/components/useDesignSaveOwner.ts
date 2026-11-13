@@ -10,7 +10,10 @@ import {
   isEphemeralArtifactDraft,
   saveTargetForTab,
 } from '../../canvas/public/artifact-document-lifecycle';
-import { drainDesignArtifactMirrors } from '../design-artifact-mirror';
+import {
+  discardDesignArtifactChanges,
+  drainDesignArtifactMirrors,
+} from '../design-artifact-mirror';
 import {
   captureDesignRecovery,
   designContentIdentity,
@@ -174,7 +177,7 @@ export function useDesignSaveOwner({
       : ownedTab && !isEphemeralArtifactDraft(ownedTab)
         ? {
             target: saveTargetForTab(ownedTab),
-            discard: () => undefined,
+            discard: () => discardDesignArtifactChanges(designId),
             tabId: ownedTab.id,
             isDirty: () =>
               Boolean(

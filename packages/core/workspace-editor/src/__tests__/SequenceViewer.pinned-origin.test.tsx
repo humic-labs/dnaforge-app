@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
-import { installNativeWheelSource } from '@waypoint/platform/wheel-motion';
+import { installNativeWheelSource } from '../../../platform/src/wheel-input.test-helper';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { SequenceViewer } from '../SequenceViewer';
 import type { useCanvasWorkerDraw } from '../hooks/useCanvasWorkerDraw';

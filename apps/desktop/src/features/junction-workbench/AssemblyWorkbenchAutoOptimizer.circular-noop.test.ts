@@ -18,7 +18,7 @@ describe('Golden Gate Auto-optimize circular two-PCR no-op ', () => {
     const productLength = getComposedSequence(design.regions, design.spacers).length;
     const beforeJunctions = design.goldenGateJunctions ?? [];
     const beforeOverhangs = beforeJunctions.map((junction) => junction.overhang);
-    expect(beforeOverhangs).toEqual(['GGGA', 'TGGG']);
+    expect(beforeOverhangs).toEqual(['AGTG', 'TATT']);
     const lastBefore = beforeJunctions.find((junction) => junction.junctionIndex === 1);
     expect(lastBefore, 'wrap-around last joint must exist').toBeDefined();
     expect(lastBefore!.junctionPosition).toBe(productLength);

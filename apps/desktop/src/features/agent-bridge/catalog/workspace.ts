@@ -154,7 +154,9 @@ export const workspaceTools = defineRendererToolCatalog({
       };
     },
     outputSchema: appViewsOutputSchema,
-    execution: resultSdkRendererTool((context) => createAppViewsTool(context.folders)),
+    execution: resultSdkRendererTool((context) =>
+      createAppViewsTool(context.folders, context.projectScope)
+    ),
   },
   notebook_document: {
     name: 'notebook_document',
@@ -219,7 +221,9 @@ export const workspaceTools = defineRendererToolCatalog({
       };
     },
     outputSchema: workspaceProjectsOutputSchema,
-    execution: resultSdkRendererTool(() => createWorkspaceProjectsTool()),
+    execution: resultSdkRendererTool((context) =>
+      createWorkspaceProjectsTool(context.projectScope)
+    ),
   },
   workspace_files: {
     name: 'workspace_files',
@@ -509,7 +513,7 @@ export const workspaceTools = defineRendererToolCatalog({
     inputSchema: getWorkspaceSchema,
     outputSchema: getWorkspaceOutputSchema,
     execution: resultSdkRendererTool((context) =>
-      createGetWorkspaceTool(context.grantedCapabilities)
+      createGetWorkspaceTool(context.grantedCapabilities, context.folders, context.projectScope)
     ),
   },
   observe_app_state: {

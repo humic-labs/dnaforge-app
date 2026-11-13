@@ -82,6 +82,11 @@ describe('shortcut registry', () => {
     expect(bound).toEqual(
       [
         `${COMMAND_IDS.appNewChat}|n|cmd|||`,
+        `${COMMAND_IDS.appGoToFile}|p|cmd|||`,
+        `${COMMAND_IDS.canvasCloseOtherTabs}|w|cmd|||alt`,
+        `${COMMAND_IDS.workspaceRevealActiveFile}|e|cmd|||alt`,
+        `${COMMAND_IDS.chatPrevious}|[|cmd|||alt`,
+        `${COMMAND_IDS.chatNext}|]|cmd|||alt`,
         `${COMMAND_IDS.appFocusCommandInput}|/|cmd|||`,
         `${COMMAND_IDS.appOpenSettings}|,|cmd|||`,
         `${COMMAND_IDS.appToggleSidebar}|b|cmd||shift|`,
@@ -109,6 +114,7 @@ describe('shortcut registry', () => {
     );
     const commandsWithoutShortcuts = new Set<CommandId>([
       COMMAND_IDS.appShowRegistry,
+      COMMAND_IDS.workspaceRevealPath,
       COMMAND_IDS.fileNewText,
       COMMAND_IDS.terminalRunSelection,
       COMMAND_IDS.terminalRunActiveFile,

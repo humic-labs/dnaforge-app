@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   optInAnalytics: vi.fn().mockResolvedValue(undefined),
   optOutAnalytics: vi.fn().mockResolvedValue(undefined),
   readAnalyticsConsentPolicy: vi.fn(),
+  hasTelemetryDestination: vi.fn().mockResolvedValue(true),
   addRichToast: vi.fn(),
 }));
 
@@ -26,6 +27,7 @@ vi.mock('../lib/analytics', () => ({
   optInAnalytics: mocks.optInAnalytics,
   optOutAnalytics: mocks.optOutAnalytics,
   readAnalyticsConsentPolicy: mocks.readAnalyticsConsentPolicy,
+  hasTelemetryDestination: mocks.hasTelemetryDestination,
 }));
 vi.mock('../stores/toast-store', () => ({
   useToastStore: { getState: () => ({ addRichToast: mocks.addRichToast }) },
@@ -96,6 +98,29 @@ describe('hosted versus desktop startup analytics', () => {
       expect.objectContaining({ definition: 'data-privacy' })
     );
     expect(mocks.failClosedAnalyticsForSession).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['the opt-out-region disclosure', true, 'true'],
+    ['the opt-in-region question', false, null],
+  ])('shows no %s when the build has nowhere to send', async (_label, enabled, consent) => {
+    mocks.hosted = false;
+    mocks.hasTelemetryDestination.mockResolvedValueOnce(false);
+    mocks.readAnalyticsConsentPolicy.mockResolvedValue({
+      enabled,
+      needsDisclosure: true,
+      consent,
+      version: '3',
+    });
+    const options = startupOptions();
+    renderHook(() => useAppStartup(options));
+    await waitFor(() => expect(mocks.hasTelemetryDestination).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(
+        enabled ? mocks.setAnalyticsConsent : mocks.failClosedAnalyticsForSession
+      ).toHaveBeenCalled()
+    );
+    expect(mocks.addRichToast).not.toHaveBeenCalled();
   });
 
   it.each([

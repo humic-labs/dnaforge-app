@@ -81,6 +81,7 @@ import {
   type Track,
   type TrackLayout,
   type TrackLayoutEntry,
+  type TrackPresentationDrag,
   type TrackType,
 } from '../../tracks';
 import {
@@ -652,6 +653,9 @@ export class PixiLinearRenderer {
   protected genome!: Genome;
   protected getState!: () => RenderState;
 
+  private scrollingLayer = new Container();
+  private scrollingMask = new Graphics();
+  private scrollingBounds = new Rectangle();
   private rulerLayer = new Container();
   private rulerSegmentLayer = new Container();
   private rulerTickLayer = new Container();
@@ -746,6 +750,9 @@ export class PixiLinearRenderer {
 
   private trackInstancesById = new Map<string, Track>();
   private trackContainers = new Map<string, Container>();
+  private trackMasks = new Map<string, { mask: Graphics; width: number; height: number }>();
+  private trackPresentationDrag: TrackPresentationDrag | null = null;
+  private trackDragBackground = new Graphics();
   private trackDataStore = new TrackDataStore();
 
   private trackLayoutRevision = 0;
@@ -812,11 +819,13 @@ export class PixiLinearRenderer {
   getPresentedTrackScrollReceipt(): {
     completedFrameEpoch: number;
     trackScrollTop: number;
+    contentClipTopPx: number;
   } | null {
     if (!this._overlayLayout) return null;
     return {
       completedFrameEpoch: this.rendererCompletedFrameEpoch,
       trackScrollTop: this._overlayLayout.trackScrollTop,
+      contentClipTopPx: this.scrollingBounds.y,
     };
   }
 
@@ -1201,6 +1210,9 @@ export class PixiLinearRenderer {
     }
     this.trackInstances = tracks;
     this.trackInstancesById = new Map(tracks.map((track) => [track.id, track]));
+    if (this.trackPresentationDrag && !newIds.has(this.trackPresentationDrag.trackId)) {
+      this.trackPresentationDrag = null;
+    }
     this.trackLayoutRevision += 1;
     this.registeredTrackZoneLayout = null;
     this.rebuildPileupGlobalGuideColumns();
@@ -1234,6 +1246,33 @@ export class PixiLinearRenderer {
     this.registeredTrackZoneLayout = null;
     this.laneContractRevision += 1;
     return true;
+  }
+
+  setTrackPresentationDrag(preview: TrackPresentationDrag | null): boolean {
+    if (preview) {
+      const track = this.trackInstancesById.get(preview.trackId);
+      if (!track?.visible || track.zone === 'above-legacy' || !Number.isFinite(preview.topPx)) {
+        return false;
+      }
+    }
+    if (
+      this.trackPresentationDrag?.trackId === preview?.trackId &&
+      this.trackPresentationDrag?.topPx === preview?.topPx
+    )
+      return false;
+    this.trackPresentationDrag = preview;
+    if (preview) {
+      this.getState().hoverPosition = null;
+      for (const [id, container] of this.trackContainers) {
+        const track = this.trackInstancesById.get(id);
+        if (track) this.trackRenderers.get(track.type)?.clearHover?.(container);
+      }
+    }
+    return true;
+  }
+
+  isTrackPresentationDragging(): boolean {
+    return this.trackPresentationDrag !== null;
   }
 
   setTrackColor(trackId: string, color: string | undefined): boolean {
@@ -1303,9 +1342,17 @@ export class PixiLinearRenderer {
   async init(app: Application, genome: Genome, getState: () => RenderState): Promise<void> {
     this.app = app;
     this.getState = getState;
+    this.scrollingLayer.mask = this.scrollingMask;
+    this.scrollingLayer.hitArea = this.scrollingBounds;
+    this.scrollingMask.eventMode = 'none';
+    this.app.stage.addChild(this.scrollingLayer);
+    this.app.stage.addChild(this.scrollingMask);
+    this.trackDragBackground.eventMode = 'none';
+    this.trackDragBackground.visible = false;
+    this.scrollingLayer.addChild(this.trackDragBackground);
     this.selectionLayer.addChild(this.selectionGraphics);
-    this.app.stage.addChild(this.selectionLayer);
-    this.app.stage.addChild(this.rulerLayer);
+    this.scrollingLayer.addChild(this.selectionLayer);
+    this.scrollingLayer.addChild(this.rulerLayer);
     this.rulerLayer.addChild(this.rulerGraphics);
     this.rulerLayer.addChild(this.rulerSegmentLayer);
     this.rulerLayer.addChild(this.rulerTickLayer);
@@ -1320,22 +1367,22 @@ export class PixiLinearRenderer {
     }
     this.overlayRegistry.register(this.annotationOverlay);
     this.overlayRegistry.register(this.primerOverlay);
-    this.app.stage.addChild(this.annotationOverlay.container);
-    this.app.stage.addChild(this.primerOverlay.container);
-    this.sequenceTrack = new SequenceTrack(this.app.stage, {
+    this.scrollingLayer.addChild(this.annotationOverlay.container);
+    this.scrollingLayer.addChild(this.primerOverlay.container);
+    this.sequenceTrack = new SequenceTrack(this.scrollingLayer, {
       renderer: this.app.renderer,
       prepareLegacyGlyphs: async (glyphs) => {
         prepareLinearSequenceGlyphTextures(this.app.renderer, glyphs);
       },
     });
     this.sequenceTrack.setNucleicAcid(this.genome?.nucleicAcid ?? 'dna');
-    this.codonTrack = new CodonTrack(this.app.stage);
-    this.orfTrack = new OrfTrack(this.app.stage);
-    this.restrictionTrack = new RestrictionTrack(this.app.stage);
+    this.codonTrack = new CodonTrack(this.scrollingLayer);
+    this.orfTrack = new OrfTrack(this.scrollingLayer);
+    this.restrictionTrack = new RestrictionTrack(this.scrollingLayer);
 
-    this.app.stage.addChildAt(this.pileupGlobalGuideLayer.container, 0);
+    this.scrollingLayer.addChildAt(this.pileupGlobalGuideLayer.container, 0);
     this.interactionLayer.addChild(this.interactionGraphics);
-    this.app.stage.addChild(this.interactionLayer);
+    this.scrollingLayer.addChild(this.interactionLayer);
     await this.loadGenome(genome);
   }
 
@@ -1633,6 +1680,7 @@ export class PixiLinearRenderer {
 
     const registeredTrackZoneLayout = this.getRegisteredTrackZoneLayout(state.height);
     const { aboveZoneHeight, belowZoneHeight } = registeredTrackZoneLayout;
+    this.updateScrollingBounds(width, height, aboveZoneHeight);
 
     const pixelsPerBp = 1 / bpPerPixel;
     const stableAnnotationLanes = Math.max(0, annotationLanes);
@@ -2153,6 +2201,7 @@ export class PixiLinearRenderer {
     _viewEndBp: number,
     zoneLayout: RegisteredTrackZoneLayout
   ): boolean {
+    this.trackDragBackground.visible = false;
     if (this.trackInstances.length === 0) return false;
     if (!this.chromosome) return false;
     if (this.trackRenderers.size === 0) return false;
@@ -2195,12 +2244,19 @@ export class PixiLinearRenderer {
             theme,
           });
           this.trackContainers.set(track.id, container);
-          const interactionIndex = this.app.stage.children.indexOf(this.interactionLayer);
-          if (interactionIndex >= 0) this.app.stage.addChildAt(container, interactionIndex);
-          else this.app.stage.addChild(container);
           this.attachTrackPointerHandler(track, container, renderer);
         }
-        const containerTopPx = baseY + entry.top;
+        const parent = track.zone === 'above-legacy' ? this.app.stage : this.scrollingLayer;
+        if (container.parent !== parent) {
+          const interactionIndex = parent.children.indexOf(this.interactionLayer);
+          if (interactionIndex >= 0) parent.addChildAt(container, interactionIndex);
+          else parent.addChild(container);
+        }
+        this.updateTrackMask(track, container, state.width, entry.height);
+        const containerTopPx =
+          this.trackPresentationDrag?.trackId === track.id
+            ? this.trackPresentationDrag.topPx
+            : baseY + entry.top;
         if (container.position.x !== 0 || container.position.y !== containerTopPx) {
           container.position.set(0, containerTopPx);
         }
@@ -2246,6 +2302,20 @@ export class PixiLinearRenderer {
 
     paintGroup(aboveLayout, aboveZoneTopPadPx);
     paintGroup(belowLayout, legacyBottomY);
+    const drag = this.trackPresentationDrag;
+    const draggedContainer = drag ? this.trackContainers.get(drag.trackId) : null;
+    const draggedEntry = drag ? this.lastTrackLayoutEntries.get(drag.trackId) : null;
+    this.trackDragBackground.visible = Boolean(drag && draggedContainer && draggedEntry);
+    if (drag && draggedContainer && draggedEntry) {
+      this.trackDragBackground
+        .clear()
+        .rect(0, drag.topPx, state.width, draggedEntry.height)
+        .fill(theme.background)
+        .stroke({ color: theme.rulerLine, width: 1 });
+      const foregroundIndex = this.scrollingLayer.children.indexOf(this.interactionLayer);
+      this.scrollingLayer.setChildIndex(this.trackDragBackground, foregroundIndex - 1);
+      this.scrollingLayer.setChildIndex(draggedContainer, foregroundIndex - 1);
+    }
     return pendingPaintWork;
   }
 
@@ -2283,6 +2353,7 @@ export class PixiLinearRenderer {
     });
     const belowLayout = computeTracksLayout(belowTracks, contentHeightFor, {
       availableHeight: normalizedHeight,
+      overflow: 'scroll',
     });
     const aboveTracksHeight = aboveLayout.reduce(
       (sum, entry) => sum + (entry.hidden ? 0 : entry.height),
@@ -2311,11 +2382,51 @@ export class PixiLinearRenderer {
     return next;
   }
 
+  private updateScrollingBounds(width: number, height: number, top: number): void {
+    const y = Math.min(height, top);
+    const clipHeight = Math.max(0, height - y);
+    const bounds = this.scrollingBounds;
+    if (bounds.y === y && bounds.width === width && bounds.height === clipHeight) return;
+    bounds.y = y;
+    bounds.width = width;
+    bounds.height = clipHeight;
+    this.scrollingMask.clear().rect(0, y, width, clipHeight).fill(0xffffff);
+  }
+
+  private updateTrackMask(track: Track, container: Container, width: number, height: number): void {
+    let current = this.trackMasks.get(track.id);
+    if (track.zone === 'above-legacy') {
+      if (current) {
+        container.mask = null;
+        current.mask.destroy();
+        this.trackMasks.delete(track.id);
+      }
+      return;
+    }
+    if (!current) {
+      const mask = new Graphics();
+      mask.eventMode = 'none';
+      container.addChild(mask);
+      container.mask = mask;
+      current = { mask, width: -1, height: -1 };
+      this.trackMasks.set(track.id, current);
+    }
+    if (current.width === width && current.height === height) return;
+    current.mask.clear().rect(0, 0, width, height).fill(0xffffff);
+    current.width = width;
+    current.height = height;
+  }
+
+  hitTestContentSurface(screenX: number, screenY: number): boolean {
+    return this.scrollingBounds.contains(screenX, screenY);
+  }
+
   canScrollTracksVertically(): boolean {
     return (this._overlayLayout?.maxTrackScrollTop ?? 0) > 0;
   }
 
   getSequenceRowAt(screenY: number): 'forward' | 'secondary' | null {
+    if (!this.hitTestContentSurface(0, screenY)) return null;
     const layout = this._overlayLayout;
     if (!layout?.sequenceVisible || !Number.isFinite(screenY)) return null;
     const rows = this.sequenceTrack?.getLinearComparisonRowBounds();
@@ -2359,11 +2470,26 @@ export class PixiLinearRenderer {
     container.eventMode = 'static';
     container.cursor = 'pointer';
     const pointerArgs = (event: { global: { x: number; y: number } }): TrackHoverArgs | null => {
+      if (this.trackPresentationDrag) return null;
       if (!this.chromosome) return null;
       if (!this._layout) return null;
+      const currentTrack = this.trackInstancesById.get(track.id);
+      if (!currentTrack?.visible) return null;
+      if (
+        currentTrack.zone !== 'above-legacy' &&
+        !this.hitTestContentSurface(event.global.x, event.global.y)
+      )
+        return null;
       const layoutEntry = this.lastTrackLayoutEntries.get(track.id);
       if (!layoutEntry) return null;
       const local = container.toLocal(event.global);
+      if (
+        local.x < 0 ||
+        local.x >= this.lastViewportWidthPx ||
+        local.y < 0 ||
+        local.y >= layoutEntry.height
+      )
+        return null;
       return {
         container,
         localX: local.x,
@@ -2379,6 +2505,7 @@ export class PixiLinearRenderer {
     if (renderer.hitTest) {
       let pressedAt: { x: number; y: number } | null = null;
       container.on('pointerdown', (event) => {
+        if (this.trackPresentationDrag) return;
         pressedAt = { x: event.global.x, y: event.global.y };
       });
       const forgetPress = () => {
@@ -2408,6 +2535,7 @@ export class PixiLinearRenderer {
       container.on('pointermove', (event) => {
         const args = pointerArgs(event);
         if (args) renderer.updateHover?.(args);
+        else renderer.clearHover?.(container);
       });
       const clearHover = () => renderer.clearHover?.(container);
       container.on('pointerout', clearHover);
@@ -2870,6 +2998,7 @@ export class PixiLinearRenderer {
     screenY: number,
     state: RenderState
   ): 'start' | 'end' | null {
+    if (!this.hitTestContentSurface(screenX, screenY)) return null;
     const range = state.highlightRange;
     const layout = this._overlayLayout;
     if (!range || !layout) return null;
@@ -2895,6 +3024,7 @@ export class PixiLinearRenderer {
   }
 
   hitTestNucleotideText(screenX: number, screenY: number, state: RenderState): boolean {
+    if (!this.hitTestContentSurface(screenX, screenY)) return false;
     const layout = this._overlayLayout;
     if (!layout?.sequenceVisible || layout.sequenceOpacity <= 0) return false;
     if (screenY < layout.fwdStrandTop || screenY > layout.revStrandBottom) return false;
@@ -2918,22 +3048,27 @@ export class PixiLinearRenderer {
     featureEnd: number;
     strand: 1 | -1;
   } | null {
+    if (!this.hitTestContentSurface(screenX, screenY)) return null;
     return this.codonTrack.hitTest(screenX, screenY);
   }
 
   hitTestIntron(screenX: number, screenY: number) {
+    if (!this.hitTestContentSurface(screenX, screenY)) return null;
     return this.codonTrack.hitTestIntron(screenX, screenY);
   }
 
   hitTestOrf(screenX: number, screenY: number) {
+    if (!this.hitTestContentSurface(screenX, screenY)) return null;
     return this.orfTrack.hitTest(screenX, screenY);
   }
 
   hitTestCutSite(screenX: number, screenY: number): WebGLHitTarget | null {
+    if (!this.hitTestContentSurface(screenX, screenY)) return null;
     return this.restrictionTrack.hitTest(screenX, screenY);
   }
 
   hitTestReadEvent(screenX: number, screenY: number): ReadHitPayload | null {
+    if (!this.hitTestContentSurface(screenX, screenY)) return null;
     const pathMapper = this._layout;
     if (!pathMapper || screenX < 0 || screenX > this.lastViewportWidthPx) return null;
 
@@ -2959,6 +3094,7 @@ export class PixiLinearRenderer {
           })
         | undefined;
       if (
+        !track.visible ||
         !layoutEntry ||
         containerTopPx === undefined ||
         !container ||
@@ -3031,8 +3167,9 @@ export class PixiLinearRenderer {
       !located ||
       located.bodyRect.left + located.bodyRect.width <= 0 ||
       located.bodyRect.left >= this.lastViewportWidthPx ||
-      located.bodyRect.top + located.bodyRect.height <= containerTopPx ||
-      located.bodyRect.top >= containerTopPx + layoutEntry.height
+      located.bodyRect.top + located.bodyRect.height <=
+        Math.max(containerTopPx, this.scrollingBounds.y) ||
+      located.bodyRect.top >= Math.min(containerTopPx + layoutEntry.height, this.lastCanvasHeight)
     ) {
       return null;
     }
@@ -3086,6 +3223,10 @@ export class PixiLinearRenderer {
     this.overlayRegistry.destroyAll();
     this.sequenceTrack.destroy();
     this.pileupGlobalGuideLayer.destroy();
+    this.trackDragBackground.destroy();
+    this.scrollingLayer.mask = null;
+    this.scrollingMask.destroy();
+    this.scrollingLayer.destroy();
     if (registeredTrackTeardownError !== undefined) throw registeredTrackTeardownError;
   }
 
@@ -3126,6 +3267,7 @@ export class PixiLinearRenderer {
     } finally {
       if (!container.destroyed) container.destroy({ children: true });
       this.trackContainers.delete(id);
+      this.trackMasks.delete(id);
       this.trackDataStore.delete(id);
       this.pileupAlternateColumnsByTrack.delete(id);
     }

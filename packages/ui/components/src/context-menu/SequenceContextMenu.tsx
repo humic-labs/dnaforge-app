@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useCallback, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { inputTargetAllows } from '@waypoint/platform/input-ownership';
 import { formatShortcut, JETBRAINS_MONO_FONT_NAME } from '../keyboard/shortcuts';
 import { clampFixedMenuPosition } from './positioning';
 import {
@@ -561,8 +562,15 @@ function SequenceContextMenuItems(section: MenuSectionProps) {
 }
 
 export function SequenceContextMenu(props: SequenceContextMenuProps): React.ReactElement | null {
-  const { x, y, isOpen, onClose } = props;
-  const menuRef = useRef<HTMLDivElement>(null);
+  const { x, y, isOpen, onClose, rootRef } = props;
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const bindMenu = useCallback(
+    (node: HTMLDivElement | null) => {
+      menuRef.current = node;
+      rootRef?.(node);
+    },
+    [rootRef]
+  );
   const [adjustedPosition, setAdjustedPosition] = useState({ x, y });
   const styles = getMenuStyles();
   const flags = sequenceContextMenuFlags(props);
@@ -578,8 +586,13 @@ export function SequenceContextMenu(props: SequenceContextMenuProps): React.Reac
     };
 
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
+      if (
+        e.key === 'Escape' &&
+        !e.defaultPrevented &&
+        menuRef.current &&
+        inputTargetAllows(menuRef.current, 'keyboard', e)
+      ) {
+        e.stopImmediatePropagation();
         e.preventDefault();
         onClose();
       }
@@ -632,7 +645,7 @@ export function SequenceContextMenu(props: SequenceContextMenuProps): React.Reac
 
   const menu = (
     <div
-      ref={menuRef}
+      ref={bindMenu}
       data-testid="sequence-context-menu"
       style={{
         display: 'grid',

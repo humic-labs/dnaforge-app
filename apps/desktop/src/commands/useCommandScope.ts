@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useMemo } from 'react';
 import { useCommandRegistry } from './CommandScopeProvider';
 import type { CommandScope, CommandScopeHandle } from './types';
+import { usePresentationScope } from '../presentation/PresentationSurface';
 
 interface UseCommandScopeOptions {
   claimOnMount?: boolean;
@@ -12,13 +13,14 @@ export function useCommandScope(
   options: UseCommandScopeOptions = {}
 ): CommandScopeHandle {
   const { claimScope, releaseScope } = useCommandRegistry();
+  const presentation = usePresentationScope();
   const ownerId = useId();
   const enabled = options.enabled ?? true;
 
   const claim = useCallback(() => {
     if (!enabled) return;
-    claimScope(scope, ownerId);
-  }, [claimScope, enabled, ownerId, scope]);
+    claimScope(scope, ownerId, presentation.id);
+  }, [claimScope, enabled, ownerId, scope, presentation.id]);
 
   const release = useCallback(() => {
     releaseScope(scope, ownerId);

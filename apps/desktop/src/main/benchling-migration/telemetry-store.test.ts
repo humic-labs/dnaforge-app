@@ -8,10 +8,7 @@ import {
 } from '../analytics-outbox';
 import { transitionMigrationRun } from './state-machine';
 import { MigrationStore } from './store';
-import {
-  enqueueBenchlingMigrationDiscardDisposition,
-  reconcileBenchlingMigrationTelemetryOutbox,
-} from './telemetry-outbox';
+import { reconcileBenchlingMigrationTelemetryOutbox } from './telemetry-outbox';
 
 function run(): MigrationRun & { scope: FileMigrationScope } {
   return {
@@ -342,7 +339,7 @@ describe('Benchling migration telemetry durability', () => {
     store.close();
   });
 
-  it('reconciles receipts idempotently and queues discard as a separate content-free event', () => {
+  it('reconciles unbound terminal and issue receipts idempotently', () => {
     const localDb = createTestDb();
     const store = new MigrationStore(localDb);
     const initial = run();
@@ -361,21 +358,14 @@ describe('Benchling migration telemetry durability', () => {
       issues: 1,
     });
     reconcileBenchlingMigrationTelemetryOutbox(store, globalDb, initial.id);
-    enqueueBenchlingMigrationDiscardDisposition(globalDb, 'failed', () =>
-      Date.parse('2026-09-02T10:00:04.000Z')
-    );
 
     const events = listPendingAnalyticsOutboxEvents(globalDb);
     expect(events.map((event) => event.eventName).sort()).toEqual(
-      [
-        'benchling_migration_attempt_finished',
-        'benchling_migration_issue_summary',
-        'benchling_migration_run_disposition_changed',
-      ].sort()
+      ['benchling_migration_attempt_finished', 'benchling_migration_issue_summary'].sort()
     );
-    expect(new Set(events.map((event) => event.eventId)).size).toBe(3);
-    expect(events.map((event) => event.authority)).toEqual([null, null, null]);
-    expect(events.map((event) => event.sentAtMs)).toEqual([null, null, null]);
+    expect(new Set(events.map((event) => event.eventId)).size).toBe(2);
+    expect(events.map((event) => event.authority)).toEqual([null, null]);
+    expect(events.map((event) => event.sentAtMs)).toEqual([null, null]);
     const egress = JSON.stringify(events.map((event) => event.properties));
     for (const forbidden of [
       'private-run-id',

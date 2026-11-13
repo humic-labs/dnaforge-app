@@ -503,6 +503,7 @@ export function createHostedPolicyTools(
 ): ToolSet {
   const hostedTools: ToolSet = {};
   let localApprovalTail: Promise<void> = Promise.resolve();
+  let localMutationTail: Promise<void> = Promise.resolve();
   const requestLocalMutationApproval = async (
     toolName: string,
     signal: AbortSignal | undefined
@@ -629,6 +630,23 @@ export function createHostedPolicyTools(
         : { type: 'json', value: input.output as JSONValue };
     };
     const execute = async (args: unknown, context: HostedToolExecutionContext) => {
+      const earlierMutation = localMutation ? localMutationTail : undefined;
+      let releaseMutation: () => void = () => undefined;
+      if (localMutation)
+        localMutationTail = new Promise<void>((resolve) => {
+          releaseMutation = resolve;
+        });
+      try {
+        return await executeAfter(earlierMutation, args, context);
+      } finally {
+        releaseMutation();
+      }
+    };
+    const executeAfter = async (
+      earlierMutation: Promise<void> | undefined,
+      args: unknown,
+      context: HostedToolExecutionContext
+    ) => {
       if (context.abortSignal?.aborted && !options.serverApprovalAuthority) {
         return stoppedToolExecution();
       }
@@ -686,6 +704,10 @@ export function createHostedPolicyTools(
         if (!confirmed) {
           return deniedToolExecution('You declined this operation. No local change was made.');
         }
+      }
+      await earlierMutation;
+      if (context.abortSignal?.aborted && !options.serverApprovalAuthority) {
+        return stoppedToolExecution();
       }
       if (serverApproval && localMutation) {
         const approvalReceiptRef = `${approvalReceiptPrefix}:${crypto.randomUUID()}`;

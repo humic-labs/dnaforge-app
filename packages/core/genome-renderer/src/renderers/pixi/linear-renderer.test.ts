@@ -2,7 +2,14 @@
 
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('./shared/canvas-middle-text', () => ({ canvasMiddleTextAnchorY: () => 0.5 }));
-import { Application, Container, Graphics, Point } from 'pixi.js';
+import {
+  Application,
+  Container,
+  EventBoundary,
+  FederatedPointerEvent,
+  Graphics,
+  Point,
+} from 'pixi.js';
 import { PixiLinearRenderer } from './linear-renderer';
 import { canvasCdsMetrics } from '@waypoint/platform';
 import { IndexedPixiLinearRenderer } from './indexed-linear-renderer';
@@ -400,6 +407,7 @@ describe('PixiLinearRenderer vertical track scrolling', () => {
     expect(renderer.getPresentedTrackScrollReceipt()).toEqual({
       completedFrameEpoch: 1,
       trackScrollTop: 0,
+      contentClipTopPx: CYTOBAND_REQUIRED_TRACK_HEIGHT_PX,
     });
 
     expect(renderer.scrollTracksBy(40)).toBe(true);
@@ -414,6 +422,14 @@ describe('PixiLinearRenderer vertical track scrolling', () => {
     expect(renderer.getPresentedTrackScrollReceipt()).toEqual({
       completedFrameEpoch: 2,
       trackScrollTop: 40,
+      contentClipTopPx: CYTOBAND_REQUIRED_TRACK_HEIGHT_PX,
+    });
+    renderer.setTrackStackEndReservePx(32);
+    renderer.render(state);
+    expect(renderer.getPresentedTrackScrollReceipt()).toEqual({
+      completedFrameEpoch: 3,
+      trackScrollTop: 40,
+      contentClipTopPx: 48,
     });
   });
 });
@@ -742,7 +758,10 @@ describe('PixiLinearRenderer track diagnostics', () => {
     renderer.setTrackInstances([first, second]);
     renderer.render(state);
     expect(mount).toHaveBeenCalledTimes(2);
-    expect(mountedContainers.every((container) => container.parent === app.stage)).toBe(true);
+    const trackParent = mountedContainers[0].parent;
+    expect(trackParent).not.toBeNull();
+    expect(mountedContainers.every((container) => container.parent === trackParent)).toBe(true);
+    expect(trackParent === app.stage || trackParent?.parent === app.stage).toBe(true);
 
     renderer.destroy();
 
@@ -1423,16 +1442,22 @@ describe('PixiLinearRenderer viewport range', () => {
       primerOverlay: { container: Container };
       interactionLayer: Container;
     };
-    const stageChildren = app.stage.children;
+    const parent = layers.selectionLayer.parent;
+    expect(parent).not.toBeNull();
+    expect(parent === app.stage || parent?.parent === app.stage).toBe(true);
+    expect(layers.annotationOverlay.container.parent).toBe(parent);
+    expect(layers.primerOverlay.container.parent).toBe(parent);
+    expect(layers.interactionLayer.parent).toBe(parent);
+    const siblings = parent!.children;
 
-    expect(stageChildren.indexOf(layers.selectionLayer)).toBeLessThan(
-      stageChildren.indexOf(layers.annotationOverlay.container)
+    expect(siblings.indexOf(layers.selectionLayer)).toBeLessThan(
+      siblings.indexOf(layers.annotationOverlay.container)
     );
-    expect(stageChildren.indexOf(layers.selectionLayer)).toBeLessThan(
-      stageChildren.indexOf(layers.primerOverlay.container)
+    expect(siblings.indexOf(layers.selectionLayer)).toBeLessThan(
+      siblings.indexOf(layers.primerOverlay.container)
     );
-    expect(stageChildren.indexOf(layers.interactionLayer)).toBeGreaterThan(
-      stageChildren.indexOf(layers.annotationOverlay.container)
+    expect(siblings.indexOf(layers.interactionLayer)).toBeGreaterThan(
+      siblings.indexOf(layers.annotationOverlay.container)
     );
   });
 
@@ -1471,9 +1496,15 @@ describe('PixiLinearRenderer viewport range', () => {
       pileupGlobalGuideLayer: { container: Container };
       interactionLayer: Container;
     };
-    const guideIndex = app.stage.children.indexOf(layers.pileupGlobalGuideLayer.container);
-    const trackIndex = app.stage.children.indexOf(mountedTrack);
-    const interactionIndex = app.stage.children.indexOf(layers.interactionLayer);
+    const parent = mountedTrack.parent;
+    expect(parent).not.toBeNull();
+    expect(parent === app.stage || parent?.parent === app.stage).toBe(true);
+    expect(layers.pileupGlobalGuideLayer.container.parent).toBe(parent);
+    expect(layers.interactionLayer.parent).toBe(parent);
+    const siblings = parent!.children;
+    const guideIndex = siblings.indexOf(layers.pileupGlobalGuideLayer.container);
+    const trackIndex = siblings.indexOf(mountedTrack);
+    const interactionIndex = siblings.indexOf(layers.interactionLayer);
 
     expect(guideIndex).toBe(0);
     expect(guideIndex).toBeLessThan(trackIndex);
@@ -2575,5 +2606,201 @@ describe('ordinary sequence presentation parity', () => {
     expect(layout.cdsChevronHeight).toBeCloseTo(expected);
     expect(layout.translationLaneHeight).toBeGreaterThanOrEqual(expected);
     renderer.destroy();
+  });
+});
+
+describe(' indexed row size and pinned-header isolation', () => {
+  async function fixture(heights: number[]) {
+    const state = { ...createState(), height: 180 };
+    const renderer = new PixiLinearRenderer();
+    const app = {
+      stage: new Container(),
+      canvas: document.createElement('canvas'),
+      renderer: {},
+    } as unknown as Application;
+    const mounted: Container[] = [];
+    const hitTest = vi.fn(() => ({ kind: 'jump-to-bp' as const, bp: 250 }));
+    const updateHover = vi.fn();
+    const registered: PixiLinearTrackRenderer = {
+      type: 'DNA-4991-row',
+      mount: () => {
+        const container = new Container();
+        container.addChild(new Graphics());
+        mounted.push(container);
+        return container;
+      },
+      paint: ({ container, layoutEntry }) => {
+        (container.children[0] as Graphics)
+          .clear()
+          .rect(0, 0, state.width, layoutEntry.height)
+          .fill(0xdc2626);
+      },
+      unmount: (container) => container.destroy({ children: true }),
+      hitTest,
+      updateHover,
+    };
+    const cytoband: Track = {
+      id: 'DNA-4991-header',
+      type: CYTOBAND_TYPE.type,
+      order: 0,
+      visible: true,
+      assemblyId: 'test',
+      zone: 'above-legacy',
+      sizing: CYTOBAND_TYPE.defaultSizing,
+    };
+    const rows: Track[] = heights.map((pixels, index) => ({
+      id: 'DNA-4991-row-' + index,
+      type: registered.type,
+      order: index + 1,
+      visible: true,
+      assemblyId: 'test',
+      zone: 'below-legacy',
+      sizing: { kind: 'fixed', pixels },
+    }));
+    await renderer.init(
+      app,
+      {
+        ...createGenome(),
+        annotationLayout: { maxAnnotationLane: 19, maxCdsLane: -1 },
+      },
+      () => state
+    );
+    renderer.setChromosome(createChromosome());
+    renderer.registerTrack(new PixiCytobandTrackRenderer());
+    renderer.registerTrack(registered);
+    renderer.setTrackInstances([cytoband, ...rows]);
+    renderer.render(state);
+    return { state, renderer, mounted, rows, cytoband, hitTest, updateHover };
+  }
+
+  it(' presents a continuously dragged plot between slots and restores or settles the whole stack', async () => {
+    const f = await fixture([80, 120, 60]);
+    const dragRenderer = f.renderer as unknown as {
+      setTrackPresentationDrag?: (preview: { trackId: string; topPx: number } | null) => boolean;
+    };
+    try {
+      const initial = f.renderer.getLaneScreenSnapshot().trackScreenBounds;
+      const [first, second, dragged] = f.rows;
+      const slotTop = initial[first.id].topPx;
+      const previewOrder = [dragged.id, first.id, second.id];
+      f.renderer.setTrackPresentationOrder(previewOrder);
+      dragRenderer.setTrackPresentationDrag?.({ trackId: dragged.id, topPx: slotTop + 31 });
+      f.renderer.render(f.state);
+      let presented = f.renderer.getLaneScreenSnapshot().trackScreenBounds;
+      expect(presented[dragged.id].topPx).toBe(slotTop + 31);
+      expect(f.mounted[2].getGlobalPosition().y).toBe(slotTop + 31);
+      expect(presented[first.id].topPx).toBe(slotTop + 60);
+      expect(presented[second.id].topPx).toBe(slotTop + 140);
+      dragRenderer.setTrackPresentationDrag?.({ trackId: dragged.id, topPx: slotTop + 47 });
+      f.renderer.render(f.state);
+      presented = f.renderer.getLaneScreenSnapshot().trackScreenBounds;
+      expect(presented[dragged.id].topPx).toBe(slotTop + 47);
+      expect(presented[first.id].topPx).toBe(slotTop + 60);
+      expect(presented[second.id].topPx).toBe(slotTop + 140);
+      f.renderer.setTrackPresentationOrder(f.rows.map((row) => row.id));
+      dragRenderer.setTrackPresentationDrag?.(null);
+      f.renderer.render(f.state);
+      expect(f.renderer.getLaneScreenSnapshot().trackScreenBounds).toEqual(initial);
+      f.renderer.setTrackPresentationOrder(previewOrder);
+      dragRenderer.setTrackPresentationDrag?.({ trackId: dragged.id, topPx: slotTop + 47 });
+      f.renderer.render(f.state);
+      dragRenderer.setTrackPresentationDrag?.(null);
+      f.renderer.render(f.state);
+      presented = f.renderer.getLaneScreenSnapshot().trackScreenBounds;
+      expect(presented[dragged.id].topPx).toBe(slotTop);
+      expect(presented[first.id].topPx).toBe(slotTop + 60);
+      expect(presented[second.id].topPx).toBe(slotTop + 140);
+      expect(f.mounted).toHaveLength(3);
+      expect(f.mounted[2].getGlobalPosition().y).toBe(slotTop);
+    } finally {
+      f.renderer.destroy();
+    }
+  });
+
+  it(' preserves requested lower-row heights when their stack exceeds the viewport', async () => {
+    const f = await fixture([160, 180, 220]);
+    try {
+      const bounds = f.renderer.getLaneScreenSnapshot().trackScreenBounds;
+      expect(f.rows.map((row) => bounds[row.id].heightPx)).toEqual([160, 180, 220]);
+      expect(bounds[f.rows[1].id].topPx - bounds[f.rows[0].id].topPx).toBe(160);
+      expect(bounds[f.rows[2].id].topPx - bounds[f.rows[1].id].topPx).toBe(180);
+      expect(f.renderer.canScrollTracksVertically()).toBe(true);
+      f.renderer.setTrackInstances([
+        f.cytoband,
+        { ...f.rows[0], sizing: { kind: 'fixed', pixels: 300 } },
+        ...f.rows.slice(1),
+      ]);
+      f.renderer.render(f.state);
+      expect(f.renderer.getLaneScreenSnapshot().trackScreenBounds[f.rows[0].id].heightPx).toBe(300);
+      expect(f.renderer.getLaneScreenSnapshot().trackScreenBounds[f.cytoband.id].topPx).toBe(0);
+    } finally {
+      f.renderer.destroy();
+    }
+  });
+
+  it(' clips lower-row painting below the pinned header after scrolling', async () => {
+    const f = await fixture([180]);
+    try {
+      const top = f.renderer.getLaneScreenSnapshot().trackScreenBounds[f.rows[0].id].topPx;
+      expect(f.renderer.scrollTracksBy(top - 12)).toBe(true);
+      f.renderer.render(f.state);
+      expect(f.renderer.getLaneScreenSnapshot().trackScreenBounds[f.rows[0].id].topPx).toBeCloseTo(
+        12
+      );
+      const masks: Container[] = [];
+      for (let node: Container | null = f.mounted[0]; node; node = node.parent) {
+        const mask = node.mask;
+        if (mask instanceof Container) masks.push(mask);
+      }
+      expect(
+        masks.some((mask) => {
+          const measurable = mask.measurable;
+          mask.measurable = true;
+          try {
+            const bounds = mask.getBounds().rectangle;
+            return (
+              bounds.y >= CYTOBAND_REQUIRED_TRACK_HEIGHT_PX &&
+              bounds.y < f.state.height &&
+              bounds.width >= f.state.width
+            );
+          } finally {
+            mask.measurable = measurable;
+          }
+        })
+      ).toBe(true);
+      expect(f.renderer.getLaneScreenSnapshot().trackScreenBounds[f.cytoband.id].topPx).toBe(0);
+    } finally {
+      f.renderer.destroy();
+    }
+  });
+
+  it(' rejects clipped row clicks and hover while retaining visible row interaction', async () => {
+    const f = await fixture([180]);
+    try {
+      const handler = vi.fn();
+      f.renderer.setTrackHitHandler(handler);
+      const top = f.renderer.getLaneScreenSnapshot().trackScreenBounds[f.rows[0].id].topPx;
+      f.renderer.scrollTracksBy(top - 12);
+      f.renderer.render(f.state);
+      const row = f.mounted[0];
+      const boundary = new EventBoundary(row);
+      const pointerAt = (type: 'pointerup' | 'pointermove', y: number) => {
+        const event = new FederatedPointerEvent(boundary);
+        event.type = type;
+        event.global.set(100, y);
+        return event;
+      };
+      row.emit('pointerup', pointerAt('pointerup', 16));
+      row.emit('pointermove', pointerAt('pointermove', 16));
+      expect(f.hitTest).not.toHaveBeenCalled();
+      expect(f.updateHover).not.toHaveBeenCalled();
+      expect(handler).not.toHaveBeenCalled();
+      row.emit('pointerup', pointerAt('pointerup', 64));
+      row.emit('pointermove', pointerAt('pointermove', 64));
+      expect(handler).toHaveBeenCalledExactlyOnceWith({ kind: 'jump-to-bp', bp: 250 });
+      expect(f.updateHover).toHaveBeenCalledOnce();
+    } finally {
+      f.renderer.destroy();
+    }
   });
 });

@@ -26,6 +26,8 @@ import {
   serializePrimerArtifact,
   type PrimerArtifactV1,
 } from '../features/primers/public/primer-artifact';
+import { primerFromProjectionRow } from '../shared/primer-artifacts/primer-repository';
+import type { DbPrimerRow } from '../shared/primer-artifacts/types';
 
 describe('canonical primer native projection authority', () => {
   let db: Database.Database;
@@ -163,5 +165,45 @@ describe('canonical primer native projection authority', () => {
     expect(
       db.prepare('SELECT status FROM catalog_entity_files WHERE entity_id=?').get(artifact.id)
     ).toEqual({ status: 'historical' });
+  });
+
+  it('retires a trashed primer from its stored library row and recorded revision', async () => {
+    const lims = createLimsBridgeForDb(db);
+    await lims.registerEntity({
+      id: artifact.id,
+      kind: 'oligo',
+      name: artifact.name,
+      fields: {
+        sequence: {
+          mode: 'inline',
+          bases: artifact.sequence.bases,
+          length: artifact.sequence.bases.length,
+          topology: 'linear',
+        },
+      },
+      workspaceId: projection.workspaceId,
+      actor: 'test',
+    });
+    replacePrimerLegacyProjectionInDb(db, projection);
+    unlinkSync(path);
+    setCatalogFileStateInDb(db, path, 'missing', 'moved-to-trash');
+    setCatalogFileStateInDb(db, path, 'missing', 'git-indexer');
+    await lims.archiveEntity({ id: artifact.id, actor: 'test' });
+    const primer = primerFromProjectionRow(
+      db.prepare('SELECT * FROM primers WHERE id=?').get(artifact.id) as DbPrimerRow
+    );
+    const { metadata } = db
+      .prepare('SELECT metadata FROM catalog_entities WHERE id=?')
+      .get(artifact.id) as { metadata: string };
+    replacePrimerLegacyProjectionInDb(db, {
+      ...primer,
+      originDetails: primer.originDetails ?? {},
+      bindings: [],
+      retireArtifact: {
+        artifactPath: String(primer.originDetails?.artifactPath),
+        expectedArtifactRevision: Number(JSON.parse(metadata).artifactRevision),
+      },
+    });
+    expect(db.prepare('SELECT COUNT(*) AS count FROM primers').get()).toEqual({ count: 0 });
   });
 });

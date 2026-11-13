@@ -1,4 +1,5 @@
-'use client';
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
+('use client');
 import { toUserMessage } from '@waypoint/user-messages';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import type { Annotation as ExistingAnnotation } from '@waypoint/sequence-utils';
@@ -190,6 +191,8 @@ export function AnnotationReviewPanel({
   isApplying = false,
   onCancel,
 }: AnnotationReviewPanelProps) {
+  const presentationEvents = usePresentationListener();
+
   const [sortColumn, setSortColumn] = useState<SortColumn>('position');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
@@ -298,8 +301,8 @@ export function AnnotationReviewPanel({
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    presentationEvents.add(document, 'keydown', handleKeyDown);
+    return () => presentationEvents.remove(document, 'keydown', handleKeyDown);
   }, [
     navigateNext,
     navigatePrevious,
@@ -308,6 +311,8 @@ export function AnnotationReviewPanel({
     multiSelectedIds,
     drafts,
     onSetRangeAccepted,
+    ,
+    presentationEvents,
   ]);
 
   useEffect(() => {

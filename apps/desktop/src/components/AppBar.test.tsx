@@ -1,8 +1,10 @@
 import { render, screen, act, fireEvent, within, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ComponentProps } from 'react';
+import { COMMAND_IDS } from '../commands';
 
 const mockOnHandlers: Record<string, ((...args: unknown[]) => void)[]> = {};
+const mockDispatchCommand = vi.fn();
 const mockRestartSidecar = vi.fn(() => Promise.resolve('restarting'));
 const mockPlatform = {
   on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
@@ -33,6 +35,11 @@ const mockPlatform = {
 
 vi.mock('../platform', () => ({
   platform: vi.fn(() => mockPlatform),
+}));
+
+vi.mock('../commands', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../commands')>()),
+  useCommandRegistry: () => ({ dispatchCommand: mockDispatchCommand }),
 }));
 
 vi.mock('./FeedbackWidget', () => ({
@@ -133,19 +140,27 @@ describe('AppBar', () => {
   it('right-aligns the Ask AI launcher immediately before feedback', () => {
     renderAppBar();
     const controls = screen.getByTestId('appbar-right-controls');
-    expect(within(controls).queryByTestId('appbar-ai-entry')).not.toBeInTheDocument();
+    const askAi = within(controls).getByTestId('appbar-ask-ai-button');
+    const feedback = within(controls).getByTestId('feedback-widget');
+    expect(within(controls).getByTestId('appbar-ai-entry')).toContainElement(askAi);
+    expect(within(controls).getAllByRole('button').slice(0, 2)).toEqual([askAi, feedback]);
     expect(within(controls).getByTestId('feedback-widget')).toBeInTheDocument();
   });
 
   it('uses Ctrl+/ for the Ask AI shortcut hint on Windows', () => {
     mockNavigatorPlatform('Win32');
     renderAppBar();
-    expect(screen.queryByTestId('appbar-ask-ai-button')).not.toBeInTheDocument();
+    expect(screen.getByTestId('appbar-ask-ai-button')).toHaveAttribute('title', 'Ask AI (Ctrl+/)');
   });
 
   it('uses the AppBar Ask AI control as a launcher instead of a prompt or route picker', () => {
     renderAppBar();
-    expect(screen.queryByTestId('appbar-ask-ai-button')).not.toBeInTheDocument();
+    const askAi = screen.getByTestId('appbar-ask-ai-button');
+    expect(askAi).toBeInTheDocument();
+    fireEvent.click(askAi);
+    expect(mockDispatchCommand).toHaveBeenCalledWith(COMMAND_IDS.appFocusCommandInput, {
+      source: 'ui',
+    });
     expect(screen.queryByTestId('appbar-input')).not.toBeInTheDocument();
     expect(screen.queryByTestId('appbar-assistant-route-button')).not.toBeInTheDocument();
     expect(screen.queryByTestId('appbar-assistant-route-menu')).not.toBeInTheDocument();
@@ -174,7 +189,7 @@ describe('AppBar', () => {
       ]);
       expect(screen.queryByLabelText('DNAForge')).toBeNull();
       expect(screen.getByTestId('application-top-bar')).toHaveClass('windows-title-bar');
-      expect(screen.queryByTestId('appbar-ask-ai-button')).not.toBeInTheDocument();
+      expect(screen.getByTestId('appbar-ask-ai-button')).toBeInTheDocument();
       await waitFor(() => expect(mockPlatform.window.setTitleBarTheme).toHaveBeenCalledWith(false));
     } finally {
       Reflect.deleteProperty(window, 'electronAPI');

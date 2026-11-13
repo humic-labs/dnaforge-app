@@ -1,3 +1,9 @@
+import {
+  usePresentationOverlay,
+  usePresentationScope,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../../../presentation/PresentationSurface';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import {
   reconcileReferenceAnnotationTracks,
@@ -22,6 +28,7 @@ import { CloseIcon, ImportIcon, OpenExternalIcon } from '../../../components/ico
 import { platform } from '../../../platform';
 import { openAssembly } from '../openAssembly';
 import { useCanvasStore } from '../../canvas/public/store';
+import { captureDocumentActivation } from '../../canvas/public/present-document';
 import type { OpenAssemblyProgress } from '../openAssembly';
 import { INDEXED_ANNOTATION_COLOR_BASIS_THEME } from '@waypoint/genome-renderer/pure';
 import type {
@@ -378,6 +385,9 @@ export function ReferenceGenomePicker({
   backgroundFileOpen = false,
   backgroundFileOpenRequestId,
 }: ReferenceGenomePickerProps) {
+  const presentationOverlay = usePresentationOverlay('modal');
+  const presentationParent = usePresentationScope();
+
   const [filter, setFilter] = useState('');
   const [sort, setSort] = useState<ReferenceSort | null>(null);
   const [statusByEntry, setStatusByEntry] = useState<Record<string, ReferenceRowStatus>>({});
@@ -399,6 +409,9 @@ export function ReferenceGenomePicker({
     'idle'
   );
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const presentationEvents = usePresentationListener(
+    importModalOpen ? presentationOverlay.scope : presentationParent
+  );
   const [importedReference, setImportedReference] =
     useState<PreparedReferenceAssemblyEntryV1 | null>(null);
   const [importProgress, setImportProgress] = useState<ReferenceAssetPreparationProgressV1 | null>(
@@ -435,6 +448,9 @@ export function ReferenceGenomePicker({
   const customReferenceJobIdsRef = useRef(new Set<string>());
   const portableViewOpenInFlightRef = useRef(false);
   const portableViewOperationIdRef = useRef<string | null>(null);
+  const portableViewActivationRef = useRef<ReturnType<typeof captureDocumentActivation> | null>(
+    null
+  );
   const openLifecycleGenerationRef = useRef(0);
   const isCurrentPortableViewOperation = useCallback(
     (operationId: string) =>
@@ -455,6 +471,8 @@ export function ReferenceGenomePicker({
     if (portableViewCommitInProgressRef.current) return;
     activeImportOperationIdRef.current = null;
     portableViewOperationIdRef.current = null;
+    portableViewActivationRef.current?.dispose();
+    portableViewActivationRef.current = null;
     portableViewOpenInFlightRef.current = false;
     finishBackgroundFileOpen(null);
     onClose();
@@ -567,6 +585,8 @@ export function ReferenceGenomePicker({
         if (openLifecycleGenerationRef.current !== generation) return;
         activeImportOperationIdRef.current = null;
         portableViewOperationIdRef.current = null;
+        portableViewActivationRef.current?.dispose();
+        portableViewActivationRef.current = null;
         portableViewOpenInFlightRef.current = false;
         if (backgroundFileOpen) finishBackgroundFileOpen(null);
       });
@@ -589,9 +609,9 @@ export function ReferenceGenomePicker({
       }
       if (!embedded) closePicker();
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [closePicker, importModalOpen, open, embedded]);
+    presentationEvents.add(window, 'keydown', onKeyDown);
+    return () => presentationEvents.remove(window, 'keydown', onKeyDown);
+  }, [closePicker, importModalOpen, open, embedded, presentationEvents]);
 
   useEffect(() => {
     if (open) {
@@ -600,6 +620,8 @@ export function ReferenceGenomePicker({
     }
     activeImportOperationIdRef.current = null;
     portableViewOperationIdRef.current = null;
+    portableViewActivationRef.current?.dispose();
+    portableViewActivationRef.current = null;
     portableViewOpenInFlightRef.current = false;
     portableViewCommitInProgressRef.current = false;
     setActiveImportOperationId(null);
@@ -1246,6 +1268,8 @@ export function ReferenceGenomePicker({
       const operationId = createReferenceOperationId();
       portableViewOpenInFlightRef.current = true;
       portableViewOperationIdRef.current = operationId;
+      const activation = captureDocumentActivation();
+      portableViewActivationRef.current = activation;
       setPortableViewState('opening');
       setPortableViewError(null);
       setPortableRecovery(null);
@@ -1263,8 +1287,10 @@ export function ReferenceGenomePicker({
             .flatMap(([panelId, panel]) => panel.tabs.map((tab) => ({ panelId, tab })))
             .find(({ tab }) => tab.entityId === managedViewId);
           if (existing) {
-            useCanvasStore.getState().setActiveTab(existing.panelId, existing.tab.id);
-            useCanvasStore.getState().focusPanel(existing.panelId);
+            if (activation.isCurrent()) {
+              useCanvasStore.getState().setActiveTab(existing.panelId, existing.tab.id);
+              useCanvasStore.getState().focusPanel(existing.panelId);
+            }
             finishBackgroundFileOpen(existing.tab.id);
             completePortableViewOpen();
             return;
@@ -1321,6 +1347,9 @@ export function ReferenceGenomePicker({
         if (!isCurrentPortableViewOperation(operationId)) return;
         setPortableViewError(toUserMessage(error, 'tracks.loadFailed'));
       } finally {
+        activation.dispose();
+        if (portableViewActivationRef.current === activation)
+          portableViewActivationRef.current = null;
         if (portableViewOperationIdRef.current === operationId && !awaitingRecovery) {
           resetPortableViewOperation();
         }
@@ -2398,142 +2427,147 @@ export function ReferenceGenomePicker({
         </div>
       </div>
       {importModalOpen ? (
-        <div
-          className={`fixed inset-0 ${UI_MODAL_LAYER_CLASS} flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm`}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Add reference"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) closeImportModal();
-          }}
-        >
-          <div className="max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-lg border border-border bg-bg shadow-2xl">
-            <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
-              <div>
-                <h3 className="text-lg font-semibold text-fg">Add reference</h3>
-                <p className="mt-1 text-sm text-fg-muted">
-                  Add a FASTA file, a folder with FASTA and optional GFF3 annotations, an NCBI
-                  Datasets ZIP, an assembly link, or a genome from a UCSC assembly hub or GenArk.
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Cancel adding reference"
-                disabled={importInFlight}
-                onClick={closeImportModal}
-                className="rounded p-2 text-fg-muted hover:bg-bg-muted hover:text-fg disabled:cursor-wait disabled:opacity-50"
-              >
-                <CloseIcon size={16} />
-              </button>
-            </div>
-
-            <div className="space-y-4 p-5">
-              <form
-                className="space-y-2"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void handleImportNcbiAssemblyLink();
-                }}
-              >
-                <label
-                  className="block text-xs font-medium text-fg"
-                  htmlFor="reference-import-ncbi-link"
+        <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+          <div
+            className={`fixed inset-0 ${UI_MODAL_LAYER_CLASS} flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm`}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add reference"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) closeImportModal();
+            }}
+            ref={presentationOverlay.bindRef(undefined, '0')}
+          >
+            <div className="max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-lg border border-border bg-bg shadow-2xl">
+              <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-fg">Add reference</h3>
+                  <p className="mt-1 text-sm text-fg-muted">
+                    Add a FASTA file, a folder with FASTA and optional GFF3 annotations, an NCBI
+                    Datasets ZIP, an assembly link, or a genome from a UCSC assembly hub or GenArk.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Cancel adding reference"
+                  disabled={importInFlight}
+                  onClick={closeImportModal}
+                  className="rounded p-2 text-fg-muted hover:bg-bg-muted hover:text-fg disabled:cursor-wait disabled:opacity-50"
                 >
-                  Assembly link
-                </label>
-                <div className="flex gap-2">
-                  <div className="min-w-0 flex-1">
-                    <TextField
-                      id="reference-import-ncbi-link"
-                      data-testid="reference-import-ncbi-link"
-                      value={ncbiAssemblyLink}
-                      disabled={importInFlight}
-                      placeholder="https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000008865.2/"
-                      onChange={(event) => setNcbiAssemblyLink(event.target.value)}
-                    />
+                  <CloseIcon size={16} />
+                </button>
+              </div>
+
+              <div className="space-y-4 p-5">
+                <form
+                  className="space-y-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleImportNcbiAssemblyLink();
+                  }}
+                >
+                  <label
+                    className="block text-xs font-medium text-fg"
+                    htmlFor="reference-import-ncbi-link"
+                  >
+                    Assembly link
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="min-w-0 flex-1">
+                      <TextField
+                        id="reference-import-ncbi-link"
+                        data-testid="reference-import-ncbi-link"
+                        value={ncbiAssemblyLink}
+                        disabled={importInFlight}
+                        placeholder="https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000008865.2/"
+                        onChange={(event) => setNcbiAssemblyLink(event.target.value)}
+                      />
+                    </div>
+                    <Button
+                      variant="primary"
+                      type="submit"
+                      data-testid="reference-import-ncbi-open"
+                      disabled={importInFlight || ncbiAssemblyLink.trim() === ''}
+                    >
+                      Open link
+                    </Button>
                   </div>
+                </form>
+
+                <div
+                  data-testid="reference-import-source"
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={handleImportDrop}
+                  className="flex min-h-40 flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-bg-subtle px-6 py-8 text-center"
+                >
+                  <span className="text-sm font-medium text-fg">
+                    Drop one reference source here
+                  </span>
+                  <span className="my-3 text-xs uppercase tracking-wider text-fg-subtle">or</span>
                   <Button
                     variant="primary"
-                    type="submit"
-                    data-testid="reference-import-ncbi-open"
-                    disabled={importInFlight || ncbiAssemblyLink.trim() === ''}
+                    type="button"
+                    data-testid="reference-import-browse"
+                    autoFocus
+                    disabled={importInFlight}
+                    onClick={() => void handleImportCustom()}
                   >
-                    Open link
+                    {importState === 'preparing' ? 'Preparing reference…' : 'Browse…'}
                   </Button>
                 </div>
-              </form>
 
-              <div
-                data-testid="reference-import-source"
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={handleImportDrop}
-                className="flex min-h-40 flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-bg-subtle px-6 py-8 text-center"
-              >
-                <span className="text-sm font-medium text-fg">Drop one reference source here</span>
-                <span className="my-3 text-xs uppercase tracking-wider text-fg-subtle">or</span>
-                <Button
-                  variant="primary"
-                  type="button"
-                  data-testid="reference-import-browse"
-                  autoFocus
+                <HubGenomeImportPanel
                   disabled={importInFlight}
-                  onClick={() => void handleImportCustom()}
-                >
-                  {importState === 'preparing' ? 'Preparing reference…' : 'Browse…'}
-                </Button>
+                  onImport={(source) => void handleImportHubGenome(source)}
+                />
+
+                {importState === 'preparing' ? (
+                  <div
+                    data-testid="reference-import-progress"
+                    role="status"
+                    aria-live="polite"
+                    className="space-y-2 rounded border border-border bg-bg-subtle p-3 text-xs text-fg-muted"
+                  >
+                    {importRecognizedLabel ? (
+                      <span className="block">{importRecognizedLabel}</span>
+                    ) : null}
+                    {importProgress?.label !== importRecognizedLabel ? (
+                      <span className="block">
+                        {importProgress?.label ?? 'Inspecting selected source'}
+                      </span>
+                    ) : null}
+                    <progress
+                      aria-label="Custom reference preparation progress"
+                      className="h-1.5 w-full overflow-hidden rounded-full accent-accent"
+                      {...(importProgress?.completed !== undefined &&
+                      importProgress.total !== undefined
+                        ? { value: importProgress.completed, max: importProgress.total }
+                        : {})}
+                    />
+                  </div>
+                ) : null}
+                {importState === 'success' && importedReference ? (
+                  <p
+                    data-testid="reference-import-success"
+                    role="status"
+                    className="rounded border border-green-300 bg-green-50 p-3 text-xs text-green-800 dark:border-green-700 dark:bg-green-950/50 dark:text-green-200"
+                  >
+                    {importedReference.name} is ready. Opening the indexed genome…
+                  </p>
+                ) : null}
+                {importState === 'error' && importError ? (
+                  <p
+                    data-testid="reference-import-error"
+                    role="alert"
+                    className="rounded border border-red-300 bg-red-50 p-3 text-xs text-red-800 dark:border-red-700 dark:bg-red-950/50 dark:text-red-200"
+                  >
+                    {toUserMessage(importError, 'tracks.loadFailed')}
+                  </p>
+                ) : null}
               </div>
-
-              <HubGenomeImportPanel
-                disabled={importInFlight}
-                onImport={(source) => void handleImportHubGenome(source)}
-              />
-
-              {importState === 'preparing' ? (
-                <div
-                  data-testid="reference-import-progress"
-                  role="status"
-                  aria-live="polite"
-                  className="space-y-2 rounded border border-border bg-bg-subtle p-3 text-xs text-fg-muted"
-                >
-                  {importRecognizedLabel ? (
-                    <span className="block">{importRecognizedLabel}</span>
-                  ) : null}
-                  {importProgress?.label !== importRecognizedLabel ? (
-                    <span className="block">
-                      {importProgress?.label ?? 'Inspecting selected source'}
-                    </span>
-                  ) : null}
-                  <progress
-                    aria-label="Custom reference preparation progress"
-                    className="h-1.5 w-full overflow-hidden rounded-full accent-accent"
-                    {...(importProgress?.completed !== undefined &&
-                    importProgress.total !== undefined
-                      ? { value: importProgress.completed, max: importProgress.total }
-                      : {})}
-                  />
-                </div>
-              ) : null}
-              {importState === 'success' && importedReference ? (
-                <p
-                  data-testid="reference-import-success"
-                  role="status"
-                  className="rounded border border-green-300 bg-green-50 p-3 text-xs text-green-800 dark:border-green-700 dark:bg-green-950/50 dark:text-green-200"
-                >
-                  {importedReference.name} is ready. Opening the indexed genome…
-                </p>
-              ) : null}
-              {importState === 'error' && importError ? (
-                <p
-                  data-testid="reference-import-error"
-                  role="alert"
-                  className="rounded border border-red-300 bg-red-50 p-3 text-xs text-red-800 dark:border-red-700 dark:bg-red-950/50 dark:text-red-200"
-                >
-                  {toUserMessage(importError, 'tracks.loadFailed')}
-                </p>
-              ) : null}
             </div>
           </div>
-        </div>
+        </PresentationScopeContext.Provider>
       ) : null}
     </div>
   );

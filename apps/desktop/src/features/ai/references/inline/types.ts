@@ -18,6 +18,7 @@ export type InlineReferenceState =
       reference?: import('../../../../db/entity-references').DBEntityReference;
 
       targetType?: InlineReferenceTargetType;
+      projectResource?: import('../../../../shared/project-resource-reference').ResolvedProjectResourceReference;
     }
   | { status: 'invalid'; code: InlineReferenceFailureCode | string };
 

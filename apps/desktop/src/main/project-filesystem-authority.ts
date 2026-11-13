@@ -1,113 +1,32 @@
 import type Database from 'better-sqlite3';
 import { registerAdmittedProjectRoot } from './admitted-project-roots';
-import { app } from 'electron';
-import { lstat, readFile, realpath, stat } from 'node:fs/promises';
-import { basename, dirname, isAbsolute, join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { isPathInsideBoundary } from '../shared/path-boundary';
 import type { ResolveProjectRootRequest, ResolvedProjectRoot } from '../shared/workspace-git-types';
 import { MANAGED_WORKSPACE_MARKER } from '../shared/workspace-git-types';
 import { ensureWorkspaceOwnerInDb } from './catalog-projection-commands';
 import { workspaceMutationRootIdentity } from './workspace-sync-mutation-lease';
 import { assertWorkspaceWriteAllowed } from './workspace-write-admission';
+import {
+  admitProjectRootInMain,
+  managedProjectStorageRoot,
+  projectRows,
+  type ProjectRow,
+} from './project-root-admission';
+export {
+  admitProjectRootInMain,
+  admitRegisteredProjectRootInMain,
+  managedProjectStorageRoot,
+} from './project-root-admission';
 
-interface ProjectRow {
-  id: number;
-  path: string;
-  name: string;
-  repo_uuid: string | null;
-  access_mode: 'writable' | 'reference';
-  archived_at: number | null;
-  trashed_at: number | null;
-}
-
-export function managedProjectStorageRoot(): string {
-  return join(app.getPath('userData'), 'managed-workspaces');
+function invalidRoot(message: string): never {
+  throw new Error(`PROJECT_ROOT_INVALID: ${message}`);
 }
 
 export function projectProtectedPaths(repoRoot: string): string[] {
   return ['.git', MANAGED_WORKSPACE_MARKER, '.dnaforge', '.forge', '.waypoint'].map((name) =>
     join(repoRoot, name)
   );
-}
-
-function projectRows(db: Database.Database): ProjectRow[] {
-  return db
-    .prepare(
-      'SELECT id,path,name,repo_uuid,access_mode,archived_at,trashed_at FROM workspaces WHERE path IS NOT NULL'
-    )
-    .all() as ProjectRow[];
-}
-
-function invalidRoot(message: string): never {
-  throw new Error(`PROJECT_ROOT_INVALID: ${message}`);
-}
-
-async function validateManagedProjectRoot(
-  rootPath: string,
-  row: ProjectRow | undefined,
-  managedRoot: string
-): Promise<void> {
-  if (!row?.repo_uuid) invalidRoot('Use the app to create or import a project.');
-  if (
-    rootPath !== join(managedRoot, row.repo_uuid, 'repo') ||
-    basename(dirname(rootPath)) !== row.repo_uuid
-  )
-    invalidRoot('The content directory does not match its project identity.');
-  const markerPath = join(rootPath, MANAGED_WORKSPACE_MARKER);
-  const markerStat = await lstat(markerPath).catch(() => null);
-  const gitStat = await lstat(join(rootPath, '.git')).catch(() => null);
-  if (!markerStat?.isFile() || !gitStat?.isDirectory())
-    invalidRoot('The project identity or repository structure is missing.');
-  let marker: unknown;
-  try {
-    marker = JSON.parse(await readFile(markerPath, 'utf8'));
-  } catch {
-    invalidRoot('The project identity cannot be read.');
-  }
-  if (
-    !marker ||
-    typeof marker !== 'object' ||
-    !('schema' in marker) ||
-    marker.schema !== 1 ||
-    !('workspaceUuid' in marker) ||
-    marker.workspaceUuid !== row.repo_uuid
-  )
-    invalidRoot('The project identity does not match its registered owner.');
-}
-
-export async function admitProjectRootInMain(
-  path: string,
-  deps: { db: Database.Database; managedRootDir: string; protectedAppDataRoot?: string }
-): Promise<{ rootPath: string; row: ProjectRow | undefined }> {
-  if (typeof path !== 'string' || !isAbsolute(path) || path.includes('\0'))
-    invalidRoot('Project roots must be absolute directory paths.');
-  const rootPath = await realpath(path);
-  if (!(await stat(rootPath)).isDirectory()) invalidRoot('Project root must be a directory.');
-  const rows = projectRows(deps.db);
-  const matching = rows.filter((row) => workspaceMutationRootIdentity(row.path) === rootPath);
-  if (matching.length > 1) invalidRoot('The project has more than one registered owner.');
-  const row = matching[0];
-  if (
-    deps.protectedAppDataRoot &&
-    !row &&
-    isPathInsideBoundary(rootPath, workspaceMutationRootIdentity(deps.protectedAppDataRoot))
-  )
-    invalidRoot('App storage cannot be registered as project content.');
-  for (const existing of rows) {
-    const existingRoot = workspaceMutationRootIdentity(existing.path);
-    if (
-      existingRoot !== rootPath &&
-      (isPathInsideBoundary(rootPath, existingRoot) ||
-        (!row && isPathInsideBoundary(existingRoot, rootPath)))
-    )
-      invalidRoot('A project content directory cannot be opened as a separate project.');
-  }
-  const managedRoot = workspaceMutationRootIdentity(deps.managedRootDir);
-  if (isPathInsideBoundary(managedRoot, rootPath))
-    invalidRoot('App project storage cannot be opened as a project.');
-  if (isPathInsideBoundary(rootPath, managedRoot))
-    await validateManagedProjectRoot(rootPath, row, managedRoot);
-  return { rootPath, row };
 }
 
 export async function resolveProjectRootInMain(

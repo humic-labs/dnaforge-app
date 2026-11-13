@@ -1,4 +1,9 @@
-'use client';
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../../../presentation/PresentationSurface';
+('use client');
 
 import { toUserMessage, userMessageWithValues, userMessageValue } from '@waypoint/user-messages';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
@@ -78,6 +83,9 @@ interface RDConfirmDialogProps {
 }
 
 function RDConfirmDialog({ pending, onConfirm, onCancel }: RDConfirmDialogProps) {
+  const presentationOverlay = usePresentationOverlay('modal');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const { data } = pending;
 
   useEffect(() => {
@@ -85,93 +93,98 @@ function RDConfirmDialog({ pending, onConfirm, onCancel }: RDConfirmDialogProps)
       if (e.key === 'Escape') onCancel();
       if (e.key === 'Enter') onConfirm();
     };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onConfirm, onCancel]);
+    presentationEvents.add(document, 'keydown', handleKeyDown);
+    return () => presentationEvents.remove(document, 'keydown', handleKeyDown);
+  }, [onConfirm, onCancel, presentationEvents]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div
+      ref={presentationOverlay.bindRef(undefined, '0')}
+      className="fixed inset-0 z-50 flex items-center justify-center"
+    >
       {}
       <div className="absolute inset-0 bg-black/40" onClick={onCancel} aria-hidden="true" />
 
       {}
-      <div
-        className="relative bg-bg border border-border rounded-lg shadow-xl w-[380px] overflow-hidden"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="rd-confirm-title"
-      >
-        {}
-        <div className="px-4 py-3 border-b border-border bg-bg-muted/30">
-          <h3 id="rd-confirm-title" className="font-semibold text-sm">
-            Add RD Fragment to Assembly?
-          </h3>
-        </div>
-
-        {}
-        <div className="p-4 space-y-4">
+      <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+        <div
+          className="relative bg-bg border border-border rounded-lg shadow-xl w-[380px] overflow-hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="rd-confirm-title"
+        >
           {}
-          <div className="space-y-2">
-            <div className="text-sm">
-              <span className="text-fg-muted">Fragment:</span>{' '}
-              <span className="font-medium">{data.sourceSequenceName}</span>
-            </div>
-            <div className="text-sm">
-              <span className="text-fg-muted">From:</span>{' '}
-              <span className="font-medium">{data.enzymeName} digest</span>
-            </div>
-            <div className="text-sm">
-              <span className="text-fg-muted">Size:</span>{' '}
-              <span className="font-mono">{data.sequence.length.toLocaleString()} bp</span>
-            </div>
+          <div className="px-4 py-3 border-b border-border bg-bg-muted/30">
+            <h3 id="rd-confirm-title" className="font-semibold text-sm">
+              Add RD Fragment to Assembly?
+            </h3>
           </div>
 
           {}
-          <div className="bg-bg-muted/50 rounded-md p-3 space-y-2">
-            <div className="text-xs font-medium text-fg-muted uppercase tracking-wide">
-              Fixed Overhangs
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex-1">
-                <div className="text-xs text-fg-muted mb-1">5{"'"} (upstream)</div>
-                <div className="font-mono text-sm font-semibold text-amber-800 dark:text-amber-500 bg-amber-500/10 px-2 py-1 rounded text-center">
-                  {data.upstreamOverhang}
-                </div>
+          <div className="p-4 space-y-4">
+            {}
+            <div className="space-y-2">
+              <div className="text-sm">
+                <span className="text-fg-muted">Fragment:</span>{' '}
+                <span className="font-medium">{data.sourceSequenceName}</span>
               </div>
-              <div className="text-fg-subtle">→</div>
-              <div className="flex-1">
-                <div className="text-xs text-fg-muted mb-1">3{"'"} (downstream)</div>
-                <div className="font-mono text-sm font-semibold text-amber-800 dark:text-amber-500 bg-amber-500/10 px-2 py-1 rounded text-center">
-                  {data.downstreamOverhang}
-                </div>
+              <div className="text-sm">
+                <span className="text-fg-muted">From:</span>{' '}
+                <span className="font-medium">{data.enzymeName} digest</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-fg-muted">Size:</span>{' '}
+                <span className="font-mono">{data.sequence.length.toLocaleString()} bp</span>
               </div>
             </div>
+
+            {}
+            <div className="bg-bg-muted/50 rounded-md p-3 space-y-2">
+              <div className="text-xs font-medium text-fg-muted uppercase tracking-wide">
+                Fixed Overhangs
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="text-xs text-fg-muted mb-1">5{"'"} (upstream)</div>
+                  <div className="font-mono text-sm font-semibold text-amber-800 dark:text-amber-500 bg-amber-500/10 px-2 py-1 rounded text-center">
+                    {data.upstreamOverhang}
+                  </div>
+                </div>
+                <div className="text-fg-subtle">→</div>
+                <div className="flex-1">
+                  <div className="text-xs text-fg-muted mb-1">3{"'"} (downstream)</div>
+                  <div className="font-mono text-sm font-semibold text-amber-800 dark:text-amber-500 bg-amber-500/10 px-2 py-1 rounded text-center">
+                    {data.downstreamOverhang}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {}
+            <div className="text-xs text-fg-muted bg-blue-500/5 border border-blue-500/20 rounded-md p-2">
+              <span className="text-blue-700 dark:text-blue-400 font-medium">Note:</span> This
+              fragment has fixed overhangs from restriction digest. Adjacent parts must have
+              matching overhangs for ligation.
+            </div>
           </div>
 
           {}
-          <div className="text-xs text-fg-muted bg-blue-500/5 border border-blue-500/20 rounded-md p-2">
-            <span className="text-blue-700 dark:text-blue-400 font-medium">Note:</span> This
-            fragment has fixed overhangs from restriction digest. Adjacent parts must have matching
-            overhangs for ligation.
+          <div className="px-4 py-3 border-t border-border bg-bg-muted/20 flex justify-end gap-2">
+            <button
+              onClick={onCancel}
+              className="px-3 py-1.5 text-sm rounded-md hover:bg-bg-muted transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              className="px-3 py-1.5 text-sm rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors"
+            >
+              Add Fragment
+            </button>
           </div>
         </div>
-
-        {}
-        <div className="px-4 py-3 border-t border-border bg-bg-muted/20 flex justify-end gap-2">
-          <button
-            onClick={onCancel}
-            className="px-3 py-1.5 text-sm rounded-md hover:bg-bg-muted transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            className="px-3 py-1.5 text-sm rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors"
-          >
-            Add Fragment
-          </button>
-        </div>
-      </div>
+      </PresentationScopeContext.Provider>
     </div>
   );
 }

@@ -1,3 +1,8 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../../../presentation/PresentationSurface';
 import { oligoDiagnosticUserMessage } from '../oligo-user-messages';
 import {
   Fragment,
@@ -150,6 +155,9 @@ export function PrimerSequenceInput({
   enableModifications = true,
   orderType = 'dna',
 }: PrimerSequenceInputProps) {
+  const presentationOverlay = usePresentationOverlay('keyboard');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const automaticHeightRef = useRef<number | null>(null);
   const manualHeightRef = useRef<number | null>(null);
@@ -310,12 +318,12 @@ export function PrimerSequenceInput({
       if (event.key === 'Escape') setContextMenu(null);
     };
     document.addEventListener('mousedown', closeOnOutsidePointer);
-    document.addEventListener('keydown', closeOnEscape);
+    presentationEvents.add(document, 'keydown', closeOnEscape);
     return () => {
       document.removeEventListener('mousedown', closeOnOutsidePointer);
-      document.removeEventListener('keydown', closeOnEscape);
+      presentationEvents.remove(document, 'keydown', closeOnEscape);
     };
-  }, [contextMenu]);
+  }, [contextMenu, presentationEvents]);
 
   useEffect(
     () => () => {
@@ -872,45 +880,47 @@ export function PrimerSequenceInput({
         : null}
       {contextMenu
         ? createPortal(
-            <div
-              ref={contextMenuRef}
-              role="menu"
-              aria-label="Primer copy options"
-              data-testid="primer-copy-menu"
-              className="fixed z-[10060] min-w-40 rounded-md border border-border bg-bg-subtle py-1 text-xs shadow-lg"
-              style={{ left: contextMenu.x, top: contextMenu.y }}
-            >
-              <button
-                type="button"
-                role="menuitem"
-                disabled={parsedValue.errors.length > 0}
-                title={parsedValue.errors[0]}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  if (parsedValue.errors.length > 0) return;
-                  void writePrimerNaturalBasesClipboard(value, orderType);
-                  setContextMenu(null);
-                }}
-                className="block w-full px-3 py-1.5 text-left text-fg hover:bg-bg-muted disabled:cursor-not-allowed disabled:text-fg-subtle disabled:hover:bg-transparent"
+            <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+              <div
+                ref={presentationOverlay.bindRef(contextMenuRef, '0')}
+                role="menu"
+                aria-label="Primer copy options"
+                data-testid="primer-copy-menu"
+                className="fixed z-[10060] min-w-40 rounded-md border border-border bg-bg-subtle py-1 text-xs shadow-lg"
+                style={{ left: contextMenu.x, top: contextMenu.y }}
               >
-                Copy bases
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={parsedValue.errors.length > 0}
-                title={parsedValue.errors[0]}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  if (parsedValue.errors.length > 0) return;
-                  void writePrimerIdtOrderClipboard(parsedValue.bases, value, orderType);
-                  setContextMenu(null);
-                }}
-                className="block w-full px-3 py-1.5 text-left text-fg hover:bg-bg-muted disabled:cursor-not-allowed disabled:text-fg-subtle disabled:hover:bg-transparent"
-              >
-                Copy for IDT
-              </button>
-            </div>,
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={parsedValue.errors.length > 0}
+                  title={parsedValue.errors[0]}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    if (parsedValue.errors.length > 0) return;
+                    void writePrimerNaturalBasesClipboard(value, orderType);
+                    setContextMenu(null);
+                  }}
+                  className="block w-full px-3 py-1.5 text-left text-fg hover:bg-bg-muted disabled:cursor-not-allowed disabled:text-fg-subtle disabled:hover:bg-transparent"
+                >
+                  Copy bases
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={parsedValue.errors.length > 0}
+                  title={parsedValue.errors[0]}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    if (parsedValue.errors.length > 0) return;
+                    void writePrimerIdtOrderClipboard(parsedValue.bases, value, orderType);
+                    setContextMenu(null);
+                  }}
+                  className="block w-full px-3 py-1.5 text-left text-fg hover:bg-bg-muted disabled:cursor-not-allowed disabled:text-fg-subtle disabled:hover:bg-transparent"
+                >
+                  Copy for IDT
+                </button>
+              </div>
+            </PresentationScopeContext.Provider>,
             document.body
           )
         : null}

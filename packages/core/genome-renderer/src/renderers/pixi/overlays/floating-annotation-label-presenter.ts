@@ -483,7 +483,6 @@ export class FloatingAnnotationLabelPresenter {
   }
 
   loadGenome(): void {
-    this.columnGutter = 0;
     this.invalidateAssignments();
     this.assignmentBuilds = 0;
     this.assignmentPrewarmBuilds = 0;
@@ -570,23 +569,27 @@ export class FloatingAnnotationLabelPresenter {
   private rebuildPriorities(): void {
     const features = this.host.features();
     const featureById = new Map(features.map((feature) => [feature.id, feature]));
+    let widestLabel = 0;
     const rankedIds = ptime('annotation.floating-label-priorities', () =>
       rankFloatingAnnotationLabelFeatureIds(
         features.flatMap((feature) => {
           if (!feature.displayName) return [];
           const bodyRange = this.bodyRange(feature);
-          return bodyRange
-            ? [
-                {
-                  featureId: feature.id,
-                  sequenceCenterBp: bodyRange.startBp + bodyRange.lengthBp / 2,
-                },
-              ]
-            : [];
+          if (!bodyRange) return [];
+          const measured = this.labelText(feature.displayName);
+          if (measured) widestLabel = Math.max(widestLabel, measured.width);
+          return [
+            {
+              featureId: feature.id,
+              sequenceCenterBp: bodyRange.startBp + bodyRange.lengthBp / 2,
+            },
+          ];
         }),
         this.host.genomeLength()
       )
     );
+    this.columnGutter =
+      widestLabel > 0 ? Math.ceil(widestLabel + FLOATING_LABEL_COLUMN_GUTTER_ALLOWANCE_PX) : 0;
     this.priorityFeatures = rankedIds.flatMap((featureId) => {
       const feature = featureById.get(featureId);
       return feature ? [feature] : [];
@@ -1338,17 +1341,6 @@ export class FloatingAnnotationLabelPresenter {
     return { center, radius };
   }
 
-  private updateColumnGutter(candidates: readonly FloatingAnnotationLabelCandidate[]): void {
-    const widest = candidates.reduce(
-      (maximum, candidate) => Math.max(maximum, candidate.textWidth),
-      0
-    );
-    const gutter = widest > 0 ? Math.ceil(widest + FLOATING_LABEL_COLUMN_GUTTER_ALLOWANCE_PX) : 0;
-    if (gutter === this.columnGutter) return;
-    this.columnGutter = gutter;
-    this.host.requestFrame?.();
-  }
-
   render(path: PathMapper, state: RenderState): void {
     this.host.clearCalloutRecords(state);
     const bitmapFontName = ensureFloatingLabelBitmapFont();
@@ -1375,7 +1367,6 @@ export class FloatingAnnotationLabelPresenter {
           )
         )
       : [];
-    if (columnRing || this.overviewCircle(path, state)) this.updateColumnGutter(candidates);
     if (candidates.length === 0) {
       this.hideUnusedLabels();
       this._frame = this.buildFrame(path, state, preloadMargin, assignmentCache);

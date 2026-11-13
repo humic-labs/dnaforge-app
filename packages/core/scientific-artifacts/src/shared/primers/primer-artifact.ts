@@ -1161,6 +1161,11 @@ export async function revisePrimerArtifactContent(
   if (!validation.valid) throw new Error('Invalid primer sequence for artifact.');
   const sequence = validation.trimmed ?? input.sequence.trim();
   const oligo = requestedOligo ? cloneAndValidatePrimerOligo(requestedOligo, sequence) : undefined;
+  const inventory =
+    input.inventory ??
+    (artifact.inventory && artifact.inventory.modifications === (artifact.oligo?.notation ?? null)
+      ? { ...artifact.inventory, modifications: oligo?.notation ?? null }
+      : artifact.inventory);
   const annealing =
     input.annealing === undefined
       ? sequence === artifact.sequence.bases
@@ -1233,7 +1238,7 @@ export async function revisePrimerArtifactContent(
       fields,
       ...(input.entityState ? { state: input.entityState } : {}),
     },
-    ...(input.inventory ? { inventory: input.inventory } : {}),
+    ...(inventory ? { inventory } : {}),
     bindings: scientificContentChanged
       ? artifact.bindings.map(({ alignment: _alignment, ...binding }) => binding)
       : artifact.bindings.map((binding) => ({ ...binding })),

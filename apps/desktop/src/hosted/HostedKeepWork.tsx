@@ -1,3 +1,7 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+} from '../presentation/PresentationSurface';
 import { renderUserMessage, type UserMessage, userMessage } from '@waypoint/user-messages';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -35,6 +39,8 @@ function HostedKeepWorkDialog({
   readonly reason: UserMessage | null;
   readonly onClose: () => void;
 }) {
+  const presentationOverlay = usePresentationOverlay('modal');
+
   const minutes = Math.round(DEMO_SWEEP_GRACE_MS / 60_000);
   const signUp = () => {
     const sessionId = resolveDemoSessionId();
@@ -42,44 +48,49 @@ function HostedKeepWorkDialog({
     window.location.assign('/login?next=/hosted.html');
   };
   return createPortal(
-    <div className={`hosted-share-backdrop ${UI_MODAL_LAYER_CLASS}`}>
-      <section
-        className="hosted-share-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="hosted-demo-keep-work-title"
-        data-testid="hosted-demo-keep-work-dialog"
-      >
-        <div className="hosted-share-heading">
-          <div>
-            <div className="hosted-share-eyebrow">Demo session</div>
-            <h2 id="hosted-demo-keep-work-title">
-              {renderUserMessage(reason ?? userMessage('failure.sign-up-to-keep-your-work'))}
-            </h2>
+    <div
+      ref={presentationOverlay.bindRef(undefined, '0')}
+      className={`hosted-share-backdrop ${UI_MODAL_LAYER_CLASS}`}
+    >
+      <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+        <section
+          className="hosted-share-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="hosted-demo-keep-work-title"
+          data-testid="hosted-demo-keep-work-dialog"
+        >
+          <div className="hosted-share-heading">
+            <div>
+              <div className="hosted-share-eyebrow">Demo session</div>
+              <h2 id="hosted-demo-keep-work-title">
+                {renderUserMessage(reason ?? userMessage('failure.sign-up-to-keep-your-work'))}
+              </h2>
+            </div>
+            <button type="button" aria-label="Close" onClick={onClose}>
+              ×
+            </button>
           </div>
-          <button type="button" aria-label="Close" onClick={onClose}>
-            ×
-          </button>
-        </div>
-        <p className="hosted-share-copy">
-          This demo runs entirely in your browser. Your projects are saved in this tab and are
-          removed about {minutes} minutes after you close it. Create a free account to keep them,
-          run server jobs, search public databases and share links.
-        </p>
-        <div className="hosted-share-actions">
-          <Button
-            type="button"
-            variant="primary"
-            data-testid="hosted-demo-sign-up"
-            onClick={signUp}
-          >
-            Sign up and keep these projects
-          </Button>
-          <Button type="button" onClick={onClose}>
-            Keep exploring
-          </Button>
-        </div>
-      </section>
+          <p className="hosted-share-copy">
+            This demo runs entirely in your browser. Your projects are saved in this tab and are
+            removed about {minutes} minutes after you close it. Create a free account to keep them,
+            run server jobs, search public databases and share links.
+          </p>
+          <div className="hosted-share-actions">
+            <Button
+              type="button"
+              variant="primary"
+              data-testid="hosted-demo-sign-up"
+              onClick={signUp}
+            >
+              Sign up and keep these projects
+            </Button>
+            <Button type="button" onClick={onClose}>
+              Keep exploring
+            </Button>
+          </div>
+        </section>
+      </PresentationScopeContext.Provider>
     </div>,
     document.body
   );

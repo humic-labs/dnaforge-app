@@ -15,7 +15,10 @@ import {
 } from './primer-artifact';
 import { parseIdtOligoNotation } from './oligo-modifications';
 import { parsePrimerArtifact as parseSharedPrimerArtifact } from '../../shared/primers/primer-artifact';
-import { primerArtifactRegistryFields } from './primer-artifact-projection';
+import {
+  primerArtifactRegistryFields,
+  primerLegacyProjectionFromArtifact,
+} from './primer-artifact-projection';
 
 const WORKSPACE_ROOT = '/workspace/project';
 const TARGET_PATH = '/workspace/project/sequences/pUC19.gb';
@@ -303,6 +306,50 @@ describe('primer artifact v2', () => {
     expect(revised.oligo).toEqual(parsedOligo.composition);
     expect(parsePrimerArtifact(serializePrimerArtifact(revised))).toEqual(revised);
   });
+
+  it.each([
+    [
+      'mirrors the saved notation',
+      '/5Phos/ATCGATCGATCGATCGATCG/3SpC3/',
+      '/5Phos/ATCGATCG/iSp18/ATCGATCGATCG/3Sp18/',
+    ],
+    ['keeps separate library text', 'Phosphorylated 5 prime end', 'Phosphorylated 5 prime end'],
+  ])(
+    'updates the library modifications with a changed notation only when it %s',
+    async (_case, savedModifications, expected) => {
+      const before = parseIdtOligoNotation('/5Phos/ATCGATCGATCGATCGATCG/3SpC3/');
+      const after = parseIdtOligoNotation('/5Phos/ATCGATCG/iSp18/ATCGATCGATCG/3Sp18/');
+      const artifact = await buildPrimerArtifact({
+        id: 'primer-notation-mirror-v1',
+        catalogNumber: 'PR-000097',
+        name: 'Notation mirror',
+        sequence: before.bases,
+        oligo: before.composition ?? undefined,
+        workspaceRoot: WORKSPACE_ROOT,
+        artifactPath: '/workspace/project/primers/Notation_mirror.primer.json',
+        source: 'manual',
+        inventory: {
+          origin: 'manual',
+          originDetails: null,
+          vendor: 'idt',
+          modifications: savedModifications,
+          orderDate: null,
+          scale: null,
+          purification: null,
+          stockLocation: null,
+          concentration: null,
+        },
+      });
+      const revised = await revisePrimerArtifactContent(artifact, {
+        name: artifact.name,
+        sequence: after.bases,
+        oligo: after.composition ?? undefined,
+      });
+      expect(revised.oligo?.notation).toBe(after.composition?.notation);
+      expect(revised.inventory?.modifications).toBe(expected);
+      expect(primerLegacyProjectionFromArtifact(revised, 1, []).modifications).toBe(expected);
+    }
+  );
 
   it('rejects changing an existing oligo entity between DNA and RNA', async () => {
     const artifact = await buildPrimerArtifact({

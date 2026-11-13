@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { dispatchNativeWheel, installNativeWheelSource } from '@waypoint/platform/wheel-motion';
+import {
+  dispatchNativeWheel,
+  installNativeWheelSource,
+} from '../../../../platform/src/wheel-input.test-helper';
 import { setupInteraction } from './interaction';
 import { startWebGLRenderLoop, type WebGLFatalFrameError } from '../../react/webgl-render-loop';
 import type { RenderState } from '../../types';
@@ -2628,4 +2631,49 @@ describe('setupInteraction selection clearing', () => {
 
     interaction.cleanup();
   });
+});
+
+it('ownership revocation ends a captured primer drag without committing a document edit', async () => {
+  const { installInputOwnership } = await import('@waypoint/platform/input-ownership');
+  const canvas = document.createElement('canvas');
+  document.body.appendChild(canvas);
+  let valid = true;
+  let notify: () => void = () => undefined;
+  const dispose = installInputOwnership(document, {
+    allows: () => valid,
+    capture: () => {
+      const captured = valid;
+      return () => captured && valid;
+    },
+    subscribe: (listener) => {
+      notify = listener;
+      return () => undefined;
+    },
+  });
+  const state = makeState();
+  const interaction = setupInteraction(canvas, state);
+  const commit = vi.fn();
+  const cancel = vi.fn();
+  interaction.onPrimerHandleDragCommit = commit;
+  interaction.onGestureCancel = cancel;
+  interaction.hitTestFn = () =>
+    ({ kind: 'primer-handle', payload: { id: 1, boundaryBp: 10 } }) as never;
+  canvas.setPointerCapture = vi.fn();
+  canvas.hasPointerCapture = vi.fn(() => true);
+  canvas.releasePointerCapture = vi.fn();
+  const down = new MouseEvent('pointerdown', { button: 0, clientX: 20, clientY: 20 });
+  Object.defineProperty(down, 'pointerId', { value: 7 });
+  canvas.dispatchEvent(down);
+  expect(interaction.isDragging).toBe(true);
+  valid = false;
+  notify();
+  expect(interaction.isDragging).toBe(false);
+  expect(canvas.releasePointerCapture).toHaveBeenCalledWith(7);
+  valid = true;
+  canvas.dispatchEvent(new MouseEvent('pointerup', { button: 0, clientX: 50, clientY: 20 }));
+  expect(commit).not.toHaveBeenCalled();
+  expect(cancel).toHaveBeenCalledOnce();
+  interaction.cleanup();
+  dispose();
+  canvas.remove();
 });

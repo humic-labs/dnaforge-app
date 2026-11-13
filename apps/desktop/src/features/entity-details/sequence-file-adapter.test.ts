@@ -99,3 +99,40 @@ describe('file metadata ownership', () => {
     }
   );
 });
+
+describe('archived sequence file records', () => {
+  it('loads an archived Registry sequence file for Restore without resolving its file', async () => {
+    mocks.read.mockReset();
+    mocks.stat.mockReset();
+    const id = 'archived-imported-oligo';
+    mocks.preview = {
+      entity: {
+        id,
+        kind: 'oligo',
+        name: 'Candidate',
+        fields: { use: 'primer' },
+        registrationStatus: 'registered',
+        tombstone: 1,
+      },
+      schemaSnapshot: BUILTIN_SEQUENCE_SCHEMA_SNAPSHOT,
+      summary: {
+        archived: true,
+        fieldValues: { topology: 'linear', size: 24 },
+        representation: {
+          kind: 'file_sequence',
+          openTarget: {
+            kind: 'sequence_file',
+            documentId: id,
+            sequence: { length: 24, topology: 'linear', sizeBytes: 512 },
+          },
+        },
+      },
+    } as LimsRegistryPreview;
+    const definition = await loadEntityDetails({ entityId: id });
+    expect(definition.record.preview).toBe(mocks.preview);
+    expect(definition.record.readOnlyReason).toBe('Restore this record before editing it.');
+    expect(definition.save).toBeUndefined();
+    expect(mocks.read).not.toHaveBeenCalled();
+    expect(mocks.stat).not.toHaveBeenCalled();
+  });
+});

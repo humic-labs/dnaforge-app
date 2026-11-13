@@ -6,6 +6,26 @@ import type {
   OpenStrategy,
 } from './document-presentation';
 
+export function captureDocumentActivation() {
+  const { focusedPanelId, panels } = useCanvasStore.getState();
+  const tabs = new Map(Object.entries(panels).map(([id, panel]) => [id, panel.activeTabId]));
+  let current = true;
+  let unsubscribe: (() => void) | undefined;
+  const dispose = () => {
+    current = false;
+    unsubscribe?.();
+  };
+  unsubscribe = useCanvasStore.subscribe((state) => {
+    if (
+      state.focusedPanelId !== focusedPanelId ||
+      Object.keys(state.panels).length !== tabs.size ||
+      Object.entries(state.panels).some(([id, panel]) => tabs.get(id) !== panel.activeTabId)
+    )
+      dispose();
+  });
+  return { isCurrent: () => current, dispose };
+}
+
 export function presentDocument(
   tab: Omit<Tab, 'id'>,
   placement: OpenStrategy = { kind: 'focused' },

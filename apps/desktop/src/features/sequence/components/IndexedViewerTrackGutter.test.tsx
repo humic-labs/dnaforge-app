@@ -18,6 +18,7 @@ import type { AnnotationTrackDefinition } from '../annotation-track-registry';
 import { useLaneContractStore, type ActiveStressDataset } from '../lane-contract-store';
 import { UCSC_TRACK_RECOVERING_STATUS } from '../ucsc-streaming-status';
 import type { IndexedGenomeTileNativeMapHandle } from './IndexedGenomeTileNativeMap';
+
 import type { AlignedReadTrackStatusSnapshot } from '../aligned-read-track-lifecycle';
 import type { RemoteEndpointProfileV1 } from '../../../shared/remote-genomics-ipc';
 import {
@@ -26,6 +27,13 @@ import {
 } from './CoverageCutoffControl';
 import { IndexedViewerTrackGutter, remoteEndpointDisplayLabel } from './IndexedViewerTrackGutter';
 import { useTrackGutterLayoutStore } from './track-gutter-layout-store';
+
+type LinearRenderer = NonNullable<
+  ReturnType<IndexedGenomeTileNativeMapHandle['getLinearRenderer']>
+>;
+type PresentedScrollReceipt = NonNullable<
+  ReturnType<LinearRenderer['getPresentedTrackScrollReceipt']>
+>;
 
 const ucscMocks = vi.hoisted(() => ({
   search: vi.fn(async (input: { query: string }) => {
@@ -199,51 +207,6 @@ function admittedBigWig(label: string): AdmittedTrackSource {
   };
 }
 
-function dragTransfer() {
-  const data = new Map<string, string>();
-  return {
-    effectAllowed: 'none',
-    dropEffect: 'none',
-    setData: vi.fn((type: string, value: string) => data.set(type, value)),
-    getData: vi.fn((type: string) => data.get(type) ?? ''),
-    setDragImage: vi.fn(),
-  };
-}
-
-function fireDragStartWithPointer(
-  target: Element,
-  dataTransfer: ReturnType<typeof dragTransfer>,
-  clientX: number,
-  clientY: number
-): void {
-  const event = createEvent.dragStart(target, { dataTransfer });
-  Object.defineProperties(event, {
-    clientX: { value: clientX },
-    clientY: { value: clientY },
-  });
-  fireEvent(target, event);
-}
-
-function fireDragOverWithPointer(
-  target: Element,
-  dataTransfer: ReturnType<typeof dragTransfer>,
-  clientY: number
-): void {
-  const event = createEvent.dragOver(target, { dataTransfer });
-  Object.defineProperty(event, 'clientY', { value: clientY });
-  fireEvent(target, event);
-}
-
-function fireDropWithPointer(
-  target: Element,
-  dataTransfer: ReturnType<typeof dragTransfer>,
-  clientY: number
-): void {
-  const event = createEvent.drop(target, { dataTransfer });
-  Object.defineProperty(event, 'clientY', { value: clientY });
-  fireEvent(target, event);
-}
-
 function firePointerAt(
   type: 'down' | 'move' | 'up',
   target: Element | Document,
@@ -258,10 +221,36 @@ function firePointerAt(
         : createEvent.pointerUp(target);
   Object.defineProperties(event, {
     button: { value: 0 },
+    clientX: { value: 10 },
     clientY: { value: clientY },
     pointerId: { value: pointerId },
   });
   fireEvent(target, event);
+}
+
+function mockReorderGeometry(): void {
+  const rectangle = (top: number, height: number) => ({
+    top,
+    bottom: top + height,
+    left: 0,
+    right: 220,
+    width: 220,
+    height,
+    x: 0,
+    y: top,
+    toJSON: () => ({}),
+  });
+  vi.spyOn(screen.getByTestId('track-gutter'), 'getBoundingClientRect').mockReturnValue(
+    rectangle(0, 800)
+  );
+  vi.spyOn(
+    screen.getByTestId(`track-gutter-row-${ASSEMBLY_ID}:bam-a`),
+    'getBoundingClientRect'
+  ).mockReturnValue(rectangle(74, 80));
+  vi.spyOn(
+    screen.getByTestId(`track-gutter-row-${ASSEMBLY_ID}:bam-b`),
+    'getBoundingClientRect'
+  ).mockReturnValue(rectangle(154, 80));
 }
 
 function renderGutter(
@@ -289,19 +278,22 @@ function renderGutter(
   const webglRef = createRef<IndexedGenomeTileNativeMapHandle>();
   const setTrackStackEndReserve = vi.fn(() => true);
   const setTrackPresentationOrder = vi.fn(() => true);
+  const setTrackPresentationDrag = vi.fn(() => true);
   webglRef.current = {
     scrollTracksBy,
     setTrackStackEndReserve,
     requestRender: vi.fn(),
     subscribeToPresentedFrames: vi.fn(() => () => undefined),
     setTrackPresentationOrder,
+    setTrackPresentationDrag,
     getLinearRenderer: () =>
       ({
         hasTrackInstance: vi.fn(() => true),
         setTrackColor: vi.fn(() => true),
-        getPresentedTrackScrollReceipt: () => ({
+        getPresentedTrackScrollReceipt: (): PresentedScrollReceipt => ({
           completedFrameEpoch: 7,
           trackScrollTop: 40,
+          contentClipTopPx: 0,
         }),
         getTrackDiagnostics: (trackId: string) =>
           rendererTrackDiagnostics.current[trackId] ??
@@ -363,6 +355,7 @@ function renderGutter(
     scrollTracksBy,
     setTrackStackEndReserve,
     setTrackPresentationOrder,
+    setTrackPresentationDrag,
     onAddVariantTrackRequest,
     addBamRequests,
     onOpenMutationNavigator,
@@ -1647,27 +1640,16 @@ describe('IndexedViewerTrackGutter', () => {
   });
 
   it('previews WebGL order while durable lane order stays unchanged until drop', () => {
-    const { setTrackPresentationOrder } = renderGutter();
+    const { setTrackPresentationOrder, setTrackPresentationDrag } = renderGutter();
     setTrackPresentationOrder.mockClear();
-    const target = screen.getByTestId(`track-gutter-row-${ASSEMBLY_ID}:bam-a`);
-    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
-      top: 114,
-      bottom: 194,
-      left: 0,
-      right: 220,
-      width: 220,
-      height: 80,
-      x: 0,
-      y: 114,
-      toJSON: () => ({}),
-    });
-    const transfer = dragTransfer();
+    mockReorderGeometry();
     const handle = screen.getByRole('button', { name: 'Move Normal BAM' });
 
-    fireDragStartWithPointer(handle, transfer, 10, 205);
-    fireDragOverWithPointer(target, transfer, 124);
+    firePointerAt('down', handle, 165, 21);
+    firePointerAt('move', document, 84, 21);
 
     expect(setTrackPresentationOrder).toHaveBeenCalledWith(['bam-b', 'bam-a']);
+    expect(setTrackPresentationDrag).toHaveBeenLastCalledWith({ trackId: 'bam-b', topPx: 73 });
     expect(
       useLaneContractStore
         .getState()
@@ -1675,8 +1657,8 @@ describe('IndexedViewerTrackGutter', () => {
         .map((lane) => lane.dataset.trackId)
     ).toEqual(['bam-a', 'bam-b']);
 
-    fireDropWithPointer(target, transfer, 124);
-    fireEvent.dragEnd(handle, { dataTransfer: transfer });
+    firePointerAt('up', document, 84, 21);
+    expect(setTrackPresentationDrag).toHaveBeenLastCalledWith(null);
 
     expect(
       useLaneContractStore
@@ -1689,25 +1671,13 @@ describe('IndexedViewerTrackGutter', () => {
   it('restores the durable WebGL order after a canceled preview', () => {
     const { setTrackPresentationOrder } = renderGutter();
     setTrackPresentationOrder.mockClear();
-    const target = screen.getByTestId(`track-gutter-row-${ASSEMBLY_ID}:bam-a`);
-    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
-      top: 114,
-      bottom: 194,
-      left: 0,
-      right: 220,
-      width: 220,
-      height: 80,
-      x: 0,
-      y: 114,
-      toJSON: () => ({}),
-    });
-    const transfer = dragTransfer();
+    mockReorderGeometry();
     const handle = screen.getByRole('button', { name: 'Move Normal BAM' });
 
-    fireDragStartWithPointer(handle, transfer, 10, 205);
-    fireDragOverWithPointer(target, transfer, 124);
+    firePointerAt('down', handle, 165, 21);
+    firePointerAt('move', document, 84, 21);
     fireEvent.keyDown(document, { key: 'Escape' });
-    fireEvent.dragEnd(handle, { dataTransfer: transfer });
+    firePointerAt('up', document, 84, 21);
 
     expect(setTrackPresentationOrder).toHaveBeenNthCalledWith(1, ['bam-b', 'bam-a']);
     expect(setTrackPresentationOrder).toHaveBeenLastCalledWith(['bam-a', 'bam-b']);
@@ -1722,29 +1692,17 @@ describe('IndexedViewerTrackGutter', () => {
   it('restores the current durable WebGL order when a stale drag commit is rejected', () => {
     const { setTrackPresentationOrder } = renderGutter();
     setTrackPresentationOrder.mockClear();
-    const target = screen.getByTestId(`track-gutter-row-${ASSEMBLY_ID}:bam-a`);
-    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
-      top: 114,
-      bottom: 194,
-      left: 0,
-      right: 220,
-      width: 220,
-      height: 80,
-      x: 0,
-      y: 114,
-      toJSON: () => ({}),
-    });
-    const transfer = dragTransfer();
+    mockReorderGeometry();
     const handle = screen.getByRole('button', { name: 'Move Normal BAM' });
 
-    fireDragStartWithPointer(handle, transfer, 10, 205);
-    fireDragOverWithPointer(target, transfer, 124);
+    firePointerAt('down', handle, 165, 21);
+    firePointerAt('move', document, 84, 21);
     expect(setTrackPresentationOrder).toHaveBeenLastCalledWith(['bam-b', 'bam-a']);
 
     act(() => {
       useLaneContractStore.getState().removeLane(ASSEMBLY_ID, 'bam-a');
     });
-    fireEvent.dragEnd(handle, { dataTransfer: transfer });
+    firePointerAt('up', document, 84, 21);
 
     expect(setTrackPresentationOrder).toHaveBeenLastCalledWith(['bam-b']);
     expect(

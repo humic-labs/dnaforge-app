@@ -109,6 +109,7 @@ export async function resolveSequenceDocumentById(
   if (
     binding &&
     (workspaceRoots.length === 0 ||
+      binding.workspace_id === null ||
       workspaceRoots.some((root) => pathIsAtOrUnder(binding.path, root)))
   )
     return resolveCatalogBinding(binding, options);

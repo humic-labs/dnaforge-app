@@ -1,10 +1,12 @@
 import type { Annotation } from '@waypoint/sequence-utils';
+import type { RefCallback } from 'react';
 
 export interface SequenceContextMenuProps {
   x: number;
   y: number;
   isOpen: boolean;
   onClose: () => void;
+  rootRef?: RefCallback<HTMLDivElement>;
   shortcutHints?: Partial<
     Record<
       | 'copySequence'

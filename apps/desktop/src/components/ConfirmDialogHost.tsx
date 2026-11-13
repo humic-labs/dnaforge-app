@@ -1,3 +1,8 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../presentation/PresentationSurface';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { safeFocus } from '../shared/utils/safeFocus';
@@ -18,17 +23,6 @@ export function ConfirmDialogHost() {
   useEffect(() => {
     if (!request || request.safeDefault || request.input) return;
     safeFocus(confirmRef.current);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        resolveCurrent(false);
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        resolveCurrent(true);
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
   }, [request, resolveCurrent]);
 
   if (!request) return null;
@@ -60,7 +54,11 @@ export function ConfirmDialogHost() {
   const danger = request.tone === 'danger';
 
   return (
-    <DialogFrame title={request.title} onDismiss={() => resolveCurrent(false)}>
+    <DialogFrame
+      title={request.title}
+      onDismiss={() => resolveCurrent(false)}
+      onConfirm={() => resolveCurrent(true)}
+    >
       {request.showCloseButton ? (
         <button
           type="button"
@@ -95,31 +93,53 @@ export function ConfirmDialogHost() {
 function DialogFrame({
   title,
   onDismiss,
+  onConfirm,
   children,
 }: {
   title: string;
   onDismiss: () => void;
+  onConfirm?: () => void;
   children: ReactNode;
 }) {
+  const presentationOverlay = usePresentationOverlay('modal');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onDismiss();
+      } else if (event.key === 'Enter' && onConfirm) {
+        event.preventDefault();
+        onConfirm();
+      }
+    };
+    presentationEvents.add(document, 'keydown', onKey);
+    return () => presentationEvents.remove(document, 'keydown', onKey);
+  }, [onDismiss, onConfirm, presentationEvents]);
+
   return (
     <div
+      ref={presentationOverlay.bindRef(undefined, '0')}
       className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40"
       data-testid="confirm-dialog-backdrop"
       onMouseDown={onDismiss}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-        data-testid="confirm-dialog"
-        className="relative mx-4 w-full max-w-sm rounded-lg border border-border bg-bg-subtle p-4 shadow-xl"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <h3 id="confirm-dialog-title" className="pr-6 text-sm font-semibold text-fg">
-          {title}
-        </h3>
-        {children}
-      </div>
+      <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-dialog-title"
+          data-testid="confirm-dialog"
+          className="relative mx-4 w-full max-w-sm rounded-lg border border-border bg-bg-subtle p-4 shadow-xl"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <h3 id="confirm-dialog-title" className="pr-6 text-sm font-semibold text-fg">
+            {title}
+          </h3>
+          {children}
+        </div>
+      </PresentationScopeContext.Provider>
     </div>
   );
 }
@@ -152,16 +172,6 @@ function PromptDialog({
     safeFocus(field);
     field.select();
   }, []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      e.preventDefault();
-      resolveCurrent(false);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [resolveCurrent]);
 
   const submit = () => {
     if (canSubmit) resolveCurrent(true, trimmed);

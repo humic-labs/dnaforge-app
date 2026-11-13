@@ -6,6 +6,7 @@ const h = vi.hoisted(() => {
   const writeDesignArtifactSnapshot = vi.fn(() => writeImpl());
   const writePackageAssemblyWorkingCopySnapshot = vi.fn(() => Promise.resolve(null));
   const unsubscribe = vi.fn();
+  const upsertDesignFromArtifact = vi.fn();
   let listener: ((state: unknown, prev: unknown) => void) | null = null;
   let currentDesigns: Record<string, unknown> = {};
   const subscribe = vi.fn((l: (state: unknown, prev: unknown) => void) => {
@@ -17,7 +18,8 @@ const h = vi.hoisted(() => {
     writePackageAssemblyWorkingCopySnapshot,
     unsubscribe,
     subscribe,
-    getState: () => ({ designs: currentDesigns }),
+    upsertDesignFromArtifact,
+    getState: () => ({ designs: currentDesigns, upsertDesignFromArtifact }),
     setWriteImpl: (impl: () => Promise<unknown>) => {
       writeImpl = impl;
     },
@@ -49,6 +51,7 @@ vi.mock('../../db/sequence-package-working-copy-storage', () => ({
 }));
 
 import {
+  discardDesignArtifactChanges,
   hasPendingDesignArtifactMirror,
   resumeDesignArtifactMirrors,
   resumeDesignArtifactMirror,
@@ -76,6 +79,7 @@ describe('design artifact mirroring', () => {
     h.unsubscribe.mockClear();
     h.writeDesignArtifactSnapshot.mockClear();
     h.writePackageAssemblyWorkingCopySnapshot.mockClear();
+    h.upsertDesignFromArtifact.mockReset();
     h.resetWriteImpl();
   });
   afterEach(() => {
@@ -456,6 +460,72 @@ describe('design artifact mirroring', () => {
     h.fire({}, { d1: design('d1', 'keep') });
     expect(useDesignRecoveryStore.getState().records.d1?.retired).not.toBe(true);
     expect(hasPendingDesignArtifactMirror(['d1'])).toBe(true);
+  });
+
+  it('discards a delayed edit back to the last published design and never writes it later', async () => {
+    const saved = design('d1', 'Saved');
+    startDesignArtifactMirroring();
+    acceptDesignArtifact(saved);
+    h.upsertDesignFromArtifact.mockImplementation((next: { id: string }) => {
+      acceptDesignArtifact(next as never);
+      h.fire({ d1: next }, { d1: design('d1', 'Edited') });
+    });
+    h.setWriteImpl(() => Promise.reject(new Error('EACCES: workspace is read-only')));
+    h.fire({ d1: design('d1', 'Edited') }, { d1: saved });
+    await vi.advanceTimersByTimeAsync(250);
+    expect(useDesignRecoveryStore.getState().records.d1).toMatchObject({
+      pending: true,
+      status: 'delayed',
+      design: { name: 'Edited' },
+    });
+
+    await discardDesignArtifactChanges('d1');
+
+    expect(h.upsertDesignFromArtifact).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'd1', name: 'Saved' })
+    );
+    expect(useDesignRecoveryStore.getState().records.d1).toMatchObject({
+      pending: false,
+      status: 'saved',
+      design: { name: 'Saved' },
+    });
+    expect(JSON.parse(localStorage.getItem('waypoint-design-recovery-v1:d1')!)).toMatchObject({
+      pending: false,
+      design: { name: 'Saved' },
+    });
+    expect(hasPendingDesignArtifactMirror(['d1'])).toBe(false);
+    h.resetWriteImpl();
+    h.writeDesignArtifactSnapshot.mockClear();
+    window.dispatchEvent(new Event('waypoint:workspace-files-changed'));
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(h.writeDesignArtifactSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('keeps the edit and its retry when the discard cannot be recorded durably', async () => {
+    const saved = design('d1', 'Saved');
+    startDesignArtifactMirroring();
+    acceptDesignArtifact(saved);
+    h.setWriteImpl(() => Promise.reject(new Error('EACCES: workspace is read-only')));
+    h.fire({ d1: design('d1', 'Edited') }, { d1: saved });
+    await vi.advanceTimersByTimeAsync(250);
+    const storage = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('full');
+    });
+
+    await expect(discardDesignArtifactChanges('d1')).rejects.toThrow(/could not be saved/);
+
+    storage.mockRestore();
+    expect(h.upsertDesignFromArtifact).not.toHaveBeenCalled();
+    expect(useDesignRecoveryStore.getState().records.d1).toMatchObject({
+      pending: true,
+      design: { name: 'Edited' },
+    });
+    h.resetWriteImpl();
+    h.writeDesignArtifactSnapshot.mockClear();
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(h.writeDesignArtifactSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ designId: 'd1', name: 'Edited' })
+    );
   });
 
   it('refuses retirement when the recovery record cannot be made durable', async () => {

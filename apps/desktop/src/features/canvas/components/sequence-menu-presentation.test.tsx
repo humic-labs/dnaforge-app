@@ -52,13 +52,13 @@ describe('context menus across the real canvas-store boundary', () => {
           name: kind === 'tab' ? 'Merge pane with...' : 'Merge tabs with...',
         })
       );
-      expect(screen.getByRole('menu')).toHaveTextContent('pBR322 Follow-up');
-      expect(screen.getByRole('menu')).not.toHaveTextContent('.gb');
+      expect(screen.getAllByRole('menu')[0]).toHaveTextContent('pBR322 Follow-up');
+      expect(screen.getAllByRole('menu')[0]).not.toHaveTextContent('.gb');
       await act(async () =>
         store.updateTabByEntityId('sequence-test', { label: 'pBR322.v2.fasta.gz' })
       );
-      expect(screen.getByRole('menu')).toHaveTextContent('pBR322.v2');
-      expect(screen.getByRole('menu')).not.toHaveTextContent('.fasta.gz');
+      expect(screen.getAllByRole('menu')[0]).toHaveTextContent('pBR322.v2');
+      expect(screen.getAllByRole('menu')[0]).not.toHaveTextContent('.fasta.gz');
     }
   );
 });

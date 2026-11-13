@@ -12,6 +12,7 @@ import type {
   WorkspaceMutationRunner,
 } from '../artifact-operation-ports';
 import { primerArtifactRelativePath } from './primer-artifact-path';
+import { readPrimerById } from './primer-repository';
 import type { ArtifactIO } from '../artifact-io';
 import type { buildInlineDnaSequenceRef } from '../registry-artifacts/dna-sequence-value';
 import type { LimsEntity } from '../lims';
@@ -1467,10 +1468,26 @@ export function createPrimerArtifactOwner(dependencies: PrimerArtifactDependenci
             { mutationToken }
           );
         }
-        await platform().db.execute('DELETE FROM primers WHERE id = ? AND workspace_id = ?', [
-          id,
-          workspaceId,
-        ]);
+        const primer = await readPrimerById(platform().db, id);
+        if (!primer || primer.workspaceId !== workspaceId) return;
+        const [catalog] = await platform().db.select<Array<{ metadata: string | null }>>(
+          'SELECT metadata FROM catalog_entities WHERE id = ?',
+          [id]
+        );
+        const metadata = JSON.parse(catalog?.metadata ?? '{}') as { artifactRevision?: unknown };
+        await platform().db.replacePrimerProjection(
+          {
+            ...primer,
+            originDetails: primer.originDetails ?? {},
+            bindings: [],
+            retireArtifact: {
+              artifactPath: String(primer.originDetails?.artifactPath ?? ''),
+              expectedArtifactRevision: Number(metadata.artifactRevision),
+            },
+          },
+          workspaceRoot,
+          mutationToken
+        );
       },
       options.mutationToken
     );

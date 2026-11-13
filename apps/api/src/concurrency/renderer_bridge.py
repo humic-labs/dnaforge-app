@@ -14,6 +14,7 @@ from typing import Any
 import httpx
 
 from ..agent_manifest_paths import agent_tool_manifest_path
+from ..agent_workspace_authority import agent_project_scope
 from ..control_plane import get_control_plane_store
 from .schema import (
     DNAForgeTool,
@@ -311,6 +312,7 @@ async def call_renderer_bridge(
     if context.turn_id:
         headers["X-DNAForge-Turn-Id"] = context.turn_id
     identity = get_control_plane_store().get_agent_identity(context.agent_identity_id)
+    headers["X-DNAForge-Project-Scope"] = json.dumps(agent_project_scope(identity))
     if identity is not None and isinstance(identity.get("bound_workspace_id"), str):
         headers["X-DNAForge-Bound-Workspace"] = identity["bound_workspace_id"]
 
@@ -333,7 +335,6 @@ async def call_renderer_bridge(
                     return _persisted_renderer_outcome(context) or payload
                 return payload
             except (httpx.TransportError, ValueError, RuntimeError):
-
                 endpoint = f"{bridge_url.rstrip('/')}/__tools/result"
                 retained = _persisted_renderer_outcome(context)
                 if retained is not None:
@@ -432,6 +433,7 @@ async def read_renderer_resource(
     if turn_id:
         headers["X-DNAForge-Turn-Id"] = turn_id
     identity = get_control_plane_store().get_agent_identity(agent_identity_id)
+    headers["X-DNAForge-Project-Scope"] = json.dumps(agent_project_scope(identity))
     if identity is not None and isinstance(identity.get("bound_workspace_id"), str):
         headers["X-DNAForge-Bound-Workspace"] = identity["bound_workspace_id"]
 

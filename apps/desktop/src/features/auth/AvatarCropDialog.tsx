@@ -1,3 +1,8 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../../presentation/PresentationSurface';
 import { Button } from '../../components/ui';
 import { useEffect, useRef, useState, type Ref } from 'react';
 import {
@@ -36,6 +41,9 @@ export function AvatarCropDialog({
   onAccept: (result: AvatarCropResult) => Promise<void> | void;
   onError: (message: string) => void;
 }) {
+  const presentationOverlay = usePresentationOverlay('modal');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const [decoded, setDecoded] = useState<HTMLImageElement | null>(null);
   const [size, setSize] = useState<ImageSize | null>(null);
   const [crop, setCrop] = useState<AvatarCrop>(INITIAL_CROP);
@@ -59,9 +67,9 @@ export function AvatarCropDialog({
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [busy, encoding, onClose]);
+    presentationEvents.add(window, 'keydown', onKey);
+    return () => presentationEvents.remove(window, 'keydown', onKey);
+  }, [busy, encoding, onClose, presentationEvents]);
 
   const placement = size ? avatarDisplayPlacement(size, AVATAR_VIEWPORT_PX, crop) : null;
   const locked = busy || encoding;
@@ -126,137 +134,140 @@ export function AvatarCropDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="avatar-crop-title"
-      data-testid="avatar-crop-dialog"
-    >
-      <div className="relative w-[22rem] max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-bg p-5 shadow-xl">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 id="avatar-crop-title" className="text-base font-semibold text-fg">
-              Adjust photo
-            </h2>
-            <p className="mt-1 text-xs leading-5 text-fg-muted">
-              Drag to reposition. The saved photo is the circle crop, kept under 512 KB.
-            </p>
+    <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+      <div
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="avatar-crop-title"
+        data-testid="avatar-crop-dialog"
+        ref={presentationOverlay.bindRef(undefined, '0')}
+      >
+        <div className="relative w-[22rem] max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-bg p-5 shadow-xl">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 id="avatar-crop-title" className="text-base font-semibold text-fg">
+                Adjust photo
+              </h2>
+              <p className="mt-1 text-xs leading-5 text-fg-muted">
+                Drag to reposition. The saved photo is the circle crop, kept under 512 KB.
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Close"
+              data-testid="avatar-crop-close"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-lg leading-none text-fg-muted hover:bg-bg-muted hover:text-fg disabled:opacity-50"
+              disabled={locked}
+              onClick={onClose}
+            >
+              ×
+            </button>
           </div>
-          <button
-            type="button"
-            aria-label="Close"
-            data-testid="avatar-crop-close"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-lg leading-none text-fg-muted hover:bg-bg-muted hover:text-fg disabled:opacity-50"
-            disabled={locked}
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </div>
 
-        <div
-          data-testid="avatar-crop-stage"
-          className={`relative mx-auto mt-4 overflow-hidden touch-none select-none bg-bg-muted ${grabbing ? 'cursor-grabbing' : 'cursor-grab'}`}
-          style={{ width: AVATAR_VIEWPORT_PX, height: AVATAR_VIEWPORT_PX }}
-          onPointerDown={(event) => {
-            if (event.button !== 0 || !size || locked) return;
-            dragRef.current = { x: event.clientX, y: event.clientY };
-            setGrabbing(true);
-            try {
-              event.currentTarget.setPointerCapture?.(event.pointerId);
-            } catch {}
-          }}
-          onPointerMove={(event) => {
-            const drag = dragRef.current;
-            if (!drag) return;
-            const dx = event.clientX - drag.x;
-            const dy = event.clientY - drag.y;
-            dragRef.current = { x: event.clientX, y: event.clientY };
-            moveBy(dx, dy);
-          }}
-          onPointerUp={() => {
-            dragRef.current = null;
-            setGrabbing(false);
-          }}
-          onPointerCancel={() => {
-            dragRef.current = null;
-            setGrabbing(false);
-          }}
-        >
-          {failed ? (
-            <p className="flex h-full items-center justify-center px-6 text-center text-sm text-fg-muted">
-              Could not read that photo.
-            </p>
-          ) : (
-            <>
-              <img
-                alt=""
-                src={imageUrl}
-                draggable={false}
-                className="pointer-events-none absolute opacity-40"
-                style={imageStyle}
-              />
-              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-full ring-2 ring-accent">
+          <div
+            data-testid="avatar-crop-stage"
+            className={`relative mx-auto mt-4 overflow-hidden touch-none select-none bg-bg-muted ${grabbing ? 'cursor-grabbing' : 'cursor-grab'}`}
+            style={{ width: AVATAR_VIEWPORT_PX, height: AVATAR_VIEWPORT_PX }}
+            onPointerDown={(event) => {
+              if (event.button !== 0 || !size || locked) return;
+              dragRef.current = { x: event.clientX, y: event.clientY };
+              setGrabbing(true);
+              try {
+                event.currentTarget.setPointerCapture?.(event.pointerId);
+              } catch {}
+            }}
+            onPointerMove={(event) => {
+              const drag = dragRef.current;
+              if (!drag) return;
+              const dx = event.clientX - drag.x;
+              const dy = event.clientY - drag.y;
+              dragRef.current = { x: event.clientX, y: event.clientY };
+              moveBy(dx, dy);
+            }}
+            onPointerUp={() => {
+              dragRef.current = null;
+              setGrabbing(false);
+            }}
+            onPointerCancel={() => {
+              dragRef.current = null;
+              setGrabbing(false);
+            }}
+          >
+            {failed ? (
+              <p className="flex h-full items-center justify-center px-6 text-center text-sm text-fg-muted">
+                Could not read that photo.
+              </p>
+            ) : (
+              <>
                 <img
                   alt=""
                   src={imageUrl}
                   draggable={false}
-                  data-testid="avatar-crop-image"
-                  className="absolute"
+                  className="pointer-events-none absolute opacity-40"
                   style={imageStyle}
-                  ref={setImageRef}
-                  onLoad={(event) => rememberSize(event.currentTarget)}
-                  onError={() => setFailed(true)}
                 />
-              </div>
-            </>
-          )}
-        </div>
+                <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-full ring-2 ring-accent">
+                  <img
+                    alt=""
+                    src={imageUrl}
+                    draggable={false}
+                    data-testid="avatar-crop-image"
+                    className="absolute"
+                    style={imageStyle}
+                    ref={setImageRef}
+                    onLoad={(event) => rememberSize(event.currentTarget)}
+                    onError={() => setFailed(true)}
+                  />
+                </div>
+              </>
+            )}
+          </div>
 
-        <label className="mt-4 flex items-center gap-3 text-sm text-fg">
-          <span className="w-12 shrink-0">Zoom</span>
-          <input
-            type="range"
-            min={AVATAR_MIN_ZOOM}
-            max={AVATAR_MAX_ZOOM}
-            step={0.01}
-            value={placement?.crop.zoom ?? crop.zoom}
-            aria-label="Zoom"
-            data-testid="avatar-crop-zoom"
-            disabled={!size || locked}
-            className="min-w-0 flex-1"
-            onChange={(event) => {
-              if (!size) return;
-              const zoom = Number(event.target.value);
-              setCrop(
-                (current) =>
-                  avatarDisplayPlacement(size, AVATAR_VIEWPORT_PX, { ...current, zoom }).crop
-              );
-            }}
-          />
-        </label>
+          <label className="mt-4 flex items-center gap-3 text-sm text-fg">
+            <span className="w-12 shrink-0">Zoom</span>
+            <input
+              type="range"
+              min={AVATAR_MIN_ZOOM}
+              max={AVATAR_MAX_ZOOM}
+              step={0.01}
+              value={placement?.crop.zoom ?? crop.zoom}
+              aria-label="Zoom"
+              data-testid="avatar-crop-zoom"
+              disabled={!size || locked}
+              className="min-w-0 flex-1"
+              onChange={(event) => {
+                if (!size) return;
+                const zoom = Number(event.target.value);
+                setCrop(
+                  (current) =>
+                    avatarDisplayPlacement(size, AVATAR_VIEWPORT_PX, { ...current, zoom }).crop
+                );
+              }}
+            />
+          </label>
 
-        <div className="mt-4 flex items-center justify-between gap-2">
-          <Button
-            type="button"
-            data-testid="avatar-crop-change"
-            disabled={locked}
-            onClick={onChangePhoto}
-          >
-            Change photo
-          </Button>
-          <Button
-            variant="primary"
-            type="button"
-            data-testid="avatar-crop-accept"
-            disabled={!decoded || failed || locked}
-            onClick={() => void accept()}
-          >
-            {locked ? 'Saving…' : 'Accept'}
-          </Button>
+          <div className="mt-4 flex items-center justify-between gap-2">
+            <Button
+              type="button"
+              data-testid="avatar-crop-change"
+              disabled={locked}
+              onClick={onChangePhoto}
+            >
+              Change photo
+            </Button>
+            <Button
+              variant="primary"
+              type="button"
+              data-testid="avatar-crop-accept"
+              disabled={!decoded || failed || locked}
+              onClick={() => void accept()}
+            >
+              {locked ? 'Saving…' : 'Accept'}
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
+    </PresentationScopeContext.Provider>
   );
 }

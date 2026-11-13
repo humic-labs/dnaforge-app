@@ -1,3 +1,4 @@
+import type { AuthorizedProjectFolder } from '../shared/agent-project-scope';
 import { registryConfidenceLabel } from '../shared/strain-genome-evidence';
 import { UserMessageError } from '@waypoint/user-messages';
 import type { PlatformBridge } from './types';
@@ -43,7 +44,7 @@ import {
   getMockGitStatusPorcelain,
   setFileTree,
 } from '../test/platform-mocks';
-import { isPathInsideAnyBoundary } from '../shared/path-boundary';
+import { isPathInsideAnyBoundary, normalizePathForBoundary } from '../shared/path-boundary';
 import { STANDARD_SAMPLE_WORKSPACE_MANIFEST } from '../shared/sample-workspace-ipc';
 import { ASSEMBLY_COMPILED_BROAD_RASTER_WIRE_V1 } from '../shared/indexed-genome';
 import {
@@ -134,6 +135,30 @@ async function getMockDb() {
     mockDbInstance = await MockDatabaseModule.load('sqlite:waypoint-mock.db');
   }
   return mockDbInstance;
+}
+
+async function browserRegisteredProjects(): Promise<AuthorizedProjectFolder[]> {
+  const rows = await (
+    await getMockDb()
+  ).select<
+    Array<{
+      path: string | null;
+      name: string;
+      access_mode: string;
+      archived_at: number | null;
+      trashed_at: number | null;
+    }>
+  >('SELECT path,name,access_mode,archived_at,trashed_at FROM workspaces');
+  return rows.flatMap((row) => {
+    const path = row.path;
+    if (!path || row.archived_at != null || row.trashed_at != null) return [];
+    const matches = rows.filter(
+      (other) =>
+        other.path && normalizePathForBoundary(other.path) === normalizePathForBoundary(path)
+    );
+    if (matches.length !== 1) return [];
+    return [{ path, name: row.name, addedAt: 0, pinned: row.access_mode !== 'writable' }];
+  });
 }
 
 const BROWSER_MOCK_KEYRING_PREFIX = 'dnaforge-browser-mock-keyring:';
@@ -2134,6 +2159,16 @@ export const browserMockBridge: PlatformBridge = {
     resolveProjectRoot: async () => {
       throw new Error('Native project root admission requires the desktop application.');
     },
+    listRegisteredProjects: browserRegisteredProjects,
+    resolveRegisteredProject: async (reference) => {
+      const projects = await browserRegisteredProjects();
+      const matches = projects.filter(
+        (project) =>
+          normalizePathForBoundary(project.path) === normalizePathForBoundary(reference) ||
+          project.name === reference
+      );
+      return matches.length === 1 ? matches[0] : null;
+    },
     setDocumentCommandRoots: async () => false,
     createSampleInstance: async (request) => {
       if (request.templateId !== STANDARD_SAMPLE_WORKSPACE_MANIFEST.templateId) {
@@ -3162,6 +3197,9 @@ ORIGIN
     },
     status: async () => {
       throw new Error('Internal assembly fixture loaders require Electron.');
+    },
+    registerScenarioFiles: async () => {
+      throw new Error('Registering scenario files requires Electron.');
     },
   },
   analytics: {

@@ -4,6 +4,7 @@ import {
   ANALYTICS_OUTBOX_PAYLOAD_SCHEMA_VERSION,
   putAnalyticsOutboxEvent,
   type CommittedOptionalAnalyticsReceipt,
+  type OptionalTelemetryOrigin,
 } from '../analytics-outbox';
 import type { MigrationStore } from './store';
 import {
@@ -162,26 +163,28 @@ function publishCommittedMigrationTelemetry(
   return { attempts, issues };
 }
 
-export function enqueueBenchlingMigrationDiscardDisposition(
-  globalDb: Database.Database,
+export function publishBenchlingMigrationDiscardDisposition(
+  telemetry: Pick<BenchlingMigrationTelemetry, 'publish'>,
+  origin: OptionalTelemetryOrigin,
   priorOutcome: BenchlingMigrationOutcome,
-  nowMs = Date.now,
-  uuid = randomUUID
-): string {
-  const eventId = uuid();
-  putAnalyticsOutboxEvent(globalDb, {
-    eventId,
-    eventName: 'benchling_migration_run_disposition_changed',
-    payloadSchemaVersion: ANALYTICS_OUTBOX_PAYLOAD_SCHEMA_VERSION,
-    referenceKind: 'benchling_migration_disposition',
-    referenceId: eventId,
-    properties: {
-      feature_area: 'import',
-      $insert_id: eventId,
-      prior_outcome: priorOutcome,
-      disposition: 'discarded',
+  committedAtMs: number
+): void {
+  const eventId = randomUUID();
+  telemetry.publish(() => ({
+    origin,
+    event: {
+      eventId,
+      eventName: 'benchling_migration_run_disposition_changed',
+      payloadSchemaVersion: ANALYTICS_OUTBOX_PAYLOAD_SCHEMA_VERSION,
+      referenceKind: 'benchling_migration_disposition',
+      referenceId: eventId,
+      properties: {
+        feature_area: 'import',
+        $insert_id: eventId,
+        prior_outcome: priorOutcome,
+        disposition: 'discarded',
+      },
+      createdAtMs: committedAtMs,
     },
-    createdAtMs: nowMs(),
-  });
-  return eventId;
+  }));
 }

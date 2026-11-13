@@ -10,7 +10,7 @@ import {
   type MutableRefObject,
 } from 'react';
 import { TAB_PORTAL_HOST_ATTACHED_EVENT } from '../../../../../shared/tab-portal-contract';
-import { useWorkspaceVisibility } from '../../../../canvas/workspace-visibility';
+import { useWorkspaceVisibility } from '../../../../canvas/public/workspace-visibility';
 import { LazyMolstarViewer } from '../LazyMolstarViewer';
 import {
   acquireCachedViewerLease,

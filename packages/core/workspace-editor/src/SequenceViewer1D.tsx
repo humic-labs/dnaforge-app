@@ -1,3 +1,4 @@
+import { inputTargetAllows, subscribeInputRevocation } from '@waypoint/platform/input-ownership';
 import { reportOrfPaint, type OrfPresentation } from './orfs/orf-observation';
 import {
   WheelMotion,
@@ -1967,6 +1968,7 @@ export const SequenceViewer1D = forwardRef<SequenceViewer1DHandle, SequenceViewe
     } | null>(null);
     const renderedPrimersRef = useRef<RenderedPrimerSegment[]>([]);
     const dragStateRef = useRef<{ anchorCol: number; currentCol: number } | null>(null);
+    const pointerCaptureRef = useRef<{ target: Element; id: number } | null>(null);
     const pointerDownPosRef = useRef<{ x: number; y: number } | null>(null);
     const handleDragRef = useRef<{ anchorCol: number; edge: 'start' | 'end' } | null>(null);
 
@@ -2301,10 +2303,15 @@ export const SequenceViewer1D = forwardRef<SequenceViewer1DHandle, SequenceViewe
       [scheduleWheelFrame]
     );
     useEffect(() => {
+      const target = scrollContainerRef.current;
+      const disposeOwnership = target
+        ? subscribeInputRevocation(target, cancelWheelMotion)
+        : undefined;
       window.addEventListener('pointerdown', cancelWheelMotion, { capture: true, passive: true });
       window.addEventListener('keydown', cancelWheelMotion, { capture: true });
       window.addEventListener('resize', cancelWheelMotion, { passive: true });
       return () => {
+        disposeOwnership?.();
         cancelWheelMotion();
         window.removeEventListener('pointerdown', cancelWheelMotion, { capture: true });
         window.removeEventListener('keydown', cancelWheelMotion, { capture: true });
@@ -3061,6 +3068,8 @@ export const SequenceViewer1D = forwardRef<SequenceViewer1DHandle, SequenceViewe
 
     const onWheel = useCallback(
       (e: WheelEvent) => {
+        const target = scrollContainerRef.current;
+        if (!target || !inputTargetAllows(target, 'pointer')) return;
         if (!wheelScrollEnabled) return;
         const container = scrollContainerRef.current;
         if (!container) return;
@@ -3171,10 +3180,33 @@ export const SequenceViewer1D = forwardRef<SequenceViewer1DHandle, SequenceViewe
       }
     }, []);
 
+    const cancelSelectionGesture = useCallback(() => {
+      stopAutoscroll();
+      dragStateRef.current = null;
+      handleDragRef.current = null;
+      pointerDownPosRef.current = null;
+      const captured = pointerCaptureRef.current;
+      pointerCaptureRef.current = null;
+      if (captured?.target.hasPointerCapture?.(captured.id))
+        captured.target.releasePointerCapture?.(captured.id);
+    }, [stopAutoscroll]);
+    useEffect(() => {
+      const target = scrollContainerRef.current;
+      const dispose = target
+        ? subscribeInputRevocation(target, cancelSelectionGesture)
+        : () => undefined;
+      window.addEventListener('blur', cancelSelectionGesture);
+      return () => {
+        dispose();
+        cancelSelectionGesture();
+        window.removeEventListener('blur', cancelSelectionGesture);
+      };
+    }, [cancelSelectionGesture]);
+
     const runAutoscroll = useCallback(() => {
       const dir = autoscrollDirRef.current;
       const el = scrollContainerRef.current;
-      if (dir === 0 || !el) {
+      if (dir === 0 || !el || !inputTargetAllows(el, 'pointer')) {
         autoscrollRafRef.current = null;
         return;
       }
@@ -3339,7 +3371,8 @@ export const SequenceViewer1D = forwardRef<SequenceViewer1DHandle, SequenceViewe
 
     const onPointerDown = useCallback(
       (e: React.PointerEvent) => {
-        if (!isPrimaryButton(e)) return;
+        if (!isPrimaryButton(e) || !inputTargetAllows(e.currentTarget, 'pointer')) return;
+        pointerCaptureRef.current = { target: e.target as Element, id: e.pointerId };
         const col = colAtClientX(e.clientX);
         const bioCol = isCircular ? biologicalColumn(col, columnCount) : col;
 
@@ -3387,6 +3420,7 @@ export const SequenceViewer1D = forwardRef<SequenceViewer1DHandle, SequenceViewe
 
     const onPointerMove = useCallback(
       (e: React.PointerEvent) => {
+        if (!inputTargetAllows(e.currentTarget, 'pointer')) return;
         if (handleDragRef.current) {
           const col = colAtClientX(e.clientX);
           emitSelectionFromHandleDrag(col);
@@ -3439,6 +3473,8 @@ export const SequenceViewer1D = forwardRef<SequenceViewer1DHandle, SequenceViewe
 
     const onPointerUp = useCallback(
       (e: React.PointerEvent) => {
+        if (!inputTargetAllows(e.currentTarget, 'pointer')) return;
+        pointerCaptureRef.current = null;
         stopAutoscroll();
         const drag = dragStateRef.current;
         const handleDrag = handleDragRef.current;
@@ -3800,7 +3836,8 @@ export const SequenceViewer1D = forwardRef<SequenceViewer1DHandle, SequenceViewe
             }
           }}
           onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
+          onPointerCancel={cancelSelectionGesture}
+          onLostPointerCapture={cancelSelectionGesture}
           onContextMenu={(e) => {
             if (!pointerInteractionsEnabled) return;
             if (!onContextMenu) return;

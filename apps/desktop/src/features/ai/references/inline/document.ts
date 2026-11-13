@@ -278,6 +278,11 @@ export function projectPersistedInlineTextDocument(
   return {
     ...document,
     parts: document.parts.map((part) => {
+      if (part.declaration.kind === 'project-resource')
+        return {
+          ...part,
+          state: { status: 'resolved' as const, canonicalLabel: part.label },
+        };
       if (part.declaration.kind === 'molecular-document') {
         return bindPersistedMolecularDocumentPart(
           {

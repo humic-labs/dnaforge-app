@@ -1,12 +1,12 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../../../presentation/PresentationSurface';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useEffect, useRef, useState } from 'react';
 import { useCanvasStore } from '../store';
-import {
-  useCommandRegistry,
-  useCommandScope,
-  COMMAND_IDS,
-  COMMAND_SCOPES,
-} from '../../../commands';
+import { useCommandRegistry, COMMAND_IDS } from '../../../commands';
 import { resolveTabWorkspacePath, useTabMenuPanels } from '../tab-menu-presentation';
 import { useMenuAim } from '@waypoint/ui-components';
 import { requestTabsClose } from '../artifact-document-lifecycle';
@@ -32,7 +32,9 @@ export function TabContextMenu({
   onStartRename,
   onRenameManagedSequence,
 }: TabContextMenuProps) {
-  useCommandScope(COMMAND_SCOPES.menuContext, { claimOnMount: true });
+  const presentationOverlay = usePresentationOverlay('keyboard');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const menuRef = useRef<HTMLDivElement>(null);
   const mergeSubmenuRef = useRef<HTMLDivElement>(null);
   const [showMergeSubmenu, setShowMergeSubmenu] = useState(false);
@@ -72,7 +74,7 @@ export function TabContextMenu({
 
     const timer = setTimeout(() => {
       document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleEscape);
+      presentationEvents.add(document, 'keydown', handleEscape);
       listenersAdded = true;
     }, 0);
 
@@ -80,10 +82,10 @@ export function TabContextMenu({
       clearTimeout(timer);
       if (listenersAdded) {
         document.removeEventListener('mousedown', handleClickOutside);
-        document.removeEventListener('keydown', handleEscape);
+        presentationEvents.remove(document, 'keydown', handleEscape);
       }
     };
-  }, [onClose]);
+  }, [onClose, presentationEvents]);
 
   if (!tab) return null;
 
@@ -276,7 +278,8 @@ export function TabContextMenu({
 
   return (
     <div
-      ref={menuRef}
+      ref={presentationOverlay.bindRef(menuRef, 'main')}
+      role="menu"
       className="fixed z-50 min-w-[200px] py-1 bg-bg border border-border rounded-md shadow-lg"
       style={{
         left: adjustedX,
@@ -329,22 +332,24 @@ export function TabContextMenu({
             </button>
 
             {showMergeSubmenu && hasOtherPanels && (
-              <div
-                ref={mergeSubmenuRef}
-                role="menu"
-                onPointerEnter={menuAim.cancelPendingActivation}
-                className="absolute top-0 left-full -ml-px min-w-[160px] py-1 bg-bg border border-border rounded-md shadow-lg"
-              >
-                {otherPanels.map(([id, p]) => (
-                  <button
-                    key={id}
-                    onClick={() => handleMerge(id)}
-                    className="w-full flex items-center px-3 py-1.5 text-xs text-left text-fg hover:bg-bg-subtle transition-colors"
-                  >
-                    <span className="truncate">{getPanelLabel(p)}</span>
-                  </button>
-                ))}
-              </div>
+              <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+                <div
+                  ref={presentationOverlay.bindRef(mergeSubmenuRef, '0')}
+                  role="menu"
+                  onPointerEnter={menuAim.cancelPendingActivation}
+                  className="absolute top-0 left-full -ml-px min-w-[160px] py-1 bg-bg border border-border rounded-md shadow-lg"
+                >
+                  {otherPanels.map(([id, p]) => (
+                    <button
+                      key={id}
+                      onClick={() => handleMerge(id)}
+                      className="w-full flex items-center px-3 py-1.5 text-xs text-left text-fg hover:bg-bg-subtle transition-colors"
+                    >
+                      <span className="truncate">{getPanelLabel(p)}</span>
+                    </button>
+                  ))}
+                </div>
+              </PresentationScopeContext.Provider>
             )}
           </div>
         ) : (

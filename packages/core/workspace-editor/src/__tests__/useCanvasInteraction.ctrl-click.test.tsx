@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 
+import { installInputOwnership } from '@waypoint/platform/input-ownership';
 import { useMemo, useRef } from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -476,4 +477,43 @@ describe.each([false, true])('Canvas cursor positioning (editable=%s)', (editabl
     expect(editable ? onCursorChange : onViewCursorChange).toHaveBeenCalledWith(6);
     expect(onContextMenu.mock.calls[0][2]).toMatchObject({ position: 5 });
   });
+});
+
+it('suspending the wrapped owner cancels a drag before a later global mouseup can commit it', () => {
+  let valid = true;
+  let notify: () => void = () => undefined;
+  const dispose = installInputOwnership(document, {
+    allows: () => valid,
+    capture: () => {
+      const captured = valid;
+      return () => captured && valid;
+    },
+    subscribe: (listener) => {
+      notify = listener;
+      return () => undefined;
+    },
+  });
+  const onSelectionChange = vi.fn();
+  try {
+    const view = render(
+      <HookHarness
+        selection={null}
+        onSelectionChange={onSelectionChange}
+        onCursorChange={vi.fn()}
+        onContextMenu={vi.fn()}
+      />
+    );
+    const canvas = view.getByTestId('sequence-canvas-interactive');
+    fireEvent.mouseDown(canvas, { button: 0, clientX: 44, clientY: 10 });
+    fireEvent.mouseMove(canvas, { buttons: 1, clientX: 100, clientY: 10 });
+    onSelectionChange.mockClear();
+    valid = false;
+    notify();
+    valid = true;
+    fireEvent.mouseUp(window, { button: 0, clientX: 100, clientY: 10 });
+    expect(onSelectionChange).not.toHaveBeenCalled();
+  } finally {
+    cleanup();
+    dispose();
+  }
 });

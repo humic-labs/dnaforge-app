@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../presentation/PresentationSurface';
 import { toUserMessage, type UserMessage } from '@waypoint/user-messages';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -45,6 +46,8 @@ export function DownwardSelect<T extends string>({
   searchable?: boolean;
   searchLabel?: string;
 }) {
+  const presentationEvents = usePresentationListener();
+
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -116,12 +119,12 @@ export function DownwardSelect<T extends string>({
       }
     };
     document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKey);
+    presentationEvents.add(document, 'keydown', onKey);
     return () => {
       document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKey);
+      presentationEvents.remove(document, 'keydown', onKey);
     };
-  }, [open]);
+  }, [open, presentationEvents]);
 
   return (
     <div className="relative min-w-0 max-w-full">

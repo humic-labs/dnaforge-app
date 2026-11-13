@@ -1,3 +1,7 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+} from '../../presentation/PresentationSurface';
 import { toUserMessage, userMessage, renderUserMessagePayload } from '@waypoint/user-messages';
 import { Button, TextField } from '../../components/ui';
 import { useEffect, useState } from 'react';
@@ -7,6 +11,8 @@ import { SpinnerIcon } from '../../components/icons/glyphs';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function AuthFlowHost() {
+  const presentationOverlay = usePresentationOverlay('modal');
+
   const state = useAuthStore((s) => s.state);
   const cancelSignIn = useAuthStore((s) => s.cancelSignIn);
   const reopenSignIn = useAuthStore((s) => s.reopenSignIn);
@@ -73,223 +79,233 @@ export function AuthFlowHost() {
         : 'Continue to DNAForge';
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      data-testid="auth-flow-host"
-    >
-      <div className="flex max-h-[min(90vh,640px)] min-h-[400px] w-[360px] flex-col overflow-y-auto rounded-xl border border-border bg-bg p-6 shadow-xl">
-        <h2 className="text-base font-semibold text-fg">{heading}</h2>
+    <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        data-testid="auth-flow-host"
+        ref={presentationOverlay.bindRef(undefined, '0')}
+      >
+        <div className="flex max-h-[min(90vh,640px)] min-h-[400px] w-[360px] flex-col overflow-y-auto rounded-xl border border-border bg-bg p-6 shadow-xl">
+          <h2 className="text-base font-semibold text-fg">{heading}</h2>
 
-        <div className="mt-4 flex flex-1 flex-col">
-          {state.status === 'starting' && (
-            <div className="flex flex-1 items-center justify-center" data-testid="auth-starting">
-              <SpinnerIcon className="h-6 w-6" />
-            </div>
-          )}
-
-          {state.status === 'choosing' && connecting && (
-            <div className="flex flex-1 items-center justify-center" data-testid="auth-connecting">
-              <div className="flex flex-col items-center gap-3 text-sm text-fg-muted">
+          <div className="mt-4 flex flex-1 flex-col">
+            {state.status === 'starting' && (
+              <div className="flex flex-1 items-center justify-center" data-testid="auth-starting">
                 <SpinnerIcon className="h-6 w-6" />
-                <span>
-                  Opening{' '}
-                  {connecting === 'google'
-                    ? 'Google'
-                    : connecting === 'github'
-                      ? 'GitHub'
-                      : "your organization's login page"}{' '}
-                  in your browser…
-                </span>
               </div>
-            </div>
-          )}
+            )}
 
-          {state.status === 'choosing' && !connecting && (
-            <div className="flex flex-col gap-3">
-              <Button
-                type="button"
-                onClick={() => void pickProvider('google')}
-                data-testid="auth-google"
-                aria-label="Continue with Google"
+            {state.status === 'choosing' && connecting && (
+              <div
+                className="flex flex-1 items-center justify-center"
+                data-testid="auth-connecting"
               >
-                <span className="flex items-center justify-center gap-2.5">
-                  <GoogleMark className="h-4 w-4 shrink-0" />
-                  Continue with Google
-                </span>
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void pickProvider('github')}
-                data-testid="auth-github"
-                aria-label="Continue with GitHub"
-              >
-                <span className="flex items-center justify-center gap-2.5">
-                  <GitHubMark className="h-4 w-4 shrink-0" />
-                  Continue with GitHub
-                </span>
-              </Button>
-
-              {!ssoMode ? (
-                <Button type="button" onClick={() => setSsoMode(true)} data-testid="auth-sso">
-                  Continue with organization SSO
-                </Button>
-              ) : (
-                <div className="flex flex-col gap-2" data-testid="auth-sso-input">
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-xs uppercase tracking-wide text-fg-muted">
-                      Organization email
-                    </span>
-                    <TextField
-                      type="email"
-                      value={ssoEmail}
-                      onChange={(e) => setSsoEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      data-testid="auth-sso-email"
-                    />
-                  </label>
-                  {ssoError && (
-                    <p className="text-xs text-error" role="alert" data-testid="auth-sso-error">
-                      {toUserMessage(ssoError, 'account.failed')}
-                    </p>
-                  )}
-                  <Button
-                    variant="primary"
-                    type="button"
-                    disabled={!EMAIL_RE.test(ssoEmail.trim())}
-                    onClick={() => startSso()}
-                    data-testid="auth-sso-submit"
-                  >
-                    Continue with SSO
-                  </Button>
+                <div className="flex flex-col items-center gap-3 text-sm text-fg-muted">
+                  <SpinnerIcon className="h-6 w-6" />
+                  <span>
+                    Opening{' '}
+                    {connecting === 'google'
+                      ? 'Google'
+                      : connecting === 'github'
+                        ? 'GitHub'
+                        : "your organization's login page"}{' '}
+                    in your browser…
+                  </span>
                 </div>
-              )}
-
-              <div className="my-1 flex items-center gap-3 text-[10px] uppercase tracking-wide text-fg-muted">
-                <span className="h-px flex-1 bg-border" /> or{' '}
-                <span className="h-px flex-1 bg-border" />
               </div>
+            )}
 
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs uppercase tracking-wide text-fg-muted">
-                  Email me a code
-                </span>
-                <TextField
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  data-testid="auth-email-input"
+            {state.status === 'choosing' && !connecting && (
+              <div className="flex flex-col gap-3">
+                <Button
+                  type="button"
+                  onClick={() => void pickProvider('google')}
+                  data-testid="auth-google"
+                  aria-label="Continue with Google"
+                >
+                  <span className="flex items-center justify-center gap-2.5">
+                    <GoogleMark className="h-4 w-4 shrink-0" />
+                    Continue with Google
+                  </span>
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void pickProvider('github')}
+                  data-testid="auth-github"
+                  aria-label="Continue with GitHub"
+                >
+                  <span className="flex items-center justify-center gap-2.5">
+                    <GitHubMark className="h-4 w-4 shrink-0" />
+                    Continue with GitHub
+                  </span>
+                </Button>
+
+                {!ssoMode ? (
+                  <Button type="button" onClick={() => setSsoMode(true)} data-testid="auth-sso">
+                    Continue with organization SSO
+                  </Button>
+                ) : (
+                  <div className="flex flex-col gap-2" data-testid="auth-sso-input">
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-xs uppercase tracking-wide text-fg-muted">
+                        Organization email
+                      </span>
+                      <TextField
+                        type="email"
+                        value={ssoEmail}
+                        onChange={(e) => setSsoEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        data-testid="auth-sso-email"
+                      />
+                    </label>
+                    {ssoError && (
+                      <p className="text-xs text-error" role="alert" data-testid="auth-sso-error">
+                        {toUserMessage(ssoError, 'account.failed')}
+                      </p>
+                    )}
+                    <Button
+                      variant="primary"
+                      type="button"
+                      disabled={!EMAIL_RE.test(ssoEmail.trim())}
+                      onClick={() => startSso()}
+                      data-testid="auth-sso-submit"
+                    >
+                      Continue with SSO
+                    </Button>
+                  </div>
+                )}
+
+                <div className="my-1 flex items-center gap-3 text-[10px] uppercase tracking-wide text-fg-muted">
+                  <span className="h-px flex-1 bg-border" /> or{' '}
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs uppercase tracking-wide text-fg-muted">
+                    Email me a code
+                  </span>
+                  <TextField
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    data-testid="auth-email-input"
+                  />
+                </label>
+                <Button
+                  type="button"
+                  disabled={sending || !EMAIL_RE.test(email.trim())}
+                  onClick={() => {
+                    setSending(true);
+                    void Promise.resolve(startEmailSignIn(email.trim())).finally(() => {
+                      if (useAuthStore.getState().state.status === 'choosing') setSending(false);
+                    });
+                  }}
+                  data-testid="auth-email-submit"
+                >
+                  {sending ? 'Sending…' : 'Email me a code'}
+                </Button>
+                {state.error && !sending && (
+                  <p
+                    className="text-xs text-error"
+                    role="alert"
+                    data-testid="auth-email-start-error"
+                  >
+                    {state.errorMessagePayload
+                      ? renderUserMessagePayload(state.errorMessagePayload)
+                      : toUserMessage(state.error, 'account.failed')}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {state.status === 'email-sent' && (
+              <div className="flex flex-col gap-3">
+                <p className="text-sm text-fg-muted">
+                  Enter the 6-digit code we emailed to{' '}
+                  <span className="font-medium text-fg">{state.email}</span>.
+                </p>
+                <input
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  name="one-time-code"
+                  maxLength={6}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="— — — — — —"
+                  data-testid="auth-code-input"
+                  className="rounded-md border border-border bg-bg-muted px-3 py-2 text-center font-mono text-2xl tracking-[0.3em] text-fg placeholder:text-fg-muted placeholder:tracking-normal focus:border-accent focus:outline-none"
                 />
-              </label>
-              <Button
-                type="button"
-                disabled={sending || !EMAIL_RE.test(email.trim())}
-                onClick={() => {
-                  setSending(true);
-                  void Promise.resolve(startEmailSignIn(email.trim())).finally(() => {
-                    if (useAuthStore.getState().state.status === 'choosing') setSending(false);
-                  });
-                }}
-                data-testid="auth-email-submit"
-              >
-                {sending ? 'Sending…' : 'Email me a code'}
-              </Button>
-              {state.error && !sending && (
-                <p className="text-xs text-error" role="alert" data-testid="auth-email-start-error">
-                  {state.errorMessagePayload
-                    ? renderUserMessagePayload(state.errorMessagePayload)
-                    : toUserMessage(state.error, 'account.failed')}
-                </p>
-              )}
-            </div>
-          )}
-
-          {state.status === 'email-sent' && (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm text-fg-muted">
-                Enter the 6-digit code we emailed to{' '}
-                <span className="font-medium text-fg">{state.email}</span>.
-              </p>
-              <input
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                name="one-time-code"
-                maxLength={6}
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="— — — — — —"
-                data-testid="auth-code-input"
-                className="rounded-md border border-border bg-bg-muted px-3 py-2 text-center font-mono text-2xl tracking-[0.3em] text-fg placeholder:text-fg-muted placeholder:tracking-normal focus:border-accent focus:outline-none"
-              />
-              {state.error && (
-                <p className="text-xs text-error" role="alert" data-testid="auth-email-error">
-                  {state.errorMessagePayload
-                    ? renderUserMessagePayload(state.errorMessagePayload)
-                    : toUserMessage(state.error, 'account.failed')}
-                </p>
-              )}
-              <Button
-                variant="primary"
-                type="button"
-                disabled={code.length !== 6}
-                onClick={() => void submitEmailCode(code)}
-                data-testid="auth-code-submit"
-              >
-                Verify
-              </Button>
-              <p className="text-xs text-fg-muted" data-testid="auth-resend-hint">
-                Didn&apos;t get it? You can request a new code 60 seconds after the last one.{' '}
-                <button
+                {state.error && (
+                  <p className="text-xs text-error" role="alert" data-testid="auth-email-error">
+                    {state.errorMessagePayload
+                      ? renderUserMessagePayload(state.errorMessagePayload)
+                      : toUserMessage(state.error, 'account.failed')}
+                  </p>
+                )}
+                <Button
+                  variant="primary"
                   type="button"
-                  onClick={() => void startEmailSignIn(state.email)}
-                  data-testid="auth-resend"
-                  className="text-fg-muted underline underline-offset-2 hover:text-fg"
+                  disabled={code.length !== 6}
+                  onClick={() => void submitEmailCode(code)}
+                  data-testid="auth-code-submit"
                 >
-                  Resend code
-                </button>
-              </p>
-            </div>
-          )}
-
-          {state.status === 'awaiting-confirmation' && (
-            <div className="flex flex-col" data-testid="auth-awaiting-confirmation">
-              <p className="text-sm text-fg-muted">
-                Continue in your web browser — this window will update automatically once you
-                finish. Keep DNAForge open and do not click Cancel until the browser returns.
-              </p>
-              {state.browserOpenFailed && (
-                <p className="mt-3 text-xs text-warning" data-testid="auth-browser-open-failed">
-                  We couldn&apos;t open your browser automatically. Click &ldquo;Open browser
-                  again&rdquo;.
+                  Verify
+                </Button>
+                <p className="text-xs text-fg-muted" data-testid="auth-resend-hint">
+                  Didn&apos;t get it? You can request a new code 60 seconds after the last one.{' '}
+                  <button
+                    type="button"
+                    onClick={() => void startEmailSignIn(state.email)}
+                    data-testid="auth-resend"
+                    className="text-fg-muted underline underline-offset-2 hover:text-fg"
+                  >
+                    Resend code
+                  </button>
                 </p>
-              )}
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={() => void reopenSignIn()}
-                  data-testid="auth-open-browser"
-                  className="text-sm text-fg-muted hover:text-fg"
-                >
-                  Open browser again
-                </button>
               </div>
-            </div>
-          )}
+            )}
 
-          {state.status === 'exchanging' && (
-            <p className="text-sm text-fg-muted">Finishing up — one moment.</p>
-          )}
-        </div>
+            {state.status === 'awaiting-confirmation' && (
+              <div className="flex flex-col" data-testid="auth-awaiting-confirmation">
+                <p className="text-sm text-fg-muted">
+                  Continue in your web browser — this window will update automatically once you
+                  finish. Keep DNAForge open and do not click Cancel until the browser returns.
+                </p>
+                {state.browserOpenFailed && (
+                  <p className="mt-3 text-xs text-warning" data-testid="auth-browser-open-failed">
+                    We couldn&apos;t open your browser automatically. Click &ldquo;Open browser
+                    again&rdquo;.
+                  </p>
+                )}
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => void reopenSignIn()}
+                    data-testid="auth-open-browser"
+                    className="text-sm text-fg-muted hover:text-fg"
+                  >
+                    Open browser again
+                  </button>
+                </div>
+              </div>
+            )}
 
-        <div className="mt-5 flex justify-end">
-          <Button type="button" onClick={() => void cancelSignIn()} data-testid="auth-cancel">
-            Cancel
-          </Button>
+            {state.status === 'exchanging' && (
+              <p className="text-sm text-fg-muted">Finishing up — one moment.</p>
+            )}
+          </div>
+
+          <div className="mt-5 flex justify-end">
+            <Button type="button" onClick={() => void cancelSignIn()} data-testid="auth-cancel">
+              Cancel
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
+    </PresentationScopeContext.Provider>
   );
 }
 

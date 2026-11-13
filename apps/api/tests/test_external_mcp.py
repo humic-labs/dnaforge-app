@@ -156,7 +156,27 @@ def test_workspace_binding_uses_a_stable_folder_root_and_refuses_wrong_target(
         workspace_binding_from_result(result, str(tmp_path / "another"))
 
 
-def test_workspace_binding_uses_the_open_workspace_without_setup(
+def test_explicit_binding_uses_registered_projects_independently_of_display(tmp_path):
+    registered = tmp_path / "registered"
+    displayed = tmp_path / "displayed"
+    result = {
+        "workspaceId": None,
+        "projects": [{"name": "registered", "path": str(registered)}],
+        "referenceFolders": [],
+        "folders": [{"name": "displayed", "path": str(displayed)}],
+    }
+    assert workspace_binding_from_result(result, str(registered)) == (
+        f'folder:"{registered}"',
+        str(registered),
+    )
+    with pytest.raises(ValueError, match="WRONG_WORKSPACE"):
+        workspace_binding_from_result(result, str(displayed))
+    result["projects"].append({"name": "duplicate", "path": str(registered)})
+    with pytest.raises(ValueError, match="WRONG_WORKSPACE"):
+        workspace_binding_from_result(result, str(registered))
+
+
+def test_default_workspace_binding_follows_registered_projects_without_setup(
     tmp_path,
 ):
     project = tmp_path / "project"
@@ -169,15 +189,15 @@ def test_workspace_binding_uses_the_open_workspace_without_setup(
     }
 
     assert workspace_binding_from_result(result, None) == (
-        f'folder:"{project}"',
-        str(project),
+        "app-following",
+        "DNAForge registered projects",
     )
 
     result["workspaceId"] = f'folders:["{other}","{project}"]'
     result["folders"].append({"name": "other", "path": str(other)})
     assert workspace_binding_from_result(result, None) == (
-        result["workspaceId"],
-        f"{project}, {other}",
+        "app-following",
+        "DNAForge registered projects",
     )
     assert workspace_binding_from_result(result, str(project)) == (
         f'folder:"{project}"',
@@ -289,17 +309,15 @@ async def test_app_restart_rebinds_with_new_app_authority(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("bind_ok", [True, False])
-async def test_live_workspace_refresh_preserves_the_existing_grant(
+async def test_app_following_migration_preserves_the_existing_grant(
     tmp_path, monkeypatch, bind_ok
 ):
     previous = LocalMcpGrant("old-grant", "old-key", "old-workspace", str(tmp_path))
-    probe = LocalMcpGrant("probe-grant", "probe-key", "new-workspace", str(tmp_path))
     bound: list[dict] = []
     revoked: list[str] = []
 
     async def bootstrap(connection, *, requested_workspace, transport=None):
-        assert requested_workspace is None
-        return probe
+        pytest.fail("Migrating a known default grant must not mint another grant.")
 
     async def request(connection, method, path, *, body=None, transport=None):
         assert method == "POST" and path == "/agent-grants/local-mcp/bind"
@@ -324,8 +342,8 @@ async def test_live_workspace_refresh_preserves_the_existing_grant(
         assert client._grant == LocalMcpGrant(
             previous.identity_id,
             previous.api_key,
-            probe.workspace_id,
-            probe.workspace_label,
+            "app-following",
+            "DNAForge registered projects",
         )
     else:
         with pytest.raises(ValueError, match="active local MCP grant"):
@@ -334,11 +352,11 @@ async def test_live_workspace_refresh_preserves_the_existing_grant(
     assert bound == [
         {
             "grantId": previous.identity_id,
-            "workspaceId": probe.workspace_id,
-            "workspaceLabel": probe.workspace_label,
+            "workspaceId": "app-following",
+            "workspaceLabel": "DNAForge registered projects",
         }
     ]
-    assert revoked == [probe.identity_id]
+    assert revoked == []
 
 
 @pytest.mark.asyncio

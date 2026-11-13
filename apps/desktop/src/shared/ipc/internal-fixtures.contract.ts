@@ -3,6 +3,7 @@ import type {
   InternalAssemblyFixtureMaterializeResult,
   InternalAssemblyFixtureStatusRequest,
   InternalAssemblyFixtureStatusResult,
+  RegisterScenarioFixtureFilesRequest,
 } from '../internal-fixtures';
 import { defineGroup, invoke } from './contract';
 
@@ -16,6 +17,10 @@ export const internalFixturesContract = defineGroup('internalFixtures', {
     [request: InternalAssemblyFixtureMaterializeRequest],
     InternalAssemblyFixtureMaterializeResult
   >().channel('internal-fixtures:materialize'),
+  registerScenarioFiles: invoke<
+    [request: RegisterScenarioFixtureFilesRequest],
+    { manifestPath: string }
+  >(),
   status: invoke<
     [request: InternalAssemblyFixtureStatusRequest],
     InternalAssemblyFixtureStatusResult

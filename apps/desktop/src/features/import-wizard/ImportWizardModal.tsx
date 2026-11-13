@@ -1,4 +1,9 @@
 import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../../presentation/PresentationSurface';
+import {
   toUserMessage,
   renderUserMessage,
   userMessage,
@@ -60,6 +65,9 @@ export function ImportWizardModal({
   onCancel,
   previewSequenceImport,
 }: Props) {
+  const presentationOverlay = usePresentationOverlay('modal');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const [state, dispatch] = useReducer(wizardReducer, initial, initialReviewState);
   const [selected, setSelected] = useState(
     () => new Set(initial.items.filter(isImportableItem).map(importItemSourcePath))
@@ -232,13 +240,12 @@ export function ImportWizardModal({
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopImmediatePropagation();
-        if (locationPicker) closeLocationPicker();
-        else onCancel();
+        onCancel();
       }
     };
-    document.addEventListener('keydown', onKey, true);
-    return () => document.removeEventListener('keydown', onKey, true);
-  }, [onCancel, locationPicker, closeLocationPicker]);
+    presentationEvents.add(document, 'keydown', onKey, true);
+    return () => presentationEvents.remove(document, 'keydown', onKey, true);
+  }, [onCancel, presentationEvents]);
 
   useEffect(() => {
     safeFocus(confirmRef.current);
@@ -279,189 +286,192 @@ export function ImportWizardModal({
 
   return (
     <div
+      ref={presentationOverlay.bindRef(undefined, '0')}
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
       data-testid="import-wizard-backdrop"
       onMouseDown={onCancel}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="import-wizard-title"
-        data-testid="import-wizard"
-        className={`mx-4 flex max-h-[80vh] w-full ${state.items.some((item) => item.spreadsheetImport?.kind === 'records') ? 'max-w-5xl' : 'max-w-2xl'} flex-col rounded-xl border border-border bg-bg-subtle shadow-xl`}
-        onMouseDownCapture={(event) => {
-          if (
-            locationPicker &&
-            !destinationAnchorRef.current?.contains(event.target as Node) &&
-            !destinationMenuRef.current?.contains(event.target as Node)
-          )
-            setLocationPicker(null);
-        }}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="px-5 pb-4 pt-5">
-          <h3 id="import-wizard-title" className="text-base font-semibold text-fg">
-            {isDnaSequenceImport ? 'Import DNA sequences' : 'Import files'}
-          </h3>
-        </div>
-        <div className="px-5 pb-4">
-          <div className="flex items-center gap-3">
-            <span className="shrink-0 text-xs text-fg-muted">Destination for all files</span>
-            <ImportDestinationField
-              data-testid="import-destination-button"
-              aria-label="Destination for all files"
-              open={locationPicker !== null && !locationPicker.item}
-              onClick={(event) => openLocationPicker(event.currentTarget)}
-              label={state.destinationChosen ? destinationLabel : 'Choose a project or folder'}
-            />
+      <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="import-wizard-title"
+          data-testid="import-wizard"
+          className={`mx-4 flex max-h-[80vh] w-full ${state.items.some((item) => item.spreadsheetImport?.kind === 'records') ? 'max-w-5xl' : 'max-w-2xl'} flex-col rounded-xl border border-border bg-bg-subtle shadow-xl`}
+          onMouseDownCapture={(event) => {
+            if (
+              locationPicker &&
+              !destinationAnchorRef.current?.contains(event.target as Node) &&
+              !destinationMenuRef.current?.contains(event.target as Node)
+            )
+              setLocationPicker(null);
+          }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <div className="px-5 pb-4 pt-5">
+            <h3 id="import-wizard-title" className="text-base font-semibold text-fg">
+              {isDnaSequenceImport ? 'Import DNA sequences' : 'Import files'}
+            </h3>
           </div>
-          <PortalMenu
-            key={locationPicker?.item?.path ?? 'all'}
-            open={locationPicker !== null}
-            anchorRef={destinationAnchorRef}
-            surfaceRef={destinationMenuRef}
-            onRequestClose={() => setLocationPicker(null)}
-            closeOnEscape={false}
-            role="dialog"
-            aria-label="Choose destination"
-            data-testid="import-location-picker"
-            preferredSide="bottom"
-            horizontalAlign="start"
-            surfaceVariant="settings"
-            className="w-96"
-          >
-            {locationPicker && (
-              <>
-                <div className="p-1">
-                  <button
-                    type="button"
-                    data-testid="dest-new-workspace"
-                    className={`${SETTINGS_MENU_OPTION_CLASS} text-fg hover:bg-bg-muted`}
-                    onClick={() => chooseDestination({ kind: 'new-workspace' })}
-                  >
-                    New project
-                  </button>
-                </div>
-                <WorkspaceFolderPicker
-                  roots={roots}
-                  initialDir={locationPicker.directory}
-                  selectedDir={locationPicker.directory}
-                  onSelectFolder={(directory) =>
-                    setLocationPicker((current) => (current ? { ...current, directory } : null))
-                  }
-                  idPrefix="import-folder-picker"
-                  containerTestId="import-destination-tree"
-                  surface="bare"
-                  foldersOnly
-                  readOnly
-                  className="max-h-64 min-h-0"
-                />
-                <div className="flex items-center gap-3 border-t border-border/60 px-3 py-2">
-                  <span
-                    className="min-w-0 flex-1 truncate text-xs text-fg-muted"
-                    title={locationPicker.directory}
-                  >
-                    {locationPicker.directory
-                      ? importDestinationLabel(
-                          { kind: 'existing-root', rootPath: locationPicker.directory },
-                          roots
-                        )
-                      : 'Choose a folder'}
-                  </span>
-                  <SettingsButton
-                    variant="primary"
-                    disabled={!locationPicker.directory}
-                    onClick={() =>
-                      chooseDestination({
-                        kind: 'existing-root',
-                        rootPath: locationPicker.directory,
-                      })
-                    }
-                  >
-                    Use folder
-                  </SettingsButton>
-                </div>
-              </>
-            )}
-          </PortalMenu>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <ImportReviewList
-            items={state.items}
-            selected={selected}
-            onSelection={setSelected}
-            dispatch={handleDispatch}
-            destination={state.destination}
-            roots={roots}
-            onChooseLocation={(item, trigger) => openLocationPicker(trigger, item)}
-            locationPickerPath={locationPicker?.item?.path}
-            onConfirmDnaIdentity={
-              isDnaSequenceImport && previewSequenceImport ? confirmDnaIdentity : undefined
-            }
-            confirmingDnaSources={confirmingDnaSources}
-            submitted={submitted}
-            allowSpreadsheetChoices={!isDnaSequenceImport}
-          />
-          {!isDnaSequenceImport && (
-            <label className="mx-5 my-3 flex items-center gap-2 text-xs text-fg-muted">
-              <input
-                type="checkbox"
-                data-testid="import-agent-toggle"
-                checked={state.agentRequested}
-                disabled={selectedCount === 0}
-                onChange={(event) =>
-                  dispatch({ type: 'toggle-agent', value: event.target.checked })
-                }
+          <div className="px-5 pb-4">
+            <div className="flex items-center gap-3">
+              <span className="shrink-0 text-xs text-fg-muted">Destination for all files</span>
+              <ImportDestinationField
+                data-testid="import-destination-button"
+                aria-label="Destination for all files"
+                open={locationPicker !== null && !locationPicker.item}
+                onClick={(event) => openLocationPicker(event.currentTarget)}
+                label={state.destinationChosen ? destinationLabel : 'Choose a project or folder'}
               />
-              Organize with an agent
-            </label>
-          )}
-        </div>
-        <div className="flex items-center justify-between gap-3 border-t border-border/60 px-5 py-4">
-          <div className="min-w-0 text-xs text-fg-muted">
-            <p data-testid="import-readiness-summary" role="status">
-              {selectedCount} selected
-              {blockedCount > 0 && <span> · {blockedCount} cannot import</span>}
-              {duplicateCount > 0 && <span> · {duplicateCount} already imported</span>}
-            </p>
-            {!enabled && reason && (
-              <p
-                id="import-confirm-reason"
-                data-testid="import-confirm-reason"
-                className="mt-1"
-                role="status"
-              >
-                {renderUserMessage(reason)}
-              </p>
+            </div>
+            <PortalMenu
+              key={locationPicker?.item?.path ?? 'all'}
+              open={locationPicker !== null}
+              anchorRef={destinationAnchorRef}
+              surfaceRef={destinationMenuRef}
+              onRequestClose={() => setLocationPicker(null)}
+              closeOnEscape
+              role="dialog"
+              aria-label="Choose destination"
+              data-testid="import-location-picker"
+              preferredSide="bottom"
+              horizontalAlign="start"
+              surfaceVariant="settings"
+              className="w-96"
+            >
+              {locationPicker && (
+                <>
+                  <div className="p-1">
+                    <button
+                      type="button"
+                      data-testid="dest-new-workspace"
+                      className={`${SETTINGS_MENU_OPTION_CLASS} text-fg hover:bg-bg-muted`}
+                      onClick={() => chooseDestination({ kind: 'new-workspace' })}
+                    >
+                      New project
+                    </button>
+                  </div>
+                  <WorkspaceFolderPicker
+                    roots={roots}
+                    initialDir={locationPicker.directory}
+                    selectedDir={locationPicker.directory}
+                    onSelectFolder={(directory) =>
+                      setLocationPicker((current) => (current ? { ...current, directory } : null))
+                    }
+                    idPrefix="import-folder-picker"
+                    containerTestId="import-destination-tree"
+                    surface="bare"
+                    foldersOnly
+                    readOnly
+                    className="max-h-64 min-h-0"
+                  />
+                  <div className="flex items-center gap-3 border-t border-border/60 px-3 py-2">
+                    <span
+                      className="min-w-0 flex-1 truncate text-xs text-fg-muted"
+                      title={locationPicker.directory}
+                    >
+                      {locationPicker.directory
+                        ? importDestinationLabel(
+                            { kind: 'existing-root', rootPath: locationPicker.directory },
+                            roots
+                          )
+                        : 'Choose a folder'}
+                    </span>
+                    <SettingsButton
+                      variant="primary"
+                      disabled={!locationPicker.directory}
+                      onClick={() =>
+                        chooseDestination({
+                          kind: 'existing-root',
+                          rootPath: locationPicker.directory,
+                        })
+                      }
+                    >
+                      Use folder
+                    </SettingsButton>
+                  </div>
+                </>
+              )}
+            </PortalMenu>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <ImportReviewList
+              items={state.items}
+              selected={selected}
+              onSelection={setSelected}
+              dispatch={handleDispatch}
+              destination={state.destination}
+              roots={roots}
+              onChooseLocation={(item, trigger) => openLocationPicker(trigger, item)}
+              locationPickerPath={locationPicker?.item?.path}
+              onConfirmDnaIdentity={
+                isDnaSequenceImport && previewSequenceImport ? confirmDnaIdentity : undefined
+              }
+              confirmingDnaSources={confirmingDnaSources}
+              submitted={submitted}
+              allowSpreadsheetChoices={!isDnaSequenceImport}
+            />
+            {!isDnaSequenceImport && (
+              <label className="mx-5 my-3 flex items-center gap-2 text-xs text-fg-muted">
+                <input
+                  type="checkbox"
+                  data-testid="import-agent-toggle"
+                  checked={state.agentRequested}
+                  disabled={selectedCount === 0}
+                  onChange={(event) =>
+                    dispatch({ type: 'toggle-agent', value: event.target.checked })
+                  }
+                />
+                Organize with an agent
+              </label>
             )}
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              data-testid="import-cancel"
-              onClick={onCancel}
-              className="rounded-md border border-border px-3 py-2 text-sm text-fg hover:bg-bg-muted"
-            >
-              Cancel
-            </button>
-            <button
-              ref={confirmRef}
-              type="button"
-              data-testid="import-confirm"
-              onClick={confirm}
-              disabled={!enabled}
-              aria-describedby={reason ? 'import-confirm-reason' : undefined}
-              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {selectedCount > 0
-                ? isDnaSequenceImport
-                  ? `Import ${selectedCount} ${selectedCount === 1 ? 'sequence' : 'sequences'}`
-                  : btn.label
-                : 'Import'}
-            </button>
+          <div className="flex items-center justify-between gap-3 border-t border-border/60 px-5 py-4">
+            <div className="min-w-0 text-xs text-fg-muted">
+              <p data-testid="import-readiness-summary" role="status">
+                {selectedCount} selected
+                {blockedCount > 0 && <span> · {blockedCount} cannot import</span>}
+                {duplicateCount > 0 && <span> · {duplicateCount} already imported</span>}
+              </p>
+              {!enabled && reason && (
+                <p
+                  id="import-confirm-reason"
+                  data-testid="import-confirm-reason"
+                  className="mt-1"
+                  role="status"
+                >
+                  {renderUserMessage(reason)}
+                </p>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                data-testid="import-cancel"
+                onClick={onCancel}
+                className="rounded-md border border-border px-3 py-2 text-sm text-fg hover:bg-bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                ref={confirmRef}
+                type="button"
+                data-testid="import-confirm"
+                onClick={confirm}
+                disabled={!enabled}
+                aria-describedby={reason ? 'import-confirm-reason' : undefined}
+                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {selectedCount > 0
+                  ? isDnaSequenceImport
+                    ? `Import ${selectedCount} ${selectedCount === 1 ? 'sequence' : 'sequences'}`
+                    : btn.label
+                  : 'Import'}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </PresentationScopeContext.Provider>
     </div>
   );
 }

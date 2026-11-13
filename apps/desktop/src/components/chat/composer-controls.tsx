@@ -9,7 +9,7 @@ import { PortalMenu } from '../PortalMenu';
 import { ChatComposerDisclosureIcon } from '../ChatComposerDisclosureIcon';
 import { ChatComposerPickerLabel } from '../ChatComposerPickerLabel';
 import { EllipsisIcon } from '../icons/glyphs';
-import { safeFocus } from '../../shared/utils/safeFocus';
+import { scheduleFocus } from '../../shared/utils/safeFocus';
 
 export const TURN_PROVIDER_LABELS: Record<string, string> = {
   anthropic: 'Anthropic',
@@ -91,17 +91,15 @@ export function ChatComposerNestedOptionsMenu({
 
   useEffect(() => {
     if (!open) return;
-    const frame = requestAnimationFrame(() => {
-      (activeGroup ? submenuRef.current : parentMenuRef.current)
-        ?.querySelector<HTMLElement>('[role="menuitem"], [role="menuitemradio"]')
-        ?.focus();
-    });
-    return () => cancelAnimationFrame(frame);
+    return scheduleFocus(
+      (activeGroup ? submenuRef.current : parentMenuRef.current)?.querySelector<HTMLElement>(
+        '[role="menuitem"], [role="menuitemradio"]'
+      )
+    );
   }, [activeGroupId, open]);
 
   const closeSubmenu = useCallback(() => {
     setActiveGroupId(null);
-    requestAnimationFrame(() => safeFocus(submenuAnchorRef.current));
   }, []);
 
   const openGroup = useCallback((groupId: string, anchor: HTMLButtonElement) => {

@@ -288,6 +288,7 @@ async function registryDefinition(
         path: session.path,
         schema: session.preview.nativeRecord?.schemaSnapshot ?? session.preview.schemaSnapshot,
         readOnlyReason: session.readOnlyReason,
+        lifecycleReadOnlyReason: session.lifecycleReadOnlyReason,
       },
       savedRecord: session.savedRecord,
       save: async (update) => {
@@ -501,7 +502,7 @@ export async function loadEntityDetails(
     return loadDefinition(preview, target);
   if (target.sequenceFile && !target.managedSequence) return fileDefinition(target, preview);
   if (preview?.summary.representation.openTarget?.kind === 'sequence_file')
-    return fileDefinition(target, preview);
+    return preview.summary.archived ? registryDefinition(preview) : fileDefinition(target, preview);
   if (!preview && target.managedSequence) return managedDefinition(null, target);
   if (!preview)
     throw new Error(

@@ -613,6 +613,57 @@ describe('plasmid-package', () => {
       expect(again.members[0]?.role).toBe('future-kind');
     });
 
+    it.each([
+      {
+        label: 'valid',
+        mediaType: 'application/octet-stream',
+        expectedMediaType: { mediaType: 'application/octet-stream' },
+      },
+      { label: 'invalid', mediaType: 42, expectedMediaType: {} },
+    ])(
+      'retains optional member metadata through parse and serialize with $label mediaType',
+      ({ mediaType, expectedMediaType }) => {
+        const extensions = {
+          'org.example.trace-annotation': {
+            version: 2,
+            data: { sample: { name: 'clone-7' }, labels: ['reviewed', null], accepted: true },
+          },
+        };
+        const stored = {
+          ...buildSequencePackageDocument({
+            id: 'member-metadata-package',
+            name: 'Member metadata',
+            product: { file: 'metadata.gb' },
+          }),
+          members: [
+            {
+              id: ' trace-7 ',
+              role: ' future-kind ',
+              path: 'files/trace.bin',
+              replaceable: 'true',
+              createdAt: '2026-01-01T00:00:00.000Z',
+              mediaType,
+              extensions,
+            },
+          ],
+        };
+        const expected = {
+          id: 'trace-7',
+          role: 'future-kind',
+          path: 'contents/trace.bin',
+          replaceable: false,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          ...expectedMediaType,
+          extensions,
+        };
+
+        const parsed = parseSequencePackageDocument(JSON.stringify(stored));
+        expect(parsed.members).toEqual([expected]);
+        const reopened = parseSequencePackageDocument(serializeSequencePackageDocument(parsed));
+        expect(reopened.members).toEqual([expected]);
+      }
+    );
+
     it('refuses to serialize a stale formatVersion — parse/build are the only writers', () => {
       const doc = buildSequencePackageDocument({
         id: 'x',

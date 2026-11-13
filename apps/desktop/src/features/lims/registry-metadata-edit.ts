@@ -50,6 +50,7 @@ export async function prepareRegistryMetadataEdit(
   } catch (cause) {
     readOnlyReason = toUserMessage(cause, 'record.projectUnavailable');
   }
+  const lifecycleReadOnlyReason = readOnlyReason ?? null;
   const source = preview.entity.fields.sourceMetadata;
   const origin = source && typeof source === 'object' && 'origin' in source ? source.origin : null;
   if (
@@ -91,6 +92,7 @@ export async function prepareRegistryMetadataEdit(
     preview,
     path,
     readOnlyReason,
+    lifecycleReadOnlyReason,
     savedRecord: loaded
       ? ({
           loaded,

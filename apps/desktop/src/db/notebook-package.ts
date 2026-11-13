@@ -4,6 +4,10 @@ import { isSafeWorkspaceRelativePath } from '../shared/path-boundary';
 import { isUnknownRecord } from '../shared/notebook-content-extension';
 import { savedReferenceHref, savedReferenceIdFromHref } from '../shared/saved-reference-url';
 import { nativeEntityReferenceHref } from '../shared/native-entity-reference';
+import {
+  projectResourceReferenceSchema,
+  projectResourceReferenceHref,
+} from '../shared/project-resource-reference';
 import { normalizeNotebookReferences } from '../shared/notebook-reference-normalization';
 import type { JSONContent } from '@tiptap/core';
 import type { NotebookPackageMetadata } from '../shared/notebook-package-ipc';
@@ -513,6 +517,11 @@ function mentionToMarkdown(
 ): string {
   const label = typeof attrs?.label === 'string' && attrs.label ? attrs.label : 'reference';
   const escapedLabel = markdownLabel(label);
+
+  if (attrs?.entityType === 'project-resource') {
+    const target = projectResourceReferenceSchema.safeParse(attrs.resourceReference);
+    if (target.success) return `[${escapedLabel}](${projectResourceReferenceHref(target.data)})`;
+  }
 
   const referenceId = savedReferenceIdFromHref(
     typeof attrs?.referenceUri === 'string' ? attrs.referenceUri : null

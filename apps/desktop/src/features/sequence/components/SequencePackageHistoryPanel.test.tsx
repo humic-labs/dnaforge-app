@@ -405,17 +405,15 @@ describe('sequence package History Restore', () => {
         })
     );
     const history = historyView();
-    render(
-      <SequencePackageHistoryPanel
-        history={history}
-        restore={{
-          workspaceRoot: '/workspace',
-          isDirty: false,
-          savePending: vi.fn().mockResolvedValue(true),
-          discardPending: vi.fn(),
-          apply,
-        }}
-      />
+    const restore = {
+      workspaceRoot: '/workspace',
+      isDirty: false,
+      savePending: vi.fn().mockResolvedValue(true),
+      discardPending: vi.fn(),
+      apply,
+    };
+    const { rerender } = render(
+      <SequencePackageHistoryPanel history={history} restore={restore} />
     );
     fireEvent.click(screen.getByRole('button', { name: 'Choose source for Description' }));
     fireEvent.click(
@@ -427,6 +425,16 @@ describe('sequence package History Restore', () => {
     await waitFor(() => expect(screen.getByTestId('restore-preview')).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Restore as new version' }));
     expect(apply).toHaveBeenCalledOnce();
+    expect((screen.getByTestId('history-revision-earlier') as HTMLButtonElement).disabled).toBe(
+      true
+    );
+    rerender(
+      <SequencePackageHistoryPanel
+        history={{ ...history, index: { ...history.index! } }}
+        restore={restore}
+      />
+    );
+    expect(screen.queryByTestId('restore-preview')).toBeNull();
     expect((screen.getByTestId('history-revision-earlier') as HTMLButtonElement).disabled).toBe(
       true
     );

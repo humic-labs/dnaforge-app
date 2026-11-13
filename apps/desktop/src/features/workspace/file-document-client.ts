@@ -165,7 +165,10 @@ export class FileDocumentClient {
       },
     });
     const current =
-      !snapshot.dirty && snapshot.ready && !snapshot.recoveryId
+      !snapshot.dirty &&
+      snapshot.ready &&
+      !snapshot.recoveryId &&
+      snapshot.owner?.runtime !== 'unsupported'
         ? await platform().fs.fileDocument({
             target: { documentId: snapshot.documentId },
             operation: { kind: 'reload' },

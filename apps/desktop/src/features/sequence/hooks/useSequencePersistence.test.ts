@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, fireEvent } from '@testing-library/react';
-import { CommandScopeProvider } from '../../../commands/CommandScopeProvider';
+import { WorkspaceCommandProvider as CommandScopeProvider } from '../../../test/document-save-commands';
 import {
   useDocumentLifecycle,
   useDocumentSaveCommand,

@@ -8,6 +8,7 @@ import {
   readFile,
   readdir,
   rename,
+  rm,
   stat,
   unlink,
   writeFile,
@@ -23,6 +24,7 @@ import {
   SEQUENCE_PACKAGE_MIGRATORS,
 } from './sequence-package-contract';
 import { loadSequencePackageDocument } from './sequence-package-io';
+import { sequencePackagePaths } from './sequence-package';
 
 const FIXTURE_ROOT = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -95,6 +97,53 @@ async function listFixtureDirs(): Promise<string[]> {
 }
 
 describe('sequence package migration datasets', () => {
+  it('retains optional member metadata when a legacy attachment package migrates and reopens', async () => {
+    const fixture = join(FIXTURE_ROOT, 'v8-user-attachment');
+    const temporary = await mkdtemp(join(tmpdir(), 'seq-pkg-member-metadata-'));
+    const root = join(temporary, 'pkg');
+    try {
+      await cp(fixture, root, { recursive: true });
+      const metaPath = sequencePackagePaths(root).metaPath;
+      const original = JSON.parse(await readFile(metaPath, 'utf8'));
+      const extensions = {
+        'org.example.attachment-review': {
+          version: 3,
+          data: {
+            reviewer: { label: 'external review' },
+            tags: ['retained', null],
+            accepted: true,
+          },
+        },
+      };
+      const members = original.members.map((member: Record<string, unknown>) => ({
+        ...member,
+        extensions,
+      }));
+      await writeFile(metaPath, JSON.stringify({ ...original, members }, null, 2) + '\n');
+      const productBytes = await readFile(join(root, original.product.file));
+      const attachmentBytes = await readFile(join(root, original.members[0].path));
+
+      const migrated = await loadSequencePackageDocument(root, nodePackageFs());
+      expect(migrated.formatVersion).toBe(SEQUENCE_PACKAGE_FORMAT_VERSION);
+      expect(migrated.id).toBe(original.id);
+      expect(migrated.name).toBe(original.name);
+      expect(migrated.product).toEqual(original.product);
+      expect(migrated.userAttachments).toEqual(original.userAttachments);
+      expect(migrated.members).toEqual(members);
+      const migratedBytes = await readFile(metaPath, 'utf8');
+      expect(JSON.parse(migratedBytes).members).toEqual(members);
+
+      const reopened = await loadSequencePackageDocument(root, nodePackageFs());
+      expect(reopened).toEqual(migrated);
+      expect(reopened.members).toEqual(members);
+      expect(await readFile(metaPath, 'utf8')).toBe(migratedBytes);
+      expect(await readFile(join(root, original.product.file))).toEqual(productBytes);
+      expect(await readFile(join(root, original.members[0].path))).toEqual(attachmentBytes);
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+
   it('has a fixture dataset for every registered migrator from-version', async () => {
     const dirs = await listFixtureDirs();
     const foundFrom = new Set(

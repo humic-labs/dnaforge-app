@@ -9,6 +9,8 @@ import {
 } from '@waypoint/user-messages';
 import { AgentTraceRow } from './chat/AgentTraceActivity';
 import { useHistoryPaneObservation } from './chat/useHistoryPaneObservation';
+import { COMMAND_IDS, useCommandRegistry } from '../commands';
+import { useCommandHandler } from '../commands/useCommandHandler';
 import { AISettingsBoundary } from '../features/ai/AISettingsBoundary';
 import { useWorkspaceVisibility } from '../features/canvas/workspace-visibility';
 
@@ -37,9 +39,9 @@ import {
   serializeTextThreadMarkdown,
   serializeThreadMarkdown,
 } from '../features/ai/export-thread-markdown';
-import type { ConversationSummary } from '../features/ai/orchestration/chat-store-types';
 import { platform } from '../platform';
-import { safeFocus } from '../shared/utils/safeFocus';
+import { safeFocus, scheduleFocus } from '../shared/utils/safeFocus';
+import { usePresentationScope } from '../presentation/PresentationSurface';
 import { findContainingPathBoundary, pathRelativeToBoundary } from '../shared/path-boundary';
 import type {
   InlineReferenceTargetType,
@@ -59,7 +61,6 @@ import {
 import { getMessageReferences, getMessageReferencesForMessages } from '../db';
 import { getCurrentWorkspaceScope, useWorkspaceStore } from '../stores/workspaceStore';
 import { useCanvasStore } from '../features/canvas/store';
-import type { OpenStrategy } from '../features/document-opening/compat';
 import { REF_TOKEN_PATTERN, isReferenceCreationTool } from '../features/ai/references/constants';
 import { getFilename, stripDisplayExtension } from '../utils/fileTypes';
 import { navigateToReference } from '../features/ai/references/navigate';
@@ -83,7 +84,13 @@ import {
   ToolResultDisplay,
   type AttachedFile,
 } from './chat';
-import { ReferenceChip, QueuedMessageStack, StructuredOutputCard } from './chat/message-parts';
+import {
+  ReferenceChip,
+  QueuedMessageStack,
+  StructuredOutputCard,
+  ChatEntityReferenceChip,
+  ProjectResourceChatChip,
+} from './chat/message-parts';
 import { CHAT_COMPOSER_SURFACE_CLASS, formatChatTurnRouteLabel } from './chat/composer-controls';
 import { EmptyStateChatComposer } from './chat/EmptyStateChatComposer';
 import { ChatHistorySurface } from './chat/ChatHistorySurface';
@@ -117,8 +124,7 @@ import {
   resolvePersistedWorkspaceTargetTypes,
 } from '../features/ai/references/inline/persisted-workspace-targets';
 import type { InlineReferencePart } from '../features/ai/references/inline/types';
-import { COMMAND_IDS, useCommandRegistry } from '../commands';
-import { ChatEntityReferenceChip } from './chat/ChatEntityReferenceChip';
+import { openProjectResourceReference } from '../services/notebook-resource-navigation';
 import { entityIconKindForWorkspaceTarget } from './icons/entity-icon-registry';
 
 const MAX_REFERENCE_LOAD_ATTEMPTS = 3;
@@ -273,7 +279,9 @@ async function openSavedEntityBesideChat(
   entityId: string | null,
   sourceConversationId: string | null,
   signal: AbortSignal,
-  open: (strategy: OpenStrategy) => Promise<string | null>
+  open: (
+    strategy: { kind: 'focused' } | { kind: 'panel'; panelId: string }
+  ) => Promise<string | null>
 ): Promise<string | null> {
   if (signal.aborted) return null;
   const canvas = useCanvasStore.getState();
@@ -896,11 +904,23 @@ function InitializedChatView({
 }: FullChatViewProps) {
   const workspaceVisible = useWorkspaceVisibility();
   const isOpen = requestedOpen && workspaceVisible;
+  const isChatVisible = (isVisible ?? requestedOpen) && workspaceVisible;
+  const navigateConversation = (direction: -1 | 1) => {
+    const chat = useChatStore.getState();
+    const index = chat.conversations.findIndex(
+      (conversation) => conversation.id === chat.currentConversationId
+    );
+    const next = chat.conversations[index + direction];
+    if (!next) return false;
+    void chat.switchConversation(next.id);
+    return true;
+  };
+  useCommandHandler(COMMAND_IDS.chatPrevious, () => navigateConversation(-1), { active: isOpen });
+  useCommandHandler(COMMAND_IDS.chatNext, () => navigateConversation(1), { active: isOpen });
+
   const [input, setInput] = useState('');
   const [preStartError, setPreStartError] = useState<UserMessage | null>(null);
-  const [showHistory, setShowHistory] = useChatHistoryPinned(
-    (isVisible ?? requestedOpen) && workspaceVisible
-  );
+  const [showHistory, setShowHistory] = useChatHistoryPinned(isChatVisible);
   const [dropZoneElement, setDropZoneElement] = useState<HTMLDivElement | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [agentActionsOpen, setAgentActionsOpen] = useState(false);
@@ -916,6 +936,7 @@ function InitializedChatView({
   const latestSendAttemptByConversationRef = useRef<Map<string | null, number>>(new Map());
   const sendOwnerConversationRef = useRef<string | null | undefined>(undefined);
   const [expandedTraceGroups, setExpandedTraceGroups] = useState<Set<string>>(() => new Set());
+  const presentation = usePresentationScope();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const workspaceFolders = useWorkspaceStore((state) => state.folders);
@@ -1056,14 +1077,16 @@ function InitializedChatView({
 
   useEffect(() => {
     if (isOpen) {
+      const lease = presentation.owner.captureFocus(presentation.id);
       const timer = setTimeout(() => {
+        if (!presentation.owner.isCurrent(lease)) return;
         const activeEl = document.activeElement as HTMLElement | null;
         if (activeEl && activeEl !== document.body && activeEl !== inputRef.current) return;
         safeFocus(inputRef.current);
       }, 200);
       return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, presentation]);
 
   useEffect(() => {
     setPreStartError(null);
@@ -1607,7 +1630,9 @@ function InitializedChatView({
 
     pendingDraft.references.forEach(addComposeReference);
 
+    const lease = presentation.owner.captureFocus(presentation.id);
     const focusComposer = () =>
+      presentation.owner.isCurrent(lease) &&
       safeFocus(document.querySelector<HTMLTextAreaElement>('[data-testid="ai-input"]'), {
         preventScroll: true,
       });
@@ -1623,7 +1648,15 @@ function InitializedChatView({
     }
 
     clearPendingDraft(null);
-  }, [pendingDraft, isOpen, viewConversationId, addComposeReference, setInput, clearPendingDraft]);
+  }, [
+    pendingDraft,
+    isOpen,
+    viewConversationId,
+    addComposeReference,
+    setInput,
+    clearPendingDraft,
+    presentation,
+  ]);
 
   useEffect(
     () => () => {
@@ -1972,6 +2005,30 @@ function InitializedChatView({
   const handleInlineReferenceAction = useCallback(
     async (part: InlineReferencePart, intent: 'open' | 'reveal') => {
       if (part.state.status !== 'resolved') return;
+      if (part.declaration.kind === 'project-resource') {
+        const activation = startReferenceActivation(part.key);
+        if (activation === null) return;
+        let succeeded = false;
+        try {
+          await openProjectResourceReference(part.declaration.resource, {
+            intent,
+            signal: activation.signal,
+            sourceChatConversationId: viewConversationId,
+          });
+          succeeded = !activation.signal.aborted;
+        } catch {
+          if (!activation.signal.aborted)
+            useToastStore
+              .getState()
+              .addToast(
+                renderUserMessage(inlineReferenceActivationErrorMessage('open-failed', part.label)),
+                { definition: 'full-chat-view-open-failed' }
+              );
+        } finally {
+          finishReferenceActivation(part.key, activation, succeeded);
+        }
+        return;
+      }
       let authoritativeReference = part.state.reference;
       if (part.declaration.kind === 'molecular-document') {
         if (intent === 'open' && authoritativeReference)
@@ -2109,12 +2166,24 @@ function InitializedChatView({
       resolveReferenceRoot,
       finishReferenceActivation,
       startReferenceActivation,
+      viewConversationId,
     ]
   );
 
   const renderInlineReference = useCallback(
     (part: InlineReferencePart): React.ReactNode => {
       if (part.state.status !== 'resolved') return part.label;
+      if (part.declaration.kind === 'project-resource')
+        return (
+          <ProjectResourceChatChip
+            reference={part.declaration.resource}
+            label={part.state.canonicalLabel}
+            busy={busyReferenceKeys.has(part.key)}
+            onOpen={() => void handleInlineReferenceAction(part, 'open')}
+            onReveal={() => void handleInlineReferenceAction(part, 'reveal')}
+            testId={`inline-project-resource-chip-${part.key}`}
+          />
+        );
       if (part.declaration.kind === 'workspace-path') {
         const targetType =
           part.state.targetType ??
@@ -2240,7 +2309,7 @@ function InitializedChatView({
   const handleCapabilitySelected = useCallback((choice: AgentCapabilityChoice) => {
     setStagedCapability(choice);
     setInput((current) => (current.trim() === '/' ? '' : current));
-    requestAnimationFrame(() => safeFocus(inputRef.current));
+    scheduleFocus(inputRef.current);
   }, []);
 
   const renderAgentActionsControl = useCallback(
@@ -2260,7 +2329,7 @@ function InitializedChatView({
                 type="button"
                 onClick={() => {
                   setStagedCapability(null);
-                  requestAnimationFrame(() => safeFocus(inputRef.current));
+                  scheduleFocus(inputRef.current);
                 }}
                 className="shrink-0 rounded px-0.5 hover:bg-accent/15"
                 aria-label={`Remove selected agent action: ${stagedCapability.control.label}`}
@@ -2682,7 +2751,7 @@ function InitializedChatView({
       'New Chat',
     [conversations, viewConversationId]
   );
-  const viewConversation = useMemo<ConversationSummary | null>(() => {
+  const viewConversation = useMemo<(typeof conversations)[number] | null>(() => {
     if (!viewConversationId) return null;
     return (
       conversations.find((conversation) => conversation.id === viewConversationId) ?? {
@@ -2751,7 +2820,7 @@ function InitializedChatView({
       data-conversation-id={viewConversationId ?? undefined}
       data-analytics-block
       data-chat-drop-zone
-      data-history-pinned={!hideHeader && isOpen && showHistory ? 'true' : undefined}
+      data-history-pinned={!hideHeader && isChatVisible && showHistory ? 'true' : undefined}
       className="ph-no-capture relative flex h-full flex-col bg-bg"
       onPointerDownCapture={onRequestPanelFocus}
       onFocusCapture={onRequestPanelFocus}
@@ -2776,6 +2845,7 @@ function InitializedChatView({
           pinned={showHistory}
           setPinned={setShowHistory}
           isOpen={isOpen}
+          isVisible={isChatVisible}
           isBusy={isLoading}
           queuedMessageCount={visibleQueuedMessages.length}
           onConversationIdChange={historyObservation.retarget}

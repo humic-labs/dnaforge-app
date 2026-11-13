@@ -1,4 +1,6 @@
 import { createNotebookConflictRecovery } from './notebook-conflict-recovery';
+import { createNotebookResourceReferences } from './notebook-resource-references';
+import type { RegisteredProjectAuthority } from './registered-project-authority';
 import { prepareNotebookReferenceInsertion } from './notebook-reference-insertion';
 import { resolvePortablePrimerReferencePath } from '../shared/primer-reference-path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -73,7 +75,9 @@ export function createNativeNotebookWorkingCopies(options: {
   profileDirectory(): string;
   captureWorkspace(root: string, mutating: boolean): () => void;
   relocateEntityFile(input: RelocateEntityFileInput): Promise<RelocateEntityFileResult>;
+  registeredProjects?: RegisteredProjectAuthority;
 }): NativeNotebookWorkingCopyOwner {
+  const resourceReferences = createNotebookResourceReferences(options);
   const legacyFingerprint = (content: unknown) => {
     const text = JSON.stringify(content);
     let hash = 0x811c9dc5;
@@ -466,6 +470,8 @@ export function createNativeNotebookWorkingCopies(options: {
   };
   const conflictRecovery = createNotebookConflictRecovery(options);
   const owner: NativeNotebookWorkingCopyOwner = new NativeNotebookWorkingCopyOwner({
+    resolveResourceReference: resourceReferences.resolve,
+    prepareResourceReferences: resourceReferences.prepare,
     inspectConflict: (scope) => conflictRecovery.inspect(scope),
     resolveConflict: (scope, request) => conflictRecovery.resolve(scope, request),
     beginLegacyMigration() {

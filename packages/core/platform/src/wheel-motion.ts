@@ -58,6 +58,7 @@ export class WheelMotion {
 
 const nativeDocuments = new WeakSet<Document>();
 const nativeInputs = new WeakMap<Event, Readonly<NativeWheelInput>>();
+const nativePrecision = new WeakMap<Event, boolean>();
 const zoomTargets = new WeakMap<HTMLElement, (event: WheelEvent) => void>();
 
 export function registerWheelZoomTarget(
@@ -92,6 +93,8 @@ export function forwardWheelZoom(event: WheelEvent, target: HTMLElement): boolea
     altKey: event.altKey,
     cancelable: true,
   });
+  const precision = nativePrecision.get(event);
+  if (precision !== undefined) nativePrecision.set(input, precision);
   const native = nativeInputs.get(event);
   if (native) {
     nativeInputs.set(input, native);
@@ -110,65 +113,62 @@ export interface NativeWheelInput {
   ordinal: number;
 }
 
-export function installNativeWheelSource(document: Document): () => void {
+function installNativeWheelSource(document: Document): () => void {
   nativeDocuments.add(document);
   return () => nativeDocuments.delete(document);
 }
 
 export function shouldAnimateWheel(event: WheelEvent, document: Document): boolean {
-  const native = nativeInputs.get(event);
-  return native ? !native.precise : event.deltaMode !== 0 || !nativeDocuments.has(document);
+  const precise = nativeInputs.get(event)?.precise ?? nativePrecision.get(event);
+  return precise !== undefined ? !precise : event.deltaMode !== 0 || !nativeDocuments.has(document);
 }
 
 export function getNativeWheelInput(event: Event): Readonly<NativeWheelInput> | undefined {
   return nativeInputs.get(event);
 }
 
-export interface NativeWheelPacket extends NativeWheelInput {
-  x: number;
-  y: number;
-  deltaX: number;
-  deltaY: number;
-  ctrlKey?: boolean;
-  metaKey?: boolean;
-  shiftKey?: boolean;
-  altKey?: boolean;
+export interface NativeWheelMetadata extends NativeWheelInput {
+  timestamp: number;
 }
 
-export function dispatchNativeWheel<Packet extends NativeWheelPacket>(
+export function supportsWheelMomentum(): boolean {
+  return typeof WheelEvent !== 'undefined' && 'momentum' in WheelEvent.prototype;
+}
+
+export function installNativeWheelMetadataSource(
   document: Document,
-  packet: Packet,
-  returnToBrowser?: (packet: Packet) => void
-): boolean {
-  if (![packet.x, packet.y, packet.deltaX, packet.deltaY].every(Number.isFinite)) return false;
-  const target = document.elementFromPoint(packet.x, packet.y);
-  if (!target?.closest('[data-sequence-wheel-zoom-viewport]')) {
-    if (packet.deltaX || packet.deltaY) returnToBrowser?.(packet);
-    return false;
-  }
-  const view = document.defaultView;
-  if (!view) return false;
-  const event = new view.WheelEvent('wheel', {
-    clientX: packet.x,
-    clientY: packet.y,
-    deltaX: packet.deltaX,
-    deltaY: packet.deltaY,
-    deltaMode: 0,
-    ctrlKey: packet.ctrlKey ?? false,
-    metaKey: packet.metaKey ?? false,
-    shiftKey: packet.shiftKey ?? false,
-    altKey: packet.altKey ?? false,
-    bubbles: true,
-    cancelable: true,
+  subscribe: (listener: (packet: NativeWheelMetadata) => void) => () => void
+): () => void {
+  const packets: NativeWheelMetadata[] = [];
+  const disposeSource = installNativeWheelSource(document);
+  const unsubscribe = subscribe((packet) => {
+    packets.push(packet);
+    if (packets.length > 512) packets.splice(0, packets.length - 512);
   });
-  const source = Object.freeze({
-    precise: packet.precise,
-    phase: packet.phase,
-    momentumPhase: packet.momentumPhase,
-    ordinal: packet.ordinal,
-  });
-  nativeInputs.set(event, source);
-  Object.defineProperty(event, 'nativeSequenceWheel', { value: source });
-  target.dispatchEvent(event);
-  return true;
+  const onWheel = (event: WheelEvent) => {
+    const origin = document.defaultView?.performance.timeOrigin;
+    if (origin === undefined) return;
+    const timestamp = origin + event.timeStamp;
+    const candidates = packets.filter((packet) => Math.abs(packet.timestamp - timestamp) <= 1);
+    const packet = candidates.at(-1);
+    if (packet && candidates.every((candidate) => candidate.precise === packet.precise)) {
+      nativePrecision.set(event, packet.precise);
+      if (candidates.length === 1) {
+        const input = {
+          precise: packet.precise,
+          phase: packet.phase,
+          momentumPhase: packet.momentumPhase,
+          ordinal: packet.ordinal,
+        };
+        nativeInputs.set(event, input);
+        Object.defineProperty(event, 'nativeSequenceWheel', { value: input });
+      }
+    }
+  };
+  document.addEventListener('wheel', onWheel, { capture: true, passive: true });
+  return () => {
+    unsubscribe();
+    disposeSource();
+    document.removeEventListener('wheel', onWheel, { capture: true });
+  };
 }

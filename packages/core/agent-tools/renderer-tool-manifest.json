@@ -1044,7 +1044,13 @@
                       "pdf.zoomOut",
                       "pdf.resetZoom",
                       "canvas.nextTab",
-                      "canvas.previousTab"
+                      "canvas.previousTab",
+                      "canvas.closeOtherTabs",
+                      "canvas.selectTab",
+                      "workspace.revealActiveFile",
+                      "app.goToFile",
+                      "chat.previous",
+                      "chat.next"
                     ]
                   },
                   "handled": { "type": "boolean", "const": true },
@@ -6331,7 +6337,7 @@
     },
     {
       "name": "get_workspace",
-      "description": "Read mounted authoring projects, reference folders, tabs and current caller capabilities. Choose notebook and design destinations from projects; pinned referenceFolders are sources, not authoring destinations. DNAForge is the connected molecular-biology workspace. For primer or plasmid design and protocol-notebook requests, start with get_workspace.projects and inspect existing sequences using list_files, find_features and get_sequence. Deliver native editable assembly drafts, canonical saved oligos with bindings, and a native notebook. Preserve drafts until separately finalized. Choose an exact destination project; pinned reference folders are sources. Inspect available source sequences before calling them unknown or leaving their inspection for future work. Build requested construct variants with create_design, add_design_region and draft_design_assembly. Save the requested notebook in DNAForge rather than an unrelated repository. Persist every selected oligo that the plan instructs the user to order. Register the primers of a draft assembly with save_design_primers, which saves or links them and records the link on the design; never retype them through create_primer. For other oligos use save_designed_primer for a pinned design_primers candidate, or create_primer for exact authored notation, with annealingLength whenever the oligo has a 5-prime tail. Store each oligo's full ordered bases, modifications, annealing portion and relevant bindings, then read it back with get_primer. Text, CSV, sequence annotations and reference records do not create oligos. Do not write separate CSV or JSON copies of primers or of the design; exports are generated on request. Choose the destination project explicitly when a template belongs to another project. Create or update the protocol with the native notebook tools, structured tables and returned typed references to sources, exact regions, drafts and saved oligos or bindings. Use declared coordinate systems. Use get_entity_link for external hyperlinks and shell opens; use returned inline links or notebook reference payloads on their supported surfaces. Reuse existing identities on retry and respect saved revisions and unsaved edits. If a required operation is unavailable or refused, retain valid drafts and report the incomplete step without substituting another artifact type. An explanation alone does not authorize authoring. Background tool requests must preserve operating-system focus.",
+      "description": "Read authorized registered authoring projects, reference folders, displayed folders, tabs and current caller capabilities. Choose notebook and design destinations from projects; pinned referenceFolders are sources, not authoring destinations. Displayed folders and the current selection do not define project access. DNAForge is the connected molecular-biology workspace. For primer or plasmid design and protocol-notebook requests, start with get_workspace.projects and inspect existing sequences using list_files, find_features and get_sequence. Deliver native editable assembly drafts, canonical saved oligos with bindings, and a native notebook. Preserve drafts until separately finalized. Choose an exact destination project; pinned reference folders are sources. Inspect available source sequences before calling them unknown or leaving their inspection for future work. Build requested construct variants with create_design, add_design_region and draft_design_assembly. Save the requested notebook in DNAForge rather than an unrelated repository. Persist every selected oligo that the plan instructs the user to order. Register the primers of a draft assembly with save_design_primers, which saves or links them and records the link on the design; never retype them through create_primer. For other oligos use save_designed_primer for a pinned design_primers candidate, or create_primer for exact authored notation, with annealingLength whenever the oligo has a 5-prime tail. Store each oligo's full ordered bases, modifications, annealing portion and relevant bindings, then read it back with get_primer. Text, CSV, sequence annotations and reference records do not create oligos. Do not write separate CSV or JSON copies of primers or of the design; exports are generated on request. Choose the destination project explicitly when a template belongs to another project. Create or update the protocol with the native notebook tools, structured tables and returned typed references to sources, exact regions, drafts and saved oligos or bindings. Use declared coordinate systems. Use get_entity_link for external hyperlinks and shell opens; use returned inline links or notebook reference payloads on their supported surfaces. Reuse existing identities on retry and respect saved revisions and unsaved edits. If a required operation is unavailable or refused, retain valid drafts and report the incomplete step without substituting another artifact type. An explanation alone does not authorize authoring. Background tool requests must preserve operating-system focus.",
       "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
       "outputSchema": {
         "type": "object",
@@ -44879,6 +44885,7 @@
                           "type": "string",
                           "enum": [
                             "record_file",
+                            "primer",
                             "file_sequence",
                             "protein_sequence",
                             "track_view",
@@ -45078,6 +45085,34 @@
                                   "$ref": "#/properties/result/properties/summaries/items/properties/representation/properties/openTarget/anyOf/0/properties/label"
                                 },
                                 "workspaceId": { "type": "integer" },
+                                "artifactRelativePath": { "type": "string" }
+                              },
+                              "required": [
+                                "kind",
+                                "entityId",
+                                "entityKind",
+                                "label",
+                                "workspaceId",
+                                "artifactRelativePath"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": { "type": "string", "const": "primer" },
+                                "entityId": {
+                                  "$ref": "#/properties/result/properties/summaries/items/properties/representation/properties/openTarget/anyOf/0/properties/entityId"
+                                },
+                                "entityKind": {
+                                  "$ref": "#/properties/result/properties/summaries/items/properties/representation/properties/openTarget/anyOf/0/properties/entityKind"
+                                },
+                                "label": {
+                                  "$ref": "#/properties/result/properties/summaries/items/properties/representation/properties/openTarget/anyOf/0/properties/label"
+                                },
+                                "workspaceId": {
+                                  "anyOf": [{ "type": "integer" }, { "type": "null" }]
+                                },
                                 "artifactRelativePath": { "type": "string" }
                               },
                               "required": [
@@ -45452,6 +45487,7 @@
                         "type": "string",
                         "enum": [
                           "record_file",
+                          "primer",
                           "file_sequence",
                           "protein_sequence",
                           "track_view",
@@ -45650,6 +45686,34 @@
                                 "$ref": "#/properties/result/properties/summary/properties/representation/properties/openTarget/anyOf/0/properties/label"
                               },
                               "workspaceId": { "type": "integer" },
+                              "artifactRelativePath": { "type": "string" }
+                            },
+                            "required": [
+                              "kind",
+                              "entityId",
+                              "entityKind",
+                              "label",
+                              "workspaceId",
+                              "artifactRelativePath"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "primer" },
+                              "entityId": {
+                                "$ref": "#/properties/result/properties/summary/properties/representation/properties/openTarget/anyOf/0/properties/entityId"
+                              },
+                              "entityKind": {
+                                "$ref": "#/properties/result/properties/summary/properties/representation/properties/openTarget/anyOf/0/properties/entityKind"
+                              },
+                              "label": {
+                                "$ref": "#/properties/result/properties/summary/properties/representation/properties/openTarget/anyOf/0/properties/label"
+                              },
+                              "workspaceId": {
+                                "anyOf": [{ "type": "integer" }, { "type": "null" }]
+                              },
                               "artifactRelativePath": { "type": "string" }
                             },
                             "required": [
@@ -46340,6 +46404,32 @@
                   {
                     "type": "object",
                     "properties": {
+                      "kind": { "type": "string", "const": "primer" },
+                      "entityId": {
+                        "$ref": "#/properties/result/properties/target/anyOf/0/properties/entityId"
+                      },
+                      "entityKind": {
+                        "$ref": "#/properties/result/properties/target/anyOf/0/properties/entityKind"
+                      },
+                      "label": {
+                        "$ref": "#/properties/result/properties/target/anyOf/0/properties/label"
+                      },
+                      "workspaceId": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+                      "artifactRelativePath": { "type": "string" }
+                    },
+                    "required": [
+                      "kind",
+                      "entityId",
+                      "entityKind",
+                      "label",
+                      "workspaceId",
+                      "artifactRelativePath"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
                       "kind": { "type": "string", "const": "record_detail" },
                       "entityId": {
                         "$ref": "#/properties/result/properties/target/anyOf/0/properties/entityId"
@@ -46504,6 +46594,42 @@
                 "type": "object",
                 "properties": {
                   "ok": { "type": "boolean", "const": true },
+                  "status": { "type": "string", "const": "opened_primer" },
+                  "tabId": { "type": "string" },
+                  "target": {
+                    "type": "object",
+                    "properties": {
+                      "kind": { "type": "string", "const": "primer" },
+                      "entityId": {
+                        "$ref": "#/properties/result/anyOf/0/properties/target/anyOf/0/properties/entityId"
+                      },
+                      "entityKind": {
+                        "$ref": "#/properties/result/anyOf/0/properties/target/anyOf/0/properties/entityKind"
+                      },
+                      "label": {
+                        "$ref": "#/properties/result/anyOf/0/properties/target/anyOf/0/properties/label"
+                      },
+                      "workspaceId": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+                      "artifactRelativePath": { "type": "string" }
+                    },
+                    "required": [
+                      "kind",
+                      "entityId",
+                      "entityKind",
+                      "label",
+                      "workspaceId",
+                      "artifactRelativePath"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["ok", "status", "tabId", "target"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "type": "boolean", "const": true },
                   "status": { "type": "string", "const": "registry-presented" },
                   "entityId": { "type": "string" },
                   "presented": { "type": "boolean", "const": true }
@@ -46623,7 +46749,7 @@
                             "$ref": "#/properties/result/anyOf/0/properties/target/anyOf/0/properties/label"
                           },
                           "registrationStatus": {
-                            "$ref": "#/properties/result/anyOf/3/properties/target/anyOf/0/properties/registrationStatus"
+                            "$ref": "#/properties/result/anyOf/4/properties/target/anyOf/0/properties/registrationStatus"
                           },
                           "document": {
                             "type": "object",
@@ -46671,7 +46797,7 @@
                         "$ref": "#/properties/result/anyOf/0/properties/target/anyOf/0/properties/label"
                       },
                       "registrationStatus": {
-                        "$ref": "#/properties/result/anyOf/3/properties/target/anyOf/0/properties/registrationStatus"
+                        "$ref": "#/properties/result/anyOf/4/properties/target/anyOf/0/properties/registrationStatus"
                       },
                       "filePath": { "type": "string" }
                     },

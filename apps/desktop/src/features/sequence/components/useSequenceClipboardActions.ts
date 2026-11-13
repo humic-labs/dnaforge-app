@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { userMessageWithValues, userMessageValue } from '@waypoint/user-messages';
 import { useCallback, useEffect, useMemo } from 'react';
 import { matchesShortcut } from '@waypoint/ui-components/keyboard';
@@ -87,6 +88,8 @@ export function useSequenceClipboardActions({
   sequenceNucleicAcid,
   setHighlightedRange,
 }: UseSequenceClipboardActionsInput) {
+  const presentationEvents = usePresentationListener();
+
   const { selectionLength, selectionTmReadout, selectionTm, getSelectedSequenceText } =
     useSequenceSelectionStatistics({
       scaffoldRanges,
@@ -174,9 +177,9 @@ export function useSequenceClipboardActions({
       e.preventDefault();
       handleCopySequence();
     };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleCopySequence, selectionLength, keyboardActive]);
+    presentationEvents.add(document, 'keydown', handleKeyDown);
+    return () => presentationEvents.remove(document, 'keydown', handleKeyDown);
+  }, [handleCopySequence, selectionLength, keyboardActive, presentationEvents]);
 
   const handleCopyReverseComplement = useCallback(async () => {
     const rc = getSelectedReverseComplementText();

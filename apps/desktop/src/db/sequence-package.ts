@@ -1224,13 +1224,15 @@ function normalizeMember(value: unknown): SequencePackageMember {
       `Sequence package member path must start with ${SEQUENCE_PACKAGE_PAYLOAD_DIR}/, got: ${record.path}`
     );
   }
+  const { mediaType, ...preserved } = record;
   return {
+    ...preserved,
     id: record.id.trim(),
     role: record.role.trim(),
     path: rewritten,
     replaceable: record.replaceable === true,
     createdAt: typeof record.createdAt === 'string' ? record.createdAt : new Date().toISOString(),
-    ...(typeof record.mediaType === 'string' ? { mediaType: record.mediaType } : {}),
+    ...(typeof mediaType === 'string' ? { mediaType } : {}),
   };
 }
 

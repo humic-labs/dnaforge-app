@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { SettingsIcon } from '../../../components/icons';
 import { PortalMenu } from '../../../components/PortalMenu';
@@ -29,6 +30,8 @@ export function AssemblyPcrTmConfigurator({
   method?: AssemblyMethod;
   readout?: ReactNode;
 }) {
+  const presentationEvents = usePresentationListener();
+
   const design = useDesignStore((s) => s.designs[designId]);
   const constraints = design?.primerDesignConstraints;
   const updateConstraints = (targetPcrTm: number, overlapLength: number) => {
@@ -93,9 +96,9 @@ export function AssemblyPcrTmConfigurator({
         safeFocus(triggerRef.current);
       }
     };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open]);
+    presentationEvents.add(document, 'keydown', onKey);
+    return () => presentationEvents.remove(document, 'keydown', onKey);
+  }, [open, presentationEvents]);
 
   return (
     <div data-testid="assembly-pcr-tm-configurator" className="flex min-w-0 items-center gap-2">

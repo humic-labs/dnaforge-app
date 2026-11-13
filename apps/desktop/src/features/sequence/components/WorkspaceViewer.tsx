@@ -1,3 +1,5 @@
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
+import { supportsWheelMomentum } from '@waypoint/platform/wheel-motion';
 import { type UserMessage } from '@waypoint/user-messages';
 import type { SharedSequenceColumnNavigation } from './alignment-mutation-navigation';
 ('use client');
@@ -476,6 +478,8 @@ function WorkspaceViewerInternal({
   onEditCommit: onEditCommitProp,
   onEditDiscard,
 }: WorkspaceViewerProps) {
+  const presentationEvents = usePresentationListener();
+
   const [pendingComparisonMenu, setPendingComparisonMenu] = useState<{
     x: number;
     y: number;
@@ -2177,8 +2181,8 @@ function WorkspaceViewerInternal({
         scrollActiveSequenceViewerToBiologicalPosition(next.start);
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    presentationEvents.add(window, 'keydown', onKeyDown);
+    return () => presentationEvents.remove(window, 'keydown', onKeyDown);
   }, [
     circular,
     effectiveMapShape,
@@ -2194,6 +2198,8 @@ function WorkspaceViewerInternal({
     setHighlightedRange,
     setMapShape,
     viewCursor,
+    ,
+    presentationEvents,
   ]);
   const webglMapGeometry = resolveSequenceMapWebGLGeometry({
     mapShape: effectiveMapShape,
@@ -2675,9 +2681,7 @@ function WorkspaceViewerInternal({
                     <SequenceViewer
                       ref={sequenceViewerRef}
                       keyboardActive={viewerCommandIsActive}
-                      nativeWheelGestureOwnership={
-                        window.electronAPI?.sequenceWheel?.nativeGestureOwnership === true
-                      }
+                      browserWheelGestureOwnership={supportsWheelMomentum()}
                       sequence={sequenceWithExtensionPreview}
                       orfs={visibleORFs}
                       onOrfsPresented={

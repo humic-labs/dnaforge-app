@@ -1,3 +1,8 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../presentation/PresentationSurface';
 import { createPortal } from 'react-dom';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
@@ -172,6 +177,9 @@ export function ExplorerAddPicker({
   onImportProjectWithAgent,
   onMigrateFromBenchling,
 }: ExplorerAddPickerProps) {
+  const presentationOverlay = usePresentationOverlay('keyboard');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const pickerRef = useRef<HTMLDivElement>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
   const [placement, setPlacement] = useState<PickerPlacement | null>(null);
@@ -240,12 +248,12 @@ export function ExplorerAddPicker({
       if (event.key === 'Escape') onRequestClose();
     };
     document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
+    presentationEvents.add(document, 'keydown', handleKeyDown);
     return () => {
       document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
+      presentationEvents.remove(document, 'keydown', handleKeyDown);
     };
-  }, [anchorRef, onRequestClose, open]);
+  }, [anchorRef, onRequestClose, open, presentationEvents]);
 
   if (!open || !placement) return null;
 
@@ -295,7 +303,7 @@ export function ExplorerAddPicker({
 
   return createPortal(
     <div
-      ref={pickerRef}
+      ref={presentationOverlay.bindRef(pickerRef, '0')}
       role="dialog"
       aria-label={`Add to ${destinationLabel ?? 'project'}`}
       data-testid="explorer-add-picker"
@@ -310,178 +318,182 @@ export function ExplorerAddPicker({
       className="fixed z-[10050] flex items-start gap-0 drop-shadow-lg"
       style={{ left: placement.left, top: placement.top }}
     >
-      <div
-        role="menu"
-        aria-label={
-          launchSource === 'context-menu'
-            ? `Add to folder ${destinationLabel ?? 'project'}/`
-            : `Add to ${destinationLabel ?? 'project'}`
-        }
-        className={`${MENU_CLASS} overflow-hidden rounded-md`}
-        style={{ width: TOP_MENU_WIDTH }}
-      >
-        <div className="flex h-10 items-center gap-2 border-b border-border px-3">
-          {launchSource === 'context-menu' ? (
-            <>
-              <FolderOpenIcon className="h-4 w-4 flex-none text-fg-muted" />
-              <div className="min-w-0 leading-tight">
-                <div className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">
-                  Add to folder
+      <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+        <div
+          role="menu"
+          aria-label={
+            launchSource === 'context-menu'
+              ? `Add to folder ${destinationLabel ?? 'project'}/`
+              : `Add to ${destinationLabel ?? 'project'}`
+          }
+          className={`${MENU_CLASS} overflow-hidden rounded-md`}
+          style={{ ...{ width: TOP_MENU_WIDTH } }}
+        >
+          <div className="flex h-10 items-center gap-2 border-b border-border px-3">
+            {launchSource === 'context-menu' ? (
+              <>
+                <FolderOpenIcon className="h-4 w-4 flex-none text-fg-muted" />
+                <div className="min-w-0 leading-tight">
+                  <div className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">
+                    Add to folder
+                  </div>
+                  <div
+                    data-testid="explorer-add-picker-destination"
+                    className="truncate font-mono text-sm font-semibold text-fg"
+                  >
+                    {(destinationLabel ?? 'project').replace(/\/+$/, '')}/
+                  </div>
                 </div>
-                <div
-                  data-testid="explorer-add-picker-destination"
-                  className="truncate font-mono text-sm font-semibold text-fg"
-                >
-                  {(destinationLabel ?? 'project').replace(/\/+$/, '')}/
-                </div>
+              </>
+            ) : (
+              <div className="truncate text-sm font-semibold text-fg">
+                Add to {destinationLabel ?? 'project'}
               </div>
-            </>
-          ) : (
-            <div className="truncate text-sm font-semibold text-fg">
-              Add to {destinationLabel ?? 'project'}
+            )}
+          </div>
+
+          <div className="py-1">
+            {entityTypes.map((entityType) => {
+              const selected = selectedTypeId === entityType.id;
+              return (
+                <button
+                  key={entityType.id}
+                  type="button"
+                  role="menuitem"
+                  aria-haspopup="menu"
+                  aria-expanded={selected}
+                  disabled={!hasWorkspace}
+                  onPointerEnter={(event) => {
+                    if (selected) return;
+                    typeMenuAim.requestActivation({
+                      pointer: event,
+                      submenuElement: actionMenuRef.current,
+                      activate: () => openTypeActions(entityType),
+                    });
+                  }}
+                  onFocus={() => typeMenuAim.activateImmediately(() => openTypeActions(entityType))}
+                  onClick={() => typeMenuAim.activateImmediately(() => openTypeActions(entityType))}
+                  className={`${MENU_ITEM_CLASS} ${selected ? ACTIVE_MENU_ITEM_CLASS : ''}`}
+                >
+                  <span data-testid={`entity-icon-${entityType.id}`} className={MENU_ICON_CLASS}>
+                    {entityTypeIcon(entityType)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{entityType.label}</span>
+                  <MenuChevron />
+                </button>
+              );
+            })}
+          </div>
+
+          {projectActions.length > 0 && (
+            <div
+              onPointerEnter={(event) => {
+                if (!selectedType) return;
+                typeMenuAim.requestActivation({
+                  pointer: event,
+                  submenuElement: actionMenuRef.current,
+                  activate: () => setSelectedTypeId(null),
+                });
+              }}
+            >
+              <div role="separator" className="my-1 h-px bg-border" />
+              <div className="flex h-7 items-center px-3 text-sm font-semibold text-fg">
+                Project-scale actions
+              </div>
+              {projectActions.map(({ label, action, icon: Icon }) => (
+                <button
+                  key={label}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => runExistingAction(action)}
+                  className={MENU_ITEM_CLASS}
+                >
+                  <span className={MENU_ICON_CLASS}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span>{label}</span>
+                </button>
+              ))}
             </div>
           )}
         </div>
-
-        <div className="py-1">
-          {entityTypes.map((entityType) => {
-            const selected = selectedTypeId === entityType.id;
-            return (
-              <button
-                key={entityType.id}
-                type="button"
-                role="menuitem"
-                aria-haspopup="menu"
-                aria-expanded={selected}
-                disabled={!hasWorkspace}
-                onPointerEnter={(event) => {
-                  if (selected) return;
-                  typeMenuAim.requestActivation({
-                    pointer: event,
-                    submenuElement: actionMenuRef.current,
-                    activate: () => openTypeActions(entityType),
-                  });
-                }}
-                onFocus={() => typeMenuAim.activateImmediately(() => openTypeActions(entityType))}
-                onClick={() => typeMenuAim.activateImmediately(() => openTypeActions(entityType))}
-                className={`${MENU_ITEM_CLASS} ${selected ? ACTIVE_MENU_ITEM_CLASS : ''}`}
-              >
-                <span data-testid={`entity-icon-${entityType.id}`} className={MENU_ICON_CLASS}>
-                  {entityTypeIcon(entityType)}
-                </span>
-                <span className="min-w-0 flex-1 truncate">{entityType.label}</span>
-                <MenuChevron />
-              </button>
-            );
-          })}
-        </div>
-
-        {projectActions.length > 0 && (
-          <div
-            onPointerEnter={(event) => {
-              if (!selectedType) return;
-              typeMenuAim.requestActivation({
-                pointer: event,
-                submenuElement: actionMenuRef.current,
-                activate: () => setSelectedTypeId(null),
-              });
-            }}
-          >
-            <div role="separator" className="my-1 h-px bg-border" />
-            <div className="flex h-7 items-center px-3 text-sm font-semibold text-fg">
-              Project-scale actions
-            </div>
-            {projectActions.map(({ label, action, icon: Icon }) => (
-              <button
-                key={label}
-                type="button"
-                role="menuitem"
-                onClick={() => runExistingAction(action)}
-                className={MENU_ITEM_CLASS}
-              >
-                <span className={MENU_ICON_CLASS}>
-                  <Icon className="h-4 w-4" />
-                </span>
-                <span>{label}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      </PresentationScopeContext.Provider>
 
       {selectedType && (
-        <div
-          ref={actionMenuRef}
-          role="menu"
-          aria-label={`${selectedType.label} actions`}
-          onPointerEnter={typeMenuAim.cancelPendingActivation}
-          className={`${MENU_CLASS} -ml-px overflow-hidden rounded-none`}
-          style={{ width: ACTION_MENU_WIDTH, marginTop: actionMenuTop }}
-        >
-          <div className="flex h-9 items-center gap-2 border-b border-border px-3 text-sm font-semibold text-fg">
-            <span className={MENU_ICON_CLASS}>{entityTypeIcon(selectedType)}</span>
-            <span className="truncate">{selectedType.label}</span>
-          </div>
-          <div className="py-1">
-            {selectedType.id === 'assembly' && onCreateAssembly ? (
-              <>
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={!onCreateAssembly}
-                  onClick={() => runAssemblyCreate('blank')}
-                  className={MENU_ITEM_CLASS}
-                >
-                  <span className={MENU_ICON_CLASS}>
-                    <PlusIcon className="h-4 w-4" />
-                  </span>
-                  <span>Blank assembly</span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={!onCreateAssembly}
-                  onClick={() => runAssemblyCreate('schema')}
-                  className={MENU_ITEM_CLASS}
-                >
-                  <span className={MENU_ICON_CLASS}>
-                    <AssemblyTabIcon className="h-4 w-4" />
-                  </span>
-                  <span>From schema…</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={!selectedCanCreate}
-                  onClick={runEntityCreate}
-                  className={MENU_ITEM_CLASS}
-                >
-                  <span className={MENU_ICON_CLASS}>
-                    <PlusIcon className="h-4 w-4" />
-                  </span>
-                  <span>Create</span>
-                </button>
-                {selectedType.importAvailable ? (
+        <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+          <div
+            ref={presentationOverlay.bindRef(actionMenuRef, '1')}
+            role="menu"
+            aria-label={`${selectedType.label} actions`}
+            onPointerEnter={typeMenuAim.cancelPendingActivation}
+            className={`${MENU_CLASS} -ml-px overflow-hidden rounded-none`}
+            style={{ width: ACTION_MENU_WIDTH, marginTop: actionMenuTop }}
+          >
+            <div className="flex h-9 items-center gap-2 border-b border-border px-3 text-sm font-semibold text-fg">
+              <span className={MENU_ICON_CLASS}>{entityTypeIcon(selectedType)}</span>
+              <span className="truncate">{selectedType.label}</span>
+            </div>
+            <div className="py-1">
+              {selectedType.id === 'assembly' && onCreateAssembly ? (
+                <>
                   <button
                     type="button"
                     role="menuitem"
-                    disabled={!onImportEntity}
-                    onClick={runEntityImport}
+                    disabled={!onCreateAssembly}
+                    onClick={() => runAssemblyCreate('blank')}
                     className={MENU_ITEM_CLASS}
                   >
                     <span className={MENU_ICON_CLASS}>
-                      <ImportIcon className="h-4 w-4" />
+                      <PlusIcon className="h-4 w-4" />
                     </span>
-                    <span>Import</span>
+                    <span>Blank assembly</span>
                   </button>
-                ) : null}
-              </>
-            )}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!onCreateAssembly}
+                    onClick={() => runAssemblyCreate('schema')}
+                    className={MENU_ITEM_CLASS}
+                  >
+                    <span className={MENU_ICON_CLASS}>
+                      <AssemblyTabIcon className="h-4 w-4" />
+                    </span>
+                    <span>From schema…</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!selectedCanCreate}
+                    onClick={runEntityCreate}
+                    className={MENU_ITEM_CLASS}
+                  >
+                    <span className={MENU_ICON_CLASS}>
+                      <PlusIcon className="h-4 w-4" />
+                    </span>
+                    <span>Create</span>
+                  </button>
+                  {selectedType.importAvailable ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={!onImportEntity}
+                      onClick={runEntityImport}
+                      className={MENU_ITEM_CLASS}
+                    >
+                      <span className={MENU_ICON_CLASS}>
+                        <ImportIcon className="h-4 w-4" />
+                      </span>
+                      <span>Import</span>
+                    </button>
+                  ) : null}
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        </PresentationScopeContext.Provider>
       )}
     </div>,
     document.body

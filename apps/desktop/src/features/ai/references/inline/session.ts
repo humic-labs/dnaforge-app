@@ -21,6 +21,10 @@ import type {
 import { resolveMolecularDocumentReference } from '../../../molecular-documents/public/references';
 import { molecularDocumentReferenceRecord } from '../../../../shared/molecular-document-reference';
 import { resolveWorkspaceScope } from '../../../../db/workspace-catalog';
+import type {
+  ProjectResourceReference,
+  ResolvedProjectResourceReference,
+} from '../../../../shared/project-resource-reference';
 
 const DEFAULT_SETTLEMENT_DEADLINE_MS = 750;
 const DEFAULT_MAX_CONCURRENT_RESOLUTIONS = 4;
@@ -56,6 +60,9 @@ export interface InlineReferenceSessionOptions {
   resolveTarget?: (
     request: ResolveInlineReferenceTargetRequest
   ) => Promise<ResolveInlineReferenceTargetResult>;
+  resolveProjectResource?: (
+    reference: string | ProjectResourceReference
+  ) => Promise<ResolvedProjectResourceReference>;
   loadReferences?: (ids: string[]) => Promise<DBEntityReference[]>;
   now?: () => number;
   createId?: () => string;
@@ -117,6 +124,11 @@ function canonicalReplacement(part: InlineReferencePart): string {
   const label = escapeReadableLabel(part.label);
   if (part.declaration.kind === 'molecular-document')
     return `[${label}](${encodeInlineReferenceDeclaration(part.declaration)})`;
+  if (part.state.projectResource)
+    return `[${label}](${encodeInlineReferenceDeclaration({
+      kind: 'project-resource',
+      resource: part.state.projectResource.reference,
+    })})`;
   if (part.state.referenceId) {
     return `[${label}](${encodeInlineReferenceDeclaration({
       kind: 'existing-reference',
@@ -178,7 +190,17 @@ function canonicalizeDocument(
     throw new Error('Inline reference canonicalization lost durable UUID authority.');
   }
   const referencesById = new Map<string, DBEntityReference>();
+  const resourcesByHref = new Map<string, InlineReferenceState>();
   for (const part of settled.parts) {
+    if (part.state.status === 'resolved' && part.state.projectResource) {
+      resourcesByHref.set(
+        encodeInlineReferenceDeclaration({
+          kind: 'project-resource',
+          resource: part.state.projectResource.reference,
+        }),
+        part.state
+      );
+    }
     if (part.state.status === 'resolved' && part.state.referenceId && part.state.reference) {
       referencesById.set(part.state.referenceId, part.state.reference);
     }
@@ -186,6 +208,10 @@ function canonicalizeDocument(
   const document: InlineTextDocument = {
     ...canonical,
     parts: canonical.parts.map((part) => {
+      if (part.declaration.kind === 'project-resource') {
+        const state = resourcesByHref.get(declarationKey(part.declaration));
+        return state ? { ...part, state } : part;
+      }
       if (part.declaration.kind === 'molecular-document') {
         const state = states.get(declarationKey(part.declaration))?.state;
         return state ? { ...part, state } : part;
@@ -285,6 +311,34 @@ export function createInlineReferenceSession(
   const resolveDeclaration = async (
     declaration: InlineReferenceDeclaration
   ): Promise<ResolvedValue> => {
+    if (
+      declaration.kind === 'project-resource' ||
+      (declaration.kind === 'workspace-path' &&
+        (options.resolveProjectResource || !options.resolveTarget))
+    ) {
+      const resolveProjectResource =
+        options.resolveProjectResource ?? platform().fs.resolveProjectResourceReference;
+      if (resolveProjectResource)
+        try {
+          const resource = await resolveProjectResource(
+            declaration.kind === 'project-resource'
+              ? declaration.resource
+              : encodeInlineReferenceDeclaration(declaration)
+          );
+          return {
+            state: {
+              status: 'resolved',
+              canonicalLabel: stripDisplayExtension(resource.label),
+              projectResource: resource,
+            },
+            targetIdentity: resource.path,
+          };
+        } catch {
+          return { state: { status: 'invalid', code: 'target-unavailable' } };
+        }
+    }
+    if (declaration.kind === 'project-resource')
+      return { state: { status: 'invalid', code: 'target-unavailable' } };
     if (declaration.kind === 'molecular-document') {
       const scopes = await Promise.all(roots.map((root) => resolveWorkspaceScope(root.path)));
       if (!scopes.includes(declaration.document.projectId))
@@ -456,7 +510,11 @@ export function createInlineReferenceSession(
       }
       if (options.isScopeCurrent && !options.isScopeCurrent()) {
         for (const [key, declaration] of declarations) {
-          if (declaration.kind !== 'existing-reference') {
+          const state = states.get(key)?.state;
+          if (
+            declaration.kind !== 'existing-reference' &&
+            !(state?.status === 'resolved' && state.projectResource)
+          ) {
             states.set(key, { state: { status: 'invalid', code: 'workspace-changed' } });
           }
         }

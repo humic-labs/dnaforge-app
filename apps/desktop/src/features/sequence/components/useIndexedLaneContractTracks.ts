@@ -5,7 +5,6 @@ import { alignedReadSourceGenerationKey } from '@waypoint/genome-data';
 import {
   BUILTIN_TRACK_TYPES,
   CYTOBAND_TYPE,
-  defaultBuiltinRegistry,
   PENDING_INTERVAL_BAND_HEIGHT_PX,
   PixiAnnotationTrackRenderer,
   PixiCytobandTrackRenderer,
@@ -43,7 +42,6 @@ interface UseIndexedLaneContractTracksOptions {
   recordEvent: (event: string, detail?: Record<string, unknown>) => void;
 }
 
-const TRACK_TYPE_REGISTRY = defaultBuiltinRegistry();
 const PILEUP_ROW_GAP_PX = 1;
 const PILEUP_READ_BODY_SCALE = 1.2;
 const DEFAULT_PILEUP_ROW_PITCH_PX = 3;
@@ -230,18 +228,10 @@ export function useIndexedLaneContractTracks({
           order: 1 + i,
           visible: true,
           assemblyId: manifestChrom,
-          sizing:
-            dataset.kind === 'pileup' ||
-            dataset.trackType === BUILTIN_TRACK_TYPES.quantitative ||
-            dataset.trackType === BUILTIN_TRACK_TYPES.peak
-              ? {
-                  kind: 'fixed',
-                  pixels: pileupGeometry?.trackHeightPx ?? dataset.trackPx,
-                }
-              : (TRACK_TYPE_REGISTRY.getTrackTypeDefinition(dataset.trackType)?.defaultSizing ?? {
-                  kind: 'fixed',
-                  pixels: dataset.trackPx,
-                }),
+          sizing: {
+            kind: 'fixed',
+            pixels: pileupGeometry?.trackHeightPx ?? dataset.trackPx,
+          },
           label: dataset.label,
           color: colorToCss(dataset.color),
           rowHeightPx: pileupGeometry?.rowPitchPx ?? dataset.laneHeightPx,

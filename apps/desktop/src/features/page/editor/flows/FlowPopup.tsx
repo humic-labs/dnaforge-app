@@ -1,4 +1,9 @@
-'use client';
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../../../../presentation/PresentationSurface';
+('use client');
 
 import { useId, useLayoutEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -15,6 +20,9 @@ const sizeWidths: Record<PickerSize, string> = {
 };
 
 export function FlowPopup({ returnFocusTarget }: { returnFocusTarget?: HTMLElement | null }) {
+  const presentationOverlay = usePresentationOverlay('modal');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const { activeFlow, advanceFlow, goBack, cancelFlow } = useFlowManager();
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef(cancelFlow);
@@ -79,14 +87,14 @@ export function FlowPopup({ returnFocusTarget }: { returnFocusTarget?: HTMLEleme
         }
       }
     };
-    document.addEventListener('keydown', handleKeyDown);
+    presentationEvents.add(document, 'keydown', handleKeyDown);
     document.addEventListener('focusin', containFocus);
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      presentationEvents.remove(document, 'keydown', handleKeyDown);
       document.removeEventListener('focusin', containFocus);
       queueMicrotask(() => safeFocus(returnFocus, { preventScroll: true }));
     };
-  }, [isOpen, returnFocus]);
+  }, [isOpen, returnFocus, presentationEvents]);
 
   if (!activeFlow) return null;
 
@@ -108,77 +116,82 @@ export function FlowPopup({ returnFocusTarget }: { returnFocusTarget?: HTMLEleme
   const widthClass = sizeWidths[size];
 
   return createPortal(
-    <div className="fixed inset-0 z-[10040] flex items-start justify-center p-4 pt-[min(20vh,96px)]">
+    <div
+      ref={presentationOverlay.bindRef(undefined, '0')}
+      className="fixed inset-0 z-[10040] flex items-start justify-center p-4 pt-[min(20vh,96px)]"
+    >
       {}
       <div className="absolute inset-0 bg-black/20" onClick={cancelFlow} aria-hidden="true" />
 
       {}
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className={`relative flex max-h-[calc(100dvh-min(20vh,96px)-16px)] max-w-full flex-col bg-bg text-fg border border-border rounded-lg shadow-xl ${widthClass} overflow-hidden`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
-        {}
-        <div className="flex shrink-0 items-center justify-between px-4 py-3 border-b border-border bg-bg-subtle">
-          <div className="flex items-center gap-2">
-            {activeFlow.stageIndex > 0 && (
-              <button
-                onClick={goBack}
-                type="button"
-                className="p-1 text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                aria-label="Go back"
-              >
-                <ChevronLeftIcon className="w-4 h-4" />
-              </button>
-            )}
-            <span id={titleId} className="text-sm font-medium">
-              {stage.name}
-            </span>
+      <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+        <div
+          ref={dialogRef}
+          tabIndex={-1}
+          className={`relative flex max-h-[calc(100dvh-min(20vh,96px)-16px)] max-w-full flex-col bg-bg text-fg border border-border rounded-lg shadow-xl ${widthClass} overflow-hidden`}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+        >
+          {}
+          <div className="flex shrink-0 items-center justify-between px-4 py-3 border-b border-border bg-bg-subtle">
+            <div className="flex items-center gap-2">
+              {activeFlow.stageIndex > 0 && (
+                <button
+                  onClick={goBack}
+                  type="button"
+                  className="p-1 text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  aria-label="Go back"
+                >
+                  <ChevronLeftIcon className="w-4 h-4" />
+                </button>
+              )}
+              <span id={titleId} className="text-sm font-medium">
+                {stage.name}
+              </span>
+            </div>
+            <button
+              onClick={cancelFlow}
+              type="button"
+              className="p-1 text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              aria-label="Cancel"
+            >
+              <XIcon className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={cancelFlow}
-            type="button"
-            className="p-1 text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            aria-label="Cancel"
-          >
-            <XIcon className="w-4 h-4" />
-          </button>
-        </div>
 
-        {}
-        <div className="min-h-0 overflow-y-auto p-4">
-          <StageComponent
-            data={activeFlow.data}
-            onAdvance={advanceFlow}
-            onBack={goBack}
-            onCancel={cancelFlow}
-          />
-        </div>
-
-        {}
-        {isMultiStage && (
-          <div className="flex shrink-0 justify-center gap-1.5 pb-3">
-            {picker.stages.map((_, i) => (
-              <div
-                key={i}
-                className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                  i <= activeFlow.stageIndex ? 'bg-accent' : 'bg-border'
-                }`}
-                aria-label={
-                  i < activeFlow.stageIndex
-                    ? 'Completed'
-                    : i === activeFlow.stageIndex
-                      ? 'Current'
-                      : 'Upcoming'
-                }
-              />
-            ))}
+          {}
+          <div className="min-h-0 overflow-y-auto p-4">
+            <StageComponent
+              data={activeFlow.data}
+              onAdvance={advanceFlow}
+              onBack={goBack}
+              onCancel={cancelFlow}
+            />
           </div>
-        )}
-      </div>
+
+          {}
+          {isMultiStage && (
+            <div className="flex shrink-0 justify-center gap-1.5 pb-3">
+              {picker.stages.map((_, i) => (
+                <div
+                  key={i}
+                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                    i <= activeFlow.stageIndex ? 'bg-accent' : 'bg-border'
+                  }`}
+                  aria-label={
+                    i < activeFlow.stageIndex
+                      ? 'Completed'
+                      : i === activeFlow.stageIndex
+                        ? 'Current'
+                        : 'Upcoming'
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </PresentationScopeContext.Provider>
     </div>,
     document.body
   );

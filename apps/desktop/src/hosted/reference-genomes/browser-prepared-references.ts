@@ -1,3 +1,7 @@
+import {
+  MAX_SEQUENCE_WINDOW_BASES,
+  sequenceWindowRequestIssue,
+} from '../../shared/genome-sequence-window';
 import { compiledBroadRasterCellToWireV1 } from '../../shared/compiled-broad-raster-wire';
 import { IndexedGenomeDataSource } from '@waypoint/genome-data';
 import { UserMessageError, toUserMessage } from '@waypoint/user-messages';
@@ -142,7 +146,6 @@ interface BroadRasterOpeningV1 {
 
 const PUBLICATION_POINTER_FILE = 'current-reference-assets.v1.json';
 const PORTABLE_ANNOTATION_SEARCH_MANIFEST_V1 = 'dnaforge-portable-annotation-search-manifest.v1';
-const MAX_SEQUENCE_WINDOW_BASES = 512 * 1024;
 const MAX_BROAD_RASTER_OPENINGS = 1_024;
 
 export class BrowserPreparedReferencesV1 {
@@ -375,18 +378,14 @@ export class BrowserPreparedReferencesV1 {
     const session = await this.getSession(sessionId);
     const manifest = session.manifest;
     if (!manifest) throw new Error(`[genome] Session has no indexed FASTA manifest: ${sessionId}`);
-    if (
-      !request ||
-      typeof request.chrom !== 'string' ||
-      !Number.isFinite(request.start) ||
-      !Number.isFinite(request.end) ||
-      !Number.isFinite(request.generation) ||
-      request.start < 0 ||
-      request.end < request.start
-    ) {
+    if (!request || typeof request.chrom !== 'string') {
       throw new Error('[genome] Invalid sequence window request.');
     }
-    if (request.end - request.start > MAX_SEQUENCE_WINDOW_BASES) {
+    const issue = sequenceWindowRequestIssue(request);
+    if (issue && issue !== 'too-large') {
+      throw new Error('[genome] Invalid sequence window request.');
+    }
+    if (issue === 'too-large') {
       throw new Error(`[genome] Sequence window exceeds ${MAX_SEQUENCE_WINDOW_BASES} bp.`);
     }
     const length = session.length ?? manifest.length;

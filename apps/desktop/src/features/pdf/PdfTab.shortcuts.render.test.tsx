@@ -1,3 +1,5 @@
+import { presentationOwner } from '../../presentation/ownership';
+import { WorkspaceCommandProvider as CommandScopeProvider } from '../../test/document-save-commands';
 import { webcrypto } from 'node:crypto';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -20,13 +22,7 @@ vi.mock('./runtime', () => ({
 vi.mock('./PdfPage', () => ({ PdfPage: () => null }));
 vi.mock('../ai/hooks/useChat', () => ({ useChatStore: { getState: () => ({}) } }));
 
-import {
-  COMMAND_IDS,
-  COMMAND_SCOPES,
-  CommandScopeProvider,
-  useCommandHandler,
-  useCommandScope,
-} from '../../commands';
+import { COMMAND_IDS, COMMAND_SCOPES, useCommandHandler, useCommandScope } from '../../commands';
 import { useAppShortcutActions } from '../../keyboard/useAppShortcutActions';
 import { useCanvasStore } from '../canvas/public/store';
 import { PdfTab } from './PdfTab';
@@ -233,13 +229,23 @@ describe('PDF zoom command ownership', () => {
       );
       if (surface === 'editable') target.setAttribute('contenteditable', 'true');
       if (surface === 'terminal') target.setAttribute('data-terminal-surface', '');
-      if (surface === 'modal') target.setAttribute('aria-modal', 'true');
+      if (surface === 'modal') {
+        target.setAttribute('aria-modal', 'true');
+        presentationOwner.dispatch({
+          type: 'attach',
+          id: 'test-modal',
+          parentId: 'workspace',
+          active: true,
+          capture: 'modal',
+        });
+      }
       document.body.append(target);
       try {
         press('=', target);
         press('0', target);
         expect(screen.getByText('120%')).toBeVisible();
       } finally {
+        if (surface === 'modal') presentationOwner.dispatch({ type: 'dispose', id: 'test-modal' });
         target.remove();
       }
     }

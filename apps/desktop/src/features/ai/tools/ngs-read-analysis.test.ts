@@ -9,6 +9,9 @@ const mocked = vi.hoisted(() => ({
   importAnalysis: vi.fn(),
   describeCalls: vi.fn((_data: unknown, _sequence: unknown, calls: unknown[]) => calls),
   loadAnalysis: vi.fn(),
+  settled: vi.fn(),
+  started: vi.fn(),
+  submitFailed: vi.fn(),
 }));
 
 vi.mock('../../../services/managed-operations', () => ({ managedOperations: mocked }));
@@ -24,6 +27,11 @@ vi.mock('../../alignment-manager/public/ngs-read-analysis', () => ({
   importNgsReadAnalysis: mocked.importAnalysis,
 }));
 vi.mock('../../alignment-manager/public/variant-analysis', () => ({ describeVariantCalls: mocked.describeCalls, loadVariantAnalysis: mocked.loadAnalysis }));
+vi.mock('../../alignment-manager/public/ngs-read-telemetry', () => ({
+  trackNgsReadAnalysisSettled: mocked.settled,
+  trackNgsReadAnalysisStarted: mocked.started,
+  trackNgsReadAnalysisSubmitFailed: mocked.submitFailed,
+}));
 vi.mock('../../sequence/public/store', () => ({ useSequenceStore: { getState: () => ({ getSequence: () => ({ sequence: 'ACGT' }) }) } }));
 
 import { createGetNgsAnalysisTool } from './ngs-read-analysis';
@@ -77,6 +85,42 @@ describe('NGS operation lookup diagnostics', () => {
     });
     expect(result.calls).toEqual(calls.slice(0, 25));
     expect(calls).toHaveLength(106);
+  });
+  it('reports each settled raw-read analysis to product telemetry without changing the tool result', async () => {
+    const operation = { kind: 'ngs-read-analysis', state: 'succeeded' };
+    const readEvidence = {
+      sourceSha256: 'source', referenceSha256: 'reference', totalReads: 10, totalBases: 100,
+      mappedReads: 9, unmappedReads: 1, mappingQualityReads: 9, coverage: [1, 1],
+      circularMethod: 'circular', versions: {}, countBasis: 'reads',
+    };
+    mocked.getOperation.mockResolvedValue(operation);
+    mocked.openTab.mockResolvedValue({});
+    mocked.importAnalysis.mockResolvedValue({ analysisId: operationId, data: { calls: [{ id: 'c' }, { id: 'd' }], readEvidence } });
+    mocked.settled.mockImplementation(() => {
+      throw new Error('telemetry offline');
+    });
+    const tool = createGetNgsAnalysisTool([]);
+    const imported = await execTool<InferToolOutput<typeof tool>>(tool, input);
+    expect(imported).toMatchObject({ ok: true, status: 'imported', callCount: 2 });
+    expect(mocked.settled).toHaveBeenLastCalledWith(operation, { evidence: readEvidence, candidateCount: 2 });
+
+    const failed = { kind: 'ngs-read-analysis', state: 'failed', error: { code: 'MINIMAP2_FAILED', message: 'x' } };
+    mocked.getOperation.mockResolvedValue(failed);
+    await execTool<InferToolOutput<typeof tool>>(tool, input);
+    expect(mocked.settled).toHaveBeenLastCalledWith(failed, {});
+
+    const running = { kind: 'ngs-read-analysis', state: 'running' };
+    mocked.settled.mockClear();
+    mocked.getOperation.mockResolvedValue(running);
+    await execTool<InferToolOutput<typeof tool>>(tool, input);
+    expect(mocked.settled).not.toHaveBeenCalled();
+
+    const refusal = new Error('reference revision changed');
+    mocked.getOperation.mockResolvedValue(operation);
+    mocked.importAnalysis.mockRejectedValue(refusal);
+    const refused = await execTool<InferToolOutput<typeof tool>>(tool, input);
+    expect(refused.ok).toBe(false);
+    expect(mocked.settled).toHaveBeenLastCalledWith(operation, { error: refusal });
   });
   it('distinguishes an unknown opaque ID from failure of the actual analysis', async () => {
     mocked.getOperation.mockRejectedValue({

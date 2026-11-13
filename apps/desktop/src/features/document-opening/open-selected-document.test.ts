@@ -1,5 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DocumentOpenResult } from '../canvas/public/document-presentation';
+import { useCanvasStore } from '../canvas/public/store';
+import {
+  finishGenomeViewFileOpen,
+  pendingGenomeViewFileOpen,
+} from '../sequence/public/genome-view-open-request';
 import { openSelectedDocument } from './open-selected-document';
 
 const state = vi.hoisted(() => ({
@@ -24,7 +29,8 @@ vi.mock('../workspace-session/public/electron-session', () => ({
   bindElectronWorkspaceSessionTab: state.bind,
   closeElectronWorkspaceSessionFile: state.close,
 }));
-vi.mock('./open-document', () => ({
+vi.mock('./open-document', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./open-document')>()),
   openDocument: state.open,
   resolveFileDocumentKindFromSource: state.sourceKind,
 }));
@@ -45,17 +51,33 @@ beforeEach(() => {
   state.session.mockResolvedValue('/PRIVATE_SESSION_PATH');
   state.open.mockResolvedValue(presented);
   state.sourceKind.mockImplementation(async (target) => target.tabType);
+  useCanvasStore.setState({
+    panels: { main: { id: 'main', tabs: [], activeTabId: null } },
+    layout: { type: 'panel', panelId: 'main' },
+    focusedPanelId: 'main',
+  });
 });
 
+afterEach(() => finishGenomeViewFileOpen(null));
+
 describe('selected-document guarded result authority', () => {
-  it('passes an admitted saved genome view as a typed track-view target', async () => {
+  it('returns the original admitted saved-view receipt without presenting it twice', async () => {
     const path = '/PRIVATE_GENOME_VIEW.dnaforge-track-view.json';
-    await openSelectedDocument(path, 'sequence');
+    const opening = openSelectedDocument(path, 'sequence');
+    const original = pendingGenomeViewFileOpen()!;
+    expect(original.path).toBe(path);
+    await state.session.mock.results[0].value;
+    finishGenomeViewFileOpen(original.tabId, original.id);
+    await expect(opening).resolves.toEqual({ ...presented, tabId: original.tabId });
     expect(state.session).toHaveBeenCalledWith(path);
-    expect(state.open).toHaveBeenCalledWith(
-      expect.objectContaining({ target: { kind: 'track-view', id: path } })
-    );
-    expect(state.bind).toHaveBeenCalledWith('opaque-tab', '/PRIVATE_SESSION_PATH');
+    expect(state.open).not.toHaveBeenCalled();
+    expect(state.bind).toHaveBeenCalledExactlyOnceWith(original.tabId, '/PRIVATE_SESSION_PATH');
+    expect(state.close).not.toHaveBeenCalled();
+    expect(useCanvasStore.getState().panels.main.tabs.map((tab) => tab.id)).toEqual([
+      original.tabId,
+    ]);
+    expect(useCanvasStore.getState().panels.main.activeTabId).toBe(original.tabId);
+    expect(pendingGenomeViewFileOpen()).toBeNull();
   });
 
   it('returns the actual accepted result and binds the opened workspace session', async () => {

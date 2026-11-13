@@ -1,4 +1,5 @@
-'use client';
+import { usePresentationListener } from '../../../../../presentation/PresentationSurface';
+('use client');
 
 import { toUserMessage } from '@waypoint/user-messages';
 import {
@@ -42,6 +43,8 @@ export const AdvancedSettingsDrawer = memo(function AdvancedSettingsDrawer({
   onUseCurrentFraming,
   framingDisabled,
 }: AdvancedSettingsDrawerProps) {
+  const presentationEvents = usePresentationListener();
+
   const drawerRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const [placement, setPlacement] = useState({ left: 8, top: 8, width: 300, maxHeight: 300 });
@@ -98,13 +101,13 @@ export const AdvancedSettingsDrawer = memo(function AdvancedSettingsDrawer({
       event.preventDefault();
       closeRef.current();
     };
-    document.addEventListener('keydown', dismiss);
+    presentationEvents.add(document, 'keydown', dismiss);
     return () => {
       cancelAnimationFrame(frame);
-      document.removeEventListener('keydown', dismiss);
+      presentationEvents.remove(document, 'keydown', dismiss);
       queueMicrotask(() => safeFocus(returnFocus, { preventScroll: true }));
     };
-  }, [isOpen, returnFocus]);
+  }, [isOpen, returnFocus, presentationEvents]);
 
   const [framingError, setFramingError] = useState<string | null>(null);
   useEffect(() => setFramingError(null), [isOpen]);

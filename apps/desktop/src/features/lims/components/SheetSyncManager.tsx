@@ -1,4 +1,8 @@
 import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+} from '../../../presentation/PresentationSurface';
+import {
   toUserMessage,
   userMessage,
   userMessageWithValues,
@@ -147,6 +151,8 @@ function summaryLabel(view: SheetSyncView): UserMessage {
 }
 
 export function SheetSyncManagerButton() {
+  const presentationOverlay = usePresentationOverlay('modal');
+
   const [open, setOpen] = useState(false);
   const folders = useWorkspaceStore((state) => state.folders);
   const roots = useMemo(() => writableProjectRoots(folders), [folders]);
@@ -338,418 +344,424 @@ export function SheetSyncManagerButton() {
       </button>
       {open ? (
         <div
+          ref={presentationOverlay.bindRef(undefined, '0')}
           className="fixed inset-0 z-[10060] flex items-center justify-center bg-black/40"
           onMouseDown={() => setOpen(false)}
         >
-          <section
-            ref={dialog}
-            tabIndex={-1}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="sheet-sync-title"
-            data-testid="sheet-sync-dialog"
-            className="mx-4 flex max-h-[calc(100vh-48px)] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-border bg-bg-subtle text-fg shadow-xl outline-none"
-            onMouseDown={(event) => event.stopPropagation()}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                event.preventDefault();
-                event.stopPropagation();
-                setOpen(false);
-              }
-              if (event.key === 'Tab') {
-                const controls = [
-                  ...(dialog.current?.querySelectorAll<HTMLElement>(
-                    'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]'
-                  ) ?? []),
-                ];
-                const first = controls[0],
-                  last = controls[controls.length - 1];
-                if (
-                  event.shiftKey &&
-                  (document.activeElement === first || document.activeElement === dialog.current)
-                ) {
+          <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+            <section
+              ref={dialog}
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="sheet-sync-title"
+              data-testid="sheet-sync-dialog"
+              className="mx-4 flex max-h-[calc(100vh-48px)] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-border bg-bg-subtle text-fg shadow-xl outline-none"
+              onMouseDown={(event) => event.stopPropagation()}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
                   event.preventDefault();
-                  safeFocus(last);
-                } else if (!event.shiftKey && document.activeElement === last) {
-                  event.preventDefault();
-                  safeFocus(first);
+                  event.stopPropagation();
+                  setOpen(false);
                 }
-              }
-            }}
-          >
-            <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
-              <div>
-                <h2 id="sheet-sync-title" className="text-base font-semibold">
-                  Spreadsheet sync
-                </h2>
-                <p className="mt-1 max-w-xl text-xs leading-5 text-fg-muted">
-                  Keep using your master spreadsheet. Rows become Registry records and update while
-                  the project is open. Your source stays unchanged.
-                </p>
-              </div>
-              <Button aria-label="Close spreadsheet sync" onClick={() => setOpen(false)}>
-                Close
-              </Button>
-            </header>
-            <div className="min-h-0 space-y-5 overflow-y-auto p-5">
-              {error ? (
-                <Notice tone="error" testId="sheet-sync-error">
-                  {toUserMessage(error, 'operation.failed')}
-                </Notice>
-              ) : null}
-              <label className="block text-xs font-medium">
-                Project
-                <select
-                  aria-label="Spreadsheet project"
-                  value={root}
-                  onChange={(event) => {
-                    setRoot(event.target.value);
-                    setReauthorize(null);
-                    setError(null);
-                  }}
-                  className={`${SELECT_CLASS} mt-1.5`}
-                  disabled={busy}
-                >
-                  <option value="" disabled>
-                    Open a writable project
-                  </option>
-                  {roots.map((project) => (
-                    <option key={project.path} value={project.path}>
-                      {project.name}
+                if (event.key === 'Tab') {
+                  const controls = [
+                    ...(dialog.current?.querySelectorAll<HTMLElement>(
+                      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]'
+                    ) ?? []),
+                  ];
+                  const first = controls[0],
+                    last = controls[controls.length - 1];
+                  if (
+                    event.shiftKey &&
+                    (document.activeElement === first || document.activeElement === dialog.current)
+                  ) {
+                    event.preventDefault();
+                    safeFocus(last);
+                  } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    safeFocus(first);
+                  }
+                }
+              }}
+            >
+              <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+                <div>
+                  <h2 id="sheet-sync-title" className="text-base font-semibold">
+                    Spreadsheet sync
+                  </h2>
+                  <p className="mt-1 max-w-xl text-xs leading-5 text-fg-muted">
+                    Keep using your master spreadsheet. Rows become Registry records and update
+                    while the project is open. Your source stays unchanged.
+                  </p>
+                </div>
+                <Button aria-label="Close spreadsheet sync" onClick={() => setOpen(false)}>
+                  Close
+                </Button>
+              </header>
+              <div className="min-h-0 space-y-5 overflow-y-auto p-5">
+                {error ? (
+                  <Notice tone="error" testId="sheet-sync-error">
+                    {toUserMessage(error, 'operation.failed')}
+                  </Notice>
+                ) : null}
+                <label className="block text-xs font-medium">
+                  Project
+                  <select
+                    aria-label="Spreadsheet project"
+                    value={root}
+                    onChange={(event) => {
+                      setRoot(event.target.value);
+                      setReauthorize(null);
+                      setError(null);
+                    }}
+                    className={`${SELECT_CLASS} mt-1.5`}
+                    disabled={busy}
+                  >
+                    <option value="" disabled>
+                      Open a writable project
                     </option>
-                  ))}
-                </select>
-              </label>
-              {reauthorize ? (
+                    {roots.map((project) => (
+                      <option key={project.path} value={project.path}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {reauthorize ? (
+                  <GoogleSheetChooser
+                    key={reauthorize.id}
+                    disabled={busy}
+                    source={reauthorize.source}
+                    onSelected={async ({ grantId }) => {
+                      const stored = await loadSheetSyncConnection(root, reauthorize.id);
+                      await authorizeGoogleSheetSync(root, stored.connection, grantId);
+                      await setSheetSyncEnabled(root, reauthorize.id, true);
+                      await refreshSheetSyncProject(root);
+                      await requestSheetSyncPull(root, reauthorize.id);
+                      setReauthorize(null);
+                    }}
+                  />
+                ) : null}
+                {views.length ? (
+                  <div
+                    className="divide-y divide-border rounded-md border border-border bg-bg"
+                    data-testid="sheet-sync-connections"
+                  >
+                    {views.map((view) => (
+                      <div
+                        key={view.kind === 'invalid' ? view.name : view.connectionId}
+                        className="px-3 py-3"
+                        data-testid={
+                          view.kind === 'invalid' ? 'sheet-sync-invalid' : 'sheet-sync-connection'
+                        }
+                      >
+                        {view.kind === 'invalid' ? (
+                          <Notice tone="error">
+                            {view.name}: {toUserMessage(view.message, 'account.failed')}
+                          </Notice>
+                        ) : (
+                          <>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <p className="text-xs font-medium" title={view.sourcePath}>
+                                  {fileName(view.sourcePath)} / {view.sheetName}
+                                </p>
+                                <p
+                                  className={`mt-1 text-xs leading-5 ${view.kind === 'error' ? 'text-error' : 'text-fg-muted'}`}
+                                  data-testid="sheet-sync-connection-status"
+                                >
+                                  {summaryLabel(view)}
+                                </p>
+                              </div>
+                              <div className="flex gap-2">
+                                {view.kind === 'paused' ||
+                                view.kind === 'authorization-required' ? (
+                                  <Button onClick={() => void action(view, 'resume')}>
+                                    {view.kind === 'authorization-required'
+                                      ? view.provider === 'google-sheets'
+                                        ? 'Authorize Google sheet'
+                                        : 'Choose workbook'
+                                      : 'Resume'}
+                                  </Button>
+                                ) : (
+                                  <>
+                                    <Button
+                                      disabled={view.kind === 'syncing'}
+                                      onClick={() => void action(view, 'sync')}
+                                    >
+                                      {view.kind === 'error' ? 'Retry' : 'Sync now'}
+                                    </Button>
+                                    <Button onClick={() => void action(view, 'pause')}>
+                                      Pause
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            {view.kind === 'ready' && view.summary.conflicts.length ? (
+                              <p className="mt-2 text-xs text-warning">
+                                Rows{' '}
+                                {view.summary.conflicts.map((conflict) => conflict.key).join(', ')}{' '}
+                                changed in both places. Review those rows; neither version was
+                                overwritten.
+                              </p>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 <GoogleSheetChooser
-                  key={reauthorize.id}
-                  disabled={busy}
-                  source={reauthorize.source}
-                  onSelected={async ({ grantId }) => {
-                    const stored = await loadSheetSyncConnection(root, reauthorize.id);
-                    await authorizeGoogleSheetSync(root, stored.connection, grantId);
-                    await setSheetSyncEnabled(root, reauthorize.id, true);
-                    await refreshSheetSyncProject(root);
-                    await requestSheetSyncPull(root, reauthorize.id);
-                    setReauthorize(null);
+                  disabled={!root || busy}
+                  onSelected={async ({ grantId, spreadsheet, snapshot }) => {
+                    setWorkbook({
+                      provider: 'google-sheets',
+                      grantId,
+                      snapshot,
+                      path: spreadsheet.title,
+                      sheets: [snapshot.sheetTitle],
+                    });
+                    setSheet(snapshot.sheetTitle);
+                    setMappings([]);
+                    setKeyColumn('');
+                    setInspected(null);
+                    setPreview({ kind: 'idle' });
                   }}
                 />
-              ) : null}
-              {views.length ? (
-                <div
-                  className="divide-y divide-border rounded-md border border-border bg-bg"
-                  data-testid="sheet-sync-connections"
-                >
-                  {views.map((view) => (
-                    <div
-                      key={view.kind === 'invalid' ? view.name : view.connectionId}
-                      className="px-3 py-3"
-                      data-testid={
-                        view.kind === 'invalid' ? 'sheet-sync-invalid' : 'sheet-sync-connection'
-                      }
+                <section className="border-t border-border pt-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold">Connect a workbook</h3>
+                    <Button
+                      disabled={!root || busy}
+                      onClick={() => void chooseWorkbook()}
+                      data-testid="sheet-sync-choose-file"
                     >
-                      {view.kind === 'invalid' ? (
-                        <Notice tone="error">
-                          {view.name}: {toUserMessage(view.message, 'account.failed')}
-                        </Notice>
-                      ) : (
-                        <>
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div>
-                              <p className="text-xs font-medium" title={view.sourcePath}>
-                                {fileName(view.sourcePath)} / {view.sheetName}
-                              </p>
-                              <p
-                                className={`mt-1 text-xs leading-5 ${view.kind === 'error' ? 'text-error' : 'text-fg-muted'}`}
-                                data-testid="sheet-sync-connection-status"
-                              >
-                                {summaryLabel(view)}
-                              </p>
-                            </div>
-                            <div className="flex gap-2">
-                              {view.kind === 'paused' || view.kind === 'authorization-required' ? (
-                                <Button onClick={() => void action(view, 'resume')}>
-                                  {view.kind === 'authorization-required'
-                                    ? view.provider === 'google-sheets'
-                                      ? 'Authorize Google sheet'
-                                      : 'Choose workbook'
-                                    : 'Resume'}
-                                </Button>
-                              ) : (
-                                <>
-                                  <Button
-                                    disabled={view.kind === 'syncing'}
-                                    onClick={() => void action(view, 'sync')}
-                                  >
-                                    {view.kind === 'error' ? 'Retry' : 'Sync now'}
-                                  </Button>
-                                  <Button onClick={() => void action(view, 'pause')}>Pause</Button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          {view.kind === 'ready' && view.summary.conflicts.length ? (
-                            <p className="mt-2 text-xs text-warning">
-                              Rows{' '}
-                              {view.summary.conflicts.map((conflict) => conflict.key).join(', ')}{' '}
-                              changed in both places. Review those rows; neither version was
-                              overwritten.
-                            </p>
-                          ) : null}
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-              <GoogleSheetChooser
-                disabled={!root || busy}
-                onSelected={async ({ grantId, spreadsheet, snapshot }) => {
-                  setWorkbook({
-                    provider: 'google-sheets',
-                    grantId,
-                    snapshot,
-                    path: spreadsheet.title,
-                    sheets: [snapshot.sheetTitle],
-                  });
-                  setSheet(snapshot.sheetTitle);
-                  setMappings([]);
-                  setKeyColumn('');
-                  setInspected(null);
-                  setPreview({ kind: 'idle' });
-                }}
-              />
-              <section className="border-t border-border pt-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold">Connect a workbook</h3>
-                  <Button
-                    disabled={!root || busy}
-                    onClick={() => void chooseWorkbook()}
-                    data-testid="sheet-sync-choose-file"
-                  >
-                    Choose Excel workbook
-                  </Button>
-                </div>
-                {workbook ? (
-                  <>
-                    <p className="mt-2 truncate text-xs text-fg-muted" title={workbook.path}>
-                      {fileName(workbook.path)}
-                    </p>
-                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <label className="text-xs font-medium">
-                        Worksheet
-                        <select
-                          aria-label="Spreadsheet worksheet"
-                          className={`${SELECT_CLASS} mt-1.5`}
-                          value={sheet}
-                          onChange={(event) => {
-                            setSheet(event.target.value);
-                            setMappings([]);
-                            setKeyColumn('');
-                          }}
-                          disabled={busy}
-                        >
-                          {workbook.sheets.map((name) => (
-                            <option key={name} value={name}>
-                              {name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="text-xs font-medium">
-                        Record type
-                        <select
-                          aria-label="Spreadsheet record type"
-                          className={`${SELECT_CLASS} mt-1.5`}
-                          value={kind}
-                          onChange={(event) => {
-                            const option = KIND_OPTIONS.find(
-                              (candidate) => candidate.value === event.target.value
-                            );
-                            if (option) {
-                              setKind(option.value);
+                      Choose Excel workbook
+                    </Button>
+                  </div>
+                  {workbook ? (
+                    <>
+                      <p className="mt-2 truncate text-xs text-fg-muted" title={workbook.path}>
+                        {fileName(workbook.path)}
+                      </p>
+                      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <label className="text-xs font-medium">
+                          Worksheet
+                          <select
+                            aria-label="Spreadsheet worksheet"
+                            className={`${SELECT_CLASS} mt-1.5`}
+                            value={sheet}
+                            onChange={(event) => {
+                              setSheet(event.target.value);
                               setMappings([]);
-                            }
+                              setKeyColumn('');
+                            }}
+                            disabled={busy}
+                          >
+                            {workbook.sheets.map((name) => (
+                              <option key={name} value={name}>
+                                {name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="text-xs font-medium">
+                          Record type
+                          <select
+                            aria-label="Spreadsheet record type"
+                            className={`${SELECT_CLASS} mt-1.5`}
+                            value={kind}
+                            onChange={(event) => {
+                              const option = KIND_OPTIONS.find(
+                                (candidate) => candidate.value === event.target.value
+                              );
+                              if (option) {
+                                setKind(option.value);
+                                setMappings([]);
+                              }
+                            }}
+                            disabled={busy}
+                          >
+                            {KIND_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <label className="mt-4 block text-xs font-medium">
+                        Permanent unique ID column
+                        <select
+                          aria-label="Spreadsheet unique ID column"
+                          className={`${SELECT_CLASS} mt-1.5`}
+                          value={keyColumn}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setKeyColumn(value);
+                            setMappings((current) =>
+                              current.map((mapping) =>
+                                mapping.sourceColumn === value && mapping.mappingMode === 'ignored'
+                                  ? { ...mapping, mappingMode: 'source_only' }
+                                  : mapping
+                              )
+                            );
                           }}
                           disabled={busy}
                         >
-                          {KIND_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
+                          <option value="">Choose an ID column</option>
+                          {inspected?.columns.map((column) => (
+                            <option key={column.sourceColumn} value={column.sourceColumn}>
+                              {column.sourceColumn}
                             </option>
                           ))}
                         </select>
                       </label>
-                    </div>
-                    <label className="mt-4 block text-xs font-medium">
-                      Permanent unique ID column
-                      <select
-                        aria-label="Spreadsheet unique ID column"
-                        className={`${SELECT_CLASS} mt-1.5`}
-                        value={keyColumn}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          setKeyColumn(value);
-                          setMappings((current) =>
-                            current.map((mapping) =>
-                              mapping.sourceColumn === value && mapping.mappingMode === 'ignored'
-                                ? { ...mapping, mappingMode: 'source_only' }
-                                : mapping
-                            )
-                          );
-                        }}
-                        disabled={busy}
-                      >
-                        <option value="">Choose an ID column</option>
-                        {inspected?.columns.map((column) => (
-                          <option key={column.sourceColumn} value={column.sourceColumn}>
-                            {column.sourceColumn}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <p className="mt-1 text-[11px] leading-4 text-fg-subtle">
-                      Use an ID that survives sorting and renaming. Changing the ID creates a new
-                      record.
-                    </p>
-                    {inspected ? (
-                      <div className="mt-4 overflow-hidden rounded-md border border-border">
-                        <table className="w-full text-left text-xs">
-                          <thead className="bg-bg-muted text-fg-muted">
-                            <tr>
-                              <th className="px-3 py-2 font-medium">Workbook column</th>
-                              <th className="px-3 py-2 font-medium">Registry field</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border bg-bg">
-                            {inspected.columns.map((column) => {
-                              const mapping = mappings.find(
-                                (item) => item.sourceColumn === column.sourceColumn
-                              );
-                              const value =
-                                mapping?.mappingMode === 'mapped'
-                                  ? mapping.mappedField
-                                  : mapping?.mappingMode === 'ignored'
-                                    ? '__ignore'
-                                    : '__source';
-                              return (
-                                <tr key={column.sourceColumn}>
-                                  <td className="px-3 py-2">{column.sourceColumn}</td>
-                                  <td className="px-3 py-2">
-                                    <select
-                                      aria-label={`Map ${column.sourceColumn}`}
-                                      className={SELECT_CLASS}
-                                      value={value ?? '__source'}
-                                      disabled={busy}
-                                      onChange={(event) => {
-                                        const next = event.target.value;
-                                        setMappings((current) =>
-                                          current.map((item) =>
-                                            item.sourceColumn !== column.sourceColumn
-                                              ? item
-                                              : next === '__ignore'
-                                                ? {
-                                                    sourceColumn: item.sourceColumn,
-                                                    mappingMode: 'ignored',
-                                                  }
-                                                : next === '__source'
+                      <p className="mt-1 text-[11px] leading-4 text-fg-subtle">
+                        Use an ID that survives sorting and renaming. Changing the ID creates a new
+                        record.
+                      </p>
+                      {inspected ? (
+                        <div className="mt-4 overflow-hidden rounded-md border border-border">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-bg-muted text-fg-muted">
+                              <tr>
+                                <th className="px-3 py-2 font-medium">Workbook column</th>
+                                <th className="px-3 py-2 font-medium">Registry field</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border bg-bg">
+                              {inspected.columns.map((column) => {
+                                const mapping = mappings.find(
+                                  (item) => item.sourceColumn === column.sourceColumn
+                                );
+                                const value =
+                                  mapping?.mappingMode === 'mapped'
+                                    ? mapping.mappedField
+                                    : mapping?.mappingMode === 'ignored'
+                                      ? '__ignore'
+                                      : '__source';
+                                return (
+                                  <tr key={column.sourceColumn}>
+                                    <td className="px-3 py-2">{column.sourceColumn}</td>
+                                    <td className="px-3 py-2">
+                                      <select
+                                        aria-label={`Map ${column.sourceColumn}`}
+                                        className={SELECT_CLASS}
+                                        value={value ?? '__source'}
+                                        disabled={busy}
+                                        onChange={(event) => {
+                                          const next = event.target.value;
+                                          setMappings((current) =>
+                                            current.map((item) =>
+                                              item.sourceColumn !== column.sourceColumn
+                                                ? item
+                                                : next === '__ignore'
                                                   ? {
                                                       sourceColumn: item.sourceColumn,
-                                                      mappingMode: 'source_only',
+                                                      mappingMode: 'ignored',
                                                     }
-                                                  : {
-                                                      sourceColumn: item.sourceColumn,
-                                                      mappingMode: 'mapped',
-                                                      mappedField: next,
-                                                      confidence: 'user_overridden',
-                                                    }
-                                          )
-                                        );
-                                      }}
-                                    >
-                                      <option value="__source">Keep source value</option>
-                                      <option
-                                        value="__ignore"
-                                        disabled={column.sourceColumn === keyColumn}
+                                                  : next === '__source'
+                                                    ? {
+                                                        sourceColumn: item.sourceColumn,
+                                                        mappingMode: 'source_only',
+                                                      }
+                                                    : {
+                                                        sourceColumn: item.sourceColumn,
+                                                        mappingMode: 'mapped',
+                                                        mappedField: next,
+                                                        confidence: 'user_overridden',
+                                                      }
+                                            )
+                                          );
+                                        }}
                                       >
-                                        Ignore column
-                                      </option>
-                                      <option value="entity.name">Record name</option>
-                                      {fields.map((field) => (
-                                        <option key={field.value} value={field.value}>
-                                          {field.label}
+                                        <option value="__source">Keep source value</option>
+                                        <option
+                                          value="__ignore"
+                                          disabled={column.sourceColumn === keyColumn}
+                                        >
+                                          Ignore column
                                         </option>
-                                      ))}
-                                    </select>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : null}
-                    <div className="mt-4" aria-live="polite">
-                      {preview.kind === 'loading' ? (
-                        <p className="text-xs text-fg-muted">Checking workbook…</p>
-                      ) : preview.kind === 'error' ? (
-                        <Notice tone="error">
-                          {toUserMessage(preview.message, 'account.failed')}
-                        </Notice>
-                      ) : preview.kind === 'ready' ? (
-                        <>
-                          <p className="text-xs font-medium">
-                            {preview.plan.records.length} records ready
-                          </p>
-                          <div className="mt-2 overflow-hidden rounded-md border border-border">
-                            <table className="w-full text-left text-xs">
-                              <thead className="bg-bg-muted text-fg-muted">
-                                <tr>
-                                  <th className="px-3 py-2 font-medium">ID</th>
-                                  <th className="px-3 py-2 font-medium">Record name</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-border bg-bg">
-                                {preview.plan.records.slice(0, 5).map((record) => (
-                                  <tr key={record.externalRowId ?? record.id}>
-                                    <td className="px-3 py-2">{record.externalRowId}</td>
-                                    <td className="px-3 py-2">{record.entityDraft.name}</td>
+                                        <option value="entity.name">Record name</option>
+                                        {fields.map((field) => (
+                                          <option key={field.value} value={field.value}>
+                                            {field.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </td>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          {preview.plan.records.length > 5 ? (
-                            <p className="mt-1 text-[11px] text-fg-subtle">
-                              Showing the first five records.
-                            </p>
-                          ) : null}
-                        </>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                       ) : null}
-                    </div>
-                    <p className="mt-4 text-xs leading-5 text-fg-muted">
-                      Registry edits are retained. Rows changed in both places are marked for
-                      review. Rows removed from the workbook stay in Registry.
+                      <div className="mt-4" aria-live="polite">
+                        {preview.kind === 'loading' ? (
+                          <p className="text-xs text-fg-muted">Checking workbook…</p>
+                        ) : preview.kind === 'error' ? (
+                          <Notice tone="error">
+                            {toUserMessage(preview.message, 'account.failed')}
+                          </Notice>
+                        ) : preview.kind === 'ready' ? (
+                          <>
+                            <p className="text-xs font-medium">
+                              {preview.plan.records.length} records ready
+                            </p>
+                            <div className="mt-2 overflow-hidden rounded-md border border-border">
+                              <table className="w-full text-left text-xs">
+                                <thead className="bg-bg-muted text-fg-muted">
+                                  <tr>
+                                    <th className="px-3 py-2 font-medium">ID</th>
+                                    <th className="px-3 py-2 font-medium">Record name</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border bg-bg">
+                                  {preview.plan.records.slice(0, 5).map((record) => (
+                                    <tr key={record.externalRowId ?? record.id}>
+                                      <td className="px-3 py-2">{record.externalRowId}</td>
+                                      <td className="px-3 py-2">{record.entityDraft.name}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            {preview.plan.records.length > 5 ? (
+                              <p className="mt-1 text-[11px] text-fg-subtle">
+                                Showing the first five records.
+                              </p>
+                            ) : null}
+                          </>
+                        ) : null}
+                      </div>
+                      <p className="mt-4 text-xs leading-5 text-fg-muted">
+                        Registry edits are retained. Rows changed in both places are marked for
+                        review. Rows removed from the workbook stay in Registry.
+                      </p>
+                      <div className="mt-4 flex justify-end">
+                        <Button
+                          variant="primary"
+                          disabled={busy || !root || preview.kind !== 'ready'}
+                          onClick={() => void connect()}
+                          data-testid="sheet-sync-connect"
+                        >
+                          {busy ? 'Connecting…' : 'Connect and sync'}
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-xs leading-5 text-fg-muted">
+                      Choose the worksheet and its column mappings before enabling automatic pulls.
                     </p>
-                    <div className="mt-4 flex justify-end">
-                      <Button
-                        variant="primary"
-                        disabled={busy || !root || preview.kind !== 'ready'}
-                        onClick={() => void connect()}
-                        data-testid="sheet-sync-connect"
-                      >
-                        {busy ? 'Connecting…' : 'Connect and sync'}
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <p className="mt-2 text-xs leading-5 text-fg-muted">
-                    Choose the worksheet and its column mappings before enabling automatic pulls.
-                  </p>
-                )}
-              </section>
-            </div>
-          </section>
+                  )}
+                </section>
+              </div>
+            </section>
+          </PresentationScopeContext.Provider>
         </div>
       ) : null}
     </>

@@ -5,7 +5,7 @@ import { render, cleanup, act } from '@testing-library/react';
 import { EditorView } from '@codemirror/view';
 import { language as languageFacet } from '@codemirror/language';
 import { CodeEditor } from './CodeEditor';
-import { WorkspaceVisibilityContext } from '../features/canvas/workspace-visibility';
+import { PresentationBoundary } from '../presentation/PresentationSurface';
 import { StrictMode } from 'react';
 
 beforeAll(() => {
@@ -72,7 +72,7 @@ describe('CodeEditor', () => {
 
   it('keeps a cursor request pending while its workspace is hidden and focuses it once shown', () => {
     const editor = (visible: boolean) => (
-      <WorkspaceVisibilityContext.Provider value={visible}>
+      <PresentationBoundary active={visible}>
         <CodeEditor
           value={'first line\nsecond line\nthird line'}
           onChange={vi.fn()}
@@ -83,10 +83,10 @@ describe('CodeEditor', () => {
           ariaLabel="Hidden editor"
           revealPosition={{ line: 2, column: 3, requestId: 'hidden-reveal' }}
         />
-      </WorkspaceVisibilityContext.Provider>
+      </PresentationBoundary>
     );
     const result = render(editor(false));
-    const view = EditorView.findFromDOM(result.getByRole('textbox', { name: 'Hidden editor' }))!;
+    const view = EditorView.findFromDOM(result.getByLabelText('Hidden editor'))!;
     expect(view.state.selection.main.head).toBe(0);
     expect(document.activeElement).not.toBe(view.contentDOM);
     result.rerender(editor(true));

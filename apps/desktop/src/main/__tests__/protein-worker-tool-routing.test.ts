@@ -20,6 +20,12 @@ const state = vi.hoisted(() => {
     },
   };
 });
+vi.mock('../ipc/database', () => ({ getDb: vi.fn() }));
+
+vi.mock('../registered-project-authority', () => ({
+  createRegisteredProjectAuthority: () => ({ folders: () => [] }),
+}));
+
 vi.mock('electron', () => ({ ipcMain: state.ipcMain, BrowserWindow: vi.fn() }));
 vi.mock('../agent-grants', () => ({
   mintInAppChatGrant: () => ({

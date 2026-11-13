@@ -3,15 +3,18 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 import { stripDisplayExtension } from '../../utils/fileTypes';
 import { DEFAULT_TOOLTIP_DELAY_MS } from '../../shared/components/Tooltip';
+import { usePresentationEligibility } from '../../presentation/PresentationSurface';
 import { safeFocus } from '../../shared/utils/safeFocus';
 import { iconForEntityKind } from '../icons/entity-icon-registry';
 import { PortalMenu } from '../PortalMenu';
@@ -115,10 +118,18 @@ function EntityReferenceChipInner({
   const [focused, setFocused] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const chipRef = useRef<HTMLSpanElement>(null);
+  const initialFocusRef = useRef<HTMLButtonElement | null>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const generatedId = useId().replace(/:/g, '');
   const detailId = `entity-reference-detail-${generatedId}`;
-  const showDetail = !menuOpen && (focused || (attachmentPhase ? detailReady : hovered));
+  const canPresent = usePresentationEligibility('presentation');
+  const showDetail =
+    canPresent && !menuOpen && (focused || (attachmentPhase ? detailReady : hovered));
+  const [detailPosition, setDetailPosition] = useState<{
+    left: number;
+    edge: 'top' | 'bottom';
+    offset: number;
+  } | null>(null);
   const defaultIcon = useMemo(() => iconForEntityKind(entityType, 'h-3.5 w-3.5'), [entityType]);
   const icon = iconOverride ?? defaultIcon;
   const actions = useMemo<MenuAction[]>(() => {
@@ -131,19 +142,7 @@ function EntityReferenceChipInner({
     ];
   }, [busy, onOpen, onReveal, unavailable]);
 
-  const restoreFocus = useCallback(() => {
-    window.requestAnimationFrame(() => {
-      safeFocus(chipRef.current);
-    });
-  }, []);
-
-  const closeMenu = useCallback(
-    (shouldRestoreFocus: boolean) => {
-      setMenuOpen(false);
-      if (shouldRestoreFocus) restoreFocus();
-    },
-    [restoreFocus]
-  );
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   const openMenu = useCallback(() => {
     if (actions.length === 0) return;
@@ -153,11 +152,9 @@ function EntityReferenceChipInner({
 
   useEffect(() => {
     if (!menuOpen) return;
-    const frame = window.requestAnimationFrame(() => safeFocus(itemRefs.current[0]));
-    const closeOnScroll = () => closeMenu(true);
+    const closeOnScroll = () => closeMenu();
     window.addEventListener('scroll', closeOnScroll, true);
     return () => {
-      window.cancelAnimationFrame(frame);
       window.removeEventListener('scroll', closeOnScroll, true);
     };
   }, [closeMenu, menuOpen]);
@@ -183,6 +180,36 @@ function EntityReferenceChipInner({
     return () => document.removeEventListener('pointermove', onPointerMove);
   }, [hovered]);
 
+  useLayoutEffect(() => {
+    const chip = chipRef.current;
+    if (!showDetail || !chip) {
+      setDetailPosition(null);
+      return;
+    }
+    const place = () => {
+      const rect = chip.getBoundingClientRect();
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - 128));
+      const placeAbove = rect.bottom + 36 > window.innerHeight && rect.top >= 36;
+      const edge = placeAbove ? 'bottom' : 'top';
+      const offset = placeAbove ? window.innerHeight - rect.top + 4 : rect.bottom + 4;
+      setDetailPosition((previous) => {
+        if (previous?.left === left && previous.edge === edge && previous.offset === offset)
+          return previous;
+        return { left, edge, offset };
+      });
+    };
+    place();
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(place) : null;
+    observer?.observe(chip);
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [showDetail]);
+
   const runPrimaryAction = useCallback(() => {
     if (unavailable || busy || !primaryActionHandler) return;
     setHovered(false);
@@ -190,16 +217,10 @@ function EntityReferenceChipInner({
     void primaryActionHandler();
   }, [busy, primaryActionHandler, unavailable]);
 
-  const runMenuAction = useCallback(
-    (action: MenuAction) => {
-      setMenuOpen(false);
-      const result = action.run();
-      if (action.id === 'reveal') {
-        void Promise.resolve(result).finally(restoreFocus);
-      }
-    },
-    [restoreFocus]
-  );
+  const runMenuAction = useCallback((action: MenuAction) => {
+    setMenuOpen(false);
+    void action.run();
+  }, []);
 
   const onChipKeyDown = useCallback(
     (event: KeyboardEvent<HTMLSpanElement>) => {
@@ -295,21 +316,34 @@ function EntityReferenceChipInner({
           </span>
         ) : null}
         {endSlot}
-        {showDetail ? (
-          <span
-            id={detailId}
-            className="entity-reference-chip__detail"
-            data-testid={detailTestId}
-            role="tooltip"
-          >
-            {displayDetail}
-          </span>
-        ) : null}
       </span>
+      {showDetail && detailPosition
+        ? createPortal(
+            <span
+              id={detailId}
+              className="entity-reference-chip__detail ph-no-capture rr-block"
+              data-testid={detailTestId}
+              data-ph-no-capture
+              data-analytics-block
+              data-ph-mask
+              style={{
+                left: detailPosition.left,
+                top: detailPosition.edge === 'top' ? detailPosition.offset : undefined,
+                bottom: detailPosition.edge === 'bottom' ? detailPosition.offset : undefined,
+                maxWidth: `min(32rem, calc(100vw - ${detailPosition.left + 8}px))`,
+              }}
+              role="tooltip"
+            >
+              {displayDetail}
+            </span>,
+            document.body
+          )
+        : null}
       <PortalMenu
         open={menuOpen}
         anchorRef={chipRef}
-        onRequestClose={() => closeMenu(true)}
+        initialFocusRef={initialFocusRef}
+        onRequestClose={() => closeMenu()}
         role="menu"
         data-testid={`${testId}-menu`}
         className="entity-reference-chip__menu py-1"
@@ -320,6 +354,7 @@ function EntityReferenceChipInner({
               key={action.id}
               ref={(element) => {
                 itemRefs.current[index] = element;
+                if (index === 0) initialFocusRef.current = element;
               }}
               type="button"
               role="menuitem"

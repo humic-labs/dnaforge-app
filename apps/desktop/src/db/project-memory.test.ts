@@ -85,6 +85,32 @@ describe('project memory', () => {
     ).toThrow(/parent/);
   });
 
+  it('records a native Windows notebook path as a workspace-relative POSIX path', () => {
+    const workspaceRoot = 'C:\\Users\\Runner\\Project\\';
+    const event = createArtifactCreatedProjectMemoryEvent({
+      workspaceRoot,
+      entityId: 'windows-notebook',
+      entityKind: 'notebook',
+      displayName: 'Notebook',
+      filePath: 'c:\\users\\runner\\project\\Notes\\Notebook',
+      fileKind: 'notebook',
+      artifactSchema: 'waypoint.notebook.v1',
+    });
+    expect(event.paths).toEqual([{ current: 'Notes/Notebook' }]);
+    expect(event.payload.file).toMatchObject({ path: 'Notes/Notebook' });
+    expect(event.idempotencyKey).toBe('artifact_created:windows-notebook:Notes/Notebook');
+    for (const path of [
+      'C:/Users/Runner/ProjectSibling/Notebook',
+      'D:/Users/Runner/Project/Notebook',
+      'C:\\Users\\Runner\\Project\\..\\Notebook',
+      'C:Notebook',
+    ]) {
+      expect(() => workspaceRelativeProjectMemoryPath({ workspaceRoot, path })).toThrow(
+        /workspace-relative|parent/
+      );
+    }
+  });
+
   it('treats repeated idempotent events as no-ops and rejects divergent retries', async () => {
     const workspaceRoot = '/pm-idempotent';
     const event = createArtifactCreatedProjectMemoryEvent({

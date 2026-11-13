@@ -152,7 +152,7 @@ async function presentRegistryEntity(
   );
   const result = await openLimsEntity({
     entityId,
-    strategy: { kind: 'focused' },
+    strategy: intent.placement ?? { kind: 'focused' },
   });
   if (!ctx.current(intent)) return;
   if (isLimsEntityOpened(result)) {
@@ -261,7 +261,7 @@ function openNativeCatalog(exact: boolean): ReferenceRouteStep {
       const result = await openDocument({
         target: { kind: 'record', tabType: 'page', entityId: target.locator.pageId },
         label: target.title,
-        placement: { kind: 'smart' },
+        placement: intent.placement ?? { kind: 'smart' },
         source: exact ? 'search' : 'mention',
         signal: ctx.signal,
       });
@@ -296,7 +296,7 @@ function openNativeCatalog(exact: boolean): ReferenceRouteStep {
             workspaceRoot: owningRoot,
             targetId: target.rawId,
           },
-          placement: { kind: 'focused' },
+          placement: intent.placement ?? { kind: 'focused' },
           signal: ctx.signal,
           source: exact ? 'search' : 'mention',
         })
@@ -318,7 +318,7 @@ function openNativeCatalog(exact: boolean): ReferenceRouteStep {
         await openSequenceReference({
           filePath: sequencePath,
           label: target.title,
-          strategy: { kind: 'focused' },
+          strategy: intent.placement ?? { kind: 'focused' },
           sourceSurface: exact ? 'search' : 'mention',
           signal: ctx.signal,
         })
@@ -360,7 +360,7 @@ const openPageById: ReferenceRouteStep = async ({ detail, intent, entityId, owni
       await openDocument({
         target: { kind: 'record', tabType: 'page', entityId: resolution.pageId },
         label,
-        placement: { kind: 'smart' },
+        placement: intent.placement ?? { kind: 'smart' },
         source: 'mention',
         signal: ctx.signal,
       }),

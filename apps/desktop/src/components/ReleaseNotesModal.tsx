@@ -1,3 +1,7 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+} from '../presentation/PresentationSurface';
 import { useState, useLayoutEffect, useCallback, useRef } from 'react';
 import { VERSION_HISTORY, getReleaseNote, type ReleaseNote } from '../lib/release-notes';
 import { CloseIcon } from './icons';
@@ -20,6 +24,8 @@ export function ReleaseNotesModal(props: ReleaseNotesModalProps) {
 }
 
 function ReleaseNotesDialog({ onClose, onDisplayed, initialVersion }: ReleaseNotesModalProps) {
+  const presentationOverlay = usePresentationOverlay('modal');
+
   const installedVersion = installedReleaseVersion(APP_BUILD);
   const request = resolveReleaseNotesRequest(APP_BUILD, initialVersion).version;
   const [selection, setSelection] = useState({ request, version: request });
@@ -107,75 +113,79 @@ function ReleaseNotesDialog({ onClose, onDisplayed, initialVersion }: ReleaseNot
   };
 
   return (
-    <dialog
-      ref={modalRef}
-      data-testid="release-notes-modal-backdrop"
-      data-analytics-block
-      className="ph-no-capture fixed inset-0 z-50 m-0 h-full w-full max-h-none max-w-none border-0 open:flex items-center justify-center bg-black/40 backdrop:bg-transparent backdrop-blur-sm p-6"
-      onClick={onBackdropClick}
-      onKeyDown={onKeyDown}
-      onCancel={(event) => {
-        event.preventDefault();
-        dismiss('escape');
-      }}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Release notes"
-    >
-      <div
-        data-testid="release-notes-modal"
-        className="bg-bg border border-border rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col"
+    <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+      <dialog
+        ref={presentationOverlay.bindRef(modalRef, '0')}
+        data-testid="release-notes-modal-backdrop"
+        data-analytics-block
+        className="ph-no-capture fixed inset-0 z-50 m-0 h-full w-full max-h-none max-w-none border-0 open:flex items-center justify-center bg-black/40 backdrop:bg-transparent backdrop-blur-sm p-6"
+        onClick={onBackdropClick}
+        onKeyDown={onKeyDown}
+        onCancel={(event) => {
+          event.preventDefault();
+          dismiss('escape');
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Release notes"
       >
-        {}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border flex-shrink-0">
-          <div className="flex items-baseline gap-3">
-            <h2
-              ref={headingRef}
-              tabIndex={-1}
-              data-testid="release-notes-heading"
-              className="text-base font-semibold text-fg"
+        <div
+          data-testid="release-notes-modal"
+          className="bg-bg border border-border rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col"
+        >
+          {}
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border flex-shrink-0">
+            <div className="flex items-baseline gap-3">
+              <h2
+                ref={headingRef}
+                tabIndex={-1}
+                data-testid="release-notes-heading"
+                className="text-base font-semibold text-fg"
+              >
+                Release Notes
+              </h2>
+              <select
+                data-testid="release-notes-modal-version-picker"
+                value={selected}
+                onChange={(e) => {
+                  if (VERSION_HISTORY.includes(e.target.value))
+                    setSelection({ request, version: e.target.value });
+                }}
+                className="bg-bg-subtle border border-border rounded px-2 py-1 text-fg text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                {!note && <option value={selected}>Notes unavailable</option>}
+                {VERSION_HISTORY.map((v) => (
+                  <option key={v} value={v}>
+                    v{v}
+                    {v === installedVersion ? ' (installed)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              data-testid="release-notes-modal-close"
+              onClick={() => dismiss('close')}
+              aria-label="Close"
+              className="p-1 rounded hover:bg-bg-muted text-fg-muted hover:text-fg transition-colors"
             >
-              Release Notes
-            </h2>
-            <select
-              data-testid="release-notes-modal-version-picker"
-              value={selected}
-              onChange={(e) => {
-                if (VERSION_HISTORY.includes(e.target.value))
-                  setSelection({ request, version: e.target.value });
-              }}
-              className="bg-bg-subtle border border-border rounded px-2 py-1 text-fg text-xs focus:outline-none focus:ring-1 focus:ring-accent"
-            >
-              {!note && <option value={selected}>Notes unavailable</option>}
-              {VERSION_HISTORY.map((v) => (
-                <option key={v} value={v}>
-                  v{v}
-                  {v === installedVersion ? ' (installed)' : ''}
-                </option>
-              ))}
-            </select>
+              <CloseIcon size={16} />
+            </button>
           </div>
-          <button
-            type="button"
-            data-testid="release-notes-modal-close"
-            onClick={() => dismiss('close')}
-            aria-label="Close"
-            className="p-1 rounded hover:bg-bg-muted text-fg-muted hover:text-fg transition-colors"
-          >
-            <CloseIcon size={16} />
-          </button>
-        </div>
 
-        {}
-        <div className="overflow-y-auto px-5 py-4 flex-1 min-h-0">
-          {note ? (
-            <ModalReleaseNoteBody note={note} />
-          ) : (
-            <div className="text-sm text-fg-subtle italic">No notes recorded for v{selected}.</div>
-          )}
+          {}
+          <div className="overflow-y-auto px-5 py-4 flex-1 min-h-0">
+            {note ? (
+              <ModalReleaseNoteBody note={note} />
+            ) : (
+              <div className="text-sm text-fg-subtle italic">
+                No notes recorded for v{selected}.
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </dialog>
+      </dialog>
+    </PresentationScopeContext.Provider>
   );
 }
 

@@ -5,7 +5,7 @@ import { TAB_PORTAL_HOST_ATTACHED_EVENT } from '../../../../../shared/tab-portal
 import type { MolstarViewerProps } from '../MolstarViewer';
 import { coordinateDigest, type MolecularView } from '../utils/molecularView';
 import { MolecularViewPreview } from './MolecularViewPreview';
-import { WorkspaceVisibilityContext } from '../../../../canvas/workspace-visibility';
+import { PresentationBoundary } from '../../../../../presentation/PresentationSurface';
 
 const mocks = vi.hoisted(() => ({
   viewer: vi.fn(),
@@ -93,9 +93,9 @@ describe('interactive saved molecular preview', () => {
     const view = await savedView();
     const original = JSON.stringify(view);
     const renderPreview = (visible: boolean) => (
-      <WorkspaceVisibilityContext.Provider value={visible}>
+      <PresentationBoundary active={visible}>
         <MolecularViewPreview view={view} referenceId="saved-a" />
-      </WorkspaceVisibilityContext.Provider>
+      </PresentationBoundary>
     );
     const { rerender } = render(renderPreview(true));
     visibility(true);

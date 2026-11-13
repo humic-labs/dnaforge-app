@@ -24,7 +24,6 @@ import type { IpcMainInvokeEvent, WebContents } from 'electron';
 import { handleGroup, sendRendererIpc } from '../../shared/ipc-contract';
 import type { NativeDocumentWorkspaceRootsRequest } from '../../shared/native-document-workspaces';
 import type { FileDocumentFlushPurpose } from '../../shared/file-document-client-sync';
-import { assertSafePath, assertSafeWritablePath } from '../ipc/path-allowlist';
 import type { NativeAnnotationDocumentBarrier } from '../managed-annotation-document-command';
 import { NativeAnnotationDocumentOwner } from '../native-annotation-document-owner';
 import { startNativeDocumentCommandServer } from '../native-document-command-server';
@@ -43,6 +42,10 @@ import {
 } from '../sidecar-session-runtime';
 import { withNativeDocumentSettlementTestSeam } from './test-hooks';
 import { workspaceNativeDocumentsContract } from '../../shared/ipc/workspace-native-documents.contract';
+import {
+  createRegisteredProjectAuthority,
+  withAgentProjectScope,
+} from '../registered-project-authority';
 
 type RendererPublisher = ReturnType<typeof createNativeDocumentRendererPublisher>;
 type CommandServer = Awaited<ReturnType<typeof startNativeDocumentCommandServer>>;
@@ -57,9 +60,9 @@ export type CurrentRendererLoad = (event: IpcMainInvokeEvent, loadId: string) =>
 export function createNativeDocuments(
   options: { registerDirtyState?: typeof registerNativeDirtyStateProvider } = {}
 ) {
+  const projectAuthority = createRegisteredProjectAuthority({ db: getDb });
   const workspaces = new NativeDocumentWorkspaces({
-    resolveRoot: (root) => assertSafeWritablePath(root, { requireAbsolute: true }),
-    resolveReadableRoot: (root) => assertSafePath(root, { requireAbsolute: true }),
+    authority: projectAuthority,
   });
   let profileKey: string | null = null;
   let profileDirectory: string | null = null;
@@ -111,14 +114,14 @@ export function createNativeDocuments(
     ],
   });
   const markdownImporter = new MarkdownNotebookImporter({
-    readableRoots: () => workspaces.readableRoots(),
+    readableRoots: () => workspaces.observedReadableRoots(),
     onIssue: (issue) => {
       const target = notebookTarget?.();
       if (target && !target.isDestroyed())
         sendRendererIpc(target, 'notebook:markdownAdoptionFailed', issue);
     },
     db: getDb,
-    roots: () => workspaces.roots(),
+    roots: () => workspaces.observedRoots(),
     captureWorkspace: (root) => workspaces.capture(root),
     withCleanPaths: async (paths, operation) => {
       await flushFileDocumentClients();
@@ -249,6 +252,7 @@ export function createNativeDocuments(
       },
     });
     commandServer = await startNativeDocumentCommandServer({
+      projectAuthority,
       owner,
       fileOwner: fileDocuments,
       sequenceOwner: sequenceDocuments,
@@ -286,8 +290,8 @@ export function createNativeDocuments(
       },
       report: (result) => console.log('[NativeDocuments] Startup observation:', result),
     });
-    if (workspaces.roots().length > 0) {
-      void startupRecovery.request();
+    if (workspaces.observedRoots().length > 0) {
+      requestObservedRecovery();
     }
   }
 
@@ -326,6 +330,15 @@ export function createNativeDocuments(
       snapshot: (_event, id) => importReviews.snapshot(id),
     });
     handleGroup(workspaceNativeDocumentsContract, {
+      listRegisteredProjects: () => projectAuthority.folders(),
+      resolveRegisteredProject: (_event, reference) => {
+        if (typeof reference !== 'string' || reference.length === 0 || reference.length > 4096)
+          throw new Error('A registered project reference is required.');
+        const project = projectAuthority.resolve(reference);
+        return project
+          ? { path: project.path, name: project.name, addedAt: 0, pinned: project.pinned }
+          : null;
+      },
       setDocumentCommandRoots: async (
         event,
         request: NativeDocumentWorkspaceRootsRequest
@@ -344,11 +357,18 @@ export function createNativeDocuments(
           sequenceDocuments.beginLegacyMigration();
           notebookDocuments.beginLegacyMigration();
           markdownImporter.refreshRoots();
-          void startupRecovery?.request();
+          requestObservedRecovery();
         }
         return enrolled;
       },
     });
+  }
+
+  function requestObservedRecovery(): void {
+    void withAgentProjectScope(
+      { kind: 'project-roots', roots: [...workspaces.observedReadableRoots()] },
+      () => startupRecovery?.request()
+    );
   }
 
   async function closeServerAndRecovery(): Promise<void> {

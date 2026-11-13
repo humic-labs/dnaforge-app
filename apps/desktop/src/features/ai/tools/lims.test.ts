@@ -5,6 +5,7 @@ import type { LimsEntity, LimsRegistrySummary, LimsRegistryPreview } from '../..
 import type { ProjectableEntitySchemaRevisionSnapshot } from '../../../shared/entity-schema';
 import type { ToolFailure } from '../../agent-bridge/public/tool-result';
 import { registryRepresentationForEntity } from '../../../shared/registry-entity-opening';
+import { PRIMER_ARTIFACT_SCHEMA } from '../../../shared/primer-artifact-schema';
 
 const mocks = vi.hoisted(() => ({
   queryLimsEntities: vi.fn(),
@@ -361,6 +362,47 @@ describe('LIMS AI tools', () => {
       expect(opened).toEqual({ ok: true, status: 'opened_record', tabId: 'record-tab', target });
     }
   );
+
+  it.each([7, null])('preserves the saved oligo target with workspace %s', async (workspaceId) => {
+    const representation = registryRepresentationForEntity({
+      ...makePlasmidEntity(),
+      kind: 'oligo',
+      workspaceId,
+      fields: {
+        artifact: { schema: PRIMER_ARTIFACT_SCHEMA, relativePath: 'records/saved.primer.json' },
+      },
+    });
+    const target = {
+      kind: 'primer',
+      entityId,
+      entityKind: 'oligo',
+      label: 'pUC19',
+      workspaceId,
+      artifactRelativePath: 'records/saved.primer.json',
+    };
+    expect(representation).toMatchObject({ kind: 'primer', canOpen: true, openTarget: target });
+
+    mocks.resolveLimsEntityOpenTarget.mockResolvedValueOnce(representation.openTarget);
+    const resolved = await execTool(limsResolveOpenTargetTool, { entityId });
+    assertMcpOutput(limsResolveOpenTargetOutputSchema, resolved);
+    expect(resolved).toEqual({ ok: true, target });
+
+    const receipt = { status: 'opened_primer', tabId: 'oligo-tab', target };
+    mocks.openLimsEntity.mockResolvedValueOnce({ ...receipt, target: representation.openTarget });
+    const opened = await execTool(limsOpenEntityTool, { entityId });
+    expect(opened).toEqual({ ok: true, ...receipt });
+
+    const page = {
+      summaries: [{ ...makeSummary(), kind: 'oligo', representation }],
+      totalCount: 1,
+      limit: 25,
+      offset: 0,
+    };
+    mocks.queryLimsRegistrySummaries.mockResolvedValueOnce(page);
+    const summaries = await execTool(limsQueryRegistrySummariesTool, {});
+    assertMcpOutput(limsQueryRegistrySummariesOutputSchema, summaries);
+    expect(summaries).toEqual({ ok: true, ...page });
+  });
 
   it.each([
     { workspaceId: '7' },

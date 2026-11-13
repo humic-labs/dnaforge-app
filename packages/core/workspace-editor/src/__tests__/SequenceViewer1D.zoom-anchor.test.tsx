@@ -396,7 +396,8 @@ describe('SequenceViewer1D — native precision and motion handover', () => {
     });
   };
   const enableNativePrecision = async () => {
-    const { installNativeWheelSource } = await import('@waypoint/platform/wheel-motion');
+    const { installNativeWheelSource } =
+      await import('../../../platform/src/wheel-input.test-helper');
     removeNativeSource = installNativeWheelSource(document);
   };
 

@@ -40,6 +40,19 @@ vi.mock('../settings', () => ({
 }));
 
 const mockAddFolder = vi.fn();
+vi.mock('../../../platform', () => ({
+  platform: () => ({
+    workspace: {
+      resolveRegisteredProject: async (reference: string) =>
+        reference === '/workspace'
+          ? { path: '/workspace', name: 'Registered workspace', addedAt: 1, pinned: false }
+          : null,
+      listRegisteredProjects: async () => [
+        { path: '/workspace', name: 'Registered workspace', addedAt: 1, pinned: false },
+      ],
+    },
+  }),
+}));
 vi.mock('../../../stores/workspaceStore', () => ({
   useWorkspaceStore: { getState: () => ({ folders: [], addFolder: mockAddFolder }) },
 }));
@@ -53,6 +66,7 @@ import { setConversationState, type ChatStoreGet, type ChatStoreSet } from './ch
 function harness(currentConversationId: string | null = null) {
   const state: Record<string, unknown> = {
     currentConversationId,
+    conversations: [],
     error: null,
     _convStates: new Map(),
   };
@@ -184,7 +198,7 @@ describe('runChatTurn Hosted contribution choice', () => {
 
   it('releases a prepared Hosted binding when renderer setup fails before the turn starts', async () => {
     mockPrepareHostedCodexContribution.mockResolvedValue({ started: true, error: null });
-    mockGetConversation.mockRejectedValueOnce(new Error('database unavailable'));
+    mockCreateConversation.mockRejectedValueOnce(new Error('database unavailable'));
     const { set, get } = harness('conv-1');
 
     expect(await runChatTurn(set, get, 'Inspect this workspace', '/workspace', 'conv-1')).toBe(

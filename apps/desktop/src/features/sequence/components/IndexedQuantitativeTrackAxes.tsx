@@ -49,6 +49,7 @@ export function IndexedQuantitativeTrackAxes({
       }),
     [legacyLanes, ownedLanes]
   );
+  const viewportRef = useRef<HTMLDivElement | null>(null);
   const scrollLayerRef = useRef<HTMLDivElement | null>(null);
   const presentedScrollTopRef = useRef<number | null>(null);
 
@@ -62,7 +63,10 @@ export function IndexedQuantitativeTrackAxes({
     const syncScroll = () => {
       const receipt = webglRef.current?.getLinearRenderer?.()?.getPresentedTrackScrollReceipt?.();
       const target = scrollLayerRef.current;
-      if (!receipt || !target || presentedScrollTopRef.current === receipt.trackScrollTop) return;
+      const viewport = viewportRef.current;
+      if (!receipt || !target || !viewport) return;
+      viewport.style.clipPath = `inset(${Math.max(0, receipt.contentClipTopPx ?? 0)}px 0px 0px)`;
+      if (presentedScrollTopRef.current === receipt.trackScrollTop) return;
       presentedScrollTopRef.current = receipt.trackScrollTop;
       target.style.transform = `translate3d(0, ${-receipt.trackScrollTop}px, 0)`;
     };
@@ -88,6 +92,7 @@ export function IndexedQuantitativeTrackAxes({
 
   return (
     <div
+      ref={viewportRef}
       data-testid="quantitative-y-axis-layer"
       className="pointer-events-none absolute inset-0 z-10 overflow-hidden"
     >

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { ExplorerWorkspaceSurface } from '../../features/canvas/ExplorerWorkspaceSurface';
 import { HomeWorkbench } from '../../features/home/HomeWorkbench';
 import type { ComponentProps } from 'react';
+import { PresentationBoundary } from '../../presentation/PresentationSurface';
 
 type HomeWorkbenchProps = ComponentProps<typeof HomeWorkbench>;
 
@@ -49,15 +50,29 @@ export function WorkspaceMain({
       >
         {explorer}
       </ExplorerWorkspaceSurface>
-      {settings}
-      {references}
-      {featureView}
+      {settings ? (
+        <PresentationBoundary id="settings" focused layout="flex">
+          {settings}
+        </PresentationBoundary>
+      ) : null}
+      {references ? (
+        <PresentationBoundary id="references" focused layout="flex">
+          {references}
+        </PresentationBoundary>
+      ) : null}
+      {featureView ? (
+        <PresentationBoundary id="feature-view" focused layout="flex">
+          {featureView}
+        </PresentationBoundary>
+      ) : null}
       {homeWorkbenchActive ? (
-        <HomeWorkbench
-          mode={homeViewActive ? 'home' : 'files-empty'}
-          recentlyEditedReady={recentlyEditedReady}
-          {...home}
-        />
+        <PresentationBoundary id="home" focused layout="flex">
+          <HomeWorkbench
+            mode={homeViewActive ? 'home' : 'files-empty'}
+            recentlyEditedReady={recentlyEditedReady}
+            {...home}
+          />
+        </PresentationBoundary>
       ) : null}
     </main>
   );

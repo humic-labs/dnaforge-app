@@ -4,7 +4,12 @@ import type {
 } from '../shared/workspace-relocate-types';
 
 export function createHostedFileRelocator(dependencies: {
-  rename: (oldPath: string, newPath: string) => Promise<void>;
+  rename: (
+    oldPath: string,
+    newPath: string,
+    mutationToken: string | undefined,
+    options: { readonly noClobber: true }
+  ) => Promise<void>;
   rebindCatalogFiles: (
     input: Pick<RelocateEntityFileInput, 'oldPath' | 'newPath' | 'workspaceRoot' | 'actor'>
   ) => Promise<{ updated: number }>;
@@ -15,7 +20,9 @@ export function createHostedFileRelocator(dependencies: {
     if (request.oldPath === request.newPath) {
       return hostedRelocateResult(request.newPath, 0);
     }
-    await dependencies.rename(request.oldPath, request.newPath);
+    await dependencies.rename(request.oldPath, request.newPath, request.mutationToken, {
+      noClobber: true,
+    });
     const rebound = await dependencies.rebindCatalogFiles({
       oldPath: request.oldPath,
       newPath: request.newPath,

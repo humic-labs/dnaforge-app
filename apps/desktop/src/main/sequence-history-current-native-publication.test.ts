@@ -1,3 +1,4 @@
+import { createRegisteredProjectAuthority } from './registered-project-authority';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -165,7 +166,12 @@ async function publicationFixture(kind: 'legacy' | 'accepted', fileLocator = fal
   } else await writeFile(sourcePath, original);
   await initManagedRepo(root);
   await commitAllIfDirty(root, 'baseline');
-  const workspaces = new NativeDocumentWorkspaces({ resolveRoot: async (path) => path });
+  const workspaces = new NativeDocumentWorkspaces({
+    authority: createRegisteredProjectAuthority({
+      db: () => f.db,
+      managedRootDir: () => join(f.tmpDir, 'managed-projects'),
+    }),
+  });
   await workspaces.replaceRoots([root], () => true);
   const create = async () => {
     const owner = createNativeSequenceWorkingCopies({

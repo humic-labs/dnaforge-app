@@ -18,7 +18,7 @@ import { useAssemblyColorSchemeStore } from '../color-scheme-store';
 import { productLayoutSegmentId, selectProductLayout } from '../assembly-boundaries';
 import type { DesignRegion } from '../types';
 import { DesignTab } from './DesignTab';
-import { CommandScopeProviderForTest } from '../../../commands/CommandScopeProvider';
+import { WorkspaceCommandProvider as CommandScopeProviderForTest } from '../../../test/document-save-commands';
 import { useCommandScope } from '../../../commands/useCommandScope';
 import { COMMAND_SCOPES } from '../../../commands/types';
 import {

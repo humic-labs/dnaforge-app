@@ -14,6 +14,8 @@ import {
   estimateFeatureBytes,
 } from './genome-annotation-payload';
 
+export { estimateFeatureBytes };
+
 export function validateAnnotationViewportTileRequest(
   session: GenomeSessionShell,
   request: GenomeTileRequest

@@ -15,8 +15,16 @@ import type {
   NativeNotebookCreateRequest,
   NativeNotebookCreateResult,
 } from '../notebook-document';
+import type {
+  ResolveNotebookResourceReferenceRequest,
+  ResolvedProjectResourceReference,
+} from '../project-resource-reference';
 
 export const notebookContract = defineGroup('notebook', {
+  resolveResourceReference: invoke<
+    [request: ResolveNotebookResourceReferenceRequest],
+    ResolvedProjectResourceReference
+  >(),
   inspectConflict: invoke<[documentId: string], NotebookConflictComparison>(),
   resolveConflict: invoke<[request: ResolveNotebookConflictRequest], NotebookConflictResolution>(),
   onMarkdownAdoptionFailed: event<[issue: MarkdownNotebookAdoptionIssue]>().channel(

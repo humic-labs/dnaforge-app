@@ -74,7 +74,7 @@ export async function listWorkspaceLibrary(): Promise<{
     platform().db.select<Array<{ workspace_id: number; status: string }>>(
       `SELECT workspace_id, status FROM workspace_sync_restore_locks`
     ),
-    platform().workspace.rootStatus(),
+    platform().runtime.getProfile().isElectron ? platform().workspace.rootStatus() : [],
   ]);
   const rootStates = new Map(rootStatus.map((root) => [root.repoPath, root.state]));
   const rows = await repairWorkspaceLifecycleTimestamps(rawRows);

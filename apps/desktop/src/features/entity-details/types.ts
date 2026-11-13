@@ -43,6 +43,7 @@ export interface EntityDetailsRecord extends EntityDetailsValues {
   registrationStatus: LimsRegistrationStatus;
   path?: string;
   readOnlyReason?: UserMessage;
+  lifecycleReadOnlyReason?: UserMessage | null;
   properties: Record<string, unknown>;
   preview: LimsRegistryPreview | null;
   sequence?: {

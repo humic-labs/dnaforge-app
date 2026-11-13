@@ -1,4 +1,9 @@
 import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../presentation/PresentationSurface';
+import {
   toUserMessage,
   userMessage,
   userMessageWithValues,
@@ -7,8 +12,15 @@ import {
 } from '@waypoint/user-messages';
 import { useProjectEditFolders } from '../features/workspace-loader/public/use-project-edit-folders';
 import { projectPathIsReadOnly } from '../features/workspace-loader/public/project-edit-folders';
-import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
-import type { DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent } from 'react';
+import {
+  useCallback,
+  useState,
+  useRef,
+  useEffect,
+  useMemo,
+  type DragEvent as ReactDragEvent,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import type { CatalogRecordPresentationKind } from '../shared/catalog-entity';
 import { useWorkspaceStore, type WorkspaceFolder } from '../stores/workspaceStore';
 import { formatImportProgress } from '../features/workspace-loader/format-import-progress';
@@ -339,6 +351,9 @@ function CatalogContextMenu({
   onOpen: () => void;
   onViewOriginalSource: () => void;
 }) {
+  const presentationOverlay = usePresentationOverlay('keyboard');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -349,12 +364,12 @@ function CatalogContextMenu({
       if (event.key === 'Escape') onClose();
     };
     document.addEventListener('mousedown', closeOnPointer);
-    document.addEventListener('keydown', closeOnEscape);
+    presentationEvents.add(document, 'keydown', closeOnEscape);
     return () => {
       document.removeEventListener('mousedown', closeOnPointer);
-      document.removeEventListener('keydown', closeOnEscape);
+      presentationEvents.remove(document, 'keydown', closeOnEscape);
     };
-  }, [onClose]);
+  }, [onClose, presentationEvents]);
 
   const run = (action: () => void) => {
     action();
@@ -362,31 +377,33 @@ function CatalogContextMenu({
   };
 
   return (
-    <div
-      ref={menuRef}
-      role="menu"
-      data-testid="catalog-entry-context-menu"
-      data-analytics-block
-      className="fixed z-50 min-w-52 rounded-md border border-border bg-bg py-1 shadow-lg"
-      style={{ left: contextMenu.x, top: contextMenu.y }}
-    >
-      <button
-        type="button"
-        role="menuitem"
-        className="flex min-h-7 w-full items-center px-3 py-1 text-left text-sm text-fg hover:bg-bg-muted"
-        onClick={() => run(onOpen)}
+    <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+      <div
+        ref={presentationOverlay.bindRef(menuRef, '0')}
+        role="menu"
+        data-testid="catalog-entry-context-menu"
+        data-analytics-block
+        className="fixed z-50 min-w-52 rounded-md border border-border bg-bg py-1 shadow-lg"
+        style={{ left: contextMenu.x, top: contextMenu.y }}
       >
-        Open in Registry
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        className="flex min-h-7 w-full items-center px-3 py-1 text-left text-sm text-fg hover:bg-bg-muted"
-        onClick={() => run(onViewOriginalSource)}
-      >
-        View original source
-      </button>
-    </div>
+        <button
+          type="button"
+          role="menuitem"
+          className="flex min-h-7 w-full items-center px-3 py-1 text-left text-sm text-fg hover:bg-bg-muted"
+          onClick={() => run(onOpen)}
+        >
+          Open in Registry
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className="flex min-h-7 w-full items-center px-3 py-1 text-left text-sm text-fg hover:bg-bg-muted"
+          onClick={() => run(onViewOriginalSource)}
+        >
+          View original source
+        </button>
+      </div>
+    </PresentationScopeContext.Provider>
   );
 }
 

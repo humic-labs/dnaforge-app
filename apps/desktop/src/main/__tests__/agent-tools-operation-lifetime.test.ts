@@ -8,6 +8,16 @@ const state = vi.hoisted(() => ({
   handler: vi.fn(),
   audits: [] as Array<Record<string, unknown>>,
 }));
+vi.mock('../ipc/database', () => ({ getDb: vi.fn() }));
+
+vi.mock('../registered-project-authority', () => ({
+  createRegisteredProjectAuthority: () => ({
+    folders: () => [
+      { path: '/workspace', name: 'Registered workspace', addedAt: 0, pinned: false },
+    ],
+  }),
+}));
+
 vi.mock('electron', async () => {
   const { EventEmitter } = await import('node:events');
   return { ipcMain: new EventEmitter(), BrowserWindow: vi.fn() };
@@ -26,6 +36,8 @@ vi.mock('../renderer-ui-observation', () => ({}));
 vi.mock('../agent-sdk/turn-workspace-provenance', () => ({ recordCompletedToolCall: vi.fn() }));
 vi.mock('../../stores/workspaceStore', () => ({
   getCurrentWorkspaceScope: () => '/workspace',
+  workspaceScopeFromState: ({ folders }: { folders: unknown[] }) =>
+    folders.length ? '/workspace' : null,
   useWorkspaceStore: { getState: () => ({ folders: [{ path: '/workspace' }] }) },
 }));
 vi.mock('../../features/agent-bridge/domain-state-snapshot', () => ({

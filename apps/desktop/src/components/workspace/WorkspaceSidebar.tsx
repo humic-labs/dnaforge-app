@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from '../../shared/ui-persistence';
 import { ColumnResizeHandle } from '../ui';
+import { PresentationBoundary } from '../../presentation/PresentationSurface';
 
 interface WorkspaceSidebarProps {
   visible: boolean;
@@ -100,16 +101,26 @@ export function WorkspaceSidebar({
         }`}
         style={{ width: liveWidth } as CSSProperties}
       >
-        {visible ? tools : null}
-        <div
-          className={
-            filesPanelActive
-              ? 'flex-1 overflow-y-auto'
-              : 'absolute top-0 left-0 right-0 bottom-0 overflow-y-auto invisible pointer-events-none'
-          }
+        {visible ? (
+          <PresentationBoundary id="sidebar-tools" layout="contents">
+            {tools}
+          </PresentationBoundary>
+        ) : null}
+        <PresentationBoundary
+          id="sidebar-files"
+          active={visible && filesPanelActive}
+          layout="contents"
         >
-          {files}
-        </div>
+          <div
+            className={
+              filesPanelActive
+                ? 'flex-1 overflow-y-auto'
+                : 'absolute top-0 left-0 right-0 bottom-0 overflow-y-auto invisible pointer-events-none'
+            }
+          >
+            {files}
+          </div>
+        </PresentationBoundary>
       </aside>
       {visible && (
         <ColumnResizeHandle testId="files-sidebar-resize-handle" onMouseDown={handleResizeStart} />

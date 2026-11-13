@@ -7,16 +7,22 @@ import {
 import { isBrowserOnly, isHostedBrowserRuntime } from '../../utils/environment';
 import { useToastStore } from '../../stores/toast-store';
 import type { TabType } from '../canvas/public/types';
+import { useCanvasStore } from '../canvas/public/store';
 import {
   cancelledDocumentOpen,
   type DocumentOpenResult,
+  type OpenStrategy,
 } from '../canvas/public/document-presentation';
 import {
   bindElectronWorkspaceSessionTab,
   closeElectronWorkspaceSessionFile,
   openElectronWorkspaceSessionFile,
 } from '../workspace-session/public/electron-session';
-import { openDocument, resolveFileDocumentKindFromSource } from './open-document';
+import {
+  awaitTrackViewPresentation,
+  openDocument,
+  resolveFileDocumentKindFromSource,
+} from './open-document';
 import { inferCatalogFileKind } from '../../shared/catalog-file-kind';
 import { TRACK_VIEW_SUFFIX } from '../../shared/track-view';
 import {
@@ -30,11 +36,13 @@ export async function openSelectedDocument(
   path: string,
   tabType: TabType,
   label?: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  placement: OpenStrategy = { kind: 'focused' }
 ): Promise<DocumentOpenResult> {
   if (signal?.aborted) return cancelledDocumentOpen();
   let sessionPath: string | null = null;
   let pendingTrackView: ReturnType<typeof pendingGenomeViewFileOpen> = null;
+  let trackViewOpening: { promise: Promise<string | null>; previousIds: Set<string> } | null = null;
   let acceptedTabType: TabType = path.endsWith(TRACK_VIEW_SUFFIX) ? 'sequence' : tabType;
   let legacyFasta = false;
   const name = userMessageValue(label || path.split(/[\\/]/).at(-1) || 'This file');
@@ -46,7 +54,15 @@ export async function openSelectedDocument(
     }
     if (signal?.aborted) return cancelledDocumentOpen();
     if (acceptedTabType === 'sequence' && path.endsWith(TRACK_VIEW_SUFFIX)) {
-      void requestGenomeViewFileOpen(path, { kind: 'focused' }, signal, label, 'pending');
+      const previousIds = new Set(
+        Object.values(useCanvasStore.getState().panels).flatMap((panel) =>
+          panel.tabs.map((tab) => tab.id)
+        )
+      );
+      trackViewOpening = {
+        promise: requestGenomeViewFileOpen(path, placement, signal, label, 'pending'),
+        previousIds,
+      };
       pendingTrackView = pendingGenomeViewFileOpen();
     }
     const shouldOpenWorkspaceSession =
@@ -75,16 +91,15 @@ export async function openSelectedDocument(
     if (sessionPath) closeElectronWorkspaceSessionFile(sessionPath);
     return cancelledDocumentOpen();
   }
-  const result = await openDocument({
-    signal,
-    target:
-      acceptedTabType === 'sequence' && path.endsWith(TRACK_VIEW_SUFFIX)
-        ? { kind: 'track-view', id: path }
-        : { kind: 'file', path, tabType: acceptedTabType },
-    label,
-    placement: { kind: 'focused' },
-    source: 'file_tree',
-  });
+  const result = trackViewOpening
+    ? await awaitTrackViewPresentation(trackViewOpening.promise, trackViewOpening.previousIds)
+    : await openDocument({
+        signal,
+        target: { kind: 'file', path, tabType: acceptedTabType },
+        label,
+        placement,
+        source: 'file_tree',
+      });
   if (pendingTrackView)
     finishGenomeViewFileOpen(
       result.status === 'presented' ? result.tabId : null,

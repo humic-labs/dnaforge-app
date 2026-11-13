@@ -13,6 +13,8 @@ vi.mock('electron', () => ({
 }));
 
 import { createNativeImportReviews } from './native-import-reviews';
+import { createRegisteredProjectAuthority } from './registered-project-authority';
+import { NativeDocumentWorkspaces } from './native-document-workspaces';
 import { createTestDb } from './__tests__/test-db';
 import { ensureSchema } from './schema';
 import { queryLimsEntitiesInDb, defineLimsSchemaInDb } from './lims';
@@ -399,6 +401,62 @@ describe('native retained import review', () => {
   });
   it.each([
     {
+      fileName: 'fenced-strain.csv',
+      text: 'Name,Genotype\nFenced strain,deltaA\n',
+      kind: 'strain',
+    },
+    {
+      fileName: 'fenced-primer.csv',
+      text: 'Name,Sequence\nFenced primer,ACGTACGTACGTACGTACGT\n',
+      kind: 'oligo',
+    },
+    {
+      fileName: 'fenced-rna.csv',
+      text: 'Name,Sequence\nFenced RNA,ACGUACGUACGUACGUACGU\n',
+      kind: 'rna_oligo',
+    },
+    {
+      fileName: 'fenced-protein.csv',
+      text: 'Name,Sequence\nFenced protein,MKWVTFISLLFLFSSAYS\n',
+      kind: 'protein',
+    },
+    {
+      fileName: 'fenced-target.fasta',
+      text: '>Fenced target\nACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT\n',
+      kind: 'sequence',
+    },
+  ])(
+    'publishes a reviewed $kind import while its own apply holds the database fence',
+    async ({ fileName, text, kind }) => {
+      const authority = createRegisteredProjectAuthority({
+        db: () => db,
+        managedRootDir: () => join(directory, 'managed-workspaces'),
+      });
+      const workspaces = new NativeDocumentWorkspaces({ authority });
+      const owner = createNativeImportReviews({
+        db: () => db,
+        workspaceRoots: () => workspaces.readableRoots(),
+        captureWorkspace: (path) => workspaces.capture(path),
+        profileDirectory: () => profile,
+      });
+      const prepared = await owner.call({
+        kind: 'prepare',
+        workspaceRoot: root,
+        destinationDir: root,
+        source: { fileName, text, forcedKind: kind },
+      });
+      const applied = await owner.call({
+        kind: 'execute',
+        id: prepared.id,
+        expectedRevision: prepared.revision,
+        command: { kind: 'apply', requestId: `fenced-${kind}` },
+      });
+      expect(applied).toMatchObject({ phase: 'applied', receipt: { imported: 1, failed: 0 } });
+      expect(queryLimsEntitiesInDb(db, { kind })).toHaveLength(1);
+    }
+  );
+  it.each([
+    {
       kind: 'custom_primer',
       family: 'primer',
       sequence: 'ACGTACGTACGTACGTACGT',
@@ -663,9 +721,17 @@ describe('native retained import review', () => {
       command: { kind: 'apply', requestId: 'sequence-package' },
     });
     expect(applied).toMatchObject({ phase: 'applied', receipt: { imported: 1, failed: 0 } });
-    expect(queryLimsEntitiesInDb(db, { kind: 'sequence' })[0].fields.sequence).toMatchObject({
+    const [sequence] = queryLimsEntitiesInDb(db, { kind: 'sequence' });
+    expect(sequence.fields.sequence).toMatchObject({
       mode: 'file',
     });
+    const logDir = join(profile, 'lims-registry', '.waypoint', 'lims', 'log');
+    const logs = (await readdir(logDir)).filter((name) => name.endsWith('.jsonl'));
+    expect(logs.length).toBeGreaterThan(0);
+    const logText = (
+      await Promise.all(logs.map((name) => readFile(join(logDir, name), 'utf8')))
+    ).join('\n');
+    expect(logText).toContain(`"subjectId":"${sequence.id}"`);
   });
   it.each([
     {

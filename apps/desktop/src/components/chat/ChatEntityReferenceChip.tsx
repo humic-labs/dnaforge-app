@@ -6,5 +6,12 @@ import {
 export function ChatEntityReferenceChip(
   props: Omit<EntityReferenceChipProps, 'showKindLabel' | 'iconPlacement'>
 ) {
-  return <EntityReferenceChip {...props} showKindLabel iconPlacement="start" />;
+  return (
+    <EntityReferenceChip
+      {...props}
+      attachmentPhase={props.attachmentPhase ?? 'sent'}
+      showKindLabel
+      iconPlacement="start"
+    />
+  );
 }

@@ -1,3 +1,5 @@
+import type { AgentProjectScope, AuthorizedProjectFolder } from './agent-project-scope';
+
 export interface RendererToolCallRequestShape {
   tool_name: string;
   args?: unknown;
@@ -15,6 +17,8 @@ export interface RendererAgentBridgePayload {
   expectedSessionToken: string;
   agentCapabilities: string[];
   boundWorkspaceId?: string;
+  projectScope?: AgentProjectScope;
+  authorizedFolders?: AuthorizedProjectFolder[];
   trustedContext?: unknown;
 }
 
@@ -32,6 +36,8 @@ export interface RendererAgentBridgeResourceReadPayload {
   agentIdentity: string;
   agentCapabilities: string[];
   boundWorkspaceId?: string;
+  projectScope?: AgentProjectScope;
+  authorizedFolders?: AuthorizedProjectFolder[];
 }
 
 export interface RendererToolCallErrorShape {

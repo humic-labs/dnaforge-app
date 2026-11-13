@@ -1,5 +1,10 @@
-import { parseGenBankFull } from '@waypoint/sequence-utils';
-import PUC19_GB from '../../../../../test-fixtures/sequences/circular/pUC19.gb?raw';
+import {
+  parseGenBankFull,
+  serializeGenBank,
+  type AnnotatedSequence,
+} from '@waypoint/sequence-utils';
+import PUBLIC_PUC19_GB from '../../../../../test-fixtures/sequences/circular/pUC19.gb?raw';
+import { derivePublicPuc19ScenarioFrame } from './public-puc19-scenario-frame';
 import J23106_AB_GB from '../../../resources/sample-workspaces/standard-samples/workspace/sequences/kits/moclo-cidar/J23106_AB/J23106_AB.gb?raw';
 import B0034M_BC_GB from '../../../resources/sample-workspaces/standard-samples/workspace/sequences/kits/moclo-cidar/B0034m_BC/B0034m_BC.gb?raw';
 import E1010M_CD_GB from '../../../resources/sample-workspaces/standard-samples/workspace/sequences/kits/moclo-cidar/E1010m_CD/E1010m_CD.gb?raw';
@@ -36,6 +41,8 @@ import {
   schemaForMocloStage,
 } from '../../features/design/moclo-kit-definition';
 import type { AppScenario } from './types';
+
+const PUC19_GB = derivePublicPuc19ScenarioFrame(PUBLIC_PUC19_GB);
 
 const SAMPLE_WORKSPACE_RESOURCE_PREFIX =
   '../../../resources/sample-workspaces/standard-samples/workspace/';
@@ -525,8 +532,7 @@ export const REAL_ASSEMBLY_PIPELINE_SCENARIOS: readonly RealAssemblyPipelineScen
       valid: false,
       validationValid: true,
       expectedInvalidJunctionErrors: [
-        'Palindromic overhang: CGCG (risk of self-ligation)',
-        'Fixed RD overhang TCCC does not match assembled product window GAAA',
+        'Fixed RD overhang CGCG does not match assembled product window TGCT',
       ],
     },
   },
@@ -1234,28 +1240,36 @@ const CLIPPED_AMPR_START = 1314;
 const CLIPPED_AMPR_END = 2111;
 
 function clippedAmprGenBank(): string {
-  const before = 'CDS             join(1284..1352,1353..2144)';
-  const after = `CDS             ${CLIPPED_AMPR_START}..${CLIPPED_AMPR_END}`;
-  if (!PUC19_GB.includes(before)) {
-    throw new Error('pUC19 fixture no longer has the AmpR CDS this scenario clips.');
-  }
-  return PUC19_GB.replace(before, after).replace('/label=AmpR\n', '/label=AmpR (clipped)\n');
+  const parsed = parseGenBankFull(PUC19_GB);
+  const ampr = requireScenarioCds(parsed, 'bla', 1284, 2144);
+  const {
+    _locationString: _location,
+    translation: _translation,
+    ...qualifiers
+  } = ampr.qualifiers ?? {};
+  return serializeGenBank(
+    {
+      ...parsed,
+      annotations: parsed.annotations.map((annotation) =>
+        annotation !== ampr
+          ? annotation
+          : {
+              ...annotation,
+              name: 'AmpR (clipped)',
+              start: CLIPPED_AMPR_START,
+              end: CLIPPED_AMPR_END,
+              segments: undefined,
+              qualifiers: { ...qualifiers, label: ['AmpR (clipped)'], codon_start: ['1'] },
+            }
+      ),
+    },
+    { date: new Date(2002, 4, 22) }
+  );
 }
 
 export function cdsExtensionIncompleteCdsScenario(): AppScenario {
-  const fixture = normalizeFixture(realAssemblyPipelineFixtures.puc19);
-  const parsed = sequenceFixtureToAnnotatedSequence(fixture);
-  const annotations = (parsed.annotations ?? []).map((annotation) => {
-    if (annotation.type !== 'CDS' || annotation.name !== 'AmpR') return annotation;
-    return {
-      ...annotation,
-      name: 'AmpR (clipped)',
-      start: CLIPPED_AMPR_START,
-      end: CLIPPED_AMPR_END,
-      segments: undefined,
-      qualifiers: { ...(annotation.qualifiers ?? {}), codon_start: ['1'] },
-    };
-  });
+  const genbank = clippedAmprGenBank();
+  const parsed = parseGenBankFull(genbank);
 
   return {
     canvas: {
@@ -1269,7 +1283,7 @@ export function cdsExtensionIncompleteCdsScenario(): AppScenario {
       ],
     },
     sequences: {
-      [CDS_EXTENSION_DOCUMENT_ID]: { ...parsed, id: CDS_EXTENSION_DOCUMENT_ID, annotations },
+      [CDS_EXTENSION_DOCUMENT_ID]: { ...parsed, id: CDS_EXTENSION_DOCUMENT_ID },
     },
     sequenceSources: {
       [CDS_EXTENSION_DOCUMENT_ID]: {
@@ -1277,7 +1291,7 @@ export function cdsExtensionIncompleteCdsScenario(): AppScenario {
         name: 'pUC19 — AmpR clipped',
       },
     },
-    files: { [CDS_EXTENSION_SEQUENCE_PATH]: clippedAmprGenBank() },
+    files: { [CDS_EXTENSION_SEQUENCE_PATH]: genbank },
     dev: { scenarioId: 'cds-extension-incomplete-cds' },
   };
 }
@@ -1289,33 +1303,33 @@ const ORIGIN_CDS_START = 2569;
 const ORIGIN_CDS_END = 2686;
 
 function originSpanningGenBank(): string {
-  const marker = '     CDS             615..938\n';
-  if (!PUC19_GB.includes(marker)) {
-    throw new Error('pUC19 fixture no longer has the lacZ CDS this scenario anchors on.');
-  }
-  const feature =
-    `     CDS             ${ORIGIN_CDS_START}..${ORIGIN_CDS_END}\n` +
-    '                     /codon_start=1\n' +
-    '                     /label=origin runner\n' +
-    '                     /note=": frame finishes past the origin"\n';
-  return PUC19_GB.replace(marker, feature + marker);
+  const parsed = parseGenBankFull(PUC19_GB);
+  requireScenarioCds(parsed, 'lacZ', 615, 938);
+  return serializeGenBank(
+    {
+      ...parsed,
+      annotations: [
+        ...parsed.annotations,
+        {
+          name: 'origin runner',
+          type: 'CDS',
+          start: ORIGIN_CDS_START,
+          end: ORIGIN_CDS_END,
+          direction: 1,
+          qualifiers: {
+            codon_start: ['1'],
+            note: [': frame finishes past the origin'],
+          },
+        },
+      ],
+    },
+    { date: new Date(2002, 4, 22) }
+  );
 }
 
 export function cdsExtensionOriginSpanScenario(): AppScenario {
-  const fixture = normalizeFixture(realAssemblyPipelineFixtures.puc19);
-  const parsed = sequenceFixtureToAnnotatedSequence(fixture);
-  const annotations = [
-    ...(parsed.annotations ?? []),
-    {
-      name: 'origin runner',
-      type: 'CDS',
-      start: ORIGIN_CDS_START,
-      end: ORIGIN_CDS_END,
-      direction: 1 as const,
-      color: '#8B5CF6',
-      qualifiers: { codon_start: ['1'] },
-    },
-  ];
+  const genbank = originSpanningGenBank();
+  const parsed = parseGenBankFull(genbank);
 
   return {
     canvas: {
@@ -1336,7 +1350,6 @@ export function cdsExtensionOriginSpanScenario(): AppScenario {
         ...parsed,
         id: CDS_EXTENSION_ORIGIN_DOCUMENT_ID,
         circular: true,
-        annotations,
       },
     },
     sequenceSources: {
@@ -1345,9 +1358,24 @@ export function cdsExtensionOriginSpanScenario(): AppScenario {
         name: 'pUC19 — origin runner',
       },
     },
-    files: { [CDS_EXTENSION_ORIGIN_PATH]: originSpanningGenBank() },
+    files: { [CDS_EXTENSION_ORIGIN_PATH]: genbank },
     dev: { scenarioId: 'cds-extension-origin-span' },
   };
+}
+
+function requireScenarioCds(sequence: AnnotatedSequence, gene: string, start: number, end: number) {
+  const matches = sequence.annotations.filter(
+    (annotation) => annotation.type === 'CDS' && annotation.qualifiers?.gene?.includes(gene)
+  );
+  if (
+    matches.length !== 1 ||
+    matches[0].start !== start ||
+    matches[0].end !== end ||
+    matches[0].direction !== 1
+  ) {
+    throw new Error(`The pUC19 scenario requires the canonical ${gene} CDS.`);
+  }
+  return matches[0];
 }
 
 function syntheticCircularGenBank(

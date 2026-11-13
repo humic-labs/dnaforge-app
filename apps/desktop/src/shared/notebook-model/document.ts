@@ -59,12 +59,24 @@ export class NotebookDocumentModel {
     this.state = this.state.apply(transaction);
     if (transaction.docChanged) this.cachedContent = undefined;
   }
+  private canonicalizeTransaction(transaction: Transaction, content?: JSONContent): void {
+    if (!content) return;
+    const canonical = this.state.schema.nodeFromJSON(content);
+    canonical.check();
+    const start = transaction.doc.content.findDiffStart(canonical.content);
+    const end = transaction.doc.content.findDiffEnd(canonical.content);
+    if (start !== null && end) {
+      const overlap = Math.max(0, start - Math.min(end.a, end.b));
+      transaction.replace(start, end.a + overlap, canonical.slice(start, end.b + overlap));
+    }
+  }
   applySteps(
     steps: readonly unknown[],
     selection?: unknown,
     separateHistory = false,
     time?: number,
-    addToHistory?: boolean
+    addToHistory?: boolean,
+    canonicalContent?: JSONContent
   ): void {
     let transaction = this.state.tr;
     if (separateHistory) transaction = closeHistory(transaction);
@@ -72,6 +84,7 @@ export class NotebookDocumentModel {
     if (addToHistory === false) transaction.setMeta('addToHistory', false);
     for (const step of steps) transaction.step(Step.fromJSON(this.state.schema, step));
     if (selection) transaction.setSelection(Selection.fromJSON(transaction.doc, selection));
+    this.canonicalizeTransaction(transaction, canonicalContent);
     transaction.doc.check();
     this.apply(transaction);
   }
@@ -134,7 +147,12 @@ export class NotebookDocumentModel {
       ...(operation.kind === 'insert-table' ? { tableId: blocks[0].attrs?.refId } : {}),
     };
   }
-  splice(index: number, deleteCount: number, blocks: JSONContent[]): void {
+  splice(
+    index: number,
+    deleteCount: number,
+    blocks: JSONContent[],
+    canonicalContent?: JSONContent
+  ): void {
     blocks = blocks.map(normalizeNotebookReferences);
     const document = this.state.doc;
     if (index > document.childCount || index + deleteCount > document.childCount)
@@ -158,6 +176,7 @@ export class NotebookDocumentModel {
       to,
       Fragment.fromArray(nodes)
     );
+    this.canonicalizeTransaction(transaction, canonicalContent);
     transaction.doc.check();
     this.apply(transaction);
   }

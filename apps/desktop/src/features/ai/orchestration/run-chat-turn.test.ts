@@ -58,6 +58,8 @@ const {
   mockConversationLedgerAppendEvent,
   mockReconcileCliWorkspaceChanges,
   mockScanWorkspaceFiles,
+  mockResolveRegisteredProject,
+  mockListRegisteredProjects,
 } = getUseChatConversationHarness();
 
 describe('runChatTurn direct-provider execution', () => {
@@ -172,17 +174,18 @@ describe('runChatTurn direct-provider execution', () => {
     expect(db.createChatTurnWithUserMessage).not.toHaveBeenCalled();
   });
 
-  it('mounts a known workspace before the first provider step can execute tools', async () => {
+  it('authorizes a registered workspace without mounting it before provider tools execute', async () => {
     vi.mocked(streamText).mockImplementation(() => {
-      expect(useWorkspaceStore.getState().folders).toEqual([
-        expect.objectContaining({ path: '/workspace', name: 'workspace' }),
-      ]);
+      expect(useWorkspaceStore.getState().folders).toEqual([]);
       return mockTextStream('Workspace ready') as any;
     });
 
     await act(async () => {
       await useChatStore.getState().sendMessage('List the files', '/workspace');
     });
+    expect(mockResolveRegisteredProject).toHaveBeenCalledWith('/workspace');
+    expect(mockListRegisteredProjects).toHaveBeenCalled();
+    expect(streamText).toHaveBeenCalled();
   });
 
   it('does not remount a workspace removed while a stale chat prop is still rendering', async () => {
@@ -199,6 +202,7 @@ describe('runChatTurn direct-provider execution', () => {
     });
 
     expect(useWorkspaceStore.getState().folders).toEqual([]);
+    expect(streamText).toHaveBeenCalled();
     expect(db.createConversation).toHaveBeenCalledWith(
       expect.any(String),
       'New conversation',

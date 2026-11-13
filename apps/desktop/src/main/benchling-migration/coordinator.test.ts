@@ -16,6 +16,7 @@ import {
 } from '../../shared/benchling-migration';
 import { createTestDb, openFileTestDb } from '../__tests__/test-db';
 import { ensureSchema } from '../schema';
+import type { CommittedOptionalAnalyticsReceipt } from '../analytics-outbox';
 import { seedLimsBuiltinsInDb } from '../lims-engine-core';
 import { isCoordinatorActiveRunCandidate, LocalBenchlingMigrationCoordinator } from './coordinator';
 import { createMigrationStagingWorkspace } from './staging-workspace';
@@ -667,6 +668,86 @@ describe('LocalBenchlingMigrationCoordinator ZIP-only boundary', () => {
     stores.materializeDiscoveryMarker(run.workspacePath);
     return run;
   }
+
+  it.each(['consented', 'opted-out', 'context-changed', 'trash-failed'] as const)(
+    'publishes discard only after a committed, consented workspace removal (%s)',
+    async (mode) => {
+      const original = await createRun(LOCAL_SCOPE, 'discard-telemetry-run');
+      const store = stores.openStore(original.workspacePath);
+      store.saveRun(
+        transitionMigrationRun(original, 'failed', '2026-08-14T18:00:00.000Z', {
+          code: 'validation_failed',
+          message: 'Private discard fixture detail.',
+          blocking: true,
+        })
+      );
+      const origin = {
+        consentScope: '11111111-1111-4111-8111-111111111111',
+        contextId: '22222222-2222-4222-8222-222222222222',
+        processId: '33333333-3333-4333-8333-333333333333',
+        classification: 'synthetic' as const,
+      };
+      let activeOrigin: typeof origin | null = mode === 'opted-out' ? null : origin;
+      const captureOrigin = vi.fn(() => activeOrigin);
+      const dispositions: CommittedOptionalAnalyticsReceipt<object>[] = [];
+      let removed = false;
+      const importer = new LocalBenchlingMigrationCoordinator({
+        globalDb,
+        managedRootDir: root,
+        openStore: stores.openStore,
+        renderValidator: async () => [],
+        telemetry: {
+          captureOrigin,
+          publish(readCommitted) {
+            const receipt = readCommitted();
+            if (receipt?.event.eventName !== 'benchling_migration_run_disposition_changed')
+              return false;
+            expect(removed).toBe(true);
+            if (activeOrigin !== receipt.origin) return false;
+            dispositions.push(receipt);
+            return true;
+          },
+        },
+        discardWorkspace: async () => {
+          expect(captureOrigin).toHaveBeenCalledTimes(1);
+          if (mode === 'trash-failed') throw new Error('Trash refused the workspace.');
+          if (mode === 'context-changed') {
+            activeOrigin = { ...origin, contextId: '44444444-4444-4444-8444-444444444444' };
+          }
+          removed = true;
+        },
+        nowMs: () => Date.parse('2026-08-14T18:00:01.000Z'),
+      });
+      if (mode === 'trash-failed') {
+        await expect(importer.discard(original.id)).rejects.toThrow('Trash refused the workspace.');
+      } else {
+        await importer.discard(original.id);
+      }
+      if (mode === 'consented') {
+        expect(dispositions).toHaveLength(1);
+        const [receipt] = dispositions;
+        expect(receipt).toMatchObject({
+          origin,
+          event: {
+            properties: {
+              feature_area: 'import',
+              prior_outcome: 'failed',
+              disposition: 'discarded',
+            },
+            createdAtMs: Date.parse('2026-08-14T18:00:01.000Z'),
+          },
+        });
+        expect(receipt.event.properties).toEqual({
+          feature_area: 'import',
+          $insert_id: receipt.event.eventId,
+          prior_outcome: 'failed',
+          disposition: 'discarded',
+        });
+      } else {
+        expect(dispositions).toEqual([]);
+      }
+    }
+  );
 
   it('fails a retired provider run closed without trying to resume it', async () => {
     const original = await createRun(REMOTE_SCOPE, 'retired-provider-run');

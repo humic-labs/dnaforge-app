@@ -290,6 +290,8 @@ export const APP_SHORTCUTS: readonly AppShortcut[] = [
     scope: 'global',
     availability: 'active',
     chords: [['cmd', 'p']],
+    commandIds: [COMMAND_IDS.appGoToFile],
+    commandBindings: [{ command: COMMAND_IDS.appGoToFile, allowInInput: true }],
   },
 
   {
@@ -407,7 +409,8 @@ export const APP_SHORTCUTS: readonly AppShortcut[] = [
     availability: 'active',
     chords: [['alt', 'cmd', 'e']],
     note: 'Shows the open tab in Explorer.',
-    commandIds: [COMMAND_IDS.workspaceRevealPath],
+    commandIds: [COMMAND_IDS.workspaceRevealActiveFile],
+    commandBindings: [{ command: COMMAND_IDS.workspaceRevealActiveFile, allowInInput: true }],
   },
   {
     id: 'files.copy-path',
@@ -508,6 +511,7 @@ export const APP_SHORTCUTS: readonly AppShortcut[] = [
   },
   {
     id: 'tabs.go-to',
+    commandIds: [COMMAND_IDS.canvasSelectTab],
     area: 'tabs',
     label: 'Go to tab',
     scope: 'global',
@@ -535,6 +539,8 @@ export const APP_SHORTCUTS: readonly AppShortcut[] = [
     scope: 'global',
     availability: 'active',
     chords: [['alt', 'cmd', 'w']],
+    commandIds: [COMMAND_IDS.canvasCloseOtherTabs],
+    commandBindings: [{ command: COMMAND_IDS.canvasCloseOtherTabs, allowInInput: true }],
   },
 
   {
@@ -1009,6 +1015,8 @@ export const APP_SHORTCUTS: readonly AppShortcut[] = [
     scope: 'chat',
     availability: 'active',
     chords: [['alt', 'cmd', '[']],
+    commandIds: [COMMAND_IDS.chatPrevious],
+    commandBindings: [{ command: COMMAND_IDS.chatPrevious, allowInInput: true }],
   },
   {
     id: 'chat.next',
@@ -1017,6 +1025,8 @@ export const APP_SHORTCUTS: readonly AppShortcut[] = [
     scope: 'chat',
     availability: 'active',
     chords: [['alt', 'cmd', ']']],
+    commandIds: [COMMAND_IDS.chatNext],
+    commandBindings: [{ command: COMMAND_IDS.chatNext, allowInInput: true }],
   },
 
   {

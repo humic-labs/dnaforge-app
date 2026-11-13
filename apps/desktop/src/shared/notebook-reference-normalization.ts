@@ -2,8 +2,12 @@ import type { JSONContent } from '@tiptap/core';
 
 import { nativeEntityReferenceIdFromHref } from './native-entity-reference';
 import { savedReferenceHref, savedReferenceIdFromHref } from './saved-reference-url';
+import { projectResourceReferenceFromHref } from './project-resource-reference';
 
 export function notebookReferenceFromHref(href: string, label: string): JSONContent | null {
+  const resourceReference = projectResourceReferenceFromHref(href);
+  if (resourceReference)
+    return { type: 'mention', attrs: { entityType: 'project-resource', resourceReference, label } };
   const entityId = nativeEntityReferenceIdFromHref(href);
   if (entityId)
     return { type: 'mention', attrs: { entityType: 'native-catalog', entityId, label } };

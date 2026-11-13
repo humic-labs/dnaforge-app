@@ -48,3 +48,40 @@ it('loads a database-only record without inventing saved-file recovery state', a
   expect(definition.savedRecord).toBeUndefined();
   expect(definition.record.path).toBeUndefined();
 });
+
+it('keeps an imported record archivable while its source-preserved metadata stays read-only', async () => {
+  mocks.preview = {
+    entity: {
+      id: 'imported-record',
+      kind: 'record',
+      name: 'Reagent Alpha',
+      fields: {
+        sourceMetadata: {
+          origin: { connectorType: 'benchling', sourceId: 'bfi_UIREC01' },
+        },
+      },
+      registrationStatus: 'registered',
+      eventSeq: 1,
+      workspaceId: null,
+    },
+    schemaSnapshot: {
+      schemaId: 'reagent',
+      schemaRevisionId: 'reagent-r1',
+      name: 'reagent',
+      displayName: 'Reagent',
+      baseKind: 'record',
+      version: 1,
+      fields: [{ key: 'amount', label: 'Amount', type: 'number' }],
+    },
+    summary: {
+      fieldValues: { amount: 0 },
+      archived: false,
+      representation: { kind: 'none', label: 'Record', canOpen: false },
+    },
+  } as LimsRegistryPreview;
+  const definition = await loadEntityDetails({ entityId: 'imported-record' });
+  expect(definition.record.readOnlyReason).toBe(
+    'This imported record preserves its original source. View original source to inspect it.'
+  );
+  expect(definition.record.lifecycleReadOnlyReason).toBeNull();
+});

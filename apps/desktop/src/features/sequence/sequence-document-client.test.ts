@@ -1,3 +1,4 @@
+import { createRegisteredProjectAuthorityFixture } from '../../main/__tests__/registered-project-authority-fixture';
 // @vitest-environment node
 
 import { createHash } from 'node:crypto';
@@ -477,8 +478,9 @@ describe('sequence UI input client of native owner', () => {
       await f.owner.close();
     }
   });
-  it('settles and continues an admitted Save without a new view-enrollment read after replacement', async () => {
-    const workspaces = new NativeDocumentWorkspaces({ resolveRoot: async (root) => root });
+  it('settles and continues an admitted Save without a new view-enrollment read after registered owner revocation', async () => {
+    const registry = createRegisteredProjectAuthorityFixture();
+    const workspaces = new NativeDocumentWorkspaces({ authority: registry.authority });
     const entered = deferred();
     const release = deferred();
     const f = await fixture(
@@ -489,6 +491,7 @@ describe('sequence UI input client of native owner', () => {
       false,
       { captureWorkspace: (root) => workspaces.capture(root) }
     );
+    registry.register(f.root);
     await workspaces.replaceRoots([f.root]);
     f.model.getState().setSequence(f.id, f.initial);
     await f.bridge.flush();
@@ -505,6 +508,7 @@ describe('sequence UI input client of native owner', () => {
       await entered.promise;
       f.model.getState().dispatchEdit(f.id, { type: 'INSERT', text: 'G' });
       await f.bridge.flush();
+      registry.remove(f.root);
       await workspaces.replaceRoots([]);
       release.resolve();
       const result = await settled;

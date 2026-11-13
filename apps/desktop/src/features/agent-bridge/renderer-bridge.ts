@@ -9,6 +9,7 @@ import {
 } from './renderer-tools';
 import { hasRequiredCapabilities } from './capability-policy';
 import { resolveWorkspaceBinding } from './workspace-binding';
+import { legacyProjectScope, type AgentProjectScope } from '../../shared/agent-project-scope';
 
 export type CoreRendererToolErrorCode =
   | 'UNKNOWN_TOOL'
@@ -122,6 +123,7 @@ export interface RendererBridgeContext {
   agentCapabilities?: string[];
   folders?: WorkspaceFolder[];
   boundWorkspaceId?: string | null;
+  projectScope?: AgentProjectScope;
   currentWorkspaceId?: string | null;
   auditSink?: RendererAuditSink;
   abortSignal?: AbortSignal;
@@ -229,6 +231,7 @@ export async function callRendererTool(
     boundWorkspaceId: context.boundWorkspaceId,
     currentWorkspaceId,
     folders: availableFolders,
+    projectScope: context.projectScope,
   });
   const folders = workspaceBinding.folders;
   const actorScope = context.agentCapabilities ?? [];
@@ -322,6 +325,7 @@ export async function callRendererTool(
       folders,
       actionId: request.action_id,
       grantedCapabilities: actorScope,
+      projectScope: context.projectScope ?? legacyProjectScope(context.boundWorkspaceId),
       abortSignal: context.abortSignal,
       trustedContext: context.trustedContext,
     });

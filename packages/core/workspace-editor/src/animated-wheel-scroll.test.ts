@@ -1,7 +1,10 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { installAnimatedWheelScroll } from './animated-wheel-scroll';
-import { dispatchNativeWheel, installNativeWheelSource } from '@waypoint/platform/wheel-motion';
+import {
+  dispatchNativeWheel,
+  installNativeWheelSource,
+} from '../../platform/src/wheel-input.test-helper';
 
 let container: HTMLElement;
 let dispose: () => void;

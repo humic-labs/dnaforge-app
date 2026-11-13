@@ -1,3 +1,8 @@
+import {
+  inputTargetAllows,
+  captureInputOwnership,
+  subscribeInputRevocation,
+} from '@waypoint/platform/input-ownership';
 import { cdsPresentationGeometry } from '../cds-presentation';
 import { rowHitY, rowPaintY } from '../predictive-wrap-layout';
 
@@ -1812,6 +1817,8 @@ export function useCanvasInteraction({
   }, [editable, drawSelectionDirect, cdsExtensionHoverStore]);
 
   const handleMouseUp = useCallback(() => {
+    const target = selectionCanvasRef.current;
+    if (target && !inputTargetAllows(target, 'pointer')) return;
     if (isDraggingHandleRef.current && handleDragAnchorRef.current !== null) {
       if (editable && liveSelectionRef.current) {
         onSelectionChange?.(liveSelectionRef.current);
@@ -2132,12 +2139,27 @@ export function useCanvasInteraction({
   );
 
   useEffect(() => {
+    const target = selectionCanvasRef.current;
+    const cancel = () => {
+      isSelectingRef.current = false;
+      isHighlightingRef.current = false;
+      isDraggingHandleRef.current = null;
+      handleDragAnchorRef.current = null;
+      liveSelectionRef.current = null;
+      mouseDownPosRef.current = null;
+      canvasRectRef.current = null;
+      onDragScroll?.(0, false);
+    };
+    const dispose = target ? subscribeInputRevocation(target, cancel) : () => undefined;
     const handleGlobalMouseUp = () => {
+      if (target && !inputTargetAllows(target, 'pointer')) return;
+      const current = target ? captureInputOwnership(target, 'pointer') : () => true;
       const committedSelection = isSelectingRef.current ? liveSelectionRef.current : null;
 
       handleMouseUp();
       if (committedSelection) {
         requestAnimationFrame(() => {
+          if (!current()) return;
           drawSelectionAndCursorRef.current(
             committedSelection.start === committedSelection.end ? null : committedSelection,
             cursorRef.current,
@@ -2150,10 +2172,24 @@ export function useCanvasInteraction({
     };
 
     window.addEventListener('mouseup', handleGlobalMouseUp);
+    window.addEventListener('blur', cancel);
     return () => {
+      dispose();
       window.removeEventListener('mouseup', handleGlobalMouseUp);
+      window.removeEventListener('blur', cancel);
     };
-  }, [handleMouseUp]);
+  }, [
+    handleMouseUp,
+    selectionCanvasRef,
+    isSelectingRef,
+    isHighlightingRef,
+    isDraggingHandleRef,
+    handleDragAnchorRef,
+    liveSelectionRef,
+    mouseDownPosRef,
+    canvasRectRef,
+    onDragScroll,
+  ]);
 
   return {
     handleMouseDown,

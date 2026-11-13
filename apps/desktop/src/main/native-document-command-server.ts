@@ -19,6 +19,11 @@ import { administrationAgentOperationSchema } from '../shared/administration';
 import type { createNativeWorkspaceCommands } from './native-workspace-commands';
 import type { NativeImportReviews } from './native-import-reviews';
 import type { AdministrationOwner } from './administration-owner';
+import { agentProjectScopeSchema } from '../shared/agent-project-scope';
+import {
+  withAgentProjectScope,
+  type RegisteredProjectAuthority,
+} from './registered-project-authority';
 
 const MAX_BODY_BYTES = 17 * 1024 * 1024;
 const identity = z.string().min(1).max(128);
@@ -53,6 +58,14 @@ const commandSchema = z.discriminatedUnion('command', [
   z
     .object({
       ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('project-scope.inspect'),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
       command: z.literal('notebook.execute'),
       request: notebookDocumentSchema,
     })
@@ -60,6 +73,7 @@ const commandSchema = z.discriminatedUnion('command', [
   z
     .object({
       ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
       command: z.literal('workspace.search'),
       request: workspaceSearchSchema,
     })
@@ -67,6 +81,7 @@ const commandSchema = z.discriminatedUnion('command', [
   z
     .object({
       ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
       command: z.literal('project-history.execute'),
       request: projectHistoryAgentRequestSchema,
     })
@@ -74,6 +89,7 @@ const commandSchema = z.discriminatedUnion('command', [
   z
     .object({
       ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
       command: z.literal('import-review.execute'),
       request: importReviewSchema,
       agent: agentAuthoritySchema,
@@ -82,6 +98,7 @@ const commandSchema = z.discriminatedUnion('command', [
   z
     .object({
       ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
       command: z.literal('administration.execute'),
       request: z.object({ operation: administrationAgentOperationSchema }).strict(),
       agent: agentAuthoritySchema,
@@ -90,6 +107,7 @@ const commandSchema = z.discriminatedUnion('command', [
   z
     .object({
       ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
       command: z.literal('file.execute'),
       request: fileDocumentAgentRequestSchema,
       agent: agentAuthoritySchema,
@@ -98,6 +116,7 @@ const commandSchema = z.discriminatedUnion('command', [
   z
     .object({
       ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
       command: z.literal('sequence.execute'),
       request: sequenceDocumentAgentRequestSchema,
     })
@@ -105,6 +124,7 @@ const commandSchema = z.discriminatedUnion('command', [
   z
     .object({
       ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
       command: z.literal('annotation.inspect'),
       target,
       authority: z.unknown(),
@@ -113,6 +133,7 @@ const commandSchema = z.discriminatedUnion('command', [
   z
     .object({
       ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
       command: z.literal('annotation.apply'),
       request: z.object({ actionId: identity, requestSha256: digest, selection }).strict(),
     })
@@ -132,6 +153,7 @@ interface NativeCommandAuthority {
 
 export async function startNativeDocumentCommandServer(options: {
   owner: NativeCommandReceiver;
+  projectAuthority?: RegisteredProjectAuthority;
   fileOwner?: Pick<NativeDocumentDispatcher, 'executeAgent'>;
   sequenceOwner?: Pick<NativeSequenceWorkingCopyOwner, 'execute'>;
   notebookOwner?: Pick<NativeNotebookWorkingCopyOwner, 'executePublic'>;
@@ -198,120 +220,139 @@ export async function startNativeDocumentCommandServer(options: {
     }
     let accepted = false;
     try {
-      const assertCurrent = () => {
-        const current = options.getAuthority();
-        if (
-          closing ||
-          !current ||
-          current.ownerInstanceId !== authority.ownerInstanceId ||
-          !sameToken(current.token, authority.token)
-        )
-          throw new Error('NATIVE_DOCUMENT_OWNER_CHANGED');
-      };
-      if (
-        body.command === 'workspace.search' ||
-        body.command === 'project-history.execute' ||
-        body.command === 'import-review.execute' ||
-        body.command === 'administration.execute'
-      ) {
-        const run = (() => {
-          if (body.command === 'workspace.search' && options.workspaceCommands) {
-            const receiver = options.workspaceCommands,
-              request = body.request;
-            return () => receiver.search(request);
-          }
-          if (body.command === 'project-history.execute' && options.workspaceCommands) {
-            const receiver = options.workspaceCommands,
-              request = body.request;
-            return () => receiver.history(request);
-          }
-          if (body.command === 'import-review.execute' && options.importReviews) {
-            const receiver = options.importReviews,
-              request = body.request,
-              agent = body.agent;
-            return () => receiver.executeAgent(request, agent, assertCurrent);
-          }
-          if (body.command === 'administration.execute' && options.administration) {
-            const receiver = options.administration,
-              request = body.request,
-              agent = body.agent;
-            return () => receiver.execute(request, assertCurrent, agent);
-          }
-          return null;
-        })();
-        if (!run) {
-          failure(res, 503, 'NATIVE_DOCUMENT_OWNER_UNAVAILABLE', false);
-          return;
-        }
-        if (body.command === 'project-history.execute' && body.request.operation.kind !== 'inspect')
-          await options.flushFileClients?.();
-        assertCurrent();
-        accepted = true;
-        const result = await run();
-        json(res, 200, { ok: true, ownerInstanceId: authority.ownerInstanceId, result });
-        return;
-      }
-      if (body.command === 'file.execute') {
-        if (!options.fileOwner) {
-          failure(res, 503, 'NATIVE_DOCUMENT_OWNER_UNAVAILABLE', false);
-          return;
-        }
-        await options.flushFileClients?.();
-        assertCurrent();
-        accepted = true;
-        const snapshot = await options.fileOwner.executeAgent(body.request, body.agent);
-        const result = Object.fromEntries(
-          Object.entries(snapshot).filter(
-            ([key]) =>
-              ![
-                'content',
-                'persistedContent',
-                'diskContent',
-                'tableData',
-                'headerRowValues',
-                'firstRowAsHeader',
-              ].includes(key)
+      await withAgentProjectScope(body.projectScope, async () => {
+        const assertCurrent = () => {
+          const current = options.getAuthority();
+          if (
+            closing ||
+            !current ||
+            current.ownerInstanceId !== authority.ownerInstanceId ||
+            !sameToken(current.token, authority.token)
           )
-        );
-        json(res, 200, { ok: true, ownerInstanceId: authority.ownerInstanceId, result });
-        return;
-      }
-      if (body.command === 'sequence.execute') {
-        if (!options.sequenceOwner) {
-          failure(res, 503, 'NATIVE_DOCUMENT_OWNER_UNAVAILABLE', false);
+            throw new Error('NATIVE_DOCUMENT_OWNER_CHANGED');
+        };
+        if (body.command === 'project-scope.inspect') {
+          if (!options.projectAuthority) {
+            failure(res, 503, 'NATIVE_DOCUMENT_OWNER_UNAVAILABLE', false);
+            return;
+          }
+          assertCurrent();
+          const roots = options.projectAuthority.list().map((project) => project.path);
+          json(res, 200, {
+            ok: true,
+            ownerInstanceId: authority.ownerInstanceId,
+            result: { roots },
+          });
           return;
         }
-        await options.flushFileClients?.();
-        assertCurrent();
-        accepted = true;
-        const result = sequenceDocumentAgentResult(
-          await options.sequenceOwner.execute(body.request),
-          body.request.operation.kind
-        );
-        json(res, 200, { ok: true, ownerInstanceId: authority.ownerInstanceId, result });
-        return;
-      }
-      if (body.command === 'notebook.execute') {
-        if (!options.notebookOwner) {
-          failure(res, 503, 'NATIVE_DOCUMENT_OWNER_UNAVAILABLE', false);
+        if (
+          body.command === 'workspace.search' ||
+          body.command === 'project-history.execute' ||
+          body.command === 'import-review.execute' ||
+          body.command === 'administration.execute'
+        ) {
+          const run = (() => {
+            if (body.command === 'workspace.search' && options.workspaceCommands) {
+              const receiver = options.workspaceCommands,
+                request = body.request;
+              return () => receiver.search(request);
+            }
+            if (body.command === 'project-history.execute' && options.workspaceCommands) {
+              const receiver = options.workspaceCommands,
+                request = body.request;
+              return () => receiver.history(request);
+            }
+            if (body.command === 'import-review.execute' && options.importReviews) {
+              const receiver = options.importReviews,
+                request = body.request,
+                agent = body.agent;
+              return () => receiver.executeAgent(request, agent, assertCurrent);
+            }
+            if (body.command === 'administration.execute' && options.administration) {
+              const receiver = options.administration,
+                request = body.request,
+                agent = body.agent;
+              return () => receiver.execute(request, assertCurrent, agent);
+            }
+            return null;
+          })();
+          if (!run) {
+            failure(res, 503, 'NATIVE_DOCUMENT_OWNER_UNAVAILABLE', false);
+            return;
+          }
+          if (
+            body.command === 'project-history.execute' &&
+            body.request.operation.kind !== 'inspect'
+          )
+            await options.flushFileClients?.();
+          assertCurrent();
+          accepted = true;
+          const result = await run();
+          json(res, 200, { ok: true, ownerInstanceId: authority.ownerInstanceId, result });
           return;
         }
-        await options.flushFileClients?.();
-        assertCurrent();
+        if (body.command === 'file.execute') {
+          if (!options.fileOwner) {
+            failure(res, 503, 'NATIVE_DOCUMENT_OWNER_UNAVAILABLE', false);
+            return;
+          }
+          await options.flushFileClients?.();
+          assertCurrent();
+          accepted = true;
+          const snapshot = await options.fileOwner.executeAgent(body.request, body.agent);
+          const result = Object.fromEntries(
+            Object.entries(snapshot).filter(
+              ([key]) =>
+                ![
+                  'content',
+                  'persistedContent',
+                  'diskContent',
+                  'tableData',
+                  'headerRowValues',
+                  'firstRowAsHeader',
+                ].includes(key)
+            )
+          );
+          json(res, 200, { ok: true, ownerInstanceId: authority.ownerInstanceId, result });
+          return;
+        }
+        if (body.command === 'sequence.execute') {
+          if (!options.sequenceOwner) {
+            failure(res, 503, 'NATIVE_DOCUMENT_OWNER_UNAVAILABLE', false);
+            return;
+          }
+          await options.flushFileClients?.();
+          assertCurrent();
+          accepted = true;
+          const result = sequenceDocumentAgentResult(
+            await options.sequenceOwner.execute(body.request),
+            body.request.operation.kind
+          );
+          json(res, 200, { ok: true, ownerInstanceId: authority.ownerInstanceId, result });
+          return;
+        }
+        if (body.command === 'notebook.execute') {
+          if (!options.notebookOwner) {
+            failure(res, 503, 'NATIVE_DOCUMENT_OWNER_UNAVAILABLE', false);
+            return;
+          }
+          await options.flushFileClients?.();
+          assertCurrent();
+          accepted = true;
+          const result = await options.notebookOwner.executePublic(body.request);
+          json(res, 200, { ok: true, ownerInstanceId: authority.ownerInstanceId, result });
+          return;
+        }
+        const result =
+          body.command === 'annotation.inspect'
+            ? options.owner.inspect(body.target, body.authority)
+            : options.owner.apply(body.request);
         accepted = true;
-        const result = await options.notebookOwner.executePublic(body.request);
-        json(res, 200, { ok: true, ownerInstanceId: authority.ownerInstanceId, result });
-        return;
-      }
-      const result =
-        body.command === 'annotation.inspect'
-          ? options.owner.inspect(body.target, body.authority)
-          : options.owner.apply(body.request);
-      accepted = true;
-      json(res, 200, {
-        ok: true,
-        ownerInstanceId: authority.ownerInstanceId,
-        result: await result,
+        json(res, 200, {
+          ok: true,
+          ownerInstanceId: authority.ownerInstanceId,
+          result: await result,
+        });
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

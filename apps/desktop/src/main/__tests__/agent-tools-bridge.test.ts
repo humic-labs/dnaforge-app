@@ -9,6 +9,12 @@ const { resolveCurrentAgentCaller } = vi.hoisted(() => ({
   })),
 }));
 
+vi.mock('../ipc/database', () => ({ getDb: vi.fn() }));
+
+vi.mock('../registered-project-authority', () => ({
+  createRegisteredProjectAuthority: () => ({ folders: () => [] }),
+}));
+
 vi.mock('../agent-caller', () => ({ resolveCurrentAgentCaller }));
 
 const { mockIpcMain, ipcEvents } = vi.hoisted(() => {

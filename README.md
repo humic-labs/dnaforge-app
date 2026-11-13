@@ -8,12 +8,16 @@ helper programs (`tools/`).
 
 ## Requirements
 
+`node start.mjs` (see "Run from source" below) needs only the first two of
+these and helps you install the rest.
+
 - A Git clone of this repository. The build reads the commit it is built from
   with `git rev-parse HEAD`, so a ZIP download of the source does not build. On
   macOS and Linux the build runs `/usr/bin/git`.
 - Node.js at the version in `.nvmrc`, with pnpm at the version in the root
   `package.json` (`corepack enable` selects it).
-- Python at the version in `.python-version`, and [uv](https://docs.astral.sh/uv/).
+- [uv](https://docs.astral.sh/uv/), which installs the Python version in
+  `apps/api/.python-version` when it is missing.
 - A Rust toolchain with `cargo`. On Linux, the desktop helpers build for musl:
   `rustup target add x86_64-unknown-linux-musl` and your distribution's
   `musl-tools` package.
@@ -42,8 +46,26 @@ uv run --frozen pytest -q
 
 ## Run from source
 
-Most people run DNAForge from source with the development server. From a fresh
-clone, with the prerequisites above installed:
+Most people run DNAForge from source with the development server. Install
+[Node.js 22](https://nodejs.org), clone this repository with Git, and run one
+command from the clone:
+
+```bash
+node start.mjs
+```
+
+It checks your tools, offers to install uv and Rust for your user if they are
+missing, installs the dependencies, sets up the Python sidecar, builds the Rust
+helpers, writes the settings file with free ports, and starts the app. The
+first start compiles the app before the window appears, so it takes a minute or
+two. Run the same command to start the app again; finished steps are quick.
+`node start.mjs --help` lists its options.
+
+On Windows the command does not install Rust: install it from
+[rustup.rs](https://rustup.rs) first. On Linux it asks you to install your
+distribution's `musl-tools` package if that is missing.
+
+These are the steps it runs, if you prefer to run them yourself:
 
 ```bash
 corepack enable
@@ -58,13 +80,11 @@ The app starts its Python sidecar from `apps/api/.venv`, and it refuses to start
 without the Rust helpers that `helpers:build` produces. The first start compiles
 the app before the window appears, so it takes longer than later starts.
 
-Without `apps/desktop/.env.local` the launcher stops with "DESKTOP_DEV_PORT is
-required". It does not choose a port by itself because, in its own words, a
-default "can launch against the installed app profile". The example file sets
-ports 1420, 1500 and 8000, which the launcher accepts; edit the file if one of
-them is in use. With a port set, a development run keeps its settings and data
-in its own profile folder, named with the suffix `-dev-<port>`, apart from an
-installed DNAForge.
+The launcher reads its ports from `apps/desktop/.env.local` and stops with
+"DESKTOP_DEV_PORT is required" when that file is missing. The example file sets
+ports 1420, 1500 and 8000; edit your copy if one of them is in use. A
+development run keeps its settings and data in its own profile folder, named
+with the suffix `-dev-<port>`, apart from an installed DNAForge.
 
 To check a clone end to end without watching it, run:
 
@@ -129,6 +149,15 @@ reference records, CC0 data or synthetic files. A few are third-party files
 under MIT, BSD or CC BY 4.0 terms, and some are published sequences recorded as
 facts with their source named and no license asserted. Most of the bundled
 sample sequences are OpenMTA parts collections or sequences recorded as facts.
+
+## The name Waypoint
+
+DNAForge was developed under the name Waypoint. That name remains in
+identifiers: the package scope (`@waypoint/*`), environment variables
+(`WAYPOINT_*`), the sidecar program (`waypoint-api`) and its data folder, and
+file and folder names inside projects (`.waypoint/`, `.waypoint-workspace`).
+They are kept because saved projects depend on them. They do not refer to a
+separate product.
 
 ## Contributing and security
 

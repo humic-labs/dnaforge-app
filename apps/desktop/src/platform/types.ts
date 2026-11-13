@@ -548,6 +548,9 @@ export type * from '../shared/agent-capability-controls';
 
 export interface PlatformBridge {
   notebook: {
+    resolveResourceReference?(
+      request: import('../shared/project-resource-reference').ResolveNotebookResourceReferenceRequest
+    ): Promise<import('../shared/project-resource-reference').ResolvedProjectResourceReference>;
     inspectConflict?(
       documentId: string
     ): Promise<import('../shared/notebook-conflict').NotebookConflictComparison>;
@@ -817,6 +820,9 @@ export interface PlatformBridge {
     resolveInlineReferenceTarget(
       input: ResolveInlineReferenceTargetRequest
     ): Promise<ResolveInlineReferenceTargetResult>;
+    resolveProjectResourceReference?(
+      reference: string | import('../shared/project-resource-reference').ProjectResourceReference
+    ): Promise<import('../shared/project-resource-reference').ResolvedProjectResourceReference>;
 
     mkdir(path: string, options?: { recursive?: boolean }, mutationToken?: string): Promise<void>;
 
@@ -969,6 +975,12 @@ export interface PlatformBridge {
     listChildren(request: WorkspaceListChildrenRequest): Promise<WorkspaceListChildrenResult>;
     reconcileNativeRecords(request: NativeCatalogRecordReconcileRequest): Promise<number>;
     setDocumentCommandRoots(request: NativeDocumentWorkspaceRootsRequest): Promise<boolean>;
+    resolveRegisteredProject?(
+      reference: string
+    ): Promise<import('../shared/agent-project-scope').AuthorizedProjectFolder | null>;
+    listRegisteredProjects?(): Promise<
+      import('../shared/agent-project-scope').AuthorizedProjectFolder[]
+    >;
     onImportProgress(callback: (event: ImportProgressEvent) => void): () => void;
   };
   shell: {
@@ -1512,6 +1524,9 @@ export interface PlatformBridge {
     status(
       request: InternalAssemblyFixtureStatusRequest
     ): Promise<InternalAssemblyFixtureStatusResult>;
+    registerScenarioFiles(
+      request: import('../shared/internal-fixtures').RegisterScenarioFixtureFilesRequest
+    ): Promise<{ manifestPath: string }>;
   };
   analytics: {
     getRuntimeConfig(): Promise<AnalyticsRuntimeConfig | null>;

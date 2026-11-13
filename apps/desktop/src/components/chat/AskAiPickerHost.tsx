@@ -1,3 +1,7 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+} from '../../presentation/PresentationSurface';
 import { isReferenceCreationTool } from '../../features/ai/references/constants';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -74,6 +78,8 @@ export function AskAiPickerHost() {
 }
 
 function AskAiPicker({ picker }: { picker: PendingAskAiPicker }) {
+  const presentationOverlay = usePresentationOverlay('modal');
+
   const [conversations, setConversations] = useState<DBConversation[]>([]);
   const [cursor, setCursor] = useState(0);
   const [question, setQuestion] = useState(picker.seedText ?? '');
@@ -343,189 +349,192 @@ function AskAiPicker({ picker }: { picker: PendingAskAiPicker }) {
     : undefined;
 
   return (
-    <div
-      data-testid="ask-ai-picker"
-      data-anchored={anchor ? 'true' : 'false'}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Ask AI — choose a conversation"
-      className={outerClassName}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) cancel();
-      }}
-    >
+    <PresentationScopeContext.Provider value={presentationOverlay.scope}>
       <div
-        ref={cardRef}
-        data-testid="ask-ai-picker-card"
-        className={cardClassName}
-        style={cardStyle}
-        onMouseDown={(e) => e.stopPropagation()}
+        data-testid="ask-ai-picker"
+        data-anchored={anchor ? 'true' : 'false'}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Ask AI — choose a conversation"
+        className={outerClassName}
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) cancel();
+        }}
+        ref={presentationOverlay.bindRef(undefined, '0')}
       >
-        {}
         <div
-          data-testid="ask-ai-picker-chip"
-          className={`flex flex-wrap items-center gap-2 border-b border-border px-4 py-3 ${
-            anchor ? 'cursor-grab select-none active:cursor-grabbing' : ''
-          }`}
-          onPointerDown={anchor ? handleHeaderPointerDown : undefined}
-          onPointerMove={anchor ? handleHeaderPointerMove : undefined}
-          onPointerUp={anchor ? handleHeaderPointerUp : undefined}
-          onPointerCancel={anchor ? handleHeaderPointerUp : undefined}
+          ref={cardRef}
+          data-testid="ask-ai-picker-card"
+          className={cardClassName}
+          style={cardStyle}
+          onMouseDown={(e) => e.stopPropagation()}
         >
-          {anchor ? (
-            <span
-              aria-hidden="true"
-              data-testid="ask-ai-picker-drag-affordance"
-              className="text-fg-subtle/60 -ml-1 select-none text-[13px] leading-none"
-              title="Drag to move"
-            >
-              ⠿
-            </span>
-          ) : null}
-          <span className="text-[11px] font-medium uppercase tracking-wide text-fg-subtle">
-            Ask AI about
-          </span>
-          <ReferenceChip reference={picker.reference} phase="draft" inline />
-        </div>
-
-        {}
-        <div className="flex flex-col gap-1.5 border-b border-border px-4 py-3">
+          {}
           <div
-            data-testid="ask-ai-picker-composer"
-            className="flex items-center gap-2 rounded-lg border border-border bg-bg px-2 py-1.5 transition-colors focus-within:border-accent/60 focus-within:ring-2 focus-within:ring-accent/40"
+            data-testid="ask-ai-picker-chip"
+            className={`flex flex-wrap items-center gap-2 border-b border-border px-4 py-3 ${
+              anchor ? 'cursor-grab select-none active:cursor-grabbing' : ''
+            }`}
+            onPointerDown={anchor ? handleHeaderPointerDown : undefined}
+            onPointerMove={anchor ? handleHeaderPointerMove : undefined}
+            onPointerUp={anchor ? handleHeaderPointerUp : undefined}
+            onPointerCancel={anchor ? handleHeaderPointerUp : undefined}
           >
-            {cursor === 0 && (
+            {anchor ? (
+              <span
+                aria-hidden="true"
+                data-testid="ask-ai-picker-drag-affordance"
+                className="text-fg-subtle/60 -ml-1 select-none text-[13px] leading-none"
+                title="Drag to move"
+              >
+                ⠿
+              </span>
+            ) : null}
+            <span className="text-[11px] font-medium uppercase tracking-wide text-fg-subtle">
+              Ask AI about
+            </span>
+            <ReferenceChip reference={picker.reference} phase="draft" inline />
+          </div>
+
+          {}
+          <div className="flex flex-col gap-1.5 border-b border-border px-4 py-3">
+            <div
+              data-testid="ask-ai-picker-composer"
+              className="flex items-center gap-2 rounded-lg border border-border bg-bg px-2 py-1.5 transition-colors focus-within:border-accent/60 focus-within:ring-2 focus-within:ring-accent/40"
+            >
+              {cursor === 0 && (
+                <button
+                  type="button"
+                  data-testid="ask-ai-picker-new-badge"
+                  data-active={true}
+                  onClick={() => {
+                    setCursor(0);
+                    safeFocus(inputRef.current);
+                  }}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                >
+                  New chat
+                </button>
+              )}
+              <input
+                ref={inputRef}
+                data-testid="ask-ai-picker-input"
+                type="text"
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onBlur={handleInputBlur}
+                onClick={() => setCursor(0)}
+                placeholder={`Ask about this ${picker.contextKind ?? 'selection'}…`}
+                aria-label={`Your question for this ${picker.contextKind ?? 'selection'}`}
+                className="h-6 w-full flex-1 border-0 bg-transparent p-0 text-sm text-fg outline-none placeholder:text-fg-subtle"
+              />
+            </div>
+            {}
+            {cursor === 0 && conversations.length > 0 ? (
               <button
                 type="button"
-                data-testid="ask-ai-picker-new-badge"
-                data-active={true}
+                data-testid="ask-ai-picker-expand-hint"
                 onClick={() => {
-                  setCursor(0);
+                  setCursor(1);
                   safeFocus(inputRef.current);
                 }}
-                className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                className="inline-flex w-fit items-center gap-1 text-[11px] text-fg-subtle transition-colors hover:text-fg-muted focus:outline-none focus-visible:text-fg-muted"
               >
-                New chat
+                <span aria-hidden="true">↓</span>
+                earlier conversations
               </button>
-            )}
-            <input
-              ref={inputRef}
-              data-testid="ask-ai-picker-input"
-              type="text"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onBlur={handleInputBlur}
-              onClick={() => setCursor(0)}
-              placeholder={`Ask about this ${picker.contextKind ?? 'selection'}…`}
-              aria-label={`Your question for this ${picker.contextKind ?? 'selection'}`}
-              className="h-6 w-full flex-1 border-0 bg-transparent p-0 text-sm text-fg outline-none placeholder:text-fg-subtle"
-            />
+            ) : null}
           </div>
+
           {}
-          {cursor === 0 && conversations.length > 0 ? (
+          {cursor > 0 ? (
+            <div className="flex min-h-[20rem]">
+              <div
+                ref={listRef}
+                data-testid="ask-ai-picker-targets"
+                role="listbox"
+                aria-label="Conversation targets"
+                className="max-h-72 w-2/5 space-y-0.5 overflow-y-auto border-r border-border p-1.5"
+              >
+                {conversations.map((conv, i) => {
+                  const index = i + 1;
+                  return (
+                    <TargetRow
+                      key={conv.id}
+                      testId={`ask-ai-picker-target-${conv.id}`}
+                      active={cursor === index}
+                      onClick={() => {
+                        if (cursor === index) {
+                          void confirmTarget(index);
+                        } else {
+                          setCursor(index);
+                          safeFocus(inputRef.current);
+                        }
+                      }}
+                      onDoubleClick={() => void confirmTarget(index)}
+                      title={conv.title || 'Untitled conversation'}
+                      subtitle={new Date(conv.updated_at).toLocaleString()}
+                    />
+                  );
+                })}
+              </div>
+
+              {}
+              <div
+                data-testid="ask-ai-picker-preview"
+                className="flex max-h-72 w-3/5 flex-col overflow-y-auto bg-bg"
+              >
+                <div
+                  data-testid="ask-ai-picker-adds-to"
+                  className="sticky top-0 z-10 border-b border-border bg-bg px-3 py-2 text-[11px] font-medium text-fg-muted"
+                >
+                  → Adds to: <span className="text-fg">{truncate(destinationTitle, 40)}</span>
+                </div>
+                <div className="space-y-3 p-3">
+                  <AskAiPickerPreview
+                    isNewTarget={cursor === 0}
+                    loading={previewLoading}
+                    messages={previewMessages}
+                    question={question}
+                    reference={picker.reference}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {}
+          <div
+            data-testid="ask-ai-picker-hint"
+            className="flex items-center gap-3 border-t border-border px-4 py-2.5 text-[11px] text-fg-muted"
+          >
+            <span className="flex items-center gap-1">
+              <kbd className={KBD_CLASS}>↑</kbd>
+              <kbd className={KBD_CLASS}>↓</kbd>
+              <span>navigate</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className={KBD_CLASS}>esc</kbd>
+              <span>cancel</span>
+            </span>
             <button
               type="button"
-              data-testid="ask-ai-picker-expand-hint"
-              onClick={() => {
-                setCursor(1);
-                safeFocus(inputRef.current);
-              }}
-              className="inline-flex w-fit items-center gap-1 text-[11px] text-fg-subtle transition-colors hover:text-fg-muted focus:outline-none focus-visible:text-fg-muted"
+              data-testid="ask-ai-picker-confirm"
+              onClick={() => void confirm()}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             >
-              <span aria-hidden="true">↓</span>
-              earlier conversations
+              <kbd className="inline-flex min-w-[1.25rem] items-center justify-center rounded border border-accent-fg/30 bg-accent-fg/10 px-1 py-0.5 font-sans text-[10px] leading-none text-accent-fg">
+                ↵
+              </kbd>
+              <span data-testid="ask-ai-picker-confirm-label">
+                {cursor === 0 ? 'Start new chat' : `Add to "${truncate(destinationTitle)}"`}
+              </span>
             </button>
-          ) : null}
-        </div>
-
-        {}
-        {cursor > 0 ? (
-          <div className="flex min-h-[20rem]">
-            <div
-              ref={listRef}
-              data-testid="ask-ai-picker-targets"
-              role="listbox"
-              aria-label="Conversation targets"
-              className="max-h-72 w-2/5 space-y-0.5 overflow-y-auto border-r border-border p-1.5"
-            >
-              {conversations.map((conv, i) => {
-                const index = i + 1;
-                return (
-                  <TargetRow
-                    key={conv.id}
-                    testId={`ask-ai-picker-target-${conv.id}`}
-                    active={cursor === index}
-                    onClick={() => {
-                      if (cursor === index) {
-                        void confirmTarget(index);
-                      } else {
-                        setCursor(index);
-                        safeFocus(inputRef.current);
-                      }
-                    }}
-                    onDoubleClick={() => void confirmTarget(index)}
-                    title={conv.title || 'Untitled conversation'}
-                    subtitle={new Date(conv.updated_at).toLocaleString()}
-                  />
-                );
-              })}
-            </div>
-
-            {}
-            <div
-              data-testid="ask-ai-picker-preview"
-              className="flex max-h-72 w-3/5 flex-col overflow-y-auto bg-bg"
-            >
-              <div
-                data-testid="ask-ai-picker-adds-to"
-                className="sticky top-0 z-10 border-b border-border bg-bg px-3 py-2 text-[11px] font-medium text-fg-muted"
-              >
-                → Adds to: <span className="text-fg">{truncate(destinationTitle, 40)}</span>
-              </div>
-              <div className="space-y-3 p-3">
-                <AskAiPickerPreview
-                  isNewTarget={cursor === 0}
-                  loading={previewLoading}
-                  messages={previewMessages}
-                  question={question}
-                  reference={picker.reference}
-                />
-              </div>
-            </div>
           </div>
-        ) : null}
-
-        {}
-        <div
-          data-testid="ask-ai-picker-hint"
-          className="flex items-center gap-3 border-t border-border px-4 py-2.5 text-[11px] text-fg-muted"
-        >
-          <span className="flex items-center gap-1">
-            <kbd className={KBD_CLASS}>↑</kbd>
-            <kbd className={KBD_CLASS}>↓</kbd>
-            <span>navigate</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <kbd className={KBD_CLASS}>esc</kbd>
-            <span>cancel</span>
-          </span>
-          <button
-            type="button"
-            data-testid="ask-ai-picker-confirm"
-            onClick={() => void confirm()}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-          >
-            <kbd className="inline-flex min-w-[1.25rem] items-center justify-center rounded border border-accent-fg/30 bg-accent-fg/10 px-1 py-0.5 font-sans text-[10px] leading-none text-accent-fg">
-              ↵
-            </kbd>
-            <span data-testid="ask-ai-picker-confirm-label">
-              {cursor === 0 ? 'Start new chat' : `Add to "${truncate(destinationTitle)}"`}
-            </span>
-          </button>
         </div>
       </div>
-    </div>
+    </PresentationScopeContext.Provider>
   );
 }
 

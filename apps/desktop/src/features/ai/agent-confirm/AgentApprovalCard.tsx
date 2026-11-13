@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { renderUserMessagePayload, type UserMessagePayload } from '@waypoint/user-messages';
 import { toUserMessage, toOptionalUserMessage, type UserMessage } from '@waypoint/user-messages';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
@@ -39,6 +40,8 @@ export function AgentApprovalCard({
   ruleMessage,
   onChoose,
 }: AgentApprovalCardProps) {
+  const presentationEvents = usePresentationListener();
+
   const title = toUserMessage(incomingTitle, 'assistant.approval.permission');
   const detail = toOptionalUserMessage(incomingDetail, 'assistant.approval.detail');
   const ruleLabel = ruleMessage
@@ -60,9 +63,9 @@ export function AgentApprovalCard({
         ?.querySelector<HTMLElement>('[data-testid="agent-approval-choices"]')
         ?.focus();
     };
-    window.addEventListener('keydown', focusChoices);
-    return () => window.removeEventListener('keydown', focusChoices);
-  }, []);
+    presentationEvents.add(window, 'keydown', focusChoices);
+    return () => presentationEvents.remove(window, 'keydown', focusChoices);
+  }, [presentationEvents]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     const digit = Number(event.key);

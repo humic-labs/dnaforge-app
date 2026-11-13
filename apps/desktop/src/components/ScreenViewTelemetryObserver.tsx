@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import type { ActivityView } from './ActivityBar';
-import { isRendererFeatureView, rendererFeatureScreenCategory } from '../feature-registry';
+import {
+  isRendererFeatureSidebarView,
+  isRendererFeatureView,
+  rendererFeatureScreenCategory,
+} from '../feature-registry';
 import { useCanvasStore } from '../features/canvas/store';
 import type { Tab, TabType } from '../features/canvas/types';
 import { observeCommittedScreen, type ScreenCategory } from '../lib/screen-telemetry';
@@ -106,7 +110,7 @@ function activityDestination(
   screenCategory: ScreenCategory;
   source: 'sidebar';
 } {
-  if (isRendererFeatureView(activeView)) {
+  if (isRendererFeatureView(activeView) || isRendererFeatureSidebarView(activeView)) {
     return { screenCategory: rendererFeatureScreenCategory(activeView), source: 'sidebar' };
   }
   switch (activeView) {

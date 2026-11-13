@@ -1,3 +1,4 @@
+import { supportsWheelMomentum } from '@waypoint/platform/wheel-motion';
 import { toUserMessage } from '@waypoint/user-messages';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { parseGenBankFull } from '@waypoint/sequence-utils';
@@ -274,9 +275,7 @@ export function HarnessPage(): JSX.Element {
   return (
     <div data-testid="harness-root" style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
       <SequenceViewer
-        nativeWheelGestureOwnership={
-          window.electronAPI?.sequenceWheel?.nativeGestureOwnership === true
-        }
+        browserWheelGestureOwnership={supportsWheelMomentum()}
         sequence={state.sequence!}
         config={config}
         zoomLevel={zoomLevel}

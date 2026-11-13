@@ -13,6 +13,8 @@ import {
 } from '../../shared/scientific-file-types';
 import { handleGroup } from '../../shared/ipc-contract';
 import { fsInlineReferenceTargetContract } from '../../shared/ipc/fs-inline-reference-target.contract';
+import { createProjectResourceReferences } from '../project-resource-references';
+import { getDb } from './database';
 
 const MAX_ROOTS = 64;
 const MAX_SEGMENTS = 64;
@@ -156,7 +158,9 @@ export async function resolveInlineReferenceTarget(
 }
 
 export function registerInlineReferenceTargetHandlers(): void {
+  const resources = createProjectResourceReferences({ db: getDb });
   handleGroup(fsInlineReferenceTargetContract, {
+    resolveProjectResourceReference: (_event, reference) => resources.resolve(reference),
     resolveInlineReferenceTarget: (_event, request) => resolveInlineReferenceTarget(request),
   });
 }

@@ -69,8 +69,11 @@ export function attachPixiInteractionAdapter(params: {
   const { canvasEl, stateRef, optionsRef, renderer, activeGenome, circular, invalidateRender } =
     params;
   const interaction = setupInteraction(canvasEl, stateRef.current);
+  interaction.isInputEnabled = () =>
+    !(renderer as { isTrackPresentationDragging?: () => boolean }).isTrackPresentationDragging?.();
   const detectFrustration = createCanvasFrustrationDetector();
   const onClick = (event: MouseEvent) => {
+    if (interaction.isInputEnabled?.() === false) return;
     if (event.button !== 0 || !optionsRef.current.onUiFrustration) return;
     const frustration = detectFrustration(
       interaction.hitTestFn?.(event.clientX, event.clientY) ?? null,
@@ -129,7 +132,15 @@ export function attachPixiInteractionAdapter(params: {
     };
   }
 
+  const isContentPoint = (local: LocalPointer): boolean => {
+    const hitTestContentSurface = (
+      renderer as { hitTestContentSurface?: (x: number, y: number) => boolean }
+    ).hitTestContentSurface;
+    return hitTestContentSurface?.call(renderer, local.x, local.y) ?? true;
+  };
+
   const hitTestPileupAtLocal = (local: LocalPointer): WebGLHitTarget | null => {
+    if (!isContentPoint(local)) return null;
     const hitTestReadEvent = (
       renderer as {
         hitTestReadEvent?: (x: number, y: number) => ReadHitPayload | null;
@@ -157,6 +168,7 @@ export function attachPixiInteractionAdapter(params: {
 
   interaction.hitTestPrimerFn = (sx, sy) => {
     const local = canvasLocalPoint(canvasEl, stateRef.current, sx, sy);
+    if (!isContentPoint(local)) return null;
     const path = renderer.getCurrentPathMapper();
     if (!path) return null;
     const hit = renderer
@@ -168,6 +180,7 @@ export function attachPixiInteractionAdapter(params: {
 
   interaction.hitTestFn = (sx, sy) => {
     const local = canvasLocalPoint(canvasEl, stateRef.current, sx, sy);
+    if (!isContentPoint(local)) return null;
     const registry = renderer.getOverlayRegistry();
     const path = renderer.getCurrentPathMapper();
     const primerHandleHit =
@@ -242,6 +255,7 @@ export function attachPixiInteractionAdapter(params: {
 
   interaction.hitTestHoverFeatureFn = (sx, sy) => {
     const local = canvasLocalPoint(canvasEl, stateRef.current, sx, sy);
+    if (!isContentPoint(local)) return null;
     const hitTestIntron = (
       renderer as {
         hitTestIntron?: (x: number, y: number) => FeatureHitPayload | null;
@@ -410,6 +424,17 @@ export function attachPixiInteractionAdapter(params: {
   };
   interaction.onSelectionStart = (mode) => {
     optionsRef.current.onSelectionStart?.(mode);
+  };
+  interaction.onGestureCancel = () => {
+    const primerOverlay = renderer.getOverlayRegistry().get('primers');
+    if (primerOverlay instanceof PrimerOverlay) primerOverlay.clearPbsEndpointPreview();
+    const previews = renderer as {
+      clearBackboneBoundaryHandlePreview?: () => void;
+      clearBackbonePartInsertionPreview?: () => void;
+    };
+    previews.clearBackboneBoundaryHandlePreview?.();
+    previews.clearBackbonePartInsertionPreview?.();
+    invalidateRender?.();
   };
   interaction.onPrimerHandleDragPreview = (
     primerHandle: PrimerHandleHitPayload,

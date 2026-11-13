@@ -7,7 +7,8 @@ import {
   type LimsImportPlan,
 } from '../../../shared/lims';
 import type { WorkspaceFolder } from '../../../stores/workspaceStore';
-import { createLimsImportPlan, type DryRunLimsImportInput } from '../../lims/public/ingress';
+import type { DryRunLimsImportInput } from '../../lims/public/ingress';
+import { prepareLimsImportReview } from '../../lims/public/import-review-client';
 import {
   recordImportedPrimers,
   type ImportedPrimerRecordSummary,
@@ -53,6 +54,7 @@ interface LoadedImportSource {
 export interface ImportEntitiesDependencies {
   readSource(path: string): Promise<LoadedImportSource>;
   createPlan(input: DryRunLimsImportInput): Promise<LimsImportPlan>;
+  ensureDestination(path: string): Promise<void>;
   recordProteins(
     plan: LimsImportPlan,
     destination: Parameters<typeof recordImportedProteins>[1]
@@ -73,7 +75,8 @@ async function readImportSource(path: string): Promise<LoadedImportSource> {
 
 const defaultDependencies: ImportEntitiesDependencies = {
   readSource: readImportSource,
-  createPlan: createLimsImportPlan,
+  createPlan: prepareLimsImportReview,
+  ensureDestination: (path) => platform().fs.mkdir(path, { recursive: true }),
   recordProteins: recordImportedProteins,
   recordOligos: recordImportedPrimers,
 };
@@ -214,6 +217,7 @@ export function createImportEntitiesTool(
           source: { sourcePath: source.absolutePath },
         };
         writeAttempted = true;
+        await dependencies.ensureDestination(destinationDir);
         const summary =
           input.entityType === 'protein'
             ? await dependencies.recordProteins(plan, destination)

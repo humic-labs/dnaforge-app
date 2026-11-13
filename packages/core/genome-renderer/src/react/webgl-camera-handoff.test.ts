@@ -1,5 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { dispatchNativeWheel, installNativeWheelSource } from '@waypoint/platform/wheel-motion';
+import {
+  dispatchNativeWheel,
+  installNativeWheelSource,
+} from '../../../platform/src/wheel-input.test-helper';
 import { setupInteraction } from '../renderers/pixi/interaction';
 import type { RenderState } from '../types';
 import { startWebGLRenderLoop } from './webgl-render-loop';

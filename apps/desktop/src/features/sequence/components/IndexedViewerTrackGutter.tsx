@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import {
   toUserMessage,
   userMessage,
@@ -40,7 +41,11 @@ import {
   type TrackAdmissionRequestV1,
   type UcscCatalogLeaf,
 } from '@waypoint/genome-data';
-import { BUILTIN_TRACK_TYPES, defaultBuiltinRegistry } from '@waypoint/genome-renderer';
+import {
+  BUILTIN_TRACK_TYPES,
+  defaultBuiltinRegistry,
+  type TrackPresentationDrag,
+} from '@waypoint/genome-renderer';
 import type { AnnotationTrackDefinition } from '../annotation-track-registry';
 import {
   LEGACY_BUCKET,
@@ -347,6 +352,7 @@ export function IndexedViewerTrackGutter({
   );
   const gutterScrollLayerRef = useRef<HTMLDivElement | null>(null);
   const previewOrderRef = useRef<ReadonlyArray<string> | null>(null);
+  const previewDragRef = useRef<TrackPresentationDrag | null>(null);
   const lastAppliedScrollRef = useRef<{
     target: HTMLDivElement;
     trackScrollTop: number;
@@ -590,6 +596,13 @@ export function IndexedViewerTrackGutter({
     },
     [applyPresentationOrder]
   );
+  const handlePreviewDataRowDrag = useCallback(
+    (preview: TrackPresentationDrag | null) => {
+      previewDragRef.current = preview;
+      webglRef.current?.setTrackPresentationDrag(preview);
+    },
+    [webglRef]
+  );
   const handleCommitDataRowOrder = useCallback(
     (orderedTrackIds: ReadonlyArray<string>) => {
       previewOrderRef.current = null;
@@ -646,6 +659,7 @@ export function IndexedViewerTrackGutter({
         return;
       }
       map.setTrackPresentationOrder(desiredRendererOrder);
+      map.setTrackPresentationDrag(previewDragRef.current);
     };
     restorePreview();
     return () => {
@@ -1100,6 +1114,7 @@ export function IndexedViewerTrackGutter({
         onMoveDataRow={handleMoveDataRow}
         dataRowOrder={durableOwnerOrder}
         onPreviewDataRowOrder={handlePreviewDataRowOrder}
+        onPreviewDataRowDrag={handlePreviewDataRowDrag}
         onCommitDataRowOrder={handleCommitDataRowOrder}
         onCancelDataRowOrder={handleCancelDataRowOrder}
         onPreviewDataRowHeight={handlePreviewDataRowHeight}
@@ -1758,6 +1773,8 @@ function TrackColorControl({
   controlLabel?: string;
   lightModeOnly?: boolean;
 }) {
+  const presentationEvents = usePresentationListener();
+
   const color = `#${Math.max(0, Math.min(0xff_ffff, Math.round(value)))
     .toString(16)
     .padStart(6, '0')}`;
@@ -1800,12 +1817,12 @@ function TrackColorControl({
       safeFocus(controlRef.current);
     };
     document.addEventListener('pointerdown', handlePointerDown, true);
-    window.addEventListener('keydown', handleKeyDown, true);
+    presentationEvents.add(window, 'keydown', handleKeyDown, true);
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown, true);
-      window.removeEventListener('keydown', handleKeyDown, true);
+      presentationEvents.remove(window, 'keydown', handleKeyDown, true);
     };
-  }, [color, normalizedDraft, onChange, open]);
+  }, [color, normalizedDraft, onChange, open, presentationEvents]);
 
   const commit = (next: string) => {
     const normalized = normalizeHexColor(next);

@@ -1,4 +1,9 @@
 import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../../presentation/PresentationSurface';
+import {
   toUserMessage,
   userMessage,
   userEntityLabel,
@@ -77,6 +82,9 @@ export function BenchlingMigrationWizard({
   startFresh?: boolean;
   initialView?: MigrationInitialView;
 }) {
+  const presentationOverlay = usePresentationOverlay('modal');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const wizard = useBenchlingMigrationWizard(bridge, selectedRunId, startFresh);
   const { view, loading, pendingAction, error } = wizard;
   const run = view.run;
@@ -205,9 +213,9 @@ export function BenchlingMigrationWizard({
         safeFocus(first);
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [closeWizard]);
+    presentationEvents.add(window, 'keydown', onKeyDown);
+    return () => presentationEvents.remove(window, 'keydown', onKeyDown);
+  }, [closeWizard, presentationEvents]);
 
   useEffect(() => {
     const previouslyFocused =
@@ -266,72 +274,77 @@ export function BenchlingMigrationWizard({
   }, [error, loading, onRunChange, run, selectedRunId]);
 
   return (
-    <div
-      data-testid="benchling-migration-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={
-        localImportFailure ? 'benchling-migration-import-failed-title' : 'benchling-migration-title'
-      }
-      aria-describedby={
-        localImportFailure && run?.lastError?.sourceFileName
-          ? 'benchling-migration-import-failed-details'
-          : undefined
-      }
-      className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm"
-    >
+    <PresentationScopeContext.Provider value={presentationOverlay.scope}>
       <div
-        ref={dialogPanelRef}
-        data-testid="benchling-migration-wizard"
-        aria-busy={loading || pendingAction !== null}
-        className={`relative flex max-h-[88vh] flex-col rounded-xl border border-border bg-bg shadow-xl ${
-          useWideLayout ? 'w-[min(56rem,94vw)]' : 'w-[min(32rem,94vw)]'
-        }`}
+        data-testid="benchling-migration-backdrop"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={
+          localImportFailure
+            ? 'benchling-migration-import-failed-title'
+            : 'benchling-migration-title'
+        }
+        aria-describedby={
+          localImportFailure && run?.lastError?.sourceFileName
+            ? 'benchling-migration-import-failed-details'
+            : undefined
+        }
+        className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm"
+        ref={presentationOverlay.bindRef(undefined, '0')}
       >
-        {localImportFailure ? (
-          <div className="absolute right-4 top-4">{closeButton}</div>
-        ) : (
-          <header className="flex h-14 flex-none items-center justify-between border-b border-border px-5 py-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 id="benchling-migration-title" className="text-base font-semibold text-fg">
-                  Migrate from Benchling
-                </h2>
-                {}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">{closeButton}</div>
-          </header>
-        )}
-
         <div
-          className={`min-h-0 flex-1 overflow-y-auto px-5 ${localImportFailure ? 'py-6 pr-12' : 'py-4'}`}
+          ref={dialogPanelRef}
+          data-testid="benchling-migration-wizard"
+          aria-busy={loading || pendingAction !== null}
+          className={`relative flex max-h-[88vh] flex-col rounded-xl border border-border bg-bg shadow-xl ${
+            useWideLayout ? 'w-[min(56rem,94vw)]' : 'w-[min(32rem,94vw)]'
+          }`}
         >
-          {visibleError && !localImportFailure ? (
-            <div
-              role="alert"
-              data-testid="benchling-migration-error"
-              className="mb-4 rounded border border-error/40 bg-error/5 px-3 py-2 text-xs text-error"
-            >
-              <p className="font-medium">{renderUserMessage(visibleError)}</p>
-            </div>
-          ) : null}
-          {loading && !startFresh ? (
-            <div className="flex min-h-48 items-center justify-center gap-2 text-sm text-fg-muted">
-              <SpinnerIcon className="h-4 w-4" /> Loading migration state
-            </div>
+          {localImportFailure ? (
+            <div className="absolute right-4 top-4">{closeButton}</div>
           ) : (
-            <WizardBody
-              wizard={wizard}
-              openingWorkspace={openingWorkspace}
-              onOpenWorkspace={onOpenWorkspace ? openWorkspace : undefined}
-              onViewMigrationDetails={onViewMigrationDetails}
-              initialView={initialView}
-            />
+            <header className="flex h-14 flex-none items-center justify-between border-b border-border px-5 py-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h2 id="benchling-migration-title" className="text-base font-semibold text-fg">
+                    Migrate from Benchling
+                  </h2>
+                  {}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">{closeButton}</div>
+            </header>
           )}
+
+          <div
+            className={`min-h-0 flex-1 overflow-y-auto px-5 ${localImportFailure ? 'py-6 pr-12' : 'py-4'}`}
+          >
+            {visibleError && !localImportFailure ? (
+              <div
+                role="alert"
+                data-testid="benchling-migration-error"
+                className="mb-4 rounded border border-error/40 bg-error/5 px-3 py-2 text-xs text-error"
+              >
+                <p className="font-medium">{renderUserMessage(visibleError)}</p>
+              </div>
+            ) : null}
+            {loading && !startFresh ? (
+              <div className="flex min-h-48 items-center justify-center gap-2 text-sm text-fg-muted">
+                <SpinnerIcon className="h-4 w-4" /> Loading migration state
+              </div>
+            ) : (
+              <WizardBody
+                wizard={wizard}
+                openingWorkspace={openingWorkspace}
+                onOpenWorkspace={onOpenWorkspace ? openWorkspace : undefined}
+                onViewMigrationDetails={onViewMigrationDetails}
+                initialView={initialView}
+              />
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </PresentationScopeContext.Provider>
   );
 }
 

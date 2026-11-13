@@ -2,6 +2,7 @@ import hashlib
 import json
 from typing import Any
 
+from .agent_workspace_authority import agent_project_scope
 from .concurrency.renderer_bridge import RENDERER_TOOL_SPECS, _renderer_tool_spec
 from .concurrency.schema import ToolHome
 from .concurrency.tool_errors import ToolExecutionFailure
@@ -145,7 +146,11 @@ def _current_agent(context: ToolContext, required: list[str]) -> dict[str, Any]:
             message="The current grant does not permit this operation.",
             retriable=False,
         )
-    return {"identityId": context.agent_identity_id, "capabilities": capabilities}
+    return {
+        "identityId": context.agent_identity_id,
+        "capabilities": capabilities,
+        "projectScope": agent_project_scope(identity),
+    }
 
 
 async def execute_native_workflow(
@@ -174,7 +179,11 @@ async def execute_native_workflow(
     request = dict(args)
     if name == "notebook_document":
         request.setdefault("requestId", context.job_id)
-    command: dict[str, Any] = {"command": _COMMANDS[name], "request": request}
+    command: dict[str, Any] = {
+        "command": _COMMANDS[name],
+        "request": request,
+        "projectScope": agent.pop("projectScope"),
+    }
     if name in {"administration", "import_review"}:
         command["agent"] = agent
     outcome = await dispatch_native_document_command(authority, command)

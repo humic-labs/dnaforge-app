@@ -1797,10 +1797,10 @@ export function useIndexedPileupStreaming({
     if (!range) return;
     const planKey = tileEngineCommitPlanKey(range, rendererAssembly, containerWidth);
     if (!planKey) return;
-    const needsCurrentWidth = [...tileEngineDriversRef.current.values()].some(
-      (entry) => entry.planKey !== planKey
+    const needsCurrentPlan = tileEngineOwnedTrackIdsRef.current.some(
+      (trackId) => tileEngineDriversRef.current.get(trackId)?.planKey !== planKey
     );
-    if (needsCurrentWidth) streamPileupViaTileEngineRef.current?.(range);
+    if (needsCurrentPlan) streamPileupViaTileEngineRef.current?.(range);
   }, [containerWidth, enabled, rendererAssembly, webglRef]);
 
   useEffect(() => {

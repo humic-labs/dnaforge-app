@@ -111,20 +111,25 @@ vi.mock('../settings', () => ({
   },
 }));
 
-vi.mock('../../../platform', () => ({
-  platform: vi.fn(() => ({
-    path: { appDataDir: async () => '/app-data' },
-    agentSession: {
-      start: mockAgentSessionStart,
-      cancel: mockAgentSessionCancel,
-      onEvent: mockAgentSessionOnEvent,
-    },
-    conversationLedger: {
-      appendEvent: mockConversationLedgerAppendEvent,
-      unlinkConversation: vi.fn().mockResolvedValue({ ok: true }),
-    },
-  })),
-}));
+vi.mock('../../../platform', async () => {
+  const { createRegisteredProjectPlatformFixture } =
+    await import('../../../test/ai/registered-project-platform-fixture');
+  return {
+    platform: vi.fn(() => ({
+      workspace: createRegisteredProjectPlatformFixture(['/workspace', '/ws']),
+      path: { appDataDir: async () => '/app-data' },
+      agentSession: {
+        start: mockAgentSessionStart,
+        cancel: mockAgentSessionCancel,
+        onEvent: mockAgentSessionOnEvent,
+      },
+      conversationLedger: {
+        appendEvent: mockConversationLedgerAppendEvent,
+        unlinkConversation: vi.fn().mockResolvedValue({ ok: true }),
+      },
+    })),
+  };
+});
 
 vi.mock('../cli-workspace-reconcile', () => ({
   scanWorkspaceFiles: mockScanWorkspaceFiles,

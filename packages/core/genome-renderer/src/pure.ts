@@ -1,3 +1,4 @@
+export type { TrackPresentationDrag } from './tracks/types';
 export type {
   AnnotationCodonCarrierPagePublication,
   AnnotationFlatPresentationSnapshot,

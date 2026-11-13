@@ -1,7 +1,11 @@
-import { toUserMessage } from '@waypoint/user-messages';
+import { toUserMessage, userMessageValue, type UserMessageValue } from '@waypoint/user-messages';
 import { useSidecarStatus } from '../hooks/use-sidecar-status';
 import { platform } from '../platform';
-import { SunIcon, MoonIcon } from './icons/glyphs';
+import { SunIcon, MoonIcon, SparklesIcon } from './icons/glyphs';
+import { COMMAND_IDS, useCommandRegistry } from '../commands';
+import { shortcutChord } from '../keyboard/shortcutRegistry';
+import { formatShortcutHint } from './menuShortcuts';
+import { Button } from './ui';
 import { FeedbackWidget } from './FeedbackWidget';
 import { TelemetryBlockedSurface } from './TelemetryBlockedSurface';
 import { useDarkMode } from '../shared/context/DarkModeContext';
@@ -18,6 +22,7 @@ interface AppBarProps {
 }
 
 export function AppBar({ appVersion, extraControls }: AppBarProps) {
+  const { dispatchCommand } = useCommandRegistry();
   const desktopApi = typeof window !== 'undefined' ? window.electronAPI : undefined;
   const windowsTitleBar =
     desktopApi !== undefined && 'platform' in desktopApi && desktopApi.platform === 'win32';
@@ -25,6 +30,8 @@ export function AppBar({ appVersion, extraControls }: AppBarProps) {
   const [restartPending, setRestartPending] = useState(false);
   const [restartError, setRestartError] = useState<string | null>(null);
   const [nonReleaseUserDataPath, setNonReleaseUserDataPath] = useState<string | null>(null);
+  const askAiShortcut: UserMessageValue =
+    formatShortcutHint(shortcutChord('app.ai-chat')) ?? userMessageValue('Ctrl+/');
   const sidecarStatus = useSidecarStatus('');
   const sidecarStarting = sidecarStatus === 'starting' || sidecarStatus === 'restarting';
   const sidecarRecoverable =
@@ -134,6 +141,21 @@ export function AppBar({ appVersion, extraControls }: AppBarProps) {
       controls={
         <>
           {extraControls}
+          <div className="flex min-w-0 items-center gap-2" data-testid="appbar-ai-entry">
+            <Button
+              type="button"
+              onClick={() => dispatchCommand(COMMAND_IDS.appFocusCommandInput, { source: 'ui' })}
+              variant="appbar"
+              title={`Ask AI (${askAiShortcut})`}
+              aria-label="Ask AI"
+              data-testid="appbar-ask-ai-button"
+              data-ph-capture-attribute-action="open"
+              data-ph-capture-attribute-surface="header"
+            >
+              <SparklesIcon size={14} className="text-accent" />
+              <span className="appbar-action-label">Ask AI</span>
+            </Button>
+          </div>
           <TelemetryBlockedSurface className="contents">
             <FeedbackWidget appVersion={appVersion} titleBarInset={windowsTitleBar} />
           </TelemetryBlockedSurface>

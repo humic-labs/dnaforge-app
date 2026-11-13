@@ -1,3 +1,4 @@
+import { inputTargetAllows, subscribeInputRevocation } from '@waypoint/platform/input-ownership';
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import { WheelMotion, shouldAnimateWheel } from '@waypoint/platform/wheel-motion';
@@ -496,7 +497,7 @@ export function computeZoomStepWithAnchor(
 }
 
 export interface UseZoomControllerOpts {
-  nativeWheelGestureOwnership?: boolean;
+  browserWheelGestureOwnership?: boolean;
 
   continuous?: boolean;
 
@@ -1099,6 +1100,11 @@ export function useZoomController(opts: UseZoomControllerOpts): UseZoomControlle
     setZooming(false);
   }, [clearAnchorDeadline, setZooming]);
 
+  useEffect(() => {
+    const container = containerRefRef.current.current;
+    if (container) return subscribeInputRevocation(container, cancelGesture);
+  }, [cancelGesture]);
+
   const captureScreenAnchor = useCallback(
     (clientX: number, clientY: number) => {
       const container = containerRefRef.current.current;
@@ -1258,6 +1264,8 @@ export function useZoomController(opts: UseZoomControllerOpts): UseZoomControlle
 
   const onWheel = useCallback(
     (e: WheelEvent) => {
+      const inputTarget = containerRefRef.current.current;
+      if (!inputTarget || !inputTargetAllows(inputTarget, 'pointer')) return;
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
       const wheelDelta = normalizeWheelDeltaY(e);
       if (!(e.ctrlKey || e.metaKey) || e.shiftKey) {
@@ -1265,7 +1273,7 @@ export function useZoomController(opts: UseZoomControllerOpts): UseZoomControlle
         if (
           !e.ctrlKey &&
           !e.metaKey &&
-          !opts.nativeWheelGestureOwnership &&
+          !opts.browserWheelGestureOwnership &&
           now < wheelTailUntilRef.current &&
           (direction === 0 || direction === lastZoomWheelDirectionRef.current) &&
           Math.abs(wheelDelta) <=
@@ -1411,7 +1419,7 @@ export function useZoomController(opts: UseZoomControllerOpts): UseZoomControlle
       minZoom,
       opts.deferCommitsUntilSettle,
       opts.continuous,
-      opts.nativeWheelGestureOwnership,
+      opts.browserWheelGestureOwnership,
       opts.seqLength,
       clampLogZoom,
       resetSettleTimer,

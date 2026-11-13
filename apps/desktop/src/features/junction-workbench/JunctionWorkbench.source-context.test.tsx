@@ -3,7 +3,7 @@
  */
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnnotatedSequence } from '@waypoint/sequence-utils';
 import { DEFAULT_EDITOR_CONFIG } from '@waypoint/workspace-editor';
 import { computeDraftAssembly } from '../design/algorithms/draft-assembly';
@@ -25,10 +25,25 @@ import { JunctionWorkbench } from './JunctionWorkbench';
 import { SOURCE_ROW_BUFFER_BP } from './registered-window';
 import { JUNCTION_WORKBENCH_HORIZONTAL_PADDING } from './coord-mapping';
 
+const mockSelect = vi.hoisted(() => vi.fn());
+const mockReadTextFile = vi.hoisted(() => vi.fn());
+
+vi.mock('../../platform', () => ({
+  platform: () => ({
+    db: {
+      select: mockSelect,
+      execute: vi.fn(),
+      assertCanonicalSequenceSource: vi.fn(async () => undefined),
+    },
+    fs: {
+      readTextFile: mockReadTextFile,
+    },
+  }),
+}));
+
 const VIEWPORT_WIDTH = 720;
 const VIEWPORT_HEIGHT = 420;
 const SOURCE_ROW_BUFFER_WIDTH = SOURCE_ROW_BUFFER_BP * DEFAULT_EDITOR_CONFIG.charWidth * 2;
-const REAL_ASSEMBLY_PIPELINE_SEQUENCE_DOCUMENT_ID = 'fixture:sequence:puc19-real-assembly';
 
 class ImmediateResizeObserver {
   private cb: ResizeObserverCallback;
@@ -88,6 +103,8 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  mockSelect.mockReset().mockResolvedValue([]);
+  mockReadTextFile.mockReset();
   installRecordingCanvas();
   useDesignStore.setState({
     designs: {},
@@ -242,17 +259,48 @@ describe('JunctionWorkbench source context rendering', () => {
 
   it('rehydrates PCR and RD source context after a persisted real assembly reopens without sequence cache', async () => {
     const scenario = realAssemblyPipelineAppScenario('goldengate-pcr-rd-pcr', { drafted: false });
-    const scenarioDesign = scenario.designs.designs[scenario.designs.activeDesignId!];
-    const design: SequenceDesign = {
-      ...scenarioDesign,
-      regions: scenarioDesign.regions.map((region) => ({
-        ...region,
-        sourceSequenceId:
-          region.sourceSequenceId === REAL_ASSEMBLY_PIPELINE_DOCUMENT_ID
-            ? REAL_ASSEMBLY_PIPELINE_SEQUENCE_DOCUMENT_ID
-            : region.sourceSequenceId,
-      })),
-    };
+    const design = scenario.designs.designs[scenario.designs.activeDesignId!];
+    const source = scenario.sequences[REAL_ASSEMBLY_PIPELINE_DOCUMENT_ID];
+    const sourcePath = scenario.sequenceSources?.[REAL_ASSEMBLY_PIPELINE_DOCUMENT_ID]?.sourcePath;
+    const sourceContent = sourcePath ? scenario.files?.[sourcePath] : undefined;
+    if (!sourcePath || typeof sourceContent !== 'string') {
+      throw new Error('The real assembly scenario must expose its materialized source file.');
+    }
+    mockSelect.mockImplementation(async (sql: string, params: unknown[] = []) => {
+      const normalized = sql.replace(/\s+/g, ' ');
+      if (
+        normalized.includes('FROM sequences') &&
+        normalized.includes('WHERE document_id = ?') &&
+        params[0] === REAL_ASSEMBLY_PIPELINE_DOCUMENT_ID
+      ) {
+        return [{ id: 7 }];
+      }
+      if (
+        normalized.includes('FROM sequences s') &&
+        normalized.includes('WHERE s.id = ?') &&
+        params[0] === 7
+      ) {
+        return [
+          {
+            id: 7,
+            document_id: REAL_ASSEMBLY_PIPELINE_DOCUMENT_ID,
+            file_id: 3,
+            name: source.name,
+            description: null,
+            length: source.length,
+            sequence_type: 'dna',
+            circular: 1,
+            sequence: null,
+            file_path: sourcePath,
+          },
+        ];
+      }
+      return [];
+    });
+    mockReadTextFile.mockImplementation(async (path: string) => {
+      if (path !== sourcePath) throw new Error('Unexpected assembly source path.');
+      return sourceContent;
+    });
     const draft = computeDraftAssembly(design);
     const draftedDesign = {
       ...design,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { userMessage, withUserMessage } from '@waypoint/user-messages';
 import { primerSaveErrorMessage } from './primer-save-error';
 
 describe('primerSaveErrorMessage', () => {
@@ -11,6 +12,14 @@ describe('primerSaveErrorMessage', () => {
     expect(message).toContain(recovery);
     expect(message).toContain('Your primer draft is still here');
     expect(message).not.toContain(code);
+  });
+
+  it('shows the catalog message a pending accepted save declares', () => {
+    const pending = withUserMessage(
+      new Error('Save accepted; file delivery remains pending: EACCES'),
+      'document.saveRefreshPending'
+    );
+    expect(primerSaveErrorMessage(pending)).toBe(userMessage('document.saveRefreshPending'));
   });
 
   it('retains an unrelated persistence error rather than claiming nothing was saved', () => {

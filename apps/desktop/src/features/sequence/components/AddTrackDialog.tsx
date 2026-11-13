@@ -1,4 +1,8 @@
 import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+} from '../../../presentation/PresentationSurface';
+import {
   toOptionalUserMessage,
   toUserMessage,
   userMessage,
@@ -156,6 +160,8 @@ export function AddTrackDialog({
   onCreateSignalReadPileup,
   onClose,
 }: AddTrackDialogProps) {
+  const presentationOverlay = usePresentationOverlay('modal');
+
   const dialogRef = useRef<HTMLDivElement>(null);
   const automaticSearchRef = useRef<AbortController | null>(null);
   const manualSearchGenerationRef = useRef(0);
@@ -652,711 +658,718 @@ export function AddTrackDialog({
 
   return (
     <div
+      ref={presentationOverlay.bindRef(undefined, '0')}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !closeBlocked) onClose();
       }}
     >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Add data"
-        tabIndex={-1}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape' && !closeBlocked) onClose();
-        }}
-        data-testid="add-track-dialog"
-        onDragOver={(event) => {
-          if (!event.dataTransfer?.types?.includes('Files')) return;
-          event.preventDefault();
-          event.dataTransfer.dropEffect = 'copy';
-          if (!draggingFiles) setDraggingFiles(true);
-        }}
-        onDragLeave={(event) => {
-          if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
-          setDraggingFiles(false);
-        }}
-        onDrop={(event) => {
-          if (!event.dataTransfer?.types?.includes('Files')) return;
-          event.preventDefault();
-          setDraggingFiles(false);
-          handleFileDrop(Array.from(event.dataTransfer.files));
-        }}
-        className="relative flex h-[88vh] w-full max-w-[min(120rem,94vw)] flex-col overflow-hidden rounded-lg border border-border bg-bg shadow-xl outline-none"
-      >
-        {membershipAnnouncement ? (
-          <p className="sr-only" role="status" aria-live="polite">
-            {membershipAnnouncement}
-          </p>
-        ) : null}
-        {draggingFiles ? (
-          <div
-            data-testid="add-track-drop-overlay"
-            className="pointer-events-none absolute inset-0 z-10 m-2 flex items-center justify-center gap-2 rounded border-2 border-dashed border-accent bg-accent/10 text-sm font-medium text-accent"
-          >
-            <FilePlusIcon className="h-5 w-5" />
-            <span>Drop to add to {assemblyDisplayName}</span>
-          </div>
-        ) : null}
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-4">
-          <h2 className="text-base font-semibold text-fg">Add data</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={closeBlocked}
-            aria-label="Close data picker"
-            className="rounded p-1 text-fg-muted hover:bg-bg-muted hover:text-fg disabled:opacity-40"
-          >
-            <CloseIcon size={16} />
-          </button>
-        </div>
-        {}
-        <div className="flex shrink-0 gap-1 border-b border-border px-5" role="tablist">
-          <AddDataTabButton
-            id="catalog"
-            label={catalogTabLabel}
-            active={sourceTab === 'catalog'}
-            onSelect={selectSourceTab}
-          />
-          <AddDataTabButton
-            id="files"
-            label="Your files"
-            active={sourceTab === 'files'}
-            testId="add-data-files-tab"
-            onSelect={selectSourceTab}
-          />
-          <AddDataTabButton
-            id="url"
-            label="From a URL"
-            active={sourceTab === 'url'}
-            testId="add-track-link-toggle"
-            onSelect={selectSourceTab}
-          />
-          <AddDataTabButton
-            id="hubs"
-            label="Track hubs"
-            active={sourceTab === 'hubs'}
-            testId="add-track-hubs-toggle"
-            badge={connectedHubs.length > 0 ? String(connectedHubs.length) : undefined}
-            onSelect={selectSourceTab}
-          />
-          <AddDataTabButton
-            id="remote"
-            label="Remote cluster"
-            active={sourceTab === 'remote'}
-            onSelect={selectSourceTab}
-          />
-          <AddDataTabButton
-            id="combine"
-            label="Signal + reads"
-            active={sourceTab === 'combine'}
-            onSelect={selectSourceTab}
-          />
-        </div>
-        {busy && progress ? (
-          <div className="shrink-0 px-5 pt-3">
-            <AlignmentProgress progress={progress} />
-          </div>
-        ) : null}
-        {dataFileNotice || indexedNotice || notice ? (
-          <div className="shrink-0 space-y-2 px-5 pt-3">
-            {dataFileNotice ? (
-              <Notice notice={dataFileNotice} testId="add-data-files-notice" />
-            ) : null}
-            {indexedNotice ? (
-              <Notice notice={indexedNotice} testId="add-bigwig-track-notice" />
-            ) : null}
-            {notice ? <Notice notice={notice} testId="add-bam-track-notice" /> : null}
-          </div>
-        ) : null}
+      <PresentationScopeContext.Provider value={presentationOverlay.scope}>
         <div
-          className="flex min-h-0 flex-1 flex-col overflow-hidden p-5"
-          data-testid="add-track-public-panel"
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add data"
+          tabIndex={-1}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && !closeBlocked) onClose();
+          }}
+          data-testid="add-track-dialog"
+          onDragOver={(event) => {
+            if (!event.dataTransfer?.types?.includes('Files')) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'copy';
+            if (!draggingFiles) setDraggingFiles(true);
+          }}
+          onDragLeave={(event) => {
+            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+            setDraggingFiles(false);
+          }}
+          onDrop={(event) => {
+            if (!event.dataTransfer?.types?.includes('Files')) return;
+            event.preventDefault();
+            setDraggingFiles(false);
+            handleFileDrop(Array.from(event.dataTransfer.files));
+          }}
+          className="relative flex h-[88vh] w-full max-w-[min(120rem,94vw)] flex-col overflow-hidden rounded-lg border border-border bg-bg shadow-xl outline-none"
         >
-          {sourceTab === 'hubs' ? (
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <HubConnectionPanel
-                ucscTarget={ucscTarget}
-                connectedHubs={connectedHubs}
-                catalogHubUrl={catalogHubUrl}
-                hubUrlInput={hubUrlInput}
-                hubBusy={hubBusy}
-                hubError={toOptionalUserMessage(hubError)}
-                pendingHub={pendingHub}
-                pendingHubGenome={pendingHubGenome}
-                publicHubs={visiblePublicHubs}
-                publicHubsBusy={publicHubsBusy}
-                disabled={interactionBlocked}
-                onHubUrlInputChange={setHubUrlInput}
-                onConnect={() => void connectHub(hubUrlInput)}
-                onConnectPublicHub={(hub) => void connectHub(hub.hubUrl, hub.shortLabel, false)}
-                onBrowsePublicHubs={() => void browsePublicHubs()}
-                onSelectCatalog={selectCatalog}
-                onDisconnect={disconnectHub}
-                onPendingHubGenomeChange={setPendingHubGenome}
-                onConfirmPendingHub={() => {
-                  if (!pendingHub || !pendingHubGenome) return;
-                  adoptHub({
-                    hubUrl: pendingHub.hubUrl,
-                    genome: pendingHubGenome,
-                    label: pendingHub.label,
-                  });
-                }}
-                onDismissPendingHub={() => setPendingHub(null)}
-              />
+          {membershipAnnouncement ? (
+            <p className="sr-only" role="status" aria-live="polite">
+              {membershipAnnouncement}
+            </p>
+          ) : null}
+          {draggingFiles ? (
+            <div
+              data-testid="add-track-drop-overlay"
+              className="pointer-events-none absolute inset-0 z-10 m-2 flex items-center justify-center gap-2 rounded border-2 border-dashed border-accent bg-accent/10 text-sm font-medium text-accent"
+            >
+              <FilePlusIcon className="h-5 w-5" />
+              <span>Drop to add to {assemblyDisplayName}</span>
             </div>
-          ) : sourceTab === 'url' ? (
-            <div className="min-h-0 flex-1 overflow-y-auto p-5" data-testid="add-track-url-panel">
-              {!activeCatalog ? (
-                <div className="mb-3">
-                  <Unavailable assemblyDisplayName={assemblyDisplayName} />
-                </div>
+          ) : null}
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-4">
+            <h2 className="text-base font-semibold text-fg">Add data</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={closeBlocked}
+              aria-label="Close data picker"
+              className="rounded p-1 text-fg-muted hover:bg-bg-muted hover:text-fg disabled:opacity-40"
+            >
+              <CloseIcon size={16} />
+            </button>
+          </div>
+          {}
+          <div className="flex shrink-0 gap-1 border-b border-border px-5" role="tablist">
+            <AddDataTabButton
+              id="catalog"
+              label={catalogTabLabel}
+              active={sourceTab === 'catalog'}
+              onSelect={selectSourceTab}
+            />
+            <AddDataTabButton
+              id="files"
+              label="Your files"
+              active={sourceTab === 'files'}
+              testId="add-data-files-tab"
+              onSelect={selectSourceTab}
+            />
+            <AddDataTabButton
+              id="url"
+              label="From a URL"
+              active={sourceTab === 'url'}
+              testId="add-track-link-toggle"
+              onSelect={selectSourceTab}
+            />
+            <AddDataTabButton
+              id="hubs"
+              label="Track hubs"
+              active={sourceTab === 'hubs'}
+              testId="add-track-hubs-toggle"
+              badge={connectedHubs.length > 0 ? String(connectedHubs.length) : undefined}
+              onSelect={selectSourceTab}
+            />
+            <AddDataTabButton
+              id="remote"
+              label="Remote cluster"
+              active={sourceTab === 'remote'}
+              onSelect={selectSourceTab}
+            />
+            <AddDataTabButton
+              id="combine"
+              label="Signal + reads"
+              active={sourceTab === 'combine'}
+              onSelect={selectSourceTab}
+            />
+          </div>
+          {busy && progress ? (
+            <div className="shrink-0 px-5 pt-3">
+              <AlignmentProgress progress={progress} />
+            </div>
+          ) : null}
+          {dataFileNotice || indexedNotice || notice ? (
+            <div className="shrink-0 space-y-2 px-5 pt-3">
+              {dataFileNotice ? (
+                <Notice notice={dataFileNotice} testId="add-data-files-notice" />
               ) : null}
-              <p className="text-xs text-fg-muted">
-                Link an indexed HTTP file, S3 or Google Cloud Storage object, or htsget service.
-                DNAForge streams requested regions and does not download the whole file. It stores
-                only durable locations and opaque credential references—not passwords, tokens,
-                signed URLs, or temporary tickets.
-              </p>
-              <form onSubmit={(event) => void submitUrl(event)} className="mt-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="block text-xs font-medium text-fg">
-                    Source protocol
-                    <select
-                      value={urlProtocol}
-                      onChange={(event) => {
-                        const protocol = event.target.value as NetworkSourceProtocol;
-                        setUrlProtocol(protocol);
-                        setCredentialMode('none');
-                        setUrlIndex('');
-                        if (protocol === 'htsget' && !isHtsgetFormat(urlFormat)) {
-                          setUrlFormat('bam');
-                        } else if (
-                          (protocol === 's3' || protocol === 'gcs') &&
-                          urlFormat === 'auto'
-                        ) {
-                          setUrlFormat('bigwig');
-                        }
-                      }}
-                      className={`${UI_FIELD_CLASS} mt-1`}
-                    >
-                      <option value="http">Indexed file URL</option>
-                      <option value="s3">Amazon S3 object</option>
-                      <option value="gcs">Google Cloud Storage object</option>
-                      <option value="htsget">htsget service</option>
-                    </select>
-                  </label>
-                  <label className="block text-xs font-medium text-fg">
-                    Indexed format
-                    <select
-                      value={urlFormat}
-                      onChange={(event) => setUrlFormat(event.target.value as IndexedUrlFormat)}
-                      className={`${UI_FIELD_CLASS} mt-1`}
-                    >
-                      {urlProtocol === 'http' ? (
-                        <option value="auto">Detect from URL</option>
-                      ) : null}
-                      {urlProtocol !== 'htsget' ? (
-                        <option value="bigwig">BigWig signal</option>
-                      ) : null}
-                      {urlProtocol !== 'htsget' ? (
-                        <option value="bigbed">BigBed annotations</option>
-                      ) : null}
-                      <option value="bam">BAM reads</option>
-                      <option value="cram">CRAM reads</option>
-                      {remoteVariantsAvailable ? <option value="vcf">VCF variants</option> : null}
-                      {remoteVariantsAvailable ? <option value="bcf">BCF variants</option> : null}
-                    </select>
-                  </label>
-                </div>
-                {urlProtocol === 's3' || urlProtocol === 'gcs' ? (
+              {indexedNotice ? (
+                <Notice notice={indexedNotice} testId="add-bigwig-track-notice" />
+              ) : null}
+              {notice ? <Notice notice={notice} testId="add-bam-track-notice" /> : null}
+            </div>
+          ) : null}
+          <div
+            className="flex min-h-0 flex-1 flex-col overflow-hidden p-5"
+            data-testid="add-track-public-panel"
+          >
+            {sourceTab === 'hubs' ? (
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <HubConnectionPanel
+                  ucscTarget={ucscTarget}
+                  connectedHubs={connectedHubs}
+                  catalogHubUrl={catalogHubUrl}
+                  hubUrlInput={hubUrlInput}
+                  hubBusy={hubBusy}
+                  hubError={toOptionalUserMessage(hubError)}
+                  pendingHub={pendingHub}
+                  pendingHubGenome={pendingHubGenome}
+                  publicHubs={visiblePublicHubs}
+                  publicHubsBusy={publicHubsBusy}
+                  disabled={interactionBlocked}
+                  onHubUrlInputChange={setHubUrlInput}
+                  onConnect={() => void connectHub(hubUrlInput)}
+                  onConnectPublicHub={(hub) => void connectHub(hub.hubUrl, hub.shortLabel, false)}
+                  onBrowsePublicHubs={() => void browsePublicHubs()}
+                  onSelectCatalog={selectCatalog}
+                  onDisconnect={disconnectHub}
+                  onPendingHubGenomeChange={setPendingHubGenome}
+                  onConfirmPendingHub={() => {
+                    if (!pendingHub || !pendingHubGenome) return;
+                    adoptHub({
+                      hubUrl: pendingHub.hubUrl,
+                      genome: pendingHubGenome,
+                      label: pendingHub.label,
+                    });
+                  }}
+                  onDismissPendingHub={() => setPendingHub(null)}
+                />
+              </div>
+            ) : sourceTab === 'url' ? (
+              <div className="min-h-0 flex-1 overflow-y-auto p-5" data-testid="add-track-url-panel">
+                {!activeCatalog ? (
+                  <div className="mb-3">
+                    <Unavailable assemblyDisplayName={assemblyDisplayName} />
+                  </div>
+                ) : null}
+                <p className="text-xs text-fg-muted">
+                  Link an indexed HTTP file, S3 or Google Cloud Storage object, or htsget service.
+                  DNAForge streams requested regions and does not download the whole file. It stores
+                  only durable locations and opaque credential references—not passwords, tokens,
+                  signed URLs, or temporary tickets.
+                </p>
+                <form onSubmit={(event) => void submitUrl(event)} className="mt-4 space-y-3">
                   <div className="grid grid-cols-2 gap-3">
-                    <label className="block text-xs font-medium text-fg" htmlFor="cloud-bucket">
-                      Bucket
-                      <input
-                        id="cloud-bucket"
-                        required
-                        value={cloudBucket}
-                        onChange={(event) => setCloudBucket(event.target.value)}
-                        placeholder="research-data"
-                        className={`${UI_FIELD_CLASS} mt-1 font-mono`}
-                      />
+                    <label className="block text-xs font-medium text-fg">
+                      Source protocol
+                      <select
+                        value={urlProtocol}
+                        onChange={(event) => {
+                          const protocol = event.target.value as NetworkSourceProtocol;
+                          setUrlProtocol(protocol);
+                          setCredentialMode('none');
+                          setUrlIndex('');
+                          if (protocol === 'htsget' && !isHtsgetFormat(urlFormat)) {
+                            setUrlFormat('bam');
+                          } else if (
+                            (protocol === 's3' || protocol === 'gcs') &&
+                            urlFormat === 'auto'
+                          ) {
+                            setUrlFormat('bigwig');
+                          }
+                        }}
+                        className={`${UI_FIELD_CLASS} mt-1`}
+                      >
+                        <option value="http">Indexed file URL</option>
+                        <option value="s3">Amazon S3 object</option>
+                        <option value="gcs">Google Cloud Storage object</option>
+                        <option value="htsget">htsget service</option>
+                      </select>
                     </label>
-                    {urlProtocol === 's3' ? (
-                      <label className="block text-xs font-medium text-fg" htmlFor="s3-region">
-                        AWS region <span className="font-normal text-fg-muted">(optional)</span>
+                    <label className="block text-xs font-medium text-fg">
+                      Indexed format
+                      <select
+                        value={urlFormat}
+                        onChange={(event) => setUrlFormat(event.target.value as IndexedUrlFormat)}
+                        className={`${UI_FIELD_CLASS} mt-1`}
+                      >
+                        {urlProtocol === 'http' ? (
+                          <option value="auto">Detect from URL</option>
+                        ) : null}
+                        {urlProtocol !== 'htsget' ? (
+                          <option value="bigwig">BigWig signal</option>
+                        ) : null}
+                        {urlProtocol !== 'htsget' ? (
+                          <option value="bigbed">BigBed annotations</option>
+                        ) : null}
+                        <option value="bam">BAM reads</option>
+                        <option value="cram">CRAM reads</option>
+                        {remoteVariantsAvailable ? <option value="vcf">VCF variants</option> : null}
+                        {remoteVariantsAvailable ? <option value="bcf">BCF variants</option> : null}
+                      </select>
+                    </label>
+                  </div>
+                  {urlProtocol === 's3' || urlProtocol === 'gcs' ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block text-xs font-medium text-fg" htmlFor="cloud-bucket">
+                        Bucket
                         <input
-                          id="s3-region"
-                          value={cloudRegion}
-                          onChange={(event) => setCloudRegion(event.target.value)}
-                          placeholder="us-east-1"
+                          id="cloud-bucket"
+                          required
+                          value={cloudBucket}
+                          onChange={(event) => setCloudBucket(event.target.value)}
+                          placeholder="research-data"
                           className={`${UI_FIELD_CLASS} mt-1 font-mono`}
                         />
                       </label>
-                    ) : (
+                      {urlProtocol === 's3' ? (
+                        <label className="block text-xs font-medium text-fg" htmlFor="s3-region">
+                          AWS region <span className="font-normal text-fg-muted">(optional)</span>
+                          <input
+                            id="s3-region"
+                            value={cloudRegion}
+                            onChange={(event) => setCloudRegion(event.target.value)}
+                            placeholder="us-east-1"
+                            className={`${UI_FIELD_CLASS} mt-1 font-mono`}
+                          />
+                        </label>
+                      ) : (
+                        <label
+                          className="block text-xs font-medium text-fg"
+                          htmlFor="gcs-billing-project"
+                        >
+                          Billing project{' '}
+                          <span className="font-normal text-fg-muted">(optional)</span>
+                          <input
+                            id="gcs-billing-project"
+                            value={gcsBillingProject}
+                            onChange={(event) => setGcsBillingProject(event.target.value)}
+                            placeholder="genomics-billing"
+                            className={`${UI_FIELD_CLASS} mt-1 font-mono`}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  ) : null}
+                  {urlProtocol === 's3' ? (
+                    <label className="flex items-center gap-2 text-xs text-fg">
+                      <input
+                        type="checkbox"
+                        checked={s3RequesterPays}
+                        onChange={(event) => setS3RequesterPays(event.target.checked)}
+                      />
+                      Requester-pays bucket
+                    </label>
+                  ) : null}
+                  {urlProtocol !== 'htsget' && urlFormat === 'bigbed' ? (
+                    <label className="block text-xs font-medium text-fg">
+                      BigBed content
+                      <select
+                        value={bigBedScientificKind}
+                        onChange={(event) =>
+                          setBigBedScientificKind(event.target.value as BigBedScientificKind)
+                        }
+                        className={`${UI_FIELD_CLASS} mt-1`}
+                      >
+                        <option value="interval">Intervals</option>
+                        <option value="transcript">Transcript models</option>
+                        <option value="peak">Peaks</option>
+                        <option value="repeat">Repeats</option>
+                      </select>
+                    </label>
+                  ) : null}
+                  <label className="block text-xs font-medium text-fg" htmlFor="indexed-track-url">
+                    {urlProtocol === 'htsget'
+                      ? 'htsget service endpoint'
+                      : urlProtocol === 'http'
+                        ? 'Indexed track URL'
+                        : 'Object key'}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="indexed-track-url"
+                      type={urlProtocol === 'http' || urlProtocol === 'htsget' ? 'url' : 'text'}
+                      required
+                      value={url}
+                      onChange={(event) => setUrl(event.target.value)}
+                      placeholder={
+                        urlProtocol === 'htsget'
+                          ? userMessage('notice.https-htsget-example-org')
+                          : urlProtocol === 'http'
+                            ? userMessage('notice.https-results-example-org-run-sample-bigwig')
+                            : userMessage('notice.cohort-sample-bigwig')
+                      }
+                      className={`${UI_FIELD_CLASS} flex-1 font-mono`}
+                    />
+                    <Button
+                      variant="primary"
+                      type="submit"
+                      disabled={
+                        interactionBlocked ||
+                        !networkSourceReady(urlProtocol, url, cloudBucket) ||
+                        (urlProtocol === 'htsget' && !urlResourceId.trim()) ||
+                        (requiresCompanionIndex(urlProtocol, urlFormat) && !urlIndex.trim()) ||
+                        (credentialMode !== 'none' && !authRef.trim())
+                      }
+                      data-testid="add-bigwig-url"
+                    >
+                      {urlAdding || indexedBusy ? 'Checking…' : 'Attach'}
+                    </Button>
+                  </div>
+                  {urlProtocol === 'htsget' ? (
+                    <div>
                       <label
                         className="block text-xs font-medium text-fg"
-                        htmlFor="gcs-billing-project"
+                        htmlFor="htsget-resource-id"
                       >
-                        Billing project{' '}
-                        <span className="font-normal text-fg-muted">(optional)</span>
-                        <input
-                          id="gcs-billing-project"
-                          value={gcsBillingProject}
-                          onChange={(event) => setGcsBillingProject(event.target.value)}
-                          placeholder="genomics-billing"
-                          className={`${UI_FIELD_CLASS} mt-1 font-mono`}
-                        />
+                        htsget resource ID
                       </label>
-                    )}
-                  </div>
-                ) : null}
-                {urlProtocol === 's3' ? (
-                  <label className="flex items-center gap-2 text-xs text-fg">
-                    <input
-                      type="checkbox"
-                      checked={s3RequesterPays}
-                      onChange={(event) => setS3RequesterPays(event.target.checked)}
-                    />
-                    Requester-pays bucket
-                  </label>
-                ) : null}
-                {urlProtocol !== 'htsget' && urlFormat === 'bigbed' ? (
-                  <label className="block text-xs font-medium text-fg">
-                    BigBed content
-                    <select
-                      value={bigBedScientificKind}
-                      onChange={(event) =>
-                        setBigBedScientificKind(event.target.value as BigBedScientificKind)
-                      }
-                      className={`${UI_FIELD_CLASS} mt-1`}
-                    >
-                      <option value="interval">Intervals</option>
-                      <option value="transcript">Transcript models</option>
-                      <option value="peak">Peaks</option>
-                      <option value="repeat">Repeats</option>
-                    </select>
-                  </label>
-                ) : null}
-                <label className="block text-xs font-medium text-fg" htmlFor="indexed-track-url">
-                  {urlProtocol === 'htsget'
-                    ? 'htsget service endpoint'
-                    : urlProtocol === 'http'
-                      ? 'Indexed track URL'
-                      : 'Object key'}
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id="indexed-track-url"
-                    type={urlProtocol === 'http' || urlProtocol === 'htsget' ? 'url' : 'text'}
-                    required
-                    value={url}
-                    onChange={(event) => setUrl(event.target.value)}
-                    placeholder={
-                      urlProtocol === 'htsget'
-                        ? userMessage('notice.https-htsget-example-org')
-                        : urlProtocol === 'http'
-                          ? userMessage('notice.https-results-example-org-run-sample-bigwig')
-                          : userMessage('notice.cohort-sample-bigwig')
-                    }
-                    className={`${UI_FIELD_CLASS} flex-1 font-mono`}
-                  />
-                  <Button
-                    variant="primary"
-                    type="submit"
-                    disabled={
-                      interactionBlocked ||
-                      !networkSourceReady(urlProtocol, url, cloudBucket) ||
-                      (urlProtocol === 'htsget' && !urlResourceId.trim()) ||
-                      (requiresCompanionIndex(urlProtocol, urlFormat) && !urlIndex.trim()) ||
-                      (credentialMode !== 'none' && !authRef.trim())
-                    }
-                    data-testid="add-bigwig-url"
-                  >
-                    {urlAdding || indexedBusy ? 'Checking…' : 'Attach'}
-                  </Button>
-                </div>
-                {urlProtocol === 'htsget' ? (
-                  <div>
-                    <label
-                      className="block text-xs font-medium text-fg"
-                      htmlFor="htsget-resource-id"
-                    >
-                      htsget resource ID
-                    </label>
-                    <input
-                      id="htsget-resource-id"
-                      required
-                      value={urlResourceId}
-                      onChange={(event) => setUrlResourceId(event.target.value)}
-                      placeholder="sample-or-dataset-id"
-                      className={`${UI_FIELD_CLASS} mt-1 font-mono`}
-                    />
-                  </div>
-                ) : null}
-                {urlProtocol !== 'htsget' &&
-                (urlFormat === 'bam' ||
-                  urlFormat === 'cram' ||
-                  urlFormat === 'vcf' ||
-                  urlFormat === 'bcf') ? (
-                  <div>
-                    <label
-                      className="block text-xs font-medium text-fg"
-                      htmlFor="indexed-companion-url"
-                    >
-                      {urlFormat === 'bam' || urlFormat === 'cram'
-                        ? urlProtocol === 'http'
-                          ? 'Alignment index URL'
-                          : 'Alignment index object key'
-                        : urlProtocol === 'http'
-                          ? 'Variant index URL'
-                          : 'Variant index object key'}
-                    </label>
-                    <input
-                      id="indexed-companion-url"
-                      type={urlProtocol === 'http' ? 'url' : 'text'}
-                      required
-                      value={urlIndex}
-                      onChange={(event) => setUrlIndex(event.target.value)}
-                      placeholder={
-                        urlProtocol !== 'http'
-                          ? urlFormat === 'bam'
-                            ? 'cohort/sample.bam.bai'
-                            : urlFormat === 'cram'
-                              ? 'cohort/sample.cram.crai'
-                              : urlFormat === 'bcf'
-                                ? 'cohort/sample.bcf.csi'
-                                : 'cohort/sample.vcf.gz.tbi'
-                          : urlFormat === 'bam'
-                            ? 'https://results.example.org/run/sample.bam.bai'
-                            : urlFormat === 'cram'
-                              ? 'https://results.example.org/run/sample.cram.crai'
-                              : urlFormat === 'bcf'
-                                ? 'https://results.example.org/run/sample.bcf.csi'
-                                : 'https://results.example.org/run/sample.vcf.gz.tbi'
-                      }
-                      className={`${UI_FIELD_CLASS} mt-1 font-mono`}
-                    />
-                  </div>
-                ) : null}
-                <CredentialFields
-                  protocol={urlProtocol}
-                  mode={credentialMode}
-                  authRef={authRef}
-                  bearerToken={bearerToken}
-                  basicUsername={basicUsername}
-                  basicPassword={basicPassword}
-                  headerName={headerName}
-                  headerValue={headerValue}
-                  awsAccessKeyId={awsAccessKeyId}
-                  awsSecretAccessKey={awsSecretAccessKey}
-                  awsSessionToken={awsSessionToken}
-                  gcsAccessToken={gcsAccessToken}
-                  onModeChange={setCredentialMode}
-                  onAuthRefChange={setAuthRef}
-                  onBearerTokenChange={setBearerToken}
-                  onBasicUsernameChange={setBasicUsername}
-                  onBasicPasswordChange={setBasicPassword}
-                  onHeaderNameChange={setHeaderName}
-                  onHeaderValueChange={setHeaderValue}
-                  onAwsAccessKeyIdChange={setAwsAccessKeyId}
-                  onAwsSecretAccessKeyChange={setAwsSecretAccessKey}
-                  onAwsSessionTokenChange={setAwsSessionToken}
-                  onGcsAccessTokenChange={setGcsAccessToken}
-                />
-                {urlFormat === 'cram' ? (
-                  <p className="text-[11px] text-fg-muted">
-                    DNAForge will ask for the matching indexed reference FASTA before attaching this
-                    CRAM.
-                  </p>
-                ) : null}
-                <div>
-                  <label
-                    className="block text-xs font-medium text-fg"
-                    htmlFor="indexed-track-label"
-                  >
-                    Track label <span className="font-normal text-fg-muted">(optional)</span>
-                  </label>
-                  <input
-                    id="indexed-track-label"
-                    value={urlLabel}
-                    onChange={(event) => setUrlLabel(event.target.value)}
-                    placeholder="RNA-seq coverage"
-                    className={`${UI_FIELD_CLASS} mt-1`}
-                  />
-                </div>
-                {urlError ? (
-                  <p role="alert" data-testid="add-track-url-error" className="text-xs text-danger">
-                    {toUserMessage(urlError, 'tracks.loadFailed')}
-                  </p>
-                ) : null}
-              </form>
-              {}
-            </div>
-          ) : sourceTab === 'files' ? (
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-              <FilePlusIcon className="h-8 w-8 text-fg-subtle" />
-              <p className="text-sm text-fg">Drop files anywhere on this window</p>
-              <p className="max-w-md text-xs text-fg-muted">
-                BAM, CRAM, BigWig, BigBed, BED, GFF, or a script-written .dnaforge-tracks.json
-                manifest. DNAForge leaves them where they are and reads only the byte ranges the
-                current view needs. A manifest can attach BigWig signal and peaks without reads or a
-                CRAI.
-              </p>
-              <Button
-                type="button"
-                data-testid="add-data-files-choose"
-                disabled={interactionBlocked}
-                onClick={onChooseDataFiles}
-              >
-                Choose files…
-              </Button>
-            </div>
-          ) : sourceTab === 'remote' ? (
-            onAddRemoteBam ? (
-              <RemoteClusterPanel
-                onManageHosts={onClose}
-                assemblyDisplayName={assemblyDisplayName}
-                recentEndpoints={recentRemoteEndpoints}
-                busy={Boolean(busy)}
-                connecting={remoteConnecting}
-                onCancelConnection={onCancelRemoteConnect}
-                submitLabel="Connect and attach"
-                onSubmit={onAddRemoteBam}
-                onRefreshEndpoints={onRefreshRemoteEndpoints}
-              />
-            ) : null
-          ) : sourceTab === 'combine' ? (
-            <div
-              className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5"
-              data-testid="add-track-combine-panel"
-            >
-              <p className="text-xs text-fg-muted">
-                Combine an indexed BAM or CRAM already on this view with a BigWig from the same
-                sample. The BigWig is drawn in read-row units while read tiles stream, then each
-                ready region hands off to the normal interactive pileup.
-              </p>
-              {composableReadTracks.length === 0 || composableSignalTracks.length === 0 ? (
-                <div className="rounded border border-border bg-bg-subtle p-3 text-xs text-fg-muted">
-                  Attach at least one indexed BAM or CRAM and one quantitative BigWig first. They
-                  can come from Files, URL, or Remote cluster.
-                </div>
-              ) : (
-                <form onSubmit={(event) => void submitComposition(event)} className="space-y-3">
-                  <label
-                    className="block text-xs font-medium text-fg"
-                    htmlFor="combined-read-track"
-                  >
-                    Read pileup
-                    <select
-                      id="combined-read-track"
-                      value={composeReadsTrackId}
-                      onChange={(event) => {
-                        setComposeReadsTrackId(event.target.value);
-                        setComposeNotice(null);
-                      }}
-                      className="mt-1 block w-full rounded border border-border bg-bg px-2.5 py-2 text-xs text-fg outline-none focus:border-emerald-500"
-                    >
-                      {composableReadTracks.map((track) => (
-                        <option key={track.trackId} value={track.trackId}>
-                          {track.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label
-                    className="block text-xs font-medium text-fg"
-                    htmlFor="combined-signal-track"
-                  >
-                    BigWig signal
-                    <select
-                      id="combined-signal-track"
-                      value={composeSignalTrackId}
-                      onChange={(event) => {
-                        setComposeSignalTrackId(event.target.value);
-                        setComposeNotice(null);
-                      }}
-                      className="mt-1 block w-full rounded border border-border bg-bg px-2.5 py-2 text-xs text-fg outline-none focus:border-emerald-500"
-                    >
-                      {composableSignalTracks.map((track) => (
-                        <option key={track.trackId} value={track.trackId}>
-                          {track.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label
-                    className="block text-xs font-medium text-fg"
-                    htmlFor="combined-view-label"
-                  >
-                    Combined view label{' '}
-                    <span className="font-normal text-fg-muted">(optional)</span>
-                    <input
-                      id="combined-view-label"
-                      value={composeLabel}
-                      maxLength={200}
-                      onChange={(event) => setComposeLabel(event.target.value)}
-                      placeholder="Accessibility + reads"
-                      className="mt-1 w-full rounded border border-border bg-bg px-2.5 py-2 text-xs text-fg outline-none focus:border-emerald-500"
-                    />
-                  </label>
-                  <label className="flex items-center gap-2 text-xs text-fg">
-                    <input
-                      type="checkbox"
-                      checked={composeShowSources}
-                      onChange={(event) => setComposeShowSources(event.target.checked)}
-                    />
-                    Keep the source tracks visible
-                  </label>
-                  <button
-                    type="submit"
-                    disabled={
-                      interactionBlocked ||
-                      !onCreateSignalReadPileup ||
-                      !composeReadsTrackId ||
-                      !composeSignalTrackId
-                    }
-                    className="rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-                  >
-                    {composeAdding ? 'Creating…' : 'Create combined view'}
-                  </button>
-                </form>
-              )}
-              {composeNotice ? (
-                <Notice notice={composeNotice} testId="signal-read-compose-notice" />
-              ) : null}
-            </div>
-          ) : (
-            <div className="flex min-h-0 min-w-0 flex-1 gap-4">
-              <CatalogSidebar
-                hostedLabel={
-                  ucscTarget
-                    ? ucscTarget.hubUrl
-                      ? `${hubDisplayLabel(ucscTarget.hubUrl)} (${ucscTarget.genomeId})`
-                      : `UCSC ${ucscTarget.genomeId}`
-                    : null
-                }
-                connectedHubs={connectedHubs}
-                catalogHubUrl={catalogHubUrl}
-                onSelectCatalog={selectCatalog}
-                groups={facetGroups}
-                selection={facetSelection}
-                selectedCount={selectedFacetCount}
-                onToggle={(key, value) =>
-                  setFacetSelection((current) => toggleCatalogFacet(current, key, value))
-                }
-                onClear={() => setFacetSelection({})}
-              />
-              {}
-              {activeCatalog ? (
-                <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                  {}
-                  <form onSubmit={(event) => void search(event)} className="flex gap-2">
-                    <label className="sr-only" htmlFor="public-track-query">
-                      Search public genomic data
-                    </label>
-                    <div className="relative min-w-0 flex-1">
-                      <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-fg-subtle">
-                        <SearchIcon size={14} />
-                      </span>
                       <input
-                        id="public-track-query"
-                        value={query}
-                        onChange={(event) => setQuery(event.target.value)}
-                        placeholder="Search by name, tissue, protein, or accession…"
-                        className="h-9 w-full min-w-0 rounded border border-border bg-bg pl-7 pr-2 text-sm text-fg outline-none focus:border-accent"
+                        id="htsget-resource-id"
+                        required
+                        value={urlResourceId}
+                        onChange={(event) => setUrlResourceId(event.target.value)}
+                        placeholder="sample-or-dataset-id"
+                        className={`${UI_FIELD_CLASS} mt-1 font-mono`}
                       />
                     </div>
-                    <button type="submit" className="sr-only">
-                      Search
+                  ) : null}
+                  {urlProtocol !== 'htsget' &&
+                  (urlFormat === 'bam' ||
+                    urlFormat === 'cram' ||
+                    urlFormat === 'vcf' ||
+                    urlFormat === 'bcf') ? (
+                    <div>
+                      <label
+                        className="block text-xs font-medium text-fg"
+                        htmlFor="indexed-companion-url"
+                      >
+                        {urlFormat === 'bam' || urlFormat === 'cram'
+                          ? urlProtocol === 'http'
+                            ? 'Alignment index URL'
+                            : 'Alignment index object key'
+                          : urlProtocol === 'http'
+                            ? 'Variant index URL'
+                            : 'Variant index object key'}
+                      </label>
+                      <input
+                        id="indexed-companion-url"
+                        type={urlProtocol === 'http' ? 'url' : 'text'}
+                        required
+                        value={urlIndex}
+                        onChange={(event) => setUrlIndex(event.target.value)}
+                        placeholder={
+                          urlProtocol !== 'http'
+                            ? urlFormat === 'bam'
+                              ? 'cohort/sample.bam.bai'
+                              : urlFormat === 'cram'
+                                ? 'cohort/sample.cram.crai'
+                                : urlFormat === 'bcf'
+                                  ? 'cohort/sample.bcf.csi'
+                                  : 'cohort/sample.vcf.gz.tbi'
+                            : urlFormat === 'bam'
+                              ? 'https://results.example.org/run/sample.bam.bai'
+                              : urlFormat === 'cram'
+                                ? 'https://results.example.org/run/sample.cram.crai'
+                                : urlFormat === 'bcf'
+                                  ? 'https://results.example.org/run/sample.bcf.csi'
+                                  : 'https://results.example.org/run/sample.vcf.gz.tbi'
+                        }
+                        className={`${UI_FIELD_CLASS} mt-1 font-mono`}
+                      />
+                    </div>
+                  ) : null}
+                  <CredentialFields
+                    protocol={urlProtocol}
+                    mode={credentialMode}
+                    authRef={authRef}
+                    bearerToken={bearerToken}
+                    basicUsername={basicUsername}
+                    basicPassword={basicPassword}
+                    headerName={headerName}
+                    headerValue={headerValue}
+                    awsAccessKeyId={awsAccessKeyId}
+                    awsSecretAccessKey={awsSecretAccessKey}
+                    awsSessionToken={awsSessionToken}
+                    gcsAccessToken={gcsAccessToken}
+                    onModeChange={setCredentialMode}
+                    onAuthRefChange={setAuthRef}
+                    onBearerTokenChange={setBearerToken}
+                    onBasicUsernameChange={setBasicUsername}
+                    onBasicPasswordChange={setBasicPassword}
+                    onHeaderNameChange={setHeaderName}
+                    onHeaderValueChange={setHeaderValue}
+                    onAwsAccessKeyIdChange={setAwsAccessKeyId}
+                    onAwsSecretAccessKeyChange={setAwsSecretAccessKey}
+                    onAwsSessionTokenChange={setAwsSessionToken}
+                    onGcsAccessTokenChange={setGcsAccessToken}
+                  />
+                  {urlFormat === 'cram' ? (
+                    <p className="text-[11px] text-fg-muted">
+                      DNAForge will ask for the matching indexed reference FASTA before attaching
+                      this CRAM.
+                    </p>
+                  ) : null}
+                  <div>
+                    <label
+                      className="block text-xs font-medium text-fg"
+                      htmlFor="indexed-track-label"
+                    >
+                      Track label <span className="font-normal text-fg-muted">(optional)</span>
+                    </label>
+                    <input
+                      id="indexed-track-label"
+                      value={urlLabel}
+                      onChange={(event) => setUrlLabel(event.target.value)}
+                      placeholder="RNA-seq coverage"
+                      className={`${UI_FIELD_CLASS} mt-1`}
+                    />
+                  </div>
+                  {urlError ? (
+                    <p
+                      role="alert"
+                      data-testid="add-track-url-error"
+                      className="text-xs text-danger"
+                    >
+                      {toUserMessage(urlError, 'tracks.loadFailed')}
+                    </p>
+                  ) : null}
+                </form>
+                {}
+              </div>
+            ) : sourceTab === 'files' ? (
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+                <FilePlusIcon className="h-8 w-8 text-fg-subtle" />
+                <p className="text-sm text-fg">Drop files anywhere on this window</p>
+                <p className="max-w-md text-xs text-fg-muted">
+                  BAM, CRAM, BigWig, BigBed, BED, GFF, or a script-written .dnaforge-tracks.json
+                  manifest. DNAForge leaves them where they are and reads only the byte ranges the
+                  current view needs. A manifest can attach BigWig signal and peaks without reads or
+                  a CRAI.
+                </p>
+                <Button
+                  type="button"
+                  data-testid="add-data-files-choose"
+                  disabled={interactionBlocked}
+                  onClick={onChooseDataFiles}
+                >
+                  Choose files…
+                </Button>
+              </div>
+            ) : sourceTab === 'remote' ? (
+              onAddRemoteBam ? (
+                <RemoteClusterPanel
+                  onManageHosts={onClose}
+                  assemblyDisplayName={assemblyDisplayName}
+                  recentEndpoints={recentRemoteEndpoints}
+                  busy={Boolean(busy)}
+                  connecting={remoteConnecting}
+                  onCancelConnection={onCancelRemoteConnect}
+                  submitLabel="Connect and attach"
+                  onSubmit={onAddRemoteBam}
+                  onRefreshEndpoints={onRefreshRemoteEndpoints}
+                />
+              ) : null
+            ) : sourceTab === 'combine' ? (
+              <div
+                className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5"
+                data-testid="add-track-combine-panel"
+              >
+                <p className="text-xs text-fg-muted">
+                  Combine an indexed BAM or CRAM already on this view with a BigWig from the same
+                  sample. The BigWig is drawn in read-row units while read tiles stream, then each
+                  ready region hands off to the normal interactive pileup.
+                </p>
+                {composableReadTracks.length === 0 || composableSignalTracks.length === 0 ? (
+                  <div className="rounded border border-border bg-bg-subtle p-3 text-xs text-fg-muted">
+                    Attach at least one indexed BAM or CRAM and one quantitative BigWig first. They
+                    can come from Files, URL, or Remote cluster.
+                  </div>
+                ) : (
+                  <form onSubmit={(event) => void submitComposition(event)} className="space-y-3">
+                    <label
+                      className="block text-xs font-medium text-fg"
+                      htmlFor="combined-read-track"
+                    >
+                      Read pileup
+                      <select
+                        id="combined-read-track"
+                        value={composeReadsTrackId}
+                        onChange={(event) => {
+                          setComposeReadsTrackId(event.target.value);
+                          setComposeNotice(null);
+                        }}
+                        className="mt-1 block w-full rounded border border-border bg-bg px-2.5 py-2 text-xs text-fg outline-none focus:border-emerald-500"
+                      >
+                        {composableReadTracks.map((track) => (
+                          <option key={track.trackId} value={track.trackId}>
+                            {track.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label
+                      className="block text-xs font-medium text-fg"
+                      htmlFor="combined-signal-track"
+                    >
+                      BigWig signal
+                      <select
+                        id="combined-signal-track"
+                        value={composeSignalTrackId}
+                        onChange={(event) => {
+                          setComposeSignalTrackId(event.target.value);
+                          setComposeNotice(null);
+                        }}
+                        className="mt-1 block w-full rounded border border-border bg-bg px-2.5 py-2 text-xs text-fg outline-none focus:border-emerald-500"
+                      >
+                        {composableSignalTracks.map((track) => (
+                          <option key={track.trackId} value={track.trackId}>
+                            {track.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label
+                      className="block text-xs font-medium text-fg"
+                      htmlFor="combined-view-label"
+                    >
+                      Combined view label{' '}
+                      <span className="font-normal text-fg-muted">(optional)</span>
+                      <input
+                        id="combined-view-label"
+                        value={composeLabel}
+                        maxLength={200}
+                        onChange={(event) => setComposeLabel(event.target.value)}
+                        placeholder="Accessibility + reads"
+                        className="mt-1 w-full rounded border border-border bg-bg px-2.5 py-2 text-xs text-fg outline-none focus:border-emerald-500"
+                      />
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-fg">
+                      <input
+                        type="checkbox"
+                        checked={composeShowSources}
+                        onChange={(event) => setComposeShowSources(event.target.checked)}
+                      />
+                      Keep the source tracks visible
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={
+                        interactionBlocked ||
+                        !onCreateSignalReadPileup ||
+                        !composeReadsTrackId ||
+                        !composeSignalTrackId
+                      }
+                      className="rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                    >
+                      {composeAdding ? 'Creating…' : 'Create combined view'}
                     </button>
                   </form>
-                  <div className="mt-3 flex min-h-0 flex-1 flex-col">
-                    <div className="flex min-h-0 flex-1 flex-col">
-                      {}
-                      {selectedFacetCount > 0 ? (
-                        <div
-                          data-testid="ucsc-catalog-active-facets"
-                          className="mb-2 flex flex-wrap items-center gap-1.5"
-                        >
-                          {activeFacetChips.map((chip) => (
-                            <button
-                              key={`${chip.key}:${chip.value}`}
-                              type="button"
-                              data-testid={`ucsc-facet-chip-${chip.key}-${chip.value}`}
-                              aria-label={`Remove ${chip.groupLabel} ${chip.label}`}
-                              onClick={() =>
-                                setFacetSelection((current) =>
-                                  toggleCatalogFacet(current, chip.key, chip.value)
-                                )
-                              }
-                              className="flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 py-0.5 pl-2 pr-1 text-[11px] font-medium text-accent hover:bg-accent/20"
-                            >
-                              <span className="text-accent/70">{chip.groupLabel}</span>
-                              <span>{chip.label}</span>
-                              <CloseIcon size={10} />
-                            </button>
-                          ))}
-                          <button
-                            type="button"
-                            data-testid="ucsc-catalog-facets-clear-all"
-                            onClick={() => setFacetSelection({})}
-                            className="px-1 text-[11px] text-fg-muted hover:text-fg"
+                )}
+                {composeNotice ? (
+                  <Notice notice={composeNotice} testId="signal-read-compose-notice" />
+                ) : null}
+              </div>
+            ) : (
+              <div className="flex min-h-0 min-w-0 flex-1 gap-4">
+                <CatalogSidebar
+                  hostedLabel={
+                    ucscTarget
+                      ? ucscTarget.hubUrl
+                        ? `${hubDisplayLabel(ucscTarget.hubUrl)} (${ucscTarget.genomeId})`
+                        : `UCSC ${ucscTarget.genomeId}`
+                      : null
+                  }
+                  connectedHubs={connectedHubs}
+                  catalogHubUrl={catalogHubUrl}
+                  onSelectCatalog={selectCatalog}
+                  groups={facetGroups}
+                  selection={facetSelection}
+                  selectedCount={selectedFacetCount}
+                  onToggle={(key, value) =>
+                    setFacetSelection((current) => toggleCatalogFacet(current, key, value))
+                  }
+                  onClear={() => setFacetSelection({})}
+                />
+                {}
+                {activeCatalog ? (
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                    {}
+                    <form onSubmit={(event) => void search(event)} className="flex gap-2">
+                      <label className="sr-only" htmlFor="public-track-query">
+                        Search public genomic data
+                      </label>
+                      <div className="relative min-w-0 flex-1">
+                        <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-fg-subtle">
+                          <SearchIcon size={14} />
+                        </span>
+                        <input
+                          id="public-track-query"
+                          value={query}
+                          onChange={(event) => setQuery(event.target.value)}
+                          placeholder="Search by name, tissue, protein, or accession…"
+                          className="h-9 w-full min-w-0 rounded border border-border bg-bg pl-7 pr-2 text-sm text-fg outline-none focus:border-accent"
+                        />
+                      </div>
+                      <button type="submit" className="sr-only">
+                        Search
+                      </button>
+                    </form>
+                    <div className="mt-3 flex min-h-0 flex-1 flex-col">
+                      <div className="flex min-h-0 flex-1 flex-col">
+                        {}
+                        {selectedFacetCount > 0 ? (
+                          <div
+                            data-testid="ucsc-catalog-active-facets"
+                            className="mb-2 flex flex-wrap items-center gap-1.5"
                           >
-                            Clear all
-                          </button>
-                        </div>
-                      ) : null}
-                      <TrackSearchResults
-                        key={`${activeGenomeId}\u0000${activeHubUrl ?? ''}`}
-                        query={query}
-                        tracks={filteredPublicTracks}
-                        schemaTracks={publicTracks}
-                        catalogSize={publicCatalogSize}
-                        countsAreComplete={publicCountsAreComplete}
-                        searching={publicSearching}
-                        emptyText={
-                          query.trim() || selectedFacetCount > 0
-                            ? 'No tracks match this search and these filters.'
-                            : listingHub
-                              ? 'This hub publishes no tracks for this assembly.'
-                              : 'This catalog publishes no tracks for this assembly.'
-                        }
-                        searchError={toOptionalUserMessage(searchError)}
-                        rowFailures={rowFailures}
-                        addedCatalogIds={addedCatalogIds}
-                        addingTrack={addingTrack}
-                        onAddTrack={onAddUcscTrack}
-                        onTrackInView={noteTrackInView}
-                        onAddingTrackChange={setAddingTrack}
-                        onAddStart={(catalogId) =>
-                          setRowFailures((current) => {
-                            if (!(catalogId in current)) return current;
-                            const next = { ...current };
-                            delete next[catalogId];
-                            return next;
-                          })
-                        }
-                        onAddError={(catalogId, error) =>
-                          setRowFailures((current) => ({
-                            ...current,
-                            [catalogId]: publicTrackFailure(error),
-                          }))
-                        }
-                      />
+                            {activeFacetChips.map((chip) => (
+                              <button
+                                key={`${chip.key}:${chip.value}`}
+                                type="button"
+                                data-testid={`ucsc-facet-chip-${chip.key}-${chip.value}`}
+                                aria-label={`Remove ${chip.groupLabel} ${chip.label}`}
+                                onClick={() =>
+                                  setFacetSelection((current) =>
+                                    toggleCatalogFacet(current, chip.key, chip.value)
+                                  )
+                                }
+                                className="flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 py-0.5 pl-2 pr-1 text-[11px] font-medium text-accent hover:bg-accent/20"
+                              >
+                                <span className="text-accent/70">{chip.groupLabel}</span>
+                                <span>{chip.label}</span>
+                                <CloseIcon size={10} />
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              data-testid="ucsc-catalog-facets-clear-all"
+                              onClick={() => setFacetSelection({})}
+                              className="px-1 text-[11px] text-fg-muted hover:text-fg"
+                            >
+                              Clear all
+                            </button>
+                          </div>
+                        ) : null}
+                        <TrackSearchResults
+                          key={`${activeGenomeId}\u0000${activeHubUrl ?? ''}`}
+                          query={query}
+                          tracks={filteredPublicTracks}
+                          schemaTracks={publicTracks}
+                          catalogSize={publicCatalogSize}
+                          countsAreComplete={publicCountsAreComplete}
+                          searching={publicSearching}
+                          emptyText={
+                            query.trim() || selectedFacetCount > 0
+                              ? 'No tracks match this search and these filters.'
+                              : listingHub
+                                ? 'This hub publishes no tracks for this assembly.'
+                                : 'This catalog publishes no tracks for this assembly.'
+                          }
+                          searchError={toOptionalUserMessage(searchError)}
+                          rowFailures={rowFailures}
+                          addedCatalogIds={addedCatalogIds}
+                          addingTrack={addingTrack}
+                          onAddTrack={onAddUcscTrack}
+                          onTrackInView={noteTrackInView}
+                          onAddingTrackChange={setAddingTrack}
+                          onAddStart={(catalogId) =>
+                            setRowFailures((current) => {
+                              if (!(catalogId in current)) return current;
+                              const next = { ...current };
+                              delete next[catalogId];
+                              return next;
+                            })
+                          }
+                          onAddError={(catalogId, error) =>
+                            setRowFailures((current) => ({
+                              ...current,
+                              [catalogId]: publicTrackFailure(error),
+                            }))
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div className="min-h-0 flex-1 p-2">
-                  <Unavailable assemblyDisplayName={assemblyDisplayName} />
-                </div>
-              )}
-            </div>
-          )}
+                ) : (
+                  <div className="min-h-0 flex-1 p-2">
+                    <Unavailable assemblyDisplayName={assemblyDisplayName} />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </PresentationScopeContext.Provider>
     </div>
   );
 }

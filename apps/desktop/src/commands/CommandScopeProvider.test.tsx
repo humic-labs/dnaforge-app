@@ -1,3 +1,4 @@
+import { PresentationBoundary } from '../presentation/PresentationSurface';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CommandScopeProvider } from './CommandScopeProvider';
@@ -116,7 +117,9 @@ describe('CommandScopeProvider', () => {
     render(
       <CommandScopeProvider>
         <GlobalSearchHandler onSearch={onSearch} />
-        <div role="dialog" aria-modal="true" />
+        <PresentationBoundary capture="modal">
+          <div role="dialog" aria-modal="true" />
+        </PresentationBoundary>
       </CommandScopeProvider>
     );
     expect(
@@ -285,7 +288,9 @@ describe('CommandScopeProvider', () => {
     const { rerender } = render(
       <CommandScopeProvider>
         <NewChatHandler onNewChat={onNewChat} />
-        <div role="dialog" aria-modal="true" />
+        <PresentationBoundary capture="modal">
+          <div role="dialog" aria-modal="true" />
+        </PresentationBoundary>
       </CommandScopeProvider>
     );
 

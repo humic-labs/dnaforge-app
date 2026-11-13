@@ -68,6 +68,7 @@ export function splitPanelTabClass(selected: boolean): string {
       : 'border-transparent text-fg-muted hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.055]'
   }`;
 }
+export const UI_APPBAR_ACTION_CLASS = 'appbar-action';
 export const UI_SECONDARY_BUTTON_CLASS =
   'rounded-md border border-transparent bg-black/[0.04] px-3 py-2 text-xs font-medium text-fg transition-colors hover:bg-black/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/[0.055] dark:hover:bg-white/[0.09]';
 export const UI_ICON_BUTTON_CLASS =

@@ -8,10 +8,16 @@ vi.mock('@sentry/electron/main', () => ({
 if (typeof document !== 'undefined') {
   if (!HTMLDialogElement.prototype.showModal) {
     HTMLDialogElement.prototype.showModal = function () {
-      this.setAttribute('open', '');
+      const event = new Event('beforetoggle', { cancelable: true });
+      Object.defineProperty(event, 'newState', { value: 'open' });
+      if (this.dispatchEvent(event)) this.setAttribute('open', '');
     };
     HTMLDialogElement.prototype.close = function () {
+      const event = new Event('beforetoggle');
+      Object.defineProperty(event, 'newState', { value: 'closed' });
+      this.dispatchEvent(event);
       this.removeAttribute('open');
+      this.dispatchEvent(new Event('close'));
     };
   }
   const [{ cleanup }, { default: wrappedMatchers, ...namedMatchers }] = await Promise.all([

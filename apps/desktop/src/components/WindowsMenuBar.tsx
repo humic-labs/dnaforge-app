@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../presentation/PresentationSurface';
 import { userMessageWithValues, userMessageValue, toUserMessage } from '@waypoint/user-messages';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { platform } from '../platform';
@@ -5,6 +6,8 @@ import { WINDOWS_MENU_IDS, type WindowsMenuId } from '../shared/window-menu';
 import { safeFocus } from '../shared/utils/safeFocus';
 
 export function WindowsMenuBar() {
+  const presentationEvents = usePresentationListener();
+
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const previousFocus = useRef<HTMLElement | null>(null);
   const altOnly = useRef(false);
@@ -96,13 +99,13 @@ export function WindowsMenuBar() {
         toggleFocus();
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
+    presentationEvents.add(window, 'keydown', onKeyDown);
+    presentationEvents.add(window, 'keyup', onKeyUp);
     return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keyup', onKeyUp);
+      presentationEvents.remove(window, 'keydown', onKeyDown);
+      presentationEvents.remove(window, 'keyup', onKeyUp);
     };
-  }, [focusMenu, showMenu]);
+  }, [focusMenu, showMenu, presentationEvents]);
 
   return (
     <nav

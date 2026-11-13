@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { usePresentationOverlay } from '../../../presentation/PresentationSurface';
 import { SequenceContextMenu } from '@waypoint/ui-components';
 import { formatShortcut } from '@waypoint/ui-components/keyboard';
 import { shortcutChord } from '../../../keyboard/shortcutRegistry';
@@ -143,11 +144,13 @@ export function WorkspaceViewerContextMenu({
   }) => void;
   buildAskAiOverlaysSnapshot: () => ActiveOverlaySnapshot | undefined;
 }): ReactElement {
+  const presentation = usePresentationOverlay('keyboard');
   const primer = contextMenu.primer;
   const assemblyPart = contextMenu.assemblyPart;
   const primersShown = isHostedCapabilityShown('primers');
   return (
     <SequenceContextMenu
+      rootRef={presentation.bindRef(undefined, 'menu')}
       x={contextMenu.x}
       y={contextMenu.y}
       isOpen={contextMenu.isOpen}

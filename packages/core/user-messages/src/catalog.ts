@@ -2010,7 +2010,7 @@ export const USER_MESSAGES = {
   'dialog.window-stopped-working': 'Window Stopped Working',
   'dialog.the-dnaforge-window-stopped-working': 'The DNAForge window stopped working.',
   'dialog.reload-the-window-to-continue-unsaved-sequence-edits-are-kept-and-dnaf':
-    'Reload the window to continue. Unsaved sequence edits are kept, and DNAForge offers to restore them when you open those sequences again.',
+    'Reload the window to continue. Open sequences reopen with their unsaved edits.',
   'dialog.not-responding': 'Not Responding',
   'dialog.dnaforge-isn-t-responding': "DNAForge isn't responding.",
   'dialog.you-can-wait-for-it-to-finish-or-reload-the-window-reloading-keeps-uns':

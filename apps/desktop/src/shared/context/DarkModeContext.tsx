@@ -1,4 +1,5 @@
-'use client';
+import { usePresentationListener } from '../../presentation/PresentationSurface';
+('use client');
 import { createContext, useContext, useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { create } from 'zustand';
 import { matchesAppShortcut } from '../../keyboard/shortcutRegistry';
@@ -270,6 +271,8 @@ function toggleDarkMode(): void {
   setThemeMode(themeStore.getState().darkMode ? 'light' : 'dark');
 }
 export function DarkModeProvider({ children }: { children: ReactNode }) {
+  const presentationEvents = usePresentationListener();
+
   const state = themeStore();
   useLayoutEffect(() => {
     hydrateTheme(true);
@@ -295,12 +298,12 @@ export function DarkModeProvider({ children }: { children: ReactNode }) {
       event.preventDefault();
       toggleDarkMode();
     };
-    window.addEventListener('keydown', keyDown);
+    presentationEvents.add(window, 'keydown', keyDown);
     return () => {
       media.removeEventListener('change', change);
-      window.removeEventListener('keydown', keyDown);
+      presentationEvents.remove(window, 'keydown', keyDown);
     };
-  }, []);
+  }, [presentationEvents]);
   return (
     <DarkModeContext.Provider
       value={{

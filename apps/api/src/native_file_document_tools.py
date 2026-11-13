@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+from .agent_workspace_authority import agent_project_scope
 from .concurrency.renderer_bridge import (
     RENDERER_TOOL_SPECS,
     _renderer_tool_spec,
@@ -133,6 +134,7 @@ async def native_file_document_handler(
         authority,
         {
             "command": "file.execute",
+            "projectScope": agent_project_scope(identity),
             "request": request,
             "agent": {
                 "identityId": context.agent_identity_id,

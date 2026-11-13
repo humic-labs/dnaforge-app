@@ -143,7 +143,7 @@ function isInvalidIndexedSequence(error: unknown): boolean {
   return message.includes(INDEXED_GENOME_INVALID_SEQUENCE_ERROR_CODE);
 }
 
-function isIndexedSourceUnavailable(error: unknown): boolean {
+export function isIndexedSourceUnavailable(error: unknown): boolean {
   const code =
     error !== null && typeof error === 'object' && 'code' in error ? String(error.code) : '';
   if (['ENOENT', 'ENOTDIR', 'ELOOP', 'EACCES', 'EPERM'].includes(code)) return true;

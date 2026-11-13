@@ -1,7 +1,11 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../../presentation/PresentationSurface';
 import { safeFocus } from '../../shared/utils/safeFocus';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { COMMAND_SCOPES, useCommandScope } from '../../commands';
 
 export interface TerminalMenuAction {
   label: string;
@@ -19,7 +23,9 @@ export function TerminalContextMenu({
   actions: TerminalMenuAction[];
   onClose(): void;
 }) {
-  useCommandScope(COMMAND_SCOPES.menuContext);
+  const presentationOverlay = usePresentationOverlay('keyboard');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const menu = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x, y });
   useLayoutEffect(() => {
@@ -52,34 +58,36 @@ export function TerminalContextMenu({
       }
     };
     document.addEventListener('pointerdown', close);
-    document.addEventListener('keydown', keyboard);
+    presentationEvents.add(document, 'keydown', keyboard);
     return () => {
       document.removeEventListener('pointerdown', close);
-      document.removeEventListener('keydown', keyboard);
+      presentationEvents.remove(document, 'keydown', keyboard);
     };
-  }, [onClose]);
+  }, [onClose, presentationEvents]);
   return createPortal(
-    <div
-      ref={menu}
-      role="menu"
-      aria-label="Terminal actions"
-      className="dnaforge-terminal-context-menu bg-bg text-fg"
-      style={{ left: position.x, top: position.y }}
-    >
-      {actions.map((action) => (
-        <button
-          key={action.label}
-          role="menuitem"
-          disabled={action.disabled}
-          onClick={() => {
-            onClose();
-            action.run();
-          }}
-        >
-          {action.label}
-        </button>
-      ))}
-    </div>,
+    <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+      <div
+        ref={presentationOverlay.bindRef(menu, '0')}
+        role="menu"
+        aria-label="Terminal actions"
+        className="dnaforge-terminal-context-menu bg-bg text-fg"
+        style={{ left: position.x, top: position.y }}
+      >
+        {actions.map((action) => (
+          <button
+            key={action.label}
+            role="menuitem"
+            disabled={action.disabled}
+            onClick={() => {
+              onClose();
+              action.run();
+            }}
+          >
+            {action.label}
+          </button>
+        ))}
+      </div>
+    </PresentationScopeContext.Provider>,
     document.body
   );
 }

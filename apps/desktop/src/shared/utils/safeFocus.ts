@@ -1,9 +1,25 @@
+import { focusTargetAllows, captureFocusOwnership } from '@waypoint/platform/input-ownership';
+
 export function safeFocus(el: HTMLElement | null | undefined, options?: FocusOptions): boolean {
-  if (el?.isConnected) {
+  if (el?.isConnected && focusTargetAllows(el)) {
     el.focus(options);
     return true;
   }
   return false;
+}
+
+export function scheduleFocus(
+  el: HTMLElement | null | undefined,
+  options?: FocusOptions
+): () => void {
+  if (!el) return () => undefined;
+  const current = captureFocusOwnership(el);
+  const frame = el.ownerDocument.defaultView?.requestAnimationFrame(() => {
+    if (current()) safeFocus(el, options);
+  });
+  return () => {
+    if (frame !== undefined) el.ownerDocument.defaultView?.cancelAnimationFrame(frame);
+  };
 }
 
 export function safeScrollIntoView(

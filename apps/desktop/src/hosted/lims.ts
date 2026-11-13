@@ -10,7 +10,7 @@ import {
 } from '../shared/lims';
 import type { ProjectableEntitySchemaRevisionSnapshot } from '../shared/entity-schema';
 import { resolveEntityRecordFieldValues } from '../shared/entity-record';
-import { LIMS_ENTITY_QUERY_HARD_MAX } from '../shared/lims-registry';
+import { createLimsEntityQuery } from '../shared/lims-entity-query';
 import { createRegistryQuery } from '../shared/registry-query';
 import type { PlatformBridge } from '../platform/types';
 
@@ -265,30 +265,7 @@ export function createHostedLims(): PlatformBridge['lims'] {
       }
       return { active, tombstoned };
     },
-    queryEntities: async (input = {}) => {
-      const rows = entities.filter((entity) => {
-        if (!input.includeArchived && entity.tombstone) return false;
-        if (input.id && entity.id !== input.id) return false;
-        if (input.kind && entity.kind !== input.kind) return false;
-        if (input.registrationStatus && entity.registrationStatus !== input.registrationStatus) {
-          return false;
-        }
-        if (
-          input.nameLike &&
-          !entity.name.toLowerCase().includes(input.nameLike.trim().toLowerCase())
-        ) {
-          return false;
-        }
-        if (input.fieldEquals) {
-          for (const [key, value] of Object.entries(input.fieldEquals)) {
-            if (entity.fields[key] !== value) return false;
-          }
-        }
-        return true;
-      });
-      const limit = Math.min(Math.max(input.limit ?? 100, 1), LIMS_ENTITY_QUERY_HARD_MAX);
-      return rows.slice(0, limit);
-    },
+    queryEntities: async (input = {}) => createLimsEntityQuery(input).selectProjectedRows(entities),
     countEntitiesByKind: async () => {
       const counts = new Map<string, number>(LIMS_ENTITY_KINDS.map((kind) => [kind, 0]));
       for (const entity of entities) {

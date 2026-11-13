@@ -9,9 +9,10 @@ export function createPrimerTrashReader(dependencies: PrimerRecoveryDependencies
         workspace_id: number | null;
         status: string;
         file_kind: string;
+        missing_since: number | null;
       }>
     >(
-      'SELECT path, workspace_id, status, file_kind FROM catalog_entity_files WHERE entity_id = ?',
+      'SELECT path, workspace_id, status, file_kind, missing_since FROM catalog_entity_files WHERE entity_id = ?',
       [entityId]
     );
     if (files.some((file) => file.status === 'current')) return null;
@@ -25,8 +26,8 @@ export function createPrimerTrashReader(dependencies: PrimerRecoveryDependencies
     const file = missing[0];
     const events = await platform().db.select<Array<{ payload: string | null }>>(
       `SELECT payload FROM catalog_entity_events WHERE entity_id = ? AND event_type = 'file_missing'
-     ORDER BY created_at DESC, rowid DESC`,
-      [entityId]
+     AND created_at >= ? ORDER BY created_at DESC, rowid DESC`,
+      [entityId, file.missing_since ?? 0]
     );
     for (const event of events) {
       let payload: unknown;
@@ -42,6 +43,7 @@ export function createPrimerTrashReader(dependencies: PrimerRecoveryDependencies
         payload.path !== file.path
       )
         continue;
+      if ('reason' in payload && payload.reason === 'git-indexer') continue;
       return 'reason' in payload && payload.reason === 'moved-to-trash' ? file : null;
     }
     return null;

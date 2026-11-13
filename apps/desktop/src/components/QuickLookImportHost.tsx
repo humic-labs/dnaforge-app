@@ -1,4 +1,9 @@
 import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+  usePresentationListener,
+} from '../presentation/PresentationSurface';
+import {
   userMessageWithValues,
   userMessageValue,
   userEntityLabel,
@@ -46,6 +51,9 @@ function workspaceNameFor(sourceFileName: string): string {
 export function QuickLookImportHost({
   onDestinationCommit,
 }: QuickLookImportHostProps): JSX.Element | null {
+  const presentationOverlay = usePresentationOverlay('modal');
+  const presentationEvents = usePresentationListener(presentationOverlay.scope);
+
   const request = useQuickLookImportStore((state) => state.request);
   const requestId = useQuickLookImportStore((state) => state.requestId);
   const promoting = useQuickLookImportStore((state) => state.phase === 'promoting');
@@ -85,9 +93,9 @@ export function QuickLookImportHost({
       event.preventDefault();
       close();
     };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [close, promoting, request]);
+    presentationEvents.add(document, 'keydown', onKeyDown);
+    return () => presentationEvents.remove(document, 'keydown', onKeyDown);
+  }, [close, promoting, request, presentationEvents]);
 
   if (!request) return null;
 
@@ -229,69 +237,72 @@ export function QuickLookImportHost({
 
   return (
     <div
+      ref={presentationOverlay.bindRef(undefined, '0')}
       className={`fixed inset-0 ${UI_MODAL_LAYER_CLASS} flex items-center justify-center bg-black/40 p-4`}
       data-testid="quick-look-import-backdrop"
       onMouseDown={() => {
         if (!promoting) close();
       }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="quick-look-import-title"
-        data-testid="quick-look-import-dialog"
-        className="flex max-h-[80vh] w-full max-w-xl flex-col rounded-lg border border-border bg-bg-subtle p-4 shadow-xl"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <h2 id="quick-look-import-title" className="text-base font-semibold text-fg">
-          Import to Edit
-        </h2>
-        <p className="mt-1 text-sm text-fg-muted">
-          Choose where DNAForge should create{' '}
-          {request.records.length === 1
-            ? 'the editable package for '
-            : `${request.records.length} editable sequence packages for `}
-          <span className="font-medium text-fg">{request.sourceFileName}</span>.
-        </p>
-        {durablePromotion ? (
-          <div
-            className="mt-4 rounded border border-border bg-bg-muted p-3 text-sm text-fg"
-            data-testid="quick-look-import-saved"
-          >
-            The package is saved. Retry opening its destination; DNAForge will not import or copy it
-            again.
+      <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="quick-look-import-title"
+          data-testid="quick-look-import-dialog"
+          className="flex max-h-[80vh] w-full max-w-xl flex-col rounded-lg border border-border bg-bg-subtle p-4 shadow-xl"
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <h2 id="quick-look-import-title" className="text-base font-semibold text-fg">
+            Import to Edit
+          </h2>
+          <p className="mt-1 text-sm text-fg-muted">
+            Choose where DNAForge should create{' '}
+            {request.records.length === 1
+              ? 'the editable package for '
+              : `${request.records.length} editable sequence packages for `}
+            <span className="font-medium text-fg">{request.sourceFileName}</span>.
+          </p>
+          {durablePromotion ? (
+            <div
+              className="mt-4 rounded border border-border bg-bg-muted p-3 text-sm text-fg"
+              data-testid="quick-look-import-saved"
+            >
+              The package is saved. Retry opening its destination; DNAForge will not import or copy
+              it again.
+            </div>
+          ) : (
+            <div className="mt-4 min-h-0 flex-1">
+              <ImportDestinationPicker
+                roots={roots}
+                selected={destination}
+                onSelect={selectDestination}
+                listSubfolders={listSubfolders}
+                showRegistry={false}
+              />
+            </div>
+          )}
+          <div className="mt-4 flex justify-end gap-2">
+            <Button
+              type="button"
+              data-testid="quick-look-import-cancel"
+              disabled={promoting}
+              onClick={close}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              data-testid="quick-look-import-confirm"
+              disabled={(!hasChosenDestination && !durablePromotion) || promoting}
+              onClick={() => void promote()}
+              variant="primary"
+            >
+              {promoting ? 'Importing…' : durablePromotion ? 'Open Destination' : 'Import'}
+            </Button>
           </div>
-        ) : (
-          <div className="mt-4 min-h-0 flex-1">
-            <ImportDestinationPicker
-              roots={roots}
-              selected={destination}
-              onSelect={selectDestination}
-              listSubfolders={listSubfolders}
-              showRegistry={false}
-            />
-          </div>
-        )}
-        <div className="mt-4 flex justify-end gap-2">
-          <Button
-            type="button"
-            data-testid="quick-look-import-cancel"
-            disabled={promoting}
-            onClick={close}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            data-testid="quick-look-import-confirm"
-            disabled={(!hasChosenDestination && !durablePromotion) || promoting}
-            onClick={() => void promote()}
-            variant="primary"
-          >
-            {promoting ? 'Importing…' : durablePromotion ? 'Open Destination' : 'Import'}
-          </Button>
         </div>
-      </div>
+      </PresentationScopeContext.Provider>
     </div>
   );
 }

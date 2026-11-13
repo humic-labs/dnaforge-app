@@ -1,11 +1,40 @@
 import { computeChecksum, updateGenBankGeneticCodeComment } from '@waypoint/sequence-utils';
 import { parseSequenceFileAsDocument } from '../shared/parse-sequence-file';
 import { updateGenBankLocusMetadata } from '../shared/genbank-locus-metadata';
-import type { SequenceMetadataRevisionRequest } from '../shared/sequence-package-revision';
+import type {
+  SequenceMetadataRevisionRequest,
+  SequenceMetadataRevisionResult,
+} from '../shared/sequence-package-revision';
 import {
   normalizeSchemaBoundSequenceEntity,
   type SequencePackageDocument,
 } from './sequence-package';
+
+export function resolvePublishedSequenceMetadataRevision(input: {
+  current: SequencePackageDocument;
+  markerContent: string;
+  revisionId: string;
+  requestFingerprint: string;
+}): SequenceMetadataRevisionResult | null {
+  const { current, markerContent, revisionId, requestFingerprint } = input;
+  const published = current.versionHistory.revisions.find(
+    (revision) => revision.operationId === revisionId
+  );
+  if (!published) return null;
+  if (published.requestFingerprint !== requestFingerprint) {
+    throw new Error('This metadata operation ID was already used for a different edit.');
+  }
+  const parent = current.versionHistory.revisions.find(
+    (revision) => revision.id === published.parentId
+  );
+  return {
+    updatedMarkerContent: markerContent,
+    revisionId,
+    productChanged: parent?.productSnapshot.sha256 !== published.productSnapshot.sha256,
+    snapshotPaths: [],
+    alreadyPublished: true,
+  };
+}
 
 export async function prepareSequenceMetadataEdit(input: {
   current: SequencePackageDocument;

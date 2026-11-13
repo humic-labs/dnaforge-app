@@ -10,6 +10,18 @@ vi.mock('./startup-phases', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./startup-phases')>()),
   enforcesStartupPhases: () => true,
 }));
+vi.mock('./app-health', () => ({ appHealthFeature: { id: 'app-health' } }));
+vi.mock('./administration', () => ({ administrationFeature: { id: 'administration' } }));
+vi.mock('./credential-storage', () => ({
+  credentialStorageFeature: { id: 'credential-storage' },
+}));
+vi.mock('./entity-navigation', () => ({ entityNavigationFeature: { id: 'entity-navigation' } }));
+vi.mock('./scientific-recovery', () => ({
+  scientificRecoveryFeature: { id: 'scientific-recovery' },
+}));
+vi.mock('./third-party-notices', () => ({
+  thirdPartyNoticesFeature: { id: 'third-party-notices' },
+}));
 vi.mock('./remote-hosts', () => ({ remoteHostsFeature: { id: 'remote-hosts' } }));
 vi.mock('./reference-assets', () => ({ referenceAssetsFeature: { id: 'reference-assets' } }));
 vi.mock('./external-agent-tools', () => ({
@@ -34,8 +46,10 @@ vi.mock('./file-associations', () => ({
 
 const NO_WINDOW = { getMainWindow: () => null };
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.resetModules();
+  const { resetStartupPhasesForTest } = await import('./startup-phases');
+  resetStartupPhasesForTest();
   bootLog.append.mockClear();
   vi.stubEnv('DNAFORGE_BACKGROUND_LAUNCH_SAFE', '');
 });

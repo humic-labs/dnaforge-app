@@ -1,3 +1,7 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+} from '../../../presentation/PresentationSurface';
 import { useEffect, useState } from 'react';
 import { Button } from '../../../components/ui';
 import { platform } from '../../../platform';
@@ -15,6 +19,8 @@ export function NotebookConflictDialog() {
   return documentId ? <NotebookConflictChoice key={documentId} documentId={documentId} /> : null;
 }
 function NotebookConflictChoice({ documentId }: { documentId: string }) {
+  const presentationOverlay = usePresentationOverlay('modal');
+
   const close = useNotebookConflictStore((state) => state.close);
   const [comparison, setComparison] = useState<NotebookConflictComparison>();
   const [resolved, setResolved] = useState<NotebookConflictResolution>();
@@ -71,72 +77,77 @@ function NotebookConflictChoice({ documentId }: { documentId: string }) {
     }
   };
   return (
-    <div className="fixed inset-0 z-[10060] flex items-center justify-center bg-black/50">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="notebook-conflict-title"
-        data-testid="notebook-conflict-dialog"
-        className="mx-4 max-h-[85vh] w-full max-w-5xl overflow-auto rounded-lg border border-border bg-bg p-5 text-fg shadow-xl"
-      >
-        <h2 id="notebook-conflict-title">
-          Compare notebook versions{comparison ? `: ${comparison.title}` : ''}
-        </h2>
-        {resolved ? (
-          <>
-            <p>Both original versions have been retained. The selected version is now current.</p>
-            <Button onClick={() => void platform().shell.revealItemInDir(resolved.retainedPath)}>
-              Show retained versions
-            </Button>
-          </>
-        ) : (
-          <>
-            <p>
-              Compare the file and application versions. Both original versions will be retained
-              before your choice is applied.
-            </p>
-            {comparison ? (
-              <div className="my-4 grid grid-cols-2 gap-4">
-                <div>
-                  <h3>File version</h3>
-                  <pre
-                    data-testid="notebook-conflict-file"
-                    className="max-h-96 overflow-auto whitespace-pre-wrap rounded border border-border p-3 text-xs"
-                  >
-                    {comparison.fileText}
-                  </pre>
+    <div
+      ref={presentationOverlay.bindRef(undefined, '0')}
+      className="fixed inset-0 z-[10060] flex items-center justify-center bg-black/50"
+    >
+      <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="notebook-conflict-title"
+          data-testid="notebook-conflict-dialog"
+          className="mx-4 max-h-[85vh] w-full max-w-5xl overflow-auto rounded-lg border border-border bg-bg p-5 text-fg shadow-xl"
+        >
+          <h2 id="notebook-conflict-title">
+            Compare notebook versions{comparison ? `: ${comparison.title}` : ''}
+          </h2>
+          {resolved ? (
+            <>
+              <p>Both original versions have been retained. The selected version is now current.</p>
+              <Button onClick={() => void platform().shell.revealItemInDir(resolved.retainedPath)}>
+                Show retained versions
+              </Button>
+            </>
+          ) : (
+            <>
+              <p>
+                Compare the file and application versions. Both original versions will be retained
+                before your choice is applied.
+              </p>
+              {comparison ? (
+                <div className="my-4 grid grid-cols-2 gap-4">
+                  <div>
+                    <h3>File version</h3>
+                    <pre
+                      data-testid="notebook-conflict-file"
+                      className="max-h-96 overflow-auto whitespace-pre-wrap rounded border border-border p-3 text-xs"
+                    >
+                      {comparison.fileText}
+                    </pre>
+                  </div>
+                  <div>
+                    <h3>Application version</h3>
+                    <pre
+                      data-testid="notebook-conflict-application"
+                      className="max-h-96 overflow-auto whitespace-pre-wrap rounded border border-border p-3 text-xs"
+                    >
+                      {comparison.applicationText}
+                    </pre>
+                  </div>
                 </div>
-                <div>
-                  <h3>Application version</h3>
-                  <pre
-                    data-testid="notebook-conflict-application"
-                    className="max-h-96 overflow-auto whitespace-pre-wrap rounded border border-border p-3 text-xs"
-                  >
-                    {comparison.applicationText}
-                  </pre>
-                </div>
+              ) : (
+                <p>Reading both versions…</p>
+              )}
+              {comparison?.previewsTruncated && (
+                <p>This preview is shortened. Both complete versions will be retained.</p>
+              )}
+              <div className="flex gap-3">
+                <Button disabled={!comparison || busy} onClick={() => void choose('file')}>
+                  Use file version
+                </Button>
+                <Button disabled={!comparison || busy} onClick={() => void choose('application')}>
+                  Use application version
+                </Button>
               </div>
-            ) : (
-              <p>Reading both versions…</p>
-            )}
-            {comparison?.previewsTruncated && (
-              <p>This preview is shortened. Both complete versions will be retained.</p>
-            )}
-            <div className="flex gap-3">
-              <Button disabled={!comparison || busy} onClick={() => void choose('file')}>
-                Use file version
-              </Button>
-              <Button disabled={!comparison || busy} onClick={() => void choose('application')}>
-                Use application version
-              </Button>
-            </div>
-          </>
-        )}
-        {error && <p role="alert">{error}</p>}
-        <Button disabled={busy} onClick={close}>
-          {resolved ? 'Done' : 'Cancel'}
-        </Button>
-      </section>
+            </>
+          )}
+          {error && <p role="alert">{error}</p>}
+          <Button disabled={busy} onClick={close}>
+            {resolved ? 'Done' : 'Cancel'}
+          </Button>
+        </section>
+      </PresentationScopeContext.Provider>
     </div>
   );
 }

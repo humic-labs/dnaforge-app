@@ -1,3 +1,4 @@
+import { userMessagePayloadFromError, type UserMessagePayload } from '@waypoint/user-messages';
 import type { PrimerApplication, PrimerOrigin } from './types';
 import { defaultPrimerArtifactPath, type PrimerEntitySchemaSnapshot } from './primer-artifact';
 import type { PrimerAnnealingSegment } from './primer-artifact';
@@ -63,6 +64,7 @@ export interface RecordPrimersResult {
     reason: RecordPrimerFailureReason;
     message: string;
     artifactPath?: string;
+    declaredMessage?: UserMessagePayload;
   }[];
 }
 export interface createPrimerRecorderDependencies {
@@ -169,7 +171,12 @@ export function createPrimerRecorder(dependencies: createPrimerRecorderDependenc
           );
         }
       } catch (error) {
-        result.failed.push({ input: primer, ...classifyFailure(error) });
+        const declaredMessage = userMessagePayloadFromError(error);
+        result.failed.push({
+          input: primer,
+          ...classifyFailure(error),
+          ...(declaredMessage ? { declaredMessage } : {}),
+        });
       }
     }
 

@@ -1,6 +1,12 @@
 import { EventEmitter } from 'node:events';
 import { expect, it, vi } from 'vitest';
 
+vi.mock('../ipc/database', () => ({ getDb: vi.fn() }));
+
+vi.mock('../registered-project-authority', () => ({
+  createRegisteredProjectAuthority: () => ({ folders: () => [] }),
+}));
+
 vi.mock('electron', () => ({
   ipcMain: { on: vi.fn(), removeListener: vi.fn() },
   app: { getPath: () => '/tmp' },

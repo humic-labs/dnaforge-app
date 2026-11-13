@@ -1,3 +1,4 @@
+import { inputTargetAllows, subscribeInputRevocation } from '@waypoint/platform/input-ownership';
 import {
   WheelMotion,
   registerWheelZoomTarget,
@@ -306,6 +307,7 @@ const STABILITY_MAX_ZOOM_LOG_STEP = Math.log(STABILITY_MAX_ZOOM_RATIO_STEP);
 const DEFAULT_MIN_ZOOM = 0.5;
 
 export interface InteractionHandle {
+  isInputEnabled?: (() => boolean) | null;
   cleanup: () => void;
   cancelMotion: () => void;
   flushInteraction: (options?: { advanceCamera?: boolean }) => void;
@@ -414,6 +416,7 @@ export interface InteractionHandle {
   onSelectionPreview: ((startBp: number, endBp: number) => void) | null;
 
   onSelectionStart: ((mode: 'new' | 'start' | 'end') => void) | null;
+  onGestureCancel: (() => void) | null;
 
   onPrimerHandleDragPreview: ((handle: PrimerHandleHitPayload, boundaryBp: number) => void) | null;
 
@@ -504,6 +507,7 @@ function getShiftClickSurfaceRange(
 }
 
 export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState): InteractionHandle {
+  const acceptsInput = () => handle.isInputEnabled?.() !== false;
   const mouseMotion = new WheelMotion(1e-8);
   const zoomMotion = new WheelMotion(1e-6);
   const clampScrollOffset = (value: number) =>
@@ -543,6 +547,10 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
     hasUnpresentedCameraChange = false;
   };
   const cancelMotionForPointerDown = () => {
+    if (!acceptsInput()) {
+      cancelMotion();
+      return;
+    }
     const restorePresentedCamera = hasUnpresentedCameraChange;
     cancelMotion();
     if (!restorePresentedCamera) return;
@@ -564,6 +572,7 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
   let lastCameraInteractionAt = -Infinity;
   let hoverDirty = true;
 
+  let activePointerId: number | null = null;
   let isDragging = false;
   let dragMode: DragMode = null;
   let dragStartX = 0;
@@ -672,7 +681,9 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
   };
 
   const onWheel = (e: WheelEvent) => {
+    if (!inputTargetAllows(canvas, 'pointer')) return;
     e.preventDefault();
+    if (!acceptsInput()) return;
     if (!isDragging || !activePrimerHandle) {
       cursorX = e.clientX;
       cursorY = e.clientY;
@@ -712,7 +723,9 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
+    if (!acceptsInput()) return;
     cancelMotion();
+    if (!inputTargetAllows(canvas, 'keyboard', e)) return;
     if (e.key === 'p' || e.key === 'P') {
       state.perfPanelVisible = !state.perfPanelVisible;
       const perf = document.getElementById('perf');
@@ -727,6 +740,7 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
   };
 
   const onMouseMove = (e: MouseEvent) => {
+    if (!acceptsInput()) return;
     cursorX = e.clientX;
     cursorY = e.clientY;
     hasPointer = true;
@@ -839,6 +853,7 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
   };
 
   const onPointerDown = (e: PointerEvent) => {
+    if (!acceptsInput() || !inputTargetAllows(canvas, 'pointer')) return;
     cancelMotionForPointerDown();
     if ((e.target as HTMLElement)?.tagName !== 'CANVAS') return;
     if (e.button !== 0) return;
@@ -846,6 +861,7 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
     plog('pointerdown', { x: e.clientX, y: e.clientY });
     markHoverDirty();
 
+    activePointerId = typeof e.pointerId === 'number' ? e.pointerId : null;
     pointerDownX = e.clientX;
     pointerDownY = e.clientY;
     pointerDownTime = performance.now();
@@ -935,6 +951,7 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
   };
 
   const onPointerMove = (e: PointerEvent) => {
+    if (!acceptsInput() || !inputTargetAllows(canvas, 'pointer')) return;
     markHoverDirty();
     if (!isDragging && pendingBackbonePart) {
       const dx = e.clientX - dragStartX;
@@ -994,6 +1011,8 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
   };
 
   const onPointerUp = (e: PointerEvent) => {
+    if (!acceptsInput() || !inputTargetAllows(canvas, 'pointer')) return;
+    activePointerId = null;
     if (e.button !== 0) return;
 
     if (isTrackHitConsumed(e)) return;
@@ -1225,6 +1244,7 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
   };
 
   const onDoubleClick = (e: MouseEvent) => {
+    if (!acceptsInput()) return;
     if ((e.target as HTMLElement)?.tagName !== 'CANVAS') return;
     cancelPendingHostClear();
     markHoverDirty();
@@ -1336,6 +1356,7 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
   };
 
   const onContextMenu = (e: MouseEvent) => {
+    if (!acceptsInput()) return;
     if ((e.target as HTMLElement)?.tagName !== 'CANVAS') return;
     e.preventDefault();
     cancelPendingHostClear();
@@ -1397,12 +1418,38 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
     });
   };
 
+  const cancelGesture = () => {
+    cancelMotion();
+    cancelPendingHostClear();
+    const hadGesture = isDragging || pendingBackbonePart !== null;
+    const pointerId = activePointerId;
+    activePointerId = null;
+    isDragging = false;
+    handle.isDragging = false;
+    dragMode = null;
+    dragStartBp = -1;
+    fixedHandleBp = -1;
+    activePrimerHandle = null;
+    activePrimerPreviewBoundaryBp = null;
+    activeBackboneBoundaryHandle = null;
+    pendingBackbonePart = null;
+    activeBackbonePart = null;
+    hasPointer = false;
+    canvas.style.cursor = '';
+    if (pointerId !== null && canvas.hasPointerCapture?.(pointerId))
+      canvas.releasePointerCapture?.(pointerId);
+    if (hadGesture) handle.onGestureCancel?.();
+    markHoverDirty();
+  };
+  const disposeOwnership = subscribeInputRevocation(canvas, cancelGesture);
   canvas.addEventListener('wheel', onWheel, { passive: false });
   const disposeZoomTarget = registerWheelZoomTarget(canvas, onWheel);
   canvas.addEventListener('pointermove', onMouseMove);
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerup', onPointerUp);
+  canvas.addEventListener('pointercancel', cancelGesture);
+  canvas.addEventListener('lostpointercapture', cancelGesture);
   canvas.addEventListener('pointerleave', onPointerLeave);
   canvas.addEventListener('dblclick', onDoubleClick);
   canvas.addEventListener('contextmenu', onContextMenu);
@@ -1411,7 +1458,7 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
     capture: true,
     passive: true,
   });
-  window.addEventListener('blur', cancelMotion);
+  window.addEventListener('blur', cancelGesture);
   window.addEventListener('resize', cancelMotion, { passive: true });
 
   const handle: InteractionHandle = {
@@ -1425,24 +1472,32 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
       hasUnpresentedCameraChange = false;
     },
     cleanup: () => {
+      disposeOwnership();
       disposeZoomTarget();
-      cancelPendingHostClear();
-      cancelMotion();
+      cancelGesture();
       delete canvas.dataset.sequenceWheelZoomViewport;
       canvas.removeEventListener('wheel', onWheel);
       canvas.removeEventListener('pointermove', onMouseMove);
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerup', onPointerUp);
+      canvas.removeEventListener('pointercancel', cancelGesture);
+      canvas.removeEventListener('lostpointercapture', cancelGesture);
       canvas.removeEventListener('pointerleave', onPointerLeave);
       canvas.removeEventListener('dblclick', onDoubleClick);
       canvas.removeEventListener('contextmenu', onContextMenu);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('pointerdown', cancelMotionForPointerDown, { capture: true });
-      window.removeEventListener('blur', cancelMotion);
+      window.removeEventListener('blur', cancelGesture);
       window.removeEventListener('resize', cancelMotion);
     },
     flushInteraction: ({ advanceCamera = true } = {}) => {
+      if (!acceptsInput()) {
+        cancelPendingHostClear();
+        cancelMotion();
+        onPointerLeave();
+        return;
+      }
       let cameraChanged = false;
       if (advanceCamera && (pendingWheelDelta !== 0 || mouseMotion.pending)) {
         ptime('interaction.flush.wheel', () => {
@@ -1643,6 +1698,7 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
     onSelectionChange: null,
     onSelectionPreview: null,
     onSelectionStart: null,
+    onGestureCancel: null,
     onPrimerHandleDragPreview: null,
     onPrimerHandleDragCommit: null,
     onBackboneBoundaryHandleDragPreview: null,

@@ -38,6 +38,7 @@ export type RendererCapability =
 export type RendererToolEffect = 'read-only' | 'mutating' | 'ui-bound' | 'external-submit';
 
 export interface RendererToolExecutionContext {
+  projectScope?: import('../../../shared/agent-project-scope').AgentProjectScope;
   turnId?: string;
   folders: WorkspaceFolder[];
   actionId: string;

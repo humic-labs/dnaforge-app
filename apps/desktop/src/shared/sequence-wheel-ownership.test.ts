@@ -1,54 +1,82 @@
-import { describe, expect, it } from 'vitest';
-import { browserWheelInput, type SequenceMouseWheelPacket } from './sequence-wheel-ownership';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  getNativeWheelInput,
+  installNativeWheelMetadataSource,
+  type NativeWheelMetadata,
+} from '@waypoint/platform/wheel-motion';
 
-const packet = (overrides: Partial<SequenceMouseWheelPacket> = {}): SequenceMouseWheelPacket => ({
-  x: 864.4,
-  y: 225.6,
-  deltaX: 0,
-  deltaY: 60,
-  ctrlKey: false,
-  metaKey: false,
-  shiftKey: false,
-  altKey: false,
-  precise: true,
-  phase: 4,
-  momentumPhase: 0,
-  ordinal: 3,
-  ...overrides,
-});
+afterEach(() => document.body.replaceChildren());
 
-describe('browser wheel input for a returned native packet', () => {
-  it('keeps the pointer position, distance and precision of a trackpad packet', () => {
-    expect(browserWheelInput(packet())).toMatchObject({
-      type: 'mouseWheel',
-      x: 864,
-      y: 226,
-      deltaY: -60,
-      wheelTicksY: -1.5,
-      hasPreciseScrollingDeltas: true,
-      modifiers: [],
+describe('original browser wheel routing', () => {
+  it.each(['div', 'button', 'dialog', 'section', 'input'])(
+    'metadata preserves the original event and browser target for a %s covering a retained viewer',
+    (tag) => {
+      const retained = document.createElement('div');
+      retained.setAttribute('data-sequence-wheel-zoom-viewport', '');
+      retained.inert = true;
+      const target = document.createElement(tag);
+      document.body.append(retained, target);
+      let emit!: (packet: NativeWheelMetadata) => void;
+      const dispose = installNativeWheelMetadataSource(document, (listener) => {
+        emit = listener;
+        return () => undefined;
+      });
+      const received: Event[] = [];
+      const retainedEvents: Event[] = [];
+      target.addEventListener('wheel', (event) => received.push(event));
+      retained.addEventListener('wheel', (event) => retainedEvents.push(event));
+      for (const [index, precise] of [true, false].entries()) {
+        const event = new WheelEvent('wheel', {
+          bubbles: true,
+          cancelable: true,
+          deltaY: precise ? 17 : 120,
+        });
+        Object.defineProperty(event, 'timeStamp', { value: 100 + index * 10 });
+        emit({
+          precise,
+          phase: precise ? 1 : 0,
+          momentumPhase: 0,
+          ordinal: index + 1,
+          timestamp: performance.timeOrigin + event.timeStamp,
+        });
+        expect(target.dispatchEvent(event)).toBe(true);
+        expect(received[index]).toBe(event);
+        expect(event.target).toBe(target);
+        expect(event.defaultPrevented).toBe(false);
+        expect(getNativeWheelInput(event)?.precise).toBe(precise);
+      }
+      expect(retainedEvents).toEqual([]);
+      dispose();
+    }
+  );
+
+  it('metadata alone dispatches no replacement input and disposal removes its listener', () => {
+    let emit!: (packet: NativeWheelMetadata) => void;
+    let unsubscribed = false;
+    const dispose = installNativeWheelMetadataSource(document, (listener) => {
+      emit = listener;
+      return () => {
+        unsubscribed = true;
+      };
     });
-    expect(browserWheelInput(packet({ deltaX: 24, deltaY: 0 }))).toMatchObject({
-      deltaX: -24,
-      wheelTicksX: -0.6,
+    const target = document.createElement('div');
+    document.body.append(target);
+    const received: Event[] = [];
+    target.addEventListener('wheel', (event) => received.push(event));
+    const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 19 });
+    emit({
+      precise: true,
+      phase: 1,
+      momentumPhase: 0,
+      ordinal: 1,
+      timestamp: performance.timeOrigin + event.timeStamp,
     });
-  });
-
-  it('keeps a mouse-wheel tick discrete and carries held modifiers', () => {
-    expect(
-      browserWheelInput(packet({ deltaY: -120, precise: false, altKey: true, metaKey: true }))
-    ).toMatchObject({
-      deltaY: 120,
-      wheelTicksY: 3,
-      hasPreciseScrollingDeltas: false,
-      modifiers: ['meta', 'alt'],
-    });
-  });
-
-  it('refuses packets that cannot scroll anything', () => {
-    expect(browserWheelInput(packet({ deltaY: 0 }))).toBeNull();
-    expect(browserWheelInput(packet({ x: Number.NaN }))).toBeNull();
-    expect(browserWheelInput(packet({ deltaY: Number.POSITIVE_INFINITY }))).toBeNull();
-    expect(browserWheelInput(null)).toBeNull();
+    expect(received).toEqual([]);
+    dispose();
+    expect(unsubscribed).toBe(true);
+    target.dispatchEvent(event);
+    expect(received).toEqual([event]);
+    expect(getNativeWheelInput(event)).toBeUndefined();
+    expect(event.defaultPrevented).toBe(false);
   });
 });

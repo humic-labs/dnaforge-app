@@ -13,9 +13,10 @@ import {
 } from 'react';
 import { ChatComposerDisclosureIcon } from '../ChatComposerDisclosureIcon';
 import { PortalMenu } from '../PortalMenu';
-import { safeFocus } from '../../shared/utils/safeFocus';
+import { safeFocus, scheduleFocus } from '../../shared/utils/safeFocus';
 import {
   UI_DANGER_BUTTON_CLASS,
+  UI_APPBAR_ACTION_CLASS,
   UI_FIELD_CLASS,
   UI_ICON_BUTTON_CLASS,
   UI_LINK_BUTTON_CLASS,
@@ -93,7 +94,7 @@ export function TextArea({
 export const Button = forwardRef<
   HTMLButtonElement,
   Omit<ComponentPropsWithoutRef<'button'>, 'className' | 'style'> & {
-    variant?: 'primary' | 'secondary' | 'danger' | 'icon' | 'link';
+    variant?: 'primary' | 'secondary' | 'danger' | 'icon' | 'link' | 'appbar';
   }
 >(function Button({ variant = 'secondary', type = 'button', ...props }, ref) {
   const styles = {
@@ -102,6 +103,7 @@ export const Button = forwardRef<
     danger: UI_DANGER_BUTTON_CLASS,
     icon: UI_ICON_BUTTON_CLASS,
     link: UI_LINK_BUTTON_CLASS,
+    appbar: UI_APPBAR_ACTION_CLASS,
   };
   return (
     <button
@@ -241,8 +243,7 @@ export function Select({
 
   useEffect(() => {
     if (!open || !searchable) return;
-    const frame = window.requestAnimationFrame(() => safeFocus(searchRef.current));
-    return () => window.cancelAnimationFrame(frame);
+    return scheduleFocus(searchRef.current);
   }, [open, searchable]);
 
   const close = useCallback(() => setOpen(false), []);
@@ -274,7 +275,6 @@ export function Select({
       setOpen(false);
       if (option.value !== value) onValueChange(option.value);
       onSelect?.(option.value);
-      window.requestAnimationFrame(() => safeFocus(triggerRef.current));
     },
     [onSelect, onValueChange, options, value]
   );

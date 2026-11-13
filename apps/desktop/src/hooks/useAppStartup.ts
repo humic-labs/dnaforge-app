@@ -5,6 +5,7 @@ import { isDesktopRuntime, isHostedBrowserRuntime } from '../utils/environment';
 import { startMocloFactoryStageOutputSync } from '../features/design';
 import {
   failClosedAnalyticsForSession,
+  hasTelemetryDestination,
   readAnalyticsConsentPolicy,
   setAnalyticsConsent,
 } from '../lib/analytics';
@@ -193,7 +194,7 @@ export function useAppStartup({
           await setAnalyticsConsent(true, {
             resumeExistingEpisode: !decision.needsDisclosure,
           });
-          if (bannerSeen !== 'true') {
+          if (bannerSeen !== 'true' && (await hasTelemetryDestination())) {
             try {
               await setSetting('analytics_banner_seen', 'false');
             } catch (disclosureError) {
@@ -224,7 +225,7 @@ export function useAppStartup({
         }
 
         await failClosedAnalyticsForSession();
-        if (decision.needsDisclosure) {
+        if (decision.needsDisclosure && (await hasTelemetryDestination())) {
           useToastStore.getState().addRichToast({
             definition: 'data-privacy-opt-in',
             message: toUserMessage(DESKTOP_ANALYTICS_OPT_IN_MESSAGE),

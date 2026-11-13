@@ -838,6 +838,86 @@ describe('accepted updater operation provenance ', () => {
     }
   });
 
+  it('an unrelated version boot cannot reuse the old install attempt as a retry parent', async () => {
+    const db = await telemetryDatabase();
+    const electron = await import('electron');
+    const version = vi.spyOn(electron.app, 'getVersion').mockReturnValue('1.9.0');
+    try {
+      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run('1.9.0', '_last_app_version');
+      const { listPendingAnalyticsOutboxEvents } = await import('../analytics-outbox');
+      let updater = await import('../auto-updater');
+      updater.initAutoUpdater(makeMockWindow() as never, { database: db });
+      autoUpdaterEvents.get('update-downloaded')!({ version: '2.1.0' });
+      expect(updater.prepareUpdateInstallIntent()).toEqual({ status: 'started' });
+      const [original] = listPendingAnalyticsOutboxEvents(db);
+      const intentPath = join(userDataRoot.value, 'update-install-intent.json');
+      expect(existsSync(intentPath)).toBe(true);
+
+      version.mockReturnValue('2.0.0');
+      vi.resetModules();
+      updater = await import('../auto-updater');
+      updater.checkForVersionUpgrade(db);
+      updater.initAutoUpdater(makeMockWindow() as never, { database: db });
+      autoUpdaterEvents.get('update-downloaded')!({ version: '2.1.0' });
+      expect(updater.prepareUpdateInstallIntent()).toEqual({ status: 'started' });
+
+      const rows = listPendingAnalyticsOutboxEvents(db);
+      expect(rows).toHaveLength(2);
+      const [, next] = rows;
+      expect(next.properties.action_phase).toBe('start');
+      expect(next.properties.operation_id).not.toBe(original.properties.operation_id);
+      expect(next.properties).not.toHaveProperty('retry_parent_attempt_id');
+      expect(mockAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
+      expect(JSON.parse(readFileSync(intentPath, 'utf8'))).toMatchObject({
+        fromVersion: '2.0.0',
+        targetVersion: '2.1.0',
+      });
+    } finally {
+      version.mockRestore();
+      db.close();
+    }
+  });
+
+  it('uses the boot ID when a download marker proves an install outside the retained intent', async () => {
+    const db = await telemetryDatabase();
+    const electron = await import('electron');
+    const version = vi.spyOn(electron.app, 'getVersion');
+    try {
+      let updater = await import('../auto-updater');
+      updater.initAutoUpdater(makeMockWindow() as never, { database: db });
+      autoUpdaterEvents.get('update-downloaded')!({ version: '2.1.0' });
+      expect(updater.prepareUpdateInstallIntent()).toEqual({ status: 'started' });
+      const original = JSON.parse(
+        readFileSync(join(userDataRoot.value, 'update-install-intent.json'), 'utf8')
+      );
+      expect(original.measurement.launchEventId).toMatch(/^[0-9a-f-]{36}$/);
+
+      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(
+        '2.2.0',
+        '_downloaded_update_target'
+      );
+      version.mockReturnValue('2.2.0');
+      vi.resetModules();
+      updater = await import('../auto-updater');
+      updater.checkForVersionUpgrade(db);
+
+      const receipts = trackEvent.mock.calls.filter(([event]) => event === 'app_update_installed');
+      expect(receipts).toHaveLength(1);
+      const [, receipt] = receipts[0];
+      expect(receipt).toMatchObject({
+        from_version: '2.0.0',
+        to_version: '2.2.0',
+        update_qualification: 'exact_download_marker',
+      });
+      expect(receipt).not.toHaveProperty('operation_id');
+      expect(receipt.$insert_id).not.toBe(original.measurement.launchEventId);
+      expect(receipt.$insert_id).toBe(receipt.update_boot_id);
+    } finally {
+      version.mockRestore();
+      db.close();
+    }
+  });
+
   it('new-version boot settles the matching native intent once with explicit qualification', async () => {
     const db = await telemetryDatabase();
     const { listPendingAnalyticsOutboxEvents } = await import('../analytics-outbox');

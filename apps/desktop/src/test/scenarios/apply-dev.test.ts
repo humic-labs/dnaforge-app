@@ -41,6 +41,9 @@ const platformMock = vi.hoisted(() => ({
   ),
   appDataDir: vi.fn(async () => '/Users/test/Library/Application Support/Waypoint Test'),
   projectRoot: vi.fn(async () => '/repo'),
+  registerScenarioFiles: vi.fn(async ({ workspaceRoot }: { workspaceRoot: string }) => ({
+    manifestPath: `${workspaceRoot}/.forge/catalog.json`,
+  })),
   retainTrack: vi.fn(async ({ relativePath }: { relativePath: string }) => ({
     path: `/profile/Track assets/verified/${relativePath.split('/').at(-1)}`,
   })),
@@ -240,7 +243,10 @@ vi.mock('../../db/workspace-catalog', async (importOriginal) => {
 
 vi.mock('../../platform', () => {
   const bridge = {
-    internalFixtures: { retainTrack: platformMock.retainTrack },
+    internalFixtures: {
+      retainTrack: platformMock.retainTrack,
+      registerScenarioFiles: platformMock.registerScenarioFiles,
+    },
     notebook: { adoptMarkdown: platformMock.adoptMarkdown },
     workspace: {
       createEmptyWorkspace: platformMock.createEmptyWorkspace,
@@ -314,6 +320,17 @@ vi.mock('../../features/sequence/managed-sequence-repository', () => ({
 }));
 vi.mock('../../features/workspace-loader/open-workspace-from-source', () => ({
   openWorkspaceFromSource: openWorkspaceFromSourceMock,
+}));
+const listWorkspaceLibraryMock = vi.hoisted(() =>
+  vi.fn(async () => ({
+    active: [] as Array<{ repoPath: string; rootState?: 'missing' | 'unavailable' }>,
+    archived: [],
+    trashed: [],
+  }))
+);
+vi.mock('../../features/workspace-loader/workspace-library', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../features/workspace-loader/workspace-library')>()),
+  listWorkspaceLibrary: listWorkspaceLibraryMock,
 }));
 const reconcileWorkspaceAfterFilesChangedMock = vi.hoisted(() => vi.fn(async () => undefined));
 const runWorkspaceReconcileOperationMock = vi.hoisted(() => vi.fn(async () => undefined));
@@ -1155,20 +1172,19 @@ describe('applyScenarioDev', () => {
         agentTraceCliSession().files![`/workspace/agent-trace-cli/input/${file}`]
       );
     }
-    const manifestWrite = platformMock.writeTextFile.mock.calls.find(
-      ([path]) => path === `${workspaceState.folders[0].path}/.forge/catalog.json`
+    expect(platformMock.writeTextFile.mock.calls.some(([path]) => path.includes('/.forge/'))).toBe(
+      false
     );
-    expect(JSON.parse(manifestWrite![1]).entities).toEqual(
-      expect.arrayContaining(
-        ['vector.fa', 'insert.fa', 'mutation_case.fa'].map((file) =>
-          expect.objectContaining({
-            type: 'file',
-            name: file,
-            placement: { kind: 'file', relativePath: `input/${file}`, fileKind: 'fasta' },
-          })
-        )
-      )
-    );
+    expect(platformMock.registerScenarioFiles).toHaveBeenCalledWith({
+      workspaceRoot: workspaceState.folders[0].path,
+      files: expect.arrayContaining(
+        ['vector.fa', 'insert.fa', 'mutation_case.fa'].map((file) => ({
+          relativePath: `input/${file}`,
+          name: file,
+          fileKind: 'fasta',
+        }))
+      ),
+    });
     expect(platformMock.writeTextFile).toHaveBeenCalledWith(
       expect.stringContaining('/managed-workspaces/agent-trace-cli/repo/prompts.md'),
       expect.stringContaining('Prompt 1 - workspace audit')
@@ -2450,6 +2466,45 @@ describe('registered DevPanel scenario replay', () => {
         content: expect.stringContaining('four complete quantitative signal tracks'),
       }),
     ]);
+  });
+
+  it('replays a materialized preset into the project it created, without a new project', async () => {
+    vi.mocked(isDesktopRuntime).mockReturnValue(true);
+    allowElectronScenarioMutation();
+    await applyDevScenarioPreset('agent-trace-cli');
+    const created = (await platformMock.createEmptyWorkspace.mock.results.at(-1)!.value).rootPath;
+    expect(JSON.parse(window.localStorage.getItem('waypoint:dev-scenario-projects')!)).toEqual({
+      'agent-trace-cli-session': { '/workspace/agent-trace-cli': created },
+    });
+    listWorkspaceLibraryMock.mockResolvedValueOnce({
+      active: [{ repoPath: created }],
+      archived: [],
+      trashed: [],
+    });
+    platformMock.createEmptyWorkspace.mockClear();
+    openWorkspaceFromSourceMock.mockClear();
+
+    await expect(replayLastAppliedDevScenario()).resolves.toMatchObject({
+      status: 'applied',
+      presetId: 'agent-trace-cli',
+    });
+    expect(platformMock.createEmptyWorkspace).not.toHaveBeenCalled();
+    expect(openWorkspaceFromSourceMock).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'local-folder', path: created }),
+      { inPlace: true }
+    );
+  });
+
+  it('replays into a new project when the recorded project is no longer active', async () => {
+    vi.mocked(isDesktopRuntime).mockReturnValue(true);
+    allowElectronScenarioMutation();
+    await applyDevScenarioPreset('agent-trace-cli');
+    listWorkspaceLibraryMock.mockResolvedValueOnce({ active: [], archived: [], trashed: [] });
+    platformMock.createEmptyWorkspace.mockClear();
+
+    await replayLastAppliedDevScenario();
+
+    expect(platformMock.createEmptyWorkspace).toHaveBeenCalledWith({ name: 'agent-trace-cli' });
   });
 
   it('applies a registered preset, persists its id, and replays the same preset after stores reset', async () => {

@@ -86,6 +86,7 @@ async def test_closed_file_uses_native_owner_and_returns_only_public_inspection(
     assert state["dispatches"] == [
         {
             "command": "file.execute",
+            "projectScope": {"kind": "app-following"},
             "agent": {
                 "identityId": "agent-a",
                 "capabilities": ["read-workspace", "write-workspace"],

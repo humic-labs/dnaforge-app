@@ -1,3 +1,4 @@
+import { PresentationBoundary } from '../../../presentation/PresentationSurface';
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -164,9 +165,11 @@ describe('CV2 real Panel/store/command authority', () => {
     const observed = vi.fn();
     const view = render(
       <Scene>
-        <div role="dialog" aria-modal="true">
-          <button onKeyDown={(event) => observed(event.defaultPrevented)}>Modal control</button>
-        </div>
+        <PresentationBoundary capture="modal">
+          <div role="dialog" aria-modal="true">
+            <button onKeyDown={(event) => observed(event.defaultPrevented)}>Modal control</button>
+          </div>
+        </PresentationBoundary>
       </Scene>
     );
     const event = press(screen.getByRole('button', { name: 'Modal control' }));

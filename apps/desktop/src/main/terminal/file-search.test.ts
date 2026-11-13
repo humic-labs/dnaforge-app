@@ -1,3 +1,4 @@
+import { createRegisteredProjectAuthorityFixture } from '../__tests__/registered-project-authority-fixture';
 import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtemp, mkdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -25,10 +26,11 @@ async function file(root: string, name: string) {
 }
 
 describe('native terminal project filename lookup', () => {
-  it('refuses results after the native project enrollment is removed', async () => {
+  it('refuses results after registered project access is removed', async () => {
     const root = await workspace();
     await file(root, 'nested/notes.txt');
-    const access = new NativeDocumentWorkspaces({ resolveRoot: realpath });
+    const registry = createRegisteredProjectAuthorityFixture([root]);
+    const access = new NativeDocumentWorkspaces({ authority: registry.authority });
     await access.replaceRoots([root]);
     let release!: (path: string) => void;
     const search = new TerminalFileSearch({
@@ -43,9 +45,10 @@ describe('native terminal project filename lookup', () => {
       roots: [root],
       query: 'notes.txt',
     });
+    registry.remove(root);
     await access.replaceRoots([]);
     release(root);
-    await expect(pending).rejects.toThrow(/workspace|enrollment/i);
+    await expect(pending).rejects.toThrow(/registered project/i);
   });
   it('finds ordinary files, preserves ambiguity and treats glob syntax literally', async () => {
     const root = await workspace();

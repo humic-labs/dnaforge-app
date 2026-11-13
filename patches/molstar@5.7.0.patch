@@ -372,3 +372,469 @@ index dd2482e262b8d2a40779b844c6ca476edf6d7241..88e581da43df6180972ce104a27bf3b0
      } else {
          gl_FragColor = vec4(0.0);
      }
+diff --git a/lib/mol-util/input/input-observer.js b/lib/mol-util/input/input-observer.js
+--- a/lib/mol-util/input/input-observer.js
++++ b/lib/mol-util/input/input-observer.js
+@@ -159,6 +159,7 @@
+         modifiers: new Subject(),
+         key: new Subject(),
+         keyUp: new Subject(),
++        keyboardReset: new Subject(),
+         keyDown: new Subject(),
+         lock: new Subject(),
+         trackedPointers: new Subject(),
+@@ -169,6 +170,7 @@
+ (function (InputObserver) {
+     function create(props = {}) {
+         const { noScroll, noContextMenu } = { ...DefaultInputObserverProps, ...props };
++        const events = createEvents();
+         return {
+             noScroll,
+             noContextMenu,
+@@ -176,7 +178,9 @@
+             width: 0,
+             height: 0,
+             pixelRatio: 1,
+-            ...createEvents(),
++            ...events,
++            setInputPolicy: () => {},
++            cancelInput: kind => { if (kind !== 'pointer') events.keyboardReset.next(void 0); if (kind !== 'keyboard') { events.leave.next(void 0); events.interactionEnd.next(void 0); } },
+             setPixelScale: noop,
+             updateTrackedPointers: noop,
+             updateScreenTouches: noop,
+@@ -229,7 +233,30 @@
+             resizeObserver = new window.ResizeObserver(onResize);
+         }
+         const events = createEvents();
+-        const { drag, interactionEnd, wheel, pinch, gesture, click, move, leave, enter, resize, modifiers, key, keyUp, keyDown, lock, trackedPointers } = events;
++        const { drag, interactionEnd, wheel, pinch, gesture, click, move, leave, enter, resize, modifiers, key, keyUp, keyDown, keyboardReset, lock, trackedPointers } = events;
++        let inputPolicy = () => true;
++        function cancelInput(kind) {
++            if (kind !== 'pointer') {
++                modifierKeys.shift = modifierKeys.alt = modifierKeys.meta = modifierKeys.control = false;
++                keyboardReset.next(void 0);
++            }
++            if (kind === 'keyboard') return;
++            const active = isInside || dragging !== DraggingState.Stopped || buttons !== 0;
++            dragging = DraggingState.Stopped;
++            buttons = button = 0;
++            isInside = false;
++            hasMoved = true;
++            modifierKeys.shift = modifierKeys.alt = modifierKeys.meta = modifierKeys.control = false;
++            if (active) {
++                leave.next(void 0);
++                interactionEnd.next(void 0);
++            }
++        }
++        function allowsInput(kind, event) {
++            if (inputPolicy(kind, event)) return true;
++            cancelInput(kind);
++            return false;
++        }
+         attach();
+         function attach() {
+             element.addEventListener('contextmenu', onContextMenu, false);
+@@ -306,6 +333,7 @@
+             lock.next(isLocked);
+         }
+         function onContextMenu(event) {
++            if (!allowsInput('pointer', event)) return;
+             if (!mask(event.clientX, event.clientY))
+                 return;
+             if (noContextMenu) {
+@@ -325,6 +353,7 @@
+             }
+         }
+         function handleKeyDown(event) {
++            if (!allowsInput('keyboard', event)) return;
+             let changed = false;
+             if (!modifierKeys.alt && event.altKey) {
+                 changed = true;
+@@ -355,6 +384,7 @@
+             }
+         }
+         function handleKeyUp(event) {
++            if (!allowsInput('keyboard', event)) return;
+             let changed = false;
+             if (modifierKeys.alt && !event.altKey) {
+                 changed = true;
+@@ -387,6 +417,7 @@
+             }
+         }
+         function handleKeyPress(event) {
++            if (!allowsInput('keyboard', event)) return;
+             if (!getKeyOnElement(event) || !isInside)
+                 return;
+             key.next({
+@@ -603,6 +634,7 @@
+         let firstTouchStartSet = false;
+         let initialTouchDistance = 0, lastTouchFraction = 1;
+         function onTouchStart(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             ev.preventDefault();
+             lastSingleTouch = undefined;
+             singleTouchDistance = -1;
+@@ -647,6 +679,7 @@
+             }
+         }
+         function onTouchEnd(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             endDrag();
+             if (lastSingleTouch && singleTouchDistance <= 4) {
+                 const t = lastSingleTouch;
+@@ -661,6 +694,7 @@
+             firstTouchStartSet = false;
+         }
+         function onTouchMove(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             button = ButtonsType.Flag.None;
+             if (noPinchZoom) {
+                 ev.preventDefault();
+@@ -733,6 +767,8 @@
+             interactionEnd.next(void 0);
+         }
+         function onPointerDown(ev) {
++            if (!allowsInput('pointer', ev)) return;
++            hasMoved = false;
+             if (!mask(ev.clientX, ev.clientY))
+                 return;
+             eventOffset(pointerStart, ev);
+@@ -742,6 +778,7 @@
+             }
+         }
+         function onPointerUp(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             dragging = DraggingState.Stopped;
+             if (!mask(ev.clientX, ev.clientY))
+                 return;
+@@ -754,6 +791,7 @@
+             hasMoved = false;
+         }
+         function onPointerMove(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             var _a;
+             eventOffset(pointerEnd, ev);
+             const { pageX, pageY } = getPagePosition(ev);
+@@ -792,6 +830,7 @@
+             dragging = DraggingState.Moving;
+         }
+         function onMouseWheel(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             if (!mask(ev.clientX, ev.clientY))
+                 return;
+             eventOffset(pointerEnd, ev);
+@@ -817,6 +856,7 @@
+         }
+         let prevGestureScale = 0, prevGestureRotation = 0;
+         function onGestureStart(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             tryPreventGesture(ev);
+             prevGestureScale = ev.scale;
+             prevGestureRotation = ev.rotation;
+@@ -837,10 +877,12 @@
+             prevGestureScale = ev.scale;
+         }
+         function onGestureChange(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             tryPreventGesture(ev);
+             gestureDelta(ev);
+         }
+         function onGestureEnd(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             tryPreventGesture(ev);
+             gestureDelta(ev, true);
+         }
+@@ -928,6 +970,8 @@
+             }
+         }
+         return {
++            setInputPolicy: policy => { inputPolicy = policy; if (!inputPolicy('pointer')) cancelInput(); },
++            cancelInput,
+             get noScroll() { return noScroll; },
+             set noScroll(value) { noScroll = value; },
+             get noContextMenu() { return noContextMenu; },
+@@ -943,10 +987,12 @@
+                 height = element.clientHeight * pixelRatio();
+             },
+             updateTrackedPointers: (input) => {
++                if (!allowsInput('pointer')) return;
+                 handleTrackedPointers(input);
+                 trackedPointers.next(input);
+             },
+             updateScreenTouches: (input) => {
++                if (!allowsInput('pointer')) return;
+                 handleScreenTouches(input);
+             },
+             requestPointerLock: (viewport) => {
+diff --git a/lib/mol-util/input/input-observer.d.ts b/lib/mol-util/input/input-observer.d.ts
+--- a/lib/mol-util/input/input-observer.d.ts
++++ b/lib/mol-util/input/input-observer.d.ts
+@@ -174,6 +174,7 @@
+     readonly key: Observable<KeyInput>;
+     readonly keyUp: Observable<KeyInput>;
+     readonly keyDown: Observable<KeyInput>;
++    readonly keyboardReset: Observable<void>;
+     readonly lock: Observable<boolean>;
+     readonly trackedPointers: Observable<TrackedPointerInput[]>;
+     setPixelScale: (pixelScale: number) => void;
+@@ -181,6 +182,8 @@
+     updateScreenTouches: (screenTouches: ScreenTouchInput[]) => void;
+     requestPointerLock: (viewport: Viewport) => void;
+     exitPointerLock: () => void;
++    setInputPolicy: (policy: (kind: 'keyboard' | 'pointer', event?: Event) => boolean) => void;
++    cancelInput: (kind?: 'keyboard' | 'pointer') => void;
+     dispose: () => void;
+ }
+ declare namespace InputObserver {
+diff --git a/lib/commonjs/mol-util/input/input-observer.js b/lib/commonjs/mol-util/input/input-observer.js
+--- a/lib/commonjs/mol-util/input/input-observer.js
++++ b/lib/commonjs/mol-util/input/input-observer.js
+@@ -166,6 +166,7 @@
+         modifiers: new rxjs_1.Subject(),
+         key: new rxjs_1.Subject(),
+         keyUp: new rxjs_1.Subject(),
++        keyboardReset: new rxjs_1.Subject(),
+         keyDown: new rxjs_1.Subject(),
+         lock: new rxjs_1.Subject(),
+         trackedPointers: new rxjs_1.Subject(),
+@@ -176,6 +177,7 @@
+ (function (InputObserver) {
+     function create(props = {}) {
+         const { noScroll, noContextMenu } = { ...exports.DefaultInputObserverProps, ...props };
++        const events = createEvents();
+         return {
+             noScroll,
+             noContextMenu,
+@@ -183,7 +185,9 @@
+             width: 0,
+             height: 0,
+             pixelRatio: 1,
+-            ...createEvents(),
++            ...events,
++            setInputPolicy: () => {},
++            cancelInput: kind => { if (kind !== 'pointer') events.keyboardReset.next(void 0); if (kind !== 'keyboard') { events.leave.next(void 0); events.interactionEnd.next(void 0); } },
+             setPixelScale: index_1.noop,
+             updateTrackedPointers: index_1.noop,
+             updateScreenTouches: index_1.noop,
+@@ -236,7 +240,30 @@
+             resizeObserver = new window.ResizeObserver(onResize);
+         }
+         const events = createEvents();
+-        const { drag, interactionEnd, wheel, pinch, gesture, click, move, leave, enter, resize, modifiers, key, keyUp, keyDown, lock, trackedPointers } = events;
++        const { drag, interactionEnd, wheel, pinch, gesture, click, move, leave, enter, resize, modifiers, key, keyUp, keyDown, keyboardReset, lock, trackedPointers } = events;
++        let inputPolicy = () => true;
++        function cancelInput(kind) {
++            if (kind !== 'pointer') {
++                modifierKeys.shift = modifierKeys.alt = modifierKeys.meta = modifierKeys.control = false;
++                keyboardReset.next(void 0);
++            }
++            if (kind === 'keyboard') return;
++            const active = isInside || dragging !== DraggingState.Stopped || buttons !== 0;
++            dragging = DraggingState.Stopped;
++            buttons = button = 0;
++            isInside = false;
++            hasMoved = true;
++            modifierKeys.shift = modifierKeys.alt = modifierKeys.meta = modifierKeys.control = false;
++            if (active) {
++                leave.next(void 0);
++                interactionEnd.next(void 0);
++            }
++        }
++        function allowsInput(kind, event) {
++            if (inputPolicy(kind, event)) return true;
++            cancelInput(kind);
++            return false;
++        }
+         attach();
+         function attach() {
+             element.addEventListener('contextmenu', onContextMenu, false);
+@@ -313,6 +340,7 @@
+             lock.next(isLocked);
+         }
+         function onContextMenu(event) {
++            if (!allowsInput('pointer', event)) return;
+             if (!mask(event.clientX, event.clientY))
+                 return;
+             if (noContextMenu) {
+@@ -332,6 +360,7 @@
+             }
+         }
+         function handleKeyDown(event) {
++            if (!allowsInput('keyboard', event)) return;
+             let changed = false;
+             if (!modifierKeys.alt && event.altKey) {
+                 changed = true;
+@@ -362,6 +391,7 @@
+             }
+         }
+         function handleKeyUp(event) {
++            if (!allowsInput('keyboard', event)) return;
+             let changed = false;
+             if (modifierKeys.alt && !event.altKey) {
+                 changed = true;
+@@ -394,6 +424,7 @@
+             }
+         }
+         function handleKeyPress(event) {
++            if (!allowsInput('keyboard', event)) return;
+             if (!getKeyOnElement(event) || !isInside)
+                 return;
+             key.next({
+@@ -610,6 +641,7 @@
+         let firstTouchStartSet = false;
+         let initialTouchDistance = 0, lastTouchFraction = 1;
+         function onTouchStart(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             ev.preventDefault();
+             lastSingleTouch = undefined;
+             singleTouchDistance = -1;
+@@ -654,6 +686,7 @@
+             }
+         }
+         function onTouchEnd(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             endDrag();
+             if (lastSingleTouch && singleTouchDistance <= 4) {
+                 const t = lastSingleTouch;
+@@ -668,6 +701,7 @@
+             firstTouchStartSet = false;
+         }
+         function onTouchMove(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             button = ButtonsType.Flag.None;
+             if (noPinchZoom) {
+                 ev.preventDefault();
+@@ -740,6 +774,8 @@
+             interactionEnd.next(void 0);
+         }
+         function onPointerDown(ev) {
++            if (!allowsInput('pointer', ev)) return;
++            hasMoved = false;
+             if (!mask(ev.clientX, ev.clientY))
+                 return;
+             eventOffset(pointerStart, ev);
+@@ -749,6 +785,7 @@
+             }
+         }
+         function onPointerUp(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             dragging = DraggingState.Stopped;
+             if (!mask(ev.clientX, ev.clientY))
+                 return;
+@@ -761,6 +798,7 @@
+             hasMoved = false;
+         }
+         function onPointerMove(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             var _a;
+             eventOffset(pointerEnd, ev);
+             const { pageX, pageY } = getPagePosition(ev);
+@@ -799,6 +837,7 @@
+             dragging = DraggingState.Moving;
+         }
+         function onMouseWheel(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             if (!mask(ev.clientX, ev.clientY))
+                 return;
+             eventOffset(pointerEnd, ev);
+@@ -824,6 +863,7 @@
+         }
+         let prevGestureScale = 0, prevGestureRotation = 0;
+         function onGestureStart(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             tryPreventGesture(ev);
+             prevGestureScale = ev.scale;
+             prevGestureRotation = ev.rotation;
+@@ -844,10 +884,12 @@
+             prevGestureScale = ev.scale;
+         }
+         function onGestureChange(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             tryPreventGesture(ev);
+             gestureDelta(ev);
+         }
+         function onGestureEnd(ev) {
++            if (!allowsInput('pointer', ev)) return;
+             tryPreventGesture(ev);
+             gestureDelta(ev, true);
+         }
+@@ -935,6 +977,8 @@
+             }
+         }
+         return {
++            setInputPolicy: policy => { inputPolicy = policy; if (!inputPolicy('pointer')) cancelInput(); },
++            cancelInput,
+             get noScroll() { return noScroll; },
+             set noScroll(value) { noScroll = value; },
+             get noContextMenu() { return noContextMenu; },
+@@ -950,10 +994,12 @@
+                 height = element.clientHeight * pixelRatio();
+             },
+             updateTrackedPointers: (input) => {
++                if (!allowsInput('pointer')) return;
+                 handleTrackedPointers(input);
+                 trackedPointers.next(input);
+             },
+             updateScreenTouches: (input) => {
++                if (!allowsInput('pointer')) return;
+                 handleScreenTouches(input);
+             },
+             requestPointerLock: (viewport) => {
+diff --git a/lib/commonjs/mol-util/input/input-observer.d.ts b/lib/commonjs/mol-util/input/input-observer.d.ts
+--- a/lib/commonjs/mol-util/input/input-observer.d.ts
++++ b/lib/commonjs/mol-util/input/input-observer.d.ts
+@@ -174,6 +174,7 @@
+     readonly key: Observable<KeyInput>;
+     readonly keyUp: Observable<KeyInput>;
+     readonly keyDown: Observable<KeyInput>;
++    readonly keyboardReset: Observable<void>;
+     readonly lock: Observable<boolean>;
+     readonly trackedPointers: Observable<TrackedPointerInput[]>;
+     setPixelScale: (pixelScale: number) => void;
+@@ -181,6 +182,8 @@
+     updateScreenTouches: (screenTouches: ScreenTouchInput[]) => void;
+     requestPointerLock: (viewport: Viewport) => void;
+     exitPointerLock: () => void;
++    setInputPolicy: (policy: (kind: 'keyboard' | 'pointer', event?: Event) => boolean) => void;
++    cancelInput: (kind?: 'keyboard' | 'pointer') => void;
+     dispose: () => void;
+ }
+ declare namespace InputObserver {
+diff --git a/lib/mol-canvas3d/controls/trackball.js b/lib/mol-canvas3d/controls/trackball.js
+--- a/lib/mol-canvas3d/controls/trackball.js
++++ b/lib/mol-canvas3d/controls/trackball.js
+@@ -118,6 +118,7 @@
+         const pinchSub = input.pinch.subscribe(onPinch);
+         const keyDownSub = input.keyDown.subscribe(onKeyDown);
+         const keyUpSub = input.keyUp.subscribe(onKeyUp);
++        const keyboardResetSub = input.keyboardReset.subscribe(unsetKeyState);
+         const moveSub = input.move.subscribe(onMove);
+         const lockSub = input.lock.subscribe(onLock);
+         const leaveSub = input.leave.subscribe(onLeave);
+@@ -771,6 +772,7 @@
+             interactionEndSub.unsubscribe();
+             keyDownSub.unsubscribe();
+             keyUpSub.unsubscribe();
++            keyboardResetSub.unsubscribe();
+             moveSub.unsubscribe();
+             lockSub.unsubscribe();
+             leaveSub.unsubscribe();
+diff --git a/lib/commonjs/mol-canvas3d/controls/trackball.js b/lib/commonjs/mol-canvas3d/controls/trackball.js
+--- a/lib/commonjs/mol-canvas3d/controls/trackball.js
++++ b/lib/commonjs/mol-canvas3d/controls/trackball.js
+@@ -120,6 +120,7 @@
+         const pinchSub = input.pinch.subscribe(onPinch);
+         const keyDownSub = input.keyDown.subscribe(onKeyDown);
+         const keyUpSub = input.keyUp.subscribe(onKeyUp);
++        const keyboardResetSub = input.keyboardReset.subscribe(unsetKeyState);
+         const moveSub = input.move.subscribe(onMove);
+         const lockSub = input.lock.subscribe(onLock);
+         const leaveSub = input.leave.subscribe(onLeave);
+@@ -773,6 +774,7 @@
+             interactionEndSub.unsubscribe();
+             keyDownSub.unsubscribe();
+             keyUpSub.unsubscribe();
++            keyboardResetSub.unsubscribe();
+             moveSub.unsubscribe();
+             lockSub.unsubscribe();
+             leaveSub.unsubscribe();

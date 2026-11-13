@@ -2,7 +2,7 @@ import { installAssociationPathRouter, installProtocolUrlRouter } from './early-
 import './background-launch-cwd';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { getShellReadiness, installShellReadiness } from './ipc/shell-readiness';
-import { installSequenceWheelOwnership } from './sequence-wheel-ownership';
+import { installSequenceWheelMetadata } from './sequence-wheel-ownership';
 import { mainIpc, sendRendererIpc } from '../shared/ipc-contract';
 import {
   app,
@@ -448,7 +448,7 @@ function getWindowPreloadPath(): string {
 
 function getPreloadRuntimeArguments(): string[] {
   const args: string[] = [];
-  if (process.platform === 'darwin') args.push('--dnaforge-native-wheel-ownership=1');
+  if (process.platform === 'darwin') args.push('--dnaforge-native-wheel-metadata=1');
   if (process.argv.includes('--e2e') || process.argv.includes('--waypoint-e2e=1')) {
     args.push('--waypoint-e2e=1');
   }
@@ -571,7 +571,7 @@ async function createWindowOnce(): Promise<BrowserWindow> {
   });
   terminalPrimaryOwnerRef = mainWindow.webContents.id;
   appendBootLog(`main_window_instance_created id=${mainWindow.id}`);
-  installSequenceWheelOwnership(mainWindow);
+  installSequenceWheelMetadata(mainWindow);
   if (
     backgroundWindow ||
     (isTest && process.platform === 'linux') ||

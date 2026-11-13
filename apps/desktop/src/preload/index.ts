@@ -264,7 +264,7 @@ function sendReplicaAck(
   rendererIpc.send('cloudSync:replicaAppliedAck', ack);
 }
 
-const nativeWheelGestureOwnership = process.argv.includes('--dnaforge-native-wheel-ownership=1');
+const nativeWheelMetadata = process.argv.includes('--dnaforge-native-wheel-metadata=1');
 
 const api = {
   terminal: {
@@ -288,8 +288,7 @@ const api = {
   },
   sequenceWheel: {
     ...createClient(sequenceWheelContract),
-    nativeGestureOwnership: nativeWheelGestureOwnership,
-    nativeDiscreteWheelMotion: nativeWheelGestureOwnership,
+    nativeWheelMetadata,
   },
   platform: process.platform,
   runtime: {

@@ -74,7 +74,11 @@ async def test_search_runs_without_a_renderer_or_any_write_capability(native):
         "result": {"revision": "current", "ok": True},
     }
     assert state["calls"] == [
-        {"command": "workspace.search", "request": {"query": "strain"}}
+        {
+            "command": "workspace.search",
+            "request": {"query": "strain"},
+            "projectScope": {"kind": "app-following"},
+        }
     ]
 
 
@@ -94,6 +98,7 @@ async def test_retained_import_receives_fresh_authority_for_its_actual_effects(n
     assert state["calls"] == [
         {
             "command": "import-review.execute",
+            "projectScope": {"kind": "app-following"},
             "request": request,
             "agent": {"identityId": "caller", "capabilities": ["read-workspace"]},
         }
@@ -120,6 +125,7 @@ async def test_notebook_reads_use_native_owner_without_write_scope(native, opera
     assert state["calls"] == [
         {
             "command": "notebook.execute",
+            "projectScope": {"kind": "app-following"},
             "request": {
                 "pageId": "notebook",
                 "operation": operation,
@@ -257,6 +263,7 @@ async def test_admin_receives_only_resolved_current_agent_authority(native):
     assert state["calls"] == [
         {
             "command": "administration.execute",
+            "projectScope": {"kind": "app-following"},
             "request": request,
             "agent": {
                 "identityId": "caller",
@@ -316,7 +323,13 @@ async def test_sequence_native_route_requires_sequence_read_authority(native):
     state["scope"].append("read-sequences")
     context.agent_capabilities.append("read-sequences")
     await execute_native_workflow("sequence_document", request, context)
-    assert state["calls"] == [{"command": "sequence.execute", "request": request}]
+    assert state["calls"] == [
+        {
+            "command": "sequence.execute",
+            "request": request,
+            "projectScope": {"kind": "app-following"},
+        }
+    ]
 
 
 def test_share_capability_inputs_and_outputs_do_not_enter_retained_audit():

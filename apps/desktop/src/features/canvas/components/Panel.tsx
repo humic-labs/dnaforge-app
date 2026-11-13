@@ -1,3 +1,5 @@
+import { PresentationBoundary } from '../../../presentation/PresentationSurface';
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { userMessage } from '@waypoint/user-messages';
 import { findUnsettledEntityDetailsSession } from '../../entity-details/public/editing-sessions';
 import { requestManagedSequenceMetadata } from '../../sequence/public/managed-sequence-metadata';
@@ -38,7 +40,18 @@ interface PanelProps {
   isFocused: boolean;
 }
 
-export const Panel = React.memo(function Panel({ panel, isFocused }: PanelProps) {
+export const Panel = React.memo(function Panel(props: PanelProps) {
+  const focused = useCanvasStore((state) => state.focusedPanelId === props.panel.id);
+  return (
+    <PresentationBoundary id={`panel-${props.panel.id}`} focused={focused} layout="fill">
+      <PanelBody {...props} />
+    </PresentationBoundary>
+  );
+});
+
+function PanelBody({ panel, isFocused }: PanelProps) {
+  const presentationEvents = usePresentationListener();
+
   const setActiveTab = useCanvasStore((state) => state.setActiveTab);
   const closeTab = useCanvasStore((state) => state.closeTab);
   const reorderTab = useCanvasStore((state) => state.reorderTab);
@@ -59,10 +72,6 @@ export const Panel = React.memo(function Panel({ panel, isFocused }: PanelProps)
   const pendingReadOperationRef = useRef<CanvasNavigationOperation | null>(null);
   const pendingCloseOperationRef = useRef<CanvasNavigationOperation | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  useCommandScope(COMMAND_SCOPES.modal, {
-    claimOnMount: true,
-    enabled: pendingCloseTab !== null,
-  });
 
   const activeTab = panel.tabs.find((t) => t.id === panel.activeTabId) || null;
 
@@ -391,12 +400,14 @@ export const Panel = React.memo(function Panel({ panel, isFocused }: PanelProps)
     const state = useCanvasStore.getState();
     const current = state.panels[panel.id];
     return (
+      pendingCloseTab === null &&
+      !waitingForSave &&
       state.focusedPanelId === panel.id &&
       !!current &&
       current.tabs.length > 1 &&
       current.tabs.some((tab) => tab.id === current.activeTabId)
     );
-  }, [panel.id]);
+  }, [panel.id, pendingCloseTab, waitingForSave]);
 
   const cycleTabs = useCallback(
     (direction: 1 | -1) => {
@@ -434,9 +445,9 @@ export const Panel = React.memo(function Panel({ panel, isFocused }: PanelProps)
       if (result.handled) e.preventDefault();
     };
 
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [dispatchCommand, isFocused, panel.id]);
+    presentationEvents.add(window, 'keydown', handler);
+    return () => presentationEvents.remove(window, 'keydown', handler);
+  }, [dispatchCommand, isFocused, panel.id, presentationEvents]);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -456,7 +467,6 @@ export const Panel = React.memo(function Panel({ panel, isFocused }: PanelProps)
         flex flex-col h-full bg-bg
         ${isFocused ? '' : ''}
       `}
-      onClick={handleFocus}
     >
       <TabBar
         tabs={panel.tabs}
@@ -488,4 +498,4 @@ export const Panel = React.memo(function Panel({ panel, isFocused }: PanelProps)
       )}
     </div>
   );
-});
+}

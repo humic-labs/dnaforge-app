@@ -133,11 +133,21 @@ def workspace_binding_from_result(
 ) -> tuple[str, str]:
     """Validate a renderer-reported workspace against an explicit target."""
 
+    if requested_workspace is None:
+        return "app-following", "DNAForge registered projects"
     workspace_id = result.get("workspaceId")
-    if not isinstance(workspace_id, str) or not workspace_id:
-        raise ValueError("DNAForge did not report an authoritative workspace identity.")
     folder_paths: list[Path] = []
-    folders = result.get("folders")
+    folders: list[object] = []
+    fields = ("projects", "referenceFolders") if "projects" in result else ("folders",)
+    for field in fields:
+        candidates = result.get(field)
+        if candidates is None and field == "referenceFolders":
+            continue
+        if not isinstance(candidates, list):
+            raise ValueError(
+                "DNAForge did not report an authoritative project catalog."
+            )
+        folders.extend(candidates)
     if isinstance(folders, list):
         for folder in folders:
             if isinstance(folder, dict) and isinstance(folder.get("path"), str):
@@ -168,10 +178,8 @@ def workspace_binding_from_result(
             raise ValueError(
                 "WRONG_WORKSPACE: the selected DNAForge app does not own the requested workspace."
             )
-    elif workspace_file_path is None:
-        if len(folder_paths) == 1:
-            path = str(folder_paths[0])
-            return f"folder:{json.dumps(path, separators=(',', ':'))}", path
+    if not isinstance(workspace_id, str) or not workspace_id:
+        raise ValueError("DNAForge did not report an authoritative workspace identity.")
     label = ", ".join(str(path) for path in paths) or workspace_id
     return workspace_id, label
 
@@ -377,6 +385,8 @@ class AppOwnedMcpClient(SidecarClientProtocol):
         )
         if self._client is not None and connection_changed:
             await self._refresh_workspace_grant(connection)
+        elif self.requested_workspace is None and self._grant is not None:
+            await self.refresh_workspace_binding()
         if self._client is None or connection_changed:
             await self._replace_client(connection)
         assert self._client is not None
@@ -398,32 +408,28 @@ class AppOwnedMcpClient(SidecarClientProtocol):
             await _revoke_grant(connection, previous.identity_id)
 
     async def refresh_workspace_binding(self) -> bool:
-        """Follow the same app's open workspace while retaining the existing grant."""
-
         if self.requested_workspace is not None or self._grant is None:
             return False
-        connection = self._selected_connection()
         previous = self._grant
-        probe = await bootstrap_local_mcp_grant(connection, requested_workspace=None)
-        try:
-            await _session_request(
-                connection,
-                "POST",
-                "/agent-grants/local-mcp/bind",
-                body={
-                    "grantId": previous.identity_id,
-                    "workspaceId": probe.workspace_id,
-                    "workspaceLabel": probe.workspace_label,
-                },
-            )
-            self._grant = LocalMcpGrant(
-                previous.identity_id,
-                previous.api_key,
-                probe.workspace_id,
-                probe.workspace_label,
-            )
-        finally:
-            await _revoke_grant(connection, probe.identity_id)
+        if previous.workspace_id == "app-following":
+            return False
+        connection = self._selected_connection()
+        await _session_request(
+            connection,
+            "POST",
+            "/agent-grants/local-mcp/bind",
+            body={
+                "grantId": previous.identity_id,
+                "workspaceId": "app-following",
+                "workspaceLabel": "DNAForge registered projects",
+            },
+        )
+        self._grant = LocalMcpGrant(
+            previous.identity_id,
+            previous.api_key,
+            "app-following",
+            "DNAForge registered projects",
+        )
         return True
 
     async def _replace_client(self, connection: OperationConnection) -> None:

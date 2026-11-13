@@ -93,7 +93,7 @@ const hostedWorkspaceTarget = hostedSectionTarget<PlatformBridge['workspace']>({
   listChildren: hostedFs.listChildren,
   onImportProgress: () => () => undefined,
   relocateEntityFile: createHostedFileRelocator({
-    rename: (oldPath, newPath) => hostedFs.rename(oldPath, newPath),
+    rename: hostedFs.rename,
     rebindCatalogFiles: (input) => {
       if (!hostedCatalogFileRebinder)
         throw new Error('Hosted catalog relocation is not configured.');

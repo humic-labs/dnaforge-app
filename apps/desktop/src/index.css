@@ -864,14 +864,16 @@ svg text:hover {
 }
 
 body.dragging-tab,
-body.dragging-file {
+body.dragging-file,
+body.dragging-track-row {
   cursor: grabbing !important;
   -webkit-user-select: none !important;
   user-select: none !important;
 }
 
 body.dragging-tab *,
-body.dragging-file * {
+body.dragging-file *,
+body.dragging-track-row * {
   cursor: grabbing !important;
 }
 
@@ -1269,11 +1271,8 @@ a[data-benchling-link-destination='external']::after {
 }
 
 .entity-reference-chip__detail {
-  position: absolute;
-  left: 0;
-  top: calc(100% + 4px);
+  position: fixed;
   z-index: 50;
-  max-width: 32rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

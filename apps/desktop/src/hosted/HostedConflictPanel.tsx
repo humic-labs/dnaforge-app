@@ -1,3 +1,7 @@
+import {
+  usePresentationOverlay,
+  PresentationScopeContext,
+} from '../presentation/PresentationSurface';
 import { type UserMessage, toUserMessage, userMessage } from '@waypoint/user-messages';
 
 import { useEffect, useState } from 'react';
@@ -24,6 +28,8 @@ export function HostedConflictPanel({
   workspaceId: string;
   onClose(): void;
 }) {
+  const presentationOverlay = usePresentationOverlay('modal');
+
   const [review, setReview] = useState<Review | null>(null);
   const [choices, setChoices] = useState<NonNullable<WorkspaceSessionReconcileInput['choices']>>(
     {}
@@ -69,108 +75,113 @@ export function HostedConflictPanel({
   }
 
   return (
-    <div className={`hosted-share-backdrop ${UI_MODAL_LAYER_CLASS}`}>
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="hosted-conflict-title"
-        className="hosted-conflict-dialog"
-        data-testid="hosted-sync-conflict-dialog"
-      >
-        <h2 id="hosted-conflict-title">Review saved versions</h2>
-        <p>
-          Your local draft and the server version remain separate until you choose. Choosing a side
-          applies the complete package, including its sequence, metadata and attachments.
-        </p>
-        {error ? <p role="alert">{toUserMessage(error, 'operation.failed')}</p> : null}
-        {!review && !error ? <p>Loading exact saved versions…</p> : null}
-        {review?.result.kind === 'invalid' ? <p role="alert">{review.result.reason}</p> : null}
-        {review?.result.kind === 'merged' ? (
-          <p>These changes can be combined without choosing between conflicting content.</p>
-        ) : null}
-        {review
-          ? conflicts.map((conflict) => (
-              <fieldset key={conflict.reviewFingerprint} data-resource-id={conflict.resourceId}>
-                <legend>
-                  {conflict.path} — {conflict.reason.replace(/-/gu, ' ')}
-                </legend>
-                <div className="hosted-conflict-sides">
-                  <ConflictSide
-                    label="Common version"
-                    side={conflict.base}
-                    snapshot={review.base}
-                  />
-                  <ConflictSide
-                    label="My saved draft"
-                    side={conflict.local}
-                    snapshot={review.local}
-                  />
-                  <ConflictSide
-                    label="Server version"
-                    side={conflict.remote}
-                    snapshot={review.remote}
-                  />
-                </div>
-                {(['mine', 'theirs'] as const).map((choice) => (
-                  <label key={choice}>
-                    <input
-                      type="radio"
-                      name={conflict.resourceId}
-                      value={choice}
-                      checked={
-                        choices[conflict.resourceId]?.choice === choice &&
-                        choices[conflict.resourceId]?.reviewFingerprint ===
-                          conflict.reviewFingerprint
-                      }
-                      onChange={() =>
-                        setChoices((current) => ({
-                          ...current,
-                          [conflict.resourceId]: {
-                            choice,
-                            reviewFingerprint: conflict.reviewFingerprint,
-                          },
-                        }))
-                      }
+    <div
+      ref={presentationOverlay.bindRef(undefined, '0')}
+      className={`hosted-share-backdrop ${UI_MODAL_LAYER_CLASS}`}
+    >
+      <PresentationScopeContext.Provider value={presentationOverlay.scope}>
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="hosted-conflict-title"
+          className="hosted-conflict-dialog"
+          data-testid="hosted-sync-conflict-dialog"
+        >
+          <h2 id="hosted-conflict-title">Review saved versions</h2>
+          <p>
+            Your local draft and the server version remain separate until you choose. Choosing a
+            side applies the complete package, including its sequence, metadata and attachments.
+          </p>
+          {error ? <p role="alert">{toUserMessage(error, 'operation.failed')}</p> : null}
+          {!review && !error ? <p>Loading exact saved versions…</p> : null}
+          {review?.result.kind === 'invalid' ? <p role="alert">{review.result.reason}</p> : null}
+          {review?.result.kind === 'merged' ? (
+            <p>These changes can be combined without choosing between conflicting content.</p>
+          ) : null}
+          {review
+            ? conflicts.map((conflict) => (
+                <fieldset key={conflict.reviewFingerprint} data-resource-id={conflict.resourceId}>
+                  <legend>
+                    {conflict.path} — {conflict.reason.replace(/-/gu, ' ')}
+                  </legend>
+                  <div className="hosted-conflict-sides">
+                    <ConflictSide
+                      label="Common version"
+                      side={conflict.base}
+                      snapshot={review.base}
                     />
-                    {choice === 'mine'
-                      ? conflict.local
-                        ? 'Keep my draft'
-                        : 'Keep my deletion'
-                      : conflict.remote
-                        ? 'Keep server version'
-                        : 'Keep server deletion'}
-                  </label>
-                ))}
-              </fieldset>
-            ))
-          : null}
-        <p>
-          The local side is retained privately for seven days before a reviewed choice replaces it.
-          Accepted server versions follow normal history retention.
-        </p>
-        <div className="hosted-conflict-actions">
-          <Button type="button" onClick={onClose} disabled={busy}>
-            Close without changing either version
-          </Button>
-          <Button
-            type="button"
-            variant="primary"
-            data-testid="hosted-sync-resolve"
-            disabled={
-              busy ||
-              !review ||
-              review.result.kind === 'invalid' ||
-              conflicts.some(
-                (conflict) =>
-                  choices[conflict.resourceId]?.reviewFingerprint !== conflict.reviewFingerprint
-              )
-            }
-            onClick={() => void resolve()}
-          >
-            {busy ? 'Checking current versions…' : 'Apply reviewed choices'}
-          </Button>
-        </div>
-      </section>
+                    <ConflictSide
+                      label="My saved draft"
+                      side={conflict.local}
+                      snapshot={review.local}
+                    />
+                    <ConflictSide
+                      label="Server version"
+                      side={conflict.remote}
+                      snapshot={review.remote}
+                    />
+                  </div>
+                  {(['mine', 'theirs'] as const).map((choice) => (
+                    <label key={choice}>
+                      <input
+                        type="radio"
+                        name={conflict.resourceId}
+                        value={choice}
+                        checked={
+                          choices[conflict.resourceId]?.choice === choice &&
+                          choices[conflict.resourceId]?.reviewFingerprint ===
+                            conflict.reviewFingerprint
+                        }
+                        onChange={() =>
+                          setChoices((current) => ({
+                            ...current,
+                            [conflict.resourceId]: {
+                              choice,
+                              reviewFingerprint: conflict.reviewFingerprint,
+                            },
+                          }))
+                        }
+                      />
+                      {choice === 'mine'
+                        ? conflict.local
+                          ? 'Keep my draft'
+                          : 'Keep my deletion'
+                        : conflict.remote
+                          ? 'Keep server version'
+                          : 'Keep server deletion'}
+                    </label>
+                  ))}
+                </fieldset>
+              ))
+            : null}
+          <p>
+            The local side is retained privately for seven days before a reviewed choice replaces
+            it. Accepted server versions follow normal history retention.
+          </p>
+          <div className="hosted-conflict-actions">
+            <Button type="button" onClick={onClose} disabled={busy}>
+              Close without changing either version
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              data-testid="hosted-sync-resolve"
+              disabled={
+                busy ||
+                !review ||
+                review.result.kind === 'invalid' ||
+                conflicts.some(
+                  (conflict) =>
+                    choices[conflict.resourceId]?.reviewFingerprint !== conflict.reviewFingerprint
+                )
+              }
+              onClick={() => void resolve()}
+            >
+              {busy ? 'Checking current versions…' : 'Apply reviewed choices'}
+            </Button>
+          </div>
+        </section>
+      </PresentationScopeContext.Provider>
     </div>
   );
 }

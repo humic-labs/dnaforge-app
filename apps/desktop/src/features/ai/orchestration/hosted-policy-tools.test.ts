@@ -634,6 +634,54 @@ describe('hosted agent policy tools', () => {
       auditSpy.mockRestore();
     });
 
+    it('applies mutating tool calls from one step in the order the model issued them', async () => {
+      useWorkspaceStore.setState({ folders });
+      const execution = ALLOWED_RENDERER_TOOLS.create_reference.execution;
+      if (execution.kind !== 'sdk') throw new Error('create_reference must use an SDK tool.');
+      const started: string[] = [];
+      const finish = new Map<string, () => void>();
+      const factory = vi.spyOn(execution, 'createTool').mockImplementation(() => ({
+        resultContract: 'explicit-v1',
+        execute: (input: { displayLabel: string }) => {
+          started.push(input.displayLabel);
+          return new Promise((resolve) =>
+            finish.set(input.displayLabel, () =>
+              resolve({ ok: true, referenceId: input.displayLabel })
+            )
+          );
+        },
+      }));
+      try {
+        const tools = createHostedPolicyTools(folders, { turnId: 'turn-ordered-mutations' });
+        const settled: string[] = [];
+        const call = (label: string) =>
+          Promise.resolve(
+            tools.create_reference.execute!(
+              { entityType: 'notebook', displayLabel: label, filePath: `notebooks/${label}.md` },
+              { toolCallId: label, messages: [] }
+            )
+          ).then((output) => {
+            settled.push(label);
+            return output;
+          });
+        const first = call('first');
+        const second = call('second');
+        await vi.waitFor(() => expect(started).toEqual(['first']));
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(started).toEqual(['first']);
+        finish.get('first')?.();
+        await vi.waitFor(() => expect(started).toEqual(['first', 'second']));
+        finish.get('second')?.();
+        await expect(Promise.all([first, second])).resolves.toEqual([
+          expect.objectContaining({ referenceId: 'first' }),
+          expect.objectContaining({ referenceId: 'second' }),
+        ]);
+        expect(settled).toEqual(['first', 'second']);
+      } finally {
+        factory.mockRestore();
+      }
+    });
+
     it('executes an ordinary Direct API mutation under its current grant without another prompt', async () => {
       confirmDialog.mockResolvedValueOnce(false);
       useWorkspaceStore.setState({ folders });

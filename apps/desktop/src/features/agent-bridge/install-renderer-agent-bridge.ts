@@ -1,3 +1,4 @@
+import type { AgentProjectScope, AuthorizedProjectFolder } from '../../shared/agent-project-scope';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import {
   callRendererTool,
@@ -20,6 +21,8 @@ export interface RendererAgentBridgePayload {
   expectedSessionToken: string;
   agentCapabilities: string[];
   boundWorkspaceId?: string;
+  projectScope?: AgentProjectScope;
+  authorizedFolders?: AuthorizedProjectFolder[];
   trustedContext?: unknown;
 }
 
@@ -37,6 +40,8 @@ interface RendererAgentBridgeResourceReadPayload {
   agentIdentity: string;
   agentCapabilities: string[];
   boundWorkspaceId?: string;
+  projectScope?: AgentProjectScope;
+  authorizedFolders?: AuthorizedProjectFolder[];
 }
 
 type AgentToolsApi = {
@@ -62,17 +67,6 @@ export function installRendererAgentBridge(): () => void {
   const agentTools = desktopApi?.agentTools ?? null;
   if (!agentTools) return () => {};
 
-  const workspaceBindingByAgent = new Map<string, string | null>();
-  const bindWorkspaceForAgent = (
-    agentIdentity: string,
-    currentWorkspaceId: string | null
-  ): string | null => {
-    if (!agentIdentity) return currentWorkspaceId;
-    const existing = workspaceBindingByAgent.get(agentIdentity);
-    if (existing !== undefined) return existing;
-    workspaceBindingByAgent.set(agentIdentity, currentWorkspaceId);
-    return currentWorkspaceId;
-  };
   let apiUrlPromise: Promise<string> | null = null;
   const getApiUrl = () => {
     if (!desktopApi?.config) {
@@ -97,9 +91,7 @@ export function installRendererAgentBridge(): () => void {
       });
       try {
         const currentWorkspaceId = getCurrentRendererWorkspaceId();
-        const boundWorkspaceId =
-          payload.boundWorkspaceId ??
-          bindWorkspaceForAgent(payload.request.agent_identity, currentWorkspaceId);
+        const boundWorkspaceId = payload.boundWorkspaceId;
 
         const auditSink: RendererAuditSink =
           payload.auditMode === 'local'
@@ -112,39 +104,13 @@ export function installRendererAgentBridge(): () => void {
           agentCapabilities: payload.agentCapabilities,
           boundWorkspaceId,
           currentWorkspaceId,
-          folders: useWorkspaceStore.getState().folders,
+          folders: payload.authorizedFolders ?? useWorkspaceStore.getState().folders,
+          projectScope: payload.projectScope,
           auditSink,
           abortSignal: abortController.signal,
           trustedContext: payload.trustedContext,
         });
 
-        if (
-          payload.boundWorkspaceId === undefined &&
-          payload.request.agent_identity === 'local-in-app-chat' &&
-          payload.request.tool_name === 'workspace_projects' &&
-          response.ok &&
-          response.audit_id &&
-          response.result &&
-          typeof response.result === 'object'
-        ) {
-          const transition = (
-            response.result as {
-              workspaceTransition?: {
-                fromWorkspaceId?: unknown;
-                toWorkspaceId?: unknown;
-              };
-            }
-          ).workspaceTransition;
-          const nextWorkspaceId = getCurrentRendererWorkspaceId();
-          if (
-            transition &&
-            transition.fromWorkspaceId === boundWorkspaceId &&
-            transition.fromWorkspaceId === currentWorkspaceId &&
-            transition.toWorkspaceId === nextWorkspaceId &&
-            workspaceBindingByAgent.get(payload.request.agent_identity) === boundWorkspaceId
-          )
-            workspaceBindingByAgent.set(payload.request.agent_identity, nextWorkspaceId);
-        }
         agentTools.respond(payload.requestId, response);
       } catch (err) {
         agentTools.respond(payload.requestId, {
@@ -173,16 +139,15 @@ export function installRendererAgentBridge(): () => void {
           void (async () => {
             try {
               const currentWorkspaceId = getCurrentRendererWorkspaceId();
-              const boundWorkspaceId =
-                payload.boundWorkspaceId ??
-                bindWorkspaceForAgent(payload.agentIdentity, currentWorkspaceId);
+              const boundWorkspaceId = payload.boundWorkspaceId;
               const response = await readSelectionResource(payload.referenceId, {
                 expectedSessionToken: payload.expectedSessionToken,
                 providedSessionToken: payload.sessionToken,
                 agentCapabilities: payload.agentCapabilities,
                 boundWorkspaceId,
                 currentWorkspaceId,
-                folders: useWorkspaceStore.getState().folders,
+                folders: payload.authorizedFolders ?? useWorkspaceStore.getState().folders,
+                projectScope: payload.projectScope,
               });
               respondResource(payload.requestId, response);
             } catch (err) {
@@ -204,7 +169,6 @@ export function installRendererAgentBridge(): () => void {
     unsubscribeCall();
     if (controllersByRequestId.size === 0) unsubscribeCancel();
     unsubscribeReadResource();
-    workspaceBindingByAgent.clear();
     for (const active of controllersByRequestId.values()) {
       if (active.cancelable) active.controller.abort();
     }

@@ -11,9 +11,11 @@ import {
 } from '../../db/workspace-catalog';
 import { createNotebookArtifactFile } from '../../db/workspace-artifacts';
 import { notebookPackagePaths } from '../../db/notebook-package';
+import { canonicalNotebookJson } from '../../db/notebook-markdown-codec';
 import { readNotebookSourceSnapshot } from '../../db/entity-substrate/notebook-source-snapshot';
 import { contentFingerprint } from '../../shared/content-fingerprint';
 import { scopedProjectionId } from '../../shared/workspace-scoped-identity';
+import { normalizeNotebookReferences } from '../../shared/notebook-reference-normalization';
 import { withRendererWorkspaceMutation } from '../../services/workspace-mutation-transaction';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { usePageStore } from './store';
@@ -121,7 +123,8 @@ export async function createAuthoredNotebook(input: {
         const current = await readAuthoredNotebook(input.workspaceRoot, notebookId);
         if (
           current.title !== input.title ||
-          JSON.stringify(current.content) !== JSON.stringify(content)
+          canonicalNotebookJson(current.content) !==
+            canonicalNotebookJson(normalizeNotebookReferences(content))
         )
           throw new Error(
             'This notebook intent already created different content. Use update_notebook with its current revision.'

@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import {
@@ -18,7 +19,7 @@ import {
 import { isManagedBenchlingImportPath } from '../../../shared/benchling-import-display-name';
 import { stripWorkspaceScope } from '../../../shared/workspace-scoped-identity';
 import { NotebookTabIcon, OpenExternalIcon, XIcon } from '../../../components/icons';
-import { safeFocus } from '../../../shared/utils/safeFocus';
+import { scheduleFocus } from '../../../shared/utils/safeFocus';
 
 const MAX_BENCHLING_NOTEBOOK_SIDECAR_CANDIDATES = 512;
 const SIDECAR_READ_CONCURRENCY = 8;
@@ -211,6 +212,8 @@ export function NotebookSourceDetailsControl({
 }: {
   details: BenchlingNotebookSourceDetails | null;
 }) {
+  const presentationEvents = usePresentationListener();
+
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -219,12 +222,12 @@ export function NotebookSourceDetailsControl({
 
   const close = useCallback((restoreFocus: boolean) => {
     setOpen(false);
-    if (restoreFocus) requestAnimationFrame(() => safeFocus(triggerRef.current));
+    if (restoreFocus) scheduleFocus(triggerRef.current);
   }, []);
 
   useEffect(() => {
     if (!open) return;
-    requestAnimationFrame(() => safeFocus(closeRef.current));
+    const cancelFocus = scheduleFocus(closeRef.current);
     const closeOnOutsideClick = (event: MouseEvent) => {
       if (
         event.target instanceof Node &&
@@ -238,12 +241,13 @@ export function NotebookSourceDetailsControl({
       if (event.key === 'Escape') close(true);
     };
     document.addEventListener('mousedown', closeOnOutsideClick);
-    window.addEventListener('keydown', closeOnEscape);
+    presentationEvents.add(window, 'keydown', closeOnEscape);
     return () => {
+      cancelFocus();
       document.removeEventListener('mousedown', closeOnOutsideClick);
-      window.removeEventListener('keydown', closeOnEscape);
+      presentationEvents.remove(window, 'keydown', closeOnEscape);
     };
-  }, [close, open]);
+  }, [close, open, presentationEvents]);
 
   if (!details) return null;
 

@@ -12,6 +12,15 @@ describe('saved metadata comparisons', () => {
     expect(metadataFieldDraftValue({ type }, draft, saved)).toBe(saved);
   });
   it.each([
+    ['text', '', 'IDT'],
+    ['long_text', '', 'Primer pane metadata round trip'],
+    ['number', null, 3],
+    ['enum', null, 'HPLC'],
+    ['string_array', [], ['one']],
+  ])('removes a cleared saved %s value', (type, draft, saved) => {
+    expect(metadataFieldDraftValue({ type }, draft, saved)).toBeNull();
+  });
+  it.each([
     ['number', 0],
     ['boolean', false],
   ])('keeps the real %s value %j', (type, value) => {

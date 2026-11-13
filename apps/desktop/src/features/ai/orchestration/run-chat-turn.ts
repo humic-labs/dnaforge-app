@@ -23,7 +23,12 @@ import {
 } from '../../../db';
 import { platform } from '../../../platform';
 import type { AgentCliModelReasoningEffort, AgentCliPermissionMode } from '../../../platform';
-import { useWorkspaceStore, workspaceScopeFromState } from '../../../stores/workspaceStore';
+import {
+  useWorkspaceStore,
+  workspaceScopeFromState,
+  type WorkspaceFolder,
+} from '../../../stores/workspaceStore';
+import { isHostedBrowserRuntime } from '../../../utils/environment';
 import { useStructure3dStore } from '../../page/public/embeds/structure3d/store';
 import {
   buildAssistantTurnRouteSnapshot,
@@ -181,7 +186,7 @@ export async function runChatTurn(
   const workspaceIsMounted = workspaceAtSend.folders.some(
     (folder) => folder.path === workspacePath
   );
-  const turnWorkspacePath =
+  let turnWorkspacePath =
     workspacePath && (workspaceIsMounted || workspaceAtSend.lastRemovedFolderPath !== workspacePath)
       ? workspacePath
       : null;
@@ -357,6 +362,53 @@ export async function runChatTurn(
       return 'not_started';
     }
   }
+  const agentTransport = turnRouteSnapshot.transport;
+  const hostedTier = routeForTurn.kind === 'hosted' ? routeForTurn.tier : null;
+  const provider = turnRouteSnapshot.provider ?? settings.provider;
+  const modelName = turnRouteSnapshot.model ?? settings.model;
+  let apiKey: string | null = null;
+  let persistedConversation: Awaited<ReturnType<typeof getConversation>> | undefined;
+  try {
+    if (!agentTransport && !hostedTier) {
+      apiKey = await settings.getApiKey(provider);
+      if (requestedConvId && isChatConversationDeleted(requestedConvId)) {
+        releasePrestartClaim();
+        return 'not_started';
+      }
+      if (!apiKey) {
+        setNotStartedError(
+          userMessageWithValues('assistant.keyMissing', {
+            provider: userMessageValue(getProviderMeta(provider).label),
+          })
+        );
+        releasePrestartClaim();
+        return 'not_started';
+      }
+    }
+    if (requestedConvId) {
+      persistedConversation = await getConversation(requestedConvId);
+      if (isChatConversationDeleted(requestedConvId)) {
+        releasePrestartClaim();
+        return 'not_started';
+      }
+      const summary = get().conversations.find(
+        (conversation) => conversation.id === requestedConvId
+      );
+      if (persistedConversation) turnWorkspacePath = persistedConversation.workspace_path;
+      else if (summary) turnWorkspacePath = summary.workspacePath;
+    }
+    if (turnWorkspacePath && !isHostedBrowserRuntime()) {
+      const resolve = platform().workspace.resolveRegisteredProject;
+      if (!resolve) throw new Error('Registered project authority is unavailable.');
+      const project = await resolve(turnWorkspacePath);
+      if (!project) throw new Error('The conversation project is unavailable.');
+      turnWorkspacePath = project.path;
+    }
+  } catch (error) {
+    setNotStartedError(toUserMessage(error, 'assistant.failed'));
+    releasePrestartClaim();
+    return 'not_started';
+  }
   if (routeForTurn.kind === 'hosted') {
     try {
       const gate = await prepareHostedCodexContribution({
@@ -386,12 +438,6 @@ export async function runChatTurn(
   }
 
   try {
-    if (turnWorkspacePath) {
-      const workspace = useWorkspaceStore.getState();
-      if (!workspace.folders.some((folder) => folder.path === turnWorkspacePath)) {
-        workspace.addFolder(turnWorkspacePath);
-      }
-    }
     useStructure3dStore.getState().clearAgentHighlightGroups();
   } catch (error) {
     await cancelPreparedHostedTurn();
@@ -426,28 +472,6 @@ export async function runChatTurn(
     await turnLifecycle?.finishTurn(...args);
   };
   try {
-    const agentTransport = turnRouteSnapshot.transport;
-    const hostedTier = routeForTurn.kind === 'hosted' ? routeForTurn.tier : null;
-    const provider = turnRouteSnapshot.provider ?? settings.provider;
-    const modelName = turnRouteSnapshot.model ?? settings.model;
-    let apiKey: string | null = null;
-    if (!agentTransport && !hostedTier) {
-      apiKey = await settings.getApiKey(provider);
-      if (requestedConvId && isChatConversationDeleted(requestedConvId)) return 'not_started';
-      if (!apiKey) {
-        console.error(
-          `[Chat] sendMessage aborted: no API key for provider "${provider}" ` +
-            `(provider may read as configured but the keyring read returned null)`
-        );
-        setNotStartedError(
-          userMessageWithValues('assistant.keyMissing', {
-            provider: userMessageValue(getProviderMeta(provider).label),
-          })
-        );
-        return 'not_started';
-      }
-    }
-
     convId = provisionalConversationId;
     const conversationProvider = hostedTier ? 'DNAForge AI' : (agentTransport ?? provider);
     const conversationModel = hostedTier ? hostedTier : (agentTransport ?? modelName);
@@ -468,7 +492,8 @@ export async function runChatTurn(
       const existingState = { ...EMPTY_CONV_STATE, ...existingConvState };
       installSendConversationState(existingState);
     } else {
-      let dbConversation = await getConversation(convId);
+      let dbConversation =
+        persistedConversation === undefined ? await getConversation(convId) : persistedConversation;
       if (isChatConversationDeleted(convId)) return 'not_started';
       const createdNewConversation = !dbConversation;
       if (!dbConversation) {
@@ -807,6 +832,19 @@ export async function runChatTurn(
         stagedReferenceIds,
         workspacePath: turnWorkspacePath,
       });
+    let turnExecutionFolders: WorkspaceFolder[];
+    if (isHostedBrowserRuntime()) {
+      turnExecutionFolders = [...useWorkspaceStore.getState().folders];
+    } else {
+      const listRegisteredProjects = platform().workspace.listRegisteredProjects;
+      if (!listRegisteredProjects) throw new Error('Registered project authority is unavailable.');
+      turnExecutionFolders = await listRegisteredProjects();
+      if (
+        turnWorkspacePath &&
+        !turnExecutionFolders.some((folder) => folder.path === turnWorkspacePath)
+      )
+        throw new Error('The conversation project is unavailable.');
+    }
     const inlineReferenceWorkspaceScope = workspaceScopeFromState(useWorkspaceStore.getState());
     const isInlineReferenceWorkspaceScopeCurrent = () =>
       workspaceScopeFromState(useWorkspaceStore.getState()) === inlineReferenceWorkspaceScope;
@@ -820,7 +858,7 @@ export async function runChatTurn(
       : await readAgentPresentationPreferences();
 
     if (agentTransport) {
-      const { folders } = useWorkspaceStore.getState();
+      const folders = turnExecutionFolders;
       const permissionMode: AgentCliPermissionMode =
         turnRouteSnapshot.permissionMode ?? DEFAULT_CLI_PERMISSION_MODE;
       const customHarness =
@@ -882,7 +920,7 @@ export async function runChatTurn(
     if (hostedTier) {
       const fixedBridge = hostedCodexBridge();
       if (!fixedBridge) throw new Error('DNAForge AI is unavailable in this environment.');
-      const { folders } = useWorkspaceStore.getState();
+      const folders = turnExecutionFolders;
       await executeHostedCodexTurn({
         permissions: turnPermissions,
         bridge: fixedBridge,
@@ -923,7 +961,7 @@ export async function runChatTurn(
       return 'started';
     }
 
-    const { folders } = useWorkspaceStore.getState();
+    const folders = turnExecutionFolders;
     await executeHostedTurn({
       set,
       get,

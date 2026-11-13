@@ -112,8 +112,9 @@ declare global {
   interface Window {
     electronAPI: PlatformBridge & {
       notebook: ClientOf<typeof notebookContract>;
+      workspace: ClientOf<typeof workspaceNativeDocumentsContract>;
       hostedAi: HostedAiBridge;
-      fs: ClientOf<typeof fsContract>;
+      fs: ClientOf<typeof fsContract> & ClientOf<typeof fsInlineReferenceTargetContract>;
     };
     __waypointTestAgentSession?: Partial<PlatformBridge['agentSession']>;
   }

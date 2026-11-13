@@ -14,6 +14,7 @@ import {
 } from '../../sequence/public/annotation-catalog-commands';
 import { contentFingerprint } from '../../../shared/content-fingerprint';
 import { sequenceTrackCommandSchema } from './sequence-track-command-schema';
+import type { AgentProjectScope } from '../../../shared/agent-project-scope';
 import { listSavedTrackViews } from '../../sequence/public/track-view-library';
 import type { WorkspaceFolder } from '../../../stores/workspaceStore';
 import { findContainingPathBoundary, pathIsAtOrUnder } from '../../../shared/path-boundary';
@@ -116,7 +117,7 @@ export const appViewsSchema = z
     ]),
   })
   .strict();
-export function createAppViewsTool(folders: readonly WorkspaceFolder[] = []) {
+export function createAppViewsTool(folders: readonly WorkspaceFolder[] = [], projectScope?: AgentProjectScope) {
   return resultTool({
     description:
       'Inspect and arrange DNAForge tabs/panels. inspect-tracks reads a sequence tab’s annotation catalog, sources, styles and revision; configure-tracks applies typed track changes through the human Tracks panel owner with expectedRevision. Inspect with tabId reads a saved Track View and its revision; list and open discover/reopen saved Track Views. Save, rename and duplicate use the human view save owner and require expectedRevision. New saves require an exact writable destinationProject when several projects are mounted; optional path is relative to that project. Scientific source and layout settings are preserved. Activate, move, split, merge, join, close and reopen control the canvas. navigate uses human shell commands. Dirty documents refuse close. App pane changes do not move the native desktop window.',
@@ -137,6 +138,18 @@ export function createAppViewsTool(folders: readonly WorkspaceFolder[] = []) {
         const tab = Object.values(store.panels)
           .flatMap((panel) => panel.tabs)
           .find((candidate) => candidate.id === operation.tabId);
+        const document = tab?.sequenceDocument;
+        let ownerPath = tab?.trackView?.workspaceRoot ?? tab?.trackView?.path ??
+          (document?.kind === 'managed-sequence' ? document.packageRoot :
+            document?.kind === 'import-source-sequence' ? document.sourcePath : null);
+        if (!ownerPath && tab) {
+            const { getCatalogEntity, getWorkspaceRootById } = await import('../../../db/workspace-catalog');
+          const entity = await getCatalogEntity(tab.entityId);
+          if (entity) ownerPath = await getWorkspaceRootById(entity.workspace_id);
+        }
+        if ((ownerPath && !folders.some((folder) => pathIsAtOrUnder(ownerPath!, folder.path))) ||
+          (!ownerPath && projectScope?.kind === 'project-roots'))
+          return fail('OUTSIDE_WORKSPACE', 'This sequence view is outside the caller project access.');
         const inspect = () => {
           const state = inspectSequenceAnnotationTracks(operation.tabId);
           return {
@@ -182,8 +195,7 @@ export function createAppViewsTool(folders: readonly WorkspaceFolder[] = []) {
           const result = await listSavedTrackViews();
           const views = result.views.filter(
             (view) =>
-              !view.workspaceRoot ||
-              folders.some((folder) => pathIsAtOrUnder(view.workspaceRoot!, folder.path))
+              folders.some((folder) => pathIsAtOrUnder(view.workspaceRoot ?? view.path, folder.path))
           );
           if (operation.kind === 'list')
             return toolSuccess({
@@ -230,8 +242,9 @@ export function createAppViewsTool(folders: readonly WorkspaceFolder[] = []) {
             );
           const state = control.inspect();
           if (
-            state.workspaceRoot &&
-            !folders.some((folder) => pathIsAtOrUnder(state.workspaceRoot!, folder.path))
+            ((state.workspaceRoot || state.path) &&
+            !folders.some((folder) => pathIsAtOrUnder((state.workspaceRoot ?? state.path)!, folder.path))) ||
+            (!state.workspaceRoot && !state.path && projectScope?.kind === 'project-roots')
           )
             return fail('OUTSIDE_WORKSPACE', 'This saved view belongs to another project.');
           if (operation.kind === 'inspect') return toolSuccess({ tabId, ...state });

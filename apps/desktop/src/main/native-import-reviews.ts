@@ -36,6 +36,7 @@ import type {
 } from '../shared/import-review';
 import { applyLimsImportBatchInDb, queryLimsEntitiesInDb } from './lims';
 import { listLimsEntitySchemasInDb } from './lims-engine-core';
+import { materializeLimsGlobalRegistryExportInDb } from './lims-git-export';
 import {
   canonicalWorkspacePath,
   writeWorkspaceBinaryFileAtomicInMain,
@@ -50,8 +51,8 @@ import {
   workspaceMutationRootIdentity,
 } from './workspace-sync-mutation-lease';
 import {
-  acquireWorkspaceSyncDatabaseFence,
   assertCommittedDatabaseReadAllowed,
+  withWorkspaceSyncDatabaseFence,
 } from './workspace-sync-database-fence';
 import { assertKnownWorkspaceContentWritable } from './workspace-content-write-access';
 import { commitPathsIfDirty, isGitRepo } from './workspace-git';
@@ -259,6 +260,7 @@ export function createNativeImportReviews(options: {
         throw new Error(
           'IMPORT_DATABASE_BUSY: Import apply needs its own committed database boundary.'
         );
+      const admittedRoots = options.workspaceRoots().map(workspaceMutationRootIdentity);
       db.exec('BEGIN IMMEDIATE');
       try {
         for (const record of input.records.filter(
@@ -271,16 +273,7 @@ export function createNativeImportReviews(options: {
               'SELECT path FROM workspaces WHERE id=? AND archived_at IS NULL AND trashed_at IS NULL'
             )
             .get(record.entity.workspaceId) as { path: string } | undefined;
-          if (
-            !project ||
-            !options
-              .workspaceRoots()
-              .some(
-                (root) =>
-                  workspaceMutationRootIdentity(root) ===
-                  workspaceMutationRootIdentity(project.path)
-              )
-          )
+          if (!project || !admittedRoots.includes(workspaceMutationRootIdentity(project.path)))
             throw new Error(
               'IMPORT_PROJECT_UNAVAILABLE: The Registry projection project is no longer admitted.'
             );
@@ -362,12 +355,7 @@ export function createNativeImportReviews(options: {
     withMutation: (root, operation) =>
       withKnownWorkspacePathMutation(options.db(), [root], async () => {
         await assertAuthority(root, true);
-        const release = await acquireWorkspaceSyncDatabaseFence(options.db());
-        try {
-          return await operation();
-        } finally {
-          release();
-        }
+        return withWorkspaceSyncDatabaseFence(options.db(), () => operation());
       }),
     applyPlan: (plan, applyOptions) => applyAcceptedLimsImportPlan(plan, applyOptions, planner),
     persistSet: (input) => persistImportSet({ ...input, mergePartitions: true }, persistence),
@@ -557,8 +545,7 @@ export function createNativeImportReviews(options: {
         if (result.registered) {
           await withKnownWorkspacePathMutation(options.db(), [document.workspaceRoot], async () => {
             await assertAuthority(document.workspaceRoot, true);
-            const release = await acquireWorkspaceSyncDatabaseFence(options.db());
-            try {
+            await withWorkspaceSyncDatabaseFence(options.db(), async () => {
               const repository = createNativeCatalogRepository(options.db(), {
                 assertCurrent,
                 withMutation: async (_root, operation) => operation(),
@@ -594,10 +581,18 @@ export function createNativeImportReviews(options: {
                     actor: 'native-import-projection',
                   });
               }
-            } finally {
-              release();
-            }
+            });
           });
+          try {
+            materializeLimsGlobalRegistryExportInDb(
+              options.db(),
+              join(options.profileDirectory(), 'lims-registry')
+            );
+          } catch (error) {
+            console.warn(
+              `[LIMS] global registry export after sequence import failed: ${String(error)}`
+            );
+          }
         }
         return {
           changed: true,
@@ -689,9 +684,8 @@ export function createNativeImportReviews(options: {
             [document.workspaceRoot],
             async (leases) => {
               await assertAuthority(document.workspaceRoot, true);
-              const release = await acquireWorkspaceSyncDatabaseFence(options.db());
-              try {
-                return await applyNativeSpecializedImport(document, {
+              return withWorkspaceSyncDatabaseFence(options.db(), (release) =>
+                applyNativeSpecializedImport(document, {
                   db: options.db(),
                   persistence: { ...persistence, fs: guardedFs },
                   assertCurrent,
@@ -702,10 +696,8 @@ export function createNativeImportReviews(options: {
                     databaseFence: release,
                   },
                   agentAuthority: agent,
-                });
-              } finally {
-                release();
-              }
+                })
+              );
             }
           );
         }

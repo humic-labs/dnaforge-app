@@ -188,6 +188,82 @@ describe('accepted assembly product annotation projection', () => {
     expect(projected?.qualifiers).not.toHaveProperty('dnaforge_ann_id');
   });
 
+  it('continues a real pUC19 source-cache CDS across a spacer-containing accepted assembly junction', async () => {
+    const scenario = realAssemblyPipelineAppScenario('gibson-pcr-rd-pcr-two-spacers');
+    const design = scenario.designs.designs[scenario.designs.activeDesignId!];
+    const sourceProvenance = await buildAcceptedAssemblySourceProvenance(design, {
+      [REAL_ASSEMBLY_PIPELINE_DOCUMENT_ID]: scenario.sequences[REAL_ASSEMBLY_PIPELINE_DOCUMENT_ID],
+    });
+    const projectionInput = await buildAcceptedAssemblyProjectionInput(design, {
+      sourceProvenance,
+      constructId: design.constructId ?? 'construct-puc19-continuation',
+    });
+
+    const annotations = projectAcceptedAssemblyProductAnnotations(projectionInput);
+    const ampR = sourceProvenance
+      .find((snapshot) => snapshot.regionId === 'puc19-pcr-right')
+      ?.sourceAnnotations.find(
+        (annotation) => annotation.name === 'AmpR' && annotation.type === 'CDS'
+      );
+    if (!ampR) throw new Error('Fixture must expose the source-cache AmpR CDS.');
+
+    const regionIndex = design.regions.findIndex((region) => region.id === 'puc19-pcr-right');
+    const regionStart = productStartForRegion(design, regionIndex);
+    const regionEnd = regionStart + design.regions[regionIndex].sequence.length;
+    const spacerLength =
+      design.spacers.find((spacer) => spacer.junctionIndex === regionIndex)?.sequence.length ?? 0;
+    const frameAnchor =
+      regionStart +
+      (ampR.start - design.regions[regionIndex].sourceStart) +
+      (Number(firstQualifierValue(ampR.qualifiers?.codon_start) ?? 1) - 1);
+    const candidateStart = Math.max(
+      regionStart,
+      regionStart + (ampR.start - design.regions[regionIndex].sourceStart)
+    );
+    const expectedCodonStart = positiveModulo(frameAnchor - candidateStart, 3) + 1;
+    const expectedEnd = walkForwardUntilStopCircular(
+      projectionInput.productSequence,
+      candidateStart + expectedCodonStart - 1
+    );
+    const wrapsProductOrigin = expectedEnd <= candidateStart;
+
+    expect(spacerLength).toBeGreaterThan(0);
+    expect(annotations).toContainEqual(
+      expect.objectContaining({
+        name: 'AmpR (predicted continuation)',
+        type: 'CDS',
+        start: candidateStart + 1,
+        end: expectedEnd,
+        ...(wrapsProductOrigin
+          ? {
+              segments: [
+                { start: candidateStart + 1, end: projectionInput.productSequence.length },
+                { start: 1, end: expectedEnd },
+              ],
+            }
+          : {}),
+        direction: 1,
+        qualifiers: expect.objectContaining({
+          candidate: ['true'],
+          codon_start: [String(expectedCodonStart)],
+        }),
+      })
+    );
+    expect(
+      annotations.filter((annotation) => annotation.name === 'AmpR' && annotation.type === 'CDS')
+    ).toHaveLength(0);
+
+    const continuation = annotations.find(
+      (annotation) => annotation.name === 'AmpR (predicted continuation)'
+    );
+    expect(continuation?.start ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(regionEnd + 1);
+    expect(
+      Array.from({ length: spacerLength }, (_, offset) =>
+        acceptedAnnotationContainsPosition(continuation, regionEnd + offset + 1)
+      )
+    ).toEqual(Array(spacerLength).fill(true));
+  });
+
   it('continues a real pUC19 source-cache CDS across an accepted assembly product junction', async () => {
     const scenario = realAssemblyPipelineAppScenario('gibson-pcr-rd-pcr-two-spacers');
     const design = scenario.designs.designs[scenario.designs.activeDesignId!];

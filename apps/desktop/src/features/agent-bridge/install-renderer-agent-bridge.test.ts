@@ -194,7 +194,7 @@ describe('installRendererAgentBridge cancellation', () => {
     );
   });
 
-  it('binds workspace identity per agent and honors an app-owned persisted binding', async () => {
+  it('keeps implicit agents independent of presentation and honors an app-owned persisted binding', async () => {
     let onCallCallback: ((payload: unknown) => void) | null = null;
     const respond = vi.fn();
     (window as unknown as { electronAPI: unknown }).electronAPI = {
@@ -227,7 +227,7 @@ describe('installRendererAgentBridge cancellation', () => {
     await vi.waitFor(() => expect(mockCallRendererTool).toHaveBeenCalledTimes(1));
     expect(mockCallRendererTool.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({
-        boundWorkspaceId: 'folders:["/a"]',
+        boundWorkspaceId: undefined,
         currentWorkspaceId: 'folders:["/a"]',
       })
     );
@@ -248,7 +248,7 @@ describe('installRendererAgentBridge cancellation', () => {
     await vi.waitFor(() => expect(mockCallRendererTool).toHaveBeenCalledTimes(2));
     expect(mockCallRendererTool.mock.calls[1]?.[1]).toEqual(
       expect.objectContaining({
-        boundWorkspaceId: 'folders:["/a","/b"]',
+        boundWorkspaceId: undefined,
         currentWorkspaceId: 'folders:["/a","/b"]',
       })
     );
@@ -276,7 +276,7 @@ describe('installRendererAgentBridge cancellation', () => {
   });
 });
 
-describe('project transition caller binding', () => {
+describe('project presentation changes preserve caller authority', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.clearAllMocks();
@@ -284,7 +284,7 @@ describe('project transition caller binding', () => {
   });
 
   it.each([
-    { name: 'follows its audited native project change', follow: true },
+    { name: 'keeps implicit authority after an audited native project change', follow: true },
     { name: 'preserves an external caller binding', identity: 'external-agent', follow: false },
     { name: 'preserves an explicit grant binding', explicit: true, follow: false },
     { name: 'rejects a failed transition', failed: true, follow: false },
@@ -349,7 +349,7 @@ describe('project transition caller binding', () => {
     deliver(payload('next-call', 'get_workspace'));
     await vi.waitFor(() => expect(respond).toHaveBeenCalledTimes(2));
     expect(mockCallRendererTool.mock.calls.at(-1)?.[1]).toMatchObject({
-      boundWorkspaceId: example.follow ? 'workspace-2' : 'workspace-1',
+      boundWorkspaceId: example.explicit ? 'workspace-1' : undefined,
     });
     dispose();
   });

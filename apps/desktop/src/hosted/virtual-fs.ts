@@ -14,6 +14,7 @@ import {
 } from '../db/sequence-package';
 import {
   prepareSequenceMetadataEdit,
+  resolvePublishedSequenceMetadataRevision,
   stableSequencePackageRequestJson,
 } from '../db/sequence-package-metadata-edit';
 import {
@@ -641,8 +642,13 @@ export function createHostedVirtualFs(
     });
   }
 
-  async function rename(oldPath: string, newPath: string): Promise<void> {
-    await relocate(oldPath, newPath, false);
+  async function rename(
+    oldPath: string,
+    newPath: string,
+    _mutationToken?: string,
+    options: { readonly noClobber?: boolean } = {}
+  ): Promise<void> {
+    await relocate(oldPath, newPath, options.noClobber ?? false);
   }
 
   async function move(sourcePath: string, destinationDir: string): Promise<{ destPath: string }> {
@@ -924,23 +930,13 @@ export function createHostedVirtualFs(
       const revisionId = `metadata-update:${request.operationId}`;
       const requestFingerprint = await computeChecksum(stableSequencePackageRequestJson(request));
       assertActor(accountId);
-      const previous = current.versionHistory.revisions.find(
-        (revision) => revision.operationId === revisionId
-      );
-      if (previous) {
-        if (previous.requestFingerprint !== requestFingerprint)
-          throw new Error('This metadata operation ID was already used for a different edit.');
-        const parent = current.versionHistory.revisions.find(
-          (revision) => revision.id === previous.parentId
-        );
-        return {
-          updatedMarkerContent: markerContent,
-          revisionId,
-          productChanged: parent?.productSnapshot.sha256 !== previous.productSnapshot.sha256,
-          snapshotPaths: [],
-          alreadyPublished: true,
-        };
-      }
+      const previousResult = resolvePublishedSequenceMetadataRevision({
+        current,
+        markerContent,
+        revisionId,
+        requestFingerprint,
+      });
+      if (previousResult) return previousResult;
       if ((await computeChecksum(markerContent)) !== request.expectedMarkerSha256) {
         throw new Error('Sequence metadata changed after it was opened. Reopen and retry.');
       }

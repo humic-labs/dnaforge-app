@@ -1,3 +1,5 @@
+import { isAbsolutePathLike, pathRelativeToBoundary } from '../shared/path-boundary';
+
 const PROJECT_MEMORY_SCHEMA = {
   manifest: 'waypoint.project-memory.manifest.v1',
   entity: 'waypoint.project-memory.entity.v1',
@@ -156,7 +158,7 @@ function assertProjectMemoryPath(path: string, label: string): void {
   if (path.length === 0) {
     throw new Error(`${label} must not be empty`);
   }
-  if (path.startsWith('/') || path.startsWith('~')) {
+  if (isAbsolutePathLike(path) || /^[A-Za-z]:/.test(path) || path.startsWith('~')) {
     throw new Error(`${label} must be workspace-relative: ${path}`);
   }
   if (path.includes('\\') || path.includes('\0')) {
@@ -171,9 +173,16 @@ export function workspaceRelativeProjectMemoryPath(input: {
   workspaceRoot: string;
   path: string;
 }): string {
-  const root = stripTrailingSlash(input.workspaceRoot);
   const path = stripTrailingSlash(input.path);
-  const relative = path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path;
+  const windowsRoot = /^(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/])/.test(input.workspaceRoot);
+  const relative = isAbsolutePathLike(path)
+    ? pathRelativeToBoundary(path, input.workspaceRoot, {
+        platform: windowsRoot ? 'win32' : 'posix',
+      })
+    : path;
+  if (relative === null || (!windowsRoot && path.includes('\\'))) {
+    throw new Error(`project memory path must be a POSIX workspace-relative path: ${path}`);
+  }
   assertProjectMemoryPath(relative, 'project memory path');
   return relative;
 }

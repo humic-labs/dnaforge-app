@@ -226,6 +226,7 @@ vi.mock('./lib/analytics', async () => {
       })
     ),
     failClosedAnalyticsForSession: vi.fn().mockResolvedValue(undefined),
+    hasTelemetryDestination: vi.fn().mockResolvedValue(true),
     optInAnalytics: vi.fn().mockResolvedValue(undefined),
     optOutAnalytics: vi.fn().mockResolvedValue(undefined),
     setAnalyticsConsent: vi.fn().mockResolvedValue(true),

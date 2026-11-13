@@ -1,3 +1,4 @@
+import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import {
   toUserMessage,
   userMessage,
@@ -433,6 +434,8 @@ export function SequenceAnnotationTracksControl({
   ownerTabId: string;
   mapCircular: boolean;
 }) {
+  const presentationEvents = usePresentationListener();
+
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
@@ -445,12 +448,12 @@ export function SequenceAnnotationTracksControl({
       if (event.key === 'Escape') setOpen(false);
     };
     document.addEventListener('pointerdown', outside);
-    document.addEventListener('keydown', escape);
+    presentationEvents.add(document, 'keydown', escape);
     return () => {
       document.removeEventListener('pointerdown', outside);
-      document.removeEventListener('keydown', escape);
+      presentationEvents.remove(document, 'keydown', escape);
     };
-  }, [open]);
+  }, [open, presentationEvents]);
 
   return (
     <div

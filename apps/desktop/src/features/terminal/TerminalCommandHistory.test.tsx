@@ -29,10 +29,11 @@ it.each([
 ])(
   'focuses $name after native modal activation chooses its first button',
   ({ directory, name }) => {
+    const showModal = HTMLDialogElement.prototype.showModal;
     vi.spyOn(HTMLDialogElement.prototype, 'showModal').mockImplementation(function (
       this: HTMLDialogElement
     ) {
-      this.open = true;
+      showModal.call(this);
       this.querySelector<HTMLButtonElement>('button')?.focus();
     });
     const onPick = vi.fn();

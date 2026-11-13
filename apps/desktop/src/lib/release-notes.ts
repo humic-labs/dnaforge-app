@@ -10,12 +10,21 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_NOTES: Record<string, ReleaseNote> = {
-  '0.9.24': {
-    date: '2026-11-12',
+  '0.10.0': {
+    date: '2026-11-13',
     highlights: [
+      'AI Tools moved to the left rail. Recent and pinned conversations open as regular tabs beside your documents and keep their messages and drafts.',
+      'AI agents manage projects only through DNAForge project controls and cannot create, rename or re-point a project folder on their own.',
+      'Zooming a linear sequence keeps the base under the pointer in place.',
       'Import linked items waits for the selected project to finish loading before adding files.',
     ],
     fixed: [
+      'On Mac, trackpad and mouse-wheel scrolling works again in lists shown over a sequence or map, including Find results.',
+      'Settings scrolls with the trackpad again, and protein structures from AI conversations no longer show through Settings.',
+      'Opening the Mutations drawer in a narrow window no longer collapses the genome view.',
+      'Discard works again after an edit fails while the project folder is temporarily unavailable.',
+      'Showing, hiding or selecting a project no longer disconnects an AI agent or moves a conversation to another project.',
+      'GenBank files keep LOCUS names that contain a colon.',
       'Windows can import files with long names without exceeding the file-name limit during import.',
       'Windows can reconcile a project notebook when two paths for the same file use different separators.',
     ],
@@ -620,7 +629,7 @@ export const RELEASE_NOTES: Record<string, ReleaseNote> = {
   '0.8.0': {
     date: '2026-08-19',
     highlights: [
-      'Windows users on 0.7.9 or earlier must manually install 0.8.0 once from https://pub-e1f1eb87d1d14a4196608d899da01852.r2.dev/v0.8.0/DNAForge-Setup-0.8.0.exe; automatic updates resume after that reinstall.',
+      'Windows users on 0.7.9 or earlier must manually install 0.8.0 once from https://downloads.dnaforge.com/v0.8.0/DNAForge-Setup-0.8.0.exe; automatic updates resume after that reinstall.',
       'Design primer pairs around an exact target, save them, and revise bindings without losing provenance.',
       'Preview Golden Gate assemblies before finalizing them, preserve immutable lineage, reopen accepted plasmids, and jump between assembled parts and their sources.',
       'Trust AI answers grounded in the local project and reopen completed tab and range actions from chat history.',

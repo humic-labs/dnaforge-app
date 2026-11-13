@@ -27,6 +27,12 @@ export const COMMAND_IDS = {
   pdfResetZoom: 'pdf.resetZoom',
   canvasNextTab: 'canvas.nextTab',
   canvasPreviousTab: 'canvas.previousTab',
+  canvasCloseOtherTabs: 'canvas.closeOtherTabs',
+  canvasSelectTab: 'canvas.selectTab',
+  workspaceRevealActiveFile: 'workspace.revealActiveFile',
+  appGoToFile: 'app.goToFile',
+  chatPrevious: 'chat.previous',
+  chatNext: 'chat.next',
 } as const;
 
 export type CommandId = (typeof COMMAND_IDS)[keyof typeof COMMAND_IDS];
@@ -74,6 +80,12 @@ export const FOCUS_COMMAND_SCOPES = new Set<CommandScope>([
   COMMAND_SCOPES.canvasPanel,
 ]);
 
+export const DOCUMENT_COMMAND_SCOPES = new Set<CommandScope>([
+  COMMAND_SCOPES.tabSequence,
+  COMMAND_SCOPES.tabPdf,
+  COMMAND_SCOPES.tabText,
+]);
+
 export interface CommandDefinition {
   id: CommandId;
   label: string;
@@ -111,6 +123,7 @@ export interface CommandHandlerRegistration<Payload = unknown> {
   handler: CommandHandler<Payload>;
   enabled?: () => boolean;
   label?: string;
+  surfaceId?: string;
 }
 
 export interface CommandDispatchResult {
@@ -154,7 +167,7 @@ export interface CommandRegistryContextValue {
   registerHandler: <Payload = unknown>(
     registration: CommandHandlerRegistration<Payload>
   ) => () => void;
-  claimScope: (scope: CommandScope, ownerId: string) => void;
+  claimScope: (scope: CommandScope, ownerId: string, surfaceId?: string) => void;
   releaseScope: (scope: CommandScope, ownerId: string) => void;
   getDebugState: () => CommandSystemDebugState;
 }
