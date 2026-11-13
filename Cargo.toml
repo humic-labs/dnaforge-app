@@ -1,0 +1,37 @@
+[workspace]
+resolver = "2"
+members = [
+    "tools/broad-raster",
+    "tools/dna-assembly",
+    "tools/dna-coverage",
+    "tools/dna-indexer",
+    "tools/dna-process-guardian",
+]
+
+[workspace.package]
+edition = "2021"
+license = "GPL-3.0-only"
+authors = ["DNAForge"]
+repository = "https://github.com/humic-labs/dnaforge-app"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
+[workspace.dependencies]
+anyhow = "1"
+thiserror = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rayon = "1"
+rust-htslib = { version = "1.0.0", default-features = false }
+gb-io = "0.7"
+noodles-fasta = "0.49"
+noodles-gff = "0.49"
+noodles-bgzf = "0.37"
+noodles-tabix = "0.51"
+noodles-csi = "0.45"
+noodles-core = "0.17"

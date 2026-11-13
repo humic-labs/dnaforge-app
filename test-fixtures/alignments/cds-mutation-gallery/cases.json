@@ -1,0 +1,545 @@
+{
+  "synthetic": true,
+  "coordinates": "1-based inclusive biological sequence",
+  "generator": "tools/devops/scripts/build-cds-mutation-gallery.mjs",
+  "reference": {
+    "bases": 4637,
+    "sequenceSha256": "9fcbaf4a015decfceaeace7fda1a618cc0adaad12fa8d7945702c966a360220d"
+  },
+  "query": {
+    "bases": 4679,
+    "sequenceSha256": "388f1c71ba2af893211d8d7f528a0602076b713ca76e0af3608b8876e5aefb14"
+  },
+  "donorDna": "CATGCGGTCTCCATCGAGCCTAGTTCCGCCCCATTGGTGCAGTCACTATTGGCTATGAAATAGCATTTGTCACAATAT",
+  "cases": [
+    {
+      "name": "Silent substitution",
+      "effect": "synonymous",
+      "reference": {
+        "start": 73,
+        "end": 135,
+        "location": "73..135",
+        "codingDna": "ATGCTACAGCGGGCTGGTGCCTGGTATGGGATCCAACCAACTACTCATCTTTGGTGGGCATAA",
+        "protein": "MLQRAGAWYGIQPTTHLWWA*"
+      },
+      "query": {
+        "start": 73,
+        "end": 135,
+        "codingDna": "ATGCTACAGCGGGCCGGTGCCTGGTATGGGATCCAACCAACTACTCATCTTTGGTGGGCATAA",
+        "protein": "MLQRAGAWYGIQPTTHLWWA*"
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "Missense substitution",
+      "effect": "missense",
+      "reference": {
+        "start": 213,
+        "end": 275,
+        "location": "213..275",
+        "codingDna": "ATGAGCACACTGGCTGCTAGTTTTGTTCTCGGGTATTCTATCGCGGAGTGGACGTTCGGGTAA",
+        "protein": "MSTLAASFVLGYSIAEWTFG*"
+      },
+      "query": {
+        "start": 213,
+        "end": 275,
+        "codingDna": "ATGAGCACACTGGATGCTAGTTTTGTTCTCGGGTATTCTATCGCGGAGTGGACGTTCGGGTAA",
+        "protein": "MSTLDASFVLGYSIAEWTFG*"
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "Premature stop",
+      "effect": "nonsense; complete mutant CDS ends at residue 5",
+      "reference": {
+        "start": 353,
+        "end": 415,
+        "location": "353..415",
+        "codingDna": "ATGGGGTCAGCGCAGAACTGTACGCCGCATTGCAGGAGAATCTTAATACCCTTGTCAGTTTAA",
+        "protein": "MGSAQNCTPHCRRILIPLSV*"
+      },
+      "query": {
+        "start": 353,
+        "end": 415,
+        "codingDna": "ATGGGGTCAGCGTAGAACTGTACGCCGCATTGCAGGAGAATCTTAATACCCTTGTCAGTTTAA",
+        "protein": "MGSA*"
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "Lost stop and extension",
+      "effect": "readthrough; former stop becomes Q and CDS extends to next stop",
+      "reference": {
+        "start": 493,
+        "end": 555,
+        "location": "493..555",
+        "codingDna": "ATGTCGGTGCCTGCTCCTTATCCGGGAATAAATGGAGGCAATTTTACCTATAGTTCACCCTAA",
+        "protein": "MSVPAPYPGINGGNFTYSSP*"
+      },
+      "query": {
+        "start": 493,
+        "end": 555,
+        "codingDna": "ATGTCGGTGCCTGCTCCTTATCCGGGAATAAATGGAGGCAATTTTACCTATAGTTCACCCCAA",
+        "protein": "MSVPAPYPGINGGNFTYSSPQGD*"
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "In-frame insertion",
+      "effect": "inframe_insertion; add glycine",
+      "reference": {
+        "start": 633,
+        "end": 695,
+        "location": "633..695",
+        "codingDna": "ATGTACACCAATGCTCGGCAGGCAACGCTGGCCATACCGGGCCTCGCTACGCTTGTGACTTAA",
+        "protein": "MYTNARQATLAIPGLATLVT*"
+      },
+      "query": {
+        "start": 633,
+        "end": 698,
+        "codingDna": "ATGTACACCAATGCTCGGGGTCAGGCAACGCTGGCCATACCGGGCCTCGCTACGCTTGTGACTTAA",
+        "protein": "MYTNARGQATLAIPGLATLVT*"
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "In-frame deletion",
+      "effect": "inframe_deletion; delete residue 7",
+      "reference": {
+        "start": 773,
+        "end": 835,
+        "location": "773..835",
+        "codingDna": "ATGCAATGCGCAGCTCAGATGTTAGGGTCATCTAGACATCGACGTTCTACCAAGGAAGCTTAA",
+        "protein": "MQCAAQMLGSSRHRRSTKEA*"
+      },
+      "query": {
+        "start": 776,
+        "end": 835,
+        "codingDna": "ATGCAATGCGCAGCTCAGTTAGGGTCATCTAGACATCGACGTTCTACCAAGGAAGCTTAA",
+        "protein": "MQCAAQLGSSRHRRSTKEA*"
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "Frameshift insertion +1",
+      "effect": "frameshift",
+      "reference": {
+        "start": 913,
+        "end": 975,
+        "location": "913..975",
+        "codingDna": "ATGTTCGTCAAAGCTCATGTTCATCAAGAGGCCTTCGCTTTTTACTCCTTCCGAAAAGAGTAA",
+        "protein": "MFVKAHVHQEAFAFYSFRKE*"
+      },
+      "query": {
+        "start": 913,
+        "end": 976,
+        "codingDna": "ATGTTCGTCAAAGCTCATCGTTCATCAAGAGGCCTTCGCTTTTTACTCCTTCCGAAAAGAGTAA",
+        "protein": "MFVKAHRSSRGLRFLLLPKRVR*"
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "Frameshift insertion +2",
+      "effect": "frameshift",
+      "reference": {
+        "start": 1053,
+        "end": 1115,
+        "location": "1053..1115",
+        "codingDna": "ATGAAGAGTTTGGCTGATCGGATGGTTAAGAGCTCGGCAACTCCGGCTCCACGTGGGGTCTAA",
+        "protein": "MKSLADRMVKSSATPAPRGV*"
+      },
+      "query": {
+        "start": 1054,
+        "end": 1118,
+        "codingDna": "ATGAAGAGTTTGGCTGATCGCGGATGGTTAAGAGCTCGGCAACTCCGGCTCCACGTGGGGTCTAA",
+        "protein": "MKSLADRGWLRARQLRLHVGSKVTNNSD*"
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "Frameshift deletion -1",
+      "effect": "frameshift",
+      "reference": {
+        "start": 1193,
+        "end": 1255,
+        "location": "1193..1255",
+        "codingDna": "ATGGATCGAACCGCTTGTAAGAGAAAAGTCCACCTATTCGCTGTGTGCCCGCAGTGTGGCTAA",
+        "protein": "MDRTACKRKVHLFAVCPQCG*"
+      },
+      "query": {
+        "start": 1196,
+        "end": 1257,
+        "codingDna": "ATGGATCGAACCGCTTGTAGAGAAAAGTCCACCTATTCGCTGTGTGCCCGCAGTGTGGCTAA",
+        "protein": "MDRTACREKSTYSLCARSVAKVTNNSD*"
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "Frameshift deletion -2",
+      "effect": "frameshift",
+      "reference": {
+        "start": 1333,
+        "end": 1395,
+        "location": "1333..1395",
+        "codingDna": "ATGCGGTTGCCAGCTAGAACACATCTGGATGATCGAGTTTGCGAGGCGCGTTTAGCGATGTAA",
+        "protein": "MRLPARTHLDDRVCEARLAM*"
+      },
+      "query": {
+        "start": 1335,
+        "end": 1395,
+        "codingDna": "ATGCGGTTGCCAGCTAGAACATCTGGATGATCGAGTTTGCGAGGCGCGTTTAGCGATGTAA",
+        "protein": "MRLPARTSG*"
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "Frame restored downstream",
+      "effect": "frameshift followed by compensation; original frame resumes",
+      "reference": {
+        "start": 1473,
+        "end": 1535,
+        "location": "1473..1535",
+        "codingDna": "ATGCCGGGTAGGGCTATGTGGGTCGCGCATTGCCCGTCGTTCGCACCCGATGCAGTTGCATAA",
+        "protein": "MPGRAMWVAHCPSFAPDAVA*"
+      },
+      "query": {
+        "start": 1473,
+        "end": 1535,
+        "codingDna": "ATGCCGGGTAGGGCTATGCTGGGTCGCGCATGCCCGTCGTTCGCACCCGATGCAGTTGCATAA",
+        "protein": "MPGRAMLGRACPSFAPDAVA*"
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "Multi-base codon replacement",
+      "effect": "missense; GCT to TTC",
+      "reference": {
+        "start": 1613,
+        "end": 1675,
+        "location": "1613..1675",
+        "codingDna": "ATGGGCACTCTCGCTCAGGGATATGCACGCCTGTGTGTATGTGTGCAGCTCGGCGTATGGTAA",
+        "protein": "MGTLAQGYARLCVCVQLGVW*"
+      },
+      "query": {
+        "start": 1613,
+        "end": 1675,
+        "codingDna": "ATGGGCACTCTCTTCCAGGGATATGCACGCCTGTGTGTATGTGTGCAGCTCGGCGTATGGTAA",
+        "protein": "MGTLFQGYARLCVCVQLGVW*"
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "Reverse-strand premature stop",
+      "effect": "nonsense on reverse strand; mutant left boundary changes",
+      "reference": {
+        "start": 1753,
+        "end": 1815,
+        "location": "complement(1753..1815)",
+        "codingDna": "ATGCAGAGGCACCAGAAGCACCTTAACTGGCCCGGTGTATATTCGGGGCAATTCCTGCCTTAA",
+        "protein": "MQRHQKHLNWPGVYSGQFLP*"
+      },
+      "query": {
+        "start": 1753,
+        "end": 1815,
+        "codingDna": "ATGCAGAGGCACTAGAAGCACCTTAACTGGCCCGGTGTATATTCGGGGCAATTCCTGCCTTAA",
+        "protein": "MQRH*"
+      },
+      "reverse": true,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "Spliced codon mutation",
+      "effect": "missense across a joined CDS codon; intron remains untranslated",
+      "reference": {
+        "start": 1908,
+        "end": 1988,
+        "location": "join(1908..1921,1940..1988)",
+        "codingDna": "ATGGCTGTATCGGCTCGTACTCATGGACTATTAAATCTGCTTCGATGTGCACTCTCCCGGTAA",
+        "protein": "MAVSARTHGLLNLLRCALSR*"
+      },
+      "query": {
+        "start": 1908,
+        "end": 1988,
+        "codingDna": "ATGGCTGTATCGTTCCGTACTCATGGACTATTAAATCTGCTTCGATGTGCACTCTCCCGGTAA",
+        "protein": "MAVSFRTHGLLNLLRCALSR*"
+      },
+      "reverse": false,
+      "joined": true,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "Programmed TAG readthrough",
+      "effect": "custom residue pAzF at TAG; silent nearby substitution",
+      "reference": {
+        "start": 2066,
+        "end": 2128,
+        "location": "2066..2128",
+        "codingDna": "ATGAGGCCGGGGTAGCTTAGAGAAGGATACCATCACGTCGTAGCCGTAATTCCCCTCATTTAA",
+        "protein": null
+      },
+      "query": {
+        "start": 2066,
+        "end": 2128,
+        "codingDna": "ATGAGGCCGGGGTAGCTTGGTGAAGGATACCATCACGTCGTAGCCGTAATTCCCCTCATTTAA",
+        "protein": null
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "Ambiguous mutant codon",
+      "effect": "unknown residue; no definite premature-stop claim",
+      "reference": {
+        "start": 2206,
+        "end": 2268,
+        "location": "2206..2268",
+        "codingDna": "ATGGTCATCGAAGCTCACCCGACGAGTGAGGCGTTTTTGGAGCTCACGACCACCAGCTACTAA",
+        "protein": "MVIEAHPTSEAFLELTTTSY*"
+      },
+      "query": {
+        "start": 2206,
+        "end": 2268,
+        "codingDna": "ATGGTCATCGAANNNCACCCGACGAGTGAGGCGTTTTTGGAGCTCACGACCACCAGCTACTAA",
+        "protein": "MVIEXHPTSEAFLELTTTSY*"
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "Alternative genetic code",
+      "effect": "table 4: TGA is tryptophan, not stop",
+      "reference": {
+        "start": 2346,
+        "end": 2408,
+        "location": "2346..2408",
+        "codingDna": "ATGGACCTCTCAGCTGCGATTCGCGATTTACGTCAACTAGAGCATTCGGCAACCCAAGAGTAA",
+        "protein": "MDLSAAIRDLRQLEHSATQE*"
+      },
+      "query": {
+        "start": 2346,
+        "end": 2408,
+        "codingDna": "ATGGACCTCTCATGAGCGATTCGCGATTTACGTCAACTAGAGCATTCGGCAACCCAAGAGTAA",
+        "protein": "MDLSWAIRDLRQLEHSATQE*"
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 4,
+      "deleted": false
+    },
+    {
+      "name": "Entire CDS deleted",
+      "effect": "deletion; original remains visible, mutant CDS absent",
+      "reference": {
+        "start": 2486,
+        "end": 2548,
+        "location": "2486..2548",
+        "codingDna": "ATGTCTCTTAGAGCTAGGTACGACCATCCCGCTCTTAGTATTCACTTCATTGTCAAAAGTTAA",
+        "protein": "MSLRARYDHPALSIHFIVKS*"
+      },
+      "query": {
+        "start": 2486,
+        "end": 2485,
+        "codingDna": "ATGTCTCTTAGAGCTAGGTACGACCATCCCGCTCTTAGTATTCACTTCATTGTCAAAAGTTAA",
+        "protein": null
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": true
+    },
+    {
+      "name": "Unchanged coding control",
+      "effect": "match",
+      "reference": {
+        "start": 2626,
+        "end": 2688,
+        "location": "2626..2688",
+        "codingDna": "ATGCCTGCGACAGCTAAGAAGGGCGCGTTACTAAACGATCCCATAAGGCTGCCAAGATCATAA",
+        "protein": "MPATAKKGALLNDPIRLPRS*"
+      },
+      "query": {
+        "start": 2563,
+        "end": 2625,
+        "codingDna": "ATGCCTGCGACAGCTAAGAAGGGCGCGTTACTAAACGATCCCATAAGGCTGCCAAGATCATAA",
+        "protein": "MPATAKKGALLNDPIRLPRS*"
+      },
+      "reverse": false,
+      "joined": false,
+      "code": 1,
+      "deleted": false
+    },
+    {
+      "name": "Intergenic substitution",
+      "effect": "intergenic substitution",
+      "reference": {
+        "start": 2766,
+        "end": 2879
+      },
+      "query": {
+        "start": 2703,
+        "end": 2816
+      },
+      "structural": true
+    },
+    {
+      "name": "Large insertion",
+      "effect": "insertion: 78 donor bases",
+      "reference": {
+        "start": 2958,
+        "end": 3071
+      },
+      "query": {
+        "start": 2895,
+        "end": 3086
+      },
+      "structural": true
+    },
+    {
+      "name": "Large deletion",
+      "effect": "deletion: 72 bases",
+      "reference": {
+        "start": 3150,
+        "end": 3263
+      },
+      "query": {
+        "start": 3165,
+        "end": 3206
+      },
+      "structural": true
+    },
+    {
+      "name": "Inversion",
+      "effect": "inversion: reverse complement 90 bases",
+      "reference": {
+        "start": 3342,
+        "end": 3455
+      },
+      "query": {
+        "start": 3285,
+        "end": 3398
+      },
+      "structural": true
+    },
+    {
+      "name": "Tandem duplication",
+      "effect": "tandem_duplication: adjacent 72-base copy",
+      "reference": {
+        "start": 3534,
+        "end": 3647
+      },
+      "query": {
+        "start": 3477,
+        "end": 3662
+      },
+      "structural": true
+    },
+    {
+      "name": "Dispersed duplication",
+      "effect": "dispersed_duplication: copy the first 78 reference bases to a remote locus; detector has no dedicated emitting branch",
+      "reference": {
+        "start": 3726,
+        "end": 3839
+      },
+      "query": {
+        "start": 3741,
+        "end": 3932
+      },
+      "structural": true
+    },
+    {
+      "name": "Replacement",
+      "effect": "replacement: 78 original bases replaced with foreign donor",
+      "reference": {
+        "start": 3918,
+        "end": 4031
+      },
+      "query": {
+        "start": 4011,
+        "end": 4124
+      },
+      "structural": true
+    },
+    {
+      "name": "Chimeric donor join",
+      "effect": "chimera: join two distinct donor sequences; detector has no dedicated emitting branch",
+      "reference": {
+        "start": 4110,
+        "end": 4223
+      },
+      "query": {
+        "start": 4203,
+        "end": 4370
+      },
+      "structural": true
+    },
+    {
+      "name": "Complex replacement",
+      "effect": "complex: nearby deletion, insertion and inversion",
+      "reference": {
+        "start": 4302,
+        "end": 4415
+      },
+      "query": {
+        "start": 4449,
+        "end": 4553
+      },
+      "structural": true
+    },
+    {
+      "name": "Terminal truncation",
+      "effect": "truncation; terminal alignment coverage is not proof of deletion",
+      "reference": {
+        "start": 4494,
+        "end": 4637
+      },
+      "query": {
+        "start": 4632,
+        "end": 4679
+      },
+      "structural": true
+    }
+  ]
+}

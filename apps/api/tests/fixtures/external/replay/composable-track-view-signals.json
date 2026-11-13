@@ -1,0 +1,61 @@
+{
+  "entries": [
+    {
+      "_comment": " deterministic four-source composition fixture. Distinct URLs intentionally share one valid GRCh38 BigWig so the acceptance test isolates transactional composition, presentation, rendering, and persistence from public-server availability.",
+      "method": "GET",
+      "host": "showcase.dnaforge.local",
+      "path": "/signals/pan-pol-ii.bw",
+      "response": {
+        "body_file": "../binary/grch38-sparse-gc.bw",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"track-signals-pan-pol-ii-v1\"",
+          "Last-Modified": "Wed, 16 Sep 2026 00:00:00 GMT"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "showcase.dnaforge.local",
+      "path": "/signals/pol-ii-pser5-wt.bw",
+      "response": {
+        "body_file": "../binary/grch38-sparse-gc.bw",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"track-signals-pol-ii-pser5-wt-v1\"",
+          "Last-Modified": "Wed, 16 Sep 2026 00:00:00 GMT"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "showcase.dnaforge.local",
+      "path": "/signals/pol-ii-pser5-alpha-amanitin.bw",
+      "response": {
+        "body_file": "../binary/grch38-sparse-gc.bw",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"track-signals-pol-ii-pser5-alpha-amanitin-v1\"",
+          "Last-Modified": "Wed, 16 Sep 2026 00:00:00 GMT"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "showcase.dnaforge.local",
+      "path": "/signals/nanog.bw",
+      "response": {
+        "body_file": "../binary/grch38-sparse-gc.bw",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"track-signals-nanog-v1\"",
+          "Last-Modified": "Wed, 16 Sep 2026 00:00:00 GMT"
+        }
+      }
+    }
+  ]
+}

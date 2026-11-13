@@ -1,0 +1,32 @@
+{
+  "AF168419.2": {
+    "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=AF168419.2&rettype=gbwithparts&retmode=text",
+    "sha256": "8bf9f0bd8e46793af85e3856eed9712a458ca82b013b85bed63561b8e42ba5ce",
+    "downloadSha256": "42a49b9685c4d6ac97c7a6fe97c6eacf5a3ff997593186fab1855f8d98494391",
+    "metadataNormalization": "normalized trailing whitespace and terminal blank lines. Nucleotide sequence and attribution unchanged."
+  },
+  "L09137.2": {
+    "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=L09137.2&rettype=gbwithparts&retmode=text",
+    "sha256": "a5c7a7b6ac5742c3193064cced7f439990de86a228da0637a457877038e6d790",
+    "downloadSha256": "9498daed1c3703dd739c684a3a7bcd6770823aa4a500cf9b57cf59bbdc38f72a",
+    "metadataNormalization": "normalized trailing whitespace and terminal blank lines. Nucleotide sequence and attribution unchanged."
+  },
+  "U55762.1": {
+    "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=U55762.1&rettype=gbwithparts&retmode=text",
+    "sha256": "acc2fe5f33b7f0e30bff208e96a22ffabfbfb85db826c2648a139fc082873008",
+    "downloadSha256": "bf6a633fce38b828ed369628f45bed5755db623fac938772bcf9efd3f5f2481d",
+    "metadataNormalization": "Removed historical vendor support email; normalized trailing whitespace and terminal blank lines. Nucleotide sequence and attribution unchanged."
+  },
+  "U89931.1": {
+    "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=U89931.1&rettype=gbwithparts&retmode=text",
+    "sha256": "5d2385064499c2c7d09620c46b31309dc7538d042eb827f3452402a54c3724fb",
+    "downloadSha256": "fb1ca6eea4f8361982c37d0cdae7efaa0cede7fedfdec2746349ac2e34b1342c",
+    "metadataNormalization": "Removed historical vendor support email; normalized trailing whitespace and terminal blank lines. Nucleotide sequence and attribution unchanged."
+  },
+  "X06402.1": {
+    "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=X06402.1&rettype=gbwithparts&retmode=text",
+    "sha256": "45967cc4514f37f0eab41ad1a8473bc7618611ade8f4f04e7d46b2edf5aebc9d",
+    "downloadSha256": "14f834b0433c6426f086a2edcb523eebbd55036b5de2c2f5d877347e23255c58",
+    "metadataNormalization": "normalized trailing whitespace and terminal blank lines. Nucleotide sequence and attribution unchanged."
+  }
+}

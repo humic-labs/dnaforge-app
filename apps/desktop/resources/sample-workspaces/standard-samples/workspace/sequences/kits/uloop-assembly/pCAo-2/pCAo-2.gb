@@ -1,0 +1,117 @@
+LOCUS       MN436805                2717 bp    DNA     circular SYN 07-DEC-2019
+DEFINITION  Cloning vector pCAo-2, complete sequence.
+ACCESSION   MN436805
+VERSION     MN436805.1
+KEYWORDS    .
+SOURCE      Cloning vector pCAo-2
+  ORGANISM  Cloning vector pCAo-2
+            other sequences; artificial sequences; vectors.
+REFERENCE   1  (bases 1 to 2717)
+  AUTHORS   Pollak,B., Matute,T., Nunez,I., Cerda,A., Lopez,C., Vargas,V.,
+            Kan,A., Bielinski,V., von Dassow,P., Dupont,C.L. and Federici,F.
+  TITLE     Direct Submission
+  JOURNAL   Submitted (11-SEP-2019) Millennium Institute for Integrative
+            Biology - iBio, Portugal 49, Santiago, RM 8331150, Chile
+COMMENT     ##Assembly-Data-START##
+            Sequencing Technology :: Sanger dideoxy sequencing
+            ##Assembly-Data-END##
+FEATURES             Location/Qualifiers
+     misc_feature    1..40
+                     /note="UNS1"
+     misc_feature    44..50
+                     /note="SapI"
+     misc_feature    52..54
+                     /note="Beta"
+     misc_feature    56..59
+                     /note="A"
+     misc_feature    61..66
+                     /note="BsaI"
+     misc_feature    76..653
+                     /note="LacZ cassete"
+     regulatory      111..234
+                     /regulatory_class="promoter"
+                     /note="pLac"
+     CDS             241..564
+                     /note="LacZ alpha"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="beta-galactosidase alpha subunit"
+                     /protein_id="QGQ59563.1"
+                     /translation="MTMITPSLHACRSTLEDPRVPSSNSLAVVLQRRDWENPGVTQLN
+                     RLAAHPPFASWRNSEEARTDRPSQQLRSLNGEWRLMRYFLLTHLCGISHRIWCTLSTI
+                     CSDAA"
+     misc_feature    complement(666..671)
+                     /note="BsaI"
+     misc_feature    673..676
+                     /note="F"
+     misc_feature    678..680
+                     /note="Gamma"
+     misc_feature    complement(682..688)
+                     /note="SapI"
+     misc_feature    692..731
+                     /note="UNSX"
+     rep_origin      762..1481
+                     /note="pBR322 ori"
+     CDS             complement(1498..2313)
+                     /note="KanR"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="kanamycin resistance protein"
+                     /protein_id="QGQ59562.1"
+                     /translation="MSHIQRETSCSRPRLNSNMDADLYGYKWARDNVGQSGATIYRLY
+                     GKPDAPELFLKHGKGSVANDVTDEMVRLNWLTEFMPLPTIKHFIRTPDDAWLLTTAIP
+                     GKTAFQVLEEYPDSGENIVDALAVFLRRLHSIPVCNCPFNSDRVFRLAQAQSRMNNGL
+                     VDASDFDDERNGWPVEQVWKEMHKLLPFSPDSVVTHGDFSLDNLIFDEGKLIGCIDVG
+                     RVGIADRYQDLAILWNCLGEFSPSLQKRLFQKYGIDNPDMNKLQFHLMLDEFF"
+     regulatory      complement(2314..2503)
+                     /regulatory_class="promoter"
+                     /note="CAJAPHA3 plasmid promoter"
+ORIGIN      
+        1 cattactcgc atccattctc aggctgtctc gtctcgtctc cgagctcttc agcaaggagt
+       61 gagaccattg acagcgcagc tggcacgaca ggtttcccga ctggaaagcg ggcagtgagc
+      121 gcaacgcaat taatgtgagt tagctcactc attaggcacc ccaggcttta cactttatgc
+      181 ttccggctcg tatgttgtgt ggaattgtga gcggataaca atttcacaca ggaaacagct
+      241 atgaccatga ttacgccaag cttgcatgcc tgcaggtcga ctctagagga tccccgggta
+      301 ccgagctcga attcactggc cgtcgtttta caacgtcgtg actgggaaaa ccctggcgtt
+      361 acccaactta atcgccttgc agcacatccc cctttcgcca gctggcgtaa tagcgaagag
+      421 gcccgcaccg atcgcccttc ccaacagttg cgcagcctga atggcgaatg gcgcctgatg
+      481 cggtattttc tccttacgca tctgtgcggt atttcacacc gcatatggtg cactctcagt
+      541 acaatctgct ctgatgccgc atagttaagc cagccccgac acccgccaac acccgctgac
+      601 gcgccctgac gggcttgtct gctcccggca tccgcttaca gacaagctgt gacactagtg
+      661 agcacggtct cacgctatac tgaagagcac cccaggatac atagattacc acaactccga
+      721 gcccttccac ccacagaatc aggggataac gcaggaaaga acatgtgagc aaaaggccag
+      781 caaaaggcca ggaaccgtaa aaaggccgcg ttgctggcgt ttttccatag gctccgcccc
+      841 cctgacgagc atcacaaaaa tcgacgctca agtcagaggt ggcgaaaccc gacaggacta
+      901 taaagatacc aggcgtttcc ccctggaagc tccctcgtgc gctctcctgt tccgaccctg
+      961 ccgcttaccg gatacctgtc cgcctttctc ccttcgggaa gcgtggcgct ttctcatagc
+     1021 tcacgctgta ggtatctcag ttcggtgtag gtcgttcgct ccaagctggg ctgtgtgcac
+     1081 gaaccccccg ttcagcccga ccgctgcgcc ttatccggta actatcgtct tgagtccaac
+     1141 ccggtaagac acgacttatc gccactggca gcagccactg gtaacaggat tagcagagcg
+     1201 aggtatgtag gcggtgctac agagttcttg aagtggtggc ctaactacgg ctacactaga
+     1261 aggacagtat ttggtatctg cgctctgctg aagccagtta ccttcggaaa aagagttggt
+     1321 agctcttgat ccggcaaaca aaccaccgct ggtagcggtg gtttttttgt ttgcaagcag
+     1381 cagattacgc gcagaaaaaa aggatctcaa gaagatcctt tgatcttttc tacggggtct
+     1441 gacgctcagt ggaacgaaaa ctcacgttaa gggattttgg tcatgcattc taggtgatta
+     1501 gaaaaactca tcgagcatca aatgaaactg caatttattc atatcaggat tatcaatacc
+     1561 atatttttga aaaagccgtt tctgtaatga aggagaaaac tcaccgaggc agttccatag
+     1621 gatggcaaga tcctggtatc ggtctgcgat tccgactcgt ccaacatcaa tacaacctat
+     1681 taatttcccc tcgtcaaaaa taaggttatc aagtgagaaa tcaccatgag tgacgactga
+     1741 atccggtgag aatggcaaaa gtttatgcat ttctttccag acttgttcaa caggccagcc
+     1801 attacgctcg tcatcaaaat cactcgcatc aaccaaaccg ttattcattc gtgattgcgc
+     1861 ctgagcgagt cgaaatacgc gatcgctgtt aaaaggacaa ttacaaacag gaatcgaatg
+     1921 caaccggcgc aggaacactg ccagcgcatc aacaatattt tcacctgaat caggatattc
+     1981 ttctaatacc tggaatgctg ttttccctgg gatcgcagtg gtgagtaacc atgcatcatc
+     2041 aggagtacgg ataaaatgct tgatggtcgg aagaggcata aattccgtca gccagtttag
+     2101 tctgaccatc tcatctgtaa catcattggc aacgctacct ttgccatgtt tcagaaacaa
+     2161 ctctggcgca tcgggcttcc catacaatcg gtagattgtc gcacctgatt gcccgacatt
+     2221 atcgcgagcc catttatacc catataaatc agcatccatg ttggaattta atcgcggcct
+     2281 tgagcaagac gtttcccgtt gaatatggct cataacagaa cttattattt ccttcctctt
+     2341 ttctacagta tttaaagata ccccaagaag ctaattataa caagacgaac tccaattcac
+     2401 tgttccttgc attctaaaac cttaaatacc agaaaacagc tttttcaaag ttgttttcaa
+     2461 agttggcgta taacatagta tcgacggagc cgattttgaa accgcggtga tcacaggcag
+     2521 caacgctctg tcatcgttac aatcaacatg ctaccctccg cgagatcatc cgtgtttcaa
+     2581 acccggcagc ttagttgccg ttcttccgaa tagcatcggt aacatgagca aagtctgccg
+     2641 ccttacaacg gctctcccgc tgacgccgtc ccggactgat gggctgcctg tatcgagtgg
+     2701 tgattttgtg ccgagct
+//
+

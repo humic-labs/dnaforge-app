@@ -1,0 +1,77 @@
+{
+  "entries": [
+    {
+      "_comment": "A lab hub that publishes two yeast assemblies; the deterministic chromosome-IV fixture matches sacCer3, so the user must pick it. sacCer3 is an assembly hub: its twoBitPath names the loopback server the Playwright spec starts on port 47831 to serve chrIV.2bit.",
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/list/hubGenomes",
+      "query": {
+        "hubUrl": "https://yeast-hub.example.org/hub.txt"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "hubUrl": "https://yeast-hub.example.org/hub.txt",
+          "sacCer2": {
+            "organism": "S. cerevisiae",
+            "description": "Older yeast assembly",
+            "trackDbFile": "sacCer2/trackDb.txt"
+          },
+          "sacCer3": {
+            "organism": "S. cerevisiae",
+            "description": "Deterministic chromosome-IV lab data",
+            "trackDbFile": "sacCer3/trackDb.txt",
+            "twoBitPath": "http://127.0.0.1:47831/sacCer3/sacCer3.2bit"
+          }
+        }
+      }
+    },
+    {
+      "_comment": "Lab hub tracks for sacCer3: aligned reads and variant calls that point at the deterministic remote fixtures.",
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/list/tracks",
+      "query": {
+        "genome": "sacCer3",
+        "hubUrl": "https://yeast-hub.example.org/hub.txt"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "sacCer3": {
+            "labSequencing": {
+              "shortLabel": "Lab sequencing",
+              "longLabel": "Reads and calls published by the lab hub",
+              "compositeContainer": "TRUE",
+              "compositeTrack": "on",
+              "group": "reads",
+              "labReads": {
+                "shortLabel": "Lab yeast reads",
+                "longLabel": "Aligned reads published by the lab hub",
+                "type": "bam",
+                "group": "reads",
+                "bigDataUrl": "https://reads.example.org/s288c/reads.cram",
+                "bigDataIndex": "https://reads.example.org/s288c/reads.cram.crai",
+                "parent": "labSequencing on"
+              },
+              "labCalls": {
+                "shortLabel": "Lab yeast calls",
+                "longLabel": "Variant calls published by the lab hub",
+                "type": "vcfTabix",
+                "group": "variants",
+                "bigDataUrl": "https://variants.example.org/s288c/calls.vcf.gz",
+                "parent": "labSequencing on"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

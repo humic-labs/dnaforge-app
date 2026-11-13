@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools", "wheel", "Cython"]
+
+[tool.uv]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "setup.py" },
+    { file = "setup.cfg" },
+    { file = "MANIFEST.in" },
+    { file = "SOURCE_PROVENANCE.json" },
+    { file = "LICENSE.txt" },
+    { file = "*.c" },
+    { file = "*.h" },
+    { file = "python/*.pyx" },
+    { file = "python/*.pxd" },
+    { file = "python/*.h" },
+    { file = "python/README.rst" },
+    { file = "sse2neon/*.h" },
+]

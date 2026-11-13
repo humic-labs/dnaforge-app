@@ -1,0 +1,43 @@
+{
+  "schema": "waypoint.sequence.v1",
+  "kind": "sequence",
+  "id": "sample-a42ab71e",
+  "name": "chr13-XIII",
+  "product": {
+    "file": "chr13-XIII.gb"
+  },
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "formatVersion": 9,
+  "members": [],
+  "entity": {
+    "schema": {
+      "schemaId": "schema-entity-sequence",
+      "schemaRevisionId": "schema-entity-sequence-v1",
+      "name": "sequence",
+      "displayName": "DNA sequence",
+      "baseKind": "sequence",
+      "fields": [
+        {
+          "key": "description",
+          "label": "Description",
+          "type": "long_text",
+          "suggested": true,
+          "description": "Optional scientific or operational context for this sequence."
+        }
+      ],
+      "version": 1
+    },
+    "fields": {},
+    "registrationStatus": "tracked",
+    "domainStatus": null,
+    "registryId": null,
+    "relationships": []
+  },
+  "versionHistory": {
+    "schema": "waypoint.sequence-history.v1",
+    "headId": null,
+    "revisions": []
+  },
+  "userAttachments": {},
+  "evidenceRuns": []
+}

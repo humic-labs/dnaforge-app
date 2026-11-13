@@ -1,0 +1,214 @@
+LOCUS       CDS_mutation_gallery     4637 bp    DNA     linear   SYN 28-OCT-2026
+DEFINITION  Synthetic independent mutation loci for original versus mutant CDS comparison.
+ACCESSION   CDS_mutation_gallery
+FEATURES             Location/Qualifiers
+     source          1..4637
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     CDS             73..135
+                     /label="Silent substitution"
+                     /note="Synthetic demonstration: synonymous"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             213..275
+                     /label="Missense substitution"
+                     /note="Synthetic demonstration: missense"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             353..415
+                     /label="Premature stop"
+                     /note="Synthetic demonstration: nonsense; complete mutant CDS ends at residue 5"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             493..555
+                     /label="Lost stop and extension"
+                     /note="Synthetic demonstration: readthrough; former stop becomes Q and CDS extends to next stop"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             633..695
+                     /label="In-frame insertion"
+                     /note="Synthetic demonstration: inframe_insertion; add glycine"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             773..835
+                     /label="In-frame deletion"
+                     /note="Synthetic demonstration: inframe_deletion; delete residue 7"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             913..975
+                     /label="Frameshift insertion +1"
+                     /note="Synthetic demonstration: frameshift"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             1053..1115
+                     /label="Frameshift insertion +2"
+                     /note="Synthetic demonstration: frameshift"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             1193..1255
+                     /label="Frameshift deletion -1"
+                     /note="Synthetic demonstration: frameshift"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             1333..1395
+                     /label="Frameshift deletion -2"
+                     /note="Synthetic demonstration: frameshift"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             1473..1535
+                     /label="Frame restored downstream"
+                     /note="Synthetic demonstration: frameshift followed by compensation; original frame resumes"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             1613..1675
+                     /label="Multi-base codon replacement"
+                     /note="Synthetic demonstration: missense; GCT to TTC"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             complement(1753..1815)
+                     /label="Reverse-strand premature stop"
+                     /note="Synthetic demonstration: nonsense on reverse strand; mutant left boundary changes"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             join(1908..1921,1940..1988)
+                     /label="Spliced codon mutation"
+                     /note="Synthetic demonstration: missense across a joined CDS codon; intron remains untranslated"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             2066..2128
+                     /label="Programmed TAG readthrough"
+                     /note="Synthetic demonstration: custom residue pAzF at TAG; silent nearby substitution"
+                     /codon_start="1"
+                     /transl_table="1"
+                     /transl_except="(pos:2078..2080,aa:OTHER)"
+                     /note="Residue 5 is programmed pAzF; its TAG is not a termination signal."
+     CDS             2206..2268
+                     /label="Ambiguous mutant codon"
+                     /note="Synthetic demonstration: unknown residue; no definite premature-stop claim"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             2346..2408
+                     /label="Alternative genetic code"
+                     /note="Synthetic demonstration: table 4: TGA is tryptophan, not stop"
+                     /codon_start="1"
+                     /transl_table="4"
+     CDS             2486..2548
+                     /label="Entire CDS deleted"
+                     /note="Synthetic demonstration: deletion; original remains visible, mutant CDS absent"
+                     /codon_start="1"
+                     /transl_table="1"
+     CDS             2626..2688
+                     /label="Unchanged coding control"
+                     /note="Synthetic demonstration: match"
+                     /codon_start="1"
+                     /transl_table="1"
+     misc_feature    2766..2879
+                     /label="Intergenic substitution"
+                     /note="Known synthetic construction: intergenic substitution. Detector output is recorded separately."
+     misc_feature    2958..3071
+                     /label="Large insertion"
+                     /note="Known synthetic construction: insertion: 78 donor bases. Detector output is recorded separately."
+     misc_feature    3150..3263
+                     /label="Large deletion"
+                     /note="Known synthetic construction: deletion: 72 bases. Detector output is recorded separately."
+     misc_feature    3342..3455
+                     /label="Inversion"
+                     /note="Known synthetic construction: inversion: reverse complement 90 bases. Detector output is recorded separately."
+     misc_feature    3534..3647
+                     /label="Tandem duplication"
+                     /note="Known synthetic construction: tandem_duplication: adjacent 72-base copy. Detector output is recorded separately."
+     misc_feature    3726..3839
+                     /label="Dispersed duplication"
+                     /note="Known synthetic construction: dispersed_duplication: copy the first 78 reference bases to a remote locus; detector has no dedicated emitting branch. Detector output is recorded separately."
+     misc_feature    3918..4031
+                     /label="Replacement"
+                     /note="Known synthetic construction: replacement: 78 original bases replaced with foreign donor. Detector output is recorded separately."
+     misc_feature    4110..4223
+                     /label="Chimeric donor join"
+                     /note="Known synthetic construction: chimera: join two distinct donor sequences; detector has no dedicated emitting branch. Detector output is recorded separately."
+     misc_feature    4302..4415
+                     /label="Complex replacement"
+                     /note="Known synthetic construction: complex: nearby deletion, insertion and inversion. Detector output is recorded separately."
+     misc_feature    4494..4637
+                     /label="Terminal truncation"
+                     /note="Known synthetic deletion of final 96 bases; alignment may report unobserved query coverage rather than a definite deletion."
+ORIGIN
+        1 cttggcgtgc taatcccagg agttgacgtc atcgtacgct taagcctgac gcaactcagc
+       61 tggacaccgc gcatgctaca gcgggctggt gcctggtatg ggatccaacc aactactcat
+      121 ctttggtggg cataaggtga ctaataatag tgactaacta gctgaactta aaaaaaccgc
+      181 gacgtaccac gtagcaggac tcccgtcact tgatgagcac actggctgct agttttgttc
+      241 tcgggtattc tatcgcggag tggacgttcg ggtaaggtga ctaataatag tgactaacta
+      301 gctgaggact acaataatag gtcacgagcg cgaacctgct ctaccctacg aaatggggtc
+      361 agcgcagaac tgtacgccgc attgcaggag aatcttaata cccttgtcag tttaaggtga
+      421 ctaataatag tgactaacta gctgaaatac atcctgattg tcgcctagag tggcgtatca
+      481 tccgccaatc gaatgtcggt gcctgctcct tatccgggaa taaatggagg caattttacc
+      541 tatagttcac cctaaggtga ctaataatag tgactaacta gctgatctcg atatcttggc
+      601 acacgctcgt tacgcaaaaa tccaaaggca caatgtacac caatgctcgg caggcaacgc
+      661 tggccatacc gggcctcgct acgcttgtga cttaaggtga ctaataatag tgactaacta
+      721 gctgagcggt gattgaacga atgaacgcag cgatacaaca cttaatcctt gtatgcaatg
+      781 cgcagctcag atgttagggt catctagaca tcgacgttct accaaggaag cttaaggtga
+      841 ctaataatag tgactaacta gctgaagctc ctgcggtata atggtttggg cattggtcac
+      901 gtggcgctag caatgttcgt caaagctcat gttcatcaag aggccttcgc tttttactcc
+      961 ttccgaaaag agtaaggtga ctaataatag tgactaacta gctgaaaata aactccccct
+     1021 gaacgggagc aggacatcgg tttattacga ggatgaagag tttggctgat cggatggtta
+     1081 agagctcggc aactccggct ccacgtgggg tctaaggtga ctaataatag tgactaacta
+     1141 gctgatctct tgcaagatgg tggggtccaa atggtacgta acctcgcaaa ccatggatcg
+     1201 aaccgcttgt aagagaaaag tccacctatt cgctgtgtgc ccgcagtgtg gctaaggtga
+     1261 ctaataatag tgactaacta gctgattttt agaggatacg ccgaggaagc ggatgaaaac
+     1321 aagcgtcgat acatgcggtt gccagctaga acacatctgg atgatcgagt ttgcgaggcg
+     1381 cgtttagcga tgtaaggtga ctaataatag tgactaacta gctgatgatc ctcgctttgg
+     1441 actaggcgag ggaatttata ggtccgtcgt caatgccggg tagggctatg tgggtcgcgc
+     1501 attgcccgtc gttcgcaccc gatgcagttg cataaggtga ctaataatag tgactaacta
+     1561 gctgaatctc accctcgtta gtatgaacgt cgaacaattt cgggcgagac gaatgggcac
+     1621 tctcgctcag ggatatgcac gcctgtgtgt atgtgtgcag ctcggcgtat ggtaaggtga
+     1681 ctaataatag tgactaacta gctgagctag gtcaggccgt caccctttaa ctcttacttc
+     1741 aacagctaac agttaaggca ggaattgccc cgaatataca ccgggccagt taaggtgctt
+     1801 ctggtgcctc tgcattcttt aatcttgagt acgcccctgt aatagtgact aactagctga
+     1861 acttatctgt aaatggctca aaatagccac ggcgcctttc gtagtggatg gctgtatcgg
+     1921 cgtaagatcc agctcatagt cgtactcatg gactattaaa tctgcttcga tgtgcactct
+     1981 cccggtaagg tgactaataa tagtgactaa ctagctgaag cactgtcacg aggcccctct
+     2041 gtcctacgcg ccatcacaga cgaacatgag gccggggtag cttagagaag gataccatca
+     2101 cgtcgtagcc gtaattcccc tcatttaagg tgactaataa tagtgactaa ctagctgagt
+     2161 actttgtgat acatcaagcg ccacgtgtgg gatcagggcc aagtgatggt catcgaagct
+     2221 cacccgacga gtgaggcgtt tttggagctc acgaccacca gctactaagg tgactaataa
+     2281 tagtgactaa ctagctgaga gggagtcaga gcggatgggt tttccaagca tcgctgggtg
+     2341 gatttatgga cctctcagct gcgattcgcg atttacgtca actagagcat tcggcaaccc
+     2401 aagagtaagg tgactaataa tagtgactaa ctagctgatt cgcccaacct gaacgctcgt
+     2461 cttactccat tgtgaacgtc ctctgatgtc tcttagagct aggtacgacc atcccgctct
+     2521 tagtattcac ttcattgtca aaagttaagg tgactaataa tagtgactaa ctagctgacg
+     2581 gcagacacgt gctgaatacg atgcaatcga ctgccaaacg agagaatgcc tgcgacagct
+     2641 aagaagggcg cgttactaaa cgatcccata aggctgccaa gatcataagg tgactaataa
+     2701 tagtgactaa ctagctgaca tcgaacctta ttgggcgaga gagcgagcgc cccacacgaa
+     2761 taggtttatt gataaggtgc ggggcgaatc aagacgtaca tatccagtcc catcaggcag
+     2821 ctacacagtt cagggactat tcctctagtt acatgaccac aagtaaatac aagctttata
+     2881 atattagagc atccaacaat accccctcct gctcatcagg gtggtcggta gcggattgtc
+     2941 gaacgtggag aatccgtcca ctaaactcat tttccattgg gggctcacgg gtgatgtgcc
+     3001 caccaggaat catgggcctt tactagttga attgaaagcc tgtaagcaac tactccagac
+     3061 attggtacta ggtgcgtaaa atcgtcacgg agtctgctac tagggtcgat acgatgcccc
+     3121 aactagtacc ggaagaaatg gccccgccaa attagtactg gcggattgac atagaattca
+     3181 ctacatatac atctaccctc ctggccctac ccagtgagga aagatctaga ggaacccatc
+     3241 cacccttcct aacaccctcg atgatttgtg taggattttg atactcctag atctattcct
+     3301 actgcggcag tgagccaaac gtgctagtgg aaacccgcgt agccgctgtt ttcctggggg
+     3361 gagggagggg ggctaagttc ttaatctccg tggcccgcgt tgctggtgaa gtttatctcc
+     3421 caaggacccc catcaaggta ggatcgcaac ccgtaattca cgaaactagc acagggaagg
+     3481 agcagcactg gagtagtcca ggacaactgg ctgccctgaa aggcacttac ttcatgcaaa
+     3541 ggcgcgcaaa atacggcgta ccaagcccgg gagataacta tccacccagt tcaccaccga
+     3601 gagttaccca tcaggcgtcc acagtggtcg tgaatacccg aaggactact gatcttcatc
+     3661 cagcggagcc gccgaatgtg ctatgcttca tgctcatatg ataagaatga ccggctacat
+     3721 cacttccagg ggatatagcg catagagctt gatgaaggag ccatagccta gtaggtccgg
+     3781 cattaacttg aaaaagtagg agattcctat acgaggataa atttattcca tggataggac
+     3841 gccctctcgt gcactctctg gagaaaagcc agacaggctc gatgtactgg agtccgctta
+     3901 tagtgttgtg acttagagag cgaaccagtc gtcctaagcc gaatgctact ttcgcggatt
+     3961 agcgcaggac ctgacgtctc cggacgacgg ggggcgagat aacactagta gcagatctag
+     4021 ccagcctgat ataaagaggt atggtcagct cggaagtcct ccccgactac ttaggcgccc
+     4081 atggtccggc ggcggaattg ctatagaagt caacccgagg tagacaatca aactggtccc
+     4141 ggacacttta ctcgtactgg cttcagacgc tgagtggtga gaagttcaat ccgtagtgaa
+     4201 cagtgtccga gtttcttatg acgaaagtct cggaccgcag gtgctggttc agtggattat
+     4261 actacaaggg ctatttcatg agcggccctc atttccttgg atccaagtaa gtacaatgcc
+     4321 ggtattatgc ggcattgggc gaaatagaca agcaagttat ccccttgttc atccatcacg
+     4381 taccagcgaa ttttcaactc caatccccga gtctctgtag agaccttttg gatgtccgat
+     4441 gcacgacgat gcggtctttg catccccacc cgtatgcagg acaggcgagt ttatctgtaa
+     4501 ttcatgtgga tacacggttc tagggagttg ttaagacaac acgtacggaa acttcaaatg
+     4561 gcagcagaca gaagacctct tgtagagtaa gcccttctgt gtgggatagg agtccaattt
+     4621 aaaggtgacg gtaggac
+//

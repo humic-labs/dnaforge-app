@@ -1,0 +1,49 @@
+{
+  "schema": "waypoint.design.v1",
+  "kind": "assembly-design",
+  "id": "example-egfp-golden-gate",
+  "name": "EGFP expression cassette (Golden Gate)",
+  "storage": {
+    "type": "localStorage",
+    "key": "waypoint-designs",
+    "id": "example-egfp-golden-gate"
+  },
+  "design": {
+    "id": "example-egfp-golden-gate",
+    "name": "EGFP expression cassette (Golden Gate)",
+    "topology": "circular",
+    "regions": [],
+    "spacers": [],
+    "version": 0,
+    "assemblyState": "preflight",
+    "validationErrors": [],
+    "proposedPlans": [],
+    "status": "draft",
+    "assemblyMethod": "goldengate",
+    "backboneSequenceId": null,
+    "defaultHomologyLength": 30,
+    "homologyRegions": [],
+    "goldenGateConfig": { "enzyme": "BsaI" },
+    "goldenGateJunctions": [],
+    "designPrimers": [],
+    "selectedJunctionIndex": null,
+    "scrollToPosition": null,
+    "highlightRange": null,
+    "createdAt": "2026-07-14T12:00:00.000Z",
+    "updatedAt": "2026-07-14T12:00:00.000Z"
+  },
+  "plannedOutputs": [
+    {
+      "format": "genbank",
+      "status": "pending-sequence"
+    }
+  ],
+  "provenance": [
+    {
+      "event": "created",
+      "actor": "example-workspace",
+      "createdAt": "2026-07-14T12:00:00.000Z",
+      "source": "bundled-example"
+    }
+  ]
+}

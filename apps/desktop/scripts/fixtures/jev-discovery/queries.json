@@ -1,0 +1,312 @@
+{
+  "protocol": "Frozen before the first live Jev ranking request. Exact/plain/paraphrase/no-match; 20 queries per surface, full 146-tool admitted Hosted catalog and 24 representative curated skill descriptors. Expected IDs are acceptable task-relevant matches, evaluated by hit@4 for tools and hit@8 for skills; negatives require an empty result. No threshold or prompt tuning on this corpus.",
+  "tools": [
+    {
+      "id": "t01",
+      "query": "get_sequence",
+      "expected": [
+        "get_sequence"
+      ],
+      "kind": "exact"
+    },
+    {
+      "id": "t02",
+      "query": "design_primers",
+      "expected": [
+        "design_primers"
+      ],
+      "kind": "exact"
+    },
+    {
+      "id": "t03",
+      "query": "virtual_digest",
+      "expected": [
+        "virtual_digest"
+      ],
+      "kind": "exact"
+    },
+    {
+      "id": "t04",
+      "query": "run_msa",
+      "expected": [
+        "run_msa"
+      ],
+      "kind": "exact"
+    },
+    {
+      "id": "t05",
+      "query": "reverse complement",
+      "expected": [
+        "selection_reverse_complement"
+      ],
+      "kind": "plain"
+    },
+    {
+      "id": "t06",
+      "query": "open reading frames",
+      "expected": [
+        "selection_find_orfs"
+      ],
+      "kind": "plain"
+    },
+    {
+      "id": "t07",
+      "query": "Git status",
+      "expected": [
+        "get_file_changes",
+        "workspace.gitStatus"
+      ],
+      "kind": "plain"
+    },
+    {
+      "id": "t08",
+      "query": "local LIMS registry",
+      "expected": [
+        "lims_query_entities"
+      ],
+      "kind": "plain"
+    },
+    {
+      "id": "t09",
+      "query": "Choose a pair of oligos to amplify this target by PCR",
+      "expected": [
+        "design_primers"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "t10",
+      "query": "Show the pieces produced when enzymes cut this plasmid",
+      "expected": [
+        "virtual_digest"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "t11",
+      "query": "Align three proteins with MAFFT",
+      "expected": [
+        "run_msa"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "t12",
+      "query": "Turn these amino acids into host optimized coding DNA",
+      "expected": [
+        "backtranslate"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "t13",
+      "query": "Bring an NCBI accession into my project as a sequence tab",
+      "expected": [
+        "import_sequence"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "t14",
+      "query": "Retrieve the bases between positions 100 and 300 of this record",
+      "expected": [
+        "get_sequence"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "t15",
+      "query": "Zoom the structure camera onto these atoms",
+      "expected": [
+        "mol_focus"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "t16",
+      "query": "Download the article from this pasted web link",
+      "expected": [
+        "capture_paper_url"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "t17",
+      "query": "Book a flight to Tokyo",
+      "expected": [],
+      "kind": "no-match"
+    },
+    {
+      "id": "t18",
+      "query": "Pay my electricity invoice",
+      "expected": [],
+      "kind": "no-match"
+    },
+    {
+      "id": "t19",
+      "query": "Predict tomorrow lottery winning numbers",
+      "expected": [],
+      "kind": "no-match"
+    },
+    {
+      "id": "t20",
+      "query": "Order a pizza for delivery",
+      "expected": [],
+      "kind": "no-match"
+    }
+  ],
+  "skills": [
+    {
+      "id": "s01",
+      "query": "pysam",
+      "expected": [
+        "pysam"
+      ],
+      "kind": "exact"
+    },
+    {
+      "id": "s02",
+      "query": "pydeseq2",
+      "expected": [
+        "pydeseq2"
+      ],
+      "kind": "exact"
+    },
+    {
+      "id": "s03",
+      "query": "rdkit",
+      "expected": [
+        "rdkit"
+      ],
+      "kind": "exact"
+    },
+    {
+      "id": "s04",
+      "query": "scanpy",
+      "expected": [
+        "scanpy"
+      ],
+      "kind": "exact"
+    },
+    {
+      "id": "s05",
+      "query": "bulk RNA-seq differential gene expression",
+      "expected": [
+        "pydeseq2"
+      ],
+      "kind": "plain"
+    },
+    {
+      "id": "s06",
+      "query": "single-cell RNA-seq QC normalization clustering",
+      "expected": [
+        "scanpy"
+      ],
+      "kind": "plain"
+    },
+    {
+      "id": "s07",
+      "query": "BAM pileup coverage indexing",
+      "expected": [
+        "pysam"
+      ],
+      "kind": "plain"
+    },
+    {
+      "id": "s08",
+      "query": "SMILES substructure search fingerprints",
+      "expected": [
+        "rdkit"
+      ],
+      "kind": "plain"
+    },
+    {
+      "id": "s09",
+      "query": "Which genes changed between treated and control count matrices?",
+      "expected": [
+        "pydeseq2"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "s10",
+      "query": "Remove technical differences between single cell batches with a deep generative model",
+      "expected": [
+        "scvi-tools"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "s11",
+      "query": "Predict how knocking out a reaction changes metabolic flux at steady state",
+      "expected": [
+        "cobrapy"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "s12",
+      "query": "Infer which direction cells are differentiating from spliced and unspliced counts",
+      "expected": [
+        "scvelo"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "s13",
+      "query": "Choose how many biological replicates are needed to detect an effect",
+      "expected": [
+        "statistical-power"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "s14",
+      "query": "Build a maximum likelihood evolutionary tree for related proteins",
+      "expected": [
+        "phylogenetics"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "s15",
+      "query": "Fix a channel error in my nf-core DSL2 workflow",
+      "expected": [
+        "nextflow"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "s16",
+      "query": "Find the most central nodes and shortest paths in an interaction graph",
+      "expected": [
+        "networkx"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "s17",
+      "query": "Book a flight to Tokyo",
+      "expected": [],
+      "kind": "no-match"
+    },
+    {
+      "id": "s18",
+      "query": "Pay my electricity invoice",
+      "expected": [],
+      "kind": "no-match"
+    },
+    {
+      "id": "s19",
+      "query": "Predict tomorrow lottery winning numbers",
+      "expected": [],
+      "kind": "no-match"
+    },
+    {
+      "id": "s20",
+      "query": "Order a pizza for delivery",
+      "expected": [],
+      "kind": "no-match"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+LOCUS       STRUCT_S288C_SEO1   1782 bp    DNA     linear   05-MAY-2026
+DEFINITION  Saccharomyces cerevisiae S288C chromosome I SEO1 CDS slice for structure resolver regression.
+ACCESSION   .
+KEYWORDS    structure-regression; ape-label-only; no-translation; no-db-xref.
+SOURCE      Saccharomyces cerevisiae S288C
+  ORGANISM  Saccharomyces cerevisiae S288C
+FEATURES             Location/Qualifiers
+     source          1..1782
+                     /organism="Saccharomyces cerevisiae S288C"
+                     /db_xref="taxon:559292"
+     CDS             complement(1..1782)
+                     /label="SEO1 CDS (putative permease SEO1)"
+ORIGIN
+        1 ttatttttca tcagatactg ataaggtttc aacgtctttt gacgttggct tttccacacc
+       61 atgtttagag ttataaagca caataccgtt cttcttggca ttgttccttt catcacgttt
+      121 atagaagtag agtacaacaa aagtccaaat ggagagacaa aaagcagaac atgcagtgaa
+      181 agtaaacccc tttaaatacc tgggagcttc ttctgttttc caaaccaaaa cacttatcca
+      241 tgcggtagat gattgagcca taatattcat tgtaactaaa gtaatagctc tagtttgagc
+      301 atctcggcga caaatatcgt tttgccaaga gtataaaaca ggagccatag cccaaccaaa
+      361 acattgcagc ataaatgcaa accatttggc tccttctgcg acgtcccaag cggctaatat
+      421 ggagttacca atgatattga aaacctgagt aaaaataatc gcaaaccaac gagagtgtaa
+      481 tttatctgca ataataccag taagcatcaa ataaaccata cctaaacccg gagtaatcat
+      541 ggataactga ttgagcttag gaatagagta tcttttcaaa gatttcaacc atagtaggta
+      601 tgccccagat gaaacattac tgtcattcca acagaaaata ttccataaag ttaaaatgta
+      661 tattttccaa tcactgaaaa ttgttttcca cagtttaata tcgaatactt ttgtttcaaa
+      721 atcactttta cctgtttggt tttcttttaa tcttttcctc gccaacctaa tttcatcatc
+      781 agttaagaaa atagaataac agttgtatgg gtcacctggc agggagtaaa atccaataag
+      841 gcccactacg acagacacaa tagcgtcaat aataaagttc catctccatc cctctaaacc
+      901 atttacacca tttaacgatg aatatacggc tgactggatc ccaccagcgg atagaatacc
+      961 gatatactgg cccaaatagt aaaaagcaga acgacgcacc atttcatcat gtttgtaaaa
+     1021 ggaaccaaac aaatattggt atgccaaata acttggcgct tcaaaagccc caatgaaaaa
+     1081 cctaattgct ttcaagtgtg gtacagaatt gacatatgca gcaccaacgg ttaaaagcga
+     1141 ccaacataag tcgaggcttg gtaaaacata gtttaatggg agcttgttca ggtaaatcaa
+     1201 aaatggcaat tgaaatataa tattaccaac tgtgtacatt acttgagtat gcaccaaatc
+     1261 attaccttga aagcctaaat cttccttcat tcccgaaacg taagcgttgt ttatattaac
+     1321 cgtatccaga tatttcaccc aataagcaat acaagaataa aaggctaaaa ggacatccaa
+     1381 tttaattaat aatttttttt ctttgaaaga ggtaccctgt ttgaaccaac tataccattt
+     1441 attgtgagat ctttcctttt cattgatccg atactcttgt tcatcgaaaa atctccacca
+     1501 tggcctatcg gcttcatctc tatattcata acttctagta acgttcacat tgtctttatg
+     1561 ttcactatag ctactagtct caaaatgtag ttgatctttt tcacttgtag tcgtgatgaa
+     1621 attttcagct gtttcatgac tctggatact gttggagata gtgacaattt ctgttgaatt
+     1681 taagtcatct ggcaggtctt ccacctgccg ctttactgga ataaaacccc attttagtct
+     1741 tttgtaagga tctacaataa tctctttaac aattgaatac at
+//

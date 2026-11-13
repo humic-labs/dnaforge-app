@@ -1,0 +1,90 @@
+# INSDC/DDBJ/ENA/GenBank Feature Table Definition, sections 7.4.3 and 7.4.4.
+#
+# Vendored verbatim from https://ftp.ebi.ac.uk/pub/databases/embl/doc/FT_current.txt
+# (version 11.3, October 2024). This is the restricted vocabulary for the `aa:`
+# field of /transl_except and /anticodon. Do not edit by hand: re-download and
+# re-run scripts/generate-insdc-amino-acids.mjs.
+#
+# Authority: IUPAC-IUB Joint Commission on Biochemical Nomenclature,
+# Eur. J. Biochem. 138:9-37 (1984); IUPAC-IUBMB JCBN Newsletter, 1999.
+
+7.4.3 Amino acid abbreviations
+
+
+Authority       IUPAC-IUB Joint Commission on Biochemical Nomenclature.
+Reference       IUPAC-IUB Joint Commission on Biochemical Nomenclature.
+                Nomenclature   and    Symbolism   for   Amino   Acids   and
+                Peptides.
+                Eur. J. Biochem. 138:9-37(1984).
+                IUPAC-IUBMB JCBN Newsletter, 1999        
+Scope           /anticodon, /transl_except
+Contact         EMBL-EBI
+
+Listing (note that the abbreviations are legal values for amino acids, not the full names)
+        Abbreviation    Amino acid name
+        ------------    ---------------
+
+        Ala     A       Alanine
+        Arg     R       Arginine
+        Asn     N       Asparagine
+        Asp     D       Aspartic acid (Aspartate)
+        Cys     C       Cysteine
+        Gln     Q       Glutamine
+        Glu     E       Glutamic acid (Glutamate)
+        Gly     G       Glycine
+        His     H       Histidine
+        Ile     I       Isoleucine
+        Leu     L       Leucine
+        Lys     K       Lysine
+        Met     M       Methionine
+        Phe     F       Phenylalanine
+        Pro     P       Proline
+        Pyl     O       Pyrrolysine
+        Ser     S       Serine
+        Sec     U       Selenocysteine
+        Thr     T       Threonine
+        Trp     W       Tryptophan
+        Tyr     Y       Tyrosine
+        Val     V       Valine
+        Asx     B       Aspartic acid or Asparagine
+        Glx     Z       Glutamine or Glutamic acid.
+        Xaa     X       Any amino acid.
+        Xle     J       Leucine or Isoleucine
+        TERM            termination codon
+
+
+7.4.4 Modified and unusual Amino Acids
+
+        Abbreviation    Amino acid
+        ------------    ---------
+
+        Aad             2-Aminoadipic acid
+        bAad            3-Aminoadipic acid
+        bAla            beta-Alanine, beta-Aminoproprionic acid
+        Abu             2-Aminobutyric acid
+        4Abu            4-Aminobutyric acid, piperidinic acid
+        Acp             6-Aminocaproic acid
+        Ahe             2-Aminoheptanoic acid
+        Aib             2-Aminoisobutyric acid
+        bAib            3-Aminoisobutyric acid
+        Apm             2-Aminopimelic acid
+        Dbu             2,4-Diaminobutyric acid
+        Des             Desmosine
+        Dpm             2,2'-Diaminopimelic acid
+        Dpr             2,3-Diaminoproprionic acid
+        EtGly           N-Ethylglycine
+        EtAsn           N-Ethylasparagine
+        Hyl             Hydroxylysine
+        aHyl            allo-Hydroxylysine
+        3Hyp            3-Hydroxyproline
+        4Hyp            4-Hydroxyproline
+        Ide             Isodesmosine
+        aIle            allo-Isoleucine
+        MeGly           N-Methylglycine, sarcosine
+        MeIle           N-Methylisoleucine
+        MeLys           6-N-Methyllysine
+        MeVal           N-Methylvaline
+        Nva             Norvaline
+        Nle             Norleucine
+        Orn             Ornithine
+        OTHER           (requires /note=)

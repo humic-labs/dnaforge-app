@@ -1,0 +1,54 @@
+.notebook-editor-body {
+  container-name: notebook-entry;
+  container-type: inline-size;
+}
+
+.ProseMirror [data-type='notebookColumns'] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.ProseMirror [data-type='notebookColumns'][data-layout='three-columns'] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ProseMirror [data-type='notebookColumns'][data-layout='wide-left'] {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+.ProseMirror [data-type='notebookColumns'][data-layout='wide-right'] {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+
+.ProseMirror [data-type='notebookColumn'] {
+  min-width: 0;
+  min-height: 5rem;
+  padding: 0.75rem;
+  border: 1px solid hsl(var(--color-border));
+  border-radius: 0.375rem;
+}
+
+.ProseMirror [data-type='notebookColumn'] > :is(p, h1, h2, h3, blockquote, ul, ol) {
+  overflow-wrap: anywhere;
+}
+
+.ProseMirror [data-type='notebookColumn']:focus-within {
+  border-color: hsl(var(--color-accent));
+}
+
+.ProseMirror [data-type='notebookColumn'] > :first-child {
+  margin-top: 0;
+}
+
+.ProseMirror [data-type='notebookColumn'] > p:only-child {
+  min-height: 1.5em;
+}
+
+@container notebook-entry (max-width: 640px) {
+  .ProseMirror [data-type='notebookColumns'][data-layout] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

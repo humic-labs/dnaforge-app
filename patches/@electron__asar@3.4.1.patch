@@ -1,0 +1,35 @@
+diff --git a/lib/disk.js b/lib/disk.js
+--- a/lib/disk.js
++++ b/lib/disk.js
+@@ -60,9 +60,28 @@
+ }
+ async function streamTransformedFile(stream, outStream) {
+     return new Promise((resolve, reject) => {
+-        stream.pipe(outStream, { end: false });
+-        stream.on('error', reject);
+-        stream.on('end', () => resolve());
++        const settle = (error) => {
++            stream.unpipe(outStream);
++            stream.removeListener('error', settle);
++            stream.removeListener('end', onEnd);
++            outStream.removeListener('error', settle);
++            outStream.removeListener('close', onClose);
++            if (error) {
++                stream.destroy();
++                outStream.destroy();
++                reject(error);
++            } else {
++                resolve();
++            }
++        };
++        const onEnd = () => settle();
++        const onClose = () => settle(outStream.errored || new Error('Archive output closed before input completed.'));
++        stream.once('error', settle);
++        stream.once('end', onEnd);
++        outStream.once('error', settle);
++        outStream.once('close', onClose);
++        if (outStream.destroyed) onClose();
++        else stream.pipe(outStream, { end: false });
+     });
+ }
+ const writeFileListToStream = async function (dest, filesystem, out, lists, metadata) {

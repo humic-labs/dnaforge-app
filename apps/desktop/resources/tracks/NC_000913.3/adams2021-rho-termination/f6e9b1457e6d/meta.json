@@ -1,0 +1,56 @@
+{
+  "schema": "dnaforge.track-meta.v1",
+  "track": "adams2021-rho-termination",
+  "version": "f6e9b1457e6d",
+  "assembly": {
+    "accession": "NC_000913.3",
+    "lengthBp": 4641652,
+    "aliases": ["U00096.3"]
+  },
+  "file": {
+    "name": "adams2021-rho-termination.gff3",
+    "format": "gff3",
+    "sha256": "f6e9b1457e6d67470b1436752fc983c711e34103483cc948148fac8db4909323",
+    "byteLength": 263579
+  },
+  "residency": {
+    "kind": "managed"
+  },
+  "kinds": ["terminator"],
+  "label": "Rho termination regions measured with bicyclomycin (Adams 2021)",
+  "evidence": "measured",
+  "license": {
+    "spdx": "CC0-1.0",
+    "attribution": "Rho termination regions: Adams PP, Baniulyte G, Esnault C, et al. Regulatory roles of Escherichia coli 5' UTR and ORF-internal RNAs detected by 3' end mapping. eLife 10:e62438 (2021), doi:10.7554/eLife.62438, CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/). Drawn by DNAForge as the paper's 800-nt measurement windows on each side of the published peak.",
+    "evidenceUrl": "https://api.elifesciences.org/articles/62438",
+    "note": "copyright.license: \"CC0-1.0\"; copyright.statement: \"This is an open-access article, free of all copyright, and may be freely reproduced, distributed, transmitted, modified, built upon, or otherwise used by anyone for any lawful purpose. The work is made available under the Creative Commons CC0 public domain dedication.\""
+  },
+  "citation": "Adams PP, Baniulyte G, Esnault C, Chegireddy K, Singh N, Monge M, Dale RK, Storz G, Wade JT (2021) eLife 10:e62438. Regulatory roles of Escherichia coli 5' UTR and ORF-internal RNAs detected by 3' end mapping.",
+  "url": "https://elifesciences.org/articles/62438",
+  "doi": "10.7554/eLife.62438",
+  "datasetVersion": "eLife version of record 2 (published 2021-01-18, version date 2021-04-13); elife-62438-supp2-v2.xlsx (sheet 'LB 0.5'). score = the Rho score, (reads downstream / upstream with bicyclomycin) / (reads downstream / upstream without), from 800-nt windows",
+  "recordCount": 1078,
+  "countsByKind": {
+    "terminator": 1078
+  },
+  "provenance": {
+    "producedBy": {
+      "tool": "scripts/annotation-datasets/ecoli-k12-mg1655/adams2021-rho-termination/build.py"
+    },
+    "inputs": [
+      {
+        "url": "https://api.elifesciences.org/articles/62438",
+        "sha256": "a9a79cc54cbff9853fe8ff0cfe266dcd9e1fe6e9e0faba6aad3d3da2dcf2086d",
+        "bytes": 266820
+      },
+      {
+        "url": "https://cdn.elifesciences.org/articles/62438/elife-62438-supp2-v2.xlsx",
+        "sha256": "13e489621cd6afd0fa4fe9ecfd9c1cb2bc8877395bd02350e04f55b916f8abe8",
+        "bytes": 110714
+      }
+    ],
+    "notes": [
+      "Records: all 1078 Rho termination regions of Supplementary file 2. The paper publishes only the peak position of each region (the base with the highest Rho score) and notes these positions are \"likely closer to processed RNA 3' ends than the termination sites\", so no exact termination base exists: terminationBp is not set and attributes.peakBp holds the published peak (0-based). Each record spans the paper's measurement window, 800 nt upstream and 800 nt downstream of the peak in RNA direction, with the bounds of the authors' peak caller: + strand [P-800, P+800), - strand [P-801, P+799) for a 1-based peak P (1,600 nt). Windows clipped where they reach past an end of the linear assembly: 1 (241+); the caller itself wraps around the circular genome. score is the Rho score; it is null for the 3 rows the paper marks undefined (no reads downstream without bicyclomycin). Every other Rho score was checked to equal (BCM downstream / BCM upstream) / (untreated downstream / untreated upstream) from the published read counts. Record names give the paper's gene classes in plain words: after (primary), inside (internal), opposite (antisense), away from annotated genes (orphan). Not kept in records.json (reproducible from the build script): the four window read counts, the significance score (Fisher's exact test p-value) and the gene lists. Never used: EcoCyc gene_id identifiers in the details column. Term-seq 3' ends (Supplementary files 1 and 3) are in adams2021-intrinsic-terminators; ends the paper only places in a Rho termination region are not Rho peaks and are not added here."
+    ]
+  }
+}

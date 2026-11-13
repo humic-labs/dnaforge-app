@@ -1,0 +1,851 @@
+{
+  "schemaVersion": 1,
+  "distributor": "Humic Labs Incorporated (doing business as DNAForge)",
+  "sourceRequestContact": "hello@dnaforge.com",
+  "packageLicenseOverrides": {
+    "npm:combine-errors": {
+      "license": "MIT",
+      "evidence": "The package README states \"License: MIT\"; its author is Matthew Mueller."
+    },
+    "npm:gsap": {
+      "license": "LicenseRef-GSAP-Standard-No-Charge",
+      "evidence": "GreenSock's standard \"no charge\" license, published at https://gsap.com/standard-license. The package contains no license text."
+    },
+    "npm:@anthropic-ai/claude-agent-sdk*": {
+      "license": "LicenseRef-Anthropic-Proprietary",
+      "evidence": "The package states © Anthropic PBC, all rights reserved, with use subject to the legal agreements at https://code.claude.com/docs/en/legal-and-compliance. It is not open source."
+    }
+  },
+  "packageSources": {
+    "npm:@img/sharp-libvips-*": "https://github.com/lovell/sharp-libvips/archive/refs/tags/v{version}.tar.gz",
+    "npm:lightningcss*": "https://github.com/parcel-bundler/lightningcss/archive/refs/tags/v{version}.tar.gz"
+  },
+  "mingitPackages": {
+    "bash": {
+      "license": "GPL-3.0-or-later",
+      "source": "https://github.com/git-for-windows/MSYS2-packages/tree/a3b27b0aa946/bash"
+    },
+    "coreutils": {
+      "license": "GPL-3.0-or-later",
+      "source": "https://repo.msys2.org/msys/sources/coreutils-{version}.src.tar.zst"
+    },
+    "dash": {
+      "license": "BSD-3-Clause AND GPL-2.0-or-later",
+      "source": "https://repo.msys2.org/msys/sources/dash-{version}.src.tar.zst"
+    },
+    "diffutils": {
+      "license": "GPL-3.0-or-later",
+      "source": "https://repo.msys2.org/msys/sources/diffutils-{version}.src.tar.zst"
+    },
+    "file": {
+      "license": "BSD-2-Clause",
+      "source": "https://repo.msys2.org/msys/sources/file-{version}.src.tar.zst"
+    },
+    "filesystem": {
+      "license": "BSD-3-Clause",
+      "source": "https://repo.msys2.org/msys/sources/filesystem-{version}.src.tar.zst"
+    },
+    "findutils": {
+      "license": "GPL-3.0-or-later",
+      "source": "https://repo.msys2.org/msys/sources/findutils-{version}.src.tar.zst"
+    },
+    "gawk": {
+      "license": "GPL-3.0-or-later",
+      "source": "https://repo.msys2.org/msys/sources/gawk-{version}.src.tar.zst"
+    },
+    "gcc-libs": {
+      "license": "GPL-3.0-or-later WITH GCC-exception-3.1 AND LGPL-2.1-or-later",
+      "source": "https://repo.msys2.org/msys/sources/gcc-{version}.src.tar.zst"
+    },
+    "gmp": {
+      "license": "LGPL-3.0-or-later OR GPL-2.0-or-later",
+      "source": "https://repo.msys2.org/msys/sources/gmp-{version}.src.tar.zst"
+    },
+    "grep": {
+      "license": "GPL-3.0-or-later",
+      "source": "https://repo.msys2.org/msys/sources/grep-{version}.src.tar.zst"
+    },
+    "heimdal-libs": {
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/git-for-windows/MSYS2-packages/tree/5a1b9b863e26/heimdal",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/heimdal-LICENSE.txt"
+      ]
+    },
+    "libbz2": {
+      "license": "bzip2-1.0.6",
+      "source": "https://repo.msys2.org/msys/sources/bzip2-{version}.src.tar.zst"
+    },
+    "libcbor": {
+      "license": "MIT",
+      "source": "https://github.com/git-for-windows/MSYS2-packages/tree/b4028a3f3c9c/libcbor"
+    },
+    "libfido2": {
+      "license": "BSD-2-Clause",
+      "source": "https://github.com/git-for-windows/MSYS2-packages/tree/d86522540bc5/libfido2"
+    },
+    "libiconv": {
+      "license": "LGPL-2.1-or-later AND GPL-3.0-or-later",
+      "source": "https://repo.msys2.org/msys/sources/libiconv-{version}.src.tar.zst"
+    },
+    "libintl": {
+      "license": "LGPL-2.1-or-later",
+      "source": "https://repo.msys2.org/msys/sources/gettext-{version}.src.tar.zst"
+    },
+    "liblzma": {
+      "license": "0BSD",
+      "source": "https://repo.msys2.org/msys/sources/xz-{version}.src.tar.zst"
+    },
+    "libopenssl": {
+      "license": "Apache-2.0",
+      "source": "https://github.com/git-for-windows/MSYS2-packages/tree/f189e7727174/openssl"
+    },
+    "libpcre": {
+      "license": "BSD-3-Clause",
+      "source": "https://repo.msys2.org/msys/sources/pcre-{version}.src.tar.zst"
+    },
+    "libreadline": {
+      "license": "GPL-3.0-or-later",
+      "source": "https://repo.msys2.org/msys/sources/readline-{version}.src.tar.zst"
+    },
+    "libsasl": {
+      "license": "BSD-Attribution-HPND-disclaimer",
+      "source": "https://repo.msys2.org/msys/sources/cyrus-sasl-{version}.src.tar.zst"
+    },
+    "libsqlite": {
+      "license": "blessing",
+      "source": "https://repo.msys2.org/msys/sources/sqlite-{version}.src.tar.zst"
+    },
+    "libutil-linux": {
+      "license": "GPL-2.0-or-later AND LGPL-2.1-or-later AND BSD-3-Clause",
+      "source": "https://repo.msys2.org/msys/sources/util-linux-{version}.src.tar.zst"
+    },
+    "libxcrypt": {
+      "license": "LGPL-2.1-or-later",
+      "source": "https://repo.msys2.org/msys/sources/libxcrypt-{version}.src.tar.zst"
+    },
+    "libzstd": {
+      "license": "BSD-3-Clause OR GPL-2.0-only",
+      "source": "https://repo.msys2.org/msys/sources/zstd-{version}.src.tar.zst"
+    },
+    "mingw-w64-x86_64-brotli": {
+      "license": "MIT",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-brotli-{version}.src.tar.zst"
+    },
+    "mingw-w64-x86_64-ca-certificates": {
+      "license": "MPL-2.0 AND GPL-2.0-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-ca-certificates-{version}.src.tar.zst"
+    },
+    "mingw-w64-x86_64-curl-openssl-alternate": {
+      "license": "curl",
+      "source": "https://github.com/git-for-windows/MINGW-packages/tree/d6346f571228/mingw-w64-curl"
+    },
+    "mingw-w64-x86_64-curl-winssl": {
+      "license": "curl",
+      "source": "https://github.com/git-for-windows/MINGW-packages/tree/d6346f571228/mingw-w64-curl"
+    },
+    "mingw-w64-x86_64-expat": {
+      "license": "MIT",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-expat-{version}.src.tar.zst"
+    },
+    "mingw-w64-x86_64-gcc-libs": {
+      "license": "GPL-3.0-or-later WITH GCC-exception-3.1 AND LGPL-2.1-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-gcc-{version}.src.tar.zst"
+    },
+    "mingw-w64-x86_64-gettext-runtime": {
+      "license": "GPL-3.0-or-later AND LGPL-2.1-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-gettext-{version}.src.tar.zst"
+    },
+    "mingw-w64-x86_64-git": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/releases/download/{windowsTag}/mingw-w64-git-{version}.src.tar.gz"
+    },
+    "mingw-w64-x86_64-git-credential-manager": {
+      "license": "MIT",
+      "source": "https://github.com/git-ecosystem/git-credential-manager/releases/tag/v{pkgver}"
+    },
+    "mingw-w64-x86_64-git-credential-wincred": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/releases/download/{windowsTag}/mingw-w64-git-{version}.src.tar.gz"
+    },
+    "mingw-w64-x86_64-git-extra": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/build-extra/tree/{commit}/git-extra"
+    },
+    "mingw-w64-x86_64-git-for-windows-addons": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/releases/download/{windowsTag}/mingw-w64-git-{version}.src.tar.gz"
+    },
+    "mingw-w64-x86_64-git-gui": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/releases/download/{windowsTag}/mingw-w64-git-{version}.src.tar.gz"
+    },
+    "mingw-w64-x86_64-git-perl": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/releases/download/{windowsTag}/mingw-w64-git-{version}.src.tar.gz"
+    },
+    "mingw-w64-x86_64-git-send-email": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/releases/download/{windowsTag}/mingw-w64-git-{version}.src.tar.gz"
+    },
+    "mingw-w64-x86_64-git-subtree": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/releases/download/{windowsTag}/mingw-w64-git-{version}.src.tar.gz"
+    },
+    "mingw-w64-x86_64-gitk": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/releases/download/{windowsTag}/mingw-w64-git-{version}.src.tar.gz"
+    },
+    "mingw-w64-x86_64-libffi": {
+      "license": "MIT",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-libffi-{version}.src.tar.zst"
+    },
+    "mingw-w64-x86_64-libiconv": {
+      "license": "LGPL-2.1-or-later AND GPL-3.0-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-libiconv-{version}.src.tar.zst"
+    },
+    "mingw-w64-x86_64-libidn2": {
+      "license": "GPL-2.0-or-later OR LGPL-3.0-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-libidn2-{version}.src.tar.zst"
+    },
+    "mingw-w64-x86_64-libpsl": {
+      "license": "MIT",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-libpsl-{version}.src.tar.zst"
+    },
+    "mingw-w64-x86_64-libssh2-wincng": {
+      "license": "BSD-3-Clause",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-libssh2-{version}.src.tar.zst"
+    },
+    "mingw-w64-x86_64-libtasn1": {
+      "license": "GPL-3.0-or-later AND LGPL-2.1-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-libtasn1-{version}.src.tar.zst"
+    },
+    "mingw-w64-x86_64-libunistring": {
+      "license": "LGPL-3.0-or-later OR GPL-3.0-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-libunistring-{version}.src.tar.zst"
+    },
+    "mingw-w64-x86_64-libwinpthread": {
+      "license": "MIT AND BSD-3-Clause",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-winpthreads-{version}.src.tar.zst",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/mingw-w64-winpthreads-COPYING.txt"
+      ]
+    },
+    "mingw-w64-x86_64-nghttp2": {
+      "license": "MIT",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-nghttp2-{version}.src.tar.zst"
+    },
+    "mingw-w64-x86_64-openssl": {
+      "license": "Apache-2.0",
+      "source": "https://github.com/git-for-windows/MINGW-packages/tree/f9f356a49d27/mingw-w64-openssl"
+    },
+    "mingw-w64-x86_64-pcre2": {
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/git-for-windows/MINGW-packages/tree/86d7410f7327/mingw-w64-pcre2"
+    },
+    "mingw-w64-x86_64-zlib": {
+      "license": "Zlib",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-zlib-{version}.src.tar.zst"
+    },
+    "mingw-w64-x86_64-zstd": {
+      "license": "BSD-3-Clause OR GPL-2.0-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-zstd-{version}.src.tar.zst"
+    },
+    "mpfr": {
+      "license": "LGPL-3.0-or-later",
+      "source": "https://repo.msys2.org/msys/sources/mpfr-{version}.src.tar.zst"
+    },
+    "msys2-runtime": {
+      "license": "LGPL-3.0-or-later AND GPL-3.0-or-later",
+      "source": "https://github.com/git-for-windows/MSYS2-packages/tree/47028f773996/msys2-runtime"
+    },
+    "ncurses": {
+      "license": "MIT",
+      "source": "https://repo.msys2.org/msys/sources/ncurses-{version}.src.tar.zst"
+    },
+    "openssh": {
+      "license": "SSH-OpenSSH",
+      "source": "https://github.com/git-for-windows/MSYS2-packages/tree/6b6a62ea54f1/openssh"
+    },
+    "openssl": {
+      "license": "Apache-2.0",
+      "source": "https://github.com/git-for-windows/MSYS2-packages/tree/f189e7727174/openssl"
+    },
+    "rebase": {
+      "license": "GPL-2.0-or-later",
+      "source": "https://repo.msys2.org/msys/sources/rebase-{version}.src.tar.zst"
+    },
+    "sed": {
+      "license": "GPL-3.0-or-later",
+      "source": "https://repo.msys2.org/msys/sources/sed-{version}.src.tar.zst"
+    },
+    "zlib": {
+      "license": "Zlib",
+      "source": "https://repo.msys2.org/msys/sources/zlib-{version}.src.tar.zst"
+    }
+  },
+  "mingitUcrtPackages": {
+    "mingw-w64-ucrt-x86_64-brotli": {
+      "license": "MIT",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-brotli-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-ca-certificates": {
+      "license": "MPL-2.0 AND GPL-2.0-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-ca-certificates-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-cc-libs": {
+      "license": "GPL-3.0-or-later WITH GCC-exception-3.1 AND GFDL-1.3-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-gcc-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-curl-openssl-alternate": {
+      "license": "curl",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-curl-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-curl-winssl": {
+      "license": "curl",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-curl-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-docx2txt-rs": {
+      "license": "GPL-3.0-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-docx2txt-rs-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-expat": {
+      "license": "MIT",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-expat-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-gcc-libs": {
+      "license": "GPL-3.0-or-later WITH GCC-exception-3.1 AND GFDL-1.3-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-gcc-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-gettext-runtime": {
+      "license": "GPL-3.0-or-later AND LGPL-2.1-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-gettext-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-git": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/archive/refs/tags/{windowsTag}.tar.gz"
+    },
+    "mingw-w64-ucrt-x86_64-git-credential-manager": {
+      "license": "MIT",
+      "source": "https://github.com/git-ecosystem/git-credential-manager/releases/tag/v{pkgver}"
+    },
+    "mingw-w64-ucrt-x86_64-git-credential-wincred": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/archive/refs/tags/{windowsTag}.tar.gz"
+    },
+    "mingw-w64-ucrt-x86_64-git-extra": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/build-extra/tree/{commit}/git-extra"
+    },
+    "mingw-w64-ucrt-x86_64-git-for-windows-addons": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/archive/refs/tags/{windowsTag}.tar.gz"
+    },
+    "mingw-w64-ucrt-x86_64-git-gui": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/archive/refs/tags/{windowsTag}.tar.gz"
+    },
+    "mingw-w64-ucrt-x86_64-git-perl": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/archive/refs/tags/{windowsTag}.tar.gz"
+    },
+    "mingw-w64-ucrt-x86_64-git-send-email": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/archive/refs/tags/{windowsTag}.tar.gz"
+    },
+    "mingw-w64-ucrt-x86_64-git-subtree": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/archive/refs/tags/{windowsTag}.tar.gz"
+    },
+    "mingw-w64-ucrt-x86_64-gitk": {
+      "license": "GPL-2.0-only",
+      "source": "https://github.com/git-for-windows/git/archive/refs/tags/{windowsTag}.tar.gz"
+    },
+    "mingw-w64-ucrt-x86_64-libatomic": {
+      "license": "GPL-3.0-or-later WITH GCC-exception-3.1 AND GFDL-1.3-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-gcc-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-libffi": {
+      "license": "MIT",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-libffi-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-libgcc": {
+      "license": "GPL-3.0-or-later WITH GCC-exception-3.1 AND GFDL-1.3-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-gcc-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-libgomp": {
+      "license": "GPL-3.0-or-later WITH GCC-exception-3.1 AND GFDL-1.3-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-gcc-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-libiconv": {
+      "license": "LGPL-2.1-or-later AND GPL-3.0-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-libiconv-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-libidn2": {
+      "license": "GPL-2.0-or-later OR LGPL-3.0-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-libidn2-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-libpsl": {
+      "license": "MIT",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-libpsl-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-libquadmath": {
+      "license": "LGPL-2.1-or-later AND GFDL-1.2-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-gcc-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-libssh2-wincng": {
+      "license": "BSD-3-Clause",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-libssh2-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-libstdc++": {
+      "license": "GPL-3.0-or-later WITH GCC-exception-3.1 AND GFDL-1.3-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-gcc-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-libtasn1": {
+      "license": "GPL-3.0-or-later AND LGPL-2.1-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-libtasn1-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-libunistring": {
+      "license": "LGPL-3.0-or-later OR GPL-3.0-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-libunistring-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-libwinpthread": {
+      "license": "MIT AND BSD-3-Clause",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-winpthreads-{version}.src.tar.zst",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/mingw-w64-winpthreads-COPYING.txt"
+      ]
+    },
+    "mingw-w64-ucrt-x86_64-nghttp2": {
+      "license": "MIT",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-nghttp2-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-openssl": {
+      "license": "Apache-2.0",
+      "source": "https://github.com/openssl/openssl/archive/refs/tags/openssl-{pkgver}.tar.gz"
+    },
+    "mingw-w64-ucrt-x86_64-pcre2": {
+      "license": "BSD-3-Clause",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-pcre2-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-zlib": {
+      "license": "Zlib",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-zlib-{version}.src.tar.zst"
+    },
+    "mingw-w64-ucrt-x86_64-zstd": {
+      "license": "BSD-3-Clause OR GPL-2.0-or-later",
+      "source": "https://repo.msys2.org/mingw/sources/mingw-w64-zstd-{version}.src.tar.zst"
+    }
+  },
+  "components": [
+    {
+      "id": "dnaforge-sidecar",
+      "kind": "program",
+      "name": "DNAForge sidecar (waypoint-api)",
+      "version": "app",
+      "license": "GPL-3.0-only",
+      "licenseFiles": [
+        "apps/api/LICENSE"
+      ],
+      "homepage": "https://dnaforge.com",
+      "copyleft": true,
+      "notes": "Combines DNAForge code with pLannotate v1.2.2 (GPL-3.0) and primer3 (GPL-2.0-or-later). The Python packages compiled into it are listed under \"Python packages in the DNAForge sidecar\".",
+      "ships": [
+        "binaries/waypoint-api-*"
+      ],
+      "source": "https://github.com/humic-labs/dnaforge-app/tree/v{appVersion}/apps/api"
+    },
+    {
+      "id": "plannotate",
+      "kind": "code",
+      "name": "pLannotate (annotation engine, modified)",
+      "version": "1.2.2",
+      "license": "GPL-3.0-only",
+      "licenseFiles": [
+        "packages/annotation/LICENSE"
+      ],
+      "homepage": "https://github.com/barricklab/pLannotate",
+      "copyleft": true,
+      "notes": "Modified by DNAForge in 2026 and compiled into the DNAForge sidecar; its corresponding source is part of the sidecar source.",
+      "ships": [],
+      "source": "https://github.com/humic-labs/dnaforge-app/tree/v{appVersion}/packages/annotation"
+    },
+    {
+      "id": "plannotate-fpbase-data",
+      "kind": "data",
+      "name": "FPbase fluorescent protein data (pLannotate database, fpbase.csv)",
+      "version": "2020-09-02",
+      "license": "CC-BY-SA-4.0",
+      "licenseFiles": [],
+      "homepage": "https://www.fpbase.org",
+      "notes": "Distributed with pLannotate and packaged into the DNAForge sidecar. FPbase content is licensed under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).",
+      "ships": []
+    },
+    {
+      "id": "plannotate-snapgene-data",
+      "kind": "data",
+      "name": "SnapGene common features list (pLannotate database, snapgene.csv)",
+      "version": "2021-07-23",
+      "license": "LicenseRef-Unknown",
+      "licenseFiles": [],
+      "homepage": "https://www.snapgene.com/resources/plasmid-files",
+      "notes": "Feature list from SnapGene, copied unchanged from the pLannotate database by the Barrick Lab (https://github.com/barricklab/pLannotate/blob/921668f662bd2f386a544b8e2b50f148cb46a65b/plannotate/data/data/snapgene.csv) and packaged into the DNAForge sidecar. SnapGene has published no license for this list. DNAForge redistributes it the way pLannotate does, with credit to SnapGene and pLannotate.",
+      "ships": []
+    },
+    {
+      "id": "golden-gate-ligation-fidelity",
+      "kind": "data",
+      "name": "Golden Gate four-base overhang ligation fidelity data (Pryor et al. 2020)",
+      "version": "2020",
+      "license": "CC-BY-4.0",
+      "licenseFiles": [],
+      "homepage": "https://doi.org/10.1371/journal.pone.0238592",
+      "notes": "Pryor JM, Potapov V, Bilotti K, Pokhrel N, Lohman GJS. Enabling one-pot Golden Gate assemblies of unprecedented complexity using data-optimized assembly design. PLOS ONE. 2020;15(9):e0238592. Ligation counts from the paper's supporting tables, used to score Golden Gate overhang sets.",
+      "ships": []
+    },
+    {
+      "id": "rebase-enzymes",
+      "kind": "data",
+      "name": "Restriction enzyme data (REBASE)",
+      "version": "511",
+      "license": "LicenseRef-REBASE",
+      "licenseFiles": [],
+      "homepage": "http://rebase.neb.com",
+      "notes": "Recognition sites, cut positions and suppliers from REBASE, maintained by New England Biolabs. Roberts RJ, Vincze T, Posfai J, Macelis D. REBASE: a database for DNA restriction and modification: enzymes, genes and genomes. Nucleic Acids Res. 2023;51(D1):D629-D630 (PubMed 36318248).",
+      "ships": []
+    },
+    {
+      "id": "python-runtime",
+      "kind": "program",
+      "name": "Python",
+      "version": "sidecar:python",
+      "license": "PSF-2.0",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/cpython-3.12-license.rst",
+        "apps/desktop/third-party/licenses/bzip2-LICENSE.txt"
+      ],
+      "homepage": "https://www.python.org",
+      "notes": "The DNAForge sidecar runs on this Python interpreter. The Python license document below also covers the OpenSSL, Expat, libffi, libmpdec and zlib code built into it; bzip2 has its own license; SQLite and liblzma require no notice.",
+      "ships": []
+    },
+    {
+      "id": "ncbi-blast-plus",
+      "kind": "program",
+      "name": "NCBI BLAST+ (blastn, makeblastdb)",
+      "version": "2.16.0",
+      "license": "LicenseRef-NCBI-Public-Domain",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/ncbi-blast-plus-LICENSE.txt"
+      ],
+      "homepage": "https://blast.ncbi.nlm.nih.gov/",
+      "source": "https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.16.0/ncbi-blast-2.16.0+-src.tar.gz",
+      "ships": [
+        "binaries/blastn*",
+        "binaries/makeblastdb*",
+        "binaries/blast-dll-versions.json"
+      ]
+    },
+    {
+      "id": "ncbi-vdb",
+      "kind": "library",
+      "name": "NCBI VDB (ncbi-vdb-md.dll)",
+      "version": "bundled with NCBI BLAST+ 2.16.0",
+      "license": "LicenseRef-NCBI-Public-Domain AND bzip2-1.0.6 AND Zlib AND (BSD-3-Clause OR GPL-2.0-only) AND LGPL-2.1-or-later",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/ncbi-vdb-LICENSE.txt",
+        "apps/desktop/third-party/licenses/ncbi-vdb-bzip2-LICENSE.txt",
+        "apps/desktop/third-party/licenses/ncbi-vdb-zlib-LICENSE.txt",
+        "apps/desktop/third-party/licenses/ncbi-vdb-zstd-LICENSE.txt",
+        "apps/desktop/third-party/spdx/LGPL-2.1-or-later.txt"
+      ],
+      "homepage": "https://github.com/ncbi/ncbi-vdb",
+      "source": "https://github.com/ncbi/ncbi-vdb",
+      "copyleft": true,
+      "notes": "Windows builds only: NCBI ships this library with the Windows BLAST+ 2.16.0 package, and blastn and makeblastdb load it. The DLL carries no version information. NCBI's own code is a United States Government work. The library also includes bzip2, zlib, zstd (used under BSD-3-Clause) and an LGPL-2.1-or-later qsort from the GNU C Library.",
+      "ships": [
+        "binaries/ncbi-vdb-md.dll"
+      ]
+    },
+    {
+      "id": "nghttp2",
+      "kind": "library",
+      "name": "nghttp2 (nghttp2.dll)",
+      "version": "windows-runtime:nghttp2.dll",
+      "license": "MIT",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/nghttp2-COPYING.txt"
+      ],
+      "homepage": "https://nghttp2.org/",
+      "notes": "Windows builds only: NCBI ships this library with the Windows BLAST+ 2.16.0 package.",
+      "ships": [
+        "binaries/nghttp2.dll"
+      ]
+    },
+    {
+      "id": "diamond",
+      "kind": "program",
+      "name": "DIAMOND",
+      "version": "2.1.19",
+      "license": "GPL-3.0-only",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/diamond-LICENSE.txt"
+      ],
+      "homepage": "https://github.com/bbuchfink/diamond",
+      "source": "https://github.com/bbuchfink/diamond/archive/refs/tags/v2.1.19.tar.gz",
+      "copyleft": true,
+      "notes": "Upstream ships the GPLv3 text without an \"or later\" grant.",
+      "ships": [
+        "binaries/diamond*"
+      ]
+    },
+    {
+      "id": "infernal",
+      "kind": "program",
+      "name": "Infernal (cmscan, cmpress), including Easel, HMMER and libdivsufsort-lite",
+      "version": "1.1.5",
+      "license": "BSD-3-Clause AND MIT",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/infernal-LICENSE.txt",
+        "apps/desktop/third-party/licenses/easel-LICENSE.txt",
+        "apps/desktop/third-party/licenses/hmmer-LICENSE.txt",
+        "apps/desktop/third-party/licenses/libdivsufsort-COPYING.txt"
+      ],
+      "homepage": "http://eddylab.org/infernal/",
+      "source": "http://eddylab.org/infernal/infernal-1.1.5.tar.gz",
+      "ships": [
+        "binaries/cmscan*",
+        "binaries/cmpress*",
+        "binaries/EASEL-LICENSE.txt",
+        "binaries/HMMER-LICENSE.txt",
+        "binaries/INFERNAL-LICENSE.txt"
+      ]
+    },
+    {
+      "id": "mingw-gcc-runtime",
+      "kind": "library",
+      "name": "GCC runtime library (libgcc_s_seh-1.dll)",
+      "version": "windows-runtime:libgcc_s_seh-1.dll",
+      "license": "GPL-3.0-or-later WITH GCC-exception-3.1",
+      "licenseFiles": [],
+      "homepage": "https://gcc.gnu.org/",
+      "source": "https://repo.msys2.org/mingw/sources/{base}-{version}.src.tar.zst",
+      "notes": "Windows builds only: cmscan and cmpress use it. It is MSYS2's MinGW-w64 build. The GCC Runtime Library Exception lets programs compiled with GCC use it under their own licenses.",
+      "ships": [
+        "binaries/libgcc_s_seh-1.dll"
+      ]
+    },
+    {
+      "id": "mingw-winpthreads",
+      "kind": "library",
+      "name": "MinGW-w64 winpthreads (libwinpthread-1.dll)",
+      "version": "windows-runtime:libwinpthread-1.dll",
+      "license": "MIT AND BSD-3-Clause",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/mingw-w64-winpthreads-COPYING.txt"
+      ],
+      "homepage": "https://www.mingw-w64.org/",
+      "source": "https://repo.msys2.org/mingw/sources/{base}-{version}.src.tar.zst",
+      "notes": "Windows builds only: cmscan and cmpress use it. It is MSYS2's MinGW-w64 build.",
+      "ships": [
+        "binaries/libwinpthread-1.dll"
+      ]
+    },
+    {
+      "id": "mafft",
+      "kind": "program",
+      "name": "MAFFT",
+      "version": "7.526",
+      "license": "BSD-3-Clause",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/mafft-LICENSE.txt"
+      ],
+      "homepage": "https://mafft.cbrc.jp/alignment/software/",
+      "ships": [
+        "binaries/mafft",
+        "binaries/mafft.bat",
+        "binaries/mafft-mac",
+        "binaries/mafft-win"
+      ]
+    },
+    {
+      "id": "codex-app-server",
+      "kind": "program",
+      "name": "OpenAI Codex app server",
+      "version": "0.148.0",
+      "license": "Apache-2.0",
+      "licenseFiles": [
+        "packages/core/codex-app-server-contract/LICENSE",
+        "packages/core/codex-app-server-contract/THIRD_PARTY_NOTICES.md"
+      ],
+      "homepage": "https://github.com/openai/codex",
+      "source": "https://github.com/openai/codex/tree/rust-v0.148.0",
+      "ships": [
+        "binaries/codex-app-server"
+      ]
+    },
+    {
+      "id": "opendataloader-pdf",
+      "kind": "program",
+      "name": "OpenDataLoader PDF",
+      "version": "2.5.1",
+      "license": "Apache-2.0",
+      "licenseFiles": [
+        "node_modules/@opendataloader/pdf/LICENSE",
+        "node_modules/@opendataloader/pdf/NOTICE",
+        "node_modules/@opendataloader/pdf/THIRD_PARTY/THIRD_PARTY_NOTICES.md",
+        "node_modules/@opendataloader/pdf/THIRD_PARTY/THIRD_PARTY_LICENSES.md"
+      ],
+      "homepage": "https://github.com/opendataloader-project/opendataloader-pdf",
+      "ships": [
+        "binaries/opendataloader-pdf"
+      ]
+    },
+    {
+      "id": "temurin",
+      "kind": "program",
+      "name": "Eclipse Temurin 17 Java runtime (jlink image used by OpenDataLoader PDF)",
+      "version": "17.0.20.1+1",
+      "license": "GPL-2.0-only WITH Classpath-exception-2.0",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/temurin-LICENSE.txt",
+        "apps/desktop/third-party/licenses/temurin-ASSEMBLY_EXCEPTION.txt",
+        "apps/desktop/third-party/licenses/temurin-ADDITIONAL_LICENSE_INFO.txt"
+      ],
+      "homepage": "https://adoptium.net/",
+      "source": "https://github.com/adoptium/jdk17u/archive/refs/tags/jdk-17.0.20.1%2B1.tar.gz",
+      "copyleft": true,
+      "notes": "Each Java module's own notices, including its third-party libraries, are in the runtime's legal/ directory inside binaries/opendataloader-pdf.",
+      "ships": []
+    },
+    {
+      "id": "git",
+      "kind": "program",
+      "name": "Git (bundled by dugite)",
+      "version": "2.53.0",
+      "license": "GPL-2.0-only",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/git-COPYING.txt"
+      ],
+      "homepage": "https://git-scm.com/",
+      "source": "https://github.com/git/git/archive/refs/tags/v2.53.0.tar.gz",
+      "copyleft": true,
+      "notes": "Shipped inside app.asar.unpacked/node_modules/dugite/git. On Windows, dugite bundles MinGit (Git for Windows) instead; its packages are listed under \"Packages in the Windows Git bundle\". The dugite wrapper itself is MIT and listed with the npm packages.",
+      "ships": []
+    },
+    {
+      "id": "git-lfs",
+      "kind": "program",
+      "name": "Git LFS (bundled by dugite)",
+      "version": "3.7.1",
+      "license": "MIT",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/git-lfs-LICENSE.txt"
+      ],
+      "homepage": "https://git-lfs.com/",
+      "source": "https://github.com/git-lfs/git-lfs/tree/v3.7.1",
+      "ships": []
+    },
+    {
+      "id": "git-credential-manager",
+      "kind": "program",
+      "name": "Git Credential Manager (bundled by dugite)",
+      "version": "2.7.3",
+      "license": "MIT",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/git-credential-manager-LICENSE.txt",
+        "apps/desktop/third-party/licenses/git-credential-manager-NOTICE.txt"
+      ],
+      "homepage": "https://github.com/git-ecosystem/git-credential-manager",
+      "source": "https://github.com/git-ecosystem/git-credential-manager/tree/v2.7.3",
+      "ships": []
+    },
+    {
+      "id": "electron",
+      "kind": "program",
+      "name": "Electron and Chromium",
+      "version": "npm:electron",
+      "license": "MIT",
+      "licenseFiles": [
+        "node_modules/electron/dist/LICENSE"
+      ],
+      "homepage": "https://www.electronjs.org/",
+      "notes": "Chromium and its third-party components are licensed as listed in LICENSES.chromium.html, shipped in the application's Resources folder.",
+      "ships": []
+    },
+    {
+      "id": "fastp",
+      "kind": "program",
+      "name": "fastp, including Intel ISA-L, libdeflate and Highway",
+      "version": "1.4.0",
+      "license": "MIT AND BSD-3-Clause AND (Apache-2.0 OR BSD-3-Clause)",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/fastp-LICENSE.txt",
+        "apps/desktop/third-party/licenses/isa-l-LICENSE.txt",
+        "apps/desktop/third-party/licenses/libdeflate-LICENSE.txt",
+        "apps/desktop/third-party/licenses/highway-LICENSE.txt"
+      ],
+      "homepage": "https://github.com/OpenGene/fastp",
+      "source": "https://github.com/OpenGene/fastp/archive/refs/tags/v1.4.0.tar.gz",
+      "notes": "Statically linked dependency sources: Intel ISA-L 2.32.1 (https://github.com/intel/isa-l/archive/refs/tags/v2.32.1.tar.gz); libdeflate 1.26 (https://github.com/ebiggers/libdeflate/archive/refs/tags/v1.26.tar.gz); Highway 1.4.0 (https://github.com/google/highway/archive/refs/tags/1.4.0.tar.gz).",
+      "ships": [
+        "Helpers/fastp-*"
+      ]
+    },
+    {
+      "id": "minimap2",
+      "kind": "program",
+      "name": "minimap2, including SSE2NEON",
+      "version": "2.31-r1302",
+      "license": "MIT",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/minimap2-LICENSE.txt",
+        "apps/desktop/third-party/licenses/minimap2-sse2neon-LICENSE.txt"
+      ],
+      "homepage": "https://github.com/lh3/minimap2",
+      "source": "https://github.com/lh3/minimap2/releases/download/v2.31/minimap2-2.31.tar.bz2",
+      "ships": [
+        "Helpers/minimap2-*"
+      ]
+    },
+    {
+      "id": "samtools",
+      "kind": "program",
+      "name": "SAMtools, including HTSlib, HTSCodecs and LZ4",
+      "version": "1.24",
+      "license": "MIT AND BSD-2-Clause AND BSD-3-Clause AND CC0-1.0",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/samtools-LICENSE.txt",
+        "apps/desktop/third-party/licenses/samtools-lz4-LICENSE.txt",
+        "apps/desktop/third-party/licenses/htslib-LICENSE.txt",
+        "apps/desktop/third-party/licenses/htscodecs-LICENSE.txt"
+      ],
+      "homepage": "https://github.com/samtools/samtools",
+      "source": "https://github.com/samtools/samtools/releases/download/1.24/samtools-1.24.tar.bz2",
+      "notes": "Linked with HTSlib 1.25 from https://github.com/samtools/htslib/releases/download/1.25/htslib-1.25.tar.bz2. HTSCodecs is included in that HTSlib archive; LZ4 is included in the SAMtools archive.",
+      "ships": [
+        "Helpers/samtools-*"
+      ]
+    },
+    {
+      "id": "dnaforge-native",
+      "kind": "first-party",
+      "name": "DNAForge native helpers",
+      "version": "app",
+      "license": "GPL-3.0-only",
+      "licenseFiles": [],
+      "homepage": "https://dnaforge.com",
+      "copyleft": true,
+      "notes": "DNAForge's own programs. Their Rust dependencies are listed under \"Rust crates in DNAForge helpers\".",
+      "ships": [
+        "binaries/sequence-wheel-*.node",
+        "Helpers/coverage-build-provenance.json",
+        "Helpers/dna-coverage-*",
+        "Helpers/dna-indexer-*",
+        "Helpers/dna-process-guardian-*",
+        "Helpers/dnaforge-file-association",
+        "Helpers/dnaforge-update-status"
+      ],
+      "source": "https://github.com/humic-labs/dnaforge-app/tree/v{appVersion}"
+    }
+  ]
+}

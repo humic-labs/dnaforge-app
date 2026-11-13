@@ -1,0 +1,436 @@
+// @vitest-environment node
+import { afterEach, expect, it, vi } from 'vitest';
+import { request } from 'node:http';
+import { startNativeDocumentCommandServer } from './native-document-command-server';
+import { NativeDocumentCommandError } from '../shared/native-document-error';
+import type { FileDocumentSnapshot } from '../shared/file-document';
+import type { ImportReviewAgentInput } from '../shared/import-review-command';
+import type { ImportReviewInspection } from '../shared/import-review';
+import type { SequenceDocumentSnapshot } from '../shared/sequence-document';
+
+const servers: { close(): Promise<void> }[] = [];
+afterEach(async () => {
+  for (const server of servers.splice(0)) await server.close();
+});
+
+async function fixture() {
+  const owner = {
+    inspect: vi.fn(async () => ({ operationId: 'op-1' })),
+    apply: vi.fn(async () => ({ status: 'blocked', reason: 'Fixture refusal' })),
+    close: vi.fn(async () => undefined),
+  };
+  const authority = { ownerInstanceId: 'native-1', token: 'private-native-1' };
+  const snapshot: FileDocumentSnapshot = {
+    documentId: 'file-1',
+    path: '/workspace/closed.txt',
+    type: 'text',
+    revision: 'draft-1',
+    persistedRevision: 'saved-1',
+    ready: true,
+    readOnly: false,
+    dirty: false,
+    saving: false,
+    canUndo: false,
+    canRedo: false,
+    capabilities: ['inspect', 'replace-text', 'save'],
+    content: 'saved',
+    persistedContent: 'saved',
+    diskContent: 'saved',
+    text: 'saved',
+  };
+  const fileOwner = { executeAgent: vi.fn(async () => snapshot) };
+  const sequenceSnapshot: SequenceDocumentSnapshot = {
+    documentId: 'sequence-1',
+    path: '/workspace/pUC19.gb',
+    workspaceRoot: '/workspace',
+    revision: 'sequence-draft-v1:owner:sequence-1:3',
+    persistedRevision: 'sequence-draft-v1:owner:sequence-1:3',
+    version: 3,
+    savedVersion: 3,
+    ready: true,
+    readOnly: false,
+    dirty: false,
+    saving: false,
+    canUndo: false,
+    canRedo: false,
+    length: 2686,
+    annotationCount: 0,
+    capabilities: ['inspect', 'replace-bases', 'save'],
+  };
+  const sequenceOwner = {
+    execute: vi.fn(async (): Promise<SequenceDocumentSnapshot> => sequenceSnapshot),
+  };
+  const notebookOwner = {
+    executePublic: vi.fn(async () => ({
+      documentId: 'notebook-1',
+      blocks: [],
+      revision: 'notebook-revision',
+    })),
+  };
+  const review: ImportReviewInspection = {
+    id: 'review-1',
+    revision: 'review-revision',
+    workspaceRoot: '/workspace',
+    destinationDir: '/workspace',
+    phase: 'applied',
+    sourceName: 'source.csv',
+    sourceFingerprint: 'source-hash',
+    sourceKind: 'csv',
+    columns: [],
+    totalRecords: 0,
+    records: [],
+    nextOffset: null,
+    canApply: false,
+  };
+  const importReviews = {
+    executeAgent: vi.fn(
+      async (
+        _input: ImportReviewAgentInput,
+        _agent: { identityId: string; capabilities: readonly string[] },
+        _assertCurrent?: () => void
+      ) => review
+    ),
+  };
+  const getAuthority = vi.fn(() => authority);
+  const server = await startNativeDocumentCommandServer({
+    owner,
+    fileOwner,
+    sequenceOwner,
+    notebookOwner,
+    importReviews,
+    getAuthority,
+  });
+  servers.push(server);
+  const body = {
+    ownerInstanceId: 'native-1',
+    command: 'annotation.inspect',
+    target: { operationId: 'op-1', targetDocumentId: 'doc-1' },
+    authority: { schema: 'opaque-authority-validated-by-owner' },
+  };
+  return {
+    server,
+    owner,
+    fileOwner,
+    sequenceSnapshot,
+    sequenceOwner,
+    notebookOwner,
+    importReviews,
+    authority,
+    getAuthority,
+    body,
+    call: (
+      input: unknown = body,
+      token: string | null = authority.token,
+      extra: HeadersInit = {}
+    ) =>
+      fetch(server.url + '/internal/native-documents/call', {
+        method: 'POST',
+        body: JSON.stringify(input),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'X-DNAForge-Native-Document-Authority': token } : {}),
+          ...extra,
+        },
+      }),
+  };
+}
+
+it('dispatches a private native inspection without a window or renderer bridge', async () => {
+  const f = await fixture();
+  expect(f.server.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+  const response = await f.call();
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    ok: true,
+    ownerInstanceId: 'native-1',
+    result: { operationId: 'op-1' },
+  });
+  expect(f.owner.inspect).toHaveBeenCalledExactlyOnceWith(f.body.target, f.body.authority);
+});
+
+it('routes bounded public notebook commands directly to the native owner and refuses UI transactions', async () => {
+  const f = await fixture();
+  const request = { pageId: 'notebook-1', operation: { kind: 'inspect' } };
+  const response = await f.call({
+    ownerInstanceId: 'native-1',
+    command: 'notebook.execute',
+    request,
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    result: { documentId: 'notebook-1', revision: 'notebook-revision', blocks: [] },
+  });
+  expect(f.notebookOwner.executePublic).toHaveBeenCalledExactlyOnceWith({
+    ...request,
+    operation: { kind: 'inspect', offset: 0, limit: 20 },
+  });
+  const privateInput = await f.call({
+    ownerInstanceId: 'native-1',
+    command: 'notebook.execute',
+    request: { documentId: 'notebook-1', operation: { kind: 'apply-steps', steps: [] } },
+  });
+  expect(privateInput.status).toBe(400);
+  expect(f.notebookOwner.executePublic).toHaveBeenCalledOnce();
+});
+
+it('dispatches a native file request without a canvas tab or renderer bridge', async () => {
+  const f = await fixture();
+  const input = { target: { path: '/workspace/closed.txt' }, operation: { kind: 'inspect' } };
+  const response = await f.call({
+    ownerInstanceId: 'native-1',
+    command: 'file.execute',
+    agent: { identityId: 'agent-1', capabilities: ['read-workspace', 'write-workspace'] },
+    request: input,
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    ok: true,
+    result: { documentId: 'file-1', text: 'saved' },
+  });
+  expect(f.fileOwner.executeAgent).toHaveBeenCalledExactlyOnceWith(
+    {
+      ...input,
+      operation: {
+        kind: 'inspect',
+        offset: 0,
+        limit: 2000,
+        rowOffset: 0,
+        rowLimit: 20,
+        columnOffset: 0,
+        columnLimit: 20,
+      },
+    },
+    { identityId: 'agent-1', capabilities: ['read-workspace', 'write-workspace'] }
+  );
+  expect(f.owner.inspect).not.toHaveBeenCalled();
+});
+
+it('returns the next native sequence mutation input to agents without private save state', async () => {
+  const f = await fixture();
+  const execute = (operation: Record<string, unknown>, expectedVersion?: number) =>
+    f.call({
+      ownerInstanceId: 'native-1',
+      command: 'sequence.execute',
+      request: { documentId: 'sequence-1', expectedVersion, operation },
+    });
+  const inspected = await execute({ kind: 'inspect' });
+  expect(inspected.status).toBe(200);
+  const inspection = (await inspected.json()) as { result: Record<string, unknown> };
+  expect(inspection.result).toMatchObject({
+    documentId: 'sequence-1',
+    version: 3,
+    nextMutationInput: { documentId: 'sequence-1', expectedVersion: 3 },
+  });
+  expect(inspection.result).not.toHaveProperty('outcome');
+  f.sequenceOwner.execute.mockResolvedValueOnce({
+    ...f.sequenceSnapshot,
+    version: 4,
+    savedVersion: 4,
+    saved: true,
+    captureId: 'capture-1',
+    history: { status: 'committed' },
+  });
+  const saved = (await (await execute({ kind: 'save' }, 3)).json()) as {
+    result: Record<string, unknown>;
+  };
+  expect(saved.result).toMatchObject({
+    saved: true,
+    outcome: 'saved',
+    history: { status: 'committed' },
+    nextMutationInput: { documentId: 'sequence-1', expectedVersion: 4 },
+  });
+  expect(saved.result).not.toHaveProperty('captureId');
+  f.sequenceOwner.execute.mockResolvedValueOnce({ ...f.sequenceSnapshot, readOnly: true });
+  const readOnly = (await (await execute({ kind: 'inspect' })).json()) as {
+    result: Record<string, unknown>;
+  };
+  expect(readOnly.result.nextMutationInput).toBeNull();
+});
+
+it('requires trusted current authority when dispatching retained import actions', async () => {
+  const f = await fixture();
+  const request = {
+    project: '/workspace',
+    operation: { kind: 'execute', id: 'review-1', command: { kind: 'inspect' } },
+  };
+  const body = { ownerInstanceId: 'native-1', command: 'import-review.execute', request };
+  expect((await f.call(body)).status).toBe(400);
+  expect(f.importReviews.executeAgent).not.toHaveBeenCalled();
+  const agent = { identityId: 'agent-1', capabilities: ['read-workspace'] };
+  expect((await f.call({ ...body, agent })).status).toBe(200);
+  expect(f.importReviews.executeAgent).toHaveBeenCalledExactlyOnceWith(
+    request,
+    agent,
+    expect.any(Function)
+  );
+  const assertCurrent = f.importReviews.executeAgent.mock.calls[0][2];
+  expect(assertCurrent).toBeTypeOf('function');
+  f.authority.token = 'rotated';
+  expect(() => assertCurrent?.()).toThrow('NATIVE_DOCUMENT_OWNER_CHANGED');
+});
+
+it('retains an explicit native file stale refusal without implying a write occurred', async () => {
+  const f = await fixture();
+  f.fileOwner.executeAgent.mockRejectedValue(
+    new NativeDocumentCommandError('STALE_FILE_DRAFT', 'The human edited this file.', false)
+  );
+  const response = await f.call({
+    ownerInstanceId: 'native-1',
+    command: 'file.execute',
+    agent: { identityId: 'agent-1', capabilities: ['read-workspace', 'write-workspace'] },
+    request: {
+      target: { documentId: 'file-1' },
+      operation: { kind: 'save' },
+      expectedRevision: 'old',
+    },
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    ok: true,
+    result: {
+      ok: false,
+      code: 'STALE_FILE_DRAFT',
+      stateChanged: false,
+      partialEffects: [],
+    },
+  });
+});
+
+it('refuses an untyped native file mutation before calling its owner', async () => {
+  const f = await fixture();
+  const response = await f.call({
+    ownerInstanceId: 'native-1',
+    command: 'file.execute',
+    agent: { identityId: 'agent-1', capabilities: ['read-workspace', 'write-workspace'] },
+    request: {
+      target: { path: '/workspace/closed.txt' },
+      operation: { kind: 'shell', command: 'arbitrary' },
+    },
+  });
+  expect(response.status).toBe(400);
+  expect(f.fileOwner.executeAgent).not.toHaveBeenCalled();
+});
+
+it('does not infer no effect from an untyped FILE_CHANGED message after acceptance', async () => {
+  const f = await fixture();
+  f.fileOwner.executeAgent.mockRejectedValue(
+    new Error('FILE_CHANGED: A post-publication observation failed.')
+  );
+  const response = await f.call({
+    ownerInstanceId: 'native-1',
+    command: 'file.execute',
+    agent: { identityId: 'agent-1', capabilities: ['read-workspace', 'write-workspace'] },
+    request: {
+      target: { documentId: 'file-1' },
+      operation: { kind: 'save' },
+      expectedRevision: 'old',
+    },
+  });
+  expect(response.status).toBe(500);
+  expect(await response.json()).toMatchObject({
+    ok: false,
+    accepted: true,
+    error: { code: 'NATIVE_DOCUMENT_OUTCOME_UNCONFIRMED' },
+  });
+});
+
+it('refuses ordinary, expired and browser-origin credentials before any dispatch', async () => {
+  const f = await fixture();
+  for (const token of [null, 'human-operation-token', 'old-native']) {
+    expect((await f.call(f.body, token)).status).toBe(403);
+  }
+  expect(
+    (await f.call(f.body, f.authority.token, { Origin: 'http://localhost:3000' })).status
+  ).toBe(403);
+  expect(f.owner.inspect).not.toHaveBeenCalled();
+});
+
+it('binds each request to the expected native owner and a bounded typed input', async () => {
+  const f = await fixture();
+  expect((await f.call({ ...f.body, ownerInstanceId: 'old-owner' })).status).toBe(409);
+  expect((await f.call({ ...f.body, command: 'run-shell-command' })).status).toBe(400);
+  expect((await f.call({ ...f.body, actorId: 'forged' })).status).toBe(400);
+  const oversized = await f.call({ ...f.body, authority: 'x'.repeat(18 * 1024 * 1024) });
+  expect(oversized.status).toBe(413);
+  expect(await oversized.json()).toEqual({
+    ok: false,
+    accepted: false,
+    error: { code: 'INVALID_NATIVE_DOCUMENT_REQUEST' },
+  });
+  expect(f.owner.inspect).not.toHaveBeenCalled();
+});
+
+it('can carry a retained result larger than the old renderer bridge request limit', async () => {
+  const f = await fixture();
+  const body = { ...f.body, authority: { retainedResult: 'x'.repeat(2 * 1024 * 1024) } };
+  expect((await f.call(body)).status).toBe(200);
+  expect(f.owner.inspect).toHaveBeenCalledOnce();
+});
+
+it('forwards only an admitted Apply request and preserves its concrete result', async () => {
+  const f = await fixture();
+  const request = {
+    actionId: 'action-1',
+    requestSha256: `sha256:${'a'.repeat(64)}`,
+    selection: {
+      ...f.body.target,
+      expectedOperationVersion: 1,
+      expectedResultSha256: `sha256:${'b'.repeat(64)}`,
+      expectedTargetDocumentRevision: `annotation-document-v1:sha256:${'c'.repeat(64)}`,
+      selectedCandidateIds: ['op-1:0'],
+    },
+  };
+  const response = await f.call({
+    ownerInstanceId: 'native-1',
+    command: 'annotation.apply',
+    request,
+  });
+  expect(response.status).toBe(200);
+  expect(f.owner.apply).toHaveBeenCalledExactlyOnceWith(request);
+  expect(await response.json()).toMatchObject({
+    result: { status: 'blocked', reason: 'Fixture refusal' },
+  });
+});
+
+it('does not label a missing completion as permission to repeat an accepted save', async () => {
+  const f = await fixture();
+  f.owner.inspect.mockRejectedValue(new Error('private internal failure'));
+  const response = await f.call();
+  expect(response.status).toBe(500);
+  expect(await response.json()).toMatchObject({
+    ok: false,
+    accepted: true,
+    error: { code: 'NATIVE_DOCUMENT_OUTCOME_UNCONFIRMED' },
+  });
+});
+
+it('refuses authority rotated while a request body was still arriving', async () => {
+  const f = await fixture();
+  const payload = JSON.stringify(f.body);
+  let finish: (() => void) | undefined;
+  const completed = new Promise<number | undefined>((resolve, reject) => {
+    const req = request(
+      f.server.url + '/internal/native-documents/call',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Length': Buffer.byteLength(payload),
+          'X-DNAForge-Native-Document-Authority': f.authority.token,
+        },
+      },
+      (response) => {
+        response.resume();
+        response.on('end', () => resolve(response.statusCode));
+      }
+    );
+    req.once('error', reject);
+    req.write(payload.slice(0, 10));
+    finish = () => req.end(payload.slice(10));
+  });
+  await vi.waitFor(() => expect(f.getAuthority).toHaveBeenCalledOnce());
+  f.authority.token = 'rotated-native-token';
+  if (!finish) throw new Error('The fixture request did not start');
+  finish();
+  expect(await completed).toBe(409);
+  expect(f.owner.inspect).not.toHaveBeenCalled();
+});

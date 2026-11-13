@@ -1,0 +1,883 @@
+@import './terminal-theme.css';
+
+.dnaforge-terminal-workspace {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  color: hsl(var(--color-fg));
+  background: hsl(var(--color-bg));
+}
+.dnaforge-terminal-workspace > aside {
+  width: 260px;
+  max-width: 36%;
+  min-width: 180px;
+  flex-shrink: 0;
+  display: flex;
+  overflow: hidden;
+  background: hsl(var(--color-bg-subtle));
+  border-right: 1px solid hsl(var(--color-border));
+}
+.dnaforge-terminal-workspace-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.dnaforge-terminal-workspace-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: hsl(var(--color-fg-muted));
+  font-size: 13px;
+}
+.dnaforge-terminal-workspace-empty button {
+  padding: 6px 12px;
+  border: 1px solid hsl(var(--color-border));
+  border-radius: var(--radius-sm);
+}
+
+.dnaforge-terminal-parent {
+  position: relative;
+  min-width: 0;
+}
+.dnaforge-terminal-dock {
+  position: relative;
+  border-top: 1px solid var(--terminal-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 28px;
+  overflow: hidden;
+  background: var(--terminal-background);
+  color: var(--terminal-foreground);
+}
+.dnaforge-terminal-dock[data-open='true'] {
+  container-type: inline-size;
+}
+.dnaforge-terminal-dock[data-open='true'][data-presentation='workspace'] {
+  position: absolute;
+  inset: 16px;
+  z-index: 40;
+  border: 1px solid var(--terminal-border);
+  border-radius: 16px;
+  box-shadow:
+    0 20px 64px #11111b30,
+    0 2px 6px #11111b12,
+    inset 0 1px 0 #ffffff08;
+}
+.dnaforge-terminal-dock[data-open='true'][data-presentation='workspace'][data-maximized='true'] {
+  inset: 0;
+  border-radius: 0;
+}
+.dnaforge-terminal-dock[data-open='false'] {
+  position: absolute;
+  bottom: 16px;
+  right: 20px;
+  z-index: 40;
+  border: 1px solid var(--terminal-border);
+  border-radius: 12px;
+  box-shadow: 0 4px 14px #0002;
+}
+.dnaforge-terminal-window {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.dnaforge-terminal-toolbar {
+  flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  min-height: 28px;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.dnaforge-terminal-toolbar button,
+.dnaforge-terminal-tab-row button {
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.dnaforge-terminal-toolbar button:hover {
+  background: #8883;
+}
+.dnaforge-terminal-toolbar button:disabled {
+  opacity: 0.45;
+}
+.dnaforge-terminal-toolbar input:not([type='checkbox']),
+.dnaforge-terminal-toolbar select {
+  background: transparent;
+  border: 1px solid #8886;
+  border-radius: 3px;
+  padding: 2px 4px;
+}
+.dnaforge-terminal-toolbar input[type='number'] {
+  width: 75px;
+}
+.dnaforge-terminal-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dnaforge-terminal-content {
+  flex-direction: column-reverse;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.dnaforge-terminal-groups {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+.dnaforge-terminal-group {
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+}
+.dnaforge-terminal-host-slot {
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+}
+.dnaforge-terminal-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+.dnaforge-terminal-editor-target {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.dnaforge-terminal-pane {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: 14px 18px;
+  background: var(--terminal-background);
+  color: var(--terminal-foreground);
+}
+.dnaforge-terminal-emulator {
+  width: 100%;
+  height: 100%;
+}
+.dnaforge-terminal-pane[data-command-decorations='both'],
+.dnaforge-terminal-pane[data-command-decorations='gutter'] {
+  padding-left: 28px;
+}
+.dnaforge-terminal-command-decoration button {
+  position: absolute;
+  left: -21px;
+  top: 0;
+  width: 18px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  line-height: inherit;
+  font-size: 15px;
+  pointer-events: auto;
+}
+.dnaforge-terminal-command-decoration button[data-status='success'] {
+  color: #389458;
+}
+.dnaforge-terminal-command-decoration button[data-status='error'] {
+  color: #f14c4c;
+}
+.dnaforge-terminal-command-decoration button:hover,
+.dnaforge-terminal-command-decoration button:focus-visible {
+  background: #8883;
+  outline: 1px solid currentColor;
+}
+.dnaforge-terminal-command-actions {
+  max-width: min(680px, 90vw);
+  padding: 16px;
+  border: 1px solid var(--border, #8885);
+  border-radius: 6px;
+}
+.dnaforge-terminal-command-actions pre {
+  max-height: 25vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  margin: 12px 0;
+}
+.dnaforge-terminal-sticky-scroll {
+  position: absolute;
+  z-index: 12;
+  overflow: hidden;
+  cursor: pointer;
+  background: inherit;
+  box-shadow: 0 2px 3px #0003;
+  border-bottom: 1px solid var(--border, #8885);
+}
+.dnaforge-terminal-sticky-scroll:focus-visible {
+  outline: 1px solid currentColor;
+}
+.dnaforge-terminal-sticky-scroll .xterm-viewport {
+  overflow: hidden !important;
+}
+.dnaforge-terminal-pane[data-fixed-dimensions='true'] .dnaforge-terminal-emulator {
+  overflow: auto;
+}
+.dnaforge-terminal-dimensions {
+  padding: 16px;
+  max-width: 420px;
+  border: 1px solid var(--border, #8885);
+  border-radius: 6px;
+}
+.dnaforge-terminal-dimensions label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+}
+.dnaforge-terminal-dimensions input {
+  background: transparent;
+  border: 1px solid #8886;
+  border-radius: 3px;
+  width: 120px;
+}
+.dnaforge-terminal-search {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  z-index: 30;
+  max-width: calc(100% - 16px);
+  padding: 4px;
+  gap: 4px;
+  border: 1px solid var(--border, #8885);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px #0004;
+}
+.dnaforge-terminal-search input {
+  min-width: 80px;
+  width: 160px;
+  flex: 1;
+}
+.dnaforge-terminal-search button[aria-pressed='true'] {
+  background: #6488dd55;
+}
+.dnaforge-terminal-pane-target {
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+.dnaforge-terminal-pane + .dnaforge-terminal-pane {
+  border-left: 1px solid #8885;
+}
+.dnaforge-terminal-pane .xterm {
+  height: 100%;
+}
+.dnaforge-terminal-pane .xterm-viewport {
+  background-color: transparent;
+}
+.dnaforge-terminal-split-resizer {
+  flex-shrink: 0;
+  background: hsl(var(--color-border));
+  transition: background-color 150ms;
+}
+.dnaforge-terminal-split-resizer.horizontal {
+  width: 4px;
+  cursor: col-resize;
+}
+.dnaforge-terminal-split-resizer.vertical {
+  height: 4px;
+  cursor: row-resize;
+}
+.dnaforge-terminal-split-resizer:hover {
+  background: hsl(var(--color-accent) / 0.5);
+}
+.dnaforge-terminal-split-resizer:active {
+  background: hsl(var(--color-accent));
+}
+.dnaforge-terminal-split-resizer:focus-visible {
+  outline: 2px solid hsl(var(--color-accent));
+  outline-offset: -2px;
+}
+.dnaforge-terminal-tabs {
+  position: static;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 30px;
+  max-width: 100%;
+  padding: 0;
+  gap: 6px;
+  overflow: hidden;
+  background: transparent;
+  font-size: 12px;
+}
+.dnaforge-terminal-tab-items {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  gap: inherit;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.dnaforge-terminal-new-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  padding: 5px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: hsl(var(--color-fg-muted));
+  cursor: pointer;
+}
+.dnaforge-terminal-new-tab:hover {
+  background: hsl(var(--color-bg-muted));
+  color: hsl(var(--color-fg));
+}
+.dnaforge-terminal-new-tab:focus-visible {
+  outline: 2px solid hsl(var(--color-accent) / 0.55);
+  outline-offset: -1px;
+}
+.dnaforge-terminal-new-tab:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.dnaforge-terminal-tab-row {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  max-width: 220px;
+  border-radius: 7px;
+  color: var(--terminal-muted);
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+.dnaforge-terminal-tab-row:hover {
+  background: hsl(var(--color-bg-muted));
+}
+.dnaforge-terminal-tab-row:has([aria-selected='true']) {
+  background: hsl(var(--color-accent) / 0.1);
+  color: hsl(var(--color-fg));
+}
+.dnaforge-terminal-tab-row:has([role='tab']:focus-visible) {
+  outline: 2px solid hsl(var(--color-accent));
+  outline-offset: -1px;
+}
+.dnaforge-terminal-tab-row [role='tab']:focus-visible {
+  outline: none;
+}
+.dnaforge-terminal-tab-row > button:last-child:hover {
+  background: hsl(var(--color-fg) / 0.1);
+}
+.dnaforge-terminal-tab-row > button:last-child {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.dnaforge-terminal-tab-row:hover > button:last-child,
+.dnaforge-terminal-tab-row:focus-within > button:last-child {
+  opacity: 0.8;
+}
+.dnaforge-terminal-tab-row [role='tab'] {
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dnaforge-terminal-tab-row [aria-selected='true'] {
+  background: transparent;
+}
+.dnaforge-terminal-session-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--terminal-green);
+  flex-shrink: 0;
+}
+.dnaforge-terminal-session-dot[data-status='exited'] {
+  background: var(--terminal-muted);
+}
+.dnaforge-terminal-session-label {
+  min-width: 0;
+}
+.dnaforge-terminal-dock .dnaforge-terminal-header {
+  flex-wrap: nowrap;
+  gap: 16px;
+  min-height: 44px;
+  padding: 6px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--terminal-border) 60%, transparent);
+  background: var(--terminal-chrome);
+}
+.dnaforge-terminal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dnaforge-terminal-prompt-icon {
+  color: var(--terminal-accent);
+  font: 600 18px monospace;
+}
+.dnaforge-terminal-location {
+  display: none;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--terminal-muted);
+  font-size: 12px;
+}
+.dnaforge-terminal-primary-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.dnaforge-terminal-primary-actions > button,
+.dnaforge-terminal-actions > button {
+  width: 30px;
+  height: 30px;
+  padding: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  cursor: pointer;
+  list-style: none;
+}
+.dnaforge-terminal-primary-actions > .dnaforge-terminal-new-app-tab {
+  width: auto;
+  gap: 5px;
+  padding: 4px 7px;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.dnaforge-terminal-actions > button::-webkit-details-marker {
+  display: none;
+}
+.dnaforge-terminal-actions > button:hover {
+  background: #8883;
+}
+.dnaforge-terminal-options {
+  width: 256px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+.dnaforge-terminal-action-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  color: hsl(var(--color-fg));
+}
+.dnaforge-terminal-action-menu label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.dnaforge-terminal-action-menu button:disabled {
+  opacity: 0.45;
+}
+.dnaforge-terminal-layout-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-inline: 4px;
+  white-space: nowrap;
+  font-size: 11px;
+  color: hsl(var(--color-fg-muted));
+}
+.dnaforge-terminal-layout-control select {
+  max-width: 140px;
+  color: hsl(var(--color-fg));
+}
+.dnaforge-terminal-action-menu > button {
+  text-align: left;
+  padding: 7px 10px;
+}
+.dnaforge-terminal-action-menu select {
+  margin: 4px 0;
+  padding: 6px;
+  color: inherit;
+  background: hsl(var(--color-bg));
+}
+.dnaforge-terminal-action-menu option {
+  background: hsl(var(--color-bg));
+  color: hsl(var(--color-fg));
+}
+.dnaforge-terminal-dock[data-open='false'] .dnaforge-terminal-header {
+  min-height: 38px;
+  padding: 4px 10px;
+  gap: 8px;
+}
+.dnaforge-terminal-session-count {
+  color: var(--terminal-muted);
+  font-size: 11px;
+}
+@media (max-width: 700px) {
+  .dnaforge-terminal-dock[data-open='true'][data-presentation='workspace'] {
+    inset: 6px;
+  }
+  .dnaforge-terminal-location {
+    display: none;
+  }
+}
+.dnaforge-terminal-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 10px;
+  padding: 5px 18px;
+  border-top: 1px solid var(--terminal-border);
+  flex-shrink: 0;
+  color: var(--terminal-muted);
+  background: var(--terminal-chrome);
+  opacity: 1;
+}
+.dnaforge-terminal-status span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dnaforge-terminal-resizer {
+  height: 4px;
+  cursor: row-resize;
+  flex-shrink: 0;
+  touch-action: none;
+}
+.dnaforge-terminal-resizer:hover {
+  background: #6488dd;
+}
+.dnaforge-terminal-error {
+  color: #df6d6d;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.dnaforge-terminal-error button {
+  margin-left: 8px;
+}
+
+.dnaforge-terminal-parent:has(> .dnaforge-terminal-dock[data-maximized='true']) > main {
+  display: none;
+}
+.dnaforge-terminal-pane[data-drop-active] {
+  outline: 2px solid var(--accent, #6488dd);
+}
+.dnaforge-terminal-pane[data-bell='true'] {
+  box-shadow: inset 0 0 0 2px var(--warning, #d8a34d);
+}
+.dnaforge-terminal-tab-bell {
+  color: var(--warning, #d8a34d);
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.dnaforge-terminal-history {
+  max-height: 130px;
+  overflow: auto;
+  font: 12px monospace;
+  padding: 5px 10px;
+}
+.dnaforge-terminal-history button {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 3px;
+  text-align: left;
+  gap: 16px;
+  align-items: baseline;
+}
+.dnaforge-terminal-history-command {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  flex: 1;
+}
+.dnaforge-terminal-command-picker {
+  width: min(760px, 90vw);
+  padding: 12px;
+  border: 1px solid var(--border, #8885);
+  border-radius: 6px;
+}
+.dnaforge-terminal-command-picker > input {
+  width: 100%;
+  padding: 6px;
+  background: transparent;
+  border: 1px solid var(--border, #8885);
+  border-radius: 3px;
+}
+.dnaforge-terminal-command-picker .dnaforge-terminal-history {
+  max-height: min(50vh, 420px);
+}
+.dnaforge-terminal-history [aria-selected='true'] {
+  background: #6488dd33;
+}
+.dnaforge-terminal-context-menu {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  max-height: calc(100vh - 12px);
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--border, #8885);
+  border-radius: 6px;
+  box-shadow: 0 4px 20px #0005;
+}
+.dnaforge-terminal-context-menu button {
+  text-align: left;
+  padding: 5px 10px;
+}
+.dnaforge-terminal-context-menu button:hover,
+.dnaforge-terminal-context-menu button:focus-visible {
+  background: #8883;
+}
+.dnaforge-terminal-context-menu button:disabled {
+  opacity: 0.4;
+}
+.dnaforge-terminal-output-view {
+  width: min(900px, 90vw);
+  height: min(650px, 85vh);
+  padding: 8px;
+  border: 1px solid var(--border, #8885);
+  border-radius: 6px;
+}
+.dnaforge-terminal-output-view::backdrop {
+  background: #0008;
+}
+.dnaforge-terminal-output-view textarea {
+  width: 100%;
+  height: calc(100% - 40px);
+  resize: none;
+  font: 13px monospace;
+  padding: 8px;
+  background: transparent;
+  color: inherit;
+}
+
+@container (max-width: 640px) {
+  .dnaforge-terminal-tabs {
+    position: static;
+    padding: 5px 12px;
+    border-bottom: 1px solid var(--terminal-border);
+    min-height: 36px;
+    background: var(--terminal-chrome);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dnaforge-terminal-tab-row,
+  .dnaforge-terminal-tab-row > button:last-child {
+    transition: none;
+  }
+}
+
+.dnaforge-terminal-chrome-host,
+.dnaforge-terminal-chrome-fallback {
+  display: contents;
+}
+.dnaforge-terminal-dock {
+  font-family: var(--font-sans);
+  background: hsl(var(--color-bg));
+  color: hsl(var(--color-fg));
+  --terminal-chrome: hsl(var(--color-bg-subtle));
+  --terminal-border: hsl(var(--color-border));
+  --terminal-muted: hsl(var(--color-fg-muted));
+  --terminal-accent: hsl(var(--color-accent));
+}
+.dnaforge-terminal-dock[data-presentation='editor'] {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  min-height: 0;
+}
+.dnaforge-terminal-editor-chrome {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+.dnaforge-terminal-dock[data-presentation='editor'] .dnaforge-terminal-title,
+.dnaforge-terminal-dock[data-presentation='editor'] .dnaforge-terminal-status {
+  display: none;
+}
+.dnaforge-terminal-dock[data-presentation='editor'] .dnaforge-terminal-header {
+  min-height: 32px;
+  padding: 2px 10px;
+  gap: 8px;
+  background: hsl(var(--color-bg));
+  border-bottom: 1px solid hsl(var(--color-border));
+}
+.dnaforge-terminal-dock[data-presentation='editor'] .dnaforge-terminal-location {
+  display: block;
+  font-size: 11px;
+}
+.dnaforge-terminal-primary-actions > button,
+.dnaforge-terminal-actions > button {
+  border-radius: var(--radius-sm);
+  color: hsl(var(--color-fg-muted));
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+.dnaforge-terminal-primary-actions > button:hover,
+.dnaforge-terminal-actions > button:hover {
+  background: hsl(var(--color-bg-muted));
+  color: hsl(var(--color-fg));
+}
+.dnaforge-terminal-primary-actions > button:focus-visible,
+.dnaforge-terminal-actions > button:focus-visible {
+  outline: 2px solid hsl(var(--color-accent) / 0.55);
+  outline-offset: 1px;
+}
+.dnaforge-terminal-options {
+  background: hsl(var(--color-bg));
+  color: hsl(var(--color-fg));
+}
+.dnaforge-terminal-action-menu > button:hover {
+  background: hsl(var(--color-bg-muted));
+}
+.dnaforge-terminal-command-decoration button[data-status='success'] {
+  color: hsl(var(--color-success));
+}
+.dnaforge-terminal-command-decoration button[data-status='error'] {
+  color: hsl(var(--color-error));
+}
+.dnaforge-terminal-search,
+.dnaforge-terminal-context-menu,
+.dnaforge-terminal-output-view,
+.dnaforge-terminal-command-picker,
+.dnaforge-terminal-command-actions,
+.dnaforge-terminal-dimensions {
+  border-color: hsl(var(--color-border));
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+.dnaforge-terminal-dock[data-presentation='editor']
+  .dnaforge-terminal-primary-actions
+  > button[hidden],
+.dnaforge-terminal-dock[data-presentation='editor'] .dnaforge-terminal-session-count {
+  display: none;
+}
+
+.dnaforge-terminal-dock[data-presentation='editor'][data-session-layout='sessions']
+  .dnaforge-terminal-content {
+  flex: 0 0 auto;
+}
+.dnaforge-terminal-dock[data-presentation='editor'][data-session-layout='sessions']
+  .dnaforge-terminal-groups {
+  display: none;
+}
+.dnaforge-terminal-dock[data-presentation='editor'][data-session-layout='sessions']
+  .dnaforge-terminal-tabs {
+  position: static;
+  min-height: 32px;
+  padding: 3px 10px;
+  gap: 4px;
+  border-bottom: 1px solid hsl(var(--color-border));
+}
+
+.dnaforge-terminal-dock.dnaforge-terminal-workspace-chrome {
+  position: relative;
+  inset: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  min-height: 0;
+}
+.dnaforge-terminal-workspace-chrome .dnaforge-terminal-content {
+  flex: 0 0 auto;
+}
+.dnaforge-terminal-workspace-chrome .dnaforge-terminal-groups,
+.dnaforge-terminal-workspace-chrome button[hidden] {
+  display: none;
+}
+.dnaforge-terminal-tab-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  height: 24px;
+  min-width: 0;
+}
+.dnaforge-terminal-tab-group[data-split='true'] {
+  align-items: stretch;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid hsl(var(--color-border));
+  border-radius: var(--radius-sm);
+  background: hsl(var(--color-bg-subtle));
+}
+.dnaforge-terminal-tab-group[data-split='true'][data-active='true'] {
+  border-color: hsl(var(--color-accent) / 0.5);
+}
+.dnaforge-terminal-split-indicator {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin-inline: 3px;
+  color: hsl(var(--color-fg-muted));
+}
+.dnaforge-terminal-tab-group[data-split='true'] .dnaforge-terminal-tab-row {
+  border-radius: 0;
+}
+.dnaforge-terminal-completions {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  z-index: 30;
+  bottom: 1rem;
+  left: 1rem;
+  max-width: min(40rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  border: 1px solid var(--terminal-border);
+  border-radius: 0.35rem;
+  background: var(--terminal-background);
+  color: var(--terminal-foreground);
+  box-shadow: 0 6px 24px #0005;
+  padding: 0.4rem;
+  font: 12px/1.5 sans-serif;
+}
+.dnaforge-terminal-completions [role='listbox'] {
+  min-height: 0;
+  max-height: 15rem;
+  overflow: auto;
+}
+.dnaforge-terminal-completions [role='option'] {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+}
+.dnaforge-terminal-completions [aria-selected='true'] {
+  background: var(--terminal-selection);
+}
+.dnaforge-terminal-completions [role='status'] {
+  flex-shrink: 0;
+  padding: 0.3rem;
+  opacity: 0.8;
+}
+.dnaforge-terminal-completions > button {
+  flex-shrink: 0;
+}

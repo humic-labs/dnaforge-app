@@ -1,0 +1,536 @@
+{
+  "schemaVersion": "codex-app-server-contract.v1",
+  "codexAppServerVersion": "0.148.0",
+  "upstream": {
+    "tag": "rust-v0.148.0",
+    "commit": "3ba0f711642a888aec92a611a3f3b2211157ff89",
+    "repository": "https://github.com/openai/codex.git"
+  },
+  "generation": {
+    "command": "codex app-server generate-ts --experimental --out <dir>",
+    "schemaDigestAlgorithm": "sha256-length-framed-relative-path-and-content-v1",
+    "schemaDigestSha256": "7cfed68ae6cc6300b43390288a32a2c608a44fe315ee9a0698eff696391a5321",
+    "generatedAt": "2026-08-19T19:00:00Z",
+    "generatorVersion": "0.148.0"
+  },
+  "sourcePackage": {
+    "name": "@openai/codex",
+    "version": "0.148.0",
+    "tarball": "https://registry.npmjs.org/@openai/codex/-/codex-0.148.0.tgz",
+    "integrity": "sha512-bh5kH9+BMrFaHGmLeoSansPdfRksvr4UXzjQInns/KRO7r8VJ+6AAW+SqUsE8XcG3+OW/mI4EEy8Gpo9UDXGvQ==",
+    "shasum": "069f15c77cf3b26c62c129bc6ca1ff269a226c09"
+  },
+  "binaryVersionOutput": "codex-cli 0.148.0",
+  "license": {
+    "spdx": "Apache-2.0",
+    "files": [
+      {
+        "path": "LICENSE",
+        "sha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc"
+      },
+      {
+        "path": "THIRD_PARTY_NOTICES.md",
+        "sha256": "497a1284fa56cb42c97745a4efd782e0c3fcfe325d962a6f987fa43c4dc8b9f9"
+      }
+    ]
+  },
+  "supportedTargets": {
+    "darwin-arm64": {
+      "verified": true,
+      "triple": "aarch64-apple-darwin",
+      "aliasPackageName": "@openai/codex-app-server-darwin-arm64",
+      "npmPackageVersion": "0.148.0-darwin-arm64",
+      "npmPackageTarball": "https://registry.npmjs.org/@openai/codex/-/codex-0.148.0-darwin-arm64.tgz",
+      "npmPackageIntegrity": "sha512-xgBPFiF1fHUlRS7HE6wGB56LjBJh16kGD7b4TTbwdVBZNB4QDkTok+vdkAGrfpVkfKcwGNhPSKDgCw+KMZOVug==",
+      "npmPackageShasum": "2d20ed3cb3ed955e55d375ee504ea3dfa042093d",
+      "codexBinaryPathInPackage": "vendor/aarch64-apple-darwin/bin/codex",
+      "codexBinarySha256": "b0308517b20543012fa2171aa3d46ce455a7456c4eb2a552ab9468ba4eeb1e50",
+      "codexPackageJsonPathInPackage": "vendor/aarch64-apple-darwin/codex-package.json",
+      "codexPackageJsonSha256": "e257e5ec362f1e65466a17a7d8e71c9030fb5ce7590329528ef4e5431f468d07",
+      "resources": [
+        {
+          "pathInPackage": "vendor/aarch64-apple-darwin/bin/codex",
+          "sha256": "b0308517b20543012fa2171aa3d46ce455a7456c4eb2a552ab9468ba4eeb1e50",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/aarch64-apple-darwin/bin/codex-code-mode-host",
+          "sha256": "cc3269e735a0fa2823693d51ca8c5fe98aa704c7e6ceb7ed366ea1e161de2ced",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/aarch64-apple-darwin/codex-package.json",
+          "sha256": "e257e5ec362f1e65466a17a7d8e71c9030fb5ce7590329528ef4e5431f468d07",
+          "executable": false
+        },
+        {
+          "pathInPackage": "vendor/aarch64-apple-darwin/codex-path/rg",
+          "sha256": "9cf8c71c9c0fec96864ec303345cb272854d24b0037c0554485eeff72db56930",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/aarch64-apple-darwin/codex-resources/zsh/bin/zsh",
+          "sha256": "a50ab84daf2b8e5348cd6941002718e92ac637eaad126232ec594e1129b1eab5",
+          "executable": true
+        }
+      ]
+    },
+    "darwin-x64": {
+      "verified": true,
+      "triple": "x86_64-apple-darwin",
+      "aliasPackageName": "@openai/codex-app-server-darwin-x64",
+      "npmPackageVersion": "0.148.0-darwin-x64",
+      "npmPackageTarball": "https://registry.npmjs.org/@openai/codex/-/codex-0.148.0-darwin-x64.tgz",
+      "npmPackageIntegrity": "sha512-qepQolhJutfOp+e9i7L3xsi8aoWeCUiiRq274WMWqRj50rKTrXxsuAgkAwDbqEfT3G5VynhYZuQvDsW37JgdNQ==",
+      "npmPackageShasum": "cb7b7bd0a3843a30f1a372bb3b42ed572bc00fe0",
+      "codexBinaryPathInPackage": "vendor/x86_64-apple-darwin/bin/codex",
+      "codexBinarySha256": "e7c95ea07d51ebda48153b3f2ecc6dda28ac6cdddd2d8523008c63f4e5b5cb17",
+      "codexPackageJsonPathInPackage": "vendor/x86_64-apple-darwin/codex-package.json",
+      "codexPackageJsonSha256": "8fee17af85146045dba5d5ac7007486ccaca4f4acdc0c33f247a6bb5a3824d2e",
+      "resources": [
+        {
+          "pathInPackage": "vendor/x86_64-apple-darwin/bin/codex",
+          "sha256": "e7c95ea07d51ebda48153b3f2ecc6dda28ac6cdddd2d8523008c63f4e5b5cb17",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/x86_64-apple-darwin/bin/codex-code-mode-host",
+          "sha256": "f87c011b4b3fbd5f2e02d31fbfde1e30a84fc47a67ce35f04de25ea7a80b3031",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/x86_64-apple-darwin/codex-package.json",
+          "sha256": "8fee17af85146045dba5d5ac7007486ccaca4f4acdc0c33f247a6bb5a3824d2e",
+          "executable": false
+        },
+        {
+          "pathInPackage": "vendor/x86_64-apple-darwin/codex-path/rg",
+          "sha256": "64baa24c48c0afa670995af7564af15febfcac0f6d909819a68101ca133942f1",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/x86_64-apple-darwin/codex-resources/zsh/bin/zsh",
+          "sha256": "c1e792f98c309ceae7902f1cf77e56e4dfd2ddafb10466bc31a2236fe58a8518",
+          "executable": true
+        }
+      ]
+    },
+    "linux-arm64": {
+      "verified": true,
+      "triple": "aarch64-unknown-linux-musl",
+      "aliasPackageName": "@openai/codex-app-server-linux-arm64",
+      "npmPackageVersion": "0.148.0-linux-arm64",
+      "npmPackageTarball": "https://registry.npmjs.org/@openai/codex/-/codex-0.148.0-linux-arm64.tgz",
+      "npmPackageIntegrity": "sha512-51DCd+izzk6n4mMh4w2utWj3lTLhSTnCOEJQfRh0LS9nBDkcYZcK3iSKOST6fByRIlLSXuLO33LlYYA1VPot6A==",
+      "npmPackageShasum": "3e7123317d4aea8ce909e20fcf859c5cc6888092",
+      "codexBinaryPathInPackage": "vendor/aarch64-unknown-linux-musl/bin/codex",
+      "codexBinarySha256": "7515d0b61e723374c68d4acdcb8815e378f84d088b0c50638f27d1094bffe536",
+      "codexPackageJsonPathInPackage": "vendor/aarch64-unknown-linux-musl/codex-package.json",
+      "codexPackageJsonSha256": "9fb20376e044d8b7e1f2f146d52c9bfe56e468f5df338ff3c4e52a4f529a2a4b",
+      "resources": [
+        {
+          "pathInPackage": "vendor/aarch64-unknown-linux-musl/bin/codex",
+          "sha256": "7515d0b61e723374c68d4acdcb8815e378f84d088b0c50638f27d1094bffe536",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/aarch64-unknown-linux-musl/bin/codex-code-mode-host",
+          "sha256": "7b77e013aeffc0aa08a9ea7c5a6283d70713869aa50cde319ccd99ff31f125b3",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/aarch64-unknown-linux-musl/codex-package.json",
+          "sha256": "9fb20376e044d8b7e1f2f146d52c9bfe56e468f5df338ff3c4e52a4f529a2a4b",
+          "executable": false
+        },
+        {
+          "pathInPackage": "vendor/aarch64-unknown-linux-musl/codex-path/rg",
+          "sha256": "e36d0eb52e70696bdf1781392722e05a21bb91d3b7b762ef5ec20e5df2ec687b",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/aarch64-unknown-linux-musl/codex-resources/bwrap",
+          "sha256": "c547cbdc762a70ed216789ffaa4c6c0e7d2beabe32245a498f8e365a9fc8dab4",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/aarch64-unknown-linux-musl/codex-resources/zsh/bin/zsh",
+          "sha256": "7feeacd883e1dc749847936948c378653c80a69ec4a9542f0f126b411882c179",
+          "executable": true
+        }
+      ]
+    },
+    "linux-x64": {
+      "verified": true,
+      "triple": "x86_64-unknown-linux-musl",
+      "aliasPackageName": "@openai/codex-app-server-linux-x64",
+      "npmPackageVersion": "0.148.0-linux-x64",
+      "npmPackageTarball": "https://registry.npmjs.org/@openai/codex/-/codex-0.148.0-linux-x64.tgz",
+      "npmPackageIntegrity": "sha512-uDT9s7AfMr9xLuJX3ZLVWHgHkUpCnZ33CZjZEdVQhrYCIErkDHsCW5TG290nNjaKngK0WxGt5uCcxeUHv9MWWA==",
+      "npmPackageShasum": "5d94491014b66b5e7af20342f570de7bd0015935",
+      "codexBinaryPathInPackage": "vendor/x86_64-unknown-linux-musl/bin/codex",
+      "codexBinarySha256": "ac2cfed85fb647d61e0150b8548102b330e4799d9d81ad5d354de701edf6b074",
+      "codexPackageJsonPathInPackage": "vendor/x86_64-unknown-linux-musl/codex-package.json",
+      "codexPackageJsonSha256": "899bb78003e6720a12b74c0b30ef257399fa28be8f9d062bafccc85baaae41eb",
+      "resources": [
+        {
+          "pathInPackage": "vendor/x86_64-unknown-linux-musl/bin/codex",
+          "sha256": "ac2cfed85fb647d61e0150b8548102b330e4799d9d81ad5d354de701edf6b074",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/x86_64-unknown-linux-musl/bin/codex-code-mode-host",
+          "sha256": "0c1776efc4f7acfd308e40d31749a4f2f876f94495dd28d511d0a8646f59970e",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/x86_64-unknown-linux-musl/codex-package.json",
+          "sha256": "899bb78003e6720a12b74c0b30ef257399fa28be8f9d062bafccc85baaae41eb",
+          "executable": false
+        },
+        {
+          "pathInPackage": "vendor/x86_64-unknown-linux-musl/codex-path/rg",
+          "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/x86_64-unknown-linux-musl/codex-resources/bwrap",
+          "sha256": "77360cb751ccedc5971391444ac86a8a33c15b04d6b4a6fe45f5d25496e62c4c",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/x86_64-unknown-linux-musl/codex-resources/zsh/bin/zsh",
+          "sha256": "67faaaa89242c4a332e16e508a1977cffc24bf7fca31d4411cdfd101f3831ef3",
+          "executable": true
+        }
+      ]
+    },
+    "win32-arm64": {
+      "verified": true,
+      "triple": "aarch64-pc-windows-msvc",
+      "aliasPackageName": "@openai/codex-app-server-win32-arm64",
+      "npmPackageVersion": "0.148.0-win32-arm64",
+      "npmPackageTarball": "https://registry.npmjs.org/@openai/codex/-/codex-0.148.0-win32-arm64.tgz",
+      "npmPackageIntegrity": "sha512-a8iOwLzs8UdnlWDHjgK3W/YSBBsUImG8X5XLBjengp3XGJRruhiIsQtUDUOYimCmotKPM4aX7Ub6zjl/KPxMQQ==",
+      "npmPackageShasum": "c070f2f2bf5d906ef2e3b999c401a27fe3ceee1a",
+      "codexBinaryPathInPackage": "vendor/aarch64-pc-windows-msvc/bin/codex.exe",
+      "codexBinarySha256": "809ea5fdcc8fff223dbde888d23ddd047c097f6d40ed99e6a9ea190d46352319",
+      "codexPackageJsonPathInPackage": "vendor/aarch64-pc-windows-msvc/codex-package.json",
+      "codexPackageJsonSha256": "6bb84cecde21e50c47679af55dda9b9cccd3837d79a212dbeacd6f13aef1df70",
+      "resources": [
+        {
+          "pathInPackage": "vendor/aarch64-pc-windows-msvc/bin/codex.exe",
+          "sha256": "809ea5fdcc8fff223dbde888d23ddd047c097f6d40ed99e6a9ea190d46352319",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/aarch64-pc-windows-msvc/bin/codex-code-mode-host.exe",
+          "sha256": "a866f8ee1dd51c34304e4e8122dfab4b9d4a4c9e2927b20afbd45cb97c49cf8e",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/aarch64-pc-windows-msvc/codex-package.json",
+          "sha256": "6bb84cecde21e50c47679af55dda9b9cccd3837d79a212dbeacd6f13aef1df70",
+          "executable": false
+        },
+        {
+          "pathInPackage": "vendor/aarch64-pc-windows-msvc/codex-path/rg.exe",
+          "sha256": "d33a29a9ef03c9f4c03be9e8d88498e6e2d2e566d64cdbdef97f9afc8f13120c",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/aarch64-pc-windows-msvc/codex-resources/codex-command-runner.exe",
+          "sha256": "4294d33971af8373859ba9bf35e442d7bc10475155d54972545bdca4daa77206",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/aarch64-pc-windows-msvc/codex-resources/codex-windows-sandbox-setup.exe",
+          "sha256": "0ef256be367faaa551d979b233f57f34b1be778a06bb3c0f885c2ef7aac4c2d0",
+          "executable": true
+        }
+      ]
+    },
+    "win32-x64": {
+      "verified": true,
+      "triple": "x86_64-pc-windows-msvc",
+      "aliasPackageName": "@openai/codex-app-server-win32-x64",
+      "npmPackageVersion": "0.148.0-win32-x64",
+      "npmPackageTarball": "https://registry.npmjs.org/@openai/codex/-/codex-0.148.0-win32-x64.tgz",
+      "npmPackageIntegrity": "sha512-/Jg8eYw0BqTGNUpnrzzWlK2kbu29NWg7t6pnUDEfxqpTUf+mK8r3okXQn60Zjbk9InYZ4d8SwSjrtOa+i5hSPw==",
+      "npmPackageShasum": "3a0da92b17398d88fb842e18f3aae9cb9dafff60",
+      "codexBinaryPathInPackage": "vendor/x86_64-pc-windows-msvc/bin/codex.exe",
+      "codexBinarySha256": "2ad2cf8a732da68b8f141634f92db1a03016c5faf533a7225fbc0fb740130410",
+      "codexPackageJsonPathInPackage": "vendor/x86_64-pc-windows-msvc/codex-package.json",
+      "codexPackageJsonSha256": "fabdd01fcbdc3e7583c69a16f06e9b2e09580b9e233ab51d8112f530aa60f2b7",
+      "resources": [
+        {
+          "pathInPackage": "vendor/x86_64-pc-windows-msvc/bin/codex.exe",
+          "sha256": "2ad2cf8a732da68b8f141634f92db1a03016c5faf533a7225fbc0fb740130410",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/x86_64-pc-windows-msvc/bin/codex-code-mode-host.exe",
+          "sha256": "5386333666d5ef514b5d509c06de59b5fa62244f75e22a8dcfa31d8567c379c9",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/x86_64-pc-windows-msvc/codex-package.json",
+          "sha256": "fabdd01fcbdc3e7583c69a16f06e9b2e09580b9e233ab51d8112f530aa60f2b7",
+          "executable": false
+        },
+        {
+          "pathInPackage": "vendor/x86_64-pc-windows-msvc/codex-path/rg.exe",
+          "sha256": "14231169855ec5205cf5a1b6f1db358ff4aed4247c86b69ce8aae647c77f6680",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/x86_64-pc-windows-msvc/codex-resources/codex-command-runner.exe",
+          "sha256": "d90ed117dfa8b9f155fae4306e848e956dd8c2836b43864b6488a12decf648dc",
+          "executable": true
+        },
+        {
+          "pathInPackage": "vendor/x86_64-pc-windows-msvc/codex-resources/codex-windows-sandbox-setup.exe",
+          "sha256": "cce5d63a096eefb8ff4624e65f00f11553735a01d7f2789a8869e72bcf74dba3",
+          "executable": true
+        }
+      ]
+    }
+  },
+  "upstreamProtocolMethods": {
+    "client": [
+      "account/login/cancel",
+      "account/login/start",
+      "account/logout",
+      "account/rateLimitResetCredit/consume",
+      "account/rateLimits/read",
+      "account/read",
+      "account/sendAddCreditsNudgeEmail",
+      "account/usage/read",
+      "account/workspaceMessages/read",
+      "app/installed",
+      "app/list",
+      "app/read",
+      "collaborationMode/list",
+      "command/exec",
+      "command/exec/resize",
+      "command/exec/terminate",
+      "command/exec/write",
+      "config/batchWrite",
+      "config/mcpServer/reload",
+      "config/read",
+      "config/value/write",
+      "configRequirements/read",
+      "environment/add",
+      "environment/info",
+      "environment/status",
+      "experimentalFeature/enablement/set",
+      "experimentalFeature/list",
+      "externalAgentConfig/detect",
+      "externalAgentConfig/import",
+      "externalAgentConfig/import/readHistories",
+      "externalAgentConfig/import/recordHistory",
+      "feedback/upload",
+      "fs/copy",
+      "fs/createDirectory",
+      "fs/getMetadata",
+      "fs/readDirectory",
+      "fs/readFile",
+      "fs/remove",
+      "fs/unwatch",
+      "fs/watch",
+      "fs/writeFile",
+      "fuzzyFileSearch",
+      "fuzzyFileSearch/sessionStart",
+      "fuzzyFileSearch/sessionStop",
+      "fuzzyFileSearch/sessionUpdate",
+      "getAuthStatus",
+      "getConversationSummary",
+      "gitDiffToRemote",
+      "hooks/list",
+      "initialize",
+      "marketplace/add",
+      "marketplace/remove",
+      "marketplace/upgrade",
+      "mcpServer/oauth/login",
+      "mcpServer/resource/read",
+      "mcpServer/tool/call",
+      "mcpServerStatus/list",
+      "memory/reset",
+      "mock/experimentalMethod",
+      "model/list",
+      "modelProvider/capabilities/read",
+      "permissionProfile/list",
+      "plugin/install",
+      "plugin/installed",
+      "plugin/list",
+      "plugin/read",
+      "plugin/search",
+      "plugin/share/checkout",
+      "plugin/share/delete",
+      "plugin/share/list",
+      "plugin/share/save",
+      "plugin/share/updateTargets",
+      "plugin/skill/read",
+      "plugin/uninstall",
+      "process/kill",
+      "process/resizePty",
+      "process/spawn",
+      "process/writeStdin",
+      "remoteControl/client/list",
+      "remoteControl/client/revoke",
+      "remoteControl/disable",
+      "remoteControl/enable",
+      "remoteControl/pairing/start",
+      "remoteControl/pairing/status",
+      "remoteControl/status/read",
+      "review/start",
+      "server/diagnostics",
+      "skills/config/write",
+      "skills/extraRoots/set",
+      "skills/list",
+      "thread/approveGuardianDeniedAction",
+      "thread/archive",
+      "thread/backgroundTerminals/clean",
+      "thread/backgroundTerminals/list",
+      "thread/backgroundTerminals/terminate",
+      "thread/compact/start",
+      "thread/decrement_elicitation",
+      "thread/delete",
+      "thread/fork",
+      "thread/goal/clear",
+      "thread/goal/get",
+      "thread/goal/set",
+      "thread/increment_elicitation",
+      "thread/inject_items",
+      "thread/items/list",
+      "thread/list",
+      "thread/loaded/list",
+      "thread/memoryMode/set",
+      "thread/metadata/update",
+      "thread/name/set",
+      "thread/queue/add",
+      "thread/queue/delete",
+      "thread/queue/list",
+      "thread/queue/reorder",
+      "thread/queue/start",
+      "thread/queue/update",
+      "thread/read",
+      "thread/realtime/appendAudio",
+      "thread/realtime/appendSpeech",
+      "thread/realtime/appendText",
+      "thread/realtime/listVoices",
+      "thread/realtime/start",
+      "thread/realtime/stop",
+      "thread/resume",
+      "thread/revert",
+      "thread/rollback",
+      "thread/search",
+      "thread/searchOccurrences",
+      "thread/section/move",
+      "thread/settings/update",
+      "thread/shellCommand",
+      "thread/start",
+      "thread/turns/list",
+      "thread/unarchive",
+      "thread/unsubscribe",
+      "threadSection/create",
+      "threadSection/delete",
+      "threadSection/list",
+      "threadSection/update",
+      "turn/interrupt",
+      "turn/start",
+      "turn/steer",
+      "windowsSandbox/readiness",
+      "windowsSandbox/setupStart"
+    ],
+    "server": [
+      "account/chatgptAuthTokens/refresh",
+      "applyPatchApproval",
+      "attestation/generate",
+      "currentTime/read",
+      "execCommandApproval",
+      "item/commandExecution/requestApproval",
+      "item/fileChange/requestApproval",
+      "item/permissions/requestApproval",
+      "item/tool/call",
+      "item/tool/requestUserInput",
+      "mcpServer/elicitation/request"
+    ],
+    "notification": [
+      "account/login/completed",
+      "account/rateLimits/updated",
+      "account/updated",
+      "app/list/updated",
+      "command/exec/outputDelta",
+      "configWarning",
+      "deprecationNotice",
+      "error",
+      "externalAgentConfig/import/completed",
+      "externalAgentConfig/import/progress",
+      "fs/changed",
+      "fuzzyFileSearch/sessionCompleted",
+      "fuzzyFileSearch/sessionUpdated",
+      "guardianWarning",
+      "hook/completed",
+      "hook/started",
+      "item/agentMessage/delta",
+      "item/autoApprovalReview/completed",
+      "item/autoApprovalReview/started",
+      "item/commandExecution/outputDelta",
+      "item/commandExecution/terminalInteraction",
+      "item/completed",
+      "item/fileChange/outputDelta",
+      "item/fileChange/patchUpdated",
+      "item/mcpToolCall/progress",
+      "item/plan/delta",
+      "item/reasoning/summaryPartAdded",
+      "item/reasoning/summaryTextDelta",
+      "item/reasoning/textDelta",
+      "item/started",
+      "mcpServer/oauthLogin/completed",
+      "mcpServer/startupStatus/updated",
+      "model/rerouted",
+      "model/safetyBuffering/updated",
+      "model/verification",
+      "process/exited",
+      "process/outputDelta",
+      "rawResponse/completed",
+      "rawResponseItem/completed",
+      "remoteControl/status/changed",
+      "serverRequest/resolved",
+      "skills/changed",
+      "thread/archived",
+      "thread/closed",
+      "thread/compacted",
+      "thread/deleted",
+      "thread/environment/connected",
+      "thread/environment/disconnected",
+      "thread/goal/cleared",
+      "thread/goal/updated",
+      "thread/name/updated",
+      "thread/queue/changed",
+      "thread/realtime/closed",
+      "thread/realtime/error",
+      "thread/realtime/itemAdded",
+      "thread/realtime/outputAudio/delta",
+      "thread/realtime/sdp",
+      "thread/realtime/started",
+      "thread/realtime/transcript/delta",
+      "thread/realtime/transcript/done",
+      "thread/reverted",
+      "thread/settings/updated",
+      "thread/started",
+      "thread/status/changed",
+      "thread/tokenUsage/updated",
+      "thread/unarchived",
+      "turn/completed",
+      "turn/diff/updated",
+      "turn/moderationMetadata",
+      "turn/plan/updated",
+      "turn/started",
+      "warning",
+      "windows/worldWritableWarning",
+      "windowsSandbox/setupCompleted"
+    ]
+  }
+}

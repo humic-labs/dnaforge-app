@@ -1,0 +1,17 @@
+{
+  "templateId": "standard-samples",
+  "version": "v7",
+  "displayName": "DNAForge Samples",
+  "assets": [
+    {
+      "id": "ecoli-mg1655",
+      "label": "E. coli MG1655 genome",
+      "path": "sequences/genomes/ecoli-mg1655"
+    },
+    {
+      "id": "puc19",
+      "label": "pUC19 plasmid",
+      "path": "sequences/plasmids/pUC19"
+    }
+  ]
+}

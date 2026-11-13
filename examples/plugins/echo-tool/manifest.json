@@ -1,0 +1,42 @@
+{
+  "manifest_version": 1,
+  "tool": {
+    "manifest_version": 1,
+    "name": "example.echo",
+    "description": "Echo input through the DNAForge CLI plugin contract.",
+    "inputs": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "message": { "type": "string" }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "echo": { "type": "object" },
+        "jobId": { "type": "string" }
+      },
+      "required": ["echo", "jobId"]
+    },
+    "home": "plugin",
+    "runtime": "subprocess",
+    "handler_ref": "examples/plugins/echo-tool/echo_tool.py",
+    "pool": "cpu_fast",
+    "expected_latency": "sub_second",
+    "hints": null,
+    "idempotency_keyable": true,
+    "streams_progress": false,
+    "category": {
+      "shape": "data-service",
+      "duration": "immediate",
+      "effects": ["read-only"],
+      "cancelable": true,
+      "approval_gated": false
+    },
+    "required_capabilities": ["debug.echo"],
+    "audit_required": false,
+    "plugin_identity": null
+  },
+  "command": ["{python}", "echo_tool.py"]
+}

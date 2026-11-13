@@ -1,0 +1,275 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "corpus-01-programme-charter",
+  "title": "Programme charter \u2014 burden-aware three-input logic in E. coli",
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "storage": {
+    "type": "database",
+    "table": "pages",
+    "id": "corpus-01-programme-charter"
+  },
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Programme charter \u2014 burden-aware three-input logic in E. coli"
+          }
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Directive \u2014 Fix the scientific question, the success criteria, and the stop conditions before any cloning."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Question"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Can a three-input transcriptional AND gate be operated in E. coli MG1655 across a full batch growth curve without the host burden collapsing its dynamic range?"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Two-input gates are routine. The failure mode we care about appears at three inputs, where the summed expression load competes with growth and the gate output becomes a function of physiology rather than of its inputs."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Success criteria"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "ON/OFF ratio at least 20-fold at mid-exponential phase for all eight input states."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "That ratio retains at least 60 percent of its mid-exponential value at the onset of stationary phase."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Specific growth rate of the fully induced state within 20 percent of the empty-vector control."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Stop conditions"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "If the two-input precursor cannot clear 20-fold, the three-input build is not attempted. Adding an input cannot repair a gate that is already marginal."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "If burden mitigation costs more than half the dynamic range, the architecture is rejected rather than tuned further."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Reference material"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The part inventory is drawn from the CIDAR MoClo kit. Characterised composite controls: "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-2c22f2e9",
+              "label": "pJ02B2Rm control",
+              "entityType": "sequence",
+              "entityId": "sample-2c22f2e9",
+              "path": "sequences/kits/moclo-cidar/pJ02B2Rm_AE",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " and "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-0dad888d",
+              "label": "pJ02B2Gm control",
+              "entityType": "sequence",
+              "entityId": "sample-0dad888d",
+              "path": "sequences/kits/moclo-cidar/pJ02B2Gm_AE",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": "."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Assembly backbone chemistry is validated against "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-161979b5",
+              "label": "ODC_0001",
+              "entityType": "sequence",
+              "entityId": "sample-161979b5",
+              "path": "sequences/kits/open-plasmids/ODC_0001",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " as a sequencing control."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Related entries"
+          }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-02-part-inventory",
+                      "label": "02 \u2014 Part inventory and incoming QC",
+                      "entityType": "page",
+                      "entityId": "corpus-02-part-inventory"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-09-two-input-gate",
+                      "label": "09 \u2014 Two-input AND gate",
+                      "entityType": "page",
+                      "entityId": "corpus-09-two-input-gate"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

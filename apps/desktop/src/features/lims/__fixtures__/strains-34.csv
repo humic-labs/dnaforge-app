@@ -1,0 +1,35 @@
+Name,Genotype,Organism,Plasmid Carried
+DH5alpha,F- endA1 glnV44 thi-1 recA1 relA1 gyrA96 deoR,Escherichia coli K-12,pUC19
+BL21(DE3),F- ompT hsdSB gal dcm (DE3),Escherichia coli B,pET28a
+MG1655,F- lambda- ilvG- rfb-50 rph-1,Escherichia coli K-12,
+W3110,F- lambda- IN(rrnD-rrnE)1 rph-1,Escherichia coli K-12,
+Top10,F- mcrA delta(mrr-hsdRMS-mcrBC) lacZ-M15,Escherichia coli K-12,pUC19
+JM109,endA1 recA1 gyrA96 thi hsdR17 relA1,Escherichia coli K-12,pUC19
+XL1-Blue,recA1 endA1 gyrA96 thi-1 hsdR17 supE44,Escherichia coli K-12,pACYC184
+Rosetta(DE3),F- ompT hsdSB gal dcm (DE3) pRARE,Escherichia coli B,pET28a
+NEB5alpha,fhuA2 argF-lacZ-U169 phoA glnV44 recA1,Escherichia coli K-12,pUC19
+HB101,F- thi-1 hsdS20 supE44 recA13 ara-14,Escherichia coli K-12,pACYC184
+C600,F- tonA21 thi-1 thr-1 leuB6 lacY1,Escherichia coli K-12,pUC19
+MC1061,F- araD139 delta(ara-leu)7696 galE15,Escherichia coli K-12,pACYC184
+BW25113,delta(araD-araB)567 lacZ4787 rrnB-3,Escherichia coli K-12,
+DH10B,F- mcrA delta(mrr-hsdRMS-mcrBC) araD139,Escherichia coli K-12,pUC19
+BL21-AI,F- ompT hsdSB gal dcm araB::T7RNAP-tetA,Escherichia coli B,pET28a
+Stbl3,F- mcrB mrr hsdS20 recA13 supE44,Escherichia coli K-12,pACYC184
+SW102,DH10B derivative galK end recA,Escherichia coli K-12,
+ER2566,F- lambda- fhuA2 lon ompT lacZ::T7,Escherichia coli B,pET28a
+BY4741,MATa his3-1 leu2-0 met15-0 ura3-0,Saccharomyces cerevisiae,pRS416
+BY4742,MATalpha his3-1 leu2-0 lys2-0 ura3-0,Saccharomyces cerevisiae,pRS416
+S288C,MATalpha SUC2 gal2 mal2 mel flo1,Saccharomyces cerevisiae,
+W303,MATa leu2-3 ura3-1 trp1-1 his3-11 ade2-1,Saccharomyces cerevisiae,pRS416
+CEN.PK113-7D,MATa MAL2-8c SUC2 prototroph,Saccharomyces cerevisiae,pRS416
+FY4,prototrophic S288C derivative,Saccharomyces cerevisiae,
+RM11-1a,MATa ho::kanMX leu2-0 ura3-0,Saccharomyces cerevisiae,pRS416
+Sigma1278b,MATa ura3-52 background,Saccharomyces cerevisiae,pRS416
+Y187,MATalpha ura3-52 his3-200 ade2-101,Saccharomyces cerevisiae,pRS416
+AH109,MATa trp1-901 leu2-3 ura3-52 his3-200,Saccharomyces cerevisiae,pRS416
+MG1655-dlac,F- lambda- rph-1 delta-lac,Escherichia coli K-12,pUC19
+BL21-Star-DE3,F- ompT hsdSB gal dcm rne131 (DE3),Escherichia coli B,pET28a
+Origami2-DE3,delta-ara-leu7697 lacX74 phoA trxB,Escherichia coli K-12,pET28a
+SHuffle-T7,F- lac pro lacIq trxB gor,Escherichia coli K-12,pET28a
+GM2163,F- ara-14 leuB6 thi-1 dam-13 dcm-6,Escherichia coli K-12,pACYC184
+DB3.1,F- gyrA462 endA1 delta(sr1-recA) mcrB,Escherichia coli K-12,pUC19

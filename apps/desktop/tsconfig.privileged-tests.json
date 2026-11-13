@@ -1,0 +1,50 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "ES2024.Promise", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "allowJs": true,
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "types": ["node", "electron-vite/node", "vitest/globals"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@waypoint/sequence-utils": ["../../packages/core/sequence-utils/src"],
+      "@waypoint/genome-renderer/react": ["../../packages/core/genome-renderer/src/react/index.ts"],
+      "@waypoint/workspace-editor/shift-click-range": [
+        "../../packages/core/workspace-editor/src/selection-model.ts"
+      ],
+      "@waypoint/workspace-editor/find-bar": [
+        "../../packages/core/workspace-editor/src/FindBar.tsx"
+      ],
+      "@waypoint/workspace-editor": ["../../packages/core/workspace-editor/src"],
+      "@waypoint/plasmid-viewer": ["../../packages/features/plasmid-viewer/src"],
+      "@waypoint/ui-components": ["../../packages/ui/components/src"]
+    }
+  },
+  "files": ["src/main/build-globals.d.ts", "src/vite-env.d.ts"],
+  "include": [
+    "src/main/**/*.test.ts",
+    "src/main/**/*.test.tsx",
+    "src/main/**/*.spec.ts",
+    "src/main/**/*.spec.tsx",
+    "src/main/**/__tests__/**/*",
+    "src/main/**/__mocks__/**/*",
+    "src/preload/**/*.test.ts",
+    "src/preload/**/*.test.tsx",
+    "src/preload/**/*.spec.ts",
+    "src/preload/**/*.spec.tsx",
+    "src/preload/**/__tests__/**/*",
+    "src/preload/**/__mocks__/**/*"
+  ]
+}

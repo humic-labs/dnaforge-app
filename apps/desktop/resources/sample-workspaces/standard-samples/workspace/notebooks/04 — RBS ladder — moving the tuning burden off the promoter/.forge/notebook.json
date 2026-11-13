@@ -1,0 +1,329 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "corpus-04-rbs-ladder",
+  "title": "RBS ladder \u2014 moving the tuning burden off the promoter",
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "storage": {
+    "type": "database",
+    "table": "pages",
+    "id": "corpus-04-rbs-ladder"
+  },
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "RBS ladder \u2014 moving the tuning burden off the promoter"
+          }
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Directive \u2014 Recover the dynamic range lost by retiring the weak promoter, using translation initiation instead."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Rationale"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Entry 03 showed the promoter ladder is compressed in this backbone. Translation initiation is the other lever, and it is largely orthogonal to transcription \u2014 so tuning here does not perturb the promoter measurements already banked."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Design"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reference promoter "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-525cf33d",
+              "label": "J23106",
+              "entityType": "sequence",
+              "entityId": "sample-525cf33d",
+              "path": "sequences/kits/moclo-cidar/J23106_AB",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " fixed. RBS varied across "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-07149c5d",
+              "label": "B0032m",
+              "entityType": "sequence",
+              "entityId": "sample-07149c5d",
+              "path": "sequences/kits/moclo-cidar/B0032m_BC",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-a21404dd",
+              "label": "B0033m",
+              "entityType": "sequence",
+              "entityId": "sample-a21404dd",
+              "path": "sequences/kits/moclo-cidar/B0033m_BC",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-7981ffa1",
+              "label": "B0034m",
+              "entityType": "sequence",
+              "entityId": "sample-7981ffa1",
+              "path": "sequences/kits/moclo-cidar/B0034m_BC",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ". Reporter "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-694681f1",
+              "label": "E1010m (mRFP)",
+              "entityType": "sequence",
+              "entityId": "sample-694681f1",
+              "path": "sequences/kits/moclo-cidar/E1010m_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ", terminator "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-5427ea3f",
+              "label": "B0015",
+              "entityType": "sequence",
+              "entityId": "sample-5427ea3f",
+              "path": "sequences/kits/moclo-cidar/B0015_DE",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ", vector "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-84ad4efb",
+              "label": "DVA_AE",
+              "entityType": "sequence",
+              "entityId": "sample-84ad4efb",
+              "path": "sequences/kits/moclo-cidar/DVA_AE",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": "."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Result"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The RBS ladder spans 31-fold, against 9-fold for the promoter ladder in the same backbone. Tuning moves to the RBS for the remainder of the programme."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Caveat carried forward"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "These RBSs are monocistronic and therefore context-sensitive: the 5\u2032 UTR formed with the downstream CDS changes their effective strength. This ladder is only valid for "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-694681f1",
+              "label": "E1010m (mRFP)",
+              "entityType": "sequence",
+              "entityId": "sample-694681f1",
+              "path": "sequences/kits/moclo-cidar/E1010m_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ". Entry 14 addresses it with bicistronic designs."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Related entries"
+          }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-03-promoter-characterisation",
+                      "label": "03 \u2014 Promoter strength re-characterisation in the working backbone",
+                      "entityType": "page",
+                      "entityId": "corpus-03-promoter-characterisation"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-05-reporter-calibration",
+                      "label": "05 \u2014 Three-colour reporter calibration and maturation correction",
+                      "entityType": "page",
+                      "entityId": "corpus-05-reporter-calibration"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-14-context-independence",
+                      "label": "14 \u2014 Bicistronic designs and the RBS context problem",
+                      "entityType": "page",
+                      "entityId": "corpus-14-context-independence"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

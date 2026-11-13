@@ -1,0 +1,9 @@
+LOCUS       PARITY_TARGET       12 bp    DNA     linear
+DEFINITION  Agent sequence edit target.
+FEATURES             Location/Qualifiers
+     misc_feature    3..5
+                     /label="Keep marker"
+                     /note="Preserve this native qualifier"
+ORIGIN
+        1 aaccggttacgt
+//

@@ -1,0 +1,40 @@
+{
+  "method": "GET",
+  "host": "tmapi.neb.com",
+  "path": "/tm",
+  "query": {
+    "seq1": "GGTGGGCGAGAACCTTGAATGGTGGCAGG",
+    "prodcode": "phusion-0",
+    "conc": "500",
+    "fmt": "long"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "success": true,
+      "data": {
+        "p1": [
+          {
+            "tm": 81.6896336578651,
+            "fgc": 0.62,
+            "len": 29,
+            "seq": "GGTGGGCGAGAACCTTGAATGGTGGCAGG"
+          }
+        ],
+        "tm1min": 82,
+        "tm1max": 82,
+        "conc": 500,
+        "notes": []
+      },
+      "meta": {
+        "datetime": "2026-07-13T00:00:00.000Z",
+        "version": "0.19.0",
+        "url": "https://tmapi.neb.com/tm?seq1=GGTGGGCGAGAACCTTGAATGGTGGCAGG&prodcode=phusion-0&conc=500&fmt=long"
+      },
+      "fmtType": "long"
+    }
+  }
+}

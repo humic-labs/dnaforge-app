@@ -1,0 +1,7 @@
+well	sample_id	target	forward_primer	reverse_primer	status
+A01	SYN-001	amplicon_001	FWD_001	REV_001	ready
+A02	SYN-002	amplicon_002	FWD_002	REV_002	ready
+A03	SYN-003	amplicon_003	FWD_003	REV_003	hold
+B01	SYN-004	amplicon_004	FWD_004	REV_004	ready
+B02	SYN-005	amplicon_005	FWD_005	REV_005	retest
+B03	EMPTY	none			empty

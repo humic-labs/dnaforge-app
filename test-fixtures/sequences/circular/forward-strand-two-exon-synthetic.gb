@@ -1,0 +1,31 @@
+LOCUS       fwd_two_exon             500 bp    DNA     circular SYN 28-APR-2026
+DEFINITION  Synthetic plasmid for the strand-guard regression in
+            applyComplementOriginWrap. NOT a real construct.
+ACCESSION   fwd_two_exon_synth
+VERSION     fwd_two_exon_synth
+COMMENT     regression fixture for the forward-strand strand-guard.
+            A two-exon forward-strand gene whose first exon happens to start
+            at base 1 and whose last exon happens to end at the sequence
+            length. Without the strand guard in applyComplementOriginWrap
+            (and the matching guard in plasmid-viewer's parseGenBank
+            post-pass), this CDS would be misclassified as a complement-
+            strand origin-wrap and silently rewritten to start>end shape.
+            Forward-strand origin-wraps are serialized in physical order
+            (`join(451..500,1..50)`) and are caught by the per-location
+            heuristic, not the post-pass.
+FEATURES             Location/Qualifiers
+     CDS             join(1..50,451..500)
+                     /label="fwd_two_exon"
+                     /note="forward-strand two-exon gene with boundary-
+                     touching parts; must NOT be rewritten as a wrap"
+ORIGIN
+        1 atgaaagcct ggcgtaccga ttgctgaccg gcaaaccatg accatgctgc ggcgaccatg
+       61 actgccgaag tgaccatgaa cgaagcgaag ggtacccgta ccgcgaccga aacgaccatg
+      121 actgaagaag ccgcggcgaa cgaaggtacc gtgaccacca tgcacgcgct ggaaaaaccg
+      181 gcgctgaccg gccgcgaaca ccaaaccatg accgcggcga ccatggcgct gaccgaagcg
+      241 cgtcgcgcgc tggcgcgtca caaagccacc accatggcgc tgcgcgcgca cgaagcgctg
+      301 gccaaagcga ccgcggcgaa caccgaagcg gtgcgcgcgc tgggcaaagc cgcgctggcg
+      361 ctggccaaag cgaccgaaca cgaagcgctg gccgaagcgc accgcgcgct gcgcgaagcc
+      421 ctggccaccg cgaccaaagc gctggcgcgc atggcgctgg ccaaaaccga aaccaccgcg
+      481 ctggccaacg cggcggccaa
+//

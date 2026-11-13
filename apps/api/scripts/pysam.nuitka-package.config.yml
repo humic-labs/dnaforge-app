@@ -1,0 +1,29 @@
+- module-name: 'pysam'
+  implicit-imports:
+    - depends:
+        - 'array'
+        - 'bisect'
+        - 'codecs'
+        - 'collections'
+        - 'contextlib'
+        - 'copy'
+        - 'ctypes'
+        - 'io'
+        - 'itertools'
+        - 'json'
+        - 'operator'
+        - 'os'
+        - 'platform'
+        - 're'
+        - 'string'
+        - 'struct'
+        - 'sys'
+        - 'tempfile'
+        - 'types'
+        - 'warnings'
+  dlls:
+    - from_filenames:
+        relative_path: '.'
+        prefixes: ['libc']
+      dest_path: '.'
+      when: 'linux'

@@ -1,0 +1,4964 @@
+[
+  {
+    "name": "adp",
+    "referenceId": "9097b37d-a208-44a6-80b1-69c528fe8b94",
+    "classifiedRecords": 29,
+    "segments": 24,
+    "group": {
+      "kind": "primitives",
+      "custom": {
+        "dnaforge_interaction_context": "native-interaction-context-v1",
+        "dnaforge_contact_calculation": {
+          "engine": "molstar-native-interactions",
+          "version": "5.7.0",
+          "types": [
+            "ionic",
+            "pi-stacking",
+            "cation-pi",
+            "halogen-bonds",
+            "hydrogen-bonds",
+            "weak-hydrogen-bonds",
+            "hydrophobic",
+            "metal-coordination"
+          ],
+          "parameters": {
+            "providers": {
+              "ionic": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 5
+                }
+              },
+              "pi-stacking": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 5.5,
+                  "offsetMax": 2,
+                  "angleDevMax": 30
+                }
+              },
+              "cation-pi": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 6,
+                  "offsetMax": 2
+                }
+              },
+              "halogen-bonds": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 4,
+                  "angleMax": 30
+                }
+              },
+              "hydrogen-bonds": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 3.5,
+                  "backbone": true,
+                  "accAngleDevMax": 45,
+                  "ignoreHydrogens": false,
+                  "donAngleDevMax": 45,
+                  "accOutOfPlaneAngleMax": 90,
+                  "donOutOfPlaneAngleMax": 45,
+                  "water": false,
+                  "sulfurDistanceMax": 4.1
+                }
+              },
+              "weak-hydrogen-bonds": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 3.5,
+                  "backbone": true,
+                  "accAngleDevMax": 45,
+                  "ignoreHydrogens": false,
+                  "donAngleDevMax": 45,
+                  "accOutOfPlaneAngleMax": 90,
+                  "donOutOfPlaneAngleMax": 45
+                }
+              },
+              "hydrophobic": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 4
+                }
+              },
+              "metal-coordination": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 3
+                }
+              }
+            },
+            "contacts": {
+              "lineOfSightDistFactor": 1
+            }
+          },
+          "scope": "declared source, scientific sides and whole-residue neighborhood",
+          "endpointPolicy": "Classified atoms, nearest charge-group members, or explicitly marked aromatic feature centers. Native negative non-polymer nitrogen charge features require negative valence-charge support.",
+          "excludedClassifications": []
+        }
+      },
+      "params": {
+        "opacity": 1
+      },
+      "children": [
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 1,
+              "classification": "Ionic Interaction",
+              "endpointMode": "nearest-charge-members",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 12314,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22820,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22821,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22822,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22826,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.4424513274756943,
+              "displayedDistance": 2.7299872941076133
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12314,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22820,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.22,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; charge-group association, shown through nearest classified members (2.73 Å); feature centers 3.44 Å; not an additional hydrogen bond)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 1,
+              "classification": "Ionic Interaction",
+              "endpointMode": "nearest-charge-members",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 22820,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22821,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22822,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22826,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22818,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.6325978168913258,
+              "displayedDistance": 2.2851876494633836
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 22821,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22818,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.22,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; charge-group association, shown through nearest classified members (2.29 Å); feature centers 3.63 Å; not an additional hydrogen bond)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 1,
+              "classification": "Ionic Interaction",
+              "endpointMode": "nearest-charge-members",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 10120,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 10122,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 10123,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22824,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22825,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22826,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22827,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 4.797470809766414,
+              "displayedDistance": 3.228351890614192
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 10122,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22825,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.22,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; charge-group association, shown through nearest classified members (3.23 Å); feature centers 4.80 Å; not an additional hydrogen bond)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 1,
+              "classification": "Ionic Interaction",
+              "endpointMode": "nearest-charge-members",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 10120,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 10122,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 10123,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22820,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22821,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22822,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22826,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 4.896198490392434,
+              "displayedDistance": 2.993334731975772
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 10122,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22822,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.22,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; charge-group association, shown through nearest classified members (2.99 Å); feature centers 4.90 Å; not an additional hydrogen bond)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 3,
+              "classification": "Pi Stacking",
+              "endpointMode": "ring-centers",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 13689,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 13690,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 13691,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 13692,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 13693,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 13694,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22839,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22840,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22842,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22843,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22844,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22845,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.74104114343928,
+              "displayedDistance": 3.7410397094404964
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 13689,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13690,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13691,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13692,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13693,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13694,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22839,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22840,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22842,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22843,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22844,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22845,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#8cb366",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Pi Stacking (Molstar inferred contact; ring centers 3.74 Å; not an atom-to-atom bond)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 3,
+              "classification": "Pi Stacking",
+              "endpointMode": "ring-centers",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 13689,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 13690,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 13691,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 13692,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 13693,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 13694,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22836,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22837,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22838,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22839,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22845,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.944255732660152,
+              "displayedDistance": 3.944256295430792
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 13689,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13690,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13691,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13692,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13693,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13694,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22836,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22837,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22838,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22839,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22845,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#8cb366",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Pi Stacking (Molstar inferred contact; ring centers 3.94 Å; not an atom-to-atom bond)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 12306,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22820,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.5024065514934235,
+              "displayedDistance": 2.5024065514934235
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12306,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22820,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 23275,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22842,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.5792143843802444,
+              "displayedDistance": 2.5792143843802444
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23275,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22842,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 12291,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22822,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.6541956736601207,
+              "displayedDistance": 2.6541956736601207
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12291,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22822,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 12314,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22820,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.7299872941076133,
+              "displayedDistance": 2.7299872941076133
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12314,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22820,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 23233,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22832,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.8795792362614225,
+              "displayedDistance": 2.8795792362614225
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23233,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22832,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 23233,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22832,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.8795792362614225,
+              "displayedDistance": 2.8795792362614225
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23233,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22832,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 23224,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22838,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.8839747745540847,
+              "displayedDistance": 2.8839747745540847
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23224,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22838,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 2.88 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 12302,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22820,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.884688300367799,
+              "displayedDistance": 2.884688300367799
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12302,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22820,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 2.88 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 23084,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22834,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.910115181812449,
+              "displayedDistance": 2.910115181812449
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23084,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22834,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 2.91 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 10122,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22822,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.993334731975772,
+              "displayedDistance": 2.993334731975772
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 10122,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22822,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 2.99 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 12322,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22824,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.019828471793131,
+              "displayedDistance": 3.019828471793131
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12322,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22824,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.02 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 23191,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22822,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.050554090636174,
+              "displayedDistance": 3.050554090636174
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23191,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22822,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.05 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 23233,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22825,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.080388467689088,
+              "displayedDistance": 3.080388467689088
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23233,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22825,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.08 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 23251,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22822,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.091533698608388,
+              "displayedDistance": 3.091533698608388
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23251,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22822,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.09 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 12315,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22821,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.1254486234051053,
+              "displayedDistance": 3.1254486234051053
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12315,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22821,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.13 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 10110,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22834,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.1602591399773674,
+              "displayedDistance": 3.1602591399773674
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 10110,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22834,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.16 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 10122,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22825,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.228351890614192,
+              "displayedDistance": 3.228351890614192
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 10122,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22825,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.23 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 10122,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22826,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.2597023201656743,
+              "displayedDistance": 3.2597023201656743
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 10122,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22826,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.26 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 12302,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22826,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.265853856179576,
+              "displayedDistance": 3.265853856179576
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12302,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22826,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.27 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 12314,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22822,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.2803687062625584,
+              "displayedDistance": 3.2803687062625584
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12314,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22822,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.28 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 12295,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22820,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.3186790421599768,
+              "displayedDistance": 3.3186790421599768
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12295,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22820,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.32 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 23224,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22841,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.321577745576718,
+              "displayedDistance": 3.321577745576718
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23224,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22841,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.32 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 7,
+              "classification": "Metal Coordination",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 22821,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22818,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.2851876494633836,
+              "displayedDistance": 2.2851876494633836
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 22821,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22818,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#8c4099",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Metal Coordination (Molstar inferred contact; classified atom endpoints 2.29 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_feature_center": true
+          },
+          "params": {
+            "kind": "ellipsoid",
+            "center": {
+              "expressions": [
+                {
+                  "atom_index": 13689,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13690,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13691,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13692,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13693,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13694,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "radius": 0.12,
+            "color": "#8cb366",
+            "tooltip": "Classified interaction feature center (not an atom)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_feature_center": true
+          },
+          "params": {
+            "kind": "ellipsoid",
+            "center": {
+              "expressions": [
+                {
+                  "atom_index": 22839,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22840,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22842,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22843,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22844,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22845,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "radius": 0.12,
+            "color": "#8cb366",
+            "tooltip": "Classified interaction feature center (not an atom)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_feature_center": true
+          },
+          "params": {
+            "kind": "ellipsoid",
+            "center": {
+              "expressions": [
+                {
+                  "atom_index": 22836,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22837,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22838,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22839,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22845,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "radius": 0.12,
+            "color": "#8cb366",
+            "tooltip": "Classified interaction feature center (not an atom)"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "atp-analogue",
+    "referenceId": "ca55d8c6-9fde-4137-bb4d-d3681eed9d02",
+    "classifiedRecords": 32,
+    "segments": 27,
+    "group": {
+      "kind": "primitives",
+      "custom": {
+        "dnaforge_interaction_context": "native-interaction-context-v1",
+        "dnaforge_contact_calculation": {
+          "engine": "molstar-native-interactions",
+          "version": "5.7.0",
+          "types": [
+            "ionic",
+            "pi-stacking",
+            "cation-pi",
+            "halogen-bonds",
+            "hydrogen-bonds",
+            "weak-hydrogen-bonds",
+            "hydrophobic",
+            "metal-coordination"
+          ],
+          "parameters": {
+            "providers": {
+              "ionic": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 5
+                }
+              },
+              "pi-stacking": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 5.5,
+                  "offsetMax": 2,
+                  "angleDevMax": 30
+                }
+              },
+              "cation-pi": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 6,
+                  "offsetMax": 2
+                }
+              },
+              "halogen-bonds": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 4,
+                  "angleMax": 30
+                }
+              },
+              "hydrogen-bonds": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 3.5,
+                  "backbone": true,
+                  "accAngleDevMax": 45,
+                  "ignoreHydrogens": false,
+                  "donAngleDevMax": 45,
+                  "accOutOfPlaneAngleMax": 90,
+                  "donOutOfPlaneAngleMax": 45,
+                  "water": false,
+                  "sulfurDistanceMax": 4.1
+                }
+              },
+              "weak-hydrogen-bonds": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 3.5,
+                  "backbone": true,
+                  "accAngleDevMax": 45,
+                  "ignoreHydrogens": false,
+                  "donAngleDevMax": 45,
+                  "accOutOfPlaneAngleMax": 90,
+                  "donOutOfPlaneAngleMax": 45
+                }
+              },
+              "hydrophobic": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 4
+                }
+              },
+              "metal-coordination": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 3
+                }
+              }
+            },
+            "contacts": {
+              "lineOfSightDistFactor": 1
+            }
+          },
+          "scope": "declared source, scientific sides and whole-residue neighborhood",
+          "endpointPolicy": "Classified atoms, nearest charge-group members, or explicitly marked aromatic feature centers. Native negative non-polymer nitrogen charge features require negative valence-charge support.",
+          "excludedClassifications": [
+            {
+              "classification": "Ionic Interaction",
+              "reason": "The native negative-charge feature contains non-polymer nitrogen without a supporting negative deposited or computed valence charge; it cannot be drawn as an ionic association.",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 6372,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 6374,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 6375,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22854,
+                    "instance_id": "1_555"
+                  }
+                ]
+              }
+            },
+            {
+              "classification": "Ionic Interaction",
+              "reason": "The native negative-charge feature contains non-polymer nitrogen without a supporting negative deposited or computed valence charge; it cannot be drawn as an ionic association.",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19383,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22854,
+                    "instance_id": "1_555"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "params": {
+        "opacity": 1
+      },
+      "children": [
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 1,
+              "classification": "Ionic Interaction",
+              "endpointMode": "nearest-charge-members",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 22849,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22846,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.1970683742307022,
+              "displayedDistance": 2.1970683742307022
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 22849,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22846,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.22,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; charge-group association, shown through nearest classified members (2.20 Å); feature centers 2.20 Å; not an additional hydrogen bond)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 1,
+              "classification": "Ionic Interaction",
+              "endpointMode": "nearest-charge-members",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 22853,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22846,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.4389723875623126,
+              "displayedDistance": 2.4389723875623126
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 22853,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22846,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.22,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; charge-group association, shown through nearest classified members (2.44 Å); feature centers 2.44 Å; not an additional hydrogen bond)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 1,
+              "classification": "Ionic Interaction",
+              "endpointMode": "nearest-charge-members",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19579,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 19581,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 19582,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22850,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.5350173646789167,
+              "displayedDistance": 3.037187959938035
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19582,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22850,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.22,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; charge-group association, shown through nearest classified members (3.04 Å); feature centers 3.54 Å; not an additional hydrogen bond)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 1,
+              "classification": "Ionic Interaction",
+              "endpointMode": "nearest-charge-members",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 6372,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 6374,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 6375,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22850,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.6457214869175436,
+              "displayedDistance": 3.098862251878968
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 6374,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22850,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.22,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; charge-group association, shown through nearest classified members (3.10 Å); feature centers 3.65 Å; not an additional hydrogen bond)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 1,
+              "classification": "Ionic Interaction",
+              "endpointMode": "nearest-charge-members",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19383,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22849,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 4.115550505568058,
+              "displayedDistance": 4.115550505568058
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19383,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22849,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.22,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; charge-group association, shown through nearest classified members (4.12 Å); feature centers 4.12 Å; not an additional hydrogen bond)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 1,
+              "classification": "Ionic Interaction",
+              "endpointMode": "nearest-charge-members",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19579,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 19581,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 19582,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22849,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 4.455418928109399,
+              "displayedDistance": 3.3685428077774207
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19581,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22849,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.22,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; charge-group association, shown through nearest classified members (3.37 Å); feature centers 4.46 Å; not an additional hydrogen bond)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 1,
+              "classification": "Ionic Interaction",
+              "endpointMode": "nearest-charge-members",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19383,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22853,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 4.6897653941669,
+              "displayedDistance": 4.6897653941669
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19383,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22853,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.22,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; charge-group association, shown through nearest classified members (4.69 Å); feature centers 4.69 Å; not an additional hydrogen bond)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 1,
+              "classification": "Ionic Interaction",
+              "endpointMode": "nearest-charge-members",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 6372,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 6374,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 6375,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22856,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22857,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22858,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22859,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 4.846465481447609,
+              "displayedDistance": 3.522560910917272
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 6374,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22857,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.22,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; charge-group association, shown through nearest classified members (3.52 Å); feature centers 4.85 Å; not an additional hydrogen bond)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 3,
+              "classification": "Pi Stacking",
+              "endpointMode": "ring-centers",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 20758,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 20759,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 20760,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 20761,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 20762,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 20763,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22871,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22872,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22874,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22875,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22876,
+                    "instance_id": "1_555"
+                  },
+                  {
+                    "atom_index": 22877,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.818628582380693,
+              "displayedDistance": 3.8186302145856286
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 20758,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 20759,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 20760,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 20761,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 20762,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 20763,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22871,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22872,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22874,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22875,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22876,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22877,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#8cb366",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Pi Stacking (Molstar inferred contact; ring centers 3.82 Å; not an atom-to-atom bond)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 23434,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22874,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.5697191326160325,
+              "displayedDistance": 2.5697191326160325
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23434,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22874,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19383,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22848,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.7219714482323263,
+              "displayedDistance": 2.7219714482323263
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19383,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22848,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19391,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22856,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.761109715731721,
+              "displayedDistance": 2.761109715731721
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19391,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22856,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 2.76 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 23365,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22870,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.7783305183677403,
+              "displayedDistance": 2.7783305183677403
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23365,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22870,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 2.78 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19375,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22852,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.8188301618452942,
+              "displayedDistance": 2.8188301618452942
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19375,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22852,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 2.82 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19582,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22850,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.037187959938035,
+              "displayedDistance": 3.037187959938035
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19582,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22850,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.04 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19371,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22852,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.0380665969861447,
+              "displayedDistance": 3.0380665969861447
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19371,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22852,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.04 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19360,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22848,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.054425503836984,
+              "displayedDistance": 3.054425503836984
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19360,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22848,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.05 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19384,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22853,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.087397133924471,
+              "displayedDistance": 3.087397133924471
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19384,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22853,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.09 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 6374,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22850,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.098862251878968,
+              "displayedDistance": 3.098862251878968
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 6374,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22850,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.10 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19389,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22853,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.100992214813657,
+              "displayedDistance": 3.100992214813657
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19389,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22853,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.10 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19371,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22858,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.135171837507507,
+              "displayedDistance": 3.135171837507507
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19371,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22858,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.14 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19581,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22850,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.1527253087719203,
+              "displayedDistance": 3.1527253087719203
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19581,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22850,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.15 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 23434,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22873,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.198925087598665,
+              "displayedDistance": 3.198925087598665
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23434,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22873,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.20 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 6375,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22850,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.2731783976457973,
+              "displayedDistance": 3.2731783976457973
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 6375,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22850,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.27 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19383,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22852,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.2894997753808286,
+              "displayedDistance": 3.2894997753808286
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19383,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22852,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.29 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 23366,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22849,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.2950750290643174,
+              "displayedDistance": 3.2950750290643174
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23366,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22849,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.30 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19364,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22852,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.2977870597329733,
+              "displayedDistance": 3.2977870597329733
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19364,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22852,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.30 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 23365,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22873,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.313163184534984,
+              "displayedDistance": 3.313163184534984
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23365,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22873,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.31 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 23368,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22857,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.3364735919886055,
+              "displayedDistance": 3.3364735919886055
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23368,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22857,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.34 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 4,
+              "classification": "Hydrogen Bond",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 19581,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22849,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 3.3685428077774207,
+              "displayedDistance": 3.3685428077774207
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 19581,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22849,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; classified atom endpoints 3.37 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 7,
+              "classification": "Metal Coordination",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 22849,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22846,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.1970683742307022,
+              "displayedDistance": 2.1970683742307022
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 22849,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22846,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#8c4099",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Metal Coordination (Molstar inferred contact; classified atom endpoints 2.20 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_evidence": {
+              "contract": "typed-native-contact-v1",
+              "type": 7,
+              "classification": "Metal Coordination",
+              "endpointMode": "atoms",
+              "featureA": {
+                "expressions": [
+                  {
+                    "atom_index": 22853,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureB": {
+                "expressions": [
+                  {
+                    "atom_index": 22846,
+                    "instance_id": "1_555"
+                  }
+                ]
+              },
+              "featureCenterDistance": 2.4389723875623126,
+              "displayedDistance": 2.4389723875623126
+            }
+          },
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 22853,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22846,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#8c4099",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Metal Coordination (Molstar inferred contact; classified atom endpoints 2.44 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_feature_center": true
+          },
+          "params": {
+            "kind": "ellipsoid",
+            "center": {
+              "expressions": [
+                {
+                  "atom_index": 20758,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 20759,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 20760,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 20761,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 20762,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 20763,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "radius": 0.12,
+            "color": "#8cb366",
+            "tooltip": "Classified interaction feature center (not an atom)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "custom": {
+            "dnaforge_contact_feature_center": true
+          },
+          "params": {
+            "kind": "ellipsoid",
+            "center": {
+              "expressions": [
+                {
+                  "atom_index": 22871,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22872,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22874,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22875,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22876,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22877,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "radius": 0.12,
+            "color": "#8cb366",
+            "tooltip": "Classified interaction feature center (not an atom)"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "legacy-adp",
+    "referenceId": "e5b22fbd-2816-42e3-b97e-a39cade7828c",
+    "classifiedRecords": 29,
+    "segments": 28,
+    "group": {
+      "kind": "primitives",
+      "custom": {
+        "dnaforge_interaction_context": "native-interaction-context-v1",
+        "dnaforge_contact_calculation": {
+          "engine": "molstar-native-interactions",
+          "version": "5.7.0",
+          "types": [
+            "ionic",
+            "pi-stacking",
+            "cation-pi",
+            "halogen-bonds",
+            "hydrogen-bonds",
+            "weak-hydrogen-bonds",
+            "hydrophobic",
+            "metal-coordination"
+          ],
+          "parameters": {
+            "providers": {
+              "ionic": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 5
+                }
+              },
+              "pi-stacking": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 5.5,
+                  "offsetMax": 2,
+                  "angleDevMax": 30
+                }
+              },
+              "cation-pi": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 6,
+                  "offsetMax": 2
+                }
+              },
+              "halogen-bonds": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 4,
+                  "angleMax": 30
+                }
+              },
+              "hydrogen-bonds": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 3.5,
+                  "backbone": true,
+                  "accAngleDevMax": 45,
+                  "ignoreHydrogens": false,
+                  "donAngleDevMax": 45,
+                  "accOutOfPlaneAngleMax": 90,
+                  "donOutOfPlaneAngleMax": 45,
+                  "water": false,
+                  "sulfurDistanceMax": 4.1
+                }
+              },
+              "weak-hydrogen-bonds": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 3.5,
+                  "backbone": true,
+                  "accAngleDevMax": 45,
+                  "ignoreHydrogens": false,
+                  "donAngleDevMax": 45,
+                  "accOutOfPlaneAngleMax": 90,
+                  "donOutOfPlaneAngleMax": 45
+                }
+              },
+              "hydrophobic": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 4
+                }
+              },
+              "metal-coordination": {
+                "name": "on",
+                "params": {
+                  "distanceMax": 3
+                }
+              }
+            },
+            "contacts": {
+              "lineOfSightDistFactor": 1
+            }
+          },
+          "scope": "declared source, scientific sides and whole-residue neighborhood"
+        }
+      },
+      "params": {
+        "opacity": 1
+      },
+      "children": [
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12314,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22820,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22821,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22822,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22826,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; 3.44 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 22820,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22821,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22822,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22826,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22818,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; 3.63 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 10120,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 10122,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 10123,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22824,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22825,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22826,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22827,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; 4.80 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 10120,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 10122,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 10123,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22820,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22821,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22822,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22826,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#f0c814",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Ionic Interaction (Molstar inferred contact; 4.90 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 13689,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13690,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13691,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13692,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13693,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13694,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22839,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22840,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22842,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22843,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22844,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22845,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#8cb366",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Pi Stacking (Molstar inferred contact; 3.74 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 13689,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13690,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13691,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13692,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13693,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 13694,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22836,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22837,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22838,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22839,
+                  "instance_id": "1_555"
+                },
+                {
+                  "atom_index": 22845,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#8cb366",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Pi Stacking (Molstar inferred contact; 3.94 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12306,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22820,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 2.50 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23275,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22842,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 2.58 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12291,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22822,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 2.65 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12314,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22820,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 2.73 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23233,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22832,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 2.88 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23233,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22832,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 2.88 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23224,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22838,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 2.88 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12302,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22820,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 2.88 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23084,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22834,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 2.91 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 10122,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22822,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 2.99 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12322,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22824,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 3.02 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23191,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22822,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 3.05 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23233,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22825,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 3.08 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23251,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22822,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 3.09 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12315,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22821,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 3.13 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 10110,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22834,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 3.16 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 10122,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22825,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 3.23 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 10122,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22826,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 3.26 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12302,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22826,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 3.27 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12314,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22822,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 3.28 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 12295,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22820,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 3.32 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 23224,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22841,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#2b83ba",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Hydrogen Bond (Molstar inferred contact; 3.32 Å)"
+          }
+        },
+        {
+          "kind": "primitive",
+          "params": {
+            "kind": "tube",
+            "start": {
+              "expressions": [
+                {
+                  "atom_index": 22821,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "end": {
+              "expressions": [
+                {
+                  "atom_index": 22818,
+                  "instance_id": "1_555"
+                }
+              ]
+            },
+            "color": "#8c4099",
+            "radius": 0.06,
+            "dash_length": 0.12,
+            "tooltip": "Metal Coordination (Molstar inferred contact; 2.29 Å)"
+          }
+        }
+      ]
+    }
+  }
+]

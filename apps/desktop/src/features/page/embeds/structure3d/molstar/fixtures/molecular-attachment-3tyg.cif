@@ -1,0 +1,135 @@
+# Actual 3TYG coordinate and struct_conn rows, reduced to the two glycan attachment residues.
+# Source: https://files.rcsb.org/download/3TYG.cif
+data_3TYG_ATTACHMENT
+#
+loop_
+_entity.id
+_entity.type
+1 polymer
+4 branched
+5 branched
+#
+loop_
+_entity_poly.entity_id
+_entity_poly.type
+1 polypeptide(L)
+#
+loop_
+_chem_comp.id
+_chem_comp.type
+ASN "L-peptide linking"
+NAG "D-saccharide, beta linking"
+#
+loop_
+_struct_asym.id
+_struct_asym.entity_id
+A 1
+D 4
+E 5
+#
+loop_
+_struct_conn.id
+_struct_conn.conn_type_id
+_struct_conn.pdbx_leaving_atom_flag
+_struct_conn.pdbx_PDB_id
+_struct_conn.ptnr1_label_asym_id
+_struct_conn.ptnr1_label_comp_id
+_struct_conn.ptnr1_label_seq_id
+_struct_conn.ptnr1_label_atom_id
+_struct_conn.pdbx_ptnr1_label_alt_id
+_struct_conn.pdbx_ptnr1_PDB_ins_code
+_struct_conn.pdbx_ptnr1_standard_comp_id
+_struct_conn.ptnr1_symmetry
+_struct_conn.ptnr2_label_asym_id
+_struct_conn.ptnr2_label_comp_id
+_struct_conn.ptnr2_label_seq_id
+_struct_conn.ptnr2_label_atom_id
+_struct_conn.pdbx_ptnr2_label_alt_id
+_struct_conn.pdbx_ptnr2_PDB_ins_code
+_struct_conn.ptnr1_auth_asym_id
+_struct_conn.ptnr1_auth_comp_id
+_struct_conn.ptnr1_auth_seq_id
+_struct_conn.ptnr2_auth_asym_id
+_struct_conn.ptnr2_auth_comp_id
+_struct_conn.ptnr2_auth_seq_id
+_struct_conn.ptnr2_symmetry
+_struct_conn.pdbx_ptnr3_label_atom_id
+_struct_conn.pdbx_ptnr3_label_seq_id
+_struct_conn.pdbx_ptnr3_label_comp_id
+_struct_conn.pdbx_ptnr3_label_asym_id
+_struct_conn.pdbx_ptnr3_label_alt_id
+_struct_conn.pdbx_ptnr3_PDB_ins_code
+_struct_conn.details
+_struct_conn.pdbx_dist_value
+_struct_conn.pdbx_value_order
+_struct_conn.pdbx_role
+covale1 covale one ? A ASN 104 ND2 ? ? ? 1_555 E NAG ? C1 ? ? A ASN 104 C NAG 1 1_555 ? ? ? ? ? ? ? 1.436 ? N-Glycosylation
+covale2 covale one ? A ASN 121 ND2 ? ? ? 1_555 D NAG ? C1 ? ? A ASN 121 B NAG 1 1_555 ? ? ? ? ? ? ? 1.435 ? N-Glycosylation
+#
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.pdbx_formal_charge
+_atom_site.auth_seq_id
+_atom_site.auth_comp_id
+_atom_site.auth_asym_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+ATOM 603 N N ? ASN A 1 104 ? -1.687 20.780 15.425 1.00 82.69 ? 104 ASN A N 1
+ATOM 604 C CA ? ASN A 1 104 ? -2.251 21.012 14.078 1.00 80.82 ? 104 ASN A CA 1
+ATOM 605 C C ? ASN A 1 104 ? -3.748 21.387 14.003 1.00 84.80 ? 104 ASN A C 1
+ATOM 606 O O ? ASN A 1 104 ? -4.624 20.534 14.194 1.00 84.04 ? 104 ASN A O 1
+ATOM 607 C CB ? ASN A 1 104 ? -1.890 19.896 13.077 1.00 74.49 ? 104 ASN A CB 1
+ATOM 608 C CG ? ASN A 1 104 ? -1.745 20.395 11.654 1.00 66.17 ? 104 ASN A CG 1
+ATOM 609 O OD1 ? ASN A 1 104 ? -2.568 21.182 11.157 1.00 66.48 ? 104 ASN A OD1 1
+ATOM 610 N ND2 ? ASN A 1 104 ? -0.691 19.921 10.982 1.00 36.78 ? 104 ASN A ND2 1
+ATOM 730 N N ? ASN A 1 121 ? 6.581 16.421 30.220 1.00 113.36 ? 121 ASN A N 1
+ATOM 731 C CA ? ASN A 1 121 ? 7.847 15.693 30.246 1.00 113.79 ? 121 ASN A CA 1
+ATOM 732 C C ? ASN A 1 121 ? 8.879 16.234 31.249 1.00 120.33 ? 121 ASN A C 1
+ATOM 733 O O ? ASN A 1 121 ? 9.046 17.449 31.376 1.00 119.68 ? 121 ASN A O 1
+ATOM 734 C CB ? ASN A 1 121 ? 8.438 15.635 28.824 1.00 111.77 ? 121 ASN A CB 1
+ATOM 735 C CG ? ASN A 1 121 ? 8.005 14.456 27.968 1.00 115.68 ? 121 ASN A CG 1
+ATOM 736 O OD1 ? ASN A 1 121 ? 7.657 13.385 28.482 1.00 110.63 ? 121 ASN A OD1 1
+ATOM 737 N ND2 ? ASN A 1 121 ? 8.061 14.645 26.631 1.00 96.23 ? 121 ASN A ND2 1
+HETATM 4517 C C1 ? NAG D 4 ? ? 7.736 13.626 25.674 1.00 97.57 ? 1 NAG B C1 1
+HETATM 4518 C C2 ? NAG D 4 ? ? 8.022 14.110 24.250 1.00 97.10 ? 1 NAG B C2 1
+HETATM 4519 C C3 ? NAG D 4 ? ? 8.071 13.000 23.197 1.00 93.41 ? 1 NAG B C3 1
+HETATM 4520 C C4 ? NAG D 4 ? ? 8.910 11.814 23.666 1.00 91.38 ? 1 NAG B C4 1
+HETATM 4521 C C5 ? NAG D 4 ? ? 8.491 11.403 25.076 1.00 94.00 ? 1 NAG B C5 1
+HETATM 4522 C C6 ? NAG D 4 ? ? 9.363 10.324 25.671 1.00 94.99 ? 1 NAG B C6 1
+HETATM 4523 C C7 ? NAG D 4 ? ? 7.297 16.213 23.170 1.00 101.77 ? 1 NAG B C7 1
+HETATM 4524 C C8 ? NAG D 4 ? ? 6.106 16.989 22.696 1.00 101.87 ? 1 NAG B C8 1
+HETATM 4525 N N2 ? NAG D 4 ? ? 7.026 15.105 23.886 1.00 99.89 ? 1 NAG B N2 1
+HETATM 4526 O O3 ? NAG D 4 ? ? 8.615 13.509 21.984 1.00 92.40 ? 1 NAG B O3 1
+HETATM 4527 O O4 ? NAG D 4 ? ? 8.668 10.714 22.789 1.00 87.56 ? 1 NAG B O4 1
+HETATM 4528 O O5 ? NAG D 4 ? ? 8.596 12.525 25.964 1.00 95.98 ? 1 NAG B O5 1
+HETATM 4529 O O6 ? NAG D 4 ? ? 8.879 9.934 26.949 1.00 95.85 ? 1 NAG B O6 1
+HETATM 4530 O O7 ? NAG D 4 ? ? 8.448 16.561 22.906 1.00 102.17 ? 1 NAG B O7 1
+HETATM 4633 C C1 ? NAG E 5 ? ? -0.343 20.342 9.654 1.00 44.54 ? 1 NAG C C1 1
+HETATM 4634 C C2 ? NAG E 5 ? ? 1.043 19.842 9.246 1.00 44.01 ? 1 NAG C C2 1
+HETATM 4635 C C3 ? NAG E 5 ? ? 1.401 20.441 7.884 1.00 38.20 ? 1 NAG C C3 1
+HETATM 4636 C C4 ? NAG E 5 ? ? 0.304 20.124 6.865 1.00 36.24 ? 1 NAG C C4 1
+HETATM 4637 C C5 ? NAG E 5 ? ? -1.059 20.538 7.410 1.00 35.26 ? 1 NAG C C5 1
+HETATM 4638 C C6 ? NAG E 5 ? ? -2.212 20.193 6.500 1.00 35.65 ? 1 NAG C C6 1
+HETATM 4639 C C7 ? NAG E 5 ? ? 2.265 21.267 10.878 1.00 49.01 ? 1 NAG C C7 1
+HETATM 4640 C C8 ? NAG E 5 ? ? 2.557 21.165 12.346 1.00 48.68 ? 1 NAG C C8 1
+HETATM 4641 N N2 ? NAG E 5 ? ? 2.082 20.093 10.237 1.00 46.68 ? 1 NAG C N2 1
+HETATM 4642 O O3 ? NAG E 5 ? ? 2.658 19.943 7.426 1.00 35.21 ? 1 NAG C O3 1
+HETATM 4643 O O4 ? NAG E 5 ? ? 0.502 20.905 5.701 1.00 39.14 ? 1 NAG C O4 1
+HETATM 4644 O O5 ? NAG E 5 ? ? -1.297 19.910 8.680 1.00 39.14 ? 1 NAG C O5 1
+HETATM 4645 O O6 ? NAG E 5 ? ? -3.368 20.982 6.777 1.00 37.22 ? 1 NAG C O6 1
+HETATM 4646 O O7 ? NAG E 5 ? ? 2.174 22.354 10.306 1.00 50.58 ? 1 NAG C O7 1
+#

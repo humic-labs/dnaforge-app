@@ -1,0 +1,454 @@
+{
+  "schemaVersion": 1,
+  "workflows": [
+    {
+      "id": "mini-derivative-design",
+      "title": "Fixture plasmid to derivative design",
+      "mode": "hybrid",
+      "maturity": "live-app-tested",
+      "demand": {
+        "level": "high",
+        "rationale": "Derivative plasmid design is the core user journey the MCP should make faster, even when the source sequence starts outside the app.",
+        "signals": [
+          "Maps directly to Addgene-style plasmid retrieval plus design-tool composition.",
+          "Exercises import, design creation, region selection, assembly drafting, resources, and UI observation."
+        ]
+      },
+      "user_goal": "Start from a plasmid sequence, create a derivative design from specific source features, draft assembly, and leave the result visible in the app.",
+      "first_external_tooling_use_case": "Imported plasmid sequence to derivative plasmid design. Addgene is the natural external source, but the first closed-loop assay uses the local pUC19 GenBank fixture so auth, licensing, and network failures do not hide MCP/app problems.",
+      "control_surface": "MCP tools with the documented resource and observer contracts.",
+      "success_metrics": [
+        {
+          "id": "overall_success",
+          "description": "Workflow reaches a passed outcome with no failed stage."
+        },
+        {
+          "id": "successful_tool_flows",
+          "description": "Every required MCP tool call completes and records action/audit metadata where applicable."
+        },
+        {
+          "id": "observer_confidence",
+          "description": "Independent resource and renderer observers confirm the app state changed, not just the MCP response."
+        },
+        {
+          "id": "user_visible_result",
+          "description": "The imported source sequence and derivative design are visible in the desktop workspace."
+        }
+      ],
+      "expected_app_changes": [
+        "A sequence tab opens for the imported source plasmid.",
+        "The imported sequence tab renders a visible minimap/canvas.",
+        "A design tab opens with the requested design name.",
+        "Two source regions are present in canonical design state.",
+        "Assembly drafting reaches a ready state with primer pairs.",
+        "The visible app state can be observed independently of the MCP result."
+      ],
+      "required_primitives": [
+        "import_sequence",
+        "create_design",
+        "find_features",
+        "add_design_region",
+        "draft_design_assembly",
+        "resources/read waypoint://design/{id}",
+        "test-only UI/design/sequence-render observer"
+      ],
+      "verification_channels": [
+        "MCP tool result",
+        "mutation claim with operation id and before/after versions",
+        "MCP resources/read snapshot",
+        "renderer/app-state observer",
+        "WebGL/canvas render observer",
+        "JSONL transcript",
+        "workflow-ledger.json"
+      ],
+      "steps": [
+        {
+          "id": "source_sequence",
+          "kind": "external_source",
+          "execution_boundary": "shell_native",
+          "surface": "local_fixture",
+          "description": "Use the pUC19 GenBank fixture as a deterministic stand-in for Addgene."
+        },
+        {
+          "id": "import_sequence",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "import_sequence",
+          "description": "Import the sequence into the workspace and open it in the app."
+        },
+        {
+          "id": "find_source_features",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "find_features",
+          "description": "Find source regions from the imported sequence."
+        },
+        {
+          "id": "create_design",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "create_design",
+          "description": "Create the derivative design workspace."
+        },
+        {
+          "id": "add_regions",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "add_design_region",
+          "description": "Add the selected source regions to the design."
+        },
+        {
+          "id": "draft_assembly",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "draft_design_assembly",
+          "description": "Draft assembly primers and junctions."
+        },
+        {
+          "id": "observe_visible_state",
+          "kind": "app_observer",
+          "execution_boundary": "ui_bridge",
+          "description": "Verify the sequence/design state through renderer observers and resources/read."
+        },
+        {
+          "id": "human_feedback",
+          "kind": "human_decision",
+          "execution_boundary": "human_decision",
+          "description": "Use the visible app and report to judge whether this is useful, not merely technically successful."
+        }
+      ],
+      "next_mcp_gaps": [
+        "Add Addgene/NCBI adapters behind import_sequence.",
+        "Expose user-facing command progress and cancellation outside this console.",
+        "Decide the durable resource model for imported external sequences."
+      ]
+    },
+    {
+      "id": "ncbi-import-smoke",
+      "title": "NCBI sequence import smoke",
+      "mode": "external-first",
+      "maturity": "live-app-tested",
+      "demand": {
+        "level": "medium",
+        "rationale": "External sequence import is necessary infrastructure, but by itself it is less valuable than a complete design workflow.",
+        "signals": [
+          "Separates external provider failures from app-control failures.",
+          "Exercises the first non-fixture import adapter behind import_sequence.",
+          "Provides a reusable proof point for future Addgene or URL adapters."
+        ]
+      },
+      "user_goal": "Fetch a real nucleotide sequence from NCBI, import it into the workspace through the same MCP tool agents use, and leave the sequence visible in the app.",
+      "first_external_tooling_use_case": "NCBI GenBank import is the first direct external source adapter behind import_sequence. This assay keeps the task narrow so network/provider issues are easy to separate from app-control and rendering issues.",
+      "control_surface": "MCP tools with the documented resource and observer contracts.",
+      "success_metrics": [
+        {
+          "id": "overall_success",
+          "description": "Workflow reaches a passed outcome with no failed stage."
+        },
+        {
+          "id": "successful_tool_flows",
+          "description": "The import and resource-read flows complete without losing action/audit metadata."
+        },
+        {
+          "id": "provider_boundary_clarity",
+          "description": "Failures distinguish NCBI/provider issues from MCP, bridge, and renderer issues."
+        },
+        {
+          "id": "user_visible_result",
+          "description": "The imported NCBI record is visible in the desktop workspace."
+        }
+      ],
+      "expected_app_changes": [
+        "An NCBI-sourced sequence file is written into the workspace.",
+        "A sequence tab opens for the imported NCBI record.",
+        "The imported sequence tab renders a visible minimap/canvas.",
+        "The imported sequence is readable through waypoint://sequence resources/read.",
+        "The import action is readable through waypoint://action resources/read."
+      ],
+      "required_primitives": [
+        "import_sequence source={kind:ncbi, accession}",
+        "resources/read waypoint://sequence/{documentId}",
+        "resources/read waypoint://action/{id}",
+        "test-only UI/sequence-render observer"
+      ],
+      "verification_channels": [
+        "MCP tool result",
+        "MCP resources/read sequence snapshot",
+        "renderer/app-state observer",
+        "WebGL/canvas render observer",
+        "MCP action resource snapshot",
+        "JSONL transcript",
+        "workflow-ledger.json"
+      ],
+      "steps": [
+        {
+          "id": "fetch_ncbi_record",
+          "kind": "external_source",
+          "execution_boundary": "external_provider",
+          "surface": "NCBI Entrez/GenBank",
+          "description": "Fetch the GenBank record through the import_sequence source adapter."
+        },
+        {
+          "id": "import_sequence",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "import_sequence",
+          "description": "Write the fetched record into the workspace and open it in the app."
+        },
+        {
+          "id": "read_sequence_resource",
+          "kind": "resource_read",
+          "execution_boundary": "mcp_resource",
+          "uri_pattern": "waypoint://sequence/{documentId}",
+          "description": "Read the imported sequence through MCP resources/read."
+        },
+        {
+          "id": "read_action_resource",
+          "kind": "resource_read",
+          "execution_boundary": "mcp_resource",
+          "uri_pattern": "waypoint://action/{id}",
+          "description": "Read the action record for the import command."
+        },
+        {
+          "id": "observe_visible_state",
+          "kind": "app_observer",
+          "execution_boundary": "ui_bridge",
+          "description": "Verify the imported sequence tab and WebGL/minimap render state."
+        }
+      ],
+      "next_mcp_gaps": [
+        "Promote this external-source smoke into a reusable workflow template.",
+        "Decide the durable metadata/resource model for imported external sequences.",
+        "Add Addgene behind the same import_sequence source contract when licensing/auth is clear."
+      ]
+    },
+    {
+      "id": "ncbi-derivative-design",
+      "title": "NCBI sequence to derivative design",
+      "mode": "hybrid",
+      "maturity": "live-app-tested",
+      "demand": {
+        "level": "high",
+        "rationale": "This is the first complete external-source design loop and is the closest current proxy for agent-assisted plasmid derivation from public sequence data.",
+        "signals": [
+          "Combines external import, app-native design tools, app observers, and resource verification.",
+          "Exercises the MCP decomposition most likely to generalize to Addgene and bespoke user pipelines.",
+          "Produces visible app state that a user can inspect after the agent finishes."
+        ]
+      },
+      "user_goal": "Fetch a real nucleotide sequence from NCBI, create a derivative DNAForge design from source ranges in that imported sequence, draft assembly, and leave the resulting design visible in the app.",
+      "first_external_tooling_use_case": "This is the first composed external-source workflow: NCBI import feeds directly into design creation, region insertion, assembly drafting, resource reads, action reads, and UI observation.",
+      "control_surface": "MCP tools with the documented resource and observer contracts.",
+      "success_metrics": [
+        {
+          "id": "overall_success",
+          "description": "Workflow reaches a passed outcome with no failed stage."
+        },
+        {
+          "id": "successful_tool_flows",
+          "description": "Import, planning, design mutation, assembly, and resource-read flows complete successfully."
+        },
+        {
+          "id": "failed_tool_flows",
+          "description": "Any failed tool flow is counted and tied back to the failed stage."
+        },
+        {
+          "id": "observer_confidence",
+          "description": "Independent resource, action, renderer, and WebGL observers agree with the tool timeline."
+        },
+        {
+          "id": "workflow_demand",
+          "description": "The run ledger carries the manifest demand label so high-demand workflows can be prioritized."
+        }
+      ],
+      "expected_app_changes": [
+        "An NCBI-sourced sequence file is written into the workspace.",
+        "A sequence tab opens and renders for the imported NCBI record.",
+        "A design tab opens with the requested design name.",
+        "Two source ranges from the NCBI record are present in canonical design state.",
+        "Assembly drafting reaches a ready state with primer pairs.",
+        "The visible app state can be observed independently of the MCP result."
+      ],
+      "required_primitives": [
+        "import_sequence source={kind:ncbi, accession}",
+        "plan_design_regions",
+        "create_design",
+        "add_design_region",
+        "draft_design_assembly",
+        "resources/read waypoint://sequence/{documentId}",
+        "resources/read waypoint://design/{id}",
+        "resources/read waypoint://action/{id}",
+        "test-only UI/design/sequence-render observer"
+      ],
+      "verification_channels": [
+        "MCP tool result",
+        "mutation claim with operation id and before/after versions",
+        "MCP resources/read sequence snapshot",
+        "MCP resources/read design snapshot",
+        "renderer/app-state observer",
+        "WebGL/canvas render observer",
+        "MCP action resource snapshot",
+        "JSONL transcript",
+        "workflow-ledger.json"
+      ],
+      "steps": [
+        {
+          "id": "fetch_ncbi_record",
+          "kind": "external_source",
+          "execution_boundary": "external_provider",
+          "surface": "NCBI Entrez/GenBank",
+          "description": "Fetch a real external sequence through the import_sequence source adapter."
+        },
+        {
+          "id": "import_sequence",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "import_sequence",
+          "description": "Write the fetched record into the workspace and open it in the app."
+        },
+        {
+          "id": "plan_regions",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "plan_design_regions",
+          "description": "Choose source ranges from the imported sequence through an agent-visible planning primitive."
+        },
+        {
+          "id": "create_design",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "create_design",
+          "description": "Create the derivative DNAForge design."
+        },
+        {
+          "id": "add_regions",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "add_design_region",
+          "description": "Add planned source ranges to the design."
+        },
+        {
+          "id": "draft_assembly",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "draft_design_assembly",
+          "description": "Draft assembly primers and junctions."
+        },
+        {
+          "id": "read_resources",
+          "kind": "resource_read",
+          "execution_boundary": "mcp_resource",
+          "description": "Read sequence, design, and action resources through MCP."
+        },
+        {
+          "id": "observe_visible_state",
+          "kind": "app_observer",
+          "execution_boundary": "ui_bridge",
+          "description": "Verify imported sequence and design state through independent desktop observers."
+        },
+        {
+          "id": "handoff_to_bespoke_pipeline",
+          "kind": "artifact",
+          "execution_boundary": "shell_native",
+          "description": "Leave transcript, Markdown report, and workflow ledger for external bioinformatics or agent tooling."
+        }
+      ],
+      "next_mcp_gaps": [
+        "Move from fixed source ranges to agent-selected biological features once imported annotations are richer.",
+        "Expose durable provenance for external sequence imports in the design resource.",
+        "Add Addgene behind the same import_sequence source contract when licensing/auth is clear."
+      ]
+    },
+    {
+      "id": "native-scientific-authoring",
+      "title": "Native designs, oligos and protocol notebook",
+      "description": "For requested scientific authoring, first call get_workspace and check the current authoring capabilities. Use native editable assembly drafts with real source documents and ranges; the draft is the deliverable until the user separately chooses finalization. Persist every selected oligo that the plan instructs the user to order. Register the primers of a draft assembly with save_design_primers, which saves or links them and records the link on the design; never retype them through create_primer. For other oligos use save_designed_primer for a pinned design_primers candidate, or create_primer for exact authored notation, with annealingLength whenever the oligo has a 5-prime tail. Store each oligo's full ordered bases, modifications, annealing portion and relevant bindings, then read it back with get_primer. Text, CSV, sequence annotations and reference records do not create oligos. Do not write separate CSV or JSON copies of primers or of the design; exports are generated on request. Choose the destination project explicitly when a template belongs to another project. Create or update the protocol with the native notebook tools, structured tables and returned typed references to sources, exact regions, drafts and saved oligos or bindings. Use declared coordinate systems. Use get_entity_link for external hyperlinks and shell opens; use returned inline links or notebook reference payloads on their supported surfaces. Reuse existing identities on retry and respect saved revisions and unsaved edits. If a required operation is unavailable or refused, retain valid drafts and report the incomplete step without substituting another artifact type. An explanation alone does not authorize authoring. Background tool requests must preserve operating-system focus.",
+      "steps": [
+        {
+          "id": "permissions",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "get_workspace",
+          "description": "Inspect real projects and current authoring capabilities before producing artifacts."
+        },
+        {
+          "id": "sources",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "list_files",
+          "description": "Discover annotated sources across open projects; inspect exact features and coordinate systems."
+        },
+        {
+          "id": "drafts",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "create_design",
+          "description": "Create editable native designs in the chosen destination project using real source documents and ranges."
+        },
+        {
+          "id": "assembly",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "draft_design_assembly",
+          "description": "Draft the designs and edit their primers as scientifically needed; preserve the native draft lifecycle."
+        },
+        {
+          "id": "assembly-oligos",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "save_design_primers",
+          "description": "Register each draft assembly's primers as saved oligos linked to that design; never retype them through create_primer."
+        },
+        {
+          "id": "oligos",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "create_primer",
+          "description": "Save every other selected ordered oligo as a canonical entity, with annealingLength when it has a 5-prime tail; save_designed_primer may instead persist a pinned candidate."
+        },
+        {
+          "id": "bindings",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "add_primer_binding",
+          "description": "Attach relevant source bindings with explicit primer-owner project and target identity."
+        },
+        {
+          "id": "notebook",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "create_notebook",
+          "description": "Write the protocol with structured tables and real source, region, draft and oligo references."
+        },
+        {
+          "id": "readback",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "get_primer",
+          "description": "Independently read saved oligos, designs and notebooks; reuse existing identities on retry."
+        },
+        {
+          "id": "links",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "get_entity_link",
+          "description": "Return app-authored links and verify exact owning projects and selected ranges."
+        }
+      ],
+      "success_criteria": [
+        {
+          "id": "canonical_objects",
+          "description": "Real drafts, ordered oligos and bindings agree with the authored notebook plan."
+        },
+        {
+          "id": "native_navigation",
+          "description": "Saved references and app-authored external links open the exact entities, owning projects and selections."
+        },
+        {
+          "id": "honest_completion",
+          "description": "Required operations succeed under the current grant, or the result remains explicitly incomplete without substitute artifacts."
+        }
+      ]
+    }
+  ]
+}

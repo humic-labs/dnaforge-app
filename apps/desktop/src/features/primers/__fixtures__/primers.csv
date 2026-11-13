@@ -1,0 +1,13 @@
+Name,Sequence,Description,Target,Tm,Direction
+M13-Forward,GTAAAACGACGGCCAGT,Standard M13 forward primer,pUC vectors,52.8,Forward
+M13-Reverse,CAGGAAACAGCTATGAC,Standard M13 reverse primer,pUC vectors,50.4,Reverse
+T7-Promoter,TAATACGACTCACTATAGGG,T7 promoter primer,T7-based vectors,53.2,Forward
+SP6-Promoter,ATTTAGGTGACACTATAG,SP6 promoter primer,SP6 vectors,47.5,Forward
+BGH-Reverse,TAGAAGGCACAGTCGAGG,BGH poly(A) reverse primer,Mammalian expression,54.0,Reverse
+CMV-Forward,CGCAAATGGGCGGTAGGCGTG,CMV promoter forward,CMV vectors,64.5,Forward
+EGFP-N,CGTCGCCGTCCAGCTCGACCAG,EGFP N-terminal sequencing,EGFP constructs,67.1,Forward
+EGFP-C,CATGGTCCTGCTGGAGTTCGTG,EGFP C-terminal sequencing,EGFP constructs,62.3,Reverse
+SV40-pA-R,GACATGATAAGATACATTGATGAG,SV40 poly(A) reverse,SV40 vectors,52.6,Reverse
+pCMV-MCS-F,CGCAAATGGGCGGTAGGC,pCMV MCS forward,CMV vectors,60.5,Forward
+AmpR-Check-F,TTGCCGGGAAGCTAGAGTAAG,Ampicillin resistance check,Amp plasmids,57.8,Forward
+AmpR-Check-R,GCTATGTGGCGCGGTATTATC,Ampicillin resistance check,Amp plasmids,57.8,Reverse

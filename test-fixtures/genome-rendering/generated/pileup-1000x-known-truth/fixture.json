@@ -1,0 +1,12 @@
+{
+  "id": "pileup-1000x-known-truth",
+  "status": "recipe",
+  "generator": "Generate a small known-truth 1000x synthetic alignment plus summary table for Phase 5 coverage, allele, strand, indel, MAPQ, baseQ, and hidden-read disclosure tests.",
+  "sourceFixture": "synthetic",
+  "requiredWhenMaterialized": [
+    "test-fixtures/genome-rendering/generated/pileup-1000x-known-truth/reads.bam",
+    "test-fixtures/genome-rendering/generated/pileup-1000x-known-truth/reads.bam.bai",
+    "test-fixtures/genome-rendering/generated/pileup-1000x-known-truth/truth.json"
+  ],
+  "expectedState": "summary_ready"
+}

@@ -1,0 +1,48 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@waypoint/sequence-utils": ["../../packages/core/sequence-utils/src"],
+      "@waypoint/genome-data": ["../../packages/core/genome-data/src"],
+      "@waypoint/platform": ["../../packages/core/platform/src"],
+      "@waypoint/genome-renderer/react": ["../../packages/core/genome-renderer/src/react/index.ts"],
+      "@waypoint/workspace-editor/shift-click-range": [
+        "../../packages/core/workspace-editor/src/selection-model.ts"
+      ],
+      "@waypoint/workspace-editor/find-bar": [
+        "../../packages/core/workspace-editor/src/FindBar.tsx"
+      ],
+      "@waypoint/workspace-editor": ["../../packages/core/workspace-editor/src"],
+      "@waypoint/plasmid-viewer": ["../../packages/features/plasmid-viewer/src"],
+      "@waypoint/ui-components": ["../../packages/ui/components/src"]
+    }
+  },
+  "include": ["src"],
+  "exclude": [
+    "src/main",
+    "src/preload",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "src/features/assembly-graph/__tests__/inference/generate-browser-data.generator.ts"
+  ],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

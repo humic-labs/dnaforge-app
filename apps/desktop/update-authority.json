@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 2,
+  "stableFeedBases": [
+    "https://humic-labs.github.io/dnaforge-update-mirror",
+    "https://downloads.dnaforge.com"
+  ]
+}

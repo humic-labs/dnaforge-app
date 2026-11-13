@@ -1,0 +1,1322 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "example-moclo-golden-gate",
+  "title": "MoClo Golden Gate \u2014 red fluorescent transcription unit",
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "storage": {
+    "type": "database",
+    "table": "pages",
+    "id": "example-moclo-golden-gate"
+  },
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "MoClo Golden Gate \u2014 red fluorescent transcription unit"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Aim \u2014 assemble a Level 1 transcription unit that expresses a red fluorescent protein by a one-pot BsaI Golden Gate reaction (CIDAR MoClo), combining four Level-0 parts \u2014 "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-525cf33d",
+              "label": "J23106",
+              "entityType": "sequence",
+              "entityId": "sample-525cf33d",
+              "path": "sequences/kits/moclo-cidar/J23106_AB"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-7981ffa1",
+              "label": "B0034m",
+              "entityType": "sequence",
+              "entityId": "sample-7981ffa1",
+              "path": "sequences/kits/moclo-cidar/B0034m_BC"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-694681f1",
+              "label": "E1010m (mRFP)",
+              "entityType": "sequence",
+              "entityId": "sample-694681f1",
+              "path": "sequences/kits/moclo-cidar/E1010m_CD"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-5427ea3f",
+              "label": "B0015",
+              "entityType": "sequence",
+              "entityId": "sample-5427ea3f",
+              "path": "sequences/kits/moclo-cidar/B0015_DE"
+            }
+          },
+          {
+            "type": "text",
+            "text": " and "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-84ad4efb",
+              "label": "DVA_AE",
+              "entityType": "sequence",
+              "entityId": "sample-84ad4efb",
+              "path": "sequences/kits/moclo-cidar/DVA_AE"
+            }
+          },
+          {
+            "type": "text",
+            "text": " \u2014 into the destination vector. Fusion-site overhangs order the parts scarlessly; the vector's lacZ\u03b1 dropout plus mRFP give a two-colour screen."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "The five parts"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Every part is a real sequence file in this workspace \u2014 click a chip to open it in the sequence viewer."
+          }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "sample-525cf33d",
+                      "label": "J23106",
+                      "entityType": "sequence",
+                      "entityId": "sample-525cf33d",
+                      "path": "sequences/kits/moclo-cidar/J23106_AB"
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "text": " \u2014 constitutive promoter (Anderson family), fusion sites A\u2192B."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "sample-7981ffa1",
+                      "label": "B0034m",
+                      "entityType": "sequence",
+                      "entityId": "sample-7981ffa1",
+                      "path": "sequences/kits/moclo-cidar/B0034m_BC"
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "text": " \u2014 strong ribosome-binding site (Weiss), B\u2192C."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "sample-694681f1",
+                      "label": "E1010m (mRFP)",
+                      "entityType": "sequence",
+                      "entityId": "sample-694681f1",
+                      "path": "sequences/kits/moclo-cidar/E1010m_CD"
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "text": " \u2014 red-fluorescent CDS (monomeric DsRed derivative), C\u2192D."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "sample-5427ea3f",
+                      "label": "B0015",
+                      "entityType": "sequence",
+                      "entityId": "sample-5427ea3f",
+                      "path": "sequences/kits/moclo-cidar/B0015_DE"
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "text": " \u2014 double transcription terminator (B0010:B0012), D\u2192E."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "sample-84ad4efb",
+                      "label": "DVA_AE",
+                      "entityType": "sequence",
+                      "entityId": "sample-84ad4efb",
+                      "path": "sequences/kits/moclo-cidar/DVA_AE"
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "text": " \u2014 Level 1 destination vector: lacZ\u03b1 dropout + AmpR, accepts A\u2026E."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "The protein we're expressing"
+          }
+        ]
+      },
+      {
+        "type": "embed",
+        "attrs": {
+          "type": "structure3d",
+          "refId": "structure3d-2h5q",
+          "data": {
+            "id": "structure3d-2h5q",
+            "source": "pdb",
+            "sourceId": "2H5Q",
+            "pdbId": "2H5Q",
+            "label": "mCherry (mFruit derived from the mRFP1 lineage)"
+          }
+        }
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-694681f1",
+              "label": "E1010m (mRFP)",
+              "entityType": "sequence",
+              "entityId": "sample-694681f1",
+              "path": "sequences/kits/moclo-cidar/E1010m_CD"
+            }
+          },
+          {
+            "type": "text",
+            "text": " is mRFP1 (a monomeric derivative of DsRed, Campbell et al. 2002). Shown is mCherry (PDB 2H5Q, 1.36 \u00c5) \u2014 the widely-used optimised descendant of the same DsRed\u2192mRFP1 lineage: an 11-stranded \u03b2-barrel enclosing the autocatalytic Met-Tyr-Gly chromophore."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "The MoClo idea"
+          }
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Level 0 (basic parts: promoter, RBS, CDS, terminator)  \u2192  Golden Gate  \u2192  Level 1 (one transcription unit)  \u2192  Golden Gate  \u2192  Level 2 (multigene)."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Each Level-0 part is pre-domesticated (internal BsaI sites removed) and flanked by BsaI sites that release a 4-bp fusion overhang. The overhangs run A-B-C-D-E, so parts can only assemble in one order:"
+          }
+        ]
+      },
+      {
+        "type": "embed",
+        "attrs": {
+          "type": "table",
+          "refId": "gg-fusion-map",
+          "data": {
+            "id": "gg-fusion-map",
+            "name": "Fusion-site grammar (CIDAR)",
+            "rows": 6,
+            "cols": 4,
+            "cells": [
+              [
+                {
+                  "value": "Part",
+                  "type": "text"
+                },
+                {
+                  "value": "Left site",
+                  "type": "text"
+                },
+                {
+                  "value": "Right site",
+                  "type": "text"
+                },
+                {
+                  "value": "Junction it defines",
+                  "type": "text"
+                }
+              ],
+              [
+                {
+                  "value": "Promoter (J23106)",
+                  "type": "text"
+                },
+                {
+                  "value": "A",
+                  "type": "text"
+                },
+                {
+                  "value": "B",
+                  "type": "text"
+                },
+                {
+                  "value": "vector \u2192 promoter | promoter \u2192 RBS",
+                  "type": "text"
+                }
+              ],
+              [
+                {
+                  "value": "RBS (B0034m)",
+                  "type": "text"
+                },
+                {
+                  "value": "B",
+                  "type": "text"
+                },
+                {
+                  "value": "C",
+                  "type": "text"
+                },
+                {
+                  "value": "promoter \u2192 RBS | RBS \u2192 CDS (ATG)",
+                  "type": "text"
+                }
+              ],
+              [
+                {
+                  "value": "CDS (E1010m)",
+                  "type": "text"
+                },
+                {
+                  "value": "C",
+                  "type": "text"
+                },
+                {
+                  "value": "D",
+                  "type": "text"
+                },
+                {
+                  "value": "RBS \u2192 CDS | CDS \u2192 terminator",
+                  "type": "text"
+                }
+              ],
+              [
+                {
+                  "value": "Terminator (B0015)",
+                  "type": "text"
+                },
+                {
+                  "value": "D",
+                  "type": "text"
+                },
+                {
+                  "value": "E",
+                  "type": "text"
+                },
+                {
+                  "value": "CDS \u2192 terminator | terminator \u2192 vector",
+                  "type": "text"
+                }
+              ],
+              [
+                {
+                  "value": "Destination (DVA_AE)",
+                  "type": "text"
+                },
+                {
+                  "value": "A",
+                  "type": "text"
+                },
+                {
+                  "value": "E",
+                  "type": "text"
+                },
+                {
+                  "value": "accepts the whole A\u2192E unit; drops lacZ\u03b1",
+                  "type": "text"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Golden Gate reaction"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Enter each miniprep's "
+          },
+          {
+            "type": "text",
+            "text": "yield",
+            "marks": [
+              {
+                "type": "bold"
+              }
+            ]
+          },
+          {
+            "type": "text",
+            "text": " (ng/\u00b5L); the table computes fmol/\u00b5L from the fragment size, the "
+          },
+          {
+            "type": "text",
+            "text": "equimolar \u00b5L to add",
+            "marks": [
+              {
+                "type": "bold"
+              }
+            ]
+          },
+          {
+            "type": "text",
+            "text": " for the target fmol, and the master-mix volume. Set the master-mix multiplier to your number of reactions \u00d7 1.1 (e.g. 4 reactions \u2192 4.4\u00d7); every master-mix column scales by it."
+          }
+        ]
+      },
+      {
+        "type": "embed",
+        "attrs": {
+          "type": "table",
+          "refId": "gg-reaction-calc",
+          "data": {
+            "id": "gg-reaction-calc",
+            "name": "Golden Gate reaction \u2014 equimolar calculator",
+            "rows": 12,
+            "cols": 6,
+            "cells": [
+              [
+                {
+                  "value": "Target fmol / part",
+                  "type": "text"
+                },
+                {
+                  "value": "20",
+                  "type": "number"
+                },
+                {
+                  "value": "# reactions",
+                  "type": "text"
+                },
+                {
+                  "value": "4",
+                  "type": "number"
+                },
+                {
+                  "value": "MM multiplier (#rxns\u00d71.1)",
+                  "type": "text"
+                },
+                {
+                  "value": "4.4",
+                  "type": "number"
+                }
+              ],
+              [
+                {
+                  "value": "Component",
+                  "type": "text"
+                },
+                {
+                  "value": "Size (bp)",
+                  "type": "text"
+                },
+                {
+                  "value": "Yield (ng/\u00b5L)",
+                  "type": "text"
+                },
+                {
+                  "value": "fmol/\u00b5L",
+                  "type": "text"
+                },
+                {
+                  "value": "\u00b5L / rxn",
+                  "type": "text"
+                },
+                {
+                  "value": "Master mix (\u00b5L)",
+                  "type": "text"
+                }
+              ],
+              [
+                {
+                  "value": "J23106",
+                  "type": "text"
+                },
+                {
+                  "value": "2143",
+                  "type": "number"
+                },
+                {
+                  "value": "60",
+                  "type": "number"
+                },
+                {
+                  "value": "=C3*1000000/650/B3",
+                  "type": "formula"
+                },
+                {
+                  "value": "=$B$1*B3*650/C3/1000000",
+                  "type": "formula"
+                },
+                {
+                  "value": "=$B$1*B3*650/C3/1000000*$F$1",
+                  "type": "formula"
+                }
+              ],
+              [
+                {
+                  "value": "B0034m",
+                  "type": "text"
+                },
+                {
+                  "value": "2129",
+                  "type": "number"
+                },
+                {
+                  "value": "55",
+                  "type": "number"
+                },
+                {
+                  "value": "=C4*1000000/650/B4",
+                  "type": "formula"
+                },
+                {
+                  "value": "=$B$1*B4*650/C4/1000000",
+                  "type": "formula"
+                },
+                {
+                  "value": "=$B$1*B4*650/C4/1000000*$F$1",
+                  "type": "formula"
+                }
+              ],
+              [
+                {
+                  "value": "E1010m (mRFP)",
+                  "type": "text"
+                },
+                {
+                  "value": "2789",
+                  "type": "number"
+                },
+                {
+                  "value": "75",
+                  "type": "number"
+                },
+                {
+                  "value": "=C5*1000000/650/B5",
+                  "type": "formula"
+                },
+                {
+                  "value": "=$B$1*B5*650/C5/1000000",
+                  "type": "formula"
+                },
+                {
+                  "value": "=$B$1*B5*650/C5/1000000*$F$1",
+                  "type": "formula"
+                }
+              ],
+              [
+                {
+                  "value": "B0015",
+                  "type": "text"
+                },
+                {
+                  "value": "2237",
+                  "type": "number"
+                },
+                {
+                  "value": "50",
+                  "type": "number"
+                },
+                {
+                  "value": "=C6*1000000/650/B6",
+                  "type": "formula"
+                },
+                {
+                  "value": "=$B$1*B6*650/C6/1000000",
+                  "type": "formula"
+                },
+                {
+                  "value": "=$B$1*B6*650/C6/1000000*$F$1",
+                  "type": "formula"
+                }
+              ],
+              [
+                {
+                  "value": "DVA_AE",
+                  "type": "text"
+                },
+                {
+                  "value": "2606",
+                  "type": "number"
+                },
+                {
+                  "value": "40",
+                  "type": "number"
+                },
+                {
+                  "value": "=C7*1000000/650/B7",
+                  "type": "formula"
+                },
+                {
+                  "value": "=$B$1*B7*650/C7/1000000",
+                  "type": "formula"
+                },
+                {
+                  "value": "=$B$1*B7*650/C7/1000000*$F$1",
+                  "type": "formula"
+                }
+              ],
+              [
+                {
+                  "value": "BsaI-HFv2 (NEB)",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "1",
+                  "type": "number"
+                },
+                {
+                  "value": "=E8*$F$1",
+                  "type": "formula"
+                }
+              ],
+              [
+                {
+                  "value": "T4 DNA ligase",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "1",
+                  "type": "number"
+                },
+                {
+                  "value": "=E9*$F$1",
+                  "type": "formula"
+                }
+              ],
+              [
+                {
+                  "value": "10\u00d7 T4 ligase buffer",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "2",
+                  "type": "number"
+                },
+                {
+                  "value": "=E10*$F$1",
+                  "type": "formula"
+                }
+              ],
+              [
+                {
+                  "value": "Nuclease-free water",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "to 20 \u00b5L",
+                  "type": "text"
+                },
+                {
+                  "value": "to 20 \u00b5L \u00d7 mult",
+                  "type": "text"
+                }
+              ],
+              [
+                {
+                  "value": "Reaction total",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "20",
+                  "type": "number"
+                },
+                {
+                  "value": "=E12*$F$1",
+                  "type": "formula"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The \u00d71.1 multiplier makes ~10% extra (here 0.4 reaction's worth) as master-mix leftover, covering pipetting loss. If any part's \u00b5L/rxn is below ~0.5 \u00b5L, dilute that miniprep so it's pipettable."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Thermocycler \u2014 one-pot cycled digestion-ligation:"
+          }
+        ]
+      },
+      {
+        "type": "codeBlock",
+        "content": [
+          {
+            "type": "text",
+            "text": "[ 37 \u00b0C 1 min \u2192 16 \u00b0C 1 min ] \u00d7 30\n37 \u00b0C  5 min   (final digest)\n80 \u00b0C 10 min   (heat-kill)\n 4 \u00b0C  hold"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Transformation & screening"
+          }
+        ]
+      },
+      {
+        "type": "taskList",
+        "content": [
+          {
+            "type": "taskItem",
+            "attrs": {
+              "checked": false
+            },
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Transform 2 \u00b5L of the reaction into 50 \u00b5L chemically-competent DH5\u03b1 (heat-shock 42 \u00b0C, 30 s)."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "taskItem",
+            "attrs": {
+              "checked": false
+            },
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Recover in 250 \u00b5L SOC, 37 \u00b0C, 1 h, shaking."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "taskItem",
+            "attrs": {
+              "checked": false
+            },
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Plate on LB + ampicillin (100 \u00b5g/mL) + X-gal + IPTG."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "taskItem",
+            "attrs": {
+              "checked": false
+            },
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Incubate 37 \u00b0C overnight, then 4 \u00b0C for colour to develop."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Read-out: "
+          },
+          {
+            "type": "text",
+            "text": "white",
+            "marks": [
+              {
+                "type": "bold"
+              }
+            ]
+          },
+          {
+            "type": "text",
+            "text": " colonies = lacZ\u03b1 replaced by the transcription unit (assembled); "
+          },
+          {
+            "type": "text",
+            "text": "blue",
+            "marks": [
+              {
+                "type": "bold"
+              }
+            ]
+          },
+          {
+            "type": "text",
+            "text": " = empty/re-ligated vector. Correct white colonies are also "
+          },
+          {
+            "type": "text",
+            "text": "red/pink",
+            "marks": [
+              {
+                "type": "bold"
+              }
+            ]
+          },
+          {
+            "type": "text",
+            "text": " \u2014 mRFP is expressed from J23106."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Colony screening"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Colony PCR with the M13 universal primers already present in "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-84ad4efb",
+              "label": "DVA_AE",
+              "entityType": "sequence",
+              "entityId": "sample-84ad4efb",
+              "path": "sequences/kits/moclo-cidar/DVA_AE"
+            }
+          },
+          {
+            "type": "text",
+            "text": " (M13-F / M13-R flank the cloning site):"
+          }
+        ]
+      },
+      {
+        "type": "embed",
+        "attrs": {
+          "type": "table",
+          "refId": "gg-colony-pcr",
+          "data": {
+            "id": "gg-colony-pcr",
+            "name": "Colony PCR (20 \u00b5L, Taq)",
+            "rows": 5,
+            "cols": 7,
+            "cells": [
+              [
+                {
+                  "value": "Component",
+                  "type": "text"
+                },
+                {
+                  "value": "\u00b5L / rxn",
+                  "type": "text"
+                },
+                {
+                  "value": "Master mix (\u00b5L)",
+                  "type": "text"
+                },
+                {
+                  "value": "# reactions",
+                  "type": "text"
+                },
+                {
+                  "value": "8",
+                  "type": "number"
+                },
+                {
+                  "value": "mult (\u00d71.1)",
+                  "type": "text"
+                },
+                {
+                  "value": "8.8",
+                  "type": "number"
+                }
+              ],
+              [
+                {
+                  "value": "2\u00d7 master mix",
+                  "type": "text"
+                },
+                {
+                  "value": "10",
+                  "type": "number"
+                },
+                {
+                  "value": "=B2*$G$1",
+                  "type": "formula"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                }
+              ],
+              [
+                {
+                  "value": "M13-F (10 \u00b5M)",
+                  "type": "text"
+                },
+                {
+                  "value": "0.5",
+                  "type": "number"
+                },
+                {
+                  "value": "=B3*$G$1",
+                  "type": "formula"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                }
+              ],
+              [
+                {
+                  "value": "M13-R (10 \u00b5M)",
+                  "type": "text"
+                },
+                {
+                  "value": "0.5",
+                  "type": "number"
+                },
+                {
+                  "value": "=B4*$G$1",
+                  "type": "formula"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                }
+              ],
+              [
+                {
+                  "value": "Water",
+                  "type": "text"
+                },
+                {
+                  "value": "9",
+                  "type": "number"
+                },
+                {
+                  "value": "=B5*$G$1",
+                  "type": "formula"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "value": "",
+                  "type": "text"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Expected: correct assembly \u2248 transcription unit (~0.9 kb) + M13 flanks \u2248 "
+          },
+          {
+            "type": "text",
+            "text": "~1.3 kb",
+            "marks": [
+              {
+                "type": "code"
+              }
+            ]
+          },
+          {
+            "type": "text",
+            "text": "; empty/re-ligated vector runs small. Confirm with an EcoRI/PstI diagnostic digest and Sanger sequencing (M13-F / M13-R)."
+          }
+        ]
+      },
+      {
+        "type": "embed",
+        "attrs": {
+          "type": "image",
+          "refId": "gg-gel",
+          "data": {
+            "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzNjAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgMzYwIDMwMCI+PHJlY3Qgd2lkdGg9IjM2MCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiMxMTEiLz48dGV4dCB4PSI1MS4wIiB5PSIxOCIgZmlsbD0iI2NjYyIgZm9udC1zaXplPSI5IiBmb250LWZhbWlseT0ibW9ub3NwYWNlIj4xIGtiPC90ZXh0Pjx0ZXh0IHg9IjUxLjAiIHk9IjI5IiBmaWxsPSIjY2NjIiBmb250LXNpemU9IjkiIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiPmxhZGRlcjwvdGV4dD48dGV4dCB4PSIxMjkuMCIgeT0iMTgiIGZpbGw9IiNjY2MiIGZvbnQtc2l6ZT0iOSIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSI+Y29sb255IDE8L3RleHQ+PHRleHQgeD0iMTI5LjAiIHk9IjI5IiBmaWxsPSIjY2NjIiBmb250LXNpemU9IjkiIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiPihjb3JyZWN0KTwvdGV4dD48dGV4dCB4PSIyMDcuMCIgeT0iMTgiIGZpbGw9IiNjY2MiIGZvbnQtc2l6ZT0iOSIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSI+Y29sb255IDI8L3RleHQ+PHRleHQgeD0iMjA3LjAiIHk9IjI5IiBmaWxsPSIjY2NjIiBmb250LXNpemU9IjkiIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiPihlbXB0eSk8L3RleHQ+PHRleHQgeD0iMjg1LjAiIHk9IjE4IiBmaWxsPSIjY2NjIiBmb250LXNpemU9IjkiIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiPmRpZ2VzdDwvdGV4dD48dGV4dCB4PSIyODUuMCIgeT0iMjkiIGZpbGw9IiNjY2MiIGZvbnQtc2l6ZT0iOSIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSI+Y3RybDwvdGV4dD48cmVjdCB4PSIyNiIgeT0iNzAiIHdpZHRoPSI0NiIgaGVpZ2h0PSIzIiBmaWxsPSIjN2ZkIiBvcGFjaXR5PSIwLjg1Ii8+PHRleHQgeD0iMCIgeT0iNzQiIGZpbGw9IiM3ZmQiIGZvbnQtc2l6ZT0iNyIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSI+MzAwMDwvdGV4dD48cmVjdCB4PSIyNiIgeT0iOTUiIHdpZHRoPSI0NiIgaGVpZ2h0PSIzIiBmaWxsPSIjN2ZkIiBvcGFjaXR5PSIwLjg1Ii8+PHRleHQgeD0iMCIgeT0iOTkiIGZpbGw9IiM3ZmQiIGZvbnQtc2l6ZT0iNyIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSI+MjAwMDwvdGV4dD48cmVjdCB4PSIyNiIgeT0iMTE4IiB3aWR0aD0iNDYiIGhlaWdodD0iMyIgZmlsbD0iIzdmZCIgb3BhY2l0eT0iMC44NSIvPjx0ZXh0IHg9IjAiIHk9IjEyMiIgZmlsbD0iIzdmZCIgZm9udC1zaXplPSI3IiBmb250LWZhbWlseT0ibW9ub3NwYWNlIj4xNTAwPC90ZXh0PjxyZWN0IHg9IjI2IiB5PSIxNTAiIHdpZHRoPSI0NiIgaGVpZ2h0PSIzIiBmaWxsPSIjN2ZkIiBvcGFjaXR5PSIwLjg1Ii8+PHRleHQgeD0iMCIgeT0iMTU0IiBmaWxsPSIjN2ZkIiBmb250LXNpemU9IjciIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiPjEwMDA8L3RleHQ+PHJlY3QgeD0iMjYiIHk9IjE4MCIgd2lkdGg9IjQ2IiBoZWlnaHQ9IjMiIGZpbGw9IiM3ZmQiIG9wYWNpdHk9IjAuODUiLz48dGV4dCB4PSIwIiB5PSIxODQiIGZpbGw9IiM3ZmQiIGZvbnQtc2l6ZT0iNyIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSI+NzAwPC90ZXh0PjxyZWN0IHg9IjI2IiB5PSIyMTAiIHdpZHRoPSI0NiIgaGVpZ2h0PSIzIiBmaWxsPSIjN2ZkIiBvcGFjaXR5PSIwLjg1Ii8+PHRleHQgeD0iMCIgeT0iMjE0IiBmaWxsPSIjN2ZkIiBmb250LXNpemU9IjciIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiPjUwMDwvdGV4dD48cmVjdCB4PSIyNiIgeT0iMjUwIiB3aWR0aD0iNDYiIGhlaWdodD0iMyIgZmlsbD0iIzdmZCIgb3BhY2l0eT0iMC44NSIvPjx0ZXh0IHg9IjAiIHk9IjI1NCIgZmlsbD0iIzdmZCIgZm9udC1zaXplPSI3IiBmb250LWZhbWlseT0ibW9ub3NwYWNlIj4zMDA8L3RleHQ+PHJlY3QgeD0iMTA0IiB5PSIxMzIiIHdpZHRoPSI0NiIgaGVpZ2h0PSI0IiBmaWxsPSIjZjg4Ii8+PHRleHQgeD0iMTA0IiB5PSIxMjgiIGZpbGw9IiNmODgiIGZvbnQtc2l6ZT0iNyIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSI+fjEuMyBrYjwvdGV4dD48cmVjdCB4PSIxODIiIHk9IjIyOCIgd2lkdGg9IjQ2IiBoZWlnaHQ9IjMiIGZpbGw9IiM4ODgiIG9wYWNpdHk9IjAuNiIvPjx0ZXh0IHg9IjE4MiIgeT0iMjI0IiBmaWxsPSIjODg4IiBmb250LXNpemU9IjciIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiPmVtcHR5PC90ZXh0PjxyZWN0IHg9IjI2MCIgeT0iODIiIHdpZHRoPSI0NiIgaGVpZ2h0PSI0IiBmaWxsPSIjOGNmIi8+PHJlY3QgeD0iMjYwIiB5PSIxNjAiIHdpZHRoPSI0NiIgaGVpZ2h0PSI0IiBmaWxsPSIjOGNmIi8+PHRleHQgeD0iMjYwIiB5PSI3OCIgZmlsbD0iIzhjZiIgZm9udC1zaXplPSI3IiBmb250LWZhbWlseT0ibW9ub3NwYWNlIj4yLjYga2I8L3RleHQ+PC9zdmc+",
+            "alt": "Expected colony-PCR / diagnostic-digest gel",
+            "caption": "Expected result: 1 kb ladder; a correct colony at ~1.3 kb; an empty colony running small; a diagnostic digest showing the 2.6 kb vector + ~0.9 kb unit.",
+            "fileName": "expected-gel.svg",
+            "width": 70,
+            "source": "upload"
+          }
+        }
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Verification & next level"
+          }
+        ]
+      },
+      {
+        "type": "taskList",
+        "content": [
+          {
+            "type": "taskItem",
+            "attrs": {
+              "checked": false
+            },
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Pick 4\u20138 white/red colonies; colony PCR \u2192 keep the ~1.3 kb positives."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "taskItem",
+            "attrs": {
+              "checked": false
+            },
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Miniprep positives; diagnostic digest to confirm the band pattern."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "taskItem",
+            "attrs": {
+              "checked": false
+            },
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Sanger-sequence across every fusion junction (M13-F / M13-R)."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "taskItem",
+            "attrs": {
+              "checked": false
+            },
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Archive the verified Level 1 TU \u2014 it is itself a part for a Level 2 multigene assembly."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "This transcription unit can now be dropped into a Level 2 Golden Gate reaction with other Level 1 units to build a multigene construct \u2014 the same grammar, one tier up."
+          }
+        ]
+      }
+    ]
+  }
+}

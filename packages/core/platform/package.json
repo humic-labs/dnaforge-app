@@ -1,0 +1,44 @@
+{
+  "name": "@waypoint/platform",
+  "version": "0.1.0",
+  "description": "Zero-dependency cross-OS helpers for keyboard shortcuts, pointer modifiers, and Node-only storage capacity.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    "./wheel-motion": {
+      "types": "./src/wheel-motion.ts",
+      "import": "./src/wheel-motion.ts",
+      "default": "./src/wheel-motion.ts"
+    },
+    "./node-storage": {
+      "types": "./src/node-storage.d.mts",
+      "import": "./src/node-storage.mjs",
+      "default": "./src/node-storage.mjs"
+    },
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "platform",
+    "keyboard",
+    "shortcuts",
+    "cross-os",
+    "waypoint"
+  ],
+  "license": "GPL-3.0-only",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.18"
+  }
+}

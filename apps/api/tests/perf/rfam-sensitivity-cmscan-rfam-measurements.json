@@ -1,0 +1,92 @@
+[
+  {
+    "label": "puc19_2686",
+    "length": 2686,
+    "no_rfam": {
+      "seconds": 4.9,
+      "status": "ok",
+      "hits": 1
+    },
+    "rfam": {
+      "seconds": 0.5,
+      "status": "ok",
+      "hits": 1
+    },
+    "delta_s": 4.4
+  },
+  {
+    "label": "region_78345",
+    "length": 78345,
+    "no_rfam": {
+      "seconds": 56.5,
+      "status": "ok",
+      "hits": 8
+    },
+    "rfam": {
+      "seconds": 16.0,
+      "status": "ok",
+      "hits": 8
+    },
+    "delta_s": 40.5
+  },
+  {
+    "label": "mg1655_250k",
+    "length": 250000,
+    "no_rfam": {
+      "seconds": 183.4,
+      "status": "ok",
+      "hits": 62
+    },
+    "rfam": {
+      "seconds": 63.2,
+      "status": "ok",
+      "hits": 62
+    },
+    "delta_s": 120.2
+  },
+  {
+    "label": "mg1655_500k",
+    "length": 500000,
+    "no_rfam": {
+      "seconds": 226.8,
+      "status": "ok",
+      "hits": 105
+    },
+    "rfam": {
+      "seconds": 116.7,
+      "status": "ok",
+      "hits": 105
+    },
+    "delta_s": 110.1
+  },
+  {
+    "label": "mg1655_1M",
+    "length": 1000000,
+    "no_rfam": {
+      "seconds": 434.9,
+      "status": "ok",
+      "hits": 157
+    },
+    "rfam": {
+      "seconds": 219.5,
+      "status": "ok",
+      "hits": 157
+    },
+    "delta_s": 215.4
+  },
+  {
+    "label": "mg1655_full_4641652",
+    "length": 4641652,
+    "no_rfam": {
+      "seconds": 847.2,
+      "status": "ok",
+      "hits": 431
+    },
+    "rfam": {
+      "seconds": 832.0,
+      "status": "ok",
+      "hits": 431
+    },
+    "delta_s": 15.2
+  }
+]

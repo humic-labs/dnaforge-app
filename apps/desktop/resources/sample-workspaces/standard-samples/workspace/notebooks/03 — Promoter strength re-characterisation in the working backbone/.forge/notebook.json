@@ -1,0 +1,417 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "corpus-03-promoter-characterisation",
+  "title": "Promoter strength re-characterisation in the working backbone",
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "storage": {
+    "type": "database",
+    "table": "pages",
+    "id": "corpus-03-promoter-characterisation"
+  },
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Promoter strength re-characterisation in the working backbone"
+          }
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Directive \u2014 Re-measure the promoter ladder in OUR host and OUR backbone, because published strengths do not transfer."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Design"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Each promoter drives "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-694681f1",
+              "label": "E1010m (mRFP)",
+              "entityType": "sequence",
+              "entityId": "sample-694681f1",
+              "path": "sequences/kits/moclo-cidar/E1010m_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " through the strong RBS "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-7981ffa1",
+              "label": "B0034m",
+              "entityType": "sequence",
+              "entityId": "sample-7981ffa1",
+              "path": "sequences/kits/moclo-cidar/B0034m_BC",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ", terminated by "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-5427ea3f",
+              "label": "B0015",
+              "entityType": "sequence",
+              "entityId": "sample-5427ea3f",
+              "path": "sequences/kits/moclo-cidar/B0015_DE",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ", in "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-84ad4efb",
+              "label": "DVA_AE",
+              "entityType": "sequence",
+              "entityId": "sample-84ad4efb",
+              "path": "sequences/kits/moclo-cidar/DVA_AE",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ". Only the promoter varies."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Holding RBS, reporter, terminator and vector constant is what makes the resulting numbers a promoter ladder rather than five unrelated measurements."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Controls"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Positive: "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-2c22f2e9",
+              "label": "pJ02B2Rm control",
+              "entityType": "sequence",
+              "entityId": "sample-2c22f2e9",
+              "path": "sequences/kits/moclo-cidar/pJ02B2Rm_AE",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ", a characterised composite from the same kit."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Negative: "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-84ad4efb",
+              "label": "DVA_AE",
+              "entityType": "sequence",
+              "entityId": "sample-84ad4efb",
+              "path": "sequences/kits/moclo-cidar/DVA_AE",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " with no transcription unit, to establish the autofluorescence floor. Without it, a weak promoter is indistinguishable from background."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Measurement"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Plate reader, 96-well, three biological and three technical replicates. Fluorescence normalised to OD600 and reported at mid-exponential phase."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Absolute units are not claimed. The ladder is internally calibrated and only ratios are carried forward."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Result"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-08928405",
+              "label": "J23100",
+              "entityType": "sequence",
+              "entityId": "sample-08928405",
+              "path": "sequences/kits/moclo-cidar/J23100_AB",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " and "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-0bb366b5",
+              "label": "J23102",
+              "entityType": "sequence",
+              "entityId": "sample-0bb366b5",
+              "path": "sequences/kits/moclo-cidar/J23102_AB",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " fall within 1.4-fold of each other in this backbone, closer than the published ladder suggests. "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-e1d41a3d",
+              "label": "J23116",
+              "entityType": "sequence",
+              "entityId": "sample-e1d41a3d",
+              "path": "sequences/kits/moclo-cidar/J23116_AB",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " sits only 2.3-fold above the floor, which makes it unsuitable as a logic input."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Consequence for the programme"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-525cf33d",
+              "label": "J23106",
+              "entityType": "sequence",
+              "entityId": "sample-525cf33d",
+              "path": "sequences/kits/moclo-cidar/J23106_AB",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " is selected as the reference promoter for all downstream logic. "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-e1d41a3d",
+              "label": "J23116",
+              "entityType": "sequence",
+              "entityId": "sample-e1d41a3d",
+              "path": "sequences/kits/moclo-cidar/J23116_AB",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " is retired from the input set \u2014 see entry 04 for the RBS-based tuning that replaces it."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Related entries"
+          }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-02-part-inventory",
+                      "label": "02 \u2014 Part inventory and incoming QC",
+                      "entityType": "page",
+                      "entityId": "corpus-02-part-inventory"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-04-rbs-ladder",
+                      "label": "04 \u2014 RBS ladder",
+                      "entityType": "page",
+                      "entityId": "corpus-04-rbs-ladder"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-09-two-input-gate",
+                      "label": "09 \u2014 Two-input AND gate",
+                      "entityType": "page",
+                      "entityId": "corpus-09-two-input-gate"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "source": "Actual Python native annotation adapters with validated Pydantic document responses and an isolated fake document owner; no file writes or service calls.",
+  "inspect": {
+    "ok": true,
+    "result": {
+      "operationId": "operation-one",
+      "targetDocumentId": "sequence-one",
+      "operationVersion": 2,
+      "resultSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "targetDocumentRevision": "annotation-document-v1:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "analyzedInputRevision": "annotation-input-v1:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "candidates": [
+        {
+          "id": "operation-one:0",
+          "index": 0,
+          "sourceFeature": {
+            "name": "Example feature",
+            "accession": "",
+            "start": 1,
+            "end": 4,
+            "strand": 1,
+            "identity": 100.0,
+            "coverage": 100.0,
+            "fragment": false,
+            "type": "",
+            "description": "",
+            "ref_start": 1,
+            "ref_end": 4,
+            "ref_length": 4,
+            "db_source": "nucleotide"
+          },
+          "feature": {
+            "name": "Example feature",
+            "accession": "",
+            "start": 1,
+            "end": 4,
+            "strand": 1,
+            "identity": 100.0,
+            "coverage": 100.0,
+            "fragment": false,
+            "type": "",
+            "description": "",
+            "ref_start": 1,
+            "ref_end": 4,
+            "ref_length": 4,
+            "db_source": "nucleotide"
+          },
+          "substitutionOverlap": false
+        }
+      ],
+      "applicable": true,
+      "coordinates": "exact",
+      "transitionCount": 0
+    }
+  },
+  "apply": [
+    {
+      "ok": true,
+      "operationId": "operation-one",
+      "actionId": "action-one",
+      "result": {
+        "status": "saved",
+        "targetDocumentRevision": "annotation-document-v1:sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "checkpoint": {
+          "status": "committed",
+          "commit": "dddddddddddddddddddddddddddddddddddddddd"
+        },
+        "display": "refreshed"
+      }
+    },
+    {
+      "ok": true,
+      "operationId": "operation-one",
+      "actionId": "action-one",
+      "result": {
+        "status": "saved",
+        "targetDocumentRevision": "annotation-document-v1:sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "checkpoint": {
+          "status": "not-required"
+        },
+        "display": "refreshed"
+      }
+    },
+    {
+      "ok": true,
+      "operationId": "operation-one",
+      "actionId": "action-one",
+      "result": {
+        "status": "saved",
+        "targetDocumentRevision": "annotation-document-v1:sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "checkpoint": {
+          "status": "failed",
+          "reason": "Git checkpoint failed after saving."
+        },
+        "display": "refreshed"
+      }
+    }
+  ]
+}

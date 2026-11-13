@@ -1,0 +1,55 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "fixture-rich-v1",
+  "title": "Rich legacy notebook",
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": { "level": 1 },
+        "content": [{ "type": "text", "text": "Rich legacy notebook" }]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Highlighted",
+            "marks": [{ "type": "highlight", "attrs": { "color": "#fde047" } }]
+          },
+          {
+            "type": "text",
+            "text": " and linked",
+            "marks": [{ "type": "link", "attrs": { "href": "../sequences/pUC19.gb" } }]
+          }
+        ]
+      },
+      {
+        "type": "embed",
+        "attrs": {
+          "type": "table",
+          "refId": "fixture-table-v1",
+          "data": {
+            "id": "fixture-table-v1",
+            "name": "Construct status",
+            "rows": 1,
+            "cols": 2,
+            "columnLabels": ["Construct", "Status"],
+            "cells": [
+              [
+                { "type": "text", "value": "pUC19" },
+                { "type": "text", "value": "ready" }
+              ]
+            ],
+            "presentation": "document"
+          }
+        }
+      }
+    ]
+  },
+  "storage": { "type": "database", "table": "pages", "id": "fixture-rich-v1" },
+  "updatedAt": "2026-08-20T12:00:00.000Z",
+  "fixtureMetadata": { "preserve": true }
+}

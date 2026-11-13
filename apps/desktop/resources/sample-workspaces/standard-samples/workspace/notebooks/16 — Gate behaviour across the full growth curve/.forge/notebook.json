@@ -1,0 +1,198 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "corpus-16-growth-phase-robustness",
+  "title": "Gate behaviour across the full growth curve",
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "storage": {
+    "type": "database",
+    "table": "pages",
+    "id": "corpus-16-growth-phase-robustness"
+  },
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Gate behaviour across the full growth curve"
+          }
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Directive — Test the charter criterion that mid-exponential performance is retained into stationary phase."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Method"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Every 20 minutes from lag through 2 hours into stationary. Same eight input states as entry 12."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The single measurement most circuit papers omit, and the one the charter singled out: a gate characterised only at mid-exponential is characterised in its best conditions."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Result"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "26-fold at mid-exponential falls to 17-fold at stationary onset — 65 percent retained, just above the 60 percent criterion."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The loss is asymmetric: the OFF state rises while the ON state is roughly flat, consistent with reduced repressor turnover rather than with reporter accumulation."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Interpretation"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Criterion met, but with little margin. Any change that raises the OFF state — including the entry-06 read-through, if a future build abandons divergent orientation — would push this below criterion."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Related entries"
+          }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-10-burden-measurement",
+                      "label": "10 — Host burden of the two-input gate",
+                      "entityType": "page",
+                      "entityId": "corpus-10-burden-measurement"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-12-three-input-gate",
+                      "label": "12 — Three-input AND gate",
+                      "entityType": "page",
+                      "entityId": "corpus-12-three-input-gate"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-17-long-term-stability",
+                      "label": "17 — Plasmid retention and functional stability over 100 generations",
+                      "entityType": "page",
+                      "entityId": "corpus-17-long-term-stability"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

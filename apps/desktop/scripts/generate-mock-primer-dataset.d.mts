@@ -1,0 +1,12 @@
+export const GENERATOR_SEED: number;
+export function mulberry32(seed: number): () => number;
+export function rngForIndex(index: number, seed?: number): () => number;
+export function mapName(realName: string, index: number, seed?: number): string;
+export function fabricateSequence(realSeq: string, rng: () => number): string;
+export function splitCsvLine(line: string): string[];
+export const MOCK_ID_PREFIXES: string[];
+export const MOCK_GENES: string[];
+export const MOCK_DOMAINS: string[];
+export const MOCK_FEATURES: string[];
+export const MOCK_DIRS: string[];
+export const AMINO_ACIDS: string[];

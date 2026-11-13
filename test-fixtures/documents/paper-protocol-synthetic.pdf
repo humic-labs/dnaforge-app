@@ -1,0 +1,79 @@
+%PDF-1.4
+% deterministic DNAForge fixture
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 6 0 R >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 7 0 R >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+6 0 obj
+<< /Length 637 >>
+stream
+BT
+/F1 18 Tf
+1 0 0 1 72 720 Tm
+(DNAForge Paper-to-Protocol Fixture) Tj
+/F1 11 Tf
+1 0 0 1 72 696 Tm
+(A deterministic synthetic methods paper for behavioral tests.) Tj
+/F1 15 Tf
+1 0 0 1 72 650 Tm
+(Protein Purification) Tj
+/F1 12 Tf
+1 0 0 1 72 620 Tm
+(Cells were lysed in 20 mM Tris at 4 C and centrifuged for 30 min.) Tj
+/F1 12 Tf
+1 0 0 1 72 598 Tm
+(The cleared lysate was retained on ice.) Tj
+/F1 15 Tf
+1 0 0 1 72 540 Tm
+(Library Construction) Tj
+/F1 12 Tf
+1 0 0 1 72 510 Tm
+(Primer sequences are listed in Supplementary Table S3.) Tj
+/F1 12 Tf
+1 0 0 1 72 488 Tm
+(The PCR cycling program was performed as described in reference 23.) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Length 201 >>
+stream
+BT
+/F1 18 Tf
+1 0 0 1 72 720 Tm
+(Supplementary Table S3) Tj
+/F1 12 Tf
+1 0 0 1 72 680 Tm
+(Primer pExample_F was used at 10 uM.) Tj
+/F1 12 Tf
+1 0 0 1 72 658 Tm
+(Primer pExample_R was used at 10 uM.) Tj
+ET
+endstream
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000042 00000 n 
+0000000091 00000 n 
+0000000154 00000 n 
+0000000280 00000 n 
+0000000406 00000 n 
+0000000476 00000 n 
+0000001164 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+1416
+%%EOF

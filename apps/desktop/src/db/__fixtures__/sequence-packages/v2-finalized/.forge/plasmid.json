@@ -1,0 +1,28 @@
+{
+  "schema": "waypoint.sequence.v1",
+  "kind": "sequence",
+  "formatVersion": 2,
+  "id": "fixture-v2-finalized",
+  "name": "pMyConstruct",
+  "updatedAt": "2026-01-01T00:00:00.000Z",
+  "product": {
+    "file": "pMyConstruct.gb",
+    "topology": "circular"
+  },
+  "members": [],
+  "assembly": {
+    "primers": {
+      "csv": "primers/pMyConstruct.primers.csv",
+      "fasta": "primers/pMyConstruct.primers.fasta"
+    },
+    "accepted": {
+      "type": "accepted_assembly",
+      "schemaVersion": 1,
+      "acceptedAssemblyVersionId": "accepted-v1",
+      "artifacts": {
+        "primerCsvPath": "primers/pMyConstruct.primers.csv",
+        "primerFastaPath": "primers/pMyConstruct.primers.fasta"
+      }
+    }
+  }
+}

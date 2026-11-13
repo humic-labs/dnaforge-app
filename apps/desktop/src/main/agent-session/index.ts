@@ -1,0 +1,62 @@
+export {
+  canStartAuthorityProfile,
+  findAuthorityProfile,
+  getAllProviderAuthorityProfiles,
+  getProviderAuthorityProfiles,
+  migrateLegacyAuthorityProfileInput,
+  resolveLegacyAuthorityProfileId,
+  validateAuthorityProfileShape,
+  validateConcreteAuthorityProfileInput,
+  validateProviderSessionStartSpec,
+} from './authority-profile-policy';
+export {
+  ClaudeProviderDescriptor,
+  CodexProviderDescriptor,
+  GrokProviderDescriptor,
+  createClaudeProviderDescriptor,
+  createCodexProviderDescriptor,
+  createGrokProviderDescriptor,
+  createProviderDescriptors,
+} from './provider-descriptor';
+export {
+  collectProviderDescriptorContract,
+  getProviderDescriptorContractFailures,
+} from './parity-harness';
+export {
+  AGENT_SESSION_PROMPT_BYTE_CAP,
+  AgentSessionManager,
+  type AgentSessionManagerDependencies,
+} from './manager';
+export {
+  registerAgentSessionHandlers,
+  setAgentSessionCliMcpBridgeProvider,
+  setAgentSessionConfirmDestructiveFileProvider,
+  setAgentSessionRequestUserInputProvider,
+} from './ipc';
+export type {
+  AgentProvider,
+  AgentProviderDescriptor,
+  AgentRuntimeProvider,
+  AgentSessionRecord,
+  AgentSessionRunResult,
+  AgentSessionStartRequest,
+  AgentSessionStatus,
+  AgentSessionTraceEnvelope,
+  AuthorityClass,
+  AuthorityStartPolicyInput,
+  AuthorityStartPolicyResult,
+  CapabilityEvidence,
+  CapabilitySupport,
+  ProviderAuthorityProfile,
+  ProviderAuthorityProfileInput,
+  ProviderCapabilityReport,
+  ProviderDetection,
+  ProviderReleaseMode,
+  ProviderSessionStartSpec,
+  ProviderSessionEvent,
+  ProviderSessionSpec,
+  ProviderStopRequestResult,
+  ProviderTerminalInput,
+  ProviderTerminalState,
+  RuntimeReleaseChannel,
+} from './types';

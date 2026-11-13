@@ -1,0 +1,21 @@
+{
+  "from": 2,
+  "productFile": "pMyConstruct.gb",
+  "survivors": [
+    {
+      "before": "primers/pMyConstruct.primers.csv",
+      "after": "contents/pMyConstruct.primers.csv"
+    },
+    {
+      "before": "primers/pMyConstruct.primers.fasta",
+      "after": "contents/pMyConstruct.primers.fasta"
+    }
+  ],
+  "unchanged": ["pMyConstruct.gb"],
+  "gone": ["primers/pMyConstruct.primers.csv", "primers/pMyConstruct.primers.fasta"],
+  "members": [
+    { "role": "primer-export", "path": "contents/pMyConstruct.primers.csv" },
+    { "role": "primer-export", "path": "contents/pMyConstruct.primers.fasta" }
+  ],
+  "noAssemblyPrimers": true
+}

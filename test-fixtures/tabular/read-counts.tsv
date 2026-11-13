@@ -1,0 +1,5 @@
+read_id	barcode	sequence	note	count
+read_0001	BC01	ACGTACGTACGT	comma, inside note	1250
+read_0002	BC02	TGCATGCATGCA	tab-delimited row	982
+read_0003	BC03	GATTACAGATTA	low quality tail	441
+read_0004	BC04	CCCCAAAATTTT	empty count allowed	

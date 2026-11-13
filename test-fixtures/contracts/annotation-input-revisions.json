@@ -1,0 +1,43 @@
+[
+  {
+    "name": "circular",
+    "request": {
+      "sequence": "ACGT",
+      "linear": false
+    },
+    "revision": "annotation-input-v1:sha256:d0af77e1a5613d7e7dde5e49f34633b50025f6ee075e55859eac8ef6ade57c1a"
+  },
+  {
+    "name": "cleaned",
+    "request": {
+      "sequence": "ac gt\n",
+      "linear": false
+    },
+    "revision": "annotation-input-v1:sha256:d0af77e1a5613d7e7dde5e49f34633b50025f6ee075e55859eac8ef6ade57c1a"
+  },
+  {
+    "name": "linear",
+    "request": {
+      "sequence": "ACGT",
+      "linear": true
+    },
+    "revision": "annotation-input-v1:sha256:d6bacd00160c5764c8fc792b2452b737438886d073cce20aa86894102459b3d9"
+  },
+  {
+    "name": "ranged",
+    "request": {
+      "sequence": "ACGT",
+      "linear": false,
+      "start": 1,
+      "end": 3
+    },
+    "revision": "annotation-input-v1:sha256:d0af77e1a5613d7e7dde5e49f34633b50025f6ee075e55859eac8ef6ade57c1a"
+  },
+  {
+    "name": "empty",
+    "request": {
+      "sequence": ""
+    },
+    "revision": "annotation-input-v1:sha256:2f804cf6f60696b4721c233e72ce735fe8086dfea18a3b5af8efc6af92d566d5"
+  }
+]

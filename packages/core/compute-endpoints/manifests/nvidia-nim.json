@@ -1,0 +1,245 @@
+{
+  "schemaVersion": 2,
+  "id": "nvidia-nim",
+  "displayName": "NVIDIA BioNeMo NIM",
+  "summary": "Biology models hosted by NVIDIA.",
+  "docsUrl": "https://docs.nvidia.com/nim/bionemo/",
+  "keyPageUrl": "https://build.nvidia.com/settings/api-keys",
+  "termsUrl": "https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-api-trial-terms-of-service/",
+  "privacyUrl": "https://www.nvidia.com/en-us/about-nvidia/privacy-policy/",
+  "transport": "rest",
+  "baseUrl": "https://health.api.nvidia.com/v1",
+  "driver": {
+    "kind": "nvcf",
+    "pollSeconds": 30,
+    "pollSecondsHeader": "NVCF-POLL-SECONDS",
+    "requestIdHeader": "nvcf-reqid",
+    "statusPathTemplate": "/status/{request_id}",
+    "resultCodec": "nvidia-biology"
+  },
+  "auth": {
+    "scheme": "bearer",
+    "keyPrefix": "nvapi-"
+  },
+  "verify": {
+    "method": "POST",
+    "target": "/biology/mit/boltz2/predict",
+    "expectKey": "error",
+    "okStatuses": [422]
+  },
+  "catalog": "static",
+  "jobModel": "longpoll-202",
+  "staging": "upload",
+  "cost": "credits",
+  "staticTools": [
+    {
+      "id": "boltz2",
+      "displayName": "Boltz-2 (structure, complexes, affinity; verified live)",
+      "path": "/biology/mit/boltz2/predict",
+      "outputKind": "structure",
+      "inputSchema": {
+        "type": "object",
+        "required": ["polymers"],
+        "properties": {
+          "polymers": {
+            "type": "array",
+            "minItems": 1,
+            "description": "One entry per chain: {id: 'A', molecule_type: 'protein'|'dna'|'rna', sequence}.",
+            "items": {
+              "type": "object",
+              "required": ["id", "molecule_type", "sequence"],
+              "properties": {
+                "id": { "type": "string" },
+                "molecule_type": { "type": "string", "enum": ["protein", "dna", "rna"] },
+                "sequence": { "type": "string" }
+              }
+            }
+          },
+          "ligands": { "type": "array", "items": { "type": "object" } },
+          "recycling_steps": { "type": "integer", "default": 3 },
+          "sampling_steps": { "type": "integer", "default": 50 },
+          "diffusion_samples": { "type": "integer", "default": 1 }
+        }
+      },
+      "description": "Structure prediction for proteins, DNA, RNA, and ligand complexes, with binding affinity. Verified live end to end on NVIDIA's hosted catalog; the preferred structure predictor on this provider.",
+      "keywords": [
+        "structure prediction",
+        "fold",
+        "folding",
+        "cofold",
+        "complex",
+        "protein",
+        "dna",
+        "rna",
+        "ligand",
+        "affinity",
+        "boltz"
+      ]
+    },
+    {
+      "id": "alphafold2",
+      "displayName": "AlphaFold2 (monomer)",
+      "path": "/biology/deepmind/alphafold2",
+      "outputKind": "structure",
+      "inputSchema": {
+        "type": "object",
+        "required": ["sequence"],
+        "properties": {
+          "sequence": {
+            "type": "string",
+            "pattern": "^[A-Za-z]+$",
+            "patternMessage": "must be one-letter amino-acid codes only"
+          },
+          "algorithm": {
+            "type": "string",
+            "enum": ["mmseqs2", "jackhmmer"],
+            "default": "mmseqs2"
+          },
+          "e_value": { "type": "number" },
+          "iterations": { "type": "integer" },
+          "databases": { "type": "array", "items": { "type": "string" } },
+          "relax_prediction": { "type": "boolean", "default": false }
+        }
+      },
+      "description": "Single-chain structure prediction with an MSA search. Slow, and its hosted endpoint returned provider errors in live tests on 2026-09-09 and 2026-09-10; prefer boltz2.",
+      "keywords": ["structure prediction", "fold", "folding", "msa", "monomer", "alphafold"]
+    },
+    {
+      "id": "alphafold2-multimer",
+      "displayName": "AlphaFold2-Multimer (complex)",
+      "path": "/biology/deepmind/alphafold2-multimer",
+      "outputKind": "structure",
+      "inputSchema": {
+        "type": "object",
+        "required": ["sequences"],
+        "properties": {
+          "sequences": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z]+$",
+              "patternMessage": "must be one-letter amino-acid codes only"
+            },
+            "minItems": 2
+          },
+          "algorithm": {
+            "type": "string",
+            "enum": ["mmseqs2", "jackhmmer"],
+            "default": "mmseqs2"
+          },
+          "relax_prediction": { "type": "boolean", "default": false }
+        }
+      },
+      "description": "Multi-chain complex structure prediction with an MSA search. Not verified live.",
+      "keywords": ["structure prediction", "fold", "complex", "multimer", "alphafold"]
+    },
+    {
+      "id": "openfold2",
+      "displayName": "OpenFold2",
+      "path": "/biology/openfold/openfold2/predict-structure-from-msa-and-template",
+      "outputKind": "structure",
+      "inputSchema": {
+        "type": "object",
+        "required": ["sequence"],
+        "properties": {
+          "sequence": {
+            "type": "string",
+            "pattern": "^[A-Za-z]+$",
+            "patternMessage": "must be one-letter amino-acid codes only"
+          },
+          "use_templates": { "type": "boolean", "default": false }
+        }
+      },
+      "description": "Structure prediction from a precomputed MSA and templates. Not verified live.",
+      "keywords": ["structure prediction", "fold", "msa", "template", "openfold"]
+    },
+    {
+      "id": "proteinmpnn",
+      "displayName": "ProteinMPNN (sequence design)",
+      "path": "/biology/ipd/proteinmpnn/predict",
+      "outputKind": "sequence-set",
+      "inputSchema": {
+        "type": "object",
+        "required": ["input_pdb"],
+        "properties": {
+          "input_pdb": { "type": "string", "description": "PDB text" },
+          "num_seq_per_target": { "type": "integer", "default": 1 },
+          "sampling_temp": { "type": "array", "items": { "type": "number" } },
+          "ca_only": { "type": "boolean", "default": false },
+          "use_soluble_model": { "type": "boolean", "default": false }
+        }
+      },
+      "description": "Designs amino-acid sequences for a given backbone structure (inverse folding). Reachable in live tests; not run end to end.",
+      "keywords": ["sequence design", "inverse folding", "design", "mpnn"]
+    },
+    {
+      "id": "rfdiffusion",
+      "displayName": "RFdiffusion (backbone design)",
+      "path": "/biology/ipd/rfdiffusion/generate",
+      "outputKind": "structure",
+      "inputSchema": {
+        "type": "object",
+        "required": ["contigs"],
+        "properties": {
+          "input_pdb": { "type": "string" },
+          "contigs": { "type": "string" },
+          "hotspot_res": { "type": "array", "items": { "type": "string" } },
+          "diffusion_steps": { "type": "integer", "default": 15 }
+        }
+      },
+      "description": "Generates new protein backbones for binder and scaffold design. Not verified live.",
+      "keywords": ["backbone design", "binder design", "design", "diffusion", "generate"]
+    },
+    {
+      "id": "diffdock",
+      "displayName": "DiffDock (docking)",
+      "path": "/biology/mit/diffdock",
+      "outputKind": "structure",
+      "inputSchema": {
+        "type": "object",
+        "required": ["protein", "ligand"],
+        "properties": {
+          "protein": { "type": "string", "description": "PDB text" },
+          "ligand": { "type": "string", "description": "SDF/SMILES" },
+          "ligand_file_type": {
+            "type": "string",
+            "enum": ["sdf", "mol2", "smiles"],
+            "default": "sdf"
+          },
+          "num_poses": { "type": "integer", "default": 10 }
+        }
+      },
+      "description": "Docks a small molecule into a protein structure. Not verified live.",
+      "keywords": ["docking", "dock", "ligand", "small molecule", "pose"]
+    },
+    {
+      "id": "msa-search",
+      "displayName": "MSA search (ColabFold)",
+      "path": "/biology/colabfold/msa-search/predict",
+      "outputKind": "binary",
+      "inputSchema": {
+        "type": "object",
+        "required": ["sequence"],
+        "properties": {
+          "sequence": {
+            "type": "string",
+            "pattern": "^[A-Za-z]+$",
+            "patternMessage": "must be one-letter amino-acid codes only"
+          },
+          "e_value": { "type": "number", "default": 0.0001 },
+          "iterations": { "type": "integer", "default": 1 },
+          "databases": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "description": "Multiple sequence alignment search (ColabFold MMseqs2). Not verified live.",
+      "keywords": ["msa", "alignment", "homologs", "search", "mmseqs2"]
+    }
+  ],
+  "disclosure": "This sends your sequences to NVIDIA BioNeMo NIM hosted endpoints under your own NVIDIA API key. NVIDIA bills usage as API-catalog credits on that account; DNAForge does not charge for it. NVIDIA's trial terms may grant NVIDIA rights over submitted inputs; verify the current terms for your tier before sending proprietary sequences. Self-hosted NIM on your own GPU uses the same tools with a different base URL.",
+  "retentionNote": "Hosted NIM responses are returned inline; NVIDIA's retention of request inputs is governed by its API terms for your tier. Re-verify at binding time.",
+  "cancellation": {
+    "mode": "unavailable",
+    "note": "NVIDIA hosted biology NIM endpoints do not expose remote cancellation after submission."
+  },
+  "rateLimitRps": 2
+}

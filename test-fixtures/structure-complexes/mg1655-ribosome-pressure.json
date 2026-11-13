@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "mg1655-rrna-ribosome-pressure",
+  "title": "E. coli K-12 MG1655 rrlC/rrsC ribosome structure visualization pressure fixtures",
+  "sourceSequence": {
+    "path": "test-fixtures/sequences/circular/ecoli-mg1655-complete.gb",
+    "organism": "Escherichia coli K-12 MG1655",
+    "taxonId": 83333,
+    "accession": "U00096.3",
+    "sha256": "6f2f2215dd3d4363b8dc1297f8991b6527b069f6160df2c365312e1a6592fe77"
+  },
+  "queryAnchor": {
+    "gene": "rrlC",
+    "featureLabel": "rrlC rRNA (23S ribosomal RNA)",
+    "moleculeType": "rna",
+    "expectedResolverSource": "rcsb_sequence",
+    "expectedSearchType": "polymer_entity_sequence"
+  },
+  "purpose": {
+    "coverageClass": "large_ribosome_preview_performance",
+    "productPath": "Open MG1655 -> right-click rrlC or rrsC RNA annotation -> Show Structure -> hover large ribosome candidates and loaded ribosome residues.",
+    "failureClass": "Large MolStar preview cache/load handoff must not leave the visible drawer target blank before the loading UI attaches.",
+    "acceptanceOracles": [
+      "Preview candidate row switches to preview state.",
+      "The active drawer viewer target shows a React-owned loading overlay immediately after the target cache key changes.",
+      "The MolStar loading container is attached before the structure parse completes.",
+      "No blank target samples appear without an overlay.",
+      "Structure bytes are served from local RCSB fixture files.",
+      "Loaded ribosome residue letters show hover frames and React hover state within bounded pointer-to-highlight latency.",
+      "Loaded 9Q87 MolStar canvas hover events stay coalesced and do not block the renderer during pointer sweeps.",
+      "Loaded rrsC ribosome candidates must never reach a ligand/ion-only MolStar state when the render plan expects visible polymer."
+    ]
+  },
+  "cases": [
+    {
+      "fixtureId": "mg1655-rrlc-7zp8-ribosome",
+      "pdbId": "7ZP8",
+      "primaryEntityId": "10",
+      "localStructureBytes": "test-fixtures/structure-complexes/rcsb/7ZP8.cif",
+      "sha256": "567072776b6f53c36c0b25b096a0012d6dcc6f8e6d9cb06091360ffba9b31a81",
+      "format": "mmcif",
+      "title": "70S E. coli ribosome with a stalled filamin domain 5 nascent chain",
+      "method": "ELECTRON MICROSCOPY",
+      "resolutionAngstrom": 2.2,
+      "sourceOrganism": "Escherichia coli",
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/7ZP8",
+        "https://files.rcsb.org/download/7ZP8.cif"
+      ],
+      "expectedUse": "initial preview candidate"
+    },
+    {
+      "fixtureId": "mg1655-rrlc-7nbu-ribosome",
+      "pdbId": "7NBU",
+      "primaryEntityId": "26",
+      "localStructureBytes": "test-fixtures/structure-complexes/rcsb/7NBU.cif",
+      "sha256": "eea059162391ff022b762376671c34aa672fcf54f41083ff0fab6c1dd9eac403",
+      "format": "mmcif",
+      "title": "Structure of the HigB1 toxin mutant K95A from Mycobacterium tuberculosis and its target, the cspA mRNA, on the E. coli Ribosome.",
+      "method": "ELECTRON MICROSCOPY",
+      "resolutionAngstrom": 3.11,
+      "sourceOrganism": "Escherichia coli",
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/7NBU",
+        "https://files.rcsb.org/download/7NBU.cif"
+      ],
+      "expectedUse": "hover switch target preview candidate"
+    },
+    {
+      "fixtureId": "mg1655-rrsc-9q87-ribosome",
+      "pdbId": "9Q87",
+      "primaryEntityId": "1",
+      "queryAnchor": {
+        "gene": "rrsC",
+        "featureLabel": "rrsC rRNA (16S ribosomal RNA)",
+        "moleculeType": "rna",
+        "expectedResolverSource": "rcsb_sequence",
+        "expectedSearchType": "polymer_entity_sequence"
+      },
+      "localStructureBytes": "test-fixtures/structure-complexes/rcsb/9Q87.cif",
+      "sha256": "5f6eaf624dc1b6495c3e0deea5444ae3fc12803042787b1ffdb6436a0dff0206",
+      "format": "mmcif",
+      "title": "Principles of ion binding to RNA inferred from the analysis of a 1.55 Angstrom resolution bacterial ribosome structure - Part I: Mg2+",
+      "method": "ELECTRON MICROSCOPY",
+      "resolutionAngstrom": 1.55,
+      "sourceOrganism": "Escherichia coli",
+      "polymerEntityInstanceCount": 55,
+      "depositedAtomCount": 166869,
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/9Q87",
+        "https://files.rcsb.org/download/9Q87.cif"
+      ],
+      "expectedUse": "loaded residue and MolStar hover hard-case pressure candidate"
+    },
+    {
+      "fixtureId": "mg1655-rrsc-6zu1-ribosome",
+      "pdbId": "6ZU1",
+      "primaryEntityId": "1",
+      "queryAnchor": {
+        "gene": "rrsC",
+        "featureLabel": "rrsC rRNA (16S ribosomal RNA)",
+        "moleculeType": "rna",
+        "expectedResolverSource": "rcsb_sequence",
+        "expectedSearchType": "polymer_entity_sequence"
+      },
+      "localStructureBytes": "test-fixtures/structure-complexes/rcsb/6ZU1.cif",
+      "sha256": "6af651a19b93d063af0d8a99119064b75ceae53dbbd2b678bee4301a48978022",
+      "format": "mmcif",
+      "title": "E. coli 70S-RNAP expressome complex in uncoupled state 2",
+      "method": "ELECTRON MICROSCOPY",
+      "resolutionAngstrom": 3.0,
+      "sourceOrganism": "Escherichia coli",
+      "polymerEntityInstanceCount": 62,
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/6ZU1",
+        "https://files.rcsb.org/download/6ZU1.cif"
+      ],
+      "expectedUse": "loaded visual-integrity regression for the rrsC ligand-only failure"
+    }
+  ]
+}

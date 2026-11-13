@@ -1,0 +1,34 @@
+LOCUS       sfGFP_mRNA               717 bp    mRNA    linear   SYN 22-OCT-2026
+DEFINITION  sfGFP CDS transcribed to mRNA (synthetic, derived from sfgfp-cds.gb).
+ACCESSION   sfGFP_mRNA
+VERSION     sfGFP_mRNA
+KEYWORDS    synthetic; ask-ai-eval.
+SOURCE      synthetic construct
+  ORGANISM  synthetic construct
+            .
+FEATURES             Location/Qualifiers
+     source          1..717
+                     /organism="synthetic construct"
+                     /mol_type="mRNA"
+     CDS             1..717
+                     /label="sfGFP"
+                     /product="superfolder GFP"
+                     /translation="MSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTL
+                     KFICTTGKLPVPWPTLVTTLTYGVQCFARYPDHMKQHDFFKSAMPEGYVQERTISFKD
+                     DGTYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNFNSHNVYITADKQKNG
+                     IKANFKIRHNVEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSALSKDPNEKRDHM
+                     VLLEFVTAAGITHGMDELYK"
+ORIGIN
+        1 augagcaagg gcgaggaacu guucacuggc guugucccaa uucucgugga acuggauggc
+       61 gaugugaaug ggcacaaauu cucugucagc ggagagggug aaggugaugc cacauacgga
+      121 aagcucaccc ugaaauucau cugcaccacu ggaaagcucc cugugccaug gccaacacug
+      181 gucacuaccc ugaccuaugg uguucagugc uuugcucguu auccggacca uaugaagcag
+      241 caugacuucu ucaagagugc caugcccgaa gguuauguac aggaacgcac uauaucuuuc
+      301 aaagaugacg ggaccuacaa gacgcgugcu gaagucaagu uugaagguga uacccuuguu
+      361 aaucguaucg aguuaaaagg uauugauuuu aaagaagaug gaaacauucu cggacacaaa
+      421 cucgaguaca acuuuaacuc acacaaugua uacaucacgg cagacaaaca aaagaaugga
+      481 aucaaagcua acuucaaaau ucgccacaac guugaagaug guuccguuca acuagcagac
+      541 cauuaucaac aaaauacucc aauuggcgau ggcccugucc uuuuaccaga caaccauuac
+      601 cugucgacac aaucugcccu uucgaaagau cccaacgaaa agcgugacca caugguccuu
+      661 cuugaguuug uaacugcugc ugggauuaca cauggcaugg augaacuaua caaauaa
+//

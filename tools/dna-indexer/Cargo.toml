@@ -1,0 +1,32 @@
+[package]
+name = "dna-indexer"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Rust binary that converts GenBank/FASTA to the DNAForge indexed-genome format (.fa.gz + .fa.gz.fai + .fa.gz.gzi + .gff3.gz + .gff3.gz.tbi|.csi). Replaces the BioPython-based Python indexer."
+
+[[bin]]
+name = "dna-indexer"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+gb-io.workspace = true
+noodles-fasta.workspace = true
+noodles-gff.workspace = true
+noodles-bgzf.workspace = true
+noodles-tabix.workspace = true
+noodles-csi.workspace = true
+noodles-core.workspace = true
+flate2 = "1.0"
+sha2 = "0.10"
+
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+sha2 = { version = "0.10", features = ["asm"] }

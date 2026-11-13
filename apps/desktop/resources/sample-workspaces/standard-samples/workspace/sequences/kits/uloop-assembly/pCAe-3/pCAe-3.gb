@@ -1,0 +1,116 @@
+LOCUS       MN436802                2686 bp    DNA     circular SYN 07-DEC-2019
+DEFINITION  Cloning vector pCAe-3, complete sequence.
+ACCESSION   MN436802
+VERSION     MN436802.1
+KEYWORDS    .
+SOURCE      Cloning vector pCAe-3
+  ORGANISM  Cloning vector pCAe-3
+            other sequences; artificial sequences; vectors.
+REFERENCE   1  (bases 1 to 2686)
+  AUTHORS   Pollak,B., Matute,T., Nunez,I., Cerda,A., Lopez,C., Vargas,V.,
+            Kan,A., Bielinski,V., von Dassow,P., Dupont,C.L. and Federici,F.
+  TITLE     Direct Submission
+  JOURNAL   Submitted (11-SEP-2019) Millennium Institute for Integrative
+            Biology - iBio, Portugal 49, Santiago, RM 8331150, Chile
+COMMENT     ##Assembly-Data-START##
+            Sequencing Technology :: Sanger dideoxy sequencing
+            ##Assembly-Data-END##
+FEATURES             Location/Qualifiers
+     misc_feature    1..40
+                     /note="UNS1"
+     misc_feature    complement(44..49)
+                     /note="BsaI"
+     misc_feature    51..54
+                     /note="C"
+     misc_feature    56..58
+                     /note="Alpha"
+     misc_feature    complement(60..66)
+                     /note="SapI"
+     misc_feature    75..652
+                     /note="LacZ cassete"
+     regulatory      110..233
+                     /regulatory_class="promoter"
+                     /note="pLac"
+     CDS             240..563
+                     /note="LacZ alpha"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="beta-galactosidase alpha subunit"
+                     /protein_id="QGQ59557.1"
+                     /translation="MTMITPSLHACRSTLEDPRVPSSNSLAVVLQRRDWENPGVTQLN
+                     RLAAHPPFASWRNSEEARTDRPSQQLRSLNGEWRLMRYFLLTHLCGISHRIWCTLSTI
+                     CSDAA"
+     misc_feature    665..671
+                     /note="SapI"
+     misc_feature    673..675
+                     /note="Omega"
+     misc_feature    677..680
+                     /note="E"
+     misc_feature    682..687
+                     /note="BsaI"
+     misc_feature    691..730
+                     /note="UNSX"
+     rep_origin      761..1480
+                     /note="pBR322 ori"
+     CDS             complement(1500..2291)
+                     /note="SpecR"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="streptomycin 3'-adenylyltransferase"
+                     /protein_id="QGQ59556.1"
+                     /translation="MREAVIAEVSTQLSEVVGVIERHLEPTLLAVHLYGSAVDGGLKP
+                     HSDIDLLVTVTVRLDETTRRALINDLLETSASPGESEILRAVEVTIVVHDDIIPWRYP
+                     AKRELQFGEWQRNDILAGIFEPATIDIDLAILLTKAREHSVALVGPAAEELFDPVPEQ
+                     DLFEALNETLTLWNSPPDWAGDERNVVLTLSRIWYSAVTGKIAPKDVAADWAMERLPA
+                     QYQPVILEARQAYLGQEEDRLASRADQLEEFVHYVKGEITKVVGK"
+     regulatory      complement(2292..2439)
+                     /regulatory_class="promoter"
+                     /note="specR promoter"
+ORIGIN      
+        1 cattactcgc atccattctc aggctgtctc gtctcgtctc cgaggtctca aatgaatgtg
+       61 aagagcttga cagcgcagct ggcacgacag gtttcccgac tggaaagcgg gcagtgagcg
+      121 caacgcaatt aatgtgagtt agctcactca ttaggcaccc caggctttac actttatgct
+      181 tccggctcgt atgttgtgtg gaattgtgag cggataacaa tttcacacag gaaacagcta
+      241 tgaccatgat tacgccaagc ttgcatgcct gcaggtcgac tctagaggat ccccgggtac
+      301 cgagctcgaa ttcactggcc gtcgttttac aacgtcgtga ctgggaaaac cctggcgtta
+      361 cccaacttaa tcgccttgca gcacatcccc ctttcgccag ctggcgtaat agcgaagagg
+      421 cccgcaccga tcgcccttcc caacagttgc gcagcctgaa tggcgaatgg cgcctgatgc
+      481 ggtattttct ccttacgcat ctgtgcggta tttcacaccg catatggtgc actctcagta
+      541 caatctgctc tgatgccgca tagttaagcc agccccgaca cccgccaaca cccgctgacg
+      601 cgccctgacg ggcttgtctg ctcccggcat ccgcttacag acaagctgtg acactagtga
+      661 gcacgctctt caggtagctt tgagaccacc ccaggataca tagattacca caactccgag
+      721 cccttccacc cacagaatca ggggataacg caggaaagaa catgtgagca aaaggccagc
+      781 aaaaggccag gaaccgtaaa aaggccgcgt tgctggcgtt tttccatagg ctccgccccc
+      841 ctgacgagca tcacaaaaat cgacgctcaa gtcagaggtg gcgaaacccg acaggactat
+      901 aaagatacca ggcgtttccc cctggaagct ccctcgtgcg ctctcctgtt ccgaccctgc
+      961 cgcttaccgg atacctgtcc gcctttctcc cttcgggaag cgtggcgctt tctcatagct
+     1021 cacgctgtag gtatctcagt tcggtgtagg tcgttcgctc caagctgggc tgtgtgcacg
+     1081 aaccccccgt tcagcccgac cgctgcgcct tatccggtaa ctatcgtctt gagtccaacc
+     1141 cggtaagaca cgacttatcg ccactggcag cagccactgg taacaggatt agcagagcga
+     1201 ggtatgtagg cggtgctaca gagttcttga agtggtggcc taactacggc tacactagaa
+     1261 ggacagtatt tggtatctgc gctctgctga agccagttac cttcggaaaa agagttggta
+     1321 gctcttgatc cggcaaacaa accaccgctg gtagcggtgg tttttttgtt tgcaagcagc
+     1381 agattacgcg cagaaaaaaa ggatctcaag aagatccttt gatcttttct acggggtctg
+     1441 acgctcagtg gaacgaaaac tcacgttaag ggattttggt catgcattct aggtgattat
+     1501 tatttgccga ctaccttggt gatctcgcct ttcacgtagt ggacaaattc ttccaactga
+     1561 tctgcgcgcg aggccaagcg atcttcttct tgtccaagat aagcctgtct agcttcaagt
+     1621 atgacgggct gatactgggc cggcaggcgc tccattgccc agtcggcagc gacatccttc
+     1681 ggcgcgattt tgccggttac tgcgctgtac caaatgcggg acaacgtaag cactacattt
+     1741 cgctcatcgc cagcccagtc gggcggcgag ttccatagcg ttaaggtttc atttagcgcc
+     1801 tcaaatagat cctgttcagg aaccggatca aagagttcct ccgccgctgg acctaccaag
+     1861 gcaacgctat gttctcttgc ttttgtcagc aagatagcca gatcaatgtc gatcgtggct
+     1921 ggctcgaaga taccagcaag aatgtcattg cgctgccatt ctccaaattg cagttcgcgc
+     1981 ttagctggat aacgccacgg aatgatgtcg tcgtgcacaa caatggtgac ttctacagcg
+     2041 cggagaatct cactctctcc aggggaagcc gaagtttcca aaaggtcgtt gatcaaagct
+     2101 cgccgcgttg tttcatcaag ccttacggtc accgtaacca gcaaatcaat atcactgtgt
+     2161 ggcttcaggc cgccatccac tgcggagccg tacaaatgta cggccagcaa cgtcggttcg
+     2221 agatggcgct cgatgacgcc aactacctct gatagttgag tcgatacttc ggcgatcacc
+     2281 gcttccctca tgcgaaacga tcctcatcct gtctcttgat cagatattga tcccctgcgc
+     2341 catcagatcc ttggcggcaa gaaagccatc cagtttactt tgcagggctt cccaacctta
+     2401 ccagagggcg ccccagctgg caattccggt tcgcttgcta agcttgcatg cctgcaagtc
+     2461 gactctagag gagcggtgat cacaggcagc aacgctctgt catcgttaca atcaacatgc
+     2521 taccctccgc gagatcatcc gtgtttcaaa cccggcagct tagttgccgt tcttccgaat
+     2581 agcatcggta acatgagcaa agtctgccgc cttacaacgg ctctcccgct gacgccgtcc
+     2641 cggactgatg ggctgcctgt atcgagtggt gattttgtgc cgagct
+//
+

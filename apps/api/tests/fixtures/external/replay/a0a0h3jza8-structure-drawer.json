@@ -1,0 +1,102 @@
+{
+  "entries": [
+    {
+      "method": "GET",
+      "host": "rest.uniprot.org",
+      "path": "/uniprotkb/search",
+      "query": {
+        "query": "checksum:404C07CB677254E1E7AAF759B0FFB43A",
+        "size": "10",
+        "fields": "accession,reviewed,xref_pdb"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "results": [
+            {
+              "primaryAccession": "A0A0H3JZA8",
+              "entryType": "UniProtKB unreviewed (TrEMBL)",
+              "uniProtKBCrossReferences": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "alphafold.ebi.ac.uk",
+      "path": "/api/prediction/A0A0H3JZA8",
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": [
+          {
+            "uniprotAccession": "A0A0H3JZA8",
+            "globalMetricValue": 31.47,
+            "latestVersion": 6,
+            "cifUrl": "https://alphafold.ebi.ac.uk/files/AF-A0A0H3JZA8-F1-model_v6.cif"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "host": "rest.uniprot.org",
+      "path": "/uniprotkb/A0A0H3JZA8.json",
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "ETag": "W/\"uniprot-a0a0h3jza8\""
+        },
+        "json": {
+          "primaryAccession": "A0A0H3JZA8",
+          "entryType": "UniProtKB unreviewed (TrEMBL)",
+          "entryAudit": {
+            "entryVersion": 23
+          },
+          "proteinDescription": {
+            "recommendedName": {
+              "fullName": {
+                "value": "A0A0H3JZA8 structure drawer regression protein"
+              }
+            }
+          },
+          "organism": {
+            "scientificName": "Synechococcus elongatus",
+            "taxonId": 1140
+          },
+          "genes": [
+            {
+              "geneName": {
+                "value": "syc0127_d"
+              }
+            }
+          ],
+          "sequence": {
+            "length": 137
+          },
+          "uniProtKBCrossReferences": []
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "alphafold.ebi.ac.uk",
+      "path": "/files/AF-A0A0H3JZA8-F1-model_v6.cif",
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "chemical/x-mmcif",
+          "ETag": "W/\"af-a0a0h3jza8-v6\""
+        },
+        "body": "data_AF-A0A0H3JZA8-F1\n#\nloop_\n_struct_conf.beg_auth_asym_id\n_struct_conf.beg_auth_comp_id\n_struct_conf.beg_auth_seq_id\n_struct_conf.beg_label_asym_id\n_struct_conf.beg_label_comp_id\n_struct_conf.beg_label_seq_id\n_struct_conf.conf_type_id\n_struct_conf.end_auth_asym_id\n_struct_conf.end_auth_comp_id\n_struct_conf.end_auth_seq_id\n_struct_conf.end_label_asym_id\n_struct_conf.end_label_comp_id\n_struct_conf.end_label_seq_id\n_struct_conf.id\n_struct_conf.pdbx_beg_PDB_ins_code\n_struct_conf.pdbx_end_PDB_ins_code\nA GLY 4  A GLY 4  HELX_RH_AL_P A GLY 13 A GLY 13 HELX_RH_AL_P1 ? ?\nA GLY 18 A GLY 18 STRN         A GLY 27 A GLY 27 STRN1         ? ?\nA GLY 31 A GLY 31 HELX_RH_AL_P A GLY 38 A GLY 38 HELX_RH_AL_P2 ? ?\n#\nloop_\n_atom_site.group_PDB\n_atom_site.id\n_atom_site.type_symbol\n_atom_site.label_atom_id\n_atom_site.label_alt_id\n_atom_site.label_comp_id\n_atom_site.label_asym_id\n_atom_site.label_entity_id\n_atom_site.label_seq_id\n_atom_site.pdbx_PDB_ins_code\n_atom_site.Cartn_x\n_atom_site.Cartn_y\n_atom_site.Cartn_z\n_atom_site.occupancy\n_atom_site.B_iso_or_equiv\n_atom_site.pdbx_formal_charge\n_atom_site.auth_seq_id\n_atom_site.auth_comp_id\n_atom_site.auth_asym_id\n_atom_site.auth_atom_id\n_atom_site.pdbx_PDB_model_num\nATOM 1 N N . GLY A 1 1 ? 6.880 0.150 -0.350 1.00 94.00 ? 1 GLY A N 1\nATOM 2 C CA . GLY A 1 1 ? 7.580 0.000 0.000 1.00 94.00 ? 1 GLY A CA 1\nATOM 3 C C . GLY A 1 1 ? 8.280 -0.100 0.350 1.00 94.00 ? 1 GLY A C 1\nATOM 4 O O . GLY A 1 1 ? 8.580 -0.550 0.580 1.00 94.00 ? 1 GLY A O 1\nATOM 5 N N . GLY A 1 2 ? 5.854 4.070 1.000 1.00 94.00 ? 2 GLY A N 1\nATOM 6 C CA . GLY A 1 2 ? 6.554 3.920 1.350 1.00 94.00 ? 2 GLY A CA 1\nATOM 7 C C . GLY A 1 2 ? 7.254 3.820 1.700 1.00 94.00 ? 2 GLY A C 1\nATOM 8 O O . GLY A 1 2 ? 7.554 3.370 1.930 1.00 94.00 ? 2 GLY A O 1\nATOM 9 N N . GLY A 1 3 ? 2.942 6.834 2.350 1.00 94.00 ? 3 GLY A N 1\nATOM 10 C CA . GLY A 1 3 ? 3.642 6.684 2.700 1.00 94.00 ? 3 GLY A CA 1\nATOM 11 C C . GLY A 1 3 ? 4.342 6.584 3.050 1.00 94.00 ? 3 GLY A C 1\nATOM 12 O O . GLY A 1 3 ? 4.642 6.134 3.280 1.00 94.00 ? 3 GLY A O 1\nATOM 13 N N . GLY A 1 4 ? -0.973 7.626 3.700 1.00 94.00 ? 4 GLY A N 1\nATOM 14 C CA . GLY A 1 4 ? -0.273 7.476 4.050 1.00 94.00 ? 4 GLY A CA 1\nATOM 15 C C . GLY A 1 4 ? 0.427 7.376 4.400 1.00 94.00 ? 4 GLY A C 1\nATOM 16 O O . GLY A 1 4 ? 0.727 6.926 4.630 1.00 94.00 ? 4 GLY A O 1\nATOM 17 N N . GLY A 1 5 ? -4.714 6.214 5.050 1.00 94.00 ? 5 GLY A N 1\nATOM 18 C CA . GLY A 1 5 ? -4.014 6.064 5.400 1.00 94.00 ? 5 GLY A CA 1\nATOM 19 C C . GLY A 1 5 ? -3.314 5.964 5.750 1.00 94.00 ? 5 GLY A C 1\nATOM 20 O O . GLY A 1 5 ? -3.014 5.514 5.980 1.00 94.00 ? 5 GLY A O 1\nATOM 21 N N . GLY A 1 6 ? -7.152 3.012 6.400 1.00 94.00 ? 6 GLY A N 1\nATOM 22 C CA . GLY A 1 6 ? -6.452 2.862 6.750 1.00 94.00 ? 6 GLY A CA 1\nATOM 23 C C . GLY A 1 6 ? -5.752 2.762 7.100 1.00 94.00 ? 6 GLY A C 1\nATOM 24 O O . GLY A 1 6 ? -5.452 2.312 7.330 1.00 94.00 ? 6 GLY A O 1\nATOM 25 N N . GLY A 1 7 ? -7.546 -1.033 7.750 1.00 94.00 ? 7 GLY A N 1\nATOM 26 C CA . GLY A 1 7 ? -6.846 -1.183 8.100 1.00 94.00 ? 7 GLY A CA 1\nATOM 27 C C . GLY A 1 7 ? -6.146 -1.283 8.450 1.00 94.00 ? 7 GLY A C 1\nATOM 28 O O . GLY A 1 7 ? -5.846 -1.733 8.680 1.00 94.00 ? 7 GLY A O 1\nATOM 29 N N . GLY A 1 8 ? -5.755 -4.730 9.100 1.00 94.00 ? 8 GLY A N 1\nATOM 30 C CA . GLY A 1 8 ? -5.055 -4.880 9.450 1.00 94.00 ? 8 GLY A CA 1\nATOM 31 C C . GLY A 1 8 ? -4.355 -4.980 9.800 1.00 94.00 ? 8 GLY A C 1\nATOM 32 O O . GLY A 1 8 ? -4.055 -5.430 10.030 1.00 94.00 ? 8 GLY A O 1\nATOM 33 N N . GLY A 1 9 ? -2.285 -6.987 10.450 1.00 94.00 ? 9 GLY A N 1\nATOM 34 C CA . GLY A 1 9 ? -1.585 -7.137 10.800 1.00 94.00 ? 9 GLY A CA 1\nATOM 35 C C . GLY A 1 9 ? -0.885 -7.237 11.150 1.00 94.00 ? 9 GLY A C 1\nATOM 36 O O . GLY A 1 9 ? -0.585 -7.687 11.380 1.00 94.00 ? 9 GLY A O 1\nATOM 37 N N . GLY A 1 10 ? 1.865 -7.139 11.800 1.00 94.00 ? 10 GLY A N 1\nATOM 38 C CA . GLY A 1 10 ? 2.565 -7.289 12.150 1.00 94.00 ? 10 GLY A CA 1\nATOM 39 C C . GLY A 1 10 ? 3.265 -7.389 12.500 1.00 94.00 ? 10 GLY A C 1\nATOM 40 O O . GLY A 1 10 ? 3.565 -7.839 12.730 1.00 94.00 ? 10 GLY A O 1\nATOM 41 N N . GLY A 1 11 ? 5.495 -5.142 13.150 1.00 94.00 ? 11 GLY A N 1\nATOM 42 C CA . GLY A 1 11 ? 6.195 -5.292 13.500 1.00 94.00 ? 11 GLY A CA 1\nATOM 43 C C . GLY A 1 11 ? 6.895 -5.392 13.850 1.00 94.00 ? 11 GLY A C 1\nATOM 44 O O . GLY A 1 11 ? 7.195 -5.842 14.080 1.00 94.00 ? 11 GLY A O 1\nATOM 45 N N . GLY A 1 12 ? 7.557 -1.583 14.500 1.00 94.00 ? 12 GLY A N 1\nATOM 46 C CA . GLY A 1 12 ? 8.257 -1.733 14.850 1.00 94.00 ? 12 GLY A CA 1\nATOM 47 C C . GLY A 1 12 ? 8.957 -1.833 15.200 1.00 94.00 ? 12 GLY A C 1\nATOM 48 O O . GLY A 1 12 ? 9.257 -2.283 15.430 1.00 94.00 ? 12 GLY A O 1\nATOM 49 N N . GLY A 1 13 ? 7.467 2.487 15.850 1.00 82.00 ? 13 GLY A N 1\nATOM 50 C CA . GLY A 1 13 ? 8.167 2.337 16.200 1.00 82.00 ? 13 GLY A CA 1\nATOM 51 C C . GLY A 1 13 ? 8.867 2.237 16.550 1.00 82.00 ? 13 GLY A C 1\nATOM 52 O O . GLY A 1 13 ? 9.167 1.787 16.780 1.00 82.00 ? 13 GLY A O 1\nATOM 53 N N . GLY A 1 14 ? 5.274 5.867 17.200 1.00 82.00 ? 14 GLY A N 1\nATOM 54 C CA . GLY A 1 14 ? 5.974 5.717 17.550 1.00 82.00 ? 14 GLY A CA 1\nATOM 55 C C . GLY A 1 14 ? 6.674 5.617 17.900 1.00 82.00 ? 14 GLY A C 1\nATOM 56 O O . GLY A 1 14 ? 6.974 5.167 18.130 1.00 82.00 ? 14 GLY A O 1\nATOM 57 N N . GLY A 1 15 ? 1.650 7.561 18.550 1.00 82.00 ? 15 GLY A N 1\nATOM 58 C CA . GLY A 1 15 ? 2.350 7.411 18.900 1.00 82.00 ? 15 GLY A CA 1\nATOM 59 C C . GLY A 1 15 ? 3.050 7.311 19.250 1.00 82.00 ? 15 GLY A C 1\nATOM 60 O O . GLY A 1 15 ? 3.350 6.861 19.480 1.00 82.00 ? 15 GLY A O 1\nATOM 61 N N . GLY A 1 16 ? -2.313 7.070 19.900 1.00 82.00 ? 16 GLY A N 1\nATOM 62 C CA . GLY A 1 16 ? -1.613 6.920 20.250 1.00 82.00 ? 16 GLY A CA 1\nATOM 63 C C . GLY A 1 16 ? -0.913 6.820 20.600 1.00 82.00 ? 16 GLY A C 1\nATOM 64 O O . GLY A 1 16 ? -0.613 6.370 20.830 1.00 82.00 ? 16 GLY A O 1\nATOM 65 N N . GLY A 1 17 ? -5.423 4.537 21.250 1.00 82.00 ? 17 GLY A N 1\nATOM 66 C CA . GLY A 1 17 ? -4.723 4.387 21.600 1.00 82.00 ? 17 GLY A CA 1\nATOM 67 C C . GLY A 1 17 ? -4.023 4.287 21.950 1.00 82.00 ? 17 GLY A C 1\nATOM 68 O O . GLY A 1 17 ? -3.723 3.837 22.180 1.00 82.00 ? 17 GLY A O 1\nATOM 69 N N . GLY A 1 18 ? -6.739 0.710 22.600 1.00 82.00 ? 18 GLY A N 1\nATOM 70 C CA . GLY A 1 18 ? -6.039 0.560 22.950 1.00 82.00 ? 18 GLY A CA 1\nATOM 71 C C . GLY A 1 18 ? -5.339 0.460 23.300 1.00 82.00 ? 18 GLY A C 1\nATOM 72 O O . GLY A 1 18 ? -5.039 0.010 23.530 1.00 82.00 ? 18 GLY A O 1\nATOM 73 N N . GLY A 1 19 ? -5.849 -3.282 23.950 1.00 82.00 ? 19 GLY A N 1\nATOM 74 C CA . GLY A 1 19 ? -5.149 -3.432 24.300 1.00 82.00 ? 19 GLY A CA 1\nATOM 75 C C . GLY A 1 19 ? -4.449 -3.532 24.650 1.00 82.00 ? 19 GLY A C 1\nATOM 76 O O . GLY A 1 19 ? -4.149 -3.982 24.880 1.00 82.00 ? 19 GLY A O 1\nATOM 77 N N . GLY A 1 20 ? -2.992 -6.261 25.300 1.00 82.00 ? 20 GLY A N 1\nATOM 78 C CA . GLY A 1 20 ? -2.292 -6.411 25.650 1.00 82.00 ? 20 GLY A CA 1\nATOM 79 C C . GLY A 1 20 ? -1.592 -6.511 26.000 1.00 82.00 ? 20 GLY A C 1\nATOM 80 O O . GLY A 1 20 ? -1.292 -6.961 26.230 1.00 82.00 ? 20 GLY A O 1\nATOM 81 N N . GLY A 1 21 ? 1.013 -7.350 26.650 1.00 82.00 ? 21 GLY A N 1\nATOM 82 C CA . GLY A 1 21 ? 1.713 -7.500 27.000 1.00 82.00 ? 21 GLY A CA 1\nATOM 83 C C . GLY A 1 21 ? 2.413 -7.600 27.350 1.00 82.00 ? 21 GLY A C 1\nATOM 84 O O . GLY A 1 21 ? 2.713 -8.050 27.580 1.00 82.00 ? 21 GLY A O 1\nATOM 85 N N . GLY A 1 22 ? 5.008 -6.227 28.000 1.00 82.00 ? 22 GLY A N 1\nATOM 86 C CA . GLY A 1 22 ? 5.708 -6.377 28.350 1.00 82.00 ? 22 GLY A CA 1\nATOM 87 C C . GLY A 1 22 ? 6.408 -6.477 28.700 1.00 82.00 ? 22 GLY A C 1\nATOM 88 O O . GLY A 1 22 ? 6.708 -6.927 28.930 1.00 82.00 ? 22 GLY A O 1\nATOM 89 N N . GLY A 1 23 ? 7.839 -3.222 29.350 1.00 82.00 ? 23 GLY A N 1\nATOM 90 C CA . GLY A 1 23 ? 8.539 -3.372 29.700 1.00 82.00 ? 23 GLY A CA 1\nATOM 91 C C . GLY A 1 23 ? 9.239 -3.472 30.050 1.00 82.00 ? 23 GLY A C 1\nATOM 92 O O . GLY A 1 23 ? 9.539 -3.922 30.280 1.00 82.00 ? 23 GLY A O 1\nATOM 93 N N . GLY A 1 24 ? 8.694 0.776 30.700 1.00 82.00 ? 24 GLY A N 1\nATOM 94 C CA . GLY A 1 24 ? 9.394 0.626 31.050 1.00 82.00 ? 24 GLY A CA 1\nATOM 95 C C . GLY A 1 24 ? 10.094 0.526 31.400 1.00 82.00 ? 24 GLY A C 1\nATOM 96 O O . GLY A 1 24 ? 10.394 0.076 31.630 1.00 82.00 ? 24 GLY A O 1\nATOM 97 N N . GLY A 1 25 ? 7.344 4.591 32.050 1.00 64.00 ? 25 GLY A N 1\nATOM 98 C CA . GLY A 1 25 ? 8.044 4.441 32.400 1.00 64.00 ? 25 GLY A CA 1\nATOM 99 C C . GLY A 1 25 ? 8.744 4.341 32.750 1.00 64.00 ? 25 GLY A C 1\nATOM 100 O O . GLY A 1 25 ? 9.044 3.891 32.980 1.00 64.00 ? 25 GLY A O 1\nATOM 101 N N . GLY A 1 26 ? 4.212 7.095 33.400 1.00 64.00 ? 26 GLY A N 1\nATOM 102 C CA . GLY A 1 26 ? 4.912 6.945 33.750 1.00 64.00 ? 26 GLY A CA 1\nATOM 103 C C . GLY A 1 26 ? 5.612 6.845 34.100 1.00 64.00 ? 26 GLY A C 1\nATOM 104 O O . GLY A 1 26 ? 5.912 6.395 34.330 1.00 64.00 ? 26 GLY A O 1\nATOM 105 N N . GLY A 1 27 ? 0.244 7.551 34.750 1.00 64.00 ? 27 GLY A N 1\nATOM 106 C CA . GLY A 1 27 ? 0.944 7.401 35.100 1.00 64.00 ? 27 GLY A CA 1\nATOM 107 C C . GLY A 1 27 ? 1.644 7.301 35.450 1.00 64.00 ? 27 GLY A C 1\nATOM 108 O O . GLY A 1 27 ? 1.944 6.851 35.680 1.00 64.00 ? 27 GLY A O 1\nATOM 109 N N . GLY A 1 28 ? -3.365 5.824 36.100 1.00 64.00 ? 28 GLY A N 1\nATOM 110 C CA . GLY A 1 28 ? -2.665 5.674 36.450 1.00 64.00 ? 28 GLY A CA 1\nATOM 111 C C . GLY A 1 28 ? -1.965 5.574 36.800 1.00 64.00 ? 28 GLY A C 1\nATOM 112 O O . GLY A 1 28 ? -1.665 5.124 37.030 1.00 64.00 ? 28 GLY A O 1\nATOM 113 N N . GLY A 1 29 ? -5.527 2.423 37.450 1.00 64.00 ? 29 GLY A N 1\nATOM 114 C CA . GLY A 1 29 ? -4.827 2.273 37.800 1.00 64.00 ? 29 GLY A CA 1\nATOM 115 C C . GLY A 1 29 ? -4.127 2.173 38.150 1.00 64.00 ? 29 GLY A C 1\nATOM 116 O O . GLY A 1 29 ? -3.827 1.723 38.380 1.00 64.00 ? 29 GLY A O 1\nATOM 117 N N . GLY A 1 30 ? -5.581 -1.648 38.800 1.00 64.00 ? 30 GLY A N 1\nATOM 118 C CA . GLY A 1 30 ? -4.881 -1.798 39.150 1.00 64.00 ? 30 GLY A CA 1\nATOM 119 C C . GLY A 1 30 ? -4.181 -1.898 39.500 1.00 64.00 ? 30 GLY A C 1\nATOM 120 O O . GLY A 1 30 ? -3.881 -2.348 39.730 1.00 64.00 ? 30 GLY A O 1\nATOM 121 N N . GLY A 1 31 ? -3.488 -5.188 40.150 1.00 64.00 ? 31 GLY A N 1\nATOM 122 C CA . GLY A 1 31 ? -2.788 -5.338 40.500 1.00 64.00 ? 31 GLY A CA 1\nATOM 123 C C . GLY A 1 31 ? -2.088 -5.438 40.850 1.00 64.00 ? 31 GLY A C 1\nATOM 124 O O . GLY A 1 31 ? -1.788 -5.888 41.080 1.00 64.00 ? 31 GLY A O 1\nATOM 125 N N . GLY A 1 32 ? 0.159 -7.155 41.500 1.00 64.00 ? 32 GLY A N 1\nATOM 126 C CA . GLY A 1 32 ? 0.859 -7.305 41.850 1.00 64.00 ? 32 GLY A CA 1\nATOM 127 C C . GLY A 1 32 ? 1.559 -7.405 42.200 1.00 64.00 ? 32 GLY A C 1\nATOM 128 O O . GLY A 1 32 ? 1.859 -7.855 42.430 1.00 64.00 ? 32 GLY A O 1\nATOM 129 N N . GLY A 1 33 ? 4.308 -6.966 42.850 1.00 64.00 ? 33 GLY A N 1\nATOM 130 C CA . GLY A 1 33 ? 5.008 -7.116 43.200 1.00 64.00 ? 33 GLY A CA 1\nATOM 131 C C . GLY A 1 33 ? 5.708 -7.216 43.550 1.00 64.00 ? 33 GLY A C 1\nATOM 132 O O . GLY A 1 33 ? 6.008 -7.666 43.780 1.00 64.00 ? 33 GLY A O 1\nATOM 133 N N . GLY A 1 34 ? 7.758 -4.679 44.200 1.00 38.00 ? 34 GLY A N 1\nATOM 134 C CA . GLY A 1 34 ? 8.458 -4.829 44.550 1.00 38.00 ? 34 GLY A CA 1\nATOM 135 C C . GLY A 1 34 ? 9.158 -4.929 44.900 1.00 38.00 ? 34 GLY A C 1\nATOM 136 O O . GLY A 1 34 ? 9.458 -5.379 45.130 1.00 38.00 ? 34 GLY A O 1\nATOM 137 N N . GLY A 1 35 ? 9.516 -0.967 45.550 1.00 38.00 ? 35 GLY A N 1\nATOM 138 C CA . GLY A 1 35 ? 10.216 -1.117 45.900 1.00 38.00 ? 35 GLY A CA 1\nATOM 139 C C . GLY A 1 35 ? 10.916 -1.217 46.250 1.00 38.00 ? 35 GLY A C 1\nATOM 140 O O . GLY A 1 35 ? 11.216 -1.667 46.480 1.00 38.00 ? 35 GLY A O 1\nATOM 141 N N . GLY A 1 36 ? 9.087 3.074 46.900 1.00 38.00 ? 36 GLY A N 1\nATOM 142 C CA . GLY A 1 36 ? 9.787 2.924 47.250 1.00 38.00 ? 36 GLY A CA 1\nATOM 143 C C . GLY A 1 36 ? 10.487 2.824 47.600 1.00 38.00 ? 36 GLY A C 1\nATOM 144 O O . GLY A 1 36 ? 10.787 2.374 47.830 1.00 38.00 ? 36 GLY A O 1\nATOM 145 N N . GLY A 1 37 ? 6.620 6.253 48.250 1.00 38.00 ? 37 GLY A N 1\nATOM 146 C CA . GLY A 1 37 ? 7.320 6.103 48.600 1.00 38.00 ? 37 GLY A CA 1\nATOM 147 C C . GLY A 1 37 ? 8.020 6.003 48.950 1.00 38.00 ? 37 GLY A C 1\nATOM 148 O O . GLY A 1 37 ? 8.320 5.553 49.180 1.00 38.00 ? 37 GLY A O 1\nATOM 149 N N . GLY A 1 38 ? 2.867 7.631 49.600 1.00 38.00 ? 38 GLY A N 1\nATOM 150 C CA . GLY A 1 38 ? 3.567 7.481 49.950 1.00 38.00 ? 38 GLY A CA 1\nATOM 151 C C . GLY A 1 38 ? 4.267 7.381 50.300 1.00 38.00 ? 38 GLY A C 1\nATOM 152 O O . GLY A 1 38 ? 4.567 6.931 50.530 1.00 38.00 ? 38 GLY A O 1\nATOM 153 N N . GLY A 1 39 ? -1.041 6.804 50.950 1.00 38.00 ? 39 GLY A N 1\nATOM 154 C CA . GLY A 1 39 ? -0.341 6.654 51.300 1.00 38.00 ? 39 GLY A CA 1\nATOM 155 C C . GLY A 1 39 ? 0.359 6.554 51.650 1.00 38.00 ? 39 GLY A C 1\nATOM 156 O O . GLY A 1 39 ? 0.659 6.104 51.880 1.00 38.00 ? 39 GLY A O 1\nATOM 157 N N . GLY A 1 40 ? -3.928 4.013 52.300 1.00 38.00 ? 40 GLY A N 1\nATOM 158 C CA . GLY A 1 40 ? -3.228 3.863 52.650 1.00 38.00 ? 40 GLY A CA 1\nATOM 159 C C . GLY A 1 40 ? -2.528 3.763 53.000 1.00 38.00 ? 40 GLY A C 1\nATOM 160 O O . GLY A 1 40 ? -2.228 3.313 53.230 1.00 38.00 ? 40 GLY A O 1\n#\n"
+      }
+    }
+  ]
+}

@@ -1,0 +1,744 @@
+[
+  {
+    "name": "both-strands-tail-short-lowercase-ambiguous",
+    "request": {
+      "target_sequence": "nNacgttagcctgatcgtacNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCAGGCTAACGTnNRY",
+      "primers": [
+        {
+          "name": "forward",
+          "sequence": "acgttagcctgatcgtac"
+        },
+        {
+          "name": "tailed",
+          "sequence": "NNNNACGTTAGCCTGATCGTAC"
+        },
+        {
+          "name": "reverse",
+          "sequence": "GTACGATCAGGCTAACGT"
+        },
+        {
+          "name": "short",
+          "sequence": "ACGTTA"
+        },
+        {
+          "name": "ignored",
+          "sequence": "ACGT"
+        },
+        {
+          "name": "repeat-name",
+          "sequence": "ACGTTAGCCTGATCGTAC"
+        }
+      ],
+      "max_edit": 3
+    },
+    "response": {
+      "bindings": [
+        {
+          "primer_name": "forward",
+          "primer_sequence": "ACGTTAGCCTGATCGTAC",
+          "target_start": 2,
+          "target_end": 20,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 18,
+          "tail": ""
+        },
+        {
+          "primer_name": "forward",
+          "primer_sequence": "ACGTTAGCCTGATCGTAC",
+          "target_start": 50,
+          "target_end": 68,
+          "strand": -1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 18,
+          "tail": ""
+        },
+        {
+          "primer_name": "tailed",
+          "primer_sequence": "NNNNACGTTAGCCTGATCGTAC",
+          "target_start": 0,
+          "target_end": 20,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": "NN"
+        },
+        {
+          "primer_name": "tailed",
+          "primer_sequence": "NNNNACGTTAGCCTGATCGTAC",
+          "target_start": 50,
+          "target_end": 70,
+          "strand": -1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": "NN"
+        },
+        {
+          "primer_name": "reverse",
+          "primer_sequence": "GTACGATCAGGCTAACGT",
+          "target_start": 50,
+          "target_end": 68,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 18,
+          "tail": ""
+        },
+        {
+          "primer_name": "reverse",
+          "primer_sequence": "GTACGATCAGGCTAACGT",
+          "target_start": 2,
+          "target_end": 20,
+          "strand": -1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 18,
+          "tail": ""
+        },
+        {
+          "primer_name": "short",
+          "primer_sequence": "ACGTTA",
+          "target_start": 2,
+          "target_end": 8,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 6,
+          "tail": ""
+        },
+        {
+          "primer_name": "short",
+          "primer_sequence": "ACGTTA",
+          "target_start": 62,
+          "target_end": 68,
+          "strand": -1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 6,
+          "tail": ""
+        },
+        {
+          "primer_name": "repeat-name",
+          "primer_sequence": "ACGTTAGCCTGATCGTAC",
+          "target_start": 2,
+          "target_end": 20,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 18,
+          "tail": ""
+        },
+        {
+          "primer_name": "repeat-name",
+          "primer_sequence": "ACGTTAGCCTGATCGTAC",
+          "target_start": 50,
+          "target_end": 68,
+          "strand": -1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 18,
+          "tail": ""
+        }
+      ]
+    },
+    "edlib_calls": [
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "NNACGTTAGCCTGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCAGGCTAACGTNNRYNNACGTTAGCCTGATCGT",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "ACGATCAGGCTAACGTNNRYNNACGTTAGCCTGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCAGGCTAACGTNN",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "NNACGTTAGCCTGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCAGGCTAACGTNNRYNNACGTTAGCCTGATCGTACNN",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "NNGTACGATCAGGCTAACGTNNRYNNACGTTAGCCTGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCAGGCTAACGTNN",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "GTACGATCAGGCTAACGT",
+        "target": "NNACGTTAGCCTGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCAGGCTAACGTNNRYNNACGTTAGCCTGATCGT",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "GTACGATCAGGCTAACGT",
+        "target": "ACGATCAGGCTAACGTNNRYNNACGTTAGCCTGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCAGGCTAACGTNN",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTA",
+        "target": "NNACGTTAGCCTGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCAGGCTAACGTNNRYNNACGT",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTA",
+        "target": "ACGTNNRYNNACGTTAGCCTGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCAGGCTAACGTNN",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "NNACGTTAGCCTGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCAGGCTAACGTNNRYNNACGTTAGCCTGATCGT",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "ACGATCAGGCTAACGTNNRYNNACGTTAGCCTGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCAGGCTAACGTNN",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      }
+    ]
+  },
+  {
+    "name": "indel-only-anchor",
+    "request": {
+      "target_sequence": "NNNNNNNNNNNNACGTTAGCCATGATCGTACNNNNNNNNNNNN",
+      "primers": [
+        {
+          "name": "insertion",
+          "sequence": "ACGTTAGCCTGATCGTAC"
+        }
+      ],
+      "max_edit": 3
+    },
+    "response": {
+      "bindings": []
+    },
+    "edlib_calls": [
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "NNNNNNNNNNNNACGTTAGCCATGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNACGTTA",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "TAACGTNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCATGGCTAACGTNNNNNNNNNNNN",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      }
+    ]
+  },
+  {
+    "name": "deletion-only-anchor",
+    "request": {
+      "target_sequence": "NNNNNNNNNNNNACGTTAGCCGATCGTACNNNNNNNNNNNN",
+      "primers": [
+        {
+          "name": "deletion",
+          "sequence": "ACGTTAGCCTGATCGTAC"
+        }
+      ],
+      "max_edit": 0
+    },
+    "response": {
+      "bindings": []
+    },
+    "edlib_calls": [
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "NNNNNNNNNNNNACGTTAGCCGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNACGTTA",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "TAACGTNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCGGCTAACGTNNNNNNNNNNNN",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      }
+    ]
+  },
+  {
+    "name": "origin-wrap-and-different-overlaps",
+    "request": {
+      "target_sequence": "TGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNACGTTAGCC",
+      "primers": [
+        {
+          "name": "wrap",
+          "sequence": "ACGTTAGCCTGATCGTAC"
+        },
+        {
+          "name": "tail-wrap",
+          "sequence": "TTTTTTTTTTACGTTAGCCTGATCGTAC"
+        },
+        {
+          "name": "longer-than-target",
+          "sequence": "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNACGTTAGCCTGATCGTAC"
+        }
+      ],
+      "max_edit": 1
+    },
+    "response": {
+      "bindings": [
+        {
+          "primer_name": "wrap",
+          "primer_sequence": "ACGTTAGCCTGATCGTAC",
+          "target_start": 49,
+          "target_end": 9,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 18,
+          "tail": ""
+        },
+        {
+          "primer_name": "tail-wrap",
+          "primer_sequence": "TTTTTTTTTTACGTTAGCCTGATCGTAC",
+          "target_start": 49,
+          "target_end": 9,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 18,
+          "tail": "TTTTTTTTTT"
+        },
+        {
+          "primer_name": "longer-than-target",
+          "primer_sequence": "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNACGTTAGCCTGATCGTAC",
+          "target_start": 9,
+          "target_end": 9,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 58,
+          "tail": "NNNNNNNNNNNNNNN"
+        }
+      ]
+    },
+    "edlib_calls": [
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "TGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNACGTTAGCCTGATCGTACNNNNNNNNN",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "NNNNNNNNNGTACGATCAGGCTAACGTNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCA",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "TGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNACGTTAGCCTGATCGTACNNNNNNNNNNNNNNNNNNN",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "NNNNNNNNNNNNNNNNNNNGTACGATCAGGCTAACGTNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCA",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "TGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNACGTTAGCCTGATCGTACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNACGTTAGCC",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "GGCTAACGTNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCAGGCTAACGTNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTACGATCA",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      }
+    ]
+  },
+  {
+    "name": "ten-forward-hits-skip-reverse-align",
+    "request": {
+      "target_sequence": "atcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcgatcg",
+      "primers": [
+        {
+          "name": "first",
+          "sequence": "ATCGATCGATCGATCGATCG"
+        },
+        {
+          "name": "second",
+          "sequence": "ATCGATCGATCGATCGATCG"
+        }
+      ],
+      "max_edit": 3
+    },
+    "response": {
+      "bindings": [
+        {
+          "primer_name": "first",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 0,
+          "target_end": 20,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "first",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 4,
+          "target_end": 24,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "first",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 8,
+          "target_end": 28,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "first",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 12,
+          "target_end": 32,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "first",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 16,
+          "target_end": 36,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "first",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 20,
+          "target_end": 40,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "first",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 24,
+          "target_end": 44,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "first",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 28,
+          "target_end": 48,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "first",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 32,
+          "target_end": 52,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "first",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 36,
+          "target_end": 56,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "second",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 0,
+          "target_end": 20,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "second",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 4,
+          "target_end": 24,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "second",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 8,
+          "target_end": 28,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "second",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 12,
+          "target_end": 32,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "second",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 16,
+          "target_end": 36,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "second",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 20,
+          "target_end": 40,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "second",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 24,
+          "target_end": 44,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "second",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 28,
+          "target_end": 48,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "second",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 32,
+          "target_end": 52,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        },
+        {
+          "primer_name": "second",
+          "primer_sequence": "ATCGATCGATCGATCGATCG",
+          "target_start": 36,
+          "target_end": 56,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 20,
+          "tail": ""
+        }
+      ]
+    },
+    "edlib_calls": [
+      {
+        "query": "CGATCGATCGATCGATCG",
+        "target": "ATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "CGATCGATCGATCGATCG",
+        "target": "ATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      }
+    ]
+  },
+  {
+    "name": "target-shorter-than-primer",
+    "request": {
+      "target_sequence": "ACGTTAGCCT",
+      "primers": [
+        {
+          "name": "short-target",
+          "sequence": "ACGTTAGCCTGATCGTAC"
+        },
+        {
+          "name": "short-primer",
+          "sequence": "ACGTTAGCCT"
+        }
+      ],
+      "max_edit": 3
+    },
+    "response": {
+      "bindings": [
+        {
+          "primer_name": "short-primer",
+          "primer_sequence": "ACGTTAGCCT",
+          "target_start": 0,
+          "target_end": 10,
+          "strand": 1,
+          "edit_distance": 0,
+          "identity": 1.0,
+          "binding_length": 10,
+          "tail": ""
+        },
+        {
+          "primer_name": "short-primer",
+          "primer_sequence": "ACGTTAGCCT",
+          "target_start": 5,
+          "target_end": 5,
+          "strand": -1,
+          "edit_distance": 2,
+          "identity": 0.8,
+          "binding_length": 10,
+          "tail": ""
+        }
+      ]
+    },
+    "edlib_calls": [
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "ACGTTAGCCTACGTTAGCCT",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTAGCCTGATCGTAC",
+        "target": "AGGCTAACGTAGGCTAACGT",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTAGCCT",
+        "target": "ACGTTAGCCTACGTTAGCCT",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      },
+      {
+        "query": "ACGTTAGCCT",
+        "target": "AGGCTAACGTAGGCTAACGT",
+        "mode": "HW",
+        "k": 2,
+        "task": "locations"
+      }
+    ]
+  },
+  {
+    "name": "empty-target",
+    "request": {
+      "target_sequence": "",
+      "primers": [
+        {
+          "name": "primer",
+          "sequence": "ACGTTAGCCTGATCGTAC"
+        }
+      ]
+    },
+    "response": {
+      "bindings": []
+    },
+    "edlib_calls": []
+  },
+  {
+    "name": "empty-primers",
+    "request": {
+      "target_sequence": "ACGTTAGCCTGATCGTAC",
+      "primers": []
+    },
+    "response": {
+      "bindings": []
+    },
+    "edlib_calls": []
+  }
+]

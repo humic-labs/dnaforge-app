@@ -1,0 +1,62 @@
+{
+  "name": "molbio-api",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/api/src",
+  "projectType": "application",
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run python run_server.py --dev-auth --reload --host 0.0.0.0 --port 8000",
+        "cwd": "apps/api"
+      }
+    },
+    "serve:docker": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "export DNAFORGE_MCP_SESSION_TOKEN=\"${DNAFORGE_MCP_SESSION_TOKEN:-$(openssl rand -hex 32)}\"; echo \"Sidecar session: X-DNAForge-Session: $DNAFORGE_MCP_SESSION_TOKEN\"; docker compose up api",
+        "cwd": "."
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python -m ruff check src/",
+        "cwd": "apps/api"
+      },
+      "cache": true
+    },
+    "lint:fix": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python -m ruff check --fix src/",
+        "cwd": "apps/api"
+      }
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python -m ruff format src/",
+        "cwd": "apps/api"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "if [ -x .venv/bin/python ]; then .venv/bin/python -m pytest tests/; else python -m pytest tests/; fi",
+        "cwd": "apps/api"
+      },
+      "cache": true
+    },
+    "build-sidecar": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "./scripts/build-sidecar.sh",
+        "cwd": "apps/api"
+      },
+      "outputs": ["{workspaceRoot}/apps/desktop/resources/binaries/waypoint-api-*"],
+      "cache": false
+    }
+  },
+  "tags": ["scope:backend", "type:app", "layer:api"]
+}

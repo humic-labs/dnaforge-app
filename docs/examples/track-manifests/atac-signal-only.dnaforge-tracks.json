@@ -1,0 +1,21 @@
+{
+  "contract": "dnaforge.track-manifest.v2",
+  "assemblyId": "grch38",
+  "artifacts": [
+    {
+      "id": "accessibility",
+      "path": "signal/sample.bigWig",
+      "formatId": "bigwig",
+      "scientificKind": "quantitative",
+      "label": "Sample accessibility"
+    },
+    {
+      "id": "peaks",
+      "path": "peaks/sample.narrowPeak",
+      "formatId": "narrowpeak",
+      "scientificKind": "peak",
+      "label": "Sample peaks"
+    }
+  ],
+  "views": []
+}

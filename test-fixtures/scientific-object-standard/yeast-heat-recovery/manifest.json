@@ -1,0 +1,257 @@
+{
+  "formatVersion": 1,
+  "id": "dna3243-yeast-heat-recovery-v1",
+  "retrievedAt": "2026-10-07T05:39:40.097Z",
+  "coordinateConvention": "Source regions and gene coordinates are one-based inclusive. Computational slice coordinates are zero-based half-open.",
+  "sources": [
+    {
+      "key": "pSH47",
+      "file": "pSH47.AF298782.1.gb",
+      "accession": "AF298782.1",
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=AF298782.1&rettype=gbwithparts&retmode=text",
+      "byteLength": 13018,
+      "fileSha256": "eaea946ac3893b791bf9a324042c3dbbf76bc49e978386376fdfba556d02b475",
+      "basesSha256": "2ef3f5be8d0a8a7aa535c0f0f86b2c6d905f7b0fab4ed60a2781e7a1e343109c",
+      "basesLength": 6979,
+      "topology": "circular"
+    },
+    {
+      "key": "pUG6",
+      "file": "pUG6.AF298793.1.gb",
+      "accession": "AF298793.1",
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=AF298793.1&rettype=gbwithparts&retmode=text",
+      "byteLength": 8462,
+      "fileSha256": "f2be95e145d6732c694f7370d2f762dc5c01802e7d0a95793e73de7345dc63e4",
+      "basesSha256": "eada52994c9377ed4b12e399bf5470bae637859e79f7a263bf0c3ab8fba1975c",
+      "basesLength": 4009,
+      "topology": "circular"
+    },
+    {
+      "key": "HSP104",
+      "file": "HSP104.NC_001144.5.86623-93349.gb",
+      "accession": "NC_001144.5",
+      "region": {
+        "start": 86623,
+        "end": 93349
+      },
+      "gene": {
+        "name": "HSP104",
+        "locusTag": "YLL026W",
+        "start": 88623,
+        "end": 91349,
+        "strand": 1
+      },
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=NC_001144.5&seq_start=86623&seq_stop=93349&rettype=gbwithparts&retmode=text",
+      "byteLength": 21898,
+      "fileSha256": "863f065b183f62420ab8ffd8088be73e8530780f3bf865ce082bae9638949b9d",
+      "basesSha256": "d410d0ba49b1019df9b591eda7d9deca19ca0d717eafe002c534689fdda4a01b",
+      "basesLength": 6727,
+      "topology": "linear"
+    },
+    {
+      "key": "HSP42",
+      "file": "HSP42.NC_001136.10.804621-809748.gb",
+      "accession": "NC_001136.10",
+      "region": {
+        "start": 804621,
+        "end": 809748
+      },
+      "gene": {
+        "name": "HSP42",
+        "locusTag": "YDR171W",
+        "start": 806621,
+        "end": 807748,
+        "strand": 1
+      },
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=NC_001136.10&seq_start=804621&seq_stop=809748&rettype=gbwithparts&retmode=text",
+      "byteLength": 17483,
+      "fileSha256": "2bba90ce73c46acdf679d13a65e3d0348634e5aef3c3b8b95fa0294fc369e6d4",
+      "basesSha256": "39635cb4a473e038c5ea30ed71be7b73ce80cbdda1b7f55dfc17f33b29ebcaf8",
+      "basesLength": 5128,
+      "topology": "linear"
+    },
+    {
+      "key": "pRS416",
+      "file": "pRS416.U03450.1.gb",
+      "accession": "U03450.1",
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=U03450.1&rettype=gbwithparts&retmode=text",
+      "retrievedAt": "2026-10-07T05:52:43.540926+00:00",
+      "byteLength": 7597,
+      "fileSha256": "d7e509ad4630a9a43fc96691a77a2b2515c6eb0dad0d4760ec188b21d230a137",
+      "basesSha256": "1844020ccdfbe3147a7e5658bef16cd18a13ae33db79cc52d477f6385080fc59",
+      "basesLength": 4898,
+      "topology": "circular",
+      "annotationNote": "The deposited record contains only the source feature; functional vector context is separately sourced from ATCC 87521. Do not invent deposited feature annotations.",
+      "vectorContextUrl": "https://www.atcc.org/products/87521"
+    }
+  ],
+  "startingStrain": {
+    "name": "BY4741",
+    "genotype": "MATa his3Δ1 leu2Δ0 met15Δ0 ura3Δ0",
+    "assertion": "declared planning background; physical stock and local alleles unverified",
+    "referenceAssumption": "Use the provided S288C reference windows for design; confirm the actual starting strain before construction."
+  },
+  "backgroundReferences": [
+    {
+      "key": "I",
+      "file": "../../genomes/yeast-S288C/S288C_chromosome_I.gb",
+      "byteLength": 325126,
+      "fileSha256": "b28dc765c9c6eac29b422e334ccb252cfbbe133c0571a69ff1732b223c1bc9f3",
+      "basesLength": 230218,
+      "basesSha256": "3c5c06b2ccb802798265a543cc6511d954a0a64a522c3f6af05be0553d6f0a62",
+      "topology": "linear",
+      "provenance": "Existing committed LIMS starter chromosome export; no accession/version assertion is added"
+    },
+    {
+      "key": "II",
+      "file": "../../genomes/yeast-S288C/S288C_chromosome_II.gb",
+      "byteLength": 1169625,
+      "fileSha256": "b6e9104669fdb34403f6f4d0069d806e24f807e24f46f66f33da34bc8476476c",
+      "basesLength": 813184,
+      "basesSha256": "1d3d69f9e8e924f34f23ec3daa32641f8ad637f36f21a3f0b0f350f981f3773f",
+      "topology": "linear",
+      "provenance": "Existing committed LIMS starter chromosome export; no accession/version assertion is added"
+    },
+    {
+      "key": "III",
+      "file": "../../genomes/yeast-S288C/S288C_chromosome_III.gb",
+      "byteLength": 462853,
+      "fileSha256": "61fada3d3141029844e6dd3b4cecebd56057896cc719222f2ca8d55d76b69a86",
+      "basesLength": 316620,
+      "basesSha256": "f2ac8762cff58a4a1375a05dcb70e783609efc19d49b64da95ecb5214ee52b3d",
+      "topology": "linear",
+      "provenance": "Existing committed LIMS starter chromosome export; no accession/version assertion is added"
+    },
+    {
+      "key": "IX",
+      "file": "../../genomes/yeast-S288C/S288C_chromosome_IX.gb",
+      "byteLength": 630756,
+      "fileSha256": "761f4e555728a55cb9d1d1f78d4f292c4cbbae9993279db874a7987892ae7e97",
+      "basesLength": 439888,
+      "basesSha256": "e738aaa8eee8e7b0c187ea1c96e3dccd0d661a67865388051ab445460e99971e",
+      "topology": "linear",
+      "provenance": "Existing committed LIMS starter chromosome export; no accession/version assertion is added"
+    },
+    {
+      "key": "V",
+      "file": "../../genomes/yeast-S288C/S288C_chromosome_V.gb",
+      "byteLength": 832449,
+      "fileSha256": "cb30ee05482df20812743959116a8ff0646d2d47e1883dc182923dcd4a0980c5",
+      "basesLength": 576874,
+      "basesSha256": "27693c6f4e821d2a631e4a4988e6e0e3ccf4a6a4b2d2791fb841de7a3206075b",
+      "topology": "linear",
+      "provenance": "Existing committed LIMS starter chromosome export; no accession/version assertion is added"
+    },
+    {
+      "key": "VI",
+      "file": "../../genomes/yeast-S288C/S288C_chromosome_VI.gb",
+      "byteLength": 388631,
+      "fileSha256": "4ec47babce750d878dcb1436b99a25505e2aaa65e7fc6e391b2f3ea664b7f080",
+      "basesLength": 270161,
+      "basesSha256": "473b26e8befabff7978a5019567e0c136e50fa5107680d1303cbe10d2155ac3a",
+      "topology": "linear",
+      "provenance": "Existing committed LIMS starter chromosome export; no accession/version assertion is added"
+    },
+    {
+      "key": "VII",
+      "file": "../../genomes/yeast-S288C/S288C_chromosome_VII.gb",
+      "byteLength": 1566095,
+      "fileSha256": "aa399929a066cd9b059d7d94dbf2180c2cf02015e893c9d41ed8e163752348a8",
+      "basesLength": 1090940,
+      "basesSha256": "f43c30ed46c6906024f510bdf24781b44d1ec3472c5a82cda1ad5b62b5e91094",
+      "topology": "linear",
+      "provenance": "Existing committed LIMS starter chromosome export; no accession/version assertion is added"
+    },
+    {
+      "key": "VIII",
+      "file": "../../genomes/yeast-S288C/S288C_chromosome_VIII.gb",
+      "byteLength": 811556,
+      "fileSha256": "9e53a89c610dbc49801c76b1a8c1cb73ce69e6dfabc322487c5ea13a25e48381",
+      "basesLength": 562643,
+      "basesSha256": "c859093aeeb0fa8a9a9d74718182684d87e4c9709dc11f223c74c54763d240fe",
+      "topology": "linear",
+      "provenance": "Existing committed LIMS starter chromosome export; no accession/version assertion is added"
+    },
+    {
+      "key": "X",
+      "file": "../../genomes/yeast-S288C/S288C_chromosome_X.gb",
+      "byteLength": 1067133,
+      "fileSha256": "13e6e5ffd908bb710f1b09007cdb2cb95beea0016fd5d700e9728390d7862eee",
+      "basesLength": 745751,
+      "basesSha256": "7e775dfee24430c4eff2dcc22656636b08bab4d356fa9199be59754cd864b6ab",
+      "topology": "linear",
+      "provenance": "Existing committed LIMS starter chromosome export; no accession/version assertion is added"
+    },
+    {
+      "key": "XI",
+      "file": "../../genomes/yeast-S288C/S288C_chromosome_XI.gb",
+      "byteLength": 949684,
+      "fileSha256": "3f95284d45e154c6d929298fa564316f090bfda65a6c106bfabcf0ed502262cd",
+      "basesLength": 666816,
+      "basesSha256": "7cc5d693ff025732b105bdc629a79cc052f41dabaf6d4ce6c75de8f9d82ec274",
+      "topology": "linear",
+      "provenance": "Existing committed LIMS starter chromosome export; no accession/version assertion is added"
+    },
+    {
+      "key": "XII",
+      "file": "../../genomes/yeast-S288C/S288C_chromosome_XII.gb",
+      "byteLength": 1545193,
+      "fileSha256": "80c60796a365bd956969e72f7ac895540613a1188b08065ec5fd7a2c3e9a7ba7",
+      "basesLength": 1078177,
+      "basesSha256": "768a47c6d9057fa70275f978c561e1e3bdf45e8c7e9b88f3313d2d0ac37c3de5",
+      "topology": "linear",
+      "provenance": "Existing committed LIMS starter chromosome export; no accession/version assertion is added"
+    },
+    {
+      "key": "XIII",
+      "file": "../../genomes/yeast-S288C/S288C_chromosome_XIII.gb",
+      "byteLength": 1329307,
+      "fileSha256": "26a1bdb3fa7657ce57590deaaadab6289b61dbccb380ecc00b639906402caf0f",
+      "basesLength": 924431,
+      "basesSha256": "2d9d9c272baccee2ad7e52e395dd9b85efca3fb87072cc541b8a8e4f3af3d47c",
+      "topology": "linear",
+      "provenance": "Existing committed LIMS starter chromosome export; no accession/version assertion is added"
+    },
+    {
+      "key": "XIV",
+      "file": "../../genomes/yeast-S288C/S288C_chromosome_XIV.gb",
+      "byteLength": 1125871,
+      "fileSha256": "32110fb07223cc2cf9a1d4dcaa365a09c03d2eb7958e978b57dfbd6f5d83ec55",
+      "basesLength": 784333,
+      "basesSha256": "c3bbca6b880946bd2172a6e797fe9d3830eb1494b6f63ef4637c4993cc56c789",
+      "topology": "linear",
+      "provenance": "Existing committed LIMS starter chromosome export; no accession/version assertion is added"
+    },
+    {
+      "key": "XV",
+      "file": "../../genomes/yeast-S288C/S288C_chromosome_XV.gb",
+      "byteLength": 1560836,
+      "fileSha256": "60685847d220a17d7628aaa73545ead01406a7b46593cc0cd6fdb07c0ad6f485",
+      "basesLength": 1091291,
+      "basesSha256": "e0d3976e52b8051431f89b97d31cfba937cdb37286f93ed5689b10949fea0c7b",
+      "topology": "linear",
+      "provenance": "Existing committed LIMS starter chromosome export; no accession/version assertion is added"
+    },
+    {
+      "key": "XVI",
+      "file": "../../genomes/yeast-S288C/S288C_chromosome_XVI.gb",
+      "byteLength": 1360163,
+      "fileSha256": "cf42951119abcf833b0cae3b0187c7bbb91b15b466376a31f8188e5160c775bb",
+      "basesLength": 948066,
+      "basesSha256": "d764a0e87af8d43b2dbec78d69423f4008f266bdfa5003c8b6d2ba77f8872918",
+      "topology": "linear",
+      "provenance": "Existing committed LIMS starter chromosome export; no accession/version assertion is added"
+    },
+    {
+      "key": "IV",
+      "file": "../../genomes/yeast-chrIV/chrIV.gbff",
+      "byteLength": 4208734,
+      "fileSha256": "31e170025af512ab86f4dd1d483a46dddd887f8b1b353f29399293905526210d",
+      "basesLength": 1531933,
+      "basesSha256": "a1362645406e70c61aa2bb4a880d3af83bdb4b7892598eda3350eb091e719855",
+      "topology": "linear",
+      "provenance": "NC_001136.10; existing RefSeq fixture"
+    }
+  ],
+  "backgroundReferenceNote": "All 16 nuclear reference chromosomes are byte-pinned existing repository fixtures. They are a design/off-target background, not a sequenced BY4741 stock; the 15 starter exports lack versioned accession fields. Mitochondrial DNA is not provided. Both target windows must match their full chromosome slices exactly."
+}

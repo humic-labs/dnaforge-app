@@ -1,0 +1,626 @@
+{
+  "synthetic": true,
+  "errors": [],
+  "stats": {
+    "startTime": "1970-01-01T00:00:00.000Z",
+    "duration": 0,
+    "expected": 19,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "suites": [
+    {
+      "specs": [
+        {
+          "title": "Synthetic file import genbank:gb",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6ImdlbmJhbms6Z2IiLCJzeW50aGV0aWMiOnRydWUsInNvdXJjZVNoYTI1NiI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJzZXF1ZW5jZVNoYTI1NiI6IjExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEiLCJxdWFsaXR5U2hhMjU2IjpudWxsLCJhbm5vdGF0aW9uQ291bnQiOjAsImFubm90YXRpb25OYW1lcyI6W10sInRyYWNlUGFpbnQiOm51bGwsIm5hdGl2ZVBpY2tlciI6dHJ1ZSwiY29waWVkIjp0cnVlLCJvcGVuZWQiOnRydWUsInBhaW50ZWQiOnRydWUsInJlb3BlbmVkIjp0cnVlLCJvcmlnaW5hbFVuY2hhbmdlZCI6dHJ1ZSwibGVuZ3RoIjo4MCwiY2lyY3VsYXIiOmZhbHNlLCJydW50aW1lRXJyb3JzIjpbXX0="
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import genbank:gbk",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6ImdlbmJhbms6Z2JrIiwic3ludGhldGljIjp0cnVlLCJzb3VyY2VTaGEyNTYiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwic2VxdWVuY2VTaGEyNTYiOiIxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwicXVhbGl0eVNoYTI1NiI6bnVsbCwiYW5ub3RhdGlvbkNvdW50IjowLCJhbm5vdGF0aW9uTmFtZXMiOltdLCJ0cmFjZVBhaW50IjpudWxsLCJuYXRpdmVQaWNrZXIiOnRydWUsImNvcGllZCI6dHJ1ZSwib3BlbmVkIjp0cnVlLCJwYWludGVkIjp0cnVlLCJyZW9wZW5lZCI6dHJ1ZSwib3JpZ2luYWxVbmNoYW5nZWQiOnRydWUsImxlbmd0aCI6ODAsImNpcmN1bGFyIjpmYWxzZSwicnVudGltZUVycm9ycyI6W119"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import genbank:gbff",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6ImdlbmJhbms6Z2JmZiIsInN5bnRoZXRpYyI6dHJ1ZSwic291cmNlU2hhMjU2IjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsInNlcXVlbmNlU2hhMjU2IjoiMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMSIsInF1YWxpdHlTaGEyNTYiOm51bGwsImFubm90YXRpb25Db3VudCI6MCwiYW5ub3RhdGlvbk5hbWVzIjpbXSwidHJhY2VQYWludCI6bnVsbCwibmF0aXZlUGlja2VyIjp0cnVlLCJjb3BpZWQiOnRydWUsIm9wZW5lZCI6dHJ1ZSwicGFpbnRlZCI6dHJ1ZSwicmVvcGVuZWQiOnRydWUsIm9yaWdpbmFsVW5jaGFuZ2VkIjp0cnVlLCJsZW5ndGgiOjgwLCJjaXJjdWxhciI6ZmFsc2UsInJ1bnRpbWVFcnJvcnMiOltdfQ=="
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import genbank:genbank",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6ImdlbmJhbms6Z2VuYmFuayIsInN5bnRoZXRpYyI6dHJ1ZSwic291cmNlU2hhMjU2IjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsInNlcXVlbmNlU2hhMjU2IjoiMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMSIsInF1YWxpdHlTaGEyNTYiOm51bGwsImFubm90YXRpb25Db3VudCI6MCwiYW5ub3RhdGlvbk5hbWVzIjpbXSwidHJhY2VQYWludCI6bnVsbCwibmF0aXZlUGlja2VyIjp0cnVlLCJjb3BpZWQiOnRydWUsIm9wZW5lZCI6dHJ1ZSwicGFpbnRlZCI6dHJ1ZSwicmVvcGVuZWQiOnRydWUsIm9yaWdpbmFsVW5jaGFuZ2VkIjp0cnVlLCJsZW5ndGgiOjgwLCJjaXJjdWxhciI6ZmFsc2UsInJ1bnRpbWVFcnJvcnMiOltdfQ=="
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import fasta-dna:fasta",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6ImZhc3RhLWRuYTpmYXN0YSIsInN5bnRoZXRpYyI6dHJ1ZSwic291cmNlU2hhMjU2IjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsInNlcXVlbmNlU2hhMjU2IjoiMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMSIsInF1YWxpdHlTaGEyNTYiOm51bGwsImFubm90YXRpb25Db3VudCI6MCwiYW5ub3RhdGlvbk5hbWVzIjpbXSwidHJhY2VQYWludCI6bnVsbCwibmF0aXZlUGlja2VyIjp0cnVlLCJjb3BpZWQiOnRydWUsIm9wZW5lZCI6dHJ1ZSwicGFpbnRlZCI6dHJ1ZSwicmVvcGVuZWQiOnRydWUsIm9yaWdpbmFsVW5jaGFuZ2VkIjp0cnVlLCJsZW5ndGgiOjgwLCJjaXJjdWxhciI6ZmFsc2UsInJ1bnRpbWVFcnJvcnMiOltdfQ=="
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import fasta-dna:fa",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6ImZhc3RhLWRuYTpmYSIsInN5bnRoZXRpYyI6dHJ1ZSwic291cmNlU2hhMjU2IjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsInNlcXVlbmNlU2hhMjU2IjoiMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMSIsInF1YWxpdHlTaGEyNTYiOm51bGwsImFubm90YXRpb25Db3VudCI6MCwiYW5ub3RhdGlvbk5hbWVzIjpbXSwidHJhY2VQYWludCI6bnVsbCwibmF0aXZlUGlja2VyIjp0cnVlLCJjb3BpZWQiOnRydWUsIm9wZW5lZCI6dHJ1ZSwicGFpbnRlZCI6dHJ1ZSwicmVvcGVuZWQiOnRydWUsIm9yaWdpbmFsVW5jaGFuZ2VkIjp0cnVlLCJsZW5ndGgiOjgwLCJjaXJjdWxhciI6ZmFsc2UsInJ1bnRpbWVFcnJvcnMiOltdfQ=="
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import fasta-dna:fas",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6ImZhc3RhLWRuYTpmYXMiLCJzeW50aGV0aWMiOnRydWUsInNvdXJjZVNoYTI1NiI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJzZXF1ZW5jZVNoYTI1NiI6IjExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEiLCJxdWFsaXR5U2hhMjU2IjpudWxsLCJhbm5vdGF0aW9uQ291bnQiOjAsImFubm90YXRpb25OYW1lcyI6W10sInRyYWNlUGFpbnQiOm51bGwsIm5hdGl2ZVBpY2tlciI6dHJ1ZSwiY29waWVkIjp0cnVlLCJvcGVuZWQiOnRydWUsInBhaW50ZWQiOnRydWUsInJlb3BlbmVkIjp0cnVlLCJvcmlnaW5hbFVuY2hhbmdlZCI6dHJ1ZSwibGVuZ3RoIjo4MCwiY2lyY3VsYXIiOmZhbHNlLCJydW50aW1lRXJyb3JzIjpbXX0="
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import fasta-dna:fna",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6ImZhc3RhLWRuYTpmbmEiLCJzeW50aGV0aWMiOnRydWUsInNvdXJjZVNoYTI1NiI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJzZXF1ZW5jZVNoYTI1NiI6IjExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEiLCJxdWFsaXR5U2hhMjU2IjpudWxsLCJhbm5vdGF0aW9uQ291bnQiOjAsImFubm90YXRpb25OYW1lcyI6W10sInRyYWNlUGFpbnQiOm51bGwsIm5hdGl2ZVBpY2tlciI6dHJ1ZSwiY29waWVkIjp0cnVlLCJvcGVuZWQiOnRydWUsInBhaW50ZWQiOnRydWUsInJlb3BlbmVkIjp0cnVlLCJvcmlnaW5hbFVuY2hhbmdlZCI6dHJ1ZSwibGVuZ3RoIjo4MCwiY2lyY3VsYXIiOmZhbHNlLCJydW50aW1lRXJyb3JzIjpbXX0="
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import fasta-dna:ffn",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6ImZhc3RhLWRuYTpmZm4iLCJzeW50aGV0aWMiOnRydWUsInNvdXJjZVNoYTI1NiI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJzZXF1ZW5jZVNoYTI1NiI6IjExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEiLCJxdWFsaXR5U2hhMjU2IjpudWxsLCJhbm5vdGF0aW9uQ291bnQiOjAsImFubm90YXRpb25OYW1lcyI6W10sInRyYWNlUGFpbnQiOm51bGwsIm5hdGl2ZVBpY2tlciI6dHJ1ZSwiY29waWVkIjp0cnVlLCJvcGVuZWQiOnRydWUsInBhaW50ZWQiOnRydWUsInJlb3BlbmVkIjp0cnVlLCJvcmlnaW5hbFVuY2hhbmdlZCI6dHJ1ZSwibGVuZ3RoIjo4MCwiY2lyY3VsYXIiOmZhbHNlLCJydW50aW1lRXJyb3JzIjpbXX0="
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import fasta-dna:dnas",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6ImZhc3RhLWRuYTpkbmFzIiwic3ludGhldGljIjp0cnVlLCJzb3VyY2VTaGEyNTYiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwic2VxdWVuY2VTaGEyNTYiOiIxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwicXVhbGl0eVNoYTI1NiI6bnVsbCwiYW5ub3RhdGlvbkNvdW50IjowLCJhbm5vdGF0aW9uTmFtZXMiOltdLCJ0cmFjZVBhaW50IjpudWxsLCJuYXRpdmVQaWNrZXIiOnRydWUsImNvcGllZCI6dHJ1ZSwib3BlbmVkIjp0cnVlLCJwYWludGVkIjp0cnVlLCJyZW9wZW5lZCI6dHJ1ZSwib3JpZ2luYWxVbmNoYW5nZWQiOnRydWUsImxlbmd0aCI6ODAsImNpcmN1bGFyIjpmYWxzZSwicnVudGltZUVycm9ycyI6W119"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import snapgene:dna",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6InNuYXBnZW5lOmRuYSIsInN5bnRoZXRpYyI6dHJ1ZSwic291cmNlU2hhMjU2IjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsInNlcXVlbmNlU2hhMjU2IjoiMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMSIsInF1YWxpdHlTaGEyNTYiOm51bGwsImFubm90YXRpb25Db3VudCI6MCwiYW5ub3RhdGlvbk5hbWVzIjpbXSwidHJhY2VQYWludCI6bnVsbCwibmF0aXZlUGlja2VyIjp0cnVlLCJjb3BpZWQiOnRydWUsIm9wZW5lZCI6dHJ1ZSwicGFpbnRlZCI6dHJ1ZSwicmVvcGVuZWQiOnRydWUsIm9yaWdpbmFsVW5jaGFuZ2VkIjp0cnVlLCJsZW5ndGgiOjgwLCJjaXJjdWxhciI6ZmFsc2UsInJ1bnRpbWVFcnJvcnMiOltdfQ=="
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import sequence-text:seq",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6InNlcXVlbmNlLXRleHQ6c2VxIiwic3ludGhldGljIjp0cnVlLCJzb3VyY2VTaGEyNTYiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwic2VxdWVuY2VTaGEyNTYiOiIxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwicXVhbGl0eVNoYTI1NiI6bnVsbCwiYW5ub3RhdGlvbkNvdW50IjowLCJhbm5vdGF0aW9uTmFtZXMiOltdLCJ0cmFjZVBhaW50IjpudWxsLCJuYXRpdmVQaWNrZXIiOnRydWUsImNvcGllZCI6dHJ1ZSwib3BlbmVkIjp0cnVlLCJwYWludGVkIjp0cnVlLCJyZW9wZW5lZCI6dHJ1ZSwib3JpZ2luYWxVbmNoYW5nZWQiOnRydWUsImxlbmd0aCI6ODAsImNpcmN1bGFyIjpmYWxzZSwicnVudGltZUVycm9ycyI6W119"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import sanger:ab1",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6InNhbmdlcjphYjEiLCJzeW50aGV0aWMiOnRydWUsInNvdXJjZVNoYTI1NiI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJzZXF1ZW5jZVNoYTI1NiI6IjExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEiLCJxdWFsaXR5U2hhMjU2IjpudWxsLCJhbm5vdGF0aW9uQ291bnQiOjAsImFubm90YXRpb25OYW1lcyI6W10sInRyYWNlUGFpbnQiOm51bGwsIm5hdGl2ZVBpY2tlciI6dHJ1ZSwiY29waWVkIjp0cnVlLCJvcGVuZWQiOnRydWUsInBhaW50ZWQiOnRydWUsInJlb3BlbmVkIjp0cnVlLCJvcmlnaW5hbFVuY2hhbmdlZCI6dHJ1ZSwibGVuZ3RoIjo4MCwiY2lyY3VsYXIiOmZhbHNlLCJydW50aW1lRXJyb3JzIjpbXX0="
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import sanger:abi",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6InNhbmdlcjphYmkiLCJzeW50aGV0aWMiOnRydWUsInNvdXJjZVNoYTI1NiI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJzZXF1ZW5jZVNoYTI1NiI6IjExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEiLCJxdWFsaXR5U2hhMjU2IjpudWxsLCJhbm5vdGF0aW9uQ291bnQiOjAsImFubm90YXRpb25OYW1lcyI6W10sInRyYWNlUGFpbnQiOm51bGwsIm5hdGl2ZVBpY2tlciI6dHJ1ZSwiY29waWVkIjp0cnVlLCJvcGVuZWQiOnRydWUsInBhaW50ZWQiOnRydWUsInJlb3BlbmVkIjp0cnVlLCJvcmlnaW5hbFVuY2hhbmdlZCI6dHJ1ZSwibGVuZ3RoIjo4MCwiY2lyY3VsYXIiOmZhbHNlLCJydW50aW1lRXJyb3JzIjpbXX0="
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import fastq:fastq",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6ImZhc3RxOmZhc3RxIiwic3ludGhldGljIjp0cnVlLCJzb3VyY2VTaGEyNTYiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwic2VxdWVuY2VTaGEyNTYiOiIxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwicXVhbGl0eVNoYTI1NiI6bnVsbCwiYW5ub3RhdGlvbkNvdW50IjowLCJhbm5vdGF0aW9uTmFtZXMiOltdLCJ0cmFjZVBhaW50IjpudWxsLCJuYXRpdmVQaWNrZXIiOnRydWUsImNvcGllZCI6dHJ1ZSwib3BlbmVkIjp0cnVlLCJwYWludGVkIjp0cnVlLCJyZW9wZW5lZCI6dHJ1ZSwib3JpZ2luYWxVbmNoYW5nZWQiOnRydWUsImxlbmd0aCI6ODAsImNpcmN1bGFyIjpmYWxzZSwicnVudGltZUVycm9ycyI6W119"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import fastq:fq",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6ImZhc3RxOmZxIiwic3ludGhldGljIjp0cnVlLCJzb3VyY2VTaGEyNTYiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwic2VxdWVuY2VTaGEyNTYiOiIxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwicXVhbGl0eVNoYTI1NiI6bnVsbCwiYW5ub3RhdGlvbkNvdW50IjowLCJhbm5vdGF0aW9uTmFtZXMiOltdLCJ0cmFjZVBhaW50IjpudWxsLCJuYXRpdmVQaWNrZXIiOnRydWUsImNvcGllZCI6dHJ1ZSwib3BlbmVkIjp0cnVlLCJwYWludGVkIjp0cnVlLCJyZW9wZW5lZCI6dHJ1ZSwib3JpZ2luYWxVbmNoYW5nZWQiOnRydWUsImxlbmd0aCI6ODAsImNpcmN1bGFyIjpmYWxzZSwicnVudGltZUVycm9ycyI6W119"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import fasta-protein:faa",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6ImZhc3RhLXByb3RlaW46ZmFhIiwic3ludGhldGljIjp0cnVlLCJzb3VyY2VTaGEyNTYiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwic2VxdWVuY2VTaGEyNTYiOiIxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwicXVhbGl0eVNoYTI1NiI6bnVsbCwiYW5ub3RhdGlvbkNvdW50IjowLCJhbm5vdGF0aW9uTmFtZXMiOltdLCJ0cmFjZVBhaW50IjpudWxsLCJuYXRpdmVQaWNrZXIiOnRydWUsImNvcGllZCI6dHJ1ZSwib3BlbmVkIjp0cnVlLCJwYWludGVkIjp0cnVlLCJyZW9wZW5lZCI6dHJ1ZSwib3JpZ2luYWxVbmNoYW5nZWQiOnRydWUsImxlbmd0aCI6ODAsImNpcmN1bGFyIjpmYWxzZSwicnVudGltZUVycm9ycyI6W119"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import snapgene:DNA",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6InNuYXBnZW5lOkROQSIsInN5bnRoZXRpYyI6dHJ1ZSwic291cmNlU2hhMjU2IjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsInNlcXVlbmNlU2hhMjU2IjoiMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMSIsInF1YWxpdHlTaGEyNTYiOm51bGwsImFubm90YXRpb25Db3VudCI6MCwiYW5ub3RhdGlvbk5hbWVzIjpbXSwidHJhY2VQYWludCI6bnVsbCwibmF0aXZlUGlja2VyIjp0cnVlLCJjb3BpZWQiOnRydWUsIm9wZW5lZCI6dHJ1ZSwicGFpbnRlZCI6dHJ1ZSwicmVvcGVuZWQiOnRydWUsIm9yaWdpbmFsVW5jaGFuZ2VkIjp0cnVlLCJsZW5ndGgiOjgwLCJjaXJjdWxhciI6ZmFsc2UsInJ1bnRpbWVFcnJvcnMiOltdfQ=="
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Synthetic file import fasta-dna:DNAS",
+          "ok": true,
+          "tags": [
+            "synthetic"
+          ],
+          "file": "synthetic-file-import.fixture.ts",
+          "tests": [
+            {
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "status": "expected",
+              "results": [
+                {
+                  "status": "passed",
+                  "errors": [],
+                  "retry": 0,
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "file-import-journey",
+                      "contentType": "application/json",
+                      "body": "eyJpZCI6ImZhc3RhLWRuYTpETkFTIiwic3ludGhldGljIjp0cnVlLCJzb3VyY2VTaGEyNTYiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwic2VxdWVuY2VTaGEyNTYiOiIxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwicXVhbGl0eVNoYTI1NiI6bnVsbCwiYW5ub3RhdGlvbkNvdW50IjowLCJhbm5vdGF0aW9uTmFtZXMiOltdLCJ0cmFjZVBhaW50IjpudWxsLCJuYXRpdmVQaWNrZXIiOnRydWUsImNvcGllZCI6dHJ1ZSwib3BlbmVkIjp0cnVlLCJwYWludGVkIjp0cnVlLCJyZW9wZW5lZCI6dHJ1ZSwib3JpZ2luYWxVbmNoYW5nZWQiOnRydWUsImxlbmd0aCI6ODAsImNpcmN1bGFyIjpmYWxzZSwicnVudGltZUVycm9ycyI6W119"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

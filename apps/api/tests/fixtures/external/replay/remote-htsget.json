@@ -1,0 +1,156 @@
+{
+  "entries": [
+    {
+      "_comment": "Header-only ticket for the deterministic chromosome-IV CRAM resource.",
+      "method": "GET",
+      "host": "htsget.example.org",
+      "path": "/reads/s288c-reads",
+      "query": {
+        "format": "CRAM",
+        "class": "header"
+      },
+      "response": {
+        "headers": {
+          "Content-Type": "application/vnd.ga4gh.htsget.v1.3.0+json"
+        },
+        "json": {
+          "htsget": {
+            "format": "CRAM",
+            "urls": [
+              {
+                "url": "https://htsget-blocks.example.org/s288c/reads.cram?signature=ticket-only-read-secret",
+                "headers": {
+                  "Authorization": "Bearer ticket-only-read-header"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "_comment": "Viewport ticket for the deterministic chromosome-IV CRAM resource.",
+      "method": "GET",
+      "host": "htsget.example.org",
+      "path": "/reads/s288c-reads",
+      "query": {
+        "format": "CRAM",
+        "referenceName": "chrIV"
+      },
+      "query_regex": {
+        "start": "\\d+",
+        "end": "\\d+"
+      },
+      "response": {
+        "headers": {
+          "Content-Type": "application/vnd.ga4gh.htsget.v1.3.0+json"
+        },
+        "json": {
+          "htsget": {
+            "format": "CRAM",
+            "urls": [
+              {
+                "url": "https://htsget-blocks.example.org/s288c/reads.cram?signature=ticket-only-read-secret",
+                "headers": {
+                  "Authorization": "Bearer ticket-only-read-header"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "_comment": "Header-only ticket for the deterministic chromosome-IV VCF resource.",
+      "method": "GET",
+      "host": "htsget.example.org",
+      "path": "/variants/s288c-calls",
+      "query": {
+        "format": "VCF",
+        "class": "header"
+      },
+      "response": {
+        "headers": {
+          "Content-Type": "application/vnd.ga4gh.htsget.v1.3.0+json"
+        },
+        "json": {
+          "htsget": {
+            "format": "VCF",
+            "urls": [
+              {
+                "url": "https://htsget-blocks.example.org/s288c/calls.vcf.gz?signature=ticket-only-variant-secret",
+                "headers": {
+                  "Authorization": "Bearer ticket-only-variant-header"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "_comment": "Regional ticket for the deterministic chromosome-IV VCF resource.",
+      "method": "GET",
+      "host": "htsget.example.org",
+      "path": "/variants/s288c-calls",
+      "query": {
+        "format": "VCF",
+        "referenceName": "chrIV"
+      },
+      "query_regex": {
+        "start": "\\d+",
+        "end": "\\d+"
+      },
+      "response": {
+        "headers": {
+          "Content-Type": "application/vnd.ga4gh.htsget.v1.3.0+json"
+        },
+        "json": {
+          "htsget": {
+            "format": "VCF",
+            "urls": [
+              {
+                "url": "https://htsget-blocks.example.org/s288c/calls.vcf.gz?signature=ticket-only-variant-secret",
+                "headers": {
+                  "Authorization": "Bearer ticket-only-variant-header"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "_comment": "Ticket-issued signed CRAM block; the signature and header must remain runtime-only.",
+      "method": "GET",
+      "host": "htsget-blocks.example.org",
+      "path": "/s288c/reads.cram",
+      "query": {
+        "signature": "ticket-only-read-secret"
+      },
+      "response": {
+        "body_file": "../binary/yeast-chriv-reads.cram",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream"
+        }
+      }
+    },
+    {
+      "_comment": "Ticket-issued signed VCF block; the signature and header must remain runtime-only.",
+      "method": "GET",
+      "host": "htsget-blocks.example.org",
+      "path": "/s288c/calls.vcf.gz",
+      "query": {
+        "signature": "ticket-only-variant-secret"
+      },
+      "response": {
+        "body_file": "../binary/yeast-chriv-variants.vcf.gz",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/gzip"
+        }
+      }
+    }
+  ]
+}

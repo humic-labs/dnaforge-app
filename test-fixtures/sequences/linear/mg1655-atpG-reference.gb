@@ -1,0 +1,46 @@
+LOCUS       ATPG                 864 bp    DNA     linear   BCT 12-JUN-2026
+DEFINITION  Escherichia coli K-12 MG1655 ATP synthase subunit gamma CDS slice.
+ACCESSION   DNA560_ATPG
+VERSION     DNA560.1
+SOURCE      Escherichia coli K-12 substr. MG1655
+  ORGANISM  Escherichia coli K-12 substr. MG1655
+            Bacteria; Proteobacteria; Gammaproteobacteria; Enterobacterales;
+            Enterobacteriaceae; Escherichia.
+FEATURES             Location/Qualifiers
+     source          1..864
+                     /organism="Escherichia coli K-12 substr. MG1655"
+                     /mol_type="genomic DNA"
+                     /strain="K-12 substr. MG1655"
+                     /db_xref="taxon:83333"
+     gene            complement(1..864)
+                     /gene="atpG"
+                     /locus_tag="b3733"
+     CDS             complement(1..864)
+                     /gene="atpG"
+                     /locus_tag="b3733"
+                     /product="ATP synthase F1 complex subunit gamma"
+                     /protein_id="AAC76726.1"
+                     /db_xref="UniProtKB/Swiss-Prot:P0ABA6"
+                     /db_xref="taxon:83333"
+                     /translation="MAGAKEIRSKIASVQNTQKITKAMEMVAASKMRKSQDRMAASRPYAETMRKVIGHLAH
+                     GNLEYKHPYLEDRDVKRVGYLVVSTDRGLCGGLNINLFKKLLAEMKTWTDKGVQCDLA
+                     MIGSKGVSFFNSVGGNVVAQVTGMGDNPSLSELIGPVKVMLQAYDEGRLDKLYIVSNK
+                     FINTMSQVPTISQLLPLPASDDDDLKHKSWDYLYEPDPKALLDTLLRRYVESQVYQGV
+                     VENLASEQAARMVAMKAATDNGGSLIKELQLVYNKARQASITQELTEIVSGAAAV"
+ORIGIN
+        1 ttaaaccgcg gcggcccccg agacgatctc ggtgagttcc tgagtaatgc tggcctgacg
+       61 agctttgttg tataccaact gcagctcttt aatcaggctg ccgccattgt cggtcgcggc
+      121 tttcatcgcc accatacggg cggcctgctc gctggccagg ttttcaacca cgccctgata
+      181 aacctgagat tcgacataac gacgcagcag ggtatccagc aacgccttcg gatcgggttc
+      241 gtacaggtaa tcccaggatt tatgtttcag atcatcatca tctgatgccg gtaacggcag
+      301 cagctggctg atggtcggaa cctgagacat ggtgttaata aatttgttgc tgacaatgta
+      361 aagcttgtcc agacggcctt cgtcgtaggc ctgcaacatc acttttaccg gaccgatcag
+      421 ttcggacagg gaagggttat cccccatgcc ggtgacctgg gcaacaacat tgccgcccac
+      481 ggagttgaag aacgacacgc ctttcgagcc gatcattgcg aggtcgcatt gaacgccttt
+      541 gtcggtccag gtcttcattt ccgccagcag ttttttgaac aggttaatgt tcaaaccacc
+      601 gcacaaacca cggtcggtcg acaccaccag gtagcccacg cgtttaacgt cgcggtcttc
+      661 caggtaaggg tgcttatatt ccagattacc gtgtgcaagg tgaccaatca ctttgcgcat
+      721 ggtttctgca taaggacggc tggccgccat gcgatcctgc gatttacgca ttttggaagc
+      781 ggcgaccatc tccatcgctt tagtgatctt ttgcgtgttc tggacgcttg cgatcttact
+      841 acgtatctct tttgcgccgg ccat
+//

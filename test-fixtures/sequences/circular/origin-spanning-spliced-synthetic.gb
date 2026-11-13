@@ -1,0 +1,28 @@
+LOCUS       origin_splice_wrap       603 bp    DNA     circular SYN 09-JUL-2026
+DEFINITION  Synthetic circular plasmid with an origin-spanning spliced CDS.
+ACCESSION   origin_splice_wrap_synth
+VERSION     origin_splice_wrap_synth
+COMMENT     regression fixture. The CDS wraps the origin and has real
+            exon gaps at both linearized ends, so a linear WebGL view must split
+            the feature without painting 1..100 or 559..603.
+FEATURES             Location/Qualifiers
+     source          1..603
+                     /organism="synthetic DNA construct"
+                     /mol_type="other DNA"
+     CDS             join(451..558,101..250)
+                     /label="OriginSpanGene"
+                     /note="origin-spanning spliced CDS with gaps on both
+                     linearized ends"
+ORIGIN
+        1 aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa
+       61 aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa
+      121 aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa
+      181 aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa
+      241 aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa
+      301 aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa
+      361 aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa
+      421 aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa
+      481 aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa
+      541 aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa
+      601 aaa
+//

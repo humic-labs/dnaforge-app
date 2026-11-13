@@ -1,0 +1,374 @@
+diff --git a/lib/commonjs/mol-canvas3d/canvas3d.d.ts b/lib/commonjs/mol-canvas3d/canvas3d.d.ts
+index 39bfa343b549d652bcaf71383b9370520661ce3b..047c493fdf010d90883304ed523682f6a75c4d47 100644
+--- a/lib/commonjs/mol-canvas3d/canvas3d.d.ts
++++ b/lib/commonjs/mol-canvas3d/canvas3d.d.ts
+@@ -135,6 +135,7 @@ export declare const Canvas3DParams: {
+         edgeScale: number;
+         highlightEdgeStrength: number;
+         selectEdgeStrength: number;
++        selectInnerEdgeStrength: number;
+         ghostEdgeStrength: number;
+         innerEdgeFactor: number;
+     }>>;
+@@ -406,6 +407,7 @@ export declare const DefaultCanvas3DParams: PD.Values<{
+         edgeScale: number;
+         highlightEdgeStrength: number;
+         selectEdgeStrength: number;
++        selectInnerEdgeStrength: number;
+         ghostEdgeStrength: number;
+         innerEdgeFactor: number;
+     }>>;
+diff --git a/lib/commonjs/mol-canvas3d/passes/image.d.ts b/lib/commonjs/mol-canvas3d/passes/image.d.ts
+index 89750923b2c4c21a1ff00ed387038b1e576003ec..56e1406cdb6c5fbd8f1d49ec9cac82ebff84cafe 100644
+--- a/lib/commonjs/mol-canvas3d/passes/image.d.ts
++++ b/lib/commonjs/mol-canvas3d/passes/image.d.ts
+@@ -85,6 +85,7 @@ export declare const ImageParams: {
+         edgeScale: number;
+         highlightEdgeStrength: number;
+         selectEdgeStrength: number;
++        selectInnerEdgeStrength: number;
+         ghostEdgeStrength: number;
+         innerEdgeFactor: number;
+     }>>;
+diff --git a/lib/commonjs/mol-canvas3d/passes/marking.d.ts b/lib/commonjs/mol-canvas3d/passes/marking.d.ts
+index ea3b56a69049af7e68bcaa0117436f76627ea9bb..254e2de38ce81d5a392f82e312b62e98d43cc253 100644
+--- a/lib/commonjs/mol-canvas3d/passes/marking.d.ts
++++ b/lib/commonjs/mol-canvas3d/passes/marking.d.ts
+@@ -14,6 +14,7 @@ export declare const MarkingParams: {
+     edgeScale: PD.Numeric;
+     highlightEdgeStrength: PD.Numeric;
+     selectEdgeStrength: PD.Numeric;
++    selectInnerEdgeStrength: PD.Numeric;
+     ghostEdgeStrength: PD.Numeric;
+     innerEdgeFactor: PD.Numeric;
+ };
+diff --git a/lib/commonjs/mol-canvas3d/passes/marking.js b/lib/commonjs/mol-canvas3d/passes/marking.js
+index 47d3ba5837bf9d7ee4bc956d47ca09ac5521dd93..1319859af6fe630f2d308ebb637614bb6047242a 100644
+--- a/lib/commonjs/mol-canvas3d/passes/marking.js
++++ b/lib/commonjs/mol-canvas3d/passes/marking.js
+@@ -26,6 +26,7 @@ exports.MarkingParams = {
+     edgeScale: param_definition_1.ParamDefinition.Numeric(1, { min: 1, max: 3, step: 1 }, { description: 'Thickness of the edge.' }),
+     highlightEdgeStrength: param_definition_1.ParamDefinition.Numeric(1.0, { min: 0, max: 1, step: 0.1 }),
+     selectEdgeStrength: param_definition_1.ParamDefinition.Numeric(1.0, { min: 0, max: 1, step: 0.1 }),
++    selectInnerEdgeStrength: param_definition_1.ParamDefinition.Numeric(1.0, { min: 0, max: 1, step: 0.1 }),
+     ghostEdgeStrength: param_definition_1.ParamDefinition.Numeric(0.3, { min: 0, max: 1, step: 0.1 }, { description: 'Opacity of the hidden edges that are covered by other geometry. When set to 1, one less geometry render pass is done.' }),
+     innerEdgeFactor: param_definition_1.ParamDefinition.Numeric(1.5, { min: 0, max: 3, step: 0.1 }, { description: 'Factor to multiply the inner edge color with - for added contrast.' }),
+ };
+@@ -82,7 +83,7 @@ class MarkingPass {
+         }
+     }
+     update(props) {
+-        const { highlightEdgeColor, selectEdgeColor, edgeScale, innerEdgeFactor, ghostEdgeStrength, highlightEdgeStrength, selectEdgeStrength } = props;
++        const { highlightEdgeColor, selectEdgeColor, edgeScale, innerEdgeFactor, ghostEdgeStrength, highlightEdgeStrength, selectEdgeStrength, selectInnerEdgeStrength } = props;
+         const { values: edgeValues } = this.edge;
+         const _edgeScale = Math.max(1, Math.round(edgeScale * this.webgl.pixelRatio));
+         if (edgeValues.dEdgeScale.ref.value !== _edgeScale) {
+@@ -96,6 +97,7 @@ class MarkingPass {
+         mol_util_1.ValueCell.updateIfChanged(overlayValues.uGhostEdgeStrength, ghostEdgeStrength);
+         mol_util_1.ValueCell.updateIfChanged(overlayValues.uHighlightEdgeStrength, highlightEdgeStrength);
+         mol_util_1.ValueCell.updateIfChanged(overlayValues.uSelectEdgeStrength, selectEdgeStrength);
++        mol_util_1.ValueCell.updateIfChanged(overlayValues.uSelectInnerEdgeStrength, selectInnerEdgeStrength);
+     }
+     render(viewport, target) {
+         if (debug_1.isTimingMode)
+@@ -141,6 +143,7 @@ const OverlaySchema = {
+     uSelectEdgeColor: (0, schema_1.UniformSpec)('v3'),
+     uHighlightEdgeStrength: (0, schema_1.UniformSpec)('f'),
+     uSelectEdgeStrength: (0, schema_1.UniformSpec)('f'),
++    uSelectInnerEdgeStrength: (0, schema_1.UniformSpec)('f'),
+     uGhostEdgeStrength: (0, schema_1.UniformSpec)('f'),
+     uInnerEdgeFactor: (0, schema_1.UniformSpec)('f'),
+ };
+@@ -156,6 +159,7 @@ function getOverlayRenderable(ctx, edgeTexture) {
+         uSelectEdgeColor: mol_util_1.ValueCell.create((0, linear_algebra_1.Vec3)()),
+         uHighlightEdgeStrength: mol_util_1.ValueCell.create(1),
+         uSelectEdgeStrength: mol_util_1.ValueCell.create(1),
++        uSelectInnerEdgeStrength: mol_util_1.ValueCell.create(1),
+         uGhostEdgeStrength: mol_util_1.ValueCell.create(0),
+         uInnerEdgeFactor: mol_util_1.ValueCell.create(0),
+     };
+diff --git a/lib/commonjs/mol-gl/shader/chunks/assign-color-varying.glsl.js b/lib/commonjs/mol-gl/shader/chunks/assign-color-varying.glsl.js
+index fe3ba911fd03cb7e2ee7d03f6fa83e6ecc996516..6f78a79a9f4931c710d57dd9fefb421970234ca0 100644
+--- a/lib/commonjs/mol-gl/shader/chunks/assign-color-varying.glsl.js
++++ b/lib/commonjs/mol-gl/shader/chunks/assign-color-varying.glsl.js
+@@ -140,5 +140,16 @@ exports.assign_color_varying = `
+         vTransparency = texture3dFrom2dLinear(tTransparencyGrid, tgridPos, uTransparencyGridDim, uTransparencyTexDim).a;
+     #endif
+     vTransparency *= uTransparencyStrength;
++    #ifdef dNeedsMarker
++        // Uniform whole-representation markers still need the visibility mask.
++        if (uMarker != -1.0) vMarker = uMarker / 255.0;
++        // A hidden atom must not leak its marker through surface interpolation.
++        #if defined(dTransparencyType_volumeInstance)
++            float markerTransparency = readFromTexture(tTransparency, aInstance * float(uGroupCount) + group, uMarkerTexDim).a * uTransparencyStrength;
++        #else
++            float markerTransparency = vTransparency;
++        #endif
++        if (markerTransparency >= 1.0) vMarker = 0.0;
++    #endif
+ #endif
+ `;
+diff --git a/lib/commonjs/mol-gl/shader/chunks/assign-material-color.glsl.js b/lib/commonjs/mol-gl/shader/chunks/assign-material-color.glsl.js
+index 51beb884707f0eca34260c5cbc71afe7d759b527..d08d5e6ce81e99396bb57d4e3bacec6e14528e03 100644
+--- a/lib/commonjs/mol-gl/shader/chunks/assign-material-color.glsl.js
++++ b/lib/commonjs/mol-gl/shader/chunks/assign-material-color.glsl.js
+@@ -4,9 +4,13 @@ exports.assign_material_color = void 0;
+ exports.assign_material_color = `
+ #if defined(dNeedsMarker)
+     float marker = uMarker;
+-    if (uMarker == -1.0) {
+-        marker = floor(vMarker * 255.0 + 0.5); // rounding required to work on some cards on win
+-    }
++    #ifdef dTransparency
++        marker = floor(vMarker * 255.0 + 0.5); // includes the exact group visibility mask
++    #else
++        if (uMarker == -1.0) {
++            marker = floor(vMarker * 255.0 + 0.5); // rounding required to work on some cards on win
++        }
++    #endif
+ #endif
+ 
+ #if defined(dRenderVariant_color) || defined(dRenderVariant_tracing)
+@@ -82,6 +86,11 @@ exports.assign_material_color = `
+         material = packDepthWithAlphaToRGBA(fragmentDepth, alpha);
+     }
+ #elif defined(dRenderVariant_marking)
++    // Hidden fragments must not write either marking depth or outline masks.
++    if (uAlpha <= 0.0) discard;
++    #ifdef dTransparency
++        if (vTransparency >= 1.0) discard;
++    #endif
+     vec4 material;
+     if(uMarkingType == 1) {
+         if (marker > 0.0)
+diff --git a/lib/commonjs/mol-gl/shader/chunks/color-vert-params.glsl.js b/lib/commonjs/mol-gl/shader/chunks/color-vert-params.glsl.js
+index cb7368b332c0ef77ae35703cf7dff019a4b261fa..51c779c924820f7d6b1e1a4462e21761c3ae4c28 100644
+--- a/lib/commonjs/mol-gl/shader/chunks/color-vert-params.glsl.js
++++ b/lib/commonjs/mol-gl/shader/chunks/color-vert-params.glsl.js
+@@ -119,6 +119,10 @@ uniform float uBumpiness;
+         uniform vec2 uTransparencyTexDim;
+         uniform vec3 uTransparencyGridDim;
+         uniform vec4 uTransparencyGridTransform;
++        // Keep the exact group mask available when the display mask is smoothed.
++        #ifdef dNeedsMarker
++            uniform sampler2D tTransparency;
++        #endif
+         uniform sampler2D tTransparencyGrid;
+     #endif
+     uniform float uTransparencyStrength;
+diff --git a/lib/commonjs/mol-gl/shader/marking/overlay.frag.d.ts b/lib/commonjs/mol-gl/shader/marking/overlay.frag.d.ts
+index bfb7fdd151de930c18d8b5ec5998d23a181072e8..9d29c0e38ac37a518fb21de71911d22c572a7afd 100644
+--- a/lib/commonjs/mol-gl/shader/marking/overlay.frag.d.ts
++++ b/lib/commonjs/mol-gl/shader/marking/overlay.frag.d.ts
+@@ -1 +1 @@
+-export declare const overlay_frag = "\nprecision highp float;\nprecision highp sampler2D;\n\nuniform vec2 uTexSizeInv;\nuniform sampler2D tEdgeTexture;\nuniform vec3 uHighlightEdgeColor;\nuniform vec3 uSelectEdgeColor;\nuniform float uHighlightEdgeStrength;\nuniform float uSelectEdgeStrength;\nuniform float uGhostEdgeStrength;\nuniform float uInnerEdgeFactor;\n\nvoid main() {\n    vec2 coords = gl_FragCoord.xy * uTexSizeInv;\n    vec4 edgeValue = texture2D(tEdgeTexture, coords);\n    if (edgeValue.a > 0.0) {\n        vec3 edgeColor = edgeValue.b == 1.0 ? uHighlightEdgeColor : uSelectEdgeColor;\n        gl_FragColor.rgb = edgeValue.g > 0.0 ? edgeColor : edgeColor * uInnerEdgeFactor;\n        gl_FragColor.a = (edgeValue.r == 1.0 ? uGhostEdgeStrength : 1.0) * edgeValue.a;\n        float edgeStrength = edgeValue.b == 1.0 ? uHighlightEdgeStrength : uSelectEdgeStrength;\n        gl_FragColor.a *= edgeStrength;\n    } else {\n        gl_FragColor = vec4(0.0);\n    }\n}\n";
++export declare const overlay_frag = "\nprecision highp float;\nprecision highp sampler2D;\n\nuniform vec2 uTexSizeInv;\nuniform sampler2D tEdgeTexture;\nuniform vec3 uHighlightEdgeColor;\nuniform vec3 uSelectEdgeColor;\nuniform float uHighlightEdgeStrength;\nuniform float uSelectEdgeStrength;\nuniform float uSelectInnerEdgeStrength;\nuniform float uGhostEdgeStrength;\nuniform float uInnerEdgeFactor;\n\nvoid main() {\n    vec2 coords = gl_FragCoord.xy * uTexSizeInv;\n    vec4 edgeValue = texture2D(tEdgeTexture, coords);\n    if (edgeValue.a > 0.0) {\n        vec3 edgeColor = edgeValue.b == 1.0 ? uHighlightEdgeColor : uSelectEdgeColor;\n        gl_FragColor.rgb = edgeValue.g > 0.0 ? edgeColor : edgeColor * uInnerEdgeFactor;\n        gl_FragColor.a = (edgeValue.r == 1.0 ? uGhostEdgeStrength : 1.0) * edgeValue.a;\n        float edgeStrength = edgeValue.b == 1.0 ? uHighlightEdgeStrength : uSelectEdgeStrength;\n        gl_FragColor.a *= edgeStrength;\n        if (edgeValue.b != 1.0 && edgeValue.g <= 0.0) {\n            gl_FragColor.a *= uSelectInnerEdgeStrength;\n        }\n    } else {\n        gl_FragColor = vec4(0.0);\n    }\n}\n";
+diff --git a/lib/commonjs/mol-gl/shader/marking/overlay.frag.js b/lib/commonjs/mol-gl/shader/marking/overlay.frag.js
+index bfebe6415743c813dbef3043a6da0c683a443b9b..f2444c73f2a993e5d60329495fa624c9caf4081b 100644
+--- a/lib/commonjs/mol-gl/shader/marking/overlay.frag.js
++++ b/lib/commonjs/mol-gl/shader/marking/overlay.frag.js
+@@ -11,6 +11,7 @@ uniform vec3 uHighlightEdgeColor;
+ uniform vec3 uSelectEdgeColor;
+ uniform float uHighlightEdgeStrength;
+ uniform float uSelectEdgeStrength;
++uniform float uSelectInnerEdgeStrength;
+ uniform float uGhostEdgeStrength;
+ uniform float uInnerEdgeFactor;
+ 
+@@ -23,6 +24,9 @@ void main() {
+         gl_FragColor.a = (edgeValue.r == 1.0 ? uGhostEdgeStrength : 1.0) * edgeValue.a;
+         float edgeStrength = edgeValue.b == 1.0 ? uHighlightEdgeStrength : uSelectEdgeStrength;
+         gl_FragColor.a *= edgeStrength;
++        if (edgeValue.b != 1.0 && edgeValue.g <= 0.0) {
++            gl_FragColor.a *= uSelectInnerEdgeStrength;
++        }
+     } else {
+         gl_FragColor = vec4(0.0);
+     }
+diff --git a/lib/mol-canvas3d/canvas3d.d.ts b/lib/mol-canvas3d/canvas3d.d.ts
+index 39bfa343b549d652bcaf71383b9370520661ce3b..047c493fdf010d90883304ed523682f6a75c4d47 100644
+--- a/lib/mol-canvas3d/canvas3d.d.ts
++++ b/lib/mol-canvas3d/canvas3d.d.ts
+@@ -135,6 +135,7 @@ export declare const Canvas3DParams: {
+         edgeScale: number;
+         highlightEdgeStrength: number;
+         selectEdgeStrength: number;
++        selectInnerEdgeStrength: number;
+         ghostEdgeStrength: number;
+         innerEdgeFactor: number;
+     }>>;
+@@ -406,6 +407,7 @@ export declare const DefaultCanvas3DParams: PD.Values<{
+         edgeScale: number;
+         highlightEdgeStrength: number;
+         selectEdgeStrength: number;
++        selectInnerEdgeStrength: number;
+         ghostEdgeStrength: number;
+         innerEdgeFactor: number;
+     }>>;
+diff --git a/lib/mol-canvas3d/passes/image.d.ts b/lib/mol-canvas3d/passes/image.d.ts
+index 89750923b2c4c21a1ff00ed387038b1e576003ec..56e1406cdb6c5fbd8f1d49ec9cac82ebff84cafe 100644
+--- a/lib/mol-canvas3d/passes/image.d.ts
++++ b/lib/mol-canvas3d/passes/image.d.ts
+@@ -85,6 +85,7 @@ export declare const ImageParams: {
+         edgeScale: number;
+         highlightEdgeStrength: number;
+         selectEdgeStrength: number;
++        selectInnerEdgeStrength: number;
+         ghostEdgeStrength: number;
+         innerEdgeFactor: number;
+     }>>;
+diff --git a/lib/mol-canvas3d/passes/marking.d.ts b/lib/mol-canvas3d/passes/marking.d.ts
+index ea3b56a69049af7e68bcaa0117436f76627ea9bb..254e2de38ce81d5a392f82e312b62e98d43cc253 100644
+--- a/lib/mol-canvas3d/passes/marking.d.ts
++++ b/lib/mol-canvas3d/passes/marking.d.ts
+@@ -14,6 +14,7 @@ export declare const MarkingParams: {
+     edgeScale: PD.Numeric;
+     highlightEdgeStrength: PD.Numeric;
+     selectEdgeStrength: PD.Numeric;
++    selectInnerEdgeStrength: PD.Numeric;
+     ghostEdgeStrength: PD.Numeric;
+     innerEdgeFactor: PD.Numeric;
+ };
+diff --git a/lib/mol-canvas3d/passes/marking.js b/lib/mol-canvas3d/passes/marking.js
+index ed8fcbe81b58793b54f667927be08224de7fda44..18f07b77dd2a6fef976f360d994c494e2a80cfc6 100644
+--- a/lib/mol-canvas3d/passes/marking.js
++++ b/lib/mol-canvas3d/passes/marking.js
+@@ -23,6 +23,7 @@ export const MarkingParams = {
+     edgeScale: PD.Numeric(1, { min: 1, max: 3, step: 1 }, { description: 'Thickness of the edge.' }),
+     highlightEdgeStrength: PD.Numeric(1.0, { min: 0, max: 1, step: 0.1 }),
+     selectEdgeStrength: PD.Numeric(1.0, { min: 0, max: 1, step: 0.1 }),
++    selectInnerEdgeStrength: PD.Numeric(1.0, { min: 0, max: 1, step: 0.1 }),
+     ghostEdgeStrength: PD.Numeric(0.3, { min: 0, max: 1, step: 0.1 }, { description: 'Opacity of the hidden edges that are covered by other geometry. When set to 1, one less geometry render pass is done.' }),
+     innerEdgeFactor: PD.Numeric(1.5, { min: 0, max: 3, step: 0.1 }, { description: 'Factor to multiply the inner edge color with - for added contrast.' }),
+ };
+@@ -79,7 +80,7 @@ export class MarkingPass {
+         }
+     }
+     update(props) {
+-        const { highlightEdgeColor, selectEdgeColor, edgeScale, innerEdgeFactor, ghostEdgeStrength, highlightEdgeStrength, selectEdgeStrength } = props;
++        const { highlightEdgeColor, selectEdgeColor, edgeScale, innerEdgeFactor, ghostEdgeStrength, highlightEdgeStrength, selectEdgeStrength, selectInnerEdgeStrength } = props;
+         const { values: edgeValues } = this.edge;
+         const _edgeScale = Math.max(1, Math.round(edgeScale * this.webgl.pixelRatio));
+         if (edgeValues.dEdgeScale.ref.value !== _edgeScale) {
+@@ -93,6 +94,7 @@ export class MarkingPass {
+         ValueCell.updateIfChanged(overlayValues.uGhostEdgeStrength, ghostEdgeStrength);
+         ValueCell.updateIfChanged(overlayValues.uHighlightEdgeStrength, highlightEdgeStrength);
+         ValueCell.updateIfChanged(overlayValues.uSelectEdgeStrength, selectEdgeStrength);
++        ValueCell.updateIfChanged(overlayValues.uSelectInnerEdgeStrength, selectInnerEdgeStrength);
+     }
+     render(viewport, target) {
+         if (isTimingMode)
+@@ -137,6 +139,7 @@ const OverlaySchema = {
+     uSelectEdgeColor: UniformSpec('v3'),
+     uHighlightEdgeStrength: UniformSpec('f'),
+     uSelectEdgeStrength: UniformSpec('f'),
++    uSelectInnerEdgeStrength: UniformSpec('f'),
+     uGhostEdgeStrength: UniformSpec('f'),
+     uInnerEdgeFactor: UniformSpec('f'),
+ };
+@@ -152,6 +155,7 @@ function getOverlayRenderable(ctx, edgeTexture) {
+         uSelectEdgeColor: ValueCell.create(Vec3()),
+         uHighlightEdgeStrength: ValueCell.create(1),
+         uSelectEdgeStrength: ValueCell.create(1),
++        uSelectInnerEdgeStrength: ValueCell.create(1),
+         uGhostEdgeStrength: ValueCell.create(0),
+         uInnerEdgeFactor: ValueCell.create(0),
+     };
+diff --git a/lib/mol-gl/shader/chunks/assign-color-varying.glsl.js b/lib/mol-gl/shader/chunks/assign-color-varying.glsl.js
+index 275a9ea601f60ddeb89edda7908582853ad5e9d6..43bfcbf1b78b6a087a4fab26a0569a817fbba1b3 100644
+--- a/lib/mol-gl/shader/chunks/assign-color-varying.glsl.js
++++ b/lib/mol-gl/shader/chunks/assign-color-varying.glsl.js
+@@ -137,5 +137,16 @@ export const assign_color_varying = `
+         vTransparency = texture3dFrom2dLinear(tTransparencyGrid, tgridPos, uTransparencyGridDim, uTransparencyTexDim).a;
+     #endif
+     vTransparency *= uTransparencyStrength;
++    #ifdef dNeedsMarker
++        // Uniform whole-representation markers still need the visibility mask.
++        if (uMarker != -1.0) vMarker = uMarker / 255.0;
++        // A hidden atom must not leak its marker through surface interpolation.
++        #if defined(dTransparencyType_volumeInstance)
++            float markerTransparency = readFromTexture(tTransparency, aInstance * float(uGroupCount) + group, uMarkerTexDim).a * uTransparencyStrength;
++        #else
++            float markerTransparency = vTransparency;
++        #endif
++        if (markerTransparency >= 1.0) vMarker = 0.0;
++    #endif
+ #endif
+ `;
+diff --git a/lib/mol-gl/shader/chunks/assign-material-color.glsl.js b/lib/mol-gl/shader/chunks/assign-material-color.glsl.js
+index eaa4c3c46191545ce9107e36b54baa326df184cb..a414968473bca071fe9a377d2e69b5d695433b1c 100644
+--- a/lib/mol-gl/shader/chunks/assign-material-color.glsl.js
++++ b/lib/mol-gl/shader/chunks/assign-material-color.glsl.js
+@@ -1,9 +1,13 @@
+ export const assign_material_color = `
+ #if defined(dNeedsMarker)
+     float marker = uMarker;
+-    if (uMarker == -1.0) {
+-        marker = floor(vMarker * 255.0 + 0.5); // rounding required to work on some cards on win
+-    }
++    #ifdef dTransparency
++        marker = floor(vMarker * 255.0 + 0.5); // includes the exact group visibility mask
++    #else
++        if (uMarker == -1.0) {
++            marker = floor(vMarker * 255.0 + 0.5); // rounding required to work on some cards on win
++        }
++    #endif
+ #endif
+ 
+ #if defined(dRenderVariant_color) || defined(dRenderVariant_tracing)
+@@ -79,6 +83,11 @@ export const assign_material_color = `
+         material = packDepthWithAlphaToRGBA(fragmentDepth, alpha);
+     }
+ #elif defined(dRenderVariant_marking)
++    // Hidden fragments must not write either marking depth or outline masks.
++    if (uAlpha <= 0.0) discard;
++    #ifdef dTransparency
++        if (vTransparency >= 1.0) discard;
++    #endif
+     vec4 material;
+     if(uMarkingType == 1) {
+         if (marker > 0.0)
+diff --git a/lib/mol-gl/shader/chunks/color-vert-params.glsl.js b/lib/mol-gl/shader/chunks/color-vert-params.glsl.js
+index 5116938ed9547869e5645595aa8a47f0967c194a..dc250eba0b3f68f17a5134cbb43611532c0aefd8 100644
+--- a/lib/mol-gl/shader/chunks/color-vert-params.glsl.js
++++ b/lib/mol-gl/shader/chunks/color-vert-params.glsl.js
+@@ -116,6 +116,10 @@ uniform float uBumpiness;
+         uniform vec2 uTransparencyTexDim;
+         uniform vec3 uTransparencyGridDim;
+         uniform vec4 uTransparencyGridTransform;
++        // Keep the exact group mask available when the display mask is smoothed.
++        #ifdef dNeedsMarker
++            uniform sampler2D tTransparency;
++        #endif
+         uniform sampler2D tTransparencyGrid;
+     #endif
+     uniform float uTransparencyStrength;
+diff --git a/lib/mol-gl/shader/marking/overlay.frag.d.ts b/lib/mol-gl/shader/marking/overlay.frag.d.ts
+index bfb7fdd151de930c18d8b5ec5998d23a181072e8..9d29c0e38ac37a518fb21de71911d22c572a7afd 100644
+--- a/lib/mol-gl/shader/marking/overlay.frag.d.ts
++++ b/lib/mol-gl/shader/marking/overlay.frag.d.ts
+@@ -1 +1 @@
+-export declare const overlay_frag = "\nprecision highp float;\nprecision highp sampler2D;\n\nuniform vec2 uTexSizeInv;\nuniform sampler2D tEdgeTexture;\nuniform vec3 uHighlightEdgeColor;\nuniform vec3 uSelectEdgeColor;\nuniform float uHighlightEdgeStrength;\nuniform float uSelectEdgeStrength;\nuniform float uGhostEdgeStrength;\nuniform float uInnerEdgeFactor;\n\nvoid main() {\n    vec2 coords = gl_FragCoord.xy * uTexSizeInv;\n    vec4 edgeValue = texture2D(tEdgeTexture, coords);\n    if (edgeValue.a > 0.0) {\n        vec3 edgeColor = edgeValue.b == 1.0 ? uHighlightEdgeColor : uSelectEdgeColor;\n        gl_FragColor.rgb = edgeValue.g > 0.0 ? edgeColor : edgeColor * uInnerEdgeFactor;\n        gl_FragColor.a = (edgeValue.r == 1.0 ? uGhostEdgeStrength : 1.0) * edgeValue.a;\n        float edgeStrength = edgeValue.b == 1.0 ? uHighlightEdgeStrength : uSelectEdgeStrength;\n        gl_FragColor.a *= edgeStrength;\n    } else {\n        gl_FragColor = vec4(0.0);\n    }\n}\n";
++export declare const overlay_frag = "\nprecision highp float;\nprecision highp sampler2D;\n\nuniform vec2 uTexSizeInv;\nuniform sampler2D tEdgeTexture;\nuniform vec3 uHighlightEdgeColor;\nuniform vec3 uSelectEdgeColor;\nuniform float uHighlightEdgeStrength;\nuniform float uSelectEdgeStrength;\nuniform float uSelectInnerEdgeStrength;\nuniform float uGhostEdgeStrength;\nuniform float uInnerEdgeFactor;\n\nvoid main() {\n    vec2 coords = gl_FragCoord.xy * uTexSizeInv;\n    vec4 edgeValue = texture2D(tEdgeTexture, coords);\n    if (edgeValue.a > 0.0) {\n        vec3 edgeColor = edgeValue.b == 1.0 ? uHighlightEdgeColor : uSelectEdgeColor;\n        gl_FragColor.rgb = edgeValue.g > 0.0 ? edgeColor : edgeColor * uInnerEdgeFactor;\n        gl_FragColor.a = (edgeValue.r == 1.0 ? uGhostEdgeStrength : 1.0) * edgeValue.a;\n        float edgeStrength = edgeValue.b == 1.0 ? uHighlightEdgeStrength : uSelectEdgeStrength;\n        gl_FragColor.a *= edgeStrength;\n        if (edgeValue.b != 1.0 && edgeValue.g <= 0.0) {\n            gl_FragColor.a *= uSelectInnerEdgeStrength;\n        }\n    } else {\n        gl_FragColor = vec4(0.0);\n    }\n}\n";
+diff --git a/lib/mol-gl/shader/marking/overlay.frag.js b/lib/mol-gl/shader/marking/overlay.frag.js
+index dd2482e262b8d2a40779b844c6ca476edf6d7241..88e581da43df6180972ce104a27bf3b070b7bb0f 100644
+--- a/lib/mol-gl/shader/marking/overlay.frag.js
++++ b/lib/mol-gl/shader/marking/overlay.frag.js
+@@ -8,6 +8,7 @@ uniform vec3 uHighlightEdgeColor;
+ uniform vec3 uSelectEdgeColor;
+ uniform float uHighlightEdgeStrength;
+ uniform float uSelectEdgeStrength;
++uniform float uSelectInnerEdgeStrength;
+ uniform float uGhostEdgeStrength;
+ uniform float uInnerEdgeFactor;
+ 
+@@ -20,6 +21,9 @@ void main() {
+         gl_FragColor.a = (edgeValue.r == 1.0 ? uGhostEdgeStrength : 1.0) * edgeValue.a;
+         float edgeStrength = edgeValue.b == 1.0 ? uHighlightEdgeStrength : uSelectEdgeStrength;
+         gl_FragColor.a *= edgeStrength;
++        if (edgeValue.b != 1.0 && edgeValue.g <= 0.0) {
++            gl_FragColor.a *= uSelectInnerEdgeStrength;
++        }
+     } else {
+         gl_FragColor = vec4(0.0);
+     }

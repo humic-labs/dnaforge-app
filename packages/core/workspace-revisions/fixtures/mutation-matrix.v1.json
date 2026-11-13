@@ -1,0 +1,716 @@
+{
+  "formatVersion": 1,
+  "fixedInputs": {
+    "workspaceId": "matrix-workspace",
+    "primaryResourceId": "matrix-resource-a",
+    "secondaryResourceId": "matrix-resource-b",
+    "epochMs": 1700000000000,
+    "sharedBlobHash": "sha256:b6173520c6ed316d596f43ac943ce224a143ba80d85424ac941ed7a506bdce3b"
+  },
+  "cases": [
+    {
+      "id": "create-valid",
+      "baseGraph": "empty",
+      "operationId": "matrix-create-valid",
+      "operationLabel": "Create a resource",
+      "intent": "create",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "new",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "none"
+      }
+    },
+    {
+      "id": "edit-valid",
+      "baseGraph": "single-live",
+      "operationId": "matrix-edit-valid",
+      "operationLabel": "Edit material",
+      "intent": "edit",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "none"
+      }
+    },
+    {
+      "id": "edit-no-op",
+      "baseGraph": "single-live",
+      "operationId": "matrix-edit-no-op",
+      "operationLabel": "Write equal material",
+      "intent": "edit-equal",
+      "execution": "core",
+      "expected": {
+        "outcome": "no-op",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "state-unchanged"
+      }
+    },
+    {
+      "id": "revert-explicit",
+      "baseGraph": "single-edited",
+      "operationId": "matrix-revert-explicit",
+      "operationLabel": "Revert to prior material",
+      "intent": "revert",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "old-state-new-history"
+      }
+    },
+    {
+      "id": "rename",
+      "baseGraph": "single-live",
+      "operationId": "matrix-rename",
+      "operationLabel": "Rename a resource",
+      "intent": "move",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "path-only"
+      }
+    },
+    {
+      "id": "rename-case-only",
+      "baseGraph": "single-live",
+      "operationId": "matrix-rename-case-only",
+      "operationLabel": "Case-only rename",
+      "intent": "move-case-only",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "path-only"
+      }
+    },
+    {
+      "id": "move-root",
+      "baseGraph": "single-live",
+      "operationId": "matrix-move-root",
+      "operationLabel": "Move to workspace root",
+      "intent": "move-root",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "path-only"
+      }
+    },
+    {
+      "id": "edit-and-rename",
+      "baseGraph": "single-live",
+      "operationId": "matrix-edit-and-rename",
+      "operationLabel": "Edit and rename atomically",
+      "intent": "edit-and-move",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "atomic"
+      }
+    },
+    {
+      "id": "merge-disjoint-edits",
+      "baseGraph": "two-live",
+      "operationId": "matrix-merge-disjoint-edits",
+      "operationLabel": "Merge disjoint edits",
+      "intent": "merge-disjoint",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "two-parent"
+      }
+    },
+    {
+      "id": "derived-copy",
+      "baseGraph": "single-live",
+      "operationId": "matrix-derived-copy",
+      "operationLabel": "Copy",
+      "intent": "derived-copy",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "new",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "copy"
+      }
+    },
+    {
+      "id": "derived-save-as",
+      "baseGraph": "single-live",
+      "operationId": "matrix-derived-save-as",
+      "operationLabel": "Save As",
+      "intent": "derived-save-as",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "new",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "copy"
+      }
+    },
+    {
+      "id": "derived-fork",
+      "baseGraph": "single-live",
+      "operationId": "matrix-derived-fork",
+      "operationLabel": "Fork",
+      "intent": "derived-fork",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "new",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "fork"
+      }
+    },
+    {
+      "id": "derived-template",
+      "baseGraph": "single-live",
+      "operationId": "matrix-derived-template",
+      "operationLabel": "Instantiate template",
+      "intent": "derived-template",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "new",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "template"
+      }
+    },
+    {
+      "id": "derived-split",
+      "baseGraph": "single-live",
+      "operationId": "matrix-derived-split",
+      "operationLabel": "Split resource",
+      "intent": "derived-split",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "new",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "split"
+      }
+    },
+    {
+      "id": "derived-conversion",
+      "baseGraph": "single-live",
+      "operationId": "matrix-derived-conversion",
+      "operationLabel": "Lossy conversion",
+      "intent": "derived-conversion",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "new",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "lossy-conversion"
+      }
+    },
+    {
+      "id": "embedded-id-tamper",
+      "baseGraph": "single-live",
+      "operationId": "matrix-embedded-id-tamper",
+      "operationLabel": "Copy with embedded conflicting identity",
+      "intent": "embedded-id-tamper",
+      "execution": "core",
+      "expected": {
+        "outcome": "recovery-candidate",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "identity-conflict"
+      }
+    },
+    {
+      "id": "member-add",
+      "baseGraph": "single-package",
+      "operationId": "matrix-member-add",
+      "operationLabel": "Add managed member",
+      "intent": "member-add",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "member-state-change"
+      }
+    },
+    {
+      "id": "member-remove",
+      "baseGraph": "single-package",
+      "operationId": "matrix-member-remove",
+      "operationLabel": "Remove managed member",
+      "intent": "member-remove",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "member-state-change"
+      }
+    },
+    {
+      "id": "member-edit",
+      "baseGraph": "single-package",
+      "operationId": "matrix-member-edit",
+      "operationLabel": "Edit managed member",
+      "intent": "member-edit",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "member-state-change"
+      }
+    },
+    {
+      "id": "member-rename",
+      "baseGraph": "single-package",
+      "operationId": "matrix-member-rename",
+      "operationLabel": "Rename managed member",
+      "intent": "member-rename",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "member-state-change"
+      }
+    },
+    {
+      "id": "delete-logical",
+      "baseGraph": "single-live",
+      "operationId": "matrix-delete-logical",
+      "operationLabel": "Logical deletion",
+      "intent": "delete",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "tombstone"
+      }
+    },
+    {
+      "id": "restore-tombstone",
+      "baseGraph": "single-tombstone",
+      "operationId": "matrix-restore-tombstone",
+      "operationLabel": "Restore tombstone",
+      "intent": "restore",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "restore"
+      }
+    },
+    {
+      "id": "reuse-deleted-path",
+      "baseGraph": "single-tombstone",
+      "operationId": "matrix-reuse-deleted-path",
+      "operationLabel": "Reuse deleted path",
+      "intent": "reuse-deleted-path",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "new",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "path-released"
+      }
+    },
+    {
+      "id": "remove-membership",
+      "baseGraph": "single-live",
+      "operationId": "matrix-remove-membership",
+      "operationLabel": "Remove workspace membership",
+      "intent": "remove-membership",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "membership-only"
+      }
+    },
+    {
+      "id": "unconfirmed-disappearance",
+      "baseGraph": "single-live",
+      "operationId": "matrix-unconfirmed-disappearance",
+      "operationLabel": "Watcher reports disappearance",
+      "intent": "adapter-unconfirmed-disappearance",
+      "execution": "adapter-classification",
+      "expected": {
+        "outcome": "adapter-only",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "no-inferred-mutation"
+      }
+    },
+    {
+      "id": "conflict-rename-rename",
+      "baseGraph": "single-live",
+      "operationId": "matrix-conflict-rename-rename",
+      "operationLabel": "Concurrent destinations",
+      "intent": "conflict-rename-rename",
+      "execution": "core",
+      "expected": {
+        "outcome": "conflict",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "rename-rename"
+      }
+    },
+    {
+      "id": "conflict-edit-edit",
+      "baseGraph": "single-live",
+      "operationId": "matrix-conflict-edit-edit",
+      "operationLabel": "Concurrent edits",
+      "intent": "conflict-edit-edit",
+      "execution": "core",
+      "expected": {
+        "outcome": "conflict",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "edit-edit"
+      }
+    },
+    {
+      "id": "conflict-delete-edit",
+      "baseGraph": "single-live",
+      "operationId": "matrix-conflict-delete-edit",
+      "operationLabel": "Delete versus edit",
+      "intent": "conflict-delete-edit",
+      "execution": "core",
+      "expected": {
+        "outcome": "conflict",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "delete-edit"
+      }
+    },
+    {
+      "id": "conflict-move-delete",
+      "baseGraph": "single-live",
+      "operationId": "matrix-conflict-move-delete",
+      "operationLabel": "Move versus delete",
+      "intent": "conflict-move-delete",
+      "execution": "core",
+      "expected": {
+        "outcome": "conflict",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "move-delete"
+      }
+    },
+    {
+      "id": "same-bytes-two-ids",
+      "baseGraph": "empty",
+      "operationId": "matrix-same-bytes-two-ids",
+      "operationLabel": "Create two identities from shared bytes",
+      "intent": "same-bytes-two-ids",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "new",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "shared-state-distinct-revision"
+      }
+    },
+    {
+      "id": "hardlink",
+      "baseGraph": "single-live",
+      "operationId": "matrix-hardlink",
+      "operationLabel": "Observe hardlink",
+      "intent": "adapter-hardlink",
+      "execution": "adapter-classification",
+      "expected": {
+        "outcome": "adapter-only",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "link-policy-required"
+      }
+    },
+    {
+      "id": "symlink",
+      "baseGraph": "single-live",
+      "operationId": "matrix-symlink",
+      "operationLabel": "Observe symlink",
+      "intent": "adapter-symlink",
+      "execution": "adapter-classification",
+      "expected": {
+        "outcome": "adapter-only",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "link-policy-required"
+      }
+    },
+    {
+      "id": "git-checkout",
+      "baseGraph": "single-live",
+      "operationId": "matrix-git-checkout",
+      "operationLabel": "Git checkout",
+      "intent": "adapter-git-checkout",
+      "execution": "adapter-classification",
+      "expected": {
+        "outcome": "adapter-only",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "local-projection"
+      }
+    },
+    {
+      "id": "git-reset",
+      "baseGraph": "single-live",
+      "operationId": "matrix-git-reset",
+      "operationLabel": "Git reset",
+      "intent": "adapter-git-reset",
+      "execution": "adapter-classification",
+      "expected": {
+        "outcome": "adapter-only",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "local-projection"
+      }
+    },
+    {
+      "id": "git-commit",
+      "baseGraph": "single-live",
+      "operationId": "matrix-git-commit",
+      "operationLabel": "Git commit",
+      "intent": "adapter-git-commit",
+      "execution": "adapter-classification",
+      "expected": {
+        "outcome": "adapter-only",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "local-projection"
+      }
+    },
+    {
+      "id": "git-merge",
+      "baseGraph": "single-live",
+      "operationId": "matrix-git-merge",
+      "operationLabel": "Git merge",
+      "intent": "adapter-git-merge",
+      "execution": "adapter-classification",
+      "expected": {
+        "outcome": "adapter-only",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "local-projection"
+      }
+    },
+    {
+      "id": "git-revert",
+      "baseGraph": "single-live",
+      "operationId": "matrix-git-revert",
+      "operationLabel": "Git revert",
+      "intent": "adapter-git-revert",
+      "execution": "adapter-classification",
+      "expected": {
+        "outcome": "adapter-only",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "local-projection"
+      }
+    },
+    {
+      "id": "browser-edit",
+      "baseGraph": "single-live",
+      "operationId": "matrix-browser-edit",
+      "operationLabel": "Browser edit",
+      "intent": "client-browser-edit",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "client-neutral"
+      }
+    },
+    {
+      "id": "server-agent-edit",
+      "baseGraph": "single-live",
+      "operationId": "matrix-server-agent-edit",
+      "operationLabel": "Server agent edit",
+      "intent": "client-server-agent-edit",
+      "execution": "core",
+      "expected": {
+        "outcome": "changed",
+        "resourceId": "stable",
+        "revisionId": "new",
+        "workspaceVersionId": "new",
+        "acceptedRef": "advanced",
+        "classification": "client-neutral"
+      }
+    },
+    {
+      "id": "ownership-transfer",
+      "baseGraph": "single-live",
+      "operationId": "matrix-ownership-transfer",
+      "operationLabel": "Transfer ownership",
+      "intent": "external-ownership-transfer",
+      "execution": "external-authority",
+      "expected": {
+        "outcome": "external-authority-only",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "external-only",
+        "classification": "ownership-not-identity"
+      }
+    },
+    {
+      "id": "recovery-invalid",
+      "baseGraph": "single-live",
+      "operationId": "matrix-recovery-invalid",
+      "operationLabel": "Capture invalid working bytes",
+      "intent": "recovery-invalid",
+      "execution": "core",
+      "expected": {
+        "outcome": "recovery-candidate",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "parse-failed"
+      }
+    },
+    {
+      "id": "backup-restore",
+      "baseGraph": "single-live",
+      "operationId": "matrix-backup-restore",
+      "operationLabel": "Strict backup restore",
+      "intent": "codec-backup-restore",
+      "execution": "codec",
+      "expected": {
+        "outcome": "imported",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "strict-import"
+      }
+    },
+    {
+      "id": "retry-exact",
+      "baseGraph": "single-live",
+      "operationId": "matrix-retry-exact",
+      "operationLabel": "Retry exact intent",
+      "intent": "receipt-exact-retry",
+      "execution": "core",
+      "expected": {
+        "outcome": "replay",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "replayed",
+        "classification": "same-intent"
+      }
+    },
+    {
+      "id": "operation-id-misuse",
+      "baseGraph": "single-live",
+      "operationId": "matrix-operation-id-misuse",
+      "operationLabel": "Reuse operation ID for different intent",
+      "intent": "receipt-operation-misuse",
+      "execution": "core",
+      "expected": {
+        "outcome": "rejected",
+        "resourceId": "stable",
+        "revisionId": "stable",
+        "workspaceVersionId": "stable",
+        "acceptedRef": "unchanged",
+        "classification": "operation-id-reused"
+      }
+    }
+  ]
+}

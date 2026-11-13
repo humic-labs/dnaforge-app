@@ -1,0 +1,629 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "corpus-02-part-inventory",
+  "title": "Part inventory and incoming QC",
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "storage": {
+    "type": "database",
+    "table": "pages",
+    "id": "corpus-02-part-inventory"
+  },
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Part inventory and incoming QC"
+          }
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Directive \u2014 Establish that every part is the sequence it claims to be, before it enters an assembly."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Why this is entry 02 and not an appendix"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Every downstream measurement inherits the identity of these parts. A mislabelled RBS does not fail loudly; it produces a clean, reproducible, wrong number, and the error is only discovered when a model stops fitting three months later."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Promoter ladder"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Anderson series, spanning roughly two orders of magnitude: "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-08928405",
+              "label": "J23100 (strong)",
+              "entityType": "sequence",
+              "entityId": "sample-08928405",
+              "path": "sequences/kits/moclo-cidar/J23100_AB"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-0bb366b5",
+              "label": "J23102",
+              "entityType": "sequence",
+              "entityId": "sample-0bb366b5",
+              "path": "sequences/kits/moclo-cidar/J23102_AB"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-525cf33d",
+              "label": "J23106 (medium)",
+              "entityType": "sequence",
+              "entityId": "sample-525cf33d",
+              "path": "sequences/kits/moclo-cidar/J23106_AB"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-e1682855",
+              "label": "J23107",
+              "entityType": "sequence",
+              "entityId": "sample-e1682855",
+              "path": "sequences/kits/moclo-cidar/J23107_AB"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-e1d41a3d",
+              "label": "J23116 (weak)",
+              "entityType": "sequence",
+              "entityId": "sample-e1d41a3d",
+              "path": "sequences/kits/moclo-cidar/J23116_AB"
+            }
+          },
+          {
+            "type": "text",
+            "text": "."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The published relative strengths are used as priors only. They were measured in a different host and a different backbone, so they are re-measured in entry 03."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Translation initiation"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Monocistronic RBS ladder: "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-07149c5d",
+              "label": "B0032m (weak RBS)",
+              "entityType": "sequence",
+              "entityId": "sample-07149c5d",
+              "path": "sequences/kits/moclo-cidar/B0032m_BC"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-a21404dd",
+              "label": "B0033m",
+              "entityType": "sequence",
+              "entityId": "sample-a21404dd",
+              "path": "sequences/kits/moclo-cidar/B0033m_BC"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-7981ffa1",
+              "label": "B0034m (strong RBS)",
+              "entityType": "sequence",
+              "entityId": "sample-7981ffa1",
+              "path": "sequences/kits/moclo-cidar/B0034m_BC"
+            }
+          },
+          {
+            "type": "text",
+            "text": "."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Bicistronic designs "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-2d29c535",
+              "label": "BCD2",
+              "entityType": "sequence",
+              "entityId": "sample-2d29c535",
+              "path": "sequences/kits/moclo-cidar/BCD2_BC"
+            }
+          },
+          {
+            "type": "text",
+            "text": " and "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-bfb0490f",
+              "label": "BCD12",
+              "entityType": "sequence",
+              "entityId": "sample-bfb0490f",
+              "path": "sequences/kits/moclo-cidar/BCD12_BC"
+            }
+          },
+          {
+            "type": "text",
+            "text": " are held in reserve for entry 14, where context-independence matters more than absolute strength."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Reporters and regulators"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reporters: "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-694681f1",
+              "label": "E1010m (mRFP)",
+              "entityType": "sequence",
+              "entityId": "sample-694681f1",
+              "path": "sequences/kits/moclo-cidar/E1010m_CD"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-4ef35c11",
+              "label": "E0040m (GFP)",
+              "entityType": "sequence",
+              "entityId": "sample-4ef35c11",
+              "path": "sequences/kits/moclo-cidar/E0040m_CD"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-359938dd",
+              "label": "eBFP2",
+              "entityType": "sequence",
+              "entityId": "sample-359938dd",
+              "path": "sequences/kits/moclo-cidar/eBFP2_CD"
+            }
+          },
+          {
+            "type": "text",
+            "text": ". Spectrally separable, so a three-colour readout is possible without deconvolution."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Regulators: "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-ff80508d",
+              "label": "C0012m (LacI)",
+              "entityType": "sequence",
+              "entityId": "sample-ff80508d",
+              "path": "sequences/kits/moclo-cidar/C0012m_CD"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-a8dc997d",
+              "label": "C0040 (TetR)",
+              "entityType": "sequence",
+              "entityId": "sample-a8dc997d",
+              "path": "sequences/kits/moclo-cidar/C0040_CD"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-4d0b00cd",
+              "label": "C0062 (LuxR)",
+              "entityType": "sequence",
+              "entityId": "sample-4d0b00cd",
+              "path": "sequences/kits/moclo-cidar/C0062_CD"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-77b7ffc5",
+              "label": "C0080 (AraC)",
+              "entityType": "sequence",
+              "entityId": "sample-77b7ffc5",
+              "path": "sequences/kits/moclo-cidar/C0080_CD"
+            }
+          },
+          {
+            "type": "text",
+            "text": "."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Termination and vectors"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Terminator in each required MoClo position: "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-5427ea3f",
+              "label": "B0015 (DE)",
+              "entityType": "sequence",
+              "entityId": "sample-5427ea3f",
+              "path": "sequences/kits/moclo-cidar/B0015_DE"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-c7505d5d",
+              "label": "B0015 (DF)",
+              "entityType": "sequence",
+              "entityId": "sample-c7505d5d",
+              "path": "sequences/kits/moclo-cidar/B0015_DF"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-e80456db",
+              "label": "B0015 (DG)",
+              "entityType": "sequence",
+              "entityId": "sample-e80456db",
+              "path": "sequences/kits/moclo-cidar/B0015_DG"
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-4950fd2d",
+              "label": "B0015 (DH)",
+              "entityType": "sequence",
+              "entityId": "sample-4950fd2d",
+              "path": "sequences/kits/moclo-cidar/B0015_DH"
+            }
+          },
+          {
+            "type": "text",
+            "text": "."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Destination vectors: "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-84ad4efb",
+              "label": "DVA_AE",
+              "entityType": "sequence",
+              "entityId": "sample-84ad4efb",
+              "path": "sequences/kits/moclo-cidar/DVA_AE"
+            }
+          },
+          {
+            "type": "text",
+            "text": " and "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-567fd5b7",
+              "label": "DVK_AE",
+              "entityType": "sequence",
+              "entityId": "sample-567fd5b7",
+              "path": "sequences/kits/moclo-cidar/DVK_AE"
+            }
+          },
+          {
+            "type": "text",
+            "text": " for single units; "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-825ea421",
+              "label": "DVK_EF",
+              "entityType": "sequence",
+              "entityId": "sample-825ea421",
+              "path": "sequences/kits/moclo-cidar/DVK_EF"
+            }
+          },
+          {
+            "type": "text",
+            "text": " and "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-5d7adb95",
+              "label": "DVK_FG",
+              "entityType": "sequence",
+              "entityId": "sample-5d7adb95",
+              "path": "sequences/kits/moclo-cidar/DVK_FG"
+            }
+          },
+          {
+            "type": "text",
+            "text": " for multi-unit assemblies."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "QC outcome"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Every part above was verified by full-plasmid sequencing. Junction reads are the ones that matter: a correct interior with a scrambled fusion site is the failure this catches."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Related entries"
+          }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-01-programme-charter",
+                      "label": "01 \u2014 Programme charter",
+                      "entityType": "page",
+                      "entityId": "corpus-01-programme-charter"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-03-promoter-characterisation",
+                      "label": "03 \u2014 Promoter strength re-characterisation in the working backbone",
+                      "entityType": "page",
+                      "entityId": "corpus-03-promoter-characterisation"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-14-context-independence",
+                      "label": "14 \u2014 Bicistronic designs and the RBS context problem",
+                      "entityType": "page",
+                      "entityId": "corpus-14-context-independence"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

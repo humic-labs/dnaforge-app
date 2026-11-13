@@ -1,0 +1,50 @@
+{
+  "schema": "dnaforge.native-workspace-manifest.v2",
+  "entities": [
+    {
+      "id": "7edc8937-2341-4143-8830-11f3f57b02ac",
+      "type": "sample",
+      "name": "Agent duplicate strain",
+      "placement": {
+        "kind": "catalog-record",
+        "parentRelativePath": "Strain Alpha",
+        "displayName": "Agent duplicate strain",
+        "catalogType": "sample",
+        "presentationKind": "strain"
+      },
+      "lims": {
+        "kind": "strain",
+        "name": "Agent duplicate strain",
+        "registrationStatus": "tracked",
+        "domainStatus": null,
+        "createdAt": 0,
+        "fields": {
+          "genotypeCanonical": "his3-DELTA-1"
+        }
+      }
+    },
+    {
+      "id": "ade804b1-c0c3-4b3e-a812-d9f2fc047514",
+      "type": "sample",
+      "name": "Agent duplicate strain",
+      "placement": {
+        "kind": "catalog-record",
+        "parentRelativePath": "Strain Beta",
+        "displayName": "Agent duplicate strain",
+        "catalogType": "sample",
+        "presentationKind": "strain"
+      },
+      "lims": {
+        "kind": "strain",
+        "name": "Agent duplicate strain",
+        "registrationStatus": "tracked",
+        "domainStatus": null,
+        "createdAt": 0,
+        "fields": {
+          "genotypeCanonical": "leu2-DELTA-0"
+        }
+      }
+    }
+  ],
+  "links": []
+}

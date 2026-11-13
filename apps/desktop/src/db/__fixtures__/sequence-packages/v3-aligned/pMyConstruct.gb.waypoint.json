@@ -1,0 +1,9 @@
+{
+  "type": "alignment-history",
+  "version": "2.0",
+  "reference": { "name": "pMyConstruct", "checksum": "sha256:fixture" },
+  "savedAt": "2026-01-01T00:00:00.000Z",
+  "activeSessionId": null,
+  "sessions": [],
+  "viewPreferences": {}
+}

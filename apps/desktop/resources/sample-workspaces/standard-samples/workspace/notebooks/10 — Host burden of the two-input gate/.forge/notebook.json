@@ -1,0 +1,205 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "corpus-10-burden-measurement",
+  "title": "Host burden of the two-input gate",
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "storage": {
+    "type": "database",
+    "table": "pages",
+    "id": "corpus-10-burden-measurement"
+  },
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Host burden of the two-input gate"
+          }
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Directive \u2014 Measure the growth cost now, so the three-input result can be attributed to design rather than to physiology."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Method"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Specific growth rate from OD600 across the exponential window, gate versus empty "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-825ea421",
+              "label": "DVK_EF",
+              "entityType": "sequence",
+              "entityId": "sample-825ea421",
+              "path": "sequences/kits/moclo-cidar/DVK_EF",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ", four biological replicates."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Growth rate, not final OD. Final OD conflates rate with yield and is insensitive to exactly the burden being looked for."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Result"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Fully induced gate grows 14 percent slower than the empty-vector control. Uninduced is within noise, so the cost is expression, not plasmid maintenance."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Projection, and why it is only a projection"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Naive linear extrapolation puts a three-input gate near 21 percent, just outside the charter limit. Burden is not linear in expression load, so this is a flag rather than a prediction \u2014 entry 11 tests mitigation before entry 12 spends the build."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Related entries"
+          }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-09-two-input-gate",
+                      "label": "09 \u2014 Two-input AND gate",
+                      "entityType": "page",
+                      "entityId": "corpus-09-two-input-gate"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-11-burden-mitigation",
+                      "label": "11 \u2014 Burden mitigation via copy number and marker choice",
+                      "entityType": "page",
+                      "entityId": "corpus-11-burden-mitigation"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-16-growth-phase-robustness",
+                      "label": "16 \u2014 Gate behaviour across the full growth curve",
+                      "entityType": "page",
+                      "entityId": "corpus-16-growth-phase-robustness"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+Primer ID	Oligo Sequence	Notes	Melting Temp
+OL001	ATGCGATCGATCGATCG	Colony PCR forward	54.2
+OL002	GCTAGCTAGCTAGCTAG	Colony PCR reverse	52.8
+OL003	AATTCCGGAATTCCGG	Restriction site check	51.5
+OL004	GGATCCGGATCCGGATCC	BamHI site verification	58.3
+OL005	GAATTCGAATTCGAATTC	EcoRI site verification	52.1
+OL006	CTCGAGCTCGAGCTCGAG	XhoI site verification	58.0
+OL007	AAGCTTAAGCTTAAGCTT	HindIII site verification	50.4
+OL008	GCGGCCGCGGCCGCGGCC	NotI site verification	72.5

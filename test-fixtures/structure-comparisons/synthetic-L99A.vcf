@@ -1,0 +1,6 @@
+##fileformat=VCFv4.2
+##contig=<ID=comparison_control,length=495>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Declared synthetic calibration counts">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	control
+comparison_control	295	L99A-control	CT	GC	.	PASS	.	GT:AD	1:0,10

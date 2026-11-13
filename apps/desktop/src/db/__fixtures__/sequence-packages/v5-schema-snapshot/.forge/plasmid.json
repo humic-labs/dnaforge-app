@@ -1,0 +1,36 @@
+{
+  "schema": "waypoint.sequence.v1",
+  "kind": "sequence",
+  "formatVersion": 5,
+  "id": "fixture-v5-schema-snapshot",
+  "name": "pLegacyV5",
+  "updatedAt": "2026-08-20T00:00:00.000Z",
+  "product": {
+    "file": "pLegacyV5.gb",
+    "topology": "circular"
+  },
+  "members": [],
+  "entity": {
+    "schema": {
+      "schemaId": "schema-entity-sequence",
+      "schemaRevisionId": "schema-entity-sequence-v1",
+      "name": "sequence",
+      "displayName": "DNA sequence",
+      "baseKind": "sequence",
+      "fields": [
+        {
+          "key": "description",
+          "label": "Description",
+          "type": "long_text",
+          "suggested": true,
+          "description": "Optional scientific or operational context for this sequence."
+        }
+      ]
+    },
+    "fields": {},
+    "registrationStatus": "tracked",
+    "domainStatus": null,
+    "registryId": null,
+    "relationships": []
+  }
+}

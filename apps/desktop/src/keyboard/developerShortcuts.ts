@@ -1,0 +1,72 @@
+import type { AppShortcut, ShortcutArea } from './shortcutRegistry';
+
+export const DEVELOPER_SHORTCUT_AREA: ShortcutArea = {
+  id: 'developer',
+  title: 'Developer',
+  description: 'These keys exist only in a development build, and only while you are not typing.',
+};
+
+export const DEVELOPER_SHORTCUTS: readonly AppShortcut[] = [
+  {
+    id: 'app.command-palette',
+    area: 'developer',
+    label: 'Command palette',
+    scope: 'development',
+    availability: 'suggested',
+    chords: [['cmd', 'shift', 'p']],
+    note: 'Not built yet. Hidden from the shipped app.',
+  },
+  {
+    id: 'dev.scenarios',
+    area: 'developer',
+    label: 'Dev Scenarios',
+    scope: 'development',
+    availability: 'active',
+    chords: [['cmd', 'shift', '.']],
+    when: 'Not typing',
+    note: 'Same key as Quote in a page.',
+    sharesChordWith: ['pages.quote'],
+  },
+  {
+    id: 'dev.webgl-trace',
+    area: 'developer',
+    label: 'WebGL trace',
+    scope: 'development',
+    availability: 'active',
+    chords: [['cmd', 'shift', '7']],
+    when: 'Not typing',
+    note: 'Same key as a numbered list in a page.',
+    sharesChordWith: ['pages.numbered-list'],
+  },
+  {
+    id: 'dev.chat-snapshot',
+    area: 'developer',
+    label: 'Chat snapshot',
+    scope: 'development',
+    availability: 'active',
+    chords: [['cmd', 'shift', '8']],
+    when: 'Not typing',
+    note: 'Same key as a bullet list in a page.',
+    sharesChordWith: ['pages.bullet-list'],
+  },
+  {
+    id: 'dev.capture-snapshot',
+    area: 'developer',
+    label: 'Capture snapshot',
+    scope: 'development',
+    availability: 'active',
+    chords: [['cmd', 'shift', '9']],
+    when: 'Not typing',
+    note: 'Same key as a task list in a page.',
+    sharesChordWith: ['pages.task-list'],
+  },
+  {
+    id: 'dev.cpu-profile',
+    area: 'developer',
+    label: 'CPU profile',
+    scope: 'development',
+    availability: 'active',
+    chords: [['cmd', 'shift', '0']],
+    when: 'Not typing',
+  },
+];

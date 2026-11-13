@@ -1,0 +1,42 @@
+LOCUS       origin_wrap_join         500 bp    DNA     circular SYN 28-APR-2026
+DEFINITION  Synthetic plasmid for the BioPython complement(join(1..N,M..L))
+            origin-wrap encoding. NOT a real construct.
+ACCESSION   origin_wrap_join_synth
+VERSION     origin_wrap_join_synth
+COMMENT     regression fixture for "complement-strand origin-wrap not
+            detected" bug. A plasmid URA3 case surfaced this — BioPython
+            (and other tools) sort the parts of `complement(join(...))`
+            ascending when the feature wraps the origin. Detection requires
+            sequence topology + length, NOT just the location string.
+
+            Three CDSs cover the cases:
+              1. ura3_like — origin-wrap encoded as complement(join(1..50,451..500)).
+                 The exact shape the parser must detect.
+              2. interior_splice — complement(join(100..150,300..400)).
+                 Real interior splicing on circular sequence (NOT a wrap).
+              3. forward_wrap — single-segment 451..50 form via standard
+                 origin-spanning notation. Sanity baseline.
+FEATURES             Location/Qualifiers
+     CDS             complement(join(1..50,451..500))
+                     /label="ura3_like"
+                     /note="origin-wrapping CDS, complement strand,
+                     BioPython-style serialization (parts ascending)"
+     CDS             complement(join(100..150,300..400))
+                     /label="interior_splice"
+                     /note="real interior splicing, NOT a wrap (parts don't
+                     touch sequence boundaries)"
+     CDS             join(451..500,1..50)
+                     /label="forward_wrap"
+                     /note="forward-strand origin-wrap, standard physical-order
+                     serialization. Existing parser detects this."
+ORIGIN
+        1 atgaaagcct ggcgtaccga ttgctgaccg gcaaaccatg accatgctgc ggcgaccatg
+       61 actgccgaag tgaccatgaa cgaagcgaag ggtacccgta ccgcgaccga aacgaccatg
+      121 actgaagaag ccgcggcgaa cgaaggtacc gtgaccacca tgcacgcgct ggaaaaaccg
+      181 gcgctgaccg gccgcgaaca ccaaaccatg accgcggcga ccatggcgct gaccgaagcg
+      241 cgtcgcgcgc tggcgcgtca caaagccacc accatggcgc tgcgcgcgca cgaagcgctg
+      301 gccaaagcga ccgcggcgaa caccgaagcg gtgcgcgcgc tgggcaaagc cgcgctggcg
+      361 ctggccaaag cgaccgaaca cgaagcgctg gccgaagcgc accgcgcgct gcgcgaagcc
+      421 ctggccaccg cgaccaaagc gctggcgcgc atggcgctgg ccaaaaccga aaccaccgcg
+      481 ctggccaacg cggcggccaa
+//

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "subseq",
+  "displayName": "subseq.bio",
+  "summary": "Protein analysis with pay-as-you-go compute.",
+  "docsUrl": "https://subseq.bio/docs/api",
+  "keyPageUrl": "https://subseq.bio/",
+  "termsUrl": "https://subseq.bio/terms",
+  "privacyUrl": "https://subseq.bio/terms",
+  "transport": "rest",
+  "baseUrl": "https://subseq.bio/api/v1",
+  "auth": { "scheme": "bearer" },
+  "verify": { "method": "GET", "target": "/account/info", "expectKey": "data" },
+  "catalog": "dynamic",
+  "jobModel": "async",
+  "staging": "multipart",
+  "cost": "rate-card",
+  "disclosure": "This uploads your sequences and input files to subseq.bio under your own subseq account. subseq.bio bills each job against that account's credits using per-program rates and a submit fee; DNAForge does not charge for it. Read subseq.bio's terms before connecting.",
+  "retentionNote": "Results are downloadable as a ZIP or per file from the job record; retention period is not published. Import results promptly.",
+  "cancellation": {
+    "mode": "provider",
+    "note": "subseq.bio can cancel queued or running jobs through its hosted job API."
+  },
+  "rateLimitRps": 2
+}

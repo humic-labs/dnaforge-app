@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "families": [
+    {
+      "id": "genbank",
+      "displayName": "GenBank",
+      "documentDescription": "GenBank DNA sequence",
+      "extensions": ["gb", "gbk", "gbff", "genbank"],
+      "capability": "editor",
+      "promptReady": true,
+      "parser": "genbank",
+      "documentIcons": {
+        "macos": "icon.icns",
+        "windows": "DNAForge.exe"
+      },
+      "macos": {
+        "contentType": "com.dnaforge.genbank",
+        "ownership": "exported",
+        "conformsTo": ["public.plain-text"],
+        "mimeTypes": ["chemical/seq-na-genbank"],
+        "role": "Editor",
+        "rank": "Alternate"
+      },
+      "windows": {
+        "progId": "DNAForge.GenBank"
+      }
+    },
+    {
+      "id": "snapgene",
+      "displayName": "SnapGene DNA",
+      "documentDescription": "SnapGene DNA document",
+      "extensions": ["dna"],
+      "capability": "viewer",
+      "promptReady": false,
+      "readinessBlocker": "format-validation-pending",
+      "parser": "snapgene",
+      "documentIcons": {
+        "macos": "icon.icns",
+        "windows": "DNAForge.exe"
+      },
+      "macos": {
+        "contentType": "com.snapgene.dna",
+        "ownership": "imported",
+        "conformsTo": ["public.data"],
+        "mimeTypes": [],
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      "windows": {
+        "progId": "DNAForge.SnapGene"
+      }
+    }
+  ]
+}

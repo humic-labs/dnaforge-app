@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "wildcardCapability": "*",
+  "implications": {
+    "write-workspace": ["edit-primers", "edit-protocols"]
+  }
+}

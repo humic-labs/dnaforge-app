@@ -1,0 +1,15 @@
+diff --git a/dist/index.js b/dist/index.js
+index f7122ee3659d7e850f272e94210bac7a96c00d0e..96f13f1d2a9903e4a1527100b2aa60ee591c2154 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -315,6 +315,10 @@ function flattenConfigOverrides(value, prefix, overrides) {
+       throw new Error("Codex config overrides must be a plain object");
+     }
+   }
++  if (prefix === "mcp_servers") {
++    overrides.push(`${prefix}=${toTomlValue(value, prefix)}`);
++    return;
++  }
+   const entries = Object.entries(value);
+   if (!prefix && entries.length === 0) {
+     return;

@@ -1,0 +1,30 @@
+{
+  "schema": "waypoint.sequence.v1",
+  "kind": "sequence",
+  "formatVersion": 3,
+  "id": "fixture-v3-aligned",
+  "name": "pMyConstruct",
+  "updatedAt": "2026-01-01T00:00:00.000Z",
+  "product": {
+    "file": "pMyConstruct.gb",
+    "topology": "circular"
+  },
+  "members": [
+    {
+      "id": "primer-export:pMyConstruct.primers.csv",
+      "role": "primer-export",
+      "path": "contents/pMyConstruct.primers.csv",
+      "replaceable": true,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "assembly": {
+    "primers": {
+      "csv": "contents/pMyConstruct.primers.csv"
+    },
+    "accepted": {
+      "type": "accepted_assembly",
+      "schemaVersion": 1
+    }
+  }
+}

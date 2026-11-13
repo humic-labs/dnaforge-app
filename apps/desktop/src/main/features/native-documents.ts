@@ -1,0 +1,443 @@
+import { createNativeNotebookWorkingCopies } from '../native-notebook-working-copies';
+import { MarkdownNotebookImporter } from '../markdown-notebook-import';
+import { nativeNotebookDocumentAdapter } from '../native-notebook-document-adapter';
+import { registerNotebookOwnerHandlers } from '../ipc/notebook';
+import {
+  createFileDocumentClientSync,
+  type FileDocumentClientReadinessReader,
+} from '../file-document-client-sync';
+import { createNativeFileDocuments } from '../native-file-documents';
+import { createNativeSequenceWorkingCopies } from '../native-sequence-working-copies';
+import { NativeDocumentDispatcher } from '../native-document-dispatcher';
+import { createWorkspaceFileRelocator } from '../workspace-file-relocation';
+import { nativeSequenceDocumentAdapter } from '../native-sequence-document-adapter';
+import { createNativeWorkspaceCommands } from '../native-workspace-commands';
+import type { AdministrationOwner } from '../administration-owner';
+import { createNativeImportReviews } from '../native-import-reviews';
+import { importReviewContract } from '../../shared/ipc/import-review.contract';
+import {
+  settleNativeDirtyDocuments,
+  type NativeDirtySettlementRequest,
+} from '../../shared/native-dirty-documents';
+import { registerNativeDirtyStateProvider } from '../dirty-state-cache';
+import type { IpcMainInvokeEvent, WebContents } from 'electron';
+import { handleGroup, sendRendererIpc } from '../../shared/ipc-contract';
+import type { NativeDocumentWorkspaceRootsRequest } from '../../shared/native-document-workspaces';
+import type { FileDocumentFlushPurpose } from '../../shared/file-document-client-sync';
+import { assertSafePath, assertSafeWritablePath } from '../ipc/path-allowlist';
+import type { NativeAnnotationDocumentBarrier } from '../managed-annotation-document-command';
+import { NativeAnnotationDocumentOwner } from '../native-annotation-document-owner';
+import { startNativeDocumentCommandServer } from '../native-document-command-server';
+import { nativeDocumentProfileKey } from '../native-document-owner-identity';
+import {
+  createNativeDocumentMutationBarrier,
+  createNativeDocumentRendererPublisher,
+} from '../native-document-renderer';
+import { NativeDocumentStartupRecovery } from '../native-document-startup-recovery';
+import { NativeDocumentWorkspaces } from '../native-document-workspaces';
+import { getDb } from '../ipc/database';
+import {
+  nativeDocumentFetch,
+  registerNativeDocumentCommandServer,
+  sidecarSessionAuthority,
+} from '../sidecar-session-runtime';
+import { withNativeDocumentSettlementTestSeam } from './test-hooks';
+import { workspaceNativeDocumentsContract } from '../../shared/ipc/workspace-native-documents.contract';
+
+type RendererPublisher = ReturnType<typeof createNativeDocumentRendererPublisher>;
+type CommandServer = Awaited<ReturnType<typeof startNativeDocumentCommandServer>>;
+
+export interface NativeDocumentsStart {
+  readonly editingClient: 'renderer' | 'none';
+  readonly canAssertNoEditingClient: () => boolean;
+}
+
+export type CurrentRendererLoad = (event: IpcMainInvokeEvent, loadId: string) => boolean;
+
+export function createNativeDocuments(
+  options: { registerDirtyState?: typeof registerNativeDirtyStateProvider } = {}
+) {
+  const workspaces = new NativeDocumentWorkspaces({
+    resolveRoot: (root) => assertSafeWritablePath(root, { requireAbsolute: true }),
+    resolveReadableRoot: (root) => assertSafePath(root, { requireAbsolute: true }),
+  });
+  let profileKey: string | null = null;
+  let profileDirectory: string | null = null;
+  const fileRelocations = createWorkspaceFileRelocator({
+    db: getDb,
+    fileDocuments: () => fileDocuments,
+  });
+  const sequenceDocuments = createNativeSequenceWorkingCopies({
+    db: getDb,
+    workspaceRoots: () => workspaces.readableRoots(),
+    writableWorkspaceRoots: () => workspaces.roots(),
+    captureWorkspace: (root, mutating) =>
+      mutating ? workspaces.capture(root) : workspaces.captureReadable(root),
+    profileDirectory: () => {
+      if (!profileDirectory) throw new Error('Sequence documents started before their profile.');
+      return profileDirectory;
+    },
+  });
+  const ordinaryFiles = createNativeFileDocuments({
+    db: getDb,
+    workspaceRoots: () => workspaces.readableRoots(),
+    writableWorkspaceRoots: () => workspaces.roots(),
+    captureWorkspace: (root, mutating) =>
+      mutating ? workspaces.capture(root) : workspaces.captureReadable(root),
+    profileDirectory: () => {
+      if (!profileDirectory) throw new Error('File documents started before their profile.');
+      return profileDirectory;
+    },
+  });
+  const notebookDocuments = createNativeNotebookWorkingCopies({
+    db: getDb,
+    relocateEntityFile: (input) => fileRelocations.relocateEntityFile(input),
+    workspaceRoots: () => workspaces.readableRoots(),
+    writableWorkspaceRoots: () => workspaces.roots(),
+    captureWorkspace: (root, mutating) =>
+      mutating ? workspaces.capture(root) : workspaces.captureReadable(root),
+    profileDirectory: () => {
+      if (!profileDirectory) throw new Error('Notebook documents started before their profile.');
+      return profileDirectory;
+    },
+  });
+  const fileDocuments = new NativeDocumentDispatcher({
+    db: getDb,
+    workspaceRoots: () => workspaces.readableRoots(),
+    ordinary: ordinaryFiles,
+    adapters: [
+      nativeSequenceDocumentAdapter(sequenceDocuments),
+      nativeNotebookDocumentAdapter(notebookDocuments),
+    ],
+  });
+  const markdownImporter = new MarkdownNotebookImporter({
+    readableRoots: () => workspaces.readableRoots(),
+    onIssue: (issue) => {
+      const target = notebookTarget?.();
+      if (target && !target.isDestroyed())
+        sendRendererIpc(target, 'notebook:markdownAdoptionFailed', issue);
+    },
+    db: getDb,
+    roots: () => workspaces.roots(),
+    captureWorkspace: (root) => workspaces.capture(root),
+    withCleanPaths: async (paths, operation) => {
+      await flushFileDocumentClients();
+      return fileDocuments.withCleanPaths(paths, operation);
+    },
+    onAdopted: (result) => {
+      const target = notebookTarget?.();
+      if (target && !target.isDestroyed())
+        sendRendererIpc(target, 'notebook:markdownAdopted', result);
+    },
+  });
+  const importReviews = createNativeImportReviews({
+    db: getDb,
+    workspaceRoots: () => workspaces.readableRoots(),
+    captureWorkspace: (root) => workspaces.capture(root),
+    profileDirectory: () => {
+      if (!profileDirectory) throw new Error('Import reviews started before their profile.');
+      return profileDirectory;
+    },
+  });
+  let publishHistory: ((root: string) => void) | undefined;
+  const workspaceCommands = createNativeWorkspaceCommands({
+    db: getDb,
+    readableRoots: () => workspaces.readableRoots(),
+    writableRoots: () => workspaces.roots(),
+    captureWorkspace: (root, mutating) =>
+      mutating ? workspaces.capture(root) : workspaces.captureReadable(root),
+    assertFileSaved: (path) => fileDocuments.assertClean(path),
+    publishHistory: (root) => publishHistory?.(root),
+  });
+  let administration: AdministrationOwner | null = null;
+  let notebookTarget: (() => WebContents | null) | null = null;
+  let notebookHandlersRegistered = false;
+  let detachImportReviewPublisher: (() => void) | null = null;
+  let rendererPublisher: RendererPublisher | null = null;
+  let fileClientSync: ReturnType<typeof createFileDocumentClientSync> | null = null;
+  let fileEditingClient: 'renderer' | 'none' = 'renderer';
+  let assertNoFileEditingClient: (() => boolean) | undefined;
+  let commandServer: CommandServer | null = null;
+  let detachCommandServer: (() => void) | null = null;
+  let startupRecovery: NativeDocumentStartupRecovery | null = null;
+  const dirtyStateProvider = options.registerDirtyState?.({
+    listDirty: () => fileDocuments.listDirty(),
+    subscribe: (listener) => fileDocuments.subscribe(listener),
+    flush: flushDirtyDocumentClients,
+  });
+
+  function bindProfile(userDataPath: string): void {
+    profileDirectory = userDataPath;
+    profileKey = nativeDocumentProfileKey(userDataPath);
+    sidecarSessionAuthority.bindNativeDocumentProfile(profileKey);
+    void dirtyStateProvider?.refresh();
+  }
+
+  async function start({ editingClient, canAssertNoEditingClient }: NativeDocumentsStart) {
+    fileEditingClient = editingClient;
+    assertNoFileEditingClient = canAssertNoEditingClient;
+    if (profileKey === null) throw new Error('Native documents started before their profile.');
+    const boundProfileKey = profileKey;
+    const nativeAuthority = sidecarSessionAuthority.nativeDocumentAuthority(
+      sidecarSessionAuthority.snapshot()
+    );
+    if (!nativeAuthority && editingClient === 'none') {
+      throw new Error('The managed runtime requires its own native document authority.');
+    }
+    if (!nativeAuthority) return;
+    const owner = new NativeAnnotationDocumentOwner({
+      nativeOwnerInstanceId: nativeAuthority.ownerInstanceId,
+      db: getDb,
+      workspaceRoots: () => workspaces.roots(),
+      fetch: withNativeDocumentSettlementTestSeam(nativeDocumentFetch),
+      prepare: async (actionId, document) => {
+        const assertWorkspace = workspaces.capture(document.workspaceRoot);
+        let barrier: NativeAnnotationDocumentBarrier;
+        if (editingClient === 'none') {
+          const assertNoEditingClient = () => {
+            if (!canAssertNoEditingClient()) {
+              throw new Error('This runtime cannot assert that no editing client exists.');
+            }
+          };
+          assertNoEditingClient();
+          let settled = false;
+          barrier = {
+            assertCurrent() {
+              if (settled) throw new Error('Document protection was already released.');
+              assertNoEditingClient();
+            },
+            async finish() {
+              assertNoEditingClient();
+              settled = true;
+              return 'not-required';
+            },
+            abort() {
+              settled = true;
+            },
+          };
+        } else {
+          const publisher = rendererPublisher;
+          if (!publisher) throw new Error('Document editing protection is unavailable.');
+          barrier = await createNativeDocumentMutationBarrier(publisher, actionId)(document);
+        }
+        let nativeProtection: Awaited<ReturnType<typeof sequenceDocuments.protectCleanDocument>>;
+        try {
+          await flushFileDocumentClients();
+          nativeProtection = await sequenceDocuments.protectCleanDocument(
+            document.documentId,
+            document.sourcePath
+          );
+        } catch (error) {
+          barrier.abort('unchanged');
+          throw error;
+        }
+        return {
+          assertCurrent() {
+            assertWorkspace();
+            barrier.assertCurrent();
+            nativeProtection.assertCurrent();
+          },
+          async finish() {
+            await nativeProtection.finish();
+            return barrier.finish();
+          },
+          abort(disposition) {
+            nativeProtection.abort(disposition);
+            barrier.abort(disposition);
+          },
+        };
+      },
+    });
+    commandServer = await startNativeDocumentCommandServer({
+      owner,
+      fileOwner: fileDocuments,
+      sequenceOwner: sequenceDocuments,
+      notebookOwner: notebookDocuments,
+      flushFileClients: () => flushFileDocumentClients(),
+      workspaceCommands,
+      importReviews,
+      administration: {
+        execute: (input, assertCurrent, agent) => {
+          if (!administration)
+            throw new Error(
+              'ADMINISTRATION_UNAVAILABLE: The native administration owner is not ready.'
+            );
+          return administration.execute(input, assertCurrent, agent);
+        },
+      },
+      getAuthority() {
+        const current = sidecarSessionAuthority.snapshot();
+        return current.state === 'ready'
+          ? (sidecarSessionAuthority.nativeDocumentAuthority(current) ?? null)
+          : null;
+      },
+    });
+    detachCommandServer = registerNativeDocumentCommandServer(
+      commandServer.url,
+      nativeAuthority.ownerInstanceId
+    );
+    startupRecovery = new NativeDocumentStartupRecovery({
+      owner,
+      nativeOwnerInstanceId: nativeAuthority.ownerInstanceId,
+      profileKey: boundProfileKey,
+      ready: async () => {
+        const snapshot = await sidecarSessionAuthority.waitForReadySnapshot();
+        return () => sidecarSessionAuthority.isCurrent(snapshot);
+      },
+      report: (result) => console.log('[NativeDocuments] Startup observation:', result),
+    });
+    if (workspaces.roots().length > 0) {
+      void startupRecovery.request();
+    }
+  }
+
+  function startRendererPublisher(
+    getTarget: () => WebContents | null,
+    getReadiness: FileDocumentClientReadinessReader = () => undefined
+  ): void {
+    notebookTarget = getTarget;
+    if (!notebookHandlersRegistered) {
+      registerNotebookOwnerHandlers(
+        notebookDocuments,
+        () => notebookTarget?.() ?? null,
+        markdownImporter
+      );
+      notebookHandlersRegistered = true;
+    }
+    publishHistory = (root) => {
+      const target = getTarget();
+      if (target && !target.isDestroyed())
+        sendRendererIpc(target, 'shell:projectHistoryChanged', root);
+    };
+    fileClientSync?.close();
+    fileClientSync = createFileDocumentClientSync(getTarget, getReadiness);
+    detachImportReviewPublisher?.();
+    detachImportReviewPublisher = importReviews.subscribe((event) => {
+      const target = getTarget();
+      if (target && !target.isDestroyed()) sendRendererIpc(target, 'importReview:changed', event);
+    });
+    rendererPublisher = createNativeDocumentRendererPublisher(getTarget);
+    rendererPublisher.start();
+  }
+
+  function registerWorkspaceRootsHandler(isCurrentRendererLoad: CurrentRendererLoad): void {
+    handleGroup(importReviewContract, {
+      call: (_event, request) => importReviews.call(request),
+      snapshot: (_event, id) => importReviews.snapshot(id),
+    });
+    handleGroup(workspaceNativeDocumentsContract, {
+      setDocumentCommandRoots: async (
+        event,
+        request: NativeDocumentWorkspaceRootsRequest
+      ): Promise<boolean> => {
+        const isCurrent = () =>
+          typeof request?.loadId === 'string' && isCurrentRendererLoad(event, request.loadId);
+        if (!isCurrent()) throw new Error('Untrusted document workspace enrollment sender.');
+        const enrolled = await workspaces.replaceRoots(
+          request.roots,
+          isCurrent,
+          request.readableRoots ?? request.roots
+        );
+        void dirtyStateProvider?.refresh();
+        if (enrolled) {
+          fileDocuments.beginLegacyMigration();
+          sequenceDocuments.beginLegacyMigration();
+          notebookDocuments.beginLegacyMigration();
+          markdownImporter.refreshRoots();
+          void startupRecovery?.request();
+        }
+        return enrolled;
+      },
+    });
+  }
+
+  async function closeServerAndRecovery(): Promise<void> {
+    await markdownImporter.close();
+    const recovery = startupRecovery;
+    const server = commandServer;
+    startupRecovery = null;
+    commandServer = null;
+    await Promise.all([recovery?.close(), server?.close()]);
+    await fileDocuments.close();
+  }
+
+  function detachServer(): void {
+    const detach = detachCommandServer;
+    detachCommandServer = null;
+    detach?.();
+  }
+
+  function stopRendererPublisher(): void {
+    notebookTarget = null;
+    publishHistory = undefined;
+    fileClientSync?.close();
+    fileClientSync = null;
+    detachImportReviewPublisher?.();
+    detachImportReviewPublisher = null;
+    const publisher = rendererPublisher;
+    rendererPublisher = null;
+    publisher?.stop();
+  }
+
+  async function flushFileDocumentClients(
+    purpose: FileDocumentFlushPurpose = 'synchronize'
+  ): Promise<void> {
+    if (fileEditingClient === 'none') {
+      if (!assertNoFileEditingClient?.())
+        throw new Error('The native runtime cannot assert that no editing client exists.');
+      return;
+    }
+    if (!fileClientSync) throw new Error('FILE_DOCUMENT_CLIENT_NOT_READY');
+    await fileClientSync.flush(purpose);
+  }
+
+  async function flushDirtyDocumentClients(
+    purpose: FileDocumentFlushPurpose = 'synchronize'
+  ): Promise<void> {
+    if (fileEditingClient === 'none' || fileClientSync?.hasLiveTarget())
+      await flushFileDocumentClients(purpose);
+  }
+
+  function settleDirtyDocuments(request: NativeDirtySettlementRequest) {
+    return settleNativeDirtyDocuments(request, {
+      listDirty: () => fileDocuments.listDirty(),
+      execute: (request) => fileDocuments.execute(request),
+      beforeList: () =>
+        flushDirtyDocumentClients(request.action === 'discard' ? 'discard' : 'synchronize'),
+    });
+  }
+
+  return {
+    workspaces,
+    sequenceDocuments,
+    notebookDocuments,
+    fileDocuments,
+    fileRelocations,
+    flushFileDocumentClients,
+    flushDirtyDocumentClients,
+    settleDirtyDocuments,
+    workspaceCommands,
+    setAdministration: (owner: AdministrationOwner) => {
+      if (administration && administration !== owner)
+        throw new Error('The native administration owner is already bound.');
+      administration = owner;
+    },
+    acknowledgeFileDocumentFlush: (
+      sender: WebContents,
+      ack: import('../../shared/file-document-client-sync').FileDocumentClientFlushAck
+    ) => fileClientSync?.acknowledge(sender, ack) ?? false,
+    importReviews,
+    bindProfile,
+    start,
+    startRendererPublisher,
+    rendererPublisher: (): RendererPublisher | null => rendererPublisher,
+    registerWorkspaceRootsHandler,
+    closeServerAndRecovery,
+    detachCommandServer: detachServer,
+    stopRendererPublisher,
+  };
+}
+
+export const nativeDocuments = createNativeDocuments({
+  registerDirtyState: registerNativeDirtyStateProvider,
+});

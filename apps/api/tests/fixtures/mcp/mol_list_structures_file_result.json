@@ -1,0 +1,127 @@
+{
+  "ok": true,
+  "result": {
+    "ok": true,
+    "structures": [
+      {
+        "bindingId": null,
+        "camera": {
+          "clipFar": true,
+          "fog": 15,
+          "fov": 0.7853981633974483,
+          "minFar": 0,
+          "minNear": 1,
+          "mode": "perspective",
+          "position": [
+            14.232788898066008,
+            60.57950991192681,
+            160.84470344970364
+          ],
+          "radius": 43.18226952462891,
+          "radiusMax": 43.18226952462891,
+          "target": [
+            14.232788898066008,
+            60.57950991192681,
+            48.00399524932376
+          ],
+          "up": [
+            0,
+            1,
+            0
+          ]
+        },
+        "chains": [
+          {
+            "authAsymId": "E",
+            "baseChain": "E",
+            "chainId": "E",
+            "chainLabel": "Chain E",
+            "entityId": "1",
+            "instanceId": "ASM-1",
+            "labelAsymId": "E",
+            "operator": "ASM_1",
+            "residueCount": 128,
+            "residueRange": {
+              "end": 134,
+              "start": 1
+            },
+            "residueRanges": [
+              {
+                "end": 104,
+                "start": 1
+              },
+              {
+                "end": 134,
+                "start": 111
+              }
+            ],
+            "sequenceLength": 128
+          },
+          {
+            "authAsymId": "G",
+            "baseChain": "G",
+            "chainId": "G",
+            "chainLabel": "Chain G",
+            "entityId": "2",
+            "instanceId": "ASM-1",
+            "labelAsymId": "G",
+            "operator": "ASM_1",
+            "residueCount": 219,
+            "residueRange": {
+              "end": 248,
+              "start": 19
+            },
+            "residueRanges": [
+              {
+                "end": 58,
+                "start": 19
+              },
+              {
+                "end": 192,
+                "start": 63
+              },
+              {
+                "end": 248,
+                "start": 200
+              }
+            ],
+            "sequenceLength": 219
+          }
+        ],
+        "colorMode": "chain",
+        "comparison": null,
+        "coordinateArtifact": {
+          "coordinateDigestSha256": "d665fd3b5cab41e4b773349bffe78cb882d39e9425f0ece283de5c50d5b4e1f9",
+          "entityId": "0939a321-5445-4563-bce9-80e3875784e7",
+          "format": "pdb",
+          "revisionId": "structure-coordinate:file:v1:d665fd3b5cab41e4b773349bffe78cb882d39e9425f0ece283de5c50d5b4e1f9"
+        },
+        "currentSelection": {
+          "lastMcpSelectionExpression": null,
+          "molstarElementCount": 0,
+          "molstarSelectedResidues": [],
+          "molstarStatsLabel": "",
+          "selectedResidues": [],
+          "selection": null
+        },
+        "label": "1FS0.pdb",
+        "ligands": [],
+        "proteinMapping": null,
+        "registrationId": "structure-view:file:v1:b2d7c007263ab2f829d0c5ba2fe2198e",
+        "representation": "cartoon",
+        "sceneFormat": "recipe",
+        "selectedResidues": [],
+        "sideChains": {
+          "selection": false,
+          "visibleBackbones": false
+        },
+        "source": "file",
+        "sourceId": null,
+        "structureId": "structure:file:0939a321-5445-4563-bce9-80e3875784e7:d665fd3b5cab41e4b773349bffe78cb882d39e9425f0ece283de5c50d5b4e1f9",
+        "structureViewId": "structure-view:file:v1:b2d7c007263ab2f829d0c5ba2fe2198e",
+        "viewerId": "structure:file:0939a321-5445-4563-bce9-80e3875784e7:d665fd3b5cab41e4b773349bffe78cb882d39e9425f0ece283de5c50d5b4e1f9",
+        "viewerStatus": "active"
+      }
+    ]
+  }
+}

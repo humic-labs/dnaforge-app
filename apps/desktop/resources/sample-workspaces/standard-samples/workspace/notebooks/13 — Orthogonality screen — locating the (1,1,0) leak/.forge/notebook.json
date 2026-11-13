@@ -1,0 +1,217 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "corpus-13-orthogonality-screen",
+  "title": "Orthogonality screen \u2014 locating the (1,1,0) leak",
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "storage": {
+    "type": "database",
+    "table": "pages",
+    "id": "corpus-13-orthogonality-screen"
+  },
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Orthogonality screen \u2014 locating the (1,1,0) leak"
+          }
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Directive \u2014 Attribute the leak to a specific interaction rather than to the gate as a whole."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Approach"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Pairwise: each regulator against each non-cognate promoter, one interaction per well. Nine combinations, four replicates."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Single-interaction resolution is the point. A whole-gate measurement can only say the gate leaks; it can never say which part to change."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Result"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-4d0b00cd",
+              "label": "C0062 (LuxR)",
+              "entityType": "sequence",
+              "entityId": "sample-4d0b00cd",
+              "path": "sequences/kits/moclo-cidar/C0062_CD"
+            }
+          },
+          {
+            "type": "text",
+            "text": " activates "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-84f9f52b",
+              "label": "R0040 (pTet)",
+              "entityType": "sequence",
+              "entityId": "sample-84f9f52b",
+              "path": "sequences/kits/moclo-cidar/R0040_AB"
+            }
+          },
+          {
+            "type": "text",
+            "text": " at 6 percent of its cognate activity. Nothing else exceeds 1 percent."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "That single interaction accounts for the entire (1,1,0) excess measured in entry 12 \u2014 an independent confirmation, not a fitted explanation."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Options"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Swap "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-4d0b00cd",
+              "label": "C0062 (LuxR)",
+              "entityType": "sequence",
+              "entityId": "sample-4d0b00cd",
+              "path": "sequences/kits/moclo-cidar/C0062_CD"
+            }
+          },
+          {
+            "type": "text",
+            "text": " for an orthogonal activator, at the cost of re-characterising an input; or accept a 26-fold gate with one asymmetric state. Entry 15 needs the LuxR input specifically, so the swap is deferred and the asymmetry documented."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Related entries"
+          }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-12-three-input-gate",
+                      "label": "12 \u2014 Three-input AND gate",
+                      "entityType": "page",
+                      "entityId": "corpus-12-three-input-gate"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-15-biosensor-coupling",
+                      "label": "15 \u2014 Coupling a metabolite input to the gate",
+                      "entityType": "page",
+                      "entityId": "corpus-15-biosensor-coupling"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+LOCUS       STRUCT_MG1655_MIOC    444 bp    DNA     linear   05-MAY-2026
+DEFINITION  Escherichia coli K-12 MG1655 mioC CDS slice for structure resolver regression.
+ACCESSION   .
+KEYWORDS    structure-regression; ape-label-only; no-translation; no-db-xref.
+SOURCE      E. coli K-12 MG1655
+  ORGANISM  E. coli K-12 MG1655
+FEATURES             Location/Qualifiers
+     source          1..444
+                     /organism="E. coli K-12 MG1655"
+                     /db_xref="taxon:562"
+     CDS             complement(1..444)
+                     /label="mioC CDS (flavoprotein MioC)"
+ORIGIN
+        1 ttatttgagt aaattaaccc acgatcccag ccattcttct gccggatctt ccggaatgtc
+       61 gtgatcaaga atgttgatct tcagtgtttc gcctgtctgt tttgcaccgg aatttttgag
+      121 ttctgcctcg agtttatcga tagccccaca aaaggtgtca tattcacgac tgccaatacc
+      181 gattgcgcca aagcggactg cagaaagatc gggcttctgt tcctgcaatg cttcatagaa
+      241 aggagaaagg ttgtccggaa tatctccggc accgtgggtg gagctgataa ccagccagat
+      301 ccctgaggca ggtaaatctt ctaacagcgg accgtgcagc gtttcggtgg taaaacccgc
+      361 ctcttccagc ttttcagcca ggtgttctgc tacatattcg gcaccgccga gggtgctgcc
+      421 gctgataaga gtgatatctg ccat
+//

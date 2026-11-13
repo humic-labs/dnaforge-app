@@ -1,0 +1,12 @@
+{
+  "name": "@waypoint/user-messages",
+  "version": "0.1.0",
+  "description": "Approved product messages and diagnostic display boundaries",
+  "type": "module",
+  "main": "./src/catalog.ts",
+  "types": "./src/catalog.ts",
+  "exports": {
+    ".": "./src/catalog.ts"
+  },
+  "license": "GPL-3.0-only"
+}

@@ -1,0 +1,189 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "corpus-17-long-term-stability",
+  "title": "Plasmid retention and functional stability over 100 generations",
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "storage": {
+    "type": "database",
+    "table": "pages",
+    "id": "corpus-17-long-term-stability"
+  },
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Plasmid retention and functional stability over 100 generations"
+          }
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Directive — Establish whether the gate survives serial passage, or only survives a single overnight."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Method"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Serial passage, 1:1000 daily, 10 days, roughly 100 generations, with and without selection. Retention by plating; function by re-assaying the eight input states at days 0, 5 and 10."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Result"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Under selection: 97 percent retention, ON/OFF 26-fold falling to 24-fold. Stable."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Without selection: 41 percent retention by day 10, and the retained population’s ON/OFF falls to 6-fold — worse than plasmid loss alone predicts, indicating enrichment for cells carrying a functionally degraded gate."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "The finding that matters"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Selection-free operation does not merely lose the plasmid; it selects for broken versions of it. Any deployment outside selection needs chromosomal integration, which is out of scope here and recorded in entry 18."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Related entries"
+          }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-16-growth-phase-robustness",
+                      "label": "16 — Gate behaviour across the full growth curve",
+                      "entityType": "page",
+                      "entityId": "corpus-16-growth-phase-robustness"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-15-biosensor-coupling",
+                      "label": "15 — Coupling a metabolite input to the gate",
+                      "entityType": "page",
+                      "entityId": "corpus-15-biosensor-coupling"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-18-synthesis",
+                      "label": "18 — Synthesis, open problems, and the next design cycle",
+                      "entityType": "page",
+                      "entityId": "corpus-18-synthesis"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

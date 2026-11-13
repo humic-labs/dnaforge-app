@@ -1,0 +1,94 @@
+{
+  "capabilities": [
+    {
+      "auto_install": true,
+      "components": [
+        {
+          "id": "blastn",
+          "label": "blastn",
+          "path": "/usr/local/bin/blastn",
+          "source": "downloaded",
+          "status": "ready",
+          "version": "2.13.0"
+        },
+        {
+          "id": "diamond",
+          "label": "diamond",
+          "progress": {
+            "detail": "",
+            "percent": 45.0,
+            "phase": "downloading"
+          },
+          "size_mb": 32.0,
+          "source": "downloaded",
+          "status": "downloading"
+        },
+        {
+          "id": "cmscan",
+          "label": "cmscan",
+          "source": "downloaded",
+          "status": "unavailable"
+        },
+        {
+          "id": "databases",
+          "label": "Annotation Databases",
+          "source": "downloaded",
+          "status": "unavailable"
+        }
+      ],
+      "id": "annotation",
+      "label": "Annotation Engine",
+      "source": "builtin",
+      "status": "downloading",
+      "tier": "base"
+    },
+    {
+      "auto_install": true,
+      "components": [
+        {
+          "id": "mafft",
+          "label": "MAFFT",
+          "source": "system",
+          "status": "ready"
+        }
+      ],
+      "id": "alignment",
+      "label": "Sequence Alignment",
+      "source": "builtin",
+      "status": "ready",
+      "tier": "base"
+    },
+    {
+      "auto_install": true,
+      "components": [
+        {
+          "id": "primer3",
+          "label": "Primer3",
+          "source": "builtin",
+          "status": "ready"
+        }
+      ],
+      "id": "primer_design",
+      "label": "Primer Design",
+      "source": "builtin",
+      "status": "ready",
+      "tier": "base"
+    },
+    {
+      "auto_install": true,
+      "components": [
+        {
+          "id": "restriction-sites",
+          "label": "Built-in restriction engine",
+          "source": "builtin",
+          "status": "ready"
+        }
+      ],
+      "id": "restriction_analysis",
+      "label": "Restriction Analysis",
+      "source": "builtin",
+      "status": "ready",
+      "tier": "base"
+    }
+  ]
+}

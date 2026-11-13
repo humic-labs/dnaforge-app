@@ -1,0 +1,53 @@
+{
+  "schema": "dnaforge.coverage-helper-artifact/v1",
+  "sourceCommit": "9d5aa1c02db5fad0270e46c9874fabdf5776f89d",
+  "runId": "41126030241",
+  "runAttempt": "1",
+  "host": {
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "target": "aarch64-apple-darwin",
+  "version": "dna-coverage 0.1.0 schema 2",
+  "binarySha256": "10cad0d9fb280a88861c8e2f6f0f542a67738bc3e049fcde659c7885916985e6",
+  "binaryBytes": 1388784,
+  "files": [
+    {
+      "path": ".github/workflows/dna-indexer-ci.yml",
+      "sha256": "00e1d59dbc0e32cd4967a64c3ed79397c920723205cf64e3610c54e074d39003"
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "0509766b439f47c4911404adcdcd9f969ee296c1c05a1ffb3655c619aae2c183"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "c2496278af849a0fdfa3b50758a1a4ae3cc1d1f7b9c77c2cf1268126057f4223"
+    },
+    {
+      "path": "apps/desktop/scripts/build-helpers.cjs",
+      "sha256": "f414e53539403eef71b295f606a40a91dce296cb7018ae811f7ca34a637c8bdc"
+    },
+    {
+      "path": "apps/desktop/scripts/lib/native-binary.cjs",
+      "sha256": "9b6482565eb3590bc2675be452fafaabd0cd7564a9b02e35856d7a2d310b74df"
+    },
+    {
+      "path": "scripts/coverage-helper-artifact.mjs",
+      "sha256": "b61fb079f9bc13fc4f0fabdb054c69d13f0c5bdf5b43f67a0aeff9c01ff12f72"
+    },
+    {
+      "path": "tools/dna-coverage/Cargo.toml",
+      "sha256": "56e944ca37f7c31cbd929cf8cad60253c8d5142cbf952091c12599ce088ae0d8"
+    },
+    {
+      "path": "tools/dna-coverage/src/lib.rs",
+      "sha256": "bf6b3d12b71778c04609f90eb60cc2c743dd70dca2c97b4c35c2ece021423c63"
+    },
+    {
+      "path": "tools/dna-coverage/src/main.rs",
+      "sha256": "f1005383174fed7facb9826b7fb4500c755767eca4210a23c474e3e9ef231074"
+    }
+  ],
+  "sourceIdentity": "70f9209cd4cc23be1ecb984b18f71da4c71124873fa532dfdc037600717748fb"
+}

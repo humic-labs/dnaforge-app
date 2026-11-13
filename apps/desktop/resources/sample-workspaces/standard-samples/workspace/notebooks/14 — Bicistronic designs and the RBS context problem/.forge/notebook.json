@@ -1,0 +1,418 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "corpus-14-context-independence",
+  "title": "Bicistronic designs and the RBS context problem",
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "storage": {
+    "type": "database",
+    "table": "pages",
+    "id": "corpus-14-context-independence"
+  },
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Bicistronic designs and the RBS context problem"
+          }
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Directive \u2014 Test whether the entry-04 ladder transfers to a different CDS, and fix it if it does not."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "The claim under test"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Entry 04 measured the RBS ladder against "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-694681f1",
+              "label": "E1010m (mRFP)",
+              "entityType": "sequence",
+              "entityId": "sample-694681f1",
+              "path": "sequences/kits/moclo-cidar/E1010m_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " only, and flagged that monocistronic RBS strength is a property of the RBS-CDS pair rather than of the RBS. This entry tests that flag instead of trusting it."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Design"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The same ladder \u2014 "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-07149c5d",
+              "label": "B0032m",
+              "entityType": "sequence",
+              "entityId": "sample-07149c5d",
+              "path": "sequences/kits/moclo-cidar/B0032m_BC",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-a21404dd",
+              "label": "B0033m",
+              "entityType": "sequence",
+              "entityId": "sample-a21404dd",
+              "path": "sequences/kits/moclo-cidar/B0033m_BC",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-7981ffa1",
+              "label": "B0034m",
+              "entityType": "sequence",
+              "entityId": "sample-7981ffa1",
+              "path": "sequences/kits/moclo-cidar/B0034m_BC",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " \u2014 re-measured against "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-4ef35c11",
+              "label": "E0040m (GFP)",
+              "entityType": "sequence",
+              "entityId": "sample-4ef35c11",
+              "path": "sequences/kits/moclo-cidar/E0040m_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " and "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-359938dd",
+              "label": "eBFP2",
+              "entityType": "sequence",
+              "entityId": "sample-359938dd",
+              "path": "sequences/kits/moclo-cidar/eBFP2_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ". Then repeated with the bicistronic "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-2d29c535",
+              "label": "BCD2",
+              "entityType": "sequence",
+              "entityId": "sample-2d29c535",
+              "path": "sequences/kits/moclo-cidar/BCD2_BC",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " and "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-bfb0490f",
+              "label": "BCD12",
+              "entityType": "sequence",
+              "entityId": "sample-bfb0490f",
+              "path": "sequences/kits/moclo-cidar/BCD12_BC",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": "."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Result"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The monocistronic ladder reorders between reporters: "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-a21404dd",
+              "label": "B0033m",
+              "entityType": "sequence",
+              "entityId": "sample-a21404dd",
+              "path": "sequences/kits/moclo-cidar/B0033m_BC",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " outperforms "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-7981ffa1",
+              "label": "B0034m",
+              "entityType": "sequence",
+              "entityId": "sample-7981ffa1",
+              "path": "sequences/kits/moclo-cidar/B0034m_BC",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " with "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-359938dd",
+              "label": "eBFP2",
+              "entityType": "sequence",
+              "entityId": "sample-359938dd",
+              "path": "sequences/kits/moclo-cidar/eBFP2_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ". The ladder is not a property of the RBS."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The bicistronic designs hold their rank order across all three reporters, within 1.3-fold."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Consequence"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Any future unit whose CDS is not "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-694681f1",
+              "label": "E1010m (mRFP)",
+              "entityType": "sequence",
+              "entityId": "sample-694681f1",
+              "path": "sequences/kits/moclo-cidar/E1010m_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " uses a bicistronic design. The entry-04 numbers remain valid only for "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-694681f1",
+              "label": "E1010m (mRFP)",
+              "entityType": "sequence",
+              "entityId": "sample-694681f1",
+              "path": "sequences/kits/moclo-cidar/E1010m_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ", and are now annotated as such."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Related entries"
+          }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-04-rbs-ladder",
+                      "label": "04 \u2014 RBS ladder",
+                      "entityType": "page",
+                      "entityId": "corpus-04-rbs-ladder"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-02-part-inventory",
+                      "label": "02 \u2014 Part inventory and incoming QC",
+                      "entityType": "page",
+                      "entityId": "corpus-02-part-inventory"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-18-synthesis",
+                      "label": "18 \u2014 Synthesis, open problems, and the next design cycle",
+                      "entityType": "page",
+                      "entityId": "corpus-18-synthesis"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

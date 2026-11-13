@@ -1,0 +1,57 @@
+LOCUS       ATPD                1383 bp    DNA     linear   BCT 14-JUN-2026
+DEFINITION  Escherichia coli K-12 MG1655 ATP synthase subunit beta CDS slice.
+ACCESSION   DNA560_ATPD
+VERSION     DNA560.1
+SOURCE      Escherichia coli K-12 substr. MG1655
+  ORGANISM  Escherichia coli K-12 substr. MG1655
+            Bacteria; Proteobacteria; Gammaproteobacteria; Enterobacterales;
+            Enterobacteriaceae; Escherichia.
+FEATURES             Location/Qualifiers
+     source          1..1383
+                     /organism="Escherichia coli K-12 substr. MG1655"
+                     /mol_type="genomic DNA"
+                     /strain="K-12 substr. MG1655"
+                     /db_xref="taxon:83333"
+     gene            complement(1..1383)
+                     /gene="atpD"
+                     /locus_tag="b3732"
+     CDS             complement(1..1383)
+                     /gene="atpD"
+                     /locus_tag="b3732"
+                     /product="ATP synthase F1 complex subunit beta"
+                     /db_xref="UniProtKB/Swiss-Prot:P0ABB4"
+                     /db_xref="taxon:83333"
+                     /translation="MATGKIVQVIGAVVDVEFPQDAVPRVYDALEVQNGNERLVLEVQQQLGGGIVRTIAMGSS
+                     DGLRRGLDVKDLEHPIEVPVGKATLGRIMNVLGEPVDMKGEIGEEERWAIHRAAPSYEEL
+                     SNSQELLETGIKVIDLMCPFAKGGKVGLFGGAGVGKTVNMMELIRNIAIEHSGYSVFAGV
+                     GERTREGNDFYHEMTDSNVIDKVSLVYGQMNEPPGNRLRVALTGLTMAEKFRDEGRDVLL
+                     FVDNIYRYTLAGTEVSALLGRMPSAVGYQPTLAEEMGVLQERITSTKTGSITSVQAVYVP
+                     ADDLTDPSPATTFAHLDATVVLSRQIASLGIYPAVDPLDSTSRQLDPLVVGQEHYDTARG
+                     VQSILQRYQELKDIIAILGMDELSEEDKLVVARARKIQRFLSQPFFVAEVFTGSPGKYVS
+                     LKDTIRGFKGIMEGEYDHLPEQAFYMVGSIEEAVEKAKKL"
+ORIGIN
+        1 ttaaagtttt ttggcttttt ccacagcttc ttcgatggaa ccgaccatgt agaacgcctg
+       61 ctccggcagg tgatcgtatt cgccttccat gatgccttta aagccacgga tggtgtcttt
+      121 cagggagacg tatttacccg gagaaccggt gaatacttct gccacgaaga acggctggga
+      181 caggaagcgc tggatcttac gagcacgcgc taccaccagt ttgtcttctt cagacagttc
+      241 atccataccc aggatggcga tgatgtcttt cagttcctga taacgttgca ggatggactg
+      301 aacgccacgc gcggtgtcgt agtgttcctg accaaccacc agcgggtcca gctgacggct
+      361 ggtggagtcc agcgggtcaa cggccgggta gatacccaga gacgcgatct gacggctcag
+      421 taccacggtt gcgtcaaggt gcgcaaaggt ggttgccgga gacgggtcag tcaagtcatc
+      481 cgcaggtacg tatactgcct gtacggaggt gatagaacca gttttggtgg aggtgatacg
+      541 ttcctgcaga acgcccatct cttccgccag ggtcggctga taacctaccg ctgaaggcat
+      601 acggcccagc agtgcggata cttccgtacc ggccagggtg taacgataga tgttgtcaac
+      661 gaacagcaga acgtcacgac cttcgtcacg gaatttctca gccatggtca gaccggtcag
+      721 agcaacgcgc agacggtttc ccggcggctc gttcatctgg ccatacacca gggatacttt
+      781 gtcgataacg ttggagtcgg tcatttcgtg gtagaagtcg ttaccctcac gagtacgttc
+      841 acctacgccc gcaaacacag agtaaccgga gtgctcgatc gcgatgttac gaatgagctc
+      901 catcatgttt acggttttac ctacacccgc accaccgaac agaccaactt taccgccctt
+      961 agcgaacgga cacatcaggt cgataacttt gataccggtt tccagcagtt cctgagagtt
+     1021 tgacagctct tcgtaggaag gtgctgcgcg gtgaatcgcc caacgctctt cttcaccgat
+     1081 ctcgcctttc atgtcgaccg gttcacccag tacgttcatg atacggccca gagtcgcttt
+     1141 acctaccggg acttcaatcg ggtgttcgag gtcttttaca tccagaccgc gacgcagacc
+     1201 gtcggaggaa cccattgcga tggtacgtac gataccgccg ccgagctgct gctgaacttc
+     1261 cagcaccaga cgctcattac cattttgcac ctcaagagca tcgtacacgc gcggtacggc
+     1321 atcctgaggg aattcgacgt caactacggc gccgattacc tggacaatct ttccagtagc
+     1381 cat
+//

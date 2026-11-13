@@ -1,0 +1,366 @@
+{
+  "ok": true,
+  "result": {
+    "displayGroupContract": "Every displayed molecular representation receives an automatic designation and legend during authoring. Name scientific groups when useful; omitting names does not omit the legend. Equivalent ion copies share a chemical designation. Scene apply/save validates all story steps. Exact selection still requires verified physical selectors; automatic naming cannot choose the scientifically relevant ligand copy.",
+    "format": "mvsj",
+    "guidance": "Edit standard MVS nodes in scene and pass the complete JSON to mol_apply_scene. One view or an ordered kind:\"multiple\" story is supported. Use only the listed resource URI(s) and correct parse format; a snapshot may include more than one pinned resource. An aligned overlay needs an explicit transform grounded in corresponding regions; do not infer alignment from co-loading. Each snapshot can have its own title, description, camera, focus and appearance; mol_select_story_step changes the active step. Selectors are named sets (polymer, protein, ligand, water), an expression object such as {label_asym_id:\"A\"}, or an array of expressions (OR); keys within an expression are AND. Read mol_get_state for label/auth chain identities and molecularConnections. Use cartoon, ball_and_stick, spacefill, surface or native carbohydrate symbols, opacity nodes, component focus, and root camera {target:[x,y,z],position:[x,y,z],up:[x,y,z]}. Preserve canvas/background exactly; changes fail with MVS_BACKGROUND_LOCKED. One native owner draws each visual feature, including attachment bonds and nucleotide connectors; duplicate geometry fails with MVS_DUPLICATE_GEOMETRY. Known covalent ligand attachments are resolved into their atomic owner and validated; molecularConnections readback distinguishes deposited covalent bonds, disulfides, coordination and computed contacts. Never invent a covalent bond from proximity. Use the active render profile controls below for element-colored atoms, group carbon tints and independent nucleotide planes. Name meaningful groups with custom.dnaforge_legend_label; keep labels in the swatch legend unless on-structure labels are explicitly requested. Distances must name verified endpoint atoms, not guessed coordinates. Official primitive syntax: https://molstar.org/mol-view-spec-docs/primitives/. A starter is proposed, not a legacy recipe export. Native readback reports effective visuals, sizing, colors, alpha and attachment coverage.",
+    "interactionContacts": [],
+    "limitations": [
+      "External scene assets, MVSX import, and stories involving multiple coordinate resources are not implemented.",
+      "Whole-scene edits must retain each complete native computed contact group in a relevant detail step. Styling is editable; contact deletion or guessed chemical guides fail before mutation. Choose physical focus participants through the native interaction-context tool rather than editing its derived contact set."
+    ],
+    "native": {
+      "camera": {
+        "clipFar": true,
+        "fog": 15,
+        "fov": 0.7853981633974483,
+        "minFar": 0,
+        "minNear": 1,
+        "mode": "perspective",
+        "position": [
+          53.4296778443573,
+          86.71076920945433,
+          139.46340279067013
+        ],
+        "radius": 39.370039370059054,
+        "radiusMax": 42.44608997062713,
+        "target": [
+          14.232788898066008,
+          60.57950991192681,
+          48.00399524932376
+        ],
+        "up": [
+          -0.10005560189476044,
+          0.9672041516493517,
+          -0.2334630710877744
+        ]
+      },
+      "colorSelectionGuidance": "Compiled native color-layer expressions are summarized with paramsSummarized:true. Their exact editable selectors remain in the complete MolViewSpec scene; layer order, themes and color settings are retained.",
+      "componentRefs": [
+        "!mvs:c9f9a29a4260c766:0",
+        "!mvs:c9f9a29a4260c766:1",
+        "!mvs:c9f9a29a4260c766:2"
+      ],
+      "components": [
+        {
+          "elementCount": 2691,
+          "label": "Polymer",
+          "representations": [
+            {
+              "alpha": 1,
+              "color": 3377407,
+              "colorTheme": "uniform",
+              "colorThemeParams": {
+                "lightness": 0,
+                "saturation": 0,
+                "value": 3377407
+              },
+              "sizeTheme": {
+                "name": "uniform",
+                "params": {
+                  "value": 1
+                }
+              },
+              "type": "cartoon",
+              "typeParams": {
+                "alpha": 1,
+                "alphaThickness": 0,
+                "approximate": false,
+                "arrowFactor": 1.5,
+                "aspectRatio": 5,
+                "batchSize": 2000,
+                "bumpAmplitude": 1,
+                "bumpFrequency": 2,
+                "celShaded": false,
+                "cellSize": 200,
+                "clip": {
+                  "objects": [],
+                  "variant": "pixel"
+                },
+                "clipPrimitive": false,
+                "colorMode": "default",
+                "density": 0.1,
+                "detail": 0,
+                "dnaforgeNucleotideExclude": [],
+                "doubleSided": false,
+                "emissive": 0,
+                "flatShaded": false,
+                "flipSided": false,
+                "helixProfile": "elliptical",
+                "ignoreLight": false,
+                "includeParent": false,
+                "instanceGranularity": false,
+                "interior": {
+                  "color": 5000268,
+                  "colorStrength": 1,
+                  "substance": {
+                    "bumpiness": 0,
+                    "metalness": 0,
+                    "roughness": 1
+                  },
+                  "substanceStrength": 1
+                },
+                "linearSegments": 8,
+                "lod": [
+                  0,
+                  0,
+                  0
+                ],
+                "lodLevels": [],
+                "material": {
+                  "bumpiness": 0,
+                  "metalness": 0,
+                  "roughness": 1
+                },
+                "nucleicProfile": "square",
+                "quality": "auto",
+                "radialSegments": 16,
+                "roundCap": false,
+                "sizeAspectRatio": 1,
+                "sizeFactor": 0.2,
+                "solidInterior": true,
+                "thicknessFactor": 1,
+                "transparentBackfaces": "off",
+                "tryUseImpostor": true,
+                "tubularHelices": false,
+                "unitKinds": [
+                  "atomic",
+                  "spheres"
+                ],
+                "visuals": [
+                  "polymer-trace",
+                  "polymer-gap"
+                ],
+                "xrayShaded": false
+              },
+              "visuals": [
+                "polymer-trace",
+                "polymer-gap"
+              ]
+            }
+          ]
+        },
+        {
+          "elementCount": 0,
+          "label": "Ligand",
+          "representations": [
+            {
+              "alpha": null,
+              "color": 16777215,
+              "colorTheme": "uniform",
+              "colorThemeParams": {
+                "lightness": 0,
+                "saturation": 0,
+                "value": 16777215
+              },
+              "sizeTheme": {
+                "name": "uniform",
+                "params": {
+                  "value": 0.55
+                }
+              },
+              "type": null,
+              "typeParams": {},
+              "visuals": []
+            }
+          ]
+        },
+        {
+          "elementCount": 2691,
+          "label": "Polymer",
+          "representations": [
+            {
+              "alpha": 0.25,
+              "color": 4508808,
+              "colorTheme": "uniform",
+              "colorThemeParams": {
+                "lightness": 0,
+                "saturation": 0,
+                "value": 4508808
+              },
+              "sizeTheme": {
+                "name": "physical",
+                "params": {
+                  "scale": 1
+                }
+              },
+              "type": "molecular-surface",
+              "typeParams": {
+                "alpha": 0.25,
+                "batchSize": 2000,
+                "bumpAmplitude": 1,
+                "bumpFrequency": 1,
+                "celShaded": false,
+                "cellSize": 200,
+                "clip": {
+                  "objects": [],
+                  "variant": "pixel"
+                },
+                "density": 0.5,
+                "doubleSided": false,
+                "emissive": 0,
+                "flatShaded": false,
+                "flipSided": false,
+                "floodfill": "off",
+                "ignoreHydrogens": true,
+                "ignoreHydrogensVariant": "all",
+                "ignoreLight": false,
+                "includeParent": false,
+                "instanceGranularity": false,
+                "interior": {
+                  "color": 5000268,
+                  "colorStrength": 1,
+                  "substance": {
+                    "bumpiness": 0,
+                    "metalness": 0,
+                    "roughness": 1
+                  },
+                  "substanceStrength": 1
+                },
+                "lineSizeAttenuation": false,
+                "lod": [
+                  0,
+                  0,
+                  0
+                ],
+                "material": {
+                  "bumpiness": 0,
+                  "metalness": 0,
+                  "roughness": 1
+                },
+                "probePositions": 36,
+                "probeRadius": 1.4,
+                "quality": "auto",
+                "resolution": 0.5,
+                "sizeFactor": 1.5,
+                "smoothColors": {
+                  "name": "auto",
+                  "params": {}
+                },
+                "traceOnly": false,
+                "transparentBackfaces": "off",
+                "unitKinds": [
+                  "atomic",
+                  "spheres"
+                ],
+                "visuals": [
+                  "molecular-surface-mesh"
+                ],
+                "xrayShaded": false
+              },
+              "visuals": [
+                "molecular-surface-mesh"
+              ]
+            }
+          ]
+        }
+      ],
+      "molecularConnectionSummary": {
+        "attachmentCount": 0,
+        "countsByKind": {},
+        "countsByStatus": {},
+        "guidance": "This is a page, not the complete inventory. Attachment records come first. Use each endpoint.selector within its connection.structureIndex: resolved atom_index values are deposited source indices, not native graph indices. Use connectionQuery in mol_get_state or mol_get_scene to filter by kind, attachmentsOnly, labelAsymId and authSeqId, or continue with offset: nextOffset. representationOwners are native.componentRefs, ordered like native.components. All attachment integrity checks use the complete native graph.",
+        "incompleteAttachmentCount": 0,
+        "page": {
+          "limit": 32,
+          "matched": 0,
+          "nextOffset": null,
+          "offset": 0,
+          "query": {},
+          "returned": 0
+        },
+        "total": 0
+      },
+      "molecularConnections": []
+    },
+    "ok": true,
+    "primaryConformers": {
+      "comparison": null,
+      "default": "primary-deposited-conformer-v1",
+      "guidance": "New atomic authoring and computed contexts share one coherent occupancy-selected deposited residue alternative. Use root.custom.dnaforge_conformer_comparison:{reason:\"scientific reason\"} to compare alternatives; independent aligned structures are unaffected. Historical scenes retain their recorded atom/guide sets.",
+      "recorded": [
+        {
+          "alternatives": [],
+          "contract": "primary-deposited-conformer-v1",
+          "excludedAtomCount": 0,
+          "mode": "primary",
+          "selectedAtomCount": 2945,
+          "structureRef": "dnaforge:structure:root.0.0.0"
+        }
+      ]
+    },
+    "renderProfile": {
+      "resolvedProfile": {
+        "atomicColors": {
+          "carbonColor": "#909090",
+          "lightness": 0,
+          "saturation": 0
+        },
+        "atomicOpacity": 1,
+        "ballAndStick": {
+          "atomScale": 0.5,
+          "bondToAtomRatio": 0.5,
+          "sizeFactor": 0.55
+        },
+        "id": "dnaforge-detail",
+        "interactionContactTypes": [
+          "pi-stacking",
+          "cation-pi",
+          "halogen-bonds",
+          "hydrogen-bonds",
+          "metal-coordination"
+        ],
+        "nucleotide": {
+          "baseOpacity": 0.35,
+          "baseThickness": 0.08,
+          "connectorMode": "simplified",
+          "connectorRadius": 0.15
+        },
+        "nucleotideAppearance": "linked-residue-v2",
+        "presentation": {
+          "bindingSiteDetail": "atomic",
+          "bindingSiteSurface": "translucent",
+          "cameraTransitionMs": 500,
+          "cartoonScale": 1,
+          "comparisonPresentation": "authored",
+          "interfaceSurface": "translucent",
+          "nucleotideBackbone": "ribbon",
+          "nucleotideDetail": "simplified",
+          "preservePolymerContext": true
+        },
+        "surfaceOwnership": "single-side-v1",
+        "version": 12
+      },
+      "selection": "default"
+    },
+    "renderProfileGuidance": "The resolved profile records the active presentation preferences. Nucleotide ball_and_stick detail automatically uses its preferred base-atom/connector mode; ordinary context remains cartoon geometry at the configured scale. Existing polymer context is retained during edits. An exact component may declare custom.dnaforge_presentation_role:\"binding-site\"|\"interface\"|\"focus\"|\"context\". Binding-site and interface regions receive preferred local atomic detail; interface surfaces require an explicit single owner. The bindingSiteSurface:\"translucent\" preference adds a uniform translucent contour to a complete molecular ligand, including attached carbohydrates. Native computed ligand-binding regions always assign that contour to the ligand, independently of an authored interface role or protein-side request; historical non-native scenes and bindingSiteSurface:\"authored\" or a recorded exception retain their authored presentation. Declare custom.dnaforge_binding_region:{target:selector,partner:selector,surfaceSide:\"target\"|\"partner\",surfaceExtent:\"complete\"|\"contact-patch\",seed:selector,radius:number} on a component with a unique ref. Surface geometry comes only from the complete chosen scientific side. surfaceExtent:\"complete\" displays its whole contour without a burial mask; \"contact-patch\" displays only its native buried-residue patch. Sides containing molecular ligands or attached glycans always keep their complete contour; pure protein interfaces default to contact-patch and can explicitly request complete. Optional seed defaults to target; discovery uses a fixed 5 angstrom native neighborhood. Computed ligand-binding pockets retain all whole residues with partner-induced native surface burial, plus typed contact support and chemical attachments. Every new native protein interface requires explicit interfaceDetailSide:target|partner|both AND interfaceDetailBasis:contacts|burial (interfaceProteinAtomicMode defaults to sidechain-with-trace through the maintained native selector and real trace paths; explicitly choose full-residue when backbone evidence matters) from the question; missing or partial choices fail before rendering. Complete both-side native burial measurements remain separate from atomic presentation. Selected-side contact residues are complete; burial additionally expands buried protein packing on that side. Required opposing guide features and native chemical attachments remain visible as minimum support atoms. Interface detail side and evidence basis are explicit scientific choices. Nonprotein chemistry and complete glycan contours remain intact; ligand, ion and RNA-only contexts do not require these choices. Archived saved scenes replay their recorded presentation. Display membership is independent of which contact categories generate dotted lines. Disconnected single-atom ions retain their declared sites and physical context without a merged ligand envelope. custom.dnaforge_binding_region.detailMode:\"neighborhood\" deliberately retains wider discovery context. surfaceColorMode:\"identity\" preserves complete-owner colors; \"emphasis\" explicitly projects local patches onto a surface. Contact guides use installed native Molstar classifications, engine-default categories and standard geometry; exact parameters are recorded with the guides. Binding explanations retain every calculated contact crossing their declared scientific partners and exclude contacts internal to either side. Ordinary local residue-focus views retain the complete native Focus neighborhood. Agents cannot choose a category subset, contact-search radius or contact subset. Surface colors inherit the complete chosen side's cartoon identity, independently of the local atomic palette; exported detail selectors are ignored during construction. Atomic interaction detail may include both sides; a surface cannot use that union. Surface selectors, local contact ownership and legends are compiler-owned output derived from that binding intent. Editing an exported surface selector does not change its scientific ownership; change the binding intent instead. Context-only surfaces require the context role and must be disjoint from the chosen binding surface owners; the opposing molecular contour may remain context. The interaction-context tool records scientific sides and their complete atomic environment automatically. Unannotated overviews keep their authored representations. In profile12, verified nucleic cartoon paths default to one broad ribbon width and cross-section. Only the explicit viewer preference nucleotideBackbone:\"authored\" permits authored path shape and width; author step overrides cannot opt out of the ribbon default. Backbone path shape is independent of local base/attachment chemistry: adding base atomic detail does not thin the path or require full sugar/phosphate chemistry. Nucleotide detail uses one attachment/atomic mode for each physically selected focused region: base atoms and schematic connectors when all required contact endpoints are bases, or complete atomic detail throughout that region when a ribose/phosphate endpoint is required. Color and opacity partitions cannot expose sugar/phosphate atoms residue by residue. To deliberately change nucleotideDetail, protein cartoonScale, preservePolymerContext, bindingSiteDetail, bindingSiteSurface or interfaceSurface, put custom.dnaforge_presentation_override:{reason:\"scientific reason\",fields:[affected preference names]} on the step root. Co-loaded pinned sources remain available through the story. Choose registration and overlays when aligned correspondence answers the selected contrast; the fit anchor and complete compared objects are separate declarations. Matched marked comparison steps share one camera, while unmarked overview and detail framing remain independent. Report source-specific limits when scientific correspondence cannot be established. Viewer-bound preferences govern supported presentation choices; they cannot weaken physical ownership, nucleotide consistency or contact contracts. Defaults, effective appearance and the exception are saved with the scene. Saved scenes replay their recorded appearance exactly. custom.dnaforge_molecular_identity on a scientific color layer identifies the same biological object across coordinate states independently of its explanatory label; a shared identity has one stable hue. Native cartoon parameters support tubularHelices:true for tube-shaped alpha helices and roundCap:true for rounded tube ends; these are optional representation controls. Foreground nucleotide detail gives its matching cartoon backbone and attachment at least the same opacity; surrounding context keeps its recorded opacity. Element paint layers belong to their scientific group and never create separate legend objects. Carbon tints and independent base planes remain editable.",
+    "rendered": true,
+    "resource": {
+      "boundTo": "current-structure-view",
+      "format": "pdb",
+      "uri": "structure.pdb"
+    },
+    "resources": [
+      {
+        "boundTo": "current-structure-view",
+        "format": "pdb",
+        "uri": "structure.pdb"
+      }
+    ],
+    "scene": "{\"root\":{\"kind\":\"root\",\"custom\":{\"dnaforge_render_profile\":{\"id\":\"dnaforge-detail\",\"version\":12,\"ballAndStick\":{\"sizeFactor\":0.55,\"atomScale\":0.5,\"bondToAtomRatio\":0.5},\"atomicColors\":{\"carbonColor\":\"#909090\",\"saturation\":0,\"lightness\":0},\"atomicOpacity\":1,\"nucleotide\":{\"connectorMode\":\"simplified\",\"baseOpacity\":0.35,\"baseThickness\":0.08,\"connectorRadius\":0.15},\"interactionContactTypes\":[\"pi-stacking\",\"cation-pi\",\"halogen-bonds\",\"hydrogen-bonds\",\"metal-coordination\"],\"surfaceOwnership\":\"single-side-v1\",\"nucleotideAppearance\":\"linked-residue-v2\",\"presentation\":{\"nucleotideDetail\":\"simplified\",\"nucleotideBackbone\":\"ribbon\",\"cartoonScale\":1,\"preservePolymerContext\":true,\"bindingSiteDetail\":\"atomic\",\"bindingSiteSurface\":\"translucent\",\"interfaceSurface\":\"translucent\",\"cameraTransitionMs\":500,\"comparisonPresentation\":\"authored\"}},\"dnaforge_primary_conformers\":[{\"structureRef\":\"dnaforge:structure:root.0.0.0\",\"contract\":\"primary-deposited-conformer-v1\",\"mode\":\"primary\",\"selectedAtomCount\":2945,\"excludedAtomCount\":0,\"alternatives\":[]}],\"dnaforge_display_group_contract\":\"automatic-display-groups-v1\",\"dnaforge_surface_ownership_contract\":\"single-side-v1\"},\"children\":[{\"kind\":\"download\",\"params\":{\"url\":\"structure.pdb\"},\"children\":[{\"kind\":\"parse\",\"params\":{\"format\":\"pdb\"},\"children\":[{\"kind\":\"structure\",\"params\":{\"type\":\"assembly\",\"model_index\":0,\"assembly_id\":\"1\"},\"children\":[{\"kind\":\"component\",\"params\":{\"selector\":\"polymer\"},\"children\":[{\"kind\":\"representation\",\"params\":{\"type\":\"cartoon\",\"size_factor\":1},\"custom\":{\"molstar_representation_params\":{\"sizeFactor\":0.2,\"ignoreHydrogens\":true,\"ignoreHydrogensVariant\":\"all\"},\"dnaforge_display_group\":{\"label\":\"Polymer context\",\"color\":\"#3388ff\",\"id\":\"Polymer context\\u0000#3388ff\",\"residual\":false}},\"children\":[{\"kind\":\"color\",\"params\":{\"color\":\"#3388ff\"},\"custom\":{\"dnaforge_legend_label\":\"Polymer context\",\"dnaforge_legend_generated\":true,\"dnaforge_selection_id\":\"selection:0028de20-0fbb-4ce7-a7da-7dd47f967710\"}}]}]},{\"kind\":\"component\",\"params\":{\"selector\":\"ligand\"},\"children\":[{\"kind\":\"representation\",\"params\":{\"size_factor\":0.55,\"type\":\"ball_and_stick\",\"ignore_hydrogens\":true},\"custom\":{\"molstar_representation_params\":{\"sizeFactor\":0.5,\"sizeAspectRatio\":0.5,\"alpha\":1,\"ignoreHydrogens\":true,\"ignoreHydrogensVariant\":\"all\"},\"dnaforge_display_group\":{\"label\":\"Empty molecular selection\",\"color\":\"#909090\",\"id\":\"Empty molecular selection\\u0000#909090\",\"empty\":true}},\"children\":[]}]},{\"kind\":\"component\",\"params\":{\"selector\":\"polymer\"},\"custom\":{\"dnaforge_presentation_role\":\"context\"},\"children\":[{\"kind\":\"representation\",\"params\":{\"type\":\"surface\",\"ignore_hydrogens\":true},\"children\":[{\"kind\":\"color\",\"params\":{\"color\":\"#44cc88\"},\"custom\":{\"dnaforge_legend_label\":\"Polymer context\",\"dnaforge_legend_generated\":true,\"dnaforge_selection_id\":\"selection:d73ff43a-0af5-4dbe-8e93-db5d3f7ceff9\"}},{\"kind\":\"opacity\",\"params\":{\"opacity\":0.25}}],\"custom\":{\"dnaforge_display_group\":{\"label\":\"Polymer context\",\"color\":\"#44cc88\",\"id\":\"Polymer context\\u0000#44cc88\",\"residual\":false},\"molstar_representation_params\":{\"ignoreHydrogens\":true,\"ignoreHydrogensVariant\":\"all\"}}}]}],\"ref\":\"dnaforge:structure:root.0.0.0\"}]}]},{\"kind\":\"camera\",\"params\":{\"target\":[14.232788898066008,60.57950991192681,48.00399524932376],\"position\":[44.232788898066005,80.5795099119268,118.00399524932376],\"up\":[0,1,0]}}]},\"metadata\":{\"version\":\"1\",\"timestamp\":\"2026-10-27T01:27:41.670Z\",\"key\":\"view:f4cf0492-b11d-48bb-909d-2607a4dd50e6\"}}",
+    "sceneOrigin": "authored",
+    "structureIdentities": [
+      {
+        "ref": "dnaforge:structure:root.0.0.0",
+        "resourceUri": "structure.pdb",
+        "structureParams": {
+          "assembly_id": "1",
+          "model_index": 0,
+          "type": "assembly"
+        }
+      }
+    ],
+    "structureViewId": "structure-view:file:v1:6e60a0aa568090f9d53c19f4e6ccd56f",
+    "supportedMajorVersion": 1
+  }
+}

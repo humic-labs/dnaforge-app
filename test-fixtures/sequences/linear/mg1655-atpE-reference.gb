@@ -1,0 +1,31 @@
+LOCUS       ATPE                 240 bp    DNA     linear   BCT 12-JUN-2026
+DEFINITION  Escherichia coli K-12 MG1655 ATP synthase subunit c CDS slice.
+ACCESSION   DNA560_ATPE
+VERSION     DNA560.1
+SOURCE      Escherichia coli K-12 substr. MG1655
+  ORGANISM  Escherichia coli K-12 substr. MG1655
+            Bacteria; Proteobacteria; Gammaproteobacteria; Enterobacterales;
+            Enterobacteriaceae; Escherichia.
+FEATURES             Location/Qualifiers
+     source          1..240
+                     /organism="Escherichia coli K-12 substr. MG1655"
+                     /mol_type="genomic DNA"
+                     /strain="K-12 substr. MG1655"
+                     /db_xref="taxon:83333"
+     gene            complement(1..240)
+                     /gene="atpE"
+                     /locus_tag="b3737"
+     CDS             complement(1..240)
+                     /gene="atpE"
+                     /locus_tag="b3737"
+                     /product="ATP synthase Fo complex subunit c"
+                     /protein_id="AAC76722.1"
+                     /db_xref="UniProtKB/Swiss-Prot:P68699"
+                     /db_xref="taxon:83333"
+                     /translation="MENLNMDLLYMAAAVMMGLAAIGAAIGIGILGGKFLEGAARQPDLIPLLRTQFFIVMGLVDAIPMIAVGLGLYVMFAVA"
+ORIGIN
+        1 ctacgcgaca gcgaacatca cgtacagacc cagacctaca gcgatcatcg ggatagcatc
+       61 caccagaccc ataacgataa agaactgagt acgcagcaga ggaatcagat caggttgacg
+      121 cgctgcgcct tccaggaatt tacccccgag gatgccgata ccgatcgcag caccgattgc
+      181 cgccagaccc atcatcacag cggcagccat gtacagcaga tccatattca ggttttccat
+//

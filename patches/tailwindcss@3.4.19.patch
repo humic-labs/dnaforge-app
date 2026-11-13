@@ -1,0 +1,12 @@
+diff --git a/lib/util/formatVariantSelector.js b/lib/util/formatVariantSelector.js
+--- a/lib/util/formatVariantSelector.js
++++ b/lib/util/formatVariantSelector.js
+@@ -213,7 +213,7 @@
+     // Remove unnecessary pseudo selectors that we used as placeholders
+     selector.walkPseudos((p)=>{
+         if (p.value === MERGE) {
+-            p.replaceWith(p.nodes);
++            p.replaceWith(...p.nodes);
+         }
+     });
+     // Move pseudo elements to the end of the selector (if necessary)

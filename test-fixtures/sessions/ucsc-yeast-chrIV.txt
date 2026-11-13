@@ -1,0 +1,8 @@
+# UCSC custom tracks for the deterministic yeast chromosome IV data
+browser position chrIV:3,501-4,000
+browser hide all
+track type=bam name="Lab yeast reads" description="Deterministic chromosome IV CRAM" bigDataUrl=https://reads.example.org/s288c/reads.cram bigDataIndex=https://reads.example.org/s288c/reads.cram.crai visibility=squish
+track type=vcfTabix name="Lab yeast calls" description="Deterministic chromosome IV calls" bigDataUrl=https://variants.example.org/s288c/calls.vcf.gz visibility=pack
+track name="Pasted peaks" description="inline data that no address can attach" visibility=dense
+chrIV	3600	3650	peak1
+chrIV	3700	3750	peak2

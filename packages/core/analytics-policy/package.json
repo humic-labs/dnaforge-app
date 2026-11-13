@@ -1,0 +1,49 @@
+{
+  "name": "@waypoint/analytics-policy",
+  "version": "0.1.0",
+  "description": "Shared fail-closed product analytics, consent, URL, and identity policy",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./telemetry-actor-assertion": {
+      "types": "./src/telemetry-actor-assertion.d.mts",
+      "import": "./src/telemetry-actor-assertion.mjs",
+      "default": "./src/telemetry-actor-assertion.mjs"
+    },
+    "./telemetry-suppression-fence": {
+      "types": "./src/telemetry-suppression-fence.d.mts",
+      "import": "./src/telemetry-suppression-fence.mjs",
+      "default": "./src/telemetry-suppression-fence.mjs"
+    },
+    "./web-maintainer-session": {
+      "types": "./src/web-maintainer-session.d.mts",
+      "import": "./src/web-maintainer-session.mjs",
+      "default": "./src/web-maintainer-session.mjs"
+    },
+    "./sentry-error-policy": {
+      "types": "./src/sentry-error-policy.ts",
+      "import": "./src/sentry-error-policy.ts",
+      "default": "./src/sentry-error-policy.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run src/index.test.ts src/consent-regime.test.ts src/desktop-replay.test.ts src/sentry-error-policy.test.ts && node --test src/telemetry-actor-assertion.test.mjs src/telemetry-suppression-fence.test.mjs src/web-maintainer-session.test.mjs"
+  },
+  "license": "GPL-3.0-only",
+  "dependencies": {
+    "@noble/hashes": "1.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.18"
+  }
+}

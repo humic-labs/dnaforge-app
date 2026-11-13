@@ -1,0 +1,33 @@
+{
+  "name": "@waypoint/codex-app-server-contract",
+  "version": "0.1.0",
+  "description": "Pinned Codex App Server 0.148.0 protocol contract and resource manifest for DNAForge Hosted AI",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./manifest.json": "./src/manifest.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "dnaforge",
+    "codex",
+    "app-server",
+    "hosted-ai"
+  ],
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.18"
+  }
+}

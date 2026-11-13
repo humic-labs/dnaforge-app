@@ -1,0 +1,31 @@
+diff --git a/templates/nsis/installSection.nsh b/templates/nsis/installSection.nsh
+--- a/templates/nsis/installSection.nsh
++++ b/templates/nsis/installSection.nsh
+@@ -49,12 +49,27 @@ ${if} $isTryToKeepShortcuts == "true"
+   ${endIf}
+ ${endif}
+
++!ifmacrodef customPrepareUpdate
++  !insertmacro customPrepareUpdate
++  ${if} $dnaforgeUpdaterDirectoryState == "moved"
++  ${orIf} $dnaforgeUpdaterDirectoryState == "absent"
++  ${else}
+ !insertmacro uninstallOldVersion SHELL_CONTEXT
+ !insertmacro handleUninstallResult SHELL_CONTEXT
+
+ ${if} $installMode == "all"
+   !insertmacro uninstallOldVersion HKEY_CURRENT_USER
+   !insertmacro handleUninstallResult HKEY_CURRENT_USER
+ ${endIf}
++  ${endIf}
++!else
++  !insertmacro uninstallOldVersion SHELL_CONTEXT
++  !insertmacro handleUninstallResult SHELL_CONTEXT
++
++  ${if} $installMode == "all"
++    !insertmacro uninstallOldVersion HKEY_CURRENT_USER
++    !insertmacro handleUninstallResult HKEY_CURRENT_USER
++  ${endIf}
++!endif
+
+ SetOutPath $INSTDIR

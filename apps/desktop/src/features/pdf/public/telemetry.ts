@@ -1,0 +1,1 @@
+export { beginPdfRead } from '../telemetry';

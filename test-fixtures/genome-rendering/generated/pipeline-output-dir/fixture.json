@@ -1,0 +1,13 @@
+{
+  "id": "pipeline-directory",
+  "status": "recipe",
+  "generator": "Create a representative CLI pipeline output directory with reference FASTA/FAI, annotation GFF3/GTF plus native indexes, placeholder VCF/BAM/CRAM/signal files where needed, and explicit assembly/contig pairing metadata.",
+  "sourceFixture": "mixed",
+  "requiredWhenMaterialized": [
+    "test-fixtures/genome-rendering/generated/pipeline-output-dir/ref.fa",
+    "test-fixtures/genome-rendering/generated/pipeline-output-dir/ref.fa.fai",
+    "test-fixtures/genome-rendering/generated/pipeline-output-dir/genes.gff3.gz",
+    "test-fixtures/genome-rendering/generated/pipeline-output-dir/genes.gff3.gz.tbi"
+  ],
+  "expectedState": "discovered"
+}

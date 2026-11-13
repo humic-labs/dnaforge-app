@@ -1,0 +1,37 @@
+name: Contributor License Agreement
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  sign-off:
+    name: Every commit agrees to the CLA
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch the pull request's commits as data
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          TOKEN: ${{ github.token }}
+        run: |
+          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=$AUTH" fetch --no-tags origin "+refs/pull/${PR}/head:refs/remotes/pull/head"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Check Signed-off-by lines with the base branch's checker
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: node .github/scripts/check-cla-sign-off.mjs "$BASE" "$HEAD"

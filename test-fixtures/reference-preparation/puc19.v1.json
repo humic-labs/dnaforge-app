@@ -1,0 +1,39 @@
+{
+  "contract": "dnaforge-reference-preparation.v1",
+  "assembly": {
+    "id": "puc19-local-fixture",
+    "name": "pUC19 local preparation fixture",
+    "organism": "synthetic DNA construct",
+    "accession": "L09137.2",
+    "description": "Public pUC19 fixture used to prove manifest-driven reference preparation."
+  },
+  "sources": {
+    "fasta": {
+      "path": "../indexed/pUC19/pUC19.fa",
+      "sha256": "7267c78e26eef9671a4fccaf3bf12ff56c27220c90135746164c943be48aad1f"
+    },
+    "annotations": {
+      "format": "gff3",
+      "path": "../indexed/pUC19/pUC19.gff3.gz",
+      "sha256": "dd7cae6d069314768be3e16f7b023d7ce38f40af4f85f035a6d6bb467a10a3a8",
+      "provider": "NCBI-derived DNAForge fixture",
+      "datasetId": "L09137.2",
+      "datasetVersion": "dna-indexer-schema-2",
+      "sourceUrl": "https://www.ncbi.nlm.nih.gov/nuccore/L09137.2",
+      "license": "NCBI public-domain data"
+    }
+  },
+  "contigs": [
+    {
+      "chrom": "puc19",
+      "sourceSeqId": "puc19",
+      "displayName": "pUC19",
+      "lengthBp": 2686,
+      "role": "assembled-molecule",
+      "aliases": {
+        "genbank": "L09137.2"
+      },
+      "circular": true
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "name": "@waypoint/scientific-artifacts",
+  "version": "0.1.0",
+  "description": "Pure native scientific artifact parsers and shared history validation codecs",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./shared/*": {
+      "types": "./src/shared/*.ts",
+      "import": "./src/shared/*.ts",
+      "default": "./src/shared/*.ts"
+    },
+    "./native-codecs": "./src/native-codecs.ts",
+    "./native-json": "./src/native-json.ts",
+    "./native-references": "./src/native-references.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "license": "GPL-3.0-only",
+  "dependencies": {
+    "@waypoint/domain-services": "workspace:*",
+    "@waypoint/scientific-objects": "workspace:*",
+    "@waypoint/sequence-utils": "workspace:*",
+    "@waypoint/share-bundle": "workspace:*",
+    "@waypoint/workspace-revisions": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.3"
+  }
+}

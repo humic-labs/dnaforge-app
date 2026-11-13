@@ -1,0 +1,13 @@
+Name,Sequence,Direction,Description
+perfMedium-F500-perfect,GAATGAAGCCATACCAAACG,Forward,Perfect match at pos 500 (perf-medium-synthetic.gb)
+perfMedium-F2000-perfect,AAGCGTGACCACATGGTCCT,Forward,Perfect match at pos 2000 (perf-medium-synthetic.gb)
+perfMedium-F500-1mm-5p,CAATGAAGCCATACCAAACG,Forward,1 mismatch at 5' end (pos 0: G>C)
+perfMedium-F500-1mm-3p,GAATGAAGCCATACCAAACT,Forward,1 mismatch at 3' end (pos 19: G>T)
+perfMedium-F500-2mm-5p,CCATGAAGCCATACCAAACG,Forward,2 mismatches at 5' end (pos 0: G>C pos 1: A>C)
+perfMedium-F500-2mm-mid,GAATGAAGCCAGACGAAACG,Forward,2 mismatches in middle (pos 11: T>G pos 13: C>G)
+perfMedium-F500-3mm-spread,CAATGAAGCCAGACGAAACT,Forward,3 mismatches (pos 0 + 11 + 19)
+perfMedium-R520-perfect,CGTTTGGTATGGCTTCATTC,Reverse,Perfect RC match ending at pos 520
+perfMedium-R520-2mm-5p,TCTTTGGTATGGCTTCATTC,Reverse,2 mismatches at 5' of reverse primer
+perfMedium-F-origin-perfect,TCGCCGGACAATGAGTATTC,Forward,Origin-spanning perfect match (10991-10)
+perfMedium-F-origin-1mm-3p,TCGCCGGACAATGAGTATTT,Forward,Origin-spanning with 3' mismatch
+perfMedium-F-origin-2mm-5p,GAGCCGGACAATGAGTATTC,Forward,Origin-spanning with 5' mismatches

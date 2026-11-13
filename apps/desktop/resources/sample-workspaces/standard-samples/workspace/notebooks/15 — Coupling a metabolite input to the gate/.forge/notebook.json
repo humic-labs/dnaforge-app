@@ -1,0 +1,217 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "corpus-15-biosensor-coupling",
+  "title": "Coupling a metabolite input to the gate",
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "storage": {
+    "type": "database",
+    "table": "pages",
+    "id": "corpus-15-biosensor-coupling"
+  },
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Coupling a metabolite input to the gate"
+          }
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Directive \u2014 Replace one synthetic input with a real metabolite sensor, and measure what that costs."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Design"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The arabinose-responsive "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-77b7ffc5",
+              "label": "C0080 (AraC)",
+              "entityType": "sequence",
+              "entityId": "sample-77b7ffc5",
+              "path": "sequences/kits/moclo-cidar/C0080_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " and its promoter replace the third synthetic input. LuxR is retained on the second input, which is why the entry-13 swap was deferred."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Why this is the honest test"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "A gate driven by three orthogonal synthetic inducers is a demonstration. A gate driven by a metabolite the host also metabolises is the actual application, and it is strictly harder: the input concentration changes during the experiment because the cells consume it."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Result"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "ON/OFF falls to 11-fold, below criterion. The loss is not crosstalk \u2014 it is input depletion: arabinose is consumed within 90 minutes, so the ON state decays during the measurement window."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Consequence"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "A non-metabolisable analogue, or an arabinose-catabolism-deficient host, is required. Recorded as the primary open problem in entry 18."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Related entries"
+          }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-13-orthogonality-screen",
+                      "label": "13 \u2014 Orthogonality screen",
+                      "entityType": "page",
+                      "entityId": "corpus-13-orthogonality-screen"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-17-long-term-stability",
+                      "label": "17 \u2014 Plasmid retention and functional stability over 100 generations",
+                      "entityType": "page",
+                      "entityId": "corpus-17-long-term-stability"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-18-synthesis",
+                      "label": "18 \u2014 Synthesis, open problems, and the next design cycle",
+                      "entityType": "page",
+                      "entityId": "corpus-18-synthesis"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

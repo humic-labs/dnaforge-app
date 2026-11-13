@@ -1,0 +1,1038 @@
+{
+  "schema": "dnaforge.moclo-kit",
+  "formatVersion": 2,
+  "id": "ytk",
+  "name": "Yeast Toolkit (YTK)",
+  "revision": 1,
+  "description": "The 96-part MoClo Yeast Toolkit for hierarchical single- and multi-gene assemblies in Saccharomyces cerevisiae.",
+  "citations": [
+    {
+      "label": "Lee et al., A Highly Characterized Yeast Toolkit for Modular, Multipart Assembly",
+      "doi": "10.1021/sb500366v",
+      "pmid": "25871405",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/25871405/"
+    },
+    {
+      "label": "Addgene MoClo-YTK kit #1000000061",
+      "url": "https://www.addgene.org/kits/moclo-ytk/"
+    }
+  ],
+  "partTypes": [
+    {
+      "id": "ytk:1",
+      "label": "Type 1 · upstream connector",
+      "roleTerms": [
+        {
+          "id": "ytk:assembly-connector",
+          "label": "Assembly connector"
+        }
+      ]
+    },
+    {
+      "id": "ytk:2",
+      "label": "Type 2 · promoter",
+      "roleTerms": [
+        {
+          "id": "ytk:promoter",
+          "label": "Promoter"
+        }
+      ]
+    },
+    {
+      "id": "ytk:234",
+      "label": "Type 234 · combined cassette module",
+      "roleTerms": [
+        {
+          "id": "ytk:cassette-module",
+          "label": "Cassette module"
+        }
+      ]
+    },
+    {
+      "id": "ytk:234r",
+      "label": "Type 234r · cassette placeholder",
+      "roleTerms": [
+        {
+          "id": "ytk:cassette-placeholder",
+          "label": "Cassette placeholder"
+        }
+      ]
+    },
+    {
+      "id": "ytk:3",
+      "label": "Type 3 · coding sequence",
+      "roleTerms": [
+        {
+          "id": "ytk:coding-sequence",
+          "label": "CDS"
+        }
+      ]
+    },
+    {
+      "id": "ytk:3a",
+      "label": "Type 3a · N-terminal coding module",
+      "roleTerms": [
+        {
+          "id": "ytk:coding-sequence",
+          "label": "CDS"
+        }
+      ]
+    },
+    {
+      "id": "ytk:3b",
+      "label": "Type 3b · C-terminal coding module",
+      "roleTerms": [
+        {
+          "id": "ytk:coding-sequence",
+          "label": "CDS"
+        }
+      ]
+    },
+    {
+      "id": "ytk:4",
+      "label": "Type 4 · terminator",
+      "roleTerms": [
+        {
+          "id": "ytk:terminator",
+          "label": "Terminator"
+        }
+      ]
+    },
+    {
+      "id": "ytk:4a",
+      "label": "Type 4a · terminator module",
+      "roleTerms": [
+        {
+          "id": "ytk:terminator",
+          "label": "Terminator"
+        }
+      ]
+    },
+    {
+      "id": "ytk:4b",
+      "label": "Type 4b · terminator module",
+      "roleTerms": [
+        {
+          "id": "ytk:terminator",
+          "label": "Terminator"
+        }
+      ]
+    },
+    {
+      "id": "ytk:5",
+      "label": "Type 5 · downstream connector",
+      "roleTerms": [
+        {
+          "id": "ytk:assembly-connector",
+          "label": "Assembly connector"
+        }
+      ]
+    },
+    {
+      "id": "ytk:6",
+      "label": "Type 6 · selection marker",
+      "roleTerms": [
+        {
+          "id": "ytk:selection-marker",
+          "label": "Selection marker"
+        }
+      ]
+    },
+    {
+      "id": "ytk:678",
+      "label": "Type 678 · combined cassette-vector module",
+      "roleTerms": [
+        {
+          "id": "ytk:cassette-vector-module",
+          "label": "Cassette vector module"
+        }
+      ]
+    },
+    {
+      "id": "ytk:7",
+      "label": "Type 7 · yeast maintenance or integration module",
+      "roleTerms": [
+        {
+          "id": "ytk:yeast-vector-module",
+          "label": "Yeast vector module"
+        }
+      ]
+    },
+    {
+      "id": "ytk:8",
+      "label": "Type 8 · bacterial vector module",
+      "roleTerms": [
+        {
+          "id": "ytk:bacterial-vector-module",
+          "label": "Bacterial vector module"
+        }
+      ]
+    },
+    {
+      "id": "ytk:8a",
+      "label": "Type 8a · bacterial vector module A",
+      "roleTerms": [
+        {
+          "id": "ytk:bacterial-vector-module",
+          "label": "Bacterial vector module"
+        }
+      ]
+    },
+    {
+      "id": "ytk:8b",
+      "label": "Type 8b · bacterial vector module B",
+      "roleTerms": [
+        {
+          "id": "ytk:bacterial-vector-module",
+          "label": "Bacterial vector module"
+        }
+      ]
+    },
+    {
+      "id": "ytk:cassette-vector",
+      "label": "Cassette vector",
+      "roleTerms": [
+        {
+          "id": "ytk:cassette-vector",
+          "label": "Cassette vector"
+        }
+      ]
+    },
+    {
+      "id": "ytk:entry-vector",
+      "label": "Entry vector",
+      "roleTerms": [
+        {
+          "id": "ytk:entry-vector",
+          "label": "Entry vector"
+        }
+      ]
+    }
+  ],
+  "members": [
+    {
+      "id": "pytk001",
+      "name": "pYTK001",
+      "sequencePackageId": "sample-cf26dd62",
+      "partTypeId": "ytk:entry-vector"
+    },
+    {
+      "id": "pytk002",
+      "name": "pYTK002",
+      "sequencePackageId": "sample-5da1e37a",
+      "partTypeId": "ytk:1"
+    },
+    {
+      "id": "pytk003",
+      "name": "pYTK003",
+      "sequencePackageId": "sample-f36c93ce",
+      "partTypeId": "ytk:1"
+    },
+    {
+      "id": "pytk004",
+      "name": "pYTK004",
+      "sequencePackageId": "sample-a4960aae",
+      "partTypeId": "ytk:1"
+    },
+    {
+      "id": "pytk005",
+      "name": "pYTK005",
+      "sequencePackageId": "sample-30d2baa2",
+      "partTypeId": "ytk:1"
+    },
+    {
+      "id": "pytk006",
+      "name": "pYTK006",
+      "sequencePackageId": "sample-a7f3d20a",
+      "partTypeId": "ytk:1"
+    },
+    {
+      "id": "pytk007",
+      "name": "pYTK007",
+      "sequencePackageId": "sample-81969356",
+      "partTypeId": "ytk:1"
+    },
+    {
+      "id": "pytk008",
+      "name": "pYTK008",
+      "sequencePackageId": "sample-12c002f6",
+      "partTypeId": "ytk:1"
+    },
+    {
+      "id": "pytk009",
+      "name": "pYTK009",
+      "sequencePackageId": "sample-4e461e72",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk010",
+      "name": "pYTK010",
+      "sequencePackageId": "sample-1e834ff6",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk011",
+      "name": "pYTK011",
+      "sequencePackageId": "sample-0719330e",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk012",
+      "name": "pYTK012",
+      "sequencePackageId": "sample-1bcfc3c6",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk013",
+      "name": "pYTK013",
+      "sequencePackageId": "sample-25ba0f96",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk014",
+      "name": "pYTK014",
+      "sequencePackageId": "sample-19a35256",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk015",
+      "name": "pYTK015",
+      "sequencePackageId": "sample-51147bbe",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk016",
+      "name": "pYTK016",
+      "sequencePackageId": "sample-d3b27a86",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk017",
+      "name": "pYTK017",
+      "sequencePackageId": "sample-50948ee6",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk018",
+      "name": "pYTK018",
+      "sequencePackageId": "sample-060bf566",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk019",
+      "name": "pYTK019",
+      "sequencePackageId": "sample-85a44d4e",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk020",
+      "name": "pYTK020",
+      "sequencePackageId": "sample-db5ef2de",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk021",
+      "name": "pYTK021",
+      "sequencePackageId": "sample-5a1badd6",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk022",
+      "name": "pYTK022",
+      "sequencePackageId": "sample-87fb9b1a",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk023",
+      "name": "pYTK023",
+      "sequencePackageId": "sample-ece2d362",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk024",
+      "name": "pYTK024",
+      "sequencePackageId": "sample-6166754e",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk025",
+      "name": "pYTK025",
+      "sequencePackageId": "sample-339871b6",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk026",
+      "name": "pYTK026",
+      "sequencePackageId": "sample-37f55a42",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk027",
+      "name": "pYTK027",
+      "sequencePackageId": "sample-b8709a1a",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk028",
+      "name": "pYTK028",
+      "sequencePackageId": "sample-0c70ac0e",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk029",
+      "name": "pYTK029",
+      "sequencePackageId": "sample-0d818176",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk030",
+      "name": "pYTK030",
+      "sequencePackageId": "sample-ebadab76",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk031",
+      "name": "pYTK031",
+      "sequencePackageId": "sample-10a43e1a",
+      "partTypeId": "ytk:2"
+    },
+    {
+      "id": "pytk032",
+      "name": "pYTK032",
+      "sequencePackageId": "sample-b31a6ef6",
+      "partTypeId": "ytk:3"
+    },
+    {
+      "id": "pytk033",
+      "name": "pYTK033",
+      "sequencePackageId": "sample-2df6bf0a",
+      "partTypeId": "ytk:3"
+    },
+    {
+      "id": "pytk034",
+      "name": "pYTK034",
+      "sequencePackageId": "sample-30ad8076",
+      "partTypeId": "ytk:3"
+    },
+    {
+      "id": "pytk035",
+      "name": "pYTK035",
+      "sequencePackageId": "sample-4da22282",
+      "partTypeId": "ytk:3"
+    },
+    {
+      "id": "pytk036",
+      "name": "pYTK036",
+      "sequencePackageId": "sample-6d64be16",
+      "partTypeId": "ytk:3"
+    },
+    {
+      "id": "pytk037",
+      "name": "pYTK037",
+      "sequencePackageId": "sample-604e18b2",
+      "partTypeId": "ytk:3a"
+    },
+    {
+      "id": "pytk038",
+      "name": "pYTK038",
+      "sequencePackageId": "sample-694268d6",
+      "partTypeId": "ytk:3a"
+    },
+    {
+      "id": "pytk039",
+      "name": "pYTK039",
+      "sequencePackageId": "sample-c0b261ba",
+      "partTypeId": "ytk:3a"
+    },
+    {
+      "id": "pytk040",
+      "name": "pYTK040",
+      "sequencePackageId": "sample-e9ccc8c6",
+      "partTypeId": "ytk:3a"
+    },
+    {
+      "id": "pytk041",
+      "name": "pYTK041",
+      "sequencePackageId": "sample-0a2f5a4a",
+      "partTypeId": "ytk:3a"
+    },
+    {
+      "id": "pytk042",
+      "name": "pYTK042",
+      "sequencePackageId": "sample-789ec532",
+      "partTypeId": "ytk:3a"
+    },
+    {
+      "id": "pytk043",
+      "name": "pYTK043",
+      "sequencePackageId": "sample-773ea876",
+      "partTypeId": "ytk:3a"
+    },
+    {
+      "id": "pytk044",
+      "name": "pYTK044",
+      "sequencePackageId": "sample-222dbbbe",
+      "partTypeId": "ytk:3b"
+    },
+    {
+      "id": "pytk045",
+      "name": "pYTK045",
+      "sequencePackageId": "sample-1ddd0e9a",
+      "partTypeId": "ytk:3b"
+    },
+    {
+      "id": "pytk046",
+      "name": "pYTK046",
+      "sequencePackageId": "sample-6b4f04f2",
+      "partTypeId": "ytk:3b"
+    },
+    {
+      "id": "pytk047",
+      "name": "pYTK047",
+      "sequencePackageId": "sample-d4f92b8e",
+      "partTypeId": "ytk:234r"
+    },
+    {
+      "id": "pytk048",
+      "name": "pYTK048",
+      "sequencePackageId": "sample-13161266",
+      "partTypeId": "ytk:234"
+    },
+    {
+      "id": "pytk049",
+      "name": "pYTK049",
+      "sequencePackageId": "sample-e026772a",
+      "partTypeId": "ytk:234"
+    },
+    {
+      "id": "pytk050",
+      "name": "pYTK050",
+      "sequencePackageId": "sample-87480c46",
+      "partTypeId": "ytk:234"
+    },
+    {
+      "id": "pytk051",
+      "name": "pYTK051",
+      "sequencePackageId": "sample-6382d54e",
+      "partTypeId": "ytk:4"
+    },
+    {
+      "id": "pytk052",
+      "name": "pYTK052",
+      "sequencePackageId": "sample-8b8851b6",
+      "partTypeId": "ytk:4"
+    },
+    {
+      "id": "pytk053",
+      "name": "pYTK053",
+      "sequencePackageId": "sample-de5bbabe",
+      "partTypeId": "ytk:4"
+    },
+    {
+      "id": "pytk054",
+      "name": "pYTK054",
+      "sequencePackageId": "sample-17a383d6",
+      "partTypeId": "ytk:4"
+    },
+    {
+      "id": "pytk055",
+      "name": "pYTK055",
+      "sequencePackageId": "sample-0bcaecce",
+      "partTypeId": "ytk:4"
+    },
+    {
+      "id": "pytk056",
+      "name": "pYTK056",
+      "sequencePackageId": "sample-8f5e2626",
+      "partTypeId": "ytk:4"
+    },
+    {
+      "id": "pytk057",
+      "name": "pYTK057",
+      "sequencePackageId": "sample-aa7483ee",
+      "partTypeId": "ytk:4a"
+    },
+    {
+      "id": "pytk058",
+      "name": "pYTK058",
+      "sequencePackageId": "sample-66a8a966",
+      "partTypeId": "ytk:4a"
+    },
+    {
+      "id": "pytk059",
+      "name": "pYTK059",
+      "sequencePackageId": "sample-03c53bbe",
+      "partTypeId": "ytk:4a"
+    },
+    {
+      "id": "pytk060",
+      "name": "pYTK060",
+      "sequencePackageId": "sample-0e82f3fe",
+      "partTypeId": "ytk:4a"
+    },
+    {
+      "id": "pytk061",
+      "name": "pYTK061",
+      "sequencePackageId": "sample-fc7b5606",
+      "partTypeId": "ytk:4b"
+    },
+    {
+      "id": "pytk062",
+      "name": "pYTK062",
+      "sequencePackageId": "sample-6d222b22",
+      "partTypeId": "ytk:4b"
+    },
+    {
+      "id": "pytk063",
+      "name": "pYTK063",
+      "sequencePackageId": "sample-7763d432",
+      "partTypeId": "ytk:4b"
+    },
+    {
+      "id": "pytk064",
+      "name": "pYTK064",
+      "sequencePackageId": "sample-c9ee5afe",
+      "partTypeId": "ytk:4b"
+    },
+    {
+      "id": "pytk065",
+      "name": "pYTK065",
+      "sequencePackageId": "sample-54c9aad6",
+      "partTypeId": "ytk:4b"
+    },
+    {
+      "id": "pytk066",
+      "name": "pYTK066",
+      "sequencePackageId": "sample-2af8ea6a",
+      "partTypeId": "ytk:4b"
+    },
+    {
+      "id": "pytk067",
+      "name": "pYTK067",
+      "sequencePackageId": "sample-e425ee5a",
+      "partTypeId": "ytk:5"
+    },
+    {
+      "id": "pytk068",
+      "name": "pYTK068",
+      "sequencePackageId": "sample-a1fb387e",
+      "partTypeId": "ytk:5"
+    },
+    {
+      "id": "pytk069",
+      "name": "pYTK069",
+      "sequencePackageId": "sample-bec4ec76",
+      "partTypeId": "ytk:5"
+    },
+    {
+      "id": "pytk070",
+      "name": "pYTK070",
+      "sequencePackageId": "sample-4a4e1746",
+      "partTypeId": "ytk:5"
+    },
+    {
+      "id": "pytk071",
+      "name": "pYTK071",
+      "sequencePackageId": "sample-ed6e76e2",
+      "partTypeId": "ytk:5"
+    },
+    {
+      "id": "pytk072",
+      "name": "pYTK072",
+      "sequencePackageId": "sample-579938e6",
+      "partTypeId": "ytk:5"
+    },
+    {
+      "id": "pytk073",
+      "name": "pYTK073",
+      "sequencePackageId": "sample-b0ef83ea",
+      "partTypeId": "ytk:5"
+    },
+    {
+      "id": "pytk074",
+      "name": "pYTK074",
+      "sequencePackageId": "sample-83beeef6",
+      "partTypeId": "ytk:6"
+    },
+    {
+      "id": "pytk075",
+      "name": "pYTK075",
+      "sequencePackageId": "sample-6b44b4aa",
+      "partTypeId": "ytk:6"
+    },
+    {
+      "id": "pytk076",
+      "name": "pYTK076",
+      "sequencePackageId": "sample-9b520376",
+      "partTypeId": "ytk:6"
+    },
+    {
+      "id": "pytk077",
+      "name": "pYTK077",
+      "sequencePackageId": "sample-f3eb2e62",
+      "partTypeId": "ytk:6"
+    },
+    {
+      "id": "pytk078",
+      "name": "pYTK078",
+      "sequencePackageId": "sample-268226f6",
+      "partTypeId": "ytk:6"
+    },
+    {
+      "id": "pytk079",
+      "name": "pYTK079",
+      "sequencePackageId": "sample-69057da2",
+      "partTypeId": "ytk:6"
+    },
+    {
+      "id": "pytk080",
+      "name": "pYTK080",
+      "sequencePackageId": "sample-25ee1fe6",
+      "partTypeId": "ytk:6"
+    },
+    {
+      "id": "pytk081",
+      "name": "pYTK081",
+      "sequencePackageId": "sample-20e58122",
+      "partTypeId": "ytk:7"
+    },
+    {
+      "id": "pytk082",
+      "name": "pYTK082",
+      "sequencePackageId": "sample-0f95256a",
+      "partTypeId": "ytk:7"
+    },
+    {
+      "id": "pytk083",
+      "name": "pYTK083",
+      "sequencePackageId": "sample-91244a5e",
+      "partTypeId": "ytk:8"
+    },
+    {
+      "id": "pytk084",
+      "name": "pYTK084",
+      "sequencePackageId": "sample-e45dfa3e",
+      "partTypeId": "ytk:8"
+    },
+    {
+      "id": "pytk085",
+      "name": "pYTK085",
+      "sequencePackageId": "sample-2ac326b2",
+      "partTypeId": "ytk:8"
+    },
+    {
+      "id": "pytk086",
+      "name": "pYTK086",
+      "sequencePackageId": "sample-d894cdaa",
+      "partTypeId": "ytk:7"
+    },
+    {
+      "id": "pytk087",
+      "name": "pYTK087",
+      "sequencePackageId": "sample-c1c2b056",
+      "partTypeId": "ytk:7"
+    },
+    {
+      "id": "pytk088",
+      "name": "pYTK088",
+      "sequencePackageId": "sample-75bf70a6",
+      "partTypeId": "ytk:7"
+    },
+    {
+      "id": "pytk089",
+      "name": "pYTK089",
+      "sequencePackageId": "sample-084c33d2",
+      "partTypeId": "ytk:8a"
+    },
+    {
+      "id": "pytk090",
+      "name": "pYTK090",
+      "sequencePackageId": "sample-56f9cba6",
+      "partTypeId": "ytk:8a"
+    },
+    {
+      "id": "pytk091",
+      "name": "pYTK091",
+      "sequencePackageId": "sample-257b9e1e",
+      "partTypeId": "ytk:8a"
+    },
+    {
+      "id": "pytk092",
+      "name": "pYTK092",
+      "sequencePackageId": "sample-320689a6",
+      "partTypeId": "ytk:8b"
+    },
+    {
+      "id": "pytk093",
+      "name": "pYTK093",
+      "sequencePackageId": "sample-95329a76",
+      "partTypeId": "ytk:8b"
+    },
+    {
+      "id": "pytk094",
+      "name": "pYTK094",
+      "sequencePackageId": "sample-238c9436",
+      "partTypeId": "ytk:8b"
+    },
+    {
+      "id": "pytk095",
+      "name": "pYTK095",
+      "sequencePackageId": "sample-b9107b7e",
+      "partTypeId": "ytk:678"
+    },
+    {
+      "id": "pytk096",
+      "name": "pYTK096",
+      "sequencePackageId": "sample-7f1a3af6",
+      "partTypeId": "ytk:cassette-vector"
+    }
+  ],
+  "recipes": [
+    {
+      "id": "ytk-multigene-device",
+      "name": "YTK hierarchical multigene device",
+      "description": "Build a position-specific cassette vector, fill it with an expression cassette, then combine cassette outputs into a multigene device.",
+      "stages": [
+        {
+          "id": "cassette-vector",
+          "name": "Build cassette vector",
+          "description": "Assemble YTK Type 1, 234r, 5, 6, 7, 8a, and 8b modules into a reusable cassette vector.",
+          "enzyme": "BsaI",
+          "topology": "circular",
+          "outputRole": {
+            "id": "ytk:cassette-vector",
+            "label": "Cassette vector"
+          },
+          "slots": [
+            {
+              "id": "type-1",
+              "label": "Type 1 connector",
+              "outgoingOverhang": "AACG",
+              "preferredRoles": [
+                {
+                  "id": "ytk:assembly-connector",
+                  "label": "Assembly connector"
+                }
+              ],
+              "input": {
+                "kind": "kit-part"
+              }
+            },
+            {
+              "id": "type-234r",
+              "label": "Type 234r placeholder",
+              "outgoingOverhang": "GCTG",
+              "preferredRoles": [
+                {
+                  "id": "ytk:cassette-placeholder",
+                  "label": "Cassette placeholder"
+                }
+              ],
+              "input": {
+                "kind": "kit-part"
+              }
+            },
+            {
+              "id": "type-5",
+              "label": "Type 5 connector",
+              "outgoingOverhang": "TACA",
+              "preferredRoles": [
+                {
+                  "id": "ytk:assembly-connector",
+                  "label": "Assembly connector"
+                }
+              ],
+              "input": {
+                "kind": "kit-part"
+              }
+            },
+            {
+              "id": "type-6",
+              "label": "Type 6 marker",
+              "outgoingOverhang": "GAGT",
+              "preferredRoles": [
+                {
+                  "id": "ytk:selection-marker",
+                  "label": "Selection marker"
+                }
+              ],
+              "input": {
+                "kind": "kit-part"
+              }
+            },
+            {
+              "id": "type-7",
+              "label": "Type 7 yeast module",
+              "outgoingOverhang": "CCGA",
+              "preferredRoles": [
+                {
+                  "id": "ytk:yeast-vector-module",
+                  "label": "Yeast vector module"
+                }
+              ],
+              "input": {
+                "kind": "kit-part"
+              }
+            },
+            {
+              "id": "type-8a",
+              "label": "Type 8a module",
+              "outgoingOverhang": "CAAT",
+              "preferredRoles": [
+                {
+                  "id": "ytk:bacterial-vector-module",
+                  "label": "Bacterial vector module"
+                }
+              ],
+              "input": {
+                "kind": "kit-part"
+              }
+            },
+            {
+              "id": "type-8b",
+              "label": "Type 8b module",
+              "outgoingOverhang": "CCCT",
+              "preferredRoles": [
+                {
+                  "id": "ytk:bacterial-vector-module",
+                  "label": "Bacterial vector module"
+                }
+              ],
+              "input": {
+                "kind": "kit-part"
+              }
+            }
+          ]
+        },
+        {
+          "id": "expression-cassette",
+          "name": "Fill expression cassette",
+          "description": "Replace the Type 234r placeholder in a prior cassette-vector output with Type 2, 3, and 4 expression parts.",
+          "enzyme": "BsaI",
+          "topology": "circular",
+          "outputRole": {
+            "id": "ytk:expression-cassette",
+            "label": "Expression cassette"
+          },
+          "slots": [
+            {
+              "id": "type-2",
+              "label": "Type 2 promoter",
+              "outgoingOverhang": "TATG",
+              "preferredRoles": [
+                {
+                  "id": "ytk:promoter",
+                  "label": "Promoter"
+                }
+              ],
+              "input": {
+                "kind": "kit-part"
+              }
+            },
+            {
+              "id": "type-3",
+              "label": "Type 3 coding sequence",
+              "outgoingOverhang": "ATCC",
+              "preferredRoles": [
+                {
+                  "id": "ytk:coding-sequence",
+                  "label": "CDS"
+                }
+              ],
+              "input": {
+                "kind": "kit-part"
+              }
+            },
+            {
+              "id": "type-4",
+              "label": "Type 4 terminator",
+              "outgoingOverhang": "GCTG",
+              "preferredRoles": [
+                {
+                  "id": "ytk:terminator",
+                  "label": "Terminator"
+                }
+              ],
+              "input": {
+                "kind": "kit-part"
+              }
+            },
+            {
+              "id": "cassette-vector-output",
+              "label": "Cassette vector",
+              "outgoingOverhang": "AACG",
+              "preferredRoles": [
+                {
+                  "id": "ytk:cassette-vector",
+                  "label": "Cassette vector"
+                }
+              ],
+              "input": {
+                "kind": "stage-output",
+                "stageId": "cassette-vector"
+              }
+            }
+          ]
+        },
+        {
+          "id": "multigene-device",
+          "name": "Assemble multigene device",
+          "description": "Combine two or more position-specific expression-cassette outputs by their connector-defined BsmBI ends.",
+          "enzyme": "BsmBI",
+          "topology": "circular",
+          "outputRole": {
+            "id": "ytk:multigene-device",
+            "label": "Multigene device"
+          },
+          "slots": [
+            {
+              "id": "cassette-1",
+              "label": "Expression cassette 1",
+              "outgoingOverhang": null,
+              "preferredRoles": [
+                {
+                  "id": "ytk:expression-cassette",
+                  "label": "Expression cassette"
+                }
+              ],
+              "input": {
+                "kind": "stage-output",
+                "stageId": "expression-cassette"
+              }
+            },
+            {
+              "id": "cassette-2",
+              "label": "Expression cassette 2",
+              "outgoingOverhang": null,
+              "preferredRoles": [
+                {
+                  "id": "ytk:expression-cassette",
+                  "label": "Expression cassette"
+                }
+              ],
+              "input": {
+                "kind": "stage-output",
+                "stageId": "expression-cassette"
+              }
+            },
+            {
+              "id": "device-vector-cassette",
+              "label": "Closing cassette vector",
+              "outgoingOverhang": null,
+              "preferredRoles": [
+                {
+                  "id": "ytk:expression-cassette",
+                  "label": "Expression cassette"
+                }
+              ],
+              "input": {
+                "kind": "stage-output",
+                "stageId": "expression-cassette"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

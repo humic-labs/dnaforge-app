@@ -1,0 +1,40 @@
+diff --git a/install.js b/install.js
+--- a/install.js
++++ b/install.js
+@@ -12,6 +12,7 @@
+ const platformPath = getPlatformPath();
+ 
+ if (isInstalled()) {
++  restrictDistributionPermissions();
+   process.exit(0);
+ }
+ 
+@@ -84,6 +85,7 @@
+   const distPath = process.env.ELECTRON_OVERRIDE_DIST_PATH || path.join(__dirname, 'dist');
+ 
+   return extract(zipPath, { dir: path.join(__dirname, 'dist') }).then(() => {
++    restrictDistributionPermissions();
+     // If the zip contains an "electron.d.ts" file,
+     // move that up
+     const srcTypeDefPath = path.join(distPath, 'electron.d.ts');
+@@ -97,6 +99,20 @@
+     // Write a "path.txt" file.
+     return fs.promises.writeFile(path.join(__dirname, 'path.txt'), platformPath);
+   });
++}
++
++function restrictDistributionPermissions() {
++  if (process.platform === 'win32') return;
++  const visit = (entry) => {
++    const info = fs.lstatSync(entry);
++    if (info.isSymbolicLink()) return;
++    const mode = info.mode & 0o7777;
++    if (mode & 0o022) fs.chmodSync(entry, mode & ~0o022);
++    if (info.isDirectory()) {
++      for (const name of fs.readdirSync(entry)) visit(path.join(entry, name));
++    }
++  };
++  visit(path.join(__dirname, 'dist'));
+ }
+ 
+ function getPlatformPath() {

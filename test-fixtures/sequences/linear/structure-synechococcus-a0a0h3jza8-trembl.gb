@@ -1,0 +1,28 @@
+LOCUS       STRUCT_SYNP6_A0A0H3JZA8 408 bp    DNA     linear   14-MAY-2026
+DEFINITION  Synthetic CDS carrying the UniProt TrEMBL A0A0H3JZA8 protein
+            sequence for structure resolver and AlphaFold byte-fetch testing.
+ACCESSION   SYN_A0A0H3JZA8
+VERSION     SYN_A0A0H3JZA8
+KEYWORDS    structure-regression; alphafold; trembl; ten-character-accession.
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+FEATURES             Location/Qualifiers
+     source          1..408
+                     /organism="synthetic DNA construct"
+                     /note="Codon-normalized synthetic DNA; protein sequence
+                     is UniProtKB TrEMBL A0A0H3JZA8"
+     CDS             1..408
+                     /label="A0A0H3JZA8 AlphaFold TrEMBL regression"
+                     /gene="syc0127_d"
+                     /codon_start="1"
+                     /transl_table="11"
+                     /translation="MTVALGLELRNSLCELIRDRASNGALILYAGYDPHSDQLTEEIVRFPLAAQPFRPVESGTMAAAPIAPARCSRGGALRYWEIRSSPLHDTHPDQMLLRGSIGDITNPGDADLVLDTVAVLQNQAIAIASFTYSAPL"
+ORIGIN
+        1 atgaccgtgg cgctgggcct ggaactgcgt aactctctgt gcgaactgat tcgtgatcgt
+       61 gcgtctaacg gcgcgctgat tctgtatgcg ggctatgatc cgcattctga tcaactgacc
+      121 gaagaaattg tgcgttttcc gctggcggcg caaccgtttc gtccggtgga atctggcacc
+      181 atggcggcgg cgccgattgc gccggcgcgt tgctctcgtg gcggcgcgct gcgttattgg
+      241 gaaattcgtt cttctccgct gcatgatacc catccggatc aaatgctgct gcgtggctct
+      301 attggcgata ttaccaaccc gggcgatgcg gatctggtgc tggataccgt ggcggtgctg
+      361 caaaaccaag cgattgcgat tgcgtctttt acctattctg cgccgctg
+//

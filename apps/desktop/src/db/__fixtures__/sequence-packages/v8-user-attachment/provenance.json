@@ -1,0 +1,7 @@
+{
+  "kind": "production-migration-replay",
+  "parent": "../v7-user-attachment",
+  "sourceCommit": "a9f11d56a0239fcccc0815c796f880b71b986151",
+  "migration": "migrateSequencePackageV7ToV8",
+  "description": "Existing v7 control advanced by the exact v7-to-v8 attachment mapping. Product and attachment bytes are unchanged; no historical digest is invented."
+}

@@ -1,0 +1,169 @@
+appId: com.dnaforge.desktop
+productName: DNAForge
+copyright: Copyright (c) 2026 Humic Labs Inc.
+forceCodeSigning: true
+electronLanguages:
+  - en
+  - en-US
+protocols:
+  - name: DNAForge Sign-in
+    schemes:
+      - dnaforge
+      - dnaforge-beta
+directories:
+  buildResources: resources
+  output: dist-electron
+files:
+  - '!out/**/*.map'
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!e2e/*'
+  - '!electron.vite.config.*'
+  - '!electron.update-proof.config.*'
+  - '!.env.local'
+  - '!.env.local.example'
+  - '!.env'
+  - '!scripts/*'
+  - '!third-party/**'
+  - '!dist-electron/**'
+  - '!out/cargo-target/**'
+  - '!out/browser-e2e/**'
+  - '!out/module-graph/**'
+  - '!out/**/*.tsbuildinfo'
+  - '!**/node_modules/**/__fixtures__/**'
+  - '!**/node_modules/**/__tests__/**'
+  - '!**/node_modules/**/*.test.{ts,tsx,js,jsx}'
+  - '!**/node_modules/**/*.spec.{ts,tsx,js,jsx}'
+  - '!**/node_modules/cytoscape-fcose/demo/**'
+  - '!**/node_modules/gifuct-js/demo/**'
+  - '!**/node_modules/tus-js-client/dist/browser-test-bundle.js'
+  - '!**/node_modules/better-sqlite3/deps/**'
+  - '!**/node_modules/better-sqlite3/src/**'
+  - '!**/node_modules/**/*.map'
+  - '!**/node_modules/molstar/**'
+  - '!**/node_modules/pixi.js/**'
+  - '!**/node_modules/pdfjs-dist/**'
+  - '!**/node_modules/@napi-rs/canvas*/**'
+  - '!**/node_modules/@opendataloader/pdf/**'
+  - '!**/node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/**'
+  - '!**/node_modules/@anthropic-ai/claude-agent-sdk-darwin-x64/**'
+  - '!**/node_modules/@anthropic-ai/claude-agent-sdk-linux-arm64/**'
+  - '!**/node_modules/@anthropic-ai/claude-agent-sdk-linux-arm64-musl/**'
+  - '!**/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/**'
+  - '!**/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64-musl/**'
+  - '!**/node_modules/@anthropic-ai/claude-agent-sdk-win32-arm64/**'
+  - '!**/node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/**'
+  - '!**/node_modules/@openai/codex-darwin-arm64/**'
+  - '!**/node_modules/@openai/codex-darwin-x64/**'
+  - '!**/node_modules/@openai/codex-linux-arm64/**'
+  - '!**/node_modules/@openai/codex-linux-x64/**'
+  - '!**/node_modules/@openai/codex-win32-arm64/**'
+  - '!**/node_modules/@openai/codex-win32-x64/**'
+  - '!**/node_modules/@openai/codex-app-server-*/**'
+extraResources:
+  - from: resources/helpers/
+    to: tool-licenses/
+    filter:
+      - '**/*.licenses/**/*'
+  - from: resources/terminal-shell-integration/
+    to: terminal-shell-integration/
+  - from: resources/git-read-worker.cjs
+    to: git-read-worker.cjs
+  - from: resources/binaries/
+    to: binaries/
+    filter:
+      - '**/*'
+  - from: ../../packages/core/agent-tools/
+    to: agent-tools/
+    filter:
+      - '*.json'
+  - from: ../../packages/core/compute-endpoints/manifests/
+    to: compute-endpoints/manifests/
+    filter:
+      - '*.json'
+  - from: resources/sample-workspaces/
+    to: sample-workspaces/
+  - from: resources/tracks/
+    to: tracks/
+    filter:
+      - '**/*'
+  - from: resources/icon.png
+    to: icon.png
+  - from: resources/THIRD_PARTY_NOTICES.md
+    to: THIRD_PARTY_NOTICES.md
+  - from: resources/LICENSES.chromium.html
+    to: LICENSES.chromium.html
+extraFiles:
+  - from: resources/helpers/
+    to: Helpers/
+    filter:
+      - '**/*'
+      - '!README.md'
+      - '!.gitkeep'
+      - '!**/*.licenses'
+      - '!**/*.licenses/**'
+npmRebuild: false
+asar: true
+asarUnpack:
+  - '**/node_modules/node-pty/**'
+  - '**/*.node'
+  - 'out/renderer/assets/*.mp4'
+  - '**/node_modules/dugite/**'
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Science
+  icon: resources/icon.png
+mac:
+  target:
+    - dmg
+    - zip
+  icon: resources/icon.icns
+  hardenedRuntime: true
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
+  signIgnore:
+    - '^.*/Contents/Resources/binaries/codex-app-server(?:/|$)'
+  notarize: false
+dmg:
+  sign: true
+  background: dmg-background.png
+  iconSize: 84
+  iconTextSize: 12
+  window:
+    width: 400
+    height: 232
+  contents:
+    - x: 98
+      y: 94
+      type: file
+    - x: 302
+      y: 94
+      type: link
+      path: /Applications
+win:
+  target:
+    - nsis
+  icon: resources/icon.ico
+  artifactName: DNAForge-Setup-${version}.${ext}
+  signExts:
+    - '!codex.exe'
+    - '!codex-code-mode-host.exe'
+    - '!rg.exe'
+    - '!codex-command-runner.exe'
+    - '!codex-windows-sandbox-setup.exe'
+  azureSignOptions:
+    publisherName: C=US, S=California, L=San Francisco, O=Humic Labs Inc., CN=Humic Labs Inc.
+    endpoint: https://eus.codesigning.azure.net/
+    certificateProfileName: dnaforge-windows-prod
+    codeSigningAccountName: dnaforge-signing-prod
+nsis:
+  include: installer.nsh
+beforePack: scripts/before-pack.cjs
+afterPack: scripts/after-pack.cjs
+afterSign: scripts/notarize.cjs
+publish:
+  provider: github
+  releaseType: draft
+  private: true

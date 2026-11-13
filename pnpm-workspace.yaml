@@ -1,0 +1,8 @@
+packages:
+  - 'apps/*'
+  - 'apps/hosted-operations/genome-builder'
+  - 'packages/**'
+  - 'tools/*'
+
+neverBuiltDependencies:
+  - dugite

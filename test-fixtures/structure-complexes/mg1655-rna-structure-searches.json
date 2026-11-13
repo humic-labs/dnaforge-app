@@ -1,0 +1,243 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "mg1655-rna-structure-searches",
+  "verifiedAt": "2026-05-26",
+  "sourceSequenceRebasedAt": "2026-07-30",
+  "verificationSources": [
+    "test-fixtures/sequences/circular/ecoli-mg1655-complete.gb",
+    "https://search.rcsb.org/rcsbsearch/v2/query",
+    "https://data.rcsb.org/rest/v1/core/entry/{pdbId}"
+  ],
+  "sourceSequence": {
+    "path": "test-fixtures/sequences/circular/ecoli-mg1655-complete.gb",
+    "organism": "Escherichia coli K-12 MG1655",
+    "taxonId": 83333,
+    "accession": "NC_000913.3",
+    "sha256": "7cf1ed07c731a1aba11d2b12a7071f395b1a25b4e9a06809549742f83c2d1a2f"
+  },
+  "providerRequestContract": {
+    "route": "/external/rcsb/sequence-search",
+    "rcsbEndpoint": "https://search.rcsb.org/rcsbsearch/v2/query",
+    "returnType": "polymer_entity",
+    "requiredCapability": "external-fetch:homology-search",
+    "rnaSequenceType": "rna",
+    "defaultIdentityCutoff": 0.9,
+    "defaultEvalueCutoff": 0.1,
+    "defaultSize": 10,
+    "alphaFoldFallback": "protein_only"
+  },
+  "cases": [
+    {
+      "caseId": "rna-only-ffs-srp-4point5s-rna",
+      "category": "rna_only_query",
+      "queryKind": "rna",
+      "annotationType": "ncRNA",
+      "gene": "ffs",
+      "locusTag": "b0455",
+      "product": "signal recognition particle 4.5S RNA",
+      "location": { "start": 476448, "end": 476561, "strand": 1 },
+      "expectedQuerySequence": {
+        "length": 114,
+        "prefix": "GGGGGCUCUGUUGGUUCUCCCGCAACGCUACUCUGUUUAC",
+        "suffix": "AGCUGGCAGGGCCCCCACCC"
+      },
+      "expectedRcsbSequenceSearch": {
+        "sequenceType": "rna",
+        "expectedHitCountClass": "many",
+        "observedTotalHitCount": 25,
+        "topHits": [
+          { "identifier": "5GAD_1", "pdbId": "5GAD", "entityId": "1", "sequenceIdentity": 1 },
+          { "identifier": "5GAF_1", "pdbId": "5GAF", "entityId": "1", "sequenceIdentity": 1 },
+          { "identifier": "5GAG_1", "pdbId": "5GAG", "entityId": "1", "sequenceIdentity": 1 }
+        ]
+      },
+      "expectedAlphaFoldFallback": false,
+      "expectedCandidateProvider": "rcsb",
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/5GAD",
+        "https://data.rcsb.org/rest/v1/core/entry/5GAD"
+      ]
+    },
+    {
+      "caseId": "trna-gltu-glutamate-exact-rcsb-hit",
+      "category": "trna_query",
+      "queryKind": "rna",
+      "annotationType": "tRNA",
+      "gene": "gltU",
+      "locusTag": "b3757",
+      "product": "tRNA-Glu",
+      "location": { "start": 3943435, "end": 3943510, "strand": 1 },
+      "expectedQuerySequence": {
+        "length": 76,
+        "prefix": "GUCCCCUUCGUCUAGAGGCCCAGGACACCGCCCUUUCACG",
+        "suffix": "GAAUCCCCUAGGGGACGCCA"
+      },
+      "expectedRcsbSequenceSearch": {
+        "sequenceType": "rna",
+        "expectedHitCountClass": "some",
+        "observedTotalHitCount": 12,
+        "topHits": [
+          { "identifier": "2DER_1", "pdbId": "2DER", "entityId": "1", "sequenceIdentity": 1 },
+          { "identifier": "2DET_1", "pdbId": "2DET", "entityId": "1", "sequenceIdentity": 1 },
+          { "identifier": "2DEU_1", "pdbId": "2DEU", "entityId": "1", "sequenceIdentity": 1 }
+        ]
+      },
+      "expectedAlphaFoldFallback": false,
+      "expectedCandidateProvider": "rcsb",
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/2DER",
+        "https://data.rcsb.org/rest/v1/core/entry/2DER"
+      ]
+    },
+    {
+      "caseId": "rrna-rrfc-5s-ribosomal-rna-exact-hit",
+      "category": "rrna_query",
+      "queryKind": "rna",
+      "annotationType": "rRNA",
+      "gene": "rrfC",
+      "locusTag": "b3759",
+      "product": "5S ribosomal RNA",
+      "location": { "start": 3946700, "end": 3946819, "strand": 1 },
+      "expectedQuerySequence": {
+        "length": 120,
+        "prefix": "UGCCUGGCGGCCGUAGCGCGGUGGUCCCACCUGACCCCAU",
+        "suffix": "AGUAGGGAACUGCCAGGCAU"
+      },
+      "expectedRcsbSequenceSearch": {
+        "sequenceType": "rna",
+        "expectedHitCountClass": "many",
+        "observedTotalHitCount": 676,
+        "topHits": [
+          { "identifier": "11DG_29", "pdbId": "11DG", "entityId": "29", "sequenceIdentity": 1 },
+          { "identifier": "11EL_29", "pdbId": "11EL", "entityId": "29", "sequenceIdentity": 1 },
+          { "identifier": "11FV_21", "pdbId": "11FV", "entityId": "21", "sequenceIdentity": 1 }
+        ]
+      },
+      "expectedAlphaFoldFallback": false,
+      "expectedCandidateProvider": "rcsb",
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/11DG",
+        "https://data.rcsb.org/rest/v1/core/entry/11DG"
+      ]
+    },
+    {
+      "caseId": "rrna-rrsc-16s-homologous-partial-rcsb-hit",
+      "category": "rna_homologous_or_partial_provider_match",
+      "queryKind": "rna",
+      "annotationType": "rRNA",
+      "gene": "rrsC",
+      "locusTag": "b3756",
+      "product": "16S ribosomal RNA",
+      "location": { "start": 3941808, "end": 3943349, "strand": 1 },
+      "expectedQuerySequence": {
+        "length": 1542,
+        "prefix": "AAAUUGAAGAGUUUGAUCAUGGCUCAGAUUGAACGCUGGC",
+        "suffix": "GCGGUUGGAUCACCUCCUUA"
+      },
+      "expectedRcsbSequenceSearch": {
+        "sequenceType": "rna",
+        "expectedHitCountClass": "many",
+        "observedTotalHitCount": 651,
+        "topHits": [
+          { "identifier": "9GR1_5", "pdbId": "9GR1", "entityId": "5", "sequenceIdentity": 0.998 },
+          { "identifier": "6ZTJ_1", "pdbId": "6ZTJ", "entityId": "1", "sequenceIdentity": 0.997 },
+          { "identifier": "6ZTL_1", "pdbId": "6ZTL", "entityId": "1", "sequenceIdentity": 0.997 }
+        ]
+      },
+      "expectedAlphaFoldFallback": false,
+      "expectedCandidateProvider": "rcsb",
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/9GR1",
+        "https://data.rcsb.org/rest/v1/core/entry/9GR1"
+      ]
+    },
+    {
+      "caseId": "rna-nohit-chix-small-regulatory-rna",
+      "category": "rna_no_pdb_no_alphafold",
+      "queryKind": "rna",
+      "annotationType": "ncRNA",
+      "gene": "chiX",
+      "locusTag": "b4585",
+      "product": "small regulatory RNA ChiX",
+      "location": { "start": 507204, "end": 507287, "strand": 1 },
+      "expectedQuerySequence": {
+        "length": 84,
+        "prefix": "ACACCGUCGCUUAAAGUGACGGCAUAAUAAUAAAAAAAUG",
+        "suffix": "GCGAUAUUGGCCAUUUUUUU"
+      },
+      "expectedRcsbSequenceSearch": {
+        "sequenceType": "rna",
+        "expectedHitCountClass": "none",
+        "observedTotalHitCount": 0,
+        "topHits": []
+      },
+      "expectedAlphaFoldFallback": false,
+      "expectedDrawerNoMatchCopyKind": "rna-no-alphafold",
+      "sourceUrls": ["https://search.rcsb.org/rcsbsearch/v2/query"]
+    },
+    {
+      "caseId": "rna-nohit-oxys-small-regulatory-rna",
+      "category": "rna_no_pdb_no_alphafold",
+      "queryKind": "rna",
+      "annotationType": "ncRNA",
+      "gene": "oxyS",
+      "locusTag": "b4458",
+      "product": "small regulatory RNA OxyS",
+      "location": { "start": 4158278, "end": 4158394, "strand": -1 },
+      "expectedQuerySequence": {
+        "length": 117,
+        "prefix": "GAAACGGAGCGGCACCUCUUUUAACCCUUGAAGUCACUGC",
+        "suffix": "UCCAGGAUCCGCUUUUUUUU"
+      },
+      "expectedRcsbSequenceSearch": {
+        "sequenceType": "rna",
+        "expectedHitCountClass": "none",
+        "observedTotalHitCount": 0,
+        "topHits": []
+      },
+      "expectedAlphaFoldFallback": false,
+      "expectedDrawerNoMatchCopyKind": "rna-no-alphafold",
+      "sourceUrls": ["https://search.rcsb.org/rcsbsearch/v2/query"]
+    },
+    {
+      "caseId": "protein-rna-cocomplex-rpll-50s-ribosomal-subunit",
+      "category": "protein_rna_cocomplex_query",
+      "queryKind": "protein",
+      "annotationType": "CDS",
+      "gene": "rplL",
+      "locusTag": "b3986",
+      "product": "50S ribosomal subunit protein L12",
+      "location": { "start": 4180560, "end": 4180925, "strand": 1 },
+      "backedByProteinResultListingCaseId": "cocomplex-rpll-ribosomal-50s",
+      "representativeProteinRnaStructure": {
+        "pdbId": "3J7Z",
+        "rnaEntityCount": 3,
+        "coComplexEvidence": "protein_nucleic_acid_complex"
+      },
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/3J7Z",
+        "https://data.rcsb.org/rest/v1/core/entry/3J7Z"
+      ]
+    },
+    {
+      "caseId": "protein-rna-cocomplex-tufa-70s-ribosome-trna",
+      "category": "protein_rna_cocomplex_query",
+      "queryKind": "protein",
+      "annotationType": "CDS",
+      "gene": "tufA",
+      "locusTag": "b3339",
+      "product": "translation elongation factor Tu 1",
+      "location": { "start": 3470145, "end": 3471329, "strand": -1 },
+      "backedByProteinResultListingCaseId": "cocomplex-tufa-ribosome-trna-ternary",
+      "representativeProteinRnaStructure": {
+        "pdbId": "4V69",
+        "rnaEntityCount": 7,
+        "coComplexEvidence": "protein_nucleic_acid_complex"
+      },
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/4V69",
+        "https://data.rcsb.org/rest/v1/core/entry/4V69"
+      ]
+    }
+  ]
+}

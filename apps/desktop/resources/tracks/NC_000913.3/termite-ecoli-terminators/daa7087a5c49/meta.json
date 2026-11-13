@@ -1,0 +1,65 @@
+{
+  "schema": "dnaforge.track-meta.v1",
+  "track": "termite-ecoli-terminators",
+  "version": "daa7087a5c49",
+  "assembly": {
+    "accession": "NC_000913.3",
+    "lengthBp": 4641652,
+    "aliases": ["U00096.3"]
+  },
+  "file": {
+    "name": "termite-ecoli-terminators.gff3",
+    "format": "gff3",
+    "sha256": "daa7087a5c49fb45d8c9713d036038639dfae20821431cbbcfa82d24c167a3ac",
+    "byteLength": 456465
+  },
+  "residency": {
+    "kind": "managed"
+  },
+  "kinds": ["terminator"],
+  "label": "Intrinsic terminators with measured RNA ends (TERMITe, Kosiński 2025)",
+  "evidence": "measured",
+  "license": {
+    "spdx": "CC-BY-4.0",
+    "attribution": "Intrinsic terminators from Kosiński JG, Ranaweera S, Chełkowska-Pauszek A, Kashlev M, Babitzke P, Żywicki M. Characterization of bacterial intrinsic transcription terminators identified with TERMITe. Nucleic Acids Res 53(12):gkaf553 (2025), doi:10.1093/nar/gkaf553, licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Dataset b re-analyzes Term-seq reads from Choe et al. 2022, Nucleic Acids Res 50:4171-4186 (ENA PRJEB36932). Changed by DNAForge: coordinates converted to 0-based NC_000913.3, identical terminators from the two E. coli datasets merged.",
+    "evidenceUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC12207403/fullTextXML",
+    "note": "This is an Open Access article distributed under the terms of the Creative Commons Attribution License (https://creativecommons.org/licenses/by/4.0/), which permits unrestricted reuse, distribution, and reproduction in any medium, provided the original work is properly cited."
+  },
+  "citation": "Kosiński JG, Ranaweera S, Chełkowska-Pauszek A, Kashlev M, Babitzke P, Żywicki M. 2025. Nucleic Acids Research 53(12):gkaf553. Characterization of bacterial intrinsic transcription terminators identified with TERMITe—a novel method for comprehensive analysis of Term-seq data.",
+  "url": "https://academic.oup.com/nar/article/53/12/gkaf553/8178391",
+  "doi": "10.1093/nar/gkaf553",
+  "datasetVersion": "gkaf553_supplemental_files.zip (PMC deposit, md5 b94065d0b46645b525f034decdc5ae20, article published 2025-06-30) > 'Supplementary Table 2.xlsx' > sheet 'Atlas of intrinsic terminators', rows 'Escherichia coli (a)' and 'Escherichia coli (b)'; source seqid 'Chromosome' = Ensembl Bacteria release 54 ASM584v2 (GCA_000005845), sequence identical to NC_000913.3",
+  "recordCount": 1069,
+  "countsByKind": {
+    "terminator": 1069
+  },
+  "provenance": {
+    "producedBy": {
+      "tool": "scripts/annotation-datasets/ecoli-k12-mg1655/termite-ecoli-terminators/build.py"
+    },
+    "inputs": [
+      {
+        "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC12207403/supplementaryFiles",
+        "sha256": "6b2303cf3515591f614216e596f92f8afac58c90979c502d7c62ccc0f7a11aff",
+        "bytes": 6243626,
+        "note": "member gkaf553_supplemental_files.zip of the archive"
+      },
+      {
+        "url": "https://ftp.ensemblgenomes.ebi.ac.uk/pub/bacteria/release-54/fasta/bacteria_0_collection/escherichia_coli_str_k_12_substr_mg1655_gca_000005845/dna/Escherichia_coli_str_k_12_substr_mg1655_gca_000005845.ASM584v2.dna.toplevel.fa.gz",
+        "sha256": "4965c5140b64e3cb7ad66c7b4611bf080fe8a2223dc8e5d0ccd2629997a6b20a",
+        "bytes": 1441809
+      },
+      {
+        "url": "https://www.ncbi.nlm.nih.gov/nuccore/NC_000913.3",
+        "sha256": "7cf1ed07c731a1aba11d2b12a7071f395b1a25b4e9a06809549742f83c2d1a2f",
+        "bytes": 11881788,
+        "note": "repository file test-fixtures/sequences/circular/ecoli-mg1655-complete.gb"
+      }
+    ],
+    "notes": [
+      "Dataset a: Kosiński et al. 2025 (new data): wild-type E. coli NB1246, LB + 25 µg/ml kanamycin, 37 °C, mid-exponential, 3 replicates, Mondal et al. 2016 Term-seq protocol with matched RNA-seq, SRA PRJNA906280",
+      "Dataset b: Choe et al. 2022 reads re-analyzed by TERMITe: E. coli K-12 MG1655 wild type, 3 replicates, Dar et al. 2016 Term-seq protocol, no matched RNA-seq, ENA PRJEB36932",
+      "Records: 1069 from 1648 E. coli table rows. 13 surplus rows are ties in TERMITe's closest-TransTermHP-hairpin join, so they give 1635 distinct calls (686 in dataset a, 949 in dataset b); the tied hairpin TERMITe itself ranks first is kept. Merged: 566 pairs of calls from datasets a and b with identical start, end and strand became one record each, listing both datasets in conditions. Their hairpin and U-tract parts are identical; their points of termination differ in 181 of 566 pairs (126 by 1 nt, 39 by 2 nt, 10 by 3 nt, 4 by 4 nt, 2 by 5 nt); terminationBp then comes from the call with more agreeing replicate pairs, then the lower IDR, then dataset a. terminationBp is TERMITe's POT (point of termination), the measured 3' end, 0-based. score is null: the TERMITe score (0, 500 or 1000) only counts how many replicate pairs agreed (IDR < 0.05), so it is kept per dataset as replicateAgreement and never used as terminator strength. Parts: stem, loop, stem and the 15-nt U-tract of the TransTermHP hairpin when TransTermHP confirmed one, otherwise of the RNAfold hairpin; 1 call with a branched RNAfold structure has only its U-tract part. Dataset b licensing: TERMITe re-called dataset b from the raw Term-seq reads of Choe et al. 2022 (ENA PRJEB36932). That article is published under CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/, non-commercial). DNAForge uses only the TERMITe calls published under CC BY 4.0 and none of Choe et al.'s own tables or text. Not kept in records.json (reproducible from the build script): peak bounds, average peak height and termination efficiency (both repaired from spreadsheet date damage in the published file), IDR, flanking genes, overlapping features, both pipelines' hairpin scores, energies and structures, and every sequence string (each was checked against NC_000913.3 during the build). Also dropped: the 12 non-E. coli species and the other supplementary tables. No RegulonDB-derived content exists in this table."
+    ]
+  }
+}

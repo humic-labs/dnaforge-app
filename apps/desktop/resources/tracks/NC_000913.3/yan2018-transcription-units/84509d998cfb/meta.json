@@ -1,0 +1,57 @@
+{
+  "schema": "dnaforge.track-meta.v1",
+  "track": "yan2018-transcription-units",
+  "version": "84509d998cfb",
+  "assembly": {
+    "accession": "NC_000913.3",
+    "lengthBp": 4641652,
+    "aliases": ["U00096.3"]
+  },
+  "file": {
+    "name": "yan2018-transcription-units.gff3",
+    "format": "gff3",
+    "sha256": "84509d998cfb70652d042018b08cc59bdb8d55628a6e6694c9c6b89f20a4d7b4",
+    "byteLength": 98245
+  },
+  "residency": {
+    "kind": "managed"
+  },
+  "kinds": ["transcription_unit"],
+  "label": "Transcription units measured in M9 and rich medium (Yan 2018)",
+  "evidence": "measured",
+  "license": {
+    "spdx": "CC-BY-4.0",
+    "attribution": "Transcription units from Yan B, Boitano M, Clark TA, Ettwiller L. SMRT-Cappable-seq reveals complex operon variants in bacteria. Nat Commun 9:3676 (2018), doi:10.1038/s41467-018-05997-6, licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Changed by DNAForge: TSS-TTS pairs merged across growth conditions, coordinates converted to 0-based half-open, likely rRNA processing fragments removed, gene symbols and current locus tags added from NCBI RefSeq, one gene-ID typo corrected.",
+    "evidenceUrl": "https://www.nature.com/articles/s41467-018-05997-6",
+    "note": "Open Access This article is licensed under a Creative Commons Attribution 4.0 International License, which permits use, sharing, adaptation, distribution and reproduction in any medium or format, as long as you give appropriate credit to the original author(s) and the source, provide a link to the Creative Commons license, and indicate if changes were made."
+  },
+  "citation": "Yan B, Boitano M, Clark TA, Ettwiller L (2018) Nature Communications 9:3676. SMRT-Cappable-seq reveals complex operon variants in bacteria.",
+  "url": "https://www.nature.com/articles/s41467-018-05997-6",
+  "doi": "10.1038/s41467-018-05997-6",
+  "datasetVersion": "Supplementary Data 1 (41467_2018_5997_MOESM4_ESM.xlsx; sheets M9_TTS and Rich_TTS), article published 2018-09-10, retrieved 2026-09-16; gene symbols and current locus tags from the NCBI RefSeq NC_000913.3 GenBank file (LOCUS date 09-DEC-2025)",
+  "recordCount": 631,
+  "countsByKind": {
+    "transcription_unit": 631
+  },
+  "provenance": {
+    "producedBy": {
+      "tool": "scripts/annotation-datasets/ecoli-k12-mg1655/yan2018-transcription-units/build.py"
+    },
+    "inputs": [
+      {
+        "url": "https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41467-018-05997-6/MediaObjects/41467_2018_5997_MOESM4_ESM.xlsx",
+        "sha256": "cd37432e014d4098b2c853bf7718384cfa4cb5d43513006c7b60e11d8970594b",
+        "bytes": 158697
+      },
+      {
+        "url": "https://www.ncbi.nlm.nih.gov/nuccore/NC_000913.3",
+        "sha256": "7cf1ed07c731a1aba11d2b12a7071f395b1a25b4e9a06809549742f83c2d1a2f",
+        "bytes": 11881788,
+        "note": "repository file test-fixtures/sequences/circular/ecoli-mg1655-complete.gb"
+      }
+    ],
+    "notes": [
+      "Records: 631 of 666 distinct TSS-TTS pairs. Removed as likely rRNA processing fragments: 35 pairs that start inside a 23S rRNA gene more than 10 nt past its 5' end and end 0 or 8 nt from that gene's annotated 3' end (rrlA 5, rrlC 7, rrlD 5, rrlE 4, rrlG 9, rrlH 5); they are processed rRNA, not primary transcripts. 2 retired b-numbers were replaced by the current locus tag that lists them as /gene_synonym in the GenBank file (b1416->b4493, b1417->b4493); a list that then named the same locus twice keeps it once. Not kept in records.json (reproducible from the build script): per-condition read counts at the TSS, from TSS to TTS, through and past the TTS, and median read-through length; score is the sum of TSS-to-TTS reads over the conditions where the pair was seen. Supplementary Data 1 columns 10-12 (TTS type novelTTS/terminator/attenuator, nearest_known_TTS, center_of_nearest_known_TTS) classify each TTS by distance to EcoCyc-annotated terminators and copy EcoCyc identifiers, so they are never read. Supplementary Data 2 (3,070 operon rows) is not used for unit records: it has no 3' end, condition or read count, and its columns 4-5 are a RegulonDB comparison. Supplementary Data 3 (RegulonDB operons extended by SMRT-Cappable-seq) is never downloaded. Supplementary Data 4 (per-gene counts) is not a feature table."
+    ]
+  }
+}

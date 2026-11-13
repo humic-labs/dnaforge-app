@@ -1,0 +1,887 @@
+{
+  "_comment": "Deterministic UCSC replay for the full-GRCh38 track-loading Electron acceptance test. The catalog contains transcript, quantitative, and read leaves. The regional response is shaped like an official hg38 bigGenePred API response around SAMD11, but its contents are a compact test fixture. Catalog responses are the whole trackDb tree rather than trackLeavesOnly, so each grouping keeps the display name a reader sees; re-captured 2026-09-23.",
+  "entries": [
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/list/tracks",
+      "query": {
+        "genome": "hg38"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "hg38": {
+            "knownGene": {
+              "shortLabel": "GENCODE V50",
+              "type": "bigGenePred knownGenePep knownGeneMrna",
+              "longLabel": "GENCODE V50",
+              "maxItems": "50000",
+              "visibility": "pack",
+              "group": "genes",
+              "squishyPackPoint": "1",
+              "html": "knownGeneV50",
+              "searchIndex": "name",
+              "labelFields": "geneName,name,geneName2,name2",
+              "isGencode3": "on",
+              "squishyPackLabel": "Number of transcripts shown at full height (ranked by <A href=\"#squishyPack\">GENCODE transcript ranking</A>)",
+              "hgsid": "on",
+              "downloadUrl.1": "\"GFF Format\" https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/genes/hg38.knownGene.gtf.gz",
+              "itemRgb": "on",
+              "priority": "1",
+              "squishyPackField": "rank",
+              "idXref": "kgAlias kgID alias",
+              "bigDataUrl": "/gbdb/hg38/gencode/gencodeV50.bb",
+              "defaultLinkedTables": "kgXref",
+              "table": "knownGene",
+              "defaultLabelFields": "geneName",
+              "directUrl": "/cgi-bin/hgGene?hgg_gene=%s&hgg_chrom=%s&hgg_start=%d&hgg_end=%d&hgg_type=%s&db=%s",
+              "baseColorDefault": "genomicCodons",
+              "intronGap": "12"
+            },
+            "cpgIslandExt": {
+              "shortLabel": "CpG Islands",
+              "type": "bed 4 +",
+              "longLabel": "CpG Islands (Islands < 300 Bases are Light Green)",
+              "parent": "cpgIslandSuper pack",
+              "group": "regulation",
+              "html": "cpgIslandSuper",
+              "priority": "1",
+              "superTrack": "on",
+              "altColor": "128,228,128",
+              "color": "0,100,0"
+            },
+            "wgEncodeReg4Epigenetics": {
+              "compositeContainer": "TRUE",
+              "shortLabel": "DNase/ATAC/Histone/CTCF (Indiv.)",
+              "type": "bed 3",
+              "longLabel": "Peaks and signal from individual DNase, ATAC, histone, and CTCF experiments from ENCODE 4",
+              "parent": "wgEncodeReg4",
+              "maxCheckboxes": "50",
+              "visibility": "hide",
+              "html": "wgEncodeReg4Epigenetics.html",
+              "subtrackUrls": "Accession=https://www.encodeproject.org/files/$$/ Experiment=https://www.encodeproject.org/experiments/$$/",
+              "compositeTrack": "faceted",
+              "primaryKey": "Accession",
+              "priority": "2.0",
+              "superTrack": "wgEncodeReg4 hide",
+              "metaDataUrl": "/gbdb/hg38/encode4/regulation/wgEncodeReg4Epigenetics_metadata.tsv",
+              "colorSettingsUrl": "/gbdb/hg38/encode4/regulation/epi_colors.json",
+              "noInherit": "on",
+              "defaultSortField": "_Experiment",
+              "wgEncodeReg4Epigenetics_ENCFF230LAU": {
+                "shortLabel": "ENCSR109DTU Signal",
+                "type": "bigWig",
+                "longLabel": "Activated B cell male adult 22 years treated with 0.5 μM CpG ODN for 24 hours DNase signal",
+                "parent": "wgEncodeReg4Epigenetics off",
+                "parentParent": "wgEncodeReg4",
+                "visibility": "full",
+                "maxHeightPixels": "100:32:8",
+                "bigDataUrl": "https://encode-public.s3.amazonaws.com/2021/11/30/ebf9d085-b2ab-4c2c-bd6e-c6663c77de48/ENCFF230LAU.bigWig",
+                "color": "6,218,147",
+                "autoScale": "on"
+              }
+            },
+            "gc5BaseBw": {
+              "shortLabel": "GC Percent",
+              "type": "bigWig 0 100",
+              "longLabel": "GC Percent in 5-Base Windows",
+              "visibility": "hide",
+              "maxHeightPixels": "128:36:16",
+              "windowingFunction": "Mean",
+              "group": "map",
+              "gridDefault": "OFF",
+              "html": "gc5Base",
+              "graphTypeDefault": "Bar",
+              "altColor": "128,128,128",
+              "color": "0,0,0",
+              "autoScale": "Off",
+              "viewLimits": "30:70"
+            },
+            "TSS_activity_read_counts": {
+              "compositeContainer": "TRUE",
+              "shortLabel": "TSS activity - read counts",
+              "type": "bigWig",
+              "longLabel": "FANTOM5: TSS activity per sample read counts",
+              "parent": "fantom5",
+              "boxedCfg": "on",
+              "sortOrder": "category=+ sequenceTech=+",
+              "showSubtrackColorOnUi": "off",
+              "subGroup1": "sequenceTech Sequence_Tech hCAGE=hCAGE LQhCAGE=LQhCAGE",
+              "visibility": "hide",
+              "subGroup2": "category Category cellLine=cellLine fractionation=fractionation primaryCell=primaryCell  tissue=tissue AoSMC_response_to_FGF2=AoSMC_response_to_FGF2_timecourse AoSMC_response_to_IL1b=AoSMC_response_to_IL1b_timecourse ES_to_cardiomyocyte=ES_to_cardiomyocyte_timecourse Embryoid_body_to_melanocyte=Embryoid_body_to_melanocyte_timecourse Epithelial_to_mesenchymal=Epithelial_to_mesenchymal_timecourse Human_iPS_to_neuron_Downs_syndrome_1=Human_iPS_to_neuron_Downs_syndrome_1_timecourse Human_iPS_to_neuron_Downs_syndrome_2=Human_iPS_to_neuron_Downs_syndrome_2_timecourse Human_iPS_to_neuron_wt_1=Human_iPS_to_neuron_wt_1_timecourse Human_iPS_to_neuron_wt_2=Human_iPS_to_neuron_wt_2_timecourse Lymphatic_EC_response_to_VEGFC=Lymphatic_EC_response_to_VEGFC_timecourse MCF7_response_to_EGF=MCF7_response_to_EGF_timecourse MCF7_response_to_HRG=MCF7_response_to_HRG_timecourse MSC_to_adipocyte_human=MSC_to_adipocyte_human_timecourse Macrophage_influenza_infection=Macrophage_influenza_infection_timecourse Macrophage_response_to_LPS=Macrophage_response_to_LPS_timecourse Myoblast_to_myotube_wt_and_DMD=Myoblast_to_myotube_wt_and_DMD_timecourse Preadipocyte_to_adipocyte=Preadipocyte_to_adipocyte_timecourse Rinderpest_infection_series=Rinderpest_infection_series_timecourse Saos_calcification=Saos_calcification_timecourse timecourse=other_samples_in_timecourse",
+              "subGroup3": "strand Strand forward=forward reverse=reverse",
+              "group": "regulation",
+              "html": "fantom5.html",
+              "compositeTrack": "on",
+              "dimensions": "dimX=sequenceTech dimY=category dimA=strand",
+              "priority": "2",
+              "superTrack": "fantom5",
+              "dataVersion": "FANTOM5 reprocessed7",
+              "CD14MonocytesTreatedWithTrehaloseDimycolateTDMDonor1_CNhs13467_ctss_fwd": {
+                "shortLabel": "Cd14+MoW/TrehaloseDimycolateD1+",
+                "type": "bigWig",
+                "longLabel": "CD14+ monocytes - treated with Trehalose dimycolate (TDM), donor1_CNhs13467_11862-125A8_forward",
+                "parent": "TSS_activity_read_counts off",
+                "parentParent": "fantom5",
+                "maxHeightPixels": "100:8:8",
+                "metadata": "ontology_id=11862-125A8 sequence_tech=hCAGE",
+                "subGroups": "sequenceTech=hCAGE category=primaryCell strand=forward",
+                "bigDataUrl": "/gbdb/hg38/fantom5/CD14%2b%20monocytes%20-%20treated%20with%20Trehalose%20dimycolate%20%28TDM%29%2c%20donor1.CNhs13467.11862-125A8.hg38.ctss.fwd.bw",
+                "color": "255,0,0",
+                "urlLabel": "FANTOM5 Details:",
+                "url": "http://fantom.gsc.riken.jp/5/sstar/FF:11862-125A8"
+              }
+            },
+            "remoteBam": {
+              "shortLabel": "Remote reads",
+              "longLabel": "Coordinate-sorted reads",
+              "type": "bam",
+              "group": "reads"
+            }
+          }
+        }
+      }
+    },
+    {
+      "_comment": "Admission metadata probe for the official indexed BigWig. It is deliberately distinct from viewport data requests.",
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "gc5BaseBw",
+        "chrom": "chr1",
+        "start": "0",
+        "end": "1",
+        "maxItemsOutput": "1"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "gc5BaseBw",
+          "trackType": "bigWig",
+          "bigDataUrl": "/gbdb/hg38/bbi/gc5BaseBw/gc5Base.bw",
+          "itemsReturned": 0,
+          "gc5BaseBw": []
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "gc5BaseBw",
+        "chrom": "chr1",
+        "start": "0",
+        "end": "1024",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "gc5BaseBw",
+          "trackType": "bigWig",
+          "chrom": "chr1",
+          "start": 0,
+          "end": 1024,
+          "itemsReturned": 0,
+          "gc5BaseBw": []
+        }
+      }
+    },
+    {
+      "_comment": "The exact FANTOM5 result reported by a user: UCSC lists it, but the linked file is gone.",
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "CD14MonocytesTreatedWithTrehaloseDimycolateTDMDonor1_CNhs13467_ctss_fwd",
+        "chrom": "chr1",
+        "start": "0",
+        "end": "1",
+        "maxItemsOutput": "1"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "CD14MonocytesTreatedWithTrehaloseDimycolateTDMDonor1_CNhs13467_ctss_fwd",
+          "trackType": "bigWig",
+          "bigDataUrl": "/gbdb/hg38/fantom5/CD14%2b%20monocytes%20-%20treated%20with%20Trehalose%20dimycolate%20%28TDM%29%2c%20donor1.CNhs13467.11862-125A8.hg38.ctss.fwd.bw",
+          "itemsReturned": 0,
+          "CD14MonocytesTreatedWithTrehaloseDimycolateTDMDonor1_CNhs13467_ctss_fwd": []
+        }
+      }
+    },
+    {
+      "_comment": "Admission metadata probe for the UCSC-linked ENCODE CpG-treatment signal.",
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "wgEncodeReg4Epigenetics_ENCFF230LAU",
+        "chrom": "chr1",
+        "start": "0",
+        "end": "1",
+        "maxItemsOutput": "1"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "wgEncodeReg4Epigenetics_ENCFF230LAU",
+          "trackType": "bigWig",
+          "bigDataUrl": "https://encode-public.s3.amazonaws.com/2021/11/30/ebf9d085-b2ab-4c2c-bd6e-c6663c77de48/ENCFF230LAU.bigWig",
+          "itemsReturned": 0,
+          "wgEncodeReg4Epigenetics_ENCFF230LAU": []
+        }
+      }
+    },
+    {
+      "_comment": "Admission metadata probe for the hub's indexed BigWig.",
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "hubUrl": "https://example.org/hg38/hub.txt",
+        "track": "hubSignal",
+        "chrom": "chr1",
+        "start": "0",
+        "end": "1",
+        "maxItemsOutput": "1"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "hubSignal",
+          "trackType": "bigWig",
+          "bigDataUrl": "signal.bw",
+          "itemsReturned": 0,
+          "hubSignal": []
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "gc5BaseBw",
+        "chrom": "chr1",
+        "start": "1024",
+        "end": "2048",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "gc5BaseBw",
+          "trackType": "bigWig",
+          "chrom": "chr1",
+          "start": 1024,
+          "end": 2048,
+          "itemsReturned": 0,
+          "gc5BaseBw": []
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "knownGene",
+        "chrom": "chr1",
+        "start": "0",
+        "end": "2000000",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "knownGene",
+          "trackType": "bigGenePred",
+          "chrom": "chr1",
+          "start": 0,
+          "end": 2000000,
+          "itemsReturned": 3,
+          "knownGene": [
+            {
+              "chrom": "chr1",
+              "chromStart": 923922,
+              "chromEnd": 944575,
+              "name": "ENST00000342066.8",
+              "strand": "+",
+              "geneName": "SAMD11",
+              "thickStart": 925150,
+              "thickEnd": 943900,
+              "blockCount": 3,
+              "blockSizes": "950,525,1250,",
+              "chromStarts": "0,5100,18893,",
+              "exonFrames": "0,1,2,"
+            },
+            {
+              "chrom": "chr1",
+              "chromStart": 925730,
+              "chromEnd": 944581,
+              "name": "ENST00000616016.5",
+              "strand": "-",
+              "geneName": "SAMD11",
+              "thickStart": 926100,
+              "thickEnd": 943700,
+              "blockCount": 2,
+              "blockSizes": "725,1400,",
+              "chromStarts": "0,17451,",
+              "exonFrames": "1,0,"
+            },
+            {
+              "chrom": "chr1",
+              "chromStart": 944203,
+              "chromEnd": 959309,
+              "name": "ENST00000618181.5",
+              "strand": "+",
+              "geneName": "NOC2L",
+              "thickStart": 945100,
+              "thickEnd": 958800,
+              "blockCount": 2,
+              "blockSizes": "600,1750,",
+              "chromStarts": "0,13356,",
+              "exonFrames": "0,2,"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "hubUrl": "https://example.org/hg38/hub.txt",
+        "track": "hubSignal",
+        "chrom": "chr1",
+        "start": "0",
+        "end": "1024",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "hubSignal",
+          "trackType": "bigWig",
+          "itemsReturned": 0,
+          "hubSignal": []
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "hubUrl": "https://example.org/hg38/hub.txt",
+        "track": "hubSignal",
+        "chrom": "chr1",
+        "start": "1024",
+        "end": "2048",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "hubSignal",
+          "trackType": "bigWig",
+          "itemsReturned": 0,
+          "hubSignal": []
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "gc5BaseBw",
+        "chrom": "chr1",
+        "start": "923648",
+        "end": "924672",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "gc5BaseBw",
+          "trackType": "bigWig",
+          "chrom": "chr1",
+          "start": 923648,
+          "end": 924672,
+          "itemsReturned": 2,
+          "gc5BaseBw": [
+            {
+              "chrom": "chr1",
+              "chromStart": 923648,
+              "chromEnd": 924160,
+              "value": 42.5
+            },
+            {
+              "chrom": "chr1",
+              "chromStart": 924160,
+              "chromEnd": 924672,
+              "value": 57.25
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "gc5BaseBw",
+        "chrom": "chr1",
+        "start": "924672",
+        "end": "925696",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "gc5BaseBw",
+          "trackType": "bigWig",
+          "chrom": "chr1",
+          "start": 924672,
+          "end": 925696,
+          "itemsReturned": 4,
+          "gc5BaseBw": [
+            {
+              "chrom": "chr1",
+              "chromStart": 924672,
+              "chromEnd": 924928,
+              "value": 31.5
+            },
+            {
+              "chrom": "chr1",
+              "chromStart": 924928,
+              "chromEnd": 925184,
+              "value": 68.25
+            },
+            {
+              "chrom": "chr1",
+              "chromStart": 925184,
+              "chromEnd": 925440,
+              "value": 76.75
+            },
+            {
+              "chrom": "chr1",
+              "chromStart": 925440,
+              "chromEnd": 925696,
+              "value": 48.0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "gc5BaseBw",
+        "chrom": "chr1",
+        "start": "925696",
+        "end": "926720",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "gc5BaseBw",
+          "trackType": "bigWig",
+          "chrom": "chr1",
+          "start": 925696,
+          "end": 926720,
+          "itemsReturned": 2,
+          "gc5BaseBw": [
+            {
+              "chrom": "chr1",
+              "chromStart": 925696,
+              "chromEnd": 926208,
+              "value": 61.5
+            },
+            {
+              "chrom": "chr1",
+              "chromStart": 926208,
+              "chromEnd": 926720,
+              "value": 39.75
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/list/hubGenomes",
+      "query": {
+        "hubUrl": "https://example.org/hg38/hub.txt"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "hubUrl": "https://example.org/hg38/hub.txt",
+          "hg38": {
+            "organism": "Human",
+            "description": "Deterministic full-GRCh38 test hub",
+            "trackDbFile": "hg38/trackDb.txt"
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/list/tracks",
+      "query": {
+        "genome": "hg38",
+        "hubUrl": "https://example.org/hg38/hub.txt"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "hg38": {
+            "hubGenes": {
+              "shortLabel": "Example hub genes",
+              "longLabel": "Gene annotations supplied by a public UCSC hub",
+              "type": "bigBed",
+              "group": "genes",
+              "bigDataUrl": "genes.bb"
+            },
+            "hubRegulation": {
+              "shortLabel": "Example hub regulation",
+              "longLabel": "Regulatory evidence supplied by a public UCSC hub",
+              "superTrack": "on",
+              "group": "regulation",
+              "hubRegulationViewSignal": {
+                "shortLabel": "Signal",
+                "view": "signal",
+                "hubSignal": {
+                  "shortLabel": "Example hub signal",
+                  "longLabel": "Quantitative signal supplied by a public UCSC hub",
+                  "type": "bigWig",
+                  "group": "signal",
+                  "bigDataUrl": "signal.bw",
+                  "parent": "hubRegulationViewSignal on",
+                  "parentParent": "hubRegulation"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "hubUrl": "https://example.org/hg38/hub.txt",
+        "track": "hubGenes",
+        "chrom": "chr1",
+        "start": "0",
+        "end": "2000000",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "hubGenes",
+          "trackType": "bigBed",
+          "chrom": "chr1",
+          "start": 0,
+          "end": 2000000,
+          "itemsReturned": 2,
+          "hubGenes": [
+            {
+              "chrom": "chr1",
+              "chromStart": 923922,
+              "chromEnd": 944575,
+              "name": "HUB_SAMD11",
+              "strand": "+"
+            },
+            {
+              "chrom": "chr1",
+              "chromStart": 944203,
+              "chromEnd": 959309,
+              "name": "HUB_NOC2L",
+              "strand": "+"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "hubUrl": "https://example.org/hg38/hub.txt",
+        "track": "hubSignal",
+        "chrom": "chr1",
+        "start": "923648",
+        "end": "924672",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "hubSignal",
+          "trackType": "bigWig",
+          "itemsReturned": 2,
+          "hubSignal": [
+            {
+              "chrom": "chr1",
+              "chromStart": 923648,
+              "chromEnd": 924160,
+              "value": -1.25
+            },
+            {
+              "chrom": "chr1",
+              "chromStart": 924160,
+              "chromEnd": 924672,
+              "value": 2.5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "hubUrl": "https://example.org/hg38/hub.txt",
+        "track": "hubSignal",
+        "chrom": "chr1",
+        "start": "924672",
+        "end": "925696",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "hubSignal",
+          "trackType": "bigWig",
+          "itemsReturned": 4,
+          "hubSignal": [
+            {
+              "chrom": "chr1",
+              "chromStart": 924672,
+              "chromEnd": 924928,
+              "value": -3.0
+            },
+            {
+              "chrom": "chr1",
+              "chromStart": 924928,
+              "chromEnd": 925184,
+              "value": 4.5
+            },
+            {
+              "chrom": "chr1",
+              "chromStart": 925184,
+              "chromEnd": 925440,
+              "value": 7.25
+            },
+            {
+              "chrom": "chr1",
+              "chromStart": 925440,
+              "chromEnd": 925696,
+              "value": 1.75
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "hubUrl": "https://example.org/hg38/hub.txt",
+        "track": "hubSignal",
+        "chrom": "chr1",
+        "start": "925696",
+        "end": "926720",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "hubSignal",
+          "trackType": "bigWig",
+          "itemsReturned": 2,
+          "hubSignal": [
+            {
+              "chrom": "chr1",
+              "chromStart": 925696,
+              "chromEnd": 926208,
+              "value": 5.0
+            },
+            {
+              "chrom": "chr1",
+              "chromStart": 926208,
+              "chromEnd": 926720,
+              "value": -0.5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "_comment": "A real sparse BigWig with all 24 GRCh38 primary chromosome lengths. The replay transport slices this file according to each Range header.",
+      "method": "GET",
+      "host": "hgdownload.soe.ucsc.edu",
+      "path": "/gbdb/hg38/bbi/gc5BaseBw/gc5Base.bw",
+      "response": {
+        "body_file": "../binary/grch38-sparse-gc.bw",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"grch38-sparse-gc-v1\"",
+          "Last-Modified": "Tue, 28 Jul 2026 00:00:00 GMT"
+        }
+      }
+    },
+    {
+      "_comment": "Official ENCODE origin returned by UCSC for the CpG-treatment signal. The same full-GRCh38 sparse BigWig isolates host admission from renderer behavior.",
+      "method": "GET",
+      "host": "encode-public.s3.amazonaws.com",
+      "path": "/2021/11/30/ebf9d085-b2ab-4c2c-bd6e-c6663c77de48/ENCFF230LAU.bigWig",
+      "response": {
+        "body_file": "../binary/grch38-sparse-gc.bw",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"ENCFF230LAU-replay-v1\"",
+          "Last-Modified": "Tue, 28 Jul 2026 00:00:00 GMT"
+        }
+      }
+    },
+    {
+      "_comment": "UCSC's catalog still exposes this FANTOM5 BigWig, but its linked file returns 404.",
+      "method": "GET",
+      "host": "hgdownload.soe.ucsc.edu",
+      "path": "/gbdb/hg38/fantom5/CD14%2b%20monocytes%20-%20treated%20with%20Trehalose%20dimycolate%20%28TDM%29%2c%20donor1.CNhs13467.11862-125A8.hg38.ctss.fwd.bw",
+      "response": {
+        "status": 404,
+        "headers": {
+          "Content-Type": "text/html"
+        },
+        "body": "not found"
+      }
+    },
+    {
+      "_comment": "Signed companion signal for the public-hub acceptance path.",
+      "method": "GET",
+      "host": "example.org",
+      "path": "/hg38/signal.bw",
+      "response": {
+        "body_file": "../binary/grch38-sparse-signed-signal.bw",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"grch38-sparse-signed-signal-v1\"",
+          "Last-Modified": "Tue, 28 Jul 2026 00:00:00 GMT"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "dense-boundary-annotations",
+  "status": "recipe",
+  "generator": "Generate a small FASTA plus GFF3 with long genes, mRNA, exons, CDS, UTRs, multi-segment transcripts, and features crossing viewport/tile boundaries; bgzip and tabix/CSI index it before Phase 2.",
+  "sourceFixture": "synthetic",
+  "requiredWhenMaterialized": [
+    "test-fixtures/genome-rendering/generated/dense-boundary-annotations/boundary.fa",
+    "test-fixtures/genome-rendering/generated/dense-boundary-annotations/boundary.fa.fai",
+    "test-fixtures/genome-rendering/generated/dense-boundary-annotations/boundary.gff3.gz",
+    "test-fixtures/genome-rendering/generated/dense-boundary-annotations/boundary.gff3.gz.tbi"
+  ],
+  "expectedState": "ready"
+}

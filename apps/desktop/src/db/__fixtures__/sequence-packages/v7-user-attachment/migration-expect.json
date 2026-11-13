@@ -1,0 +1,8 @@
+{
+  "from": 7,
+  "productFile": "pLegacyV7.gb",
+  "survivors": [],
+  "unchanged": ["pLegacyV7.gb", "contents/original-note.txt"],
+  "gone": [],
+  "members": [{ "role": "user", "path": "contents/original-note.txt" }]
+}

@@ -1,0 +1,287 @@
+LOCUS       NC_001136               5128 bp    DNA     linear   CON 10-JUL-2026
+DEFINITION  Saccharomyces cerevisiae S288C chromosome IV, complete sequence.
+ACCESSION   NC_001136 REGION: 804621..809748
+VERSION     NC_001136.10
+DBLINK      BioProject: PRJNA128
+            Assembly: GCF_000146045.2
+KEYWORDS    RefSeq.
+SOURCE      Saccharomyces cerevisiae S288C
+  ORGANISM  Saccharomyces cerevisiae S288C
+            Eukaryota; Fungi; Dikarya; Ascomycota; Saccharomycotina;
+            Saccharomycetes; Saccharomycetales; Saccharomycetaceae;
+            Saccharomyces.
+REFERENCE   1  (bases 1 to 5128)
+  AUTHORS   Engel,S.R., Wong,E.D., Nash,R.S., Aleksander,S., Alexander,M.,
+            Douglass,E., Karra,K., Miyasato,S.R., Simison,M., Skrzypek,M.S.,
+            Weng,S. and Cherry,J.M.
+  TITLE     New data and collaborations at the Saccharomyces Genome Database:
+            updated reference genome, alleles, and the Alliance of Genome
+            Resources
+  JOURNAL   Genetics 220 (4) (2022)
+   PUBMED   34897464
+REFERENCE   2  (bases 1 to 5128)
+  AUTHORS   Jacq,C., Alt-Morbe,J., Andre,B., Arnold,W., Bahr,A., Ballesta,J.P.,
+            Bargues,M., Baron,L., Becker,A., Biteau,N., Blocker,H., Blugeon,C.,
+            Boskovic,J., Brandt,P., Bruckner,M., Buitrago,M.J., Coster,F.,
+            Delaveau,T., del Rey,F., Dujon,B., Eide,L.G.,
+            Garcia-Cantalejo,J.M., Goffeau,A., Gomez-Peris,A., Zaccaria,P. et
+            al.
+  TITLE     The nucleotide sequence of Saccharomyces cerevisiae chromosome IV
+  JOURNAL   Nature 387 (6632 SUPPL), 75-78 (1997)
+   PUBMED   9169867
+REFERENCE   3  (bases 1 to 5128)
+  AUTHORS   Goffeau,A., Barrell,B.G., Bussey,H., Davis,R.W., Dujon,B.,
+            Feldmann,H., Galibert,F., Hoheisel,J.D., Jacq,C., Johnston,M.,
+            Louis,E.J., Mewes,H.W., Murakami,Y., Philippsen,P., Tettelin,H. and
+            Oliver,S.G.
+  TITLE     Life with 6000 genes
+  JOURNAL   Science 274 (5287), 546 (1996)
+   PUBMED   8849441
+REFERENCE   4  (bases 1 to 5128)
+  CONSRTM   NCBI Genome Project
+  TITLE     Direct Submission
+  JOURNAL   Submitted (10-JUL-2026) National Center for Biotechnology
+            Information, NIH, Bethesda, MD 20894, USA
+REFERENCE   5  (bases 1 to 5128)
+  CONSRTM   Saccharomyces Genome Database
+  TITLE     Direct Submission
+  JOURNAL   Submitted (16-JAN-2015) Department of Genetics, Stanford
+            University, Stanford, CA 94305-5120, USA
+  REMARK    Protein update by submitter
+REFERENCE   6  (bases 1 to 5128)
+  CONSRTM   Saccharomyces Genome Database
+  TITLE     Direct Submission
+  JOURNAL   Submitted (06-FEB-2013) Department of Genetics, Stanford
+            University, Stanford, CA 94305-5120, USA
+  REMARK    Protein update by submitter
+REFERENCE   7  (bases 1 to 5128)
+  CONSRTM   Saccharomyces Genome Database
+  TITLE     Direct Submission
+  JOURNAL   Submitted (04-MAY-2012) Department of Genetics, Stanford
+            University, Stanford, CA 94305-5120, USA
+  REMARK    Protein update by submitter
+REFERENCE   8  (bases 1 to 5128)
+  CONSRTM   Saccharomyces Genome Database
+  TITLE     Direct Submission
+  JOURNAL   Submitted (31-MAR-2011) Department of Genetics, Stanford
+            University, Stanford, CA 94305-5120, USA
+  REMARK    Sequence update by submitter
+REFERENCE   9  (bases 1 to 5128)
+  CONSRTM   Saccharomyces Genome Database
+  TITLE     Direct Submission
+  JOURNAL   Submitted (11-DEC-2009) Department of Genetics, Stanford
+            University, Stanford, CA 94305-5120, USA
+COMMENT     REVIEWED REFSEQ: This record has been curated by SGD. The reference
+            sequence is identical to BK006938.
+            
+            On Apr 26, 2011 this sequence version replaced NC_001136.9.
+            Structural annotation is propagated from INSDC submissions or other
+            annotation providers and processed to follow RefSeq standards.
+            Functional annotation is provided by RefSeq, and is derived from
+            model organism databases, orthologous species, curation, domain
+            architecture analysis, and submitted information.
+            
+            ##Genome-Annotation-Data-START##
+            Annotation Provider :: SGD
+            Annotation Status   :: Full Annotation
+            Annotation Version  :: R64-5-1
+            URL                 :: http://www.yeastgenome.org/
+            ##Genome-Annotation-Data-END##
+            COMPLETENESS: full length.
+FEATURES             Location/Qualifiers
+     source          1..5128
+                     /organism="Saccharomyces cerevisiae S288C"
+                     /mol_type="genomic DNA"
+                     /strain="S288C"
+                     /db_xref="taxon:559292"
+                     /chromosome="IV"
+     rep_origin      1432..1657
+                     /note="ARS425; Autonomously Replicating Sequence"
+                     /db_xref="SGD:S000118439"
+     gene            <2001..>3128
+                     /gene="HSP42"
+                     /locus_tag="YDR171W"
+                     /db_xref="GeneID:851751"
+     mRNA            <2001..>3128
+                     /gene="HSP42"
+                     /locus_tag="YDR171W"
+                     /product="heat shock protein HSP42"
+                     /transcript_id="NM_001180478.1"
+                     /db_xref="GeneID:851751"
+     CDS             2001..3128
+                     /gene="HSP42"
+                     /locus_tag="YDR171W"
+                     /experiment="EXISTENCE:direct assay:GO:0005737 cytoplasm
+                     [PMID:11914276|PMID:22842922]"
+                     /experiment="EXISTENCE:mutant phenotype:GO:0007010
+                     cytoskeleton organization [PMID:9199338]"
+                     /experiment="EXISTENCE:mutant phenotype:GO:0140311 protein
+                     sequestering activity [PMID:31649258]"
+                     /note="Compartment-specific sequestrase chaperone; small
+                     heat shock protein (sHSP) with chaperone activity; targets
+                     and sequesters proteins to cytoplasmic inclusions (CytoQ);
+                     sumoylated during DNA damage; forms barrel-shaped
+                     oligomers that suppress unfolded protein aggregation;
+                     involved in cytoskeleton reorganization after heat shock;
+                     protein abundance increases and forms cytoplasmic foci in
+                     response to DNA replication stress"
+                     /codon_start=1
+                     /product="heat shock protein HSP42"
+                     /protein_id="NP_010456.1"
+                     /db_xref="GeneID:851751"
+                     /db_xref="SGD:S000002578"
+                     /translation="MSFYQPSLSLYDVLNALSNQTGQRGQQGYPRQPQRPQRYHPHYG
+                     QVHVGGHHPRHHPLYSRYNGVPNTYYYQFPGQAYYYSPEYGYDDEDGEEEDQDEDMVG
+                     DSGTTRQEDGGEDSNSRRYPSYYHCNTARNNRTNQQANSLNDLLTALIGVPPYEGTEP
+                     EIEANTEQEGEKGEEKDKKDKSEAPKEEAGETNKEKPLNQLEESSRPPLAKKSSSFAH
+                     LQAPSPIPDPLQVSKPETRMDLPFSPEVNVYDTEDTYVVVLALPGANSRAFHIDYHPS
+                     SHEMLIKGKIEDRVGIDEKFLKITELKYGAFERTVKFPVLPRIKDEEIKATYNNGLLQ
+                     IKVPKIVNDTEKPKPKKRIAIEEIPDEELEFEENPNPTVEN"
+     gene            <3704..>5128
+                     /gene="SUP35"
+                     /locus_tag="YDR172W"
+                     /gene_synonym="GST1; PNM2; SAL3; SUF12; SUP2; SUP36"
+                     /db_xref="GeneID:851752"
+     mRNA            <3704..>5128
+                     /gene="SUP35"
+                     /locus_tag="YDR172W"
+                     /gene_synonym="GST1; PNM2; SAL3; SUF12; SUP2; SUP36"
+                     /product="translation termination factor GTPase eRF3"
+                     /transcript_id="NM_001180479.3"
+                     /db_xref="GeneID:851752"
+     CDS             3704..>5128
+                     /gene="SUP35"
+                     /locus_tag="YDR172W"
+                     /gene_synonym="GST1; PNM2; SAL3; SUF12; SUP2; SUP36"
+                     /experiment="EXISTENCE:direct assay:GO:0003729 mRNA
+                     binding [PMID:23222640]"
+                     /experiment="EXISTENCE:direct assay:GO:0003747 translation
+                     release factor activity [PMID:20947765]"
+                     /experiment="EXISTENCE:direct assay:GO:0005829 cytosol
+                     [PMID:26928762]"
+                     /experiment="EXISTENCE:direct assay:GO:0006415
+                     translational termination [PMID:20947765]"
+                     /experiment="EXISTENCE:direct assay:GO:0010494 cytoplasmic
+                     stress granule [PMID:23451152]"
+                     /experiment="EXISTENCE:direct assay:GO:0018444 translation
+                     release factor complex [PMID:7556078]"
+                     /experiment="EXISTENCE:direct assay:GO:0043022 ribosome
+                     binding [PMID:8469113]"
+                     /experiment="EXISTENCE:mutant phenotype:GO:0000288
+                     nuclear-transcribed mRNA catabolic process,
+                     deadenylation-dependent decay [PMID:12923185]"
+                     /note="Translation termination factor eRF3; has a role in
+                     mRNA deadenylation and decay; altered protein conformation
+                     creates the [PSI(+)] prion, self-perpetuating amyloid
+                     fibrils that modify cellular fitness, alter translational
+                     fidelity by affecting reading frame selection, and result
+                     in a nonsense suppressor phenotype; forms reversible
+                     liquid condensates in response to both acidic and osmotic
+                     stress to promote survival; many stress-response genes are
+                     repressed in the presence of [PSI(+)]"
+                     /codon_start=1
+                     /product="translation termination factor GTPase eRF3"
+                     /protein_id="NP_010457.3"
+                     /db_xref="GeneID:851752"
+                     /db_xref="SGD:S000002579"
+                     /translation="MSDSNQGNNQQNYQQYSQNGNQQQGNNRYQGYQAYNAQAQPAGG
+                     YYQNYQGYSGYQQGGYQQYNPDAGYQQQYNPQGGYQQYNPQGGYQQQFNPQGGRGNYK
+                     NFNYNNNLQGYQAGFQPQSQGMSLNDFQKQQKQAAPKPKKTLKLVSSSGIKLANATKK
+                     VGTKPAESDKKEEEKSAETKEPTKEPTKVEEPVKKEEKPVQTEEKTEEKSELPKVEDL
+                     KISESTHNTNNANVTSADALIKEQEEEVDDEVVNDMFGGKDHVSLIFMGHVDAGKSTM
+                     GGNLLYLTGSVDKRTIEKYEREAKDAGRQGWYLSWVMDTNKEERNDGKTIEVGKAYFE
+                     TEKRRYTILDAPGHKMYVSEMIGGASQADVGVLVISARKGEYETGFERGGQTREHALL
+                     AKTQGVNKMVVVVNKMDDPTVNWSKERYDQCVSNVSNFLRAIGYNIKTDVVFMPVSGY
+                     SGANLKDHVDPKECPWYTGPTLLEYLDTMNHVDRHINAPFMLPIAAKMKDLGTIVEGK
+                     IESGHIKKGQSTLLMPNKTAVEIQNIYNETENEVDMAMCGEQVKLRIKGVEEEDISPG
+                     FVLTSPKNPIKSVTKFVAQIAIVELKSIIAAGFSCVMHVHTAIEEVHIVKLLHKLEKG
+                     TNRKSKKPPAFAKKGMKVIAVLETEAPVCVETYQDYPQLGRFTLRDQGTTIAIGKIVK
+                     IAE"
+ORIGIN      
+        1 cactcagcat catctaatcc tgacataaac gtagttgatg ctcaaaaaag aaatatacca
+       61 attaacgcta ttggtgacct acaatttcac ttccaggaca acaccaaaac atcaataaag
+      121 gtattgcaca ctcctaacat agcctatgac ttactcagtt tgaatgaatt ggctgcagta
+      181 gatatcacag catgctttac caaaaacgtc ttagaacgat ctgacggcac tgtacttgcg
+      241 cctatcgtaa aatatggaga cttttactgg gtatctaaaa agtacttgct tccttcaaat
+      301 atctccgtac ccaccatcaa taatgcccat acaaatgaaa gtacacgcaa gtatccttat
+      361 cctttcattc atcgaatgct tgcgcatgcc aatgcacaga caattcgata ctcacttaaa
+      421 aataacacca tcacgtattt taacgaatca gatgtcgact ggtctagtgc tgttgactat
+      481 caatgtcctg attgtttaat cggcaaaagc accaaacaca gacatatcaa aggttcacga
+      541 ctaaaatacc aaaattcata cgaacccttt caatacctac atactgacat atttggtcca
+      601 gttcacaacc taccaaagag tgcaccatcc tatttcatct catttactga tgagacaaca
+      661 aaattccgtt gggtttatcc attacacgac cgtcgcgagg actctatcct cgatgttttt
+      721 actacgatac tagcttttat taaaaaccag tttcaggcca gtgtcttggt tatacaaatg
+      781 gaccgtggtt ctgagtatac taacagaact ctccataaat tccttgaaaa aaatggtata
+      841 actccatgct atacaaccac agcgaattcc cgagcacatg gagtcgctga acggctgaac
+      901 cgtaccttat tagatgactg ccgtactcaa ctgcaatgta gtggtttacc gaaccattta
+      961 tggttctctg caatcgaatt ttctactatt gtgagaaatt cactagcttc acctaaaagc
+     1021 aaaaaatctc aaaattccca atattcacat agtctaaagt accgatagca accaacatat
+     1081 ataaacagta gtattttacg aagctgaatt gcaagattag tgagaggaga ataaccggat
+     1141 aatttttttg gattacgtta ttgttaaagg ctataatatt aggtgaaaca gaatgtccta
+     1201 gaagtttttt tctttcatgt taaatttatt gattcttgcg cttcagcttt tataaaacat
+     1261 aagaactgtt tcttcacgtt aacttcttgt gccacatata atgatgtact agtaatatgg
+     1321 gtactatttg gcagatgata tttgattttt attcaagacg gttactgttt ctacgattga
+     1381 tattttcatt cctggatatc atcttgccag atcacttaca atttaggccg cgcctgaatt
+     1441 gaagagtact tcaatacgta gtgtactgtc caaactctct tccaaatttt taatatttag
+     1501 ctggggttgg gtaacaagtg agcaagggaa aaagtgaaca ttttaagaag aacaataaaa
+     1561 tagcaagaga tggaatggta atgcttggct ctcgagaaga gtagcataaa acgagacttg
+     1621 tttaaaacag gatatgacat acttcaattc agctttccct atcagccgct cgagcagtta
+     1681 tataggtgtg ttgccggagt aatttggcgg aggccaacag tggctaggcg gcaacgcctg
+     1741 gaacacgcgc ttaaaagttc tggaaggttc gcgaattgag aactgctcag gggcgaatac
+     1801 aggggcggcc ttggcggcag gggggaggcc tctgtgaagt tagttatata agacttgctg
+     1861 tcatcgtttt tttgatcccg gcaggaacta tcttttattc tcatacatac ggtcaagaag
+     1921 tataattata cataacatag ggacacgttc aggcaattgt ccatatccca cacaaattaa
+     1981 gatcatacca agccgaagca atgagttttt atcaaccatc cctatctctt tatgacgttt
+     2041 tgaacgcatt atccaaccaa actggccaga gagggcagca aggatatcct cgccaaccac
+     2101 aaaggccaca gagataccat ccccattatg gacaagtgca cgttggcggg catcatcctc
+     2161 gtcatcatcc attgtatagc agatacaatg gtgttcctaa tacctattac taccagttcc
+     2221 ctggacaagc ctattactat agtcctgaat acggttatga tgacgaggat ggtgaagaag
+     2281 aggaccaaga cgaagatatg gtgggtgaca gcggcactac aagacaggaa gatggtggcg
+     2341 aggacagcaa ctcgagaaga tatccatcat attaccattg taatactgcc aggaataata
+     2401 ggaccaacca acaggcaaac agtttaaacg acttattaac cgcgttaata ggtgttccac
+     2461 catatgaagg cactgaacca gaaattgaag caaataccga acaggagggc gaaaagggag
+     2521 aagaaaagga taagaaggat aagtctgaag cacccaaaga ggaagctggc gaaaccaaca
+     2581 aagaaaaacc tttgaatcag ctggaggaat cgtcgagacc accattagcc aaaaaatctt
+     2641 catcgttcgc tcacctacaa gcgccttccc caatacctga cccgttacaa gtatccaagc
+     2701 ctgaaacgag aatggactta ccattttcac cagaagtgaa tgtctatgat accgaggaca
+     2761 cttacgtagt tgttcttgcg ttaccaggtg ctaactctag ggctttccac attgattacc
+     2821 atccatcttc tcatgagatg ctcatcaagg gtaagatcga agacagagtg ggcattgatg
+     2881 aaaaattctt gaagatcacg gaactaaaat atggtgcgtt tgagagaacc gttaaattcc
+     2941 ccgtgctgcc acgcattaag gacgaagaaa ttaaagctac ttacaacaac ggtctactac
+     3001 aaattaaggt gcctaaaatt gtcaatgaca ctgaaaagcc gaagccaaaa aagaggatcg
+     3061 ccattgagga aatacccgac gaagaattgg agtttgaaga aaatcccaac cctacggtag
+     3121 aaaattgaat atcgtatctg tttatacaca catacataca tttatattta taataagcgt
+     3181 taaaatttcg gcagaatatc tgtcaaccac acaaaaatca tacaacgaat ggtatatgct
+     3241 tcatttcttt gtttcgcatt agctgcgcta tttgactcaa attattattt tttactaaga
+     3301 cgacgcgtca cagtgttcga gtctgtgtca tttcttttgt aattctctta aaccacttca
+     3361 taaagttgtg aagttcatag caaaattctt ccgcaaaaag atgaatctta gttctcagcc
+     3421 caccaaaaga ggtacatgct aagatcatac agaagttatt gtcacttctt accttgctct
+     3481 taaatgtaca ttacaaccgg gtattatatc ttacatcatc gtataatatg atctttcttt
+     3541 atggagaaaa tttttttttc actcgaccaa agctcccatt gcttctgaag agtgtagtgt
+     3601 atattggtac atcttctctt gaaagactcc attgtactgt aacaaaaagc ggtttcttca
+     3661 tcgacttgct cggaataaca tctatatctg cccactagca acaatgtcgg attcaaacca
+     3721 aggcaacaat cagcaaaact accagcaata cagccagaac ggtaaccaac aacaaggtaa
+     3781 caacagatac caaggttatc aagcttacaa tgctcaagcc caacctgcag gtgggtacta
+     3841 ccaaaattac caaggttatt ctgggtacca acaaggtggc tatcaacagt acaatcccga
+     3901 cgccggttac cagcaacagt ataatcctca aggaggctat caacagtaca atcctcaagg
+     3961 cggttatcag cagcaattca atccacaagg tggccgtgga aattacaaaa acttcaacta
+     4021 caataacaat ttgcaaggat atcaagctgg tttccaacca cagtctcaag gtatgtcttt
+     4081 gaacgacttt caaaagcaac aaaagcaggc cgctcccaaa ccaaagaaga ctttgaagct
+     4141 tgtctccagt tccggtatca agttggccaa tgctaccaag aaggttggca caaaacctgc
+     4201 cgaatctgat aagaaagagg aagagaagtc tgctgaaacc aaagaaccaa ctaaagagcc
+     4261 aacaaaggtc gaagaaccag ttaaaaagga ggagaaacca gtccagactg aagaaaagac
+     4321 ggaggaaaaa tcggaacttc caaaggtaga agaccttaaa atctctgaat caacacataa
+     4381 taccaacaat gccaatgtta ccagtgctga tgccttgatc aaggaacagg aagaagaagt
+     4441 ggatgacgaa gttgttaacg atatgtttgg tggtaaagat cacgtttctt taattttcat
+     4501 gggtcatgtt gatgccggta aatctactat gggtggtaat ctactatact tgactggctc
+     4561 tgtggataag agaactattg agaaatatga aagagaagcc aaggatgcag gcagacaagg
+     4621 ttggtacttg tcatgggtca tggataccaa caaagaagaa agaaatgatg gtaagactat
+     4681 cgaagttggt aaggcctact ttgaaactga aaaaaggcgt tataccatat tggatgctcc
+     4741 tggtcataaa atgtacgttt ccgagatgat cggtggtgct tctcaagctg atgttggtgt
+     4801 tttggtcatt tccgccagaa agggtgagta cgaaaccggt tttgagagag gtggtcaaac
+     4861 tcgtgaacac gccctattgg ccaagaccca aggtgttaat aagatggttg tcgtcgtaaa
+     4921 taagatggat gacccaaccg ttaactggtc taaggaacgt tacgaccaat gtgtgagtaa
+     4981 tgtcagcaat ttcttgagag caattggtta caacattaag acagacgttg tatttatgcc
+     5041 agtatccggc tacagtggtg caaatttgaa agatcacgta gatccaaaag aatgcccatg
+     5101 gtacaccggc ccaactctgt tagaatat
+//

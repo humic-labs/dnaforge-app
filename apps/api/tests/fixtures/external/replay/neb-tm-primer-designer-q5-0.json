@@ -1,0 +1,42 @@
+{
+  "method": "GET",
+  "host": "tmapi.neb.com",
+  "path": "/tm",
+  "query": {
+    "seq1": "GGTGGGCGAGAACCTTGAATGGTGGCAGG",
+    "prodcode": "q5-0",
+    "conc": "500",
+    "fmt": "long"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "success": true,
+      "data": {
+        "p1": [
+          {
+            "tm": 86.43747409775136,
+            "fgc": 0.62,
+            "len": 29,
+            "seq": "GGTGGGCGAGAACCTTGAATGGTGGCAGG"
+          }
+        ],
+        "tm1min": 86,
+        "tm1max": 86,
+        "conc": 500,
+        "notes": [
+          "Use of the Q5 High GC Enhancer often lowers the range of temperatures at which specific amplification can be observed, however the rule used to determine Q5 annealing temperatures (Ta = Tm_lower+1°C) typically yields values that will support specific amplification with or without the enhancer."
+        ]
+      },
+      "meta": {
+        "datetime": "2026-07-13T00:00:00.000Z",
+        "version": "0.19.0",
+        "url": "https://tmapi.neb.com/tm?seq1=GGTGGGCGAGAACCTTGAATGGTGGCAGG&prodcode=q5-0&conc=500&fmt=long"
+      },
+      "fmtType": "long"
+    }
+  }
+}

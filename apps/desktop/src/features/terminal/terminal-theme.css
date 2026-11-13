@@ -1,0 +1,79 @@
+[data-terminal-theme] {
+  --terminal-background: #1e1e2e;
+  --terminal-foreground: #cdd6f4;
+  --terminal-muted: #a6adc8;
+  --terminal-chrome: #181825;
+  --terminal-border: #313244;
+  --terminal-accent: #89b4fa;
+  --terminal-cursor: #f5e0dc;
+  --terminal-selection: #585b7080;
+  --terminal-black: #45475a;
+  --terminal-red: #f38ba8;
+  --terminal-green: #a6e3a1;
+  --terminal-yellow: #f9e2af;
+  --terminal-blue: #89b4fa;
+  --terminal-magenta: #f5c2e7;
+  --terminal-cyan: #94e2d5;
+  --terminal-white: #bac2de;
+  --terminal-brightBlack: #585b70;
+  --terminal-brightRed: #f38ba8;
+  --terminal-brightGreen: #a6e3a1;
+  --terminal-brightYellow: #f9e2af;
+  --terminal-brightBlue: #89b4fa;
+  --terminal-brightMagenta: #f5c2e7;
+  --terminal-brightCyan: #94e2d5;
+  --terminal-brightWhite: #cdd6f4;
+}
+[data-terminal-theme='latte'] {
+  --terminal-background: #eff1f5;
+  --terminal-foreground: #4c4f69;
+  --terminal-muted: #6c6f85;
+  --terminal-chrome: #e6e9ef;
+  --terminal-border: #ccd0da;
+  --terminal-accent: #1e66f5;
+  --terminal-cursor: #dc8a78;
+  --terminal-selection: #acb0be80;
+  --terminal-black: #5c5f77;
+  --terminal-red: #d20f39;
+  --terminal-green: #40a02b;
+  --terminal-yellow: #df8e1d;
+  --terminal-blue: #1e66f5;
+  --terminal-magenta: #ea76cb;
+  --terminal-cyan: #179299;
+  --terminal-white: #acb0be;
+  --terminal-brightBlack: #6c6f85;
+  --terminal-brightRed: #d20f39;
+  --terminal-brightGreen: #40a02b;
+  --terminal-brightYellow: #df8e1d;
+  --terminal-brightBlue: #1e66f5;
+  --terminal-brightMagenta: #ea76cb;
+  --terminal-brightCyan: #179299;
+  --terminal-brightWhite: #4c4f69;
+}
+
+[data-terminal-theme='system'] {
+  --terminal-background: hsl(var(--color-bg));
+  --terminal-foreground: hsl(var(--color-fg));
+  --terminal-muted: hsl(var(--color-fg-muted));
+  --terminal-chrome: hsl(var(--color-bg-subtle));
+  --terminal-border: hsl(var(--color-border));
+  --terminal-accent: hsl(var(--color-accent));
+  --terminal-cursor: hsl(var(--color-accent));
+  --terminal-selection: hsl(var(--color-accent) / 0.18);
+  --terminal-black: hsl(var(--color-fg));
+  --terminal-red: hsl(var(--color-error));
+  --terminal-green: hsl(var(--color-success));
+  --terminal-yellow: hsl(var(--color-code-literal));
+  --terminal-blue: hsl(var(--color-code-string));
+  --terminal-magenta: hsl(var(--color-code-keyword));
+  --terminal-cyan: hsl(var(--color-code-variable));
+  --terminal-white: hsl(var(--color-fg-muted));
+  --terminal-brightBlack: hsl(var(--color-fg-muted));
+  --terminal-brightRed: var(--terminal-red);
+  --terminal-brightGreen: var(--terminal-green);
+  --terminal-brightYellow: var(--terminal-yellow);
+  --terminal-brightBlue: var(--terminal-blue);
+  --terminal-brightMagenta: var(--terminal-magenta);
+  --terminal-brightCyan: var(--terminal-cyan);
+  --terminal-brightWhite: hsl(var(--color-fg));
+}

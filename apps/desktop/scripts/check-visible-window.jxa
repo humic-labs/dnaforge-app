@@ -1,0 +1,43 @@
+// Passive macOS window check. Never activate, show, move, or raise a window.
+ObjC.import('Cocoa');
+ObjC.import('CoreGraphics');
+
+function run(argv) {
+  if (argv.length !== 1 || !/^[0-9]+$/.test(argv[0]) || Number(argv[0]) <= 1) {
+    throw new Error('usage: check-visible-window.jxa ELECTRON_PID');
+  }
+  var pid = Number(argv[0]);
+  var workspace = $.NSWorkspace.sharedWorkspace;
+  var apps = ObjC.unwrap(workspace.runningApplications);
+  var application = null;
+  for (var i = 0; i < apps.length; i++) {
+    if (Number(apps[i].processIdentifier) === pid) application = apps[i];
+  }
+  if (!application) throw new Error('Electron PID ' + pid + ' is not a running macOS application');
+  if (Number(application.activationPolicy) !== 0 || application.hidden) {
+    throw new Error('Electron PID ' + pid + ' is not a regular, accessible application');
+  }
+  var raw = $.CGWindowListCopyWindowInfo(
+    $.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements,
+    $.kCGNullWindowID
+  );
+  var windows = ObjC.deepUnwrap(ObjC.castRefToObject(raw));
+  var visible = windows.filter(function (window) {
+    var bounds = window.kCGWindowBounds || {};
+    return (
+      window.kCGWindowOwnerPID === pid &&
+      window.kCGWindowAlpha > 0.01 &&
+      bounds.Width >= 100 &&
+      bounds.Height >= 100
+    );
+  });
+  if (!visible.length) {
+    throw new Error('Electron PID ' + pid + ' has no sizable opaque on-screen window');
+  }
+  var layer = Number(visible[0].kCGWindowLayer);
+  var frontmostPid = Number(workspace.frontmostApplication.processIdentifier);
+  if (frontmostPid !== pid && layer >= 0) {
+    throw new Error('Electron PID ' + pid + ' remains at normal-or-higher window layer ' + layer);
+  }
+  return 'native window: PID ' + pid + ', layer ' + layer + ', frontmost PID ' + frontmostPid;
+}

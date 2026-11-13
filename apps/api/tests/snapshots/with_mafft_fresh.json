@@ -1,0 +1,86 @@
+{
+  "capabilities": [
+    {
+      "auto_install": true,
+      "components": [
+        {
+          "id": "blastn",
+          "label": "blastn",
+          "source": "downloaded",
+          "status": "unavailable"
+        },
+        {
+          "id": "diamond",
+          "label": "diamond",
+          "source": "downloaded",
+          "status": "unavailable"
+        },
+        {
+          "id": "cmscan",
+          "label": "cmscan",
+          "source": "downloaded",
+          "status": "unavailable"
+        },
+        {
+          "id": "databases",
+          "label": "Annotation Databases",
+          "source": "downloaded",
+          "status": "unavailable"
+        }
+      ],
+      "id": "annotation",
+      "label": "Annotation Engine",
+      "source": "builtin",
+      "status": "unavailable",
+      "tier": "base"
+    },
+    {
+      "auto_install": true,
+      "components": [
+        {
+          "id": "mafft",
+          "label": "MAFFT",
+          "source": "system",
+          "status": "ready"
+        }
+      ],
+      "id": "alignment",
+      "label": "Sequence Alignment",
+      "source": "builtin",
+      "status": "ready",
+      "tier": "base"
+    },
+    {
+      "auto_install": true,
+      "components": [
+        {
+          "id": "primer3",
+          "label": "Primer3",
+          "source": "builtin",
+          "status": "ready"
+        }
+      ],
+      "id": "primer_design",
+      "label": "Primer Design",
+      "source": "builtin",
+      "status": "ready",
+      "tier": "base"
+    },
+    {
+      "auto_install": true,
+      "components": [
+        {
+          "id": "restriction-sites",
+          "label": "Built-in restriction engine",
+          "source": "builtin",
+          "status": "ready"
+        }
+      ],
+      "id": "restriction_analysis",
+      "label": "Restriction Analysis",
+      "source": "builtin",
+      "status": "ready",
+      "tier": "base"
+    }
+  ]
+}

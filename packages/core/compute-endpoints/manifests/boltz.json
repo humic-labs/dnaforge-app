@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "boltz",
+  "displayName": "Boltz",
+  "summary": "Protein structure and binding prediction.",
+  "docsUrl": "https://api.boltz.bio/docs/api/",
+  "keyPageUrl": "https://api.boltz.bio/console",
+  "termsUrl": "https://boltz.bio/terms",
+  "privacyUrl": "https://boltz.bio/privacy",
+  "transport": "rest",
+  "baseUrl": "https://api.boltz.bio",
+  "auth": {
+    "scheme": "header",
+    "headerName": "x-api-key",
+    "keyPrefix": "sk_bc_"
+  },
+  "verify": {
+    "method": "GET",
+    "target": "/compute/v1/auth/me",
+    "expectKey": "principal_type"
+  },
+  "catalog": "static",
+  "jobModel": "async",
+  "staging": "inline",
+  "cost": "estimate",
+  "staticTools": [
+    {
+      "id": "boltz-2",
+      "displayName": "Boltz-2.1 structure and binding",
+      "path": "/compute/v1/predictions/structure-and-binding",
+      "outputKind": "structure"
+    }
+  ],
+  "disclosure": "This sends your sequences and ligands to Boltz's hosted API under your own Boltz API key. Boltz bills each prediction to that account by measured compute (published from $0.025 per sample for small inputs); DNAForge does not charge for it. A test-mode key runs for free but returns fake structures.",
+  "retentionNote": "Boltz keeps prediction inputs and results for 7 days by default (14 at most), and its result download links expire sooner. DNAForge saves the structure into your workspace when the job finishes.",
+  "cancellation": {
+    "mode": "unavailable",
+    "note": "Boltz cannot cancel a structure prediction after submission; it will finish and may still be billed."
+  },
+  "rateLimitRps": 5
+}

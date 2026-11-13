@@ -1,0 +1,13 @@
+{
+  "schema": "waypoint.sequence.v1",
+  "kind": "sequence",
+  "formatVersion": 4,
+  "id": "fixture-v4-basic",
+  "name": "pLegacyV4",
+  "updatedAt": "2026-01-01T00:00:00.000Z",
+  "product": {
+    "file": "pLegacyV4.gb",
+    "topology": "circular"
+  },
+  "members": []
+}

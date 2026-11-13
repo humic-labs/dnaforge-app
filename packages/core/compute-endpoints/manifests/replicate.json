@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 2,
+  "id": "replicate",
+  "displayName": "Replicate",
+  "summary": "Optional advanced connection for a pinned Replicate model version. Protocol-tested; not yet live-qualified in DNAForge. A Replicate account is not required to use Jobs.",
+  "docsUrl": "https://replicate.com/docs/reference/http",
+  "keyPageUrl": "https://replicate.com/account/api-tokens",
+  "termsUrl": "https://replicate.com/terms",
+  "privacyUrl": "https://replicate.com/privacy",
+  "transport": "rest",
+  "baseUrl": "https://api.replicate.com/v1",
+  "driver": {
+    "kind": "http-job",
+    "submit": {
+      "method": "POST",
+      "idPath": "id",
+      "bodyTemplate": "$settings"
+    },
+    "status": {
+      "method": "GET",
+      "pathTemplate": "/predictions/{remote_id}",
+      "statePath": "status",
+      "statusMap": {
+        "starting": "queued",
+        "processing": "running",
+        "succeeded": "completed",
+        "failed": "failed",
+        "canceled": "canceled"
+      }
+    },
+    "result": {
+      "payloadPath": "output",
+      "codec": "raw-json"
+    },
+    "cancel": {
+      "method": "POST",
+      "pathTemplate": "/predictions/{remote_id}/cancel",
+      "statePath": "status"
+    }
+  },
+  "auth": {
+    "scheme": "bearer",
+    "keyPrefix": "r8_"
+  },
+  "verify": {
+    "method": "GET",
+    "target": "/account",
+    "expectKey": "username"
+  },
+  "catalog": "static",
+  "jobModel": "async",
+  "staging": "inline",
+  "cost": "rate-card",
+  "staticTools": [
+    {
+      "id": "prediction",
+      "displayName": "Pinned model prediction",
+      "path": "/predictions",
+      "outputKind": "binary",
+      "description": "Advanced integration for any Replicate community or private model version. Supply the exact version identifier and that model's input object. Results are preserved without pretending model-specific outputs share one scientific schema. Deterministically qualified; not yet live-qualified in DNAForge.",
+      "keywords": ["replicate", "model", "inference", "prediction", "protein", "biology"],
+      "inputSchema": {
+        "type": "object",
+        "required": ["version", "input"],
+        "properties": {
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Pinned Replicate model version, normally owner/model:version or a version digest."
+          },
+          "input": {
+            "type": "object",
+            "description": "The selected model's own input object."
+          }
+        }
+      }
+    }
+  ],
+  "disclosure": "This sends your model inputs to Replicate under your own Replicate API token. Replicate bills predictions to that account using the selected model's hardware and run time; DNAForge does not charge for it. The generic integration preserves model-native inputs and outputs and does not claim that an unqualified community model is scientifically validated.",
+  "retentionNote": "Replicate removes API prediction inputs, outputs, and logs after one hour by default. Import or otherwise save useful output immediately.",
+  "cancellation": {
+    "mode": "provider",
+    "note": "Replicate can cancel predictions that are starting or processing through its Predictions API."
+  },
+  "rateLimitRps": 2
+}

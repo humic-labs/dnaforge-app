@@ -1,0 +1,258 @@
+{
+  "$schema": "./release-assets.schema.json",
+  "contract": "dnaforge-release-assets.v1",
+  "publicBaseUrl": "https://downloads.dnaforge.com",
+  "preparedCiAssets": {
+    "pythonAnnotationData": {
+      "key": "ci-assets/v1/python-annotation/1.2.2-rfam-15.1/245cbc33f4a2c5e80ec1905babd3bc349ef778a2362bb6ff686cab2037a5643a/annotation-data.tar.gz",
+      "sha256": "245cbc33f4a2c5e80ec1905babd3bc349ef778a2362bb6ff686cab2037a5643a",
+      "archiveType": "tar.gz",
+      "annotationVersion": "1.2.2",
+      "rfamVersion": "15.1",
+      "plannotateDatabasesVersion": "1.2.0",
+      "source": {
+        "kind": "dnaforge-built-from-source",
+        "inputs": [
+          {
+            "url": "https://downloads.dnaforge.com/annotation-db/plannotate/plannotate-dbs-1.2.0.tar.gz",
+            "sha256": "cf651656e2188c35580d4a4c025a1b742c454413f91a466a41310a51aa43ea2a"
+          },
+          {
+            "url": "https://downloads.dnaforge.com/annotation-db/rfam/Rfam-15.1-pressed.tar.gz",
+            "sha256": "0b98b9ea5266b26d0010270ca97e73972691aa1d7cbeacb151723ee7bdb5591f"
+          },
+          {
+            "url": "https://downloads.dnaforge.com/annotation-db/plannotate/swissprot-1.2.0.csv.gz",
+            "sha256": "2a93af2e21623e4b4963e4a356a7ecf5a9ef3b95244c74ff1f6b8dfc370b1dc5"
+          }
+        ]
+      }
+    }
+  },
+  "tools": {
+    "blast": {
+      "version": "2.16.0",
+      "platforms": {
+        "aarch64-apple-darwin": {
+          "key": "tools/v1/blast/2.16.0/d81927ba817a48074408a7dce866a81fc117bfaba6ff94c44ca3f4bdbb2f03af/ncbi-blast-2.16.0+-universal-macosx.tar.gz",
+          "sha256": "d81927ba817a48074408a7dce866a81fc117bfaba6ff94c44ca3f4bdbb2f03af",
+          "archiveType": "tar.gz",
+          "binaries": {
+            "blastn": "ncbi-blast-2.16.0+/bin/blastn",
+            "makeblastdb": "ncbi-blast-2.16.0+/bin/makeblastdb"
+          },
+          "source": {
+            "kind": "upstream",
+            "url": "https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.16.0/ncbi-blast-2.16.0+-universal-macosx.tar.gz"
+          }
+        },
+        "x86_64-apple-darwin": {
+          "key": "tools/v1/blast/2.16.0/d81927ba817a48074408a7dce866a81fc117bfaba6ff94c44ca3f4bdbb2f03af/ncbi-blast-2.16.0+-universal-macosx.tar.gz",
+          "sha256": "d81927ba817a48074408a7dce866a81fc117bfaba6ff94c44ca3f4bdbb2f03af",
+          "archiveType": "tar.gz",
+          "binaries": {
+            "blastn": "ncbi-blast-2.16.0+/bin/blastn",
+            "makeblastdb": "ncbi-blast-2.16.0+/bin/makeblastdb"
+          },
+          "source": {
+            "kind": "upstream",
+            "url": "https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.16.0/ncbi-blast-2.16.0+-universal-macosx.tar.gz"
+          }
+        },
+        "x86_64-unknown-linux-gnu": {
+          "key": "tools/v1/blast/2.16.0/b0b13098c901d23b324ad1700e7471bb7408a7f7f517d74d5faad711be76e8f4/ncbi-blast-2.16.0+-x64-linux.tar.gz",
+          "sha256": "b0b13098c901d23b324ad1700e7471bb7408a7f7f517d74d5faad711be76e8f4",
+          "archiveType": "tar.gz",
+          "binaries": {
+            "blastn": "ncbi-blast-2.16.0+/bin/blastn",
+            "makeblastdb": "ncbi-blast-2.16.0+/bin/makeblastdb"
+          },
+          "source": {
+            "kind": "upstream",
+            "url": "https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.16.0/ncbi-blast-2.16.0+-x64-linux.tar.gz"
+          }
+        },
+        "x86_64-pc-windows-msvc": {
+          "key": "tools/v1/blast/2.16.0/3b6f27a72e9a875f1c02119704775a8e04ae97b5e4a148b560f9be9acd39e943/ncbi-blast-2.16.0+-x64-win64.tar.gz",
+          "sha256": "3b6f27a72e9a875f1c02119704775a8e04ae97b5e4a148b560f9be9acd39e943",
+          "archiveType": "tar.gz",
+          "binaries": {
+            "blastn": "ncbi-blast-2.16.0+/bin/blastn.exe",
+            "makeblastdb": "ncbi-blast-2.16.0+/bin/makeblastdb.exe"
+          },
+          "source": {
+            "kind": "upstream",
+            "url": "https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.16.0/ncbi-blast-2.16.0+-x64-win64.tar.gz"
+          }
+        }
+      }
+    },
+    "diamond": {
+      "version": "2.1.19",
+      "platforms": {
+        "aarch64-apple-darwin": {
+          "key": "tools/v1/diamond/2.1.19/e1718a7c91deff53f2d8ce8b813f39ec440b0aef1bbdd7f97a7d789abbdeaae9/diamond-macos.tar.gz",
+          "sha256": "e1718a7c91deff53f2d8ce8b813f39ec440b0aef1bbdd7f97a7d789abbdeaae9",
+          "archiveType": "tar.gz",
+          "binaries": {
+            "diamond": "diamond"
+          },
+          "source": {
+            "kind": "upstream",
+            "url": "https://github.com/bbuchfink/diamond/releases/download/v2.1.19/diamond-macos.tar.gz"
+          }
+        },
+        "x86_64-apple-darwin": {
+          "key": "tools/v1/diamond/2.1.19/e1718a7c91deff53f2d8ce8b813f39ec440b0aef1bbdd7f97a7d789abbdeaae9/diamond-macos.tar.gz",
+          "sha256": "e1718a7c91deff53f2d8ce8b813f39ec440b0aef1bbdd7f97a7d789abbdeaae9",
+          "archiveType": "tar.gz",
+          "binaries": {
+            "diamond": "diamond"
+          },
+          "source": {
+            "kind": "upstream",
+            "url": "https://github.com/bbuchfink/diamond/releases/download/v2.1.19/diamond-macos.tar.gz"
+          }
+        },
+        "x86_64-unknown-linux-gnu": {
+          "key": "tools/v1/diamond/2.1.19/78639951afd94c4d8b9e987e62869ade0c883e07af03b8da1114e3157a9e8fc3/diamond-linux64.tar.gz",
+          "sha256": "78639951afd94c4d8b9e987e62869ade0c883e07af03b8da1114e3157a9e8fc3",
+          "archiveType": "tar.gz",
+          "binaries": {
+            "diamond": "diamond"
+          },
+          "source": {
+            "kind": "upstream",
+            "url": "https://github.com/bbuchfink/diamond/releases/download/v2.1.19/diamond-linux64.tar.gz"
+          }
+        },
+        "x86_64-pc-windows-msvc": {
+          "key": "tools/v1/diamond/2.1.19/e0095d040e0ac2ee024895fb9d9a3816e9b727bbe1d107de97e5cad78ee75b22/diamond-windows.zip",
+          "sha256": "e0095d040e0ac2ee024895fb9d9a3816e9b727bbe1d107de97e5cad78ee75b22",
+          "archiveType": "zip",
+          "binaries": {
+            "diamond": "diamond.exe"
+          },
+          "source": {
+            "kind": "upstream",
+            "url": "https://github.com/bbuchfink/diamond/releases/download/v2.1.19/diamond-windows.zip"
+          }
+        }
+      }
+    },
+    "infernal": {
+      "version": "1.1.5",
+      "platforms": {
+        "aarch64-apple-darwin": {
+          "key": "tools/v1/infernal/1.1.5/5eec904168e01c7bc7ccb971b5de04919527b204d4a55a69aa3f9f584e76edb2/infernal-1.1.5-macosx-silicon.tar.gz",
+          "sha256": "5eec904168e01c7bc7ccb971b5de04919527b204d4a55a69aa3f9f584e76edb2",
+          "archiveType": "tar.gz",
+          "binaries": {
+            "cmscan": "infernal-1.1.5-macosx-silicon/binaries/cmscan"
+          },
+          "source": {
+            "kind": "upstream",
+            "url": "http://eddylab.org/infernal/infernal-1.1.5-macosx-silicon.tar.gz"
+          }
+        },
+        "x86_64-apple-darwin": {
+          "key": "tools/v1/infernal/1.1.5/d55babd2d5a33322c8796f335fecb6408f7e3b3a2e04cbb1da8e1cdf93b60028/infernal-1.1.5-macosx-intel.tar.gz",
+          "sha256": "d55babd2d5a33322c8796f335fecb6408f7e3b3a2e04cbb1da8e1cdf93b60028",
+          "archiveType": "tar.gz",
+          "binaries": {
+            "cmscan": "infernal-1.1.5-macosx-intel/binaries/cmscan"
+          },
+          "source": {
+            "kind": "upstream",
+            "url": "http://eddylab.org/infernal/infernal-1.1.5-macosx-intel.tar.gz"
+          }
+        },
+        "x86_64-unknown-linux-gnu": {
+          "key": "tools/v1/infernal/1.1.5/df89bc3d54e606d6fccdc4f8571781f48431278727c18f0a73cc3b5e9f66566b/infernal-1.1.5-linux-intel-gcc.tar.gz",
+          "sha256": "df89bc3d54e606d6fccdc4f8571781f48431278727c18f0a73cc3b5e9f66566b",
+          "archiveType": "tar.gz",
+          "binaries": {
+            "cmscan": "infernal-1.1.5-linux-intel-gcc/binaries/cmscan"
+          },
+          "source": {
+            "kind": "upstream",
+            "url": "http://eddylab.org/infernal/infernal-1.1.5-linux-intel-gcc.tar.gz"
+          }
+        },
+        "x86_64-pc-windows-msvc": {
+          "key": "tools/v1/infernal/1.1.5/ad4ddae02f924ca7c85bc8c4a79c9f875af8df96aeb726702fa985cbe752497f/infernal-1.1.5.tar.gz",
+          "sha256": "ad4ddae02f924ca7c85bc8c4a79c9f875af8df96aeb726702fa985cbe752497f",
+          "archiveType": "tar.gz",
+          "binaries": {
+            "cmscan": "cmscan.exe",
+            "cmpress": "cmpress.exe"
+          },
+          "source": {
+            "kind": "upstream",
+            "url": "http://eddylab.org/infernal/infernal-1.1.5.tar.gz"
+          }
+        }
+      }
+    },
+    "mafft": {
+      "version": "7.526",
+      "platforms": {
+        "aarch64-apple-darwin": {
+          "key": "tools/v1/mafft/7.526/704e0d2284f87b1b40e7f065359880967649136d4d328809b00288e2370be71f/mafft-7.526-mac.zip",
+          "sha256": "704e0d2284f87b1b40e7f065359880967649136d4d328809b00288e2370be71f",
+          "archiveType": "zip",
+          "archiveRoot": "mafft-mac",
+          "binaries": {
+            "mafft": "mafft-mac/mafftdir/bin/mafft"
+          },
+          "source": {
+            "kind": "upstream",
+            "url": "https://mafft.cbrc.jp/alignment/software/mafft-7.526-mac.zip"
+          }
+        },
+        "x86_64-apple-darwin": {
+          "key": "tools/v1/mafft/7.526/704e0d2284f87b1b40e7f065359880967649136d4d328809b00288e2370be71f/mafft-7.526-mac.zip",
+          "sha256": "704e0d2284f87b1b40e7f065359880967649136d4d328809b00288e2370be71f",
+          "archiveType": "zip",
+          "archiveRoot": "mafft-mac",
+          "binaries": {
+            "mafft": "mafft-mac/mafftdir/bin/mafft"
+          },
+          "source": {
+            "kind": "upstream",
+            "url": "https://mafft.cbrc.jp/alignment/software/mafft-7.526-mac.zip"
+          }
+        },
+        "x86_64-unknown-linux-gnu": {
+          "key": "tools/v1/mafft/7.526/8a82f15c92e352592961691de671591b8117034a2375987ad2746dc4c447be67/mafft-7.526-linux-dnaforge.tgz",
+          "sha256": "8a82f15c92e352592961691de671591b8117034a2375987ad2746dc4c447be67",
+          "archiveType": "tar.gz",
+          "archiveRoot": "mafft-linux64",
+          "binaries": {
+            "mafft": "mafft-linux64/mafftdir/bin/mafft"
+          },
+          "source": {
+            "kind": "dnaforge-built-from-source",
+            "url": "https://gitlab.com/sysimm/mafft/-/archive/v7.526/mafft-v7.526.tar.gz",
+            "sha256": "2d81ba74ad6181df3c662b882f529734f3eb78af9b205d6840ca345612bf6410",
+            "builder": "gcc-x86-64-linux-gnu 13.3.0",
+            "packaging": "absolute MAFFT install symlinks normalized to relative targets for safe extraction"
+          }
+        },
+        "x86_64-pc-windows-msvc": {
+          "key": "tools/v1/mafft/7.526/89be74dc9c45b82f0a6f8fce195113a7e98bab98ae1144da9e81a23b4fe2c90f/mafft-7.526-win64-dnaforge.zip",
+          "sha256": "89be74dc9c45b82f0a6f8fce195113a7e98bab98ae1144da9e81a23b4fe2c90f",
+          "archiveType": "zip",
+          "archiveRoot": "mafft-win",
+          "binaries": {
+            "mafft": "mafft-win/mafft.bat"
+          },
+          "source": {
+            "kind": "dnaforge-recovered-artifact",
+            "url": "https://mafft.cbrc.jp/alignment/software/mafft-7.526-win64-signed.zip"
+          }
+        }
+      }
+    }
+  }
+}

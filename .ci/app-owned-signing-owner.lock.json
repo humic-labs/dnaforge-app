@@ -1,0 +1,27 @@
+{
+  "schema": "dnaforge.app-owned-signing-owner.v1",
+  "appBuilderVersion": "26.15.3",
+  "osxSignVersion": "1.3.3",
+  "files": {
+    "macPackager": {
+      "module": "app-builder-lib/out/macPackager.js",
+      "sha256": "67df3d520ce09a0f73e5c8e0eacb28fdd83e007b23ab893917ec2d035103bb67"
+    },
+    "macCodeSign": {
+      "module": "app-builder-lib/out/codeSign/macCodeSign.js",
+      "sha256": "9f7d789b326147b6da29e1218d6e3f76b0314c68cf5d0f1efa59338a3c86e71a"
+    },
+    "osxSign": {
+      "module": "@electron/osx-sign/dist/cjs/sign.js",
+      "sha256": "46772fa7206ce169f2983ad0fc2ab4666a0db2098dc3a6466135f0b41377cb39"
+    },
+    "dynamicImport": {
+      "module": "app-builder-lib/out/util/dynamicImport.js",
+      "sha256": "03c0006422d69fc7d9fb578d1d4b94e255491dcba78128c7fe643a93d1bf9e1e"
+    },
+    "dynamicImportHelper": {
+      "module": "app-builder-lib/helpers/dynamic-import.js",
+      "sha256": "9d8548a9980756b47a8539707af36778cd9bbb2c60f185463520971f41bc0267"
+    }
+  }
+}

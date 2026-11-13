@@ -1,0 +1,331 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "corpus-05-reporter-calibration",
+  "title": "Three-colour reporter calibration and maturation correction",
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "storage": {
+    "type": "database",
+    "table": "pages",
+    "id": "corpus-05-reporter-calibration"
+  },
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Three-colour reporter calibration and maturation correction"
+          }
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Directive \u2014 Make the three reporters comparable, so a colour change is not mistaken for an expression change."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Problem"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "A three-input gate needs three readouts. "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-694681f1",
+              "label": "E1010m (mRFP)",
+              "entityType": "sequence",
+              "entityId": "sample-694681f1",
+              "path": "sequences/kits/moclo-cidar/E1010m_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-4ef35c11",
+              "label": "E0040m (GFP)",
+              "entityType": "sequence",
+              "entityId": "sample-4ef35c11",
+              "path": "sequences/kits/moclo-cidar/E0040m_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " and "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-359938dd",
+              "label": "eBFP2",
+              "entityType": "sequence",
+              "entityId": "sample-359938dd",
+              "path": "sequences/kits/moclo-cidar/eBFP2_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " differ in maturation half-life, quantum yield and photostability, so equal protein does not give equal signal."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Design"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Each reporter is expressed from the identical context \u2014 "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-525cf33d",
+              "label": "J23106",
+              "entityType": "sequence",
+              "entityId": "sample-525cf33d",
+              "path": "sequences/kits/moclo-cidar/J23106_AB",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " plus "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-7981ffa1",
+              "label": "B0034m",
+              "entityType": "sequence",
+              "entityId": "sample-7981ffa1",
+              "path": "sequences/kits/moclo-cidar/B0034m_BC",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " plus "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-5427ea3f",
+              "label": "B0015",
+              "entityType": "sequence",
+              "entityId": "sample-5427ea3f",
+              "path": "sequences/kits/moclo-cidar/B0015_DE",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " in "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-84ad4efb",
+              "label": "DVA_AE",
+              "entityType": "sequence",
+              "entityId": "sample-84ad4efb",
+              "path": "sequences/kits/moclo-cidar/DVA_AE",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " \u2014 so the only variable is the CDS."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Result"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-359938dd",
+              "label": "eBFP2",
+              "entityType": "sequence",
+              "entityId": "sample-359938dd",
+              "path": "sequences/kits/moclo-cidar/eBFP2_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " reads 4.1-fold lower per unit protein than "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-694681f1",
+              "label": "E1010m (mRFP)",
+              "entityType": "sequence",
+              "entityId": "sample-694681f1",
+              "path": "sequences/kits/moclo-cidar/E1010m_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " at 30 minutes, converging to 1.6-fold by 90 minutes. That is maturation, not expression."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Consequence: all kinetic comparisons use a single reporter. Cross-colour comparison is only made at steady state, after 120 minutes."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "What this rules out"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The apparent \"slow arm\" seen in early three-colour pilots is a maturation artefact and not a circuit property. Reported here so it is not rediscovered."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Related entries"
+          }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-04-rbs-ladder",
+                      "label": "04 \u2014 RBS ladder",
+                      "entityType": "page",
+                      "entityId": "corpus-04-rbs-ladder"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-06-terminator-insulation",
+                      "label": "06 \u2014 Terminator insulation and read-through between adjacent units",
+                      "entityType": "page",
+                      "entityId": "corpus-06-terminator-insulation"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

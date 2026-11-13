@@ -1,0 +1,70 @@
+{
+  "schema": "dnaforge.track-meta.v1",
+  "track": "transtermhp-terminators",
+  "version": "7589ab2f3fc2",
+  "assembly": {
+    "accession": "NC_000913.3",
+    "lengthBp": 4641652,
+    "aliases": ["U00096.3"]
+  },
+  "file": {
+    "name": "transtermhp-terminators.gff3",
+    "format": "gff3",
+    "sha256": "7589ab2f3fc2c63d929e6928ffa292a1e1378384b1dde3786bfcc1f7de6b596f",
+    "byteLength": 300382
+  },
+  "residency": {
+    "kind": "managed"
+  },
+  "kinds": ["terminator"],
+  "label": "Intrinsic terminators predicted by TransTermHP (confidence 76 or higher)",
+  "evidence": "computed",
+  "license": {
+    "spdx": "LicenseRef-DNAForge-generated",
+    "attribution": "Computed by DNAForge using TransTermHP v2.09 (a GPL-2.0 program) on NC_000913.3, confidence 76 or higher, one hairpin per locus. Method: Kingsford CL, Ayanbule K, Salzberg SL. Rapid, accurate, computational discovery of Rho-independent transcription terminators illuminates their relationship to DNA uptake. Genome Biology 8:R22 (2007), doi:10.1186/gb-2007-8-2-r22.",
+    "evidenceUrl": "https://transterm.cbcb.umd.edu/transterm_hp_v2.09.zip",
+    "note": "The act of running the Program is not restricted, and the output from the Program is covered only if its contents constitute a work based on the Program (independent of having been made by running the Program). These records are data DNAForge generated; they carry no third-party license. DNAForge ran the unmodified TransTermHP v2.09 program (GPL-2.0) as a separate process at data-build time on NC_000913.3 and kept only coordinates and confidence scores, no program code or text. The program is compiled in a local build cache and is never committed, linked into or shipped with DNAForge. GPL-2.0 section 0 (LICENSE.txt in the zip): \"The act of running the Program is not restricted, and the output from the Program is covered only if its contents constitute a work based on the Program (independent of having been made by running the Program).\""
+  },
+  "citation": "Kingsford CL, Ayanbule K, Salzberg SL (2007) Genome Biology 8:R22. Rapid, accurate, computational discovery of Rho-independent transcription terminators illuminates their relationship to DNA uptake.",
+  "url": "https://transterm.cbcb.umd.edu/",
+  "doi": "10.1186/gb-2007-8-2-r22",
+  "datasetVersion": "Computed with transterm_hp_v2.09.zip (sha256 b636db1c0fe9..., server Last-Modified 2011-02-28; the binary prints 'TransTermHP v2.08'), bundled expterm.dat, default search parameters, --min-conf=76; genome and genes from the NC_000913.3 GenBank file (LOCUS date 09-DEC-2025)",
+  "recordCount": 1441,
+  "countsByKind": {
+    "terminator": 1441
+  },
+  "provenance": {
+    "producedBy": {
+      "tool": "scripts/annotation-datasets/ecoli-k12-mg1655/transtermhp-terminators/build.py"
+    },
+    "toolRun": {
+      "compileFlags": "-O3 -std=c++98 -ffp-contract=off -w",
+      "commands": [
+        ".cache/annotation-datasets/tools/transterm_hp_v2.09/transterm -p .cache/annotation-datasets/tools/transterm_hp_v2.09/expterm.dat --min-conf=76 .cache/annotation-datasets/work/transtermhp-terminators/NC_000913.3.fna .cache/annotation-datasets/work/transtermhp-terminators/NC_000913.3.coords",
+        ".cache/annotation-datasets/tools/transterm_hp_v2.09/transterm -p .cache/annotation-datasets/tools/transterm_hp_v2.09/expterm.dat --min-conf=0 .cache/annotation-datasets/work/transtermhp-terminators/NC_000913.3.fna .cache/annotation-datasets/work/transtermhp-terminators/NC_000913.3.coords",
+        ".cache/annotation-datasets/tools/transterm_hp_v2.09/transterm -p .cache/annotation-datasets/tools/transterm_hp_v2.09/expterm.dat --min-conf=0 --all-context -S .cache/annotation-datasets/work/transtermhp-terminators/NC_000913.3.fna .cache/annotation-datasets/work/transtermhp-terminators/NC_000913.3.coords"
+      ],
+      "geneRowsGiven": 4535,
+      "candidatesMinConf0": 8780,
+      "candidatesMinConf0AllContext": 84782,
+      "candidatesMinConf76": 1860,
+      "overlappingAlternativesCollapsed": 419
+    },
+    "inputs": [
+      {
+        "url": "https://transterm.cbcb.umd.edu/transterm_hp_v2.09.zip",
+        "sha256": "b636db1c0fe9731cc760d8f3639209d07f7f35309d83013cc9f9e40798ce8be0",
+        "bytes": 1827662
+      },
+      {
+        "url": "https://www.ncbi.nlm.nih.gov/nuccore/NC_000913.3",
+        "sha256": "7cf1ed07c731a1aba11d2b12a7071f395b1a25b4e9a06809549742f83c2d1a2f",
+        "bytes": 11881788,
+        "note": "repository file test-fixtures/sequences/circular/ecoli-mg1655-complete.gb"
+      }
+    ],
+    "notes": [
+      "Kept only TransTermHP candidates with confidence >= 76: 6920 of 8780 candidates in TransTermHP's default genomic context were below the cutoff. Candidates TransTermHP suppresses by default as out of context (84782 with --all-context vs 8780 without, both at confidence >= 0) are not included. Overlapping alternatives: TransTermHP often reports several alternative hairpins for one terminator; same-strand candidates whose hairpins overlap were collapsed to one record per locus, keeping the highest confidence, then the narrowest hairpin, then the lowest start (1860 candidates -> 1441 records, 419 alternatives dropped). No measured 3' end exists for a prediction, so terminationBp is not set. Not kept in records.json (reproducible from the build script and cache): TransTermHP's context code, hairpin and tail scores, gap count, TERM label, all sequence text and the overlap notes. Gene input: 127 pseudogene-only gene features with no CDS or RNA feature were not given to TransTermHP. No RegulonDB, EcoCyc or other curated terminator data is used anywhere in this source."
+    ]
+  }
+}

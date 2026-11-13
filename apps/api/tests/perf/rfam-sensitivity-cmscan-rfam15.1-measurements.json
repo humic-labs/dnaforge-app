@@ -1,0 +1,54 @@
+[
+  {
+    "label": "puc19_2686",
+    "length": 2686,
+    "no_rfam": {
+      "seconds": 5.3,
+      "status": "ok"
+    },
+    "rfam": {
+      "seconds": 0.5,
+      "status": "ok"
+    },
+    "delta_s": 4.8
+  },
+  {
+    "label": "region_78345",
+    "length": 78345,
+    "no_rfam": {
+      "seconds": 60.5,
+      "status": "ok"
+    },
+    "rfam": {
+      "seconds": 16.6,
+      "status": "ok"
+    },
+    "delta_s": 43.9
+  },
+  {
+    "label": "mg1655_150k",
+    "length": 150000,
+    "no_rfam": {
+      "seconds": 113.9,
+      "status": "ok"
+    },
+    "rfam": {
+      "seconds": 40.6,
+      "status": "ok"
+    },
+    "delta_s": 73.3
+  },
+  {
+    "label": "mg1655_300k",
+    "length": 300000,
+    "no_rfam": {
+      "seconds": 156.0,
+      "status": "ok"
+    },
+    "rfam": {
+      "seconds": 84.2,
+      "status": "ok"
+    },
+    "delta_s": 71.8
+  }
+]

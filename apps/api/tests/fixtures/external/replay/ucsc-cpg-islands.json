@@ -1,0 +1,2410 @@
+{
+  "_comment": "UCSC catalog and regional response shapes captured from api.genome.ucsc.edu on 2026-08-16 and 2026-08-17. Whole-track responses are deterministic aggregations of those captured records for the source-wide cache contract. hg38 and ce11 expose CpG Islands; sacCer3 deliberately does not and instead exposes assembly-specific native interval tracks. sacCer3 also carries a trimmed sgdGene genePred track: UCSC serves gene models from its own tables rather than as files, and the exon structure proves a native table keeps the meaning the catalog declared.",
+  "entries": [
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "cpgIslandExt",
+        "chrom": "chr1",
+        "start": "0",
+        "end": "100000",
+        "maxItemsOutput": "100"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chr1",
+          "start": 0,
+          "end": 100000,
+          "itemsReturned": 1,
+          "cpgIslandExt": [
+            {
+              "bin": 585,
+              "chrom": "chr1",
+              "chromStart": 28735,
+              "chromEnd": 29737,
+              "name": "CpG: 111",
+              "length": 1002,
+              "cpgNum": 111,
+              "gcNum": 731,
+              "perCpg": 22.2,
+              "perGc": 73,
+              "obsExp": 0.85
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "cpgIslandExt"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "itemsReturned": 3,
+          "cpgIslandExt": {
+            "chr1": [
+              {
+                "bin": 585,
+                "chromStart": 28735,
+                "chromEnd": 29737,
+                "name": "CpG: 111",
+                "length": 1002,
+                "cpgNum": 111,
+                "gcNum": 731,
+                "perCpg": 22.2,
+                "perGc": 73,
+                "obsExp": 0.85
+              }
+            ],
+            "chr2": [
+              {
+                "bin": 585,
+                "chromStart": 10655,
+                "chromEnd": 11165,
+                "name": "CpG: 43",
+                "length": 510,
+                "cpgNum": 43,
+                "gcNum": 309,
+                "perCpg": 16.9,
+                "perGc": 60.6,
+                "obsExp": 0.92
+              }
+            ],
+            "chrX": [
+              {
+                "bin": 585,
+                "chromStart": 4239,
+                "chromEnd": 4747,
+                "name": "CpG: 47",
+                "length": 508,
+                "cpgNum": 47,
+                "gcNum": 321,
+                "perCpg": 18.5,
+                "perGc": 63.2,
+                "obsExp": 0.93
+              }
+            ]
+          }
+        }
+      },
+      "query_regex": {
+        "maxItemsOutput": "100000|1000000"
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "cpgIslandExt",
+        "chrom": "chr1",
+        "start": "0",
+        "end": "65536",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chr1",
+          "start": 0,
+          "end": 65536,
+          "itemsReturned": 1,
+          "cpgIslandExt": [
+            {
+              "bin": 585,
+              "chrom": "chr1",
+              "chromStart": 28735,
+              "chromEnd": 29737,
+              "name": "CpG: 111",
+              "length": 1002,
+              "cpgNum": 111,
+              "gcNum": 731,
+              "perCpg": 22.2,
+              "perGc": 73,
+              "obsExp": 0.85
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "cpgIslandExt",
+        "chrom": "chr1",
+        "start": "65536",
+        "end": "131072",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chr1",
+          "start": 65536,
+          "end": 131072,
+          "itemsReturned": 0,
+          "cpgIslandExt": []
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "cpgIslandExt",
+        "chrom": "chr1",
+        "start": "0",
+        "end": "32768",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chr1",
+          "start": 0,
+          "end": 32768,
+          "itemsReturned": 1,
+          "cpgIslandExt": [
+            {
+              "bin": 585,
+              "chrom": "chr1",
+              "chromStart": 28735,
+              "chromEnd": 29737,
+              "name": "CpG: 111",
+              "length": 1002,
+              "cpgNum": 111,
+              "gcNum": 731,
+              "perCpg": 22.2,
+              "perGc": 73,
+              "obsExp": 0.85
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "cpgIslandExt",
+        "chrom": "chr1",
+        "start": "32768",
+        "end": "65536",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chr1",
+          "start": 32768,
+          "end": 65536,
+          "itemsReturned": 0,
+          "cpgIslandExt": []
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "cpgIslandExt",
+        "chrom": "chr1",
+        "start": "65536",
+        "end": "98304",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chr1",
+          "start": 65536,
+          "end": 98304,
+          "itemsReturned": 0,
+          "cpgIslandExt": []
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "cpgIslandExt",
+        "chrom": "chr1",
+        "start": "0",
+        "end": "131072",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chr1",
+          "start": 0,
+          "end": 131072,
+          "itemsReturned": 1,
+          "cpgIslandExt": [
+            {
+              "bin": 585,
+              "chrom": "chr1",
+              "chromStart": 28735,
+              "chromEnd": 29737,
+              "name": "CpG: 111",
+              "length": 1002,
+              "cpgNum": 111,
+              "gcNum": 731,
+              "perCpg": 22.2,
+              "perGc": 73,
+              "obsExp": 0.85
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "track": "cpgIslandExt",
+        "chrom": "chr1",
+        "start": "131072",
+        "end": "262144",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chr1",
+          "start": 131072,
+          "end": 262144,
+          "itemsReturned": 0,
+          "cpgIslandExt": []
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/list/tracks",
+      "query": {
+        "genome": "ce11"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "ce11": {
+            "cpgIslandExt": {
+              "shortLabel": "CpG Islands",
+              "type": "bed 4 +",
+              "longLabel": "CpG Islands (Islands < 300 Bases are Light Green)",
+              "parent": "cpgIslandSuper pack",
+              "group": "regulation",
+              "html": "cpgIslandSuper",
+              "priority": "1",
+              "superTrack": "on",
+              "altColor": "128,228,128",
+              "color": "0,100,0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "ce11",
+        "track": "cpgIslandExt"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "ce11",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "itemsReturned": 9,
+          "cpgIslandExt": {
+            "chrIV": [
+              {
+                "bin": 585,
+                "chromStart": 5464,
+                "chromEnd": 5764,
+                "name": "CpG: 30",
+                "length": 300,
+                "cpgNum": 30,
+                "gcNum": 155,
+                "perCpg": 20,
+                "perGc": 51.7,
+                "obsExp": 1.5
+              },
+              {
+                "bin": 585,
+                "chromStart": 6264,
+                "chromEnd": 6688,
+                "name": "CpG: 36",
+                "length": 424,
+                "cpgNum": 36,
+                "gcNum": 214,
+                "perCpg": 17,
+                "perGc": 50.5,
+                "obsExp": 1.34
+              },
+              {
+                "bin": 585,
+                "chromStart": 7716,
+                "chromEnd": 8108,
+                "name": "CpG: 36",
+                "length": 392,
+                "cpgNum": 36,
+                "gcNum": 197,
+                "perCpg": 18.4,
+                "perGc": 50.3,
+                "obsExp": 1.46
+              },
+              {
+                "bin": 585,
+                "chromStart": 12493,
+                "chromEnd": 12759,
+                "name": "CpG: 25",
+                "length": 266,
+                "cpgNum": 25,
+                "gcNum": 139,
+                "perCpg": 18.8,
+                "perGc": 52.3,
+                "obsExp": 1.38
+              },
+              {
+                "bin": 585,
+                "chromStart": 35119,
+                "chromEnd": 35385,
+                "name": "CpG: 25",
+                "length": 266,
+                "cpgNum": 25,
+                "gcNum": 139,
+                "perCpg": 18.8,
+                "perGc": 52.3,
+                "obsExp": 1.38
+              },
+              {
+                "bin": 585,
+                "chromStart": 39770,
+                "chromEnd": 40162,
+                "name": "CpG: 36",
+                "length": 392,
+                "cpgNum": 36,
+                "gcNum": 197,
+                "perCpg": 18.4,
+                "perGc": 50.3,
+                "obsExp": 1.46
+              },
+              {
+                "bin": 585,
+                "chromStart": 41190,
+                "chromEnd": 41614,
+                "name": "CpG: 36",
+                "length": 424,
+                "cpgNum": 36,
+                "gcNum": 214,
+                "perCpg": 17,
+                "perGc": 50.5,
+                "obsExp": 1.34
+              },
+              {
+                "bin": 585,
+                "chromStart": 42114,
+                "chromEnd": 42414,
+                "name": "CpG: 30",
+                "length": 300,
+                "cpgNum": 30,
+                "gcNum": 154,
+                "perCpg": 20,
+                "perGc": 51.3,
+                "obsExp": 1.52
+              },
+              {
+                "bin": 585,
+                "chromStart": 120820,
+                "chromEnd": 121079,
+                "name": "CpG: 24",
+                "length": 259,
+                "cpgNum": 24,
+                "gcNum": 134,
+                "perCpg": 18.5,
+                "perGc": 51.7,
+                "obsExp": 1.38
+              }
+            ]
+          }
+        }
+      },
+      "query_regex": {
+        "maxItemsOutput": "100000|1000000"
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "ce11",
+        "track": "cpgIslandExt",
+        "chrom": "chrI",
+        "start": "0",
+        "end": "100000",
+        "maxItemsOutput": "100"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "ce11",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chrI",
+          "start": 0,
+          "end": 100000,
+          "itemsReturned": 5,
+          "cpgIslandExt": [
+            {
+              "bin": 585,
+              "chrom": "chrI",
+              "chromStart": 3770,
+              "chromEnd": 4013,
+              "name": "CpG: 27",
+              "length": 243,
+              "cpgNum": 27,
+              "gcNum": 140,
+              "perCpg": 22.2,
+              "perGc": 57.6,
+              "obsExp": 1.36
+            },
+            {
+              "bin": 585,
+              "chrom": "chrI",
+              "chromStart": 11303,
+              "chromEnd": 11562,
+              "name": "CpG: 23",
+              "length": 259,
+              "cpgNum": 23,
+              "gcNum": 139,
+              "perCpg": 17.8,
+              "perGc": 53.7,
+              "obsExp": 1.26
+            },
+            {
+              "bin": 585,
+              "chrom": "chrI",
+              "chromStart": 22876,
+              "chromEnd": 23098,
+              "name": "CpG: 20",
+              "length": 222,
+              "cpgNum": 20,
+              "gcNum": 135,
+              "perCpg": 18,
+              "perGc": 60.8,
+              "obsExp": 1.19
+            },
+            {
+              "bin": 585,
+              "chrom": "chrI",
+              "chromStart": 59572,
+              "chromEnd": 59795,
+              "name": "CpG: 16",
+              "length": 223,
+              "cpgNum": 16,
+              "gcNum": 113,
+              "perCpg": 14.3,
+              "perGc": 50.7,
+              "obsExp": 1.14
+            },
+            {
+              "bin": 585,
+              "chrom": "chrI",
+              "chromStart": 98498,
+              "chromEnd": 99057,
+              "name": "CpG: 46",
+              "length": 559,
+              "cpgNum": 46,
+              "gcNum": 286,
+              "perCpg": 16.5,
+              "perGc": 51.2,
+              "obsExp": 1.26
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "ce11",
+        "track": "cpgIslandExt",
+        "chrom": "chrIV",
+        "start": "0",
+        "end": "65536",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "ce11",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chrIV",
+          "start": 0,
+          "end": 65536,
+          "itemsReturned": 8,
+          "cpgIslandExt": [
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 5464,
+              "chromEnd": 5764,
+              "name": "CpG: 30",
+              "length": 300,
+              "cpgNum": 30,
+              "gcNum": 155,
+              "perCpg": 20,
+              "perGc": 51.7,
+              "obsExp": 1.5
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 6264,
+              "chromEnd": 6688,
+              "name": "CpG: 36",
+              "length": 424,
+              "cpgNum": 36,
+              "gcNum": 214,
+              "perCpg": 17,
+              "perGc": 50.5,
+              "obsExp": 1.34
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 7716,
+              "chromEnd": 8108,
+              "name": "CpG: 36",
+              "length": 392,
+              "cpgNum": 36,
+              "gcNum": 197,
+              "perCpg": 18.4,
+              "perGc": 50.3,
+              "obsExp": 1.46
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 12493,
+              "chromEnd": 12759,
+              "name": "CpG: 25",
+              "length": 266,
+              "cpgNum": 25,
+              "gcNum": 139,
+              "perCpg": 18.8,
+              "perGc": 52.3,
+              "obsExp": 1.38
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 35119,
+              "chromEnd": 35385,
+              "name": "CpG: 25",
+              "length": 266,
+              "cpgNum": 25,
+              "gcNum": 139,
+              "perCpg": 18.8,
+              "perGc": 52.3,
+              "obsExp": 1.38
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 39770,
+              "chromEnd": 40162,
+              "name": "CpG: 36",
+              "length": 392,
+              "cpgNum": 36,
+              "gcNum": 197,
+              "perCpg": 18.4,
+              "perGc": 50.3,
+              "obsExp": 1.46
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 41190,
+              "chromEnd": 41614,
+              "name": "CpG: 36",
+              "length": 424,
+              "cpgNum": 36,
+              "gcNum": 214,
+              "perCpg": 17,
+              "perGc": 50.5,
+              "obsExp": 1.34
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 42114,
+              "chromEnd": 42414,
+              "name": "CpG: 30",
+              "length": 300,
+              "cpgNum": 30,
+              "gcNum": 154,
+              "perCpg": 20,
+              "perGc": 51.3,
+              "obsExp": 1.52
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "ce11",
+        "track": "cpgIslandExt",
+        "chrom": "chrIV",
+        "start": "65536",
+        "end": "131072",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "ce11",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chrIV",
+          "start": 65536,
+          "end": 131072,
+          "itemsReturned": 1,
+          "cpgIslandExt": [
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 120820,
+              "chromEnd": 121079,
+              "name": "CpG: 24",
+              "length": 259,
+              "cpgNum": 24,
+              "gcNum": 134,
+              "perCpg": 18.5,
+              "perGc": 51.7,
+              "obsExp": 1.38
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "ce11",
+        "track": "cpgIslandExt",
+        "chrom": "chrIV",
+        "start": "0",
+        "end": "32768",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "ce11",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chrIV",
+          "start": 0,
+          "end": 32768,
+          "itemsReturned": 4,
+          "cpgIslandExt": [
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 5464,
+              "chromEnd": 5764,
+              "name": "CpG: 30",
+              "length": 300,
+              "cpgNum": 30,
+              "gcNum": 155,
+              "perCpg": 20,
+              "perGc": 51.7,
+              "obsExp": 1.5
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 6264,
+              "chromEnd": 6688,
+              "name": "CpG: 36",
+              "length": 424,
+              "cpgNum": 36,
+              "gcNum": 214,
+              "perCpg": 17,
+              "perGc": 50.5,
+              "obsExp": 1.34
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 7716,
+              "chromEnd": 8108,
+              "name": "CpG: 36",
+              "length": 392,
+              "cpgNum": 36,
+              "gcNum": 197,
+              "perCpg": 18.4,
+              "perGc": 50.3,
+              "obsExp": 1.46
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 12493,
+              "chromEnd": 12759,
+              "name": "CpG: 25",
+              "length": 266,
+              "cpgNum": 25,
+              "gcNum": 139,
+              "perCpg": 18.8,
+              "perGc": 52.3,
+              "obsExp": 1.38
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "ce11",
+        "track": "cpgIslandExt",
+        "chrom": "chrIV",
+        "start": "32768",
+        "end": "65536",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "ce11",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chrIV",
+          "start": 32768,
+          "end": 65536,
+          "itemsReturned": 4,
+          "cpgIslandExt": [
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 35119,
+              "chromEnd": 35385,
+              "name": "CpG: 25",
+              "length": 266,
+              "cpgNum": 25,
+              "gcNum": 139,
+              "perCpg": 18.8,
+              "perGc": 52.3,
+              "obsExp": 1.38
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 39770,
+              "chromEnd": 40162,
+              "name": "CpG: 36",
+              "length": 392,
+              "cpgNum": 36,
+              "gcNum": 197,
+              "perCpg": 18.4,
+              "perGc": 50.3,
+              "obsExp": 1.46
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 41190,
+              "chromEnd": 41614,
+              "name": "CpG: 36",
+              "length": 424,
+              "cpgNum": 36,
+              "gcNum": 214,
+              "perCpg": 17,
+              "perGc": 50.5,
+              "obsExp": 1.34
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 42114,
+              "chromEnd": 42414,
+              "name": "CpG: 30",
+              "length": 300,
+              "cpgNum": 30,
+              "gcNum": 154,
+              "perCpg": 20,
+              "perGc": 51.3,
+              "obsExp": 1.52
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "ce11",
+        "track": "cpgIslandExt",
+        "chrom": "chrIV",
+        "start": "65536",
+        "end": "98304",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "ce11",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chrIV",
+          "start": 65536,
+          "end": 98304,
+          "itemsReturned": 0,
+          "cpgIslandExt": []
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "ce11",
+        "track": "cpgIslandExt",
+        "chrom": "chrIV",
+        "start": "0",
+        "end": "131072",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "ce11",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chrIV",
+          "start": 0,
+          "end": 131072,
+          "itemsReturned": 9,
+          "cpgIslandExt": [
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 5464,
+              "chromEnd": 5764,
+              "name": "CpG: 30",
+              "length": 300,
+              "cpgNum": 30,
+              "gcNum": 155,
+              "perCpg": 20,
+              "perGc": 51.7,
+              "obsExp": 1.5
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 6264,
+              "chromEnd": 6688,
+              "name": "CpG: 36",
+              "length": 424,
+              "cpgNum": 36,
+              "gcNum": 214,
+              "perCpg": 17,
+              "perGc": 50.5,
+              "obsExp": 1.34
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 7716,
+              "chromEnd": 8108,
+              "name": "CpG: 36",
+              "length": 392,
+              "cpgNum": 36,
+              "gcNum": 197,
+              "perCpg": 18.4,
+              "perGc": 50.3,
+              "obsExp": 1.46
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 12493,
+              "chromEnd": 12759,
+              "name": "CpG: 25",
+              "length": 266,
+              "cpgNum": 25,
+              "gcNum": 139,
+              "perCpg": 18.8,
+              "perGc": 52.3,
+              "obsExp": 1.38
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 35119,
+              "chromEnd": 35385,
+              "name": "CpG: 25",
+              "length": 266,
+              "cpgNum": 25,
+              "gcNum": 139,
+              "perCpg": 18.8,
+              "perGc": 52.3,
+              "obsExp": 1.38
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 39770,
+              "chromEnd": 40162,
+              "name": "CpG: 36",
+              "length": 392,
+              "cpgNum": 36,
+              "gcNum": 197,
+              "perCpg": 18.4,
+              "perGc": 50.3,
+              "obsExp": 1.46
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 41190,
+              "chromEnd": 41614,
+              "name": "CpG: 36",
+              "length": 424,
+              "cpgNum": 36,
+              "gcNum": 214,
+              "perCpg": 17,
+              "perGc": 50.5,
+              "obsExp": 1.34
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 42114,
+              "chromEnd": 42414,
+              "name": "CpG: 30",
+              "length": 300,
+              "cpgNum": 30,
+              "gcNum": 154,
+              "perCpg": 20,
+              "perGc": 51.3,
+              "obsExp": 1.52
+            },
+            {
+              "bin": 585,
+              "chrom": "chrIV",
+              "chromStart": 120820,
+              "chromEnd": 121079,
+              "name": "CpG: 24",
+              "length": 259,
+              "cpgNum": 24,
+              "gcNum": 134,
+              "perCpg": 18.5,
+              "perGc": 51.7,
+              "obsExp": 1.38
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "ce11",
+        "track": "cpgIslandExt",
+        "chrom": "chrIV",
+        "start": "131072",
+        "end": "262144",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "ce11",
+          "track": "cpgIslandExt",
+          "trackType": "bed 4 +",
+          "chrom": "chrIV",
+          "start": 131072,
+          "end": 262144,
+          "itemsReturned": 0,
+          "cpgIslandExt": []
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/list/tracks",
+      "query": {
+        "genome": "sacCer3"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "sacCer3": {
+            "cons7way": {
+              "compositeContainer": "TRUE",
+              "shortLabel": "Conservation",
+              "type": "bed 4",
+              "longLabel": "Multiz Alignment & Conservation (7 Yeasts)",
+              "subGroup1": "view Views align=Multiz_Alignments  phyloP=Basewise_Conservation_(phyloP) phastcons=Element_Conservation_(phastCons) elements=Conserved_Elements",
+              "visibility": "full",
+              "group": "compGeno",
+              "html": "multiz7way",
+              "compositeTrack": "on",
+              "dragAndDrop": "subTracks",
+              "priority": "103.29",
+              "cons7wayViewelements": {
+                "compositeViewContainer": "TRUE",
+                "shortLabel": "Conserved Elements",
+                "type": "bed 4",
+                "longLabel": "Multiz Alignment & Conservation (7 Yeasts)",
+                "parent": "cons7way",
+                "visibility": "dense",
+                "view": "elements",
+                "phastConsElements7way": {
+                  "shortLabel": "Elements",
+                  "type": "bed 5 .",
+                  "longLabel": "7 Yeasts Conserved Elements",
+                  "parent": "cons7wayViewelements on",
+                  "parentParent": "cons7way",
+                  "priority": "23",
+                  "subGroups": "view=elements",
+                  "color": "110,10,40",
+                  "noInherit": "on"
+                }
+              }
+            },
+            "crisprRanges": {
+              "shortLabel": "CRISPR Regions",
+              "type": "bed 3",
+              "longLabel": "Genome regions processed to find CRISPR/Cas9 target sites (exons +/- 200 bp)",
+              "parent": "crispr",
+              "visibility": "dense",
+              "group": "genes",
+              "html": "crispr",
+              "superTrack": "on",
+              "color": "110,110,110"
+            },
+            "gap": {
+              "shortLabel": "Gap",
+              "type": "bed 3 +",
+              "longLabel": "Gap Locations",
+              "visibility": "hide",
+              "group": "map",
+              "html": "gap",
+              "chromosomes": "none"
+            },
+            "gold": {
+              "shortLabel": "Assembly",
+              "type": "bed 3 +",
+              "longLabel": "Assembly from Fragments",
+              "visibility": "hide",
+              "group": "map",
+              "html": "gold",
+              "altColor": "230,170,40",
+              "color": "150,100,30"
+            },
+            "sgdGene": {
+              "shortLabel": "SGD Genes",
+              "longLabel": "Saccharomyces Genome Database genes",
+              "type": "genePred sgdPep",
+              "group": "genes",
+              "subGroups": "dataType=geneModel source=SGD",
+              "metadata": "assembly_source=sacCer3"
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "gold"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "gold",
+          "trackType": "bed 3 +",
+          "itemsReturned": 1,
+          "gold": {
+            "chrIV": [
+              {
+                "bin": 9,
+                "chromStart": 0,
+                "chromEnd": 1531933,
+                "ix": 1,
+                "type": "O",
+                "frag": "BK006938.2",
+                "fragStart": 0,
+                "fragEnd": 1531933,
+                "strand": "+"
+              }
+            ]
+          }
+        }
+      },
+      "query_regex": {
+        "maxItemsOutput": "100000|1000000"
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "gold",
+        "chrom": "chrIV",
+        "start": "0",
+        "end": "65536",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "gold",
+          "trackType": "bed 3 +",
+          "chrom": "chrIV",
+          "start": 0,
+          "end": 65536,
+          "itemsReturned": 1,
+          "gold": [
+            {
+              "bin": 9,
+              "chrom": "chrIV",
+              "chromStart": 0,
+              "chromEnd": 1531933,
+              "ix": 1,
+              "type": "O",
+              "frag": "BK006938.2",
+              "fragStart": 0,
+              "fragEnd": 1531933,
+              "strand": "+"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "gold",
+        "chrom": "chrIV",
+        "start": "65536",
+        "end": "131072",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "gold",
+          "trackType": "bed 3 +",
+          "chrom": "chrIV",
+          "start": 65536,
+          "end": 131072,
+          "itemsReturned": 1,
+          "gold": [
+            {
+              "bin": 9,
+              "chrom": "chrIV",
+              "chromStart": 0,
+              "chromEnd": 1531933,
+              "ix": 1,
+              "type": "O",
+              "frag": "BK006938.2",
+              "fragStart": 0,
+              "fragEnd": 1531933,
+              "strand": "+"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "gold",
+        "chrom": "chrIV",
+        "start": "0",
+        "end": "32768",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "gold",
+          "trackType": "bed 3 +",
+          "chrom": "chrIV",
+          "start": 0,
+          "end": 32768,
+          "itemsReturned": 1,
+          "gold": [
+            {
+              "bin": 9,
+              "chrom": "chrIV",
+              "chromStart": 0,
+              "chromEnd": 1531933,
+              "ix": 1,
+              "type": "O",
+              "frag": "BK006938.2",
+              "fragStart": 0,
+              "fragEnd": 1531933,
+              "strand": "+"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "gold",
+        "chrom": "chrIV",
+        "start": "32768",
+        "end": "65536",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "gold",
+          "trackType": "bed 3 +",
+          "chrom": "chrIV",
+          "start": 32768,
+          "end": 65536,
+          "itemsReturned": 1,
+          "gold": [
+            {
+              "bin": 9,
+              "chrom": "chrIV",
+              "chromStart": 0,
+              "chromEnd": 1531933,
+              "ix": 1,
+              "type": "O",
+              "frag": "BK006938.2",
+              "fragStart": 0,
+              "fragEnd": 1531933,
+              "strand": "+"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "gold",
+        "chrom": "chrIV",
+        "start": "65536",
+        "end": "98304",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "gold",
+          "trackType": "bed 3 +",
+          "chrom": "chrIV",
+          "start": 65536,
+          "end": 98304,
+          "itemsReturned": 1,
+          "gold": [
+            {
+              "bin": 9,
+              "chrom": "chrIV",
+              "chromStart": 0,
+              "chromEnd": 1531933,
+              "ix": 1,
+              "type": "O",
+              "frag": "BK006938.2",
+              "fragStart": 0,
+              "fragEnd": 1531933,
+              "strand": "+"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "gold",
+        "chrom": "chrIV",
+        "start": "0",
+        "end": "131072",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "gold",
+          "trackType": "bed 3 +",
+          "chrom": "chrIV",
+          "start": 0,
+          "end": 131072,
+          "itemsReturned": 1,
+          "gold": [
+            {
+              "bin": 9,
+              "chrom": "chrIV",
+              "chromStart": 0,
+              "chromEnd": 1531933,
+              "ix": 1,
+              "type": "O",
+              "frag": "BK006938.2",
+              "fragStart": 0,
+              "fragEnd": 1531933,
+              "strand": "+"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "gold",
+        "chrom": "chrIV",
+        "start": "131072",
+        "end": "262144",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "gold",
+          "trackType": "bed 3 +",
+          "chrom": "chrIV",
+          "start": 131072,
+          "end": 262144,
+          "itemsReturned": 1,
+          "gold": [
+            {
+              "bin": 9,
+              "chrom": "chrIV",
+              "chromStart": 0,
+              "chromEnd": 1531933,
+              "ix": 1,
+              "type": "O",
+              "frag": "BK006938.2",
+              "fragStart": 0,
+              "fragEnd": 1531933,
+              "strand": "+"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "gold",
+        "chrom": "chrIV",
+        "start": "0",
+        "end": "1531933",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "gold",
+          "trackType": "bed 3 +",
+          "chrom": "chrIV",
+          "start": 0,
+          "end": 1531933,
+          "itemsReturned": 1,
+          "gold": [
+            {
+              "bin": 9,
+              "chrom": "chrIV",
+              "chromStart": 0,
+              "chromEnd": 1531933,
+              "ix": 1,
+              "type": "O",
+              "frag": "BK006938.2",
+              "fragStart": 0,
+              "fragEnd": 1531933,
+              "strand": "+"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "sgdGene"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "sgdGene",
+          "trackType": "genePred sgdPep",
+          "itemsReturned": 5,
+          "sgdGene": {
+            "chrIV": [
+              {
+                "bin": 585,
+                "name": "YDL248W",
+                "chrom": "chrIV",
+                "strand": "+",
+                "txStart": 1801,
+                "txEnd": 2953,
+                "cdsStart": 1801,
+                "cdsEnd": 2953,
+                "exonCount": 1,
+                "exonStarts": "1801,",
+                "exonEnds": "2953,",
+                "proteinID": "Q07788"
+              },
+              {
+                "bin": 585,
+                "name": "YDL247W-A",
+                "chrom": "chrIV",
+                "strand": "+",
+                "txStart": 3761,
+                "txEnd": 3836,
+                "cdsStart": 3761,
+                "cdsEnd": 3836,
+                "exonCount": 1,
+                "exonStarts": "3761,",
+                "exonEnds": "3836,",
+                "proteinID": "n/a"
+              },
+              {
+                "bin": 585,
+                "name": "YDL219W",
+                "chrom": "chrIV",
+                "strand": "+",
+                "txStart": 65241,
+                "txEnd": 65765,
+                "cdsStart": 65241,
+                "cdsEnd": 65765,
+                "exonCount": 2,
+                "exonStarts": "65241,65377,",
+                "exonEnds": "65306,65765,",
+                "proteinID": "Q07648"
+              },
+              {
+                "bin": 585,
+                "name": "YDL191W",
+                "chrom": "chrIV",
+                "strand": "+",
+                "txStart": 117663,
+                "txEnd": 118517,
+                "cdsStart": 117663,
+                "cdsEnd": 118517,
+                "exonCount": 2,
+                "exonStarts": "117663,118157,",
+                "exonEnds": "117666,118517,",
+                "proteinID": "P39741"
+              },
+              {
+                "bin": 586,
+                "name": "YDL136W",
+                "chrom": "chrIV",
+                "strand": "+",
+                "txStart": 217599,
+                "txEnd": 218367,
+                "cdsStart": 217599,
+                "cdsEnd": 218367,
+                "exonCount": 2,
+                "exonStarts": "217599,218007,",
+                "exonEnds": "217602,218367,",
+                "proteinID": "P39741"
+              }
+            ]
+          }
+        }
+      },
+      "query_regex": {
+        "maxItemsOutput": "100000|1000000"
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "sgdGene",
+        "chrom": "chrIV",
+        "start": "0",
+        "end": "65536",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "sgdGene",
+          "trackType": "genePred sgdPep",
+          "chrom": "chrIV",
+          "start": 0,
+          "end": 65536,
+          "itemsReturned": 3,
+          "sgdGene": [
+            {
+              "bin": 585,
+              "name": "YDL248W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 1801,
+              "txEnd": 2953,
+              "cdsStart": 1801,
+              "cdsEnd": 2953,
+              "exonCount": 1,
+              "exonStarts": "1801,",
+              "exonEnds": "2953,",
+              "proteinID": "Q07788"
+            },
+            {
+              "bin": 585,
+              "name": "YDL247W-A",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 3761,
+              "txEnd": 3836,
+              "cdsStart": 3761,
+              "cdsEnd": 3836,
+              "exonCount": 1,
+              "exonStarts": "3761,",
+              "exonEnds": "3836,",
+              "proteinID": "n/a"
+            },
+            {
+              "bin": 585,
+              "name": "YDL219W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 65241,
+              "txEnd": 65765,
+              "cdsStart": 65241,
+              "cdsEnd": 65765,
+              "exonCount": 2,
+              "exonStarts": "65241,65377,",
+              "exonEnds": "65306,65765,",
+              "proteinID": "Q07648"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "sgdGene",
+        "chrom": "chrIV",
+        "start": "65536",
+        "end": "131072",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "sgdGene",
+          "trackType": "genePred sgdPep",
+          "chrom": "chrIV",
+          "start": 65536,
+          "end": 131072,
+          "itemsReturned": 2,
+          "sgdGene": [
+            {
+              "bin": 585,
+              "name": "YDL219W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 65241,
+              "txEnd": 65765,
+              "cdsStart": 65241,
+              "cdsEnd": 65765,
+              "exonCount": 2,
+              "exonStarts": "65241,65377,",
+              "exonEnds": "65306,65765,",
+              "proteinID": "Q07648"
+            },
+            {
+              "bin": 585,
+              "name": "YDL191W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 117663,
+              "txEnd": 118517,
+              "cdsStart": 117663,
+              "cdsEnd": 118517,
+              "exonCount": 2,
+              "exonStarts": "117663,118157,",
+              "exonEnds": "117666,118517,",
+              "proteinID": "P39741"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "sgdGene",
+        "chrom": "chrIV",
+        "start": "0",
+        "end": "32768",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "sgdGene",
+          "trackType": "genePred sgdPep",
+          "chrom": "chrIV",
+          "start": 0,
+          "end": 32768,
+          "itemsReturned": 2,
+          "sgdGene": [
+            {
+              "bin": 585,
+              "name": "YDL248W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 1801,
+              "txEnd": 2953,
+              "cdsStart": 1801,
+              "cdsEnd": 2953,
+              "exonCount": 1,
+              "exonStarts": "1801,",
+              "exonEnds": "2953,",
+              "proteinID": "Q07788"
+            },
+            {
+              "bin": 585,
+              "name": "YDL247W-A",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 3761,
+              "txEnd": 3836,
+              "cdsStart": 3761,
+              "cdsEnd": 3836,
+              "exonCount": 1,
+              "exonStarts": "3761,",
+              "exonEnds": "3836,",
+              "proteinID": "n/a"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "sgdGene",
+        "chrom": "chrIV",
+        "start": "32768",
+        "end": "65536",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "sgdGene",
+          "trackType": "genePred sgdPep",
+          "chrom": "chrIV",
+          "start": 32768,
+          "end": 65536,
+          "itemsReturned": 1,
+          "sgdGene": [
+            {
+              "bin": 585,
+              "name": "YDL219W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 65241,
+              "txEnd": 65765,
+              "cdsStart": 65241,
+              "cdsEnd": 65765,
+              "exonCount": 2,
+              "exonStarts": "65241,65377,",
+              "exonEnds": "65306,65765,",
+              "proteinID": "Q07648"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "sgdGene",
+        "chrom": "chrIV",
+        "start": "65536",
+        "end": "98304",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "sgdGene",
+          "trackType": "genePred sgdPep",
+          "chrom": "chrIV",
+          "start": 65536,
+          "end": 98304,
+          "itemsReturned": 1,
+          "sgdGene": [
+            {
+              "bin": 585,
+              "name": "YDL219W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 65241,
+              "txEnd": 65765,
+              "cdsStart": 65241,
+              "cdsEnd": 65765,
+              "exonCount": 2,
+              "exonStarts": "65241,65377,",
+              "exonEnds": "65306,65765,",
+              "proteinID": "Q07648"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "sgdGene",
+        "chrom": "chrIV",
+        "start": "0",
+        "end": "131072",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "sgdGene",
+          "trackType": "genePred sgdPep",
+          "chrom": "chrIV",
+          "start": 0,
+          "end": 131072,
+          "itemsReturned": 4,
+          "sgdGene": [
+            {
+              "bin": 585,
+              "name": "YDL248W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 1801,
+              "txEnd": 2953,
+              "cdsStart": 1801,
+              "cdsEnd": 2953,
+              "exonCount": 1,
+              "exonStarts": "1801,",
+              "exonEnds": "2953,",
+              "proteinID": "Q07788"
+            },
+            {
+              "bin": 585,
+              "name": "YDL247W-A",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 3761,
+              "txEnd": 3836,
+              "cdsStart": 3761,
+              "cdsEnd": 3836,
+              "exonCount": 1,
+              "exonStarts": "3761,",
+              "exonEnds": "3836,",
+              "proteinID": "n/a"
+            },
+            {
+              "bin": 585,
+              "name": "YDL219W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 65241,
+              "txEnd": 65765,
+              "cdsStart": 65241,
+              "cdsEnd": 65765,
+              "exonCount": 2,
+              "exonStarts": "65241,65377,",
+              "exonEnds": "65306,65765,",
+              "proteinID": "Q07648"
+            },
+            {
+              "bin": 585,
+              "name": "YDL191W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 117663,
+              "txEnd": 118517,
+              "cdsStart": 117663,
+              "cdsEnd": 118517,
+              "exonCount": 2,
+              "exonStarts": "117663,118157,",
+              "exonEnds": "117666,118517,",
+              "proteinID": "P39741"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "sgdGene",
+        "chrom": "chrIV",
+        "start": "131072",
+        "end": "262144",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "sgdGene",
+          "trackType": "genePred sgdPep",
+          "chrom": "chrIV",
+          "start": 131072,
+          "end": 262144,
+          "itemsReturned": 1,
+          "sgdGene": [
+            {
+              "bin": 586,
+              "name": "YDL136W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 217599,
+              "txEnd": 218367,
+              "cdsStart": 217599,
+              "cdsEnd": 218367,
+              "exonCount": 2,
+              "exonStarts": "217599,218007,",
+              "exonEnds": "217602,218367,",
+              "proteinID": "P39741"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "sgdGene",
+        "chrom": "chrIV",
+        "start": "0",
+        "end": "1531933",
+        "maxItemsOutput": "10000"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "sgdGene",
+          "trackType": "genePred sgdPep",
+          "chrom": "chrIV",
+          "start": 0,
+          "end": 1531933,
+          "itemsReturned": 5,
+          "sgdGene": [
+            {
+              "bin": 585,
+              "name": "YDL248W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 1801,
+              "txEnd": 2953,
+              "cdsStart": 1801,
+              "cdsEnd": 2953,
+              "exonCount": 1,
+              "exonStarts": "1801,",
+              "exonEnds": "2953,",
+              "proteinID": "Q07788"
+            },
+            {
+              "bin": 585,
+              "name": "YDL247W-A",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 3761,
+              "txEnd": 3836,
+              "cdsStart": 3761,
+              "cdsEnd": 3836,
+              "exonCount": 1,
+              "exonStarts": "3761,",
+              "exonEnds": "3836,",
+              "proteinID": "n/a"
+            },
+            {
+              "bin": 585,
+              "name": "YDL219W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 65241,
+              "txEnd": 65765,
+              "cdsStart": 65241,
+              "cdsEnd": 65765,
+              "exonCount": 2,
+              "exonStarts": "65241,65377,",
+              "exonEnds": "65306,65765,",
+              "proteinID": "Q07648"
+            },
+            {
+              "bin": 585,
+              "name": "YDL191W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 117663,
+              "txEnd": 118517,
+              "cdsStart": 117663,
+              "cdsEnd": 118517,
+              "exonCount": 2,
+              "exonStarts": "117663,118157,",
+              "exonEnds": "117666,118517,",
+              "proteinID": "P39741"
+            },
+            {
+              "bin": 586,
+              "name": "YDL136W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 217599,
+              "txEnd": 218367,
+              "cdsStart": 217599,
+              "cdsEnd": 218367,
+              "exonCount": 2,
+              "exonStarts": "217599,218007,",
+              "exonEnds": "217602,218367,",
+              "proteinID": "P39741"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "sgdGene",
+        "maxItemsOutput": "10000",
+        "chrom": "chrIII",
+        "start": "136246",
+        "end": "267318"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "sgdGene",
+          "trackType": "genePred sgdPep",
+          "chrom": "chrIII",
+          "start": 136246,
+          "end": 267318,
+          "itemsReturned": 0,
+          "sgdGene": []
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "sgdGene",
+        "maxItemsOutput": "10000",
+        "chrom": "chrIII",
+        "start": "267318",
+        "end": "316620"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "sgdGene",
+          "trackType": "genePred sgdPep",
+          "chrom": "chrIII",
+          "start": 267318,
+          "end": 316620,
+          "itemsReturned": 0,
+          "sgdGene": []
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "sgdGene",
+        "maxItemsOutput": "10000",
+        "chrom": "chrIV",
+        "start": "0",
+        "end": "81770"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "sgdGene",
+          "trackType": "genePred sgdPep",
+          "chrom": "chrIV",
+          "start": 0,
+          "end": 81770,
+          "itemsReturned": 3,
+          "sgdGene": [
+            {
+              "bin": 585,
+              "name": "YDL248W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 1801,
+              "txEnd": 2953,
+              "cdsStart": 1801,
+              "cdsEnd": 2953,
+              "exonCount": 1,
+              "exonStarts": "1801,",
+              "exonEnds": "2953,",
+              "proteinID": "Q07788"
+            },
+            {
+              "bin": 585,
+              "name": "YDL247W-A",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 3761,
+              "txEnd": 3836,
+              "cdsStart": 3761,
+              "cdsEnd": 3836,
+              "exonCount": 1,
+              "exonStarts": "3761,",
+              "exonEnds": "3836,",
+              "proteinID": "n/a"
+            },
+            {
+              "bin": 585,
+              "name": "YDL219W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 65241,
+              "txEnd": 65765,
+              "cdsStart": 65241,
+              "cdsEnd": 65765,
+              "exonCount": 2,
+              "exonStarts": "65241,65377,",
+              "exonEnds": "65306,65765,",
+              "proteinID": "Q07648"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "sacCer3",
+        "track": "sgdGene",
+        "maxItemsOutput": "10000",
+        "chrom": "chrIV",
+        "start": "81770",
+        "end": "212842"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "genome": "sacCer3",
+          "track": "sgdGene",
+          "trackType": "genePred sgdPep",
+          "chrom": "chrIV",
+          "start": 81770,
+          "end": 212842,
+          "itemsReturned": 1,
+          "sgdGene": [
+            {
+              "bin": 585,
+              "name": "YDL191W",
+              "chrom": "chrIV",
+              "strand": "+",
+              "txStart": 117663,
+              "txEnd": 118517,
+              "cdsStart": 117663,
+              "cdsEnd": 118517,
+              "exonCount": 2,
+              "exonStarts": "117663,118157,",
+              "exonEnds": "117666,118517,",
+              "proteinID": "P39741"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

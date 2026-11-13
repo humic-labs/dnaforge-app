@@ -1,0 +1,22 @@
+{
+  "schema": "dnaforge.sidecar-source-inputs.v1",
+  "paths": [
+    "apps/api/src",
+    "apps/api/run_server.py",
+    "apps/api/pyproject.toml",
+    "apps/api/uv.lock",
+    "apps/api/scripts/build-sidecar.sh",
+    "apps/api/scripts/pysam.nuitka-package.config.yml",
+    "apps/api/scripts/sync-python-dependencies.sh",
+    "apps/api/scripts/verify_sidecar_architecture.py",
+    "packages/core/agent-tools",
+    "packages/core/compute-endpoints/manifests",
+    "packages/annotation/src",
+    "packages/annotation/pyproject.toml",
+    "scripts/lib/sidecar-source-hash.cjs",
+    "scripts/sidecar-build-receipt.cjs",
+    "scripts/python-runtime-security.cjs",
+    "scripts/ci-setup-secure-python.mjs",
+    ".ci/python-runtime-security.json"
+  ]
+}

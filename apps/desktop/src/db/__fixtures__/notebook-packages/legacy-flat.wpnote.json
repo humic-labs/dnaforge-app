@@ -1,0 +1,17 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "fixture-legacy-flat",
+  "title": "Legacy flat notebook",
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "paragraph",
+        "content": [{ "type": "text", "text": "Legacy flat notebook body" }]
+      }
+    ]
+  },
+  "storage": { "type": "database", "table": "pages", "id": "fixture-legacy-flat" },
+  "updatedAt": "2026-08-20T12:00:00.000Z"
+}

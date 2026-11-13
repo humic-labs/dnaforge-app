@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="232" viewBox="0 0 400 232">
+  <defs>
+    <linearGradient id="morph" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="rgb(220 239 229)"/>
+      <stop offset="0.48" stop-color="rgb(235 238 223)"/>
+      <stop offset="1" stop-color="rgb(250 237 216)"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="232" fill="rgb(253 253 252)"/>
+  <rect width="400" height="232" fill="url(#morph)"/>
+  <path d="M 168.00 93.76 Q 168.00 91.40 170.36 91.40 L 213.60 91.40 Q 216.00 91.40 216.00 89.00 L 216.00 87.64 Q 216.00 84.50 218.70 86.10 L 229.68 92.62 Q 232.00 94.00 229.68 95.38 L 218.70 101.90 Q 216.00 103.50 216.00 100.36 L 216.00 99.00 Q 216.00 96.60 213.60 96.60 L 170.36 96.60 Q 168.00 96.60 168.00 94.24 L 168.00 93.76 Z" fill="rgb(34 32 28)"/>
+</svg>

@@ -1,0 +1,109 @@
+LOCUS       CVU89931                3146 bp    DNA     circular SYN 01-AUG-1997
+DEFINITION  Cloning vector pTRE, complete sequence.
+ACCESSION   U89931
+VERSION     U89931.1
+KEYWORDS    .
+SOURCE      unidentified cloning vector
+  ORGANISM  unidentified cloning vector
+            other sequences; artificial sequences; vectors.
+REFERENCE   1  (bases 1 to 3146)
+  AUTHORS   Gossen,M. and Bujard,H.
+  TITLE     Tight control of gene expression in mammalian cells by
+            tetracycline-responsive promoters
+  JOURNAL   Proc. Natl. Acad. Sci. U.S.A. 89 (12), 5547-5551 (1992)
+   PUBMED   1319065
+REFERENCE   2  (bases 1 to 3146)
+  AUTHORS   Gossen,M. and Bujard,H.
+  TITLE     pTRE (pUHD10-3), complete sequence
+  JOURNAL   Unpublished
+REFERENCE   3  (bases 1 to 3146)
+  AUTHORS   Holtz,A. and Lou,Y.
+  TITLE     Direct Submission
+  JOURNAL   Submitted (18-FEB-1997) CLONTECH Laboratories, Inc., 1020 East
+            Meadow Circle, Palo Alto, CA 94303-4230, USA
+COMMENT     This vector can be obtained from CLONTECH Laboratories, Inc., 1020
+            East Meadow Circle, Palo Alto, CA 94303-4230, USA. To place an
+            order, call (415) 424-8222 or (800) 662-2566, extension 1.
+            International customers, please contact your local distributor or
+            subsidiary. For technical information, call (415) 424-8222 or (800)
+            662-2566, extension 3.
+            This sequence has been compiled from information in the sequence
+            databases, published literature and other sources, together with
+            partial sequences obtained by CLONTECH. If you suspect there is an
+            error in this sequence, please contact CLONTECH's Technical Support
+            Department at (415) 424-8222 or (800) 662-2566, extension 3.
+FEATURES             Location/Qualifiers
+     source          1..3146
+                     /organism="unidentified cloning vector"
+                     /mol_type="genomic DNA"
+                     /db_xref="taxon:45196"
+     misc_feature    1..318
+                     /note="Tet-responsive element"
+     gene            2086..2946
+                     /gene="AmpR"
+     CDS             complement(2086..2946)
+                     /function="ampicillin resistance"
+                     /codon_start=1
+                     /product="beta-lactamase"
+                     /protein_id="AAB64391.1"
+                     /translation="MSIQHFRVALIPFFAAFCLPVFAHPETLVKVKDAEDQLGARVGY
+                     IELDLNSGKILESFRPEERFPMMSTFKVLLCGAVLSRIDAGQEQLGRRIHYSQNDLVE
+                     YSPVTEKHLTDGMTVRELCSAAITMSDNTAANLLLTTIGGPKELTAFLHNMGDHVTRL
+                     DRWEPELNEAIPNDERDTTMPVAMATTLRKLLTGELLTLASRQQLIDWMEADKVAGPL
+                     LRSALPAGWFIADKSGAGERGSRGIIAALGPDGKPSRIVVIYTTGSQATMDERNRQIA
+                     EIGASLIKHW"
+ORIGIN
+        1 ctcgagttta ccactcccta tcagtgatag agaaaagtga aagtcgagtt taccactccc
+       61 tatcagtgat agagaaaagt gaaagtcgag tttaccactc cctatcagtg atagagaaaa
+      121 gtgaaagtcg agtttaccac tccctatcag tgatagagaa aagtgaaagt cgagtttacc
+      181 actccctatc agtgatagag aaaagtgaaa gtcgagttta ccactcccta tcagtgatag
+      241 agaaaagtga aagtcgagtt taccactccc tatcagtgat agagaaaagt gaaagtcgag
+      301 ctcggtaccc gggtcgagta ggcgtgtacg gtgggaggcc tatataagca gagctcgttt
+      361 agtgaaccgt cagatcgcct ggagacgcca tccacgctgt tttgacctcc atagaagaca
+      421 ccgggaccga tccagcctcc gcggccccga attcgagctc ggtacccggg gatcctctag
+      481 aggatccaga catgataaga tacattgatg agtttggaca aaccacaact agaatgcagt
+      541 gaaaaaaatg ctttatttgt gaaatttgtg atgctattgc tttatttgta accattataa
+      601 gctgcaataa acaagttaac aacaacaatt gcattcattt tatgtttcag gttcaggggg
+      661 aggtgtggga ggttttttaa agcaagtaaa acctctacaa atgtggtatg gctgattatg
+      721 atcctgcaag cctcgtcgtc tggccggacc acgctatctg tgcaaggtcc ccggacgcgc
+      781 gctccatgag cagagcgccc gccgccgagg caagactcgg gcggcgccct gcccgtccca
+      841 ccaggtcaac aggcggtaac cggcctcttc atcgggaatg cgcgcgacct tcagcatcgc
+      901 cggcatgtcc cctggcggac gggaagtatc agctcgacca agcttggcga gattttcagg
+      961 agctaaggaa gctaaaatgg agaaaaaaat cactggatat accaccgttg atatatccca
+     1021 atggcatcgt aaagaacatt ttgaggcatt tcagtcagtt gctcaatgta cctataacca
+     1081 gaccgttcag ctgcattaat gaatcggcca acgcgcgggg agaggcggtt tgcgtattgg
+     1141 gcgctcttcc gcttcctcgc tcactgactc gctgcgctcg gtcgttcggc tgcggcgagc
+     1201 ggtatcagct cactcaaagg cggtaatacg gttatccaca gaatcagggg ataacgcagg
+     1261 aaagaacatg tgagcaaaag gccagcaaaa ggccaggaac cgtaaaaagg ccgcgttgct
+     1321 ggcgtttttc cataggctcc gcccccctga cgagcatcac aaaaatcgac gctcaagtca
+     1381 gaggtggcga aacccgacag gactataaag ataccaggcg tttccccctg gaagctccct
+     1441 cgtgcgctct cctgttccga ccctgccgct taccggatac ctgtccgcct ttctcccttc
+     1501 gggaagcgtg gcgctttctc aatgctcacg ctgtaggtat ctcagttcgg tgtaggtcgt
+     1561 tcgctccaag ctgggctgtg tgcacgaacc ccccgttcag cccgaccgct gcgccttatc
+     1621 cggtaactat cgtcttgagt ccaacccggt aagacacgac ttatcgccac tggcagcagc
+     1681 cactggtaac aggattagca gagcgaggta tgtaggcggt gctacagagt tcttgaagtg
+     1741 gtggcctaac tacggctaca ctagaaggac agtatttggt atctgcgctc tgctgaagcc
+     1801 agttaccttc ggaaaaagag ttggtagctc ttgatccggc aaacaaacca ccgctggtag
+     1861 cggtggtttt tttgtttgca agcagcagat tacgcgcaga aaaaaaggat ctcaagaaga
+     1921 tcctttgatc ttttctacgg ggtctgacgc tcagtggaac gaaaactcac gttaagggat
+     1981 tttggtcatg agattatcaa aaaggatctt cacctagatc cttttaaatt aaaaatgaag
+     2041 ttttaaatca atctaaagta tatatgagta aacttggtct gacagttacc aatgcttaat
+     2101 cagtgaggca cctatctcag cgatctgtct atttcgttca tccatagttg cctgactccc
+     2161 cgtcgtgtag ataactacga tacgggaggg cttaccatct ggccccagtg ctgcaatgat
+     2221 accgcgagac ccacgctcac cggctccaga tttatcagca ataaaccagc cagccggaag
+     2281 ggccgagcgc agaagtggtc ctgcaacttt atccgcctcc atccagtcta ttaattgttg
+     2341 ccgggaagct agagtaagta gttcgccagt taatagtttg cgcaacgttg ttgccattgc
+     2401 tacaggcatc gtggtgtcac gctcgtcgtt tggtatggct tcattcagct ccggttccca
+     2461 acgatcaagg cgagttacat gatcccccat gttgtgcaaa aaagcggtta gctccttcgg
+     2521 tcctccgatc gttgtcagaa gtaagttggc cgcagtgtta tcactcatgg ttatggcagc
+     2581 actgcataat tctcttactg tcatgccatc cgtaagatgc ttttctgtga ctggtgagta
+     2641 ctcaaccaag tcattctgag aatagtgtat gcggcgaccg agttgctctt gcccggcgtc
+     2701 aatacgggat aataccgcgc cacatagcag aactttaaaa gtgctcatca ttggaaaacg
+     2761 ttcttcgggg cgaaaactct caaggatctt accgctgttg agatccagtt cgatgtaacc
+     2821 cactcgtgca cccaactgat cttcagcatc ttttactttc accagcgttt ctgggtgagc
+     2881 aaaaacagga aggcaaaatg ccgcaaaaaa gggaataagg gcgacacgga aatgttgaat
+     2941 actcatactc ttcctttttc aatattattg aagcatttat cagggttatt gtctcatgag
+     3001 cggatacata tttgaatgta tttagaaaaa taaacaaata ggggttccgc gcacatttcc
+     3061 ccgaaaagtg ccacctgacg tctaagaaac cattattatc atgacattaa cctataaaaa
+     3121 taggcgtatc acgaggccct ttcgtc
+//

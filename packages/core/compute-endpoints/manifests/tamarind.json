@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "id": "tamarind",
+  "displayName": "Tamarind Bio",
+  "summary": "Protein and molecular modeling tools.",
+  "docsUrl": "https://app.tamarind.bio/api-docs",
+  "keyPageUrl": "https://app.tamarind.bio/api-docs/api-key",
+  "termsUrl": "https://app.tamarind.bio/terms-of-service",
+  "privacyUrl": "https://app.tamarind.bio/privacy-policy",
+  "transport": "mcp",
+  "mcpUrl": "https://mcp.tamarind.bio/mcp",
+  "auth": {
+    "scheme": "header",
+    "headerName": "x-api-key"
+  },
+  "verify": {
+    "method": "POST",
+    "target": "listModalities"
+  },
+  "catalog": "dynamic",
+  "jobModel": "queue",
+  "staging": "upload",
+  "cost": "estimate",
+  "toolMap": {
+    "list_tools": {
+      "tool": "getAvailableTools",
+      "args": {
+        "search": "$search",
+        "tag": "$tag"
+      }
+    },
+    "get_schema": {
+      "tool": "getJobSchema",
+      "args": {
+        "jobType": "$tool_id"
+      }
+    },
+    "validate": {
+      "tool": "validateJob",
+      "args": {
+        "jobName": "$label",
+        "type": "$tool_id",
+        "settings": "$settings"
+      }
+    },
+    "estimate": {
+      "tool": "estimateTime",
+      "args": {
+        "type": "$tool_id",
+        "settings": "$settings"
+      }
+    },
+    "submit": {
+      "tool": "submitJob",
+      "args": {
+        "jobName": "$label",
+        "type": "$tool_id",
+        "settings": "$settings"
+      }
+    },
+    "status": {
+      "tool": "getJobs",
+      "args": {
+        "jobName": "$remote_id"
+      }
+    },
+    "fetch_result": {
+      "tool": "getResult",
+      "args": {
+        "jobName": "$remote_id"
+      }
+    },
+    "cancel": {
+      "tool": "cancelJob",
+      "args": {
+        "jobName": "$remote_id"
+      }
+    }
+  },
+  "statusPath": "JobStatus",
+  "remoteIdPath": "",
+  "statusMap": {
+    "in queue": "queued",
+    "queued": "queued",
+    "pending": "queued",
+    "running": "running",
+    "aggregating": "running",
+    "complete": "completed",
+    "completed": "completed",
+    "finished": "completed",
+    "stopped": "canceled",
+    "cancelled": "canceled",
+    "canceled": "canceled",
+    "failed": "failed",
+    "error": "failed",
+    "aggregationfailed": "failed"
+  },
+  "disclosure": "This sends your sequences and input files to Tamarind Bio under your own Tamarind account. Tamarind bills compute to that account in weighted hours; DNAForge does not charge for it. Tamarind states that customers keep ownership of inputs and outputs and that it does not train on customer data. Read Tamarind's terms and privacy policy before connecting.",
+  "retentionNote": "Job outputs live in per-job storage on Tamarind. A third-party wrapper reports deletion after about 5 days; unverified against Tamarind's terms. Import results promptly.",
+  "cancellation": {
+    "mode": "provider",
+    "note": "Tamarind can cancel queued or running jobs through its hosted job queue."
+  },
+  "rateLimitRps": 2
+}

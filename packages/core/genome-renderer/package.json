@@ -1,0 +1,71 @@
+{
+  "name": "@waypoint/genome-renderer",
+  "version": "0.1.0",
+  "description": "WebGL/PixiJS genome renderer — stadium and linear map views with extensible track system",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./pure": {
+      "types": "./src/pure.ts",
+      "import": "./src/pure.ts",
+      "default": "./src/pure.ts"
+    },
+    "./annotation-track-identity": {
+      "types": "./src/annotation-track-identity.ts",
+      "import": "./src/annotation-track-identity.ts",
+      "default": "./src/annotation-track-identity.ts"
+    },
+    "./internal/trusted-annotation-scene-transport": {
+      "types": "./src/internal/trusted-annotation-scene-transport.ts",
+      "import": "./src/internal/trusted-annotation-scene-transport.ts",
+      "default": "./src/internal/trusted-annotation-scene-transport.ts"
+    },
+    "./diagnostics-gate": {
+      "types": "./src/diagnostics-gate.ts",
+      "import": "./src/diagnostics-gate.ts",
+      "default": "./src/diagnostics-gate.ts"
+    },
+    "./coverage-gpu-atlas": {
+      "types": "./src/coverage-gpu-atlas.ts",
+      "import": "./src/coverage-gpu-atlas.ts",
+      "default": "./src/coverage-gpu-atlas.ts"
+    },
+    "./biology/translation": {
+      "types": "./src/biology/translation.ts",
+      "import": "./src/biology/translation.ts",
+      "default": "./src/biology/translation.ts"
+    },
+    "./react": {
+      "types": "./src/react/index.ts",
+      "import": "./src/react/index.ts",
+      "default": "./src/react/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest run --exclude 'src/renderers/pixi/shared/path-mapper-perf.test.ts'",
+    "test:perf": "vitest run src/renderers/pixi/shared/path-mapper-perf.test.ts",
+    "test:watch": "vitest --exclude 'src/renderers/pixi/shared/path-mapper-perf.test.ts'",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json && tsc --noEmit -p tsconfig.react.json"
+  },
+  "license": "GPL-3.0-only",
+  "dependencies": {
+    "@waypoint/genome-data": "workspace:*",
+    "@waypoint/platform": "workspace:*",
+    "@waypoint/sequence-utils": "workspace:*",
+    "pixi.js": "^8.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "18.3.18",
+    "react": "^18.3.1",
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.18"
+  }
+}

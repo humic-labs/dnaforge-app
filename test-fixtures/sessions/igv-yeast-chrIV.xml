@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<Session genome="sacCer3" hasGeneTrack="true" hasSequenceTrack="true" locus="chrIV:3,501-4,000" version="8">
+    <Resources>
+        <Resource path="../alignments/yeast-chriv-cram/reads.cram" type="cram" index="../alignments/yeast-chriv-cram/reads.cram.crai" name="Lab yeast reads"/>
+        <Resource path="https://variants.example.org/s288c/calls.vcf.gz" index="https://variants.example.org/s288c/calls.vcf.gz.tbi" name="Lab yeast calls"/>
+    </Resources>
+    <Panel height="420" name="DataPanel" width="1400">
+        <Track attributeKey="Lab yeast reads Coverage" autoScale="true" clazz="org.broad.igv.sam.CoverageTrack" fontSize="10" id="../alignments/yeast-chriv-cram/reads.cram_coverage" name="Lab yeast reads Coverage" snpThreshold="0.2" visible="true"/>
+        <Track attributeKey="Lab yeast reads" clazz="org.broad.igv.sam.AlignmentTrack" displayMode="EXPANDED" fontSize="10" id="../alignments/yeast-chriv-cram/reads.cram" name="Lab yeast reads" visible="true"/>
+        <Track attributeKey="Lab yeast calls" clazz="org.broad.igv.variant.VariantTrack" displayMode="EXPANDED" fontSize="10" id="https://variants.example.org/s288c/calls.vcf.gz" name="Lab yeast calls" visible="true"/>
+    </Panel>
+    <Panel height="60" name="FeaturePanel" width="1400">
+        <Track attributeKey="Reference sequence" clazz="org.broad.igv.track.SequenceTrack" fontSize="10" id="Reference sequence" name="Reference sequence" sequenceTranslationStrandValue="POSITIVE" shouldShowTranslation="false" visible="true"/>
+    </Panel>
+    <PanelLayout dividerFractions="0.85"/>
+    <HiddenAttributes>
+        <Attribute name="DATA FILE"/>
+        <Attribute name="DATA TYPE"/>
+        <Attribute name="NAME"/>
+    </HiddenAttributes>
+</Session>

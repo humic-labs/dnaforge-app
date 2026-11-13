@@ -1,0 +1,720 @@
+{
+  "templateId": "standard-samples",
+  "note": "Redistribution-clean sources ONLY. Fetched by scripts/build-example-workspace.mjs, which regenerates workspace/PROVENANCE.json + the managed block in test-fixtures/PROVENANCE.md. NEVER source from Addgene's site (ToS forbids redistribution). NCBI patent-division (PAT) accessions are published patent documents = public domain; each was identity-verified (title + length match the named plasmid) before inclusion.",
+  "entries": [
+    {
+      "id": "puc19",
+      "path": "sequences/plasmids/pUC19/pUC19.gb",
+      "fetch": { "type": "existing" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "L09137",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pUC19c cloning vector — NCBI GenBank L09137.2 (Yanisch-Perron, Vieira & Messing 1985). Public domain. Features added by DNAForge sequence analysis (apps/desktop/scripts/build-puc19-sample.mjs)."
+      }
+    },
+    {
+      "id": "mg1655",
+      "path": "sequences/genomes/ecoli-mg1655/ecoli-mg1655.gb",
+      "fetch": { "type": "ncbi", "accession": "NC_000913.3", "rettype": "gbwithparts" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "NC_000913.3",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "Escherichia coli str. K-12 substr. MG1655, complete genome — NCBI RefSeq NC_000913.3. Public domain."
+      }
+    },
+    {
+      "id": "pbr322",
+      "path": "sequences/plasmids/pBR322.gb",
+      "fetch": { "type": "ncbi", "accession": "J01749" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "J01749.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pBR322 cloning vector — NCBI GenBank J01749 (Sutcliffe 1979). Public domain."
+      }
+    },
+    {
+      "id": "puc18",
+      "path": "sequences/plasmids/pUC18.gb",
+      "fetch": { "type": "ncbi", "accession": "L08752" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "L08752.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pUC18 cloning vector — NCBI GenBank L08752. Public domain."
+      }
+    },
+
+    {
+      "id": "pgex-4t-1",
+      "path": "sequences/plasmids/cloning-and-expression/pGEX-4T-1.gb",
+      "fetch": { "type": "ncbi", "accession": "U13853" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "U13853.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pGEX-4T-1 GST-fusion expression vector — NCBI GenBank U13853. Public domain."
+      }
+    },
+    {
+      "id": "pacyc184",
+      "path": "sequences/plasmids/cloning-and-expression/pACYC184.gb",
+      "fetch": { "type": "ncbi", "accession": "X06403" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "X06403.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pACYC184 low-copy cloning vector (p15A ori) — NCBI GenBank X06403. Public domain."
+      }
+    },
+    {
+      "id": "pbluescript-ii-sk",
+      "path": "sequences/plasmids/cloning-and-expression/pBluescript-II-SK+.gb",
+      "fetch": { "type": "ncbi", "accession": "X52328" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "X52328.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pBluescript II SK(+) phagemid cloning vector — NCBI GenBank X52328. Public domain."
+      }
+    },
+    {
+      "id": "pcdna3-1",
+      "path": "sequences/plasmids/cloning-and-expression/pcDNA3.1+.gb",
+      "fetch": { "type": "ncbi", "accession": "MN996867" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "MN996867.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pcDNA3.1(+) mammalian expression vector — NCBI GenBank MN996867. Public domain."
+      }
+    },
+    {
+      "id": "pfastbac1-hm",
+      "path": "sequences/plasmids/cloning-and-expression/pFastBac1-HM.gb",
+      "fetch": { "type": "ncbi", "accession": "AY598466" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "AY598466.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pFastBac1-HM baculovirus expression vector (pFastBac1 derivative) — NCBI GenBank AY598466. Public domain."
+      }
+    },
+    {
+      "id": "pgem-5zf",
+      "path": "sequences/plasmids/cloning-and-expression/pGEM-5Zf+.gb",
+      "fetch": { "type": "ncbi", "accession": "X65308" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "X65308.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pGEM-5Zf(+) cloning vector (the pGEM-T backbone before T-tailing) — NCBI GenBank X65308. Public domain."
+      }
+    },
+
+    {
+      "id": "prs416",
+      "path": "sequences/plasmids/yeast-shuttle/pRS416.gb",
+      "fetch": { "type": "ncbi", "accession": "U03450" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "U03450.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pRS416 CEN/ARS yeast–E. coli shuttle vector (URA3) — NCBI GenBank U03450. Public domain."
+      }
+    },
+    {
+      "id": "prs426",
+      "path": "sequences/plasmids/yeast-shuttle/pRS426.gb",
+      "fetch": { "type": "ncbi", "accession": "U03451" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "U03451.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pRS426 2-micron yeast–E. coli shuttle vector (URA3) — NCBI GenBank U03451. Public domain."
+      }
+    },
+    {
+      "id": "prs415",
+      "path": "sequences/plasmids/yeast-shuttle/pRS415.gb",
+      "fetch": { "type": "ncbi", "accession": "U03449" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "U03449.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pRS415 CEN/ARS yeast–E. coli shuttle vector (LEU2; backbone of the p415-GPD expression series) — NCBI GenBank U03449. Public domain."
+      }
+    },
+    {
+      "id": "yeplac181",
+      "path": "sequences/plasmids/yeast-shuttle/YEplac181.gb",
+      "fetch": { "type": "ncbi", "accession": "X75460" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "X75460.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "YEplac181 2-micron yeast–E. coli shuttle vector (LEU2) — NCBI GenBank X75460 (Gietz & Sugino 1988). Public domain."
+      }
+    },
+
+    {
+      "id": "pegfp-n1",
+      "path": "sequences/plasmids/fluorescent-protein/pEGFP-N1.gb",
+      "fetch": { "type": "ncbi", "accession": "U55762" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "U55762.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pEGFP-N1 enhanced-GFP mammalian reporter vector — NCBI GenBank U55762. Public domain."
+      }
+    },
+    {
+      "id": "pmcherry-c1",
+      "path": "sequences/plasmids/fluorescent-protein/pmCherry-C1.gb",
+      "fetch": { "type": "ncbi", "accession": "MW247150" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "MW247150.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pmCherry-C1 mCherry mammalian reporter vector — NCBI GenBank MW247150. Public domain."
+      }
+    },
+
+    {
+      "id": "pspax2",
+      "path": "sequences/plasmids/lentiviral-packaging/psPAX2.gb",
+      "fetch": { "type": "ncbi", "accession": "LQ734688" },
+      "provenance": {
+        "source": "NCBI (patent division)",
+        "accession": "LQ734688.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "psPAX2 2nd-gen lentiviral packaging plasmid — NCBI GenBank LQ734688 (Sequence 25 from Patent WO2018081789; published patent document, public domain). Same construct distributed as Addgene #12260; NOT sourced from Addgene."
+      }
+    },
+    {
+      "id": "pmd2g",
+      "path": "sequences/plasmids/lentiviral-packaging/pMD2.G.gb",
+      "fetch": { "type": "ncbi", "accession": "MS855620" },
+      "provenance": {
+        "source": "NCBI (patent division)",
+        "accession": "MS855620.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pMD2.G VSV-G lentiviral envelope plasmid — NCBI GenBank MS855620 (Sequence 927 from Patent EP3130347; published patent document, public domain). Same construct distributed as Addgene #12259; NOT sourced from Addgene."
+      }
+    },
+    {
+      "id": "phcmv-vsv-g",
+      "path": "sequences/plasmids/lentiviral-packaging/pHCMV-VSV-G.gb",
+      "fetch": { "type": "ncbi", "accession": "AJ318514" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "AJ318514.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pHCMV-VSV-G VSV-G envelope expression plasmid — NCBI GenBank AJ318514. Public domain."
+      }
+    },
+
+    {
+      "id": "px458",
+      "path": "sequences/plasmids/crispr/pSpCas9-2A-GFP-PX458.gb",
+      "fetch": { "type": "ncbi", "accession": "MP586909" },
+      "provenance": {
+        "source": "NCBI (patent division)",
+        "accession": "MP586909.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pSpCas9(BB)-2A-GFP (PX458) SpCas9 + sgRNA + EGFP all-in-one CRISPR vector — NCBI GenBank MP586909 (Sequence 7 from Patent EP3636754; published patent document, public domain). Same construct distributed as Addgene #48138; NOT sourced from Addgene."
+      }
+    },
+
+    {
+      "id": "aav-transfer-mcs",
+      "path": "sequences/plasmids/aav/transfer/pAAV-MCS.gb",
+      "fetch": { "type": "ncbi", "accession": "AF396260" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "AF396260.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pAAV-MCS — empty AAV2 transfer/cis vector (CMV + MCS between AAV2 ITRs; Stratagene/Agilent AAV Helper-Free System) — NCBI GenBank AF396260. Public domain."
+      }
+    },
+    {
+      "id": "aav-transfer-lacz",
+      "path": "sequences/plasmids/aav/transfer/pAAV-LacZ.gb",
+      "fetch": { "type": "ncbi", "accession": "AF369964" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "AF369964.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pAAV-LacZ — β-galactosidase reporter AAV transfer vector (Stratagene AAV Helper-Free System) — NCBI GenBank AF369964. Public domain."
+      }
+    },
+    {
+      "id": "aav-transfer-cmv-egfp",
+      "path": "sequences/plasmids/aav/transfer/pAAV-CMV-EGFP-CytbAS.gb",
+      "fetch": { "type": "ncbi", "accession": "KT343252" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "KT343252.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pAAV-9(5)-CMV-EGFP-CytbAS — CMV-driven EGFP AAV transfer cassette (carries an additional Cyt-b antisense element) — NCBI GenBank KT343252. Public domain."
+      }
+    },
+    {
+      "id": "aav-transfer-hsyn-gcamp",
+      "path": "sequences/plasmids/aav/transfer/pAAV-hSyn-GCaMP6s-mRuby3.gb",
+      "fetch": { "type": "ncbi", "accession": "MH282432" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "MH282432.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pAAV-hSyn1-GCaMP6s-P2A-mRuby3 — neuronal (hSyn promoter) GCaMP6s calcium-indicator + mRuby3 AAV transfer vector — NCBI GenBank MH282432. Public domain."
+      }
+    },
+    {
+      "id": "aav-transfer-ef1a-dio-gfp",
+      "path": "sequences/plasmids/aav/transfer/pAAV-EF1a-DIO-GFP.gb",
+      "fetch": { "type": "ncbi", "accession": "MT612430" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "MT612430.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pAAV-EF1A-DIO-PSD95.FingR-GFP-CCR5TC — Cre-dependent (DIO / double-floxed) GFP AAV transfer vector — NCBI GenBank MT612430. Public domain."
+      }
+    },
+    {
+      "id": "aav-transfer-hsyn-mcherry",
+      "path": "sequences/plasmids/aav/transfer/pAAV-hSyn-mCherry.gb",
+      "fetch": { "type": "ncbi", "accession": "KT345943" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "KT345943.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pAAV-hSyn-mCherry-hSyn-9(5) — neuronal (hSyn promoter) mCherry AAV transfer vector — NCBI GenBank KT345943. Public domain."
+      }
+    },
+    {
+      "id": "aav-transfer-ctnt-cardiac",
+      "path": "sequences/plasmids/aav/transfer/pENN-AAV-cTnT-cardiac.gb",
+      "fetch": { "type": "ncbi", "accession": "MP838702" },
+      "provenance": {
+        "source": "NCBI (patent division)",
+        "accession": "MP838702.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pENN.AAV.cTnT.PI.Sun1-dom-neg — cardiac (cardiac troponin-T promoter) AAV transfer vector — NCBI GenBank MP838702 (Sequence 3 from Patent EP3740246; published patent document, public domain)."
+      }
+    },
+    {
+      "id": "aav-packaging-rc2",
+      "path": "sequences/plasmids/aav/packaging/pAAV-RC2.gb",
+      "fetch": { "type": "ncbi", "accession": "AF369963" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "AF369963.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pAAV-RC — AAV2 rep/cap packaging plasmid (Stratagene AAV Helper-Free System) — NCBI GenBank AF369963. Public domain."
+      }
+    },
+    {
+      "id": "aav-packaging-dj",
+      "path": "sequences/plasmids/aav/packaging/pAAV-DJ.gb",
+      "fetch": { "type": "ncbi", "accession": "MP989414" },
+      "provenance": {
+        "source": "NCBI (patent division)",
+        "accession": "MP989414.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pAAV-DJ — chimeric-capsid rep/cap packaging plasmid — NCBI GenBank MP989414 (Sequence 17 from Patent WO2021050970; published patent document, public domain)."
+      }
+    },
+    {
+      "id": "paav2-9",
+      "path": "sequences/plasmids/aav/packaging/pAAV2-9.gb",
+      "fetch": { "type": "ncbi", "accession": "MP838701" },
+      "provenance": {
+        "source": "NCBI (patent division)",
+        "accession": "MP838701.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pAAV2/9 — AAV9 rep/cap packaging plasmid — NCBI GenBank MP838701 (Sequence 2 from Patent EP3740246; published patent document, public domain). Same construct distributed as Addgene #112865; NOT sourced from Addgene."
+      }
+    },
+    {
+      "id": "aav-helper-phelper",
+      "path": "sequences/plasmids/aav/helper/pHelper.gb",
+      "fetch": { "type": "ncbi", "accession": "AF369965" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "AF369965.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pHelper — adenovirus helper plasmid (E2A / E4 / VA genes; Stratagene AAV Helper-Free System) — NCBI GenBank AF369965. Public domain. This is the actual pHelper plasmid (not the whole adenovirus genome J01917)."
+      }
+    },
+    {
+      "id": "aav-helper-paddeltaf6",
+      "path": "sequences/plasmids/aav/helper/pAdDeltaF6.gb",
+      "fetch": { "type": "ncbi", "accession": "MP838700" },
+      "provenance": {
+        "source": "NCBI (patent division)",
+        "accession": "MP838700.1",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pAdDeltaF6 — adenovirus helper plasmid (Penn Vector Core) — NCBI GenBank MP838700 (Sequence 1 from Patent EP3740246; published patent document, public domain)."
+      }
+    },
+    {
+      "id": "align-demo-reference",
+      "path": "sequences/alignments/clone-verification/reference.gb",
+      "fetch": { "type": "existing" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "L09137",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "pUC19 (bp 1-900) reference region for the clone-verification alignment demo — derived from NCBI GenBank L09137 (pUC19). Public domain. Generated by apps/desktop/scripts/build-alignment-demo.mjs."
+      }
+    },
+    {
+      "id": "align-demo-clone1",
+      "path": "sequences/alignments/clone-verification/clone-1-verified.fasta",
+      "fetch": { "type": "existing" },
+      "provenance": {
+        "source": "DNAForge example workspace (synthetic)",
+        "license": "CC0",
+        "tier": "A",
+        "attribution": "Synthetic 'verified clone' sequencing read (identical to the pUC19 reference region) for the alignment demo. Dedicated to the public domain (CC0)."
+      }
+    },
+    {
+      "id": "align-demo-clone2",
+      "path": "sequences/alignments/clone-verification/clone-2-point-mutant.fasta",
+      "fetch": { "type": "existing" },
+      "provenance": {
+        "source": "DNAForge example workspace (synthetic)",
+        "license": "CC0",
+        "tier": "A",
+        "attribution": "Synthetic clone sequencing read with three substitutions vs the pUC19 reference region, for the alignment mismatch demo. Dedicated to the public domain (CC0)."
+      }
+    },
+    {
+      "id": "align-demo-clone3",
+      "path": "sequences/alignments/clone-verification/clone-3-frameshift.fasta",
+      "fetch": { "type": "existing" },
+      "provenance": {
+        "source": "DNAForge example workspace (synthetic)",
+        "license": "CC0",
+        "tier": "A",
+        "attribution": "Synthetic clone sequencing read with a 5 bp deletion (frameshift) vs the pUC19 reference region, for the alignment mismatch demo. Dedicated to the public domain (CC0)."
+      }
+    },
+
+    {
+      "id": "genome-bacillus-subtilis-168",
+      "path": "sequences/genomes/bacillus-subtilis-168.gb",
+      "fetch": { "type": "ncbi", "accession": "NC_000964", "rettype": "gbwithparts" },
+      "provenance": {
+        "source": "NCBI",
+        "accession": "NC_000964.3",
+        "license": "public-domain",
+        "tier": "A",
+        "attribution": "Bacillus subtilis subsp. subtilis str. 168, complete genome — NCBI RefSeq NC_000964.3. Public domain."
+      }
+    },
+    {
+      "id": "genome-scerevisiae-s288c",
+      "targetDir": "sequences/genomes/scerevisiae-s288c",
+      "fetch": {
+        "type": "ncbi-multi",
+        "rettype": "gbwithparts",
+        "accessions": [
+          { "accession": "NC_001133.9", "name": "chr01-I" },
+          { "accession": "NC_001134.8", "name": "chr02-II" },
+          { "accession": "NC_001135.5", "name": "chr03-III" },
+          { "accession": "NC_001136.10", "name": "chr04-IV" },
+          { "accession": "NC_001137.3", "name": "chr05-V" },
+          { "accession": "NC_001138.5", "name": "chr06-VI" },
+          { "accession": "NC_001139.9", "name": "chr07-VII" },
+          { "accession": "NC_001140.6", "name": "chr08-VIII" },
+          { "accession": "NC_001141.2", "name": "chr09-IX" },
+          { "accession": "NC_001142.9", "name": "chr10-X" },
+          { "accession": "NC_001143.9", "name": "chr11-XI" },
+          { "accession": "NC_001144.5", "name": "chr12-XII" },
+          { "accession": "NC_001145.3", "name": "chr13-XIII" },
+          { "accession": "NC_001146.8", "name": "chr14-XIV" },
+          { "accession": "NC_001147.6", "name": "chr15-XV" },
+          { "accession": "NC_001148.4", "name": "chr16-XVI" },
+          { "accession": "NC_001224.1", "name": "chrMT" }
+        ]
+      },
+      "provenance": {
+        "source": "NCBI",
+        "license": "public-domain",
+        "tier": "A",
+        "attributionTemplate": "Saccharomyces cerevisiae S288C reference genome (R64-1-1 / GCF_000146045.2), chromosome file {file} — NCBI RefSeq. Public domain."
+      }
+    },
+
+    {
+      "id": "open-yeast-collection",
+      "targetDir": "sequences/kits/open-yeast-collection",
+      "fetch": {
+        "type": "github-dir",
+        "repo": "Reclone-org/Open-DNA-Collections",
+        "ref": "main",
+        "dir": "Open Yeast Collection/Plasmids_Genbank"
+      },
+      "provenance": {
+        "source": "Reclone / FreeGenes (github.com/Reclone-org/Open-DNA-Collections)",
+        "license": "OpenMTA",
+        "tier": "A",
+        "attributionTemplate": "Open Yeast Collection (MoClo/Golden Gate part library) — Reclone Reagent Collaboration Network / FreeGenes, distributed under the OpenMTA (openmta.org). File {file}."
+      }
+    },
+    {
+      "id": "open-plasmids",
+      "targetDir": "sequences/kits/open-plasmids",
+      "fetch": {
+        "type": "github-dir",
+        "repo": "Reclone-org/Open-DNA-Collections",
+        "ref": "main",
+        "dir": "Open Plasmids/Plasmids_Genbank"
+      },
+      "provenance": {
+        "source": "Reclone / FreeGenes (github.com/Reclone-org/Open-DNA-Collections)",
+        "license": "OpenMTA",
+        "tier": "A",
+        "attributionTemplate": "Open Plasmids collection — Reclone / FreeGenes, distributed under the OpenMTA (openmta.org). File {file}."
+      }
+    },
+    {
+      "id": "open-reporters-collection",
+      "targetDir": "sequences/kits/open-reporters-collection",
+      "fetch": {
+        "type": "github-dir",
+        "repo": "Reclone-org/Open-DNA-Collections",
+        "ref": "main",
+        "dir": "Open Reporters Collection/Plasmids_Genbank"
+      },
+      "provenance": {
+        "source": "Reclone / FreeGenes (github.com/Reclone-org/Open-DNA-Collections)",
+        "license": "OpenMTA",
+        "tier": "A",
+        "attributionTemplate": "Open Reporters Collection (fluorescent/chromogenic reporter parts) — Reclone / FreeGenes, distributed under the OpenMTA (openmta.org). File {file}."
+      }
+    },
+    {
+      "id": "open-enzyme-collection",
+      "targetDir": "sequences/kits/open-enzyme-collection",
+      "fetch": {
+        "type": "github-dir",
+        "repo": "Reclone-org/Open-DNA-Collections",
+        "ref": "main",
+        "dir": "Open Enzyme Collection/Plasmids_Genbank"
+      },
+      "provenance": {
+        "source": "Reclone / FreeGenes (github.com/Reclone-org/Open-DNA-Collections)",
+        "license": "OpenMTA",
+        "tier": "A",
+        "attributionTemplate": "Open Enzyme Collection (molecular-biology enzyme expression parts) — Reclone / FreeGenes, distributed under the OpenMTA (openmta.org). File {file}."
+      }
+    },
+    {
+      "id": "ecoli-protein-expression-toolkit",
+      "targetDir": "sequences/kits/ecoli-protein-expression",
+      "fetch": {
+        "type": "github-dir",
+        "repo": "Reclone-org/Open-DNA-Collections",
+        "ref": "main",
+        "dir": "Ecoli Protein Expression Toolkit/Plasmids_Genbank"
+      },
+      "provenance": {
+        "source": "Reclone / FreeGenes (github.com/Reclone-org/Open-DNA-Collections)",
+        "license": "OpenMTA",
+        "tier": "A",
+        "attributionTemplate": "E. coli Protein Expression Toolkit (MoClo part library) — Reclone / FreeGenes, distributed under the OpenMTA (openmta.org). File {file}."
+      }
+    },
+    {
+      "id": "ecoli-nanobody-toolkit",
+      "targetDir": "sequences/kits/ecoli-nanobody",
+      "fetch": {
+        "type": "github-dir",
+        "repo": "Reclone-org/Open-DNA-Collections",
+        "ref": "main",
+        "dir": "Ecoli Nanobody Toolkit/genbank_seq"
+      },
+      "provenance": {
+        "source": "Reclone / FreeGenes (github.com/Reclone-org/Open-DNA-Collections)",
+        "license": "OpenMTA",
+        "tier": "A",
+        "attributionTemplate": "E. coli Nanobody Toolkit (MoClo part library) — Reclone / FreeGenes, distributed under the OpenMTA (openmta.org). File {file}."
+      }
+    },
+    {
+      "id": "molecular-diagnostics-toolkit",
+      "targetDir": "sequences/kits/molecular-diagnostics",
+      "fetch": {
+        "type": "github-dir",
+        "repo": "Reclone-org/Open-DNA-Collections",
+        "ref": "main",
+        "dir": "Molecular Diagnostics Toolkit/Plasmids_Genbank"
+      },
+      "provenance": {
+        "source": "Reclone / FreeGenes (github.com/Reclone-org/Open-DNA-Collections)",
+        "license": "OpenMTA",
+        "tier": "A",
+        "attributionTemplate": "Molecular Diagnostics Toolkit (LAMP/detection parts) — Reclone / FreeGenes, distributed under the OpenMTA (openmta.org). File {file}."
+      }
+    },
+    {
+      "id": "bacillus-subtilis-secretion-toolkit",
+      "targetDir": "sequences/kits/bacillus-subtilis-secretion",
+      "fetch": {
+        "type": "github-dir",
+        "repo": "Reclone-org/Open-DNA-Collections",
+        "ref": "main",
+        "dir": "Bacillus subtilis Protein Secretion Toolkit/Plasmids_Genbank"
+      },
+      "provenance": {
+        "source": "Reclone / FreeGenes (github.com/Reclone-org/Open-DNA-Collections)",
+        "license": "OpenMTA",
+        "tier": "A",
+        "attributionTemplate": "Bacillus subtilis Protein Secretion Toolkit (MoClo part library) — Reclone / FreeGenes, distributed under the OpenMTA (openmta.org). File {file}."
+      }
+    },
+    {
+      "id": "uloop-assembly",
+      "targetDir": "sequences/kits/uloop-assembly",
+      "fetch": {
+        "type": "ncbi-multi",
+        "rettype": "gb",
+        "accessions": [
+          { "accession": "MN436792.1", "name": "pANe-1" },
+          { "accession": "MN436793.1", "name": "pANe-2" },
+          { "accession": "MN436794.1", "name": "pANe-3" },
+          { "accession": "MN436795.1", "name": "pANe-4" },
+          { "accession": "MN436796.1", "name": "pANo-1" },
+          { "accession": "MN436797.1", "name": "pANo-2" },
+          { "accession": "MN436798.1", "name": "pANo-3" },
+          { "accession": "MN436799.1", "name": "pANo-4" },
+          { "accession": "MN436800.1", "name": "pCAe-1" },
+          { "accession": "MN436801.1", "name": "pCAe-2" },
+          { "accession": "MN436802.1", "name": "pCAe-3" },
+          { "accession": "MN436803.1", "name": "pCAe-4" },
+          { "accession": "MN436804.1", "name": "pCAo-1" },
+          { "accession": "MN436805.1", "name": "pCAo-2" },
+          { "accession": "MN436806.1", "name": "pCAo-3" },
+          { "accession": "MN436807.1", "name": "pCAo-4" },
+          { "accession": "MN436808.1", "name": "pCOe-1" },
+          { "accession": "MN436809.1", "name": "pCOe-2" },
+          { "accession": "MN436810.1", "name": "pCOe-3" },
+          { "accession": "MN436811.1", "name": "pCOe-4" },
+          { "accession": "MN436812.1", "name": "pCOo-1" },
+          { "accession": "MN436813.1", "name": "pCOo-2" },
+          { "accession": "MN436814.1", "name": "pCOo-3" },
+          { "accession": "MN436815.1", "name": "pCOo-4" }
+        ]
+      },
+      "provenance": {
+        "source": "NCBI",
+        "license": "public-domain",
+        "tier": "A",
+        "attributionTemplate": "Universal Loop (uLoop) assembly receiver vector {file} — Pollak et al. 2020, Synthetic Biology (Haseloff Lab); deposited as an NCBI public GenBank record (MN436792–MN436815) and physically distributed under the OpenMTA. Public domain sequence."
+      }
+    },
+    {
+      "id": "moclo-ytk",
+      "targetDir": "sequences/kits/moclo-ytk",
+      "fetch": {
+        "type": "github-dir",
+        "repo": "althonos/moclo",
+        "ref": "master",
+        "dir": "moclo-ytk/registry/ytk"
+      },
+      "provenance": {
+        "source": "althonos/moclo (github.com/althonos/moclo, MIT)",
+        "license": "sequence-as-fact",
+        "tier": "B",
+        "attributionTemplate": "MoClo Yeast Toolkit (YTK; Lee, DeLoache, Cervantes & Dueber 2015, ACS Synth. Biol.) part {file} — obtained from the MIT-licensed althonos/moclo GenBank registry; DNA sequence used as a non-copyrightable published fact. Kit is also distributed via Addgene (#1000000061); not downloaded from Addgene."
+      }
+    },
+    {
+      "id": "moclo-cidar",
+      "targetDir": "sequences/kits/moclo-cidar",
+      "fetch": {
+        "type": "github-dir",
+        "repo": "althonos/moclo",
+        "ref": "master",
+        "dir": "moclo-cidar/registry/cidar"
+      },
+      "provenance": {
+        "source": "althonos/moclo (github.com/althonos/moclo, MIT)",
+        "license": "sequence-as-fact",
+        "tier": "B",
+        "attributionTemplate": "CIDAR MoClo Toolkit (Iverson, Haddock, Beal & Densmore 2016, ACS Synth. Biol.) part {file} — obtained from the MIT-licensed althonos/moclo GenBank registry; DNA sequence used as a non-copyrightable published fact. Kit is also distributed via Addgene (#1000000059); not downloaded from Addgene."
+      }
+    },
+    {
+      "id": "moclo-ecoflex",
+      "targetDir": "sequences/kits/moclo-ecoflex",
+      "fetch": {
+        "type": "github-dir",
+        "repo": "althonos/moclo",
+        "ref": "master",
+        "dir": "moclo-ecoflex/registry/ecoflex"
+      },
+      "provenance": {
+        "source": "althonos/moclo (github.com/althonos/moclo, MIT)",
+        "license": "sequence-as-fact",
+        "tier": "B",
+        "attributionTemplate": "EcoFlex MoClo Toolkit (Moore et al. 2016, ACS Synth. Biol.) part {file} — obtained from the MIT-licensed althonos/moclo GenBank registry; DNA sequence used as a non-copyrightable published fact. Kit is also distributed via Addgene (#1000000080); not downloaded from Addgene."
+      }
+    },
+    {
+      "id": "moclo-plant",
+      "targetDir": "sequences/kits/moclo-plant",
+      "fetch": {
+        "type": "github-dir",
+        "repo": "althonos/moclo",
+        "ref": "master",
+        "dir": "moclo-plant/registry/plant"
+      },
+      "provenance": {
+        "source": "althonos/moclo (github.com/althonos/moclo, MIT)",
+        "license": "sequence-as-fact",
+        "tier": "B",
+        "attributionTemplate": "MoClo Plant Parts Toolkit (Engler et al. 2014 / Patron et al. 2015) part {file} — obtained from the MIT-licensed althonos/moclo GenBank registry; DNA sequence used as a non-copyrightable published fact. Kit is also distributed via Addgene (#1000000044); not downloaded from Addgene."
+      }
+    }
+  ]
+}

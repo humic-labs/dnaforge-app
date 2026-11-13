@@ -1,0 +1,39 @@
+[project]
+name = "dnaforge-annotation"
+version = "0.1.0"
+description = "Foreground DNA annotation library and command-line tool"
+license = "GPL-3.0-only"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26.0",
+    "pandas>=2.0.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
+[project.scripts]
+dnaforge-annotate = "dnaforge_annotation.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+artifacts = ["src/dnaforge_annotation/data/**"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dnaforge_annotation"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/dnaforge_annotation", "tests", "pyproject.toml", "LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

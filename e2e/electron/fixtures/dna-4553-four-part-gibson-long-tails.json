@@ -1,0 +1,456 @@
+{
+  "description": "Circular four-part Gibson design cut from pUC19: PCR parts of 640, 560, 700 and 129 bp, 21 bp spacers at junctions 2 and 3, drafted with the app, the junction 2 overlap set to 23 + 15 bases, and every primer then authored through the workbench primer-content command with tails of 20, 30 and 51 bases and binding lengths of 22 to 39 bases. Several primer ends and overlap ends lie outside a narrow junction strip.",
+  "design": {
+    "id": "dna-4553-four-part-gibson-long-tails",
+    "name": "Four-part Gibson with spacers and long tails",
+    "topology": "circular",
+    "regions": [
+      {
+        "id": "backbone-a",
+        "sourceSequenceId": "test-sequence:real-assembly-pipeline:pUC19",
+        "sourceSequenceName": "pUC19",
+        "sourceStart": 100,
+        "sourceEnd": 740,
+        "sequence": "ACGAGGGAGCTTCCAGGGGGAAACGCCTGGTATCTTTATAGTCCTGTCGGGTTTCGCCACCTCTGACTTGAGCGTCGATTTTTGTGATGCTCGTCAGGGGGGCGGAGCCTATGGAAAAACGCCAGCAACGCGGCCTTTTTACGGTTCCTGGCCTTTTGCTGGCCTTTTGCTCACATGTTCTTTCCTGCGTTATCCCCTGATTCTGTGGATAACCGTATTACCGCCTTTGAGTGAGCTGATACCGCTCGCCGCAGCCGAACGACCGAGCGCAGCGAGTCAGTGAGCGAGGAAGCGGAAGAGCGCCCAATACGCAAACCGCCTCTCCCCGCGCGTTGGCCGATTCATTAATGCAGCTGGCACGACAGGTTTCCCGACTGGAAAGCGGGCAGTGAGCGCAACGCAATTAATGTGAGTTAGCTCACTCATTAGGCACCCCAGGCTTTACACTTTATGCTTCCGGCTCGTATGTTGTGTGGAATTGTGAGCGGATAACAATTTCACACAGGAAACAGCTATGACCATGATTACGCCAAGCTTGCATGCCTGCAGGTCGACTCTAGAGGATCCCCGGGTACCGAGCTCGAATTCACTGGCCGTCGTTTTACAACGTCGTGACTGGGAAAACCCTGGCGTTACCCAA",
+        "annotations": [],
+        "sourceType": "pcr"
+      },
+      {
+        "id": "backbone-b",
+        "sourceSequenceId": "test-sequence:real-assembly-pipeline:pUC19",
+        "sourceSequenceName": "pUC19",
+        "sourceStart": 800,
+        "sourceEnd": 1360,
+        "sequence": "ACCGATCGCCCTTCCCAACAGTTGCGCAGCCTGAATGGCGAATGGCGCCTGATGCGGTATTTTCTCCTTACGCATCTGTGCGGTATTTCACACCGCATATGGTGCACTCTCAGTACAATCTGCTCTGATGCCGCATAGTTAAGCCAGCCCCGACACCCGCCAACACCCGCTGACGCGCCCTGACGGGCTTGTCTGCTCCCGGCATCCGCTTACAGACAAGCTGTGACCGTCTCCGGGAGCTGCATGTGTCAGAGGTTTTCACCGTCATCACCGAAACGCGCGAGACGAAAGGGCCTCGTGATACGCCTATTTTTATAGGTTAATGTCATGATAATAATGGTTTCTTAGACGTCAGGTGGCACTTTTCGGGGAAATGTGCGCGGAACCCCTATTTGTTTATTTTTCTAAATACATTCAAATATGTATCCGCTCATGAGACAATAACCCTGATAAATGCTTCAATAATATTGAAAAAGGAAGAGTATGAGTATTCAACATTTCCGTGTCGCCCTTATTCCCTTTTTTGCGGCATTTTGCCTTCCTGTTTTTGCTCACCCAGA",
+        "annotations": [],
+        "sourceType": "pcr"
+      },
+      {
+        "id": "insert",
+        "sourceSequenceId": "test-sequence:real-assembly-pipeline:pUC19",
+        "sourceSequenceName": "pUC19",
+        "sourceStart": 1400,
+        "sourceEnd": 2100,
+        "sequence": "GCACGAGTGGGTTACATCGAACTGGATCTCAACAGCGGTAAGATCCTTGAGAGTTTTCGCCCCGAAGAACGTTTTCCAATGATGAGCACTTTTAAAGTTCTGCTATGTGGCGCGGTATTATCCCGTATTGACGCCGGGCAAGAGCAACTCGGTCGCCGCATACACTATTCTCAGAATGACTTGGTTGAGTACTCACCAGTCACAGAAAAGCATCTTACGGATGGCATGACAGTAAGAGAATTATGCAGTGCTGCCATAACCATGAGTGATAACACTGCGGCCAACTTACTTCTGACAACGATCGGAGGACCGAAGGAGCTAACCGCTTTTTTGCACAACATGGGGGATCATGTAACTCGCCTTGATCGTTGGGAACCGGAGCTGAATGAAGCCATACCAAACGACGAGCGTGACACCACGATGCCTGTAGCAATGGCAACAACGTTGCGCAAACTATTAACTGGCGAACTACTTACTCTAGCTTCCCGGCAACAATTAATAGACTGGATGGAGGCGGATAAAGTTGCAGGACCACTTCTGCGCTCGGCCCTTCCGGCTGGCTGGTTTATTGCTGATAAATCTGGAGCCGGTGAGCGTGGGTCTCGCGGTATCATTGCAGCACTGGGGCCAGATGGTAAGCCCTCCCGTATCGTAGTTATCTACACGACGGGGAGTCAGGCAACTATGGATGAACGAAATA",
+        "annotations": [],
+        "sourceType": "pcr"
+      },
+      {
+        "id": "terminator",
+        "sourceSequenceId": "test-sequence:real-assembly-pipeline:pUC19",
+        "sourceSequenceName": "pUC19",
+        "sourceStart": 2200,
+        "sourceEnd": 2329,
+        "sequence": "ATTTAAAAGGATCTAGGTGAAGATCCTTTTTGATAATCTCATGACCAAAATCCCTTAACGTGAGTTTTCGTTCCACTGAGCGTCAGACCCCGTAGAAAAGATCAAAGGATCTTCTTGAGATCCTTTTTT",
+        "annotations": [],
+        "sourceType": "pcr"
+      }
+    ],
+    "spacers": [
+      {
+        "id": "spacer-test-sequence:real-assembly-pipeline:pUC19-1820-21",
+        "junctionIndex": 1,
+        "sequence": "AGAGAAAGAGGAGAAATACTA",
+        "name": "pUC19 1820-1841"
+      },
+      {
+        "id": "spacer-test-sequence:real-assembly-pipeline:pUC19-1860-21",
+        "junctionIndex": 2,
+        "sequence": "CATCACCATCACCATCACTAA",
+        "name": "pUC19 1860-1881"
+      }
+    ],
+    "version": 10,
+    "assemblyState": "ready",
+    "validationErrors": [],
+    "proposedPlans": [],
+    "status": "computed",
+    "assemblyMethod": "gibson",
+    "backboneSequenceId": null,
+    "defaultHomologyLength": 30,
+    "homologyRegions": [
+      {
+        "id": "homology-ycu0zg6",
+        "junctionIndex": 0,
+        "junctionPosition": 640,
+        "start": 625,
+        "end": 655,
+        "encoding": {
+          "onLeft": 15,
+          "onRight": 15
+        },
+        "templateBasis": {
+          "leftHomologyEnd": 640,
+          "rightHomologyStart": 640,
+          "spacerLength": 0,
+          "spacerContributesToAnnealing": false,
+          "leftSpacerIncludedInHomology": false,
+          "leftHomologyAllowed": true,
+          "rightHomologyAllowed": true
+        },
+        "metadata": {
+          "sequence": "CCTGGCGTTACCCAAACCGATCGCCCTTCC",
+          "tmEstimate": 69.1,
+          "gcContent": 63.3
+        }
+      },
+      {
+        "id": "homology-tib2qbm",
+        "junctionIndex": 1,
+        "junctionPosition": 1221,
+        "start": 1198,
+        "end": 1236,
+        "encoding": {
+          "onLeft": 23,
+          "onRight": 15
+        },
+        "templateBasis": {
+          "leftHomologyEnd": 1221,
+          "rightHomologyStart": 1221,
+          "spacerLength": 21,
+          "spacerContributesToAnnealing": true,
+          "leftSpacerIncludedInHomology": true,
+          "leftHomologyAllowed": true,
+          "rightHomologyAllowed": true
+        },
+        "metadata": {
+          "sequence": "GAAGAGAAAGAGGAGAAATACTAGCACGAGTGGGTTAC",
+          "tmEstimate": 63.4,
+          "gcContent": 44.7
+        }
+      },
+      {
+        "id": "homology-vkocgrt",
+        "junctionIndex": 2,
+        "junctionPosition": 1942,
+        "start": 1927,
+        "end": 1957,
+        "encoding": {
+          "onLeft": 15,
+          "onRight": 15
+        },
+        "templateBasis": {
+          "leftHomologyEnd": 1942,
+          "rightHomologyStart": 1942,
+          "spacerLength": 21,
+          "spacerContributesToAnnealing": true,
+          "leftSpacerIncludedInHomology": true,
+          "leftHomologyAllowed": true,
+          "rightHomologyAllowed": true
+        },
+        "metadata": {
+          "sequence": "CATCACCATCACTAAATTTAAAAGGATCTA",
+          "tmEstimate": 54,
+          "gcContent": 30
+        }
+      },
+      {
+        "id": "homology-vdkdwl9",
+        "junctionIndex": 3,
+        "junctionPosition": 2071,
+        "start": 2056,
+        "end": 15,
+        "encoding": {
+          "onLeft": 15,
+          "onRight": 15
+        },
+        "templateBasis": {
+          "leftHomologyEnd": 2071,
+          "rightHomologyStart": 2071,
+          "spacerLength": 0,
+          "spacerContributesToAnnealing": false,
+          "leftSpacerIncludedInHomology": false,
+          "leftHomologyAllowed": true,
+          "rightHomologyAllowed": true
+        },
+        "metadata": {
+          "sequence": "TTGAGATCCTTTTTTACGAGGGAGCTTCCA",
+          "tmEstimate": 61.3,
+          "gcContent": 43.3
+        }
+      }
+    ],
+    "goldenGateJunctions": [],
+    "designPrimers": [
+      {
+        "forward": {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:backbone-a:forward",
+          "name": "F1-fwd",
+          "sequence": "GATCAAAGGATCTTCTTGAGATCCTTTTTTACGAGGGAGCTTCCAGGGGGAAACGCCTGGTATCTTTAT",
+          "pbs": {
+            "start": 0,
+            "end": 39,
+            "sequence": "ACGAGGGAGCTTCCAGGGGGAAACGCCTGGTATCTTTAT"
+          },
+          "overhang": {
+            "length": 30,
+            "tailLength": 30,
+            "sequence": "GATCAAAGGATCTTCTTGAGATCCTTTTTT"
+          },
+          "direction": "forward",
+          "fragmentIndex": 0,
+          "junctionIndex": 3,
+          "tm": 70.1,
+          "manuallyEdited": true
+        },
+        "reverse": {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:backbone-a:reverse",
+          "name": "F1-rev",
+          "sequence": "TGTTGGGAAGGGCGATCGGTTTGGGTAACGCCAGGGTTTTCCCAGT",
+          "pbs": {
+            "start": 614,
+            "end": 640,
+            "sequence": "TTGGGTAACGCCAGGGTTTTCCCAGT"
+          },
+          "overhang": {
+            "length": 20,
+            "tailLength": 20,
+            "sequence": "TGTTGGGAAGGGCGATCGGT"
+          },
+          "direction": "reverse",
+          "fragmentIndex": 0,
+          "junctionIndex": 0,
+          "tm": 64,
+          "manuallyEdited": true
+        },
+        "fragmentIndex": 0
+      },
+      {
+        "forward": {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:backbone-b:forward",
+          "name": "F2-fwd",
+          "sequence": "CGTGACTGGGAAAACCCTGGCGTTACCCAAACCGATCGCCCTTCCCAACAGT",
+          "pbs": {
+            "start": 640,
+            "end": 662,
+            "sequence": "ACCGATCGCCCTTCCCAACAGT"
+          },
+          "overhang": {
+            "length": 30,
+            "tailLength": 30,
+            "sequence": "CGTGACTGGGAAAACCCTGGCGTTACCCAA"
+          },
+          "direction": "forward",
+          "fragmentIndex": 1,
+          "junctionIndex": 0,
+          "tm": 62.3,
+          "manuallyEdited": true
+        },
+        "reverse": {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:backbone-b:reverse",
+          "name": "F2-rev",
+          "sequence": "GAGATCCAGTTCGATGTAACCCACTCGTGCTAGTATTTCTCCTCTTTCTCTTCTGGGTGAGCAAAAACAGGAAGGCAAAA",
+          "pbs": {
+            "start": 1171,
+            "end": 1200,
+            "sequence": "TCTGGGTGAGCAAAAACAGGAAGGCAAAA"
+          },
+          "overhang": {
+            "length": 51,
+            "tailLength": 51,
+            "sequence": "GAGATCCAGTTCGATGTAACCCACTCGTGCTAGTATTTCTCCTCTTTCTCT"
+          },
+          "direction": "reverse",
+          "fragmentIndex": 1,
+          "junctionIndex": 1,
+          "tm": 62.9,
+          "manuallyEdited": true
+        },
+        "fragmentIndex": 1
+      },
+      {
+        "forward": {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:insert:forward",
+          "name": "F3-fwd",
+          "sequence": "TCACCCAGAAGAGAAAGAGGAGAAATACTAGCACGAGTGGGTTACATCGAACTGGATCT",
+          "pbs": {
+            "start": 1221,
+            "end": 1250,
+            "sequence": "GCACGAGTGGGTTACATCGAACTGGATCT"
+          },
+          "overhang": {
+            "length": 30,
+            "tailLength": 30,
+            "sequence": "TCACCCAGAAGAGAAAGAGGAGAAATACTA"
+          },
+          "direction": "forward",
+          "fragmentIndex": 2,
+          "junctionIndex": 1,
+          "tm": 63.5,
+          "manuallyEdited": true
+        },
+        "reverse": {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:insert:reverse",
+          "name": "F3-rev",
+          "sequence": "AAAAGGATCTTCACCTAGATCCTTTTAAATTTAGTGATGGTGATGGTGATGTATTTCGTTCATCCATAGTTGCCTGACT",
+          "pbs": {
+            "start": 1893,
+            "end": 1921,
+            "sequence": "TATTTCGTTCATCCATAGTTGCCTGACT"
+          },
+          "overhang": {
+            "length": 51,
+            "tailLength": 51,
+            "sequence": "AAAAGGATCTTCACCTAGATCCTTTTAAATTTAGTGATGGTGATGGTGATG"
+          },
+          "direction": "reverse",
+          "fragmentIndex": 2,
+          "junctionIndex": 2,
+          "tm": 58.2,
+          "manuallyEdited": true
+        },
+        "fragmentIndex": 2
+      },
+      {
+        "forward": {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:terminator:forward",
+          "name": "F4-fwd",
+          "sequence": "AACGAAATACATCACCATCACCATCACTAAATTTAAAAGGATCTAGGTGAAGATC",
+          "pbs": {
+            "start": 1942,
+            "end": 1967,
+            "sequence": "ATTTAAAAGGATCTAGGTGAAGATC"
+          },
+          "overhang": {
+            "length": 30,
+            "tailLength": 30,
+            "sequence": "AACGAAATACATCACCATCACCATCACTAA"
+          },
+          "direction": "forward",
+          "fragmentIndex": 3,
+          "junctionIndex": 2,
+          "tm": 50.5,
+          "manuallyEdited": true
+        },
+        "reverse": {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:terminator:reverse",
+          "name": "F4-rev",
+          "sequence": "CCAGGCGTTTCCCCCTGGAAGCTCCCTCGTAAAAAAGGATCTCAAGAAGATC",
+          "pbs": {
+            "start": 2049,
+            "end": 2071,
+            "sequence": "AAAAAAGGATCTCAAGAAGATC"
+          },
+          "overhang": {
+            "length": 30,
+            "tailLength": 30,
+            "sequence": "CCAGGCGTTTCCCCCTGGAAGCTCCCTCGT"
+          },
+          "direction": "reverse",
+          "fragmentIndex": 3,
+          "junctionIndex": 3,
+          "tm": 48.3,
+          "manuallyEdited": true
+        },
+        "fragmentIndex": 3
+      }
+    ],
+    "selectedJunctionIndex": null,
+    "scrollToPosition": null,
+    "highlightRange": null,
+    "createdAt": "2026-11-10T00:00:00.000Z",
+    "updatedAt": "2026-11-10T00:00:00.000Z",
+    "assemblyWorkbench": {
+      "junctions": [
+        {
+          "id": "jxn:dna-4553-four-part-gibson-long-tails:backbone-a:backbone-b",
+          "slot": 0,
+          "leftRegionId": "backbone-a",
+          "rightRegionId": "backbone-b",
+          "createdAtVersion": 1
+        },
+        {
+          "id": "jxn:dna-4553-four-part-gibson-long-tails:backbone-b:insert",
+          "slot": 1,
+          "leftRegionId": "backbone-b",
+          "rightRegionId": "insert",
+          "createdAtVersion": 1
+        },
+        {
+          "id": "jxn:dna-4553-four-part-gibson-long-tails:insert:terminator",
+          "slot": 2,
+          "leftRegionId": "insert",
+          "rightRegionId": "terminator",
+          "createdAtVersion": 1
+        },
+        {
+          "id": "jxn:dna-4553-four-part-gibson-long-tails:terminator:backbone-a",
+          "slot": 3,
+          "leftRegionId": "terminator",
+          "rightRegionId": "backbone-a",
+          "createdAtVersion": 1
+        }
+      ],
+      "primers": [
+        {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:backbone-a:forward",
+          "regionId": "backbone-a",
+          "direction": "forward",
+          "createdAtVersion": 1
+        },
+        {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:backbone-a:reverse",
+          "regionId": "backbone-a",
+          "direction": "reverse",
+          "createdAtVersion": 1
+        },
+        {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:backbone-b:forward",
+          "regionId": "backbone-b",
+          "direction": "forward",
+          "createdAtVersion": 1
+        },
+        {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:backbone-b:reverse",
+          "regionId": "backbone-b",
+          "direction": "reverse",
+          "createdAtVersion": 1
+        },
+        {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:insert:forward",
+          "regionId": "insert",
+          "direction": "forward",
+          "createdAtVersion": 1
+        },
+        {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:insert:reverse",
+          "regionId": "insert",
+          "direction": "reverse",
+          "createdAtVersion": 1
+        },
+        {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:terminator:forward",
+          "regionId": "terminator",
+          "direction": "forward",
+          "createdAtVersion": 1
+        },
+        {
+          "id": "primer:dna-4553-four-part-gibson-long-tails:terminator:reverse",
+          "regionId": "terminator",
+          "direction": "reverse",
+          "createdAtVersion": 1
+        }
+      ],
+      "primerEditIntents": [
+        {
+          "id": "primer-intent:dna-4553-four-part-gibson-long-tails:backbone-b:reverse:homologyLength",
+          "regionId": "backbone-b",
+          "direction": "reverse",
+          "junctionIndex": 1,
+          "field": "homologyLength",
+          "length": 15,
+          "updatedAtVersion": 2
+        },
+        {
+          "id": "primer-intent:dna-4553-four-part-gibson-long-tails:insert:forward:homologyLength",
+          "regionId": "insert",
+          "direction": "forward",
+          "junctionIndex": 1,
+          "field": "homologyLength",
+          "length": 23,
+          "updatedAtVersion": 2
+        }
+      ]
+    }
+  }
+}

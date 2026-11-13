@@ -1,0 +1,3 @@
+track name="Sparse transcript models" description="Deterministic BED12 import acceptance fixture"
+chr1	14900	15400	BED_TX1	900	+	15020	15320	36,99,235	3	100,120,80	0,180,420
+chr1	15600	16020	BED_TX2	700	-	15640	15980	153,102,204	3	60,90,70	0,150,350

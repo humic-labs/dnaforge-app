@@ -1,0 +1,356 @@
+LOCUS       NC_001144               6727 bp    DNA     linear   CON 10-JUL-2026
+DEFINITION  Saccharomyces cerevisiae S288C chromosome XII, complete sequence.
+ACCESSION   NC_001144 REGION: 86623..93349
+VERSION     NC_001144.5
+DBLINK      BioProject: PRJNA128
+            Assembly: GCF_000146045.2
+KEYWORDS    RefSeq.
+SOURCE      Saccharomyces cerevisiae S288C
+  ORGANISM  Saccharomyces cerevisiae S288C
+            Eukaryota; Fungi; Dikarya; Ascomycota; Saccharomycotina;
+            Saccharomycetes; Saccharomycetales; Saccharomycetaceae;
+            Saccharomyces.
+REFERENCE   1  (bases 1 to 6727)
+  AUTHORS   Engel,S.R., Wong,E.D., Nash,R.S., Aleksander,S., Alexander,M.,
+            Douglass,E., Karra,K., Miyasato,S.R., Simison,M., Skrzypek,M.S.,
+            Weng,S. and Cherry,J.M.
+  TITLE     New data and collaborations at the Saccharomyces Genome Database:
+            updated reference genome, alleles, and the Alliance of Genome
+            Resources
+  JOURNAL   Genetics 220 (4) (2022)
+   PUBMED   34897464
+REFERENCE   2  (bases 1 to 6727)
+  AUTHORS   Johnston,M., Hillier,L., Riles,L., Albermann,K., Andre,B.,
+            Ansorge,W., Benes,V., Bruckner,M., Delius,H., Dubois,E.,
+            Dusterhoft,A., Entian,K.D., Floeth,M., Goffeau,A., Hebling,U.,
+            Heumann,K., Heuss-Neitzel,D., Hilbert,H., Hilger,F., Kleine,K.,
+            Kotter,P., Louis,E.J., Messenguy,F., Mewes,H.W., Hoheisel,J.D. et
+            al.
+  TITLE     The nucleotide sequence of Saccharomyces cerevisiae chromosome XII
+  JOURNAL   Nature 387 (6632 SUPPL), 87-90 (1997)
+   PUBMED   9169871
+REFERENCE   3  (bases 1 to 6727)
+  AUTHORS   Goffeau,A., Barrell,B.G., Bussey,H., Davis,R.W., Dujon,B.,
+            Feldmann,H., Galibert,F., Hoheisel,J.D., Jacq,C., Johnston,M.,
+            Louis,E.J., Mewes,H.W., Murakami,Y., Philippsen,P., Tettelin,H. and
+            Oliver,S.G.
+  TITLE     Life with 6000 genes
+  JOURNAL   Science 274 (5287), 546 (1996)
+   PUBMED   8849441
+REFERENCE   4  (bases 1 to 6727)
+  CONSRTM   NCBI Genome Project
+  TITLE     Direct Submission
+  JOURNAL   Submitted (10-JUL-2026) National Center for Biotechnology
+            Information, NIH, Bethesda, MD 20894, USA
+REFERENCE   5  (bases 1 to 6727)
+  CONSRTM   Saccharomyces Genome Database
+  TITLE     Direct Submission
+  JOURNAL   Submitted (16-JAN-2015) Department of Genetics, Stanford
+            University, Stanford, CA, USA
+  REMARK    Protein update by submitter
+REFERENCE   6  (bases 1 to 6727)
+  CONSRTM   Saccharomyces Genome Database
+  TITLE     Direct Submission
+  JOURNAL   Submitted (06-FEB-2013) Department of Genetics, Stanford
+            University, Stanford, CA, USA
+  REMARK    Protein update by submitter
+REFERENCE   7  (bases 1 to 6727)
+  CONSRTM   Saccharomyces Genome Database
+  TITLE     Direct Submission
+  JOURNAL   Submitted (04-MAY-2012) Department of Genetics, Stanford
+            University, Stanford, CA, USA
+  REMARK    Protein update by submitter
+REFERENCE   8  (bases 1 to 6727)
+  CONSRTM   Saccharomyces Genome Database
+  TITLE     Direct Submission
+  JOURNAL   Submitted (31-MAR-2011) Department of Genetics, Stanford
+            University, Stanford, CA, USA
+  REMARK    Sequence update by submitter
+REFERENCE   9  (bases 1 to 6727)
+  CONSRTM   Saccharomyces Genome Database
+  TITLE     Direct Submission
+  JOURNAL   Submitted (14-DEC-2009) Department of Genetics, Stanford
+            University, Stanford, CA, USA
+COMMENT     REVIEWED REFSEQ: This record has been curated by SGD. The reference
+            sequence is identical to BK006945.
+            
+            On Apr 26, 2011 this sequence version replaced NC_001144.4.
+            Structural annotation is propagated from INSDC submissions or other
+            annotation providers and processed to follow RefSeq standards.
+            Functional annotation is provided by RefSeq, and is derived from
+            model organism databases, orthologous species, curation, domain
+            architecture analysis, and submitted information.
+            
+            ##Genome-Annotation-Data-START##
+            Annotation Provider :: SGD
+            Annotation Status   :: Full Annotation
+            Annotation Version  :: R64-5-1
+            URL                 :: http://www.yeastgenome.org/
+            ##Genome-Annotation-Data-END##
+            COMPLETENESS: full length.
+FEATURES             Location/Qualifiers
+     source          1..6727
+                     /organism="Saccharomyces cerevisiae S288C"
+                     /mol_type="genomic DNA"
+                     /strain="S288C"
+                     /db_xref="taxon:559292"
+                     /chromosome="XII"
+     gene            <781..>1533
+                     /gene="ISA1"
+                     /locus_tag="YLL027W"
+                     /db_xref="GeneID:850632"
+     mRNA            <781..>1533
+                     /gene="ISA1"
+                     /locus_tag="YLL027W"
+                     /product="Fe-binding Fe/S cluster assembly protein ISA1"
+                     /transcript_id="NM_001181847.1"
+                     /db_xref="GeneID:850632"
+     CDS             781..1533
+                     /gene="ISA1"
+                     /locus_tag="YLL027W"
+                     /experiment="EXISTENCE:direct assay:GO:0005506 iron ion
+                     binding [PMID:21987576]"
+                     /experiment="EXISTENCE:direct assay:GO:0005759
+                     mitochondrial matrix [PMID:10805735]"
+                     /experiment="EXISTENCE:genetic interaction:GO:0009102
+                     biotin biosynthetic process [PMID:17259550]"
+                     /experiment="EXISTENCE:genetic interaction:GO:0016226
+                     iron-sulfur cluster assembly [PMID:10805735]"
+                     /experiment="EXISTENCE:mutant phenotype:GO:0009102 biotin
+                     biosynthetic process [PMID:17259550]"
+                     /experiment="EXISTENCE:mutant phenotype:GO:0016226
+                     iron-sulfur cluster assembly
+                     [PMID:10748136|PMID:10805735]"
+                     /experiment="EXISTENCE:mutant phenotype:GO:0044572
+                     [4Fe-4S] cluster assembly [PMID:21987576]"
+                     /experiment="EXISTENCE:mutant phenotype:GO:0051604 protein
+                     maturation [PMID:12065597]"
+                     /note="Protein required for maturation of mitochondrial
+                     [4Fe-4S] proteins; functions in a complex with Isa2p and
+                     possibly Iba57p; isa1 deletion causes loss of
+                     mitochondrial DNA and respiratory deficiency; depletion
+                     reduces growth on nonfermentable carbon sources;
+                     functional ortholog of bacterial A-type ISC proteins;
+                     human ISCA1 can complement isa1 null mutant"
+                     /codon_start=1
+                     /product="Fe-binding Fe/S cluster assembly protein ISA1"
+                     /protein_id="NP_013073.1"
+                     /db_xref="GeneID:850632"
+                     /db_xref="SGD:S000003950"
+                     /translation="MINTGRSRNSVLLAHRFLSTGGFWRGGTNGTMSRTINNVNPFKL
+                     KFIPKTVPAAADSVSPDSQRPGKKPFKFIVSNQSKSSKASKSPKWSSYAFPSRETIKS
+                     HEEAIKKQNKAIDEQIAAAVSKNDCSCTEPPKKRKRKLRPRKALITLSPKAIKHLRAL
+                     LAQPEPKLIRVSARNRGCSGLTYDLQYITEPGKFDEVVEQDGVKIVIDSKALFSIIGS
+                     EMDWIDDKLASKFVFKNPNSKGTCGCGESFMV"
+     gene            <2001..>4727
+                     /gene="HSP104"
+                     /locus_tag="YLL026W"
+                     /db_xref="GeneID:850633"
+     mRNA            <2001..>4727
+                     /gene="HSP104"
+                     /locus_tag="YLL026W"
+                     /product="chaperone ATPase HSP104"
+                     /transcript_id="NM_001181846.1"
+                     /db_xref="GeneID:850633"
+     CDS             2001..4727
+                     /gene="HSP104"
+                     /locus_tag="YLL026W"
+                     /experiment="EXISTENCE:direct assay:GO:0005634 nucleus
+                     [PMID:10467108]"
+                     /experiment="EXISTENCE:direct assay:GO:0005737 cytoplasm
+                     [PMID:10467108|PMID:22842922]"
+                     /experiment="EXISTENCE:direct assay:GO:0006457 protein
+                     folding [PMID:9674429]"
+                     /experiment="EXISTENCE:direct assay:GO:0016887 ATP
+                     hydrolysis activity [PMID:16135516]"
+                     /experiment="EXISTENCE:direct assay:GO:0034399 nuclear
+                     periphery [PMID:25817432]"
+                     /experiment="EXISTENCE:direct assay:GO:0034605 cellular
+                     response to heat [PMID:24291094]"
+                     /experiment="EXISTENCE:direct assay:GO:0035617 stress
+                     granule disassembly [PMID:24291094]"
+                     /experiment="EXISTENCE:direct assay:GO:0051087
+                     protein-folding chaperone binding [PMID:9674429]"
+                     /experiment="EXISTENCE:direct assay:GO:0072380 TRC complex
+                     [PMID:20850366]"
+                     /experiment="EXISTENCE:mutant phenotype:GO:0005524 ATP
+                     binding [PMID:11867765]"
+                     /experiment="EXISTENCE:mutant phenotype:GO:0005991
+                     trehalose metabolic process [PMID:9797333]"
+                     /experiment="EXISTENCE:mutant phenotype:GO:0016887 ATP
+                     hydrolysis activity [PMID:16135516|PMID:9674429]"
+                     /experiment="EXISTENCE:mutant phenotype:GO:0034975 protein
+                     folding in endoplasmic reticulum [PMID:10931304]"
+                     /experiment="EXISTENCE:mutant phenotype:GO:0043335 protein
+                     unfolding [PMID:7984243]"
+                     /experiment="EXISTENCE:mutant phenotype:GO:0043531 ADP
+                     binding [PMID:11867765]"
+                     /experiment="EXISTENCE:mutant phenotype:GO:0070370
+                     cellular heat acclimation [PMID:2188365]"
+                     /note="Disaggregase; heat shock protein that cooperates
+                     with Ydj1p (Hsp40) and Ssa1p (Hsp70) to refold and
+                     reactivate denatured, protein aggregates; responds to
+                     stresses (heat, ethanol, and sodium arsenite); required
+                     for the protein aggregate solid-to-liquid phase transition
+                     and dispersal of liquid condensates; involved in [PSI+]
+                     propagation; potentiated variants eliminate TDP-43
+                     cytoplasmic aggregates to reduce proteotoxicity; becomes
+                     more abundant and forms cytoplasmic foci during
+                     replication stress"
+                     /codon_start=1
+                     /product="chaperone ATPase HSP104"
+                     /protein_id="NP_013074.1"
+                     /db_xref="GeneID:850633"
+                     /db_xref="SGD:S000003949"
+                     /translation="MNDQTQFTERALTILTLAQKLASDHQHPQLQPIHILAAFIETPE
+                     DGSVPYLQNLIEKGRYDYDLFKKVVNRNLVRIPQQQPAPAEITPSYALGKVLQDAAKI
+                     QKQQKDSFIAQDHILFALFNDSSIQQIFKEAQVDIEAIKQQALELRGNTRIDSRGADT
+                     NTPLEYLSKYAIDMTEQARQGKLDPVIGREEEIRSTIRVLARRIKSNPCLIGEPGIGK
+                     TAIIEGVAQRIIDDDVPTILQGAKLFSLDLAALTAGAKYKGDFEERFKGVLKEIEESK
+                     TLIVLFIDEIHMLMGNGKDDAANILKPALSRGQLKVIGATTNNEYRSIVEKDGAFERR
+                     FQKIEVAEPSVRQTVAILRGLQPKYEIHHGVRILDSALVTAAQLAKRYLPYRRLPDSA
+                     LDLVDISCAGVAVARDSKPEELDSKERQLQLIQVEIKALERDEDADSTTKDRLKLARQ
+                     KEASLQEELEPLRQRYNEEKHGHEELTQAKKKLDELENKALDAERRYDTATAADLRYF
+                     AIPDIKKQIEKLEDQVAEEERRAGANSMIQNVVDSDTISETAARLTGIPVKKLSESEN
+                     EKLIHMERDLSSEVVGQMDAIKAVSNAVRLSRSGLANPRQPASFLFLGLSGSGKTELA
+                     KKVAGFLFNDEDMMIRVDCSELSEKYAVSKLLGTTAGYVGYDEGGFLTNQLQYKPYSV
+                     LLFDEVEKAHPDVLTVMLQMLDDGRITSGQGKTIDCSNCIVIMTSNLGAEFINSQQGS
+                     KIQESTKNLVMGAVRQHFRPEFLNRISSIVIFNKLSRKAIHKIVDIRLKEIEERFEQN
+                     DKHYKLNLTQEAKDFLAKYGYSDDMGARPLNRLIQNEILNKLALRILKNEIKDKETVN
+                     VVLKKGKSRDENVPEEAEECLEVLPNHEATIGADTLGDDDNEDSMEIDDDLD"
+     rep_origin      4797..5038
+                     /note="ARS1206; Autonomously Replicating Sequence"
+                     /db_xref="SGD:S000118469"
+     repeat_region   complement(5428..5759)
+                     /note="Ty1 LTR"
+                     /rpt_type=long_terminal_repeat
+                     /db_xref="SGD:S000007064"
+     gene            5926..6028
+                     /locus_tag="YNCL0001W"
+                     /db_xref="GeneID:850634"
+     tRNA            join(5926..5961,5993..6028)
+                     /locus_tag="YNCL0001W"
+                     /product="tRNA-Pro"
+                     /experiment="EXISTENCE:curator inference:GO:0005829
+                     cytosol [PMID:9023104]"
+                     /experiment="EXISTENCE:curator inference:GO:0006414
+                     translational elongation [PMID:9023104]"
+                     /note="Proline tRNA (tRNA-Pro), predicted by tRNAscan-SE
+                     analysis; target of K. lactis zymocin"
+                     /db_xref="GeneID:850634"
+                     /db_xref="SGD:S000006683"
+ORIGIN      
+        1 attactcacc ctgccccacg ctcaaagggc tcgataacga catagcatta tagacactgt
+       61 gcagcgtaaa gctgacatat aaagaaatta caaaaaaaaa ttaaaaaaaa aaaaaaaaac
+      121 aatcaaaaaa gacacacaac tacagaacaa aggaaatctt tttctatgca caagcacaag
+      181 agtacttaga gagtagtgat atcccctttt ttttctacta tttttttttt tcccattttt
+      241 ttcctccaag actcctctta tgtggttgtt atgtatagcc catagttact aaataaaaca
+      301 ctaattaatg attaataatc cctctctaat aagaaataga taaaagctat tgttcttctc
+      361 atcgccggtt ctcggcgttg tccgtaccct tggccgaaac tcgggcgggg gcttattagt
+      421 cataccctca gatttcattg gtcagataac agtcacccgg taaatgcccg tttaatgact
+      481 tctttatttt ggattaaaat tgacagggaa tttcaacgga ataaaggaaa gagattgaga
+      541 tgcttttaat tcataaagga aagggaaaga ggacaggaaa gcaaggaaga gtaatggaat
+      601 tttgcaaata tttgtaaatc ctttagaatt actaagaaac tgttatttat tgacattatt
+      661 ttactcgtct tatttattta tttatacatt tggccaccat ttttgcactc gtacgaaaga
+      721 ccattttaga tttttttgat ttggtagtat aacaaacgat cggaacaata acgtaacata
+      781 atgataaaca caggaagaag caggaattca gtactgctgg cacacagatt cctttcaact
+      841 ggaggatttt ggcgaggcgg tacgaatggc acaatgtctc gcacaatcaa caacgtaaat
+      901 cctttcaaat taaaattcat accgaagaca gtgcccgcag ctgcagactc tgtctctcca
+      961 gatagtcaac gtccaggtaa gaagcccttc aaattcatag tttccaatca gagcaagagt
+     1021 agcaaggctt ctaaaagccc gaagtggtcg agctacgcat tcccttcgcg tgagaccatc
+     1081 aaatctcatg aggaggccat caagaagcag aataaagcta tagacgagca aatagctgct
+     1141 gcagtatcca agaatgactg ctcttgcaca gaacctccca agaaaagaaa gaggaaattg
+     1201 agaccaagaa aggcgctgat caccctgagt ccgaaggcaa tcaagcattt aagggcactg
+     1261 ctagctcagc cggaacctaa attgattaga gttagcgcta gaaaccgtgg atgttcagga
+     1321 ctaacgtacg atctacaata tatcaccgag ccggggaaat tcgatgaggt agtagaacaa
+     1381 gatggcgtta aaattgtcat cgattcaaag gcgttattca gcatcattgg aagtgaaatg
+     1441 gactggatcg acgacaagtt ggcctctaag tttgtcttca agaatccaaa ctccaagggc
+     1501 acatgcggtt gtggcgagag tttcatggtt taaaaacctt ctgcaccatt tttagaaaaa
+     1561 aagaatctac ctattcactt atttattcat ttacttattt atttacatat ttatcataca
+     1621 tattaacatt gaaccctcca tcgtggtagt gtttgctgtt cctaactttt ctttcgttgt
+     1681 tcttgtagat atatattttt ccagaatttt ctagaagggt tattaattac aatcttaaac
+     1741 gttccataag gggccgcgat ttttttgttc aattttcaac agggggccca tctcaaagaa
+     1801 ctgcaaatta tatcacagta aaaggcaaag gggcgcaaac ttatgcaacc tgccagatta
+     1861 ttatataagg cattgtaatc ttgcctcaat tccttcataa ttcgttcctt tgtcacttgt
+     1921 tcctttttac ccttgaatcg aatcagcaat aacaaagaaa aaagaaatca actacacgta
+     1981 ccataaaata tacagaatat atgaacgacc aaacgcaatt tacagaaagg gctctaacga
+     2041 ttttgacgtt ggctcaaaaa ttggcttcgg atcatcaaca tccacaatta caacctatac
+     2101 atattctagc tgccttcatt gaaacgccag aagatggatc agtcccttac ctacagaatc
+     2161 taattgagaa gggccgttac gactatgatc ttttcaagaa agtggttaat agaaatctag
+     2221 taagaattcc tcaacagcaa cctgcacctg cggagataac tccaagttat gctttgggga
+     2281 aagtccttca agacgctgct aagattcaaa aacaacagaa ggactcattt atagcgcaag
+     2341 accatatatt gtttgctcta ttcaatgatt cgtctattca gcaaatattt aaggaagctc
+     2401 aagtagatat tgaggccatc aagcaacaag ctcttgaact tcgtggtaac actagaattg
+     2461 actctcgtgg cgctgatacg aacacacctt tggaatattt atcaaagtac gccattgata
+     2521 tgactgagca ggctcgtcaa ggtaaacttg accctgtcat cggccgtgaa gaagaaataa
+     2581 gaagcactat tagagtttta gcaagaagaa ttaagtccaa cccatgttta attggtgagc
+     2641 caggtatcgg taagaccgct attattgaag gtgttgctca aagaatcatt gacgatgacg
+     2701 ttcccactat cttacaaggc gctaaattgt tcagtctaga tttggccgca ttaaccgcag
+     2761 gtgctaaata caaaggtgat ttcgaagaaa gattcaaagg tgttttgaag gaaatcgaag
+     2821 aatcaaagac tctaattgtg ttattcattg atgaaattca catgttaatg ggtaatggta
+     2881 aggacgacgc tgctaacatc ttgaagccag ctttgtccag aggccaattg aaggtcatcg
+     2941 gtgccaccac caataacgaa tatagatcta ttgtggaaaa ggatggtgcc tttgaaagaa
+     3001 gattccagaa aattgaagtc gctgaaccaa gtgtgagaca aacagtggcc atattgagag
+     3061 gtctgcaacc aaagtatgaa atacatcatg gtgtaaggat tctggatagc gccttagtca
+     3121 ctgctgctca attagccaag cgttacttgc catatagaag attgccagat tctgctttgg
+     3181 atttagttga tatttcttgt gctggtgtcg ccgtcgcaag agattctaag ccagaagaat
+     3241 tggattccaa ggaacgtcaa ttgcaattga ttcaagtaga gataaaagct ctagagagag
+     3301 atgaagatgc cgactccacc actaaagata gattaaagtt agctaggcag aaggaagctt
+     3361 cattgcaaga agaattggaa cctctaagac aacgttacaa tgaagaaaag catggccatg
+     3421 aagaattgac acaagctaaa aagaaattgg atgaactgga aaacaaggcc cttgatgctg
+     3481 aacgtagata tgatactgct accgccgctg atttaaggta cttcgccatc ccagatatca
+     3541 aaaagcaaat cgaaaagctt gaagatcagg ttgctgagga agagagacgt gctggtgcca
+     3601 actccatgat ccaaaatgtg gtcgattcag acaccatttc tgaaacagct gcaagattga
+     3661 ctggtatccc tgttaagaag ttgtcagaat ctgaaaatga aaaattgatt catatggaac
+     3721 gtgacttatc atctgaagtc gtgggccaaa tggatgccat taaagctgtt tccaatgccg
+     3781 ttagattgtc tagatcaggt ttagctaatc caaggcaacc agcatccttc ttatttttag
+     3841 gtttgtccgg ttccggtaaa actgaattgg ctaaaaaagt tgctggattt ttgtttaatg
+     3901 atgaggacat gatgatcagg gtcgattgtt ctgaattaag cgagaagtat gcggtctcta
+     3961 agttgttggg taccacggca ggttatgtcg ggtacgatga aggtggcttt ttaactaacc
+     4021 aactgcaata caaaccatac tccgttttgt tattcgatga agtagaaaag gcacatcctg
+     4081 atgttttgac tgtcatgcta caaatgttgg atgacggtag aattacttct ggtcaaggta
+     4141 agacgatcga ctgttccaat tgtattgtca tcatgacttc caatctaggt gctgaattta
+     4201 tcaattctca acaaggatca aagatccaag aatctaccaa gaatttggtc atgggtgctg
+     4261 ttaggcaaca tttcagacca gaatttttga acagaatttc tagtatagtc attttcaaca
+     4321 agctatctag aaaagctatt cataagatcg tggatattcg tttgaaggaa attgaagaga
+     4381 gattcgagca aaatgataaa cattacaagt tgaatttaac tcaagaggcc aaggacttct
+     4441 tggccaaata tggttattcc gatgatatgg gtgcacgtcc actgaacagg ttaattcaaa
+     4501 acgaaatttt gaacaaactg gcactaagga tcttaaagaa tgaaatcaag gataaggaaa
+     4561 ctgtcaatgt cgtcttgaag aagggtaaat ctcgtgatga aaatgttcct gaggaagctg
+     4621 aagaatgtct ggaagttcta ccaaatcacg aagctactat aggggctgac acgttaggtg
+     4681 atgacgataa tgaggacagt atggaaattg atgatgacct agattaattt aatatagtgt
+     4741 gatttttaaa aactttcgaa caagaatcag taatataata tatataatta ataaaactaa
+     4801 tggaatttgt ttaattgaac ttgacacccg agcaaaagag ctcacatttt aacgtttagt
+     4861 tcatcttgct gtgaataatc taaaagtaaa caatggacaa aaaagtccac tggacgtcaa
+     4921 atcttttttt attgtatttg ggacatatgg cgttgataac taaagtttaa aggaagtaat
+     4981 aagtgaaggt taaatctgga cctctttact ttcatattag aagtataaaa cacacgcgga
+     5041 ttggtccatt attagaatac gggtactaca ataatggttt tgatagttac tgtacatttg
+     5101 aatgtagcga ctcatatgac tcatatatat gactaccaaa tcatgttaaa attagtatat
+     5161 ctttaactta gacttcagta ctatctgaac tgcacgttta aatttttacc atagcagttc
+     5221 atgtaatatt aataatcact tgtgccaata taatgttaca gcgaacattt ttccatgcgc
+     5281 ttggaaaatt gaatgataga aaattcgaac agcgatgatt tccaacgatg taatccatta
+     5341 agatgattgt tagaatttct attgttgcag aggtcatatg atattaagaa cacagcacaa
+     5401 tatattaaaa tttcttctcg aggatattga gaaatgggtg aattttgagg taattgttgg
+     5461 gattccattg ttaataaggg ctataatatt aggtatacag aatatactag atgttctcct
+     5521 cgaggatcta cgaatcctca taatggaatc aatatttcta tatactaata ttacgattat
+     5581 ccctcattcc gttttatatg tttcattatc ttattacatt atcaatcctt tcactacagc
+     5641 ttcctctaac ctcgatgaca gcttctcata acctatgtca tcatctaaca ccgtatatga
+     5701 taatatagtg atagttataa ctattagttg atagacgata gtggattttt attccaacag
+     5761 atataagaat tacaaaaaga gaactgttat ttctacataa taatattacg attagtactc
+     5821 cttttatatg tttctttatc catttacatt atcaatcctg attaaaattc ccacgaaccc
+     5881 ccagtactag attgttcata atggatcaag ttcacaagtt aataagggcg tgtggtctag
+     5941 tggtatgatt ctcgctttgg gcgacttcct gactaaacag gaagacaaag catgcgagag
+     6001 gccctgggtt caattcccag ctcgcccctt tattttcttt ttttggaccc aaagcactag
+     6061 cttaggctgt ccatctttgt tcttgattct aaagatcaca gtagaataat ggtttatttc
+     6121 ttagagttct acaagtttta gcgtactact gaacaatgaa tgtcctgatt ttttaaaact
+     6181 cgcgcatatt tggaggccat atcgtgccac caactttact acagtcaaac acctgtgccc
+     6241 aattctacca cttattaaac aattacttag taagatcagc aagcggttca tctgtccccc
+     6301 attcatatat ggctttcacc ctctttacct gtttgaaaca gaaaaaaaat tacaactaat
+     6361 ggtatgcaat tcataaagca taggccaaaa gaccctgata cagatatatg ctaaaacaat
+     6421 aattataaag gattatgccg taggaaggct gagaatcctc agtttgtgca ctttgaaatt
+     6481 caaaatacaa aaaactgttg acaaattagt atcataacta tctatcgcat atattcacgt
+     6541 cacataccgc ctctgtggca attgacaaca cttatcccta tcaaagacaa tacaaagtat
+     6601 ttgttaccga gtgagattat ttagtacaat atgtgggtaa taaaaactaa tcggagatat
+     6661 ttttttacgt tttttgatgc aaacgcaata aattcttgat ttttgaaatt ttgcaggaca
+     6721 tcaagat
+//

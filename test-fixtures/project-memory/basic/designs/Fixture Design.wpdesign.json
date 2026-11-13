@@ -1,0 +1,26 @@
+{
+  "schema": "waypoint.design.v1",
+  "kind": "assembly-design",
+  "id": "design-fixture",
+  "name": "Fixture Design",
+  "storage": {
+    "type": "localStorage",
+    "key": "waypoint-designs",
+    "id": "design-fixture"
+  },
+  "design": null,
+  "plannedOutputs": [
+    {
+      "format": "genbank",
+      "status": "pending-sequence"
+    }
+  ],
+  "provenance": [
+    {
+      "event": "created",
+      "actor": "user",
+      "createdAt": "2026-05-11T00:00:00.000Z",
+      "source": "project-memory-fixture"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@waypoint/strider-evals",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/core/strider-evals/src",
+  "projectType": "library",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm --filter @waypoint/strider-evals run test"
+      },
+      "cache": true
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm --filter @waypoint/strider-evals run typecheck"
+      },
+      "cache": true
+    }
+  },
+  "tags": ["scope:agent", "type:eval-framework", "layer:core"]
+}

@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "proofKind": "planted-failure-exact-replay",
+  "seed": 15485863,
+  "propertyPath": "0:3:2:0",
+  "commandPath": "ADDAEAA:VB",
+  "minimizedActionTrace": "create(notes/design.txt,alpha) /*replayPath=\"ADDAEAA:VB\"*/",
+  "replayCommand": "FC_SEED=15485863 FC_PATH='0:3:2:0|ADDAEAA:VB' pnpm --filter @waypoint/workspace-revisions test -- state-machine.property.test.ts",
+  "plantedError": "PLANTED_REPLAY_PROOF",
+  "initialExitCode": 1,
+  "replayExitCode": 1,
+  "receiptsIdentical": true,
+  "plantedFailureRemoved": true
+}

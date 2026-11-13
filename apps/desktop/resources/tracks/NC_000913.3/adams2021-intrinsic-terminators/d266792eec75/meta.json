@@ -1,0 +1,67 @@
+{
+  "schema": "dnaforge.track-meta.v1",
+  "track": "adams2021-intrinsic-terminators",
+  "version": "d266792eec75",
+  "assembly": {
+    "accession": "NC_000913.3",
+    "lengthBp": 4641652,
+    "aliases": ["U00096.3"]
+  },
+  "file": {
+    "name": "adams2021-intrinsic-terminators.gff3",
+    "format": "gff3",
+    "sha256": "d266792eec758d0cd142a193bdf81837740e00906fdf66bfe3a184d114f130bc",
+    "byteLength": 31256
+  },
+  "residency": {
+    "kind": "managed"
+  },
+  "kinds": ["terminator"],
+  "label": "Intrinsic terminators with measured RNA ends (Adams 2021)",
+  "evidence": "measured",
+  "license": {
+    "spdx": "CC0-1.0",
+    "attribution": "Intrinsic terminators: Adams PP, Baniulyte G, Esnault C, et al. Regulatory roles of Escherichia coli 5' UTR and ORF-internal RNAs detected by 3' end mapping. eLife 10:e62438 (2021), doi:10.7554/eLife.62438, CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/). Selected by DNAForge: only 3' ends the paper scores as intrinsic terminators.",
+    "evidenceUrl": "https://api.elifesciences.org/articles/62438",
+    "note": "copyright.license: \"CC0-1.0\"; copyright.statement: \"This is an open-access article, free of all copyright, and may be freely reproduced, distributed, transmitted, modified, built upon, or otherwise used by anyone for any lawful purpose. The work is made available under the Creative Commons CC0 public domain dedication.\""
+  },
+  "citation": "Adams PP, Baniulyte G, Esnault C, Chegireddy K, Singh N, Monge M, Dale RK, Storz G, Wade JT (2021) eLife 10:e62438. Regulatory roles of Escherichia coli 5' UTR and ORF-internal RNAs detected by 3' end mapping.",
+  "url": "https://elifesciences.org/articles/62438",
+  "doi": "10.7554/eLife.62438",
+  "datasetVersion": "eLife version of record 2 (published 2021-01-18, version date 2021-04-13); elife-62438-supp1-v2.xlsx (sheets LB 0.4, LB 2.0, M63 0.4) and elife-62438-supp3-v2.xlsx (sheet LB 0.4). score = Supplementary file 3 column 'intrinsic terminator score (intrinsic termination ≥ 3.0)'",
+  "recordCount": 125,
+  "countsByKind": {
+    "terminator": 125
+  },
+  "provenance": {
+    "producedBy": {
+      "tool": "scripts/annotation-datasets/ecoli-k12-mg1655/adams2021-intrinsic-terminators/build.py"
+    },
+    "inputs": [
+      {
+        "url": "https://api.elifesciences.org/articles/62438",
+        "sha256": "a9a79cc54cbff9853fe8ff0cfe266dcd9e1fe6e9e0faba6aad3d3da2dcf2086d",
+        "bytes": 266820
+      },
+      {
+        "url": "https://cdn.elifesciences.org/articles/62438/elife-62438-supp1-v2.xlsx",
+        "sha256": "191a488103cd73da1338fe823f7340fc08229aa59a50109d89b9640edc84ee72",
+        "bytes": 267993
+      },
+      {
+        "url": "https://cdn.elifesciences.org/articles/62438/elife-62438-supp3-v2.xlsx",
+        "sha256": "4aba6f4481dd40bb2e8ed6bcc67bd615cda55e5a60a4af306259b79be1eee10f",
+        "bytes": 160064
+      },
+      {
+        "url": "https://www.ncbi.nlm.nih.gov/nuccore/NC_000913.3",
+        "sha256": "7cf1ed07c731a1aba11d2b12a7071f395b1a25b4e9a06809549742f83c2d1a2f",
+        "bytes": 11881788,
+        "note": "repository file test-fixtures/sequences/circular/ecoli-mg1655-complete.gb"
+      }
+    ],
+    "notes": [
+      "Records: 125 of 1794 merged Term-seq 3' ends. The 3110 per-condition rows of Supplementary file 1 (LB 0.4: 1175, LB 2.0: 882, M63: 1053) merge into 1794 ends when ends on the same strand within 10 nt are treated as one, the paper's rule, which reproduces its Figure 1-figure supplement 2B counts exactly. Kept: ends whose LB 0.4 intrinsic terminator score is >= 3.0 (111 not in a Rho termination region, 14 also in one; the paper's two calls are not exclusive). Dropped as not classified intrinsic: 56 ends the paper places only in a Rho termination region (they are not Rho peaks, so they are not in adams2021-rho-termination either); 433 scored ends with neither call, which the paper says are likely RNA processing sites (20 dropped scored ends have an undefined intrinsic score); and 1180 ends the paper never scored (all LB 2.0-only and M63-only ends, and LB 0.4 ends outside 5' UTRs and genes), which include mature tRNA 3' ends and other RNA processing sites. Position: the base reported by the most conditions, then the highest read count; terminationBp is that base (0-based). The score belongs to the LB 0.4 base, which differs from the record base in 10 records (by 1, 2, 4, 6 nt). score is the paper's intrinsic terminator score, not a read count. Record names give the paper's gene classes in plain words: after (primary, within 50 nt downstream of a gene's end), inside (internal), opposite (antisense), away from annotated genes (orphan). Not kept in records.json (reproducible from the build script): per-condition positions and read counts, gene lists, Rho scores at the end, regulatory element labels and upstream/internal ORF context. Never used: EcoCyc gene_id identifiers in the details columns, the 61-nt sequence column (used only to prove every position), Supplementary file 2 (see adams2021-rho-termination) and Supplementary file 4 (strains, oligos)."
+    ]
+  }
+}

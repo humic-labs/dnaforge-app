@@ -1,0 +1,10 @@
+LOCUS       DNA3216_SHORT            120 bp    DNA     circular
+DEFINITION  short circular zoom boundary.
+ACCESSION   DNA3216_SHORT
+FEATURES             Location/Qualifiers
+     CDS             1..120
+                     /label="Short CDS"
+                     /codon_start=1
+ORIGIN
+        1 atggctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgctgcttaa
+//

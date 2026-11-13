@@ -1,0 +1,57 @@
+{
+  "schema": "dnaforge.track-meta.v1",
+  "track": "yan2018-unit-gene-lists",
+  "version": "1d1f29274b91",
+  "assembly": {
+    "accession": "NC_000913.3",
+    "lengthBp": 4641652,
+    "aliases": ["U00096.3"]
+  },
+  "file": {
+    "name": "yan2018-unit-gene-lists.gff3",
+    "format": "gff3",
+    "sha256": "1d1f29274b9162d38de2c3e0f2bbfe8348ac08cb42818a2eacca582f6b0c54d4",
+    "byteLength": 591158
+  },
+  "residency": {
+    "kind": "managed"
+  },
+  "kinds": ["transcription_unit"],
+  "label": "Transcription units with measured starts, ends from the last gene (Yan 2018)",
+  "evidence": "measured",
+  "license": {
+    "spdx": "CC-BY-4.0",
+    "attribution": "Transcription units from Yan B, Boitano M, Clark TA, Ettwiller L. SMRT-Cappable-seq reveals complex operon variants in bacteria. Nat Commun 9:3676 (2018), doi:10.1038/s41467-018-05997-6, licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Changed by DNAForge: gene lists and measured start sites taken from Supplementary Data 2, which publishes no 3' end, so each unit's far edge is the end of the last gene it lists, from NCBI RefSeq; coordinates converted to 0-based half-open; gene symbols and current locus tags added from NCBI RefSeq.",
+    "evidenceUrl": "https://www.nature.com/articles/s41467-018-05997-6",
+    "note": "Open Access This article is licensed under a Creative Commons Attribution 4.0 International License, which permits use, sharing, adaptation, distribution and reproduction in any medium or format, as long as you give appropriate credit to the original author(s) and the source, provide a link to the Creative Commons license, and indicate if changes were made."
+  },
+  "citation": "Yan B, Boitano M, Clark TA, Ettwiller L (2018) Nature Communications 9:3676. SMRT-Cappable-seq reveals complex operon variants in bacteria.",
+  "url": "https://www.nature.com/articles/s41467-018-05997-6",
+  "doi": "10.1038/s41467-018-05997-6",
+  "datasetVersion": "Supplementary Data 2 (41467_2018_5997_MOESM5_ESM.xlsx; sheet SMRT-Cappable-seq Operon), article published 2018-09-10, retrieved 2026-09-16; ends derived from the last listed gene; gene symbols and current locus tags from the NCBI RefSeq NC_000913.3 GenBank file (LOCUS date 09-DEC-2025); one record per published row",
+  "recordCount": 3055,
+  "countsByKind": {
+    "transcription_unit": 3055
+  },
+  "provenance": {
+    "producedBy": {
+      "tool": "scripts/annotation-datasets/ecoli-k12-mg1655/yan2018-unit-gene-lists/build.py"
+    },
+    "inputs": [
+      {
+        "url": "https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41467-018-05997-6/MediaObjects/41467_2018_5997_MOESM5_ESM.xlsx",
+        "sha256": "6e861b6cb85bf99b72668504ece4e902fe00890dbdfd8849056192abab0a85b8",
+        "bytes": 154217
+      },
+      {
+        "url": "https://www.ncbi.nlm.nih.gov/nuccore/NC_000913.3",
+        "sha256": "7cf1ed07c731a1aba11d2b12a7071f395b1a25b4e9a06809549742f83c2d1a2f",
+        "bytes": 11881788,
+        "note": "repository file test-fixtures/sequences/circular/ecoli-mg1655-complete.gb"
+      }
+    ],
+    "notes": [
+      "Records: 3055 of 3070 published rows; 1678 name two or more genes. THE 3' END IS NOT MEASURED: Supplementary Data 2 publishes a gene list, a start site and a strand only, so each unit's far edge is the end of the last gene it lists (attributes.endEvidence = 'gene-derived'); the start site is measured. Ends are therefore systematically short of the biological transcript end, and short of the operon end where the paper's size-selected library truncated a long operon. Measured ends from Supplementary Data 1 are deliberately NOT substituted: they lie inside the derived span for about a third of the rows that have one, because the two tables were built from different transcripts, and a unit whose box excludes its own genes is worse than a uniformly conservative end. Dropped: 15 rows naming a b-number with no current locus tag or synonym in the GenBank file (b0077|b0078|b0079, b0077|b0078|b0079|b0080, b0103|b0102|b0101|b0100); 0 rows whose derived span was empty. Kept with a caveat: 48 rows whose measured start lies inside their first listed gene, an internal start site; the honest measured start is kept rather than stretched to cover that gene. Alternative start sites for the same gene set stay as separate records. 13 retired b-numbers were replaced by the current locus tag that lists them as /gene_synonym in the GenBank file (b0255->b4587, b0257->b4587, b1016->b4490, b1017->b4490, b1405->b4492, b1416->b4493, b1417->b4493, b1509->b4696, b2090->b4498, b2999->b4658, b3000->b4658, b3767->b4488, b3768->b4488); a list that then named the same locus twice keeps it once. 8 published b-numbers have no current locus tag or synonym and are kept as published, with the b-number as the gene symbol (b0079, b0100, b0165, b0725, b1052, b1903, b3036, b4250). No score: Supplementary Data 2 carries no per-unit number, and its columns 4-5 are a RegulonDB comparison that is never read. No conditions: the table pools M9 and rich medium without labels. Supplementary Data 3 (re-published RegulonDB operons) is never downloaded."
+    ]
+  }
+}

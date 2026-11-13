@@ -1,0 +1,275 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "corpus-11-burden-mitigation",
+  "title": "Burden mitigation via copy number and marker choice",
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "storage": {
+    "type": "database",
+    "table": "pages",
+    "id": "corpus-11-burden-mitigation"
+  },
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Burden mitigation via copy number and marker choice"
+          }
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Directive \u2014 Buy back growth rate without spending the dynamic range the charter protects."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Levers considered"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Copy number: "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-84ad4efb",
+              "label": "DVA_AE",
+              "entityType": "sequence",
+              "entityId": "sample-84ad4efb",
+              "path": "sequences/kits/moclo-cidar/DVA_AE",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " and "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-11f7a55d",
+              "label": "DVA_AF",
+              "entityType": "sequence",
+              "entityId": "sample-11f7a55d",
+              "path": "sequences/kits/moclo-cidar/DVA_AF",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " (higher) against "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-567fd5b7",
+              "label": "DVK_AE",
+              "entityType": "sequence",
+              "entityId": "sample-567fd5b7",
+              "path": "sequences/kits/moclo-cidar/DVK_AE",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " and "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-5d7adb95",
+              "label": "DVK_FG",
+              "entityType": "sequence",
+              "entityId": "sample-5d7adb95",
+              "path": "sequences/kits/moclo-cidar/DVK_FG",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " (lower)."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Marker: ampicillin versus kanamycin. Beta-lactamase is itself a secreted, well-expressed protein and is not a free choice."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Result"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Moving the output unit to the lower-copy "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-5d7adb95",
+              "label": "DVK_FG",
+              "entityType": "sequence",
+              "entityId": "sample-5d7adb95",
+              "path": "sequences/kits/moclo-cidar/DVK_FG",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " recovers 9 of the 14 percent growth deficit and costs 4-fold of the 34-fold ON/OFF ratio \u2014 leaving 22-fold, still above criterion."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Switching marker alone gave no measurable benefit and was dropped."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Decision"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Lower copy number is adopted. Entry 12 builds the three-input gate on "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-5d7adb95",
+              "label": "DVK_FG",
+              "entityType": "sequence",
+              "entityId": "sample-5d7adb95",
+              "path": "sequences/kits/moclo-cidar/DVK_FG",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": "."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Related entries"
+          }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-10-burden-measurement",
+                      "label": "10 \u2014 Host burden of the two-input gate",
+                      "entityType": "page",
+                      "entityId": "corpus-10-burden-measurement"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-12-three-input-gate",
+                      "label": "12 \u2014 Three-input AND gate",
+                      "entityType": "page",
+                      "entityId": "corpus-12-three-input-gate"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

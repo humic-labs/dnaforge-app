@@ -1,0 +1,29 @@
+LOCUS       order_loc                500 bp    DNA     circular SYN 28-APR-2026
+DEFINITION  Synthetic plasmid for the order() guard regression in
+            applyComplementOriginWrap. NOT a real construct.
+ACCESSION   order_boundary_synth
+VERSION     order_boundary_synth
+COMMENT     regression fixture for the order() guard. `order(...)` has
+            different semantics from `join(...)` — parts are biologically
+            ordered but not joined into one contiguous gene. The
+            origin-wrap detection must NOT fire for order() even when the
+            parts happen to touch the sequence boundaries. Without the
+            order() guard, complement(order(1..50,451..500)) would be
+            silently rewritten to start>end shape with segments in physical
+            order — the wrong representation for an order() location.
+FEATURES             Location/Qualifiers
+     CDS             complement(order(1..50,451..500))
+                     /label="order_test"
+                     /note="complement-strand order() with boundary-
+                     touching parts; must NOT be rewritten as a wrap"
+ORIGIN
+        1 atgaaagcct ggcgtaccga ttgctgaccg gcaaaccatg accatgctgc ggcgaccatg
+       61 actgccgaag tgaccatgaa cgaagcgaag ggtacccgta ccgcgaccga aacgaccatg
+      121 actgaagaag ccgcggcgaa cgaaggtacc gtgaccacca tgcacgcgct ggaaaaaccg
+      181 gcgctgaccg gccgcgaaca ccaaaccatg accgcggcga ccatggcgct gaccgaagcg
+      241 cgtcgcgcgc tggcgcgtca caaagccacc accatggcgc tgcgcgcgca cgaagcgctg
+      301 gccaaagcga ccgcggcgaa caccgaagcg gtgcgcgcgc tgggcaaagc cgcgctggcg
+      361 ctggccaaag cgaccgaaca cgaagcgctg gccgaagcgc accgcgcgct gcgcgaagcc
+      421 ctggccaccg cgaccaaagc gctggcgcgc atggcgctgg ccaaaaccga aaccaccgcg
+      481 ctggccaacg cggcggccaa
+//

@@ -1,0 +1,60 @@
+{
+  "name": "@waypoint/plasmid-viewer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    },
+    "./parsers": {
+      "import": "./src/parsers/index.ts",
+      "types": "./src/parsers/index.ts"
+    },
+    "./parsers/primer-excel": {
+      "import": "./src/parsers/primer-excel.ts",
+      "types": "./src/parsers/primer-excel.ts"
+    },
+    "./readonly": {
+      "import": "./src/readonly.ts",
+      "types": "./src/readonly.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "license": "GPL-3.0-only",
+  "dependencies": {
+    "@waypoint/genome-data": "workspace:*",
+    "@waypoint/genome-renderer": "workspace:*",
+    "@waypoint/readonly-sequence-viewer": "workspace:*",
+    "@waypoint/sequence-utils": "workspace:*",
+    "@waypoint/workspace-editor": "workspace:*",
+    "pixi.js": "^8.0.0",
+    "react": "^18.0.0 || ^19.0.0",
+    "@waypoint/user-messages": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.7",
+    "esbuild": "^0.27.3",
+    "jsdom": "^29.0.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.8.3",
+    "vitest": "^4.0.18"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "xlsx": ">=0.20.3"
+  },
+  "peerDependenciesMeta": {
+    "xlsx": {
+      "optional": true
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "from": 3,
+  "productFile": "pMyConstruct.gb",
+  "survivors": [
+    {
+      "before": "pMyConstruct.gb.waypoint.json",
+      "after": "contents/pMyConstruct.gb.waypoint.json"
+    },
+    {
+      "before": "contents/pMyConstruct.primers.csv",
+      "after": "contents/pMyConstruct.primers.csv"
+    }
+  ],
+  "unchanged": ["pMyConstruct.gb"],
+  "gone": ["pMyConstruct.gb.waypoint.json"],
+  "members": [
+    { "role": "primer-export", "path": "contents/pMyConstruct.primers.csv" },
+    { "role": "alignment", "path": "contents/pMyConstruct.gb.waypoint.json" }
+  ],
+  "noAssemblyPrimers": true
+}

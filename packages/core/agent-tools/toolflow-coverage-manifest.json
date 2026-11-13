@@ -1,0 +1,338 @@
+{
+  "schemaVersion": 1,
+  "architecturalInvariant": "agent calls tool -> app changes state -> app-owned observer reports the state change -> harness scores tool result against observed state. A flow without an observer is not 'covered' — close the observer gap first.",
+  "outOfScope": [
+    "Provider integrations use the external-resource service contracts.",
+    "Screenshots alone do not establish observed application state."
+  ],
+  "flows": [
+    {
+      "id": "create_design",
+      "type": "primitive",
+      "tool": "create_design",
+      "assayName": "closed_loop_create_design",
+      "demand": {
+        "level": "high",
+        "rationale": "Core agent-driven user journey — derivative plasmid design starts with creating a design workspace."
+      },
+      "implementationStatus": "shipped",
+      "coverage": {
+        "fakeRenderer": {
+          "level": "full",
+          "evidence": [
+            "apps/api/src/agent_workflow_harness/contract_smoke.py (RETAINED_RENDERER_TOOLS includes create_design)",
+            "packages/core/agent-tools/renderer-tool-manifest.json (create_design tool schema)"
+          ]
+        },
+        "realDesktop": {
+          "level": "full",
+          "evidence": [
+            "apps/api/src/agent_workflow_harness/desktop_workflows.py:check_desktop_closed_loop_create_design_flow",
+            "apps/api/src/agent_workflow_harness/closed_loop.py:build_closed_loop_create_design_assay",
+            "apps/api/src/agent_workflow_harness/closed_loop.py:score_create_design_closed_loop"
+          ]
+        },
+        "observer": {
+          "level": "full",
+          "evidence": [
+            "apps/desktop/src/features/ai/tools/observe-app-state.ts (designs.items[] with id/name/assemblyMethod; targets.label, targets.design)",
+            "apps/desktop/src/features/ai/tools/observe-app-state.test.ts"
+          ]
+        }
+      },
+      "tests": [
+        "apps/api/tests/test_agent_mcp_harness.py:test_closed_loop_create_design_assay_scores_observed_app_state_delta (line 255)",
+        "apps/api/tests/test_agent_mcp_harness.py:test_closed_loop_create_design_score_fails_when_observer_does_not_change (line 332)"
+      ],
+      "knownIssues": [
+        {
+          "kind": "flake",
+          "summary": "Real desktop repeatability across multiple back-to-back runs not yet measured."
+        }
+      ],
+      "nextAction": "Verify the created design through the workspace observer."
+    },
+    {
+      "id": "import_sequence",
+      "type": "primitive",
+      "tool": "import_sequence",
+      "assayName": "closed_loop_import_sequence",
+      "demand": {
+        "level": "high",
+        "rationale": "Bridge from the outside world (local files, NCBI, future Addgene) into app state — every meaningful workflow starts here."
+      },
+      "implementationStatus": "shipped",
+      "coverage": {
+        "fakeRenderer": {
+          "level": "full",
+          "evidence": [
+            "apps/api/src/agent_workflow_harness/contract_smoke.py (RETAINED_RENDERER_TOOLS includes import_sequence)",
+            "packages/core/agent-tools/renderer-tool-manifest.json (import_sequence with source.kind oneOf local_file/url/addgene/ncbi)"
+          ]
+        },
+        "realDesktop": {
+          "level": "full",
+          "evidence": [
+            "apps/api/src/agent_workflow_harness/desktop_workflows.py:check_desktop_closed_loop_import_sequence_flow",
+            "apps/api/src/agent_workflow_harness/closed_loop.py:build_closed_loop_import_sequence_assay",
+            "apps/api/src/agent_workflow_harness/closed_loop.py:score_import_sequence_closed_loop"
+          ]
+        },
+        "observer": {
+          "level": "full",
+          "evidence": [
+            "apps/desktop/src/features/ai/tools/observe-app-state.ts (sequences.items[] with documentId/length/annotationCount; targets.sequence)",
+            "MCP resource: waypoint://sequence/{documentId} read in scorer (resource_read_matches_import check)"
+          ]
+        }
+      },
+      "tests": [
+        "apps/api/tests/test_agent_mcp_harness.py:test_closed_loop_import_sequence_assay_scores_observed_app_state_delta (line 365)",
+        "apps/api/tests/test_agent_mcp_harness.py:test_closed_loop_import_sequence_score_fails_when_observer_does_not_change (line 465)"
+      ],
+      "knownIssues": [
+        {
+          "kind": "gap",
+          "summary": "Only local_file and ncbi adapters are implemented; url and addgene return explicit not-supported errors. Addgene maturity tracked separately, not in this harness."
+        }
+      ],
+      "nextAction": "Import a local file and verify the resulting sequence state."
+    },
+    {
+      "id": "add_design_region",
+      "type": "primitive",
+      "tool": "add_design_region",
+      "assayName": "closed_loop_add_design_region",
+      "demand": {
+        "level": "high",
+        "rationale": "Design composition primitive — required for any multi-region derivative design."
+      },
+      "implementationStatus": "shipped",
+      "coverage": {
+        "fakeRenderer": {
+          "level": "full",
+          "evidence": [
+            "apps/api/src/agent_workflow_harness/contract_smoke.py (RETAINED_RENDERER_TOOLS includes add_design_region)",
+            "packages/core/agent-tools/renderer-tool-manifest.json (add_design_region tool schema)"
+          ]
+        },
+        "realDesktop": {
+          "level": "full",
+          "evidence": [
+            "apps/api/src/agent_workflow_harness/desktop_workflows.py:check_desktop_design_tool_workflow",
+            "apps/api/src/agent_workflow_harness/desktop_workflows.py (score_add_design_region_closed_loop call site)",
+            "apps/api/src/agent_workflow_harness/closed_loop.py:build_closed_loop_add_design_region_assay",
+            "apps/api/src/agent_workflow_harness/closed_loop.py:score_add_design_region_closed_loop"
+          ]
+        },
+        "observer": {
+          "level": "full",
+          "evidence": [
+            "apps/desktop/src/features/ai/tools/observe-app-state.ts (designs.items[].regionCount + version)",
+            "Scorer asserts observer_region_count_incremented and observer_matches_tool_region_count"
+          ]
+        }
+      },
+      "tests": [
+        "apps/api/tests/test_agent_mcp_harness.py:test_closed_loop_add_design_region_assay_scores_observed_app_state_delta (line 517)",
+        "apps/api/tests/test_agent_mcp_harness.py:test_closed_loop_add_design_region_score_fails_when_observer_does_not_change (line 595)"
+      ],
+      "knownIssues": [],
+      "nextAction": "Verify ordered region changes through the design observer."
+    },
+    {
+      "id": "draft_design_assembly",
+      "type": "primitive",
+      "tool": "draft_design_assembly",
+      "assayName": "closed_loop_draft_design_assembly",
+      "demand": {
+        "level": "high",
+        "rationale": "Compute step that converts a region list into primer pairs and homology regions — the 'design is real' moment."
+      },
+      "implementationStatus": "shipped",
+      "coverage": {
+        "fakeRenderer": {
+          "level": "full",
+          "evidence": [
+            "apps/api/src/agent_workflow_harness/contract_smoke.py (RETAINED_RENDERER_TOOLS includes draft_design_assembly)",
+            "packages/core/agent-tools/renderer-tool-manifest.json (draft_design_assembly tool schema)"
+          ]
+        },
+        "realDesktop": {
+          "level": "full",
+          "evidence": [
+            "apps/api/src/agent_workflow_harness/desktop_workflows.py:check_desktop_design_tool_workflow",
+            "apps/api/src/agent_workflow_harness/desktop_workflows.py (score_draft_design_assembly_closed_loop call site)",
+            "apps/api/src/agent_workflow_harness/closed_loop.py:build_closed_loop_draft_design_assembly_assay",
+            "apps/api/src/agent_workflow_harness/closed_loop.py:score_draft_design_assembly_closed_loop"
+          ]
+        },
+        "observer": {
+          "level": "full",
+          "evidence": [
+            "apps/desktop/src/features/ai/tools/observe-app-state.ts (designs.items[] with assemblyState/primerPairCount/homologyRegionCount/validationErrorCount)",
+            "Scorer asserts observer_matches_ready_assembly + 4 count comparisons"
+          ]
+        }
+      },
+      "tests": [
+        "apps/api/tests/test_agent_mcp_harness.py:test_closed_loop_draft_design_assembly_assay_scores_observed_app_state_delta (line 637)",
+        "apps/api/tests/test_agent_mcp_harness.py:test_closed_loop_draft_design_assembly_score_fails_when_observer_does_not_change (line 722)"
+      ],
+      "knownIssues": [
+        {
+          "kind": "gap",
+          "summary": "Sensitive to design setup (need >=2 regions); behavior on 0/1-region designs is implicitly tested via failure path but not explicitly classified."
+        }
+      ],
+      "nextAction": "Exercise draft validation with fewer than two regions and inspect the returned error."
+    },
+    {
+      "id": "open_tab",
+      "type": "primitive",
+      "tool": "open_tab",
+      "assayName": "closed_loop_open_tab",
+      "demand": {
+        "level": "high",
+        "rationale": "UI navigation primitive — every visible-tab workflow depends on it; users notice if open_tab silently no-ops."
+      },
+      "implementationStatus": "shipped",
+      "coverage": {
+        "fakeRenderer": {
+          "level": "full",
+          "evidence": [
+            "apps/api/src/agent_workflow_harness/contract_smoke.py (RETAINED_RENDERER_TOOLS includes open_tab)",
+            "packages/core/agent-tools/renderer-tool-manifest.json (open_tab tool schema)"
+          ]
+        },
+        "realDesktop": {
+          "level": "full",
+          "evidence": [
+            "apps/api/src/agent_workflow_harness/desktop_workflows.py:check_desktop_closed_loop_open_tab_flow",
+            "apps/api/src/agent_workflow_harness/closed_loop.py:build_closed_loop_open_tab_assay",
+            "apps/api/src/agent_workflow_harness/closed_loop.py:score_open_tab_closed_loop",
+            "apps/api/src/agent_workflow_harness/desktop_workflows.py (older ui_effect_smoke open_tab call still present as DOM + get_workspace second channel)"
+          ]
+        },
+        "observer": {
+          "level": "full",
+          "evidence": [
+            "apps/desktop/src/features/ai/tools/observe-app-state.ts (panels[].tabs[] + flat tabs[] with id/type/entityId/label/active; targets.label match)",
+            "apps/api/src/agent_workflow_harness/closed_loop.py:score_open_tab_closed_loop checks observer_reports_matching_tab + observer_tab_type_matches_request + observer_tab_entity_canonicalized_correctly + observer_tab_is_active"
+          ]
+        }
+      },
+      "tests": [
+        "apps/api/tests/test_agent_mcp_harness.py:test_closed_loop_open_tab_assay_scores_observed_app_state_delta",
+        "apps/api/tests/test_agent_mcp_harness.py:test_closed_loop_open_tab_score_fails_when_observer_does_not_change",
+        "apps/api/tests/test_agent_mcp_harness.py:test_ui_effect_smoke_assay_summarizes_app_state_observation (line 225) (older bundled assay)"
+      ],
+      "knownIssues": [
+        {
+          "kind": "gap",
+          "summary": "Workspace cleanliness is asserted at the label level (`target_label_absent_before`) but not at the workspace level. If a prior flow's close_tab silently fails, before_tab_count is non-zero, and `after == before + 1` still passes correctly — but the workspace state going into the flow is contaminated. Tightening to `before_tab_count == 0` would fail noisily on stale state but also on legitimate sibling-flow ordering. Real fix is harness-level workspace reset between flows, not a per-flow precondition."
+        }
+      ],
+      "nextAction": "Verify the opened tab and its active state through the workspace observer."
+    },
+    {
+      "id": "external_fetch",
+      "type": "primitive",
+      "tool": "external.fetch",
+      "assayName": "external_fetch_smoke",
+      "demand": {
+        "level": "high",
+        "rationale": "Agent-callable entry point for every external biology DB lookup (UniProt v1; NCBI/Ensembl/AFDB follow same path). Without coverage here, every downstream agent workflow that pulls metadata is unobserved."
+      },
+      "implementationStatus": "shipped",
+      "coverage": {
+        "fakeRenderer": {
+          "level": "partial",
+          "evidence": [
+            "packages/core/agent-tools/renderer-tool-manifest.json (external.fetch tool schema)",
+            "apps/api/src/agent_workflow_harness/contract_smoke.py:RETAINED_RENDERER_TOOLS includes external.fetch",
+            "apps/desktop/src/features/agent-bridge/renderer-tools.ts (handler wired to ALLOWED_RENDERER_TOOLS)"
+          ],
+          "gap": "The lightweight renderer fixture does not implement this operation; use the sidecar observer."
+        },
+        "realDesktop": {
+          "level": "none",
+          "evidence": [
+            "Sidecar half: apps/api/src/agent_workflow_harness/external_resources_assays.py:external_fetch_smoke",
+            "apps/api/scripts/live_probe_uniprot.py (optional live provider probe)"
+          ],
+          "gap": "Renderer-side closed-loop observation is not established by this manifest."
+        },
+        "observer": {
+          "level": "partial",
+          "evidence": [
+            "Sidecar DB direct query: external_resource + external_fetch_log + external_resource_xref tables",
+            "apps/api/src/external/log.py (queryable observer for fetch_log: provider/workspace/metrics/percentiles)"
+          ],
+          "gap": "Renderer-side closed-loop observation is not established by this manifest."
+        }
+      },
+      "tests": [
+        "apps/api/tests/test_external_resources_service.py (test_agent_artifact_written_when_action_id_and_bytes_present, +3 invariant variants)",
+        "apps/api/tests/test_external_routes.py (test_post_fetch_forwards_action_id_header_to_service, test_post_fetch_without_action_id_header_still_succeeds)",
+        "apps/api/tests/test_external_resources_assays.py (external_fetch_smoke pass + fail variants)",
+        "apps/desktop/src/features/ai/tools/external-fetch.test.ts (zod schema + fetch dispatch + header propagation)"
+      ],
+      "knownIssues": [
+        {
+          "kind": "gap",
+          "summary": "fake_renderer.py only routes get_workspace; external.fetch + external.xref hit a 404 there. Worked around by running assays against the sidecar directly via --include-external-assays. Long-term: extend fake_renderer to forward external.* to a sidecar URL the way the real renderer does."
+        },
+        {
+          "kind": "gap",
+          "summary": "Renderer-side closed-loop observation is not established by this manifest; sidecar tests cover their own boundary."
+        }
+      ],
+      "nextAction": "Require renderer-state observation before claiming desktop closed-loop coverage."
+    },
+    {
+      "id": "external_xref",
+      "type": "primitive",
+      "tool": "external.xref",
+      "assayName": "external_xref_smoke",
+      "demand": {
+        "level": "medium",
+        "rationale": "Cheap-once-cached follow-up call — agents use it to navigate the cross-reference graph after an external.fetch (UniProt -> PDB / AFDB / RefSeq). Without observable read-only semantics, an agent could accidentally trigger re-fetches by calling it in a loop."
+      },
+      "implementationStatus": "shipped",
+      "coverage": {
+        "fakeRenderer": {
+          "level": "partial",
+          "evidence": [
+            "packages/core/agent-tools/renderer-tool-manifest.json (external.xref tool schema)",
+            "apps/api/src/agent_workflow_harness/contract_smoke.py:RETAINED_RENDERER_TOOLS includes external.xref"
+          ],
+          "gap": "The lightweight renderer fixture does not implement this operation; use the sidecar observer."
+        },
+        "realDesktop": {
+          "level": "none",
+          "evidence": [
+            "Sidecar half: apps/api/src/agent_workflow_harness/external_resources_assays.py:external_xref_smoke (no_new_fetch_log_rows assertion proves read-only semantics)"
+          ],
+          "gap": "Renderer-side closed-loop observation is not established by this manifest."
+        },
+        "observer": {
+          "level": "partial",
+          "evidence": [
+            "Sidecar DB direct query: external_resource_xref joined through to_resource_id for target_provider filter",
+            "apps/api/src/external/service.py:list_xrefs (public surface) + apps/api/src/routes/external.py:GET /external/xrefs"
+          ],
+          "gap": "Renderer-side closed-loop observation is not established by this manifest."
+        }
+      },
+      "tests": [
+        "apps/api/tests/test_external_resources_service.py (list_xrefs returns_empty_when_resource_not_cached, returns_persisted_xrefs, filters_by_target_provider)",
+        "apps/api/tests/test_external_routes.py (get_xrefs_returns_found_false_when_not_cached, returns_persisted_xrefs, filters_by_target_provider)",
+        "apps/api/tests/test_external_resources_assays.py (external_xref_smoke pass + fail-when-not-found variants)",
+        "apps/desktop/src/features/ai/tools/external-xref.test.ts"
+      ],
+      "knownIssues": [],
+      "nextAction": "Verify cross-reference state through the sidecar observer; require renderer observation for desktop coverage."
+    }
+  ]
+}

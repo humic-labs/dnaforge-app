@@ -1,0 +1,143 @@
+# DNAForge
+
+DNAForge is a desktop application for molecular biology: a sequence editor and
+genome browser with cloning and primer design, read alignment, a protein
+structure viewer and a lab notebook. Projects are folders on your own disk. It
+is an Electron app (`apps/desktop`) with a Python sidecar (`apps/api`) and Rust
+helper programs (`tools/`).
+
+## Requirements
+
+- A Git clone of this repository. The build reads the commit it is built from
+  with `git rev-parse HEAD`, so a ZIP download of the source does not build. On
+  macOS and Linux the build runs `/usr/bin/git`.
+- Node.js at the version in `.nvmrc`, with pnpm at the version in the root
+  `package.json` (`corepack enable` selects it).
+- Python at the version in `.python-version`, and [uv](https://docs.astral.sh/uv/).
+- A Rust toolchain with `cargo`. On Linux, the desktop helpers build for musl:
+  `rustup target add x86_64-unknown-linux-musl` and your distribution's
+  `musl-tools` package.
+
+## Build and test from source
+
+These commands are checked on Linux in a fresh clone of this repository. macOS
+and Windows use the same commands; packaging an installer is not documented yet.
+
+```bash
+corepack enable
+pnpm install --frozen-lockfile
+
+pnpm --dir apps/desktop build
+NODE_OPTIONS=--max-old-space-size=4096 pnpm --dir apps/desktop typecheck
+pnpm --dir apps/desktop helpers:build
+pnpm --dir apps/desktop test
+pnpm -r --filter "./packages/**" run --if-present test
+
+cargo build --release --bin dna-indexer --bin dna-coverage
+
+cd apps/api
+uv sync --frozen --extra dev
+uv run --frozen pytest -q
+```
+
+## Run from source
+
+Most people run DNAForge from source with the development server. From a fresh
+clone, with the prerequisites above installed:
+
+```bash
+corepack enable
+pnpm install --frozen-lockfile
+(cd apps/api && uv sync --frozen --extra dev)
+pnpm --dir apps/desktop helpers:build
+cp apps/desktop/.env.local.example apps/desktop/.env.local
+pnpm --dir apps/desktop dev
+```
+
+The app starts its Python sidecar from `apps/api/.venv`, and it refuses to start
+without the Rust helpers that `helpers:build` produces. The first start compiles
+the app before the window appears, so it takes longer than later starts.
+
+Without `apps/desktop/.env.local` the launcher stops with "DESKTOP_DEV_PORT is
+required". It does not choose a port by itself because, in its own words, a
+default "can launch against the installed app profile". The example file sets
+ports 1420, 1500 and 8000, which the launcher accepts; edit the file if one of
+them is in use. With a port set, a development run keeps its settings and data
+in its own profile folder, named with the suffix `-dev-<port>`, apart from an
+installed DNAForge.
+
+To check a clone end to end without watching it, run:
+
+```bash
+pnpm --dir apps/desktop run check:run-from-source
+```
+
+It starts the app the same way, waits until the window has loaded and the
+sidecar answers its health check, then stops everything it started. This
+repository's CI runs the same command on macOS.
+
+## What a build from source leaves out
+
+This repository builds the community distribution
+(`apps/desktop/distribution.json`). Compared with the official installers:
+
+- Sign-in and cloud sync are off in a production build
+  (`pnpm --dir apps/desktop build`). A development run does not apply that
+  switch.
+- The app does not update itself. Build the new version from source.
+- In-app feedback and diagnostics uploads are off.
+- The list of reference genomes that DNAForge prepares and hosts is empty.
+- Automatic annotation is not set up. The app starts the sidecar in offline
+  annotation mode, so the sidecar does not download the annotation databases or
+  the BLAST+, DIAMOND, Infernal and MAFFT programs, and annotating a plasmid
+  does nothing. The sidecar uses them when they are already in its data folder:
+  `annotation/` and `tools/` under `~/Library/Application Support/Waypoint` on
+  macOS, `%LOCALAPPDATA%\Waypoint` on Windows and `~/.local/share/waypoint` on
+  Linux. `apps/api/src/annotation/setup.py` and
+  `apps/api/src/annotation/tools.py` list the files it expects. This repository
+  has no command that installs them.
+
+## What the app sends
+
+- A build from source contains no analytics or crash-reporting keys, so it
+  sends neither. The official build environment supplies them
+  (`POSTHOG_API_KEY` and `SENTRY_DSN`).
+- Official builds send usage analytics and crash reports according to the
+  consent notice the app shows. In the EU, the EEA, the UK and Switzerland, and
+  where the app cannot tell the region, they stay off until you agree.
+  Elsewhere they are on until you turn them off.
+- The official Windows installer reports install progress to DNAForge: the
+  step reached, the app version, a random ID for that install attempt and,
+  when the installer carries one, a download ID
+  (`apps/desktop/resources/installer.nsh`). An installer packaged from this
+  repository does the same unless that script is changed.
+
+## Repository layout
+
+| Path            | Contents                                                           |
+| --------------- | ------------------------------------------------------------------ |
+| `apps/desktop`  | The Electron app: main process, preload and renderer               |
+| `apps/api`      | The Python sidecar: alignment, annotation and other analysis       |
+| `packages/`     | Libraries the app uses: TypeScript, plus Python annotation         |
+| `tools/`        | Rust helpers (indexing, coverage, assembly, rasters); a lint rule  |
+| `test-fixtures` | Test data: public reference records, synthetic files, a few others |
+
+`test-fixtures/PROVENANCE.md` records the source and license of each fixture,
+and of the sample sequences bundled with the app under
+`apps/desktop/resources/sample-workspaces`. Most fixtures are public-domain
+reference records, CC0 data or synthetic files. A few are third-party files
+under MIT, BSD or CC BY 4.0 terms, and some are published sequences recorded as
+facts with their source named and no license asserted. Most of the bundled
+sample sequences are OpenMTA parts collections or sequences recorded as facts.
+
+## Contributing and security
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Everyone taking part follows the
+[Code of Conduct](CODE_OF_CONDUCT.md). Report vulnerabilities privately as
+described in [SECURITY.md](SECURITY.md), not in public issues.
+
+## License
+
+DNAForge is licensed under the
+[GNU General Public License, version 3 only](LICENSE). See [NOTICE](NOTICE)
+for copyright and third-party licenses.

@@ -1,0 +1,20 @@
+{
+  "_comment": " NCBI nuccore efetch replay fixture. Synthetic, deterministic GenBank record (taxon:32630 'synthetic construct' is the real NCBI taxon id for artificial sequences). Matches the request NcbiNuccoreProvider sends for accession NC_000000.1; used by e2e/electron/sequence-import-ncbi.e2e.ts. Not a real NCBI record.",
+  "method": "GET",
+  "host": "eutils.ncbi.nlm.nih.gov",
+  "path": "/entrez/eutils/efetch.fcgi",
+  "query": {
+    "db": "nuccore",
+    "id": "NC_000000.1",
+    "rettype": "gbwithparts",
+    "retmode": "text",
+    "tool": "waypoint-dnaforge"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/plain"
+    },
+    "body": "LOCUS       NC_000000                 60 bp    DNA     linear   SYN 24-JUN-2026\nDEFINITION  DNAForge synthetic NCBI nuccore replay fixture.\nACCESSION   NC_000000\nVERSION     NC_000000.1\nKEYWORDS    .\nSOURCE      synthetic construct\n  ORGANISM  synthetic construct\n            other sequences; artificial sequences.\nFEATURES             Location/Qualifiers\n     source          1..60\n                     /organism=\"synthetic construct\"\n                     /mol_type=\"other DNA\"\n                     /db_xref=\"taxon:32630\"\n     gene            1..60\n                     /gene=\"dnaforgeReplica\"\nORIGIN\n        1 atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc atgcatgcat gcatgcatgc\n//\n"
+  }
+}

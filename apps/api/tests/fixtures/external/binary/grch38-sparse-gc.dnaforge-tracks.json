@@ -1,0 +1,7 @@
+{
+  "contract": "dnaforge.track-manifest.v1",
+  "assemblyId": "grch38",
+  "artifacts": [
+    { "path": "grch38-sparse-gc.bw" }
+  ]
+}

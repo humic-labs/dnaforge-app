@@ -1,0 +1,288 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "corpus-18-synthesis",
+  "title": "Synthesis, open problems, and the next design cycle",
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "storage": {
+    "type": "database",
+    "table": "pages",
+    "id": "corpus-18-synthesis"
+  },
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Synthesis, open problems, and the next design cycle"
+          }
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Directive \u2014 State what was established, what failed, and what the next cycle must change."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Established"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "A three-input AND gate meeting all three charter criteria: 26-fold ON/OFF, 65 percent retention into stationary phase, 17 percent growth cost. See entries 12 and 16."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Promoter ladders do not transfer between backbones (entry 03), and monocistronic RBS ladders do not transfer between CDSs (entry 14). Both were assumptions at the charter stage and both were wrong."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Failed"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Metabolite input coupling, at 11-fold (entry 15). The cause is input depletion, not circuit design."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Selection-free stability (entry 17), which selects for degraded gates rather than simply losing them."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Carried as open"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Non-metabolisable arabinose analogue, or a catabolism-deficient host, for the entry-15 input."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Chromosomal integration, required before any selection-free deployment."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-4d0b00cd",
+              "label": "C0062 (LuxR)",
+              "entityType": "sequence",
+              "entityId": "sample-4d0b00cd",
+              "path": "sequences/kits/moclo-cidar/C0062_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " to "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-84f9f52b",
+              "label": "R0040 (pTet)",
+              "entityType": "sequence",
+              "entityId": "sample-84f9f52b",
+              "path": "sequences/kits/moclo-cidar/R0040_AB",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " crosstalk from entry 13 remains unfixed and is now the largest single leak in the gate."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "What the next cycle changes first"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The input, not the gate. Two of the three failures above are input problems, and the gate itself met every criterion it was given."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Related entries"
+          }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-01-programme-charter",
+                      "label": "01 \u2014 Programme charter",
+                      "entityType": "page",
+                      "entityId": "corpus-01-programme-charter"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-12-three-input-gate",
+                      "label": "12 \u2014 Three-input AND gate",
+                      "entityType": "page",
+                      "entityId": "corpus-12-three-input-gate"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-15-biosensor-coupling",
+                      "label": "15 \u2014 Coupling a metabolite input to the gate",
+                      "entityType": "page",
+                      "entityId": "corpus-15-biosensor-coupling"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-17-long-term-stability",
+                      "label": "17 \u2014 Plasmid retention and functional stability over 100 generations",
+                      "entityType": "page",
+                      "entityId": "corpus-17-long-term-stability"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

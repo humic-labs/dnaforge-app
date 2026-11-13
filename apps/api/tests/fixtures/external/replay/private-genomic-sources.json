@@ -1,0 +1,192 @@
+{
+  "entries": [
+    {
+      "_comment": "Bearer-protected copy of the deterministic chromosome-IV CRAM. The token below is an inert acceptance-test canary, not a real secret.",
+      "method": "GET",
+      "host": "private-reads.example.org",
+      "path": "/s288c/reads.cram",
+      "require_headers": {
+        "Authorization": "Bearer INERT_E2E_PRIVATE_READS_TOKEN"
+      },
+      "response": {
+        "body_file": "../binary/yeast-chriv-reads.cram",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"private-yeast-chriv-cram-v1\"",
+          "Last-Modified": "Mon, 21 Sep 2026 00:00:00 GMT"
+        }
+      }
+    },
+    {
+      "_comment": "Bearer-protected CRAI companion for the private CRAM.",
+      "method": "GET",
+      "host": "private-reads.example.org",
+      "path": "/s288c/reads.cram.crai",
+      "require_headers": {
+        "Authorization": "Bearer INERT_E2E_PRIVATE_READS_TOKEN"
+      },
+      "response": {
+        "body_file": "../binary/yeast-chriv-reads.cram.crai",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"private-yeast-chriv-crai-v1\"",
+          "Last-Modified": "Mon, 21 Sep 2026 00:00:00 GMT"
+        }
+      }
+    },
+    {
+      "_comment": "Requester-pays S3 object: only a SigV4 request carrying the session token and the requester-pays header is served.",
+      "method": "GET",
+      "host": "s3.us-west-2.amazonaws.com",
+      "path": "/research-data/s288c/reads.cram",
+      "require_headers": {
+        "x-amz-request-payer": "requester",
+        "x-amz-security-token": "session-INERT_E2E_AWS_SECRET",
+        "x-amz-content-sha256": "UNSIGNED-PAYLOAD"
+      },
+      "require_header_patterns": {
+        "Authorization": "AWS4-HMAC-SHA256 Credential=TESTACCESSKEY1234/[0-9]{8}/us-west-2/s3/aws4_request, SignedHeaders=host;(range;)?x-amz-content-sha256;x-amz-date;x-amz-request-payer;x-amz-security-token, Signature=[0-9a-f]{64}"
+      },
+      "unauthorized_status": 403,
+      "response": {
+        "body_file": "../binary/yeast-chriv-reads.cram",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"s3-yeast-chriv-cram-v1\"",
+          "Last-Modified": "Mon, 21 Sep 2026 00:00:00 GMT"
+        }
+      }
+    },
+    {
+      "_comment": "Requester-pays S3 CRAI companion.",
+      "method": "GET",
+      "host": "s3.us-west-2.amazonaws.com",
+      "path": "/research-data/s288c/reads.cram.crai",
+      "require_headers": {
+        "x-amz-request-payer": "requester",
+        "x-amz-security-token": "session-INERT_E2E_AWS_SECRET",
+        "x-amz-content-sha256": "UNSIGNED-PAYLOAD"
+      },
+      "require_header_patterns": {
+        "Authorization": "AWS4-HMAC-SHA256 Credential=TESTACCESSKEY1234/[0-9]{8}/us-west-2/s3/aws4_request, SignedHeaders=host;(range;)?x-amz-content-sha256;x-amz-date;x-amz-request-payer;x-amz-security-token, Signature=[0-9a-f]{64}"
+      },
+      "unauthorized_status": 403,
+      "response": {
+        "body_file": "../binary/yeast-chriv-reads.cram.crai",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"s3-yeast-chriv-crai-v1\"",
+          "Last-Modified": "Mon, 21 Sep 2026 00:00:00 GMT"
+        }
+      }
+    },
+    {
+      "_comment": "Billed Google Cloud Storage VCF: served only with the OAuth bearer token and the billing project header.",
+      "method": "GET",
+      "host": "storage.googleapis.com",
+      "path": "/research-data/s288c/calls.vcf.gz",
+      "require_headers": {
+        "Authorization": "Bearer INERT_E2E_GCS_TOKEN",
+        "x-goog-user-project": "genomics-billing"
+      },
+      "response": {
+        "body_file": "../binary/yeast-chriv-variants.vcf.gz",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/gzip",
+          "ETag": "\"gcs-yeast-chriv-vcf-v1\"",
+          "Last-Modified": "Mon, 21 Sep 2026 00:00:00 GMT"
+        }
+      }
+    },
+    {
+      "_comment": "Billed Google Cloud Storage tabix companion.",
+      "method": "GET",
+      "host": "storage.googleapis.com",
+      "path": "/research-data/s288c/calls.vcf.gz.tbi",
+      "require_headers": {
+        "Authorization": "Bearer INERT_E2E_GCS_TOKEN",
+        "x-goog-user-project": "genomics-billing"
+      },
+      "response": {
+        "body_file": "../binary/yeast-chriv-variants.vcf.gz.tbi",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"gcs-yeast-chriv-tbi-v1\"",
+          "Last-Modified": "Mon, 21 Sep 2026 00:00:00 GMT"
+        }
+      }
+    },
+    {
+      "_comment": "Private htsget header-only ticket for the deterministic chromosome-IV VCF; the endpoint demands the saved bearer credential while the ticket blocks stay ticket-authorized.",
+      "method": "GET",
+      "host": "private-htsget.example.org",
+      "path": "/variants/s288c-calls",
+      "query": {
+        "format": "VCF",
+        "class": "header"
+      },
+      "require_headers": {
+        "Authorization": "Bearer INERT_E2E_PRIVATE_READS_TOKEN"
+      },
+      "response": {
+        "headers": {
+          "Content-Type": "application/vnd.ga4gh.htsget.v1.3.0+json"
+        },
+        "json": {
+          "htsget": {
+            "format": "VCF",
+            "urls": [
+              {
+                "url": "https://htsget-blocks.example.org/s288c/calls.vcf.gz?signature=ticket-only-variant-secret",
+                "headers": {
+                  "Authorization": "Bearer ticket-only-variant-header"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "_comment": "Private htsget regional ticket for the deterministic chromosome-IV VCF.",
+      "method": "GET",
+      "host": "private-htsget.example.org",
+      "path": "/variants/s288c-calls",
+      "query": {
+        "format": "VCF",
+        "referenceName": "chrIV"
+      },
+      "query_regex": {
+        "start": "\\d+",
+        "end": "\\d+"
+      },
+      "require_headers": {
+        "Authorization": "Bearer INERT_E2E_PRIVATE_READS_TOKEN"
+      },
+      "response": {
+        "headers": {
+          "Content-Type": "application/vnd.ga4gh.htsget.v1.3.0+json"
+        },
+        "json": {
+          "htsget": {
+            "format": "VCF",
+            "urls": [
+              {
+                "url": "https://htsget-blocks.example.org/s288c/calls.vcf.gz?signature=ticket-only-variant-secret",
+                "headers": {
+                  "Authorization": "Bearer ticket-only-variant-header"
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

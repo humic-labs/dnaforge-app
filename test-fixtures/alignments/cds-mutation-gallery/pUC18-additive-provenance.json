@@ -1,0 +1,28 @@
+{
+  "synthetic": true,
+  "source": "test-fixtures/alignments/puc18-puc19/pUC18-origin-matched.fasta",
+  "sourceSequenceSha256": "504643ff14ef9dfdc8208299835c973bba37684372fa17179f43f2f236283e74",
+  "sequenceSha256": "ffd171d1a00aa542b9340853e166f48e7289283a72484081cd587dde653dcce5",
+  "bases": 2686,
+  "sourceCodon": "AGC",
+  "mutantCodon": "TAG",
+  "residue": 8,
+  "addedEdits": [
+    {
+      "position": 636,
+      "before": "A",
+      "after": "T"
+    },
+    {
+      "position": 637,
+      "before": "G",
+      "after": "A"
+    },
+    {
+      "position": 638,
+      "before": "C",
+      "after": "G"
+    }
+  ],
+  "preserved": "All natural pUC18 differences from the pUC19 reference; only the listed additional query bases change."
+}

@@ -1,0 +1,29 @@
+LOCUS       comparison_ctrl          495 bp    DNA     linear   UNK 26-APR-2026
+DEFINITION  Synthetic DNA control for reference / allele structure comparison;
+            not experimental sequencing data.
+ACCESSION   comparison_control
+VERSION     comparison_control
+KEYWORDS    .
+SOURCE      .
+  ORGANISM  .
+            .
+FEATURES             Location/Qualifiers
+     CDS             1..495
+                     /label="T4 lysozyme comparison control"
+                     /translation="MNIFEMLRIDEGLRLKIYKDTEGYYTIGIGHLLTKSPSLNAAKSE
+                     LDKAIGRNTNGVITKDEAEKLFNQDVDAAVRGILRNAKLKPVYDSLDAVRRAALINMVF
+                     QMGETGVAGFTNSLRMLQQKRWDEAAVNLAKSRWYNQTPNRAKRVITTFRTGTWDAYKN
+                     L"
+                     /note="Synthetic codons encoding the deposited 1L63
+                     protein; DNA 295 CT>GC encodes 1L90 Leu99Ala"
+ORIGIN
+        1 atgaacatct tcgagatgct gcgcatcgac gagggcctgc gcctgaagat ctacaaggac
+       61 accgagggct actacaccat cggcatcggc cacctgctga ccaagagccc gagcctgaac
+      121 gcggcgaaga gcgagctgga caaggcgatc ggccgcaaca ccaacggcgt gatcaccaag
+      181 gacgaggcgg agaagctgtt caaccaggac gtggacgcgg cggtgcgcgg catcctgcgc
+      241 aacgcgaagc tgaagccggt gtacgacagc ctggacgcgg tgcgccgcgc ggcgctgatc
+      301 aacatggtgt tccagatggg cgagaccggc gtggcgggct tcaccaacag cctgcgcatg
+      361 ctgcagcaga agcgctggga cgaggcggcg gtgaacctgg cgaagagccg ctggtacaac
+      421 cagaccccga accgcgcgaa gcgcgtgatc accaccttcc gcaccggcac ctgggacgcg
+      481 tacaagaacc tgtaa
+//

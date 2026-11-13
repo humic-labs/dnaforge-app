@@ -1,0 +1,516 @@
+{
+  "schema": "dnaforge.moclo-kit",
+  "formatVersion": 2,
+  "id": "moclo-cidar",
+  "name": "CIDAR MoClo",
+  "revision": 2,
+  "description": "CIDAR MoClo plasmid collection bundled with the workspace. Membership is explicit; biological type and physical overhangs remain sequence-derived.",
+  "citations": [
+    {
+      "label": "Iverson et al., CIDAR MoClo: Improved MoClo Assembly Standard and New E. coli Part Library Enable Rapid Combinatorial Design for Synthetic and Traditional Biology",
+      "doi": "10.1021/acssynbio.5b00124",
+      "pmid": "26479688",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/26479688/"
+    }
+  ],
+  "partTypes": [],
+  "members": [
+    {
+      "id": "sample-5427ea3f",
+      "name": "B0015_DE",
+      "sequencePackageId": "sample-5427ea3f"
+    },
+    {
+      "id": "sample-c7505d5d",
+      "name": "B0015_DF",
+      "sequencePackageId": "sample-c7505d5d"
+    },
+    {
+      "id": "sample-e80456db",
+      "name": "B0015_DG",
+      "sequencePackageId": "sample-e80456db"
+    },
+    {
+      "id": "sample-4950fd2d",
+      "name": "B0015_DH",
+      "sequencePackageId": "sample-4950fd2d"
+    },
+    {
+      "id": "sample-07149c5d",
+      "name": "B0032m_BC",
+      "sequencePackageId": "sample-07149c5d"
+    },
+    {
+      "id": "sample-a21404dd",
+      "name": "B0033m_BC",
+      "sequencePackageId": "sample-a21404dd"
+    },
+    {
+      "id": "sample-7981ffa1",
+      "name": "B0034m_BC",
+      "sequencePackageId": "sample-7981ffa1"
+    },
+    {
+      "id": "sample-bfb0490f",
+      "name": "BCD12_BC",
+      "sequencePackageId": "sample-bfb0490f"
+    },
+    {
+      "id": "sample-2d29c535",
+      "name": "BCD2_BC",
+      "sequencePackageId": "sample-2d29c535"
+    },
+    {
+      "id": "sample-dba8e1dd",
+      "name": "BCD8_BC",
+      "sequencePackageId": "sample-dba8e1dd"
+    },
+    {
+      "id": "sample-ff80508d",
+      "name": "C0012m_CD",
+      "sequencePackageId": "sample-ff80508d"
+    },
+    {
+      "id": "sample-a8dc997d",
+      "name": "C0040_CD",
+      "sequencePackageId": "sample-a8dc997d"
+    },
+    {
+      "id": "sample-4d0b00cd",
+      "name": "C0062_CD",
+      "sequencePackageId": "sample-4d0b00cd"
+    },
+    {
+      "id": "sample-77b7ffc5",
+      "name": "C0080_CD",
+      "sequencePackageId": "sample-77b7ffc5"
+    },
+    {
+      "id": "sample-2706832b",
+      "name": "cre_CD",
+      "sequencePackageId": "sample-2706832b"
+    },
+    {
+      "id": "sample-0e75c83d",
+      "name": "DVA_AB",
+      "sequencePackageId": "sample-0e75c83d"
+    },
+    {
+      "id": "sample-84ad4efb",
+      "name": "DVA_AE",
+      "sequencePackageId": "sample-84ad4efb"
+    },
+    {
+      "id": "sample-11f7a55d",
+      "name": "DVA_AF",
+      "sequencePackageId": "sample-11f7a55d"
+    },
+    {
+      "id": "sample-a09a6bdb",
+      "name": "DVA_AG",
+      "sequencePackageId": "sample-a09a6bdb"
+    },
+    {
+      "id": "sample-bd8e3d79",
+      "name": "DVA_AH",
+      "sequencePackageId": "sample-bd8e3d79"
+    },
+    {
+      "id": "sample-b236bb9d",
+      "name": "DVA_BC",
+      "sequencePackageId": "sample-b236bb9d"
+    },
+    {
+      "id": "sample-f7346265",
+      "name": "DVA_CD",
+      "sequencePackageId": "sample-f7346265"
+    },
+    {
+      "id": "sample-9764dc6d",
+      "name": "DVA_DE",
+      "sequencePackageId": "sample-9764dc6d"
+    },
+    {
+      "id": "sample-3a627817",
+      "name": "DVA_DF",
+      "sequencePackageId": "sample-3a627817"
+    },
+    {
+      "id": "sample-ba861f6d",
+      "name": "DVA_DG",
+      "sequencePackageId": "sample-ba861f6d"
+    },
+    {
+      "id": "sample-cb73845b",
+      "name": "DVA_DH",
+      "sequencePackageId": "sample-cb73845b"
+    },
+    {
+      "id": "sample-0de00c3d",
+      "name": "DVA_EB",
+      "sequencePackageId": "sample-0de00c3d"
+    },
+    {
+      "id": "sample-b8c91f6d",
+      "name": "DVA_EF",
+      "sequencePackageId": "sample-b8c91f6d"
+    },
+    {
+      "id": "sample-c8adc6d3",
+      "name": "DVA_EG",
+      "sequencePackageId": "sample-c8adc6d3"
+    },
+    {
+      "id": "sample-792e6569",
+      "name": "DVA_EH",
+      "sequencePackageId": "sample-792e6569"
+    },
+    {
+      "id": "sample-17388d77",
+      "name": "DVA_FB",
+      "sequencePackageId": "sample-17388d77"
+    },
+    {
+      "id": "sample-b6a64049",
+      "name": "DVA_GB",
+      "sequencePackageId": "sample-b6a64049"
+    },
+    {
+      "id": "sample-567fd5b7",
+      "name": "DVK_AE",
+      "sequencePackageId": "sample-567fd5b7"
+    },
+    {
+      "id": "sample-c9a37401",
+      "name": "DVK_AF",
+      "sequencePackageId": "sample-c9a37401"
+    },
+    {
+      "id": "sample-825ea421",
+      "name": "DVK_EF",
+      "sequencePackageId": "sample-825ea421"
+    },
+    {
+      "id": "sample-5d7adb95",
+      "name": "DVK_FG",
+      "sequencePackageId": "sample-5d7adb95"
+    },
+    {
+      "id": "sample-2bd25d49",
+      "name": "DVK_GH",
+      "sequencePackageId": "sample-2bd25d49"
+    },
+    {
+      "id": "sample-8bae3bf7",
+      "name": "E0030_CD",
+      "sequencePackageId": "sample-8bae3bf7"
+    },
+    {
+      "id": "sample-4ef35c11",
+      "name": "E0040m_CD",
+      "sequencePackageId": "sample-4ef35c11"
+    },
+    {
+      "id": "sample-694681f1",
+      "name": "E1010m_CD",
+      "sequencePackageId": "sample-694681f1"
+    },
+    {
+      "id": "sample-359938dd",
+      "name": "eBFP2_CD",
+      "sequencePackageId": "sample-359938dd"
+    },
+    {
+      "id": "sample-f5152a45",
+      "name": "I13453_AB",
+      "sequencePackageId": "sample-f5152a45"
+    },
+    {
+      "id": "sample-ead0d40d",
+      "name": "I13453_EB",
+      "sequencePackageId": "sample-ead0d40d"
+    },
+    {
+      "id": "sample-154792b9",
+      "name": "I13453_FB",
+      "sequencePackageId": "sample-154792b9"
+    },
+    {
+      "id": "sample-e5b9ec1d",
+      "name": "I13453_GB",
+      "sequencePackageId": "sample-e5b9ec1d"
+    },
+    {
+      "id": "sample-08928405",
+      "name": "J23100_AB",
+      "sequencePackageId": "sample-08928405"
+    },
+    {
+      "id": "sample-fbf6a2cd",
+      "name": "J23100_EB",
+      "sequencePackageId": "sample-fbf6a2cd"
+    },
+    {
+      "id": "sample-53263985",
+      "name": "J23100_FB",
+      "sequencePackageId": "sample-53263985"
+    },
+    {
+      "id": "sample-b78fda4d",
+      "name": "J23100_GB",
+      "sequencePackageId": "sample-b78fda4d"
+    },
+    {
+      "id": "sample-0bb366b5",
+      "name": "J23102_AB",
+      "sequencePackageId": "sample-0bb366b5"
+    },
+    {
+      "id": "sample-b63ba275",
+      "name": "J23102_EB",
+      "sequencePackageId": "sample-b63ba275"
+    },
+    {
+      "id": "sample-21ac951d",
+      "name": "J23102_FB",
+      "sequencePackageId": "sample-21ac951d"
+    },
+    {
+      "id": "sample-94c3257d",
+      "name": "J23102_GB",
+      "sequencePackageId": "sample-94c3257d"
+    },
+    {
+      "id": "sample-ce44142d",
+      "name": "J23103_AB",
+      "sequencePackageId": "sample-ce44142d"
+    },
+    {
+      "id": "sample-d91c07ed",
+      "name": "J23103_EB",
+      "sequencePackageId": "sample-d91c07ed"
+    },
+    {
+      "id": "sample-0c581fad",
+      "name": "J23103_FB",
+      "sequencePackageId": "sample-0c581fad"
+    },
+    {
+      "id": "sample-4ab8c63d",
+      "name": "J23103_GB",
+      "sequencePackageId": "sample-4ab8c63d"
+    },
+    {
+      "id": "sample-525cf33d",
+      "name": "J23106_AB",
+      "sequencePackageId": "sample-525cf33d"
+    },
+    {
+      "id": "sample-9971fa3d",
+      "name": "J23106_EB",
+      "sequencePackageId": "sample-9971fa3d"
+    },
+    {
+      "id": "sample-ade63a7d",
+      "name": "J23106_FB",
+      "sequencePackageId": "sample-ade63a7d"
+    },
+    {
+      "id": "sample-355172ad",
+      "name": "J23106_GB",
+      "sequencePackageId": "sample-355172ad"
+    },
+    {
+      "id": "sample-e1682855",
+      "name": "J23107_AB",
+      "sequencePackageId": "sample-e1682855"
+    },
+    {
+      "id": "sample-e7aa38b5",
+      "name": "J23107_EB",
+      "sequencePackageId": "sample-e7aa38b5"
+    },
+    {
+      "id": "sample-c4fcedfd",
+      "name": "J23107_FB",
+      "sequencePackageId": "sample-c4fcedfd"
+    },
+    {
+      "id": "sample-34e16afd",
+      "name": "J23107_GB",
+      "sequencePackageId": "sample-34e16afd"
+    },
+    {
+      "id": "sample-e1d41a3d",
+      "name": "J23116_AB",
+      "sequencePackageId": "sample-e1d41a3d"
+    },
+    {
+      "id": "sample-8435637d",
+      "name": "J23116_EB",
+      "sequencePackageId": "sample-8435637d"
+    },
+    {
+      "id": "sample-f8b4690d",
+      "name": "J23116_FB",
+      "sequencePackageId": "sample-f8b4690d"
+    },
+    {
+      "id": "sample-c1186931",
+      "name": "J23116_GB",
+      "sequencePackageId": "sample-c1186931"
+    },
+    {
+      "id": "sample-0dad888d",
+      "name": "pJ02B2Gm_AE",
+      "sequencePackageId": "sample-0dad888d"
+    },
+    {
+      "id": "sample-d39c3bd9",
+      "name": "pJ02B2Gm_AE(A)",
+      "sequencePackageId": "sample-d39c3bd9"
+    },
+    {
+      "id": "sample-c443f89d",
+      "name": "pJ02B2Gm_EF",
+      "sequencePackageId": "sample-c443f89d"
+    },
+    {
+      "id": "sample-79b26187",
+      "name": "pJ02B2Gm_EF(A)",
+      "sequencePackageId": "sample-79b26187"
+    },
+    {
+      "id": "sample-9c739d37",
+      "name": "pJ02B2Gm_Rm_AF",
+      "sequencePackageId": "sample-9c739d37"
+    },
+    {
+      "id": "sample-2c22f2e9",
+      "name": "pJ02B2Rm_AE",
+      "sequencePackageId": "sample-2c22f2e9"
+    },
+    {
+      "id": "sample-4e8378a7",
+      "name": "pJ02B2Rm_AE(A)",
+      "sequencePackageId": "sample-4e8378a7"
+    },
+    {
+      "id": "sample-31ac51f9",
+      "name": "pJ02B2Rm_EF",
+      "sequencePackageId": "sample-31ac51f9"
+    },
+    {
+      "id": "sample-5818ebfd",
+      "name": "pJ02B2Rm_EF(A)",
+      "sequencePackageId": "sample-5818ebfd"
+    },
+    {
+      "id": "sample-8eade52b",
+      "name": "pJ02B2Rm_Gm_AF",
+      "sequencePackageId": "sample-8eade52b"
+    },
+    {
+      "id": "sample-17d5acad",
+      "name": "R0010_AB",
+      "sequencePackageId": "sample-17d5acad"
+    },
+    {
+      "id": "sample-ceab025d",
+      "name": "R0010_EB",
+      "sequencePackageId": "sample-ceab025d"
+    },
+    {
+      "id": "sample-d22627bb",
+      "name": "R0010_FB",
+      "sequencePackageId": "sample-d22627bb"
+    },
+    {
+      "id": "sample-b797199d",
+      "name": "R0010_GB",
+      "sequencePackageId": "sample-b797199d"
+    },
+    {
+      "id": "sample-84f9f52b",
+      "name": "R0040_AB",
+      "sequencePackageId": "sample-84f9f52b"
+    },
+    {
+      "id": "sample-3955172b",
+      "name": "R0040_EB",
+      "sequencePackageId": "sample-3955172b"
+    },
+    {
+      "id": "sample-26f00d69",
+      "name": "R0040_FB",
+      "sequencePackageId": "sample-26f00d69"
+    },
+    {
+      "id": "sample-8d081dfb",
+      "name": "R0040_GB",
+      "sequencePackageId": "sample-8d081dfb"
+    },
+    {
+      "id": "sample-21c2239d",
+      "name": "R0063_AB",
+      "sequencePackageId": "sample-21c2239d"
+    },
+    {
+      "id": "sample-0728005d",
+      "name": "R0063_EB",
+      "sequencePackageId": "sample-0728005d"
+    },
+    {
+      "id": "sample-155ccadf",
+      "name": "R0063_FB",
+      "sequencePackageId": "sample-155ccadf"
+    },
+    {
+      "id": "sample-45d33319",
+      "name": "R0063_GB",
+      "sequencePackageId": "sample-45d33319"
+    }
+  ],
+  "recipes": [],
+  "assemblySchemas": [
+    {
+      "id": "transcription-unit",
+      "name": "Transcription unit",
+      "description": "A–B promoter, B–C RBS, C–D CDS, D–E terminator and E–A destination backbone, as used by the bundled CIDAR red fluorescent transcription unit.",
+      "enzyme": "BsaI",
+      "topology": "circular",
+      "slots": [
+        {
+          "id": "promoter",
+          "label": "Promoter",
+          "outgoingOverhang": "TACT",
+          "preferredRoles": [{ "label": "Promoter" }]
+        },
+        {
+          "id": "rbs",
+          "label": "RBS",
+          "outgoingOverhang": "AATG",
+          "preferredRoles": [{ "label": "RBS" }]
+        },
+        {
+          "id": "cds",
+          "label": "CDS",
+          "outgoingOverhang": "AGGT",
+          "preferredRoles": [{ "label": "CDS" }]
+        },
+        {
+          "id": "terminator",
+          "label": "Terminator",
+          "outgoingOverhang": "GCTT",
+          "preferredRoles": [{ "label": "Terminator" }]
+        },
+        {
+          "id": "destination-vector",
+          "label": "Destination vector",
+          "outgoingOverhang": "GGAG",
+          "preferredRoles": [{ "label": "Destination vector" }]
+        }
+      ]
+    }
+  ]
+}

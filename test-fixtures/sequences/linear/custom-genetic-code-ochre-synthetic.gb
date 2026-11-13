@@ -1,0 +1,24 @@
+LOCUS       OCHRE_PROBE              117 bp    DNA     linear   SYN 15-SEP-2026
+COMMENT     DNAForge genetic-code: custom gc-f11e0f1ea0b1 rev 1
+COMMENT     DNAForge genetic-code-name: Ochre suppression (pBpa at TAA)
+COMMENT     DNAForge genetic-code-codons: TAA=pBpa
+COMMENT     DNAForge genetic-code-starts: TTG CTG ATG
+COMMENT     DNAForge genetic-code-residue: pBpa BPA p-benzoyl-L-phenylalanine
+DEFINITION  A record that carries its own genetic code, readable with no library.
+ACCESSION   OCHRE_PROBE
+VERSION     OCHRE_PROBE
+KEYWORDS    .
+SOURCE      synthetic construct
+  ORGANISM  synthetic construct
+            other sequences; artificial sequences; synthetic construct.
+FEATURES             Location/Qualifiers
+     source          1..117
+                     /organism="synthetic construct"
+                     /mol_type="other DNA"
+     CDS             1..57
+                     /label="ochre probe"
+                     /product="ochre suppression probe"
+ORIGIN
+        1 atgaaaggtt tccatgaacg ttaagtttgg ctgaacgatc agtacatccc ggcatgagca
+       61 tgcatgcgca tgcatgcgca tgcatgcgca tgcatgcgca tgcatgcgca tgcatgc
+//

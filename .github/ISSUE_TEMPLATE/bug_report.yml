@@ -1,0 +1,44 @@
+name: Bug report
+description: Something in DNAForge does not work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Leave out private sequences and lab data. A public sequence that shows
+        the problem is enough. Report security problems privately as described
+        in SECURITY.md, not here.
+  - type: input
+    id: version
+    attributes:
+      label: DNAForge version or commit
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and version
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open pUC19 (GenBank L09137).
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: Include error messages and, if useful, a screenshot.
+    validations:
+      required: true

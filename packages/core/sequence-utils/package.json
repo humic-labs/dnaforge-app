@@ -1,0 +1,82 @@
+{
+  "name": "@waypoint/sequence-utils",
+  "version": "0.1.0",
+  "description": "Shared sequence visualization utilities (colors, types, translation)",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./annotation-text-color": {
+      "types": "./src/annotation-text-color.ts",
+      "import": "./src/annotation-text-color.ts",
+      "default": "./src/annotation-text-color.ts"
+    },
+    "./genbank": {
+      "types": "./src/genbank.ts",
+      "import": "./src/genbank.ts",
+      "default": "./src/genbank.ts"
+    },
+    "./iupac": {
+      "types": "./src/iupac.ts",
+      "import": "./src/iupac.ts",
+      "default": "./src/iupac.ts"
+    },
+    "./sequence-edit-markup": {
+      "types": "./src/sequence-edit-markup.ts",
+      "import": "./src/sequence-edit-markup.ts",
+      "default": "./src/sequence-edit-markup.ts"
+    },
+    "./sequence-file-types": {
+      "types": "./src/sequence-file-types.ts",
+      "import": "./src/sequence-file-types.ts",
+      "default": "./src/sequence-file-types.ts"
+    },
+    "./sequence-fingerprint": {
+      "types": "./src/sequence-fingerprint.ts",
+      "import": "./src/sequence-fingerprint.ts",
+      "default": "./src/sequence-fingerprint.ts"
+    },
+    "./protein-sequence": {
+      "types": "./src/protein-sequence.ts",
+      "import": "./src/protein-sequence.ts",
+      "default": "./src/protein-sequence.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "sequence",
+    "dna",
+    "bioinformatics",
+    "visualization"
+  ],
+  "license": "GPL-3.0-only",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "4.0.18",
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.18"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "fast-xml-parser": "5.7.2"
+  }
+}

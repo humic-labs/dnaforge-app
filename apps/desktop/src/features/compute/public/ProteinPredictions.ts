@@ -1,0 +1,1 @@
+export { ProteinPredictions } from '../ProteinPredictions';

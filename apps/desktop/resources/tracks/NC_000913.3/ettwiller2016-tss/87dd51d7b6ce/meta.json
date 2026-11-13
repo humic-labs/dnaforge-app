@@ -1,0 +1,68 @@
+{
+  "schema": "dnaforge.track-meta.v1",
+  "track": "ettwiller2016-tss",
+  "version": "87dd51d7b6ce",
+  "assembly": {
+    "accession": "NC_000913.3",
+    "lengthBp": 4641652,
+    "aliases": ["U00096.3"]
+  },
+  "file": {
+    "name": "ettwiller2016-tss.gff3",
+    "format": "gff3",
+    "sha256": "87dd51d7b6ce98da91e9c4c3bc33a434544d25b576ec5734f4a17674cd9a2e9b",
+    "byteLength": 2361961
+  },
+  "residency": {
+    "kind": "managed"
+  },
+  "kinds": ["tss"],
+  "label": "Transcription start sites measured by Cappable-seq in M9 glucose (Ettwiller 2016)",
+  "evidence": "measured",
+  "license": {
+    "spdx": "CC0-1.0",
+    "attribution": "Transcription start sites: Ettwiller L, Buswell J, Yigit E, Schildkraut I. BMC Genomics 2016;17:199, doi:10.1186/s12864-016-2539-z (Additional file 1, CC0 1.0). Coordinates lifted from U00096.2 to NC_000913.3 by DNAForge.",
+    "evidenceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4782308/",
+    "note": "The Creative Commons Public Domain Dedication waiver (http://creativecommons.org/publicdomain/zero/1.0/) applies to the data made available in this article, unless otherwise stated."
+  },
+  "citation": "Ettwiller L, Buswell J, Yigit E, Schildkraut I. 2016. BMC Genomics 17:199. A novel enrichment strategy reveals unprecedented number of novel transcription start sites at single base resolution in a model prokaryote and the gut microbiome.",
+  "url": "https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-016-2539-z",
+  "doi": "10.1186/s12864-016-2539-z",
+  "datasetVersion": "12864_2016_2539_MOESM1_ESM.gtf (BMC Additional file 1, published 2016-03-08; publisher caption says 'Supplement ... Table S2' but the content is Supplemental Table 1, the 16,359 clustered Cappable-seq start sites on U00096.2). Score = relative read score (RRS, reads per million mapped).",
+  "liftedFrom": "U00096.2",
+  "recordCount": 16352,
+  "countsByKind": {
+    "tss": 16352
+  },
+  "provenance": {
+    "producedBy": {
+      "tool": "scripts/annotation-datasets/ecoli-k12-mg1655/ettwiller2016-tss/build.py"
+    },
+    "inputs": [
+      {
+        "url": "https://static-content.springer.com/esm/art%3A10.1186%2Fs12864-016-2539-z/MediaObjects/12864_2016_2539_MOESM1_ESM.gtf",
+        "sha256": "c17fdf501add8e8ea5727ced3b5fd266bcf1c75a44736215c87bd701d985f786",
+        "bytes": 2057154
+      },
+      {
+        "url": "https://static-content.springer.com/esm/art%3A10.1186%2Fs12864-016-2539-z/MediaObjects/12864_2016_2539_MOESM2_ESM.zip",
+        "sha256": "c59a9bfd8e18962773223b98be18a0ce6cca7e47a687a69b6c92ce78e07e3d4e",
+        "bytes": 9658244
+      },
+      {
+        "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=U00096.2&rettype=fasta&retmode=text",
+        "sha256": "73c7f2fe4d16bfb9856172d53a77f2651ea0c597d3c71c1196e58bc7ec35c8fe",
+        "bytes": 4706027
+      },
+      {
+        "url": "https://www.ncbi.nlm.nih.gov/nuccore/NC_000913.3",
+        "sha256": "7cf1ed07c731a1aba11d2b12a7071f395b1a25b4e9a06809549742f83c2d1a2f",
+        "bytes": 11881788,
+        "note": "repository file test-fixtures/sequences/circular/ecoli-mg1655-complete.gb"
+      }
+    ],
+    "notes": [
+      "Records: 16352 of 16359 GTF rows. 6 rows dropped during liftover from U00096.2 to NC_000913.3: 4 with no exact match (their +/-20 bp window spans an insertion present only in U00096.3: IS1 between U00096.2 bases 257,907/257,908 inside crl, or IS5 between 1,298,721/1,298,722) and 2 whose +/-500 bp window still occurs 3 times in both assemblies (inside IS2 copies). 1 read-mapping artifact dropped: U00096.2 base 1 (+ strand, relative read score 2.205) lifted to NC_000913.3 base 1. Base 1 of a linear reference is where reads crossing the circular genome's origin are clipped, so a start site called there is not trustworthy. Not kept in records.json (reproducible from the build script): the log2 enrichment over the non-enriched control, the original U00096.2 position (it is in the record id) and the liftover anchor width. Not carried from the GTF: constant columns (seqname, source, feature, frame) and the redundant parts of the composite last column. The file has no promoter, gene, sigma factor or primary/secondary classification, so none is emitted. The paper's intergenic / intragenic sense / antisense labels and its 'known vs Cappable-seq-specific' labels (from a composite including RegulonDB 8.6) are not in the file and were not recomputed or imported. Additional file 2 (figures and supplement text) is used only to prove the label swap. No RegulonDB-derived content is included."
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+sample_id,organism,condition,replicate,concentration_ng_ul
+SYN-001,E. coli K-12,control,1,42.5
+SYN-002,E. coli K-12,heat shock,1,38.1
+SYN-003,S. cerevisiae,control,1,51.0
+SYN-004,S. cerevisiae,low phosphate,2,47.8
+SYN-005,B. subtilis,control,2,36.4

@@ -1,0 +1,34 @@
+{
+  "entries": [
+    {
+      "_comment": "Deterministic 12-read chromosome-IV CRAM served as a remote indexed source.",
+      "method": "GET",
+      "host": "reads.example.org",
+      "path": "/s288c/reads.cram",
+      "response": {
+        "body_file": "../binary/yeast-chriv-reads.cram",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"yeast-chriv-cram-v1\"",
+          "Last-Modified": "Mon, 21 Sep 2026 00:00:00 GMT"
+        }
+      }
+    },
+    {
+      "_comment": "Exact CRAI companion for the deterministic chromosome-IV CRAM.",
+      "method": "GET",
+      "host": "reads.example.org",
+      "path": "/s288c/reads.cram.crai",
+      "response": {
+        "body_file": "../binary/yeast-chriv-reads.cram.crai",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"yeast-chriv-crai-v1\"",
+          "Last-Modified": "Mon, 21 Sep 2026 00:00:00 GMT"
+        }
+      }
+    }
+  ]
+}

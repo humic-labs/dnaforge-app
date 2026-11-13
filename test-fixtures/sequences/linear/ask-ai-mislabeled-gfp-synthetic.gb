@@ -1,0 +1,24 @@
+LOCUS       ASKAI_GFPLIE    300 bp    DNA     linear   SYN 07-JUL-2026
+DEFINITION  Deterministic-synthetic fixture for the Ask-AI eval suite.
+ACCESSION   ASKAI_GFPLIE
+VERSION     ASKAI_GFPLIE.1
+KEYWORDS    synthetic; ask-ai-eval.
+SOURCE      synthetic construct
+  ORGANISM  synthetic construct
+FEATURES             Location/Qualifiers
+     source          1..300
+                     /organism="synthetic construct"
+                     /mol_type="other DNA"
+     CDS             1..300
+                     /codon_start=1
+                     /gene="gfp"
+                     /label=GFP
+                     /product="green fluorescent protein"
+                     /note="Label claims GFP; the underlying bases are synthetic random and do NOT encode GFP (fixture for annotation-trust eval E5)."
+ORIGIN
+        1 atgtccaaac gagttagatt ctatgtcctc catgacaaaa taccaaactt ccgacagatc
+       61 cagcagagtt tgataagacc actccacagc cgcactcctg agtttcttag acccaccctt
+      121 cgctactacc cacagaggag tagcctcgta tcccctggag ccgccatagc tctatggtga
+      181 gcgaggaaaa gcacgcttac gtccatcgca cgtggggtga accctaatgt taacgaaaag
+      241 tatagaggag gcgctcgctg cagcattctt ggattgcttc cttaaccttg agacggtccg
+//

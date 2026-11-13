@@ -1,0 +1,786 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "mg1655-atpg-structure-complexes",
+  "title": "E. coli K-12 MG1655 atpG ATP synthase structure-complex fixtures",
+  "sourceSequence": {
+    "path": "test-fixtures/sequences/circular/ecoli-mg1655-complete.gb",
+    "organism": "Escherichia coli K-12 MG1655",
+    "taxonId": 83333,
+    "accession": "NC_000913.3",
+    "sha256": "7cf1ed07c731a1aba11d2b12a7071f395b1a25b4e9a06809549742f83c2d1a2f"
+  },
+  "queryAnchor": {
+    "memberId": "ecoli-atpG",
+    "gene": "atpG",
+    "uniprotAccession": "P0ABA6",
+    "uniprotId": "ATPG_ECOLI",
+    "proteinName": "ATP synthase gamma chain",
+    "locusTag": "b3733",
+    "product": "ATP synthase F1 complex subunit gamma",
+    "proteinId": "NP_418189.1",
+    "location": {
+      "start": 3917402,
+      "end": 3918265,
+      "strand": -1
+    },
+    "expectedProtein": {
+      "length": 287,
+      "prefix": "MAGAKEIRSKIASVQNTQKITKAM",
+      "md5": "D21BDCC2F9FC8B3E07CE5EAED473D7BB",
+      "sha256": "be4b2cdeb22ed37fe81a0ceb747c8a136c83ef895f8bdf243f9e210e5f3cbfce"
+    },
+    "sourceUrls": [
+      "https://www.uniprot.org/uniprotkb/P0ABA6/entry",
+      "https://rest.uniprot.org/uniprotkb/P0ABA6.json"
+    ]
+  },
+  "workspaceMembers": [
+    {
+      "memberId": "ecoli-atpA",
+      "gene": "atpA",
+      "uniprotAccession": "P0ABB0",
+      "uniprotId": "ATPA_ECOLI",
+      "proteinName": "ATP synthase subunit alpha",
+      "locusTag": "b3734",
+      "product": "ATP synthase F1 complex subunit alpha",
+      "proteinId": "NP_418190.1",
+      "location": { "start": 3918316, "end": 3919857, "strand": -1 },
+      "expectedWorkspaceStatus": "mapped_current_sequence"
+    },
+    {
+      "memberId": "ecoli-atpB",
+      "gene": "atpB",
+      "uniprotAccession": "P0AB98",
+      "uniprotId": "ATP6_ECOLI",
+      "proteinName": "ATP synthase subunit a",
+      "locusTag": "b3738",
+      "product": "ATP synthase Fo complex subunit a",
+      "proteinId": "NP_418194.1",
+      "location": { "start": 3921236, "end": 3922051, "strand": -1 },
+      "expectedWorkspaceStatus": "mapped_current_sequence"
+    },
+    {
+      "memberId": "ecoli-atpC",
+      "gene": "atpC",
+      "uniprotAccession": "P0A6E6",
+      "uniprotId": "ATPE_ECOLI",
+      "proteinName": "ATP synthase epsilon chain",
+      "locusTag": "b3731",
+      "product": "ATP synthase F1 complex subunit epsilon",
+      "proteinId": "NP_418187.1",
+      "location": { "start": 3915553, "end": 3915972, "strand": -1 },
+      "expectedWorkspaceStatus": "mapped_current_sequence"
+    },
+    {
+      "memberId": "ecoli-atpD",
+      "gene": "atpD",
+      "uniprotAccession": "P0ABB4",
+      "uniprotId": "ATPB_ECOLI",
+      "proteinName": "ATP synthase subunit beta",
+      "locusTag": "b3732",
+      "product": "ATP synthase F1 complex subunit beta",
+      "proteinId": "NP_418188.1",
+      "location": { "start": 3915993, "end": 3917375, "strand": -1 },
+      "expectedWorkspaceStatus": "mapped_current_sequence"
+    },
+    {
+      "memberId": "ecoli-atpE",
+      "gene": "atpE",
+      "uniprotAccession": "P68699",
+      "uniprotId": "ATPL_ECOLI",
+      "proteinName": "ATP synthase subunit c",
+      "locusTag": "b3737",
+      "product": "ATP synthase Fo complex subunit c",
+      "proteinId": "NP_418193.1",
+      "location": { "start": 3920950, "end": 3921189, "strand": -1 },
+      "expectedWorkspaceStatus": "mapped_current_sequence"
+    },
+    {
+      "memberId": "ecoli-atpF",
+      "gene": "atpF",
+      "uniprotAccession": "P0ABA0",
+      "uniprotId": "ATPF_ECOLI",
+      "proteinName": "ATP synthase subunit b",
+      "locusTag": "b3736",
+      "product": "ATP synthase Fo complex subunit b",
+      "proteinId": "NP_418192.1",
+      "location": { "start": 3920418, "end": 3920888, "strand": -1 },
+      "expectedWorkspaceStatus": "mapped_current_sequence"
+    },
+    {
+      "memberId": "ecoli-atpG",
+      "gene": "atpG",
+      "uniprotAccession": "P0ABA6",
+      "uniprotId": "ATPG_ECOLI",
+      "proteinName": "ATP synthase gamma chain",
+      "locusTag": "b3733",
+      "product": "ATP synthase F1 complex subunit gamma",
+      "proteinId": "NP_418189.1",
+      "location": { "start": 3917402, "end": 3918265, "strand": -1 },
+      "expectedWorkspaceStatus": "mapped_current_sequence"
+    },
+    {
+      "memberId": "ecoli-atpH",
+      "gene": "atpH",
+      "uniprotAccession": "P0ABA4",
+      "uniprotId": "ATPD_ECOLI",
+      "proteinName": "ATP synthase subunit delta",
+      "locusTag": "b3735",
+      "product": "ATP synthase F1 complex subunit delta",
+      "proteinId": "NP_418191.1",
+      "location": { "start": 3919870, "end": 3920403, "strand": -1 },
+      "expectedWorkspaceStatus": "mapped_current_sequence"
+    }
+  ],
+  "externalMembers": [
+    {
+      "memberId": "myco-atpA",
+      "homologousEcoliGene": "atpA",
+      "uniprotAccession": "A0R202",
+      "proteinName": "ATP synthase subunit alpha",
+      "sourceOrganism": "Mycolicibacterium smegmatis",
+      "sourceTaxonId": 1772,
+      "expectedWorkspaceStatus": "external_only"
+    },
+    {
+      "memberId": "myco-atpD",
+      "homologousEcoliGene": "atpD",
+      "uniprotAccession": "A0R200",
+      "proteinName": "ATP synthase subunit beta",
+      "sourceOrganism": "Mycolicibacterium smegmatis",
+      "sourceTaxonId": 1772,
+      "expectedWorkspaceStatus": "external_only"
+    },
+    {
+      "memberId": "myco-atpG",
+      "homologousEcoliGene": "atpG",
+      "uniprotAccession": "A0R201",
+      "proteinName": "ATP synthase gamma chain",
+      "sourceOrganism": "Mycolicibacterium smegmatis",
+      "sourceTaxonId": 1772,
+      "expectedWorkspaceStatus": "external_only"
+    },
+    {
+      "memberId": "myco-atpC",
+      "homologousEcoliGene": "atpC",
+      "uniprotAccession": "A0R1Z9",
+      "proteinName": "ATP synthase epsilon chain",
+      "sourceOrganism": "Mycolicibacterium smegmatis",
+      "sourceTaxonId": 1772,
+      "expectedWorkspaceStatus": "external_only"
+    },
+    {
+      "memberId": "myco-atpB",
+      "homologousEcoliGene": "atpB",
+      "uniprotAccession": "A0R206",
+      "proteinName": "ATP synthase subunit a",
+      "sourceOrganism": "Mycolicibacterium smegmatis",
+      "sourceTaxonId": 1772,
+      "expectedWorkspaceStatus": "external_only"
+    },
+    {
+      "memberId": "myco-atpF",
+      "homologousEcoliGene": "atpF",
+      "uniprotAccession": "A0R204",
+      "proteinName": "ATP synthase subunit b",
+      "sourceOrganism": "Mycolicibacterium smegmatis",
+      "sourceTaxonId": 1772,
+      "expectedWorkspaceStatus": "external_only"
+    },
+    {
+      "memberId": "myco-atpH-atpF-fusion",
+      "homologousEcoliGene": "atpH/atpF",
+      "uniprotAccession": "A0R203",
+      "proteinName": "ATP synthase subunit b-delta",
+      "sourceOrganism": "Mycolicibacterium smegmatis",
+      "sourceTaxonId": 1772,
+      "expectedWorkspaceStatus": "external_only"
+    },
+    {
+      "memberId": "myco-atpE",
+      "homologousEcoliGene": "atpE",
+      "uniprotAccession": "A0R205",
+      "proteinName": "ATP synthase subunit c",
+      "sourceOrganism": "Mycolicibacterium smegmatis",
+      "sourceTaxonId": 1772,
+      "expectedWorkspaceStatus": "external_only"
+    }
+  ],
+  "cases": [
+    {
+      "fixtureId": "mg1655-atpg-1fs0-gamma-epsilon",
+      "coverageClass": "gamma_epsilon_complex",
+      "underlyingSequencePolicy": "all_members_in_source",
+      "pdbId": "1FS0",
+      "title": "COMPLEX OF GAMMA/EPSILON ATP SYNTHASE FROM E.COLI",
+      "method": "X-RAY DIFFRACTION",
+      "resolutionAngstrom": 2.1,
+      "sourceOrganism": "Escherichia coli",
+      "sourceTaxonId": 562,
+      "primaryEntityId": "2",
+      "primaryChains": ["G"],
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/1FS0",
+        "https://data.rcsb.org/rest/v1/core/entry/1FS0"
+      ],
+      "members": [
+        { "memberId": "ecoli-atpC", "role": "complex_partner", "entityId": "1", "chains": ["E"] },
+        { "memberId": "ecoli-atpG", "role": "query_anchor", "entityId": "2", "chains": ["G"] }
+      ]
+    },
+    {
+      "fixtureId": "mg1655-atpg-3oaa-f1-sector",
+      "coverageClass": "f1_sector_complex",
+      "underlyingSequencePolicy": "all_members_in_source",
+      "pdbId": "3OAA",
+      "title": "Structure of the E.coli F1-ATP synthase inhibited by subunit Epsilon",
+      "method": "X-RAY DIFFRACTION",
+      "resolutionAngstrom": 3.26,
+      "sourceOrganism": "Escherichia coli DH1",
+      "sourceTaxonId": 536056,
+      "workspaceMappingBasis": "reviewed E. coli K-12 UniProt accessions are present in the MG1655 source sequence",
+      "primaryEntityId": "3",
+      "primaryChains": ["G", "O", "W", "e"],
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/3OAA",
+        "https://data.rcsb.org/rest/v1/core/entry/3OAA"
+      ],
+      "members": [
+        {
+          "memberId": "ecoli-atpA",
+          "role": "complex_partner",
+          "entityId": "1",
+          "chains": ["A", "B", "C", "I", "J", "K", "Q", "R", "S", "Y", "Z", "a"]
+        },
+        {
+          "memberId": "ecoli-atpD",
+          "role": "complex_partner",
+          "entityId": "2",
+          "chains": ["D", "E", "F", "L", "M", "N", "T", "U", "V", "b", "c", "d"]
+        },
+        {
+          "memberId": "ecoli-atpG",
+          "role": "query_anchor",
+          "entityId": "3",
+          "chains": ["G", "O", "W", "e"]
+        },
+        {
+          "memberId": "ecoli-atpC",
+          "role": "complex_partner",
+          "entityId": "4",
+          "chains": ["H", "P", "X", "f"]
+        }
+      ]
+    },
+    {
+      "fixtureId": "mg1655-atpg-5t4o-autoinhibited-state-1",
+      "coverageClass": "full_f1fo_complex",
+      "underlyingSequencePolicy": "all_members_in_source",
+      "pdbId": "5T4O",
+      "title": "Autoinhibited E. coli ATP synthase state 1",
+      "method": "ELECTRON MICROSCOPY",
+      "resolutionAngstrom": 6.9,
+      "emdbIds": ["EMD-8357"],
+      "sourceOrganism": "Escherichia coli",
+      "sourceTaxonId": 562,
+      "primaryEntityId": "3",
+      "primaryChains": ["G"],
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/5T4O",
+        "https://data.rcsb.org/rest/v1/core/entry/5T4O",
+        "https://www.ebi.ac.uk/emdb/EMD-8357"
+      ],
+      "members": [
+        {
+          "memberId": "ecoli-atpA",
+          "role": "complex_partner",
+          "entityId": "1",
+          "chains": ["A", "B", "C"]
+        },
+        {
+          "memberId": "ecoli-atpD",
+          "role": "complex_partner",
+          "entityId": "2",
+          "chains": ["D", "E", "F"]
+        },
+        { "memberId": "ecoli-atpG", "role": "query_anchor", "entityId": "3", "chains": ["G"] },
+        { "memberId": "ecoli-atpC", "role": "complex_partner", "entityId": "4", "chains": ["H"] },
+        {
+          "memberId": "ecoli-atpF",
+          "role": "complex_partner",
+          "entityId": "5",
+          "chains": ["I", "J"]
+        },
+        { "memberId": "ecoli-atpB", "role": "complex_partner", "entityId": "6", "chains": ["K"] },
+        { "memberId": "ecoli-atpH", "role": "complex_partner", "entityId": "7", "chains": ["L"] },
+        {
+          "memberId": "ecoli-atpE",
+          "role": "complex_partner",
+          "entityId": "8",
+          "chains": ["M", "N", "O", "P", "Q", "R", "S", "T", "U", "V"]
+        }
+      ]
+    },
+    {
+      "fixtureId": "mg1655-atpg-5t4p-autoinhibited-state-2",
+      "coverageClass": "full_f1fo_complex",
+      "underlyingSequencePolicy": "all_members_in_source",
+      "pdbId": "5T4P",
+      "title": "Autoinhibited E. coli ATP synthase state 2",
+      "method": "ELECTRON MICROSCOPY",
+      "resolutionAngstrom": 7.77,
+      "emdbIds": ["EMD-8358"],
+      "sourceOrganism": "Escherichia coli",
+      "sourceTaxonId": 562,
+      "primaryEntityId": "3",
+      "primaryChains": ["G"],
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/5T4P",
+        "https://data.rcsb.org/rest/v1/core/entry/5T4P",
+        "https://www.ebi.ac.uk/emdb/EMD-8358"
+      ],
+      "members": [
+        {
+          "memberId": "ecoli-atpA",
+          "role": "complex_partner",
+          "entityId": "1",
+          "chains": ["A", "B", "C"]
+        },
+        {
+          "memberId": "ecoli-atpD",
+          "role": "complex_partner",
+          "entityId": "2",
+          "chains": ["D", "E", "F"]
+        },
+        { "memberId": "ecoli-atpG", "role": "query_anchor", "entityId": "3", "chains": ["G"] },
+        { "memberId": "ecoli-atpC", "role": "complex_partner", "entityId": "4", "chains": ["H"] },
+        {
+          "memberId": "ecoli-atpF",
+          "role": "complex_partner",
+          "entityId": "5",
+          "chains": ["I", "J"]
+        },
+        { "memberId": "ecoli-atpB", "role": "complex_partner", "entityId": "6", "chains": ["K"] },
+        { "memberId": "ecoli-atpH", "role": "complex_partner", "entityId": "7", "chains": ["L"] },
+        {
+          "memberId": "ecoli-atpE",
+          "role": "complex_partner",
+          "entityId": "8",
+          "chains": ["M", "N", "O", "P", "Q", "R", "S", "T", "U", "V"]
+        }
+      ]
+    },
+    {
+      "fixtureId": "mg1655-atpg-5t4q-autoinhibited-state-3",
+      "coverageClass": "full_f1fo_complex",
+      "underlyingSequencePolicy": "all_members_in_source",
+      "pdbId": "5T4Q",
+      "title": "Autoinhibited E. coli ATP synthase state 3",
+      "method": "ELECTRON MICROSCOPY",
+      "resolutionAngstrom": 8.53,
+      "emdbIds": ["EMD-8359"],
+      "sourceOrganism": "Escherichia coli",
+      "sourceTaxonId": 562,
+      "primaryEntityId": "3",
+      "primaryChains": ["G"],
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/5T4Q",
+        "https://data.rcsb.org/rest/v1/core/entry/5T4Q",
+        "https://www.ebi.ac.uk/emdb/EMD-8359"
+      ],
+      "members": [
+        {
+          "memberId": "ecoli-atpA",
+          "role": "complex_partner",
+          "entityId": "1",
+          "chains": ["A", "B", "C"]
+        },
+        {
+          "memberId": "ecoli-atpD",
+          "role": "complex_partner",
+          "entityId": "2",
+          "chains": ["D", "E", "F"]
+        },
+        { "memberId": "ecoli-atpG", "role": "query_anchor", "entityId": "3", "chains": ["G"] },
+        { "memberId": "ecoli-atpC", "role": "complex_partner", "entityId": "4", "chains": ["H"] },
+        {
+          "memberId": "ecoli-atpF",
+          "role": "complex_partner",
+          "entityId": "5",
+          "chains": ["I", "J"]
+        },
+        { "memberId": "ecoli-atpB", "role": "complex_partner", "entityId": "6", "chains": ["K"] },
+        { "memberId": "ecoli-atpH", "role": "complex_partner", "entityId": "7", "chains": ["L"] },
+        {
+          "memberId": "ecoli-atpE",
+          "role": "complex_partner",
+          "entityId": "8",
+          "chains": ["M", "N", "O", "P", "Q", "R", "S", "T", "U", "V"]
+        }
+      ]
+    },
+    {
+      "fixtureId": "mg1655-atpg-6oqr-f1fo-adp-state-1a",
+      "coverageClass": "full_f1fo_complex",
+      "underlyingSequencePolicy": "all_members_in_source",
+      "pdbId": "6OQR",
+      "title": "E. coli ATP Synthase ADP State 1a",
+      "method": "ELECTRON MICROSCOPY",
+      "resolutionAngstrom": 3.1,
+      "emdbIds": ["EMD-20167"],
+      "sourceOrganism": "Escherichia coli",
+      "sourceTaxonId": 562,
+      "primaryEntityId": "5",
+      "primaryChains": ["G"],
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/6OQR",
+        "https://data.rcsb.org/rest/v1/core/entry/6OQR",
+        "https://www.ebi.ac.uk/emdb/EMD-20167"
+      ],
+      "members": [
+        { "memberId": "ecoli-atpH", "role": "complex_partner", "entityId": "1", "chains": ["W"] },
+        {
+          "memberId": "ecoli-atpA",
+          "role": "complex_partner",
+          "entityId": "2",
+          "chains": ["A", "B", "C"]
+        },
+        {
+          "memberId": "ecoli-atpF",
+          "role": "complex_partner",
+          "entityId": "3",
+          "chains": ["X", "Y"]
+        },
+        { "memberId": "ecoli-atpC", "role": "complex_partner", "entityId": "4", "chains": ["H"] },
+        { "memberId": "ecoli-atpG", "role": "query_anchor", "entityId": "5", "chains": ["G"] },
+        {
+          "memberId": "ecoli-atpD",
+          "role": "complex_partner",
+          "entityId": "6",
+          "chains": ["D", "E", "F"]
+        },
+        {
+          "memberId": "ecoli-atpE",
+          "role": "complex_partner",
+          "entityId": "7",
+          "chains": ["I", "J", "L", "M", "N", "O", "P", "Q", "R", "S"]
+        },
+        { "memberId": "ecoli-atpB", "role": "complex_partner", "entityId": "8", "chains": ["a"] }
+      ]
+    },
+    {
+      "fixtureId": "mg1655-atpg-6pqv-f1fo-state-1e",
+      "coverageClass": "full_f1fo_complex",
+      "underlyingSequencePolicy": "all_members_in_source",
+      "pdbId": "6PQV",
+      "title": "E. coli ATP Synthase State 1e",
+      "method": "ELECTRON MICROSCOPY",
+      "resolutionAngstrom": 3.3,
+      "emdbIds": ["EMD-20454"],
+      "sourceOrganism": "Escherichia coli",
+      "sourceTaxonId": 562,
+      "primaryEntityId": "5",
+      "primaryChains": ["G"],
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/6PQV",
+        "https://data.rcsb.org/rest/v1/core/entry/6PQV",
+        "https://www.ebi.ac.uk/emdb/EMD-20454"
+      ],
+      "members": [
+        { "memberId": "ecoli-atpH", "role": "complex_partner", "entityId": "1", "chains": ["W"] },
+        {
+          "memberId": "ecoli-atpA",
+          "role": "complex_partner",
+          "entityId": "2",
+          "chains": ["A", "B", "C"]
+        },
+        {
+          "memberId": "ecoli-atpF",
+          "role": "complex_partner",
+          "entityId": "3",
+          "chains": ["X", "Y"]
+        },
+        { "memberId": "ecoli-atpC", "role": "complex_partner", "entityId": "4", "chains": ["H"] },
+        { "memberId": "ecoli-atpG", "role": "query_anchor", "entityId": "5", "chains": ["G"] },
+        {
+          "memberId": "ecoli-atpD",
+          "role": "complex_partner",
+          "entityId": "6",
+          "chains": ["D", "E", "F"]
+        },
+        {
+          "memberId": "ecoli-atpE",
+          "role": "complex_partner",
+          "entityId": "7",
+          "chains": ["I", "J", "L", "M", "N", "O", "P", "Q", "R", "S"]
+        },
+        { "memberId": "ecoli-atpB", "role": "complex_partner", "entityId": "8", "chains": ["a"] }
+      ]
+    },
+    {
+      "fixtureId": "mg1655-atpg-6wnq-f1fo-state-2a",
+      "coverageClass": "full_f1fo_complex",
+      "underlyingSequencePolicy": "all_members_in_source",
+      "pdbId": "6WNQ",
+      "title": "E. coli ATP Synthase State 2a",
+      "method": "ELECTRON MICROSCOPY",
+      "resolutionAngstrom": 3.4,
+      "emdbIds": ["EMD-21854"],
+      "sourceOrganism": "Escherichia coli",
+      "sourceTaxonId": 562,
+      "primaryEntityId": "5",
+      "primaryChains": ["G"],
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/6WNQ",
+        "https://data.rcsb.org/rest/v1/core/entry/6WNQ",
+        "https://www.ebi.ac.uk/emdb/EMD-21854"
+      ],
+      "members": [
+        { "memberId": "ecoli-atpH", "role": "complex_partner", "entityId": "1", "chains": ["W"] },
+        {
+          "memberId": "ecoli-atpA",
+          "role": "complex_partner",
+          "entityId": "2",
+          "chains": ["A", "B", "C"]
+        },
+        {
+          "memberId": "ecoli-atpF",
+          "role": "complex_partner",
+          "entityId": "3",
+          "chains": ["X", "Y"]
+        },
+        { "memberId": "ecoli-atpC", "role": "complex_partner", "entityId": "4", "chains": ["H"] },
+        { "memberId": "ecoli-atpG", "role": "query_anchor", "entityId": "5", "chains": ["G"] },
+        {
+          "memberId": "ecoli-atpD",
+          "role": "complex_partner",
+          "entityId": "6",
+          "chains": ["D", "E", "F"]
+        },
+        {
+          "memberId": "ecoli-atpE",
+          "role": "complex_partner",
+          "entityId": "7",
+          "chains": ["I", "J", "L", "M", "N", "O", "P", "Q", "R", "S"]
+        },
+        { "memberId": "ecoli-atpB", "role": "complex_partner", "entityId": "8", "chains": ["a"] }
+      ]
+    },
+    {
+      "fixtureId": "mg1655-atpg-6wnr-f1fo-state-3b",
+      "coverageClass": "full_f1fo_complex",
+      "underlyingSequencePolicy": "all_members_in_source",
+      "pdbId": "6WNR",
+      "title": "E. coli ATP synthase State 3b",
+      "method": "ELECTRON MICROSCOPY",
+      "resolutionAngstrom": 3.3,
+      "emdbIds": ["EMD-21855"],
+      "sourceOrganism": "Escherichia coli",
+      "sourceTaxonId": 562,
+      "primaryEntityId": "5",
+      "primaryChains": ["G"],
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/6WNR",
+        "https://data.rcsb.org/rest/v1/core/entry/6WNR",
+        "https://www.ebi.ac.uk/emdb/EMD-21855"
+      ],
+      "members": [
+        { "memberId": "ecoli-atpH", "role": "complex_partner", "entityId": "1", "chains": ["W"] },
+        {
+          "memberId": "ecoli-atpA",
+          "role": "complex_partner",
+          "entityId": "2",
+          "chains": ["A", "B", "C"]
+        },
+        {
+          "memberId": "ecoli-atpF",
+          "role": "complex_partner",
+          "entityId": "3",
+          "chains": ["X", "Y"]
+        },
+        { "memberId": "ecoli-atpC", "role": "complex_partner", "entityId": "4", "chains": ["H"] },
+        { "memberId": "ecoli-atpG", "role": "query_anchor", "entityId": "5", "chains": ["G"] },
+        {
+          "memberId": "ecoli-atpD",
+          "role": "complex_partner",
+          "entityId": "6",
+          "chains": ["D", "E", "F"]
+        },
+        {
+          "memberId": "ecoli-atpE",
+          "role": "complex_partner",
+          "entityId": "7",
+          "chains": ["I", "J", "L", "M", "N", "O", "P", "Q", "R", "S"]
+        },
+        { "memberId": "ecoli-atpB", "role": "complex_partner", "entityId": "8", "chains": ["a"] }
+      ]
+    },
+    {
+      "fixtureId": "mg1655-atpg-8dbp-f1fo-atp-state-1-half-up",
+      "coverageClass": "full_f1fo_complex",
+      "underlyingSequencePolicy": "all_members_in_source",
+      "pdbId": "8DBP",
+      "title": "E. coli ATP synthase imaged in 10mM MgATP State1 half-up",
+      "method": "ELECTRON MICROSCOPY",
+      "resolutionAngstrom": 3.6,
+      "emdbIds": ["EMD-27297"],
+      "sourceOrganism": "Escherichia coli",
+      "sourceTaxonId": 562,
+      "primaryEntityId": "4",
+      "primaryChains": ["G"],
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/8DBP",
+        "https://data.rcsb.org/rest/v1/core/entry/8DBP",
+        "https://www.ebi.ac.uk/emdb/EMD-27297"
+      ],
+      "members": [
+        {
+          "memberId": "ecoli-atpE",
+          "role": "complex_partner",
+          "entityId": "1",
+          "chains": ["I", "J", "L", "M", "N", "O", "P", "Q", "R", "S"]
+        },
+        {
+          "memberId": "ecoli-atpA",
+          "role": "complex_partner",
+          "entityId": "2",
+          "chains": ["A", "B", "C"]
+        },
+        {
+          "memberId": "ecoli-atpD",
+          "role": "complex_partner",
+          "entityId": "3",
+          "chains": ["D", "E", "F"]
+        },
+        { "memberId": "ecoli-atpG", "role": "query_anchor", "entityId": "4", "chains": ["G"] },
+        { "memberId": "ecoli-atpC", "role": "complex_partner", "entityId": "5", "chains": ["H"] },
+        { "memberId": "ecoli-atpH", "role": "complex_partner", "entityId": "6", "chains": ["W"] },
+        {
+          "memberId": "ecoli-atpF",
+          "role": "complex_partner",
+          "entityId": "7",
+          "chains": ["X", "Y"]
+        },
+        { "memberId": "ecoli-atpB", "role": "complex_partner", "entityId": "8", "chains": ["a"] }
+      ]
+    },
+    {
+      "fixtureId": "mg1655-atpg-8dbt-f1fo-atp-state-2-down",
+      "coverageClass": "full_f1fo_complex",
+      "underlyingSequencePolicy": "all_members_in_source",
+      "pdbId": "8DBT",
+      "title": "E. coli ATP synthase imaged in 10mM MgATP State2 down",
+      "method": "ELECTRON MICROSCOPY",
+      "resolutionAngstrom": 3.1,
+      "emdbIds": ["EMD-27306"],
+      "sourceOrganism": "Escherichia coli",
+      "sourceTaxonId": 562,
+      "primaryEntityId": "3",
+      "primaryChains": ["G"],
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/8DBT",
+        "https://data.rcsb.org/rest/v1/core/entry/8DBT",
+        "https://www.ebi.ac.uk/emdb/EMD-27306"
+      ],
+      "members": [
+        {
+          "memberId": "ecoli-atpA",
+          "role": "complex_partner",
+          "entityId": "1",
+          "chains": ["A", "B", "C"]
+        },
+        {
+          "memberId": "ecoli-atpD",
+          "role": "complex_partner",
+          "entityId": "2",
+          "chains": ["D", "E", "F"]
+        },
+        { "memberId": "ecoli-atpG", "role": "query_anchor", "entityId": "3", "chains": ["G"] },
+        { "memberId": "ecoli-atpC", "role": "complex_partner", "entityId": "4", "chains": ["H"] },
+        { "memberId": "ecoli-atpH", "role": "complex_partner", "entityId": "5", "chains": ["W"] },
+        {
+          "memberId": "ecoli-atpE",
+          "role": "complex_partner",
+          "entityId": "6",
+          "chains": ["I", "J", "L", "M", "N", "O", "P", "Q", "R", "S"]
+        },
+        {
+          "memberId": "ecoli-atpF",
+          "role": "complex_partner",
+          "entityId": "7",
+          "chains": ["X", "Y"]
+        },
+        { "memberId": "ecoli-atpB", "role": "complex_partner", "entityId": "8", "chains": ["a"] }
+      ]
+    },
+    {
+      "fixtureId": "mg1655-atpg-7jga-myco-homolog-external",
+      "coverageClass": "homolog_full_f1fo_external",
+      "underlyingSequencePolicy": "external_only_members_absent_from_source",
+      "pdbId": "7JGA",
+      "title": "Cryo-EM structure of bedaquiline-saturated Mycobacterium smegmatis ATP synthase rotational state 3",
+      "method": "ELECTRON MICROSCOPY",
+      "resolutionAngstrom": 3.2,
+      "emdbIds": ["EMD-22316"],
+      "sourceOrganism": "Mycolicibacterium smegmatis",
+      "sourceTaxonId": 1772,
+      "primaryEntityId": "3",
+      "primaryChains": ["G"],
+      "sourceUrls": [
+        "https://www.rcsb.org/structure/7JGA",
+        "https://data.rcsb.org/rest/v1/core/entry/7JGA",
+        "https://www.ebi.ac.uk/emdb/EMD-22316"
+      ],
+      "members": [
+        {
+          "memberId": "myco-atpA",
+          "role": "external_homolog_partner",
+          "entityId": "1",
+          "chains": ["A", "B", "C"]
+        },
+        {
+          "memberId": "myco-atpD",
+          "role": "external_homolog_partner",
+          "entityId": "2",
+          "chains": ["D", "E", "F"]
+        },
+        {
+          "memberId": "myco-atpG",
+          "role": "external_homolog_query",
+          "entityId": "3",
+          "chains": ["G"]
+        },
+        {
+          "memberId": "myco-atpC",
+          "role": "external_homolog_partner",
+          "entityId": "4",
+          "chains": ["H"]
+        },
+        {
+          "memberId": "myco-atpB",
+          "role": "external_homolog_partner",
+          "entityId": "5",
+          "chains": ["a"]
+        },
+        {
+          "memberId": "myco-atpF",
+          "role": "external_homolog_partner",
+          "entityId": "6",
+          "chains": ["b"]
+        },
+        {
+          "memberId": "myco-atpH-atpF-fusion",
+          "role": "external_homolog_partner",
+          "entityId": "7",
+          "chains": ["d"]
+        },
+        {
+          "memberId": "myco-atpE",
+          "role": "external_homolog_partner",
+          "entityId": "8",
+          "chains": ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+        }
+      ]
+    }
+  ]
+}

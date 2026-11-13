@@ -1,0 +1,118 @@
+{
+  "entries": [
+    {
+      "_comment": "GenArk search for yeast: one hub-backed RefSeq assembly. Its hub serves the deterministic chromosome-IV 2bit from the loopback server the Playwright spec starts on port 47831.",
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/findGenome",
+      "query": {
+        "q": "cerevisiae",
+        "browser": "mustExist"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "downloadTime": "2026:09:22T00:00:00Z",
+          "browser": "mustExist",
+          "GCF_000146045.2": {
+            "commonName": "baker's yeast",
+            "scientificName": "Saccharomyces cerevisiae",
+            "description": "R64 559292 2014-12-17",
+            "browserExists": true,
+            "hubUrl": "GCF/000/146/045/GCF_000146045.2/hub.txt",
+            "versionStatus": "latest",
+            "assemblyLevel": "complete"
+          },
+          "itemCount": 1
+        }
+      }
+    },
+    {
+      "_comment": "Structured GenArk identity for the yeast accession: assembly name, organism, and taxon.",
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/list/genarkGenomes",
+      "query": {
+        "genome": "GCF_000146045.2"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "downloadTime": "2026:09:22T00:00:00Z",
+          "hubUrlPrefix": "/gbdb/genark",
+          "genarkGenomes": {
+            "GCF_000146045.2": {
+              "hubUrl": "GCF/000/146/045/GCF_000146045.2/hub.txt",
+              "asmName": "R64",
+              "scientificName": "Saccharomyces cerevisiae",
+              "commonName": "baker's yeast",
+              "taxId": 559292,
+              "clade": "fungi"
+            }
+          },
+          "itemsReturned": 1
+        }
+      }
+    },
+    {
+      "_comment": "The GenArk hub's genome stanza as UCSC reports it: an absolute twoBitPath, here pointing at the loopback sequence server.",
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/list/hubGenomes",
+      "query": {
+        "hubUrl": "https://hgdownload.soe.ucsc.edu/hubs/GCF/000/146/045/GCF_000146045.2/hub.txt"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "downloadTime": "2026:09:22T00:00:00Z",
+          "hubUrl": "https://hgdownload.soe.ucsc.edu/hubs/GCF/000/146/045/GCF_000146045.2/hub.txt",
+          "genomes": {
+            "GCF_000146045.2": {
+              "organism": "R64 Dec. 2014",
+              "description": "baker's yeast",
+              "twoBitPath": "http://127.0.0.1:47831/genark/GCF_000146045.2.2bit"
+            }
+          }
+        }
+      }
+    },
+    {
+      "_comment": "Tracks the GenArk hub publishes for the imported yeast assembly: the lab's aligned reads on the deterministic remote fixture host, so a hub-derived reference lists its own hub without reconnecting it.",
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/list/tracks",
+      "query": {
+        "genome": "GCF_000146045.2",
+        "hubUrl": "https://hgdownload.soe.ucsc.edu/hubs/GCF/000/146/045/GCF_000146045.2/hub.txt"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "GCF_000146045.2": {
+            "labReads": {
+              "shortLabel": "Lab yeast reads",
+              "longLabel": "Aligned reads published with the GenArk hub",
+              "type": "bam",
+              "group": "reads",
+              "bigDataUrl": "https://reads.example.org/s288c/reads.cram",
+              "bigDataIndex": "https://reads.example.org/s288c/reads.cram.crai"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

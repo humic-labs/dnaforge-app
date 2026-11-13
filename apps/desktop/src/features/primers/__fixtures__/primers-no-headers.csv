@@ -1,0 +1,5 @@
+M13-Forward,GTAAAACGACGGCCAGT,Standard M13 forward primer
+M13-Reverse,CAGGAAACAGCTATGAC,Standard M13 reverse primer
+T7-Promoter,TAATACGACTCACTATAGGG,T7 promoter primer
+SP6-Promoter,ATTTAGGTGACACTATAG,SP6 promoter primer
+BGH-Reverse,TAGAAGGCACAGTCGAGG,BGH poly(A) reverse primer

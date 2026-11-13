@@ -1,0 +1,46 @@
+LOCUS       mg1655_thrL_xref         300 bp    DNA     linear   SYN 29-APR-2026
+DEFINITION  Synthetic linear region modeled after the E. coli K-12 MG1655
+            thrL operon start. Carries NCBI-style /db_xref annotations to
+            exercise the multi-value qualifier parser.
+ACCESSION   mg1655_thrL_multi_xref
+VERSION     mg1655_thrL_multi_xref
+COMMENT     regression fixture. The forward-strand CDS at 1..66 is the
+            thrL coding region as annotated in NCBI U00096.3 (MG1655 reference
+            genome), reduced to its qualifier surface. The four /db_xref lines
+            are the actual cross-references on the live thrL annotation
+            (UniProt, ASAP, EcoCyc, EcoGene); the parser previously kept only
+            the last entry. The complement-strand CDS at 100..165 is hand-
+            authored to give the round-trip test a second multi-xref feature
+            and to verify that ordering is preserved per-feature, not globally.
+            Singleton qualifiers (/gene, /locus_tag, /protein_id, /translation)
+            should parse to length-1 arrays. The 300 bp ORIGIN sequence is
+            seeded ACGT filler — biological identity does not matter for the
+            qualifier-preservation tests this fixture exists to support.
+FEATURES             Location/Qualifiers
+     CDS             1..66
+                     /label="thrL"
+                     /gene="thrL"
+                     /locus_tag="b0001"
+                     /protein_id="AAC73112.1"
+                     /codon_start="1"
+                     /transl_table="11"
+                     /translation="MKRISTTITTTITITTGNGAG"
+                     /db_xref="UniProtKB/Swiss-Prot:P0AD86"
+                     /db_xref="ASAP:ABE-0000006"
+                     /db_xref="ECOCYC:EG10998"
+                     /db_xref="EcoGene:EG10998"
+     CDS             complement(100..165)
+                     /label="rev_dual_xref"
+                     /gene="rev_dual_xref"
+                     /codon_start="1"
+                     /transl_table="11"
+                     /translation="MAAAAAAAAAAAAAAAAAAAAA"
+                     /db_xref="UniProtKB/Swiss-Prot:P00000"
+                     /db_xref="GeneID:99999"
+ORIGIN
+        1 atgaaacgca ttagcaccac cattaccacc accatcacca ttaccacagg taacggtgcg
+       61 ggctgacgcg tacaggaaac acagaaaaaa gcccgcacct gacagtgcgg gctttttttt
+      121 tcgaccaaag gtaacgaggt aacaaccatg cgagtgttga agttcggcgg tacatcagtg
+      181 gcaaatgcag aacgttttct gcgtgttgcc gatattctgg aaagcaatgc caggcaggat
+      241 gtttacctta tcggtgaaaa actaagacac caacgaagaa atgcgaccaa gccatatcca
+//

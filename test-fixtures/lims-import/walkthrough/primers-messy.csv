@@ -1,0 +1,4 @@
+Primer ID,Oligo Sequence,Owner,Order Date,Supplier,Plate,Well,Project,Notes,Melting Temp,QC Flag,Freezer Box,Legacy ID
+MP001,GTAAAACGACGGCCAGT,Peter,2026-06-01,IDT,Plate-7,A01,pUC19 checks,M13 forward control,54.1,pass,Box A,old-001
+MP002,CAGGAAACAGCTATGAC,Peter,2026-06-01,IDT,Plate-7,A02,pUC19 checks,M13 reverse control,52.9,pass,Box A,old-002
+MP003,ATGACCATGATTACGCCAAG,Alex,2026-06-03,IDT,Plate-8,B01,colony PCR,Screening forward,58.4,review,Box C,legacy-F3

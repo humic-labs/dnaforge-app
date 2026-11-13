@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dnaforge.com/schemas/release-assets.v1.json",
+  "title": "DNAForge release asset lock",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "publicBaseUrl", "preparedCiAssets", "tools"],
+  "properties": {
+    "contract": { "const": "dnaforge-release-assets.v1" },
+    "publicBaseUrl": { "type": "string", "format": "uri" },
+    "preparedCiAssets": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/preparedCiAsset" }
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/tool" }
+    }
+  },
+  "$defs": {
+    "preparedCiAsset": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["key", "sha256", "archiveType", "source"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^ci-assets/v1/" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "archiveType": { "const": "tar.gz" },
+        "source": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["kind"],
+          "properties": {
+            "kind": { "const": "dnaforge-built-from-source" }
+          }
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "platforms"],
+      "properties": {
+        "version": { "type": "string" },
+        "platforms": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/asset" }
+        }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["key", "sha256", "archiveType", "binaries", "source"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^tools/v1/" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "archiveType": { "enum": ["tar.gz", "tar.bz2", "zip"] },
+        "archiveRoot": { "type": "string" },
+        "binaries": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["kind", "url"],
+          "properties": {
+            "kind": {
+              "enum": ["upstream", "dnaforge-built-from-source", "dnaforge-recovered-artifact"]
+            },
+            "url": { "type": "string", "format": "uri" },
+            "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+          }
+        }
+      }
+    }
+  }
+}

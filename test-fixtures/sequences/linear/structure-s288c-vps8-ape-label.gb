@@ -1,0 +1,88 @@
+LOCUS       STRUCT_S288C_VPS8   3825 bp    DNA     linear   13-JUN-2026
+DEFINITION  Saccharomyces cerevisiae S288C chromosome I VPS8 CDS slice for residue-structure sync regression.
+ACCESSION   .
+KEYWORDS    structure-regression; residue-selection; yeast; vps8; label-gene-alias.
+SOURCE      Saccharomyces cerevisiae S288C
+  ORGANISM  Saccharomyces cerevisiae S288C
+FEATURES             Location/Qualifiers
+     source          1..3825
+                     /organism="Saccharomyces cerevisiae S288C"
+                     /db_xref="taxon:559292"
+     CDS             1..3825
+                     /label="VPS8 CDS (CORVET complex membrane-binding subunit VPS8)"
+                     /ApEinfo_revcolor="#f8d3a9"
+                     /ApEinfo_fwdcolor="#f8d3a9"
+     gene            1..3825
+                     /label="VPS8 gene"
+                     /ApEinfo_revcolor="#ffef86"
+                     /ApEinfo_fwdcolor="#ffef86"
+     mRNA            1..3825
+                     /label="VPS8 mRNA (CORVET complex membrane-binding subunit VPS8)"
+                     /ApEinfo_revcolor="#ffef86"
+                     /ApEinfo_fwdcolor="#ffef86"
+ORIGIN
+        1 atggagcaaa atggccttga ccacgacagc agatctagca tcgatacgac tattaatgac
+       61 actcaaaaga ctttcctaga atttagatcg tatacccaat taagtgaaaa actggcatct
+      121 agttcttcat atacggcacc tcccctgaac gaagatggtc ctaaaggggt agcttctgca
+      181 gtgtcacaag gctccgaatc cgtagtctca tggacaactt taacacacgt atattccatc
+      241 ctgggtgctt atggagggcc cacgtgcttg tatccgacag ccacgtattt tttgatgggc
+      301 acttctaaag gatgcgtact catttttaat tataatgaac atttgcagac aatcctagtg
+      361 ccgaccttat ctgaggaccc ttctattcac tcaataagaa gtccagtgaa atcaattgtc
+      421 atatgttccg atggtactca tgtagctgcc tcatacgaga ccggaaatat atgcatttgg
+      481 aacttgaacg tagggtatag agtgaaaccc acttctgaac caacaaatgg tatgacccca
+      541 acgcctgcct taccggcagt cttacacatc gatgaccatg tgaacaagga aatcacaggg
+      601 ttagactttt ttggtgctcg gcatacagcc ctgattgtta gtgataggac aggtaaagta
+      661 tcactctata acggttacag aagaggcttt tggcagttgg tgtataattc aaaaaaaatt
+      721 ttagatgtga actcttccaa ggagaaatta ataaggtcaa agttgtctcc actaatatca
+      781 cgggagaaaa tttccactaa tttgttgagt gtactcacaa ctacacattt tgcccttatt
+      841 ttattatcgc cacacgtttc tttgatgttt caagaaactg ttgaaccctc agtacaaaat
+      901 tctctagtcg tgaatagctc tatttcatgg actcaaaact gttccagggt tgcttattcc
+      961 gtaaataata aaatttctgt tatttccata tcttcatcag acttcaatgt tcagtccgct
+     1021 agccattctc ctgaatttgc agaatctata ttatccattc aatggattga ccagctccta
+     1081 cttggtgttt taaccatatc gcaccaattt ttggtattgc acccccaaca tgacttcaag
+     1141 atcctgttaa gattggattt tctgattcac gatttgatga tcccacctaa taaatatttt
+     1201 gtaataagta gaagaagttt ctacctgtta acaaactact catttaaaat tggcaaattt
+     1261 gtgtcttggt cagatattac tttaagacat attttgaaag gcgactactt gggtgcattg
+     1321 gagttcatag aatcactttt gcaaccttac tgtccactgg caaacttgtt gaagctagat
+     1381 aataatacgg aagagaggac taagcaactt atggaaccat tttacaatct gtccttggct
+     1441 gccctaaggt ttcttataaa aaaagataat gccgactaca atagggttta ccaattatta
+     1501 atggtagttg ttcgtgtttt gcagcaatct tccaaaaaac tagactcaat tccttctcta
+     1561 gacgtctttt tggaacaggg tctggagttc tttgaattga aggacaacgc ggtatatttt
+     1621 gaagttgtag caaatattgt tgcccaagga tcagttacgt caatttcccc agttcttttc
+     1681 aggtccataa ttgattacta tgctaaggag gagaatttaa aagtaattga agacttaatc
+     1741 atcatgttaa atcctactac gcttgatgtt gatcttgccg tcaaactatg ccaaaagtat
+     1801 aatttgttcg atttattaat atatatttgg aacaagatct ttgatgatta tcaaacccca
+     1861 gtggtggact tgatatacag gatttctaac caaagtgaaa aatgtgtgat cttcaatggt
+     1921 cctcaagtac ctcctgaaac gactatattt gattacgtaa cgtatatcct tactggcagg
+     1981 caatatccac aaaacttgtc tatatcacca agtgataaat gctccaaaat acaaagggaa
+     2041 ctttcagcat ttatttttag tggcttctcc ataaaatggc cgtcgaacag caatcataaa
+     2101 ctttacatat gcgaaaatcc agaagaagag ccagcatttc cttactttca ccttttattg
+     2161 aaatcgaatc cgagtaggtt cttagcaatg ctcaatgaag tgtttgaagc gtccttgttt
+     2221 aacgatgaca atgacatggt tgcatcagtt ggagaagcag aattggtaag taggcaatat
+     2281 gttattgatc tactattgga tgctatgaaa gatacgggaa attcagacaa catcagggta
+     2341 cttgttgcaa ttttcattgc aactagtata tcaaaatatc ctcaatttat taaagtgtct
+     2401 aaccaagccc tcgactgcgt tgttaatacc atatgctcct ctagggttca aggtatatat
+     2461 gaaatttctc aaatagctct ggagtcgctt ttaccctatt atcattcaag aacaacagaa
+     2521 aattttatac tggaactaaa agaaaaaaat ttcaataaag ttcttttcca tatctataaa
+     2581 agtgaaaata agtacgccag tgcgctttca cttattttag aaactaagga catcgaaaaa
+     2641 gaatataaca cggacattgt atccataacc gactacatac tcaaaaaatg cccacctgga
+     2701 agtttagaat gtggcaaagt tactgaagtt atcgagacga actttgatct tcttctctca
+     2761 aggatcggta tcgaaaaatg cgtcacaatt ttttctgact ttgactataa tcttcatcaa
+     2821 gaaatcctgg aagtaaagaa tgaggagact cagcaaaagt atttggataa gcttttttct
+     2881 acgccaaata tcaacaataa ggtcgataag cgtttaagaa atttacacat cgaattgaac
+     2941 tgtaaataca agagcaaaag ggaaatgatt ctttggctta atggtacagt tctcagcaac
+     3001 gctgagagct tacaaattct ggacttattg aatcaagact ctaattttga
+     3061 agctgcagct ataattcacg aacgcttgga aagttttaac ctagcagtca gggatttatt
+     3121 aagttttatt gaacaatgtc taaatgaagg gaaaacaaat atatctactt tattggaatc
+     3181 tttgaggagg gcctttgatg attgtaattc tgctggtacc gagaaaaaat cgtgttggat
+     3241 attattgatt acattcctga tcactctata tgggaaatat ccttcacacg atgaaaggaa
+     3301 agatttatgt aataaactac ttcaagaagc atttttggga ttggttaggt ccaagagttc
+     3361 ctctcagaag gattcaggtg gggaattctg ggaaataatg tcttctgttc ttgagcacca
+     3421 agacgttatt ttaatgaaag ttcaggattt aaagcaactg ctactgaatg tttttaatac
+     3481 ttataaattg gaaagatctc tttctgagtt gattcaaaag attatagagg attcttcgca
+     3541 agatcttgtt caacagtata gaaaatttct gagtgaaggg tggtctatac acaccgacga
+     3601 ctgcgaaatc tgcgggaaaa aaatatgggg agctggtctg gacccattac tttttctagc
+     3661 ttgggaaaat gtacagcgcc accaagatat gattagtgta gatctcaaaa ctccccttgt
+     3721 catattcaaa tgtcaccatg gctttcacca gacttgcctc gaaaacttgg cccagaaacc
+     3781 cgatgaatat tcttgtttaa tttgccagac ggaatctaac ccaaaaatag tataa
+//

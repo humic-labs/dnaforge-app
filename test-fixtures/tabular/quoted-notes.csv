@@ -1,0 +1,6 @@
+sample_id,operator,notes,result
+Q-001,Ada,"contains comma, inside the notes",pass
+Q-002,Grace,"escaped quote: ""check primer dimer""",review
+Q-003,Katherine,"multiline note starts here
+and continues on the next line",pass
+Q-004,Dorothy,"blank result cell follows",

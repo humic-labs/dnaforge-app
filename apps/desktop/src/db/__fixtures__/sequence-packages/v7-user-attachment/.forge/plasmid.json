@@ -1,0 +1,39 @@
+{
+  "schema": "waypoint.sequence.v1",
+  "kind": "sequence",
+  "formatVersion": 7,
+  "id": "fixture-v7-user-attachment",
+  "name": "Legacy user attachment",
+  "updatedAt": "2026-01-01T00:00:00.000Z",
+  "product": { "file": "pLegacyV7.gb" },
+  "members": [
+    {
+      "id": "legacy-note",
+      "role": "user",
+      "path": "contents/original-note.txt",
+      "replaceable": false,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "versionHistory": {
+    "schema": "waypoint.sequence-history.v1",
+    "headId": null,
+    "revisions": []
+  },
+  "entity": {
+    "schema": {
+      "schemaId": "schema-entity-sequence",
+      "schemaRevisionId": "schema-entity-sequence-v1",
+      "name": "sequence",
+      "displayName": "DNA sequence",
+      "baseKind": "sequence",
+      "version": 1,
+      "fields": []
+    },
+    "fields": {},
+    "registrationStatus": "tracked",
+    "domainStatus": null,
+    "registryId": null,
+    "relationships": []
+  }
+}

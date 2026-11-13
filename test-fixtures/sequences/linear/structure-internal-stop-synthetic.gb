@@ -1,0 +1,20 @@
+LOCUS       structure_internal_stop    12 bp    DNA     linear   SYN 17-MAY-2026
+DEFINITION  Synthetic CDS fixture with an internal stop in the protein
+            translation. Used to regress structure drawer sidecar
+            canonicalization for ineligible exact-sequence lookups.
+ACCESSION   structure_internal_stop
+VERSION     structure_internal_stop
+COMMENT     Synthetic regression fixture. The CDS qualifier intentionally
+            carries /translation="MA*D" so the product path exercises the
+            same renderer preflight identity and sidecar ineligible response
+            shape that appears for problematic imported annotations.
+FEATURES             Location/Qualifiers
+     CDS             1..12
+                     /label="internal_stop_cds"
+                     /gene="internal_stop_cds"
+                     /codon_start="1"
+                     /transl_table="11"
+                     /translation="MA*D"
+ORIGIN
+        1 atggcttaag ac
+//

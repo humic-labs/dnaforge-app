@@ -1,0 +1,61 @@
+LOCUS       AF168419                 859 bp    mRNA    linear   INV 27-JUL-2001
+DEFINITION  Discosoma sp. fluorescent protein FP583 mRNA, complete cds.
+ACCESSION   AF168419
+VERSION     AF168419.2
+KEYWORDS    .
+SOURCE      Discosoma sp.
+  ORGANISM  Discosoma sp.
+            Eukaryota; Metazoa; Cnidaria; Anthozoa; Hexacorallia;
+            Corallimorpharia; Discosomidae; Discosoma.
+REFERENCE   1  (bases 1 to 859)
+  AUTHORS   Matz,M.V., Fradkov,A.F., Labas,Y.A., Savitsky,A.P., Zaraisky,A.G.,
+            Markelov,M.L. and Lukyanov,S.A.
+  TITLE     Fluorescent proteins from nonbioluminescent Anthozoa species
+  JOURNAL   Nat. Biotechnol. 17 (10), 969-973 (1999)
+   PUBMED   10504696
+REFERENCE   2  (bases 1 to 859)
+  AUTHORS   Matz,M.V., Fradkov,A.F., Labas,Y.A., Savitsky,A.P., Zaraisky,A.G.,
+            Markelov,M.L. and Lukyanov,S.A.
+  TITLE     Direct Submission
+  JOURNAL   Submitted (14-JUL-1999) Institute of Bioorganic Chemistry RAS,
+            Miklukho-Maklaya 16/10, Moscow 117871, Russia
+REFERENCE   3  (bases 1 to 859)
+  AUTHORS   Matz,M.V., Fradkov,A.F., Labas,Y.A., Savitsky,A.P., Zaraisky,A.G.,
+            Markelov,M.L. and Lukyanov,S.A.
+  TITLE     Direct Submission
+  JOURNAL   Submitted (25-FEB-2000) Institute of Bioorganic Chemistry RAS,
+            Miklukho-Maklaya 16/10, Moscow 117871, Russia
+  REMARK    Sequence update by submitter
+COMMENT     On Feb 25, 2000 this sequence version replaced AF168419.1.
+FEATURES             Location/Qualifiers
+     source          1..859
+                     /organism="Discosoma sp."
+                     /mol_type="mRNA"
+                     /db_xref="taxon:86600"
+     CDS             54..731
+                     /note="GFP-like protein; orange-red"
+                     /codon_start=1
+                     /product="fluorescent protein FP583"
+                     /protein_id="AAF03369.1"
+                     /translation="MRSSKNVIKEFMRFKVRMEGTVNGHEFEIEGEGEGRPYEGHNTV
+                     KLKVTKGGPLPFAWDILSPQFQYGSKVYVKHPADIPDYKKLSFPEGFKWERVMNFEDG
+                     GVVTVTQDSSLQDGCFIYKVKFIGVNFPSDGPVMQKKTMGWEASTERLYPRDGVLKGE
+                     IHKALKLKDGGHYLVEFKSIYMAKKPVQLPGYYYVDSKLDITSHNEDYTIVEQYERTE
+                     GRHHLFL"
+ORIGIN
+        1 gtttcagcca gtgacggtca gtgacagggt gagccacttg gtataccaac aaaatgaggt
+       61 cttccaagaa tgttatcaag gagttcatga ggtttaaggt tcgcatggaa ggaacggtca
+      121 atgggcacga gtttgaaata gaaggcgaag gagaggggag gccatacgaa ggccacaata
+      181 ccgtaaagct taaggtaacc aaggggggac ctttgccatt tgcttgggat attttgtcac
+      241 cacaatttca gtatggaagc aaggtatatg tcaagcaccc tgccgacata ccagactata
+      301 aaaagctgtc atttcctgaa ggatttaaat gggaaagggt catgaacttt gaagacggtg
+      361 gcgtcgttac tgtaacccag gattccagtt tgcaggatgg ctgtttcatc tacaaggtca
+      421 agttcattgg cgtgaacttt ccttccgatg gacctgttat gcaaaagaag acaatgggct
+      481 gggaagccag cactgagcgt ttgtatcctc gtgatggcgt gttgaaagga gagattcata
+      541 aggctctgaa gctgaaagac ggtggtcatt acctagttga attcaaaagt atttacatgg
+      601 caaagaagcc tgtgcagcta ccagggtact actatgttga ctccaaactg gatataacaa
+      661 gccacaacga agactataca atcgttgagc agtatgaaag aaccgaggga cgccaccatc
+      721 tgttccttta aggctgaact tggctcagac gtgggtgagc ggtaatgacc acaaaaggca
+      781 gcgaagaaaa accatgatcg ttttttttag gttggcagcc tgaaatcgta ggaaatacat
+      841 cagaaatgtt acaaacagg
+//

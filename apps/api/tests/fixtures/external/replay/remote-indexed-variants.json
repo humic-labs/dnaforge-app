@@ -1,0 +1,64 @@
+{
+  "entries": [
+    {
+      "_comment": "Deterministic 105-call chromosome-IV BGZF VCF served as a remote indexed source.",
+      "method": "GET",
+      "host": "variants.example.org",
+      "path": "/s288c/calls.vcf.gz",
+      "response": {
+        "body_file": "../binary/yeast-chriv-variants.vcf.gz",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/gzip",
+          "ETag": "\"yeast-chriv-vcf-v1\"",
+          "Last-Modified": "Mon, 21 Sep 2026 00:00:00 GMT"
+        }
+      }
+    },
+    {
+      "_comment": "Exact tabix index for the deterministic chromosome-IV VCF.",
+      "method": "GET",
+      "host": "variants.example.org",
+      "path": "/s288c/calls.vcf.gz.tbi",
+      "response": {
+        "body_file": "../binary/yeast-chriv-variants.vcf.gz.tbi",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"yeast-chriv-tbi-v1\"",
+          "Last-Modified": "Mon, 21 Sep 2026 00:00:00 GMT"
+        }
+      }
+    },
+    {
+      "_comment": "Deterministic 105-call chromosome-IV BCF served as a remote indexed source.",
+      "method": "GET",
+      "host": "variants.example.org",
+      "path": "/s288c/calls.bcf",
+      "response": {
+        "body_file": "../binary/yeast-chriv-variants.bcf",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"yeast-chriv-bcf-v1\"",
+          "Last-Modified": "Mon, 21 Sep 2026 00:00:00 GMT"
+        }
+      }
+    },
+    {
+      "_comment": "Exact CSI index for the deterministic chromosome-IV BCF.",
+      "method": "GET",
+      "host": "variants.example.org",
+      "path": "/s288c/calls.bcf.csi",
+      "response": {
+        "body_file": "../binary/yeast-chriv-variants.bcf.csi",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"yeast-chriv-csi-v1\"",
+          "Last-Modified": "Mon, 21 Sep 2026 00:00:00 GMT"
+        }
+      }
+    }
+  ]
+}

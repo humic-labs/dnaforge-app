@@ -1,0 +1,390 @@
+{
+  "schema": "waypoint.notebook.v1",
+  "kind": "notebook",
+  "id": "corpus-12-three-input-gate",
+  "title": "Three-input AND gate \u2014 the programme target",
+  "updatedAt": "2026-07-14T12:00:00.000Z",
+  "storage": {
+    "type": "database",
+    "table": "pages",
+    "id": "corpus-12-three-input-gate"
+  },
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Three-input AND gate \u2014 the programme target"
+          }
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Directive \u2014 Build and characterise the target gate across all eight input states."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Architecture"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Inputs "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-17d5acad",
+              "label": "R0010 (pLac)",
+              "entityType": "sequence",
+              "entityId": "sample-17d5acad",
+              "path": "sequences/kits/moclo-cidar/R0010_AB",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-84f9f52b",
+              "label": "R0040 (pTet)",
+              "entityType": "sequence",
+              "entityId": "sample-84f9f52b",
+              "path": "sequences/kits/moclo-cidar/R0040_AB",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " and "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-21c2239d",
+              "label": "R0063 (pLux)",
+              "entityType": "sequence",
+              "entityId": "sample-21c2239d",
+              "path": "sequences/kits/moclo-cidar/R0063_AB",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " drive "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-ff80508d",
+              "label": "C0012m (LacI)",
+              "entityType": "sequence",
+              "entityId": "sample-ff80508d",
+              "path": "sequences/kits/moclo-cidar/C0012m_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-a8dc997d",
+              "label": "C0040 (TetR)",
+              "entityType": "sequence",
+              "entityId": "sample-a8dc997d",
+              "path": "sequences/kits/moclo-cidar/C0040_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " and "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-4d0b00cd",
+              "label": "C0062 (LuxR)",
+              "entityType": "sequence",
+              "entityId": "sample-4d0b00cd",
+              "path": "sequences/kits/moclo-cidar/C0062_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " respectively. Output "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-694681f1",
+              "label": "E1010m (mRFP)",
+              "entityType": "sequence",
+              "entityId": "sample-694681f1",
+              "path": "sequences/kits/moclo-cidar/E1010m_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " on the lower-copy "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-5d7adb95",
+              "label": "DVK_FG",
+              "entityType": "sequence",
+              "entityId": "sample-5d7adb95",
+              "path": "sequences/kits/moclo-cidar/DVK_FG",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " chosen in entry 11."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Units are oriented divergently per the entry-06 rule. Terminators "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-c7505d5d",
+              "label": "B0015 (DF)",
+              "entityType": "sequence",
+              "entityId": "sample-c7505d5d",
+              "path": "sequences/kits/moclo-cidar/B0015_DF",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": ", "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-e80456db",
+              "label": "B0015 (DG)",
+              "entityType": "sequence",
+              "entityId": "sample-e80456db",
+              "path": "sequences/kits/moclo-cidar/B0015_DG",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " and "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-4950fd2d",
+              "label": "B0015 (DH)",
+              "entityType": "sequence",
+              "entityId": "sample-4950fd2d",
+              "path": "sequences/kits/moclo-cidar/B0015_DH",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " occupy distinct MoClo positions so no two units share a fusion site."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Result"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "26-fold ON/OFF at mid-exponential, across all eight states. Criterion cleared."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Growth cost 17 percent, inside the 20 percent limit \u2014 the linear projection in entry 10 was pessimistic, as flagged."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "The state that nearly failed"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "The (1,1,0) state sits 2.4-fold above the true OFF, the largest single-state leak. Traced in entry 13 to "
+          },
+          {
+            "type": "mention",
+            "attrs": {
+              "id": "sample-4d0b00cd",
+              "label": "C0062 (LuxR)",
+              "entityType": "sequence",
+              "entityId": "sample-4d0b00cd",
+              "path": "sequences/kits/moclo-cidar/C0062_CD",
+              "contentHash": null,
+              "objectUuid": null
+            }
+          },
+          {
+            "type": "text",
+            "text": " crosstalk, not to read-through."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Related entries"
+          }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-11-burden-mitigation",
+                      "label": "11 \u2014 Burden mitigation via copy number and marker choice",
+                      "entityType": "page",
+                      "entityId": "corpus-11-burden-mitigation"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-13-orthogonality-screen",
+                      "label": "13 \u2014 Orthogonality screen",
+                      "entityType": "page",
+                      "entityId": "corpus-13-orthogonality-screen"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "mention",
+                    "attrs": {
+                      "id": "corpus-18-synthesis",
+                      "label": "18 \u2014 Synthesis, open problems, and the next design cycle",
+                      "entityType": "page",
+                      "entityId": "corpus-18-synthesis"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

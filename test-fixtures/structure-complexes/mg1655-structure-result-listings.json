@@ -1,0 +1,481 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "mg1655-structure-result-listings",
+  "verifiedAt": "2026-05-21",
+  "verificationSources": [
+    "https://rest.uniprot.org/uniprotkb/{uniprotAccession}.json",
+    "https://data.rcsb.org/rest/v1/core/entry/{pdbId}",
+    "https://alphafold.ebi.ac.uk/entry/{uniprotAccession}"
+  ],
+  "sourceSequence": {
+    "path": "test-fixtures/sequences/circular/ecoli-mg1655-complete.gb",
+    "organism": "Escherichia coli K-12 MG1655",
+    "taxonId": 83333,
+    "accession": "NC_000913.3",
+    "sha256": "7cf1ed07c731a1aba11d2b12a7071f395b1a25b4e9a06809549742f83c2d1a2f"
+  },
+  "cases": [
+    {
+      "caseId": "cocomplex-atpg-atp-synthase-gamma-epsilon",
+      "resultClass": "co_complex",
+      "gene": "atpG",
+      "uniprotAccession": "P0ABA6",
+      "uniprotId": "ATPG_ECOLI",
+      "proteinName": "ATP synthase subunit gamma",
+      "featureLabel": "atpG",
+      "locusTag": "b3733",
+      "product": "ATP synthase F1 complex subunit gamma",
+      "location": {
+        "start": 3917402,
+        "end": 3918265,
+        "strand": -1
+      },
+      "expectedProtein": {
+        "length": 287,
+        "prefix": "MAGAKEIRSKIASVQNTQKITKAM",
+        "md5": "D21BDCC2F9FC8B3E07CE5EAED473D7BB",
+        "sha256": "be4b2cdeb22ed37fe81a0ceb747c8a136c83ef895f8bdf243f9e210e5f3cbfce"
+      },
+      "resultListing": {
+        "hasPdbResults": true,
+        "uniprotPdbXrefCount": 23,
+        "hasAlphaFoldPrediction": true,
+        "expectedPrimaryProvider": "rcsb",
+        "expectedComplexUi": "complex_member_browser",
+        "listingShape": "many_cocomplex_pdb_results",
+        "representativeStructures": [
+          {
+            "pdbId": "1FS0",
+            "title": "COMPLEX OF GAMMA/EPSILON ATP SYNTHASE FROM E.COLI",
+            "method": "X-RAY DIFFRACTION",
+            "resolutionAngstrom": 2.1,
+            "polymerComposition": "heteromeric protein",
+            "polymerEntityCount": 2,
+            "proteinEntityCount": 2,
+            "dnaEntityCount": 0,
+            "rnaEntityCount": 0,
+            "coComplexEvidence": "heteromeric_protein"
+          }
+        ],
+        "sourceUrls": [
+          "https://rest.uniprot.org/uniprotkb/P0ABA6.json",
+          "https://data.rcsb.org/rest/v1/core/entry/1FS0",
+          "https://alphafold.ebi.ac.uk/entry/P0ABA6"
+        ]
+      }
+    },
+    {
+      "caseId": "cocomplex-rpob-rna-polymerase-initiation",
+      "resultClass": "co_complex",
+      "gene": "rpoB",
+      "uniprotAccession": "P0A8V2",
+      "uniprotId": "RPOB_ECOLI",
+      "proteinName": "DNA-directed RNA polymerase subunit beta",
+      "featureLabel": "rpoB",
+      "locusTag": "b3987",
+      "product": "RNA polymerase subunit beta",
+      "location": {
+        "start": 4181245,
+        "end": 4185273,
+        "strand": 1
+      },
+      "expectedProtein": {
+        "length": 1342,
+        "prefix": "MVYSYTEKKRIRKDFGKRPQVLDV",
+        "md5": "5A6DB54270D33F1E4BFA723559A235E2",
+        "sha256": "c33ef6acd9bbcfc005a1c510c5d60b886546d1c6f7ce155daf6989314c1f08af"
+      },
+      "resultListing": {
+        "hasPdbResults": true,
+        "uniprotPdbXrefCount": 328,
+        "hasAlphaFoldPrediction": true,
+        "expectedPrimaryProvider": "rcsb",
+        "expectedComplexUi": "complex_member_browser",
+        "listingShape": "many_cocomplex_pdb_results",
+        "representativeStructures": [
+          {
+            "pdbId": "3IYD",
+            "title": "Three-dimensional EM structure of an intact activator-dependent transcription initiation complex",
+            "method": "ELECTRON MICROSCOPY",
+            "resolutionAngstrom": 19.8,
+            "polymerComposition": "protein/NA",
+            "polymerEntityCount": 8,
+            "proteinEntityCount": 6,
+            "dnaEntityCount": 2,
+            "rnaEntityCount": 0,
+            "coComplexEvidence": "protein_nucleic_acid_complex"
+          }
+        ],
+        "sourceUrls": [
+          "https://rest.uniprot.org/uniprotkb/P0A8V2.json",
+          "https://data.rcsb.org/rest/v1/core/entry/3IYD",
+          "https://alphafold.ebi.ac.uk/entry/P0A8V2"
+        ]
+      }
+    },
+    {
+      "caseId": "cocomplex-grol-groel-groes",
+      "resultClass": "co_complex",
+      "gene": "groL",
+      "uniprotAccession": "P0A6F5",
+      "uniprotId": "CH60_ECOLI",
+      "proteinName": "Chaperonin GroEL",
+      "featureLabel": "groL",
+      "locusTag": "b4143",
+      "product": "chaperonin GroEL",
+      "location": {
+        "start": 4371025,
+        "end": 4372671,
+        "strand": 1
+      },
+      "expectedProtein": {
+        "length": 548,
+        "prefix": "MAAKDVKFGNDARVKMLRGVNVLA",
+        "md5": "6279EC3722197AF3533A9FD2B8D54074",
+        "sha256": "40544c6fee0f15b6fe78d6ab7e5e27d8080224fe28dc0d6ca6f2e9a790dd24d4"
+      },
+      "resultListing": {
+        "hasPdbResults": true,
+        "uniprotPdbXrefCount": 89,
+        "hasAlphaFoldPrediction": true,
+        "expectedPrimaryProvider": "rcsb",
+        "expectedComplexUi": "complex_member_browser",
+        "listingShape": "many_cocomplex_pdb_results",
+        "representativeStructures": [
+          {
+            "pdbId": "1AON",
+            "title": "CRYSTAL STRUCTURE OF THE ASYMMETRIC CHAPERONIN COMPLEX GROEL/GROES/(ADP)7",
+            "method": "X-RAY DIFFRACTION",
+            "resolutionAngstrom": 3,
+            "polymerComposition": "heteromeric protein",
+            "polymerEntityCount": 2,
+            "proteinEntityCount": 2,
+            "dnaEntityCount": 0,
+            "rnaEntityCount": 0,
+            "coComplexEvidence": "heteromeric_protein"
+          }
+        ],
+        "sourceUrls": [
+          "https://rest.uniprot.org/uniprotkb/P0A6F5.json",
+          "https://data.rcsb.org/rest/v1/core/entry/1AON",
+          "https://alphafold.ebi.ac.uk/entry/P0A6F5"
+        ]
+      }
+    },
+    {
+      "caseId": "cocomplex-rpll-ribosomal-50s",
+      "resultClass": "co_complex",
+      "gene": "rplL",
+      "uniprotAccession": "P0A7K2",
+      "uniprotId": "RL7_ECOLI",
+      "proteinName": "Large ribosomal subunit protein bL12",
+      "featureLabel": "rplL",
+      "locusTag": "b3986",
+      "product": "50S ribosomal subunit protein L12",
+      "location": {
+        "start": 4180560,
+        "end": 4180925,
+        "strand": 1
+      },
+      "expectedProtein": {
+        "length": 121,
+        "prefix": "MSITKDQIIEAVAAMSVMDVVELI",
+        "md5": "951984A24105CECA351709A149FD5E19",
+        "sha256": "a3d53bbf402f3f5712e86ddea0602eef12ab02db722f88b589545fbca4629ec1"
+      },
+      "resultListing": {
+        "hasPdbResults": true,
+        "uniprotPdbXrefCount": 52,
+        "hasAlphaFoldPrediction": true,
+        "expectedPrimaryProvider": "rcsb",
+        "expectedComplexUi": "complex_member_browser",
+        "listingShape": "many_cocomplex_pdb_results",
+        "representativeStructures": [
+          {
+            "pdbId": "3J7Z",
+            "title": "Structure of the E. coli 50S subunit with ErmCL nascent chain",
+            "method": "ELECTRON MICROSCOPY",
+            "resolutionAngstrom": 3.9,
+            "polymerComposition": "protein/NA",
+            "polymerEntityCount": 35,
+            "proteinEntityCount": 32,
+            "dnaEntityCount": 0,
+            "rnaEntityCount": 3,
+            "coComplexEvidence": "protein_nucleic_acid_complex"
+          }
+        ],
+        "sourceUrls": [
+          "https://rest.uniprot.org/uniprotkb/P0A7K2.json",
+          "https://data.rcsb.org/rest/v1/core/entry/3J7Z",
+          "https://alphafold.ebi.ac.uk/entry/P0A7K2"
+        ]
+      }
+    },
+    {
+      "caseId": "cocomplex-tufa-ribosome-trna-ternary",
+      "resultClass": "co_complex",
+      "gene": "tufA",
+      "uniprotAccession": "P0CE47",
+      "uniprotId": "EFTU1_ECOLI",
+      "proteinName": "Elongation factor Tu 1",
+      "featureLabel": "tufA",
+      "locusTag": "b3339",
+      "product": "translation elongation factor Tu 1",
+      "location": {
+        "start": 3470145,
+        "end": 3471329,
+        "strand": -1
+      },
+      "expectedProtein": {
+        "length": 394,
+        "prefix": "MSKEKFERTKPHVNVGTIGHVDHG",
+        "md5": "3BA5EC971EDA5DC5F5C1C093A5DF4E11",
+        "sha256": "3a5811350ecb5497e4d589b13261d141818f75c29599ae713487d1694093e962"
+      },
+      "resultListing": {
+        "hasPdbResults": true,
+        "uniprotPdbXrefCount": 43,
+        "hasAlphaFoldPrediction": true,
+        "expectedPrimaryProvider": "rcsb",
+        "expectedComplexUi": "complex_member_browser",
+        "listingShape": "many_cocomplex_pdb_results",
+        "representativeStructures": [
+          {
+            "pdbId": "4V69",
+            "title": "Ternary complex-bound E.coli 70S ribosome.",
+            "method": "ELECTRON MICROSCOPY",
+            "resolutionAngstrom": 6.7,
+            "polymerComposition": "protein/NA",
+            "polymerEntityCount": 58,
+            "proteinEntityCount": 51,
+            "dnaEntityCount": 0,
+            "rnaEntityCount": 7,
+            "coComplexEvidence": "protein_nucleic_acid_complex"
+          }
+        ],
+        "sourceUrls": [
+          "https://rest.uniprot.org/uniprotkb/P0CE47.json",
+          "https://data.rcsb.org/rest/v1/core/entry/4V69",
+          "https://alphafold.ebi.ac.uk/entry/P0CE47"
+        ]
+      }
+    },
+    {
+      "caseId": "noncocomplex-arsc-alphafold-only",
+      "resultClass": "non_cocomplex",
+      "gene": "arsC",
+      "uniprotAccession": "P0AB96",
+      "uniprotId": "ARSC_ECOLI",
+      "proteinName": "Arsenate reductase",
+      "featureLabel": "arsC",
+      "locusTag": "b3503",
+      "product": "arsenate reductase",
+      "location": {
+        "start": 3650237,
+        "end": 3650662,
+        "strand": 1
+      },
+      "expectedProtein": {
+        "length": 141,
+        "prefix": "MSNITIYHNPACGTSRNTLEMIRN",
+        "md5": "3B0FB4D862F55919DA7D85A871902311",
+        "sha256": "e51b42a0e50646a576aef987144cf58d3f81d0eeb6ea7430236d9915d2b7d854"
+      },
+      "resultListing": {
+        "hasPdbResults": false,
+        "uniprotPdbXrefCount": 0,
+        "hasAlphaFoldPrediction": true,
+        "expectedPrimaryProvider": "alphafold",
+        "expectedComplexUi": "standard_structure_viewer",
+        "listingShape": "no_pdb_alphafold_only",
+        "representativeStructures": [],
+        "sourceUrls": [
+          "https://rest.uniprot.org/uniprotkb/P0AB96.json",
+          "https://alphafold.ebi.ac.uk/entry/P0AB96"
+        ]
+      }
+    },
+    {
+      "caseId": "noncocomplex-hdfr-alphafold-only",
+      "resultClass": "non_cocomplex",
+      "gene": "hdfR",
+      "uniprotAccession": "P0A8R9",
+      "uniprotId": "HDFR_ECOLI",
+      "proteinName": "HTH-type transcriptional regulator HdfR",
+      "featureLabel": "hdfR",
+      "locusTag": "b4480",
+      "product": "DNA-binding transcriptional dual regulator HdfR",
+      "location": {
+        "start": 3947128,
+        "end": 3947967,
+        "strand": -1
+      },
+      "expectedProtein": {
+        "length": 279,
+        "prefix": "MDTELLKTFLEVSRTRHFGRAAES",
+        "md5": "389F3509DC3F8A27217AAA42C7C4CC36",
+        "sha256": "c94d503f47f9ef3ecb3f92cc7e165e624235bc04e3f4f94aba1af914aea92b84"
+      },
+      "resultListing": {
+        "hasPdbResults": false,
+        "uniprotPdbXrefCount": 0,
+        "hasAlphaFoldPrediction": true,
+        "expectedPrimaryProvider": "alphafold",
+        "expectedComplexUi": "standard_structure_viewer",
+        "listingShape": "no_pdb_alphafold_only",
+        "representativeStructures": [],
+        "sourceUrls": [
+          "https://rest.uniprot.org/uniprotkb/P0A8R9.json",
+          "https://alphafold.ebi.ac.uk/entry/P0A8R9"
+        ]
+      }
+    },
+    {
+      "caseId": "noncocomplex-mioc-flavodoxin-monomer",
+      "resultClass": "non_cocomplex",
+      "gene": "mioC",
+      "uniprotAccession": "P03817",
+      "uniprotId": "MIOC_ECOLI",
+      "proteinName": "Protein MioC",
+      "featureLabel": "mioC",
+      "locusTag": "b3742",
+      "product": "flavoprotein MioC",
+      "location": {
+        "start": 3926012,
+        "end": 3926455,
+        "strand": -1
+      },
+      "expectedProtein": {
+        "length": 147,
+        "prefix": "MADITLISGSTLGGAEYVAEHLAE",
+        "md5": "4BFC2ED15C60BB6BF4D68FC54F668B53",
+        "sha256": "61d26ffec893f8530b612b7958034b575130591b62d6d2eafc4686df0c53e13e"
+      },
+      "resultListing": {
+        "hasPdbResults": true,
+        "uniprotPdbXrefCount": 2,
+        "hasAlphaFoldPrediction": true,
+        "expectedPrimaryProvider": "rcsb",
+        "expectedComplexUi": "standard_structure_viewer",
+        "listingShape": "few_non_cocomplex_pdb_results",
+        "representativeStructures": [
+          {
+            "pdbId": "2HNA",
+            "title": "Solution Structure of a bacterial apo-flavodoxin",
+            "method": "SOLUTION NMR",
+            "resolutionAngstrom": null,
+            "polymerComposition": "homomeric protein",
+            "polymerEntityCount": 1,
+            "proteinEntityCount": 1,
+            "dnaEntityCount": 0,
+            "rnaEntityCount": 0,
+            "coComplexEvidence": "homomeric_or_single_entity"
+          }
+        ],
+        "sourceUrls": [
+          "https://rest.uniprot.org/uniprotkb/P03817.json",
+          "https://data.rcsb.org/rest/v1/core/entry/2HNA",
+          "https://alphafold.ebi.ac.uk/entry/P03817"
+        ]
+      }
+    },
+    {
+      "caseId": "noncocomplex-arca-receiver-domain",
+      "resultClass": "non_cocomplex",
+      "gene": "arcA",
+      "uniprotAccession": "P0A9Q1",
+      "uniprotId": "ARCA_ECOLI",
+      "proteinName": "Aerobic respiration control protein ArcA",
+      "featureLabel": "arcA",
+      "locusTag": "b4401",
+      "product": "DNA-binding transcriptional dual regulator ArcA",
+      "location": {
+        "start": 4639590,
+        "end": 4640306,
+        "strand": -1
+      },
+      "expectedProtein": {
+        "length": 238,
+        "prefix": "MQTPHILIVEDELVTRNTLKSIFE",
+        "md5": "1917EFF55D421295934A3E3AB9E8C178",
+        "sha256": "58bb318127f6c2b53796489a654f6841ea001a8d6880fedcb0227ac3a1a1a345"
+      },
+      "resultListing": {
+        "hasPdbResults": true,
+        "uniprotPdbXrefCount": 2,
+        "hasAlphaFoldPrediction": true,
+        "expectedPrimaryProvider": "rcsb",
+        "expectedComplexUi": "standard_structure_viewer",
+        "listingShape": "few_non_cocomplex_pdb_results",
+        "representativeStructures": [
+          {
+            "pdbId": "1XHE",
+            "title": "Crystal structure of the receiver domain of redox response regulator arca",
+            "method": "X-RAY DIFFRACTION",
+            "resolutionAngstrom": 2.5,
+            "polymerComposition": "homomeric protein",
+            "polymerEntityCount": 1,
+            "proteinEntityCount": 1,
+            "dnaEntityCount": 0,
+            "rnaEntityCount": 0,
+            "coComplexEvidence": "homomeric_or_single_entity"
+          }
+        ],
+        "sourceUrls": [
+          "https://rest.uniprot.org/uniprotkb/P0A9Q1.json",
+          "https://data.rcsb.org/rest/v1/core/entry/1XHE",
+          "https://alphafold.ebi.ac.uk/entry/P0A9Q1"
+        ]
+      }
+    },
+    {
+      "caseId": "noncocomplex-lacz-beta-galactosidase-homomer",
+      "resultClass": "non_cocomplex",
+      "gene": "lacZ",
+      "uniprotAccession": "P00722",
+      "uniprotId": "BGAL_ECOLI",
+      "proteinName": "Beta-galactosidase",
+      "featureLabel": "lacZ",
+      "locusTag": "b0344",
+      "product": "beta-galactosidase",
+      "location": {
+        "start": 363231,
+        "end": 366305,
+        "strand": -1
+      },
+      "expectedProtein": {
+        "length": 1024,
+        "prefix": "MTMITDSLAVVLQRRDWENPGVTQ",
+        "md5": "61D924523CD4BD0DBAB1985E54F1F401",
+        "sha256": "d192d45958b03c26f677259276df226f5442462bf8c0a20fea4a10f0f426ad39"
+      },
+      "resultListing": {
+        "hasPdbResults": true,
+        "uniprotPdbXrefCount": 76,
+        "hasAlphaFoldPrediction": true,
+        "expectedPrimaryProvider": "rcsb",
+        "expectedComplexUi": "standard_structure_viewer",
+        "listingShape": "many_non_cocomplex_pdb_results",
+        "representativeStructures": [
+          {
+            "pdbId": "1DP0",
+            "title": "E. COLI BETA-GALACTOSIDASE AT 1.7 ANGSTROM",
+            "method": "X-RAY DIFFRACTION",
+            "resolutionAngstrom": 1.7,
+            "polymerComposition": "homomeric protein",
+            "polymerEntityCount": 1,
+            "proteinEntityCount": 1,
+            "dnaEntityCount": 0,
+            "rnaEntityCount": 0,
+            "coComplexEvidence": "homomeric_or_single_entity"
+          }
+        ],
+        "sourceUrls": [
+          "https://rest.uniprot.org/uniprotkb/P00722.json",
+          "https://data.rcsb.org/rest/v1/core/entry/1DP0",
+          "https://alphafold.ebi.ac.uk/entry/P00722"
+        ]
+      }
+    }
+  ]
+}

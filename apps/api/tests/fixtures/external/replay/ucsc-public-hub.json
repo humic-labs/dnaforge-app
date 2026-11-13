@@ -1,0 +1,74 @@
+{
+  "entries": [
+    {
+      "_comment": "Public hub registry entry for the deterministic GRCh38 hub that ucsc-hg38-known-gene.json serves.",
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/list/publicHubs",
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "downloadTime": "2026:09:21T00:00:00Z",
+          "dataTime": "2026-09-21T00:00:00",
+          "publicHubs": [
+            {
+              "hubUrl": "https://example.org/hg38/hub.txt",
+              "shortLabel": "Example GRCh38 hub",
+              "longLabel": "Deterministic full-GRCh38 test hub",
+              "registrationTime": "2026-07-28 00:00:00",
+              "dbCount": 1,
+              "dbList": "hg38"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "_comment": "Admission metadata probe for the hub's indexed BigBed gene annotations.",
+      "method": "GET",
+      "host": "api.genome.ucsc.edu",
+      "path": "/getData/track",
+      "query": {
+        "genome": "hg38",
+        "hubUrl": "https://example.org/hg38/hub.txt",
+        "track": "hubGenes",
+        "chrom": "chr1",
+        "start": "0",
+        "end": "1",
+        "maxItemsOutput": "1"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "genome": "hg38",
+          "track": "hubGenes",
+          "trackType": "bigBed",
+          "bigDataUrl": "genes.bb",
+          "itemsReturned": 0,
+          "hubGenes": []
+        }
+      }
+    },
+    {
+      "_comment": "Hub-hosted BigBed gene annotations; the same sparse GRCh38 transcripts used by the local BigBed picker proof.",
+      "method": "GET",
+      "host": "example.org",
+      "path": "/hg38/genes.bb",
+      "response": {
+        "body_file": "../binary/grch38-sparse-transcripts.bb",
+        "serve_ranges": true,
+        "headers": {
+          "Content-Type": "application/octet-stream",
+          "ETag": "\"grch38-sparse-transcripts-hub-v1\"",
+          "Last-Modified": "Tue, 28 Jul 2026 00:00:00 GMT"
+        }
+      }
+    }
+  ]
+}

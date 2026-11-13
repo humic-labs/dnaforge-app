@@ -1,0 +1,164 @@
+LOCUS       MP838702                5720 bp    DNA     circular PAT 17-MAR-2021
+DEFINITION  Sequence 3 from Patent EP3740246.
+ACCESSION   MP838702
+VERSION     MP838702.1
+KEYWORDS    .
+SOURCE      synthetic construct
+  ORGANISM  synthetic construct
+            other sequences; artificial sequences.
+REFERENCE   1
+  AUTHORS   STEWART,C.L., CHAI,J., LEE,Y.L. and BURKE,B.E.
+  TITLE     DISRUPTING THE LINC COMPLEX FOR TREATING LAMINOPATHY
+  JOURNAL   Patent: EP 3740246-A1 3 25-NOV-2020;
+            AGENCY SCIENCE TECH & RES [SG]
+FEATURES             Location/Qualifiers
+     rep_origin      3076..3504
+                     /label="f1 ori"
+                     /note="f1 bacteriophage origin of replication; arrow indicates direction of (+) strand synthesis; pLannotate 100.0% identity"
+     intron          771..903
+                     /label="chimeric intron"
+                     /note="chimera between introns from human β-globin and immunoglobulin heavy chain genes; pLannotate 100.0% identity"
+     promoter        3557..3661
+                     /label="AmpR promoter"
+                     /note="bla; pLannotate 100.0% identity"
+     CDS             3662..4522
+                     /label="AmpR"
+                     /note="β-lactamase; bla; confers resistance to ampicillin, carbenicillin, and related antibiotics; pLannotate 99.8% identity"
+     rep_origin      4693..5281
+                     /label="ori"
+                     /note="high-copy-number ColE1/pMB1/pBR322/pUC origin of replication; pLannotate 99.8% identity"
+     polyA_signal    2622..2677
+                     /label="β-globin poly(A) signal"
+                     /note="rabbit β-globin polyadenylation signal (Gil and Proudfoot, 1987); pLannotate 100.0% identity"
+     CDS             1094..2476
+                     /label="Sun1"
+                     /note="SUN1_MOUSE - Also known as Unc84a. Experimental evidence at protein level: Swiss-Prot protein existence level 1. Isoform 5 may be involved in nuclear remodeling during sperm head formation in spermatogenenis. A probable SUN1 isoform 5:SYNE3 LINC complex may tether spermatid nuclei to anterior cytoskeletal structures such as actin filaments present at membraneous junctions of spermatids and Sertoli cells. From Mus musculus (Mouse).; pLannotate 99.1% identity"
+     promoter        5605..5635
+                     /label="lac promoter"
+                     /note="promoter for the E. coli lac operon; pLannotate 100.0% identity"
+     protein_bind    5569..5590
+                     /label="CAP binding site"
+                     /note="CAP binding activates transcription in the presence of cAMP. E. coli catabolite activator protein; pLannotate 100.0% identity"
+     promoter        948..966
+                     /label="T7 promoter"
+                     /note="promoter for bacteriophage T7 RNA polymerase; pLannotate 100.0% identity"
+     protein_bind    5643..5659
+                     /label="lac operator"
+                     /note="The lac repressor binds to the lac operator to inhibit transcription in E. coli. This inhibition can be relieved by adding lactose or isopropyl-β-D-thiogalactopyranoside (IPTG). lac repressor encoded by lacI; pLannotate 100.0% identity"
+     CDS             2914..3071
+                     /label="lacZα"
+                     /note="LacZα fragment of β-galactosidase; lacZ fragment; pLannotate 100.0% identity"
+     repeat_region   complement(5720..130)
+                     /label="AAV2 ITR"
+                     /note="inverted terminal repeat of adeno-associated virus serotype 2 inverted; pLannotate 100.0% identity"
+     repeat_region   2770..2900
+                     /label="AAV2 ITR"
+                     /note="inverted terminal repeat of adeno-associated virus serotype 2 inverted; pLannotate 100.0% identity"
+     CDS             5464..5556
+                     /label="lacI"
+                     /note="lac repressor; lacI; The lac repressor binds to the lac operator to inhibit transcription in E. coli. This inhibition can be relieved by adding lactose or isopropyl-β-D-thiogalactopyranoside (IPTG).; pLannotate 100.0% identity"
+     misc_feature    complement(214..233)
+                     /label="MCS"
+                     /note="pBluescript multiple cloning site; pLannotate 100.0% identity"
+     CDS             995..1081
+                     /label="ALB"
+                     /note="ALBU_CANLF - Experimental evidence at protein level: Swiss-Prot protein existence level 1. Binds water, Ca(2+), Na(+), K(+), fatty acids, hormones, bilirubin and drugs. Its main function is the regulation of the colloidal osmotic pressure of blood. Major zinc transporter in plasma, typically binds about 80% of all plasma zinc (By similarity). Major calcium and magnesium transporter in plasma, binds approximately 45% of circulating calcium and magnesium in plasma (By similarity). Potentially has more than two calcium-binding sites and might additionally bind calcium in a non-specific manner (By similarity). The shared binding site between zinc and calcium at residue Asp-273 suggests a crosstalk between zinc and calcium transport in the blood (By similarity). The rank order of affinity is zinc > calcium > magnesium (By similarity). Binds to the bacterial siderophore enterobactin and inhibits enterobactin-mediated iron uptake of E.coli from ferric transferrin, and may thereby limit the utilization of iron and growth of enteric bacteria such as E.coli (By similarity). Does not prevent iron uptake by the bacterial siderophore aerobactin (By similarity). From Canis lupus familiaris (Dog) (Canis familiaris).; pLannotate 79.3% identity"
+ORIGIN      
+        1 ctgcgcgctc gctcgctcac tgaggccgcc cgggcaaagc ccgggcgtcg ggcgaccttt
+       61 ggtcgcccgg cctcagtgag cgagcgagcg cgcagagagg gagtggccaa ctccatcact
+      121 aggggttcct tgtagttaat gattaacccg ccatgctact tatctaccag ggtaatgggg
+      181 atcctctaga actatagcta gaattcgccc ttacgggccc cccctcgagg tcgggataaa
+      241 agcagtctgg gctttcacat gacagcatct ggggctgcgg cagagggtcg ggtccgaagc
+      301 gctgccttat cagcgcccca gccctgggag gtgacagctg gctggcttgt gtcagcccct
+      361 cgggcactca cgtatctccg tccgacgggt ttaaaatagc aaaactctga ggccacacaa
+      421 tagcttgggc ttatatgggc tcctgtgggg gaagggggag cacggagggg gccggggccg
+      481 ctgctgccaa aatagcagct cacaagtgtt gcattcctct ctgggcgccg ggcacattcc
+      541 tgctggctct gcccgccccg gggtgggcgc cggggggacc ttaaagcctc tgccccccaa
+      601 ggagcccttc ccagacagcc gccggcaccc accgctccgt gggacgatcc ccgaagctct
+      661 agagctttat tgcggtagtt tatcacagtt aaattgctaa cgcagtcagt gcttctgaca
+      721 caacagtctc gaacttaagc tgcagaagtt ggtcgtgagg cactgggcag gtaagtatca
+      781 aggttacaag acaggtttaa ggagaccaat agaaactggg cttgtcgaga cagagaagac
+      841 tcttgcgttt ctgataggca cctattggtc ttactgacat ccactttgcc tttctctcca
+      901 caggtgtcca ctcccagttc aattacagct cttaaggcta gagtacttaa tacgactcac
+      961 tataggctag cctcgagaat tcacgcgggc cgccatgaag tgggtaacct ttatttccct
+     1021 tctttttctc tttagctcgg cctattccag gggtgtgttt cgtcgagatg ggcccgctta
+     1081 cccttacgat gtaccggatt acgcactcga cgattccaag ggcatgcata gacctggccc
+     1141 tcttcccccg agcccacctc caaaggttga tcacaaggct tcccagtggc ctcaggagag
+     1201 tgacatgggg cagaaggtag cttctttgag tgcgcagtgc cacaaccatg atgagagact
+     1261 tgcagagctg acagtcctgc ttcagaaact acagatacgg gtagaccaag tggatgacgg
+     1321 cagggaaggg ctgtcactgt gggtcaagaa tgtggttgga cagcacctgc aggagatggg
+     1381 caccatagaa ccacctgatg ctaagactga cttcatgact ttccaccatg accatgaagt
+     1441 gcgtctctcc aacttggaag atgttcttag aaaactgaca gaaaaatctg aggctatcca
+     1501 gaaggagctg gaagaaacca agctgaaagc aggcagcagg gatgaagagc agcccctcct
+     1561 tgaccgtgtg cagcacctag aactggaact gaacctgttg aagtcacagc tgtcagactg
+     1621 gcagcatctg aagaccagct gtgagcaggc tggggcccgc atccaggaga ctgtgcagct
+     1681 catgttctct gaggatcagc agggcggttc cctcgagtgg ctattagaga agctttcttc
+     1741 tcggttcgtg agcaaggatg agctgcaggt gctcttacat gaccttgagc tgaaactgct
+     1801 gcagaatatc acacaccaca tcaccgtgac aggacaggcc ccgacatccg aggctattgt
+     1861 gtctgccgtg aatcaggcag ggatttcagg aatcacagaa gcgcaagcac atatcattgt
+     1921 gaacaatgct ctgaagctgt actcccaaga caagacgggg atggtggact ttgctctgga
+     1981 gtctggaggt ggcagcatcc taagcactcg gtgctctgag acctatgaga ccaagacggc
+     2041 actgctgagc ctgtttgggg tcccactgtg gtacttctca cagtcacctc gagtggtgat
+     2101 ccagcccgac atctacccag ggaattgctg ggcgttcaaa ggttcccagg ggtacctggt
+     2161 ggtgcggttg tccatgaaga tctacccaac cacattcacc atggaacaca ttccaaagac
+     2221 actatcaccc actggtaaca tctccagtgc ccccaaagac tttgcagtct atggactgga
+     2281 aacggagtat caagaagagg ggcagcctct gggacggttc acctatgacc aggaaggaga
+     2341 ctcactccag atgttccaca cactggaaag acctgaccaa gccttccaga tagtagagct
+     2401 ccgggtcctg tccaactggg gccaccctga gtacacttgc ctctaccggt tccgagtcca
+     2461 cggagagccc atccagaaag atgagttgta gtaaggtacc tctagagtcg acccgggcgg
+     2521 cctcgaggac ggggtgaact acgcctgagg atccgatctt tttccctctg ccaaaaatta
+     2581 tggggacatc atgaagcccc ttgagcatct gacttctggc taataaagga aatttatttt
+     2641 cattgcaata gtgtgttgga attttttgtg tctctcactc ggaagcaatt cgttgatctg
+     2701 aatttcgacc acccataata cccattaccc tggtagataa gtagcatggc gggttaatca
+     2761 ttaactacaa ggaaccccta gtgatggagt tggccactcc ctctctgcgc gctcgctcgc
+     2821 tcactgaggc cgggcgacca aaggtcgccc gacgcccggg ctttgcccgg gcggcctcag
+     2881 tgagcgagcg agcgcgcagc cttaattaac ctaattcact ggccgtcgtt ttacaacgtc
+     2941 gtgactggga aaaccctggc gttacccaac ttaatcgcct tgcagcacat ccccctttcg
+     3001 ccagctggcg taatagcgaa gaggcccgca ccgatcgccc ttcccaacag ttgcgcagcc
+     3061 tgaatggcga atgggacgcg ccctgtagcg gcgcattaag cgcggcgggt gtggtggtta
+     3121 cgcgcagcgt gaccgctaca cttgccagcg ccctagcgcc cgctcctttc gctttcttcc
+     3181 cttcctttct cgccacgttc gccggctttc cccgtcaagc tctaaatcgg gggctccctt
+     3241 tagggttccg atttagtgct ttacggcacc tcgaccccaa aaaacttgat tagggtgatg
+     3301 gttcacgtag tgggccatcg ccctgataga cggtttttcg ccctttgacg ttggagtcca
+     3361 cgttctttaa tagtggactc ttgttccaaa ctggaacaac actcaaccct atctcggtct
+     3421 attcttttga tttataaggg attttgccga tttcggccta ttggttaaaa aatgagctga
+     3481 tttaacaaaa atttaacgcg aattttaaca aaatattaac gcttacaatt taggtggcac
+     3541 ttttcgggga aatgtgcgcg gaacccctat ttgtttattt ttctaaatac attcaaatat
+     3601 gtatccgctc atgagacaat aaccctgata aatgcttcaa taatattgaa aaaggaagag
+     3661 tatgagtatt caacatttcc gtgtcgccct tattcccttt tttgcggcat tttgccttcc
+     3721 tgtttttgct cacccagaaa cgctggtgaa agtaaaagat gctgaagatc agttgggtgc
+     3781 acgagtgggt tacatcgaac tggatctcaa cagcggtaag atccttgaga gttttcgccc
+     3841 cgaagaacgt tttccaatga tgagcacttt taaagttctg ctatgtggcg cggtattatc
+     3901 ccgtattgac gccgggcaag agcaactcgg tcgccgcata cactattctc agaatgactt
+     3961 ggttgagtac tcaccagtca cagaaaagca tcttacggat ggcatgacag taagagaatt
+     4021 atgcagtgct gccataacca tgagtgataa cactgcggcc aacttacttc tgacaacgat
+     4081 cggaggaccg aaggagctaa ccgctttttt gcacaacatg ggggatcatg taactcgcct
+     4141 tgatcgttgg gaaccggagc tgaatgaagc cataccaaac gacgagcgtg acaccacgat
+     4201 gcctgtagca atggcaacaa cgttgcgcaa actattaact ggcgaactac ttactctagc
+     4261 ttcccggcaa caattaatag actggatgga ggcggataaa gttgcaggac cacttctgcg
+     4321 ctcggccctt ccggctggct ggtttattgc tgataaatct ggagccggtg agcgtgggtc
+     4381 tcgcggtatc attgcagcac tggggccaga tggtaagccc tcccgtatcg tagttatcta
+     4441 cacgacgggg agtcaggcaa ctatggatga acgaaataga cagatcgctg agataggtgc
+     4501 ctcactgatt aagcattggt aactgtcaga ccaagtttac tcatatatac tttagattga
+     4561 tttaaaactt catttttaat ttaaaaggat ctaggtgaag atcctttttg ataatctcat
+     4621 gaccaaaatc ccttaacgtg agttttcgtt ccactgagcg tcagaccccg tagaaaagat
+     4681 caaaggatct tcttgagatc ctttttttct gcgcgtaatc tgctgcttgc aaacaaaaaa
+     4741 accaccgcta ccagcggtgg tttgtttgcc ggatcaagag ctaccaactc tttttccgaa
+     4801 ggtaactggc ttcagcagag cgcagatacc aaatactgtt cttctagtgt agccgtagtt
+     4861 aggccaccac ttcaagaact ctgtagcacc gcctacatac ctcgctctgc taatcctgtt
+     4921 accagtggct gctgccagtg gcgataagtc gtgtcttacc gggttggact caagacgata
+     4981 gttaccggat aaggcgcagc ggtcgggctg aacggggggt tcgtgcacac agcccagctt
+     5041 ggagcgaacg acctacaccg aactgagata cctacagcgt gagctatgag aaagcgccac
+     5101 gcttcccgaa gggagaaagg cggacaggta tccggtaagc ggcagggtcg gaacaggaga
+     5161 gcgcacgagg gagcttccag ggggaaacgc ctggtatctt tatagtcctg tcgggtttcg
+     5221 ccacctctga cttgagcgtc gatttttgtg atgctcgtca ggggggcgga gcctatggaa
+     5281 aaacgccagc aacgcggcct ttttacggtt cctggccttt tgctggcctt ttgctcacat
+     5341 gttctttcct gcgttatccc ctgattctgt ggataaccgt attaccgcct ttgagtgagc
+     5401 tgataccgct cgccgcagcc gaacgaccga gcgcagcgag tcagtgagcg aggaagcgga
+     5461 agagcgccca atacgcaaac cgcctctccc cgcgcgttgg ccgattcatt aatgcagctg
+     5521 gcacgacagg tttcccgact ggaaagcggg cagtgagcgc aacgcaatta atgtgagtta
+     5581 gctcactcat taggcacccc aggctttaca ctttatgctt ccggctcgta tgttgtgtgg
+     5641 aattgtgagc ggataacaat ttcacacagg aaacagctat gaccatgatt acgccagatt
+     5701 taattaaggc cttaattagg
+//
+

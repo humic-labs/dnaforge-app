@@ -1,0 +1,39 @@
+{
+  "_provenance": {
+    "generator": "apps/desktop/scripts/generate-mock-primer-dataset.mjs",
+    "note": "Designed against PUBLIC reference genomes only (pUC19 L09137, E. coli MG1655, S. cerevisiae S288C). No proprietary data is read. Annealing regions are exact public sub-sequences; tails are standard motifs.",
+    "rowCount": 1089
+  },
+  "heroes": [
+    {
+      "name": "pUC19_ori_F",
+      "sequence": "GCTTTCCAGTCGGGAAACCT",
+      "target": "puc19",
+      "expectedOrientation": "forward"
+    },
+    {
+      "name": "pUC19_lacZ_F",
+      "sequence": "GCTGTTTCCTGTGTGAAATT",
+      "target": "puc19",
+      "expectedOrientation": "forward"
+    },
+    {
+      "name": "pUC19_bla_F",
+      "sequence": "TATATGAGTAAACTTGGTCT",
+      "target": "puc19",
+      "expectedOrientation": "forward"
+    },
+    {
+      "name": "chrIV_760k_F",
+      "sequence": "AGTCAGCAATTTCAATTCTCCTAC",
+      "target": "yeast-chrIV",
+      "expectedOrientation": "forward"
+    },
+    {
+      "name": "chrIV_900k_R",
+      "sequence": "ACACAATTCTTACGCGGATCTAAT",
+      "target": "yeast-chrIV",
+      "expectedOrientation": "reverse"
+    }
+  ]
+}

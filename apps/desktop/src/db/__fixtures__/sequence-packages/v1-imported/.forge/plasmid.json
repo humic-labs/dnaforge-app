@@ -1,0 +1,11 @@
+{
+  "schema": "waypoint.plasmid.v1",
+  "kind": "plasmid",
+  "id": "fixture-v1-imported",
+  "name": "pUC19",
+  "updatedAt": "2026-01-01T00:00:00.000Z",
+  "product": {
+    "file": "pUC19.gb",
+    "topology": "circular"
+  }
+}

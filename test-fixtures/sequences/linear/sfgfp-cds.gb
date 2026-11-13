@@ -1,0 +1,34 @@
+LOCUS       sfGFP_CDS                717 bp    DNA     linear   SYN 26-APR-2026
+DEFINITION  Superfolder GFP CDS (Pédelacq 2006). Public..
+ACCESSION   sfGFP_CDS
+VERSION     sfGFP_CDS
+KEYWORDS    .
+SOURCE      synthetic construct
+  ORGANISM  synthetic construct
+            .
+COMMENT     Public sfGFP CDS (Pédelacq et al., Nat. Biotechnol. 24, 79-88,
+            2006). Used by genbank-roundtrip.test.ts as a small single-CDS
+            roundtrip fixture.
+FEATURES             Location/Qualifiers
+     CDS             1..717
+                     /label="sfGFP"
+                     /product="superfolder GFP"
+                     /translation="MSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLK
+                     FICTTGKLPVPWPTLVTTLTYGVQCFARYPDHMKQHDFFKSAMPEGYVQERTISFKDDG
+                     TYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNFNSHNVYITADKQKNGIKA
+                     NFKIRHNVEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSALSKDPNEKRDHMVLLE
+                     FVTAAGITHGMDELYK"
+ORIGIN
+        1 atgagcaagg gcgaggaact gttcactggc gttgtcccaa ttctcgtgga actggatggc
+       61 gatgtgaatg ggcacaaatt ctctgtcagc ggagagggtg aaggtgatgc cacatacgga
+      121 aagctcaccc tgaaattcat ctgcaccact ggaaagctcc ctgtgccatg gccaacactg
+      181 gtcactaccc tgacctatgg tgttcagtgc tttgctcgtt atccggacca tatgaagcag
+      241 catgacttct tcaagagtgc catgcccgaa ggttatgtac aggaacgcac tatatctttc
+      301 aaagatgacg ggacctacaa gacgcgtgct gaagtcaagt ttgaaggtga tacccttgtt
+      361 aatcgtatcg agttaaaagg tattgatttt aaagaagatg gaaacattct cggacacaaa
+      421 ctcgagtaca actttaactc acacaatgta tacatcacgg cagacaaaca aaagaatgga
+      481 atcaaagcta acttcaaaat tcgccacaac gttgaagatg gttccgttca actagcagac
+      541 cattatcaac aaaatactcc aattggcgat ggccctgtcc ttttaccaga caaccattac
+      601 ctgtcgacac aatctgccct ttcgaaagat cccaacgaaa agcgtgacca catggtcctt
+      661 cttgagtttg taactgctgc tgggattaca catggcatgg atgaactata caaataa
+//

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "object-key-order",
+      "value": { "z": 1, "a": 2 },
+      "expected": "{\"a\":2,\"z\":1}"
+    },
+    {
+      "id": "nested-object-key-order",
+      "value": { "outer": { "y": true, "x": null }, "array": [3, 2, 1] },
+      "expected": "{\"array\":[3,2,1],\"outer\":{\"x\":null,\"y\":true}}"
+    },
+    {
+      "id": "set-like-array-order",
+      "value": { "parents": ["rr_b", "rr_a"] },
+      "setLikeArrayPaths": ["/parents"],
+      "expected": "{\"parents\":[\"rr_a\",\"rr_b\"]}"
+    },
+    {
+      "id": "duplicate-set-value",
+      "value": { "parents": ["rr_a", "rr_a"] },
+      "setLikeArrayPaths": ["/parents"],
+      "error": "duplicate-set-value"
+    },
+    {
+      "id": "unsafe-integer",
+      "value": 9007199254740992,
+      "error": "invalid-number"
+    }
+  ]
+}

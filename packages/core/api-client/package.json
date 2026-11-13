@@ -1,0 +1,43 @@
+{
+  "name": "@waypoint/api-client",
+  "version": "0.1.0",
+  "description": "Type-safe API client for DNAForge FastAPI service",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./react-query": {
+      "types": "./src/generated/react-query.ts",
+      "default": "./src/generated/react-query.ts"
+    },
+    "./models": {
+      "types": "./src/generated/models/index.ts",
+      "default": "./src/generated/models/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "license": "GPL-3.0-only",
+  "dependencies": {
+    "@tanstack/react-query": "^5.0.0"
+  },
+  "devDependencies": {
+    "orval": "^6.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.18"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  }
+}

@@ -1,0 +1,465 @@
+#tax_id	GeneID	Symbol	LocusTag	Synonyms	dbXrefs	chromosome	map_location	description	type_of_gene	Symbol_from_nomenclature_authority	Full_name_from_nomenclature_authority	Nomenclature_status	Other_designations	Modification_date	Feature_type
+11636	5075745	RV_gp2	RV_gp2	-	-	-	-	protease/polymerase	protein-coding	-	-	-	protease/polymerase	20230818	-
+11636	5075746	RV_gp3	RV_gp3	-	-	-	-	envelope glycoprotein	protein-coding	-	-	-	envelope glycoprotein	20230818	-
+11636	5075747	RV_gp1	RV_gp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20260616	-
+11636	5130018	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Avian reticuloendotheliosis virus; reticuloendotheliosis virus A REV-A; reticuloendotheliosis virus REV-A).	other	-	-	-	-	20250604	-
+11641	2828705	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Foamy retrovirus; Foamy retrovirus SFV-11).	other	-	-	-	-	20251208	-
+11642	2828707	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20251208	-
+11657	1489969	env	BIVgp5	-	-	-	-	envelope polyprotein	protein-coding	-	-	-	envelope polyprotein	20230621	-
+11657	1489970	gag	BIVgp1	-	-	-	-	gag polyprotein	protein-coding	-	-	-	gag polyprotein	20230621	-
+11657	1489971	pol	BIVgp2	-	-	-	-	reverse transcriptase	protein-coding	-	-	-	reverse transcriptase	20180815	-
+11657	1724697	BIVgp3	BIVgp3	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20230621	-
+11657	1724698	BIVgp4	BIVgp4	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20230621	-
+11657	2828709	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Bovine immunodeficiency-like virus).	other	-	-	-	-	20250430	-
+11660	1489974	env	CaVgp5	-	-	-	-	envelope polyprotein;trans-regulatory splicing-like protein	protein-coding	-	-	-	envelope polyprotein;trans-regulatory splicing-like protein	20250626	-
+11660	1489975	gag	CaVgp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20250626	-
+11660	1489976	pol	CaVgp2	-	-	-	-	pol protein	protein-coding	-	-	-	pol protein	20250626	-
+11660	1724700	CaVgp3	CaVgp3	-	-	-	-	protein Q	protein-coding	-	-	-	protein Q	20260616	-
+11660	1724701	CaVgp4	CaVgp4	-	-	-	-	protein S	protein-coding	-	-	-	protein S	20260616	-
+11660	2828711	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Caprine arthritis-encephalitis virus; caprine arthritis encephalitis virus CAEV; caprine arthritis-encephalitis virus, CAEV).	other	-	-	-	-	20250430	-
+11663	1489978	OlVgp1	OlVgp1	-	-	-	-	pol protein	protein-coding	-	-	-	pol protein	20180815	-
+11663	1489979	OlVgp4	OlVgp4	-	-	-	-	W protein	protein-coding	-	-	-	W protein	20180815	-
+11663	1489980	OlVgp3	OlVgp3	-	-	-	-	Q protein	protein-coding	-	-	-	Q protein	20180815	-
+11663	1489981	OlVgp5	OlVgp5	-	-	-	-	tat protein	protein-coding	-	-	-	tat protein	20180815	-
+11663	1489982	OlVgp2	OlVgp2	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20180815	-
+11663	2828713	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (ovine lentivirus OLV).	other	-	-	-	-	20220720	-
+11663	3978629	OlVgp7	OlVgp7	-	-	-	-	env protein precursor	protein-coding	-	-	-	env protein precursor|env protein	20180815	-
+11665	2828715	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (equine infectious anemia virus EIAV).	other	-	-	-	-	20250430	-
+11673	1489987	env	FIVgp5	-	-	-	-	envelope polyprotein;hypothetical protein	protein-coding	-	-	-	envelope polyprotein;hypothetical protein	20230818	-
+11673	1489988	gag	FIVgp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20250626	-
+11673	1489989	pol	FIVgp2	-	-	-	-	pol polyprotein	protein-coding	-	-	-	pol polyprotein	20260616	-
+11673	1724707	FIVgp4	FIVgp4	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20230818	-
+11673	1724709	FIVgp3	FIVgp3	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20230818	-
+11673	2828717	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (feline immunodeficiency virus FIV).	other	-	-	-	-	20250430	-
+11676	155030	gag	HIV1gp2	-	-	-	-	Pr55(Gag)	protein-coding	-	-	-	Pr55(Gag)|capsid|matrix|nucleocapsid|p1|p2|p6	20260616	-
+11676	155348	gag-pol	HIV1gp1	-	-	-	-	Gag-Pol	protein-coding	-	-	-	Gag-Pol|Gag-Pol Transframe peptide|Gag-Pol polyprotein|Pol|aspartic peptidase|integrase|p66 subunit|reverse transcriptase p51 subunit	20260616	-
+11676	155459	vif	HIV1gp3	-	-	-	-	Vif	protein-coding	-	-	-	Vif	20260616	-
+11676	155807	vpr	HIV1gp4	-	-	-	-	Vpr	protein-coding	-	-	-	Vpr	20250626	-
+11676	155871	tat	HIV1gp5	-	-	-	-	Tat	protein-coding	-	-	-	Tat	20260315	-
+11676	155908	rev	HIV1gp6	-	-	-	-	Rev	protein-coding	-	-	-	Rev	20250626	-
+11676	155945	vpu	HIV1gp7	-	-	-	-	Vpu	protein-coding	-	-	-	Vpu	20250626	-
+11676	155971	env	HIV1gp8	-	-	-	-	Envelope surface glycoprotein gp160, precursor	protein-coding	-	-	-	Envelope surface glycoprotein gp160, precursor|Envelope surface glycoprotein gp120|Envelope transmembrane domain|hypothetical protein	20260616	-
+11676	156110	nef	HIV1gp9	-	-	-	-	Nef	protein-coding	-	-	-	Nef	20260616	-
+11676	2828719	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Human immunodeficiency virus type 1; human immunodeficiency virus 1 HIV-1; human immunodeficiency virus HIV-1; human immunodeficiency virus type 1 HIV 1; human immunodeficiency virus type 1 HIV-1; human immunodeficiency virus type 1 HIV1; human immunodeficiency virus type 1, HIV-1; human immunodeficiency virus type I HIV-1; human immunodeficiency virus type-1 HIV-1; human immunodeficiency virus-1 HIV-1).	other	-	-	-	-	20250430	-
+11676	19424028	asp	HIV1gp10	-	-	-	-	Asp	protein-coding	-	-	-	Asp	20260616	-
+11709	1490001	gag-pol	HIV2gp1	-	-	-	-	gag polyprotein;gag-pol fusion polyprotein	protein-coding	-	-	-	gag polyprotein;gag-pol fusion polyprotein	20260616	-
+11709	1724712	HIV2gp2	HIV2gp2	-	-	-	-	vif protein	protein-coding	-	-	-	vif protein	20260616	-
+11709	1724713	HIV2gp5	HIV2gp5	-	-	-	-	tat protein	protein-coding	-	-	-	tat protein	20260616	-
+11709	1724714	HIV2gp3	HIV2gp3	-	-	-	-	vpx protein	protein-coding	-	-	-	vpx protein	20260616	-
+11709	1724715	HIV2gp8	HIV2gp8	-	-	-	-	nef protein	protein-coding	-	-	-	nef protein	20260616	-
+11709	1724716	HIV2gp6	HIV2gp6	-	-	-	-	rev protein	protein-coding	-	-	-	rev protein	20260616	-
+11709	1724717	HIV2gp7	HIV2gp7	-	-	-	-	env polyprotein	protein-coding	-	-	-	env polyprotein	20260616	-
+11709	1724718	HIV2gp4	HIV2gp4	-	-	-	-	vpr protein	protein-coding	-	-	-	vpr protein	20210717	-
+11709	2828721	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (HIV type 2; Human immunodeficiency virus type 2; Human immunodeficiency virus-2; human immunodeficiency virus type 2 HIV-2; human immunodeficiency virus type 2, HIV-2).	other	-	-	-	-	20250430	-
+11723	1490003	rev1	SIVgp5	-	-	-	-	-	pseudo	-	-	-	-	20180815	-
+11723	1490004	tat	SIVgp4	-	-	-	-	-	pseudo	-	-	-	-	20180815	-
+11723	1490005	vif	SIVgp2	-	-	-	-	vif protein	protein-coding	-	-	-	vif protein	20180815	-
+11723	1490006	vpx	SIVgp3	-	-	-	-	vpx protein	protein-coding	-	-	-	vpx protein	20230604	-
+11723	1490007	env	SIVgp6	-	-	-	-	envelope protein	protein-coding	-	-	-	envelope protein	20190518	-
+11723	1490008	nef	SIVgp7	-	-	-	-	nef protein	protein-coding	-	-	-	nef protein	20200906	-
+11723	1490009	gag-pol	SIVgp1	-	-	-	-	Gag-Pol;gag protein	protein-coding	-	-	-	Gag-Pol;gag protein	20220729	-
+11723	2828723	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Chimpanzee immunodeficiency virus; Chimpanzee immunodeficiency virus (SIV(CPZ)); Simian immunodeficiency virus SIVcpz; simian immunodeficiency virus SIV; simian immunodeficiency virus, SIV; simian immunodeficiency viruses SIV).	other	-	-	-	-	20250430	-
+11746	1490018	gag	Opavgp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20230818	-
+11746	1490019	protease	Opavgp2	-	-	-	-	neutral protease large subunit	protein-coding	-	-	-	neutral protease large subunit	20260616	-
+11746	1490020	pol	Opavgp3	-	-	-	-	hypothetical protein;pol protein	protein-coding	-	-	-	hypothetical protein;pol protein	20231006	-
+11746	1490021	env	Opavgp4	-	-	-	-	envelope protein	protein-coding	-	-	-	envelope protein	20230818	-
+11746	2828727	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Endogenous Jaagziekte retrovirus; Jaagsiekte sheep virus; Ovine pulmonary adenocarcinoma virus; Ovine pulmonary carcinoma virus; Sheep pulmonary adenomatosis virus; jaagsiekte retrovirus; jaagsiekte sheep retrovirus JSRV; jaagsiekte virus).	other	-	-	-	-	20250604	-
+11757	1491862	env	MMTVgp6	-	-	-	-	gPr73	protein-coding	-	-	-	gPr73|gp36 TM|gp52 SU	20260616	-
+11757	1491863	SAG	MMTVgp7	-	-	-	-	Pr48	protein-coding	-	-	-	Pr48	20230818	-
+11757	1491864	gag	MMTVgp3	-	-	-	-	Pr77	protein-coding	-	-	-	Pr77|p10 MA|p27 CA|p3|p8|pp21 XX	20230818	-
+11757	1491865	pro	MMTVgp4	-	-	-	-	-	other	-	-	-	-	20200908	-
+11757	1491866	pol	MMTVgp5	-	-	-	-	-	other	-	-	-	-	20200908	-
+11757	1724723	MMTVgp2	MMTVgp2	-	-	-	-	Pr110	protein-coding	-	-	-	Pr110|p14 NC	20230818	-
+11757	1724724	MMTVgp1	MMTVgp1	-	-	-	-	Pr160	protein-coding	-	-	-	Pr160|p30DU-p13PR-RT-IN	20230818	-
+11757	2828729	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (mouse mammary tumor virus MMT; mouse mammary tumor virus MMTV; mouse mammary tumor virus MTV; mouse mammary tumor virus, MMTV; murine mammary tumor provirus MMTV).	other	-	-	-	-	20250604	-
+11764	22318529	pol	Q776_gp3	-	-	-	-	-	other	-	-	-	-	20200908	-
+11764	22318530	env	Q776_gp4	-	-	-	-	polyprotein	protein-coding	-	-	-	polyprotein|gp70|p20E	20260210	-
+11764	22318531	Q776_gp1	Q776_gp1	-	-	-	-	gag-pol precursor polyprotein	protein-coding	-	-	-	gag-pol precursor polyprotein|endonuclease|polyprotein|protease|reverse transcriptase	20230621	-
+11764	22318532	gag	Q776_gp2	-	-	-	-	polyprotein	protein-coding	-	-	-	polyprotein|p10 protein|p12 protein|p15 protein|p30 protein	20220729	-
+11764	22322550	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Baboon endogenous virus (STRAIN M7)).	other	-	-	-	-	20230602	-
+11768	1491868	env	FeLVgp2	-	-	-	-	Env polyprotein	protein-coding	-	-	-	Env polyprotein|gp70 protein (SU)|p15E protein (TM)	20230818	-
+11768	1724726	gag-pro-pol	FeLVgp1	-	-	-	-	Gag-Pro-Pol precursor polyprotein gPr80	protein-coding	-	-	-	Gag-Pro-Pol precursor polyprotein gPr80|Capsid|Endonuclease/integrase (IN)|Gag polyprotein Pr65-gag|Matrix|Nucleocapsid|Pol gene polyprotein|Protease (PR)|Reverse transcriptase (RT)|virion core structural peptide p12	20260616	-
+11768	2828731	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Feline leukemia provirus; feline leukemia virus FeLV).	other	-	-	-	-	20250604	-
+11777	37619592	D1T40_gp1	D1T40_gp1	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein|gag p12 protein (70 aa)|gag p15 protein (127 aa)|gag p30 protein (143 aa) (1241 is 2nd base in codon)|pol protein (6 aa)|v-kit protein (370 aa) (1242 is 3rd base in codon)	20230818	-
+11777	37629512	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Hardy-Zuckermann 4 feline sarcoma oncovirus).	other	-	-	-	-	20250604	-
+11788	1491873	gag-abl	AbMLVgp1	-	-	-	-	p120 Gag-Abl polyprotein	protein-coding	-	-	-	p120 Gag-Abl polyprotein|ABL|CA|MA	20260210	-
+11788	2828735	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Abelson mouse leukemia virus Ab-MLV).	other	-	-	-	-	20220720	-
+11795	1491875	env	FrMLVgp3	-	-	-	-	envelope protein	protein-coding	-	-	-	envelope protein	20230818	-
+11795	1491876	gag	FrMLVgp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20230818	-
+11795	1491877	pol	FrMLVgp2	-	-	-	-	RNA-dependent DNA polymerase	protein-coding	-	-	-	RNA-dependent DNA polymerase	20231006	-
+11795	2828737	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Friend murine leukemia virus F-MuLV).	other	-	-	-	-	20250630	-
+11801	1491870	gag	MLVgp8	-	-	-	-	Pr65	protein-coding	-	-	-	Pr65|p10 NC|p15 MA|p30 CA|pp12	20230818	-
+11801	1491871	pol	MLVgp3	-	-	-	-	-	other	-	-	-	-	20200908	-
+11801	2193424	gag-pol	MLVgp7	-	-	-	-	Pr180	protein-coding	-	-	-	Pr180|p14 PR|p46 IN|p80 RT	20230818	-
+11801	2828733	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Moloney murine leukemia virus M-MuLV; rat Moloney murine leukemia virus MoMuLV).	other	-	-	-	-	20250630	-
+11801	34950657	env	MLVgp2	-	-	-	-	-	other	-	-	-	-	20200908	-
+11801	34950658	MLVgp1	MLVgp1	-	-	-	-	gPr80	protein-coding	-	-	-	gPr80|gp70 SU|p12E TM|p15E|p2E	20230818	-
+11807	37618879	D1R95_gp2	D1R95_gp2	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20181103	-
+11807	37618880	D1R95_gp1	D1R95_gp1	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20230621	-
+11807	37629514	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250604	-
+11808	40526234	FK996_gp1	FK996_gp1	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20220802	-
+11808	40863104	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250604	-
+11809	1491884	gag	MoMSVgp2	-	-	-	-	Pr65	protein-coding	-	-	-	Pr65|CA|MA|NC	20180815	-
+11809	2193426	MoMSVgp1	MoMSVgp1	-	-	-	-	envelope protein fragment;pol polyprotein fragment	protein-coding	-	-	-	envelope protein fragment;pol polyprotein fragment	20180815	-
+11809	2193427	MoMSVgp3	MoMSVgp3	-	-	-	-	MOS	protein-coding	-	-	-	MOS	20230818	-
+11809	2828741	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Moloney murine sarcoma virus MuSV; Murine sarcoma virus).	other	-	-	-	-	20250604	-
+11819	1491886	SFFVgp2	SFFVgp2	-	-	-	-	gag polyprotein fragment	protein-coding	-	-	-	gag polyprotein fragment	20180815	-
+11819	1491887	SFFVgp1	SFFVgp1	-	-	-	-	precursor protein PR-gag	protein-coding	-	-	-	precursor protein PR-gag	20180815	-
+11819	1491888	SFFVgp3	SFFVgp3	-	-	-	-	gag polyprotein fragment	protein-coding	-	-	-	gag polyprotein fragment	20180815	-
+11819	1491889	SFFVgp4	SFFVgp4	-	-	-	-	precursor protein PR-env	protein-coding	-	-	-	precursor protein PR-env	20230818	-
+11819	2828743	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Spleen focus-forming viruses).	other	-	-	-	-	20220720	-
+11830	1491891	gag-FOS	Movgp1	-	-	-	-	gag polyprotein	protein-coding	-	-	-	gag polyprotein|CA|FOS|MA	20181103	-
+11830	1724732	Movgp2	Movgp2	-	-	-	-	ubiquitin-like protein	protein-coding	-	-	-	ubiquitin-like protein	20180815	-
+11830	2828745	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20220720	-
+11834	5656549	RDV114RtrV_gp2	RDV114RtrV_gp2	-	-	-	-	envelope glycoprotein	protein-coding	-	-	-	envelope glycoprotein	20180815	-
+11834	5656550	gag	RDV114RtrV_gp1	-	-	-	-	gag-pol precursor polyprotein	protein-coding	-	-	-	gag-pol precursor polyprotein	20180815	-
+11834	5666311	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20220720	-
+11840	1491893	pro-pol	GALVgp2	-	-	-	-	pol polyprotein	protein-coding	-	-	-	pol polyprotein	20231006	-
+11840	1491894	gag	GALVgp1	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20230818	-
+11840	1491895	GALVgp3	GALVgp3	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20230818	-
+11840	2828747	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Gibbon leukemia virus).	other	-	-	-	-	20250604	-
+11855	2746973	gag-pro-pol-env	MPMVgp1	-	-	-	-	Pr95	protein-coding	-	-	-	Pr95|DU|RT-IN|gp20 TM|gp70 SU|p12 PR	20230818	-
+11855	2746974	gag	MPMVgp2	-	-	-	-	Pr78	protein-coding	-	-	-	Pr78|p10 MA|p12|p14 NC|p24|p27	20230818	-
+11855	2746975	pol	MPMVgp4	-	-	-	-	-	other	-	-	-	-	20200908	-
+11855	2746976	pro	MPMVgp3	-	-	-	-	-	other	-	-	-	-	20200908	-
+11855	2828749	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Simian Mason-Pfizer type D retrovirus; Simian mason-pfizer virus; simian Mason-Pfizer D-type retrovirus SM-PDT).	other	-	-	-	-	20250604	-
+11856	1491962	pol	SMRV_gp3	WMSVgp3	-	-	-	pol protein	protein-coding	-	-	-	pol protein	20180815	-
+11856	1491963	pro	SMRV_gp2	WMSVgp2	-	-	-	protease	protein-coding	-	-	-	protease	20180815	-
+11856	1491964	gag	SMRV_gp1	WMSVgp1	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20260616	-
+11856	1491965	env	SMRV_gp4	WMSVgp4	-	-	-	envelope glycoprotein	protein-coding	-	-	-	envelope glycoprotein|outer membrane protein|transmembrane protein	20260616	-
+11856	2828775	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250604	-
+11864	2828751	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Avian leukosis viruses).	other	-	-	-	-	20250604	-
+11866	40526158	FK976_gp3	FK976_gp3	-	-	-	-	transforming protein	protein-coding	-	-	-	transforming protein	20230818	-
+11866	40526159	FK976_gp2	FK976_gp2	-	-	-	-	protein-coding	protein-coding	-	-	-	-	20200908	-
+11866	40526160	FK976_gp1	FK976_gp1	-	-	-	-	RNA-dependent DNA polymerase	protein-coding	-	-	-	RNA-dependent DNA polymerase	20230621	-
+11866	40863106	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (avian myeloblastosis virus AMV).	other	-	-	-	-	20250604	-
+11867	1491913	Amvgp1	Amvgp1	-	-	-	-	p110	protein-coding	-	-	-	p110|CA|MYC|p10|p19 MA	20230818	-
+11867	2828753	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Avian myelocytomatosis retrovirus; Avian myelocytomatosis viruses).	other	-	-	-	-	20220720	-
+11878	37619590	D1T39_gp1	D1T39_gp1	-	-	-	-	p47(gag-crk)	protein-coding	-	-	-	p47(gag-crk)|gag polypeptide	20230621	-
+11878	37629516	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Avian sarcoma virus (STRAIN CT10)).	other	-	-	-	-	20250604	-
+11884	2828757	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Avian sarcoma virus (STRAIN Y73); Avian sarcoma virus Y73).	other	-	-	-	-	20250604	-
+11884	4097789	src	ASVP2257_gp1	-	-	-	-	protein-tyrosine kinase	protein-coding	-	-	-	protein-tyrosine kinase	20230818	-
+11884	4097790	env	ASVP2257_gs1	-	-	-	-	miscRNA	miscRNA	-	-	-	-	20200908	-
+11885	1491921	FuSVgp1	FuSVgp1	-	-	-	-	p140 polyprotein	protein-coding	-	-	-	p140 polyprotein|CA|FBS|p10|p14 MA	20231006	-
+11885	2828759	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250604	-
+11886	1491923	gag	RSVgp2	-	-	-	-	Pr76 polyprotein precursor	protein-coding	-	-	-	Pr76 polyprotein precursor|p12 NC|p19|p27 CA|pp10	20231006	-
+11886	1491924	pol	RSVgp3	-	-	-	-	-	other	-	-	-	-	20200908	-
+11886	1491925	src	RSVgp4	-	-	-	-	p60 src	protein-coding	-	-	-	p60 src|pp60 SRC	20231006	-
+11886	2193432	RSVgp1	RSVgp1	-	-	-	-	Pr180 polyprotein precursor;gPr95 polyprotein precursor	protein-coding	-	-	-	Pr180 polyprotein precursor;gPr95 polyprotein precursor|gp37 TM|gp85 SU|p15 PR|p32 IN|p68a RT	20231006	-
+11886	2828761	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Rous sarcoma virus RSV).	other	-	-	-	-	20250604	-
+11901	2760845	pol	BLVgp04	-	-	-	-	-	other	-	-	-	-	20200908	-
+11901	2760846	gag	BLVgp02	-	-	-	-	Pr44	protein-coding	-	-	-	Pr44|p10 MA|p12 NC|p24 CA|p4	20260616	-
+11901	2760847	pro	BLVgp03	-	-	-	-	-	other	-	-	-	-	20200908	-
+11901	2760848	BLVgp01	BLVgp01	-	-	-	-	Pr66;p34	protein-coding	-	-	-	Pr66;p34|RT-IN|gp60 SU|p14 PR|p30 TM	20260616	-
+11901	2760849	env/rex/tax	BLVgp05	-	-	-	-	p18	protein-coding	-	-	-	p18	20260616	-
+11901	2828763	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (bovine leukemia virus BLV; bovine leukemia virus, BLV).	other	-	-	-	-	20250604	-
+11908	1491934	gag	HTLV1gp3	-	-	-	-	Pr55	protein-coding	-	-	-	Pr55|p19 MA|p24 CA	20260616	-
+11908	1491935	pro	HTLV1gp4	-	-	-	-	-	other	-	-	-	-	20200908	-
+11908	1491936	pol	HTLV1gp5	-	-	-	-	-	other	-	-	-	-	20200908	-
+11908	1491937	rex	HTLV1gp6	-	-	-	-	p27	protein-coding	-	-	-	p27	20231006	-
+11908	1491938	tax	HTLV1gp7	-	-	-	-	p40	protein-coding	-	-	-	p40	20260616	-
+11908	1491939	env	HTLV1gp8	-	-	-	-	protein-coding	protein-coding	-	-	-	gp46 SU|p21 TM	20230818	-
+11908	1724740	HTLV1gp1	HTLV1gp1	-	-	-	-	Pr gag-pro-pol	protein-coding	-	-	-	Pr gag-pro-pol|p15NC-p14PR-p95RT/IN	20230818	-
+11908	1724741	HTLV1gp2	HTLV1gp2	-	-	-	-	Pr gag-pro	protein-coding	-	-	-	Pr gag-pro	20230818	-
+11908	2828765	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Human T cell leukemia virus type 1; Human T-cell leukemia virus type 1; Human T-cell leukemia virus type I HTLV-I; Human T-cell leukemia virus-1; Human T-cell lymphotropic virus 1; Human T-cell lymphotropic virus type 1; Human T-cell lymphotropic virus type I; Human T-lymphotropic virus 1; Human T-lymphotropic virus type 1; Human adult T-cell leukemia virus; Human lymphotropic virus type I; human T cell leukemia virus type 1 HTLV-1; human T cell lymphotropic virus type I HTLV-I; human T-cell leukemia virus I; human T-cell leukemia virus type 1 HTLV-1; human T-cell leukemia/lymphoma virus type I HTLV-I; human T-cell leukemia/lymphotropic virus type I HTLV-I; human T-cell lymphoma/leukemia virus type I HTLV-I; human T-cell lymphotropic virus type 1, HTLV-1; human T-lymphotropic virus type 1 HTLV-1; human T-lymphotropic virus type I HTLV-I).	other	-	-	-	-	20250604	-
+11909	1491941	HTLV2gs1	HTLV2gs1	-	-	-	-	pol polyprotein	protein-coding	-	-	-	pol polyprotein	20260616	-
+11909	1491942	HTLV2gp6	HTLV2gp6	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein|p21E envelope protein	20260616	-
+11909	1491944	HTLV2gp2	HTLV2gp2	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein|p15-gag protein [2]|p19-gag protein [2]|p24-gag protein [2]	20260616	-
+11909	1491945	HTLV2gp4	HTLV2gp4	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20260616	-
+11909	1491946	HTLV2gp5	HTLV2gp5	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20260616	-
+11909	2828767	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Human T-Cell leukemia virus type 2; Human T-cell leukemia virus type II; Human T-cell lymphotropic virus type 2; Human T-cell lymphotropic virus type II; Human T-lymphotropic virus Type II; Human lymphotropic virus type 2; Human lymphotropic virus type II; human T cell leukemia virus II HTLV-II; human T lymphotropic virus type II HTLV-II; human T-cell leukemia virus II; human T-cell lymphotropic virus type II HTLV-II).	other	-	-	-	-	20250604	-
+11946	10206066	gag	gp_AvLvp2	-	-	-	-	gag polyprotein	protein-coding	-	-	-	gag polyprotein	20260616	-
+11946	10206067	pol	gp_AvLvp3	-	-	-	-	pol polyprotein	protein-coding	-	-	-	pol polyprotein	20260616	-
+11946	10206068	env	gp_AvLvp1	-	-	-	-	envelope protein	protein-coding	-	-	-	envelope protein	20260616	-
+11946	10228162	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250604	-
+11958	1491953	ACVgp1	ACVgp1	-	-	-	-	v-myc (59/61 kDa) protein	protein-coding	-	-	-	v-myc (59/61 kDa) protein	20230818	-
+11958	2828771	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20220720	-
+11970	5176146	WMSV_gp2	WMSV_gp2	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20180825	-
+11970	5176147	WMSV_gp3	WMSV_gp3	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20230818	-
+11970	5176148	WMSV_gp1	WMSV_gp1	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20230818	-
+11970	5332661	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Simian sarcoma virus).	other	-	-	-	-	20250604	-
+11970	9538324	WMSV_gp4	WMSV_gp4	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20220729	-
+32615	37618882	pol	D1R96_gp2	-	-	-	-	pol polyprotein	protein-coding	-	-	-	pol polyprotein	20220729	-
+32615	37618883	vif	D1R96_gp3	-	-	-	-	presumed viral infectivity factor	protein-coding	-	-	-	presumed viral infectivity factor	20220729	-
+32615	37618884	env	D1R96_gp4	-	-	-	-	envelope precursor	protein-coding	-	-	-	envelope precursor	20230818	-
+32615	37618885	gag	D1R96_gp1	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20220729	-
+32615	37629547	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250430	-
+33748	1497209	env	STLV2gp09	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20230818	-
+33748	1497210	gag	STLV2gp02	-	-	-	-	-	other	-	-	-	-	20200908	-
+33748	1497211	pol	STLV2gp04	-	-	-	-	-	other	-	-	-	-	20200908	-
+33748	1497212	pro	STLV2gp03	-	-	-	-	-	other	-	-	-	-	20200908	-
+33748	1497213	rex	STLV2gp12	-	-	-	-	-	other	-	-	-	-	20200908	-
+33748	1497214	tax	STLV2gp11	-	-	-	-	-	other	-	-	-	-	20200908	-
+33748	1724969	STLV2gp06	STLV2gp06	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20200908	-
+33748	1724970	STLV2gp10	STLV2gp10	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20200908	-
+33748	1724971	STLV2gp05	STLV2gp05	-	-	-	-	rex protein	protein-coding	-	-	-	rex protein|Rex protein (short variant)	20200908	-
+33748	1724972	STLV2gp07	STLV2gp07	-	-	-	-	tax protein	protein-coding	-	-	-	tax protein|tax protein (short variant)	20230818	-
+33748	1724973	STLV2gp08	STLV2gp08	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20200908	-
+33748	1724974	STLV2gp01	STLV2gp01	-	-	-	-	gag-pro-pol polyprotein	protein-coding	-	-	-	gag-pro-pol polyprotein|gag protein|pol protein|protease	20200908	-
+33748	2829236	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Simian T-cell lymphotropic virus type 2; Simian T-lymphotropic virus type II).	other	-	-	-	-	20250604	-
+36370	1497399	gag	Jdvgp2	-	-	-	-	gag precursor	protein-coding	-	-	-	gag precursor	20220729	-
+36370	1497400	gag-pol	Jdvgp1	-	-	-	-	gag-pol precursor	protein-coding	-	-	-	gag-pol precursor	20230621	-
+36370	1497401	env	Jdvgp6	-	-	-	-	env precursor	protein-coding	-	-	-	env precursor	20230818	-
+36370	1497402	vif	Jdvgp3	-	-	-	-	vif protein	protein-coding	-	-	-	vif protein	20230818	-
+36370	1497403	tat	Jdvgp4	-	-	-	-	alternative tat protein	protein-coding	-	-	-	alternative tat protein	20230818	-
+36370	1497404	rev	Jdvgp7	-	-	-	-	alternative rev protein;rev protein	protein-coding	-	-	-	alternative rev protein;rev protein	20230818	-
+36370	1497405	tmx	Jdvgp8	-	-	-	-	tmx protein	protein-coding	-	-	-	tmx protein	20230818	-
+36370	1725133	Jdvgp5	Jdvgp5	-	-	-	-	tat protein	protein-coding	-	-	-	tat protein	20230818	-
+36370	2829314	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250430	-
+39720	1403495	gap-pro-pol	WDSVgp1	-	-	-	-	Pr gag-pro-pol	protein-coding	-	-	-	Pr gag-pro-pol	20230818	-
+39720	1403496	gag	WDSVgp4	-	-	-	-	Pr gag	protein-coding	-	-	-	Pr gag	20200908	-
+39720	1403497	pro-pol	WDSVgp5	-	-	-	-	-	other	-	-	-	-	20200908	-
+39720	1403498	env	WDSVgp2	-	-	-	-	gPr env	protein-coding	-	-	-	gPr env	20200908	-
+39720	1403499	WDSVgp7	WDSVgp7	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20230818	-
+39720	1403500	WDSVgp6	WDSVgp6	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20200908	-
+39720	1403501	WDSVgp3	WDSVgp3	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20200908	-
+39720	2829417	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250604	-
+40270	1403609	env	SnRVgp1	-	-	-	-	envelope protein;hypothetical protein	protein-coding	-	-	-	envelope protein;hypothetical protein	20180815	-
+40270	1403610	gag	SnRVgp3	-	-	-	-	gag polyprotein	protein-coding	-	-	-	gag polyprotein	20180815	-
+40270	1403611	gag-pol	SnRVgp2	-	-	-	-	gag-pol polyprotein	protein-coding	-	-	-	gag-pol polyprotein	20180815	-
+40270	1725194	SnRVgp6	SnRVgp6	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20180815	-
+40270	2829427	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20220720	-
+44561	1403805	env	MtCrVgp3	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20260616	-
+44561	1403806	gag	MtCrVgp1	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20260616	-
+44561	1403807	gag/pol	MtCrVgs1	-	-	-	-	miscRNA	miscRNA	-	-	-	-	20200908	-
+44561	1403808	pol	MtCrVgp2	-	-	-	-	protein-coding	protein-coding	-	-	-	-	20200908	-
+44561	2829501	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250630	-
+53182	2829603	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Feline syncytial virus).	other	-	-	-	-	20250702	-
+53182	37627272	bel2	D1Y57_gp5	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20260616	-
+53182	37627273	bel1	D1Y57_gp4	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20260616	-
+53182	37627274	pol	D1Y57_gp2	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20260616	-
+53182	37627275	env	D1Y57_gp3	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20260616	-
+53182	37627276	gag	D1Y57_gp1	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20260616	-
+64461	40525382	pol	FK926_gp1	-	-	-	-	pol polyprotein	protein-coding	-	-	-	pol polyprotein	20230818	-
+64461	40863162	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Walleye epidermal hyperplasia virus type 2).	other	-	-	-	-	20250604	-
+64462	40525380	pol	FK925_gp1	-	-	-	-	pol polyprotein	protein-coding	-	-	-	pol polyprotein	20230818	-
+64462	40863164	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Walleye epidermal hyperplasia virus type 1).	other	-	-	-	-	20250604	-
+69576	3416002	gag	OENTVp1	-	-	-	-	gag	protein-coding	-	-	-	gag	20180815	-
+69576	3416003	pro	OENTVp2	-	-	-	-	gap-pro fusion	protein-coding	-	-	-	gap-pro fusion	20180815	-
+69576	3416004	pol	OENTVp3	-	-	-	-	gap-pro-pol fusion	protein-coding	-	-	-	gap-pro-pol fusion	20180815	-
+69576	3416005	env	OENTVp4	-	-	-	-	env	protein-coding	-	-	-	env|env SU protein|env TM protein	20180815	-
+69576	3760086	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Enzootic intranasal tumour retrovirus; Enzootic nasal tumor virus; Ovine enzootic nasal tumour virus).	other	-	-	-	-	20220720	-
+93465	2853315	gag-env	AEREVgp1	-	-	-	-	Gag-env fusion protein	protein-coding	-	-	-	Gag-env fusion protein	20210814	-
+93465	3293423	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20200520	-
+109270	1457829	gag	Efvgp1	-	-	-	-	Gag	protein-coding	-	-	-	Gag	20260616	-
+109270	1457830	pol	Efvgp2	-	-	-	-	Pol	protein-coding	-	-	-	Pol	20260616	-
+109270	1457831	env	Efvgp3	-	-	-	-	Env	protein-coding	-	-	-	Env	20260616	-
+109270	1457832	tas	Efvgp4	-	-	-	-	ORF1/Tas/Bel1	protein-coding	-	-	-	ORF1/Tas/Bel1	20260616	-
+109270	1457833	bel2	Efvgp5	-	-	-	-	orf2	protein-coding	-	-	-	Bel2	20260616	-
+109270	2830023	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250630	-
+159122	956107	pol	Siv2gp2	-	-	-	-	pol protein	protein-coding	-	-	-	pol protein	20180815	-
+159122	956108	gag	Siv2gp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20260616	-
+159122	956109	nef	Siv2gp8	-	-	-	-	nef protein	protein-coding	-	-	-	nef protein	20180815	-
+159122	956110	env	Siv2gp7	-	-	-	-	env protein	protein-coding	-	-	-	env protein	20180815	-
+159122	956111	vif	Siv2gp3	-	-	-	-	vif protein	protein-coding	-	-	-	vif protein	20180815	-
+159122	956112	vpr	Siv2gp5	-	-	-	-	vpr protein	protein-coding	-	-	-	vpr protein	20180815	-
+159122	956113	tat	Siv2gp6	-	-	-	-	tat protein	protein-coding	-	-	-	tat protein	20180815	-
+159122	956114	vpx	Siv2gp4	-	-	-	-	vpx protein	protein-coding	-	-	-	vpx protein	20180815	-
+159122	2830323	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Simian immunodeficiency virus 2).	other	-	-	-	-	20250430	-
+166122	17099689	Q779_gp1	Q779_gp1	-	-	-	-	putative env	protein-coding	-	-	-	putative env	20241010	-
+166122	17373546	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20230602	-
+194440	1497204	STLV1gp4	STLV1gp4	-	-	-	-	tax protein	protein-coding	-	-	-	tax protein	20260616	-
+194440	1497205	STLV1gp3	STLV1gp3	-	-	-	-	reverse transcriptase/envelope protein	protein-coding	-	-	-	reverse transcriptase/envelope protein	20220201	-
+194440	1497206	STLV1gp2	STLV1gp2	-	-	-	-	protease	protein-coding	-	-	-	protease	20260616	-
+194440	1497207	STLV1gp1	STLV1gp1	-	-	-	-	gag polyprotein	protein-coding	-	-	-	gag polyprotein	20230818	-
+194440	70355634	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250604	-
+194443	929294	tax	STLV3gp5	-	-	-	-	tax protein	protein-coding	-	-	-	tax protein	20230818	-
+194443	929295	pol	STLV3gp3	-	-	-	-	polymerase	protein-coding	-	-	-	polymerase	20230818	-
+194443	929296	gag	STLV3gp1	-	-	-	-	gag polyprotein	protein-coding	-	-	-	gag polyprotein	20230818	-
+194443	929297	rex	STLV3gp4	-	-	-	-	rex protein	protein-coding	-	-	-	rex protein	20230818	-
+194443	1725178	STLV3gp2	STLV3gp2	-	-	-	-	protease	protein-coding	-	-	-	protease	20230818	-
+194443	6492681	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250604	-
+204873	6386414	pol	Xen1_gp4	-	-	-	-	-	pseudo	-	-	-	-	20180815	-
+204873	6386415	gag	Xen1_gp3	-	-	-	-	-	pseudo	-	-	-	-	20180815	-
+204873	6386416	Xen1_gp2	Xen1_gp2	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20180815	-
+204873	6386417	Xen1_gp1	Xen1_gp1	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20180815	-
+204873	6386418	env	Xen1_gp5	-	-	-	-	-	pseudo	-	-	-	-	20180815	-
+204873	6407467	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20200520	-
+207343	1482651	pol	BoFVgp2	-	-	-	-	pol polyprotein	protein-coding	-	-	-	pol polyprotein	20260616	-
+207343	1482652	env	BoFVgp3	-	-	-	-	envelope protein	protein-coding	-	-	-	envelope protein	20230818	-
+207343	1482653	gag	BoFVgp1	-	-	-	-	gag polyprotein	protein-coding	-	-	-	gag polyprotein	20260616	-
+207343	1733626	BoFVgp4	BoFVgp4	-	-	-	-	Borf-1	protein-coding	-	-	-	Borf-1	20230818	-
+207343	1733627	BoFVgp5	BoFVgp5	-	-	-	-	Borf-2	protein-coding	-	-	-	Borf-2	20260616	-
+207343	2830767	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Bovine syncytial virus).	other	-	-	-	-	20250702	-
+221703	37620427	tas	D1U80_gp4	-	-	-	-	Tas protein	protein-coding	-	-	-	Tas protein	20220801	-
+221703	37620428	pol	D1U80_gp2	-	-	-	-	polymerase	protein-coding	-	-	-	polymerase	20220801	-
+221703	37620429	env	D1U80_gp3	-	-	-	-	envelope glycoprotein	protein-coding	-	-	-	envelope glycoprotein	20220801	-
+221703	37620430	bel-2	D1U80_gp5	-	-	-	-	Bel-2 protein	protein-coding	-	-	-	Bel-2 protein	20220801	-
+221703	37620431	gag	D1U80_gp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20220801	-
+221703	37629700	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Simian foamy virus-orangutan).	other	-	-	-	-	20250630	-
+240594	40525378	FK924_gp1	FK924_gp1	-	-	-	-	gp70	protein-coding	-	-	-	gp70	20220801	-
+240594	40863267	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250604	-
+318279	7205456	pro	HTLV-4_gp2	-	-	-	-	protease	protein-coding	-	-	-	protease	20180816	-
+318279	7205457	pol	HTLV-4_gp3	-	-	-	-	polymerase	protein-coding	-	-	-	polymerase	20260210	-
+318279	7205458	rex	HTLV-4_gp4	-	-	-	-	rex protein	protein-coding	-	-	-	rex protein	20260210	-
+318279	7205459	env	HTLV-4_gp6	-	-	-	-	envelope glycoprotein	protein-coding	-	-	-	envelope glycoprotein	20260210	-
+318279	7205460	tax	HTLV-4_gp5	-	-	-	-	tax protein	protein-coding	-	-	-	tax protein	20260210	-
+318279	7205461	gag	HTLV-4_gp1	-	-	-	-	group specific antigen	protein-coding	-	-	-	group specific antigen	20260210	-
+318279	7265267	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Human T-lymphotropic virus type 4).	other	-	-	-	-	20220720	-
+338079	6386653	env	SFVagm_gp3	-	-	-	-	Env	protein-coding	-	-	-	Env|envelope	20180816	-
+338079	6386654	pol	SFVagm_gp2	-	-	-	-	Pol precursor	protein-coding	-	-	-	Pol precursor	20240606	-
+338079	6386655	bel	SFVagm_gp4	-	-	-	-	Bet;Tas	protein-coding	-	-	-	Bet;Tas|transactivator	20240606	-
+338079	6386656	gag	SFVagm_gp1	-	-	-	-	Gag	protein-coding	-	-	-	Gag	20180816	-
+338079	6407486	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250702	-
+348296	3850242	LP	ASSBSV_gp1	-	-	-	-	leader peptide	protein-coding	-	-	-	leader peptide	20180816	-
+348296	3850243	env	ASSBSV_gp3	-	-	-	-	envelope protein	protein-coding	-	-	-	envelope protein	20180816	-
+348296	3850244	ASSBSV_gp2	ASSBSV_gp2	-	-	-	-	polyprotein	protein-coding	-	-	-	polyprotein	20180816	-
+348296	3926314	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20200520	-
+353765	37619350	D1S92_gp1	D1S92_gp1	-	-	-	-	gag-fos fusion protein	protein-coding	-	-	-	gag-fos fusion protein	20181103	-
+353765	37629778	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (FBR murine osteosarcoma virus).	other	-	-	-	-	20250604	-
+353768	40525384	pol	FK927_gp1	-	-	-	-	polymerase	protein-coding	-	-	-	polymerase	20220801	-
+353768	40863323	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250604	-
+354090	1491915	ASVgp2	ASVgp2	-	-	-	-	putative env protein gp37	protein-coding	-	-	-	putative env protein gp37	20180816	-
+354090	1491916	ASVgp1	ASVgp1	-	-	-	-	P68 protein	protein-coding	-	-	-	P68 protein	20180816	-
+354090	2828755	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Avian sarcoma virus (STRAIN UR2); Avian sarcoma virus UR2).	other	-	-	-	-	20250604	-
+363745	1491901	INp32	ALVgp09	-	-	-	-	-	other	-	-	-	-	20200909	-
+363745	1491902	MAp19	ALVgp02	-	-	-	-	-	other	-	-	-	-	20200909	-
+363745	1491903	NCp12	ALVgp06	-	-	-	-	-	other	-	-	-	-	20200909	-
+363745	1491904	PRp15	ALVgp07	-	-	-	-	-	other	-	-	-	-	20200909	-
+363745	1491905	SU	ALVgp10	-	-	-	-	-	other	-	-	-	-	20200909	-
+363745	1491906	TM	ALVgp11	-	-	-	-	-	other	-	-	-	-	20200909	-
+363745	1491907	env	ALVgp01	-	-	-	-	envelope protein	protein-coding	-	-	-	envelope protein	20240131	-
+363745	1491908	p10	ALVgp05	-	-	-	-	-	other	-	-	-	-	20200909	-
+363745	1491909	p2	ALVgp04	-	-	-	-	-	other	-	-	-	-	20200909	-
+363745	1491910	pol	ALVgp08	-	-	-	-	polymerase	protein-coding	-	-	-	polymerase	20260616	-
+363745	1491911	trans-acting factor	ALVgp03	-	-	-	-	trans-acting factor	protein-coding	-	-	-	trans-acting factor	20200909	-
+363745	28411231	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (ALV-A).	other	-	-	-	-	20250604	-
+373193	3968984	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20230602	-
+394239	16216150	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250604	-
+394239	37627219	pol	D1Y44_gp2	-	-	-	-	pol protein	protein-coding	-	-	-	pol protein	20230818	-
+394239	37627220	env	D1Y44_gp3	-	-	-	-	envelope protein	protein-coding	-	-	-	envelope protein	20230818	-
+394239	37627221	gag	D1Y44_gp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20230818	-
+481147	13230764	STLV-6_gp2	STLV-6_gp2	-	-	-	-	pro protein	protein-coding	-	-	-	pro protein	20220801	-
+481147	13230765	STLV-6_gp3	STLV-6_gp3	-	-	-	-	pol protein	protein-coding	-	-	-	pol protein	20230818	-
+481147	13230766	STLV-6_gp5	STLV-6_gp5	-	-	-	-	rex protein	protein-coding	-	-	-	rex protein	20230818	-
+481147	13230767	STLV-6_gp4	STLV-6_gp4	-	-	-	-	tax protein	protein-coding	-	-	-	tax protein	20230818	-
+481147	13230768	STLV-6_gp6	STLV-6_gp6	-	-	-	-	envelope glycoprotein	protein-coding	-	-	-	envelope glycoprotein	20230818	-
+481147	13230769	STLV-6_gp1	STLV-6_gp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20220801	-
+481147	13231238	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (simian T-cell lymphotropic virus type 6).	other	-	-	-	-	20250604	-
+590745	27214989	env	A5N49_gp2	-	-	-	-	envelope protein	protein-coding	-	-	-	envelope protein	20200926	-
+590745	27214990	gag	A5N49_gp1	-	-	-	-	truncated gag-pol polyprotein	protein-coding	-	-	-	truncated gag-pol polyprotein	20180816	-
+590745	27244817	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20220720	-
+723802	9715147	prt	SRV4p2	-	-	-	-	protease	protein-coding	-	-	-	protease	20180816	-
+723802	9715148	pol	SRV4p3	-	-	-	-	pol protein	protein-coding	-	-	-	pol protein	20180816	-
+723802	9715149	env	SRV4p4	-	-	-	-	envelope protein	protein-coding	-	-	-	envelope protein	20180816	-
+723802	9715150	gag	SRV4p1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20180816	-
+723802	9726009	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20220720	-
+1038068	3964424	env	XMVV62_gp4	-	-	-	-	putative envelope polyprotein	protein-coding	-	-	-	putative envelope polyprotein	20260616	-
+1038068	10913684	truncated gag	pXMRV-1_gp1	-	-	-	-	truncated gag-pro-pol	protein-coding	-	-	-	truncated gag-pro-pol	20180816	-
+1038068	10929460	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20230602	-
+1435008	18093925	Y895_gp2	Y895_gp2	-	-	-	-	hypothetical protein	protein-coding	-	-	-	hypothetical protein	20180816	-
+1435008	18093926	Y895_gp1	Y895_gp1	-	-	-	-	polyprotein	protein-coding	-	-	-	polyprotein|RNase_H|Vps51/Vps67|viral movement protein	20180816	-
+1435008	18155415	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20200520	-
+1622024	24314445	ABA94_gp2	ABA94_gp2	-	-	-	-	protease	protein-coding	-	-	-	protease	20200909	-
+1622024	24314446	env	ABA94_gp4	-	-	-	-	-	other	-	-	-	-	20200909	-
+1622024	24314447	pol	ABA94_gp3	-	-	-	-	-	other	-	-	-	-	20200909	-
+1622024	24314448	gag	ABA94_gp1	-	-	-	-	gag	protein-coding	-	-	-	gag	20200909	-
+1622024	24363722	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20220720	-
+1822365	27214984	A5N50_gp2	A5N50_gp2	-	-	-	-	putative protease	protein-coding	-	-	-	putative protease	20180817	-
+1822365	27214985	A5N50_gp3	A5N50_gp3	-	-	-	-	putative viral DNA polymerase	protein-coding	-	-	-	putative viral DNA polymerase	20180817	-
+1822365	27214986	A5N50_gp4	A5N50_gp4	-	-	-	-	putative envelope protein	protein-coding	-	-	-	putative envelope protein	20180817	-
+1822365	27214987	A5N50_gp1	A5N50_gp1	-	-	-	-	putative group-specific antigen	protein-coding	-	-	-	putative group-specific antigen	20180817	-
+1822365	27244821	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Bovine betaretrovirus CH15).	other	-	-	-	-	20220720	-
+1904439	29141118	prt	BJP31_gp2	-	-	-	-	protease	protein-coding	-	-	-	protease	20180817	-
+1904439	29141119	pol	BJP31_gp3	-	-	-	-	pol protein	protein-coding	-	-	-	pol protein	20180817	-
+1904439	29141120	env	BJP31_gp4	-	-	-	-	envelope protein	protein-coding	-	-	-	envelope protein	20180817	-
+1904439	29141121	gag	BJP31_gp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20180817	-
+1904439	29255114	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20220720	-
+2169894	37620012	pol	D1U21_gp2	-	-	-	-	Pol	protein-coding	-	-	-	Pol	20181103	-
+2169894	37620013	env	D1U21_gp3	-	-	-	-	Env	protein-coding	-	-	-	Env	20181103	-
+2169894	37620014	bel1	D1U21_gp4	-	-	-	-	Bel1	protein-coding	-	-	-	Bel1	20180826	-
+2169894	37620015	bel2	D1U21_gp5	-	-	-	-	Bel2	protein-coding	-	-	-	Bel2	20180826	-
+2169894	37620016	gag	D1U21_gp1	-	-	-	-	Gag	protein-coding	-	-	-	Gag	20181103	-
+2169894	37630856	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20200520	-
+2169971	1490011	rev	VISNAgp6	-	-	-	-	rev protein	protein-coding	-	-	-	rev protein	20250626	-
+2169971	1490012	gag	VISNAgp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20250626	-
+2169971	1490013	pol	VISNAgp2	-	-	-	-	pol polyprotein	protein-coding	-	-	-	pol polyprotein	20180817	-
+2169971	1490014	vif	VISNAgp3	-	-	-	-	vif protein	protein-coding	-	-	-	vif protein	20250626	-
+2169971	1490015	tat	VISNAgp4	-	-	-	-	tat protein	protein-coding	-	-	-	tat protein	20250626	-
+2169971	1490016	env	VISNAgp5	-	-	-	-	envelope polyprotein	protein-coding	-	-	-	envelope polyprotein	20250626	-
+2169971	36840683	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Maedi visna virus; Maedi visna virus MVV; Maedi-Visna virus; Maedi/Visna virus; Visna lentivirus; Visna virus; Visna/maedi virus).	other	-	-	-	-	20250430	-
+2170139	37620018	pol	D1U22_gp2	-	-	-	-	-	other	-	-	-	-	20200910	-
+2170139	37620019	env	D1U22_gp3	-	-	-	-	env protein	protein-coding	-	-	-	env protein	20220802	-
+2170139	37620020	bel1	D1U22_gp4	-	-	-	-	bel1 protein	protein-coding	-	-	-	bel1 protein	20220802	-
+2170139	37620021	bel2	D1U22_gp5	-	-	-	-	bel2 protein	protein-coding	-	-	-	bel2 protein	20220802	-
+2170139	37620022	gag	D1U22_gp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20220802	-
+2170139	37630895	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250709	-
+2170194	37620024	pol	D1U23_gp2	-	-	-	-	pol protein	protein-coding	-	-	-	pol protein	20220802	-
+2170194	37620025	env	D1U23_gp3	-	-	-	-	env protein	protein-coding	-	-	-	env protein	20220802	-
+2170194	37620026	bet	D1U23_gp4	-	-	-	-	bet protein	protein-coding	-	-	-	bet protein	20220802	-
+2170194	37620027	tas	D1U23_gp5	-	-	-	-	tas protein	protein-coding	-	-	-	tas protein	20220802	-
+2170194	37620028	gag	D1U23_gp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20220802	-
+2170194	37630899	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250702	-
+2170195	37620030	pol	D1U24_gp1	-	-	-	-	pol protein	protein-coding	-	-	-	pol protein	20220729	-
+2170195	37620031	env	D1U24_gp3	-	-	-	-	envelope protein	protein-coding	-	-	-	envelope protein	20220729	-
+2170195	37620032	gag	D1U24_gp2	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20220729	-
+2170195	37620033	tas	D1U24_gp4	-	-	-	-	tas protein	protein-coding	-	-	-	tas protein	20260210	-
+2170195	37620034	bel2	D1U24_gp5	-	-	-	-	bel2 protein	protein-coding	-	-	-	bel2 protein	20220729	-
+2170195	37630901	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250630	-
+2170197	40526327	pol	FLA08_gp2	-	-	-	-	pol protein	protein-coding	-	-	-	pol protein	20220729	-
+2170197	40526328	env	FLA08_gp3	-	-	-	-	env protein	protein-coding	-	-	-	env protein	20220729	-
+2170197	40526329	bet	FLA08_gp4	-	-	-	-	bet protein	protein-coding	-	-	-	bet protein	20220729	-
+2170197	40526330	tas	FLA08_gp5	-	-	-	-	tas protein	protein-coding	-	-	-	tas protein	20220729	-
+2170197	40526331	gag	FLA08_gp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20220729	-
+2170197	40863592	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250702	-
+2170198	37620036	tas	D1U25_gp5	-	-	-	-	tas protein	protein-coding	-	-	-	tas protein	20220802	-
+2170198	37620037	pol	D1U25_gp2	-	-	-	-	pol protein	protein-coding	-	-	-	pol protein	20220802	-
+2170198	37620038	env	D1U25_gp3	-	-	-	-	env protein	protein-coding	-	-	-	env protein	20220802	-
+2170198	37620039	gag	D1U25_gp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20220802	-
+2170198	37620040	bet	D1U25_gp4	-	-	-	-	bet protein	protein-coding	-	-	-	bet protein	20220802	-
+2170198	37630903	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250702	-
+2170199	37627259	env	D1Y53_gp3	-	-	-	-	env	protein-coding	-	-	-	env	20220801	-
+2170199	37627260	tas	D1Y53_gp4	-	-	-	-	tas	protein-coding	-	-	-	tas	20220801	-
+2170199	37627261	bet	D1Y53_gp5	-	-	-	-	bet	protein-coding	-	-	-	bet	20220801	-
+2170199	37627262	pol	D1Y53_gp2	-	-	-	-	pol	protein-coding	-	-	-	pol	20220801	-
+2170199	37627263	D1Y53_gp1	D1Y53_gp1	-	-	-	-	gag	protein-coding	-	-	-	gag	20220801	-
+2170199	37630905	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250702	-
+2170200	37620042	pol	D1U26_gp2	-	-	-	-	pol	protein-coding	-	-	-	pol	20220801	-
+2170200	37620043	env	D1U26_gp3	-	-	-	-	env	protein-coding	-	-	-	env	20220801	-
+2170200	37620044	tas	D1U26_gp4	-	-	-	-	tas	protein-coding	-	-	-	tas	20220801	-
+2170200	37620045	bel2	D1U26_gp5	-	-	-	-	bel2	protein-coding	-	-	-	bel2	20220801	-
+2170200	37620046	gag	D1U26_gp1	-	-	-	-	gag	protein-coding	-	-	-	gag	20220801	-
+2170200	37630907	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Spider monkey foamy virus).	other	-	-	-	-	20250702	-
+2170201	37620048	pol	D1U27_gp2	-	-	-	-	pol	protein-coding	-	-	-	pol	20220802	-
+2170201	37620049	env	D1U27_gp3	-	-	-	-	env	protein-coding	-	-	-	env	20220802	-
+2170201	37620050	bel1	D1U27_gp4	-	-	-	-	tas	protein-coding	-	-	-	tas	20220802	-
+2170201	37620051	bel2	D1U27_gp5	-	-	-	-	bel2	protein-coding	-	-	-	bel2	20220802	-
+2170201	37620052	gag	D1U27_gp1	-	-	-	-	gag	protein-coding	-	-	-	gag	20220802	-
+2170201	37630909	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Squirrel monkey foamy virus).	other	-	-	-	-	20250702	-
+2170203	1489964	gag	SFoVgp2	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20221224	-
+2170203	1489965	pol	SFoVgp3	-	-	-	-	pol polyprotein	protein-coding	-	-	-	pol polyprotein	20221224	-
+2170203	1489966	env	SFoVgp4	-	-	-	-	envelope protein	protein-coding	-	-	-	envelope protein	20221224	-
+2170203	1489967	taf	SFoVgp5	-	-	-	-	taf protein	protein-coding	-	-	-	taf protein	20221224	-
+2170203	1724694	SFoVgp6	SFoVgp6	-	-	-	-	bet protein	protein-coding	-	-	-	bet protein	20221224	-
+2170203	1724695	SFoVgp1	SFoVgp1	-	-	-	-	bet protein fragment	protein-coding	-	-	-	bet protein fragment	20221224	-
+2170203	77169399	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250702	-
+2170204	37620054	pol	D1U28_gp2	-	-	-	-	pol protein	protein-coding	-	-	-	pol protein	20220729	-
+2170204	37620055	D1U28_gp3	D1U28_gp3	-	-	-	-	envelope protein	protein-coding	-	-	-	envelope protein	20220729	-
+2170204	37620056	D1U28_gp4	D1U28_gp4	-	-	-	-	bet protein	protein-coding	-	-	-	bet protein	20220729	-
+2170204	37620057	Bel2	D1U28_gp6	-	-	-	-	bel2 protein	protein-coding	-	-	-	bel2 protein	20220729	-
+2170204	37620058	D1U28_gp5	D1U28_gp5	-	-	-	-	tas protein	protein-coding	-	-	-	tas protein	20220729	-
+2170204	37620059	gag	D1U28_gp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20220729	-
+2170204	37630911	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250702	-
+2170205	37620061	pol	D1U29_gp2	-	-	-	-	pol	protein-coding	-	-	-	pol	20220802	-
+2170205	37620062	env	D1U29_gp3	-	-	-	-	env	protein-coding	-	-	-	env	20220802	-
+2170205	37620063	bel1	D1U29_gp4	-	-	-	-	tas	protein-coding	-	-	-	tas	20220802	-
+2170205	37620064	bel2	D1U29_gp5	-	-	-	-	bel2	protein-coding	-	-	-	bel2	20220802	-
+2170205	37620065	gag	D1U29_gp1	-	-	-	-	gag	protein-coding	-	-	-	gag	20220802	-
+2170205	37630913	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250702	-
+2170206	37620067	pol	D1U30_gp2	-	-	-	-	pol protein	protein-coding	-	-	-	pol protein	20220729	-
+2170206	37620068	env	D1U30_gp3	-	-	-	-	env protein	protein-coding	-	-	-	env protein	20220729	-
+2170206	37620069	tas	D1U30_gp4	-	-	-	-	tas protein	protein-coding	-	-	-	tas protein	20220729	-
+2170206	37620070	bel2	D1U30_gp5	-	-	-	-	Bel2 protein	protein-coding	-	-	-	Bel2 protein	20220729	-
+2170206	37620071	gag	D1U30_gp1	-	-	-	-	gag polyprotein	protein-coding	-	-	-	gag polyprotein	20220729	-
+2170206	37630915	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20250702	-
+2913605	1734001	Entvoggp2	Entvoggp2	-	-	-	-	gag-pro fusion	protein-coding	-	-	-	gag-pro fusion	20240323	-
+2913605	1734002	Entvoggp1	Entvoggp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20240323	-
+2913605	1734003	Entvoggp4	Entvoggp4	-	-	-	-	envelope protein	protein-coding	-	-	-	envelope protein	20240323	-
+2913605	1734004	Entvoggp3	Entvoggp3	-	-	-	-	gag-pro-pol fusion	protein-coding	-	-	-	gag-pro-pol fusion	20240323	-
+2913605	88866312	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene (Endogenous enzootic nasal tumor virus; Enzootic nasal tumour virus of goats).	other	-	-	-	-	20240617	-
+3432455	80527846	tas	QKD21_gp5	-	-	-	-	tas protein	protein-coding	-	-	-	tas protein	20260222	-
+3432455	80527847	pol	QKD21_gp2	-	-	-	-	pol protein	protein-coding	-	-	-	pol protein	20260222	-
+3432455	80527848	env	QKD21_gp3	-	-	-	-	env protein	protein-coding	-	-	-	env protein	20260616	-
+3432455	80527849	bet	QKD21_gp4	-	-	-	-	bet protein	protein-coding	-	-	-	bet protein	20260222	-
+3432455	80527850	gag	QKD21_gp1	-	-	-	-	gag protein	protein-coding	-	-	-	gag protein	20260222	-
+3432455	307641551	NEWENTRY	-	-	-	-	-	Record to support submission of GeneRIFs for a gene not in Gene.	other	-	-	-	-	20260225	-

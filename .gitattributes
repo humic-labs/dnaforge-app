@@ -1,0 +1,54 @@
+
+test-fixtures/indexed/yeast-chrIV/**/*.fa filter=lfs diff=lfs merge=lfs -text
+test-fixtures/indexed/yeast-chrIV/**/*.fa.fai filter=lfs diff=lfs merge=lfs -text
+test-fixtures/indexed/yeast-chrIV/**/*.gff3.gz filter=lfs diff=lfs merge=lfs -text
+test-fixtures/indexed/yeast-chrIV/**/*.gff3.gz.tbi filter=lfs diff=lfs merge=lfs -text
+
+test-fixtures/indexed/danRer11/pownall-figure-4n/*.bw filter=lfs diff=lfs merge=lfs -text
+
+apps/desktop/resources/helpers/dna-indexer-* filter=lfs diff=lfs merge=lfs -text
+apps/desktop/resources/helpers/dna-coverage-* filter=lfs diff=lfs merge=lfs -text
+
+
+test-fixtures/structure-complexes/**/*.cif -whitespace
+
+test-fixtures/molecular-data/1URN.cif -text -whitespace
+test-fixtures/molecular-data/python-results.csv -text -whitespace
+test-fixtures/molecular-data/derive.py text eol=lf
+.ci/fixtures/molecular-data-real-agent/actual-m744-extracted-source.gb -text -whitespace
+
+test-fixtures/structure-complexes/rcsb/1EHZ.pdb -text -whitespace
+
+test-fixtures/adjacency/native-catalog-v1/fixtures.tar.gz filter=lfs diff=lfs merge=lfs -text
+test-fixtures/adjacency/native-catalog-v1/*.json text eol=lf
+
+*.pdf binary
+
+packages/core/codex-app-server-contract/LICENSE text eol=lf
+packages/core/codex-app-server-contract/THIRD_PARTY_NOTICES.md text eol=lf
+
+scripts/husky-proxy-body.sh text eol=lf
+scripts/husky-dispatcher.sh text eol=lf
+scripts/check-husky-proxies.sh text eol=lf
+
+e2e/helpers/remote-hosts-native-fixture.sh text eol=lf
+e2e/helpers/remote-hosts-native-tile-service.sh text eol=lf
+
+
+scripts/fixtures/windows-signer-compatibility/** -text
+
+apps/web/public/docs/samples/pUC19.gb -text -whitespace
+
+test-fixtures/scientific-object-standard/yeast-heat-recovery/*.gb -text -whitespace
+
+patches/app-builder-lib@26.8.1.patch text eol=lf
+
+patches/molstar@5.7.0.patch -text -whitespace
+
+# Preserve upstream spacing and deterministic line endings in vendored scientific code.
+apps/api/vendor/mappy/** text eol=lf -whitespace
+apps/api/tests/native/*_reference.* text eol=lf -whitespace
+apps/desktop/third-party/licenses/minimap2-sse2neon-LICENSE.txt -text -whitespace
+apps/desktop/third-party/licenses/htscodecs-LICENSE.txt -text -whitespace
+
+scripts/fixtures/published-notes-a9/** -text

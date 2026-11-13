@@ -1,0 +1,87 @@
+{
+  "_comment": " NEB Tm (tmapi.neb.com) replay fixture. REAL, live-captured responses for seq1=GACCATGATTACGCCAAGCTT conc=500 under Q5 and Phusion — used by e2e/electron/primer-tm-neb-live-verification.e2e.ts to prove, deterministically and offline, that the sidecar's /external/neb/tm route now resolves to genuinely distinct per-polymerase Tm values instead of the pre-fix 403 capability_denied. Captured directly against tmapi.neb.com on 2026-07-23.",
+  "entries": [
+    {
+      "method": "GET",
+      "host": "tmapi.neb.com",
+      "path": "/tm",
+      "query": {
+        "seq1": "GACCATGATTACGCCAAGCTT",
+        "prodcode": "q5-0",
+        "conc": "500",
+        "fmt": "long"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "success": true,
+          "data": {
+            "p1": [
+              {
+                "tm": 75.21894800370973,
+                "fgc": 0.48,
+                "len": 21,
+                "seq": "GACCATGATTACGCCAAGCTT"
+              }
+            ],
+            "tm1min": 75,
+            "tm1max": 75,
+            "conc": 500,
+            "notes": [
+              "Use of the Q5 High GC Enhancer often lowers the range of temperatures at which specific amplification can be observed, however the rule used to determine Q5 annealing temperatures (Ta = Tm_lower+1°C) typically yields values that will support specific amplification with or without the enhancer."
+            ]
+          },
+          "meta": {
+            "datetime": "2026-07-23T00:02:56.242Z",
+            "version": "0.19.0",
+            "url": "https://tmapi.neb.com/tm?seq1=GACCATGATTACGCCAAGCTT&prodcode=q5-0&conc=500&fmt=long"
+          },
+          "fmtType": "long"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "host": "tmapi.neb.com",
+      "path": "/tm",
+      "query": {
+        "seq1": "GACCATGATTACGCCAAGCTT",
+        "prodcode": "phusion-0",
+        "conc": "500",
+        "fmt": "long"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "json": {
+          "success": true,
+          "data": {
+            "p1": [
+              {
+                "tm": 70.9409530501938,
+                "fgc": 0.48,
+                "len": 21,
+                "seq": "GACCATGATTACGCCAAGCTT"
+              }
+            ],
+            "tm1min": 71,
+            "tm1max": 71,
+            "conc": 500,
+            "notes": []
+          },
+          "meta": {
+            "datetime": "2026-07-23T00:02:56.398Z",
+            "version": "0.19.0",
+            "url": "https://tmapi.neb.com/tm?seq1=GACCATGATTACGCCAAGCTT&prodcode=phusion-0&conc=500&fmt=long"
+          },
+          "fmtType": "long"
+        }
+      }
+    }
+  ]
+}

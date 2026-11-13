@@ -1,0 +1,72 @@
+{
+  "schema": "dnaforge.molecular-document.v1",
+  "id": "11111111-1111-4111-8111-111111111111",
+  "name": "Pocket explanation",
+  "currentReferenceId": "33333333-3333-4333-8333-333333333333",
+  "history": [
+    {
+      "referenceId": "22222222-2222-4222-8222-222222222222",
+      "snapshot": {
+        "kind": "molecular-view",
+        "version": 1,
+        "title": "Binding pocket",
+        "caption": "Exact original explanation",
+        "scene": "{\"kind\":\"single\",\"root\":{\"kind\":\"root\",\"children\":[{\"kind\":\"download\",\"params\":{\"url\":\"structure.pdb\"},\"children\":[]}]}}",
+        "coordinates": {
+          "format": "pdb",
+          "sha256": "9bee0369d43c4756ee42f5b6d130d2ebf267f48ee1d06b4a23435349bff5c0f4"
+        },
+        "source": {
+          "source": "pdb",
+          "sourceId": "1ABC"
+        },
+        "evidence": [
+          {
+            "title": "Source evidence",
+            "url": "https://example.org/evidence"
+          }
+        ],
+        "preview": "data:image/png;base64,AAAA",
+        "cameraSnapshot": "{\"position\":[1,2,3]}",
+        "createdAt": 100,
+        "presentation": {
+          "id": "11111111-1111-4111-8111-111111111111"
+        }
+      }
+    },
+    {
+      "referenceId": "33333333-3333-4333-8333-333333333333",
+      "snapshot": {
+        "kind": "molecular-view",
+        "version": 1,
+        "title": "Edited pocket",
+        "caption": "A later explanation",
+        "scene": "{\"kind\":\"single\",\"root\":{\"kind\":\"root\",\"children\":[{\"kind\":\"download\",\"params\":{\"url\":\"structure.pdb\"},\"children\":[]}]}}",
+        "coordinates": {
+          "format": "pdb",
+          "sha256": "9bee0369d43c4756ee42f5b6d130d2ebf267f48ee1d06b4a23435349bff5c0f4"
+        },
+        "source": {
+          "source": "pdb",
+          "sourceId": "1ABC"
+        },
+        "evidence": [
+          {
+            "title": "Source evidence",
+            "url": "https://example.org/evidence"
+          }
+        ],
+        "preview": "data:image/png;base64,AAAA",
+        "cameraSnapshot": "{\"position\":[1,2,3]}",
+        "createdAt": 200,
+        "presentation": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "parentReferenceId": "22222222-2222-4222-8222-222222222222"
+        }
+      }
+    }
+  ],
+  "coordinateAssets": {
+    "9bee0369d43c4756ee42f5b6d130d2ebf267f48ee1d06b4a23435349bff5c0f4": "HEADER    preserved coordinate bytes\nATOM      1  CA  ALA A   1\nEND\n"
+  }
+}

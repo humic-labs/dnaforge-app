@@ -1,0 +1,31 @@
+{
+  "schema": "dnaforge.ngs-tools-source.v1",
+  "versions": {
+    "minimap2": "2.31-r1302",
+    "samtools": "1.24",
+    "htslib": "1.25"
+  },
+  "sources": {
+    "minimap2": {
+      "url": "https://github.com/lh3/minimap2/releases/download/v2.31/minimap2-2.31.tar.bz2",
+      "bytes": 187931,
+      "sha256": "c1351de6319c123369c2f4f37ba0ccf18c7ace47e2b1c0a35e30056b4a3bd9c9",
+      "root": "minimap2-2.31",
+      "licenses": ["LICENSE.txt", "sse2neon/emmintrin.h"]
+    },
+    "samtools": {
+      "url": "https://github.com/samtools/samtools/releases/download/1.24/samtools-1.24.tar.bz2",
+      "bytes": 9491012,
+      "sha256": "89b2a440123eeaa400392ce1736e7d60ce9041843027d76819753c5a8246bfdd",
+      "root": "samtools-1.24",
+      "licenses": ["LICENSE", "lz4/LICENSE"]
+    },
+    "htslib": {
+      "url": "https://github.com/samtools/htslib/releases/download/1.25/htslib-1.25.tar.bz2",
+      "bytes": 5066713,
+      "sha256": "158c271e4e2986bb2dd11283b640edc10c56695b293df77a109ce99480303730",
+      "root": "htslib-1.25",
+      "licenses": ["LICENSE", "htscodecs/LICENSE.md"]
+    }
+  }
+}
