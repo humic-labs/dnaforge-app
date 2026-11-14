@@ -249,9 +249,6 @@ async function observation(page, lane, readLengthBp) {
           composition?.readyCoversViewport === true &&
           composition?.readCoversViewport === true &&
           composition?.errorTileCount === 0,
-        settled:
-          diagnostic.rowsMeshBuildInProgress === false &&
-          diagnostic.rowsAssignmentBuildInProgress === false,
         visible:
           diagnostic.rowsMeshVisible === true && diagnostic.rowsVertexCount > 0 && rowsAlpha > 0.02,
         densityMatchesScale: physicalReadPx >= 3.6 ? densityAlpha <= 0.02 : densityAlpha > 0.02,

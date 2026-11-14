@@ -39,9 +39,9 @@ cover the complete visible interval, finish pending reads without errors or
 truncation, and show the appropriate read/coverage presentation. Settlement also
 requires the current source, request and viewport plan to acknowledge a
 presented read view, with the visible track gutter reporting ready. A complete
-mesh with a stale or still-loading presentation fails. Offscreen resident halo
-tiles remain reported as background preparation; they do not delay completion of
-an already complete visible read view. Camera comparisons allow only
+mesh with a stale or still-loading presentation fails. Offscreen row work and
+resident halo tiles remain reported as background preparation; they do not delay
+completion of an already complete visible read view. Camera comparisons allow only
 floating-point roundoff, bounded by four binary64 representable steps and one
 millionth of a base. A fast blank, partially filled, or stale view fails. The
 journey checks readable rows near 26.6 kb and an actual blended presentation

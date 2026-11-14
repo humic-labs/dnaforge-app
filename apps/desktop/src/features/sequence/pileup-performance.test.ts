@@ -181,6 +181,9 @@ describe('saved pileup performance qualification', () => {
     ['failed tile request', (r: Report) => r.phases[1].failures.push('tile returned 500')],
   ] as const)('rejects fast but incorrect output: %s', (_name, mutate) => {
     const input = report();
+    Object.assign(input.phases[1], {
+      preparation: { rowsAssignmentBuilding: true, rowsMeshBuilding: true },
+    });
     mutate(input);
     const { result, found } = check(input, 'viewport');
     expect(found.status).toBe('fail');
@@ -266,17 +269,24 @@ describe('saved pileup performance qualification', () => {
     expect(classifyPileupPerformance(input).status).toBe('unqualified');
   });
 
-  it('qualifies complete visible presented reads while resident halo tiles are pending', () => {
-    const input = report();
-    Object.assign(input.phases[0], {
+  it('qualifies complete visible presented reads during offscreen row and halo preparation', () => {
+    const input = report('full-genome');
+    Object.assign(input.phases[1], {
       preparation: {
+        rowsAssignmentBuilding: true,
+        rowsMeshBuilding: true,
+        rowsMeshRecordCursor: 4_096,
+        rowsMeshTargetRecordCount: 21_322,
         residentBandReady: false,
         residentReadyTileCount: 2,
         residentExpectedTileCount: 16,
       },
     });
-    expect(input.phases[0].viewport.pendingTiles).toBe(0);
-    expect(classifyPileupPerformance(input).status).toBe('pass');
+    expect(input.phases[1].viewport.pendingTiles).toBe(0);
+    expect(classifyPileupPerformance(input)).toMatchObject({
+      status: 'pass',
+      qualifiedForFullGenome: true,
+    });
   });
 
   it.each([1, 4])('accepts %i ULPs of camera representation roundoff', (ulps) => {
