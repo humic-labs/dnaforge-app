@@ -120,7 +120,10 @@ const ports = readSettings();
 const output = [];
 const child = spawn('pnpm', ['run', 'dev'], {
   cwd: appDir,
-  env: { ...process.env, DNAFORGE_BACKGROUND_WINDOW: process.env.DNAFORGE_BACKGROUND_WINDOW ?? '1' },
+  env: {
+    ...process.env,
+    DNAFORGE_BACKGROUND_WINDOW: process.env.DNAFORGE_BACKGROUND_WINDOW ?? '1',
+  },
   stdio: ['ignore', 'pipe', 'pipe'],
   shell: process.platform === 'win32',
 });
@@ -164,9 +167,14 @@ try {
       : await mkdtemp(path.join(tmpdir(), 'dnaforge-pileup-performance-'));
     const browser = await chromium.connectOverCDP(`http://127.0.0.1:${ports.debugPort}`);
     try {
-      const page = browser.contexts().flatMap((context) => context.pages()).find((candidate) =>
-        new RegExp(`^http://(localhost|127\\.0\\.0\\.1):${ports.devPort}/`, 'u').test(candidate.url())
-      );
+      const page = browser
+        .contexts()
+        .flatMap((context) => context.pages())
+        .find((candidate) =>
+          new RegExp(`^http://(localhost|127\\.0\\.0\\.1):${ports.devPort}/`, 'u').test(
+            candidate.url()
+          )
+        );
       assert.ok(page, 'The source-started desktop renderer is missing.');
       const report = await runPileupPerformanceJourney({
         page,
@@ -179,13 +187,14 @@ try {
         JSON.stringify(pileupPerformance, null, 2)
       );
       console.log(`PILEUP_PERFORMANCE ${JSON.stringify(pileupPerformance)}`);
-      if (pileupPerformance.status !== 'pass') failure = 'The dense saved-pileup performance journey did not pass.';
+      if (pileupPerformance.status !== 'pass')
+        failure = 'The dense saved-pileup performance journey did not pass.';
     } finally {
       await browser.close();
     }
   }
 } catch (error) {
-  failure = error instanceof Error ? error.stack ?? error.message : String(error);
+  failure = error instanceof Error ? (error.stack ?? error.message) : String(error);
 } finally {
   stopStack();
   if (!exited) child.kill('SIGTERM');
