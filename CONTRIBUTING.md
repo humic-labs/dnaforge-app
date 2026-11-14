@@ -2,6 +2,9 @@
 
 Thank you for helping improve DNAForge.
 
+This is the canonical product repository. Open pull requests against `main`. You
+can develop locally and open a pull request without running our hosted CI.
+
 ## Before you start
 
 - Search the existing issues first. For a bug, include the DNAForge version,
@@ -11,15 +14,41 @@ Thank you for helping improve DNAForge.
 
 ## Making a change
 
-1. Fork the repository and create a branch.
-2. Make the change, with a test that fails without it.
-3. Run the checks from the README's "Build and test from source" section. At
-   minimum, run the tests for the code you changed:
+1. Fork the repository. Clone your fork, add this repository as `upstream`, and
+   create a branch from its current `main`:
+
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/dnaforge-app.git
+   cd dnaforge-app
+   git remote add upstream https://github.com/humic-labs/dnaforge-app.git
+   git fetch upstream
+   git switch -c my-change upstream/main
+   ```
+
+2. Follow the README's setup instructions. Make the change and add or update
+   tests when behavior changes.
+3. Run focused checks for the code you changed when possible:
    - desktop: `pnpm --dir apps/desktop test -- <path to test file>`;
    - packages: `pnpm --filter <package name> test`;
    - sidecar: `cd apps/api && uv run --frozen pytest -q <path to test file>`.
-4. Open a pull request that describes the problem, the change and how you tested
-   it.
+4. Commit with `git commit -s`, push your branch to your fork, and open a pull
+   request against `humic-labs/dnaforge-app:main`. Describe the problem, the
+   change and how you tested it. If a check could not run, say which one and
+   why.
+
+## CI on pull requests
+
+Workflows from all external contributors, including returning contributors, wait
+for a maintainer to permit execution. A waiting workflow does not stop you from
+opening or updating a pull request. You can run the documented checks locally or
+enable GitHub Actions in your own fork.
+
+Required checks must pass before a maintainer merges the change. Local test
+results help assess a contribution; they do not replace those checks. Workflow
+permission is separate from an approving pull-request review.
+
+For another contribution, fetch `upstream` again and start a new branch from
+`upstream/main`. Keep unrelated changes in separate pull requests.
 
 ## Contributor License Agreement
 

@@ -6,10 +6,15 @@ structure viewer and a lab notebook. Projects are folders on your own disk. It
 is an Electron app (`apps/desktop`) with a Python sidecar (`apps/api`) and Rust
 helper programs (`tools/`).
 
+This repository is the source of truth for product development. Contributions
+target `main`; see [CONTRIBUTING.md](CONTRIBUTING.md) for local checks and pull
+requests, and [MAINTAINING.md](MAINTAINING.md) for the maintainer landing and
+release process.
+
 ## Requirements
 
-`node start.mjs` (see "Run from source" below) needs only the first two of
-these and helps you install the rest.
+`node start.mjs` (see "Run from source" below) needs only the first two of these
+and helps you install the rest.
 
 - A Git clone of this repository. The build reads the commit it is built from
   with `git rev-parse HEAD`, so a ZIP download of the source does not build. On
@@ -56,9 +61,9 @@ node start.mjs
 
 It checks your tools, offers to install uv and Rust for your user if they are
 missing, installs the dependencies, sets up the Python sidecar, builds the Rust
-helpers, writes the settings file with free ports, and starts the app. The
-first start compiles the app before the window appears, so it takes a minute or
-two. Run the same command to start the app again; finished steps are quick.
+helpers, writes the settings file with free ports, and starts the app. The first
+start compiles the app before the window is ready, so allow several minutes. Run
+the same command to start the app again; finished steps are quick.
 `node start.mjs --help` lists its options.
 
 On Windows the command does not install Rust: install it from
@@ -119,18 +124,18 @@ This repository builds the community distribution
 
 ## What the app sends
 
-- A build from source contains no analytics or crash-reporting keys, so it
-  sends neither. The official build environment supplies them
-  (`POSTHOG_API_KEY` and `SENTRY_DSN`).
+- A build from source contains no analytics or crash-reporting keys, so it sends
+  neither. The official build environment supplies them (`POSTHOG_API_KEY` and
+  `SENTRY_DSN`).
 - Official builds send usage analytics and crash reports according to the
   consent notice the app shows. In the EU, the EEA, the UK and Switzerland, and
-  where the app cannot tell the region, they stay off until you agree.
-  Elsewhere they are on until you turn them off.
-- The official Windows installer reports install progress to DNAForge: the
-  step reached, the app version, a random ID for that install attempt and,
-  when the installer carries one, a download ID
-  (`apps/desktop/resources/installer.nsh`). An installer packaged from this
-  repository does the same unless that script is changed.
+  where the app cannot tell the region, they stay off until you agree. Elsewhere
+  they are on until you turn them off.
+- The official Windows installer reports install progress to DNAForge: the step
+  reached, the app version, a random ID for that install attempt and, when the
+  installer carries one, a download ID (`apps/desktop/resources/installer.nsh`).
+  An installer packaged from this repository does the same unless that script is
+  changed.
 
 ## Repository layout
 
@@ -168,5 +173,5 @@ described in [SECURITY.md](SECURITY.md), not in public issues.
 ## License
 
 DNAForge is licensed under the
-[GNU General Public License, version 3 only](LICENSE). See [NOTICE](NOTICE)
-for copyright and third-party licenses.
+[GNU General Public License, version 3 only](LICENSE). See [NOTICE](NOTICE) for
+copyright and third-party licenses.
