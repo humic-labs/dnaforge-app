@@ -1,7 +1,11 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, lstat } from 'node:fs/promises';
-import { dirname, isAbsolute, join } from 'node:path';
-import { writeWorkspaceTextFileAtomicInMain } from './primer-artifact-files';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
+import {
+  canonicalWorkspacePath,
+  writeWorkspaceTextFileAtomicInMain,
+} from './primer-artifact-files';
+import { isPathInsideBoundary } from '../shared/path-boundary';
 import {
   TRACK_VIEW_SUFFIX,
   parseTrackViewDocument,
@@ -14,6 +18,10 @@ import {
 
 export class TrackViewLibrary {
   constructor(private readonly root: string) {}
+
+  private isLibraryPath(path: string): boolean {
+    return isAbsolute(path) && isPathInsideBoundary(resolve(path), resolve(this.root));
+  }
 
   private path(id: string): string {
     return join(this.root, `${trackViewIdSchema.parse(id)}${TRACK_VIEW_SUFFIX}`);
@@ -77,6 +85,8 @@ export class TrackViewLibrary {
     let location = byPath ? { path: id, workspaceRoot: dirname(id) } : await this.location(id);
     const { path } = location;
     if (!path.endsWith(TRACK_VIEW_SUFFIX)) throw new Error('Invalid Track view file.');
+    const inLibrary = this.isLibraryPath(path);
+    if (inLibrary) await canonicalWorkspacePath({ workspaceRoot: this.root, path });
     const stat = await lstat(path);
     if (!stat.isFile() || stat.size > 4 * 1024 * 1024) throw new Error('Invalid Track view file.');
     const bytes = await readFile(path, 'utf8');
@@ -100,7 +110,8 @@ export class TrackViewLibrary {
     }
     return {
       document,
-      ...location,
+      path,
+      ...(!inLibrary && location.workspaceRoot ? { workspaceRoot: location.workspaceRoot } : {}),
       revision: createHash('sha256').update(bytes).digest('hex'),
       ...(warning ? { warning } : {}),
     };
@@ -151,6 +162,7 @@ export class TrackViewLibrary {
     const document = parseTrackViewDocument(content);
     const location = request.destination ?? (await this.location(document.id));
     const { path } = location;
+    const inLibrary = this.isLibraryPath(path);
     if (!path.endsWith(TRACK_VIEW_SUFFIX)) throw new Error('Choose a Track view file destination.');
     if (request.expectedRevision !== null && request.destination) {
       const stat = await lstat(path);
@@ -181,6 +193,12 @@ export class TrackViewLibrary {
         warning = `The view file was saved at ${path}, but its reference sidebar entry could not be updated.`;
       }
     }
-    return { document, ...location, revision: result.contentHash, ...(warning ? { warning } : {}) };
+    return {
+      document,
+      path,
+      ...(!inLibrary && location.workspaceRoot ? { workspaceRoot: location.workspaceRoot } : {}),
+      revision: result.contentHash,
+      ...(warning ? { warning } : {}),
+    };
   }
 }

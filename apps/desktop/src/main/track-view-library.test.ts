@@ -59,8 +59,18 @@ describe('Track view file authority', () => {
       expectedRevision: null,
       destination: { workspaceRoot: root, path },
     });
-    expect(await library.list()).toEqual({ views: [saved], errors: [] });
-    expect(await library.read(path)).toEqual(saved);
+    expect(saved.workspaceRoot).toBeUndefined();
+    const restarted = new TrackViewLibrary(root);
+    expect(await restarted.list()).toEqual({ views: [saved], errors: [] });
+    expect(await restarted.read(path)).toEqual(saved);
+    expect(await restarted.read(saved.document.id)).toEqual(saved);
+    const renamed = await restarted.save({
+      document: { ...saved.document, name: 'Renamed genes' },
+      expectedRevision: saved.revision,
+    });
+    expect(renamed.workspaceRoot).toBeUndefined();
+    expect(renamed.path).toBe(path);
+    expect(await restarted.read(saved.document.id)).toEqual(renamed);
   });
   it('saves to a chosen project folder and reopens that exact file after restart', async () => {
     const root = await mkdtemp(join(tmpdir(), 'track-view-test-'));
@@ -86,6 +96,22 @@ describe('Track view file authority', () => {
     });
     expect(updated.path).toBe(path);
     expect(JSON.parse(await readFile(path, 'utf8')).name).toBe('Updated view');
+  });
+
+  it('does not follow a symlink out of the personal library when opening a view', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'track-view-test-'));
+    roots.push(root);
+    const personal = join(root, 'personal');
+    const outside = join(root, 'outside');
+    await mkdir(personal);
+    await mkdir(outside);
+    const fileName = 'Genes.dnaforge-track-view.json';
+    await writeFile(join(outside, fileName), JSON.stringify(trackViewFixture()));
+    await symlink(outside, join(personal, 'shortcut'), 'dir');
+    const library = new TrackViewLibrary(personal);
+    await expect(library.read(join(personal, 'shortcut', fileName))).rejects.toThrow(
+      /inside the owning workspace/
+    );
   });
 
   it('refuses to replace another file at the chosen destination', async () => {
