@@ -48,6 +48,9 @@ describe('commandRegistry', () => {
     const event = keydown({ key: 'Tab', ctrlKey: true });
     button.dispatchEvent(event);
     expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasNextTab)).toBe(true);
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasNextTab, true)).toBe(false);
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasPreviousTab, true)).toBe(false);
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.fileSave, true)).toBe(true);
     expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.terminalNew)).toBe(false);
     terminal.removeAttribute('data-terminal-surface');
     terminal.dataset.commandShortcutOwner = COMMAND_IDS.canvasNextTab;
