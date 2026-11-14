@@ -152,6 +152,7 @@ export function FeedbackWidget({ appVersion, titleBarInset = false }: FeedbackWi
     }
   }
 
+  const sendLabel = notice?.retry ? 'Retry' : 'Send';
   const charCount = message.length;
   const isOverLimit = charCount > MAX_LENGTH;
   const overlayBounds = titleBarInset ? 'inset-x-0 bottom-0 top-8' : 'inset-0';
@@ -208,9 +209,9 @@ export function FeedbackWidget({ appVersion, titleBarInset = false }: FeedbackWi
                   variant="primary"
                   onClick={handleSend}
                   disabled={!message.trim() || isOverLimit || sending}
-                  aria-label={sending ? 'Sending' : notice?.retry ? 'Retry' : 'Send'}
+                  aria-label={sending ? 'Sending' : sendLabel}
                 >
-                  {sending ? 'Sending...' : notice ? 'Retry' : 'Send'}
+                  {sending ? 'Sending...' : sendLabel}
                 </Button>
               </div>
             </div>
