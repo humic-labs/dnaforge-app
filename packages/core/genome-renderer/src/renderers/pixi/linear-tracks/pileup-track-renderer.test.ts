@@ -2613,7 +2613,8 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       r.paint(readPaint(c, records));
       const detail = r.getDiagnostics(c)!;
       expect(detail.rowsAssignmentBuildInProgress).toBe(true);
-      expect(detail.rowsRetainedPlacementCount).toBeGreaterThan(0);
+      expect(detail.rowsAssignmentBuildRecordsLastFrame).toBeGreaterThan(0);
+      expect(detail.rowsRetainedPlacementCount).toBe(0);
 
       r.paint(
         paintArgsZoom(

@@ -200,6 +200,29 @@ describe('PersistentRowLayout (JBrowse2-style)', () => {
     expect([...layout.finishAssignment(job).rows]).toEqual([...sync.rows]);
   });
 
+  it('accumulates record extents and read counts within resumable assignment work', () => {
+    const records = makeReads(2_000, 20, 50).map((record, index) => ({
+      ...record,
+      strand: index % 3 === 0 ? '-' as const : '+' as const,
+      ...(index % 2 === 0 ? { pair: { paired: true } } : {}),
+    }));
+    const layout = new PersistentRowLayout();
+    const job = layout.beginAssignment(records, 4, { coordinateOrdered: true });
+    layout.advanceAssignment(job, 16);
+    expect(job.recordStats.forwardReadCount + job.recordStats.reverseReadCount).toBe(16);
+    while (!job.complete) layout.advanceAssignment(job, 16);
+    const result = layout.finishAssignment(job);
+
+    expect(result.hiddenReadCount).toBeGreaterThan(0);
+    expect(result.recordStats).toEqual({
+      startBp: Math.min(...records.map((record) => record.start)),
+      endBp: Math.max(...records.map((record) => record.end)),
+      forwardReadCount: records.filter((record) => record.strand === '+').length,
+      reverseReadCount: records.filter((record) => record.strand === '-').length,
+      pairedReadCount: records.filter((record) => record.pair?.paired).length,
+    });
+  });
+
   it('bounds interval searches while filling a dense retained window in coordinate order', () => {
     const depth = 80;
     const retained: PileupRecord[] = [];
@@ -305,6 +328,99 @@ describe('PersistentRowLayout (JBrowse2-style)', () => {
     expect(resident.retainedPlacementCount()).toBe(2);
     expect(resident.retainedIntervalCount()).toBe(2);
     expect([...resident.assign(incoming, 4).rows]).toEqual([1]);
+  });
+
+  it('does not mutate committed placements when a working assignment is abandoned', () => {
+    const resident = new PersistentRowLayout();
+    const committed = makeReads(2_000, 20, 48);
+    resident.assign(committed, 80);
+    const placedBefore = resident.retainedPlacementCount();
+    const intervalsBefore = resident.retainedIntervalCount();
+    const incoming = makeReads(2_000, 20, 49).map((record) => ({
+      ...record,
+      readId: `incoming-${record.readId}`,
+    }));
+    const working = resident.forkForAssignment();
+    const job = working.beginAssignment(incoming, 80, { coordinateOrdered: true });
+
+    working.advanceAssignment(job, 32);
+
+    expect(job.complete).toBe(false);
+    expect(working.retainedPlacementCount()).toBe(32);
+    expect(resident.retainedPlacementCount()).toBe(placedBefore);
+    expect(resident.retainedIntervalCount()).toBe(intervalsBefore);
+  });
+
+  it('appends an overlapping replacement band while preserving committed read rows', () => {
+    const readForBlock = (start: number, end: number, readId: string): PileupRecord => ({
+      chrom: 'chr1',
+      start,
+      end,
+      readId,
+      strand: '+',
+      mapq: 60,
+    });
+    const retained: PileupRecord[] = [];
+    const added: PileupRecord[] = [];
+    for (let block = 0; block < 120; block++) {
+      for (let lane = 0; lane < 80; lane++) {
+        const start = block * 200;
+        retained.push(readForBlock(start, start + 100, `retained-${block}-${lane}`));
+        added.push(readForBlock(start + 100, start + 200, `added-${block}-${lane}`));
+      }
+    }
+    const resident = new PersistentRowLayout();
+    const initial = resident.assign(retained, 80);
+    const initialRows = new Map(retained.map((record, index) => [record.readId, initial.rows[index]]));
+    const incoming = [...retained, ...added]
+      .filter((record) => record.start >= 10_000)
+      .sort((left, right) => left.start - right.start || left.end - right.end);
+    const working = resident.forkForAssignment();
+    const job = working.beginAssignment(incoming, 80, { coordinateOrdered: true });
+    working.advanceAssignment(job, 160);
+    const rows = Reflect.get(working, 'rows') as Array<{ iv: unknown[] }>;
+    for (const row of rows) {
+      row.iv.splice = () => {
+        throw new Error('coordinate-ordered replacement inserted into the middle of a row');
+      };
+    }
+    while (!job.complete) working.advanceAssignmentWithinBudget(job, 512, 0.75);
+    const result = working.finishAssignment(job);
+
+    expect(result.hiddenReadCount).toBe(0);
+    incoming.forEach((record, index) => {
+      if (initialRows.has(record.readId)) {
+        expect(result.rows[index]).toBe(initialRows.get(record.readId));
+      }
+    });
+    expect(
+      collisions(incoming, new Map(incoming.map((record, index) => [record.readId, result.rows[index]])))
+    ).toBe(0);
+    expect(working.retainedPlacementCount()).toBe(incoming.length);
+    expect(working.retainedIntervalCount()).toBe(incoming.length);
+    expect(resident.retainedPlacementCount()).toBe(retained.length);
+  });
+
+  it('reserves future baseline rows, reuses duplicate keys and respects a reduced row limit', () => {
+    const resident = new PersistentRowLayout();
+    const first: PileupRecord = {
+      chrom: 'chr1', start: 100, end: 200, readId: 'first', strand: '+', mapq: 60,
+    };
+    const second = { ...first, readId: 'second' };
+    resident.assign([first, second], 3);
+    const early = { ...first, start: 50, end: 150, readId: 'early' };
+    const working = resident.forkForAssignment();
+    const assigned = working.assign([early, second, { ...second }], 3);
+
+    expect([...assigned.rows]).toEqual([2, 1, 1]);
+    expect(working.retainedPlacementCount()).toBe(2);
+    expect(working.retainedIntervalCount()).toBe(2);
+    expect(assigned.readHitIndex.hitRecordIndex([early, second, second], 1, 150)).toBe(2);
+
+    const reduced = resident.forkForAssignment().assign([second], 1);
+    expect([...reduced.rows]).toEqual([-1]);
+    expect(reduced.hiddenReadCount).toBe(1);
+    expect(resident.retainedPlacementCount()).toBe(2);
   });
 
   it('advances retain in bounded chunks and tombstoned intervals stop blocking rows before compaction', () => {

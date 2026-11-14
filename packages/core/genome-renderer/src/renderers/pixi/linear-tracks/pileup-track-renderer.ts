@@ -2718,7 +2718,9 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         state.cachedReadHitIndex = null;
         state.lastRowAssignment = null;
       }
-      const workingLayout = disjointReadWindow ? new PersistentRowLayout() : state.layout;
+      const workingLayout = disjointReadWindow
+        ? new PersistentRowLayout()
+        : state.layout.forkForAssignment();
       state.rowsAssignmentBuildJob = {
         input,
         records,
@@ -2808,17 +2810,11 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     state.rowsAssignmentBuildJob = null;
     state.cachedReadRows = assignment.rows;
     state.cachedReadHitIndex = assignment.readHitIndex;
-    const extentStartedAt = nowMs();
-    let loadedLo = Infinity;
-    let loadedHi = -Infinity;
-    for (const r of records) {
-      if (r.start < loadedLo) loadedLo = r.start;
-      if (r.end > loadedHi) loadedHi = r.end;
-      if (r.strand === '-') state.reverseReadCount++;
-      else state.forwardReadCount++;
-      if (r.pair?.paired === true) state.pairedReadCount++;
-    }
-    work.extentMs = nowMs() - extentStartedAt;
+    const loadedLo = assignment.recordStats.startBp;
+    const loadedHi = assignment.recordStats.endBp;
+    state.reverseReadCount = assignment.recordStats.reverseReadCount;
+    state.forwardReadCount = assignment.recordStats.forwardReadCount;
+    state.pairedReadCount = assignment.recordStats.pairedReadCount;
     state.loadedStartBp = loadedLo;
     state.loadedEndBp = loadedHi;
     const occupancyStartedAt = nowMs();

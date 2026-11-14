@@ -5,6 +5,15 @@ export interface PileupRowAssignment {
   rowCount: number;
   hiddenReadCount: number;
   readHitIndex: PileupReadHitIndex;
+  recordStats: PileupReadRecordStats;
+}
+
+interface PileupReadRecordStats {
+  startBp: number;
+  endBp: number;
+  forwardReadCount: number;
+  reverseReadCount: number;
+  pairedReadCount: number;
 }
 
 export interface PileupRowAssignmentJob {
@@ -12,11 +21,13 @@ export interface PileupRowAssignmentJob {
   maxRows: number;
   rows: Int32Array;
   rowCursors: number[];
+  baselineRowCursors: number[];
   order: number[] | null;
   totalCount: number;
   processedCount: number;
   rowCount: number;
   hiddenReadCount: number;
+  recordStats: PileupReadRecordStats;
   readHitRecordIndicesByRow: number[][];
   readHitRecordIndexByIdentity: Map<string, number>;
   complete: boolean;
@@ -112,9 +123,11 @@ type IV = [start: number, end: number, id: string, active: boolean, row: number]
 export class PersistentRowLayout implements PileupRowLayout {
   private placed = new Map<string, IV>();
   private rows: { maxEnd: number; iv: IV[] }[] = [];
+  private baseline: PersistentRowLayout | null = null;
 
   private rowClear(r: number, s: number, e: number, cursors: number[]): boolean {
     const row = this.rows[r];
+    if (!row) return true;
     if (s >= row.maxEnd) return true;
     let cursor = cursors[r] ?? 0;
     while (cursor < row.iv.length) {
@@ -129,13 +142,31 @@ export class PersistentRowLayout implements PileupRowLayout {
     return true;
   }
 
-  private place(key: string, s: number, e: number, maxRows: number, cursors: number[]): number {
+  private place(
+    key: string,
+    s: number,
+    e: number,
+    maxRows: number,
+    cursors: number[],
+    baselineCursors: number[]
+  ): number {
     const existing = this.placed.get(key);
     if (existing != null) return existing[4];
-    let r = 0;
-    for (; r < this.rows.length; r++) if (this.rowClear(r, s, e, cursors)) break;
+    const inherited = this.baseline?.placed.get(key);
+    let r = inherited && inherited[4] < maxRows ? inherited[4] : 0;
+    if (!inherited || inherited[4] >= maxRows) {
+      const rowCount = Math.max(this.rows.length, this.baseline?.rows.length ?? 0);
+      for (; r < rowCount; r++) {
+        if (
+          this.rowClear(r, s, e, cursors) &&
+          (!this.baseline || this.baseline.rowClear(r, s, e, baselineCursors))
+        ) {
+          break;
+        }
+      }
+    }
     if (r >= maxRows) return -1;
-    if (r === this.rows.length) this.rows.push({ maxEnd: 0, iv: [] });
+    while (r >= this.rows.length) this.rows.push({ maxEnd: 0, iv: [] });
     const row = this.rows[r];
     const interval: IV = [s, e, key, true, r];
     if (s >= row.maxEnd) {
@@ -194,11 +225,19 @@ export class PersistentRowLayout implements PileupRowLayout {
       maxRows,
       rows,
       rowCursors: [],
+      baselineRowCursors: [],
       order,
       totalCount: n,
       processedCount: 0,
       rowCount: 0,
       hiddenReadCount: 0,
+      recordStats: {
+        startBp: Infinity,
+        endBp: -Infinity,
+        forwardReadCount: 0,
+        reverseReadCount: 0,
+        pairedReadCount: 0,
+      },
       readHitRecordIndicesByRow: Array.from({ length: maxRows }, () => []),
       readHitRecordIndexByIdentity: new Map(),
       complete: n === 0,
@@ -212,8 +251,20 @@ export class PersistentRowLayout implements PileupRowLayout {
     for (let ordinal = job.processedCount; ordinal < limit; ordinal++) {
       const idx = job.order ? job.order[ordinal] : ordinal;
       const rec = job.records[idx];
+      if (rec.start < job.recordStats.startBp) job.recordStats.startBp = rec.start;
+      if (rec.end > job.recordStats.endBp) job.recordStats.endBp = rec.end;
+      if (rec.strand === '-') job.recordStats.reverseReadCount++;
+      else job.recordStats.forwardReadCount++;
+      if (rec.pair?.paired === true) job.recordStats.pairedReadCount++;
       const key = pileupReadPlacementKey(rec);
-      const row = this.place(key, rec.start, rec.end, job.maxRows, job.rowCursors);
+      const row = this.place(
+        key,
+        rec.start,
+        rec.end,
+        job.maxRows,
+        job.rowCursors,
+        job.baselineRowCursors
+      );
       job.rows[idx] = row;
       if (row < 0) job.hiddenReadCount++;
       else {
@@ -254,6 +305,7 @@ export class PersistentRowLayout implements PileupRowLayout {
         `Cannot finish incomplete pileup row assignment: ${job.processedCount}/${job.totalCount}`
       );
     }
+    this.baseline = null;
     return {
       rows: job.rows,
       rowCount: job.rowCount,
@@ -262,7 +314,15 @@ export class PersistentRowLayout implements PileupRowLayout {
         job.readHitRecordIndicesByRow,
         job.readHitRecordIndexByIdentity
       ),
+      recordStats: { ...job.recordStats },
     };
+  }
+
+  forkForAssignment(): PersistentRowLayout {
+    if (this.baseline) throw new Error('Cannot fork an unfinished pileup row layout');
+    const working = new PersistentRowLayout();
+    working.baseline = this;
+    return working;
   }
 
   clone(): PersistentRowLayout {
@@ -368,5 +428,6 @@ export class PersistentRowLayout implements PileupRowLayout {
   reset(): void {
     this.placed.clear();
     this.rows = [];
+    this.baseline = null;
   }
 }
