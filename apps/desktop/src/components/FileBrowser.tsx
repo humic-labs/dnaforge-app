@@ -46,6 +46,7 @@ import { isPathInsideBoundary } from '../shared/path-boundary';
 import { platform } from '../platform';
 import { isBrowserOnly, isHostedBrowserRuntime } from '../utils/environment';
 import { getTabTypeForFile } from '../utils/fileTypes';
+import { isManagedCatalogHeadCandidate } from '../shared/catalog-file-kind';
 import type { TabType } from '../features/canvas/types';
 import { gitInit } from '../features/workspace/git';
 import {
@@ -1354,7 +1355,8 @@ export function FileBrowser({
         if (
           pending.kind !== 'text-file' ||
           !textFileRegistered ||
-          getTabTypeForFile(finalPath) !== 'text'
+          getTabTypeForFile(finalPath) !== 'text' ||
+          isManagedCatalogHeadCandidate(finalPath)
         )
           void Promise.resolve(onWorkspaceChanged?.(pending.workspaceRoot));
       }
