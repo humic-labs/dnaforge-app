@@ -9,13 +9,11 @@ import {
   type MolecularDocument,
 } from '../../shared/molecular-document';
 import { coordinateDigest } from '../../shared/molecular-view';
-import { scopedProjectionId, stripWorkspaceScope } from '../../shared/workspace-scoped-identity';
+import { scopedProjectionId } from '../../shared/workspace-scoped-identity';
 import {
   bindCatalogEntityToFile,
   getCatalogEntity,
   getCatalogFileForPath,
-  getCatalogLinksForEntity,
-  linkCatalogEntities,
   registerCatalogEntity,
   resolveWorkspaceId,
 } from '../workspace-catalog';
@@ -154,51 +152,18 @@ export const molecularDocumentAdapter: WorkspaceEntityAdapter<MolecularDocument>
         context.mutationToken
       );
   },
-  async reconcileRelationships(document, id, _path, context) {
-    const workspaceId = await owningWorkspaceId(context);
-    const pinsByTarget = new Map<string, Array<Record<string, string>>>();
-    for (const { referenceId, snapshot } of document.history) {
-      const source = snapshot.source;
-      if (!source.artifactEntityId) continue;
-      const candidates = [
-        ...new Set([
-          scopedProjectionId(context.workspaceScope, stripWorkspaceScope(source.artifactEntityId)),
-          source.artifactEntityId,
-        ]),
-      ];
-      for (const candidate of candidates) {
-        const target = await getCatalogEntity(candidate);
-        if (!target || target.status !== 'active' || target.workspace_id !== workspaceId) continue;
-        const pins = pinsByTarget.get(target.id) ?? [];
-        pins.push({
-          referenceId,
-          coordinateSha256: snapshot.coordinates.sha256,
-          ...(source.artifactRevisionId ? { artifactRevisionId: source.artifactRevisionId } : {}),
-        });
-        pinsByTarget.set(target.id, pins);
-        break;
-      }
-    }
-    const previous = (await getCatalogLinksForEntity(id)).filter(
-      (link) => link.source_entity_id === id && link.relation === 'uses-source'
+  async reconcileRelationships(document, id, path, context) {
+    if (!context.workspaceRoot)
+      throw new Error('A molecular document projection requires its owning workspace root.');
+    await platform().molecularDocuments.reconcileSourceLinks(
+      {
+        path,
+        workspaceRoot: context.workspaceRoot,
+        entityId: id,
+        documentHash: await coordinateDigest(serializeMolecularDocument(document)),
+      },
+      context.mutationToken
     );
-    for (const link of previous)
-      if (!pinsByTarget.has(link.target_entity_id)) {
-        await platform().db.execute('DELETE FROM catalog_entity_links WHERE id = ?', [link.id]);
-      }
-    for (const [targetEntityId, pins] of pinsByTarget) {
-      const evidence = { documentId: document.id, pins };
-      const existing = previous.find((link) => link.target_entity_id === targetEntityId);
-      if (existing?.confidence === 'confirmed' && existing.evidence === JSON.stringify(evidence))
-        continue;
-      await linkCatalogEntities({
-        sourceEntityId: id,
-        targetEntityId,
-        relation: 'uses-source',
-        confidence: 'confirmed',
-        evidence,
-      });
-    }
   },
 };
 

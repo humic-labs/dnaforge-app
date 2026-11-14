@@ -167,7 +167,22 @@ export interface SaveMolecularDocumentRequest {
   expectedRevision: string | null;
 }
 
+export interface ReconcileMolecularDocumentSourcesRequest extends MolecularDocumentLocation {
+  entityId: string;
+  documentHash: string;
+}
+
+export interface MolecularDocumentSourceProjection {
+  entityId: string;
+  revision: string;
+  sourceLinkCount: number;
+}
+
 export interface MolecularDocumentsBridge {
+  reconcileSourceLinks(
+    request: ReconcileMolecularDocumentSourcesRequest,
+    mutationToken?: string
+  ): Promise<MolecularDocumentSourceProjection>;
   read(request: MolecularDocumentLocation): Promise<SavedMolecularDocument>;
   save(request: SaveMolecularDocumentRequest): Promise<SavedMolecularDocument>;
 }

@@ -113,6 +113,26 @@ function placement(entityId = 'a') {
 }
 
 describe('native catalog associations', () => {
+  it('reserves molecular source links for the saved-file projection owner', () => {
+    addEntity('molecular', 7, 'molecular-document');
+    expect(() =>
+      linkCatalogEntitiesInDb(db, {
+        sourceEntityId: 'molecular',
+        targetEntityId: 'a',
+        relation: 'uses-source',
+      })
+    ).toThrow('saved-file projection owner');
+    expect(db.prepare('SELECT COUNT(*) AS count FROM catalog_entity_links').get()).toEqual({
+      count: 0,
+    });
+    expect(
+      linkCatalogEntitiesInDb(db, {
+        sourceEntityId: 'molecular',
+        targetEntityId: 'a',
+        relation: 'references',
+      }).relation
+    ).toBe('references');
+  });
   it('keeps global and project-owned endpoints and native link retries stable', () => {
     const first = linkCatalogEntitiesInDb(db, {
       sourceEntityId: 'a',
