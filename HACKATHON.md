@@ -36,7 +36,8 @@ exercises; see the README's community-build limitations.
 2. Open **01 — Programme charter — burden-aware three-input logic in E. coli**.
 3. Add a sentence to the notebook. Press **Cmd+S** on macOS or **Ctrl+S** on
    Windows/Linux.
-4. Close the notebook tab and open it again. Your sentence should remain.
+4. Wait until the notebook reports **Saved** and its unsaved-change dot clears.
+   Close the notebook tab and open it again. Your sentence should remain.
 
 Next, try a small source edit:
 
