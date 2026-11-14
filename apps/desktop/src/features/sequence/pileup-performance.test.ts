@@ -26,6 +26,21 @@ function report(profile = 'portable-dense') {
       coverageStartBp: 59_000,
       coverageEndBp: 105_000,
     },
+    presentation: {
+      trackId: 'pileup-current-source',
+      lifecycle: {
+        status: { phase: 'ready', kind: 'reads' },
+        sourceKey: `driver:${generationKey}:current`,
+        generation: 1,
+        requestSequence: 2,
+        planKey: 'current-plan',
+        currentPlanKey: 'current-plan',
+        currentRange: { start: 60_000, end: 60_000 + span },
+        lastPresentedRange: { start: 60_000, end: 60_000 + span },
+        pendingPresentation: null,
+      },
+      gutter: { trackId: 'pileup-current-source', phase: 'ready', visible: true },
+    },
     failures: [] as string[],
     cache: { bytes: 80 * 1024 * 1024, entries: 120 },
     cadence: {
@@ -165,6 +180,85 @@ describe('saved pileup performance qualification', () => {
     const { result, found } = check(input, 'viewport');
     expect(found.status).toBe('fail');
     expect(result.status).toBe('fail');
+  });
+
+  it.each([
+    [
+      'refreshing lifecycle',
+      (r: Report) =>
+        Object.assign(r.phases[1].presentation.lifecycle, {
+          status: { phase: 'refreshing', hasLastGood: true },
+        }),
+    ],
+    [
+      'coverage-only acknowledgment',
+      (r: Report) => (r.phases[1].presentation.lifecycle.status.kind = 'coverage'),
+    ],
+    [
+      'stale lifecycle source',
+      (r: Report) => (r.phases[1].presentation.lifecycle.sourceKey = 'old-source'),
+    ],
+    ['stale plan', (r: Report) => (r.phases[1].presentation.lifecycle.planKey = 'old-plan')],
+    [
+      'stale current range',
+      (r: Report) => (r.phases[1].presentation.lifecycle.currentRange.start -= 1),
+    ],
+    [
+      'stale presented range',
+      (r: Report) => (r.phases[1].presentation.lifecycle.lastPresentedRange.end -= 1),
+    ],
+    [
+      'pending acknowledgment',
+      (r: Report) =>
+        Object.assign(r.phases[1].presentation.lifecycle, {
+          pendingPresentation: { requestSequence: 2 },
+        }),
+    ],
+    [
+      'refreshing rendered gutter',
+      (r: Report) => (r.phases[1].presentation.gutter.phase = 'refreshing'),
+    ],
+    ['another lane gutter', (r: Report) => (r.phases[1].presentation.gutter.trackId = 'old-track')],
+    ['hidden gutter', (r: Report) => (r.phases[1].presentation.gutter.visible = false)],
+  ] as const)(
+    'rejects complete meshes before current visible presentation: %s',
+    (_name, mutate) => {
+      const input = report();
+      mutate(input);
+      expect(check(input, 'viewport').found.status).toBe('pass');
+      const { result, found } = check(input, 'presentation');
+      expect(found?.status).toBe('fail');
+      expect(result.status).toBe('fail');
+    }
+  );
+
+  it.each([
+    ['presentation', (r: Report) => Object.assign(r.phases[1], { presentation: null })],
+    ['lifecycle', (r: Report) => Object.assign(r.phases[1].presentation, { lifecycle: null })],
+    [
+      'ready kind',
+      (r: Report) =>
+        Object.assign(r.phases[1].presentation.lifecycle, { status: { phase: 'ready' } }),
+    ],
+    [
+      'request identity',
+      (r: Report) => Object.assign(r.phases[1].presentation.lifecycle, { requestSequence: null }),
+    ],
+    [
+      'current plan',
+      (r: Report) => Object.assign(r.phases[1].presentation.lifecycle, { currentPlanKey: null }),
+    ],
+    [
+      'presented range',
+      (r: Report) =>
+        Object.assign(r.phases[1].presentation.lifecycle, { lastPresentedRange: null }),
+    ],
+    ['rendered gutter', (r: Report) => Object.assign(r.phases[1].presentation, { gutter: null })],
+  ] as const)('cannot qualify missing %s observations', (_name, mutate) => {
+    const input = report();
+    mutate(input);
+    expect(check(input, 'presentation').found?.status).toBe('unqualified');
+    expect(classifyPileupPerformance(input).status).toBe('unqualified');
   });
 
   it.each([

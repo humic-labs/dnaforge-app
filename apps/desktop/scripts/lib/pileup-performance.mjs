@@ -190,6 +190,66 @@ function classifyViewport(phases, generationKey) {
   return check;
 }
 
+function classifyPresentation(phases, generationKey) {
+  const check = createCheck('presentation');
+  check.metrics.phases = [];
+  if (phases.length === 0) invalidate(check, 'presentation-observations-missing');
+  for (const phase of phases) {
+    const label = text(phase?.label) ? phase.label : 'unknown-phase';
+    const presentation = object(phase?.presentation) ? phase.presentation : {};
+    const lifecycle = object(presentation.lifecycle) ? presentation.lifecycle : {};
+    const status = object(lifecycle.status) ? lifecycle.status : {};
+    const gutter = object(presentation.gutter) ? presentation.gutter : {};
+    const viewport = object(phase?.viewport) ? phase.viewport : {};
+    if (!text(presentation.trackId)) invalidate(check, `${label}:presentation-track-missing`);
+    if (!text(status.phase)) invalidate(check, `${label}:lifecycle-status-missing`);
+    else if (status.phase !== 'ready') fail(check, `${label}:current-reads-not-acknowledged`);
+    else if (!text(status.kind)) invalidate(check, `${label}:lifecycle-ready-kind-missing`);
+    else if (status.kind !== 'reads') fail(check, `${label}:current-reads-not-acknowledged`);
+    if (!text(lifecycle.sourceKey)) invalidate(check, `${label}:lifecycle-source-missing`);
+    else if (text(generationKey) && !lifecycle.sourceKey.includes(generationKey))
+      fail(check, `${label}:lifecycle-source-stale`);
+    if (
+      !count(lifecycle.generation) ||
+      lifecycle.generation === 0 ||
+      !count(lifecycle.requestSequence) ||
+      lifecycle.requestSequence === 0
+    )
+      invalidate(check, `${label}:lifecycle-request-identity-missing`);
+    if (!text(lifecycle.planKey) || !text(lifecycle.currentPlanKey))
+      invalidate(check, `${label}:lifecycle-plan-missing`);
+    else if (lifecycle.planKey !== lifecycle.currentPlanKey)
+      fail(check, `${label}:lifecycle-plan-stale`);
+    for (const name of ['currentRange', 'lastPresentedRange']) {
+      const range = object(lifecycle[name]) ? lifecycle[name] : {};
+      if (!bounds(range.start, range.end)) invalidate(check, `${label}:${name}-missing`);
+      else if (
+        bounds(viewport.startBp, viewport.endBp) &&
+        (range.start !== viewport.startBp || range.end !== viewport.endBp)
+      )
+        fail(check, `${label}:${name}-stale`);
+    }
+    if (lifecycle.pendingPresentation === undefined)
+      invalidate(check, `${label}:presentation-pending-state-missing`);
+    else if (lifecycle.pendingPresentation !== null)
+      fail(check, `${label}:presentation-acknowledgment-pending`);
+    if (!text(gutter.trackId) || !text(gutter.phase) || typeof gutter.visible !== 'boolean')
+      invalidate(check, `${label}:rendered-gutter-observation-missing`);
+    else if (gutter.trackId !== presentation.trackId || gutter.phase !== 'ready' || !gutter.visible)
+      fail(check, `${label}:rendered-gutter-not-current-ready`);
+    check.metrics.phases.push({
+      label,
+      lifecyclePhase: status.phase ?? null,
+      lifecycleKind: status.kind ?? null,
+      requestSequence: lifecycle.requestSequence ?? null,
+      planKey: lifecycle.planKey ?? null,
+      currentPlanKey: lifecycle.currentPlanKey ?? null,
+      gutterPhase: gutter.phase ?? null,
+    });
+  }
+  return check;
+}
+
 function classifyLoading(phases) {
   const check = createCheck('loading');
   check.metrics.phases = [];
@@ -371,6 +431,7 @@ export function classifyPileupPerformance(input) {
     classifySource(report),
     classifyJourney(phases, report.failures),
     classifyViewport(phases, report.source?.generationKey),
+    classifyPresentation(phases, report.source?.generationKey),
     classifyLoading(phases),
     classifyCadence(gestures),
     classifyNative(gestures, report.profile === 'full-genome'),

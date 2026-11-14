@@ -167,6 +167,19 @@ async function observation(page, lane, readLengthBp) {
       const physicalReadPx = readLengthBp * mapper.pixelsPerBp;
       const rowsAlpha = diagnostic.renderedReadRowsAlpha;
       const densityAlpha = diagnostic.renderedReadDensityAlpha;
+      const lifecycle = driver.alignedReadLifecycle ?? null;
+      const gutter = document.querySelector(
+        `[data-testid=${JSON.stringify(`aligned-read-gutter-status-${lane.trackId}`)}]`
+      );
+      const gutterObservation = gutter
+        ? {
+            trackId: gutter.getAttribute('data-testid').slice('aligned-read-gutter-status-'.length),
+            phase: gutter.getAttribute('data-status-phase'),
+            visible: gutter.getClientRects().length > 0,
+            text: gutter.textContent,
+          }
+        : null;
+      const matchesViewport = (range) => range?.start === startBp && range?.end === endBp;
       const checks = {
         sourceComplete: diagnostic.readSourceWindowCoversViewport === true,
         meshComplete: diagnostic.rowsMeshViewportCoverageFraction >= 0.999,
@@ -188,6 +201,24 @@ async function observation(page, lane, readLengthBp) {
         densityCoversViewport:
           densityAlpha <= 0.02 ||
           (diagnostic.coverageSignalStartBp <= startBp && diagnostic.coverageSignalEndBp >= endBp),
+        lifecycleReady: lifecycle?.status?.phase === 'ready' && lifecycle.status.kind === 'reads',
+        lifecycleCurrentSource:
+          typeof lifecycle?.sourceKey === 'string' &&
+          Boolean(lane.generationKey) &&
+          lifecycle.sourceKey.includes(lane.generationKey),
+        lifecycleCurrentRequest:
+          Number.isSafeInteger(lifecycle?.generation) &&
+          lifecycle.generation > 0 &&
+          Number.isSafeInteger(lifecycle?.requestSequence) &&
+          lifecycle.requestSequence > 0,
+        lifecycleCurrentPlan:
+          typeof lifecycle?.planKey === 'string' &&
+          lifecycle.planKey.length > 0 &&
+          lifecycle.planKey === lifecycle.currentPlanKey,
+        lifecycleCurrentRange: matchesViewport(lifecycle?.currentRange),
+        lifecyclePresentedRange: matchesViewport(lifecycle?.lastPresentedRange),
+        presentationCommitted: lifecycle?.pendingPresentation === null,
+        gutterReady: gutterObservation?.phase === 'ready' && gutterObservation.visible,
       };
       return {
         viewport: {
@@ -208,12 +239,19 @@ async function observation(page, lane, readLengthBp) {
           coverageEndBp: diagnostic.coverageSignalEndBp,
         },
         checks,
+        presentation: { trackId: lane.trackId, lifecycle, gutter: gutterObservation },
         preparation: {
           rowsAssignmentBuilding: diagnostic.rowsAssignmentBuildInProgress,
           rowsMeshBuilding: diagnostic.rowsMeshBuildInProgress,
           rowsMeshRecordCursor: diagnostic.rowsMeshBuildRecordCursor,
           rowsMeshTargetRecordCount: diagnostic.rowsMeshBuildRecordCount,
           corridorFloorState: driver.coverageCorridorFloor?.state,
+          lifecyclePhase: lifecycle?.status?.phase,
+          lifecycleRequestSequence: lifecycle?.requestSequence,
+          lifecyclePlanKey: lifecycle?.planKey,
+          lifecycleCurrentPlanKey: lifecycle?.currentPlanKey,
+          presentationPending: lifecycle?.pendingPresentation != null,
+          gutterPhase: gutterObservation?.phase,
         },
         sourceWindow: {
           startBp: diagnostic.readSourceWindowStartBp,
@@ -485,7 +523,10 @@ async function stopCadence(page, expectedDeltaY) {
     if (!capture) throw new Error('The gesture cadence recorder is absent.');
     const deliveryStarted = performance.now();
     const deadline = deliveryStarted + 1000;
-    while (Math.abs(capture.wheel.deltaY - expectedDeltaY) > 0.001 && performance.now() < deadline) {
+    while (
+      Math.abs(capture.wheel.deltaY - expectedDeltaY) > 0.001 &&
+      performance.now() < deadline
+    ) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
     const ended = performance.now();
@@ -838,7 +879,12 @@ export async function runPileupPerformanceJourney({
     for (const phase of report.phases) {
       scope = `evidence:${phase.label}`;
       try {
-        await frame(page, phase.viewport.startBp, phase.viewport.endBp - phase.viewport.startBp, lane);
+        await frame(
+          page,
+          phase.viewport.startBp,
+          phase.viewport.endBp - phase.viewport.startBp,
+          lane
+        );
         const failures = [];
         const state = await complete(
           page,

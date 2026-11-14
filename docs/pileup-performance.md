@@ -33,10 +33,13 @@ run outside timed input.
 
 Every measured viewport must contain reads from the current source generation,
 cover the complete visible interval, finish pending reads without errors or
-truncation, and show the appropriate read/coverage presentation. A fast blank,
-partially filled, or stale view fails. The journey checks readable rows near
-26.6 kb and an actual blended presentation near 44 kb, rather than assuming
-those widths imply the correct presentation on every canvas.
+truncation, and show the appropriate read/coverage presentation. Settlement also
+requires the current source, request and viewport plan to acknowledge a
+presented read view, with the visible track gutter reporting ready. A complete
+mesh with a stale or still-loading presentation fails. A fast blank, partially
+filled, or stale view fails. The journey checks readable rows near 26.6 kb and
+an actual blended presentation near 44 kb, rather than assuming those widths
+imply the correct presentation on every canvas.
 
 ## Scope of the result
 
