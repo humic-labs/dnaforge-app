@@ -112,10 +112,15 @@ describe('focused pane tab navigation', () => {
         : {}),
     });
     render(<Scene />);
+    const selectSubject = () => {
+      fireEvent.mouseDown(screen.getByRole('tab', { name: `Subject ${type}` }), { button: 0 });
+      fireEvent.mouseUp(document);
+      expect(useCanvasStore.getState().panels.main.activeTabId).toBe(subject);
+    };
 
     for (const widget of ['input', 'textarea', 'editable', 'terminal']) {
       for (const reverse of [false, true]) {
-        fireEvent.click(screen.getByRole('tab', { name: `Subject ${type}` }));
+        selectSubject();
         const target = screen.getByTestId(`${widget}-${subject}`);
         fireEvent.pointerDown(target);
         act(() => target.focus());
@@ -129,7 +134,7 @@ describe('focused pane tab navigation', () => {
         ).toBe(other);
       }
     }
-    fireEvent.click(screen.getByRole('tab', { name: `Subject ${type}` }));
+    selectSubject();
     expect(screen.getByTestId(`input-${subject}`)).toHaveValue('Retained input');
     expect(screen.getByTestId(`textarea-${subject}`)).toHaveValue('Retained text');
     expect(screen.getByTestId(`editable-${subject}`)).toHaveTextContent('Retained notebook text');
