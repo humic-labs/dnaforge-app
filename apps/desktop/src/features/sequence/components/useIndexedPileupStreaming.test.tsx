@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Assembly } from '@waypoint/genome-renderer';
+import type { Assembly, TrackReadPresentationSnapshot } from '@waypoint/genome-renderer';
+import type { PileupTrackData } from '@waypoint/genome-data';
 
 import type { ActiveStressDataset } from '../lane-contract-store';
 import type { PileupSource } from '../pileup-source';
@@ -239,9 +240,28 @@ function coverageGpuAtlas(): NonNullable<TileEngineFeed['coverageGpuAtlas']> {
   };
 }
 
-function fakeRenderer() {
+function fakeRenderer(presentedRange?: () => { start: number; end: number }) {
+  const payloads = new Map<string, PileupTrackData>();
   return {
-    setTrackData: vi.fn(),
+    setTrackData: vi.fn((trackId: string, data: PileupTrackData) => payloads.set(trackId, data)),
+    getReadPresentationSnapshot: vi.fn((trackId: string): TrackReadPresentationSnapshot | null => {
+      const data = payloads.get(trackId);
+      const range = presentedRange?.();
+      if (!data || !range) return null;
+      const sourceGenerationKey = data.readSource?.sourceGenerationKey ?? '';
+      return {
+        kind: data.records.length ? 'reads' : 'empty',
+        sourceGenerationKey,
+        presentationOwnerKey: data.readSource?.presentationOwnerKey ?? sourceGenerationKey,
+        viewStartBp: range.start,
+        viewEndBp: range.end,
+        sourceCoversViewport: true,
+        meshCoverageFraction: 1,
+        truncated: false,
+        visible: data.records.length > 0,
+        recordCount: data.records.length,
+      };
+    }),
     getTrackDiagnostics: vi.fn(() => null),
     getRendererDebugSnapshot: vi.fn(() => null),
   };
@@ -345,7 +365,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
   });
 
   it('acknowledges a retained driver feed using the expanded pane plan after a camera dispatch', async () => {
-    const renderer = fakeRenderer();
+    const renderer = fakeRenderer(() => range);
     const range = { start: 100_000, end: 102_000 };
     const assembly = rendererAssembly();
     const dataset = pileupDataset({ bamPath: '/fixtures/expanded-pane-feed.bam' });
@@ -2919,7 +2939,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
   it.each(['partial core frame', 'pre-error complete frame'] as const)(
     'keeps required-band recovery through a %s until the complete current band is presented',
     async (ordering) => {
-      const renderer = fakeRenderer();
+      const renderer = fakeRenderer(() => range);
       const range = { start: 100_000, end: 102_000 };
       let presentedFrame:
         | ((receipt: { frameEpoch: number; presentedAtMs: number }) => void)
@@ -3022,7 +3042,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
   );
 
   it('retries one unchanged viewport for duplicate transient failures and waits for presentation', async () => {
-    const renderer = fakeRenderer();
+    const renderer = fakeRenderer(() => range);
     const range = { start: 100_000, end: 220_000 };
     let presentedFrame:
       | ((receipt: { frameEpoch: number; presentedAtMs: number }) => void)
@@ -3116,7 +3136,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
 
   it('reports a side-scroll as active SSH streaming, escalates a silent request, and clears the stall on progress', async () => {
     vi.useFakeTimers();
-    const renderer = fakeRenderer();
+    const renderer = fakeRenderer(() => range);
     let range = { start: 100_000, end: 101_000 };
     let presentedFrame: (() => void) | undefined;
     const webglRef = {
@@ -3416,7 +3436,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
   });
 
   it('presents a successfully settled zero-read band as empty without retrying', async () => {
-    const renderer = fakeRenderer();
+    const renderer = fakeRenderer(() => range);
     const range = { start: 400_000, end: 401_000 };
     let presentedFrame: (() => void) | undefined;
     const webglRef = {
@@ -3467,7 +3487,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
   });
 
   it('arms the presentation receipt on the current live map handle only when needed', async () => {
-    const renderer = fakeRenderer();
+    const renderer = fakeRenderer(() => range);
     const range = { start: 400_000, end: 401_000 };
     let stalePresentedFrame: (() => void) | undefined;
     let livePresentedFrame: (() => void) | undefined;
@@ -3667,8 +3687,8 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
   });
 
   it('replays the last presented payload into a replacement renderer before restoring Ready', async () => {
-    const firstRenderer = fakeRenderer();
-    const replacementRenderer = fakeRenderer();
+    const firstRenderer = fakeRenderer(() => range);
+    const replacementRenderer = fakeRenderer(() => range);
     const range = { start: 400_000, end: 401_000 };
     let liveRenderer = firstRenderer;
     const presentedFrames: Array<() => void> = [];
@@ -3743,8 +3763,8 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
   });
 
   it('re-subscribes when the linear renderer changes behind the same map handle', async () => {
-    const firstRenderer = fakeRenderer();
-    const replacementRenderer = fakeRenderer();
+    const firstRenderer = fakeRenderer(() => range);
+    const replacementRenderer = fakeRenderer(() => range);
     const range = { start: 400_000, end: 401_000 };
     let liveRenderer = firstRenderer;
     const presentedFrames: Array<() => void> = [];
@@ -3806,7 +3826,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
     vi.useFakeTimers();
     let now = 0;
     const performanceNowSpy = vi.spyOn(performance, 'now').mockImplementation(() => now);
-    const renderer = fakeRenderer();
+    const renderer = fakeRenderer(() => range);
     let range = { start: 0, end: 20_000_000 };
     let presentedFrame: (() => void) | undefined;
     const webglRef = {
@@ -3878,7 +3898,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
   });
 
   it('acknowledges reused readable rows on the current frame without republishing their data', async () => {
-    const renderer = fakeRenderer();
+    const renderer = fakeRenderer(() => range);
     let range = { start: 1_809_290_000, end: 1_809_316_612 };
     const frames: Array<() => void> = [];
     const map = {
@@ -3966,6 +3986,77 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
     expect(renderer.setTrackData).toHaveBeenCalledTimes(publications);
     unmount();
   });
+
+  it.each([
+    ['partial front', { meshCoverageFraction: 0.5 }],
+    ['unpresented front', { kind: 'pending' }],
+    ['missing front', null],
+    ['blank front', { visible: false, recordCount: 0 }],
+    ['hidden front', { visible: false }],
+    ['stale source', { sourceGenerationKey: 'old-generation' }],
+    ['stale owner', { presentationOwnerKey: 'old-owner' }],
+    ['truncated front', { truncated: true }],
+    ['uncovered source', { sourceCoversViewport: false }],
+    ['stale viewport', { viewEndBp: 102_001 }],
+  ] as const)(
+    'keeps Loading until the current read geometry presents: %s',
+    async (_name, invalid) => {
+      const range = { start: 100_000, end: 102_000 };
+      const renderer = fakeRenderer(() => range);
+      let presentedFrame: (() => void) | undefined;
+      const map = {
+        getLinearRenderer: () => renderer,
+        getViewportRange: () => range,
+        requestRender: vi.fn(),
+        subscribeToPresentedFrames: vi.fn((listener: () => void) => {
+          presentedFrame = listener;
+          return vi.fn();
+        }),
+      };
+      const dataset = pileupDataset({ bamPath: '/fixtures/presented-geometry.bam' });
+      const { result, unmount } = renderHook(() =>
+        useIndexedPileupStreaming({
+          webglRef: { current: map },
+          rendererAssembly: rendererAssembly(),
+          containerWidth: 884,
+          activeStressDatasets: [dataset],
+        })
+      );
+      await waitFor(() => expect(driverMock.instances).toHaveLength(1));
+      const driver = driverMock.instances[0]!;
+      const feed: TileEngineFeed = {
+        records: [{ start: 100_010, end: 100_160, readId: 'geometry', strand: '+', mapq: 60 }],
+        viewRange: range,
+        ownerPresentation: { kind: 'reads' },
+        readSource: { truncated: false, windowStartBp: 99_000, windowEndBp: 103_000 },
+      };
+      act(() => driver.options.onFeed(feed));
+      const ready = renderer.getReadPresentationSnapshot(dataset.trackId)!;
+      const rejected = invalid === null ? null : { ...ready, ...invalid };
+      renderer.getReadPresentationSnapshot.mockReturnValue(rejected);
+      act(() => presentedFrame?.());
+      expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]?.phase).not.toBe('ready');
+      renderer.getReadPresentationSnapshot.mockReturnValue(ready);
+      act(() => presentedFrame?.());
+      expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]).toEqual({
+        phase: 'ready',
+        kind: 'reads',
+      });
+      renderer.getReadPresentationSnapshot.mockReturnValue(rejected);
+      act(() => driver.options.onFeed({ ...feed, records: [...feed.records] }));
+      act(() => presentedFrame?.());
+      expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]?.phase).toBe(
+        'refreshing'
+      );
+      renderer.getReadPresentationSnapshot.mockReturnValue(ready);
+      act(() => presentedFrame?.());
+      expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]).toEqual({
+        phase: 'ready',
+        kind: 'reads',
+      });
+      unmount();
+    }
+  );
 
   it('turns manual Retry on a remote track into a real transport reconnect', async () => {
     const renderer = fakeRenderer();

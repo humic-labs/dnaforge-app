@@ -598,6 +598,38 @@ export function useIndexedPileupStreaming({
       ) {
         continue;
       }
+      if (pending.kind === 'reads' || pending.kind === 'empty') {
+        const presentation = currentRenderer?.getReadPresentationSnapshot?.(trackId);
+        const payload = tileEnginePublishedPayloadsRef.current.get(trackId);
+        const sourceGenerationKey = payload?.readSource?.sourceGenerationKey ?? '';
+        const presentationOwnerKey =
+          payload?.readSource?.presentationOwnerKey ?? sourceGenerationKey;
+        if (
+          !presentation ||
+          !payload ||
+          presentation.kind !== pending.kind ||
+          presentation.sourceGenerationKey !== sourceGenerationKey ||
+          presentation.presentationOwnerKey !== presentationOwnerKey ||
+          !pileupRangesEqual(
+            { start: presentation.viewStartBp, end: presentation.viewEndBp },
+            currentRange
+          ) ||
+          presentation.sourceCoversViewport !== true ||
+          presentation.truncated !== false ||
+          (pending.kind === 'reads' &&
+            (!Number.isFinite(presentation.meshCoverageFraction) ||
+              presentation.meshCoverageFraction < 0.999 ||
+              presentation.visible !== true ||
+              !Number.isSafeInteger(presentation.recordCount) ||
+              presentation.recordCount <= 0)) ||
+          (pending.kind === 'empty' &&
+            (presentation.visible !== false || presentation.recordCount !== 0))
+        ) {
+          if (trackLifecycle.getSnapshot()[trackId]?.phase === 'ready')
+            beginTrackStreaming(trackId, entry);
+          continue;
+        }
+      }
       entry.pendingPresentation = null;
       entry.lastPresentedRange = pending.range;
       const recovery = tileEngineRecoveryRef.current.get(trackId);
@@ -617,6 +649,7 @@ export function useIndexedPileupStreaming({
     }
     detachPresentedFrameSubscriptionIfIdle();
   }, [
+    beginTrackStreaming,
     clearTrackRecovery,
     clearTrackStallWatch,
     containerWidth,
