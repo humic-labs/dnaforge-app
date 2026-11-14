@@ -29,7 +29,7 @@ provides a synthetic launch session; never supply a real desktop credential.
 Choose an evidence directory outside the checkout, then run from `apps/api`:
 
 ```sh
-python -m pytest --no-cov -q -o tmp_path_retention_policy=all tests/test_tool_settlement.py tests/test_action_completion.py --basetemp="$SETTLEMENT_EVIDENCE/scratch" --junitxml="$SETTLEMENT_EVIDENCE/results.xml" > "$SETTLEMENT_EVIDENCE/transcript.txt" 2>&1
+python -m pytest --no-cov -q -o tmp_path_retention_policy=all tests/test_tool_settlement.py tests/test_action_completion.py tests/test_tool_settlement_live_recovery.py tests/test_managed_annotation_renderer_tools.py::test_renderer_recovery_prefers_live_delivery_result_over_projected_sqlite --basetemp="$SETTLEMENT_EVIDENCE/scratch" --junitxml="$SETTLEMENT_EVIDENCE/results.xml" > "$SETTLEMENT_EVIDENCE/transcript.txt" 2>&1
 ```
 
 Read the exit code and transcript. The feature map identifies each observable

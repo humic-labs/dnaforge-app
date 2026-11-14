@@ -385,6 +385,12 @@ async def call_renderer_bridge(
 def _persisted_renderer_outcome(context: ToolContext) -> dict[str, Any] | None:
     from .job_manager import get_job_manager
 
+    delivery = get_job_manager().peek_delivery_result(context.job_id)
+    if isinstance(delivery, dict):
+        try:
+            return validate_renderer_bridge_response(delivery)
+        except RuntimeError:
+            pass
     action = get_control_plane_store().get_agent_action(context.job_id)
     if (
         action is None
@@ -393,12 +399,6 @@ def _persisted_renderer_outcome(context: ToolContext) -> dict[str, Any] | None:
         or action["completion_state"] != "settled"
     ):
         return None
-    delivery = get_job_manager().peek_delivery_result(context.job_id)
-    if isinstance(delivery, dict):
-        try:
-            return validate_renderer_bridge_response(delivery)
-        except RuntimeError:
-            pass
     result = action.get("result_json")
     if isinstance(result, dict) and result.get("ok") is True:
         return result
