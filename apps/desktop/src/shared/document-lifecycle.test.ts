@@ -60,10 +60,11 @@ describe('document lifecycle authority', () => {
     lifecycle.register({ target, isDirty: () => true, save: async () => false });
     try {
       expect(await lifecycle.save(target)).toBe(false);
-      expect(warning).toHaveBeenCalledExactlyOnceWith(
-        '[DocumentLifecycle] Save not completed:',
-        { target, tabId: undefined, reason: 'owner-returned-false' }
-      );
+      expect(warning).toHaveBeenCalledExactlyOnceWith('[DocumentLifecycle] Save not completed:', {
+        target,
+        tabId: undefined,
+        reason: 'owner-returned-false',
+      });
       expect(report).not.toHaveBeenCalled();
     } finally {
       report.mockRestore();
@@ -77,10 +78,12 @@ describe('document lifecycle authority', () => {
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       expect(await lifecycle.save(target)).toBe(false);
-      expect(warning).toHaveBeenCalledExactlyOnceWith(
-        '[DocumentLifecycle] Save not completed:',
-        { target, tabId: undefined, reason: 'owner-not-unique', ownerCount: 0 }
-      );
+      expect(warning).toHaveBeenCalledExactlyOnceWith('[DocumentLifecycle] Save not completed:', {
+        target,
+        tabId: undefined,
+        reason: 'owner-not-unique',
+        ownerCount: 0,
+      });
     } finally {
       warning.mockRestore();
     }

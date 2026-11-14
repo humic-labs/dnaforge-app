@@ -62,10 +62,10 @@ describe('Save All shares the native dirty owner', () => {
     const report = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       await expect(saveAllUnsavedWork()).rejects.toThrow('Some documents still have unsaved work.');
-      expect(report).toHaveBeenCalledWith(
-        '[Save All] Sequence saves not completed:',
-        { documentIds: ['legacy-sequence'], failedCount: 1 }
-      );
+      expect(report).toHaveBeenCalledWith('[Save All] Sequence saves not completed:', {
+        documentIds: ['legacy-sequence'],
+        failedCount: 1,
+      });
     } finally {
       report.mockRestore();
     }

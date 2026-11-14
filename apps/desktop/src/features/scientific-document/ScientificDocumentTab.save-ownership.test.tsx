@@ -109,7 +109,11 @@ describe('scientific draft save ownership', () => {
       fireEvent.change(title, { target: { value: 'Unsaved title' } });
       fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
       await waitFor(() =>
-        expect(report).toHaveBeenCalledWith('[ScientificDocumentTab] Save failed:', { filePath }, failure)
+        expect(report).toHaveBeenCalledWith(
+          '[ScientificDocumentTab] Save failed:',
+          { filePath },
+          failure
+        )
       );
       expect(title).toHaveValue('Unsaved title');
       expect(screen.getByText('Unsaved', { exact: true })).toBeVisible();

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { JSONContent } from '@tiptap/core';
+import { reportSaveFailure } from '../../../lib/report-save-failure';
 import {
   beginWorkspaceEditorWrite,
   registerWorkspaceEditorBlocker,
@@ -90,7 +91,10 @@ export function useEditorAutosave({
   const RETRY_DEBOUNCE_MS = 1500;
 
   const performSave = useCallback(
-    async (targetScope?: WorkspaceEditorScope): Promise<boolean> => {
+    async (
+      targetScope?: WorkspaceEditorScope,
+      phase: 'autosave' | 'manual' = 'autosave'
+    ): Promise<boolean> => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
@@ -143,7 +147,12 @@ export function useEditorAutosave({
           return false;
         } catch (err) {
           if (saveEpoch !== discardEpochRef.current) return false;
-          console.error('[useEditorAutosave] save failed:', err);
+          reportSaveFailure(
+            '[useEditorAutosave] save failed:',
+            { pageId: id, operation: phase },
+            err,
+            { notebookPhase: phase }
+          );
           if (id === pageIdRef.current) {
             setSaveStatus('dirty');
           }
@@ -204,7 +213,7 @@ export function useEditorAutosave({
         return false;
       if (saved && !dirtyDuringSaveRef.current && !timerRef.current) return true;
     }
-    return await performSave(scope);
+    return await performSave(scope, 'manual');
   }, [performSave, nativeOwner]);
 
   const acceptOwnerClean = useCallback(() => {
@@ -244,7 +253,12 @@ export function useEditorAutosave({
               await onSaveRef.current(content, oldPageId);
               onSavedRef.current?.(oldPageId);
             } catch (err) {
-              console.error('[useEditorAutosave] flush save failed:', err);
+              reportSaveFailure(
+                '[useEditorAutosave] flush save failed:',
+                { pageId: oldPageId, operation: 'flush' },
+                err,
+                { notebookPhase: 'flush' }
+              );
             } finally {
               finishWrite?.();
             }

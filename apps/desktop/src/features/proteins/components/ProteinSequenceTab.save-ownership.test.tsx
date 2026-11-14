@@ -100,7 +100,11 @@ describe('protein draft save ownership', () => {
       fireEvent.change(screen.getByLabelText('Amino-acid sequence'), { target: { value: 'MKW' } });
       fireEvent.click(screen.getByTestId('protein-save-sequence'));
       await waitFor(() =>
-        expect(report).toHaveBeenCalledWith('[ProteinSequenceTab] Save failed:', { entityId }, failure)
+        expect(report).toHaveBeenCalledWith(
+          '[ProteinSequenceTab] Save failed:',
+          { entityId },
+          failure
+        )
       );
       expect(screen.getByLabelText('Amino-acid sequence')).toHaveValue('MKW');
     } finally {

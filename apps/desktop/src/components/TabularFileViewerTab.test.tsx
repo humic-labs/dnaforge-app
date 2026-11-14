@@ -218,7 +218,11 @@ describe('TabularFileViewerTab', () => {
       await screen.findByText('unsaved');
       fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
       await waitFor(() =>
-        expect(report).toHaveBeenCalledWith('[TabularFileViewerTab] Save failed:', { filePath }, failure)
+        expect(report).toHaveBeenCalledWith(
+          '[TabularFileViewerTab] Save failed:',
+          { filePath },
+          failure
+        )
       );
       expect(screen.getByText('edited')).toBeInTheDocument();
       expect(documentLifecycle.dirty({ kind: 'file', filePath })).toBe(true);

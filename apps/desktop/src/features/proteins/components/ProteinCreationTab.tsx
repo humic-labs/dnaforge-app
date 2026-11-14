@@ -1,3 +1,4 @@
+import { reportSaveFailure } from '../../../lib/report-save-failure';
 import { useDocumentLifecycle } from '../../../shared/use-document-lifecycle';
 import { toUserMessage, userMessageWithValues, userMessageValue } from '@waypoint/user-messages';
 import { Button, TextField, TextArea } from '../../../components/ui';
@@ -115,6 +116,7 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
       );
       return true;
     } catch (error) {
+      reportSaveFailure('[ProteinCreationTab] Save failed:', { tabId: tab.id }, error);
       useToastStore.getState().addToast(toUserMessage(error, 'structure.failed'), {
         definition: 'protein-creation-tab-save',
       });

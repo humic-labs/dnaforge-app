@@ -217,7 +217,7 @@ describe('native documents main feature', () => {
         workflow_action: 'save',
         action_phase: 'error',
         workflow_status: 'failed',
-        error_class: 'EACCES',
+        error_class: 'eacces',
         success: false,
       })
     );
@@ -232,7 +232,7 @@ describe('native documents main feature', () => {
     expect(mocks.bootLog.mock.calls.flat().join('\n')).toContain('EIO');
     expect(mocks.saveTelemetry).toHaveBeenCalledWith(
       'workflow_action_observed',
-      expect.objectContaining({ error_class: 'EIO', success: false })
+      expect.objectContaining({ error_class: 'eio', success: false })
     );
   });
 

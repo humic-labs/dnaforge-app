@@ -56,7 +56,7 @@ vi.mock('../utils/environment', async (original) => ({
 }));
 vi.mock('../lib/workflow-telemetry', () => ({ observeWorkflowAction: vi.fn() }));
 vi.mock('../features/sequence/save-all-sequences', () => ({
-  saveAllDirtySequences: async () => {},
+  saveAllDirtySequences: async () => ({ saved: 0, failed: [] }),
 }));
 vi.mock('../features/canvas/components/TabPortalTarget', () => ({
   TabPortalTarget: ({ tab }: { tab: Tab }) => (
