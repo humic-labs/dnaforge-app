@@ -202,6 +202,36 @@ describe('TabularFileViewerTab', () => {
     });
   });
 
+  it('records the original write failure and retains the unsaved cells', async () => {
+    const filePath = '/ws/save-denied.csv';
+    const tabId = 'af8c2ca1-a992-4ff8-b4b7-ee677af25ad7';
+    mockFile('sample,condition\nA1,control\n');
+    const failure = new Error('EACCES: table write denied');
+    mocks.writeTextFileAtomic.mockRejectedValueOnce(failure);
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      render(<TabularFileViewerTab filePath={filePath} canvasTabId={tabId} />);
+      await screen.findByTestId('tabular-file-viewer');
+      fireEvent.doubleClick(screen.getByText('control'));
+      const input = await screen.findByRole('textbox');
+      fireEvent.change(input, { target: { value: 'edited' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      await screen.findByText('unsaved');
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+      await waitFor(() =>
+        expect(report).toHaveBeenCalledWith(
+          '[TabularFileViewerTab] Save failed:',
+          { filePath, tabId, documentId: undefined },
+          failure
+        )
+      );
+      expect(screen.getByText('edited')).toBeInTheDocument();
+      expect(documentLifecycle.dirty({ kind: 'file', filePath })).toBe(true);
+    } finally {
+      report.mockRestore();
+    }
+  });
+
   it('preserves a newer cell edit and dirty state when an earlier save completes', async () => {
     mockFile('sample,condition\nA1,control\n');
     let completeWrite!: () => void;

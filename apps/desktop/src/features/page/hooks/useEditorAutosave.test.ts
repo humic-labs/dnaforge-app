@@ -9,8 +9,12 @@ import {
   freezeWorkspaceEditorWrites,
 } from '../../../services/workspace-editor-mutation-state';
 
+const { captureSaveFailure } = vi.hoisted(() => ({ captureSaveFailure: vi.fn() }));
+vi.mock('../../../lib/analytics', () => ({ trackRendererEvent: captureSaveFailure }));
+
 beforeEach(() => {
   vi.useFakeTimers();
+  captureSaveFailure.mockReset();
 });
 
 afterEach(() => {
@@ -48,6 +52,83 @@ function setupHook(opts: {
 }
 
 describe('useEditorAutosave', () => {
+  it('reports the original autosave failure and keeps notebook content dirty without claiming a save', async () => {
+    const failure = Object.assign(new Error('EACCES: notebook write denied'), { code: 'EACCES' });
+    const content = { type: 'doc', content: [{ type: 'text', text: 'Retained notebook edit' }] };
+    const onSave = vi.fn().mockRejectedValueOnce(failure).mockResolvedValue(undefined);
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { result, unmount } = setupHook({ initialContent: content, onSave });
+    try {
+      act(() => result.current.api.markDirty());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(result.current.api.saveStatus).toBe('dirty');
+      expect(result.current.contentRef.current).toEqual(content);
+      expect(result.current.onSaved).not.toHaveBeenCalled();
+      expect(report).toHaveBeenCalledExactlyOnceWith(
+        '[useEditorAutosave] save failed:',
+        { pageId: 'page-1', operation: 'autosave' },
+        failure
+      );
+      expect(captureSaveFailure).toHaveBeenCalledExactlyOnceWith(
+        'workflow_action_observed',
+        expect.objectContaining({
+          workflow: 'content',
+          workflow_action: 'save',
+          outcome_kind: 'notebook_save_failed',
+          action_phase: 'error',
+          error_class: 'notebook_autosave_eacces',
+          success: false,
+        })
+      );
+      expect(JSON.stringify(captureSaveFailure.mock.calls)).not.toContain('Retained notebook edit');
+      await act(async () => {
+        expect(await result.current.api.saveNow()).toBe(true);
+      });
+      expect(result.current.api.saveStatus).toBe('clean');
+      expect(result.current.onSaved).toHaveBeenCalledExactlyOnceWith('page-1');
+    } finally {
+      act(() => result.current.api.discardPendingChanges());
+      unmount();
+      report.mockRestore();
+    }
+  });
+
+  it('reports the original notebook flush failure without announcing a saved document', async () => {
+    const failure = Object.assign(new Error('EPERM: notebook flush denied'), { code: 'EPERM' });
+    const onSave = vi.fn().mockRejectedValueOnce(failure);
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { result, unmount } = setupHook({ initialContent: { type: 'doc' }, onSave });
+    try {
+      act(() => result.current.api.markDirty());
+      await act(async () => {
+        unmount();
+        await Promise.resolve();
+      });
+      expect(result.current.onSaved).not.toHaveBeenCalled();
+      expect(report).toHaveBeenCalledExactlyOnceWith(
+        '[useEditorAutosave] flush save failed:',
+        { pageId: 'page-1', operation: 'flush' },
+        failure
+      );
+      expect(captureSaveFailure).toHaveBeenCalledExactlyOnceWith(
+        'workflow_action_observed',
+        expect.objectContaining({
+          workflow: 'content',
+          workflow_action: 'save',
+          outcome_kind: 'notebook_save_failed',
+          action_phase: 'error',
+          error_class: 'notebook_flush_eperm',
+          success: false,
+        })
+      );
+    } finally {
+      unmount();
+      report.mockRestore();
+    }
+  });
+
   it.each(['same content', 'new content', 'discard', 'page change'] as const)(
     'joins an active autosave for %s',
     async (change) => {

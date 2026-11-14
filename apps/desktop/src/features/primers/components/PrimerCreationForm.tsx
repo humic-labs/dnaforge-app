@@ -1,3 +1,4 @@
+import { reportSaveFailure } from '../../../lib/report-save-failure';
 import { useDocumentLifecycle } from '../../../shared/use-document-lifecycle';
 import { firstOligoErrorUserMessage, oligoDiagnosticUserMessage } from '../oligo-user-messages';
 import { toOptionalUserMessage, toUserMessage } from '@waypoint/user-messages';
@@ -762,6 +763,7 @@ export function PrimerCreationForm({
       if (result !== false) setSavedMetadata(structuredClone(metadataDraft));
       return result !== false;
     } catch (err) {
+      reportSaveFailure('[PrimerCreationForm] Save failed:', { tabId: saveRequestTargetId }, err);
       setError(toUserMessage(primerSaveErrorMessage(err), 'primer.failed'));
       return false;
     } finally {
@@ -795,6 +797,7 @@ export function PrimerCreationForm({
     circular,
     workspaceId,
     onSave,
+    saveRequestTargetId,
   ]);
 
   const handleSubmit = useCallback(

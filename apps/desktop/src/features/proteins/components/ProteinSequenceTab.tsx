@@ -1,3 +1,4 @@
+import { reportSaveFailure } from '../../../lib/report-save-failure';
 import { useDocumentLifecycle } from '../../../shared/use-document-lifecycle';
 import {
   toUserMessage,
@@ -337,6 +338,7 @@ export function ProteinSequenceTab({
       }
       return outcome === 'saved';
     } catch (error) {
+      reportSaveFailure('[ProteinSequenceTab] Save failed:', { entityId }, error);
       if (saveOwner.finish(operation) === 'retired') return false;
       useToastStore.getState().addToast(toUserMessage(error, 'structure.failed'), {
         definition: 'protein-sequence-tab-handle-save',
