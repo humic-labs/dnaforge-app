@@ -7,6 +7,7 @@ import { parseArgs } from 'node:util';
 import { chromium } from 'playwright';
 import { runTableEditorJourney } from './lib/table-editor-journey.mjs';
 import { runTabSwitchingJourney } from './lib/tab-switching-journey.mjs';
+import { runHtmlTabSwitchingJourney } from './lib/html-tab-switching-journey.mjs';
 
 const { values } = parseArgs({ options: { out: { type: 'string' } } });
 assert.ok(values.out, 'Use --out with a durable evidence directory');
@@ -66,6 +67,10 @@ try {
   receipt.tabSwitching = await runTabSwitchingJourney(page, {
     ...options,
     pageId: receipt.result.pages.at(-1),
+  });
+  receipt.htmlTabSwitching = await runHtmlTabSwitchingJourney(page, {
+    ...options,
+    workspaceRoot: receipt.result.workspaceRoot,
   });
   assert.deepEqual(receipt.pageErrors, [], 'The native keyboard journey raised a renderer error');
   assert.deepEqual(receipt.consoleErrors, [], 'The native keyboard journey logged an error');

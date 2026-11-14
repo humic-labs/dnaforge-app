@@ -10,6 +10,9 @@
 - Escape from dimension entry returns keyboard control to the notebook.
 - Ctrl+Tab and Ctrl+Shift+Tab switch within the focused pane while notebook text
   or a cell editor has focus.
+- Sandboxed HTML input keeps ordinary Tab locally and routes Ctrl+Tab in both
+  directions. Script-enabled previews may change their frame name or consume DOM
+  key events without losing reserved application navigation.
 
 ## How to get to it (user POV)
 
@@ -34,6 +37,17 @@ reattachment. `Panel.tab-cycling.test.tsx` drives shared tab navigation across
 all registered tab types, including editable and terminal targets. The live
 command verifies the user path across the editor and native document owner, then
 checks native tab switching from notebook text and a cell input.
+
+`Panel.frame-tab-navigation.test.tsx` and `frame-tab-navigation.test.ts` cover
+the native child-frame route, pane ownership, stale frame tokens, name changes,
+dialogs, menus and listener cleanup. The live HTML journey exercises the real
+opaque-origin frame. Its sandbox remains empty by default and only gains
+`allow-scripts` through the existing opt-in checkbox.
+
+The iframe checks include native virtual key codes in their CDP input. On the
+pinned Electron runtime, ordinary Playwright keyboard input skips the native
+before-input handler. The verification still sends real key events and asserts
+actual selected tabs; it does not invoke the navigation command or IPC bridge.
 
 ## Gotchas
 

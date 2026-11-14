@@ -33,6 +33,11 @@ editing, Save and reopen with actual keyboard events. It also verifies Ctrl+Tab
 and Ctrl+Shift+Tab with notebook text and a table cell editor focused. See
 [the feature map](features/keyboard.md) for the expected results.
 
+It also opens a synthetic HTML file in the same disposable project and verifies
+ordinary Tab plus reserved pane navigation from its sandboxed preview, both with
+scripts disabled and with scripts enabled. The enabled-script fixture changes
+its own frame name and consumes DOM key events to verify the native route.
+
 ## Evidence
 
 The output directory contains `receipt.json` and original screenshots of the
