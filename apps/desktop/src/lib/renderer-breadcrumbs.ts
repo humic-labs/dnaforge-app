@@ -3,7 +3,11 @@ import { redactTelemetryText } from '../shared/redact-telemetry';
 const DEFAULT_CAP = 200;
 const MAX_LINE_CHARS = 500;
 const FLUSH_DELAY_MS = 2000;
-const OPAQUE_DOCUMENT_ID = /^(?:file-document:)?[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
+const UUID_ID = '[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}';
+const OPAQUE_DOCUMENT_ID = new RegExp(
+  `^(?:file-document:|ws(?:0|[1-9][0-9]{0,15})::|${UUID_ID}::)?${UUID_ID}$`,
+  'i'
+);
 const CONTEXT_IDS = ['pageId', 'documentId', 'entityId', 'tabId', 'designId'] as const;
 const CONTEXT_VALUES: Readonly<Record<string, ReadonlySet<string>>> = {
   operation: new Set(['autosave', 'manual', 'flush', 'save', 'save-all']),

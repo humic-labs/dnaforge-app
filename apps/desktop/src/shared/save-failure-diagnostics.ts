@@ -37,7 +37,7 @@ export function saveFailureErrorCode(error: unknown): string {
         current instanceof Error ? current.message : typeof current === 'string' ? current : '';
       const unwrapped = message
         .replace(/^Error invoking remote method '[^'\n]{1,128}':\s*/, '')
-        .replace(/^(?:Error:\s*){1,3}/, '');
+        .replace(/^(?:(?:Error|NativeDocumentCommandError):\s*){1,3}/, '');
       const prefix = /^([A-Z][A-Z0-9_]+)(?::|\s|$)/.exec(unwrapped)?.[1];
       if (prefix && knownSaveErrors.has(prefix)) return prefix.toLowerCase();
       current =
