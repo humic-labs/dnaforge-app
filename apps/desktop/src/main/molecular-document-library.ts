@@ -80,28 +80,31 @@ async function preservePreUpgradeFile(
   );
 }
 
+export async function readMolecularDocumentFile(
+  input: MolecularDocumentLocation
+): Promise<SavedMolecularDocument> {
+  const location = locationSchema.parse(input);
+  if (!location.path.endsWith(MOLECULAR_DOCUMENT_SUFFIX))
+    throw new Error('This file is not a molecular document.');
+  const { candidate } = await canonicalWorkspacePath({
+    ...location,
+    allowMissing: false,
+    artifactNoun: 'molecular document',
+  });
+  const stat = await lstat(candidate);
+  if (!stat.isFile()) throw new Error('The molecular document is not a regular file.');
+  if (stat.size > MOLECULAR_DOCUMENT_MAX_BYTES)
+    throw new Error('The molecular document exceeds the 128 MiB file limit.');
+  const bytes = await readFile(candidate, 'utf8');
+  const document = parseMolecularDocument(bytes);
+  await validateMolecularDocumentCoordinates(document);
+  return { ...location, document, revision: createHash('sha256').update(bytes).digest('hex') };
+}
+
 export class MolecularDocumentLibrary {
   async read(input: MolecularDocumentLocation): Promise<SavedMolecularDocument> {
     const location = locationSchema.parse(input);
-    return withWorkspaceMutation(location.workspaceRoot, () => this.readFile(location));
-  }
-
-  private async readFile(location: MolecularDocumentLocation): Promise<SavedMolecularDocument> {
-    if (!location.path.endsWith(MOLECULAR_DOCUMENT_SUFFIX))
-      throw new Error('This file is not a molecular document.');
-    const { candidate } = await canonicalWorkspacePath({
-      ...location,
-      allowMissing: false,
-      artifactNoun: 'molecular document',
-    });
-    const stat = await lstat(candidate);
-    if (!stat.isFile()) throw new Error('The molecular document is not a regular file.');
-    if (stat.size > MOLECULAR_DOCUMENT_MAX_BYTES)
-      throw new Error('The molecular document exceeds the 128 MiB file limit.');
-    const bytes = await readFile(candidate, 'utf8');
-    const document = parseMolecularDocument(bytes);
-    await validateMolecularDocumentCoordinates(document);
-    return { ...location, document, revision: createHash('sha256').update(bytes).digest('hex') };
+    return withWorkspaceMutation(location.workspaceRoot, () => readMolecularDocumentFile(location));
   }
 
   async save(input: SaveMolecularDocumentRequest): Promise<SavedMolecularDocument> {
@@ -115,7 +118,7 @@ export class MolecularDocumentLibrary {
       throw new Error('The molecular document exceeds the 128 MiB file limit.');
     return withWorkspaceMutation(destination.workspaceRoot, async () => {
       if (expectedRevision !== null) {
-        const previous = await this.readFile(destination);
+        const previous = await readMolecularDocumentFile(destination);
         if (previous.revision !== expectedRevision)
           throw new Error(
             'The molecular document changed since it was opened. Reload it before saving.'
