@@ -211,13 +211,15 @@ try {
   await page.keyboard.insertText(addition);
   await page.keyboard.press('ControlOrMeta+s');
   await expect.poll(() => readFile(markdownPath, 'utf8'), { timeout: 30_000 }).toContain(addition);
+  const closeNotebook = page.getByRole('button', {
+    name: 'Close Programme charter — burden-aware three-input logic in E. coli',
+    exact: true,
+  });
+  const notebookTab = page.getByRole('tab').filter({ has: closeNotebook });
+  await expect(notebookTab.locator('[data-tab-dirty="true"]')).toHaveCount(0, { timeout: 30_000 });
   await page.screenshot({ path: path.join(output, '02-notebook-saved.png') });
-  await page
-    .getByRole('button', {
-      name: 'Close Programme charter — burden-aware three-input logic in E. coli',
-      exact: true,
-    })
-    .click();
+  await closeNotebook.click();
+  await expect(closeNotebook).toBeHidden();
   await row.dblclick();
   await expect(editor).toContainText(addition);
   await page.screenshot({ path: path.join(output, '03-notebook-reopened.png') });
