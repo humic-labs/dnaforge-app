@@ -108,13 +108,20 @@ try {
     page
       .getByTestId('file-tree-item')
       .filter({ has: page.locator(`[data-entry-path=${JSON.stringify(file)}]`) });
-  const sequenceItem = page.locator(
-    `[data-testid="file-tree-item"][data-entry-path=${JSON.stringify(join(workspace, 'Canvas sequence'))}]`
-  );
+  const sequenceItem = page
+    .locator(
+      [join(workspace, 'Canvas sequence'), sequencePath]
+        .map((path) => `[data-testid="file-tree-item"][data-entry-path=${JSON.stringify(path)}]`)
+        .join(', ')
+    )
+    .first();
   await expect(sequenceItem).toBeVisible({ timeout: 30000 });
+  const previousTabIds = new Set((await tabs()).map((tab) => tab.id));
   await sequenceItem.dblclick();
   await expect(page.getByTestId('sequence-loaded')).toBeVisible({ timeout: 60000 });
-  const sequence = (await tabs()).find((tab) => tab.type === 'sequence');
+  const sequence = Object.values((await snapshot()).panels)
+    .flatMap((panel) => panel.tabs.filter((tab) => tab.id === panel.activeTabId))
+    .find((tab) => tab.type === 'sequence' && !previousTabIds.has(tab.id));
   assert.ok(sequence?.sequenceDocument);
   assert.notEqual(sequence.entityId, sequencePath);
   await step('opened-native-sequence');
@@ -164,10 +171,10 @@ try {
   await expect(page.getByTestId('text-viewer-tab')).toBeVisible({ timeout: 60000 });
   const restored = await tabs();
   assert.deepEqual(
-    restored.find((tab) => tab.type === 'sequence').sequenceDocument,
+    restored.find((tab) => tab.id === sequence.id).sequenceDocument,
     sequence.sequenceDocument
   );
-  assert.equal(restored.find((tab) => tab.type === 'sequence').entityId, sequence.entityId);
+  assert.equal(restored.find((tab) => tab.id === sequence.id).entityId, sequence.entityId);
   assert.deepEqual(restored.find((tab) => tab.entityId === textPath).saveTarget, text.saveTarget);
   assert.equal(readFileSync(textPath, 'utf8'), 'Canvas saved through its file owner.\n');
   await step('restored-document-identities-and-saved-content');
