@@ -47,6 +47,7 @@ vi.mock('../prompts/cli-prompt', () => ({
 }));
 vi.mock('./chat-runtime', () => ({
   setConversationState,
+  chatProviderPhase: vi.fn(),
   chatInterruptionReason: vi.fn(() => 'Stop requested.'),
 }));
 vi.mock('../references/inline/session', () => ({

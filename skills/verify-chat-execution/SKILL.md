@@ -19,6 +19,8 @@ Run `node skills/verify-chat-execution/scripts/verify.mjs drive /absolute/extern
 
 Run `node skills/verify-chat-execution/scripts/native.mjs --out /absolute/external/native-evidence-directory` against the owned preview for actual composer send/queue/stop, provider HTTP fixtures and native database observations. See [the feature map](features/README.md). Use fresh evidence directories; failed attempts remain evidence.
 
+Run `node skills/verify-chat-execution/scripts/native-terminal-failure.mjs --out /absolute/external/terminal-failure-evidence-directory --database "/absolute/owned-profile/dnaforge.db"` for a real SQLite terminal-write fault. The driver validates the explicit database against its owned preview port and uses Python SQLite to create a trigger scoped to its exact turn, drives the provider response through the same composer workflow, observes the retained busy turn and queued follow-up, and removes the trigger in `finally`. The receipt lists database rows, state observations and original media; its baseline must fail before the repair.
+
 ## Evidence
 
 Keep source commit, hashes, command, results and original failure logs outside disposable checkouts. Native receipts contain UI actions, actual database rows, screenshots and original timestamped frames/video. A provider fixture qualifies lifecycle and persistence, not live-model quality. Assert success and absence of renderer failures. Baseline and changed-source acceptance use the same driver.

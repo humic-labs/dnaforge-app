@@ -73,7 +73,7 @@ try {
  await held.shift().fulfill({status:200,contentType:'text/event-stream',body:fixture('First fixture answer.')});
  await expect.poll(()=>held.length).toBe(1);await step('queued request advanced');
  await page.getByTestId('ai-stop-button').last().click();
- await expect.poll(async()=>{const r=await rows();return r.turns.filter(t=>t.status==='stopped').length;}).toBeGreaterThan(0);
+ await expect.poll(async()=>{const r=await rows();const message=r.messages.find(m=>m.role==='user'&&m.content===`${marker} queued`);return r.turns.find(t=>t.id===message?.turn_id)?.status;}).toBe('stopped');
  await step('second request stopped and persisted');
  await held.shift().fulfill({status:200,contentType:'text/event-stream',body:fixture('Late fixture answer must not replace stop.')}).catch(()=>{});
  const observed=await rows();
