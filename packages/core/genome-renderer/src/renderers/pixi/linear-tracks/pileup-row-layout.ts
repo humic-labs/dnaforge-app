@@ -5,7 +5,6 @@ export interface PileupRowAssignment {
   rowCount: number;
   hiddenReadCount: number;
   readHitIndex: PileupReadHitIndex;
-  recordStats: PileupReadRecordStats;
 }
 
 interface PileupReadRecordStats {
@@ -314,7 +313,6 @@ export class PersistentRowLayout implements PileupRowLayout {
         job.readHitRecordIndicesByRow,
         job.readHitRecordIndexByIdentity
       ),
-      recordStats: { ...job.recordStats },
     };
   }
 

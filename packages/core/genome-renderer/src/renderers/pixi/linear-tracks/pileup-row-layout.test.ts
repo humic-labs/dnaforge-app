@@ -214,7 +214,7 @@ describe('PersistentRowLayout (JBrowse2-style)', () => {
     const result = layout.finishAssignment(job);
 
     expect(result.hiddenReadCount).toBeGreaterThan(0);
-    expect(result.recordStats).toEqual({
+    expect(job.recordStats).toEqual({
       startBp: Math.min(...records.map((record) => record.start)),
       endBp: Math.max(...records.map((record) => record.end)),
       forwardReadCount: records.filter((record) => record.strand === '+').length,

@@ -2810,11 +2810,12 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     state.rowsAssignmentBuildJob = null;
     state.cachedReadRows = assignment.rows;
     state.cachedReadHitIndex = assignment.readHitIndex;
-    const loadedLo = assignment.recordStats.startBp;
-    const loadedHi = assignment.recordStats.endBp;
-    state.reverseReadCount = assignment.recordStats.reverseReadCount;
-    state.forwardReadCount = assignment.recordStats.forwardReadCount;
-    state.pairedReadCount = assignment.recordStats.pairedReadCount;
+    const { recordStats } = finishedAssignmentJob.job;
+    const loadedLo = recordStats.startBp;
+    const loadedHi = recordStats.endBp;
+    state.reverseReadCount = recordStats.reverseReadCount;
+    state.forwardReadCount = recordStats.forwardReadCount;
+    state.pairedReadCount = recordStats.pairedReadCount;
     state.loadedStartBp = loadedLo;
     state.loadedEndBp = loadedHi;
     const occupancyStartedAt = nowMs();
