@@ -324,13 +324,14 @@ async function saveView(page, fixture, name) {
 }
 
 async function closeView(page, { tabId, discardChanges = false } = {}) {
-  const tab = page.locator(
+  const candidate = page.locator(
     tabId
       ? `[role="tab"][data-tab-id=${JSON.stringify(tabId)}]`
       : '[role="tab"][data-tab-id][aria-selected="true"]'
   );
-  const id = await tab.getAttribute('data-tab-id');
+  const id = await candidate.getAttribute('data-tab-id');
   assert.ok(id, 'The saved view has no active tab.');
+  const tab = page.locator(`[role="tab"][data-tab-id=${JSON.stringify(id)}]`);
   await tab.hover();
   await page.getByTestId(`tab-close-${id}`).click();
   const confirmation = page.getByRole('dialog', { name: 'Do you want to save changes?' });
@@ -478,10 +479,15 @@ async function startCadence(page) {
   });
 }
 
-async function stopCadence(page) {
-  return page.evaluate(() => {
+async function stopCadence(page, expectedDeltaY) {
+  return page.evaluate(async (expectedDeltaY) => {
     const capture = window.__pileupPerformanceCapture;
     if (!capture) throw new Error('The gesture cadence recorder is absent.');
+    const deliveryStarted = performance.now();
+    const deadline = deliveryStarted + 1000;
+    while (Math.abs(capture.wheel.deltaY - expectedDeltaY) > 0.001 && performance.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
     const ended = performance.now();
     cancelAnimationFrame(capture.raf);
     for (const entry of capture.observer?.takeRecords() ?? []) {
@@ -496,9 +502,10 @@ async function stopCadence(page) {
       rafIntervalsMs: capture.rafIntervalsMs,
       longTaskDurationsMs: capture.longTaskDurationsMs,
       endedAtEpochMs: performance.timeOrigin + ended,
+      wheelDeliveryWaitMs: ended - deliveryStarted,
       wheel: capture.wheel,
     };
-  });
+  }, expectedDeltaY);
 }
 
 async function wheelGesture(page, cdp, { deltaY, modifiers = 0 }) {
@@ -527,7 +534,7 @@ async function wheelGesture(page, cdp, { deltaY, modifiers = 0 }) {
     );
   }
   await Promise.all(requests);
-  const cadence = await stopCadence(page);
+  const cadence = await stopCadence(page, deltaY * 120);
   return {
     finalInput,
     inputStartEpochMs,
