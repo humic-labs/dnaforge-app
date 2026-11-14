@@ -54,6 +54,25 @@ describe('renderer-breadcrumbs  item 4)', () => {
       expect(joined).not.toContain('bob@lab.org');
     });
 
+    it('retains Error details and their cause when a save failure is caught', () => {
+      const cause = Object.assign(new Error('write refused for /Users/alice/private/file.txt'), {
+        code: 'EACCES',
+      });
+      console.error('[Save All] Some changes were not saved:', new Error('Save failed', { cause }));
+      win.dispatchEvent(new Event('pagehide'));
+      const lines = win.electronAPI.sendBreadcrumbs.mock.calls.at(-1)![0] as string[];
+      expect(lines.join('\n')).toContain('Save failed');
+      expect(lines.join('\n')).toContain('EACCES');
+      expect(lines.join('\n')).toContain('write refused');
+      expect(lines.join('\n')).not.toMatch(/alice|private|file\.txt/);
+    });
+
+    it('sends a caught error before a renderer crash can discard the debounce', () => {
+      console.error('Save failed', new Error('EIO'));
+      expect(win.electronAPI.sendBreadcrumbs).toHaveBeenCalledOnce();
+      expect(win.electronAPI.sendBreadcrumbs.mock.calls[0][0].join('\n')).toContain('EIO');
+    });
+
     it('flushes immediately on pagehide (controlled unload), before the debounce', () => {
       console.warn('pre-unload-crumb');
       expect(win.electronAPI.sendBreadcrumbs).not.toHaveBeenCalled();

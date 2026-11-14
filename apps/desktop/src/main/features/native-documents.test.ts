@@ -41,7 +41,12 @@ const mocks = vi.hoisted(() => ({
   createBarrier: vi.fn(),
   fetch: vi.fn(),
   flush: vi.fn(async () => {}),
+  saveTelemetry: vi.fn(),
+  bootLog: vi.fn(),
 }));
+
+vi.mock('../analytics', () => ({ trackEvent: mocks.saveTelemetry }));
+vi.mock('../boot-log', () => ({ appendBootLog: mocks.bootLog }));
 
 vi.mock('../registered-project-authority', () => ({
   withAgentProjectScope: (_scope: unknown, operation: () => unknown) => operation(),
@@ -181,6 +186,65 @@ beforeEach(() => {
 });
 
 describe('native documents main feature', () => {
+  it('retains a refused native Save All in local diagnostics and safe remote telemetry', async () => {
+    const documents = createNativeDocuments();
+    const document = {
+      documentId: 'private-document',
+      target: { documentId: 'private-document' },
+      path: '/Users/alice/private/file.txt',
+      workspaceRoot: '/Users/alice/private',
+      kind: 'text' as const,
+      revision: 'draft:7',
+      readOnly: false,
+      dirty: true,
+      saving: false,
+      recovery: false,
+      inspectionRequired: false,
+    };
+    vi.spyOn(documents.fileDocuments, 'listDirty').mockResolvedValue([document]);
+    vi.spyOn(documents.fileDocuments, 'execute').mockRejectedValue(
+      new Error('EACCES: write refused /Users/alice/private/file.txt')
+    );
+    const result = await documents.settleDirtyDocuments({ action: 'save' });
+    expect(result.failures).toHaveLength(1);
+    expect(result.remaining).toEqual([document]);
+    expect(mocks.bootLog.mock.calls.flat().join('\n')).toContain('EACCES');
+    expect(mocks.bootLog.mock.calls.flat().join('\n')).not.toMatch(/alice|private|file\.txt/);
+    expect(mocks.saveTelemetry).toHaveBeenCalledWith(
+      'workflow_action_observed',
+      expect.objectContaining({
+        workflow: 'file',
+        workflow_action: 'save',
+        action_phase: 'error',
+        workflow_status: 'failed',
+        error_class: 'EACCES',
+        success: false,
+      })
+    );
+    expect(JSON.stringify(mocks.saveTelemetry.mock.calls)).not.toMatch(/private|alice|file\.txt/);
+  });
+
+  it('logs an unreadable Save All inventory and preserves its original rejection', async () => {
+    const documents = createNativeDocuments();
+    const error = new Error('EIO: dirty inventory unavailable');
+    vi.spyOn(documents.fileDocuments, 'listDirty').mockRejectedValue(error);
+    await expect(documents.settleDirtyDocuments({ action: 'save' })).rejects.toBe(error);
+    expect(mocks.bootLog.mock.calls.flat().join('\n')).toContain('EIO');
+    expect(mocks.saveTelemetry).toHaveBeenCalledWith(
+      'workflow_action_observed',
+      expect.objectContaining({ error_class: 'EIO', success: false })
+    );
+  });
+
+  it('does not report successful settlement or discarded work as a save failure', async () => {
+    const documents = createNativeDocuments();
+    vi.spyOn(documents.fileDocuments, 'listDirty').mockResolvedValue([]);
+    await documents.settleDirtyDocuments({ action: 'save' });
+    await documents.settleDirtyDocuments({ action: 'discard' });
+    expect(mocks.saveTelemetry).not.toHaveBeenCalled();
+    expect(mocks.bootLog).not.toHaveBeenCalled();
+  });
+
   it('binds the profile key derived from the user-data path', () => {
     const documents = createNativeDocuments();
     documents.bindProfile('/user-data');

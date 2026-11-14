@@ -3,6 +3,89 @@ import { DocumentLifecycle } from './document-lifecycle';
 import { TAB_DOCUMENT_LIFECYCLES, TAB_TYPES } from './tab-kind';
 
 describe('document lifecycle authority', () => {
+  it.each(['synchronous', 'asynchronous'] as const)(
+    'records the original %s save error and its target once',
+    async (mode) => {
+      const lifecycle = new DocumentLifecycle();
+      const target = { kind: 'file', filePath: '/workspace/notes.txt' } as const;
+      const failure = new Error('EACCES: save denied');
+      const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      lifecycle.register({
+        target,
+        tabId: 'notes-view',
+        isDirty: () => true,
+        save: () => {
+          if (mode === 'synchronous') throw failure;
+          return Promise.reject(failure);
+        },
+      });
+      try {
+        expect(await lifecycle.save(target, 'notes-view')).toBe(false);
+        expect(report).toHaveBeenCalledExactlyOnceWith(
+          '[DocumentLifecycle] Save failed:',
+          { target, tabId: 'notes-view' },
+          failure
+        );
+        expect(warning).not.toHaveBeenCalled();
+      } finally {
+        report.mockRestore();
+        warning.mockRestore();
+      }
+    }
+  );
+
+  it('records one diagnostic when callers share a rejected save', async () => {
+    const lifecycle = new DocumentLifecycle();
+    const target = { kind: 'tab', tabId: 'draft-view' } as const;
+    const pending = Promise.withResolvers<boolean>();
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    lifecycle.register({ target, isDirty: () => true, save: () => pending.promise });
+    try {
+      const first = lifecycle.save(target);
+      const second = lifecycle.save(target);
+      pending.reject(new Error('Write failed'));
+      expect(await Promise.all([first, second])).toEqual([false, false]);
+      expect(report).toHaveBeenCalledTimes(1);
+    } finally {
+      report.mockRestore();
+    }
+  });
+
+  it('records an incomplete save without classifying cancellation as an exception', async () => {
+    const lifecycle = new DocumentLifecycle();
+    const target = { kind: 'tab', tabId: 'cancelled-view' } as const;
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    lifecycle.register({ target, isDirty: () => true, save: async () => false });
+    try {
+      expect(await lifecycle.save(target)).toBe(false);
+      expect(warning).toHaveBeenCalledExactlyOnceWith(
+        '[DocumentLifecycle] Save not completed:',
+        { target, tabId: undefined, reason: 'owner-returned-false' }
+      );
+      expect(report).not.toHaveBeenCalled();
+    } finally {
+      report.mockRestore();
+      warning.mockRestore();
+    }
+  });
+
+  it('records a missing save owner with its target', async () => {
+    const lifecycle = new DocumentLifecycle();
+    const target = { kind: 'tab', tabId: 'missing-view' } as const;
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      expect(await lifecycle.save(target)).toBe(false);
+      expect(warning).toHaveBeenCalledExactlyOnceWith(
+        '[DocumentLifecycle] Save not completed:',
+        { target, tabId: undefined, reason: 'owner-not-unique', ownerCount: 0 }
+      );
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
   it('requires an explicit lifecycle for every registered tab kind', () => {
     expect(Object.keys(TAB_DOCUMENT_LIFECYCLES).sort()).toEqual([...TAB_TYPES].sort());
     expect(TAB_DOCUMENT_LIFECYCLES.protein).toBe('editable');

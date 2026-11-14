@@ -489,6 +489,23 @@ describe('text Save and Close durable revision', () => {
     await waitFor(() => expect(stillOpen()).toBe(false));
   });
 
+  it('records the original write failure while retaining the unsaved text', async () => {
+    await mount();
+    const failure = new Error('EACCES: text write denied');
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      edit(editA);
+      save();
+      await finish(0, failure);
+      expect(report).toHaveBeenCalledWith('[TextViewerTab] Save failed:', { filePath }, failure);
+      expect(editor()).toHaveValue(editA);
+      expect(io.files.get(filePath)).toBe(baseline);
+      expect(stillOpen()).toBe(true);
+    } finally {
+      report.mockRestore();
+    }
+  });
+
   it('shares same-revision keyboard, editor, and close requests in one write', async () => {
     await mount();
     edit(editA);
