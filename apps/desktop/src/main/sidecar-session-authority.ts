@@ -2,7 +2,13 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { createProfileBoundNativeDocumentOwnerId } from './native-document-owner-identity';
 
 export type SidecarSessionOwner = 'electron' | 'external';
-export type SidecarSessionState = 'starting' | 'ready' | 'restarting' | 'stopped';
+export type SidecarSessionState =
+  | 'starting'
+  | 'ready'
+  | 'restarting'
+  | 'stopped'
+  | 'error'
+  | 'timeout';
 export type SidecarSpawnReason = 'initial' | 'respawn' | 'manual_restart';
 
 export interface SidecarSessionSnapshot {
@@ -147,7 +153,7 @@ export class SidecarSessionAuthority {
   waitForReadySnapshot(timeoutMs = 30_000, signal?: AbortSignal): Promise<SidecarSessionSnapshot> {
     if (signal?.aborted) return Promise.reject(signal.reason);
     if (this.state === 'ready') return Promise.resolve(this.snapshot());
-    if (this.state === 'stopped') {
+    if (this.state === 'stopped' || this.state === 'error' || this.state === 'timeout') {
       return Promise.reject(new SidecarSessionUnavailableError(this.state));
     }
     return new Promise((resolve, reject) => {
@@ -185,6 +191,7 @@ export class SidecarSessionAuthority {
   }
 
   prepareManagedSpawn(reason: SidecarSpawnReason): SidecarSessionSnapshot {
+    if (this.state === 'stopped') throw new SidecarSessionUnavailableError(this.state);
     if (this.owner === 'electron') {
       this.token = this.mintToken();
       this.humanToken = defaultMintToken();
@@ -208,9 +215,21 @@ export class SidecarSessionAuthority {
     return true;
   }
 
+  markFailed(generation: number, state: 'error' | 'timeout'): boolean {
+    if (generation !== this.generation || this.state === 'stopped') return false;
+    this.state = state;
+    this.publish();
+    this.rejectReadyWaiters();
+    return true;
+  }
+
   markStopped(): void {
     this.state = 'stopped';
     this.publish();
+    this.rejectReadyWaiters();
+  }
+
+  private rejectReadyWaiters(): void {
     const error = new SidecarSessionUnavailableError(this.state);
     for (const waiter of this.readyWaiters) {
       waiter.reject(error);
