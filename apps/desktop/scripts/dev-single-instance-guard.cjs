@@ -49,7 +49,7 @@ let activeLaunch = null;
 
 function startupTimeoutMs() {
   const value = Number(process.env.DNAFORGE_DEV_STARTUP_TIMEOUT_MS);
-  return Number.isFinite(value) && value > 0 ? value : 120000;
+  return Number.isFinite(value) && value > 0 ? value : 600000;
 }
 
 function readEnvFile(filePath) {
