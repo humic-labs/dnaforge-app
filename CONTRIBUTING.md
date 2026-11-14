@@ -43,6 +43,14 @@ for a maintainer to permit execution. A waiting workflow does not stop you from
 opening or updating a pull request. You can run the documented checks locally or
 enable GitHub Actions in your own fork.
 
+To run CI in your fork, open its **Actions** tab and enable workflows if GitHub
+asks. Select **CI**, click **Run workflow**, choose your contribution branch,
+and start the run. That branch must contain the `workflow_dispatch` entry in
+`.github/workflows/ci.yml`; update older branches from current `upstream/main`
+using the signed-off merge below if the manual option is missing. CI also runs
+on pushes to `main` and pull requests in your fork. Running your own hosted CI
+is optional: local checks are enough to open an upstream pull request.
+
 Required checks must pass before a maintainer merges the change. Local test
 results help assess a contribution; they do not replace those checks. Workflow
 permission is separate from an approving pull-request review.
