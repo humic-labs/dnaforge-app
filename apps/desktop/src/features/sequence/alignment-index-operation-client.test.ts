@@ -54,7 +54,11 @@ describe('alignment index operation client', () => {
     vi.mocked(managedOperations.startRegisteredOperation)
       .mockReset()
       .mockImplementation((start) =>
-        start({ scopeId: 'workspace-a', submissionKey: 'submission-1' })
+        start({
+          apiClient: { options: (options: RequestInit = {}) => options },
+          scopeId: 'workspace-a',
+          submissionKey: 'submission-1',
+        })
       );
     vi.mocked(managedOperations.waitForTerminal)
       .mockReset()
@@ -85,11 +89,14 @@ describe('alignment index operation client', () => {
     expect(managedOperations.startRegisteredOperation).toHaveBeenCalledOnce();
     expect(
       startAlignmentIndexPreparationOperationOperationsAlignmentIndexPreparationPost
-    ).toHaveBeenCalledWith({
-      submission_key: 'submission-1',
-      subject: { scope_id: 'workspace-a' },
-      input: { bamPath: '/data/sample.bam' },
-    });
+    ).toHaveBeenCalledWith(
+      {
+        submission_key: 'submission-1',
+        subject: { scope_id: 'workspace-a' },
+        input: { bamPath: '/data/sample.bam' },
+      },
+      {}
+    );
   });
 
   it('waits on the shared operation stream and reads the matching retained result', async () => {

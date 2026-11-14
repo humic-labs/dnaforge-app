@@ -17,21 +17,26 @@ export interface AlignmentIndexWaitOptions {
 export async function startAlignmentIndexOperation(
   input: AlignmentIndexRequest
 ): Promise<OperationSnapshot> {
-  return managedOperations.startRegisteredOperation(async ({ scopeId, submissionKey }) => {
-    const response =
-      await startAlignmentIndexPreparationOperationOperationsAlignmentIndexPreparationPost({
-        submission_key: submissionKey,
-        subject: { scope_id: scopeId },
-        input,
-      });
-    if (response.status !== 202) {
-      throw new Error(response.data.detail.message);
+  return managedOperations.startRegisteredOperation(
+    async ({ apiClient, scopeId, submissionKey }) => {
+      const response =
+        await startAlignmentIndexPreparationOperationOperationsAlignmentIndexPreparationPost(
+          {
+            submission_key: submissionKey,
+            subject: { scope_id: scopeId },
+            input,
+          },
+          apiClient.options()
+        );
+      if (response.status !== 202) {
+        throw new Error(response.data.detail.message);
+      }
+      if (response.data.kind !== OPERATION_KIND || response.data.subject.scope_id !== scopeId) {
+        throw new Error('The operation owner returned an invalid alignment-index job.');
+      }
+      return response.data;
     }
-    if (response.data.kind !== OPERATION_KIND || response.data.subject.scope_id !== scopeId) {
-      throw new Error('The operation owner returned an invalid alignment-index job.');
-    }
-    return response.data;
-  });
+  );
 }
 
 export async function waitForAlignmentIndexResult(

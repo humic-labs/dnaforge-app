@@ -110,30 +110,34 @@ try {
 
 ### Runtime URL and headers
 
-Electron must configure the client with the actual sidecar URL and current
-session header before the first request:
+Bind each endpoint to a client and pass its options to generated calls:
 
 ```typescript
-import { configureApiClient } from '@waypoint/api-client';
+import { createApiClient, healthCheck } from '@waypoint/api-client';
 
-const apiUrl = await platform().config.getApiUrl();
-configureApiClient({
-  baseUrl: apiUrl,
-  headers: () => {
-    const session = window.electronAPI.sidecarSession;
-    return session ? { 'X-DNAForge-Session': session } : {};
-  },
+const client = createApiClient({
+  baseUrl: await platform().config.getApiUrl(),
 });
+const response = await healthCheck(
+  client.options({ signal: AbortSignal.timeout(5000) })
+);
 ```
 
-Each call replaces the complete runtime configuration. A caller that needs a
-header provider must pass it together with the URL; a base-URL-only call clears
-the previous provider so one feature cannot inherit another feature's agent
-identity or capability claims. Renderer calls to the loopback sidecar still use
-the current `window.electronAPI.sidecarSession` fallback. Local session, agent
-identity, and capability headers are stripped from every non-loopback request.
-Tests that need a clean configuration must call
-`resetApiClientConfigurationForTests()` explicitly.
+The client captures a normalized configuration. Its options preserve request
+headers, abort signals and other fetch options while carrying that configuration
+through generated calls. The fetcher consumes the configuration before network
+dispatch. Independent clients never change each other's destination or
+transport. A main-process client can supply its authenticated `fetch` adapter at
+creation. Renderer clients do not read or manufacture session credentials;
+native request handling supplies the current session. The fetcher strips
+caller-supplied session headers and strips local agent identity/capability
+headers on remote destinations.
+
+`configureApiClient` remains available for compatibility. The desktop platform
+initialization owns that default once; feature callers use explicit clients. A
+direct `customFetch` call can also provide its existing third configuration
+argument, which takes precedence over bound options and the default. Tests using
+the default reset it with `resetApiClientConfigurationForTests()`.
 
 This fails closed in Electron if configuration is missing; it does not guess
 port 8000. Non-Electron tests and web/SSR callers retain these fallbacks:
