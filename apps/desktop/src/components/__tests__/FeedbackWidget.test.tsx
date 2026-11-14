@@ -180,7 +180,9 @@ describe('feedback draft ownership', () => {
     release({ success: true });
     await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('harmless newer draft'));
     await waitFor(() => expect(screen.getByText(/newer draft is kept/i)).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: 'Send', exact: true })).toBeEnabled();
+    const send = screen.getByRole('button', { name: 'Send', exact: true });
+    expect(send).toBeEnabled();
+    expect(send).toHaveTextContent(/^Send$/);
   });
   it('attributes a queued result to the earlier draft when the user has already edited it', async () => {
     const result = Promise.withResolvers<{ success: boolean; queued: boolean }>();
@@ -194,7 +196,9 @@ describe('feedback draft ownership', () => {
       'Earlier feedback was saved on this device. DNAForge will retry it at its next start. Your newer draft is kept.'
     );
     expect(screen.getByRole('textbox')).toHaveValue('harmless newer draft');
-    expect(screen.getByRole('button', { name: 'Send', exact: true })).toBeEnabled();
+    const send = screen.getByRole('button', { name: 'Send', exact: true });
+    expect(send).toBeEnabled();
+    expect(send).toHaveTextContent(/^Send$/);
   });
   it('does not close or erase a reopened form after cancel and stale completion', async () => {
     let release!: (result: { success: boolean }) => void;
