@@ -1,3 +1,4 @@
+import { cancelWorkspaceSyncJobsForDeletedCloudCopy } from './workspace-sync-queue';
 import type Database from 'better-sqlite3';
 
 import {
@@ -160,18 +161,7 @@ function detachLocalCloudBinding(
        )`
     ).run(input);
 
-    db.prepare(
-      `UPDATE workspace_sync_queue
-       SET status = 'canceled',
-           next_attempt_at = NULL,
-           locked_at = NULL,
-           locked_by_device_id = NULL,
-           error_code = 'CLOUD_COPY_DELETED',
-           error_message = 'Cloud copy was deleted.',
-           updated_at = @nowMs
-       WHERE workspace_id = @workspaceId
-         AND status IN ('pending', 'running', 'retry_wait', 'blocked')`
-    ).run(input);
+    cancelWorkspaceSyncJobsForDeletedCloudCopy(db, input);
 
     db.prepare(
       `UPDATE workspace_sync_versions
