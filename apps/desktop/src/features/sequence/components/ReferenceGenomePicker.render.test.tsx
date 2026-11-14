@@ -1043,6 +1043,61 @@ describe('ReferenceGenomePicker — assemblies section', () => {
     }
   );
 
+  it.each(['same', 'different'] as const)(
+    'admits a saved file against a raw local reference with the %s sequence',
+    async (sequence) => {
+      const { saved, prepared } = installedHostedViewFixture();
+      const { portableView: _portableView, ...local } = prepared;
+      const installed: PreparedReferenceAssemblyEntryV1 = {
+        ...local,
+        referenceIdentity: {
+          sequenceIdentity:
+            sequence === 'same' ? prepared.referenceIdentity!.sequenceIdentity : '0'.repeat(64),
+          annotationIdentity: '1'.repeat(64),
+        },
+      };
+      mockListLocalReferences.mockResolvedValue([installed]);
+      mockListTrackViews.mockResolvedValue({ views: [saved], errors: [] });
+      mockAdmitPortableTracks.mockResolvedValue({ dataTracks: [], bamTracks: [], outcomes: [] });
+      const actual =
+        await vi.importActual<typeof import('../open-track-view')>('../open-track-view');
+      mockOpenSavedTrackView.mockImplementation(actual.openSavedTrackView);
+      mockOpenAssembly.mockImplementation(
+        async (entry: PreparedReferenceAssemblyEntryV1, options?: OpenAssemblyOptions) => {
+          options?.validateReference?.({
+            assembly: buildGenomeAssembly(entry, (relative) => relative),
+            assemblyReferenceIdentity: entry.referenceIdentity,
+            assemblyAnnotationTrackTypes: ['gene', 'exon'],
+          } as Parameters<NonNullable<OpenAssemblyOptions['validateReference']>>[0]);
+          return 'tab-1';
+        }
+      );
+      const opened = requestGenomeViewFileOpen(saved.path);
+      const requestId = pendingGenomeViewFileOpen()!.id;
+      render(
+        <ReferenceGenomePicker
+          open
+          backgroundFileOpen
+          backgroundFileOpenRequestId={requestId}
+          onClose={() => {}}
+        />
+      );
+
+      if (sequence === 'same') {
+        await expect(opened).resolves.toBe('tab-1');
+      } else {
+        expect(await screen.findByTestId('reference-picker-open-saved-view-error')).toBeVisible();
+      }
+      expect(mockAdmitPortableTracks).toHaveBeenCalledOnce();
+      expect(mockOpenSavedTrackView).toHaveBeenCalledOnce();
+      expect(mockOpenAssembly).toHaveBeenCalledWith(
+        installed,
+        expect.objectContaining({ validateReference: expect.any(Function) })
+      );
+      expect(mockInstallHostedReference).not.toHaveBeenCalled();
+    }
+  );
+
   describe('saved view whose library reference is missing', () => {
     const CHROMOSOMES = [{ name: 'chrIV', length: 1_531_933 }];
     const labEntry = (id: string, name: string): PreparedReferenceAssemblyEntryV1 => ({
