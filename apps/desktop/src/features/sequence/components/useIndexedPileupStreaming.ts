@@ -1144,6 +1144,92 @@ export function useIndexedPileupStreaming({
               scheduleTrackRecovery(trackId, driver, reason, {
                 requiredReadBand: key.sourceId.startsWith('aln:'),
               }),
+            onReadPresentationReuse: (presentation) => {
+              if (!enabledRef.current) return;
+              const currentAssembly = rendererAssemblyRef.current;
+              const currentDataset = activeStressDatasetsRef.current.find(
+                (dataset) => dataset.trackId === trackId && isTileEngineOwnedPileupDataset(dataset)
+              );
+              const currentMap = webglRef.current;
+              const renderer = currentMap?.getLinearRenderer?.();
+              const currentEntry = tileEngineDriversRef.current.get(trackId);
+              const payload = tileEnginePublishedPayloadsRef.current.get(trackId);
+              const currentRange = currentAssembly
+                ? normalizeTileEngineDataRange(
+                    currentMap?.getViewportRange?.(),
+                    currentAssembly.totalLengthBp
+                  )
+                : null;
+              const reusedRange = currentAssembly
+                ? normalizeTileEngineDataRange(
+                    presentation.viewRange,
+                    currentAssembly.totalLengthBp
+                  )
+                : null;
+              const currentPlanKey =
+                currentRange && currentAssembly
+                  ? tileEngineCommitPlanKey(
+                      currentRange,
+                      currentAssembly,
+                      containerWidthRef.current
+                    )
+                  : null;
+              const kind = alignedReadReadyKindForFeed(presentation.feed);
+              if (
+                !isCurrentTileEngineFeedSource({
+                  currentAssembly,
+                  currentBaseUrl: tileEngineBaseUrlRef.current,
+                  currentDataset,
+                  sourceKey,
+                  referencePathsKey: referencePathsKeyRef.current,
+                }) ||
+                currentEntry?.driver !== driver ||
+                currentEntry.sourceKey !== sourceKey ||
+                !currentMap ||
+                !renderer ||
+                currentEntry.publishedRenderer !== renderer ||
+                renderer !== presentationRendererRef.current ||
+                payload?.records !== presentation.feed.records ||
+                !currentRange ||
+                !pileupRangesEqual(currentRange, reusedRange) ||
+                !pileupRangesEqual(currentEntry.currentRange, currentRange) ||
+                currentEntry.planKey !== currentPlanKey ||
+                (kind !== 'reads' && kind !== 'empty')
+              )
+                return;
+              firstInteractionReadinessRef.current.noteCoverageFeed(
+                renderer,
+                trackId,
+                currentRange,
+                { ...presentation.feed, viewRange: currentRange }
+              );
+              const status = trackLifecycle.getSnapshot()[trackId];
+              if (
+                (pileupRangesEqual(currentEntry.pendingPresentation?.range ?? null, currentRange) &&
+                  currentEntry.pendingPresentation?.kind === kind &&
+                  currentEntry.pendingPresentation.requiredReadBandReady ===
+                    presentation.requiredReadBandReady) ||
+                (pileupRangesEqual(currentEntry.lastPresentedRange, currentRange) &&
+                  status?.phase === 'ready' &&
+                  status.kind === kind)
+              )
+                return;
+              if (status?.phase === 'ready') beginTrackStreaming(trackId, currentEntry);
+              tileEnginePublicationSequenceRef.current += 1;
+              currentEntry.pendingPresentation = {
+                sourceKey: currentEntry.sourceKey,
+                generation: currentEntry.generation,
+                rendererGeneration: presentationRendererGenerationRef.current,
+                requestSequence: currentEntry.requestSequence,
+                publicationSequence: tileEnginePublicationSequenceRef.current,
+                planKey: currentEntry.planKey,
+                range: currentRange,
+                kind,
+                requiredReadBandReady: presentation.requiredReadBandReady,
+              };
+              ensurePresentedFrameSubscription(currentMap);
+              currentMap.requestRender?.();
+            },
             onCoverageAtlasReuse: (presentation) => {
               if (!enabledRef.current) return;
               const currentAssembly = rendererAssemblyRef.current;
@@ -2178,7 +2264,16 @@ function rendererCoverageOverlapsRange(
 }
 
 function pileupRangesEqual(a: PileupRange | null, b: PileupRange | null): boolean {
-  return Boolean(a && b && a.start === b.start && a.end === b.end);
+  if (!a || !b || ![a.start, a.end, b.start, b.end].every(Number.isFinite)) return false;
+  const equalCoordinate = (left: number, right: number): boolean => {
+    if (left === right) return true;
+    const magnitude = Math.max(Math.abs(left), Math.abs(right));
+    let exponent = Math.floor(Math.log2(magnitude));
+    if (2 ** exponent > magnitude) exponent -= 1;
+    const ulp = Math.max(Number.MIN_VALUE, 2 ** (exponent - 52));
+    return Math.abs(left - right) <= Math.min(1e-6, ulp * 4);
+  };
+  return equalCoordinate(a.start, b.start) && equalCoordinate(a.end, b.end);
 }
 
 function alignedReadFeedProgressSignature(feed: TileEngineFeed): string {

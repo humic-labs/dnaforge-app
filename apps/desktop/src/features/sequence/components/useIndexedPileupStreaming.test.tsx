@@ -17,6 +17,12 @@ type CoverageAtlasReuse = {
   viewRange: { start: number; end: number };
 };
 
+type ReadPresentationReuse = {
+  feed: TileEngineFeed;
+  viewRange: { start: number; end: number };
+  requiredReadBandReady: boolean;
+};
+
 const driverMock = vi.hoisted(() => {
   const instances: Array<{
     options: {
@@ -26,6 +32,7 @@ const driverMock = vi.hoisted(() => {
       timeoutMs: number;
       onFeed: (feed: TileEngineFeed) => void;
       onCoverageAtlasReuse?: (presentation: CoverageAtlasReuse) => void;
+      onReadPresentationReuse?: (presentation: ReadPresentationReuse) => void;
       onTileError?: (failure: {
         key: { sourceId: string; level: number; index: number };
         reason: string;
@@ -47,6 +54,7 @@ const driverMock = vi.hoisted(() => {
       timeoutMs: number;
       onFeed: (feed: TileEngineFeed) => void;
       onCoverageAtlasReuse?: (presentation: CoverageAtlasReuse) => void;
+      onReadPresentationReuse?: (presentation: ReadPresentationReuse) => void;
       onTileError?: (failure: {
         key: { sourceId: string; level: number; index: number };
         reason: string;
@@ -80,6 +88,7 @@ const driverMock = vi.hoisted(() => {
       source: PileupSource;
       onFeed: (feed: TileEngineFeed) => void;
       onCoverageAtlasReuse?: (presentation: CoverageAtlasReuse) => void;
+      onReadPresentationReuse?: (presentation: ReadPresentationReuse) => void;
       onTileError?: (failure: {
         key: { sourceId: string; level: number; index: number };
         reason: string;
@@ -3865,6 +3874,96 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
     });
 
     performanceNowSpy.mockRestore();
+    unmount();
+  });
+
+  it('acknowledges reused readable rows on the current frame without republishing their data', async () => {
+    const renderer = fakeRenderer();
+    let range = { start: 1_809_290_000, end: 1_809_316_612 };
+    const frames: Array<() => void> = [];
+    const map = {
+      getLinearRenderer: () => renderer,
+      getViewportRange: () => range,
+      requestRender: vi.fn(),
+      subscribeToPresentedFrames: vi.fn((listener: () => void) => {
+        frames.push(listener);
+        return vi.fn();
+      }),
+    };
+    const dataset = pileupDataset({ bamPath: '/fixtures/readable-reuse.bam' });
+    const { result, unmount } = renderHook(() =>
+      useIndexedPileupStreaming({
+        webglRef: { current: map },
+        rendererAssembly: humanScaleRendererAssembly(),
+        containerWidth: 884,
+        activeStressDatasets: [dataset],
+      })
+    );
+    await waitFor(() => expect(driverMock.instances).toHaveLength(1));
+    const driver = driverMock.instances[0]!;
+    const feed: TileEngineFeed = {
+      records: [
+        {
+          chrom: 'chr1',
+          start: range.start,
+          end: range.start + 150,
+          readId: 'r',
+          strand: '+',
+          mapq: 60,
+        },
+      ],
+      viewRange: range,
+      ownerPresentation: { kind: 'reads' },
+      readSource: {
+        truncated: false,
+        windowStartBp: range.start - 20_000,
+        windowEndBp: range.end + 20_000,
+      },
+      requiredReadBandReady: true,
+    };
+    act(() => driver.options.onFeed(feed));
+    act(() => frames.at(-1)?.());
+    expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]?.phase).toBe('ready');
+    const publications = renderer.setTrackData.mock.calls.length;
+    const fetches = driver.setViewport.mock.calls.length;
+    range = { start: range.start + 10, end: range.end + 10 };
+    act(() => result.current.streamPileupViaTileEngine(range));
+
+    expect(driver.options.onReadPresentationReuse).toBeTypeOf('function');
+    const reused = { feed, viewRange: range, requiredReadBandReady: true };
+    act(() => driver.options.onReadPresentationReuse?.(reused));
+    expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]?.phase).not.toBe('ready');
+    expect(renderer.setTrackData).toHaveBeenCalledTimes(publications);
+    expect(driver.setViewport).toHaveBeenCalledTimes(fetches);
+    act(() => frames.at(-1)?.());
+    expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]).toEqual({
+      phase: 'ready',
+      kind: 'reads',
+    });
+
+    const subscriptions = frames.length;
+    range = { start: range.start + 10, end: range.end + 10 };
+    act(() => result.current.streamPileupViaTileEngine(range));
+    act(() =>
+      driver.options.onReadPresentationReuse?.({
+        ...reused,
+        viewRange: range,
+        feed: { ...feed, records: [...feed.records] },
+      })
+    );
+    expect(frames).toHaveLength(subscriptions);
+    act(() => driver.options.onReadPresentationReuse?.({ ...reused, viewRange: range }));
+    const pendingRange = range;
+    range = { start: pendingRange.start, end: pendingRange.end + 5 * 2 ** -22 };
+    act(() => frames.at(-1)?.());
+    expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]?.phase).not.toBe('ready');
+    range = { start: pendingRange.start, end: pendingRange.end + 2 ** -22 };
+    act(() => frames.at(-1)?.());
+    expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]).toEqual({
+      phase: 'ready',
+      kind: 'reads',
+    });
+    expect(renderer.setTrackData).toHaveBeenCalledTimes(publications);
     unmount();
   });
 
