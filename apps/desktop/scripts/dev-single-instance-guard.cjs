@@ -1337,6 +1337,21 @@ async function terminatePids(pids, force, graceMs = 5000) {
   return waitForPidsToExit(live, 2000);
 }
 
+async function waitForStoppedPorts(sweep, pidsAt = () => [], timeoutMs = 10000) {
+  const deadline = Date.now() + timeoutMs;
+  let bound;
+  do {
+    bound = [];
+    for (const entry of sweep) {
+      if (pidsAt(entry[1]).length > 0 || (await tcpPortAcceptsConnections(entry[1])))
+        bound.push(entry);
+    }
+    if (bound.length === 0) return bound;
+    await sleep(100);
+  } while (Date.now() < deadline);
+  return bound;
+}
+
 async function stopWorktreeStack(state) {
   const apiPort = portFromEnv('API_PORT');
   const sweep = [
@@ -1348,20 +1363,12 @@ async function stopWorktreeStack(state) {
   if (process.platform === 'win32') {
     console.log('ELECTRON_DEV_STOPPING');
     stopWindowsStack(APP_DIR, path.join(APP_DIR, 'resources/helpers', WINDOWS_GIT_READ_GUARDIAN));
-    const deadline = Date.now() + 10000;
-    let bound;
-    do {
-      bound = [];
-      for (const entry of sweep) {
-        if (await tcpPortAcceptsConnections(entry[1])) bound.push(entry);
-      }
-      if (bound.length === 0) {
-        fs.rmSync(path.join(APP_DIR, '.cache/windows-dev-stack.json'), { force: true });
-        console.log('ELECTRON_DEV_STOPPED');
-        return true;
-      }
-      await sleep(100);
-    } while (Date.now() < deadline);
+    const bound = await waitForStoppedPorts(sweep);
+    if (bound.length === 0) {
+      fs.rmSync(path.join(APP_DIR, '.cache/windows-dev-stack.json'), { force: true });
+      console.log('ELECTRON_DEV_STOPPED');
+      return true;
+    }
     throw new Error(
       `Worktree teardown incomplete: ${bound.map(([name, port]) => `${name}:${port}`).join(', ')}`
     );
@@ -1385,11 +1392,7 @@ async function stopWorktreeStack(state) {
     assertOwned(pids);
     if (!(await terminatePids(pids, true))) throw new Error(`Owned port ${port} did not stop`);
   }
-  const bound = [];
-  for (const entry of sweep) {
-    if (pidsAt(entry[1]).length > 0 || (await tcpPortAcceptsConnections(entry[1])))
-      bound.push(entry);
-  }
+  const bound = await waitForStoppedPorts(sweep, pidsAt);
   if (bound.length)
     throw new Error(
       `Worktree teardown incomplete: ${bound.map(([name, port]) => `${name}:${port}`).join(', ')}`
@@ -1656,5 +1659,6 @@ module.exports = {
   runStartPreflight,
   readStartupAcknowledgement,
   waitForDevReady,
+  waitForStoppedPorts,
   stopWorktreeStack,
 };

@@ -219,7 +219,7 @@ jobs:
 
       - name: Run the documented focused desktop test
         run: |
-          node --test apps/desktop/scripts/dev-windows-stack.test.cjs
+          node --test apps/desktop/scripts/dev-windows-stack.test.cjs apps/desktop/scripts/dev-stack-stop.test.cjs
           pnpm --dir apps/desktop test -- src/shared/native-entity-reference.test.ts
 
       - name: Edit, save, reload source and run a focused test on Linux
