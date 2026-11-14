@@ -24,7 +24,7 @@ import {
 } from './shared/codon-carrier-translation';
 import { projectCodonColumns, projectIntronColumns } from './shared/project-codon-columns';
 import { createBaseReader } from './shared/base-reader';
-import { findCutSites, type CutSite } from '../../biology/restriction-sites';
+import type { CutSite } from '../../biology/restriction-sites';
 import {
   KeyedTextPool,
   formatRulerLabel,
@@ -1445,11 +1445,7 @@ export class PixiLinearRenderer {
     this.syncAnnotationLaneEnvelopeFromOverlay();
     this.codonTrack.reset();
     this.orfTrack.loadGenome(genome);
-    const skip =
-      typeof window !== 'undefined' &&
-      (window as Window & { __webglSkipInternalCutSites?: boolean }).__webglSkipInternalCutSites !==
-        false;
-    this.cutSites = genome.sequence && !skip ? findCutSites(genome.sequence) : [];
+    this.cutSites = [];
     this.codonCache.clear();
     this.transientAnnotationSearchCodonCache = null;
     this.residentAnnotationSearchFocusResolution = null;

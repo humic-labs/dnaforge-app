@@ -43,7 +43,6 @@ export {
   filterWithKnownCuts,
   sortByName,
   sortByRecognitionLength,
-  getCommonEnzymes,
   clearEnzymeCache,
 } from './enzyme-service';
 
