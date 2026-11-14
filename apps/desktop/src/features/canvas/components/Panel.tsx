@@ -30,6 +30,8 @@ import { useCommandScope } from '../../../commands/useCommandScope';
 import { keyboardCommandBelongsToTarget } from '../../../commands/commandRegistry';
 import { COMMAND_IDS, COMMAND_SCOPES } from '../../../commands/types';
 import { matchesAppShortcut } from '../../../keyboard/shortcutRegistry';
+import { platform } from '../../../platform';
+import { isDesktopRuntime } from '../../../utils/environment';
 import {
   registerCanvasReadRequest,
   commitCanvasReadPlacement,
@@ -58,7 +60,7 @@ function PanelBody({ panel, isFocused }: PanelProps) {
   const closeTab = useCanvasStore((state) => state.closeTab);
   const reorderTab = useCanvasStore((state) => state.reorderTab);
   const focusPanel = useCanvasStore((state) => state.focusPanel);
-  const { dispatchCommand } = useCommandRegistry();
+  const { dispatchCommand, getDebugState } = useCommandRegistry();
   const documentScope = useCommandScope(COMMAND_SCOPES.canvasPanel, { enabled: isFocused });
 
   const [pendingCloseTab, setPendingCloseTab] = useState<Tab | null>(null);
@@ -426,13 +428,34 @@ function PanelBody({ panel, isFocused }: PanelProps) {
   const nextTab = useCallback(() => cycleTabs(1), [cycleTabs]);
   const previousTab = useCallback(() => cycleTabs(-1), [cycleTabs]);
   useCommandHandler(COMMAND_IDS.canvasNextTab, nextTab, {
-    active: isFocused,
     enabled: canCycleTabs,
   });
   useCommandHandler(COMMAND_IDS.canvasPreviousTab, previousTab, {
-    active: isFocused,
     enabled: canCycleTabs,
   });
+
+  useEffect(() => {
+    if (!isDesktopRuntime()) return;
+    return platform().on('window:frame-tab-navigation', ({ frameName, direction }) => {
+      const frame = document.activeElement;
+      if (
+        !(frame instanceof HTMLIFrameElement) ||
+        frame.name !== frameName ||
+        !panelRef.current?.contains(frame) ||
+        !presentation.owner.allowsFocus(presentation.id)
+      )
+        return;
+      const scopes = getDebugState().activeScopes;
+      if (scopes.includes(COMMAND_SCOPES.modal) || scopes.includes(COMMAND_SCOPES.menuContext))
+        return;
+      presentation.owner.dispatch({ type: 'focus', id: presentation.id });
+      focusPanel(panel.id);
+      dispatchCommand(direction === 1 ? COMMAND_IDS.canvasNextTab : COMMAND_IDS.canvasPreviousTab, {
+        source: 'electron-menu',
+        bypassBlockingScopes: [COMMAND_SCOPES.inputEditor],
+      });
+    });
+  }, [dispatchCommand, focusPanel, getDebugState, panel.id, presentation]);
 
   useEffect(() => {
     if (!isFocused) return;
