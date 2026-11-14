@@ -3,6 +3,14 @@ import { redactTelemetryText } from '../shared/redact-telemetry';
 const DEFAULT_CAP = 200;
 const MAX_LINE_CHARS = 500;
 const FLUSH_DELAY_MS = 2000;
+const OPAQUE_DOCUMENT_ID = /^(?:file-document:)?[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
+const CONTEXT_IDS = ['pageId', 'documentId', 'entityId', 'tabId', 'designId'] as const;
+const CONTEXT_VALUES: Readonly<Record<string, ReadonlySet<string>>> = {
+  operation: new Set(['autosave', 'manual', 'flush', 'save', 'save-all']),
+  phase: new Set(['autosave', 'manual', 'flush']),
+  kind: new Set(['page', 'sequence-document', 'file', 'tab']),
+  reason: new Set(['owner-not-unique', 'owner-returned-false']),
+};
 
 export interface BreadcrumbBuffer {
   push(line: string): void;
@@ -52,6 +60,30 @@ function safeStringify(value: unknown, seen = new Set<unknown>()): string {
   }
 }
 
+function safeContextTokens(value: unknown, prefix: '' | 'target.' = ''): string[] {
+  if (!value || typeof value !== 'object' || value instanceof Error || Array.isArray(value))
+    return [];
+  try {
+    const tokens: string[] = [];
+    for (const [key, allowed] of Object.entries(CONTEXT_VALUES)) {
+      const item = Object.getOwnPropertyDescriptor(value, key)?.value;
+      if (typeof item === 'string' && allowed.has(item)) tokens.push(`${prefix}${key}=${item}`);
+    }
+    for (const key of CONTEXT_IDS) {
+      const item = Object.getOwnPropertyDescriptor(value, key)?.value;
+      if (typeof item === 'string' && OPAQUE_DOCUMENT_ID.test(item))
+        tokens.push(`${prefix}${key}=${item}`);
+    }
+    if (!prefix)
+      tokens.push(
+        ...safeContextTokens(Object.getOwnPropertyDescriptor(value, 'target')?.value, 'target.')
+      );
+    return tokens;
+  } catch {
+    return [];
+  }
+}
+
 interface BreadcrumbBridge {
   sendBreadcrumbs?: (lines: string[]) => void;
 }
@@ -91,6 +123,7 @@ export function installBreadcrumbCapture(target: Window = window): () => void {
         const [first, ...rest] = args;
         const ordered = [
           first,
+          rest.flatMap((value) => safeContextTokens(value)).join(' '),
           ...rest.filter((value) => value instanceof Error),
           ...rest.filter((value) => !(value instanceof Error)),
         ];
