@@ -34,6 +34,8 @@ exercises; see the README's community-build limitations.
 
 1. In the Files sidebar, expand **DNAForge Samples → notebooks**.
 2. Open **01 — Programme charter — burden-aware three-input logic in E. coli**.
+   The first open may take tens of seconds while the app indexes its sample
+   project. Wait for the notebook editor before typing.
 3. Add a sentence to the notebook. Press **Cmd+S** on macOS or **Ctrl+S** on
    Windows/Linux.
 4. Wait until the notebook reports **Saved** and its unsaved-change dot clears.

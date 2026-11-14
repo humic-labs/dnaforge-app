@@ -190,9 +190,33 @@ try {
     notebookPath && !relativeNotebook.startsWith('..') && !path.isAbsolute(relativeNotebook),
     'Edit only the sample copy inside this check’s profile.'
   );
+  const sampleRoot = await samples.getAttribute('data-entry-path');
+  assert.ok(sampleRoot, 'The sample project must expose its mounted root.');
+  const firstOpenStarted = Date.now();
   await row.dblclick();
+  await page.evaluate(async (workspaceRoot) => {
+    const waitForIdle = window.__test?.waitForWorkspaceReconcileIdle;
+    if (typeof waitForIdle !== 'function')
+      throw new Error('The dev app must expose its workspace indexing readiness.');
+    let timer;
+    try {
+      await Promise.race([
+        waitForIdle(workspaceRoot),
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error('First-use sample indexing did not finish within 120 seconds.')),
+            120_000
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }, sampleRoot);
+  summary.firstOpen = { indexingReadyAfterMs: Date.now() - firstOpenStarted };
   const editor = page.getByTestId('notebook-editor-body').locator('[contenteditable="true"]');
   await expect(editor).toBeVisible({ timeout: 30_000 });
+  summary.firstOpen.editorReadyAfterMs = Date.now() - firstOpenStarted;
   await page.screenshot({ path: path.join(output, '01-notebook-before.png') });
   const metadata = JSON.parse(
     await readFile(path.join(notebookPath, '.forge', 'notebook.json'), 'utf8')
