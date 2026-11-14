@@ -7,6 +7,95 @@ import {
 
 function report(profile = 'portable-dense') {
   const generationKey = 'alignment-source-generation-1';
+  const annotationSourceIdentity = `assembly-annotation-source-sha256.v1:${'b'.repeat(64)}`;
+  const annotationSourceFingerprint = 'c'.repeat(24);
+  const artifactKey = 'assembly-annotation-artifact.v4|theme:light|track:mRNA';
+  const ownerKey = [
+    'annotation-scene-owner.v3',
+    annotationSourceFingerprint,
+    'd'.repeat(64),
+    artifactKey,
+  ].join('\n');
+  const annotation = (span: number) => ({
+    expectation: {
+      trackId: 'mRNA',
+      coverageStartBp: 0,
+      coverageEndBp: 600_000,
+      intervals: [{ id: 'NM_fixture.1', startBp: 60_000, endBp: 200_000 }],
+    },
+    admitted: {
+      readiness: 'ready',
+      datasetContract: {
+        datasetVersion: 'resolved-annotation-v4:structural-composite-kinds.v1',
+        sourceSha256: 'b'.repeat(64),
+      },
+      artifact: { artifactKey, trackType: 'mRNA' },
+    },
+    viewer: {
+      visibleTypes: ['mRNA'],
+      annotationAuthority: {
+        admittedSourceIdentity: annotationSourceIdentity,
+        stableSourceIdentity: annotationSourceIdentity,
+      },
+    },
+    policy: {
+      verdict: 'exactly-one',
+      instanceId: 'current-renderer',
+      renderer: {
+        supported: true,
+        genomeIdentity: annotationSourceIdentity,
+        viewportStartBp: 60_000,
+        viewportEndBp: 60_000 + span,
+        annotation: {
+          annotationPresentationOwnerViolations: [] as string[],
+          annotationPresentationLayerTypes: ['mRNA'],
+          annotationPresentationOwners: [
+            {
+              ownerId: 'prepacked-partitioned-vector-surface',
+              visible: true,
+              role: 'exact',
+              layerTypes: ['mRNA'],
+              coverageComplete: true,
+            },
+          ],
+        },
+      },
+    },
+    body: {
+      verdict: 'exactly-one',
+      instanceId: 'current-renderer',
+      bodyAuthority: {
+        contract: 'annotation-body-presentation-authority.v1',
+        commitEpoch: 1,
+        frameOwner: 'prepacked-vector',
+        generation: {
+          commitEpoch: 1,
+          generationId: 'current-annotation-generation',
+          productKind: 'prepacked-vector',
+          orderedVisibleTrackIds: ['mRNA'],
+          sourceFingerprint: annotationSourceFingerprint,
+          placementFingerprint: `ap1:${'e'.repeat(24)}`,
+          productFingerprints: [ownerKey],
+          policy: { isoformMode: 'canonical', laneLimit: 2 },
+        },
+      },
+    },
+    scene: {
+      verdict: 'exactly-one',
+      instanceId: 'current-renderer',
+      owner: {
+        ownerKey,
+        ownerGeneration: 1,
+        loaded: true,
+        status: 'eligible',
+        gpuPrepared: true,
+        submittedPartitionCount: 1,
+        submittedInstanceCount: 3,
+        metadata: { genomeIdentity: annotationSourceIdentity, artifactKey, trackType: 'mRNA' },
+        runtimePolicy: { isoformMode: 'canonical', laneLimit: 2 },
+      },
+    },
+  });
   const phase = (label: string, kind: string, span: number) => ({
     label,
     kind,
@@ -41,6 +130,7 @@ function report(profile = 'portable-dense') {
       },
       gutter: { trackId: 'pileup-current-source', phase: 'ready', visible: true },
     },
+    annotation: annotation(span),
     failures: [] as string[],
     cache: { bytes: 80 * 1024 * 1024, entries: 120 },
     cadence: {
@@ -143,6 +233,106 @@ describe('saved pileup performance qualification', () => {
     expect(result.status).toBe('pass');
     expect(result.qualifiedForFullGenome).toBe(true);
     expect(result.checks.every((entry: { status: string }) => entry.status === 'pass')).toBe(true);
+  });
+
+  it.each([
+    ['hidden mRNA', (r: Report) => (r.phases[1].annotation.viewer.visibleTypes = [])],
+    ['pending preparation', (r: Report) => (r.phases[1].annotation.admitted.readiness = 'pending')],
+    [
+      'old source contract',
+      (r: Report) =>
+        (r.phases[1].annotation.admitted.datasetContract.datasetVersion =
+          'resolved-annotation-v3:mapped-track-input.v1'),
+    ],
+    [
+      'stale renderer source',
+      (r: Report) => (r.phases[1].annotation.policy.renderer.genomeIdentity = 'old-source'),
+    ],
+    [
+      'stale scene source',
+      (r: Report) => (r.phases[1].annotation.scene.owner.metadata.genomeIdentity = 'old-source'),
+    ],
+    [
+      'stale body source',
+      (r: Report) =>
+        (r.phases[1].annotation.body.bodyAuthority.generation.sourceFingerprint = 'old-source'),
+    ],
+    [
+      'stale body product',
+      (r: Report) =>
+        (r.phases[1].annotation.body.bodyAuthority.generation.productFingerprints = [
+          'old-product',
+        ]),
+    ],
+    [
+      'stale body commit',
+      (r: Report) => (r.phases[1].annotation.body.bodyAuthority.generation.commitEpoch = 0),
+    ],
+    [
+      'stale annotation viewport',
+      (r: Report) => (r.phases[1].annotation.policy.renderer.viewportStartBp -= 1),
+    ],
+    [
+      'competing renderer',
+      (r: Report) => (r.phases[1].annotation.scene.instanceId = 'another-renderer'),
+    ],
+    [
+      'hidden body owner',
+      (r: Report) =>
+        (r.phases[1].annotation.policy.renderer.annotation.annotationPresentationOwners[0].visible = false),
+    ],
+    [
+      'incomplete body owner',
+      (r: Report) =>
+        (r.phases[1].annotation.policy.renderer.annotation.annotationPresentationOwners[0].coverageComplete = false),
+    ],
+    [
+      'blank geometry',
+      (r: Report) => (r.phases[1].annotation.scene.owner.submittedInstanceCount = 0),
+    ],
+    ['missing prepared scene', (r: Report) => (r.phases[1].annotation.scene.owner.loaded = false)],
+    [
+      'conflicting annotation owners',
+      (r: Report) =>
+        r.phases[1].annotation.policy.renderer.annotation.annotationPresentationOwnerViolations.push(
+          'competing-owners'
+        ),
+    ],
+  ] as const)('rejects fast reads with incorrect annotations: %s', (_name, mutate) => {
+    const input = report();
+    mutate(input);
+    const { result, found } = check(input, 'annotations');
+    expect(found.status).toBe('fail');
+    expect(result.status).toBe('fail');
+  });
+
+  it('cannot qualify missing annotation observations', () => {
+    const input = report();
+    Object.assign(input.phases[1], { annotation: undefined });
+    expect(check(input, 'annotations').found.status).toBe('unqualified');
+  });
+
+  it('cannot infer empty annotations outside the queried source coverage', () => {
+    const input = report();
+    input.phases[1].annotation.expectation.coverageEndBp = 70_000;
+    expect(check(input, 'annotations').found.status).toBe('unqualified');
+  });
+
+  it('cannot qualify a journey with no independently known positive annotation interval', () => {
+    const input = report();
+    input.phases.forEach((phase) => (phase.annotation.expectation.intervals = []));
+    expect(check(input, 'annotations').found.status).toBe('unqualified');
+  });
+
+  it('accepts a complete empty annotation interval when other measured phases prove genes', () => {
+    const input = report();
+    const annotation = input.phases[1].annotation;
+    annotation.expectation.intervals = [{ id: 'outside-window', startBp: 200_000, endBp: 210_000 }];
+    annotation.scene.owner.submittedInstanceCount = 0;
+    annotation.scene.owner.submittedPartitionCount = 0;
+    annotation.policy.renderer.annotation.annotationPresentationOwners[0].visible = false;
+    annotation.policy.renderer.annotation.annotationPresentationOwners[0].coverageComplete = false;
+    expect(check(input, 'annotations').found.status).toBe('pass');
   });
 
   it('accepts a complete physical blend with current coverage on both flanks', () => {
@@ -295,6 +485,15 @@ describe('saved pileup performance qualification', () => {
     const start = 1_809_290_000;
     const end = start + 26_612;
     const roundoff = ulps * 2 ** -22;
+    Object.assign(phase.annotation.policy.renderer, {
+      viewportStartBp: start + roundoff,
+      viewportEndBp: end,
+    });
+    phase.annotation.expectation.intervals = [{ id: 'NM_fixture.1', startBp: start, endBp: end }];
+    Object.assign(phase.annotation.expectation, {
+      coverageStartBp: start - 1,
+      coverageEndBp: end + 1,
+    });
     Object.assign(phase.viewport, { startBp: start, endBp: end });
     Object.assign(phase.presentation.lifecycle, {
       currentRange: { start, end: end + roundoff },

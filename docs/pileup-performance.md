@@ -5,11 +5,12 @@ and sidecar, then exercises a saved alignment view before stopping its own
 stack. The existing source-start CI job runs the same command.
 
 The journey generates a local, indexed BAM containing 120,000 synthetic 150-base
-reads at approximately 80-fold depth, plus a two-contig reference. It imports
-them through the production admission commands, saves through the dialog,
-reopens from Files, pans outside the loaded interval, crosses the read/coverage
-transition, and repeats an equivalent warmed interaction cycle. No downloaded
-human sequence or private service is needed.
+reads at approximately 80-fold depth, plus a two-contig reference with known
+mRNA, exon and coding-sequence annotations across the interaction intervals. It
+imports them through the production admission commands, saves through the
+dialog, reopens from Files, pans outside the loaded interval, crosses the
+read/coverage transition, and repeats an equivalent warmed interaction cycle. No
+downloaded human sequence or private service is needed.
 
 The command prints its evidence directory. Set `PILEUP_PERFORMANCE_OUTPUT` to
 choose a directory. Original JSON measurements and screenshots remain there,
@@ -23,7 +24,7 @@ starts before the file's double click.
 
 | Behavior                                                     | Limit                                                    |
 | ------------------------------------------------------------ | -------------------------------------------------------- |
-| Saved-view open and reopen                                   | 5,000 ms to complete, current reads                      |
+| Saved-view open and reopen                                   | 5,000 ms to complete, current reads and annotations      |
 | Pan or zoom settlement                                       | 1,000 ms after the last input                            |
 | Animation callback gap or main-thread long task during input | 50 ms                                                    |
 | Tile cache                                                   | 192 MiB and 512 entries                                  |
@@ -39,14 +40,21 @@ cover the complete visible interval, finish pending reads without errors or
 truncation, and show the appropriate read/coverage presentation. Settlement also
 requires the current source, request and viewport plan to acknowledge a
 presented read view, with the visible track gutter reporting ready. A complete
-mesh with a stale or still-loading presentation fails. Offscreen row work and
-resident halo tiles remain reported as background preparation; they do not delay
-completion of an already complete visible read view. Camera comparisons allow only
-floating-point roundoff, bounded by four binary64 representable steps and one
-millionth of a base. A fast blank, partially filled, or stale view fails. The
-journey checks readable rows near 26.6 kb and an actual blended presentation
-near 44 kb, rather than assuming those widths imply the correct presentation on
-every canvas.
+mesh with a stale or still-loading presentation fails. Annotation completion
+uses the active renderer's policy, body-authority and prepared-scene snapshots.
+The mRNA track must remain selected, match the admitted current annotation
+source and artifact, and commit the same source, product and policy in the body
+owner. Known positive source intervals must have one complete visible owner and
+nonzero submitted annotation geometry. A genuinely empty source interval can
+remain empty; at least one measured phase must independently prove a populated
+interval. Blank genes cannot qualify merely because reads are complete.
+Offscreen row work and resident halo tiles remain reported as background
+preparation; they do not delay completion of an already complete visible read
+view. Camera comparisons allow only floating-point roundoff, bounded by four
+binary64 representable steps and one millionth of a base. A fast blank,
+partially filled, or stale view fails. The journey checks readable rows near
+26.6 kb and an actual blended presentation near 44 kb, rather than assuming
+those widths imply the correct presentation on every canvas.
 
 ## Scope of the result
 
@@ -77,12 +85,22 @@ To qualify the full-genome profile, start a new app process, add
 `--profile full-genome --fixture /absolute/fixture.json`, and declare the actual
 display with `--native-refresh-hz 60` or `120`. The fixture JSON identifies
 `savedViewPath`, `workspaceRoot`, `bamPath`, `locusStart`, `readLengthBp`,
-`fixtureId`, and `coldScope: "process-cold-durable-cache-warm"`. The saved file
-must already be registered and visible in Files. The native adapter retains
+`fixtureId`, `coldScope: "process-cold-durable-cache-warm"`, and
+`annotationExpectation: {trackId: "mRNA", coverageStartBp, coverageEndBp, intervals: [{id, startBp, endBp}]}`.
+The annotation intervals and queried coverage use global zero-based, half-open
+coordinates. Every measured viewport must fit inside the independently queried
+coverage. The intervals come from the actual indexed reference source. Before
+timing, callers can use
+`readPileupAnnotationExpectation(chromosomes, locusStart)` from
+`apps/desktop/scripts/lib/pileup-performance-fixture.mjs`; it queries only the
+benchmark neighborhood through the existing local GFF index and records source
+file metadata. It performs no download or whole-genome scan. The saved file must
+already be registered and visible in Files. The native adapter retains
 compressed original Chromium traces and their surface classifications.
 
 The pure classifier's focused tests are
 `apps/desktop/src/features/sequence/pileup-performance.test.ts`. They include
 negative controls for slow, missing, stale, truncated and incompletely measured
-results. Changing a threshold requires a concrete product decision; do not
-adjust a limit merely to make a slow run pass.
+results, plus hidden, missing, stale, competing and blank annotation bodies.
+Changing a threshold requires a concrete product decision; do not adjust a limit
+merely to make a slow run pass.

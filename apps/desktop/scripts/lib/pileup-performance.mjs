@@ -282,6 +282,187 @@ function classifyPresentation(phases, generationKey) {
   return check;
 }
 
+export function classifyPileupAnnotation(annotation, viewport) {
+  const check = createCheck('annotation');
+  if (!object(annotation)) {
+    invalidate(check, 'annotation-observations-missing');
+    return check;
+  }
+  if (!object(viewport) || !bounds(viewport.startBp, viewport.endBp)) {
+    invalidate(check, 'annotation-viewport-missing');
+    return check;
+  }
+  const expectation = annotation.expectation;
+  if (
+    expectation?.trackId !== 'mRNA' ||
+    !Array.isArray(expectation.intervals) ||
+    expectation.intervals.some(
+      (interval) => !text(interval?.id) || !bounds(interval.startBp, interval.endBp)
+    )
+  ) {
+    invalidate(check, 'annotation-source-expectation-missing');
+    return check;
+  }
+  if (
+    !bounds(expectation.coverageStartBp, expectation.coverageEndBp) ||
+    expectation.coverageStartBp > viewport.startBp ||
+    expectation.coverageEndBp < viewport.endBp
+  ) {
+    invalidate(check, 'annotation-source-expectation-does-not-cover-viewport');
+    return check;
+  }
+  const expected = expectation.intervals.filter(
+    (interval) => interval.startBp < viewport?.endBp && interval.endBp > viewport?.startBp
+  );
+  check.metrics.expectedTranscriptCount = expected.length;
+  const admitted = annotation.admitted ?? {};
+  const sourceSha256 = admitted.datasetContract?.sourceSha256;
+  if (!text(sourceSha256) || !/^[a-f0-9]{64}$/u.test(sourceSha256))
+    invalidate(check, 'annotation-admitted-source-missing');
+  const sourceIdentity = text(sourceSha256)
+    ? `assembly-annotation-source-sha256.v1:${sourceSha256}`
+    : null;
+  if (admitted.readiness !== 'ready') fail(check, 'annotation-products-not-ready');
+  if (
+    admitted.datasetContract?.datasetVersion !==
+    'resolved-annotation-v4:structural-composite-kinds.v1'
+  )
+    fail(check, 'annotation-source-contract-stale');
+  if (!Array.isArray(annotation.viewer?.visibleTypes))
+    invalidate(check, 'annotation-visibility-missing');
+  else if (!annotation.viewer.visibleTypes.includes('mRNA')) fail(check, 'annotation-mRNA-hidden');
+  for (const field of ['admittedSourceIdentity', 'stableSourceIdentity']) {
+    if (!text(annotation.viewer?.annotationAuthority?.[field]))
+      invalidate(check, `annotation-${field}-missing`);
+    else if (annotation.viewer.annotationAuthority[field] !== sourceIdentity)
+      fail(check, `annotation-${field}-stale`);
+  }
+  const policy = annotation.policy;
+  for (const name of ['policy', 'body', 'scene']) {
+    const snapshot = annotation[name];
+    if (!object(snapshot) || !text(snapshot.instanceId))
+      invalidate(check, `annotation-${name}-snapshot-missing`);
+    else if (snapshot.verdict !== 'exactly-one' || snapshot.instanceId !== policy?.instanceId)
+      fail(check, `annotation-${name}-renderer-ambiguous-or-stale`);
+  }
+  const renderer = policy?.renderer;
+  if (!object(renderer) || renderer.supported !== true)
+    invalidate(check, 'annotation-renderer-snapshot-missing');
+  else {
+    if (renderer.genomeIdentity !== sourceIdentity) fail(check, 'annotation-renderer-source-stale');
+    if (
+      !pileupRangeMatchesViewport(
+        { start: renderer.viewportStartBp, end: renderer.viewportEndBp },
+        viewport
+      )
+    )
+      fail(check, 'annotation-viewport-stale');
+    const presentation = renderer.annotation;
+    if (!Array.isArray(presentation?.annotationPresentationOwnerViolations))
+      invalidate(check, 'annotation-owner-validation-missing');
+    else if (presentation.annotationPresentationOwnerViolations.length > 0)
+      fail(check, 'annotation-competing-owners');
+    if (!Array.isArray(presentation?.annotationPresentationOwners))
+      invalidate(check, 'annotation-presentation-owners-missing');
+    else if (expected.length > 0) {
+      const owners = presentation.annotationPresentationOwners.filter(
+        (owner) => owner.visible && owner.layerTypes?.includes('mRNA')
+      );
+      if (owners.length !== 1 || owners[0].role !== 'exact' || owners[0].coverageComplete !== true)
+        fail(check, 'annotation-visible-coverage-incomplete');
+    }
+  }
+  const owner = annotation.scene?.owner;
+  const body = annotation.body?.bodyAuthority;
+  const generation = body?.generation;
+  if (!object(owner) || !object(body) || !object(generation)) {
+    fail(check, 'annotation-current-body-or-scene-missing');
+    return check;
+  }
+  if (owner.loaded !== true || owner.gpuPrepared !== true || !positive(owner.ownerGeneration))
+    fail(check, 'annotation-scene-not-loaded');
+  if (owner.metadata?.genomeIdentity !== sourceIdentity)
+    fail(check, 'annotation-scene-source-stale');
+  if (
+    !text(admitted.artifact?.artifactKey) ||
+    !admitted.artifact.artifactKey.startsWith('assembly-annotation-artifact.v4|')
+  )
+    invalidate(check, 'annotation-admitted-artifact-missing');
+  else if (
+    owner.metadata?.artifactKey !== admitted.artifact.artifactKey ||
+    owner.metadata?.trackType !== 'mRNA'
+  )
+    fail(check, 'annotation-scene-artifact-stale');
+  const ownerParts = text(owner.ownerKey) ? owner.ownerKey.split('\n') : [];
+  if (
+    ownerParts.length !== 4 ||
+    ownerParts[0] !== 'annotation-scene-owner.v3' ||
+    !/^[a-f0-9]{24}$/u.test(ownerParts[1]) ||
+    !/^[a-f0-9]{64}$/u.test(ownerParts[2]) ||
+    ownerParts[3] !== owner.metadata?.artifactKey
+  )
+    invalidate(check, 'annotation-scene-product-identity-missing');
+  if (
+    body.contract !== 'annotation-body-presentation-authority.v1' ||
+    !text(generation.generationId) ||
+    !positive(body.commitEpoch)
+  )
+    invalidate(check, 'annotation-body-authority-missing');
+  if (generation.commitEpoch !== body.commitEpoch || generation.productKind !== body.frameOwner)
+    fail(check, 'annotation-body-generation-stale');
+  if (
+    body.frameOwner !== 'prepacked-vector' ||
+    !generation.orderedVisibleTrackIds?.includes('mRNA')
+  )
+    fail(check, 'annotation-current-vector-body-missing');
+  if (generation.sourceFingerprint !== ownerParts[1]) fail(check, 'annotation-body-source-stale');
+  if (
+    !Array.isArray(generation.productFingerprints) ||
+    !generation.productFingerprints.includes(owner.ownerKey)
+  )
+    fail(check, 'annotation-body-product-stale');
+  if (
+    generation.policy?.isoformMode !== owner.runtimePolicy?.isoformMode ||
+    generation.policy?.laneLimit !== owner.runtimePolicy?.laneLimit
+  )
+    fail(check, 'annotation-body-policy-stale');
+  if (!count(owner.submittedInstanceCount) || !count(owner.submittedPartitionCount))
+    invalidate(check, 'annotation-geometry-observation-missing');
+  else if (
+    expected.length > 0 &&
+    (owner.submittedInstanceCount === 0 ||
+      owner.submittedPartitionCount === 0 ||
+      owner.status !== 'eligible')
+  )
+    fail(check, 'annotation-populated-window-is-blank');
+  check.metrics = {
+    ...check.metrics,
+    sourceIdentity,
+    sourceFingerprint: generation.sourceFingerprint,
+    ownerKey: owner.ownerKey,
+    submittedInstanceCount: owner.submittedInstanceCount,
+  };
+  return check;
+}
+
+function classifyAnnotations(phases) {
+  const check = createCheck('annotations');
+  check.metrics.phases = [];
+  for (const phase of phases) {
+    const result = classifyPileupAnnotation(phase?.annotation, phase?.viewport);
+    for (const reason of result.failures) {
+      (result.status === 'fail' ? fail : invalidate)(
+        check,
+        `${text(phase?.label) ? phase.label : 'unknown-phase'}:${reason}`
+      );
+    }
+    check.metrics.phases.push({ label: phase?.label, ...result.metrics });
+  }
+  if (!check.metrics.phases.some((phase) => phase.expectedTranscriptCount > 0))
+    invalidate(check, 'known-positive-annotation-phase-missing');
+  return check;
+}
+
 function classifyLoading(phases) {
   const check = createCheck('loading');
   check.metrics.phases = [];
@@ -464,6 +645,7 @@ export function classifyPileupPerformance(input) {
     classifyJourney(phases, report.failures),
     classifyViewport(phases, report.source?.generationKey),
     classifyPresentation(phases, report.source?.generationKey),
+    classifyAnnotations(phases),
     classifyLoading(phases),
     classifyCadence(gestures),
     classifyNative(gestures, report.profile === 'full-genome'),

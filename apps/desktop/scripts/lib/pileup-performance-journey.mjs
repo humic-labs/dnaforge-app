@@ -5,7 +5,7 @@ import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { createDensePileupFixture } from './pileup-performance-fixture.mjs';
-import { pileupRangeMatchesViewport } from './pileup-performance.mjs';
+import { classifyPileupAnnotation, pileupRangeMatchesViewport } from './pileup-performance.mjs';
 
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 const viewer = (page) => page.getByTestId('indexed-genome-visible-viewer');
@@ -238,6 +238,32 @@ async function observation(page, lane, readLengthBp) {
             text: gutter.textContent,
           }
         : null;
+      const selectedTabId = document
+        .querySelector('[role="tab"][data-tab-id][aria-selected="true"]')
+        ?.getAttribute('data-tab-id');
+      const tab = Object.values(window.__test.getCanvasStore().panels)
+        .flatMap((panel) => panel.tabs)
+        .find((candidate) => candidate.id === selectedTabId);
+      const indexedGenome = tab?.indexedGenome;
+      const snapshot = (name) =>
+        typeof window[name] === 'function' ? window[name]() : (window[name] ?? null);
+      const annotation = {
+        admitted: {
+          readiness: document
+            .querySelector('[data-testid="indexed-genome-tab"]')
+            ?.getAttribute('data-session-assembly-annotation-products-readiness'),
+          datasetContract: indexedGenome?.assemblySearchSource?.datasetContract ?? null,
+          artifact: indexedGenome?.assemblySearchSource?.artifact ?? null,
+          assetGeneration: indexedGenome?.assemblyAssetGeneration ?? null,
+        },
+        viewer: {
+          visibleTypes: window.__indexedGenomeViewerDebug?.visibleTypes ?? null,
+          annotationAuthority: window.__indexedGenomeViewerDebug?.annotationAuthority ?? null,
+        },
+        policy: snapshot('__webglAnnotationPolicyReadinessSnapshot'),
+        body: snapshot('__webglAnnotationBodyPresentationAuthoritySnapshot'),
+        scene: snapshot('__webglPrepackedAnnotationSceneOwnerSnapshot'),
+      };
       const checks = {
         sourceComplete: diagnostic.readSourceWindowCoversViewport === true,
         meshComplete: diagnostic.rowsMeshViewportCoverageFraction >= 0.999,
@@ -292,6 +318,7 @@ async function observation(page, lane, readLengthBp) {
         },
         checks,
         presentation: { trackId: lane.trackId, lifecycle, gutter: gutterObservation },
+        annotation,
         preparation: {
           rowsAssignmentBuilding: diagnostic.rowsAssignmentBuildInProgress,
           rowsMeshBuilding: diagnostic.rowsMeshBuildInProgress,
@@ -319,9 +346,13 @@ async function observation(page, lane, readLengthBp) {
         ],
       };
     },
-    { lane, readLengthBp }
+    { lane: { trackId: lane.trackId, generationKey: lane.generationKey }, readLengthBp }
   );
   if (!result) return null;
+  result.annotation.expectation = lane.annotationExpectation ?? null;
+  const annotations = classifyPileupAnnotation(result.annotation, result.viewport);
+  result.checks.annotationsCurrent = annotations.status === 'pass';
+  result.annotation.failures = annotations.failures;
   const lifecycle = result.presentation.lifecycle;
   result.checks.lifecycleCurrentRange = pileupRangeMatchesViewport(
     lifecycle?.currentRange,
@@ -534,6 +565,11 @@ async function admitPortable(page, fixture) {
     'BAM admission created no visible lane'
   );
   assert.ok(lane.generationKey, 'The admitted BAM has no current source generation.');
+  lane.annotationExpectation = fixture.annotationExpectation;
+  await page.getByTestId('annotation-type-picker-summary').click();
+  await page.getByTestId('annotation-type-preset-none').click();
+  await page.getByTestId('annotation-type-mRNA').click();
+  await page.keyboard.press('Escape');
   await frame(page, fixture.locusStart, 4000, lane);
   const failures = [];
   await complete(page, lane, fixture.readLengthBp, performance.now(), failures);
@@ -769,8 +805,12 @@ export async function runPileupPerformanceJourney({
     preparing = false;
     scope = 'between-phases';
     assert.ok(
-      fixture.workspaceRoot && fixture.bamPath && Number.isFinite(fixture.locusStart),
-      'The saved fixture needs workspaceRoot, bamPath and locusStart.'
+      fixture.workspaceRoot &&
+        fixture.bamPath &&
+        Number.isFinite(fixture.locusStart) &&
+        fixture.annotationExpectation?.trackId === 'mRNA' &&
+        Array.isArray(fixture.annotationExpectation.intervals),
+      'The saved fixture needs workspaceRoot, bamPath, locusStart and independently known annotationExpectation intervals.'
     );
     report.source = {
       ...identity,
@@ -838,6 +878,7 @@ export async function runPileupPerformanceJourney({
         10_000,
         'The reopened BAM lane is absent'
       );
+      lane.annotationExpectation = fixture.annotationExpectation;
       mark('lane-ready');
       const failures = [];
       const state = await complete(page, lane, fixture.readLengthBp, started, failures, {
@@ -988,6 +1029,7 @@ export async function runPileupPerformanceJourney({
         phase.evidence = {
           stage: 'post-measurement-replay',
           viewport: state.viewport,
+          annotation: state.annotation,
           visibleFlanks: await visibleFlanks(page, lane, state.viewport),
           screenshot: `${phase.label}.png`,
         };
