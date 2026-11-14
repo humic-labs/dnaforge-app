@@ -40,14 +40,14 @@ describe('commandRegistry', () => {
     });
   });
 
-  it('shares terminal and exact nested shortcut ownership with deferred pane commands', () => {
+  it('reserves terminal keys while routing pane navigation through terminal controls', () => {
     const terminal = document.createElement('div');
     terminal.dataset.terminalSurface = '';
     const button = document.createElement('button');
     terminal.append(button);
     const event = keydown({ key: 'Tab', ctrlKey: true });
     button.dispatchEvent(event);
-    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasNextTab)).toBe(true);
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasNextTab)).toBe(false);
     expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasNextTab, true)).toBe(false);
     expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasPreviousTab, true)).toBe(false);
     expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.fileSave, true)).toBe(true);
@@ -56,6 +56,22 @@ describe('commandRegistry', () => {
     terminal.dataset.commandShortcutOwner = COMMAND_IDS.canvasNextTab;
     expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasNextTab)).toBe(true);
     expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasPreviousTab)).toBe(false);
+  });
+
+  it('allows pane navigation from terminal text entry while retaining ordinary editable ownership', () => {
+    const terminal = document.createElement('div');
+    terminal.dataset.terminalSurface = '';
+    const input = document.createElement('textarea');
+    terminal.append(input);
+    const event = keydown({ key: 'Tab', ctrlKey: true });
+    input.dispatchEvent(event);
+
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasNextTab)).toBe(false);
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasPreviousTab)).toBe(false);
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.fileSave, true)).toBe(true);
+    terminal.removeAttribute('data-terminal-surface');
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasNextTab)).toBe(true);
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasNextTab, true)).toBe(false);
   });
 
   it('preserves the established editable exception for bindings that explicitly allow input', () => {
