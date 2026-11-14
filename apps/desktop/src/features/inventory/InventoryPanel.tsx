@@ -9,6 +9,10 @@ import {
 import {
   inventoryStackItems,
   inventoryStoragePositions,
+  type InventoryComposition,
+  type InventoryContribution,
+  type InventoryLot,
+  type InventorySourceIdentity,
   type InventoryStock,
 } from '@waypoint/domain-services';
 import { Button, Notice, Select, TextField } from '../../components/ui';
@@ -23,9 +27,11 @@ import {
 } from './inventory-controller';
 import { InventoryMaterialForm, isInventoryMaterialDialog } from './InventoryMaterialForm';
 import { InventoryForm } from './InventoryForm';
+import { InventoryCompositionForm } from './InventoryCompositionForm';
 import { InventoryStatusNotice } from './InventoryStatusNotice';
 import {
   historyLabel,
+  inventoryConcentrationLabel,
   inventoryOccupant,
   locationPath,
   stockInSelection,
@@ -60,6 +66,41 @@ function quantityLabel(stock: InventoryStock): string {
     : `${stock.quantity.value} ${stock.quantity.unit === 'uL' ? 'µL' : stock.quantity.unit}`;
 }
 
+function compositionValues(
+  composition: InventoryComposition,
+  names: Readonly<Record<string, string>>
+) {
+  if (composition.kind === 'unknown') return <p>Unknown composition</p>;
+  const analytes = Object.entries(composition.analytes);
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-fg-muted">Homogeneous</p>
+      {analytes.length ? (
+        <ul className="space-y-2">
+          {analytes.map(([id, concentration]) => (
+            <li key={id} data-analyte-id={id} className="break-words">
+              <span className="block text-xs text-fg-muted">{names[id] ?? id}</span>
+              <span className="tabular-nums">{inventoryConcentrationLabel(concentration)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-fg-muted">No analyte measurements recorded.</p>
+      )}
+      <p className="text-xs text-fg-muted">Unlisted analytes are unmeasured.</p>
+    </div>
+  );
+}
+
+function lotInputs(
+  lot: InventoryLot | undefined
+): readonly (InventorySourceIdentity | InventoryContribution)[] {
+  if (!lot || lot.origin.kind === 'received') return [];
+  return lot.origin.kind === 'diluted'
+    ? [lot.origin.sample, lot.origin.diluent]
+    : lot.origin.inputs;
+}
+
 export function InventoryPanel() {
   const controller = useMemo(sharedController, []);
   const { projects, status, projectsError } = useSyncExternalStore(
@@ -84,6 +125,11 @@ export function InventoryPanel() {
   const editable = inventoryCanEdit(status);
   const selectedStock = state && drawer.kind === 'stock' ? state.stocks[drawer.stockId] : undefined;
   const selectedVessel = state && selectedStock ? state.vessels[selectedStock.vesselId] : undefined;
+  const selectedLot =
+    state && selectedStock?.source.kind === 'lot'
+      ? state.lots[selectedStock.source.lotId]
+      : undefined;
+  const selectedInputs = lotInputs(selectedLot);
   const title =
     selectedLocation?.name ??
     (selection.kind === 'unplaced'
@@ -108,17 +154,22 @@ export function InventoryPanel() {
       })
     : [];
   const visibleStocks = stocks.slice(0, shown);
-  const labelKey = visibleStocks
-    .map((stock) => stock.materialId)
-    .sort()
-    .join('\n');
+  const labelIds = [
+    ...visibleStocks.map((stock) => stock.materialId),
+    ...(selectedStock?.composition.kind === 'homogeneous'
+      ? Object.keys(selectedStock.composition.analytes)
+      : []),
+    ...selectedInputs.flatMap((input) => [
+      input.materialId,
+      ...(input.composition.kind === 'homogeneous' ? Object.keys(input.composition.analytes) : []),
+    ]),
+  ];
+  const labelKey = [...new Set(labelIds)].sort().join('\n');
 
   useEffect(() => {
     if (!data) return;
     let cancelled = false;
-    const ids = [...new Set(visibleStocks.map((stock) => stock.materialId))].filter(
-      (id) => !names.current[id]
-    );
+    const ids = [...new Set(labelIds)].filter((id) => !names.current[id]);
     void (async () => {
       for (let offset = 0; offset < ids.length && !cancelled; offset += 4) {
         await Promise.all(
@@ -287,6 +338,18 @@ export function InventoryPanel() {
                     {reason}
                   </p>
                 ))}
+              {entry.request.commands.flatMap((command) => {
+                const lotId =
+                  command.kind === 'create-lot'
+                    ? command.id
+                    : command.kind === 'pool' || command.kind === 'dilute'
+                      ? command.lotId
+                      : undefined;
+                const lot = lotId && state?.lots[lotId];
+                return lot && lotInputs(lot).length
+                  ? [<div key={lot.id}>{renderContributions(lot)}</div>]
+                  : [];
+              })}
               <p className="text-xs text-fg-subtle">
                 {new Date(entry.receipt.recordedAt).toLocaleString()}
               </p>
@@ -300,6 +363,33 @@ export function InventoryPanel() {
         ) : null}
       </div>
     );
+  }
+
+  function renderContributions(lot: InventoryLot) {
+    const inputs = lotInputs(lot);
+    return inputs.length ? (
+      <div data-lot-id={lot.id} className="space-y-3">
+        <p className="text-xs text-fg-muted">Composition recorded at contribution</p>
+        {inputs.map((input, index) => (
+          <div
+            key={`${input.stockId}:${index}`}
+            data-source-stock-id={input.stockId}
+            className="space-y-2 rounded border border-border p-3 text-xs"
+          >
+            <p className="break-words font-medium">
+              {materialNames[input.materialId] ?? input.materialId}
+            </p>
+            <p className="break-words text-fg-muted">
+              {input.source.kind === 'lot'
+                ? (state?.lots[input.source.lotId]?.name ?? input.source.lotId)
+                : 'Unattributed'}
+              {'quantity' in input ? ` · ${input.quantity.value} µL` : ''}
+            </p>
+            {compositionValues(input.composition, materialNames)}
+          </div>
+        ))}
+      </div>
+    ) : null;
   }
 
   return (
@@ -778,6 +868,20 @@ export function InventoryPanel() {
                           </dd>
                         </div>
                         <div>
+                          <dt className="text-xs text-fg-muted">Composition</dt>
+                          <dd className="mt-2" data-testid="inventory-stock-composition">
+                            {compositionValues(selectedStock.composition, materialNames)}
+                          </dd>
+                        </div>
+                        {selectedLot && selectedInputs.length ? (
+                          <div>
+                            <dt className="text-xs text-fg-muted">Lot contributions</dt>
+                            <dd className="mt-2" data-testid="inventory-lot-contributions">
+                              {renderContributions(selectedLot)}
+                            </dd>
+                          </div>
+                        ) : null}
+                        <div>
                           <dt className="text-xs text-fg-muted">Container limits</dt>
                           <dd className="mt-1">
                             Capacity{' '}
@@ -804,6 +908,14 @@ export function InventoryPanel() {
                       {selectedVessel.lifecycle === 'active' ? (
                         <>
                           <div className="flex flex-wrap gap-2">
+                            <Button
+                              disabled={!editable}
+                              onClick={() =>
+                                setDialog({ kind: 'composition', stockId: selectedStock.id })
+                              }
+                            >
+                              Record composition
+                            </Button>
                             <Button
                               disabled={!editable}
                               onClick={() =>
@@ -943,7 +1055,19 @@ export function InventoryPanel() {
         </div>
       )}
       {dialog.kind !== 'none' && data ? (
-        isInventoryMaterialDialog(dialog) ? (
+        dialog.kind === 'composition' ? (
+          <InventoryCompositionForm
+            key={`${data.project.projectId}:${dialog.stockId}`}
+            dialog={dialog}
+            data={data}
+            status={status}
+            controller={controller}
+            client={platform().inventory}
+            materialNames={materialNames}
+            onMaterial={(id, name) => setMaterialNames((current) => ({ ...current, [id]: name }))}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : isInventoryMaterialDialog(dialog) ? (
           <InventoryMaterialForm
             key={`${data.project.projectId}:${dialog.kind}:${'stockId' in dialog ? dialog.stockId : ''}`}
             dialog={dialog}

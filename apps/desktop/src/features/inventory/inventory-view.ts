@@ -1,8 +1,11 @@
 import type { InventoryMaterialDialog } from './InventoryMaterialForm';
+import type { InventoryCompositionDialog } from './InventoryCompositionForm';
 import {
   inventoryStoragePositions,
   inventoryStackItems,
   type InventoryCommand,
+  type InventoryConcentration,
+  type InventoryConcentrationUnit,
   type InventoryLocatedPlacement,
   type InventoryState,
   type InventoryStorage,
@@ -19,6 +22,7 @@ export type InventoryItem = { kind: 'storage' | 'vessel'; id: string };
 
 export type InventoryDialog =
   | InventoryMaterialDialog
+  | InventoryCompositionDialog
   | { kind: 'none' }
   | { kind: 'location'; parentId?: string }
   | { kind: 'receive'; placement?: InventoryLocatedPlacement; vesselId?: string }
@@ -27,6 +31,25 @@ export type InventoryDialog =
   | { kind: 'reconcile'; stockId: string }
   | { kind: 'quality'; stockId: string; quality: 'usable' | 'quarantined' }
   | { kind: 'dispose'; item: InventoryItem };
+
+export function inventoryConcentrationUnitLabel(unit: InventoryConcentrationUnit): string {
+  return unit.replace('ug', 'µg').replace('uL', 'µL').replace('uM', 'µM');
+}
+
+export function inventoryConcentrationLabel(concentration: InventoryConcentration): string {
+  if (concentration.kind === 'unknown') {
+    return concentration.reason === 'missing-input'
+      ? 'Unknown · missing input measurement'
+      : concentration.reason === 'incompatible-units'
+        ? 'Unknown · incompatible measurement units'
+        : 'Unmeasured';
+  }
+  const amount =
+    concentration.denominator === '1'
+      ? concentration.numerator
+      : `${concentration.numerator}/${concentration.denominator}`;
+  return `${amount} ${inventoryConcentrationUnitLabel(concentration.unit)}`;
+}
 
 export function inventoryOccupant(
   state: InventoryState,
@@ -127,6 +150,10 @@ export function historyLabel(command: InventoryCommand, state: InventoryState): 
       return `Attributed stock to ${state.lots[command.lotId]?.name ?? command.lotId}`;
     case 'set-vessel-limits':
       return `Recorded container limits for ${state.vessels[command.vesselId]?.name ?? command.vesselId}`;
+    case 'record-composition':
+      return command.composition.kind === 'unknown'
+        ? 'Marked composition unknown'
+        : 'Recorded homogeneous composition';
     case 'transfer':
       return `Transferred ${command.quantity.value} ${command.quantity.unit === 'uL' ? 'µL' : command.quantity.unit}`;
     case 'pool':

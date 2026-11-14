@@ -1,4 +1,19 @@
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v3' as const;
+import type {
+  InventoryComposition,
+  InventoryConcentration,
+  InventoryConcentrationUnit,
+} from './inventory-concentration';
+
+export type {
+  InventoryComposition,
+  InventoryConcentration,
+  InventoryConcentrationUnit,
+  InventoryCanonicalConcentrationUnit,
+  InventoryRational,
+} from './inventory-concentration';
+
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v4' as const;
+export const INVENTORY_MATERIAL_SCHEMA = 'dnaforge.inventory.v3' as const;
 export const INVENTORY_LAYOUT_SCHEMA = 'dnaforge.inventory.v2' as const;
 export const INVENTORY_DECIMAL_PATTERN = '^(?:0|[1-9]\\d*)(?:\\.\\d+)?$';
 export const LEGACY_INVENTORY_SCHEMA = 'dnaforge.inventory.v1' as const;
@@ -8,6 +23,21 @@ export const MAX_INVENTORY_STORAGE_SLOTS = 10_000;
 
 export type InventoryVolumeUnit = (typeof INVENTORY_VOLUME_UNITS)[number];
 export type InventoryQuality = 'usable' | 'quarantined';
+export type InventoryMixing = 'unknown' | 'homogeneous';
+export type InventoryConcentrationInput =
+  | InventoryConcentration
+  | { readonly kind: 'unknown' }
+  | {
+      readonly kind: 'known';
+      readonly value: string;
+      readonly unit: InventoryConcentrationUnit;
+    };
+export type InventoryCompositionInput =
+  | { readonly kind: 'unknown' }
+  | {
+      readonly kind: 'homogeneous';
+      readonly analytes: Readonly<Record<string, InventoryConcentrationInput>>;
+    };
 
 export interface InventoryVolume {
   readonly value: string;
@@ -70,6 +100,7 @@ export interface InventorySourceIdentity {
   readonly stockId: string;
   readonly materialId: string;
   readonly source: InventoryStockSource;
+  readonly composition: InventoryComposition;
 }
 
 export interface InventoryContribution extends InventorySourceIdentity {
@@ -104,6 +135,7 @@ export interface InventoryStock {
   readonly materialId: string;
   readonly quantity: InventoryQuantity;
   readonly quality: InventoryQuality;
+  readonly composition: InventoryComposition;
 }
 
 export interface InventoryState {
@@ -118,6 +150,39 @@ export interface InventoryState {
 export interface InventoryWithdrawal {
   readonly stockId: string;
   readonly quantity: InventoryVolume;
+}
+
+export interface InventoryLegacyTransferCommand {
+  readonly kind: 'transfer';
+  readonly sourceStockId: string;
+  readonly quantity: InventoryVolume;
+  readonly destination:
+    | { readonly kind: 'new-stock'; readonly stockId: string; readonly vesselId: string }
+    | { readonly kind: 'existing-stock'; readonly stockId: string };
+  readonly reason: string;
+}
+
+export interface InventoryLegacyPoolCommand {
+  readonly kind: 'pool';
+  readonly lotId: string;
+  readonly stockId: string;
+  readonly vesselId: string;
+  readonly materialId: string;
+  readonly name: string;
+  readonly inputs: readonly InventoryWithdrawal[];
+  readonly reason: string;
+}
+
+export interface InventoryLegacyDiluteCommand {
+  readonly kind: 'dilute';
+  readonly lotId: string;
+  readonly stockId: string;
+  readonly vesselId: string;
+  readonly materialId: string;
+  readonly name: string;
+  readonly sample: InventoryWithdrawal;
+  readonly diluent: InventoryWithdrawal;
+  readonly reason: string;
 }
 
 export type InventoryMaterialCommand =
@@ -155,35 +220,20 @@ export type InventoryMaterialCommand =
       readonly reason: string;
     }
   | {
-      readonly kind: 'transfer';
-      readonly sourceStockId: string;
-      readonly quantity: InventoryVolume;
-      readonly destination:
-        | { readonly kind: 'new-stock'; readonly stockId: string; readonly vesselId: string }
-        | { readonly kind: 'existing-stock'; readonly stockId: string };
+      readonly kind: 'record-composition';
+      readonly stockId: string;
+      readonly composition: InventoryCompositionInput;
       readonly reason: string;
     }
-  | {
-      readonly kind: 'pool';
-      readonly lotId: string;
-      readonly stockId: string;
-      readonly vesselId: string;
-      readonly materialId: string;
-      readonly name: string;
-      readonly inputs: readonly InventoryWithdrawal[];
-      readonly reason: string;
-    }
-  | {
-      readonly kind: 'dilute';
-      readonly lotId: string;
-      readonly stockId: string;
-      readonly vesselId: string;
-      readonly materialId: string;
-      readonly name: string;
-      readonly sample: InventoryWithdrawal;
-      readonly diluent: InventoryWithdrawal;
-      readonly reason: string;
-    };
+  | InventoryLegacyTransferCommand
+  | (Omit<InventoryLegacyTransferCommand, 'destination'> & {
+      readonly destination: { readonly kind: 'existing-stock'; readonly stockId: string };
+      readonly mixing: InventoryMixing;
+    })
+  | InventoryLegacyPoolCommand
+  | (InventoryLegacyPoolCommand & { readonly mixing: InventoryMixing })
+  | InventoryLegacyDiluteCommand
+  | (InventoryLegacyDiluteCommand & { readonly mixing: InventoryMixing });
 
 export type InventoryCommand =
   | InventoryMaterialCommand
@@ -207,7 +257,7 @@ export type InventoryCommand =
       readonly name: string;
       readonly placement: InventoryVesselPlacement;
     }
-  | ({ readonly kind: 'receive-stock' } & Omit<InventoryStock, 'source'>)
+  | ({ readonly kind: 'receive-stock' } & Omit<InventoryStock, 'source' | 'composition'>)
   | {
       readonly kind: 'move-storage';
       readonly id: string;

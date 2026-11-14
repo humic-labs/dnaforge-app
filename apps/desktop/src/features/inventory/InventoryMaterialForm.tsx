@@ -84,6 +84,7 @@ export function InventoryMaterialForm({
     readonly { id: string; stockId: string; amount: string }[]
   >([]);
   const [destinationKind, setDestinationKind] = useState<'empty' | 'existing'>('empty');
+  const [mixing, setMixing] = useState<'unknown' | 'homogeneous'>('unknown');
   const [destinationId, setDestinationId] = useState('new');
   const [containerName, setContainerName] = useState('');
   const [reason, setReason] = useState('');
@@ -212,6 +213,7 @@ export function InventoryMaterialForm({
           sourceStockId: dialog.stockId,
           quantity: { value: amount, unit: 'uL' },
           destination: target,
+          ...(destinationKind === 'existing' ? { mixing } : {}),
           reason: reason.trim(),
         });
       } else {
@@ -224,6 +226,7 @@ export function InventoryMaterialForm({
           materialId,
           name: name.trim(),
           reason: reason.trim(),
+          mixing,
         };
         const first = { stockId: dialog.stockId, quantity: { value: amount, unit: 'uL' as const } };
         const second = {
@@ -597,9 +600,31 @@ export function InventoryMaterialForm({
                       {emptyDestination}
                       <Notice>
                         All contributions are withdrawn together. Their identities and exact volumes
-                        are retained in the output batch. Concentration is not calculated here.
+                        are retained with their measured composition in the output batch.
                       </Notice>
                     </>
+                  )}
+                  {dialog.kind !== 'transfer' || destinationKind === 'existing' ? (
+                    <>
+                      <Field label="Result mixing">
+                        <Select
+                          ariaLabel="Result mixing"
+                          value={mixing}
+                          options={[
+                            { value: 'unknown', label: 'Unknown' },
+                            { value: 'homogeneous', label: 'Homogeneous' },
+                          ]}
+                          onValueChange={(value) => setMixing(value as 'unknown' | 'homogeneous')}
+                        />
+                      </Field>
+                      <Notice>
+                        {mixing === 'homogeneous'
+                          ? 'Record homogeneous only when the contents are evenly mixed. An analyte needs a measurement in every input to calculate its concentration. Record an explicit zero when it is absent.'
+                          : 'The resulting composition will remain unknown. Choose homogeneous only when the contents are evenly mixed.'}
+                      </Notice>
+                    </>
+                  ) : (
+                    <Notice>The new aliquot inherits the source’s recorded composition.</Notice>
                   )}
                 </>
               )}

@@ -77,6 +77,7 @@ describe('physical inventory command transitions', () => {
       materialId: 'material-1',
       quantity: { kind: 'known', value: '100', unit: 'uL' },
       quality: 'usable',
+      composition: { kind: 'unknown' },
     });
     expect(parseInventoryState(JSON.parse(JSON.stringify(state)))).toEqual(state);
   });

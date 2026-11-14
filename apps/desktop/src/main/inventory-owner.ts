@@ -313,23 +313,30 @@ export function createNativeInventoryOwner(options: {
                 : command.kind === 'receive-lot-stock' || command.kind === 'associate-stock-lot'
                   ? lotMaterials.get(command.lotId)
                   : undefined;
-            if (!materialId) continue;
-            const entity = db
-              .prepare(
-                `SELECT id,fields FROM lims_entity
+            const materialIds =
+              command.kind === 'record-composition' && command.composition.kind === 'homogeneous'
+                ? Object.keys(command.composition.analytes)
+                : materialId
+                  ? [materialId]
+                  : [];
+            for (const materialId of materialIds) {
+              const entity = db
+                .prepare(
+                  `SELECT id,fields FROM lims_entity
                WHERE id = ? AND tombstone = 0 AND archived_at IS NULL
                AND (${registrySourceEligibilitySql(db)})`
-              )
-              .get(materialId) as { id: string; fields: string } | undefined;
-            if (!entity || materialProject(db, entity.id, entity.fields) !== project.id)
-              return {
-                status: 'rejected',
-                inventoryId: request.inventoryId,
-                operationId: request.operationId,
-                code: 'INVENTORY_MATERIAL_UNAVAILABLE',
-                message: 'Choose an active scientific record in this inventory project.',
-                currentRevision: previous.revision,
-              };
+                )
+                .get(materialId) as { id: string; fields: string } | undefined;
+              if (!entity || materialProject(db, entity.id, entity.fields) !== project.id)
+                return {
+                  status: 'rejected',
+                  inventoryId: request.inventoryId,
+                  operationId: request.operationId,
+                  code: 'INVENTORY_MATERIAL_UNAVAILABLE',
+                  message: 'Choose an active scientific record in this inventory project.',
+                  currentRevision: previous.revision,
+                };
+            }
           }
           const result = applyInventoryCommandBatch(previous, {
             expectedRevision: request.expectedRevision,

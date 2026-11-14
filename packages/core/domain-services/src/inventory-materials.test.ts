@@ -158,6 +158,7 @@ describe('explicit material lineage and conserved volumes', () => {
           stockId: 'stock-a',
           materialId: 'dna',
           source: { kind: 'unattributed', rootStockId: 'stock-a' },
+          composition: { kind: 'unknown' },
         },
       ],
     });
@@ -351,7 +352,14 @@ describe('explicit material lineage and conserved volumes', () => {
       raw.lots[id].origin = {
         kind: 'prepared',
         method: 'Recorded process',
-        inputs: [{ stockId: 'stock-a', materialId: 'dna', source: { kind: 'lot', lotId: parent } }],
+        inputs: [
+          {
+            stockId: 'stock-a',
+            materialId: 'dna',
+            source: { kind: 'lot', lotId: parent },
+            composition: { kind: 'unknown' },
+          },
+        ],
       };
     expect(() => parseInventoryState(raw)).toThrow(/cycle/);
   });

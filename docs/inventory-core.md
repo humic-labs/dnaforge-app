@@ -9,15 +9,15 @@ The browser-safe domain owner is
 `packages/core/domain-services/src/inventory.ts`. The native SQLite owner is
 `apps/desktop/src/main/inventory-owner.ts`. Request parsing lives in
 `apps/desktop/src/shared/inventory-command.ts`; the authenticated native command
-server invokes the same owner that later interfaces can consume.
+server and desktop IPC invoke the same inventory owner.
 
 The Inventory workspace and authenticated agent tool consume this same owner.
 Layouts distinguish named positions, grids, removable-tube boxes, permanent-well
 plates and ordered stacks. This version supports one stock per vessel and exact
 volume accounting. Lots, internal preparations, exact-volume transfers, pooling,
-tracked dilution and known container limits use the same command owner. Team
-synchronization, concentration/mixture calculations and physical equipment
-qualification remain separate work.
+tracked dilution, exact concentration facts and known container limits use the
+same command owner. Team synchronization and physical equipment qualification
+remain separate work.
 
 Permanent wells have stable identity and remain attached to their plate. A plate
 moves with all its wells. Whole-plate disposal retains historical stock and
@@ -26,10 +26,11 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v3. Reading v1 upcasts named layouts and movable vessels;
-v1/v2 stocks receive distinct unattributed roots and unknown container limits.
-Reads do not write or increment revision. Historical command shapes and request
-digests stay unchanged for retry and replay.
+Canonical state is v4. v1/v2/v3 composition facts upcast to explicit unknown
+values. Reading v1 upcasts named layouts and movable vessels; v1/v2 stocks
+receive distinct unattributed roots and unknown container limits. Reads do not
+write or increment revision. Historical command shapes and request digests stay
+unchanged for retry and replay.
 
 ## Independent states
 
@@ -103,8 +104,24 @@ source debit, output credit and lineage record commits in one revision.
 Known capacity limits additions and measured quantities. Known dead volume
 limits withdrawals. Unknown limits remain explicit. Reconciliation records a
 measurement; it does not invent a transfer. Quantities use exact decimal
-arithmetic, including mixed units. Concentration is not inferred from lot names,
-volume ratios or the word “diluent.”
+arithmetic, including mixed units. Composition distinguishes unknown from
+homogeneous with explicit analyte facts. Known concentration is an exact reduced
+rational in canonical mass/volume or amount/volume units. Compatible decimal
+input units normalize exactly; mass and molar quantities are not converted
+without molecular weight. Unlisted analytes are unmeasured, not zero.
+
+Pool, dilution and transfer into existing stock require an explicit output
+mixing choice before calculating weighted concentrations. Legacy request shapes
+without mixing remain unchanged and produce unknown mixed composition. A new
+aliquot inherits its source. Missing input measurements or incompatible units
+remain explicit unknown results. Contribution snapshots deep-copy the facts used
+at commitment. Later measurements do not rewrite them.
+
+Measurement input accepts decimal values and strict canonical facts. This lets
+an edit preserve an existing one-third concentration and unknown reason while
+changing another analyte. Internal arithmetic supports bounded input sets;
+canonical stored results have explicit size limits. Final results do not depend
+on contribution order.
 
 ## Atomic commands and receipts
 
@@ -161,10 +178,18 @@ identity and registered project scope:
 
 | Command               | Request and result                                                                          |
 | --------------------- | ------------------------------------------------------------------------------------------- |
+| `inventory.projects`  | List admitted projects and stable default inventory identities.                             |
+| `inventory.materials` | Search eligible scientific material in one admitted project.                                |
 | `inventory.execute`   | Apply an expected-revision command batch; return a committed receipt or explicit rejection. |
 | `inventory.inspect`   | Read current state for an admitted project and inventory.                                   |
 | `inventory.operation` | Read one original committed operation receipt.                                              |
 | `inventory.history`   | Read accepted operations with revision pagination.                                          |
+
+Agent requests recheck their exact current grant through the shared native
+authorizer before read/write dispatch. Forwarded capability claims alone do not
+authorize an operation. Native token and instance checks still bind the command
+server, and the owner rechecks project authority at commitment. Desktop actor
+records identify a trusted local window origin, not a verified human name.
 
 The owner also verifies replay of accepted history against the persisted state.
 This is a bounded local inventory recovery check, not a general migration or

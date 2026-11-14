@@ -47217,6 +47217,152 @@
                         {
                           "type": "object",
                           "additionalProperties": false,
+                          "required": ["kind", "stockId", "composition", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "record-composition" },
+                            "stockId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "composition": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "unknown" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "analytes"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "homogeneous" },
+                                    "analytes": {
+                                      "type": "object",
+                                      "maxProperties": 256,
+                                      "propertyNames": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 512,
+                                        "pattern": "\\S"
+                                      },
+                                      "additionalProperties": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": ["kind"],
+                                            "properties": {
+                                              "kind": { "type": "string", "const": "unknown" }
+                                            }
+                                          },
+                                          {
+                                            "oneOf": [
+                                              {
+                                                "type": "object",
+                                                "additionalProperties": false,
+                                                "required": ["kind", "reason"],
+                                                "properties": {
+                                                  "kind": { "type": "string", "const": "unknown" },
+                                                  "reason": {
+                                                    "oneOf": [
+                                                      { "type": "string", "const": "unmeasured" },
+                                                      {
+                                                        "type": "string",
+                                                        "const": "missing-input"
+                                                      },
+                                                      {
+                                                        "type": "string",
+                                                        "const": "incompatible-units"
+                                                      }
+                                                    ]
+                                                  }
+                                                }
+                                              },
+                                              {
+                                                "type": "object",
+                                                "additionalProperties": false,
+                                                "required": [
+                                                  "kind",
+                                                  "unit",
+                                                  "numerator",
+                                                  "denominator"
+                                                ],
+                                                "properties": {
+                                                  "kind": { "type": "string", "const": "known" },
+                                                  "unit": {
+                                                    "oneOf": [
+                                                      { "type": "string", "const": "ng/uL" },
+                                                      { "type": "string", "const": "nmol/uL" }
+                                                    ]
+                                                  },
+                                                  "numerator": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 256,
+                                                    "pattern": "^(?:0|[1-9]\\d*)$"
+                                                  },
+                                                  "denominator": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 256,
+                                                    "pattern": "^[1-9]\\d*$"
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": ["kind", "value", "unit"],
+                                            "properties": {
+                                              "kind": { "type": "string", "const": "known" },
+                                              "value": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 128,
+                                                "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                              },
+                                              "unit": {
+                                                "oneOf": [
+                                                  { "type": "string", "const": "ng/uL" },
+                                                  { "type": "string", "const": "ug/mL" },
+                                                  { "type": "string", "const": "mg/mL" },
+                                                  { "type": "string", "const": "g/L" },
+                                                  { "type": "string", "const": "ng/mL" },
+                                                  { "type": "string", "const": "pg/uL" },
+                                                  { "type": "string", "const": "M" },
+                                                  { "type": "string", "const": "mM" },
+                                                  { "type": "string", "const": "uM" },
+                                                  { "type": "string", "const": "nM" },
+                                                  { "type": "string", "const": "nmol/uL" },
+                                                  { "type": "string", "const": "pmol/uL" }
+                                                ]
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
                           "required": [
                             "kind",
                             "sourceStockId",
@@ -47296,6 +47442,74 @@
                               "minLength": 1,
                               "maxLength": 2000,
                               "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "kind",
+                            "sourceStockId",
+                            "quantity",
+                            "destination",
+                            "reason",
+                            "mixing"
+                          ],
+                          "properties": {
+                            "kind": { "type": "string", "const": "transfer" },
+                            "sourceStockId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "quantity": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["value", "unit"],
+                              "properties": {
+                                "value": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 128,
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                },
+                                "unit": {
+                                  "oneOf": [
+                                    { "type": "string", "const": "L" },
+                                    { "type": "string", "const": "mL" },
+                                    { "type": "string", "const": "uL" },
+                                    { "type": "string", "const": "nL" }
+                                  ]
+                                }
+                              }
+                            },
+                            "destination": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["kind", "stockId"],
+                              "properties": {
+                                "kind": { "type": "string", "const": "existing-stock" },
+                                "stockId": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 512,
+                                  "pattern": "\\S"
+                                }
+                              }
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            },
+                            "mixing": {
+                              "oneOf": [
+                                { "type": "string", "const": "unknown" },
+                                { "type": "string", "const": "homogeneous" }
+                              ]
                             }
                           }
                         },
@@ -47388,6 +47602,105 @@
                               },
                               "minItems": 2,
                               "maxItems": 256
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "kind",
+                            "lotId",
+                            "stockId",
+                            "vesselId",
+                            "materialId",
+                            "name",
+                            "reason",
+                            "inputs",
+                            "mixing"
+                          ],
+                          "properties": {
+                            "kind": { "type": "string", "const": "pool" },
+                            "lotId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "stockId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "vesselId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1024,
+                              "pattern": "\\S"
+                            },
+                            "materialId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            },
+                            "inputs": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": ["stockId", "quantity"],
+                                "properties": {
+                                  "stockId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 512,
+                                    "pattern": "\\S"
+                                  },
+                                  "quantity": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["value", "unit"],
+                                    "properties": {
+                                      "value": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128,
+                                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                      },
+                                      "unit": {
+                                        "oneOf": [
+                                          { "type": "string", "const": "L" },
+                                          { "type": "string", "const": "mL" },
+                                          { "type": "string", "const": "uL" },
+                                          { "type": "string", "const": "nL" }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "minItems": 2,
+                              "maxItems": 256
+                            },
+                            "mixing": {
+                              "oneOf": [
+                                { "type": "string", "const": "unknown" },
+                                { "type": "string", "const": "homogeneous" }
+                              ]
                             }
                           }
                         },
@@ -47510,6 +47823,135 @@
                                   }
                                 }
                               }
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "kind",
+                            "lotId",
+                            "stockId",
+                            "vesselId",
+                            "materialId",
+                            "name",
+                            "reason",
+                            "sample",
+                            "diluent",
+                            "mixing"
+                          ],
+                          "properties": {
+                            "kind": { "type": "string", "const": "dilute" },
+                            "lotId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "stockId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "vesselId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1024,
+                              "pattern": "\\S"
+                            },
+                            "materialId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            },
+                            "sample": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["stockId", "quantity"],
+                              "properties": {
+                                "stockId": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 512,
+                                  "pattern": "\\S"
+                                },
+                                "quantity": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["value", "unit"],
+                                  "properties": {
+                                    "value": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 128,
+                                      "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                    },
+                                    "unit": {
+                                      "oneOf": [
+                                        { "type": "string", "const": "L" },
+                                        { "type": "string", "const": "mL" },
+                                        { "type": "string", "const": "uL" },
+                                        { "type": "string", "const": "nL" }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "diluent": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["stockId", "quantity"],
+                              "properties": {
+                                "stockId": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 512,
+                                  "pattern": "\\S"
+                                },
+                                "quantity": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["value", "unit"],
+                                  "properties": {
+                                    "value": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 128,
+                                      "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                    },
+                                    "unit": {
+                                      "oneOf": [
+                                        { "type": "string", "const": "L" },
+                                        { "type": "string", "const": "mL" },
+                                        { "type": "string", "const": "uL" },
+                                        { "type": "string", "const": "nL" }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "mixing": {
+                              "oneOf": [
+                                { "type": "string", "const": "unknown" },
+                                { "type": "string", "const": "homogeneous" }
+                              ]
                             }
                           }
                         },

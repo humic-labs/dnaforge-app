@@ -5,6 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
+import { runInventoryCompositionJourney } from './journeys/inventory-composition.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const args = process.argv.slice(2);
@@ -20,6 +21,8 @@ assert.ok(
     'material-reopen',
     'lineage',
     'layouts',
+    'composition',
+    'composition-reopen',
   ].includes(stage),
   'Choose a mapped inventory journey stage.'
 );
@@ -36,12 +39,33 @@ const settings = Object.fromEntries(
 const rendererPort = Number(settings.DESKTOP_DEV_PORT);
 const debugPort = Number(settings.DESKTOP_DEBUG_PORT);
 assert.ok(rendererPort && debugPort, 'Configure explicit renderer and debug ports.');
-const files = execFileSync('git', ['ls-files', '-co', '--exclude-standard', '-z'], {
-  cwd: root,
-  encoding: 'utf8',
-})
+const files = execFileSync(
+  'git',
+  [
+    'ls-files',
+    '-co',
+    '--exclude-standard',
+    '-z',
+    '--',
+    ':(glob)**/*inventory*',
+    'apps/desktop/src/features/inventory',
+    'apps/desktop/src/feature-registry',
+    'apps/desktop/src/shared/activity-view.ts',
+    'apps/desktop/src/main/features/native-documents.ts',
+    'apps/desktop/src/main/native-document-command-server.ts',
+    'apps/desktop/src/main/agent-grant-authority.ts',
+    'apps/desktop/src/preload',
+    'apps/desktop/src/platform',
+    'apps/api/src/native_workflow_tools.py',
+    'packages/core/agent-tools/renderer-tool-manifest.json',
+  ],
+  {
+    cwd: root,
+    encoding: 'utf8',
+  }
+)
   .split('\0')
-  .filter((file) => /inventory|feature-registry|shared\/activity-view/u.test(file));
+  .filter(Boolean);
 const source = [...new Set(files)].sort().map((file) => ({
   file,
   sha256: createHash('sha256')
@@ -539,6 +563,42 @@ try {
     );
   }
 
+  if (stage === 'composition') {
+    assert.ok(args.includes('--fixture'), 'Pass the material journey fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    receipt.expected = await runInventoryCompositionJourney({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+    });
+    writeFileSync(
+      path.join(out, 'composition-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
+  if (stage === 'composition-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass the completed composition fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    const after = await inventoryRead(fixture.scope);
+    assert.deepEqual(after.state, fixture.state);
+    assert.deepEqual(after.history, fixture.history);
+    await page
+      .getByTestId('inventory-stock-table')
+      .locator(`[data-stock-id="${fixture.stockId}"]`)
+      .click();
+    await expect(page.getByTestId('inventory-stock-composition')).toContainText('1/3 ng/µL');
+    await expect(page.getByTestId('inventory-lot-contributions')).toContainText('1 ng/µL');
+    await capture('05-reopened-exact-composition-and-input-history', after);
+  }
   if (stage === 'layouts') {
     assert.ok(args.includes('--fixture'), 'Pass the workspace journey fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

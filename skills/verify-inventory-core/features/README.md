@@ -10,3 +10,6 @@
 
 - [Plates, tube boxes and stacks](layouts.md): permanent wells, aggregate moves
   and disposal, ordered retrieval and refusal.
+
+- [Composition and concentrations](concentration.md): exact ratios, explicit
+  unknowns, lossless edits and immutable input facts.

@@ -14,6 +14,12 @@ import type {
   InventoryWithdrawal,
 } from './inventory-types';
 import {
+  mixInventoryCompositions,
+  normalizeInventoryConcentration,
+  type InventoryComposition,
+  type InventoryConcentration,
+} from './inventory-concentration';
+import {
   addInventoryVolumes,
   compareInventoryVolumes,
   normalizeInventoryQuantity,
@@ -98,7 +104,12 @@ function sameSource(first: InventoryStockSource, second: InventoryStockSource): 
 }
 
 function identity(stock: InventoryStock): InventorySourceIdentity {
-  return { stockId: stock.id, materialId: stock.materialId, source: { ...stock.source } };
+  return {
+    stockId: stock.id,
+    materialId: stock.materialId,
+    source: { ...stock.source },
+    composition: structuredClone(stock.composition),
+  };
 }
 
 function emptyVessel(state: InventoryMaterialDraft, id: string): InventoryVessel | Refusal {
@@ -172,7 +183,28 @@ export function applyInventoryMaterialCommand(
         source: { kind: 'lot', lotId: lot.id },
         quantity,
         quality: command.quality,
+        composition: { kind: 'unknown' },
       };
+      return null;
+    }
+    case 'record-composition': {
+      const stock = state.stocks[command.stockId];
+      if (!stock) return refuse('STOCK_NOT_FOUND', 'The stock does not exist.');
+      if (state.vessels[stock.vesselId].lifecycle !== 'active')
+        return refuse('VESSEL_DISPOSED', 'Disposed stock cannot be measured.');
+      let composition: InventoryComposition = { kind: 'unknown' };
+      if (command.composition.kind === 'homogeneous') {
+        const analytes: Record<string, InventoryConcentration> = Object.create(null);
+        for (const [id, value] of Object.entries(command.composition.analytes))
+          analytes[id] =
+            value.kind === 'unknown'
+              ? { kind: 'unknown', reason: 'reason' in value ? value.reason : 'unmeasured' }
+              : 'numerator' in value
+                ? { ...value }
+                : normalizeInventoryConcentration(value);
+        composition = { kind: 'homogeneous', analytes };
+      }
+      state.stocks[stock.id] = { ...stock, composition };
       return null;
     }
     case 'associate-stock-lot': {
@@ -232,6 +264,7 @@ export function applyInventoryMaterialCommand(
           source: { ...source.source },
           quantity: { kind: 'known', ...debit.contribution.quantity },
           quality: 'usable',
+          composition: structuredClone(source.composition),
         };
       } else {
         const stock = state.stocks[command.destination.stockId];
@@ -255,6 +288,18 @@ export function applyInventoryMaterialCommand(
           );
         destination = {
           ...stock,
+          composition:
+            stock.quantity.value === '0'
+              ? 'mixing' in command && command.mixing === 'homogeneous'
+                ? structuredClone(source.composition)
+                : { kind: 'unknown' }
+              : mixInventoryCompositions(
+                  [
+                    { composition: stock.composition, quantity: stock.quantity },
+                    debit.contribution,
+                  ],
+                  'mixing' in command ? command.mixing : 'unknown'
+                ),
           quantity: {
             kind: 'known',
             ...addInventoryVolumes([stock.quantity, debit.contribution.quantity]),
@@ -303,6 +348,10 @@ export function applyInventoryMaterialCommand(
       };
       const invalid = inventoryCapacityFailure(vessel, quantity);
       if (invalid) return invalid;
+      const composition = mixInventoryCompositions(
+        contributions,
+        'mixing' in command ? command.mixing : 'unknown'
+      );
       const origin: InventoryLot['origin'] =
         command.kind === 'pool'
           ? { kind: 'pooled', inputs: contributions }
@@ -321,6 +370,7 @@ export function applyInventoryMaterialCommand(
         source: { kind: 'lot', lotId: command.lotId },
         quantity,
         quality: 'usable',
+        composition,
       };
       return null;
     }

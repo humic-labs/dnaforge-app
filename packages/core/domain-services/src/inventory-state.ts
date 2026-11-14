@@ -255,6 +255,7 @@ function applyCommand(state: Draft, command: InventoryCommand): Failure | null {
         materialId: command.materialId,
         quantity,
         quality: command.quality,
+        composition: { kind: 'unknown' },
       };
       return null;
     }

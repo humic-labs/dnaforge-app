@@ -1,5 +1,6 @@
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_MATERIAL_SCHEMA,
   INVENTORY_LAYOUT_SCHEMA,
   INVENTORY_DECIMAL_PATTERN,
   LEGACY_INVENTORY_SCHEMA,
@@ -8,6 +9,10 @@ import {
   MAX_INVENTORY_STORAGE_SLOTS,
   type InventoryCommand,
   type InventoryCommandBatch,
+  type InventoryComposition,
+  type InventoryCompositionInput,
+  type InventoryConcentration,
+  type InventoryConcentrationInput,
   type InventoryLayout,
   type InventoryLot,
   type InventoryQuantity,
@@ -24,6 +29,12 @@ import {
 } from './inventory-layout';
 import { compareInventoryVolumes, normalizeInventoryVolume } from './inventory-volume';
 import { unknownInventoryVesselLimits } from './inventory-materials';
+import {
+  INVENTORY_CONCENTRATION_UNITS,
+  normalizeInventoryConcentration,
+  validateInventoryComposition,
+  validateInventoryConcentration,
+} from './inventory-concentration';
 
 export class InventoryValidationError extends TypeError {
   readonly code = 'INVALID_INVENTORY_INPUT';
@@ -249,11 +260,100 @@ const storedQuantity = checked(quantity, (value) => {
     invalid('Stored inventory quantities require canonical uL decimal values.');
 });
 
+const concentrationReason = union('Unknown concentration reason', [
+  literal('unmeasured'),
+  literal('missing-input'),
+  literal('incompatible-units'),
+]);
+const storedConcentration: Codec<InventoryConcentration> = checked(
+  union('Concentration fact', [
+    fields('Unknown concentration fact', { kind: literal('unknown'), reason: concentrationReason }),
+    fields('Known concentration fact', {
+      kind: literal('known'),
+      unit: union('Canonical concentration unit', [literal('ng/uL'), literal('nmol/uL')]),
+      numerator: text('Concentration numerator', 256, true, '^(?:0|[1-9]\\d*)$'),
+      denominator: text('Concentration denominator', 256, true, '^[1-9]\\d*$'),
+    }),
+  ]),
+  (value) => {
+    try {
+      validateInventoryConcentration(value);
+    } catch (error) {
+      invalid(error instanceof Error ? error.message : 'Invalid concentration fact.');
+    }
+  }
+);
+const concentrationInput: Codec<InventoryConcentrationInput> = union('Concentration measurement', [
+  fields('Unknown concentration measurement', { kind: literal('unknown') }),
+  storedConcentration,
+  checked(
+    fields('Known concentration measurement', {
+      kind: literal('known'),
+      value: text('Concentration value', 128, true, INVENTORY_DECIMAL_PATTERN),
+      unit: union(
+        'Concentration unit',
+        INVENTORY_CONCENTRATION_UNITS.map((value) => literal(value))
+      ),
+    }),
+    (value) => {
+      try {
+        normalizeInventoryConcentration(value);
+      } catch (error) {
+        invalid(error instanceof Error ? error.message : 'Invalid concentration measurement.');
+      }
+    }
+  ),
+]);
+
+function analytes<T>(concentration: Codec<T>): Codec<Readonly<Record<string, T>>> {
+  return {
+    schema: {
+      type: 'object',
+      maxProperties: 256,
+      propertyNames: id.schema,
+      additionalProperties: concentration.schema,
+    },
+    parse(value) {
+      const entries = Object.entries(object(value, 'Composition analytes'));
+      if (entries.length > 256) invalid('A composition supports at most 256 tracked analytes.');
+      const result: Record<string, T> = Object.create(null);
+      for (const [key, input] of entries) result[id.parse(key)] = concentration.parse(input);
+      return result;
+    },
+  };
+}
+
+const storedComposition: Codec<InventoryComposition> = checked(
+  union('Composition fact', [
+    fields('Unknown composition', { kind: literal('unknown') }),
+    fields('Homogeneous composition', {
+      kind: literal('homogeneous'),
+      analytes: analytes(storedConcentration),
+    }),
+  ]),
+  (value) => {
+    try {
+      validateInventoryComposition(value);
+    } catch (error) {
+      invalid(error instanceof Error ? error.message : 'Invalid composition fact.');
+    }
+  }
+);
+const compositionInput: Codec<InventoryCompositionInput> = union('Composition measurement', [
+  fields('Unknown composition measurement', { kind: literal('unknown') }),
+  fields('Homogeneous composition measurement', {
+    kind: literal('homogeneous'),
+    analytes: analytes(concentrationInput),
+  }),
+]);
+const mixing = union('Output mixing', [literal('unknown'), literal('homogeneous')]);
+
 const stockSource = union('Stock provenance', [
   fields('Unattributed stock root', { kind: literal('unattributed'), rootStockId: id }),
   fields('Stock lot', { kind: literal('lot'), lotId: id }),
 ]);
-const sourceIdentityFields = { stockId: id, materialId: id, source: stockSource };
+const previousSourceIdentityFields = { stockId: id, materialId: id, source: stockSource };
+const sourceIdentityFields = { ...previousSourceIdentityFields, composition: storedComposition };
 const sourceIdentity = fields('Source identity', sourceIdentityFields);
 const contribution = fields('Material contribution', { ...sourceIdentityFields, quantity: volume });
 const receivedOrigin = fields('Received lot origin', {
@@ -284,6 +384,33 @@ const lotOrigin = union('Lot origin', [
   }),
 ]);
 const lotRecord = fields('Lot record', { id, materialId: id, name, origin: lotOrigin });
+const previousSourceIdentity = fields('Previous source identity', previousSourceIdentityFields);
+const previousContribution = fields('Previous material contribution', {
+  ...previousSourceIdentityFields,
+  quantity: volume,
+});
+const previousLotRecord = fields('Previous lot record', {
+  id,
+  materialId: id,
+  name,
+  origin: union('Previous lot origin', [
+    receivedOrigin,
+    fields('Previous prepared lot origin', {
+      kind: literal('prepared'),
+      inputs: array(previousSourceIdentity, MAX_INVENTORY_BATCH_COMMANDS),
+      method: text('Preparation method', 2000),
+    }),
+    fields('Previous pooled lot origin', {
+      kind: literal('pooled'),
+      inputs: array(previousContribution, MAX_INVENTORY_BATCH_COMMANDS, 2),
+    }),
+    fields('Previous diluted lot origin', {
+      kind: literal('diluted'),
+      sample: previousContribution,
+      diluent: previousContribution,
+    }),
+  ]),
+});
 const limits = fields('Container limits', { capacity: quantity, deadVolume: quantity });
 const storedLimits = fields('Stored container limits', {
   capacity: storedQuantity,
@@ -291,6 +418,27 @@ const storedLimits = fields('Stored container limits', {
 });
 const withdrawal = fields('Material withdrawal', { stockId: id, quantity: volume });
 const derivedOutput = { lotId: id, stockId: id, vesselId, materialId: id, name, reason };
+const transferFields = {
+  kind: literal('transfer'),
+  sourceStockId: id,
+  quantity: volume,
+  destination: union('Transfer destination', [
+    fields('New destination stock', { kind: literal('new-stock'), stockId: id, vesselId }),
+    fields('Existing destination stock', { kind: literal('existing-stock'), stockId: id }),
+  ]),
+  reason,
+};
+const poolFields = {
+  kind: literal('pool'),
+  ...derivedOutput,
+  inputs: array(withdrawal, MAX_INVENTORY_BATCH_COMMANDS, 2),
+};
+const diluteFields = {
+  kind: literal('dilute'),
+  ...derivedOutput,
+  sample: withdrawal,
+  diluent: withdrawal,
+};
 
 const commands = {
   'create-lot': fields('Create lot command', {
@@ -320,27 +468,31 @@ const commands = {
     limits,
     reason,
   }),
-  transfer: fields('Transfer command', {
-    kind: literal('transfer'),
-    sourceStockId: id,
-    quantity: volume,
-    destination: union('Transfer destination', [
-      fields('New destination stock', { kind: literal('new-stock'), stockId: id, vesselId }),
-      fields('Existing destination stock', { kind: literal('existing-stock'), stockId: id }),
-    ]),
+  'record-composition': fields('Record composition command', {
+    kind: literal('record-composition'),
+    stockId: id,
+    composition: compositionInput,
     reason,
   }),
-  pool: fields('Pool command', {
-    kind: literal('pool'),
-    ...derivedOutput,
-    inputs: array(withdrawal, MAX_INVENTORY_BATCH_COMMANDS, 2),
-  }),
-  dilute: fields('Dilution command', {
-    kind: literal('dilute'),
-    ...derivedOutput,
-    sample: withdrawal,
-    diluent: withdrawal,
-  }),
+  transfer: union('Transfer command', [
+    fields('Legacy transfer command', transferFields),
+    fields('Mixed transfer command', {
+      ...transferFields,
+      destination: fields('Existing destination stock', {
+        kind: literal('existing-stock'),
+        stockId: id,
+      }),
+      mixing,
+    }),
+  ]),
+  pool: union('Pool command', [
+    fields('Legacy pool command', poolFields),
+    fields('Mixed pool command', { ...poolFields, mixing }),
+  ]),
+  dilute: union('Dilution command', [
+    fields('Legacy dilution command', diluteFields),
+    fields('Mixed dilution command', { ...diluteFields, mixing }),
+  ]),
   'create-storage': fields('Create storage command', {
     kind: literal('create-storage'),
     id,
@@ -426,7 +578,11 @@ export function parseInventoryCommand(value: unknown): InventoryCommand {
 }
 
 const commandCodec = {
-  schema: { oneOf: Object.values(commands).map((codec) => codec.schema) },
+  schema: {
+    oneOf: Object.values(commands).flatMap((codec) =>
+      Array.isArray(codec.schema.oneOf) ? codec.schema.oneOf : [codec.schema]
+    ),
+  },
   parse: parseInventoryCommand,
 };
 const batchCodec = fields('Inventory command batch', {
@@ -445,13 +601,18 @@ const previousStockRecord = fields('Stock record', {
   quantity: storedQuantity,
   quality,
 });
-const stockRecord = fields('Stock record', {
+const materialStockFields = {
   id,
   vesselId,
   materialId: id,
   quantity: storedQuantity,
   quality,
   source: stockSource,
+};
+const materialStockRecord = fields('Previous stock record', materialStockFields);
+const stockRecord = fields('Stock record', {
+  ...materialStockFields,
+  composition: storedComposition,
 });
 
 const storageRecord = fields('Storage record', {
@@ -707,9 +868,11 @@ function validateState(state: InventoryState): void {
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
+  const material = current || row.schema === INVENTORY_MATERIAL_SCHEMA;
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_MATERIAL_SCHEMA),
       literal(INVENTORY_LAYOUT_SCHEMA),
       literal(LEGACY_INVENTORY_SCHEMA),
     ]),
@@ -717,7 +880,7 @@ export function parseInventoryState(value: unknown): InventoryState {
     storage: { schema: { type: 'object' }, parse: (input: unknown) => input },
     vessels: { schema: { type: 'object' }, parse: (input: unknown) => input },
     stocks: { schema: { type: 'object' }, parse: (input: unknown) => input },
-    ...(current ? { lots: { schema: { type: 'object' }, parse: (input: unknown) => input } } : {}),
+    ...(material ? { lots: { schema: { type: 'object' }, parse: (input: unknown) => input } } : {}),
   }).parse(row);
   const legacy = shape.schema === LEGACY_INVENTORY_SCHEMA;
   const storage = records(shape.storage, (raw): InventoryStorage => {
@@ -734,7 +897,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const vessels = records(
     shape.vessels,
     (raw): InventoryVessel =>
-      current
+      material
         ? vesselRecord.parse(raw)
         : {
             ...(legacy
@@ -750,11 +913,47 @@ export function parseInventoryState(value: unknown): InventoryState {
     vessels,
     stocks: records(shape.stocks, (raw): InventoryStock => {
       if (current) return stockRecord.parse(raw);
+      if (material) return { ...materialStockRecord.parse(raw), composition: { kind: 'unknown' } };
       const stock = previousStockRecord.parse(raw);
-      return { ...stock, source: { kind: 'unattributed', rootStockId: stock.id } };
+      return {
+        ...stock,
+        source: { kind: 'unattributed', rootStockId: stock.id },
+        composition: { kind: 'unknown' },
+      };
     }),
-    lots: current
-      ? records(shape.lots, (raw): InventoryLot => lotRecord.parse(raw))
+    lots: material
+      ? records(shape.lots, (raw): InventoryLot => {
+          if (current) return lotRecord.parse(raw);
+          const lot = previousLotRecord.parse(raw);
+          const { origin } = lot;
+          const unknown = { kind: 'unknown' as const };
+          if (origin.kind === 'received') return { ...lot, origin };
+          if (origin.kind === 'diluted')
+            return {
+              ...lot,
+              origin: {
+                kind: 'diluted',
+                sample: { ...origin.sample, composition: { ...unknown } },
+                diluent: { ...origin.diluent, composition: { ...unknown } },
+              },
+            };
+          if (origin.kind === 'pooled')
+            return {
+              ...lot,
+              origin: {
+                kind: 'pooled',
+                inputs: origin.inputs.map((input) => ({ ...input, composition: { ...unknown } })),
+              },
+            };
+          return {
+            ...lot,
+            origin: {
+              kind: 'prepared',
+              method: origin.method,
+              inputs: origin.inputs.map((input) => ({ ...input, composition: { ...unknown } })),
+            },
+          };
+        })
       : (Object.create(null) as Record<string, InventoryLot>),
   };
   validateState(state);

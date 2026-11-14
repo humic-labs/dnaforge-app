@@ -133,7 +133,7 @@ describe('durable native inventory commands', () => {
     startOwner();
     const scope = { project: 'inventory-project', inventoryId: 'legacy-inventory' };
     const read = owner.inspect(scope)!;
-    expect(read.schema).toBe('dnaforge.inventory.v3');
+    expect(read.schema).toBe('dnaforge.inventory.v4');
     expect(read.storage['legacy-freezer'].layout).toEqual({ kind: 'named', slots: ['A1'] });
     expect(owner.replay(scope)).toEqual({ state: read, acceptedOperations: 1 });
     expect(owner.execute(JSON.parse(requestJson))).toEqual(receipt);
@@ -283,6 +283,117 @@ describe('durable native inventory commands', () => {
       expect(owner.inspect(scope())).toEqual(before);
       expect(owner.operation({ ...scope(), operationId: `denied-${command.kind}` })).toBeNull();
     }
+  });
+
+  it('preserves an exact derived concentration, its input facts and its receipt across SQLite reopen', () => {
+    createFixture();
+    db.prepare(
+      `INSERT INTO lims_entity (id,kind,schema_id,schema_revision_id,name,fields,workspace_id,registration_status,created_at,updated_at) VALUES('water-material','record','material-schema','material-schema-v1','Water','{}',41,'registered',1,1)`
+    ).run();
+    const commands: InventoryCommand[] = [
+      {
+        kind: 'record-composition',
+        stockId: 'stock',
+        composition: {
+          kind: 'homogeneous',
+          analytes: { 'synthetic-material': { kind: 'known', value: '1', unit: 'ng/uL' } },
+        },
+        reason: 'Measured source',
+      },
+      {
+        kind: 'create-vessel',
+        id: 'water-tube',
+        name: 'Water tube',
+        placement: { kind: 'unplaced' },
+      },
+      {
+        kind: 'receive-stock',
+        id: 'water',
+        vesselId: 'water-tube',
+        materialId: 'water-material',
+        quantity: { kind: 'known', value: '100', unit: 'uL' },
+        quality: 'usable',
+      },
+      {
+        kind: 'record-composition',
+        stockId: 'water',
+        composition: {
+          kind: 'homogeneous',
+          analytes: { 'synthetic-material': { kind: 'known', value: '0', unit: 'ng/uL' } },
+        },
+        reason: 'Explicit analyte-free diluent measurement',
+      },
+      {
+        kind: 'create-vessel',
+        id: 'dilution-tube',
+        name: 'Dilution tube',
+        placement: { kind: 'unplaced' },
+      },
+      {
+        kind: 'dilute',
+        lotId: 'dilution',
+        stockId: 'diluted',
+        vesselId: 'dilution-tube',
+        materialId: 'synthetic-material',
+        name: 'One-third concentration',
+        sample: { stockId: 'stock', quantity: { value: '1', unit: 'uL' } },
+        diluent: { stockId: 'water', quantity: { value: '2', unit: 'uL' } },
+        mixing: 'homogeneous',
+        reason: 'Prepare homogeneous mixture',
+      },
+    ];
+    const receipt = execute('exact-dilution', 1, commands);
+    expect(receipt).toMatchObject({ status: 'committed', revision: 2 });
+    const expected = owner.inspect(scope())!;
+    expect(expected.stocks.diluted.quantity).toMatchObject({ value: '3' });
+    expect(expected.stocks.diluted.composition).toEqual({
+      kind: 'homogeneous',
+      analytes: {
+        'synthetic-material': { kind: 'known', unit: 'ng/uL', numerator: '1', denominator: '3' },
+      },
+    });
+    expect(execute('exact-dilution', 1, commands)).toEqual(receipt);
+    db.close();
+    db = openFileTestDb(dbPath);
+    startOwner();
+    expect(owner.inspect(scope())).toEqual(expected);
+    expect(owner.replay(scope())).toEqual({ state: expected, acceptedOperations: 2 });
+    expect(execute('exact-dilution', 1, commands)).toEqual(receipt);
+    const recorded = expected.lots.dilution.origin;
+    expect(
+      execute('new-measurement', 2, [
+        {
+          kind: 'record-composition',
+          stockId: 'stock',
+          composition: {
+            kind: 'homogeneous',
+            analytes: { 'synthetic-material': { kind: 'known', value: '9', unit: 'ng/uL' } },
+          },
+          reason: 'New measurement',
+        },
+      ])
+    ).toMatchObject({ status: 'committed' });
+    expect(owner.inspect(scope())!.lots.dilution.origin).toEqual(recorded);
+  });
+
+  it('refuses concentration analytes outside the admitted project without state or receipt changes', () => {
+    createFixture();
+    const before = owner.inspect(scope());
+    expect(
+      execute('unavailable-analyte', 1, [
+        {
+          kind: 'record-composition',
+          stockId: 'stock',
+          composition: {
+            kind: 'homogeneous',
+            analytes: { 'unavailable-material': { kind: 'known', value: '1', unit: 'ng/uL' } },
+          },
+          reason: 'Invalid external reference',
+        },
+      ])
+    ).toMatchObject({ status: 'rejected', code: 'INVENTORY_MATERIAL_UNAVAILABLE' });
+    expect(owner.inspect(scope())).toEqual(before);
+    expect(owner.operation({ ...scope(), operationId: 'unavailable-analyte' })).toBeNull();
   });
 
   it('keeps quantities, placement, immutable receipts and replay after reopening', () => {
