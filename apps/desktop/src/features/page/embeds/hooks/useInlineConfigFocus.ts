@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, type RefObject } from 'react';
+import { captureFocusOwnership } from '@waypoint/platform/input-ownership';
 import { safeFocus } from '../../../../shared/utils/safeFocus';
 
 export interface UseInlineConfigFocusOptions {
@@ -16,37 +17,18 @@ export function useInlineConfigFocus({
   inputRef,
   onClearFresh,
 }: UseInlineConfigFocusOptions): void {
-  const hasClearedFresh = useRef(false);
+  const clearFresh = useRef(onClearFresh);
+  clearFresh.current = onClearFresh;
 
   useEffect(() => {
-    if (!shouldAutoFocus) {
-      return;
-    }
-
-    if (!hasClearedFresh.current) {
-      hasClearedFresh.current = true;
-      onClearFresh?.();
-    }
-
-    let isActive = true;
-
-    requestAnimationFrame(() => {
-      if (!isActive) return;
-      requestAnimationFrame(() => {
-        if (!isActive) return;
-        safeFocus(inputRef.current);
-
-        setTimeout(() => {
-          if (!isActive) return;
-          if (document.activeElement !== inputRef.current) {
-            safeFocus(inputRef.current);
-          }
-        }, 50);
+    const input = inputRef.current;
+    if (!shouldAutoFocus || !input) return;
+    const ownsFocus = captureFocusOwnership(input);
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        if (ownsFocus() && safeFocus(input)) clearFresh.current?.();
       });
     });
-
-    return () => {
-      isActive = false;
-    };
-  });
+    return () => cancelAnimationFrame(frame);
+  }, [shouldAutoFocus, inputRef]);
 }

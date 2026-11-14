@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { TABLE_INITIAL_DIMENSIONS } from '../configuration';
 import { useInlineConfigFocus } from '../../hooks/useInlineConfigFocus';
+import { safeFocus } from '../../../../../shared/utils/safeFocus';
 
 interface InlineConfigProps {
   onConfigure: (rows: number, cols: number) => void;
@@ -26,14 +27,12 @@ export function InlineConfig({
 }: InlineConfigProps) {
   const [rows, setRows] = useState('');
   const [cols, setCols] = useState('');
-  const [activeField, setActiveField] = useState<'rows' | 'cols'>('rows');
-
   const rowsInputRef = useRef<HTMLInputElement>(null);
   const colsInputRef = useRef<HTMLInputElement>(null);
 
   useInlineConfigFocus({
     shouldAutoFocus: autoFocus,
-    inputRef: activeField === 'rows' ? rowsInputRef : colsInputRef,
+    inputRef: rowsInputRef,
     onClearFresh,
   });
 
@@ -48,11 +47,7 @@ export function InlineConfig({
       if (e.key === 'Tab') {
         e.preventDefault();
         e.stopPropagation();
-        if (field === 'rows') {
-          setActiveField('cols');
-        } else {
-          setActiveField('rows');
-        }
+        safeFocus(field === 'rows' ? colsInputRef.current : rowsInputRef.current);
       } else if (e.key === 'Enter') {
         e.preventDefault();
         e.stopPropagation();
@@ -67,7 +62,7 @@ export function InlineConfig({
         e.stopPropagation();
       }
     },
-    [handleCreate]
+    [handleCreate, onBlurToEditor]
   );
 
   const handleRowsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,7 +83,6 @@ export function InlineConfig({
           value={rows}
           onChange={handleRowsChange}
           onKeyDown={(e) => handleKeyDown(e, 'rows')}
-          onFocus={() => setActiveField('rows')}
           placeholder="5"
           className="w-8 bg-transparent text-sm font-mono text-fg outline-none placeholder:text-fg-muted/30"
           autoComplete="off"
@@ -105,7 +99,6 @@ export function InlineConfig({
           value={cols}
           onChange={handleColsChange}
           onKeyDown={(e) => handleKeyDown(e, 'cols')}
-          onFocus={() => setActiveField('cols')}
           placeholder="5"
           className="w-8 bg-transparent text-sm font-mono text-fg outline-none placeholder:text-fg-muted/30"
           autoComplete="off"

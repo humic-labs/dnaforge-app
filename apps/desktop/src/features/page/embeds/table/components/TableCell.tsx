@@ -82,7 +82,69 @@ const FORMULA_PREFIX = /^=([A-Z]*)$/i;
 const TABLE_CELL_REFERENCE_CLASSES =
   'cursor-pointer text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent';
 
-export function TableCell({
+const CELL_VALUE_PROPS = {
+  cell: true,
+  isFocused: true,
+  isSelected: true,
+  isCut: true,
+  isGhost: true,
+  showFillHandle: true,
+  isEditing: true,
+  editingValue: true,
+  editInputRef: true,
+  referenceWorkspaceRoot: true,
+  onCellClick: true,
+  onCellDoubleClick: true,
+  onEditingValueChange: true,
+  onEditCommit: true,
+  onEditCancel: true,
+  onFillStart: true,
+  onFillMove: true,
+  onFillEnd: true,
+  onFillDoubleClick: true,
+  onDragSelectStart: true,
+  onDragSelectMove: true,
+  onDragSelectEnd: true,
+  cellRef: true,
+} satisfies Record<
+  Exclude<keyof TableCellProps, 'position' | 'selectionBounds' | 'cutBounds'>,
+  true
+>;
+const CELL_VALUE_PROP_KEYS = Object.keys(CELL_VALUE_PROPS) as (keyof typeof CELL_VALUE_PROPS)[];
+
+function sameCellEdges(
+  active: boolean | undefined,
+  position: CellPosition,
+  before: TableCellProps['selectionBounds'],
+  after: TableCellProps['selectionBounds']
+): boolean {
+  if (!active || before === after) return true;
+  const previousEdges = tableCellEdgeMask(active, position, before);
+  const nextEdges = tableCellEdgeMask(active, position, after);
+  return (
+    previousEdges.top === nextEdges.top &&
+    previousEdges.bottom === nextEdges.bottom &&
+    previousEdges.left === nextEdges.left &&
+    previousEdges.right === nextEdges.right
+  );
+}
+
+function sameCellProps(before: TableCellProps, after: TableCellProps): boolean {
+  return (
+    before.position.row === after.position.row &&
+    before.position.col === after.position.col &&
+    CELL_VALUE_PROP_KEYS.every((key) => Object.is(before[key], after[key])) &&
+    sameCellEdges(
+      before.isSelected,
+      before.position,
+      before.selectionBounds,
+      after.selectionBounds
+    ) &&
+    sameCellEdges(before.isCut, before.position, before.cutBounds, after.cutBounds)
+  );
+}
+
+export const TableCell = React.memo(function TableCell({
   cell,
   position,
   isFocused,
@@ -568,7 +630,7 @@ export function TableCell({
         : null}
     </>
   );
-}
+}, sameCellProps);
 
 function stayInTableOnBlur(related: EventTarget | null): boolean {
   if (!(related instanceof HTMLElement)) return false;
