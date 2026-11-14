@@ -2,6 +2,9 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createBreadcrumbBuffer, installBreadcrumbCapture } from './renderer-breadcrumbs';
+import { reportSaveFailure } from './report-save-failure';
+
+vi.mock('./analytics', () => ({ trackRendererEvent: vi.fn() }));
 
 class FakeWindow extends EventTarget {
   electronAPI = { sendBreadcrumbs: vi.fn() };
@@ -71,6 +74,48 @@ describe('renderer-breadcrumbs  item 4)', () => {
       console.error('Save failed', new Error('EIO'));
       expect(win.electronAPI.sendBreadcrumbs).toHaveBeenCalledOnce();
       expect(win.electronAPI.sendBreadcrumbs.mock.calls[0][0].join('\n')).toContain('EIO');
+    });
+
+    it('retains the notebook UUID and save phase before a long stack is truncated', () => {
+      const pageId = '830a9677-d9c5-4e17-9d5c-a3562463360c';
+      const error = new Error('EACCES: notebook write refused');
+      error.stack = 'Error: EACCES\n' + '    at writeNotebook (app.js:100:20)\n'.repeat(50);
+      reportSaveFailure(
+        '[useEditorAutosave] save failed:',
+        {
+          pageId,
+          operation: 'autosave',
+          filePath: '/Users/alice/research/private-notebook.md',
+          name: 'Private construct name',
+        },
+        error,
+        { notebookPhase: 'autosave' }
+      );
+      const line = win.electronAPI.sendBreadcrumbs.mock.calls[0][0][0] as string;
+      expect(line).toContain(`pageId=${pageId}`);
+      expect(line).toContain('operation=autosave');
+      expect(line).toContain('EACCES');
+      expect(line).not.toMatch(/alice|research|private-notebook|Private construct/);
+      expect(line.length).toBeLessThanOrEqual(500);
+    });
+
+    it('retains an opaque native document target and rejects arbitrary context labels', () => {
+      const documentId = 'file-document:830a9677-d9c5-4e17-9d5c-a3562463360c';
+      reportSaveFailure(
+        '[DocumentLifecycle] Save failed:',
+        {
+          target: { kind: 'sequence-document', documentId },
+          operation: 'private-operation-name',
+          pageId: 'private-page-name',
+          kind: 'private-kind-name',
+          filePath: '/Users/alice/private-file.txt',
+        },
+        new Error('EIO')
+      );
+      const line = win.electronAPI.sendBreadcrumbs.mock.calls[0][0][0] as string;
+      expect(line).toContain(`target.documentId=${documentId}`);
+      expect(line).toContain('target.kind=sequence-document');
+      expect(line).not.toMatch(/private-operation|private-page|private-kind|private-file|alice/);
     });
 
     it('flushes immediately on pagehide (controlled unload), before the debounce', () => {
