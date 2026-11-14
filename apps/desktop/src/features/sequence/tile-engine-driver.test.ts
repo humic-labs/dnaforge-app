@@ -3036,6 +3036,40 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
     driver.dispose();
   });
 
+  it('acknowledges an unchanged readable band without another feed or fetch', async () => {
+    const feeds: TileEngineFeed[] = [];
+    const requests: Array<Parameters<TileTransport>[0]> = [];
+    const reused = vi.fn();
+    const driver = new TileEngineDriver({
+      assembly: humanScaleAssembly(),
+      source: { bamPath: '/fake.bam' },
+      baseUrl: 'http://sidecar',
+      onFeed: (feed) => feeds.push(feed),
+      onReadPresentationReuse: reused,
+      transport: recordingTransport(requests),
+    } as never);
+    const firstRange = { start: 100_000, end: 126_612 };
+    const initial = await feedFor(driver, feeds, firstRange, 1_768, 884);
+    expect(initial?.ownerPresentation?.kind).toBe('reads');
+    const requestCount = requests.length;
+    const publicationCount = feeds.length;
+    const moved = { start: 100_010, end: 126_622 };
+
+    expect(driver.presentViewport(moved, 1_768, 884)).toBe(true);
+
+    expect(reused).toHaveBeenCalledOnce();
+    expect(reused.mock.lastCall?.[0].feed).toBe(initial);
+    expect(reused.mock.lastCall?.[0].viewRange).toEqual(moved);
+    expect(reused.mock.lastCall?.[0].requiredReadBandReady).toBe(true);
+    expect(reused.mock.lastCall?.[0].feed.records).toBe(initial?.records);
+    expect(feeds).toHaveLength(publicationCount);
+    expect(requests).toHaveLength(requestCount);
+    reused.mockClear();
+    expect(driver.presentViewport({ start: 800_000, end: 826_612 }, 1_768, 884)).toBe(false);
+    expect(reused).not.toHaveBeenCalled();
+    driver.dispose();
+  });
+
   it('memoizes an identical fixed-view coverage generation without rematerializing or republishing it', async () => {
     const feeds: TileEngineFeed[] = [];
     const driver = new TileEngineDriver({
@@ -4344,6 +4378,86 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
     expect(completeBand.windowStartBp).toBe(0);
     expect(completeBand.windowEndBp).toBe(16 * span);
 
+    driver.dispose();
+  });
+
+  it('keeps every visible boundary-crossing read before and after offscreen halo completion', () => {
+    const driver = new TileEngineDriver({
+      assembly: twoChromAssembly(),
+      source: { bamPath: '/fake.bam' },
+      baseUrl: 'http://sidecar',
+      onFeed: () => {},
+      transport: seamDuplicateTransport(),
+    } as never);
+    const level = 0;
+    const span = tileSpanBp(level);
+    const view = { globalStart: 4.5 * span, globalEnd: 5.5 * span, viewportPx: 1_000 };
+    const crossing = [
+      { readId: 'left-edge', start: view.globalStart - 75, end: view.globalStart + 75 },
+      { readId: 'tile-seam', start: 5 * span - 75, end: 5 * span + 75 },
+      { readId: 'right-edge', start: view.globalEnd - 75, end: view.globalEnd + 75 },
+      { readId: 'long-collar-overlap', start: 4 * span - 75, end: view.globalStart + 100 },
+    ];
+    const reads = [
+      ...Array.from({ length: 16 }, (_, index) => ({
+        readId: `tile-${index}`,
+        start: index * span + 100,
+        end: index * span + 250,
+      })),
+      ...crossing,
+    ].map((record) => ({ ...record, strand: '+', mapq: 60, flag: 0 }));
+    const internals = driver as unknown as {
+      cache: { set: (entry: unknown) => void };
+      ensureSourcesForRange: (start: number, end: number) => void;
+      composeReads: (viewport: typeof view, level: number) => {
+        records: ReadonlyArray<{ readId: string; start: number; end: number }>;
+        coversViewport: boolean;
+        stableBandReady: boolean;
+        truncated: boolean;
+      };
+    };
+    internals.ensureSourcesForRange(0, 16 * span);
+    const ready = (index: number) => {
+      const key = { sourceId: 'aln:/fake.bam:chrA', level, index };
+      const records = reads.filter(
+        (read) => read.end > index * span && read.start < (index + 1) * span
+      );
+      internals.cache.set({
+        key,
+        state: 'ready',
+        epoch: 1,
+        byteSize: 1,
+        data: {
+          key,
+          state: 'ready',
+          byteSize: 1,
+          count: records.length,
+          payload: { reads: records, alternateColumns: [], truncated: false },
+        },
+      });
+    };
+    const visibleIds = (records: ReadonlyArray<{ readId: string; start: number; end: number }>) =>
+      records
+        .filter((read) => read.end > view.globalStart && read.start < view.globalEnd)
+        .map((read) => read.readId)
+        .sort();
+
+    ready(4);
+    expect(internals.composeReads(view, level).coversViewport).toBe(false);
+    ready(5);
+    const current = internals.composeReads(view, level);
+    expect(current.coversViewport).toBe(true);
+    expect(current.stableBandReady).toBe(false);
+    expect(current.truncated).toBe(false);
+    expect(visibleIds(current.records)).toEqual(visibleIds(reads));
+
+    for (let index = 0; index < 16; index++) ready(index);
+    const expanded = internals.composeReads(view, level);
+    expect(expanded.coversViewport).toBe(true);
+    expect(expanded.stableBandReady).toBe(true);
+    expect(expanded.truncated).toBe(false);
+    expect(visibleIds(expanded.records)).toEqual(visibleIds(current.records));
+    expect(new Set(expanded.records.map((read) => read.readId)).size).toBe(expanded.records.length);
     driver.dispose();
   });
 

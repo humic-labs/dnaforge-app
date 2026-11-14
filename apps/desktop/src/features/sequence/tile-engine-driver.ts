@@ -168,6 +168,11 @@ export interface TileEngineDriverOptions {
     viewRange: { start: number; end: number };
     fullAssemblyInteractionCorridorReady: boolean;
   }) => void;
+  onReadPresentationReuse?: (presentation: {
+    feed: TileEngineFeed;
+    viewRange: { start: number; end: number };
+    requiredReadBandReady: boolean;
+  }) => void;
   onTileError?: (failure: { key: TileKey; reason: string }) => void;
   fetchImpl?: typeof fetch;
   transport?: TileTransport;
@@ -440,6 +445,7 @@ export class TileEngineDriver {
   private readCompositionOrder = 0;
   private exactReadDetailEligible = false;
   private lastPublishedReadRevisionKey: string | null = null;
+  private lastPublishedFeed: TileEngineFeed | null = null;
   private lastPublishedOwnerPresentationKind: TileEngineOwnerPresentationKind | null = null;
   private alignmentPresentationGeneration = 0;
   private processedAlignmentPresentationGeneration = 0;
@@ -1228,6 +1234,11 @@ export class TileEngineDriver {
     );
   }
 
+  private publishFeed(feed: TileEngineFeed): void {
+    this.lastPublishedFeed = feed;
+    this.opts.onFeed(feed);
+  }
+
   private recomputeFeed(publishMemoHit = true): boolean {
     const view = this.lastViewport;
     if (!view) return false;
@@ -1353,6 +1364,26 @@ export class TileEngineDriver {
       })
     ) {
       this.coverageMemoHitCount += 1;
+      const published = this.lastPublishedFeed;
+      if (
+        exactReadOwner &&
+        readsCoverViewport &&
+        !readsTruncated &&
+        (exactReadOwnerPresentationKind === 'reads' || exactReadOwnerPresentationKind === 'empty') &&
+        published?.ownerPresentation?.kind === exactReadOwnerPresentationKind &&
+        published.readSource &&
+        !published.readSource.truncated &&
+        typeof published.readSource.windowStartBp === 'number' &&
+        typeof published.readSource.windowEndBp === 'number' &&
+        published.readSource.windowStartBp <= view.globalStart &&
+        published.readSource.windowEndBp >= view.globalEnd
+      ) {
+        this.opts.onReadPresentationReuse?.({
+          feed: published,
+          viewRange: { start: view.globalStart, end: view.globalEnd },
+          requiredReadBandReady: stableBandReady,
+        });
+      }
       return publishMemoHit;
     }
     const { finest, coverageMaxDepthMs } = this.materializeCoverageForViewport({
@@ -1409,7 +1440,7 @@ export class TileEngineDriver {
       composedCoverage,
       corridorAtlas
     );
-    this.opts.onFeed({
+    this.publishFeed({
       ...(composedCoverage ? { coverage: composedCoverage } : {}),
       ...(corridorAtlas ? { coverageGpuAtlas: corridorAtlas } : {}),
       ...(corridorAtlasPresentation
@@ -1663,7 +1694,7 @@ export class TileEngineDriver {
       });
       return true;
     }
-    this.opts.onFeed({
+    this.publishFeed({
       coverageGpuAtlas: args.corridorAtlas,
       coverageGpuAtlasPresentation: presentation,
       viewRange: { start: args.view.globalStart, end: args.view.globalEnd },
@@ -3414,6 +3445,7 @@ export class TileEngineDriver {
     this.residentCoverageByLevel.clear();
     this.exactCoverageTiles.clear();
     this.readCompositionCache.clear();
+    this.lastPublishedFeed = null;
     this.sources.length = 0;
   }
 }
