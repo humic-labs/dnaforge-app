@@ -294,6 +294,17 @@ def _events_from_reference(
     events: list[AlignmentMismatch] = []
     for operation, length in read.cigartuples or ():
         if operation in (0, 7, 8):
+            block_ref_index = ref_pos - reference_start
+            if (
+                block_ref_index >= 0
+                and block_ref_index + length <= len(reference_sequence)
+                and query_pos + length <= len(query)
+                and reference_sequence[block_ref_index : block_ref_index + length]
+                == query[query_pos : query_pos + length]
+            ):
+                ref_pos += length
+                query_pos += length
+                continue
             for offset in range(length):
                 ref_index = ref_pos + offset - reference_start
                 read_index = query_pos + offset

@@ -114,6 +114,120 @@ def _aligned_read(
     return read
 
 
+@pytest.mark.parametrize("operation", [0, 7, 8])
+def test_reference_fallback_skips_per_base_work_for_matching_cigar_blocks(
+    operation: int,
+) -> None:
+    class CountedReference(str):
+        indexed_reads = 0
+        sliced_reads = 0
+
+        def __getitem__(self, key):
+            if isinstance(key, slice):
+                self.sliced_reads += 1
+            else:
+                self.indexed_reads += 1
+            return super().__getitem__(key)
+
+    reference = CountedReference("C" * 17 + "A" * 4096 + "C" * 17)
+    read = _aligned_read(
+        name="perfect-without-tags",
+        sequence="A" * 4096,
+        start=1017,
+        cigar=[(operation, 4096)],
+        tags=[],
+    )
+
+    assert (
+        alignment_tiles._events_from_reference(
+            read, reference_start=1000, reference_sequence=reference
+        )
+        == []
+    )
+    assert reference.indexed_reads == 0
+    assert reference.sliced_reads == 1
+
+
+def test_reference_fallback_preserves_mixed_cigar_offsets_and_differences() -> None:
+    read = _aligned_read(
+        name="mixed-without-tags",
+        sequence="NN" + "AAAA" + "GG" + "ATA" + "AA" + "AAAC",
+        start=100,
+        cigar=[(4, 2), (0, 4), (1, 2), (0, 3), (2, 2), (7, 2), (3, 5), (8, 4), (5, 1)],
+        tags=[],
+    )
+
+    assert alignment_tiles._events_from_reference(
+        read, reference_start=95, reference_sequence="A" * 30
+    ) == [
+        {"pos": 104, "kind": "ins", "length": 2, "readBase": "GG", "baseQ": 40},
+        {"pos": 105, "kind": "sub", "length": 1, "refBase": "A", "readBase": "T", "baseQ": 40},
+        {"pos": 107, "kind": "del", "length": 2, "refBase": "AA"},
+        {"pos": 119, "kind": "sub", "length": 1, "refBase": "A", "readBase": "C", "baseQ": 40},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("sequence", "reference_start", "reference", "length", "expected"),
+    [
+        (
+            "TTACGA",
+            102,
+            "ACGT",
+            6,
+            [
+                {
+                    "pos": 105,
+                    "kind": "sub",
+                    "length": 1,
+                    "refBase": "T",
+                    "readBase": "A",
+                    "baseQ": 40,
+                }
+            ],
+        ),
+        ("AAATA", 100, "AAA", 5, []),
+        (
+            "ACT",
+            100,
+            "ACGTA",
+            5,
+            [
+                {
+                    "pos": 102,
+                    "kind": "sub",
+                    "length": 1,
+                    "refBase": "G",
+                    "readBase": "T",
+                    "baseQ": 40,
+                }
+            ],
+        ),
+    ],
+)
+def test_reference_fallback_keeps_partial_block_bounds(
+    sequence: str,
+    reference_start: int,
+    reference: str,
+    length: int,
+    expected: list[dict],
+) -> None:
+    read = _aligned_read(
+        name="partial-reference",
+        sequence=sequence,
+        start=100,
+        cigar=[(0, length)],
+        tags=[],
+    )
+
+    assert (
+        alignment_tiles._events_from_reference(
+            read, reference_start=reference_start, reference_sequence=reference
+        )
+        == expected
+    )
+
+
 @pytest.fixture()
 def nucleotide_alignment_fixture(tmp_path: Path) -> dict[str, str]:
     fasta = tmp_path / "reference.fa"
