@@ -67,8 +67,6 @@ retained resources. It does not claim whole-genome loading or physical display
 smoothness. Animation callbacks alone cannot establish that a frame reached the
 display.
 
-The macOS desktop selects Chromium's Ganesh graphics backend before startup.
-[Chromium also tests this supported configuration](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/web_tests/FlagSpecificConfig).
 The genome renderer requires WebGL and does not fall back to WebGPU or canvas.
 The journey, checks and timing limits stay the same. Hosted CI covers the
 portable profile on Apple's paravirtual GPU; it does not establish physical
