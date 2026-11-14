@@ -1245,6 +1245,41 @@ export function TableGrid({
     [applyEditingState]
   );
 
+  const cellEvents = {
+    onCellClick: handleCellClickUnified,
+    onCellDoubleClick: handleCellDoubleClick,
+    onEditingValueChange: handleEditingValueChange,
+    onEditCommit: commitEdit,
+    onEditCancel: cancelEdit,
+    onFillStart: handleFillStart,
+    onFillMove: handleFillMove,
+    onFillEnd: handleFillEnd,
+    onFillDoubleClick: handleFillDoubleClick,
+    onDragSelectStart: handleDragSelectStart,
+    onDragSelectMove: handleDragSelectMove,
+    onDragSelectEnd: handleDragSelectEnd,
+  };
+  const cellEventsRef = useRef(cellEvents);
+  cellEventsRef.current = cellEvents;
+  const stableCellEvents = useMemo<typeof cellEvents>(
+    () => ({
+      onCellClick: (position, shiftKey) => cellEventsRef.current.onCellClick(position, shiftKey),
+      onCellDoubleClick: (position) => cellEventsRef.current.onCellDoubleClick(position),
+      onEditingValueChange: (value, cursor) =>
+        cellEventsRef.current.onEditingValueChange(value, cursor),
+      onEditCommit: (direction, options) => cellEventsRef.current.onEditCommit(direction, options),
+      onEditCancel: () => cellEventsRef.current.onEditCancel(),
+      onFillStart: () => cellEventsRef.current.onFillStart(),
+      onFillMove: (position) => cellEventsRef.current.onFillMove(position),
+      onFillEnd: () => cellEventsRef.current.onFillEnd(),
+      onFillDoubleClick: () => cellEventsRef.current.onFillDoubleClick(),
+      onDragSelectStart: () => cellEventsRef.current.onDragSelectStart(),
+      onDragSelectMove: (position) => cellEventsRef.current.onDragSelectMove(position),
+      onDragSelectEnd: () => cellEventsRef.current.onDragSelectEnd(),
+    }),
+    []
+  );
+
   if (tableGridIsEmpty(rows, cols)) {
     return <div className="p-4 text-center text-fg-muted text-sm">No table data</div>;
   }
@@ -1728,6 +1763,7 @@ export function TableGrid({
                           }}
                         >
                           <TableCell
+                            {...stableCellEvents}
                             cell={cell}
                             position={position}
                             isFocused={isFocused}
@@ -1743,18 +1779,6 @@ export function TableGrid({
                             editingValue={isEditingThisCell ? editingState.value : ''}
                             editInputRef={isEditingThisCell ? editInputRef : undefined}
                             referenceWorkspaceRoot={referenceWorkspaceRoot}
-                            onCellClick={handleCellClickUnified}
-                            onCellDoubleClick={handleCellDoubleClick}
-                            onEditingValueChange={handleEditingValueChange}
-                            onEditCommit={commitEdit}
-                            onEditCancel={cancelEdit}
-                            onFillStart={handleFillStart}
-                            onFillMove={handleFillMove}
-                            onFillEnd={handleFillEnd}
-                            onFillDoubleClick={handleFillDoubleClick}
-                            onDragSelectStart={handleDragSelectStart}
-                            onDragSelectMove={handleDragSelectMove}
-                            onDragSelectEnd={handleDragSelectEnd}
                             cellRef={getCellRef(rowIndex, colIndex)}
                           />
                         </td>
