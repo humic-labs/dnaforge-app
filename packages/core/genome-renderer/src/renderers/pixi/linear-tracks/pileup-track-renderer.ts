@@ -201,62 +201,33 @@ export function resolveCoverageCutoffDepth(
     ? configuredDepth
     : defaultDepth;
 }
-function coverageHeatColor(t: number): number {
-  const x = clamp01(t);
-  let r: number;
-  let g: number;
-  let b: number;
-  if (x < 0.5) {
-    const u = x / 0.5;
-    r = 30 + u * (255 - 30);
-    g = 90 + u * (180 - 90);
-    b = 255 + u * (40 - 255);
-  } else {
-    const u = (x - 0.5) / 0.5;
-    r = 255 + u * (230 - 255);
-    g = 180 + u * (30 - 180);
-    b = 40 + u * (30 - 40);
-  }
-  return (
-    (Math.round(clamp01(r / 255) * 255) << 16) |
-    (Math.round(clamp01(g / 255) * 255) << 8) |
-    Math.round(clamp01(b / 255) * 255)
-  );
-}
-function coverageFillAndColor(
+function coverageFill(
   d: number,
   pct: CoverageDepthPercentiles,
   mode: CoverageScaleMode,
   collapsedMaxFill: number,
   cutoffDepth: number
-): { fill: number; color?: number } {
-  if (d <= 0 || collapsedMaxFill <= 0) return { fill: 0 };
+): number {
+  if (d <= 0 || collapsedMaxFill <= 0) return 0;
   const max = Math.max(1, pct.max);
   if (mode === 'logcolor') {
     if (cutoffDepth > 0) {
-      const fill = coverageGpuAtlasHeightCutoffFill(d, cutoffDepth, collapsedMaxFill);
-      const logSpan = Math.log(Math.max(max, cutoffDepth + 1) / cutoffDepth);
-      const t = d > cutoffDepth && logSpan > 0 ? Math.log(d / cutoffDepth) / logSpan : 0;
-      return { fill, ...(d > cutoffDepth ? { color: coverageHeatColor(t) } : {}) };
+      return coverageGpuAtlasHeightCutoffFill(d, cutoffDepth, collapsedMaxFill);
     }
     const knee = Math.max(1, pct.p99);
-    const fill = coverageGpuAtlasLogColorFill(d, knee, max, collapsedMaxFill);
-    const logSpan = Math.log(Math.max(max, knee + 1) / knee);
-    const t = d > knee && logSpan > 0 ? Math.log(d / knee) / logSpan : 0;
-    return { fill, ...(d > knee ? { color: coverageHeatColor(t) } : {}) };
+    return coverageGpuAtlasLogColorFill(d, knee, max, collapsedMaxFill);
   }
   if (mode === 'combo') {
     const p99 = Math.max(1, pct.p99);
     if (d <= p99) {
-      return { fill: collapsedMaxFill * 0.85 * clamp01(d / p99) };
+      return collapsedMaxFill * 0.85 * clamp01(d / p99);
     }
     const logSpan = Math.log(Math.max(max, p99 + 1) / p99);
     const t = logSpan > 0 ? Math.log(d / p99) / logSpan : 1;
-    const fill = collapsedMaxFill * clamp01(0.85 + 0.15 * clamp01(t));
-    return { fill, color: coverageHeatColor(t) };
+    return collapsedMaxFill * clamp01(0.85 + 0.15 * clamp01(t));
   }
   const p99 = Math.max(1, pct.p99);
-  return { fill: Math.min(collapsedMaxFill, (d / p99) * collapsedMaxFill) };
+  return Math.min(collapsedMaxFill, (d / p99) * collapsedMaxFill);
 }
 const READ_ROWS_ASSIGN_RECORDS_PER_FRAME = 512;
 const READ_ROWS_ASSIGN_WORK_BUDGET_MS = 0.75;
@@ -1084,8 +1055,8 @@ function isDisjointReadWindow(
 
 function countPositiveBins(bins: ReadonlyArray<number>): number {
   let count = 0;
-  for (const bin of bins) {
-    if (bin > 0) count++;
+  for (let index = 0; index < bins.length; index++) {
+    if (bins[index] > 0) count++;
   }
   return count;
 }
@@ -4907,13 +4878,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         fillCutoff: (d) => coverageGpuAtlasHeightCutoffFill(d, cutoffDepth, collapsedMaxFill),
         fillFromGlobalPercentiles: (d) => {
           if (!globalPct) return 0;
-          return coverageFillAndColor(
-            d,
-            globalPct,
-            coverageScaleMode,
-            collapsedMaxFill,
-            cutoffDepth
-          ).fill;
+          return coverageFill(d, globalPct, coverageScaleMode, collapsedMaxFill, cutoffDepth);
         },
         fillFromContrast: (d) =>
           coverageDepthFillFraction(
