@@ -315,7 +315,10 @@ describe('I1/I2 actual image component recovery and resource ownership', () => {
     act(() =>
       useCanvasStore
         .getState()
-        .updateTab(view.result.panelId, view.result.tabId, { entityId: '/synthetic/new.png' })
+        .retargetTab(view.result.panelId, view.result.tabId, {
+          type: 'image',
+          entityId: '/synthetic/new.png',
+        })
     );
     await open('/synthetic/new.png');
     view.rerender(<ImageViewerTab canvasTabId={view.result.tabId} filePath="/synthetic/new.png" />);
@@ -405,7 +408,10 @@ describe('I1/I2 actual image component recovery and resource ownership', () => {
     act(() =>
       useCanvasStore
         .getState()
-        .updateTab(view.result.panelId, view.result.tabId, { entityId: '/synthetic/B.png' })
+        .retargetTab(view.result.panelId, view.result.tabId, {
+          type: 'image',
+          entityId: '/synthetic/B.png',
+        })
     );
     fireEvent.click(retry);
     expect(ports.read).toHaveBeenCalledTimes(1);
