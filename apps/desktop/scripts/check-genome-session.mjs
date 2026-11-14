@@ -117,31 +117,38 @@ try {
   const saved = await page.evaluate(
     async ({ project, fasta, signal }) => {
       const { platform } = await import('/src/platform/index.ts');
+      const { createTrackViewsTool } = await import('/src/features/ai/tools/track-views.ts');
+      const { useWorkspaceStore } = await import('/src/stores/workspaceStore.ts');
       const imported = await platform().referenceAssets.importLocal({
         operationId: crypto.randomUUID(),
         sourcePath: fasta,
         themeMode: 'light',
       });
       if (imported.status !== 'ready') throw new Error(JSON.stringify(imported));
-      return platform().trackViews.command({
-        operation: 'create',
-        project,
-        referenceId: imported.entry.id,
-        requestId: crypto.randomUUID(),
-        name: 'Genome session acceptance',
-        path: 'Genome session acceptance.dnaforge-track-view.json',
-        viewport: { chrom: 'chr1', start0: 0, end0: 500 },
-        tracks: [
-          {
-            source: { kind: 'path', path: signal },
-            format: 'bigwig',
-            label: 'Session signal',
-            color: '#d97706',
-            heightPx: 120,
-            range: { min: 0, max: 12 },
-          },
-        ],
-      });
+      const saved = await createTrackViewsTool(useWorkspaceStore.getState().folders).execute(
+        {
+          operation: 'create',
+          project,
+          referenceId: imported.entry.id,
+          requestId: crypto.randomUUID(),
+          name: 'Genome session acceptance',
+          path: 'Genome session acceptance.dnaforge-track-view.json',
+          viewport: { chrom: 'chr1', start0: 0, end0: 500 },
+          tracks: [
+            {
+              source: { kind: 'path', path: signal },
+              format: 'bigwig',
+              label: 'Session signal',
+              color: '#d97706',
+              heightPx: 120,
+              range: { min: 0, max: 12 },
+            },
+          ],
+        },
+        { toolCallId: crypto.randomUUID(), messages: [] }
+      );
+      if (!saved.ok) throw new Error(JSON.stringify(saved));
+      return saved;
     },
     { project, fasta, signal }
   );
