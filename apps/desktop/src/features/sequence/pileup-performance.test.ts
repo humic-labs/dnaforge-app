@@ -27,6 +27,7 @@ function report(profile = 'portable-dense') {
       coverageEndBp: 105_000,
     },
     failures: [] as string[],
+    cache: { bytes: 80 * 1024 * 1024, entries: 120 },
     cadence: {
       durationMs: 1_200,
       rafIntervalsMs: Array.from({ length: 72 }, () => 1_000 / 60),
@@ -48,6 +49,7 @@ function report(profile = 'portable-dense') {
   return {
     schema: 'dnaforge.pileup-performance.v1',
     profile,
+    failures: [] as string[],
     source: {
       commit: 'a'.repeat(40),
       runtimeCommit: 'a'.repeat(40),
@@ -186,6 +188,8 @@ describe('saved pileup performance qualification', () => {
       input.resourceSamples[0].heapUsedBytes + 64 * 1024 * 1024;
     input.resourceSamples[2].cacheBytes = 192 * 1024 * 1024;
     input.resourceSamples[2].cacheEntries = 512;
+    input.phases[0].cache.bytes = 192 * 1024 * 1024;
+    input.phases[2].cache.entries = 512;
     expect(classifyPileupPerformance(input).status).toBe('pass');
   });
 
@@ -253,6 +257,49 @@ describe('saved pileup performance qualification', () => {
     mutate(input);
     expect(check(input, 'cache').found.status).toBe('fail');
   });
+
+  it.each([
+    ['cold-open bytes', 0, 'bytes', 192 * 1024 * 1024 + 1, 'maxObservedBytes'],
+    ['wide-window entries', 2, 'entries', 513, 'maxObservedEntries'],
+    ['reopened bytes', 3, 'bytes', 192 * 1024 * 1024 + 1, 'maxObservedBytes'],
+  ] as const)(
+    'rejects excessive %s despite later warm checkpoints within budget',
+    (_name, index, field, value, metric) => {
+      const input = report();
+      input.phases[index].cache[field] = value;
+      const { result, found } = check(input, 'cache');
+      expect(found.status).toBe('fail');
+      expect(found.metrics[metric]).toBe(value);
+      expect(result.status).toBe('fail');
+    }
+  );
+
+  it.each([
+    ['whole phase observation', (r: Report) => Object.assign(r.phases[1], { cache: null })],
+    ['phase bytes', (r: Report) => Object.assign(r.phases[0].cache, { bytes: null })],
+    ['phase entries', (r: Report) => Object.assign(r.phases[2].cache, { entries: null })],
+  ] as const)('does not qualify a missing %s', (_name, mutate) => {
+    const input = report();
+    mutate(input);
+    const { result, found } = check(input, 'cache');
+    expect(found.status).toBe('unqualified');
+    expect(result.status).toBe('unqualified');
+  });
+
+  it('rejects a report-level failure even when every measured phase passed', () => {
+    const input = report();
+    input.failures.push('Runtime transport failed after the final phase.');
+    expect(classifyPileupPerformance(input).status).toBe('fail');
+  });
+
+  it.each([null, undefined])(
+    'requires report-level failure observations instead of %s',
+    (value) => {
+      const input = report();
+      Object.assign(input, { failures: value });
+      expect(classifyPileupPerformance(input).status).toBe('unqualified');
+    }
+  );
 
   it('fails retained heap growth even if the final sample shrinks', () => {
     const input = report();

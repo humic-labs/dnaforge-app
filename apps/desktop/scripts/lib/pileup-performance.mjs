@@ -99,8 +99,10 @@ function classifySource(report) {
   return check;
 }
 
-function classifyJourney(phases) {
+function classifyJourney(phases, reportFailures) {
   const check = createCheck('journey');
+  if (!Array.isArray(reportFailures)) invalidate(check, 'report-failure-observations-missing');
+  else if (reportFailures.length > 0) fail(check, 'report-runtime-or-journey-errors');
   if (phases.length === 0) invalidate(check, 'measurements-missing');
   const labels = new Set();
   for (const phase of phases) {
@@ -287,11 +289,24 @@ function classifyNative(phases, required) {
   return check;
 }
 
-function classifyResources(rawSamples) {
+function classifyResources(rawSamples, phases) {
   const cache = createCheck('cache');
   const heap = createCheck('retained-heap');
   const samples = Array.isArray(rawSamples) ? rawSamples : [];
   const validSamples = samples.filter(object);
+  const observations = [
+    ...phases.map((phase) => ({
+      label: text(phase?.label) ? phase.label : 'unknown-phase',
+      bytes: phase?.cache?.bytes,
+      entries: phase?.cache?.entries,
+    })),
+    ...validSamples.map((sample) => ({
+      label: count(sample.cycle) ? `warm-cycle-${sample.cycle}` : 'unknown-warm-cycle',
+      bytes: sample.cacheBytes,
+      entries: sample.cacheEntries,
+    })),
+  ];
+  if (phases.length === 0) invalidate(cache, 'phase-cache-observations-missing');
   if (samples.length === 0 || validSamples.length !== samples.length)
     invalidate(cache, 'cache-observations-missing');
   if (samples.length < limits.minimumWarmedCheckpoints || validSamples.length !== samples.length)
@@ -299,14 +314,16 @@ function classifyResources(rawSamples) {
   let previousCycle = -1;
   const checkpoint = validSamples[0]?.checkpoint;
   if (!text(checkpoint)) invalidate(heap, 'checkpoint-identity-missing');
-  for (const sample of validSamples) {
-    if (!count(sample.cacheBytes) || !count(sample.cacheEntries))
-      invalidate(cache, 'cache-telemetry-missing');
+  for (const observation of observations) {
+    if (!count(observation.bytes) || !count(observation.entries))
+      invalidate(cache, `${observation.label}:cache-telemetry-missing`);
     else if (
-      sample.cacheBytes > limits.maxCacheBytes ||
-      sample.cacheEntries > limits.maxCacheEntries
+      observation.bytes > limits.maxCacheBytes ||
+      observation.entries > limits.maxCacheEntries
     )
-      fail(cache, 'settled-cache-budget-exceeded');
+      fail(cache, `${observation.label}:settled-cache-budget-exceeded`);
+  }
+  for (const sample of validSamples) {
     if (
       !count(sample.cycle) ||
       sample.cycle <= previousCycle ||
@@ -325,8 +342,8 @@ function classifyResources(rawSamples) {
   if (growthBytes !== null && growthBytes > limits.retainedHeapGrowthBytes)
     fail(heap, 'retained-heap-growth-budget-exceeded');
   cache.metrics = {
-    maxObservedBytes: maximum(validSamples.map((sample) => sample.cacheBytes).filter(count)),
-    maxObservedEntries: maximum(validSamples.map((sample) => sample.cacheEntries).filter(count)),
+    maxObservedBytes: maximum(observations.map((sample) => sample.bytes).filter(count)),
+    maxObservedEntries: maximum(observations.map((sample) => sample.entries).filter(count)),
     limitBytes: limits.maxCacheBytes,
     limitEntries: limits.maxCacheEntries,
   };
@@ -352,12 +369,12 @@ export function classifyPileupPerformance(input) {
   const gestures = phases.filter((phase) => phase?.kind === 'gesture');
   const checks = [
     classifySource(report),
-    classifyJourney(phases),
+    classifyJourney(phases, report.failures),
     classifyViewport(phases, report.source?.generationKey),
     classifyLoading(phases),
     classifyCadence(gestures),
     classifyNative(gestures, report.profile === 'full-genome'),
-    ...classifyResources(report.resourceSamples),
+    ...classifyResources(report.resourceSamples, phases),
   ];
   const required = checks.filter((check) => check.required);
   const status = required.some((check) => check.status === 'fail')
