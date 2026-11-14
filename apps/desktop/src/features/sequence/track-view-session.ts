@@ -70,6 +70,9 @@ export class TrackViewSession implements TrackViewControl {
     for (const listener of this.listeners) listener();
     this.registration.changed();
   }
+  ownsTab(tab: Tab) {
+    return tab.entityId === this.tab.entityId || tab.entityId === this.saved?.document.id;
+  }
   receiveTab(tab: Tab) {
     this.tab = tab;
     if (this.saved !== tab.trackView) {
@@ -342,9 +345,10 @@ export class TrackViewSession implements TrackViewControl {
   dispose() {
     if (this.closed()) return;
     this.source = null;
-    this.transition({ kind: 'closed' });
-    this.settle(false);
+    this.interaction = { kind: 'closed' };
     this.registration.release();
+    this.settle(false);
+    for (const listener of this.listeners) listener();
     this.listeners.clear();
   }
 }

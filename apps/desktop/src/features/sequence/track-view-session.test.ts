@@ -117,4 +117,19 @@ describe('Track view command settlement', () => {
     expect(owner.inspect().document.viewport).toEqual(edited.viewport);
     expect(owner.inspect().dirty).toBe(true);
   });
+  it('retires an outstanding save when the same tab is retargeted to another document', async () => {
+    const { owner, document, tabId } = open();
+    owner.attachSource(Symbol(), { referenceName: 'Reference', readyForDirtyCheck: true, capture: () => document });
+    const pending = Promise.withResolvers<unknown>();
+    boundary.save.mockReturnValue(pending.promise);
+    const write = owner.save({ mode: 'save', name: 'Old document', expectedRevision: owner.inspect().revision });
+    await vi.waitFor(() => expect(boundary.save).toHaveBeenCalledOnce());
+    const replacement = { ...document, id: 'track-view-22222222', name: 'Replacement' };
+    useCanvasStore.getState().updateTab('main', tabId, { entityId: replacement.id, sequenceDocument: { kind: 'indexed-sequence', documentId: replacement.id }, trackView: { document: replacement, revision: 'c'.repeat(64), path: '/project/replacement.json' } });
+    pending.resolve({ saved: { document, revision: 'b'.repeat(64), path: '/project/view.json' } });
+    expect((await write).ok).toBe(false);
+    expect(useCanvasStore.getState().panels.main.tabs.find(tab => tab.id === tabId)?.entityId).toBe(replacement.id);
+    expect(getTrackViewSession(tabId)?.inspect().document.name).toBe('Replacement');
+  });
+
 });

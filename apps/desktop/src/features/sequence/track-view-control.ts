@@ -50,7 +50,7 @@ function findTab(tabId: string) {
 useCanvasStore.subscribe(() => {
   for (const [tabId, session] of sessions) {
     const tab = findTab(tabId);
-    if (tab && supportsTrackView(tab)) session.receiveTab(tab);
+    if (tab && supportsTrackView(tab) && session.ownsTab(tab)) session.receiveTab(tab);
     else {
       sessions.delete(tabId);
       session.dispose();
