@@ -2,6 +2,14 @@
 
 Sources, licenses and digests below describe fixtures included in this public source tree.
 
+## test-fixtures/indexed/palette-signal.bw
+
+- **Source:** DNAForge-generated synthetic BigWig with chr1 at 1,000 bp and
+  chr2 at 2,000 bp. Ten chr2 intervals cover 0..100 in 10 bp bins with values
+  1 through 10. No biological source data.
+- **License:** DNAForge-owned synthetic test data, GPL-3.0-only.
+- **SHA-256:** `79ffd866dde7571e6754b36196850f8f4bca327bc50dd67b9c24ba8943be95b5`
+
 ## test-fixtures/import-formats/pUC19.dna
 
 - **Source:** Original biological pUC19 SnapGene binary from

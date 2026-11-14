@@ -1,4 +1,5 @@
 import { BUILTIN_TRACK_TYPES } from '@waypoint/genome-renderer';
+import { TRACK_DEFAULT_COLORS } from '@waypoint/sequence-utils';
 
 import type { IndexedGenomeVariantSourceState } from '../../shared/indexed-genome';
 import type { ActiveStressDataset, Lane } from './lane-contract-store';
@@ -12,7 +13,7 @@ export function variantLaneDataset(source: IndexedGenomeVariantSourceState): Act
     trackId: variantTrackId(source),
     trackType: BUILTIN_TRACK_TYPES.variant,
     label: source.label || `${source.format.toUpperCase()} variants`,
-    color: 0xdc2626,
+    color: TRACK_DEFAULT_COLORS.variant,
     trackPx: 44,
     laneHeightPx: 12,
     maxLanes: 8,

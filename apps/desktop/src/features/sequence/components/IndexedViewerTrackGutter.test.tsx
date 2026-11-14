@@ -933,6 +933,48 @@ describe('IndexedViewerTrackGutter', () => {
     }
   );
 
+  it('offers the established track swatches and applies a preset without replacing read data', () => {
+    const before = useLaneContractStore
+      .getState()
+      .lanesForOwner(ASSEMBLY_ID)
+      .find((lane) => lane.dataset.trackId === 'bam-a')!.dataset;
+    renderGutter();
+
+    fireEvent.click(screen.getByLabelText('Open settings for Tumor BAM'));
+    fireEvent.click(screen.getByLabelText('Light read color for Tumor BAM'));
+    const picker = screen.getByRole('dialog', { name: 'Light read color picker for Tumor BAM' });
+    expect(
+      within(picker)
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label'))
+    ).toEqual([
+      'Use #3b82f6',
+      'Use #2563eb',
+      'Use #8b5cf6',
+      'Use #7c3aed',
+      'Use #d97706',
+      'Use #f59e0b',
+      'Use #16a34a',
+      'Use #0891b2',
+      'Use #e11d48',
+      'Use #64748b',
+      'Use #111827',
+      'Use #f8fafc',
+    ]);
+
+    fireEvent.click(within(picker).getByRole('button', { name: 'Use #7c3aed' }));
+    const after = useLaneContractStore
+      .getState()
+      .lanesForOwner(ASSEMBLY_ID)
+      .find((lane) => lane.dataset.trackId === 'bam-a')!.dataset;
+    expect(after.color).toBe(0x7c3aed);
+    expect(after.records).toBe(before.records);
+    expect(after.source).toBe(before.source);
+    expect(
+      screen.queryByRole('dialog', { name: 'Light read color picker for Tumor BAM' })
+    ).toBeNull();
+  });
+
   it('edits an exact light-mode pileup read color without replacing the track data', () => {
     const before = useLaneContractStore
       .getState()
