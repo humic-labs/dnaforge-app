@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { runPileupPerformanceJourney } from './lib/pileup-performance-journey.mjs';
 import { classifyPileupPerformance } from './lib/pileup-performance.mjs';
+import { createPileupNativeTrace } from './lib/pileup-native-trace.mjs';
 
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const envPath = path.join(appDir, '.env.local');
@@ -165,7 +166,21 @@ try {
     evidenceDirectory = process.env.PILEUP_PERFORMANCE_OUTPUT
       ? path.resolve(process.env.PILEUP_PERFORMANCE_OUTPUT)
       : await mkdtemp(path.join(tmpdir(), 'dnaforge-pileup-performance-'));
+    await mkdir(evidenceDirectory, { recursive: true });
     const browser = await chromium.connectOverCDP(`http://127.0.0.1:${ports.debugPort}`);
+    const diagnosticEvents = [];
+    const diagnosticErrors = [];
+    let diagnosticSession;
+    const instrumentation =
+      process.env.PILEUP_PERFORMANCE_DIAGNOSTICS === '1'
+        ? {
+            qualification: false,
+            cpuSamplingIntervalUs: 1000,
+            tracePhases: ['zoom-26612bp'],
+            traceCategories: ['CPU', 'GC', 'GPU', 'compositor'],
+            networkScope: 'whole-journey',
+          }
+        : null;
     try {
       const page = browser
         .contexts()
@@ -176,11 +191,88 @@ try {
           )
         );
       assert.ok(page, 'The source-started desktop renderer is missing.');
+      let nativeTrace;
+      if (instrumentation) {
+        await writeFile(
+          path.join(evidenceDirectory, 'instrumentation.json'),
+          JSON.stringify(instrumentation, null, 2)
+        );
+        try {
+          diagnosticSession = await page.context().newCDPSession(page);
+          diagnosticSession.on(
+            'Network.requestWillBeSent',
+            ({ requestId, timestamp, wallTime, request, type }) => {
+              diagnosticEvents.push({
+                event: 'request',
+                requestId,
+                timestamp,
+                wallTime,
+                url: request.url,
+                method: request.method,
+                type,
+              });
+            }
+          );
+          diagnosticSession.on('Network.responseReceived', ({ requestId, timestamp, response }) => {
+            diagnosticEvents.push({
+              event: 'response',
+              requestId,
+              timestamp,
+              url: response.url,
+              status: response.status,
+              protocol: response.protocol,
+              timing: response.timing,
+              connectionReused: response.connectionReused,
+              fromDiskCache: response.fromDiskCache,
+            });
+          });
+          diagnosticSession.on(
+            'Network.loadingFinished',
+            ({ requestId, timestamp, encodedDataLength }) => {
+              diagnosticEvents.push({ event: 'finished', requestId, timestamp, encodedDataLength });
+            }
+          );
+          diagnosticSession.on(
+            'Network.loadingFailed',
+            ({ requestId, timestamp, errorText, canceled }) => {
+              diagnosticEvents.push({ event: 'failed', requestId, timestamp, errorText, canceled });
+            }
+          );
+          await diagnosticSession.send('Network.enable');
+          const trace = createPileupNativeTrace({
+            output: path.join(evidenceDirectory, 'diagnostic'),
+            diagnosticOnly: true,
+          });
+          nativeTrace = Object.fromEntries(
+            ['start', 'stop'].map((method) => [
+              method,
+              async (input) => {
+                try {
+                  return await trace[method](input);
+                } catch (error) {
+                  diagnosticErrors.push({ phase: input.label, method, error: String(error) });
+                  return null;
+                }
+              },
+            ])
+          );
+        } catch (error) {
+          diagnosticErrors.push({ method: 'setup', error: String(error) });
+        }
+      }
       const report = await runPileupPerformanceJourney({
         page,
         output: evidenceDirectory,
         apiPort: ports.apiPort,
+        nativeTrace,
       });
+      if (instrumentation) {
+        report.diagnostics.instrumentation = instrumentation;
+        await writeFile(
+          path.join(evidenceDirectory, 'pileup-performance-journey.json'),
+          JSON.stringify(report, null, 2)
+        );
+      }
       pileupPerformance = classifyPileupPerformance(report);
       await writeFile(
         path.join(evidenceDirectory, 'pileup-performance-result.json'),
@@ -190,6 +282,24 @@ try {
       if (pileupPerformance.status !== 'pass')
         failure = 'The dense saved-pileup performance journey did not pass.';
     } finally {
+      if (instrumentation) {
+        try {
+          if (diagnosticSession)
+            await diagnosticSession.detach().catch((error) => {
+              diagnosticErrors.push({ method: 'detach', error: String(error) });
+            });
+          await writeFile(
+            path.join(evidenceDirectory, 'network.json'),
+            JSON.stringify(diagnosticEvents, null, 2)
+          );
+          await writeFile(
+            path.join(evidenceDirectory, 'diagnostic-errors.json'),
+            JSON.stringify(diagnosticErrors, null, 2)
+          );
+        } catch (error) {
+          console.error(`PILEUP_DIAGNOSTIC_FAILED ${String(error)}`);
+        }
+      }
       await browser.close();
     }
   }

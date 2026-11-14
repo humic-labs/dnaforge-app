@@ -46,23 +46,34 @@ async function finishTrace(cdp) {
   }
 }
 
-export function createPileupNativeTrace({ output, refreshHz }) {
+export function createPileupNativeTrace({ output, refreshHz, diagnosticOnly = false }) {
   assert.ok(path.isAbsolute(output), 'Native traces require an absolute evidence directory.');
-  assert.ok([60, 120].includes(refreshHz), 'Declare the actual 60 Hz or 120 Hz display target.');
+  if (!diagnosticOnly)
+    assert.ok([60, 120].includes(refreshHz), 'Declare the actual 60 Hz or 120 Hz display target.');
   return {
-    async start({ page, cdp }) {
+    async start({ label, page, cdp }) {
+      if (diagnosticOnly && label !== 'zoom-26612bp') return null;
       const id = randomUUID();
       const token = {
         startSyncId: `pileup-start-${id}`,
         endSyncId: `pileup-end-${id}`,
         rendererMarker: `pileup-renderer-${id}`,
       };
-      await cdp.send('Tracing.start', {
-        categories,
-        transferMode: 'ReturnAsStream',
-        streamFormat: 'json',
-      });
       try {
+        if (diagnosticOnly) {
+          await cdp.send('Profiler.enable');
+          await cdp.send('Profiler.setSamplingInterval', { interval: 1000 });
+          await cdp.send('Profiler.start');
+          token.cpuProfiling = true;
+        }
+        await cdp.send('Tracing.start', {
+          categories: diagnosticOnly
+            ? `${categories},toplevel,devtools.timeline,v8,disabled-by-default-v8.gc`
+            : categories,
+          transferMode: 'ReturnAsStream',
+          streamFormat: 'json',
+        });
+        token.traceStarted = true;
         await cdp.send('Tracing.recordClockSyncMarker', { syncId: token.startSyncId });
         token.markerEpochMs = await page.evaluate((marker) => {
           const mark = performance.mark(marker);
@@ -70,11 +81,28 @@ export function createPileupNativeTrace({ output, refreshHz }) {
         }, token.rendererMarker);
         return token;
       } catch (error) {
-        await finishTrace(cdp).catch(() => {});
+        if (token.traceStarted) await finishTrace(cdp).catch(() => {});
+        if (token.cpuProfiling) {
+          await cdp.send('Profiler.stop').catch(() => {});
+          await cdp.send('Profiler.disable').catch(() => {});
+        }
         throw error;
       }
     },
     async stop({ label, token, page, cdp, inputStartEpochMs, inputEndEpochMs, cadence }) {
+      if (!token) return null;
+      let cpuProfile;
+      if (token.cpuProfiling) {
+        try {
+          cpuProfile = (await cdp.send('Profiler.stop')).profile;
+        } catch (error) {
+          token.cpuProfileError = String(error);
+        } finally {
+          await cdp.send('Profiler.disable').catch((error) => {
+            token.cpuProfileError = String(error);
+          });
+        }
+      }
       await cdp.send('Tracing.recordClockSyncMarker', { syncId: token.endSyncId });
       await new Promise((resolve) => setTimeout(resolve, 50));
       const trace = await finishTrace(cdp);
@@ -85,6 +113,23 @@ export function createPileupNativeTrace({ output, refreshHz }) {
         path.join(output, `${name}.trace.json.gz`),
         await compress(JSON.stringify(trace))
       );
+      if (diagnosticOnly) {
+        if (cpuProfile)
+          await writeFile(path.join(output, `${name}.cpuprofile`), JSON.stringify(cpuProfile));
+        await writeFile(
+          path.join(output, `${name}.diagnostic.json`),
+          JSON.stringify({ token, inputStartEpochMs, inputEndEpochMs, cadence }, null, 2)
+        );
+        return {
+          status: 'unqualified',
+          failures: ['diagnostic-only-no-declared-display-target'],
+          diagnosticFiles: [
+            `${name}.trace.json.gz`,
+            ...(cpuProfile ? [`${name}.cpuprofile`] : []),
+            `${name}.diagnostic.json`,
+          ],
+        };
+      }
       const markers = (trace.traceEvents ?? []).filter(
         (event) =>
           event.name === token.rendererMarker &&
