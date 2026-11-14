@@ -6,10 +6,10 @@ structure viewer and a lab notebook. Projects are folders on your own disk. It
 is an Electron app (`apps/desktop`) with a Python sidecar (`apps/api`) and Rust
 helper programs (`tools/`).
 
-This repository is the source of truth for product development. Contributions
-target `main`; see [CONTRIBUTING.md](CONTRIBUTING.md) for local checks and pull
-requests, and [MAINTAINING.md](MAINTAINING.md) for the maintainer landing and
-release process.
+This repository is the source of truth for the desktop app, local compute and
+portable shared libraries. Contributions target `main`; see
+[CONTRIBUTING.md](CONTRIBUTING.md) for local checks and pull requests, and
+[MAINTAINING.md](MAINTAINING.md) for the maintainer landing and release process.
 
 For a guided first contribution, follow the [local development exercise](HACKATHON.md).
 
