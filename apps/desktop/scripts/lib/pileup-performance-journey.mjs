@@ -81,21 +81,35 @@ async function createFixtureWorkspace(page) {
   });
 }
 
-async function frame(page, start, span) {
+async function frame(page, start, span, lane) {
   await page.evaluate(
     ({ start, span }) => {
       if (!window.__test?.workspaceViewer?.setViewport) {
         throw new Error('The indexed viewport precondition bridge is unavailable.');
       }
       window.__test.workspaceViewer.setViewport({ start, end: start + span });
-      window.__webglFireCameraChange?.('zoom');
-      if (typeof window.__webglRequestRender !== 'function') {
-        throw new Error('The indexed renderer invalidation bridge is unavailable.');
-      }
-      window.__webglRequestRender();
     },
     { start, span }
   );
+  await poll(
+    () =>
+      page.evaluate((trackId) => {
+        const renderer = window.__webglRenderer;
+        return {
+          indexed: Boolean(renderer && window.__webglRendererByProduct?.indexed === renderer),
+          track: Boolean(renderer?.getTrackDiagnostics?.(trackId)),
+          camera: typeof window.__webglFireCameraChange === 'function',
+          invalidation: typeof window.__webglRequestRender === 'function',
+        };
+      }, lane.trackId),
+    (state) => Object.values(state).every(Boolean),
+    30_000,
+    'The active indexed renderer did not become ready for its admitted read lane'
+  );
+  await page.evaluate(() => {
+    window.__webglFireCameraChange('zoom');
+    window.__webglRequestRender();
+  });
   await poll(
     () =>
       page.evaluate(() => {
@@ -194,6 +208,13 @@ async function observation(page, lane, readLengthBp) {
           coverageEndBp: diagnostic.coverageSignalEndBp,
         },
         checks,
+        preparation: {
+          rowsAssignmentBuilding: diagnostic.rowsAssignmentBuildInProgress,
+          rowsMeshBuilding: diagnostic.rowsMeshBuildInProgress,
+          rowsMeshRecordCursor: diagnostic.rowsMeshBuildRecordCursor,
+          rowsMeshTargetRecordCount: diagnostic.rowsMeshBuildRecordCount,
+          corridorFloorState: driver.coverageCorridorFloor?.state,
+        },
         sourceWindow: {
           startBp: diagnostic.readSourceWindowStartBp,
           endBp: diagnostic.readSourceWindowEndBp,
@@ -238,6 +259,8 @@ async function visibleFlanks(page, lane, viewport) {
 
 async function complete(page, lane, readLengthBp, started, failures, target = {}) {
   let latest = null;
+  let previous = null;
+  const settlement = [];
   const deadline = performance.now() + 10_000;
   do {
     latest = await observation(page, lane, readLengthBp);
@@ -247,14 +270,27 @@ async function complete(page, lane, readLengthBp, started, failures, target = {}
           Math.abs(latest.viewport.startBp - target.startBp) <= 2) &&
         (!Number.isFinite(target.spanBp) ||
           Math.abs(latest.viewport.endBp - latest.viewport.startBp - target.spanBp) <= 2);
+      const state = {
+        checks: latest.checks,
+        preparation: latest.preparation,
+        sourceFraction: latest.viewport.sourceFraction,
+        meshFraction: latest.viewport.meshFraction,
+        pendingTiles: latest.viewport.pendingTiles,
+        recordCount: latest.viewport.recordCount,
+      };
+      const signature = JSON.stringify(state);
+      if (signature !== previous) {
+        settlement.push({ elapsedMs: performance.now() - started, ...state });
+        previous = signature;
+      }
     }
     if (latest && Object.values(latest.checks).every(Boolean) && latest.errors.length === 0) {
-      return { ...latest, elapsedMs: performance.now() - started };
+      return { ...latest, elapsedMs: performance.now() - started, settlement };
     }
     await delay(50);
   } while (performance.now() < deadline);
   failures.push(`Viewport did not settle: ${JSON.stringify(latest?.checks ?? null)}`);
-  return { ...(latest ?? { viewport: {} }), elapsedMs: performance.now() - started };
+  return { ...(latest ?? { viewport: {} }), elapsedMs: performance.now() - started, settlement };
 }
 
 async function saveView(page, fixture, name) {
@@ -393,7 +429,7 @@ async function admitPortable(page, fixture) {
     'BAM admission created no visible lane'
   );
   assert.ok(lane.generationKey, 'The admitted BAM has no current source generation.');
-  await frame(page, fixture.locusStart, 4000);
+  await frame(page, fixture.locusStart, 4000, lane);
   const failures = [];
   await complete(page, lane, fixture.readLengthBp, performance.now(), failures);
   assert.equal(failures.length, 0, failures.join('\n'));
@@ -751,14 +787,14 @@ export async function runPileupPerformanceJourney({
       }
       const { finalInput, ...timing } = input;
       await record({ label: `zoom-${span}bp`, kind: 'gesture', ...state, ...timing, failures });
-      await frame(page, fixture.locusStart, span);
+      await frame(page, fixture.locusStart, span, lane);
       const preconditionFailures = [];
       await complete(page, lane, fixture.readLengthBp, performance.now(), preconditionFailures);
       assert.equal(preconditionFailures.length, 0, preconditionFailures.join('\n'));
       await gesture(`pan-${span}bp-away`, 1);
       await gesture(`pan-${span}bp-return`, -1);
     }
-    await frame(page, fixture.locusStart, 26612);
+    await frame(page, fixture.locusStart, 26612, lane);
     const sourceTabId = await page
       .locator('[role="tab"][data-tab-id][aria-selected="true"]')
       .getAttribute('data-tab-id');
@@ -795,7 +831,7 @@ export async function runPileupPerformanceJourney({
     for (const phase of report.phases) {
       scope = `evidence:${phase.label}`;
       try {
-        await frame(page, phase.viewport.startBp, phase.viewport.endBp - phase.viewport.startBp);
+        await frame(page, phase.viewport.startBp, phase.viewport.endBp - phase.viewport.startBp, lane);
         const failures = [];
         const state = await complete(
           page,
