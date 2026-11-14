@@ -494,7 +494,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 }));
 
-const desktopWorkspaceSelection = new DesktopWorkspaceSelection({
+const desktopWorkspaceSelection: DesktopWorkspaceSelection = new DesktopWorkspaceSelection({
   readState: () => useWorkspaceStore.getState().workspaceSelection,
   publish: (workspaceSelection) => useWorkspaceStore.setState({ workspaceSelection }),
   roots: () => useWorkspaceStore.getState().folders,
