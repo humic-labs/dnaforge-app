@@ -149,7 +149,14 @@ export async function runTableEditorJourney(page, { workspaceRoot, onStep } = {}
       path: saved.path,
     });
 
-    await page.getByRole('button', { name: 'Close Table keyboard journey', exact: true }).click();
+    const tabId = await page.evaluate((pageId) => {
+      const tabs = Object.values(window.__test.getCanvasStore().panels)
+        .flatMap((panel) => panel.tabs)
+        .filter((tab) => tab.type === 'page' && tab.entityId === pageId);
+      if (tabs.length !== 1) throw new Error('The journey notebook does not have exactly one tab');
+      return tabs[0].id;
+    }, created.pageId);
+    await page.getByTestId(`tab-close-${tabId}`).click();
     await expect(created.notebook).toHaveCount(0);
     await page.keyboard.press(`${shortcut}+Shift+e`);
     const project = page.locator(`[data-workspace-root-path=${JSON.stringify(workspaceRoot)}]`);
