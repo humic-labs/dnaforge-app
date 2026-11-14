@@ -1318,11 +1318,12 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
         for (const panel of Object.values(canvas.panels)) {
           for (const tab of panel.tabs) {
             if (tab.type === 'text' && tab.entityId === adopted.sourcePath)
-              canvas.updateTab(panel.id, tab.id, {
-                type: 'page',
-                entityId: adopted.pageId,
-                label: adopted.title,
-              });
+              canvas.retargetTab(
+                panel.id,
+                tab.id,
+                { type: 'page', entityId: adopted.pageId },
+                { label: adopted.title }
+              );
           }
         }
         useWorkspaceStore.getState().bumpFileTreeRefresh();

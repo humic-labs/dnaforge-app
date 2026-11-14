@@ -1,5 +1,6 @@
 import type { Tab } from '../canvas/public/types';
 import { useCanvasStore } from '../canvas/public/store';
+import { classifyTabSession } from '../canvas/public/tab-document-session';
 import { TrackViewSession } from './track-view-session';
 import type {
   TrackViewDocument,
@@ -37,10 +38,9 @@ export interface TrackViewControl {
 }
 const sessions = new Map<string, TrackViewSession>();
 function supportsTrackView(tab: Tab | undefined) {
-  return (
-    tab?.type === 'sequence' &&
-    Boolean(tab.trackView || tab.indexedGenome || tab.sequenceDocument?.kind === 'indexed-sequence')
-  );
+  if (!tab) return false;
+  const session = classifyTabSession(tab);
+  return session.kind === 'sequence' && session.editor === 'indexed';
 }
 function findTab(tabId: string) {
   return Object.values(useCanvasStore.getState().panels)

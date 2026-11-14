@@ -245,7 +245,10 @@ function reuseAlreadyOpenSequenceTab(args: {
   sequenceDocument: SequenceDocumentRef;
   filePath: string;
   readOnly: boolean;
-  presentationPatch: Partial<Tab> | null | undefined;
+  presentationPatch:
+    | Pick<Tab, 'readOnly' | 'quickLookSource' | 'sourceFileName'>
+    | null
+    | undefined;
   telemetry: OpenSequenceTelemetryContext;
 }): PresentedDocument | null {
   const documentId = sequenceDocumentKey(args.sequenceDocument);
@@ -261,11 +264,14 @@ function reuseAlreadyOpenSequenceTab(args: {
       sourceSurface: args.telemetry.sourceSurface,
     });
   }
-  useCanvasStore.getState().updateTab(alreadyOpen.panelId, alreadyOpen.tabId, {
-    sequenceDocument: args.sequenceDocument,
-    readOnly: args.readOnly,
-    ...(args.presentationPatch ?? {}),
-  });
+  useCanvasStore
+    .getState()
+    .retargetTab(
+      alreadyOpen.panelId,
+      alreadyOpen.tabId,
+      { type: 'sequence', sequenceDocument: args.sequenceDocument },
+      { readOnly: args.readOnly, ...(args.presentationPatch ?? {}) }
+    );
   const tab = useCanvasStore
     .getState()
     .panels[alreadyOpen.panelId]?.tabs.find((item) => item.id === alreadyOpen.tabId);
@@ -791,11 +797,14 @@ function openInPanel(
     'loading'
   );
   if (result.status !== 'presented') return null;
-  useCanvasStore.getState().updateTab(result.panelId, result.tabId, {
-    sequenceDocument,
-    readOnly,
-    ...(presentationPatch ?? {}),
-  });
+  useCanvasStore
+    .getState()
+    .retargetTab(
+      result.panelId,
+      result.tabId,
+      { type: 'sequence', sequenceDocument: sequenceDocument },
+      { readOnly, ...(presentationPatch ?? {}) }
+    );
   return result;
 }
 
@@ -819,16 +828,19 @@ export function retargetOpenSequenceTab(
   }
 
   const presentationPatch = presentationTabPatch(options.presentation ?? undefined);
-  store.updateTab(source.panelId, source.tabId, {
-    entityId: nextDocumentId,
-    sequenceDocument: next,
-    label: options.label,
-    readOnly: presentationPatch?.readOnly ?? false,
-    quickLookSource: presentationPatch?.quickLookSource,
-    sourceFileName: presentationPatch?.sourceFileName,
-    isDirty: false,
-    loadStatus: 'loaded',
-  });
+  store.retargetTab(
+    source.panelId,
+    source.tabId,
+    { type: 'sequence', sequenceDocument: next },
+    {
+      label: options.label,
+      readOnly: presentationPatch?.readOnly ?? false,
+      quickLookSource: presentationPatch?.quickLookSource,
+      sourceFileName: presentationPatch?.sourceFileName,
+      isDirty: false,
+      loadStatus: 'loaded',
+    }
+  );
   store.focusPanel(source.panelId);
   store.setActiveTab(source.panelId, source.tabId);
   return source.tabId;

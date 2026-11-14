@@ -222,9 +222,7 @@ export function useReopenAcceptedAssembly(
         throw new Error('The sequence tab closed before its assembly editor could open.');
       }
       if (reconstructed) rememberAssemblyReopen(reconstructed);
-      canvas.updateTab(sequenceTab.panelId, sequenceTab.tabId, {
-        assemblyEditDesignId: designId,
-      });
+      canvas.setSequenceAssemblyEdit(sequenceTab.panelId, sequenceTab.tabId, designId);
       setStatus('available');
     } catch (err) {
       if (reconstructed) discardAssemblyReopen(reconstructed.designId);

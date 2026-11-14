@@ -299,46 +299,54 @@ export class TrackViewSession implements TrackViewControl {
     for (const [panelId, panel] of Object.entries(useCanvasStore.getState().panels)) {
       if (!panel.tabs.some((candidate) => candidate.id === tab.id)) continue;
       const document = saved.document;
-      useCanvasStore.getState().updateTab(panelId, tab.id, {
-        entityId: document.id,
-        label: document.name,
-        trackView: saved,
-        sequenceDocument: { kind: 'indexed-sequence', documentId: document.id },
-        ...(!renaming && unchanged
-          ? {
-              initialAnnotationMapperPolicy: document.annotation.policy,
-              viewState: {
-                ...tab.viewState,
-                indexedViewport: document.viewport,
-                indexedGenomeViewRestoreCommand: {
-                  id: previouslySaved
-                    ? (tab.viewState?.indexedGenomeViewRestoreCommand?.id ?? crypto.randomUUID())
-                    : crypto.randomUUID(),
-                  viewport: { kind: 'assembly-range' as const, ...document.viewport },
-                  annotationPolicy: document.annotation.policy,
-                  orderedAnnotationTrackIds: document.annotation.orderedTrackIds,
-                  visibleAnnotationTrackIds: Object.entries(document.annotation.visibilityByTrackId)
-                    .filter(([, visible]) => visible)
-                    .map(([id]) => id),
+      useCanvasStore.getState().retargetTab(
+        panelId,
+        tab.id,
+        {
+          type: 'sequence',
+          sequenceDocument: { kind: 'indexed-sequence', documentId: document.id },
+        },
+        {
+          label: document.name,
+          trackView: saved,
+          ...(!renaming && unchanged
+            ? {
+                initialAnnotationMapperPolicy: document.annotation.policy,
+                viewState: {
+                  ...tab.viewState,
+                  indexedViewport: document.viewport,
+                  indexedGenomeViewRestoreCommand: {
+                    id: previouslySaved
+                      ? (tab.viewState?.indexedGenomeViewRestoreCommand?.id ?? crypto.randomUUID())
+                      : crypto.randomUUID(),
+                    viewport: { kind: 'assembly-range' as const, ...document.viewport },
+                    annotationPolicy: document.annotation.policy,
+                    orderedAnnotationTrackIds: document.annotation.orderedTrackIds,
+                    visibleAnnotationTrackIds: Object.entries(
+                      document.annotation.visibilityByTrackId
+                    )
+                      .filter(([, visible]) => visible)
+                      .map(([id]) => id),
+                  },
                 },
-              },
-              ...(!previouslySaved
-                ? {
-                    indexedGenome: tab.indexedGenome
-                      ? {
-                          ...tab.indexedGenome,
-                          scope: document.scope,
-                          dataTracks: document.dataTracks,
-                          bamTracks: document.bamTracks,
-                          signalReadPileupViews: document.signalReadPileupViews,
-                          variantSource: document.variantSource,
-                        }
-                      : undefined,
-                  }
-                : {}),
-            }
-          : {}),
-      });
+                ...(!previouslySaved
+                  ? {
+                      indexedGenome: tab.indexedGenome
+                        ? {
+                            ...tab.indexedGenome,
+                            scope: document.scope,
+                            dataTracks: document.dataTracks,
+                            bamTracks: document.bamTracks,
+                            signalReadPileupViews: document.signalReadPileupViews,
+                            variantSource: document.variantSource,
+                          }
+                        : undefined,
+                    }
+                  : {}),
+              }
+            : {}),
+        }
+      );
       break;
     }
   }
