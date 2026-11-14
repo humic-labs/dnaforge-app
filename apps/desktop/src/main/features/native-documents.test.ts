@@ -43,6 +43,13 @@ const mocks = vi.hoisted(() => ({
   flush: vi.fn(async () => {}),
   saveTelemetry: vi.fn(),
   bootLog: vi.fn(),
+  inventory: {
+    initialize: vi.fn(),
+    execute: vi.fn(),
+    inspect: vi.fn(),
+    operation: vi.fn(),
+    history: vi.fn(),
+  },
 }));
 
 vi.mock('../analytics', () => ({ trackEvent: mocks.saveTelemetry }));
@@ -107,6 +114,9 @@ vi.mock('../ipc/path-allowlist', () => ({
   assertSafePath: async (root: string) => root,
 }));
 vi.mock('../ipc/database', () => ({ getDb: vi.fn() }));
+vi.mock('../inventory-owner', () => ({
+  createNativeInventoryOwner: () => mocks.inventory,
+}));
 vi.mock('../native-annotation-document-owner', () => ({
   NativeAnnotationDocumentOwner: class {
     constructor(options: OwnerOptions) {
