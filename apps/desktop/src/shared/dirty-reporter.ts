@@ -1,4 +1,5 @@
 import { platform } from '../platform';
+import { SaveAllError, failedSaveAllResult } from './save-all-result';
 import { usePageStore } from '../features/page/store';
 import { useSequenceStore } from '../features/sequence/store';
 import { saveAllDirtySequences } from '../features/sequence/save-all-sequences';
@@ -105,11 +106,7 @@ export async function saveAllUnsavedWork(): Promise<void> {
     isDesktopRuntime() && typeof bridge.fs?.settleDirtyDocuments === 'function';
   if (nativeDocumentsSettled) {
     const result = await bridge.fs.settleDirtyDocuments({ action: 'save' });
-    if (result.failures.length || result.remaining.length)
-      throw new Error(
-        result.failures.map((item) => item.error).join('\n') ||
-          'Some native documents still have unsaved work.'
-      );
+    if (result.failures.length || result.remaining.length) throw new SaveAllError(result.failures);
   }
   const nativeSequences = getNativeSequenceDocumentClient();
   const excluded = nativeDocumentsSettled
@@ -154,8 +151,14 @@ export async function saveAllUnsavedWork(): Promise<void> {
 export function initSaveAllHandler(): () => void {
   const bridge = platform();
   return bridge.on('app:saveAll', (requestId) => {
-    void saveAllUnsavedWork()
-      .catch((error) => console.error('[Save All] Some changes were not saved:', error))
-      .finally(() => bridge.app.saveAllDone(requestId));
+    void saveAllUnsavedWork().then(
+      () => bridge.app.saveAllDone(requestId, { status: 'saved' }),
+      (error) => {
+        try {
+          console.error('[Save All] Some changes were not saved:', error);
+        } catch {}
+        bridge.app.saveAllDone(requestId, failedSaveAllResult(error));
+      }
+    );
   });
 }

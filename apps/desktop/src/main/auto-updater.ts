@@ -1,5 +1,6 @@
 export { readBetaUpdatesSetting } from './update-preferences';
 import { updateContract } from '../shared/ipc/update.contract';
+import { SaveAllError, failedSaveAllResult, type SaveAllResult } from '../shared/save-all-result';
 import {
   handleGroup,
   mainIpc,
@@ -1467,31 +1468,71 @@ export async function installUpdate(expectedVersion?: string): Promise<UpdateIns
 }
 
 export function requestSaveAll(win: BrowserWindow, timeoutMs = 10_000): Promise<void> {
+  const rendererGoneError = () =>
+    new SaveAllError([
+      { documentId: null, error: 'The editor stopped before confirming that changes were saved.' },
+    ]);
+  if (win.isDestroyed()) return Promise.reject(rendererGoneError());
+  const renderer = win.webContents;
+  if (renderer.isDestroyed()) return Promise.reject(rendererGoneError());
   const requestId = randomUUID();
-  return new Promise((resolve) => {
-    type Phase = 'pending' | 'acknowledged' | 'timed-out' | 'renderer-gone';
-    let phase: Phase = 'pending';
-    const finish = (outcome: Exclude<Phase, 'pending'>): void => {
-      if (phase !== 'pending') return;
-      phase = outcome;
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (error?: SaveAllError): void => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       mainIpc.removeListener('app:saveAllDone', onDone);
-      resolve();
+      renderer.removeListener('destroyed', onRendererGone);
+      renderer.removeListener('render-process-gone', onRendererGone);
+      if (error) reject(error);
+      else resolve();
     };
-    const onDone = (event: Electron.IpcMainEvent, acknowledgedRequestId: string): void => {
-      if (event.sender !== win.webContents || acknowledgedRequestId !== requestId) return;
-      finish('acknowledged');
+    const onRendererGone = (): void => finish(rendererGoneError());
+    const onDone = (
+      event: Electron.IpcMainEvent,
+      acknowledgedRequestId: string,
+      result?: SaveAllResult
+    ): void => {
+      if (event.sender !== renderer || acknowledgedRequestId !== requestId) return;
+      if (result === undefined || result?.status === 'saved') {
+        finish();
+        return;
+      }
+      const validFailures =
+        result?.status === 'failed' &&
+        Array.isArray(result.failures) &&
+        result.failures.every(
+          (failure) =>
+            failure &&
+            (failure.documentId === null || typeof failure.documentId === 'string') &&
+            (failure.path === undefined || typeof failure.path === 'string') &&
+            typeof failure.error === 'string'
+        );
+      finish(
+        new SaveAllError(
+          validFailures
+            ? result.failures
+            : [{ documentId: null, error: 'The editor did not return a valid save result.' }]
+        )
+      );
     };
     const timer = setTimeout(() => {
-      if (phase !== 'pending') return;
+      if (settled) return;
       console.warn('[AutoUpdater] Save-all request timed out');
-      finish('timed-out');
+      finish(
+        new SaveAllError([
+          { documentId: null, error: 'Saving timed out before the editor confirmed completion.' },
+        ])
+      );
     }, timeoutMs);
     mainIpc.on('app:saveAllDone', onDone);
-    if (!win.isDestroyed()) {
-      sendRendererIpc(win.webContents, 'app:saveAll', requestId);
-    } else {
-      finish('renderer-gone');
+    renderer.once('destroyed', onRendererGone);
+    renderer.once('render-process-gone', onRendererGone);
+    try {
+      sendRendererIpc(renderer, 'app:saveAll', requestId);
+    } catch (error) {
+      finish(new SaveAllError(failedSaveAllResult(error).failures));
     }
   });
 }
