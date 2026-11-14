@@ -70,7 +70,10 @@ async function frame(page, start, span) {
       }
       window.__test.workspaceViewer.setViewport({ start, end: start + span });
       window.__webglFireCameraChange?.('zoom');
-      window.__webglRenderer?.requestRender?.();
+      if (typeof window.__webglRequestRender !== 'function') {
+        throw new Error('The indexed renderer invalidation bridge is unavailable.');
+      }
+      window.__webglRequestRender();
     },
     { start, span }
   );
@@ -191,9 +194,12 @@ async function visibleFlanks(page, lane, viewport) {
   if (viewport.physicalReadPx < 3.6) return null;
   return page.evaluate(
     async ({ lane, viewport }) => {
+      if (typeof window.__webglRequestRender !== 'function') {
+        throw new Error('The indexed renderer invalidation bridge is unavailable.');
+      }
       window.__dna119ExposePileupRows = true;
       try {
-        window.__webglRenderer.requestRender();
+        window.__webglRequestRender();
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         const diagnostic = window.__webglRenderer.getTrackDiagnostics(lane.trackId);
         const samples = diagnostic?.visibleReadSamples ?? [];
@@ -205,7 +211,7 @@ async function visibleFlanks(page, lane, viewport) {
         };
       } finally {
         window.__dna119ExposePileupRows = false;
-        window.__webglRenderer.requestRender();
+        window.__webglRequestRender();
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       }
     },
@@ -528,14 +534,21 @@ export async function runPileupPerformanceJourney({
     const record = async (phase) => {
       phase.sourceCommit = identity.commit;
       phase.runtimeCommit = identity.runtimeCommit;
-      phase.visibleFlanks = await visibleFlanks(page, lane, phase.viewport);
-      if (phase.visibleFlanks && (!phase.visibleFlanks.left || !phase.visibleFlanks.right)) {
-        phase.failures.push('Visible readable rows do not reach both viewport flanks.');
-      }
       phase.failures.push(...errors.filter((error) => !phase.failures.includes(error)));
       report.phases.push(phase);
       await flush();
-      await page.screenshot({ path: path.join(output, `${phase.label}.png`) });
+      try {
+        phase.visibleFlanks = await visibleFlanks(page, lane, phase.viewport);
+        if (phase.visibleFlanks && (!phase.visibleFlanks.left || !phase.visibleFlanks.right)) {
+          phase.failures.push('Visible readable rows do not reach both viewport flanks.');
+        }
+        await page.screenshot({ path: path.join(output, `${phase.label}.png`) });
+      } catch (error) {
+        phase.failures.push(`Evidence capture failed: ${error.message}`);
+        throw error;
+      } finally {
+        await flush();
+      }
     };
     const beginInput = async (label, options) => {
       if (nativeTrace) {
@@ -556,6 +569,11 @@ export async function runPileupPerformanceJourney({
       const started = performance.now();
       await row.dblclick();
       await waitForViewer(page);
+      const files = page.getByRole('tree', { name: 'Project files' });
+      if (await files.isVisible()) {
+        await page.getByTestId('files-button').click();
+        await files.waitFor({ state: 'hidden' });
+      }
       lane = await poll(
         () => activeLane(page, fixture.bamPath),
         (value) => Boolean(value?.generationKey),
