@@ -4,6 +4,7 @@ import { getFilename } from '../utils/fileTypes';
 import { platform } from '../platform';
 import { resolveFilePathWithFallback } from '../hooks/resolveFilePath';
 import { commitReadableContent, failReadableContent } from '../lib/readable-content-telemetry';
+import { FRAME_TAB_NAME_PREFIX } from '../shared/frame-tab-navigation';
 
 type ViewMode = 'rendered' | 'source';
 type HtmlReadState =
@@ -23,6 +24,10 @@ export function HtmlViewerTab({ filePath }: HtmlViewerTabProps) {
   const error = current.phase === 'failed' ? current.message : null;
   const [mode, setMode] = useState<ViewMode>('rendered');
   const [allowScripts, setAllowScripts] = useState(false);
+  const frameName = useMemo(
+    () => `${FRAME_TAB_NAME_PREFIX}${crypto.randomUUID()}`,
+    [filePath, allowScripts]
+  );
 
   const filename = useMemo(() => getFilename(filePath), [filePath]);
 
@@ -146,7 +151,8 @@ export function HtmlViewerTab({ filePath }: HtmlViewerTabProps) {
       {}
       {mode === 'rendered' ? (
         <iframe
-          key={sandbox}
+          key={frameName}
+          name={frameName}
           data-testid="html-viewer-iframe"
           title={filename}
           srcDoc={html ?? ''}

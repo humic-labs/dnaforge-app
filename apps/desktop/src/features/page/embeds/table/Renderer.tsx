@@ -55,6 +55,7 @@ function ConfiguredTable({
   onUpdateAttrs,
   onSelect,
   onOpenTable,
+  autoFocus,
 }: {
   data: TableData;
   refId: string;
@@ -63,6 +64,7 @@ function ConfiguredTable({
   onUpdateAttrs?: (attrs: Record<string, unknown>, observation?: TableOperationObservation) => void;
   onSelect?: () => void;
   onOpenTable?: (open: () => boolean) => void;
+  autoFocus: boolean;
 }) {
   const referenceContext = useOptionalReferenceContext();
   const sourcePageId = referenceContext?.pageId;
@@ -320,6 +322,7 @@ function ConfiguredTable({
         )}
         <div className={isOpenInPanel ? 'opacity-50 pointer-events-none' : ''}>
           <TableGrid
+            autoFocus={autoFocus}
             readOnly={!hasWriter}
             displayCells={displayCells}
             cells={cells}
@@ -386,6 +389,7 @@ export function TableRenderer({
 }: EmbedRendererProps) {
   const data = attrs as TableData;
   const configured = isConfigured(data);
+  const focusAfterConfigure = useRef(false);
 
   const handleConfigure = useCallback(
     (rows: number, cols: number) => {
@@ -398,6 +402,7 @@ export function TableRenderer({
         staleCount: 0,
         unavailableCount: 0,
       });
+      focusAfterConfigure.current = true;
       if (observation) onUpdateAttrs?.(next, { ...observation, rows, columns: cols });
       else onUpdateAttrs?.(next);
     },
@@ -434,6 +439,7 @@ export function TableRenderer({
       onUpdateAttrs={onUpdateAttrs}
       onSelect={onSelect}
       onOpenTable={onOpenTable}
+      autoFocus={focusAfterConfigure.current}
     />
   );
 }

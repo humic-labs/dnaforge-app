@@ -485,6 +485,7 @@ const api = {
       'menu:explorer',
       'menu:search',
       'window:resize',
+      'window:frame-tab-navigation',
       'window:move',
       'file-changed',
       'workspace:set-path',

@@ -154,6 +154,8 @@ function headerColumnNearestX(
 }
 
 interface TableGridProps {
+  autoFocus?: boolean;
+
   displayCells: Cell[][];
 
   cells: Cell[][];
@@ -240,6 +242,7 @@ interface TableGridProps {
 }
 
 export function TableGrid({
+  autoFocus = false,
   displayCells,
   cells,
   visibleRowIndices,
@@ -1226,6 +1229,13 @@ export function TableGrid({
     }
   }, [focusedCell, editingState]);
 
+  const hasAutoFocused = useRef(false);
+  useLayoutEffect(() => {
+    if (!autoFocus || hasAutoFocused.current || readOnly || rows === 0 || cols === 0) return;
+    hasAutoFocused.current = true;
+    setSelection({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
+  }, [autoFocus, readOnly, rows, cols, setSelection]);
+
   const handleEditingValueChange = useCallback(
     (value: string, cursorPosition: number) => {
       const currentEditingState = editingStateRef.current;
@@ -1233,6 +1243,41 @@ export function TableGrid({
       applyEditingState({ ...currentEditingState, value, cursorPosition });
     },
     [applyEditingState]
+  );
+
+  const cellEvents = {
+    onCellClick: handleCellClickUnified,
+    onCellDoubleClick: handleCellDoubleClick,
+    onEditingValueChange: handleEditingValueChange,
+    onEditCommit: commitEdit,
+    onEditCancel: cancelEdit,
+    onFillStart: handleFillStart,
+    onFillMove: handleFillMove,
+    onFillEnd: handleFillEnd,
+    onFillDoubleClick: handleFillDoubleClick,
+    onDragSelectStart: handleDragSelectStart,
+    onDragSelectMove: handleDragSelectMove,
+    onDragSelectEnd: handleDragSelectEnd,
+  };
+  const cellEventsRef = useRef(cellEvents);
+  cellEventsRef.current = cellEvents;
+  const stableCellEvents = useMemo<typeof cellEvents>(
+    () => ({
+      onCellClick: (position, shiftKey) => cellEventsRef.current.onCellClick(position, shiftKey),
+      onCellDoubleClick: (position) => cellEventsRef.current.onCellDoubleClick(position),
+      onEditingValueChange: (value, cursor) =>
+        cellEventsRef.current.onEditingValueChange(value, cursor),
+      onEditCommit: (direction, options) => cellEventsRef.current.onEditCommit(direction, options),
+      onEditCancel: () => cellEventsRef.current.onEditCancel(),
+      onFillStart: () => cellEventsRef.current.onFillStart(),
+      onFillMove: (position) => cellEventsRef.current.onFillMove(position),
+      onFillEnd: () => cellEventsRef.current.onFillEnd(),
+      onFillDoubleClick: () => cellEventsRef.current.onFillDoubleClick(),
+      onDragSelectStart: () => cellEventsRef.current.onDragSelectStart(),
+      onDragSelectMove: (position) => cellEventsRef.current.onDragSelectMove(position),
+      onDragSelectEnd: () => cellEventsRef.current.onDragSelectEnd(),
+    }),
+    []
   );
 
   if (tableGridIsEmpty(rows, cols)) {
@@ -1718,6 +1763,7 @@ export function TableGrid({
                           }}
                         >
                           <TableCell
+                            {...stableCellEvents}
                             cell={cell}
                             position={position}
                             isFocused={isFocused}
@@ -1733,18 +1779,6 @@ export function TableGrid({
                             editingValue={isEditingThisCell ? editingState.value : ''}
                             editInputRef={isEditingThisCell ? editInputRef : undefined}
                             referenceWorkspaceRoot={referenceWorkspaceRoot}
-                            onCellClick={handleCellClickUnified}
-                            onCellDoubleClick={handleCellDoubleClick}
-                            onEditingValueChange={handleEditingValueChange}
-                            onEditCommit={commitEdit}
-                            onEditCancel={cancelEdit}
-                            onFillStart={handleFillStart}
-                            onFillMove={handleFillMove}
-                            onFillEnd={handleFillEnd}
-                            onFillDoubleClick={handleFillDoubleClick}
-                            onDragSelectStart={handleDragSelectStart}
-                            onDragSelectMove={handleDragSelectMove}
-                            onDragSelectEnd={handleDragSelectEnd}
                             cellRef={getCellRef(rowIndex, colIndex)}
                           />
                         </td>

@@ -1,6 +1,7 @@
 import { isApplePlatform } from '@waypoint/ui-components/keyboard';
 import {
   BLOCKING_COMMAND_SCOPES,
+  COMMAND_IDS,
   COMMAND_SCOPES,
   COMMAND_SCOPE_PRIORITY,
   FOCUS_COMMAND_SCOPES,
@@ -43,15 +44,19 @@ export function keyboardCommandBelongsToTarget(
   command: CommandId,
   allowInInput = false
 ): boolean {
+  let terminalPaneNavigation = false;
   if (event.target instanceof Element) {
-    if (event.target.closest('[data-terminal-surface]') && !command.startsWith('terminal.'))
-      return true;
+    const terminalSurface = event.target.closest('[data-terminal-surface]');
+    terminalPaneNavigation =
+      terminalSurface !== null &&
+      (command === COMMAND_IDS.canvasNextTab || command === COMMAND_IDS.canvasPreviousTab);
+    if (terminalSurface && !terminalPaneNavigation && !command.startsWith('terminal.')) return true;
     const owner = event.target
       .closest('[data-command-shortcut-owner]')
       ?.getAttribute('data-command-shortcut-owner');
     if (owner === command) return true;
   }
-  return !allowInInput && isEditableCommandTarget(event.target);
+  return !allowInInput && !terminalPaneNavigation && isEditableCommandTarget(event.target);
 }
 
 export function matchesCommandBinding(

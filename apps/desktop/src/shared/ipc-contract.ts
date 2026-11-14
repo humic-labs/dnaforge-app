@@ -47,6 +47,7 @@ import type {
 } from './benchling-migration-render-validation';
 import type { InvokeContract } from './ipc-invoke-contract.generated';
 import type { RemoteGenomicsStatusDeliveryV1 } from './remote-genomics-ipc';
+import type { FrameTabNavigationRequest } from './frame-tab-navigation';
 import type {
   StaticIpcChannel,
   StaticInvokeChannel,
@@ -112,6 +113,7 @@ export interface RendererSendContract {
 }
 
 export interface MainSendContract {
+  'window:frame-tab-navigation': EventEntry<[request: FrameTabNavigationRequest]>;
   'app:saveAll': EventEntry<[requestId: string]>;
   'remoteGenomics:statusChanged': EventEntry<[delivery: RemoteGenomicsStatusDeliveryV1]>;
   'benchling-migration:render-validation-request': EventEntry<
@@ -244,6 +246,7 @@ export type GenericMainSendChannel = Extract<
   | 'menu:explorer'
   | 'menu:search'
   | 'window:resize'
+  | 'window:frame-tab-navigation'
   | 'window:move'
   | 'compute:jobTerminal'
   | 'file-changed'
