@@ -230,14 +230,19 @@ def register_renderer_agent_tools() -> None:
                     replay_policy=registered.replay_policy,
                     audit_parameter_projector=registered.audit_parameter_projector,
                     audit_result_projector=registered.audit_result_projector,
+                    completion_owner=registered.completion_owner,
                 )
             continue
-        agent_tool_registry.register(spec, _make_renderer_handler(spec.name))
+        agent_tool_registry.register(
+            spec, _make_renderer_handler(spec.name), completion_owner="renderer"
+        )
         provider_name = RENDERER_PROVIDER_TOOL_NAMES.get(spec.name)
         if provider_name:
             provider_spec = spec.model_copy(update={"name": provider_name})
             agent_tool_registry.register(
-                provider_spec, _make_renderer_handler(spec.name)
+                provider_spec,
+                _make_renderer_handler(spec.name),
+                completion_owner="renderer",
             )
 
 
@@ -370,6 +375,9 @@ async def call_renderer_bridge(
             message=error["message"],
             retriable=error["retriable"],
             details=details or None,
+            completion_owner=(
+                "job" if error["code"] == "OUTCOME_UNRESOLVED" else "renderer"
+            ),
         )
     return validated
 
@@ -377,24 +385,29 @@ async def call_renderer_bridge(
 def _persisted_renderer_outcome(context: ToolContext) -> dict[str, Any] | None:
     from .job_manager import get_job_manager
 
+    action = get_control_plane_store().get_agent_action(context.job_id)
+    if (
+        action is None
+        or action["agent_identity_id"] != context.agent_identity_id
+        or action["completion_owner"] != "renderer"
+        or action["completion_state"] != "settled"
+    ):
+        return None
     delivery = get_job_manager().peek_delivery_result(context.job_id)
-    if isinstance(delivery, dict) and isinstance(delivery.get("audit_id"), str):
+    if isinstance(delivery, dict):
         try:
             return validate_renderer_bridge_response(delivery)
         except RuntimeError:
             pass
-    action = get_control_plane_store().get_agent_action(context.job_id)
-    if action is None or action["agent_identity_id"] != context.agent_identity_id:
-        return None
     result = action.get("result_json")
-    if isinstance(result, dict) and result.get("audit_id"):
+    if isinstance(result, dict) and result.get("ok") is True:
         return result
     error = action.get("error_json")
-    if isinstance(error, dict) and error.get("details", {}).get("renderer_audit_id"):
+    if isinstance(error, dict):
         return {
             "ok": False,
             "error": error,
-            "audit_id": error["details"]["renderer_audit_id"],
+            "audit_id": (error.get("details") or {}).get("renderer_audit_id"),
         }
     return None
 

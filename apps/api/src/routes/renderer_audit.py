@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import time
 from functools import lru_cache
 from typing import Any
@@ -87,10 +89,6 @@ async def record_renderer_audit(body: dict[str, Any]):
     if manifest_error is not None:
         return JSONResponse(status_code=400, content=manifest_error)
 
-    lifecycle_error = _validate_renderer_audit_lifecycle(store, parsed)
-    if lifecycle_error is not None:
-        return JSONResponse(status_code=400, content=lifecycle_error)
-
     after_state = parsed["after_state"]
     if after_state is None:
         after_state = {"status": parsed["status"]}
@@ -134,15 +132,33 @@ async def record_renderer_audit(body: dict[str, Any]):
         after_state = {
             **after_state,
             "outcome": {"ok": outcome["ok"], "action_id": parsed["action_id"]},
+            "outcome_fingerprint": hashlib.sha256(
+                json.dumps(outcome, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest(),
         }
 
-    manifest_tool = _renderer_manifest_tool(parsed["tool_name"]) or {}
-    renderer_owns_outcome = not (
-        manifest_tool.get("sidecar_orchestrated", False)
-        and "operations.start" in manifest_tool.get("required_capabilities", [])
-    )
-    terminal_outcome = outcome is not None and renderer_owns_outcome
+    terminal_outcome = outcome is not None and action["completion_owner"] == "renderer"
     with store.transaction():
+        if outcome is not None:
+            for record in store.get_audit_records_for_action(parsed["action_id"]):
+                recorded = record.get("after_state_json") or {}
+                if (
+                    record["actor_kind"] != "renderer"
+                    or "outcome_fingerprint" not in recorded
+                ):
+                    continue
+                if (
+                    recorded["outcome_fingerprint"]
+                    == after_state["outcome_fingerprint"]
+                ):
+                    return {"ok": True, "audit_id": record["id"]}
+                return _completion_conflict()
+        current = store.get_agent_action(parsed["action_id"])
+        if terminal_outcome and current["completion_state"] == "settled":
+            return _completion_conflict()
+        lifecycle_error = _validate_renderer_audit_lifecycle(store, parsed)
+        if lifecycle_error is not None:
+            return JSONResponse(status_code=400, content=lifecycle_error)
         audit_id = store.insert_audit_record(
             action_id=parsed["action_id"],
             actor_kind="renderer",
@@ -174,18 +190,32 @@ async def record_renderer_audit(body: dict[str, Any]):
                 and registered.audit_result_projector is not None
                 else result
             )
-            store.complete_agent_action(
+            settled = store.complete_agent_action(
                 parsed["action_id"],
                 result=persisted_result,
                 error=error,
+                completion_owner="renderer",
                 terminal_expires_at=time.time() + get_job_manager().ttl_seconds,
             )
+            if not settled:
+                raise RuntimeError("Renderer completion lost its admitted owner")
     if terminal_outcome:
         manager = get_job_manager()
         if result is not None and persisted_result is not result:
             manager.retain_delivery_result(parsed["action_id"], result)
         manager.reconcile_renderer_action(parsed["action_id"])
     return {"ok": True, "audit_id": audit_id}
+
+
+def _completion_conflict() -> JSONResponse:
+    return JSONResponse(
+        status_code=409,
+        content=error_response(
+            "OUTCOME_CONFLICT",
+            "The action already has a different settled outcome.",
+            retriable=False,
+        ),
+    )
 
 
 def _parse_renderer_audit_body(body: dict[str, Any]) -> dict[str, Any]:
