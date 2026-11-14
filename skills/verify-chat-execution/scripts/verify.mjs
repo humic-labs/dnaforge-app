@@ -42,8 +42,37 @@ if (mode === 'doctor') {
     `${prepared.stdout ?? ''}${prepared.stderr ?? ''}`
   );
   if (prepared.status !== 0) throw new Error('SQLite doctor failed; see doctor.log.');
-  const sources = ["apps/desktop/src/features/ai/orchestration/chat-runtime.ts", "apps/desktop/src/features/ai/orchestration/chat-queue.ts", "apps/desktop/src/features/ai/orchestration/run-chat-turn.ts", "apps/desktop/src/features/ai/orchestration/chat-turn-lifecycle.ts", "apps/desktop/src/features/ai/orchestration/execute-cli-turn.ts", "apps/desktop/src/features/ai/orchestration/execute-hosted-turn.ts", "apps/desktop/src/features/ai/orchestration/execute-hosted-codex-turn.ts", "apps/desktop/src/features/ai/orchestration/chat-queue.integration.test.ts", "apps/desktop/src/features/ai/orchestration/chat-queue.test.ts", "apps/desktop/src/features/ai/orchestration/chat-stop.integration.test.ts", "apps/desktop/src/features/ai/orchestration/run-chat-turn.test.ts", "apps/desktop/src/features/ai/orchestration/chat-turn-lifecycle.test.ts", "apps/desktop/src/features/ai/orchestration/chat-execution.workflow.test.ts"];
-  const args = ["exec", "vitest", "run", "src/features/ai/orchestration/chat-queue.integration.test.ts", "src/features/ai/orchestration/chat-queue.test.ts", "src/features/ai/orchestration/chat-stop.integration.test.ts", "src/features/ai/orchestration/run-chat-turn.test.ts", "src/features/ai/orchestration/chat-turn-lifecycle.test.ts", "src/features/ai/orchestration/chat-execution.workflow.test.ts", "--reporter=default", "--reporter=json"];
+  const sources = [
+    'apps/desktop/src/features/ai/orchestration/conversation-execution.ts',
+    'apps/desktop/src/features/ai/orchestration/conversation-execution.test.ts',
+    'apps/desktop/src/features/ai/orchestration/chat-runtime.ts',
+    'apps/desktop/src/features/ai/orchestration/chat-queue.ts',
+    'apps/desktop/src/features/ai/orchestration/run-chat-turn.ts',
+    'apps/desktop/src/features/ai/orchestration/chat-turn-lifecycle.ts',
+    'apps/desktop/src/features/ai/orchestration/execute-cli-turn.ts',
+    'apps/desktop/src/features/ai/orchestration/execute-hosted-turn.ts',
+    'apps/desktop/src/features/ai/orchestration/execute-hosted-codex-turn.ts',
+    'apps/desktop/src/features/ai/orchestration/chat-queue.integration.test.ts',
+    'apps/desktop/src/features/ai/orchestration/chat-queue.test.ts',
+    'apps/desktop/src/features/ai/orchestration/chat-stop.integration.test.ts',
+    'apps/desktop/src/features/ai/orchestration/run-chat-turn.test.ts',
+    'apps/desktop/src/features/ai/orchestration/chat-turn-lifecycle.test.ts',
+    'apps/desktop/src/features/ai/orchestration/chat-execution.workflow.test.ts',
+  ];
+  const args = [
+    'exec',
+    'vitest',
+    'run',
+    'src/features/ai/orchestration/conversation-execution.test.ts',
+    'src/features/ai/orchestration/chat-queue.integration.test.ts',
+    'src/features/ai/orchestration/chat-queue.test.ts',
+    'src/features/ai/orchestration/chat-stop.integration.test.ts',
+    'src/features/ai/orchestration/run-chat-turn.test.ts',
+    'src/features/ai/orchestration/chat-turn-lifecycle.test.ts',
+    'src/features/ai/orchestration/chat-execution.workflow.test.ts',
+    '--reporter=default',
+    '--reporter=json',
+  ];
   args.push(`--outputFile.json=${join(destination, 'results.json')}`);
   const startedAt = new Date().toISOString();
   const result = run('pnpm', args, join(root, 'apps/desktop'));

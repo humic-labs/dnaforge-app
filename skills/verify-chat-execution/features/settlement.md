@@ -15,3 +15,24 @@ Run the skill's focused driver for `chat-stop.integration.test.ts`, `run-chat-tu
 ## Gotchas
 
 Provider completion and durable terminal commitment are separate events. Terminal-write failure must retain active ownership; deletion forbids late callbacks from recreating transcript state. A stopped provider must not overwrite a newer execution. Native HTTP fixtures do not qualify CLI model behavior or hosted availability.
+
+The execution owner distinguishes a provider preparing, running or streaming
+from a turn being durably settled. A successful atomic terminal commit permits
+release. A rejected commit leaves an unsettled active turn and blocks new
+execution in that conversation. The existing restart recovery repairs persisted
+running turns; this workflow does not claim an automatic retry of failed writes.
+
+```mermaid
+stateDiagram-v2
+    idle --> claimed: claim
+    claimed --> preparing: register controller
+    preparing --> running: user message and turn persisted
+    running --> streaming: provider starts
+    streaming --> settling: provider finishes or stops
+    running --> settling: provider fails
+    settling --> settled: terminal commit succeeds
+    settling --> unsettled: execution exits without terminal commit
+    settled --> idle: release
+    claimed --> idle: precondition refused
+    preparing --> idle: turn creation refused
+```

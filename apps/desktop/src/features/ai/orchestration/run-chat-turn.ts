@@ -1,3 +1,4 @@
+import { conversationExecution } from './conversation-execution';
 import { buildAgentExecutionInstructions } from './agent-execution-instructions';
 import { readAgentPresentationPreferences } from '../agent-presentation-preferences';
 import { chatInterruptionReason } from './chat-runtime';
@@ -54,10 +55,10 @@ import {
 import { mergeHydratedConversationState } from './chat-conversation-state';
 import {
   claimChatSend,
+  projectChatExecution,
   isChatConversationDeleted,
   registerChatAbortController,
   replaceConversationState,
-  releaseChatAbortController,
   setConversationState,
   type ChatStoreGet,
   type ChatStoreSet,
@@ -192,12 +193,17 @@ export async function runChatTurn(
       : null;
   const requestedConvId = conversationId?.trim() || get().currentConversationId || '';
   if (requestedConvId && isChatConversationDeleted(requestedConvId)) return 'not_started';
+  const provisionalConversationId = requestedConvId || crypto.randomUUID();
   const sendLeaseKey = requestedConvId || `new:${turnWorkspacePath ?? 'workspace-less'}`;
-  const sendClaim = claimChatSend(sendLeaseKey);
+  const sendClaim = claimChatSend(sendLeaseKey, provisionalConversationId);
   if (!sendClaim) return 'not_started';
 
   const provisionalTurnId = crypto.randomUUID();
-  const provisionalConversationId = requestedConvId || crypto.randomUUID();
+  const unscopedSet = set;
+  let callbacksOpen = true;
+  set = (patch) => {
+    if (callbacksOpen && sendClaim.isCurrent()) unscopedSet(patch);
+  };
   const hostedTurnIdentity = {
     workflowId: provisionalConversationId,
     runId: provisionalTurnId,
@@ -214,9 +220,7 @@ export async function runChatTurn(
     }
   };
   const releasePrestartClaim = () => {
-    if (requestedConvId) {
-      releaseChatAbortController(requestedConvId);
-    }
+    callbacksOpen = false;
     sendClaim.release();
   };
   const setNotStartedError = (error: UserMessage) => {
@@ -468,7 +472,8 @@ export async function runChatTurn(
     turnLifecycle?.trackShadowLedgerAppend(...args);
   };
   const finishTurn: ChatTurnLifecycle['finishTurn'] = async (...args) => {
-    if (convId && isChatConversationDeleted(convId)) return;
+    if (!callbacksOpen || !sendClaim.isCurrent() || (convId && isChatConversationDeleted(convId)))
+      return;
     await turnLifecycle?.finishTurn(...args);
   };
   try {
@@ -573,7 +578,8 @@ export async function runChatTurn(
     controller = new AbortController();
     registerChatAbortController(convId, controller);
 
-    setConversationState(set, convId, () => ({ isLoading: true, error: null }));
+    projectChatExecution(set, convId);
+    setConversationState(set, convId, () => ({ error: null }));
 
     const isFirstMessage = getConv().messages.length === 0;
     if (isFirstMessage && !agentTransport && !hostedTier && apiKey) {
@@ -664,6 +670,8 @@ export async function runChatTurn(
       attachment_manifests: userMsg.attachments,
     });
     if (isChatConversationDeleted(convId)) return 'not_started';
+    sendClaim.acceptTurn(turnId);
+    projectChatExecution(set, convId);
     turnLifecycle = createChatTurnLifecycle({
       set,
       conversationId: convId,
@@ -773,7 +781,6 @@ export async function runChatTurn(
     };
     setConversationState(set, convId, (prev) => ({
       turns: { ...prev.turns, [turnId as string]: turnSummary },
-      activeTurnId: turnId,
     }));
 
     try {
@@ -794,7 +801,7 @@ export async function runChatTurn(
           generatedTitle
         );
         if (!updated || isChatConversationDeleted(titleConversationId)) return;
-        set((current) => ({
+        unscopedSet((current) => ({
           conversations: current.conversations.map((conversation) =>
             conversation.id === titleConversationId && conversation.title === 'New conversation'
               ? { ...conversation, title: generatedTitle }
@@ -1012,7 +1019,6 @@ export async function runChatTurn(
       setConversationState(set, convId, (prev) => ({
         messages: [...prev.messages, ...activityMessages, stoppedMsg],
         streamingBlocks: [],
-        isStreaming: false,
         error: null,
       }));
       for (const msg of activityMessages) {
@@ -1037,7 +1043,6 @@ export async function runChatTurn(
         setConversationState(set, convId, (prev) => ({
           messages: [...prev.messages, ...activityMessages],
           streamingBlocks: [],
-          isStreaming: false,
         }));
         for (const msg of activityMessages) {
           queueTerminalMessage(msg);
@@ -1069,28 +1074,17 @@ export async function runChatTurn(
     return turnLifecycle ? 'started' : 'not_started';
   } finally {
     await cancelPreparedHostedTurn();
-    if (convId) {
-      if (!controller?.signal.aborted) {
-        controller?.abort();
-      }
-      releaseChatAbortController(convId);
-      setConversationState(set, convId, () => ({
-        isLoading: false,
-        isStreaming: false,
-        streamingBlocks: [],
-      }));
-    } else {
-      if (requestedConvId) {
-        releaseChatAbortController(requestedConvId);
-        setConversationState(set, requestedConvId, () => ({
-          isLoading: false,
-          isStreaming: false,
+    callbacksOpen = false;
+    if (sendClaim.isCurrent()) {
+      if (!controller?.signal.aborted) controller?.abort();
+      sendClaim.release();
+      const projectionId = convId || requestedConvId;
+      if (projectionId) {
+        setConversationState(unscopedSet, projectionId, () => ({
+          ...conversationExecution(projectionId).projection(),
           streamingBlocks: [],
         }));
-      } else {
-        set({ isLoading: false, isStreaming: false, streamingBlocks: [] });
       }
     }
-    sendClaim.release();
   }
 }
