@@ -3,6 +3,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createBreadcrumbBuffer, installBreadcrumbCapture } from './renderer-breadcrumbs';
 import { reportSaveFailure } from './report-save-failure';
+import { scopedProjectionId, workspaceScopeKey } from '../shared/workspace-scoped-identity';
 
 vi.mock('./analytics', () => ({ trackRendererEvent: vi.fn() }));
 
@@ -97,6 +98,41 @@ describe('renderer-breadcrumbs  item 4)', () => {
       expect(line).toContain('EACCES');
       expect(line).not.toMatch(/alice|research|private-notebook|Private construct/);
       expect(line.length).toBeLessThanOrEqual(500);
+    });
+
+    it('retains the workspace-scoped UUID produced when a notebook is created', () => {
+      const pageId = scopedProjectionId(
+        workspaceScopeKey(null, 3),
+        '830a9677-d9c5-4e17-9d5c-a3562463360c'
+      );
+      const error = new Error('NativeDocumentCommandError: NOTEBOOK_SAVE_FAILED: EACCES');
+      error.stack = error.message + '\n' + '    at writeNotebook (app.js:100:20)\n'.repeat(50);
+      reportSaveFailure(
+        '[useEditorAutosave] save failed:',
+        { pageId, operation: 'autosave', filePath: '/Users/alice/private-notebook.md' },
+        error,
+        { notebookPhase: 'autosave' }
+      );
+      const line = win.electronAPI.sendBreadcrumbs.mock.calls[0][0][0] as string;
+      expect(line).toContain(`pageId=ws3::830a9677-d9c5-4e17-9d5c-a3562463360c`);
+      expect(line).toContain('operation=autosave');
+      expect(line).toContain('NOTEBOOK_SAVE_FAILED: EACCES');
+      expect(line).not.toMatch(/alice|private-notebook/);
+      expect(line.length).toBeLessThanOrEqual(500);
+    });
+
+    it.each([
+      'private-project::830a9677-d9c5-4e17-9d5c-a3562463360c',
+      'ws-private::830a9677-d9c5-4e17-9d5c-a3562463360c',
+      'ws3::private-notebook',
+    ])('does not retain a named or malformed scoped identity', (pageId) => {
+      const error = new Error('EACCES');
+      error.stack = 'Error: EACCES';
+      reportSaveFailure('[Notebook]', { pageId, operation: 'manual' }, error);
+      const line = win.electronAPI.sendBreadcrumbs.mock.calls[0][0][0] as string;
+      expect(line).toContain('operation=manual');
+      expect(line).not.toContain(pageId);
+      expect(line).not.toContain('pageId=');
     });
 
     it('retains an opaque native document target and rejects arbitrary context labels', () => {

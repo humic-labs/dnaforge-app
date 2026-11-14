@@ -51,6 +51,31 @@ describe('caught save failure diagnostics', () => {
     }
   );
 
+  it.each([
+    'NativeDocumentCommandError: NOTEBOOK_SAVE_FAILED: EACCES: private-notebook.md',
+    "Error invoking remote method 'notebook:execute': NativeDocumentCommandError: NOTEBOOK_SAVE_FAILED: EACCES: private-notebook.md",
+  ])('classifies the named native notebook error wrapper', (message) => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      reportSaveFailure('[Notebook]', {}, new Error(message));
+      expect(capture.mock.calls[0][1].error_class).toBe('notebook_save_failed');
+      expect(JSON.stringify(capture.mock.calls)).not.toContain('private-notebook');
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('does not unwrap an arbitrary private error name', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      reportSaveFailure('[Save]', {}, new Error('PrivateConstructError: EACCES: private-file'));
+      expect(capture.mock.calls[0][1].error_class).toBe('save_failed');
+      expect(JSON.stringify(capture.mock.calls)).not.toContain('PrivateConstruct');
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it('retains the original local error and sends only safe failure metadata remotely', () => {
     const context = { filePath: '/Users/alice/private/construct.gb' };
     const failure = Object.assign(new Error('write refused for PRIVATE_SEQUENCE'), {
