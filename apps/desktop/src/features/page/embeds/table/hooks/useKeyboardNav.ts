@@ -52,18 +52,25 @@ export function useKeyboardNav({
   const [selectionAnchor, setSelectionAnchor] = useState<CellPosition | null>(null);
   const [selectionEnd, setSelectionEnd] = useState<CellPosition | null>(null);
   const cellRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const cellRefCallbacks = useRef<Map<string, React.RefCallback<HTMLDivElement>>>(new Map());
 
   const getCellKey = (row: number, col: number) => `${row}-${col}`;
 
   const getCellRef = useCallback((row: number, col: number): React.RefCallback<HTMLDivElement> => {
-    return (el) => {
-      const key = getCellKey(row, col);
+    const key = getCellKey(row, col);
+    const existing = cellRefCallbacks.current.get(key);
+    if (existing) return existing;
+    const callback: React.RefCallback<HTMLDivElement> = (el) => {
       if (el) {
+        cellRefCallbacks.current.set(key, callback);
         cellRefs.current.set(key, el);
-      } else {
+      } else if (cellRefCallbacks.current.get(key) === callback) {
         cellRefs.current.delete(key);
+        cellRefCallbacks.current.delete(key);
       }
     };
+    cellRefCallbacks.current.set(key, callback);
+    return callback;
   }, []);
 
   const selection = useMemo((): SelectionRange | null => {

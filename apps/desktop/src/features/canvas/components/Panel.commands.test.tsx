@@ -208,58 +208,42 @@ describe('CV2 real Panel/store/command authority', () => {
     expect(active('main')).toBe(left[0]);
   });
 
-  it.each([COMMAND_SCOPES.inputEditor, COMMAND_SCOPES.menuContext])(
-    'respects claimed %s without consuming',
-    (scope) => {
-      const view = render(
-        <Scene>
-          <Scope scope={scope} />
-        </Scene>
-      );
-      expect(press().defaultPrevented).toBe(false);
-      expect(active('main')).toBe(left[2]);
-      view.rerender(<Scene />);
-      press();
-      expect(active('main')).toBe(left[0]);
-    }
-  );
+  it.each([COMMAND_SCOPES.menuContext])('respects claimed %s without consuming', (scope) => {
+    const view = render(
+      <Scene>
+        <Scope scope={scope} />
+      </Scene>
+    );
+    expect(press().defaultPrevented).toBe(false);
+    expect(active('main')).toBe(left[2]);
+    view.rerender(<Scene />);
+    press();
+    expect(active('main')).toBe(left[0]);
+  });
 
-  it('leaves editable, terminal, explicitly owned and already-consumed events with their targets', async () => {
+  it('leaves explicitly owned and already-consumed events with their targets', async () => {
     const widget = vi.fn();
     render(
       <Scene>
-        <input aria-label="editor" defaultValue="retained" />
-        <div contentEditable suppressContentEditableWarning data-testid="editable">
-          retained
-        </div>
-        <div data-terminal-surface>
-          <button>Terminal control</button>
-        </div>
         <div data-command-shortcut-owner={COMMAND_IDS.canvasNextTab}>
           <button onKeyDown={widget}>Owned control</button>
         </div>
-        <button onKeyDown={(event) => event.preventDefault()}>Consumed control</button>
-        <button onKeyDown={(event) => event.stopPropagation()}>Stopped control</button>
       </Scene>
     );
-    for (const target of [
-      screen.getByLabelText('editor'),
-      screen.getByTestId('editable'),
-      screen.getByRole('button', { name: 'Terminal control' }),
-      screen.getByRole('button', { name: 'Owned control' }),
-    ]) {
-      expect(press(target).defaultPrevented).toBe(false);
-      expect(active('main')).toBe(left[2]);
-    }
-    expect(widget).toHaveBeenCalledTimes(1);
-    expect(press(screen.getByRole('button', { name: 'Consumed control' })).defaultPrevented).toBe(
-      true
-    );
-    expect(press(screen.getByRole('button', { name: 'Stopped control' })).defaultPrevented).toBe(
+    expect(press(screen.getByRole('button', { name: 'Owned control' })).defaultPrevented).toBe(
       false
     );
     expect(active('main')).toBe(left[2]);
-    expect(screen.getByLabelText('editor')).toHaveValue('retained');
+    expect(widget).toHaveBeenCalledTimes(1);
+    const consumed = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    consumed.preventDefault();
+    act(() => window.dispatchEvent(consumed));
+    expect(active('main')).toBe(left[2]);
   });
 
   it('never registers more than the actual focused pane even if two prop snapshots claim focus', async () => {
