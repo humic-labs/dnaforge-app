@@ -89,7 +89,6 @@ it('does not turn a non-test launch into a keyring proof', () => {
 });
 it.each(['linux', 'win32'])('forces SwiftShader for ordinary %s launches', (platform) => {
   configure({}, platform);
-  expect(native.switches.has('disable-skia-graphite')).toBe(false);
   expect(native.switches.has('ignore-gpu-blocklist')).toBe(true);
   expect(native.switches.has('enable-webgl')).toBe(true);
   expect(native.switches.has('enable-unsafe-swiftshader')).toBe(true);
@@ -98,7 +97,6 @@ it.each(['linux', 'win32'])('forces SwiftShader for ordinary %s launches', (plat
 });
 it.each([false, true])('keeps the native macOS backend when packaged is %s', (packaged) => {
   configure({}, 'darwin', packaged);
-  expect(native.switches.has('disable-skia-graphite')).toBe(true);
   expect(native.switches.has('ignore-gpu-blocklist')).toBe(true);
   expect(native.switches.has('enable-webgl')).toBe(true);
   expect(native.switches.has('enable-unsafe-swiftshader')).toBe(true);
@@ -107,7 +105,6 @@ it.each([false, true])('keeps the native macOS backend when packaged is %s', (pa
 });
 it.each(['linux', 'darwin', 'win32'])('forces SwiftShader for the e2e switch on %s', (platform) => {
   configure({ WAYPOINT_E2E_FORCE_SWIFTSHADER: '1' }, platform);
-  expect(native.switches.has('disable-skia-graphite')).toBe(platform === 'darwin');
   expect(native.switches.get('use-angle')).toBe('swiftshader-webgl');
   expect(native.switches.get('use-gl')).toBe('angle');
   expect(native.switches.has('ignore-gpu-blocklist')).toBe(true);

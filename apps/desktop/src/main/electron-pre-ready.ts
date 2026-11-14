@@ -67,7 +67,6 @@ export function configureElectronBeforeReady(): void {
   app.commandLine.appendSwitch('ignore-gpu-blocklist');
   app.commandLine.appendSwitch('enable-webgl');
   app.commandLine.appendSwitch('enable-unsafe-swiftshader');
-  if (process.platform === 'darwin') app.commandLine.appendSwitch('disable-skia-graphite');
   if (process.platform !== 'darwin' || process.env.WAYPOINT_E2E_FORCE_SWIFTSHADER === '1') {
     app.commandLine.appendSwitch('use-gl', 'angle');
     app.commandLine.appendSwitch('use-angle', 'swiftshader-webgl');
