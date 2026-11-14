@@ -112,6 +112,7 @@ import { normalizeTrackColor } from './track-presentation';
 import type {
   PixiLinearTrackRenderer,
   TrackCoverageDepthSnapshot,
+  TrackReadPresentationSnapshot,
   TrackMountArgs,
   TrackPaintArgs,
 } from './types';
@@ -259,6 +260,7 @@ function coverageFillAndColor(
 }
 const READ_ROWS_ASSIGN_RECORDS_PER_FRAME = 512;
 const READ_ROWS_ASSIGN_WORK_BUDGET_MS = 0.75;
+const READ_ROWS_URGENT_ASSIGN_WORK_BUDGET_MS = 2;
 const READ_ROWS_RETAIN_RECORDS_PER_FRAME = 512;
 const READ_ROWS_BUILD_RECORDS_PER_FRAME = 512;
 const READ_ROWS_URGENT_RECORDS_PER_FRAME = 4_096;
@@ -1657,6 +1659,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
   private readonly readRowsAssignRecordsPerFrame: number;
   private readonly readRowsUrgentAssignRecordsPerFrame: number;
   private readonly readRowsAssignWorkBudgetMs: number;
+  private readonly readRowsUrgentAssignWorkBudgetMs: number;
   private readonly readRowsRetainRecordsPerFrame: number;
   private coverageDepthScratch: Float32Array | null = null;
   private coverageGaussianScratch: Float32Array | null = null;
@@ -1693,6 +1696,10 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       0.1,
       options.readRowsAssignWorkBudgetMs ?? READ_ROWS_ASSIGN_WORK_BUDGET_MS
     );
+    this.readRowsUrgentAssignWorkBudgetMs =
+      options.readRowsAssignWorkBudgetMs == null
+        ? Math.max(this.readRowsAssignWorkBudgetMs, READ_ROWS_URGENT_ASSIGN_WORK_BUDGET_MS)
+        : this.readRowsAssignWorkBudgetMs;
     this.readRowsRetainRecordsPerFrame = Math.max(
       1,
       options.readRowsRetainRecordsPerFrame ?? READ_ROWS_RETAIN_RECORDS_PER_FRAME
@@ -2510,7 +2517,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         ...pendingInput,
         tileEngineCoverageOwnsDensity,
         urgentReadRowsWork:
-          state.rows !== null &&
+          state.rows === null ||
           readRowsHandoffNeedsUrgentWork(
             state.rowsMeshStartBp,
             state.rowsMeshEndBp,
@@ -2522,7 +2529,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       };
     }
     const urgentReadRowsWork =
-      state.rows !== null &&
+      state.rows === null ||
       readRowsHandoffNeedsUrgentWork(
         state.rowsMeshStartBp,
         state.rowsMeshEndBp,
@@ -2741,7 +2748,9 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
           urgentReadRowsWork
             ? this.readRowsUrgentAssignRecordsPerFrame
             : this.readRowsAssignRecordsPerFrame,
-          this.readRowsAssignWorkBudgetMs
+          urgentReadRowsWork
+            ? this.readRowsUrgentAssignWorkBudgetMs
+            : this.readRowsAssignWorkBudgetMs
         )
       : 0;
     work.assignMs = nowMs() - assignStartedAt;
@@ -4005,6 +4014,42 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     };
   }
 
+  getReadPresentationSnapshot(container: Container): TrackReadPresentationSnapshot | null {
+    const state = this.containerState.get(container);
+    if (!state) return null;
+    const recordCount = state.rows ? state.rowsMeshRecordCount : 0;
+    const visible =
+      state.rows?.mesh.visible === true &&
+      state.rows.vertexCount > 0 &&
+      recordCount > 0 &&
+      state.renderedReadRowsAlpha > READ_LOD_MESH_VISIBLE_ALPHA_EPSILON;
+    const sourceCoversViewport = state.readSourceWindowCoverageFraction >= 0.999;
+    const readsReady =
+      visible &&
+      sourceCoversViewport &&
+      state.rowsMeshViewportCoverageFraction >= 0.999 &&
+      !state.readSourceTruncated;
+    const emptyReady =
+      state.rows === null &&
+      state.recordCount === 0 &&
+      sourceCoversViewport &&
+      !state.readSourceTruncated;
+    return {
+      kind: readsReady ? 'reads' : emptyReady ? 'empty' : 'pending',
+      sourceGenerationKey: state.rows
+        ? state.rowsMeshSourceGenerationKey
+        : state.readSourceGenerationKey,
+      presentationOwnerKey: state.readPresentationOwnerKey,
+      viewStartBp: state.lastViewportStartBp,
+      viewEndBp: state.lastViewportEndBp,
+      sourceCoversViewport,
+      meshCoverageFraction: state.rowsMeshViewportCoverageFraction,
+      truncated: state.readSourceTruncated,
+      visible,
+      recordCount,
+    };
+  }
+
   unmount(container: Container): void {
     const state = this.containerState.get(container);
     if (state) {
@@ -4279,7 +4324,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     const active = state.rowsMeshBuildJob;
     if (active) {
       const urgentReadRowsBuild =
-        state.rows !== null &&
+        state.rows === null ||
         readRowsHandoffNeedsUrgentWork(
           state.rowsMeshStartBp,
           state.rowsMeshEndBp,
