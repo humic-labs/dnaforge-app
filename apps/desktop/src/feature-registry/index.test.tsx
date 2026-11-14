@@ -85,7 +85,7 @@ describe('renderer feature registry', () => {
   });
 
   it('lists the remote hosts view, its activity button and its screen category', () => {
-    expect(rendererFeatureViewIds()).toEqual(['remote-hosts', 'terminal']);
+    expect(rendererFeatureViewIds()).toEqual(['remote-hosts', 'terminal', 'inventory']);
     expect(rendererFeatureScreenCategory('remote-hosts')).toBe('settings');
     expect(rendererFeatureActivityButtons()).toEqual([
       expect.objectContaining({
@@ -98,6 +98,11 @@ describe('renderer feature registry', () => {
         label: 'AI Tools',
         testId: 'ai-tools-button',
         command: 'app.focusCommandInput',
+      }),
+      expect.objectContaining({
+        view: 'inventory',
+        label: 'Inventory',
+        testId: 'inventory-button',
       }),
     ]);
   });

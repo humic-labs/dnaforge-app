@@ -419,7 +419,7 @@ describe('inventory boundary parsing', () => {
       })
     ).toThrow(InventoryValidationError);
     expect(() =>
-      parseInventoryState({ ...createInventoryState(), schema: 'dnaforge.inventory.v2' })
+      parseInventoryState({ ...createInventoryState(), schema: 'dnaforge.inventory.v99' })
     ).toThrow(InventoryValidationError);
     expect(() =>
       parseInventoryCommand({

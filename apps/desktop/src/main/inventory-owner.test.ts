@@ -107,6 +107,103 @@ afterEach(() => {
 });
 
 describe('durable native inventory commands', () => {
+  it('reads frozen v1 SQLite state and exact receipts without rewriting them, then accepts new commands', () => {
+    const stateJson =
+      '{"schema":"dnaforge.inventory.v1","revision":1,"storage":{"legacy-freezer":{"id":"legacy-freezer","name":"Legacy freezer","slots":["A1"],"placement":{"kind":"root"}}},"vessels":{"legacy-tube":{"id":"legacy-tube","name":"Legacy tube","placement":{"kind":"located","storageId":"legacy-freezer","slotId":"A1"},"lifecycle":"active"}},"stocks":{"legacy-stock":{"id":"legacy-stock","vesselId":"legacy-tube","materialId":"synthetic-material","quantity":{"kind":"known","value":"100","unit":"uL"},"quality":"usable"}}}';
+    const requestJson =
+      '{"commands":[{"id":"legacy-freezer","kind":"create-storage","name":"Legacy freezer","placement":{"kind":"root"},"slots":["A1"]},{"id":"legacy-tube","kind":"create-vessel","name":"Legacy tube","placement":{"kind":"located","slotId":"A1","storageId":"legacy-freezer"}},{"id":"legacy-stock","kind":"receive-stock","materialId":"synthetic-material","quality":"usable","quantity":{"kind":"known","unit":"uL","value":"100"},"vesselId":"legacy-tube"}],"expectedRevision":0,"inventoryId":"legacy-inventory","operationId":"legacy-receive","project":"inventory-project"}';
+    const receipt = {
+      status: 'committed',
+      inventoryId: 'legacy-inventory',
+      operationId: 'legacy-receive',
+      revision: 1,
+      actor: 'native:historical-instance',
+      recordedAt: 1_700_000_000_000,
+      requestDigest: 'sha256:28fd37501f765f0da612a189e25130c4274962b8d5c65ac7c8628534a15d68dd',
+    };
+    const receiptJson = JSON.stringify(receipt);
+    db.prepare(
+      'INSERT INTO inventory_state(inventory_id,project_id,revision,state_json) VALUES(?,?,?,?)'
+    ).run('legacy-inventory', 'inventory-project', 1, stateJson);
+    db.prepare(
+      'INSERT INTO inventory_journal(inventory_id,operation_id,revision,request_json,receipt_json) VALUES(?,?,?,?,?)'
+    ).run('legacy-inventory', 'legacy-receive', 1, requestJson, receiptJson);
+    db.close();
+    db = openFileTestDb(dbPath);
+    startOwner();
+    const scope = { project: 'inventory-project', inventoryId: 'legacy-inventory' };
+    const read = owner.inspect(scope)!;
+    expect(read.schema).toBe('dnaforge.inventory.v2');
+    expect(read.storage['legacy-freezer'].layout).toEqual({ kind: 'named', slots: ['A1'] });
+    expect(owner.replay(scope)).toEqual({ state: read, acceptedOperations: 1 });
+    expect(owner.execute(JSON.parse(requestJson))).toEqual(receipt);
+    expect(owner.operation({ ...scope, operationId: 'legacy-receive' })).toEqual(receipt);
+    expect(
+      db
+        .prepare('SELECT revision,state_json FROM inventory_state WHERE inventory_id=?')
+        .get(scope.inventoryId)
+    ).toEqual({ revision: 1, state_json: stateJson });
+    expect(
+      db
+        .prepare('SELECT request_json,receipt_json FROM inventory_journal WHERE inventory_id=?')
+        .get(scope.inventoryId)
+    ).toEqual({ request_json: requestJson, receipt_json: receiptJson });
+    expect(
+      owner.execute({
+        ...scope,
+        operationId: 'new-use',
+        expectedRevision: 1,
+        commands: [
+          {
+            kind: 'consume',
+            stockId: 'legacy-stock',
+            quantity: { value: '1', unit: 'uL' },
+            reason: 'New use',
+          },
+        ],
+      })
+    ).toMatchObject({ status: 'committed', revision: 2 });
+    expect(owner.inspect(scope)?.stocks['legacy-stock'].quantity).toEqual({
+      kind: 'known',
+      value: '99',
+      unit: 'uL',
+    });
+    expect(owner.replay(scope)?.acceptedOperations).toBe(2);
+    expect(owner.operation({ ...scope, operationId: 'legacy-receive' })).toEqual(receipt);
+  });
+
+  it('publishes committed changes with saved receipts and trusted actors, without replay events', () => {
+    const notifications: Array<unknown> = [];
+    const unsubscribe = owner.subscribe((event) => {
+      expect(owner.operation({ ...scope(), operationId: event.operationId })).not.toBeNull();
+      expect(owner.inspect(scope())?.revision).toBe(event.revision);
+      notifications.push(event);
+    });
+    const request = {
+      ...scope(),
+      operationId: 'human-create',
+      expectedRevision: 0,
+      commands: [
+        { kind: 'create-vessel', id: 'tube', name: 'Tube', placement: { kind: 'unplaced' } },
+      ],
+    };
+    const receipt = owner.execute(request, () => {}, 'human:desktop:7');
+    expect(receipt).toMatchObject({ status: 'committed', actor: 'human:desktop:7' });
+    expect(notifications).toHaveLength(1);
+    expect(owner.execute(request, () => {}, 'agent:another-identity')).toEqual(receipt);
+    expect(notifications).toHaveLength(1);
+    unsubscribe();
+    expect(owner.projects()[0].defaultInventoryId).toBe(
+      `inventory:${owner.projects()[0].projectId}`
+    );
+    expect(owner.materials({ project: scope().project, query: 'synthetic-material' })).toEqual({
+      items: [
+        { id: 'synthetic-material', name: 'Synthetic material', kind: 'record', registryId: null },
+      ],
+      nextCursor: null,
+    });
+  });
+
   it('keeps quantities, placement, immutable receipts and replay after reopening', () => {
     createFixture();
     expect(

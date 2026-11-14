@@ -6,6 +6,7 @@ import { pageReferencesRendererFeature } from '../features/page/public/feature';
 import { journeyTelemetryRendererFeature } from '../features/journey-telemetry/public/feature';
 import { terminalRendererFeature } from '../features/terminal/public/feature';
 import { aiRendererFeature } from '../features/ai/public/feature';
+import { inventoryRendererFeature } from '../features/inventory/public/feature';
 import type { ScreenCategory } from '../lib/screen-telemetry';
 import type {
   RendererFeature,
@@ -47,6 +48,7 @@ export const RENDERER_FEATURES: readonly RendererFeature[] = [
   journeyTelemetryRendererFeature,
   terminalRendererFeature,
   aiRendererFeature,
+  inventoryRendererFeature,
 ];
 assertUniqueRendererFeatures(RENDERER_FEATURES);
 

@@ -45,6 +45,9 @@ const mocks = vi.hoisted(() => ({
   bootLog: vi.fn(),
   inventory: {
     initialize: vi.fn(),
+    subscribe: vi.fn(() => () => {}),
+    projects: vi.fn(() => []),
+    materials: vi.fn(() => ({ items: [], nextCursor: null })),
     execute: vi.fn(),
     inspect: vi.fn(),
     operation: vi.fn(),
@@ -259,6 +262,19 @@ describe('native documents main feature', () => {
     const documents = createNativeDocuments();
     documents.bindProfile('/user-data');
     expect(mocks.bindProfile).toHaveBeenCalledWith('profile:/user-data');
+  });
+
+  it('makes the inventory owner unavailable immediately when the bound profile changes', async () => {
+    const { documents, start } = started('renderer');
+    await start;
+    const target = { id: 9, isDestroyed: () => false } as unknown as import('electron').WebContents;
+    documents.startRendererPublisher(() => target);
+    documents.registerWorkspaceRootsHandler(() => true);
+    const projects = mocks.handlers.get('inventory:projects');
+    if (!projects) throw new Error('Inventory projects handler was not registered.');
+    expect(projects({ sender: target })).toEqual([]);
+    documents.bindProfile('/different-user-data');
+    expect(() => projects({ sender: target })).toThrow('INVENTORY_OWNER_UNAVAILABLE');
   });
 
   it('refuses to start before its profile is bound', async () => {

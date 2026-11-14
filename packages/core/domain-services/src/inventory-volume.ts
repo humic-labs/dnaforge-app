@@ -1,4 +1,4 @@
-import type { InventoryQuantity, InventoryVolume, InventoryVolumeUnit } from './inventory';
+import type { InventoryQuantity, InventoryVolume, InventoryVolumeUnit } from './inventory-types';
 
 const UNIT_EXPONENT: Readonly<Record<InventoryVolumeUnit, number>> = {
   L: 6,

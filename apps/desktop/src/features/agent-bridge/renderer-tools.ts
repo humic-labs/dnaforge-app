@@ -29,6 +29,7 @@ import { genomesTools } from './catalog/genomes';
 import { sequencesTools } from './catalog/sequences';
 import { structuresTools } from './catalog/structures';
 import { registryTools } from './catalog/registry';
+import { inventoryTools } from './catalog/inventory';
 import { computeTools } from './catalog/compute';
 import { scientificAuthoringTools } from './catalog/scientific-authoring';
 
@@ -297,6 +298,7 @@ export const ALLOWED_RENDERER_TOOLS = mergeRendererToolCatalogs(
   { ...sequencesTools, sequence_document: nativeDocumentTools.sequence_document },
   structuresTools,
   registryTools,
+  inventoryTools,
   computeTools,
   {
     import_review: nativeDocumentTools.import_review,

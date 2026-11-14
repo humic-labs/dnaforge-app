@@ -30,7 +30,9 @@ type InventoryNativeCommand =
   | 'inventory.execute'
   | 'inventory.inspect'
   | 'inventory.operation'
-  | 'inventory.history';
+  | 'inventory.history'
+  | 'inventory.projects'
+  | 'inventory.materials';
 type Server = Awaited<ReturnType<typeof startNativeDocumentCommandServer>>;
 interface NativeResponse<T> {
   ok: boolean;
@@ -124,7 +126,11 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     label: string,
     command: InventoryNativeCommand,
     request: unknown,
-    options: { invalidToken?: boolean; roots?: string[] } = {}
+    options: {
+      invalidToken?: boolean;
+      roots?: string[];
+      agent?: { identityId: string; capabilities: string[] };
+    } = {}
   ): Promise<{ status: number; body: NativeResponse<T> }> {
     if (!server) throw new Error('Fixture server is closed.');
     const entry: TraceEntry = {
@@ -150,6 +156,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
           projectScope: entry.projectScope,
           command,
           request,
+          ...(options.agent ? { agent: options.agent } : {}),
         }),
       });
       const body = (await response.json()) as NativeResponse<T>;
@@ -164,12 +171,24 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
   async function success<T>(
     label: string,
     command: InventoryNativeCommand,
-    request: unknown
+    request: unknown,
+    options: { agent?: { identityId: string; capabilities: string[] } } = {}
   ): Promise<T> {
-    const response = await call<T>(label, command, request);
+    const response = await call<T>(label, command, request, options);
     expect(response.status, label).toBe(200);
     expect(response.body.ok, label).toBe(true);
-    return response.body.result as T;
+    const wrapped = response.body.result as Record<string, unknown>;
+    expect(wrapped).toBeTypeOf('object');
+    const keys: Record<InventoryNativeCommand, string> = {
+      'inventory.execute': 'execution',
+      'inventory.inspect': 'state',
+      'inventory.operation': 'receipt',
+      'inventory.history': 'entries',
+      'inventory.projects': 'projects',
+      'inventory.materials': 'page',
+    };
+    expect(wrapped).toHaveProperty(keys[command]);
+    return wrapped[keys[command]] as T;
   }
 
   async function loseAcknowledgement(
@@ -263,6 +282,41 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     ).run();
     await start();
 
+    const projects = await success<Array<{ projectId: string; defaultInventoryId: string }>>(
+      'discover scoped projects',
+      'inventory.projects',
+      {}
+    );
+    expect(projects).toHaveLength(1);
+    expect(projects[0].defaultInventoryId).toBe(`inventory:${projects[0].projectId}`);
+    expect(
+      await success('inspect absent inventory dictionary', 'inventory.inspect', {
+        ...scope,
+        inventoryId: 'absent',
+      })
+    ).toBeNull();
+    expect(
+      await success('history absent inventory dictionary', 'inventory.history', {
+        ...scope,
+        inventoryId: 'absent',
+      })
+    ).toEqual([]);
+    expect(
+      await success('operation absent inventory dictionary', 'inventory.operation', {
+        ...scope,
+        operationId: 'absent',
+      })
+    ).toBeNull();
+    expect(
+      await success('find scoped material by exact identity', 'inventory.materials', {
+        project: scope.project,
+        query: 'synthetic-material',
+      })
+    ).toMatchObject({
+      items: [{ id: 'synthetic-material', name: 'Synthetic material', registryId: null }],
+      nextCursor: null,
+    });
+
     const receive: InventoryCommand[] = [
       {
         kind: 'create-storage',
@@ -294,13 +348,27 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       },
     ];
     expect(
-      await success<NativeInventoryExecution>('receive 100 uL', 'inventory.execute', {
-        ...scope,
-        operationId: 'receive',
-        expectedRevision: 0,
-        commands: receive,
-      })
-    ).toMatchObject({ status: 'committed', revision: 1 });
+      await success<NativeInventoryExecution>(
+        'receive 100 uL',
+        'inventory.execute',
+        {
+          ...scope,
+          operationId: 'receive',
+          expectedRevision: 0,
+          commands: receive,
+        },
+        {
+          agent: {
+            identityId: 'synthetic-inventory-writer',
+            capabilities: ['read-workspace', 'write-workspace'],
+          },
+        }
+      )
+    ).toMatchObject({
+      status: 'committed',
+      revision: 1,
+      actor: 'agent:synthetic-inventory-writer',
+    });
     expect(
       await success<NativeInventoryExecution>('move tube', 'inventory.execute', {
         ...scope,
@@ -328,6 +396,20 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
         },
       ],
     };
+    const deniedAgent = await call(
+      'reject read-only agent mutation',
+      'inventory.execute',
+      consume,
+      {
+        agent: { identityId: 'synthetic-read-only', capabilities: ['read-workspace'] },
+      }
+    );
+    expect(deniedAgent).toMatchObject({
+      status: 200,
+      body: { ok: true, result: { ok: false, code: 'INSUFFICIENT_SCOPE', stateChanged: false } },
+    });
+    expect(owner.inspect(scope)?.revision).toBe(2);
+    expect(owner.operation({ ...scope, operationId: 'consume' })).toBeNull();
     const receipt = await loseAcknowledgement(consume);
     expect(receipt).toMatchObject({
       status: 'committed',

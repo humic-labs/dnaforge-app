@@ -25,9 +25,7 @@ def native(monkeypatch):
     monkeypatch.setattr(
         "src.native_workflow_tools.check_grant",
         lambda _: (
-            {"error": {"code": "GRANT_REVOKED", "message": "Revoked"}}
-            if state["revoked"]
-            else None
+            {"error": {"code": "GRANT_REVOKED", "message": "Revoked"}} if state["revoked"] else None
         ),
     )
     monkeypatch.setattr(
@@ -43,9 +41,7 @@ def native(monkeypatch):
             "completed", result=state.get("result", {"revision": "current"})
         )
 
-    monkeypatch.setattr(
-        "src.native_workflow_tools.dispatch_native_document_command", dispatch
-    )
+    monkeypatch.setattr("src.native_workflow_tools.dispatch_native_document_command", dispatch)
     context = ToolContext(
         job_id="action",
         agent_identity_id="caller",
@@ -67,9 +63,7 @@ def native(monkeypatch):
 async def test_search_runs_without_a_renderer_or_any_write_capability(native):
     state, context = native
     state["scope"] = ["read-workspace"]
-    assert await execute_native_workflow(
-        "search_workspace", {"query": "strain"}, context
-    ) == {
+    assert await execute_native_workflow("search_workspace", {"query": "strain"}, context) == {
         "ok": True,
         "result": {"revision": "current", "ok": True},
     }
@@ -80,6 +74,65 @@ async def test_search_runs_without_a_renderer_or_any_write_capability(native):
             "projectScope": {"kind": "app-following"},
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_inventory_reads_dispatch_scoped_dictionaries_with_current_grant(native):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    state["result"] = {"kind": "inspection", "state": None}
+    result = await execute_native_workflow(
+        "inventory",
+        {"operation": {"kind": "inspect", "project": "project", "inventoryId": "inventory"}},
+        context,
+    )
+    assert result == {"ok": True, "result": {"kind": "inspection", "state": None, "ok": True}}
+    assert state["calls"] == [
+        {
+            "command": "inventory.inspect",
+            "request": {"project": "project", "inventoryId": "inventory"},
+            "projectScope": {"kind": "app-following"},
+            "agent": {"identityId": "caller", "capabilities": ["read-workspace"]},
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_inventory_write_requires_current_grant_and_rejection_is_not_success(native):
+    state, context = native
+    request = {
+        "operation": {
+            "kind": "execute",
+            "project": "project",
+            "inventoryId": "inventory",
+            "operationId": "consume-once",
+            "expectedRevision": 2,
+            "commands": [],
+        }
+    }
+    state["scope"] = ["read-workspace"]
+    with pytest.raises(ToolExecutionFailure) as denied:
+        await execute_native_workflow("inventory", request, context)
+    assert denied.value.code == "INSUFFICIENT_SCOPE"
+    assert state["calls"] == []
+    state["scope"] = ["read-workspace", "write-workspace"]
+    state["result"] = {
+        "kind": "execution",
+        "execution": {
+            "status": "rejected",
+            "inventoryId": "inventory",
+            "operationId": "consume-once",
+            "code": "REVISION_CONFLICT",
+            "message": "Inspect first.",
+            "currentRevision": 3,
+        },
+    }
+    with pytest.raises(ToolExecutionFailure) as rejected:
+        await execute_native_workflow("inventory", request, context)
+    assert rejected.value.code == "REVISION_CONFLICT"
+    assert rejected.value.details["stateChanged"] is False
+    assert rejected.value.details["operationId"] == "consume-once"
+    assert state["calls"][0]["agent"]["identityId"] == "caller"
 
 
 @pytest.mark.asyncio

@@ -1,3 +1,4 @@
+import { registerInventoryHandlers } from '../ipc/inventory';
 import { createNativeNotebookWorkingCopies } from '../native-notebook-working-copies';
 import { MarkdownNotebookImporter } from '../markdown-notebook-import';
 import { nativeNotebookDocumentAdapter } from '../native-notebook-document-adapter';
@@ -155,6 +156,8 @@ export function createNativeDocuments(
     publishHistory: (root) => publishHistory?.(root),
   });
   let administration: AdministrationOwner | null = null;
+  let inventory: ReturnType<typeof createNativeInventoryOwner> | null = null;
+  let detachInventoryPublisher: (() => void) | null = null;
   let notebookTarget: (() => WebContents | null) | null = null;
   let notebookHandlersRegistered = false;
   let detachImportReviewPublisher: (() => void) | null = null;
@@ -172,8 +175,14 @@ export function createNativeDocuments(
   });
 
   function bindProfile(userDataPath: string): void {
+    const nextProfileKey = nativeDocumentProfileKey(userDataPath);
+    if (profileKey !== nextProfileKey) {
+      detachInventoryPublisher?.();
+      detachInventoryPublisher = null;
+      inventory = null;
+    }
     profileDirectory = userDataPath;
-    profileKey = nativeDocumentProfileKey(userDataPath);
+    profileKey = nextProfileKey;
     sidecarSessionAuthority.bindNativeDocumentProfile(profileKey);
     void dirtyStateProvider?.refresh();
   }
@@ -190,12 +199,17 @@ export function createNativeDocuments(
       throw new Error('The managed runtime requires its own native document authority.');
     }
     if (!nativeAuthority) return;
-    const inventory = createNativeInventoryOwner({
+    detachInventoryPublisher?.();
+    inventory = createNativeInventoryOwner({
       db: getDb,
       projectAuthority,
       actor: () => `native:${nativeAuthority.ownerInstanceId}`,
     });
     inventory.initialize();
+    detachInventoryPublisher = inventory.subscribe((event) => {
+      const target = notebookTarget?.();
+      if (target && !target.isDestroyed()) sendRendererIpc(target, 'inventory:changed', event);
+    });
     const owner = new NativeAnnotationDocumentOwner({
       nativeOwnerInstanceId: nativeAuthority.ownerInstanceId,
       db: getDb,
@@ -334,6 +348,7 @@ export function createNativeDocuments(
   }
 
   function registerWorkspaceRootsHandler(isCurrentRendererLoad: CurrentRendererLoad): void {
+    registerInventoryHandlers({ owner: () => inventory, target: () => notebookTarget?.() ?? null });
     handleGroup(importReviewContract, {
       call: (_event, request) => importReviews.call(request),
       snapshot: (_event, id) => importReviews.snapshot(id),
@@ -381,6 +396,9 @@ export function createNativeDocuments(
   }
 
   async function closeServerAndRecovery(): Promise<void> {
+    detachInventoryPublisher?.();
+    detachInventoryPublisher = null;
+    inventory = null;
     await markdownImporter.close();
     const recovery = startupRecovery;
     const server = commandServer;

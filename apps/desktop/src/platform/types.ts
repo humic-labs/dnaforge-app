@@ -1,3 +1,4 @@
+import type { InventoryClient } from '../shared/inventory-client';
 import type {
   AppendProjectMemoryEventInput,
   ProjectMemorySnapshot,
@@ -633,6 +634,7 @@ export interface PlatformBridge {
         mutationToken?: string
       ): Promise<string>;
     };
+  inventory: InventoryClient;
   importReview: {
     call(request: ImportReviewRequest): Promise<ImportReviewInspection>;
     snapshot(id: string): Promise<ImportReviewDocument>;

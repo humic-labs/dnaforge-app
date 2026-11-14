@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyInventoryCommandBatch,
   createInventoryState,
+  inventoryStoragePositions,
   type InventoryCommand,
   type InventoryQuantity,
   type InventoryState,
@@ -122,7 +123,9 @@ function assertInvariants(state: InventoryState): void {
     const position = `${item.placement.storageId}/${item.placement.slotId}`;
     expect(occupied.has(position), `duplicate placement at ${position}`).toBe(false);
     occupied.add(position);
-    expect(state.storage[item.placement.storageId].slots).toContain(item.placement.slotId);
+    expect(inventoryStoragePositions(state.storage[item.placement.storageId])).toContain(
+      item.placement.slotId
+    );
   }
   for (const storage of Object.values(state.storage)) {
     const ancestors = new Set([storage.id]);

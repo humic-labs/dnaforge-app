@@ -3,8 +3,8 @@ name: verify-inventory-core
 description:
   Exercise DNAForge's native inventory command core through loopback HTTP and
   durable SQLite, including reopen, retry and bounded state invariants. Use for
-  core inventory changes rather than graphical inventory or hardware
-  qualification.
+  core inventory changes and the real desktop inventory workspace. Hardware
+  qualification is separate.
 ---
 
 # Verify inventory core
@@ -61,6 +61,38 @@ pnpm exec vitest run src/main/inventory-owner.test.ts
 ```
 
 ## Evidence
+
+For the visible workflow, read
+[the inventory workspace map](features/inventory-workspace.md). Start an owned
+background scenario app as described in `skills/verify-dnaforge/SKILL.md`, then
+run from the repository root:
+
+```sh
+node apps/desktop/scripts/inventory-journey.mjs --stage before --out /absolute/evidence/before
+node apps/desktop/scripts/inventory-journey.mjs --stage journey --out /absolute/evidence/journey
+```
+
+The `before` stage requires a source baseline without the Inventory activity.
+Keep that original capture when changing the source. The journey uses the
+isolated profile's writable My Project, imports synthetic pUC19 scientific
+identity through the native import owner, then drives all inventory changes
+through ordinary controls. Use a fresh inventory for a new journey attempt. The
+helper checks native provenance and writes original screenshots, screencast
+frames, timestamps, video, state and history. It requires `ffmpeg` on PATH.
+
+For a real reopen, stop only the task app. Relaunch with the same scenario
+profile using `ELECTRON_CLI_ARGS` as a JSON array containing
+`--user-data-dir=THE_ORIGINAL_PROFILE` and
+`--dnaforge-allow-scenario-mutation=1`, with the original background/scenario
+environment. Then run:
+
+```sh
+node apps/desktop/scripts/inventory-journey.mjs --stage reopen --fixture /absolute/evidence/journey/reopen-fixture.json --out /absolute/evidence/reopen
+```
+
+Require exact state and history parity after the native process restarts. A
+renderer refresh is not an application restart. Stop the owned app with
+`pnpm --dir apps/desktop dev:stop` when its purpose ends.
 
 Inspect the JSON artifacts in `INVENTORY_CORE_EVIDENCE_DIR`. Require exact
 post-reopen quantity and placement, original operation identity, accepted

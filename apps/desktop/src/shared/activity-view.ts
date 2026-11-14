@@ -1,4 +1,4 @@
-export type RendererFeatureViewId = 'remote-hosts' | 'terminal' | 'ai';
+export type RendererFeatureViewId = 'remote-hosts' | 'terminal' | 'ai' | 'inventory';
 
 export type ShellActivityView =
   | 'home'

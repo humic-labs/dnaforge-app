@@ -1,3 +1,4 @@
+import { unavailableInventoryClient } from '../shared/inventory-client';
 import type { PlatformBridge } from './types';
 import { userMessage } from '@waypoint/user-messages';
 import { googleSheetsUnavailable } from './google-sheets-unavailable';
@@ -267,6 +268,7 @@ const hostedImplemented: Partial<PlatformBridge> = {
     }),
     deleteNotebookPage: async () => unavailable('db.deleteNotebookPage'),
   }),
+  inventory: unavailableInventoryClient(),
   importReview: {
     call: async () => {
       throw new Error('Native import review is unavailable in this runtime.');

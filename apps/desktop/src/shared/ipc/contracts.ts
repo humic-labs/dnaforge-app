@@ -1,5 +1,6 @@
 import { notebookContract } from './notebook.contract';
 import { trackViewCommandsContract } from './track-view-commands.contract';
+import { inventoryContract } from './inventory.contract';
 import { importReviewContract } from './import-review.contract';
 import { administrationContract } from './administration.contract';
 import { primerArtifactContract } from './primer-artifact.contract';
@@ -74,6 +75,7 @@ export const ipcContracts = [
   trackViewCommandsContract,
   notebookContract,
   administrationContract,
+  inventoryContract,
   importReviewContract,
   primerArtifactContract,
   organizationRegistryContract,
@@ -145,6 +147,7 @@ export const ipcContracts = [
 export {
   notebookContract,
   administrationContract,
+  inventoryContract,
   importReviewContract,
   analyticsContract,
   computeContract,

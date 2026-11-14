@@ -9,6 +9,7 @@ import {
 import {
   inventoryExecuteRequestSchema,
   inventoryHistoryRequestSchema,
+  inventoryMaterialQuerySchema,
   inventoryOperationRequestSchema,
   inventoryReadRequestSchema,
   inventoryReceiptSchema,
@@ -17,6 +18,12 @@ import {
   type NativeInventoryHistoryEntry,
   type NativeInventoryReceipt,
 } from '../shared/inventory-command';
+import type {
+  InventoryChanged,
+  InventoryMaterial,
+  InventoryMaterialPage,
+  InventoryProject,
+} from '../shared/inventory-client';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import type { RegisteredProject, RegisteredProjectAuthority } from './registered-project-authority';
 import { resolveSavedRegistryProject } from './registry-entity-project';
@@ -116,6 +123,7 @@ export function createNativeInventoryOwner(options: {
   actor(): string;
   now?: () => number;
 }) {
+  const listeners = new Set<(event: InventoryChanged) => void>();
   const resolveProject = (reference: string, mutating: boolean): RegisteredProject => {
     assertCommittedDatabaseReadAllowed(options.db());
     const project = options.projectAuthority.resolve(reference);
@@ -149,6 +157,57 @@ export function createNativeInventoryOwner(options: {
   };
 
   return {
+    projects(): readonly InventoryProject[] {
+      assertCommittedDatabaseReadAllowed(options.db());
+      return options.projectAuthority.list().map((project) => ({
+        projectId: project.projectId,
+        name: project.name,
+        path: project.path,
+        pinned: project.pinned,
+        defaultInventoryId: `inventory:${project.projectId}`,
+      }));
+    },
+
+    materials(input: unknown): InventoryMaterialPage {
+      const request = inventoryMaterialQuerySchema.parse(input);
+      const project = resolveProject(request.project, false);
+      const db = options.db();
+      const query = request.query.trim().toLowerCase();
+      const limit = request.limit ?? 50;
+      const rows = db
+        .prepare(
+          `SELECT id,name,kind,registry_id,fields FROM lims_entity
+         WHERE tombstone=0 AND archived_at IS NULL AND id>?
+           AND (?='' OR instr(lower(name),?)>0 OR instr(lower(COALESCE(registry_id,'')),?)>0 OR instr(lower(id),?)>0)
+           AND (${registrySourceEligibilitySql(db)})
+         ORDER BY id ASC`
+        )
+        .iterate(request.cursor ?? '', query, query, query, query);
+      const items: InventoryMaterial[] = [];
+      let scanned = 0;
+      let cursor: string | null = null;
+      for (const value of rows) {
+        const row = value as {
+          id: string;
+          name: string;
+          kind: string;
+          registry_id: string | null;
+          fields: string;
+        };
+        scanned += 1;
+        cursor = row.id;
+        if (materialProject(db, row.id, row.fields) === project.id)
+          items.push({ id: row.id, name: row.name, kind: row.kind, registryId: row.registry_id });
+        if (items.length === limit || scanned === 1000) return { items, nextCursor: cursor };
+      }
+      return { items, nextCursor: null };
+    },
+
+    subscribe(listener: (event: InventoryChanged) => void): () => void {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+
     initialize(): void {
       const db = options.db();
       assertCommittedDatabaseReadAllowed(db);
@@ -171,7 +230,11 @@ export function createNativeInventoryOwner(options: {
       `);
     },
 
-    execute(input: unknown, assertCurrent: () => void = () => {}): NativeInventoryExecution {
+    execute(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      trustedActor?: string
+    ): NativeInventoryExecution {
       const parsed = inventoryExecuteRequestSchema.parse(input);
       const project = resolveProject(parsed.project, true);
       const assertProject = options.projectAuthority.capture(project.projectId, true);
@@ -189,7 +252,7 @@ export function createNativeInventoryOwner(options: {
         );
       const request: InventoryExecuteRequest = { ...parsed, project: project.projectId };
       const canonical = canonicalNativeMutationRequest(request);
-      const actor = options.actor();
+      const actor = trustedActor ?? options.actor();
       const recordedAt = (options.now ?? Date.now)();
       assertCurrent();
       assertProject();
@@ -212,7 +275,8 @@ export function createNativeInventoryOwner(options: {
         assertAcceptingSharedProjectContentWritable(db, project.path);
       };
 
-      return db
+      let committed = false;
+      const execution = db
         .transaction((): NativeInventoryExecution => {
           assertAcceptingProject();
           assertCurrent();
@@ -296,9 +360,24 @@ export function createNativeInventoryOwner(options: {
           );
           assertCurrent();
           assertAcceptingProject();
+          committed = true;
           return receipt;
         })
         .immediate();
+      if (committed && execution.status === 'committed') {
+        const event: InventoryChanged = {
+          projectId: project.projectId,
+          inventoryId: request.inventoryId,
+          revision: execution.revision,
+          operationId: execution.operationId,
+        };
+        for (const listener of listeners) {
+          try {
+            listener(event);
+          } catch {}
+        }
+      }
+      return execution;
     },
 
     inspect(input: unknown): InventoryState | null {

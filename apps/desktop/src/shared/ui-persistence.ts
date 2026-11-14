@@ -21,6 +21,7 @@ const RESTORABLE_VIEWS = new Set<ActivityView>([
   'references',
   'terminal',
   'ai',
+  'inventory',
 ]);
 
 export interface SidebarState {

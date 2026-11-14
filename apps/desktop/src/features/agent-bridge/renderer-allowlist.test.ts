@@ -137,6 +137,7 @@ const validRendererArgs: Record<string, unknown> = {
   list_scientific_objects: {},
   workspace_projects: { operation: { kind: 'list' } },
   administration: { operation: { kind: 'inspect-settings' } },
+  inventory: { operation: { kind: 'projects' } },
   import_review: {
     project: 'Project',
     operation: { kind: 'prepare', source: { fileName: 'primers.csv', text: 'name,sequence' } },

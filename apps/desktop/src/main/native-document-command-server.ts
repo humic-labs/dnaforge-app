@@ -23,10 +23,12 @@ import { agentProjectScopeSchema } from '../shared/agent-project-scope';
 import {
   inventoryExecuteRequestSchema,
   inventoryHistoryRequestSchema,
+  inventoryMaterialQuerySchema,
   inventoryOperationRequestSchema,
   inventoryReadRequestSchema,
 } from '../shared/inventory-command';
 import type { createNativeInventoryOwner } from './inventory-owner';
+import { hasRequiredCapabilities } from '../shared/capability-policy';
 import {
   withAgentProjectScope,
   type RegisteredProjectAuthority,
@@ -68,6 +70,7 @@ const commandSchema = z.discriminatedUnion('command', [
       projectScope: agentProjectScopeSchema,
       command: z.literal('inventory.execute'),
       request: inventoryExecuteRequestSchema,
+      agent: agentAuthoritySchema.optional(),
     })
     .strict(),
   z
@@ -76,6 +79,7 @@ const commandSchema = z.discriminatedUnion('command', [
       projectScope: agentProjectScopeSchema,
       command: z.literal('inventory.inspect'),
       request: inventoryReadRequestSchema,
+      agent: agentAuthoritySchema.optional(),
     })
     .strict(),
   z
@@ -84,6 +88,7 @@ const commandSchema = z.discriminatedUnion('command', [
       projectScope: agentProjectScopeSchema,
       command: z.literal('inventory.operation'),
       request: inventoryOperationRequestSchema,
+      agent: agentAuthoritySchema.optional(),
     })
     .strict(),
   z
@@ -92,6 +97,25 @@ const commandSchema = z.discriminatedUnion('command', [
       projectScope: agentProjectScopeSchema,
       command: z.literal('inventory.history'),
       request: inventoryHistoryRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.projects'),
+      request: z.object({}).strict(),
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.materials'),
+      request: inventoryMaterialQuerySchema,
+      agent: agentAuthoritySchema.optional(),
     })
     .strict(),
   z
@@ -202,7 +226,7 @@ export async function startNativeDocumentCommandServer(options: {
   administration?: Pick<AdministrationOwner, 'execute'>;
   inventory?: Pick<
     ReturnType<typeof createNativeInventoryOwner>,
-    'execute' | 'inspect' | 'operation' | 'history'
+    'execute' | 'inspect' | 'operation' | 'history' | 'projects' | 'materials'
   >;
   getAuthority(): NativeCommandAuthority | null;
 }): Promise<{ url: string; close(): Promise<void> }> {
@@ -296,26 +320,55 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'inventory.execute' ||
           body.command === 'inventory.inspect' ||
           body.command === 'inventory.operation' ||
-          body.command === 'inventory.history'
+          body.command === 'inventory.history' ||
+          body.command === 'inventory.projects' ||
+          body.command === 'inventory.materials'
         ) {
           const run = (() => {
             if (options.inventory) {
               const receiver = options.inventory;
+              if (
+                body.command.startsWith('inventory.') &&
+                'agent' in body &&
+                body.agent &&
+                !hasRequiredCapabilities(
+                  body.agent.capabilities,
+                  body.command === 'inventory.execute'
+                    ? ['read-workspace', 'write-workspace']
+                    : ['read-workspace']
+                )
+              )
+                return () => ({
+                  ok: false,
+                  code: 'INSUFFICIENT_SCOPE',
+                  error: 'The current grant does not permit this inventory operation.',
+                  stateChanged: false,
+                });
+              if (body.command === 'inventory.projects')
+                return () => ({ kind: 'projects', projects: receiver.projects() });
+              if (body.command === 'inventory.materials') {
+                const request = body.request;
+                return () => ({ kind: 'materials', page: receiver.materials(request) });
+              }
               if (body.command === 'inventory.execute') {
                 const request = body.request;
-                return () => receiver.execute(request, assertCurrent);
+                const actor = body.agent ? `agent:${body.agent.identityId}` : undefined;
+                return () => ({
+                  kind: 'execution',
+                  execution: receiver.execute(request, assertCurrent, actor),
+                });
               }
               if (body.command === 'inventory.inspect') {
                 const request = body.request;
-                return () => receiver.inspect(request);
+                return () => ({ kind: 'inspection', state: receiver.inspect(request) });
               }
               if (body.command === 'inventory.operation') {
                 const request = body.request;
-                return () => receiver.operation(request);
+                return () => ({ kind: 'operation', receipt: receiver.operation(request) });
               }
               if (body.command === 'inventory.history') {
                 const request = body.request;
-                return () => receiver.history(request);
+                return () => ({ kind: 'history', entries: receiver.history(request) });
               }
             }
             if (body.command === 'workspace.search' && options.workspaceCommands) {
@@ -356,6 +409,8 @@ export async function startNativeDocumentCommandServer(options: {
             body.command !== 'inventory.inspect' &&
             body.command !== 'inventory.operation' &&
             body.command !== 'inventory.history';
+          if (body.command === 'inventory.projects' || body.command === 'inventory.materials')
+            accepted = false;
           const result = await run();
           json(res, 200, { ok: true, ownerInstanceId: authority.ownerInstanceId, result });
           return;

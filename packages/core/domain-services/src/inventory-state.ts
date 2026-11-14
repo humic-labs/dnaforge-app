@@ -1,8 +1,9 @@
 import {
-  MAX_INVENTORY_BATCH_COMMANDS,
   type InventoryCommand,
   type InventoryCommandBatch,
   type InventoryErrorCode,
+  type InventoryLayout,
+  type InventoryPhysicalItem,
   type InventoryState,
   type InventoryStock,
   type InventoryStorage,
@@ -10,11 +11,18 @@ import {
   type InventoryTransition,
   type InventoryVessel,
   type InventoryVesselPlacement,
-} from './inventory';
+} from './inventory-types';
+import {
+  inventoryStackItems,
+  inventoryStoragePositions,
+  inventoryWellId,
+} from './inventory-layout';
 import { normalizeInventoryQuantity, subtractInventoryVolume } from './inventory-volume';
 import { InventoryValidationError, parseInventoryCommandBatch } from './inventory-validation';
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
+type Placement = InventoryStoragePlacement | InventoryVesselPlacement;
+type PhysicalRecord = InventoryStorage | InventoryVessel;
 interface Draft {
   storage: Record<string, InventoryStorage>;
   vessels: Record<string, InventoryVessel>;
@@ -29,23 +37,81 @@ function hasId(state: Draft, id: string): boolean {
   return [state.storage, state.vessels, state.stocks].some((rows) => Object.hasOwn(rows, id));
 }
 
+function itemRecord(state: Draft, item: InventoryPhysicalItem): PhysicalRecord | Failure {
+  const record = item.kind === 'storage' ? state.storage[item.id] : state.vessels[item.id];
+  if (!record)
+    return failure(
+      item.kind === 'storage' ? 'STORAGE_NOT_FOUND' : 'VESSEL_NOT_FOUND',
+      'The physical inventory item does not exist.'
+    );
+  if (record.lifecycle === 'disposed')
+    return failure(
+      item.kind === 'storage' ? 'STORAGE_DISPOSED' : 'VESSEL_DISPOSED',
+      'Disposed inventory cannot be moved or changed.'
+    );
+  if ('kind' in record && record.kind === 'fixed-well')
+    return failure(
+      'FIXED_WELL_IMMUTABLE',
+      'A permanent well cannot be moved or disposed independently of its plate.'
+    );
+  return record;
+}
+
+function removalFailure(
+  state: Draft,
+  item: InventoryPhysicalItem,
+  record: PhysicalRecord,
+  explicitStack: boolean
+): Failure | null {
+  if (record.placement.kind !== 'located') return null;
+  const parent = state.storage[record.placement.storageId];
+  if (!parent) return failure('STORAGE_NOT_FOUND', 'The current storage location does not exist.');
+  if (parent.layout.kind !== 'stack') return null;
+  if (!explicitStack)
+    return failure(
+      'STACK_OPERATION_REQUIRED',
+      'Use an explicit stack operation to retrieve this item.'
+    );
+  const top = inventoryStackItems(state, parent.id).at(-1);
+  if (!top || top.kind !== item.kind || top.id !== item.id)
+    return failure('STACK_TOP_REQUIRED', 'Only the top item can be removed from this stack.');
+  return null;
+}
+
 function placementFailure(
   state: Draft,
-  movingId: string,
-  placement: InventoryStoragePlacement | InventoryVesselPlacement
+  moving: InventoryPhysicalItem,
+  placement: Placement,
+  context: 'ordinary' | 'stack' | 'fixed-well' = 'ordinary'
 ): Failure | null {
+  if (
+    (moving.kind === 'storage' && placement.kind === 'unplaced') ||
+    (moving.kind === 'vessel' && placement.kind === 'root')
+  )
+    return failure('INVALID_PLACEMENT', 'The destination placement does not match this item type.');
   if (placement.kind !== 'located') return null;
   const parent = state.storage[placement.storageId];
   if (!parent)
     return failure('STORAGE_NOT_FOUND', 'The destination storage location does not exist.');
-  if (!parent.slots.includes(placement.slotId))
+  if (parent.lifecycle === 'disposed')
+    return failure('STORAGE_DISPOSED', 'The destination storage location has been disposed.');
+  if (parent.layout.kind === 'stack' && context !== 'stack')
+    return failure(
+      'STACK_OPERATION_REQUIRED',
+      'Use an explicit push operation to place an item in a stack.'
+    );
+  if (parent.layout.kind === 'fixed-well' && context !== 'fixed-well')
+    return failure('FIXED_WELL_IMMUTABLE', 'A fixed-well plate contains only its permanent wells.');
+  if (parent.layout.kind === 'removable-tube' && moving.kind !== 'vessel')
+    return failure('INCOMPATIBLE_LAYOUT', 'A removable-tube layout accepts only movable vessels.');
+  if (!inventoryStoragePositions(parent).includes(placement.slotId))
     return failure(
       'INVALID_PLACEMENT',
-      'The destination slot does not exist in that storage location.'
+      'The destination position does not exist in that storage location.'
     );
   let ancestor: InventoryStorage | undefined = parent;
   while (ancestor) {
-    if (ancestor.id === movingId)
+    if (ancestor.id === moving.id)
       return failure(
         'CONTAINMENT_CYCLE',
         'A storage location cannot contain itself or its ancestor.'
@@ -55,13 +121,72 @@ function placementFailure(
         ? state.storage[ancestor.placement.storageId]
         : undefined;
   }
-  const samePosition = (item: InventoryStorage | InventoryVessel): boolean =>
-    item.id !== movingId &&
+  const samePosition = (item: PhysicalRecord): boolean =>
+    item.id !== moving.id &&
     item.placement.kind === 'located' &&
     item.placement.storageId === placement.storageId &&
     item.placement.slotId === placement.slotId;
   if ([...Object.values(state.storage), ...Object.values(state.vessels)].some(samePosition))
-    return failure('SLOT_OCCUPIED', 'The destination slot is occupied.');
+    return failure('SLOT_OCCUPIED', 'The destination position is occupied.');
+  return null;
+}
+
+function placeItem(
+  state: Draft,
+  item: InventoryPhysicalItem,
+  record: PhysicalRecord,
+  placement: Placement
+): void {
+  if (item.kind === 'storage')
+    state.storage[item.id] = {
+      ...(record as InventoryStorage),
+      placement: { ...placement } as InventoryStoragePlacement,
+    };
+  else
+    state.vessels[item.id] = {
+      ...(record as InventoryVessel),
+      placement: { ...placement } as InventoryVesselPlacement,
+    };
+}
+
+function createStorage(
+  state: Draft,
+  command: {
+    readonly id: string;
+    readonly name: string;
+    readonly layout: InventoryLayout;
+    readonly placement: InventoryStoragePlacement;
+  }
+): Failure | null {
+  if (hasId(state, command.id))
+    return failure('ID_ALREADY_EXISTS', 'That inventory identifier already exists.');
+  const invalid = placementFailure(state, { kind: 'storage', id: command.id }, command.placement);
+  if (invalid) return invalid;
+  const storage: InventoryStorage = {
+    id: command.id,
+    name: command.name,
+    layout:
+      command.layout.kind === 'named'
+        ? { kind: 'named', slots: [...command.layout.slots] }
+        : { ...command.layout },
+    placement: { ...command.placement },
+    lifecycle: 'active',
+  };
+  state.storage[storage.id] = storage;
+  if (storage.layout.kind === 'fixed-well') {
+    for (const position of inventoryStoragePositions(storage)) {
+      const id = inventoryWellId(storage.id, position);
+      if (hasId(state, id))
+        return failure('ID_ALREADY_EXISTS', 'A permanent well identifier already exists.');
+      state.vessels[id] = {
+        kind: 'fixed-well',
+        id,
+        name: position,
+        placement: { kind: 'located', storageId: storage.id, slotId: position },
+        lifecycle: 'active',
+      };
+    }
+  }
   return null;
 }
 
@@ -75,25 +200,21 @@ function stockVessel(state: Draft, stock: InventoryStock): InventoryVessel | Fai
 
 function applyCommand(state: Draft, command: InventoryCommand): Failure | null {
   switch (command.kind) {
-    case 'create-storage': {
-      if (hasId(state, command.id))
-        return failure('ID_ALREADY_EXISTS', 'That inventory identifier already exists.');
-      const invalid = placementFailure(state, command.id, command.placement);
-      if (invalid) return invalid;
-      state.storage[command.id] = {
-        id: command.id,
-        name: command.name,
-        slots: [...command.slots],
-        placement: { ...command.placement },
-      };
-      return null;
-    }
+    case 'create-storage':
+      return createStorage(state, { ...command, layout: { kind: 'named', slots: command.slots } });
+    case 'create-layout-storage':
+      return createStorage(state, command);
     case 'create-vessel': {
       if (hasId(state, command.id))
         return failure('ID_ALREADY_EXISTS', 'That inventory identifier already exists.');
-      const invalid = placementFailure(state, command.id, command.placement);
+      const invalid = placementFailure(
+        state,
+        { kind: 'vessel', id: command.id },
+        command.placement
+      );
       if (invalid) return invalid;
       state.vessels[command.id] = {
+        kind: 'movable',
         id: command.id,
         name: command.name,
         placement: { ...command.placement },
@@ -119,22 +240,19 @@ function applyCommand(state: Draft, command: InventoryCommand): Failure | null {
       };
       return null;
     }
-    case 'move-storage': {
-      const item = state.storage[command.id];
-      if (!item) return failure('STORAGE_NOT_FOUND', 'The storage location does not exist.');
-      const invalid = placementFailure(state, item.id, command.placement);
-      if (invalid) return invalid;
-      state.storage[item.id] = { ...item, placement: { ...command.placement } };
-      return null;
-    }
+    case 'move-storage':
     case 'move-vessel': {
-      const item = state.vessels[command.id];
-      if (!item) return failure('VESSEL_NOT_FOUND', 'The vessel does not exist.');
-      if (item.lifecycle === 'disposed')
-        return failure('VESSEL_DISPOSED', 'Disposed vessels cannot be moved.');
-      const invalid = placementFailure(state, item.id, command.placement);
+      const item: InventoryPhysicalItem = {
+        kind: command.kind === 'move-storage' ? 'storage' : 'vessel',
+        id: command.id,
+      };
+      const record = itemRecord(state, item);
+      if ('ok' in record) return record;
+      const removal = removalFailure(state, item, record, false);
+      if (removal) return removal;
+      const invalid = placementFailure(state, item, command.placement);
       if (invalid) return invalid;
-      state.vessels[item.id] = { ...item, placement: { ...command.placement } };
+      placeItem(state, item, record, command.placement);
       return null;
     }
     case 'consume':
@@ -171,15 +289,76 @@ function applyCommand(state: Draft, command: InventoryCommand): Failure | null {
       return null;
     }
     case 'dispose-vessel': {
-      const vessel = state.vessels[command.id];
-      if (!vessel) return failure('VESSEL_NOT_FOUND', 'The vessel does not exist.');
-      if (vessel.lifecycle === 'disposed')
-        return failure('VESSEL_DISPOSED', 'The vessel has already been disposed.');
-      state.vessels[vessel.id] = {
-        ...vessel,
+      const item: InventoryPhysicalItem = { kind: 'vessel', id: command.id };
+      const record = itemRecord(state, item);
+      if ('ok' in record) return record;
+      const removal = removalFailure(state, item, record, true);
+      if (removal) return removal;
+      state.vessels[record.id] = {
+        ...(record as InventoryVessel),
         lifecycle: 'disposed',
         placement: { kind: 'unplaced' },
       };
+      return null;
+    }
+    case 'dispose-plate': {
+      const item: InventoryPhysicalItem = { kind: 'storage', id: command.id };
+      const record = itemRecord(state, item);
+      if ('ok' in record) return record;
+      const plate = record as InventoryStorage;
+      if (plate.layout.kind !== 'fixed-well')
+        return failure('INCOMPATIBLE_LAYOUT', 'Whole-plate disposal requires a fixed-well plate.');
+      const removal = removalFailure(state, item, plate, true);
+      if (removal) return removal;
+      state.storage[plate.id] = { ...plate, lifecycle: 'disposed', placement: { kind: 'root' } };
+      for (const position of inventoryStoragePositions(plate)) {
+        const well = state.vessels[inventoryWellId(plate.id, position)];
+        state.vessels[well.id] = { ...well, lifecycle: 'disposed' };
+      }
+      return null;
+    }
+    case 'push-stack': {
+      const stack = state.storage[command.stackId];
+      if (!stack) return failure('STORAGE_NOT_FOUND', 'The target stack does not exist.');
+      if (stack.lifecycle === 'disposed')
+        return failure('STORAGE_DISPOSED', 'The target stack has been disposed.');
+      if (stack.layout.kind !== 'stack')
+        return failure('INCOMPATIBLE_LAYOUT', 'The target location is not an ordered stack.');
+      const record = itemRecord(state, command.item);
+      if ('ok' in record) return record;
+      if (record.placement.kind === 'located' && record.placement.storageId === stack.id)
+        return failure('INVALID_PLACEMENT', 'That item is already in the target stack.');
+      const removal = removalFailure(state, command.item, record, true);
+      if (removal) return removal;
+      const items = inventoryStackItems(state, stack.id);
+      if (items.length >= stack.layout.capacity)
+        return failure('STACK_FULL', 'The ordered stack has reached its capacity.');
+      const placement: InventoryStoragePlacement = {
+        kind: 'located',
+        storageId: stack.id,
+        slotId: String(items.length + 1),
+      };
+      const invalid = placementFailure(state, command.item, placement, 'stack');
+      if (invalid) return invalid;
+      placeItem(state, command.item, record, placement);
+      return null;
+    }
+    case 'pop-stack': {
+      const stack = state.storage[command.stackId];
+      if (!stack) return failure('STORAGE_NOT_FOUND', 'The source stack does not exist.');
+      if (stack.layout.kind !== 'stack')
+        return failure('INCOMPATIBLE_LAYOUT', 'The source location is not an ordered stack.');
+      const record = itemRecord(state, command.item);
+      if ('ok' in record) return record;
+      const top = inventoryStackItems(state, stack.id).at(-1);
+      if (!top || top.kind !== command.item.kind || top.id !== command.item.id)
+        return failure(
+          'STACK_TOP_REQUIRED',
+          'The requested item is not the top item of this stack.'
+        );
+      const invalid = placementFailure(state, command.item, command.destination);
+      if (invalid) return invalid;
+      placeItem(state, command.item, record, command.destination);
       return null;
     }
   }
@@ -203,11 +382,6 @@ export function applyInventoryCommandBatch(
     );
   if (state.revision === Number.MAX_SAFE_INTEGER)
     return failure('REVISION_EXHAUSTED', 'The inventory revision cannot advance safely.');
-  if (batch.commands.length === 0 || batch.commands.length > MAX_INVENTORY_BATCH_COMMANDS)
-    return failure(
-      'INVALID_INVENTORY_INPUT',
-      'An inventory batch requires a bounded, non-empty command list.'
-    );
   const draft: Draft = {
     storage: Object.assign(Object.create(null) as Record<string, InventoryStorage>, state.storage),
     vessels: Object.assign(Object.create(null) as Record<string, InventoryVessel>, state.vessels),

@@ -38,6 +38,15 @@ export const inventoryHistoryRequestSchema = inventoryReadRequestSchema
   })
   .strict();
 
+export const inventoryMaterialQuerySchema = z
+  .object({
+    project: z.string().min(1).max(4096),
+    query: z.string().max(256),
+    cursor: z.string().min(1).max(1024).optional(),
+    limit: z.number().int().min(1).max(100).optional(),
+  })
+  .strict();
+
 export const inventoryReceiptSchema = z
   .object({
     status: z.literal('committed'),

@@ -11,10 +11,22 @@ The browser-safe domain owner is
 `apps/desktop/src/shared/inventory-command.ts`; the authenticated native command
 server invokes the same owner that later interfaces can consume.
 
-This version supports named positions, one stock per vessel, and exact volume
-accounting. It has no inventory GUI, team synchronization, preparation/lot
-model, mixtures, plate/grid rules, ordered-stack rules, or physical equipment
-qualification. A slot named A1 does not turn a location into a plate.
+The Inventory workspace and authenticated agent tool consume this same owner.
+Layouts distinguish named positions, grids, removable-tube boxes, permanent-well
+plates and ordered stacks. This version supports one stock per vessel and exact
+volume accounting. Team synchronization, preparations, lots, mixtures and
+physical equipment qualification remain separate work.
+
+Permanent wells have stable identity and remain attached to their plate. A plate
+moves with all its wells. Whole-plate disposal retains historical stock and
+disposes every well. Stack order is derived from child placement alone. Explicit
+push and pop commands enforce capacity and removal from the top.
+`removal: 'top-only'` governs retrieval order; recording quantity does not prove
+physical access to a buried plate.
+
+Canonical state is v2. Reading v1 upcasts named layouts and movable vessels
+without writing or incrementing revision. Historical command shapes and request
+digests stay unchanged for retry and replay.
 
 ## Independent states
 
@@ -137,5 +149,7 @@ Use
 drives the real loopback command server, real registered-project authority and
 real SQLite owner with synthetic material, then preserves state and receipt
 readback after reopen. The bounded state exploration calls the production domain
-transition function directly. Neither check qualifies a graphical inventory
-workflow, a deployed service, real freezer fit, or robot execution.
+transition function directly. The workspace map drives the genuine Electron
+receive, move, use and history journey and checks exact state after application
+restart. These checks do not establish a deployed service, real freezer fit,
+cross-device behavior or robot execution.

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { zodSchema } from 'ai';
+import { jsonSchema, zodSchema } from 'ai';
 import { assertToolOperationResult } from '../tool-result';
 import type { WorkspaceFolder } from '../../../stores/workspaceStore';
 import {
@@ -97,6 +97,7 @@ export interface RendererToolMetadata {
   readonly conditional_required_capabilities: readonly RendererCapability[];
   readonly audit_required: true;
   readonly inputSchema: z.ZodTypeAny;
+  readonly inputSchemaJson?: () => Record<string, unknown>;
   readonly inputSchemaOptions?: { readonly useReferences: boolean };
 
   readonly outputSchema: z.ZodTypeAny;
@@ -139,6 +140,15 @@ export type RendererToolDefinition = RendererToolMetadata & {
 };
 
 export function rendererToolSdkInputSchema(definition: RendererToolDefinition) {
+  if (definition.inputSchemaJson)
+    return jsonSchema(definition.inputSchemaJson(), {
+      validate: async (input) => {
+        const parsed = definition.inputSchema.safeParse(input);
+        return parsed.success
+          ? { success: true, value: parsed.data }
+          : { success: false, error: parsed.error };
+      },
+    });
   return definition.inputSchemaOptions
     ? zodSchema(definition.inputSchema, definition.inputSchemaOptions)
     : definition.inputSchema;

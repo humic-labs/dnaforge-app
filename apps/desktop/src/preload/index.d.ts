@@ -9,6 +9,7 @@ import type { FeedbackPort } from '../shared/ipc/feedback.contract';
 import type { HostedAllowancePort } from '../shared/ipc/hosted-allowance.contract';
 import type { ClientOf } from '../shared/ipc/contract';
 import type { administrationContract } from '../shared/ipc/administration.contract';
+import type { inventoryContract } from '../shared/ipc/inventory.contract';
 import type { importReviewContract } from '../shared/ipc/import-review.contract';
 import type { notebookContract } from '../shared/ipc/notebook.contract';
 import type { analyticsContract } from '../shared/ipc/analytics.contract';
@@ -553,6 +554,7 @@ export interface GenomeDebugSnapshot {
 
 export interface ElectronAPI {
   administration: ClientOf<typeof administrationContract>;
+  inventory: ClientOf<typeof inventoryContract>;
   importReview: ClientOf<typeof importReviewContract>;
   notebook: ClientOf<typeof notebookContract>;
   terminal: import('../shared/terminal-port').TerminalPort;

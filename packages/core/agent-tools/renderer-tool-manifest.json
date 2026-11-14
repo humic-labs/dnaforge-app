@@ -46877,6 +46877,948 @@
       "exposure": { "kind": "shared" }
     },
     {
+      "name": "inventory",
+      "description": "Inspect and change physical laboratory inventory through the same native owner as the Inventory view. Start with projects, then materials in the exact selected project. Inspect the returned defaultInventoryId before changing it. Execute an atomic typed command batch with the inspected expectedRevision and one stable operationId. Exact retries return the original receipt; changed requests require a new explicitly reviewed operation. A timeout leaves the outcome unknown: inspect the original operationId or retry that identical request. Known zero quantity differs from unknown quantity. Scientific designs do not imply physical possession. Placement, quantity, quality, disposal and storage-layout rules are validated by the inventory owner. History retains accepted requests and trusted actors. Read operations need read-workspace; execute also needs write-workspace.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": { "kind": { "type": "string", "const": "projects" } },
+                "required": ["kind"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "materials" },
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "query": { "type": "string", "maxLength": 256 },
+                  "cursor": { "type": "string", "minLength": 1, "maxLength": 1024 },
+                  "limit": { "type": "integer", "minimum": 1, "maximum": 100 }
+                },
+                "required": ["kind", "project", "query"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "inspect" },
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 }
+                },
+                "required": ["kind", "project", "inventoryId"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "operation" },
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "operationId": { "type": "string", "minLength": 1, "maxLength": 256 }
+                },
+                "required": ["kind", "project", "inventoryId", "operationId"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "history" },
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "afterRevision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                  "limit": { "type": "integer", "minimum": 1, "maximum": 1000 }
+                },
+                "required": ["kind", "project", "inventoryId"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "execute" },
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "operationId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "commands": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 256,
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "id", "name", "slots", "placement"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "create-storage" },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "slots": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 512,
+                                "pattern": "\\S"
+                              },
+                              "minItems": 0,
+                              "maxItems": 10000,
+                              "uniqueItems": true
+                            },
+                            "placement": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "root" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "storageId", "slotId"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "located" },
+                                    "storageId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    },
+                                    "slotId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "id", "name", "layout", "placement"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "create-layout-storage" },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "layout": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "slots"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "named" },
+                                    "slots": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 512,
+                                        "pattern": "\\S"
+                                      },
+                                      "minItems": 0,
+                                      "maxItems": 10000,
+                                      "uniqueItems": true
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "rows", "columns"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "grid" },
+                                    "rows": { "type": "integer", "minimum": 1, "maximum": 10000 },
+                                    "columns": { "type": "integer", "minimum": 1, "maximum": 10000 }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "rows", "columns"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "removable-tube" },
+                                    "rows": { "type": "integer", "minimum": 1, "maximum": 10000 },
+                                    "columns": { "type": "integer", "minimum": 1, "maximum": 10000 }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "rows", "columns"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "fixed-well" },
+                                    "rows": { "type": "integer", "minimum": 1, "maximum": 10000 },
+                                    "columns": { "type": "integer", "minimum": 1, "maximum": 10000 }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "capacity", "removal"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "stack" },
+                                    "capacity": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 10000
+                                    },
+                                    "removal": { "type": "string", "const": "top-only" }
+                                  }
+                                }
+                              ]
+                            },
+                            "placement": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "root" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "storageId", "slotId"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "located" },
+                                    "storageId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    },
+                                    "slotId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "id", "name", "placement"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "create-vessel" },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "placement": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "unplaced" }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "storageId", "slotId"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "located" },
+                                    "storageId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    },
+                                    "slotId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "kind",
+                            "id",
+                            "vesselId",
+                            "materialId",
+                            "quantity",
+                            "quality"
+                          ],
+                          "properties": {
+                            "kind": { "type": "string", "const": "receive-stock" },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "vesselId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1024,
+                              "pattern": "\\S"
+                            },
+                            "materialId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "quantity": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "unknown" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "value", "unit"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "known" },
+                                    "value": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 128,
+                                      "pattern": "\\S"
+                                    },
+                                    "unit": {
+                                      "oneOf": [
+                                        { "type": "string", "const": "L" },
+                                        { "type": "string", "const": "mL" },
+                                        { "type": "string", "const": "uL" },
+                                        { "type": "string", "const": "nL" }
+                                      ]
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "quality": {
+                              "oneOf": [
+                                { "type": "string", "const": "usable" },
+                                { "type": "string", "const": "quarantined" }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "id", "placement"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "move-storage" },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "placement": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "root" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "storageId", "slotId"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "located" },
+                                    "storageId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    },
+                                    "slotId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "id", "placement"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "move-vessel" },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "placement": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "unplaced" }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "storageId", "slotId"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "located" },
+                                    "storageId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    },
+                                    "slotId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "stockId", "quantity", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "consume" },
+                            "stockId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "quantity": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["value", "unit"],
+                              "properties": {
+                                "value": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 128,
+                                  "pattern": "\\S"
+                                },
+                                "unit": {
+                                  "oneOf": [
+                                    { "type": "string", "const": "L" },
+                                    { "type": "string", "const": "mL" },
+                                    { "type": "string", "const": "uL" },
+                                    { "type": "string", "const": "nL" }
+                                  ]
+                                }
+                              }
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "stockId", "quantity", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "reconcile" },
+                            "stockId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "quantity": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "unknown" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "value", "unit"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "known" },
+                                    "value": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 128,
+                                      "pattern": "\\S"
+                                    },
+                                    "unit": {
+                                      "oneOf": [
+                                        { "type": "string", "const": "L" },
+                                        { "type": "string", "const": "mL" },
+                                        { "type": "string", "const": "uL" },
+                                        { "type": "string", "const": "nL" }
+                                      ]
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "stockId", "quality", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "set-quality" },
+                            "stockId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "quality": {
+                              "oneOf": [
+                                { "type": "string", "const": "usable" },
+                                { "type": "string", "const": "quarantined" }
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "id", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "dispose-vessel" },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "id", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "dispose-plate" },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "stackId", "item"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "push-stack" },
+                            "stackId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "item": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["kind", "id"],
+                              "properties": {
+                                "kind": {
+                                  "oneOf": [
+                                    { "type": "string", "const": "storage" },
+                                    { "type": "string", "const": "vessel" }
+                                  ]
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 512,
+                                  "pattern": "\\S"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "stackId", "item", "destination"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "pop-stack" },
+                            "stackId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "item": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["kind", "id"],
+                              "properties": {
+                                "kind": {
+                                  "oneOf": [
+                                    { "type": "string", "const": "storage" },
+                                    { "type": "string", "const": "vessel" }
+                                  ]
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 512,
+                                  "pattern": "\\S"
+                                }
+                              }
+                            },
+                            "destination": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "root" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "unplaced" }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "storageId", "slotId"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "located" },
+                                    "storageId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    },
+                                    "slotId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "kind",
+                  "project",
+                  "inventoryId",
+                  "operationId",
+                  "expectedRevision",
+                  "commands"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": ["operation"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": { "const": true },
+          "result": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "type": "boolean", "const": true },
+                  "kind": { "type": "string", "const": "projects" },
+                  "projects": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "projectId": { "type": "string" },
+                        "name": { "type": "string" },
+                        "path": { "type": "string" },
+                        "pinned": { "type": "boolean" },
+                        "defaultInventoryId": { "type": "string" }
+                      },
+                      "required": ["projectId", "name", "path", "pinned", "defaultInventoryId"],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["ok", "kind", "projects"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                  "kind": { "type": "string", "const": "materials" },
+                  "page": {
+                    "type": "object",
+                    "properties": {
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": { "type": "string" },
+                            "name": { "type": "string" },
+                            "kind": { "type": "string" },
+                            "registryId": { "type": ["string", "null"] }
+                          },
+                          "required": ["id", "name", "kind", "registryId"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "nextCursor": { "type": ["string", "null"] }
+                    },
+                    "required": ["items", "nextCursor"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["ok", "kind", "page"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                  "kind": { "type": "string", "const": "inspection" },
+                  "state": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            { "type": "null" },
+                            { "type": "boolean" },
+                            { "type": "number" },
+                            { "type": "string" },
+                            {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/properties/result/anyOf/2/properties/state/anyOf/0/additionalProperties"
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": {
+                                "$ref": "#/properties/result/anyOf/2/properties/state/anyOf/0/additionalProperties"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      { "type": "null" }
+                    ]
+                  }
+                },
+                "required": ["ok", "kind", "state"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                  "kind": { "type": "string", "const": "execution" },
+                  "execution": {
+                    "type": "object",
+                    "properties": {
+                      "status": { "type": "string", "const": "committed" },
+                      "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                      "operationId": {
+                        "$ref": "#/properties/result/anyOf/3/properties/execution/properties/inventoryId"
+                      },
+                      "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+                      "actor": { "type": "string", "minLength": 1, "maxLength": 1024 },
+                      "recordedAt": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "requestDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+                    },
+                    "required": [
+                      "status",
+                      "inventoryId",
+                      "operationId",
+                      "revision",
+                      "actor",
+                      "recordedAt",
+                      "requestDigest"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["ok", "kind", "execution"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                  "kind": { "type": "string", "const": "operation" },
+                  "receipt": {
+                    "anyOf": [
+                      { "$ref": "#/properties/result/anyOf/3/properties/execution" },
+                      { "type": "null" }
+                    ]
+                  }
+                },
+                "required": ["ok", "kind", "receipt"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                  "kind": { "type": "string", "const": "history" },
+                  "entries": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "request": {
+                          "$ref": "#/properties/result/anyOf/2/properties/state/anyOf/0"
+                        },
+                        "receipt": { "$ref": "#/properties/result/anyOf/3/properties/execution" }
+                      },
+                      "required": ["request", "receipt"],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["ok", "kind", "entries"],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": ["ok", "result"],
+        "additionalProperties": true
+      },
+      "shape": "data-service",
+      "effects": ["read-only", "mutating"],
+      "required_capabilities": ["read-workspace"],
+      "audit_required": true,
+      "conditional_required_capabilities": ["write-workspace"],
+      "requiresWorkspace": false,
+      "workspaceGrounding": "always",
+      "sidecarOrchestrated": true,
+      "exposure": { "kind": "shared" }
+    },
+    {
       "name": "compute.listProviders",
       "description": "List hosted compute providers (e.g. Tamarind Bio) and whether the user has connected each one. Call this first; only providers with connected=true and hasBinding=true can run jobs. Read-only, never prompts.",
       "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },

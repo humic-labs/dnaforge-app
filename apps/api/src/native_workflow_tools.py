@@ -23,15 +23,13 @@ _COMMANDS = {
     "administration": "administration.execute",
     "sequence_document": "sequence.execute",
     "notebook_document": "notebook.execute",
+    "inventory": "inventory.execute",
 }
 
 
 def administration_audit_parameters(args: dict[str, Any]) -> dict[str, Any]:
     operation = args.get("operation")
-    if (
-        not isinstance(operation, dict)
-        or operation.get("kind") != "prepare-share-import"
-    ):
+    if not isinstance(operation, dict) or operation.get("kind") != "prepare-share-import":
         return args
     source = operation.get("sourceUrl")
     return {
@@ -40,9 +38,7 @@ def administration_audit_parameters(args: dict[str, Any]) -> dict[str, Any]:
             **operation,
             "sourceUrl": "[private share capability]",
             "sourceSha256": (
-                hashlib.sha256(source.encode()).hexdigest()
-                if isinstance(source, str)
-                else None
+                hashlib.sha256(source.encode()).hexdigest() if isinstance(source, str) else None
             ),
         },
     }
@@ -86,12 +82,13 @@ def _required(name: str, args: dict[str, Any]) -> list[str]:
         required.append("read-sequences")
         if kind != "inspect":
             required.append("write-workspace")
+    elif name == "inventory":
+        if kind == "execute":
+            required.append("write-workspace")
     elif name == "notebook_document":
         command = operation.get("command")
         reading = kind in {"inspect", "schema", "search", "list"} or (
-            kind == "table"
-            and isinstance(command, dict)
-            and command.get("kind") == "inspect"
+            kind == "table" and isinstance(command, dict) and command.get("kind") == "inspect"
         )
         if not reading:
             required.append("write-workspace")
@@ -103,9 +100,7 @@ def _required(name: str, args: dict[str, Any]) -> list[str]:
     elif name == "import_review":
         command = operation.get("command")
         if not (
-            kind == "execute"
-            and isinstance(command, dict)
-            and command.get("kind") == "inspect"
+            kind == "execute" and isinstance(command, dict) and command.get("kind") == "inspect"
         ):
             required.append("write-workspace")
     elif name == "administration":
@@ -177,14 +172,33 @@ async def execute_native_workflow(
             retriable=False,
         )
     request = dict(args)
+    native_command = _COMMANDS[name]
+    if name == "inventory":
+        operation = args.get("operation")
+        if not isinstance(operation, dict) or operation.get("kind") not in {
+            "projects",
+            "materials",
+            "inspect",
+            "execute",
+            "operation",
+            "history",
+        }:
+            raise ToolExecutionFailure(
+                code="INVALID_INVENTORY_OPERATION",
+                message="Choose a supported inventory operation.",
+                retriable=False,
+                details={"stateChanged": False},
+            )
+        request = {key: value for key, value in operation.items() if key != "kind"}
+        native_command = f"inventory.{operation['kind']}"
     if name == "notebook_document":
         request.setdefault("requestId", context.job_id)
     command: dict[str, Any] = {
-        "command": _COMMANDS[name],
+        "command": native_command,
         "request": request,
         "projectScope": agent.pop("projectScope"),
     }
-    if name in {"administration", "import_review"}:
+    if name in {"administration", "import_review", "inventory"}:
         command["agent"] = agent
     outcome = await dispatch_native_document_command(authority, command)
     if outcome.disposition != "completed" or outcome.result is None:
@@ -197,13 +211,25 @@ async def execute_native_workflow(
             message=outcome.reason,
             retriable=False,
             details={
-                "stateChanged": (
-                    False if outcome.disposition == "refused" else "unknown"
-                ),
+                "stateChanged": (False if outcome.disposition == "refused" else "unknown"),
                 "actionId": context.job_id,
             },
         )
     result = outcome.result
+    if name == "inventory" and result.get("kind") == "execution":
+        execution = result.get("execution")
+        if isinstance(execution, dict) and execution.get("status") == "rejected":
+            raise ToolExecutionFailure(
+                code=execution.get("code", "INVENTORY_REJECTED"),
+                message=execution.get("message", "The inventory owner refused this command."),
+                retriable=False,
+                details={
+                    "stateChanged": False,
+                    "operationId": execution.get("operationId"),
+                    "inventoryId": execution.get("inventoryId"),
+                    "currentRevision": execution.get("currentRevision"),
+                },
+            )
     operation = args.get("operation")
     import_apply = (
         name == "import_review"
@@ -217,9 +243,7 @@ async def execute_native_workflow(
         receipt = receipt if isinstance(receipt, dict) else {}
         raise ToolExecutionFailure(
             code=(
-                "IMPORT_REVIEW_PARTIAL"
-                if result["phase"] == "partial"
-                else "IMPORT_REVIEW_FAILED"
+                "IMPORT_REVIEW_PARTIAL" if result["phase"] == "partial" else "IMPORT_REVIEW_FAILED"
             ),
             message=result.get(
                 "error",
@@ -247,9 +271,7 @@ async def execute_native_workflow(
             retriable=False,
             details={
                 "stateChanged": changed,
-                "partialEffects": result.get(
-                    "partialEffects", [result] if changed else []
-                ),
+                "partialEffects": result.get("partialEffects", [result] if changed else []),
             },
         )
     return {"ok": True, "result": {**result, "ok": True}}

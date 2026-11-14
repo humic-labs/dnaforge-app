@@ -1,3 +1,4 @@
+import { unavailableInventoryClient } from '../shared/inventory-client';
 import type { AuthorizedProjectFolder } from '../shared/agent-project-scope';
 import { registryConfidenceLabel } from '../shared/strain-genome-evidence';
 import { UserMessageError } from '@waypoint/user-messages';
@@ -740,6 +741,7 @@ export const browserMockBridge: PlatformBridge = {
       await db.execute(`DELETE FROM messages WHERE id = ?`, [id]);
     },
   }),
+  inventory: unavailableInventoryClient(),
   importReview: {
     call: async () => {
       throw new Error('Native import review is unavailable in this runtime.');

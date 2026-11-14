@@ -1,5 +1,6 @@
 import { trackViewCommandsContract } from '../shared/ipc/track-view-commands.contract';
 import { notebookContract } from '../shared/ipc/notebook.contract';
+import { inventoryContract } from '../shared/ipc/inventory.contract';
 import { importReviewContract } from '../shared/ipc/import-review.contract';
 import { administrationContract } from '../shared/ipc/administration.contract';
 import { primerArtifactContract } from '../shared/ipc/primer-artifact.contract';
@@ -328,6 +329,7 @@ const api = {
     deleteMessage: (id: string): Promise<void> => rendererIpc.invoke('db:deleteMessage', id),
   },
 
+  inventory: createClient(inventoryContract),
   importReview: createClient(importReviewContract),
   notebook: createClient(notebookContract),
   administration: createClient(administrationContract),
