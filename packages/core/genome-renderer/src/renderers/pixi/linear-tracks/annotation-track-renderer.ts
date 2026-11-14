@@ -1,3 +1,4 @@
+import { TRACK_DEFAULT_COLORS } from '@waypoint/sequence-utils';
 import { SEQUENCE_LABEL_FONT_FAMILY } from '@waypoint/platform';
 import {
   Container,
@@ -38,7 +39,6 @@ import type {
 } from './types';
 
 const DEFAULT_LANE_HEIGHT_PX = 8;
-const DEFAULT_FEATURE_COLOR = 0x3b82f6;
 const DEFAULT_MAX_LANES = 32;
 let intervalLabelStyleInstance: TextStyle | null = null;
 function intervalLabelStyle(): TextStyle {
@@ -505,7 +505,7 @@ export class PixiAnnotationTrackRenderer implements PixiLinearTrackRenderer<Anno
 
     const vertices = buildAnnotationRecordVertices(records, new Int16Array(assignment.lanes), {
       laneHeightPx: rowHeightPx,
-      defaultColor: DEFAULT_FEATURE_COLOR,
+      defaultColor: TRACK_DEFAULT_COLORS.annotationFallback,
     });
     if (vertices.visibleRecordCount === 0) {
       state.meshState = null;
@@ -694,7 +694,7 @@ export class PixiAnnotationTrackRenderer implements PixiLinearTrackRenderer<Anno
 function intervalLabelTint(record: AnnotationRecord, displayColor: string | null): number {
   const background =
     displayColor === null
-      ? (record.color ?? DEFAULT_FEATURE_COLOR)
+      ? (record.color ?? TRACK_DEFAULT_COLORS.annotationFallback)
       : Number.parseInt(displayColor.slice(1), 16);
   const red = (background >> 16) & 0xff;
   const green = (background >> 8) & 0xff;

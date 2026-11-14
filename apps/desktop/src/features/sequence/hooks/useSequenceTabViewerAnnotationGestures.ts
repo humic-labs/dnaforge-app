@@ -5,9 +5,8 @@ import {
   registerEditFromViewer,
   type ActivateFromViewerBridge,
 } from '../activate-from-viewer-bridge';
-import { DEFAULT_MANUAL_ANNOTATION_COLOR } from '../components/annotations-drawer';
 import type { AnnotationDraft } from '../types';
-import type { Annotation } from '@waypoint/sequence-utils';
+import { DEFAULT_MANUAL_ANNOTATION_COLOR, type Annotation } from '@waypoint/sequence-utils';
 import type { DrawerType } from './useDrawerState';
 
 type TestBridge = ActivateFromViewerBridge & {

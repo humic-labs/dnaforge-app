@@ -1,4 +1,4 @@
-import type { Annotation } from '@waypoint/sequence-utils';
+import { DEFAULT_MANUAL_ANNOTATION_COLOR, type Annotation } from '@waypoint/sequence-utils';
 import type { AnnotationDraft } from '../../types';
 
 export const ANNOTATION_TYPES = [
@@ -11,101 +11,6 @@ export const ANNOTATION_TYPES = [
   { value: 'rep_origin', label: 'Origin of Replication' },
   { value: 'regulatory', label: 'Regulatory' },
 ] as const;
-
-export const COLOR_PALETTES: { name: string; colors: string[] }[] = [
-  {
-    name: 'Classic',
-    colors: [
-      '#4E79A7',
-      '#F28E2B',
-      '#E15759',
-      '#76B7B2',
-      '#59A14F',
-      '#EDC948',
-      '#B07AA1',
-      '#FF9DA7',
-      '#9C755F',
-      '#BAB0AC',
-    ],
-  },
-  {
-    name: 'Vivid',
-    colors: [
-      '#4CAF50',
-      '#2196F3',
-      '#FF9800',
-      '#9C27B0',
-      '#F44336',
-      '#00BCD4',
-      '#FFEB3B',
-      '#795548',
-      '#607D8B',
-      '#E91E63',
-    ],
-  },
-  {
-    name: 'Pastel',
-    colors: [
-      '#8DD3C7',
-      '#FFFFB3',
-      '#BEBADA',
-      '#FB8072',
-      '#80B1D3',
-      '#FDB462',
-      '#B3DE69',
-      '#FCCDE5',
-      '#D9D9D9',
-      '#BC80BD',
-    ],
-  },
-  {
-    name: 'Bold',
-    colors: [
-      '#E41A1C',
-      '#377EB8',
-      '#4DAF4A',
-      '#984EA3',
-      '#FF7F00',
-      '#A65628',
-      '#F781BF',
-      '#FFFF33',
-      '#999999',
-      '#66C2A5',
-    ],
-  },
-  {
-    name: 'Accessible',
-    colors: [
-      '#000000',
-      '#E69F00',
-      '#56B4E9',
-      '#009E73',
-      '#F0E442',
-      '#0072B2',
-      '#D55E00',
-      '#CC79A7',
-      '#332288',
-      '#88CCEE',
-    ],
-  },
-  {
-    name: 'Muted',
-    colors: [
-      '#CC6677',
-      '#332288',
-      '#DDCC77',
-      '#117733',
-      '#88CCEE',
-      '#882255',
-      '#44AA99',
-      '#999933',
-      '#AA4499',
-      '#DDDDDD',
-    ],
-  },
-];
-
-export const DEFAULT_MANUAL_ANNOTATION_COLOR = COLOR_PALETTES[0]!.colors[0]!;
 
 export type AnnotationRange = { start: number; end: number };
 export type AnnotationKind = 'regular' | 'cds';
@@ -184,7 +89,7 @@ export function initEditState(ann: Annotation): EditState {
     name: ann.name,
     type: ann.type || 'misc_feature',
     direction: ann.direction ?? 1,
-    color: ann.color || COLOR_PALETTES[0].colors[0],
+    color: ann.color || DEFAULT_MANUAL_ANNOTATION_COLOR,
     start: String(ann.start),
     end: String(ann.end),
   };

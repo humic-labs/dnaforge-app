@@ -120,33 +120,6 @@ export function sortByRecognitionLength(enzymes: RestrictionEnzyme[]): Restricti
   return [...enzymes].sort((a, b) => a.recognition_sequence_length - b.recognition_sequence_length);
 }
 
-export function getCommonEnzymes(enzymes: RestrictionEnzyme[]): RestrictionEnzyme[] {
-  const commonNames = new Set([
-    'EcoRI',
-    'BamHI',
-    'HindIII',
-    'PstI',
-    'SalI',
-    'XhoI',
-    'XbaI',
-    'NotI',
-    'SmaI',
-    'KpnI',
-    'SacI',
-    'NcoI',
-    'NdeI',
-    'BglII',
-    'NheI',
-    'SpeI',
-    'EcoRV',
-    'ClaI',
-    'ApaI',
-    'SphI',
-  ]);
-
-  return enzymes.filter((enzyme) => commonNames.has(enzyme.name));
-}
-
 export function clearEnzymeCache(): void {
   cachedEnzymes = null;
   cachedNebEnzymes = null;

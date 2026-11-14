@@ -68,6 +68,45 @@ function paintArgs(
 }
 
 describe('PixiQuantitativeTrackRenderer', () => {
+  it.each([
+    ['signal', 0x2563eb],
+    ['peak', 0x7c3aed],
+  ] as const)(
+    'keeps the established %s fallback in the rendered vertex colors',
+    async (mode, color) => {
+      const { PixiQuantitativeTrackRenderer } = await import('./quantitative-track-renderer');
+      const renderer = new PixiQuantitativeTrackRenderer({ type: mode, mode });
+      const container = renderer.mount({
+        chromosome: CHROMOSOME,
+        theme: webglThemeForMode('light'),
+      });
+      renderer.paint(
+        paintArgs(
+          container,
+          mode === 'signal'
+            ? [{ chrom: 'chr1', start: 1_000, end: 1_050, value: 5 }]
+            : [{ chrom: 'chr1', start: 1_000, end: 1_050, signalValue: 5 }]
+        )
+      );
+
+      const mesh = container.children[0] as unknown as {
+        geometry: { getBuffer(name: string): { data: Float32Array } };
+      };
+      const rgba = mesh.geometry.getBuffer('aColor').data;
+      expect(Array.from(rgba.slice(0, 3))).toEqual(
+        Array.from(
+          new Float32Array([
+            ((color >> 16) & 0xff) / 255,
+            ((color >> 8) & 0xff) / 255,
+            (color & 0xff) / 255,
+          ])
+        )
+      );
+      expect(renderer.getDiagnostics(container)?.recordCount).toBe(1);
+      renderer.unmount(container);
+    }
+  );
+
   it('turns signed BigWig values into a visible retained signal mesh', async () => {
     const { PixiQuantitativeTrackRenderer } = await import('./quantitative-track-renderer');
     const renderer = new PixiQuantitativeTrackRenderer({
