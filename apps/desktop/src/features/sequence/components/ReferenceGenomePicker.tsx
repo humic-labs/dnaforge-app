@@ -991,6 +991,21 @@ export function ReferenceGenomePicker({
       reference: RestoredPortableGenomeViewState['reference']
     ): Promise<PreparedReferenceAssemblyEntryV1> => {
       if (reference.kind === 'hosted-reference') {
+        const hosted = (await platform().referenceAssets.listHosted()).find(
+          (entry) => entry.id === reference.catalogId
+        );
+        if (!hosted) {
+          const local = (await platform().referenceAssets.listLocal()).find(
+            (entry) => entry.id === reference.catalogId
+          );
+          if (!local) {
+            throw new Error(
+              `Saved view reference ${reference.catalogId} is not available in this library.`
+            );
+          }
+          assertPreparedReferenceMatchesPortableView(local, reference);
+          return local;
+        }
         let installed = await platform().referenceAssets.installHosted({
           catalogId: reference.catalogId,
           themeMode: INDEXED_ANNOTATION_COLOR_BASIS_THEME,
