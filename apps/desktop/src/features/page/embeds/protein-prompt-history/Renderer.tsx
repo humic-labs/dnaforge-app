@@ -65,7 +65,12 @@ function showRunChat(conversationId: string): void {
     if (exact.panelId !== leftPanelId) canvas.moveTab(exact.panelId, leftPanelId, exact.tabId);
     tabId = exact.tabId;
   } else if (preview) {
-    canvas.updateTab(leftPanelId, preview.id, { entityId: conversationId, label: 'Recorded chat' });
+    canvas.retargetTab(
+      leftPanelId,
+      preview.id,
+      { type: 'chat', entityId: conversationId },
+      { label: 'Recorded chat' }
+    );
     tabId = preview.id;
   } else {
     tabId = canvas.openTab(leftPanelId, {

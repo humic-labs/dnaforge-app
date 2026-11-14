@@ -1,4 +1,5 @@
 import type { Tab, TabType } from './types';
+import { classifyTabSession } from './tab-document-session';
 
 export type TabEditor =
   | { type: 'design'; designId: string; packageOwned: boolean }
@@ -7,11 +8,12 @@ export type TabEditor =
 export function resolveTabEditor(
   tab: Pick<Tab, 'type' | 'entityId' | 'assemblyEditDesignId'>
 ): TabEditor {
-  if (tab.type === 'sequence' && tab.assemblyEditDesignId) {
-    return { type: 'design', designId: tab.assemblyEditDesignId, packageOwned: true };
+  const session = classifyTabSession(tab);
+  if (session.kind === 'sequence-assembly') {
+    return { type: 'design', designId: session.designId, packageOwned: true };
   }
-  if (tab.type === 'design') {
-    return { type: 'design', designId: tab.entityId, packageOwned: false };
+  if (session.kind === 'design') {
+    return { type: 'design', designId: session.designId, packageOwned: false };
   }
-  return { type: tab.type };
+  return { type: session.kind };
 }

@@ -27,18 +27,22 @@ export async function redirectTabToCoordinatePackage(
     candidate.tabs.some((tab) => tab.id === tabId)
   );
   if (!panel) return false;
-  state.updateTab(panel.id, tabId, {
-    entityId: `molecular-document:${saved.catalogEntityId}`,
-    label: saved.document.name,
-    initialStructureAttrs: {
-      source: 'file',
-      sourceId: '',
+  state.retargetTab(
+    panel.id,
+    tabId,
+    { type: 'structure', entityId: `molecular-document:${saved.catalogEntityId}` },
+    {
       label: saved.document.name,
-      molecularDocumentId: saved.document.id,
-      molecularDocumentPath: saved.path,
-      molecularDocumentRevision: saved.revision,
-      molecularDocumentSavedReferenceId: saved.document.currentReferenceId,
-    },
-  });
+      initialStructureAttrs: {
+        source: 'file',
+        sourceId: '',
+        label: saved.document.name,
+        molecularDocumentId: saved.document.id,
+        molecularDocumentPath: saved.path,
+        molecularDocumentRevision: saved.revision,
+        molecularDocumentSavedReferenceId: saved.document.currentReferenceId,
+      },
+    }
+  );
   return true;
 }

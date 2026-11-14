@@ -215,52 +215,58 @@ export function TrackViewActions({
           for (const [panelId, panel] of Object.entries(useCanvasStore.getState().panels)) {
             if (panel.tabs.some((candidate) => candidate.id === tab.id)) {
               const document = result.saved.document;
-              useCanvasStore.getState().updateTab(panelId, tab.id, {
-                entityId: result.saved.document.id,
-                label: result.saved.document.name,
-                trackView: result.saved,
-                sequenceDocument: {
-                  kind: 'indexed-sequence',
-                  documentId: result.saved.document.id,
+              useCanvasStore.getState().retargetTab(
+                panelId,
+                tab.id,
+                {
+                  type: 'sequence',
+                  sequenceDocument: {
+                    kind: 'indexed-sequence',
+                    documentId: result.saved.document.id,
+                  },
                 },
-                ...(!renaming && unchanged
-                  ? {
-                      initialAnnotationMapperPolicy: document.annotation.policy,
-                      viewState: {
-                        ...tab.viewState,
-                        indexedViewport: document.viewport,
-                        indexedGenomeViewRestoreCommand: {
-                          id: previous
-                            ? (tab.viewState?.indexedGenomeViewRestoreCommand?.id ??
-                              crypto.randomUUID())
-                            : crypto.randomUUID(),
-                          viewport: { kind: 'assembly-range' as const, ...document.viewport },
-                          annotationPolicy: document.annotation.policy,
-                          orderedAnnotationTrackIds: document.annotation.orderedTrackIds,
-                          visibleAnnotationTrackIds: Object.entries(
-                            document.annotation.visibilityByTrackId
-                          )
-                            .filter(([, visible]) => visible)
-                            .map(([id]) => id),
+                {
+                  label: result.saved.document.name,
+                  trackView: result.saved,
+                  ...(!renaming && unchanged
+                    ? {
+                        initialAnnotationMapperPolicy: document.annotation.policy,
+                        viewState: {
+                          ...tab.viewState,
+                          indexedViewport: document.viewport,
+                          indexedGenomeViewRestoreCommand: {
+                            id: previous
+                              ? (tab.viewState?.indexedGenomeViewRestoreCommand?.id ??
+                                crypto.randomUUID())
+                              : crypto.randomUUID(),
+                            viewport: { kind: 'assembly-range' as const, ...document.viewport },
+                            annotationPolicy: document.annotation.policy,
+                            orderedAnnotationTrackIds: document.annotation.orderedTrackIds,
+                            visibleAnnotationTrackIds: Object.entries(
+                              document.annotation.visibilityByTrackId
+                            )
+                              .filter(([, visible]) => visible)
+                              .map(([id]) => id),
+                          },
                         },
-                      },
-                      ...(!previous
-                        ? {
-                            indexedGenome: tab.indexedGenome
-                              ? {
-                                  ...tab.indexedGenome,
-                                  scope: document.scope,
-                                  dataTracks: document.dataTracks,
-                                  bamTracks: document.bamTracks,
-                                  signalReadPileupViews: document.signalReadPileupViews,
-                                  variantSource: document.variantSource,
-                                }
-                              : undefined,
-                          }
-                        : {}),
-                    }
-                  : {}),
-              });
+                        ...(!previous
+                          ? {
+                              indexedGenome: tab.indexedGenome
+                                ? {
+                                    ...tab.indexedGenome,
+                                    scope: document.scope,
+                                    dataTracks: document.dataTracks,
+                                    bamTracks: document.bamTracks,
+                                    signalReadPileupViews: document.signalReadPileupViews,
+                                    variantSource: document.variantSource,
+                                  }
+                                : undefined,
+                            }
+                          : {}),
+                      }
+                    : {}),
+                }
+              );
               break;
             }
           }
