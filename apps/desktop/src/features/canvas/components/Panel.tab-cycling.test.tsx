@@ -4,6 +4,8 @@ import { CommandScopeProvider } from '../../../commands/CommandScopeProvider';
 import { useCommandScope } from '../../../commands/useCommandScope';
 import { COMMAND_SCOPES } from '../../../commands/types';
 import { PresentationBoundary } from '../../../presentation/PresentationSurface';
+import { installPresentationInput } from '../../../presentation/browser-input';
+import { presentationOwner } from '../../../presentation/ownership';
 import { TAB_TYPES, type Tab } from '../types';
 import { useCanvasStore } from '../store';
 import { Panel } from './Panel';
@@ -94,6 +96,54 @@ afterEach(() => {
 });
 
 describe('focused pane tab navigation', () => {
+  it('continues cycling from the document body after the focused notebook becomes hidden', () => {
+    const dispose = installPresentationInput(document);
+    try {
+      const store = useCanvasStore.getState();
+      const table = store.openTab('main', {
+        type: 'table',
+        entityId: 'expanded-table',
+        label: 'Expanded table',
+      });
+      render(
+        <Scene>
+          <PresentationBoundary id="fixture-files-sidebar">
+            <button>Open notebook from Files</button>
+          </PresentationBoundary>
+        </Scene>
+      );
+      act(() => screen.getByRole('button', { name: 'Open notebook from Files' }).focus());
+      let notebook = '';
+      act(() => {
+        notebook = store.openTab('main', {
+          type: 'page',
+          entityId: '/synthetic/notebook.md',
+          label: 'Notebook',
+        });
+      });
+      expect(presentationOwner.getSnapshot().surfaces[`tab-${notebook}`].returnFocusId).toBe(
+        'fixture-files-sidebar'
+      );
+      const editor = screen.getByTestId(`editable-${notebook}`);
+      act(() => editor.focus());
+      expect(editor).toHaveFocus();
+
+      press(editor, true);
+
+      expect(useCanvasStore.getState().panels.main.activeTabId).toBe(table);
+      expect(document.activeElement).toBe(document.body);
+
+      press(document.body, true, true);
+
+      expect(useCanvasStore.getState().panels.main.activeTabId).toBe(notebook);
+      expect(screen.getByTestId(`editable-${notebook}`)).toHaveTextContent(
+        'Retained notebook text'
+      );
+    } finally {
+      dispose();
+    }
+  });
+
   it.each(TAB_TYPES)('cycles in both directions from focused widgets in a %s tab', (type) => {
     const store = useCanvasStore.getState();
     const other = store.openTab('main', {
