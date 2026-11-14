@@ -15,7 +15,6 @@ vi.mock('../../../platform', async (original) => {
   return {
     ...real,
     platform: () => ({
-      ...real.platform(),
       on: (channel: string, callback: (...args: never[]) => void) => {
         const listener = (request: { frameName: string; direction: 1 | -1 }) =>
           Reflect.apply(callback, undefined, [request]);
@@ -27,6 +26,10 @@ vi.mock('../../../platform', async (original) => {
     }),
   };
 });
+vi.mock('../../../utils/environment', async (original) => ({
+  ...(await original<typeof import('../../../utils/environment')>()),
+  isDesktopRuntime: () => true,
+}));
 vi.mock('./PanelContent', () => ({
   PanelContent: ({ tab }: { tab: Tab }) =>
     tab.type === 'html' ? (
