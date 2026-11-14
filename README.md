@@ -11,6 +11,8 @@ target `main`; see [CONTRIBUTING.md](CONTRIBUTING.md) for local checks and pull
 requests, and [MAINTAINING.md](MAINTAINING.md) for the maintainer landing and
 release process.
 
+For a guided first contribution, follow the [local development exercise](HACKATHON.md).
+
 ## Requirements
 
 Install Git, Node.js and the native build tools for your operating system before
