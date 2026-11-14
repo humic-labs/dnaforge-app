@@ -24,10 +24,10 @@ import * as migrationStateMachine from './state-machine';
 import { migrationDatabasePath, MigrationStore } from './store';
 
 const NOW = '2026-08-14T18:00:02.000Z';
-const cleanup: Array<() => void> = [];
+const cleanup: Array<() => void | Promise<void>> = [];
 
-afterEach(() => {
-  for (const dispose of cleanup.splice(0).reverse()) dispose();
+afterEach(async () => {
+  for (const dispose of cleanup.splice(0).reverse()) await dispose();
 });
 
 describe('migration recovery authority boundary', () => {
@@ -304,6 +304,12 @@ describe('migration recovery authority', () => {
       renderValidator: async ({ selectedSourceObjectIds }) =>
         selectedSourceObjectIds.map((sourceObjectId) => ({ sourceObjectId, passed: true })),
       now: () => NOW,
+    });
+    cleanup.push(async () => {
+      const { running } = coordinator as unknown as {
+        running: Map<string, Promise<MigrationRun>>;
+      };
+      await Promise.all(running.values());
     });
     await coordinator.resume(failed.id);
     await vi.waitFor(
