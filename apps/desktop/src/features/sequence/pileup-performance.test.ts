@@ -30,6 +30,7 @@ function report(profile = 'portable-dense') {
         sourceSha256: 'b'.repeat(64),
       },
       artifact: { artifactKey, trackType: 'mRNA' },
+      assetGeneration: { sourceFingerprint: annotationSourceFingerprint },
     },
     viewer: {
       visibleTypes: ['mRNA'],
@@ -78,6 +79,52 @@ function report(profile = 'portable-dense') {
           productFingerprints: [ownerKey],
           policy: { isoformMode: 'canonical', laneLimit: 2 },
         },
+      },
+    },
+    operations: {
+      verdict: 'exactly-one',
+      instanceId: 'current-renderer',
+      operationOracle: { rendererGeneration: 2 },
+    },
+    activeRenderer: {
+      contract: 'pixi-linear-renderer-cold-gesture-snapshot.v1',
+      supported: true,
+      genomeIdentity: annotationSourceIdentity,
+      viewportStartBp: 60_000,
+      viewportEndBp: 60_000 + span,
+      operation: { rendererGeneration: 2 },
+      annotation: {
+        contract: 'annotation-overlay-cold-gesture-snapshot.v1',
+        genomeIdentity: annotationSourceIdentity,
+        presentationVisible: true,
+        soleOwnerCount: 1,
+        soleOwnerId: 'prepacked-partitioned-vector-surface',
+        soleOwnerRole: 'exact',
+        soleOwnerCoverageComplete: true,
+        soleOwnerContractValid: true,
+        activeOwnerKey: ownerKey,
+        activeArtifactKey: artifactKey,
+        activeSourceIdentity: annotationSourceIdentity,
+        activeSourceFingerprint: annotationSourceFingerprint,
+        activePlacementFingerprint: `ap1:${'e'.repeat(24)}`,
+        activeRuntimeIsoformMode: 'canonical',
+        activeRuntimeLaneLimit: 2,
+        prepackedRequestedResidentRosterReady: true,
+        prepackedSubmittedInstanceCount: 3,
+        prepackedSubmittedPartitionCount: 1,
+        requestedResidentTracks: [
+          {
+            trackType: 'mRNA',
+            ownerKey,
+            prepared: true,
+            admitted: true,
+            presenting: true,
+            coverageStartBp: 0,
+            coverageEndBp: 600_000,
+            visiblePartitionCount: 1,
+            visibleInstanceCount: 3,
+          },
+        ],
       },
     },
     scene: {
@@ -250,7 +297,8 @@ describe('saved pileup performance qualification', () => {
     ],
     [
       'stale scene source',
-      (r: Report) => (r.phases[1].annotation.scene.owner.metadata.genomeIdentity = 'old-source'),
+      (r: Report) =>
+        (r.phases[1].annotation.activeRenderer.annotation.activeSourceIdentity = 'old-source'),
     ],
     [
       'stale body source',
@@ -274,7 +322,7 @@ describe('saved pileup performance qualification', () => {
     ],
     [
       'competing renderer',
-      (r: Report) => (r.phases[1].annotation.scene.instanceId = 'another-renderer'),
+      (r: Report) => (r.phases[1].annotation.operations.instanceId = 'another-renderer'),
     ],
     [
       'hidden body owner',
@@ -288,9 +336,14 @@ describe('saved pileup performance qualification', () => {
     ],
     [
       'blank geometry',
-      (r: Report) => (r.phases[1].annotation.scene.owner.submittedInstanceCount = 0),
+      (r: Report) =>
+        (r.phases[1].annotation.activeRenderer.annotation.prepackedSubmittedInstanceCount = 0),
     ],
-    ['missing prepared scene', (r: Report) => (r.phases[1].annotation.scene.owner.loaded = false)],
+    [
+      'missing prepared scene',
+      (r: Report) =>
+        (r.phases[1].annotation.activeRenderer.annotation.requestedResidentTracks[0].prepared = false),
+    ],
     [
       'conflicting annotation owners',
       (r: Report) =>
@@ -304,6 +357,49 @@ describe('saved pileup performance qualification', () => {
     const { result, found } = check(input, 'annotations');
     expect(found.status).toBe('fail');
     expect(result.status).toBe('fail');
+  });
+
+  it('uses the actually presenting resident when the legacy singleton scene slot is empty', () => {
+    const input = report();
+    Object.assign(input.phases[1].annotation.scene.owner, {
+      loaded: false,
+      ownerKey: null,
+      metadata: null,
+      submittedInstanceCount: 0,
+      submittedPartitionCount: 0,
+    });
+    expect(check(input, 'annotations').found.status).toBe('pass');
+  });
+
+  it.each([
+    [
+      'hidden renderer instance',
+      (r: Report) => (r.phases[1].annotation.activeRenderer.operation.rendererGeneration = 1),
+    ],
+    [
+      'stale resident coverage',
+      (r: Report) =>
+        (r.phases[1].annotation.activeRenderer.annotation.requestedResidentTracks[0].coverageEndBp = 70_000),
+    ],
+    [
+      'unadmitted resident',
+      (r: Report) =>
+        (r.phases[1].annotation.activeRenderer.annotation.requestedResidentTracks[0].admitted = false),
+    ],
+    [
+      'hidden resident',
+      (r: Report) =>
+        (r.phases[1].annotation.activeRenderer.annotation.requestedResidentTracks[0].presenting = false),
+    ],
+    [
+      'stale admitted generation',
+      (r: Report) =>
+        (r.phases[1].annotation.admitted.assetGeneration.sourceFingerprint = 'old-source'),
+    ],
+  ] as const)('rejects a populated annotation census with %s', (_name, mutate) => {
+    const input = report();
+    mutate(input);
+    expect(check(input, 'annotations').found.status).toBe('fail');
   });
 
   it('cannot qualify missing annotation observations', () => {
@@ -328,8 +424,10 @@ describe('saved pileup performance qualification', () => {
     const input = report();
     const annotation = input.phases[1].annotation;
     annotation.expectation.intervals = [{ id: 'outside-window', startBp: 200_000, endBp: 210_000 }];
-    annotation.scene.owner.submittedInstanceCount = 0;
-    annotation.scene.owner.submittedPartitionCount = 0;
+    annotation.activeRenderer.annotation.prepackedSubmittedInstanceCount = 0;
+    annotation.activeRenderer.annotation.prepackedSubmittedPartitionCount = 0;
+    annotation.activeRenderer.annotation.requestedResidentTracks[0].visibleInstanceCount = 0;
+    annotation.activeRenderer.annotation.requestedResidentTracks[0].visiblePartitionCount = 0;
     annotation.policy.renderer.annotation.annotationPresentationOwners[0].visible = false;
     annotation.policy.renderer.annotation.annotationPresentationOwners[0].coverageComplete = false;
     expect(check(input, 'annotations').found.status).toBe('pass');
@@ -488,6 +586,11 @@ describe('saved pileup performance qualification', () => {
     Object.assign(phase.annotation.policy.renderer, {
       viewportStartBp: start + roundoff,
       viewportEndBp: end,
+    });
+    Object.assign(phase.annotation.activeRenderer, { viewportStartBp: start, viewportEndBp: end });
+    Object.assign(phase.annotation.activeRenderer.annotation.requestedResidentTracks[0], {
+      coverageStartBp: start - 1,
+      coverageEndBp: end + 1,
     });
     phase.annotation.expectation.intervals = [{ id: 'NM_fixture.1', startBp: start, endBp: end }];
     Object.assign(phase.annotation.expectation, {

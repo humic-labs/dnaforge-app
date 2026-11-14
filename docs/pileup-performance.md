@@ -41,7 +41,10 @@ truncation, and show the appropriate read/coverage presentation. Settlement also
 requires the current source, request and viewport plan to acknowledge a
 presented read view, with the visible track gutter reporting ready. A complete
 mesh with a stale or still-loading presentation fails. Annotation completion
-uses the active renderer's policy, body-authority and prepared-scene snapshots.
+uses the active renderer's policy, body-authority and current resident census.
+The census is bound to the sole visible renderer's operation generation, so a
+hidden tab cannot supply it. The legacy singleton scene snapshot remains raw
+telemetry; it does not describe the resident collection that currently draws.
 The mRNA track must remain selected, match the admitted current annotation
 source and artifact, and commit the same source, product and policy in the body
 owner. Known positive source intervals must have one complete visible owner and

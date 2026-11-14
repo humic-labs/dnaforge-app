@@ -263,6 +263,8 @@ async function observation(page, lane, readLengthBp) {
         policy: snapshot('__webglAnnotationPolicyReadinessSnapshot'),
         body: snapshot('__webglAnnotationBodyPresentationAuthoritySnapshot'),
         scene: snapshot('__webglPrepackedAnnotationSceneOwnerSnapshot'),
+        operations: snapshot('__webglRendererOperationSnapshot'),
+        activeRenderer: renderer.getColdGestureSnapshot?.(lane.trackId) ?? null,
       };
       const checks = {
         sourceComplete: diagnostic.readSourceWindowCoversViewport === true,

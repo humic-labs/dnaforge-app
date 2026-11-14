@@ -338,7 +338,7 @@ export function classifyPileupAnnotation(annotation, viewport) {
       fail(check, `annotation-${field}-stale`);
   }
   const policy = annotation.policy;
-  for (const name of ['policy', 'body', 'scene']) {
+  for (const name of ['policy', 'body', 'operations']) {
     const snapshot = annotation[name];
     if (!object(snapshot) || !text(snapshot.instanceId))
       invalidate(check, `annotation-${name}-snapshot-missing`);
@@ -372,34 +372,58 @@ export function classifyPileupAnnotation(annotation, viewport) {
         fail(check, 'annotation-visible-coverage-incomplete');
     }
   }
-  const owner = annotation.scene?.owner;
-  const body = annotation.body?.bodyAuthority;
-  const generation = body?.generation;
-  if (!object(owner) || !object(body) || !object(generation)) {
-    fail(check, 'annotation-current-body-or-scene-missing');
+  const activeRenderer = annotation.activeRenderer;
+  if (
+    !object(activeRenderer) ||
+    activeRenderer.supported !== true ||
+    activeRenderer.contract !== 'pixi-linear-renderer-cold-gesture-snapshot.v1'
+  ) {
+    invalidate(check, 'annotation-active-renderer-census-missing');
     return check;
   }
-  if (owner.loaded !== true || owner.gpuPrepared !== true || !positive(owner.ownerGeneration))
-    fail(check, 'annotation-scene-not-loaded');
-  if (owner.metadata?.genomeIdentity !== sourceIdentity)
+  const actualGeneration = activeRenderer.operation?.rendererGeneration;
+  const visibleGeneration = annotation.operations?.operationOracle?.rendererGeneration;
+  if (!positive(actualGeneration) || !positive(visibleGeneration))
+    invalidate(check, 'annotation-renderer-generation-missing');
+  else if (actualGeneration !== visibleGeneration)
+    fail(check, 'annotation-hidden-or-stale-renderer');
+  if (
+    activeRenderer.genomeIdentity !== sourceIdentity ||
+    !pileupRangeMatchesViewport(
+      { start: activeRenderer.viewportStartBp, end: activeRenderer.viewportEndBp },
+      viewport
+    )
+  )
+    fail(check, 'annotation-active-renderer-source-or-viewport-stale');
+  const census = activeRenderer.annotation;
+  const body = annotation.body?.bodyAuthority;
+  const generation = body?.generation;
+  if (
+    !object(census) ||
+    census.contract !== 'annotation-overlay-cold-gesture-snapshot.v1' ||
+    !object(body) ||
+    !object(generation)
+  ) {
+    fail(check, 'annotation-current-body-or-census-missing');
+    return check;
+  }
+  if (census.genomeIdentity !== sourceIdentity || census.activeSourceIdentity !== sourceIdentity)
     fail(check, 'annotation-scene-source-stale');
+  if (census.presentationVisible !== true) fail(check, 'annotation-body-hidden');
   if (
     !text(admitted.artifact?.artifactKey) ||
     !admitted.artifact.artifactKey.startsWith('assembly-annotation-artifact.v4|')
   )
     invalidate(check, 'annotation-admitted-artifact-missing');
-  else if (
-    owner.metadata?.artifactKey !== admitted.artifact.artifactKey ||
-    owner.metadata?.trackType !== 'mRNA'
-  )
+  else if (census.activeArtifactKey !== admitted.artifact.artifactKey)
     fail(check, 'annotation-scene-artifact-stale');
-  const ownerParts = text(owner.ownerKey) ? owner.ownerKey.split('\n') : [];
+  const ownerParts = text(census.activeOwnerKey) ? census.activeOwnerKey.split('\n') : [];
   if (
     ownerParts.length !== 4 ||
     ownerParts[0] !== 'annotation-scene-owner.v3' ||
     !/^[a-f0-9]{24}$/u.test(ownerParts[1]) ||
     !/^[a-f0-9]{64}$/u.test(ownerParts[2]) ||
-    ownerParts[3] !== owner.metadata?.artifactKey
+    ownerParts[3] !== census.activeArtifactKey
   )
     invalidate(check, 'annotation-scene-product-identity-missing');
   if (
@@ -410,37 +434,112 @@ export function classifyPileupAnnotation(annotation, viewport) {
     invalidate(check, 'annotation-body-authority-missing');
   if (generation.commitEpoch !== body.commitEpoch || generation.productKind !== body.frameOwner)
     fail(check, 'annotation-body-generation-stale');
+  if (!generation.orderedVisibleTrackIds?.includes('mRNA'))
+    fail(check, 'annotation-current-mRNA-body-missing');
+  if (!text(admitted.assetGeneration?.sourceFingerprint))
+    invalidate(check, 'annotation-admitted-generation-missing');
   if (
-    body.frameOwner !== 'prepacked-vector' ||
-    !generation.orderedVisibleTrackIds?.includes('mRNA')
+    generation.sourceFingerprint !== ownerParts[1] ||
+    generation.sourceFingerprint !== census.activeSourceFingerprint ||
+    generation.sourceFingerprint !== admitted.assetGeneration?.sourceFingerprint ||
+    generation.placementFingerprint !== census.activePlacementFingerprint
   )
-    fail(check, 'annotation-current-vector-body-missing');
-  if (generation.sourceFingerprint !== ownerParts[1]) fail(check, 'annotation-body-source-stale');
+    fail(check, 'annotation-body-source-stale');
   if (
-    !Array.isArray(generation.productFingerprints) ||
-    !generation.productFingerprints.includes(owner.ownerKey)
-  )
-    fail(check, 'annotation-body-product-stale');
-  if (
-    generation.policy?.isoformMode !== owner.runtimePolicy?.isoformMode ||
-    generation.policy?.laneLimit !== owner.runtimePolicy?.laneLimit
+    generation.policy?.isoformMode !== census.activeRuntimeIsoformMode ||
+    generation.policy?.laneLimit !== census.activeRuntimeLaneLimit
   )
     fail(check, 'annotation-body-policy-stale');
-  if (!count(owner.submittedInstanceCount) || !count(owner.submittedPartitionCount))
-    invalidate(check, 'annotation-geometry-observation-missing');
-  else if (
+  if (
     expected.length > 0 &&
-    (owner.submittedInstanceCount === 0 ||
-      owner.submittedPartitionCount === 0 ||
-      owner.status !== 'eligible')
+    (census.soleOwnerCount !== 1 ||
+      census.soleOwnerRole !== 'exact' ||
+      census.soleOwnerCoverageComplete !== true ||
+      census.soleOwnerContractValid !== true)
   )
-    fail(check, 'annotation-populated-window-is-blank');
+    fail(check, 'annotation-visible-census-incomplete');
+  if (body.frameOwner === 'prepacked-vector') {
+    if (
+      !Array.isArray(generation.productFingerprints) ||
+      !generation.productFingerprints.includes(census.activeOwnerKey)
+    )
+      fail(check, 'annotation-body-product-stale');
+    const residents = Array.isArray(census.requestedResidentTracks)
+      ? census.requestedResidentTracks.filter((resident) => resident?.trackType === 'mRNA')
+      : [];
+    const resident = residents[0];
+    if (
+      residents.length !== 1 ||
+      census.prepackedRequestedResidentRosterReady !== true ||
+      resident.prepared !== true ||
+      resident.admitted !== true ||
+      resident.ownerKey !== census.activeOwnerKey
+    )
+      fail(check, 'annotation-resident-not-admitted');
+    if (
+      !bounds(resident?.coverageStartBp, resident?.coverageEndBp) ||
+      resident.coverageStartBp > viewport.startBp ||
+      resident.coverageEndBp < viewport.endBp
+    )
+      fail(check, 'annotation-resident-coverage-incomplete');
+    if (
+      !count(census.prepackedSubmittedInstanceCount) ||
+      !count(census.prepackedSubmittedPartitionCount)
+    )
+      invalidate(check, 'annotation-geometry-observation-missing');
+    else if (
+      expected.length > 0 &&
+      (resident?.presenting !== true ||
+        !positive(resident?.visibleInstanceCount) ||
+        !positive(resident?.visiblePartitionCount) ||
+        census.prepackedSubmittedInstanceCount === 0 ||
+        census.prepackedSubmittedPartitionCount === 0 ||
+        census.soleOwnerId !== 'prepacked-partitioned-vector-surface')
+    )
+      fail(check, 'annotation-populated-window-is-blank');
+  } else if (body.frameOwner === 'compiled-broad') {
+    const broad = renderer?.annotation?.compiledBroad;
+    if (!object(broad)) invalidate(check, 'annotation-compiled-body-observations-missing');
+    else {
+      if (
+        !Array.isArray(generation.productFingerprints) ||
+        !generation.productFingerprints.includes(broad.manifestFingerprint) ||
+        broad.provenanceValid !== true ||
+        broad.provenanceManifestFingerprint !== broad.manifestFingerprint ||
+        broad.provenanceSourceFingerprint !== generation.sourceFingerprint ||
+        broad.provenancePlacementFingerprint !== generation.placementFingerprint ||
+        broad.provenancePrepackedOwnerKey !== census.activeOwnerKey ||
+        broad.provenancePrepackedArtifactKey !== census.activeArtifactKey
+      )
+        fail(check, 'annotation-compiled-product-stale');
+      if (
+        broad.activeIsoformMode !== generation.policy?.isoformMode ||
+        broad.activeLaneLimit !== generation.policy?.laneLimit
+      )
+        fail(check, 'annotation-compiled-policy-stale');
+      if (
+        broad.missingCellCount !== 0 ||
+        broad.lastFailure !== null ||
+        broad.gpuPreuploadFailureCount !== 0
+      )
+        fail(check, 'annotation-compiled-coverage-incomplete');
+      if (
+        expected.length > 0 &&
+        (broad.presenting !== true ||
+          !positive(broad.submittedCellCount) ||
+          !positive(broad.presentedQuadCount) ||
+          census.soleOwnerId !== 'compiled-broad-raster-surface')
+      )
+        fail(check, 'annotation-populated-window-is-blank');
+    }
+  } else fail(check, 'annotation-current-prepared-body-missing');
   check.metrics = {
     ...check.metrics,
     sourceIdentity,
     sourceFingerprint: generation.sourceFingerprint,
-    ownerKey: owner.ownerKey,
-    submittedInstanceCount: owner.submittedInstanceCount,
+    ownerKey: census.activeOwnerKey,
+    bodyKind: body.frameOwner,
+    submittedInstanceCount: census.prepackedSubmittedInstanceCount,
   };
   return check;
 }
