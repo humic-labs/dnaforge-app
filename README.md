@@ -93,6 +93,7 @@ run this once from the repository root, then start the app normally:
 
 ```bash
 node start.mjs --setup-only
+node node_modules/electron/install.js
 sudo chown root:root node_modules/electron/dist/chrome-sandbox
 sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
 node start.mjs
@@ -162,7 +163,9 @@ This repository builds the community distribution
 On Windows, the source environment omits `pysam`, which does not support native
 Windows. Python genomics operations that require pysam/htslib are unavailable
 there; use macOS or Linux for Python genomics development that requires it.
-The Rust desktop helpers are built separately.
+Windows builds the Rust indexer and process guardian. The HTSlib-based Rust
+coverage helper is also unsupported on native Windows, so BAM/CRAM coverage
+development requires macOS or Linux.
 
 ## What the app sends
 

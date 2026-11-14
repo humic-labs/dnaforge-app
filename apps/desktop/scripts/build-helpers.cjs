@@ -21,7 +21,11 @@ function main() {
   const suffix = helperPlatformSuffix(platform, arch);
   const knownHelpers = ['dna-indexer', 'dna-coverage', 'dna-process-guardian'];
   const requestedHelpers = process.argv.slice(2);
-  const helpers = requestedHelpers.length > 0 ? [...requestedHelpers] : [...knownHelpers];
+  const supportedHelpers = knownHelpers.filter((helper) => platform !== 'win32' || helper !== 'dna-coverage');
+  const helpers = requestedHelpers.length > 0 ? [...requestedHelpers] : [...supportedHelpers];
+  if (helpers.includes('dna-coverage') && platform === 'win32') {
+    throw new Error('dna-coverage uses HTSlib and is not supported on native Windows; use macOS or Linux for BAM/CRAM coverage.');
+  }
   if (
     platform === 'win32' &&
     helpers.includes('dna-indexer') &&
