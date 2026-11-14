@@ -99,6 +99,7 @@ import {
 } from './prepared-reference-source-receipt';
 import { materializePreparedReferenceAssembly } from './prepared-reference-assembly-materializer';
 import { forkPreparedReferenceSourceGeneration } from './fork-prepared-reference-source';
+import { createReferenceGenerationId } from './reference-generation-ownership';
 import { HOSTED_REFERENCE_CATALOG_V1 } from './hosted-reference-catalog';
 import {
   matureHostedPreparedReferenceSemanticsV1,
@@ -597,7 +598,7 @@ async function ensureReferenceAssetPreparation(params: {
   if (!indexer) {
     throw new Error('Reference preparation requires an available dna-indexer helper.');
   }
-  publication = newReferenceAssetPublication(entry.assetCacheKey);
+  publication = newReferenceAssetPublication(entry.assetCacheKey, publicationWorkspaceRoot);
   sourceGenerationRoot = referenceAssetPublicationSourceRoot(workspaceRoot, publication);
   assertAtOrBelow(workspaceRoot, sourceGenerationRoot, 'Reference source generation');
   const initialPublication = publication;
@@ -934,11 +935,14 @@ async function readReferenceAssetPublication(
   return null;
 }
 
-function newReferenceAssetPublication(assetCacheKey: string): ReferenceAssetPublicationV1 {
+function newReferenceAssetPublication(
+  assetCacheKey: string,
+  publicationAssemblyRoot: string
+): ReferenceAssetPublicationV1 {
   return {
     contract: REFERENCE_ASSET_PUBLICATION_V1,
     assetCacheKey,
-    publicationId: randomUUID(),
+    publicationId: createReferenceGenerationId(publicationAssemblyRoot),
     sourceMaterializationFingerprint: '0'.repeat(64),
     publishedAtMs: Date.now(),
   };

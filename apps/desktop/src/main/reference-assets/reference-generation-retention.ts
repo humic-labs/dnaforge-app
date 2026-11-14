@@ -6,13 +6,17 @@ import {
   REFERENCE_ASSET_PUBLICATION_FILE,
 } from '../../features/sequence/reference-asset-publication';
 import type { ReferenceAssetWriterLease } from './reference-asset-writer-lock';
+import { readReferenceVersionHistory } from './installed-hosted-reference';
+import {
+  isOwnedReferenceGenerationId,
+  isScopedReferenceGenerationId,
+} from './reference-generation-ownership';
 
 export interface OpenReferenceVersion {
   readonly catalogId: string;
   readonly generationId: string;
 }
 
-const LEGACY_GENERATION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 function validVersion(version: OpenReferenceVersion): boolean {
   return (
@@ -32,6 +36,7 @@ export class ReferenceGenerationRetention {
   >();
   private readonly leasePath: string;
   private readonly cacheRoot: string;
+  private readonly ownedPublicationRoot: string;
   private writeTail = Promise.resolve();
   private collection: Promise<readonly string[]> | null = null;
   private rendererRestored = false;
@@ -41,6 +46,7 @@ export class ReferenceGenerationRetention {
     private readonly input: {
       readonly cacheRoot: string;
       readonly publicationRoots: readonly string[];
+      readonly ownedPublicationRoot?: string;
       readonly catalogIds: readonly string[];
       readonly pinnedVersions?: readonly OpenReferenceVersion[];
       readonly sessionPaths: () => readonly string[];
@@ -49,6 +55,7 @@ export class ReferenceGenerationRetention {
     }
   ) {
     this.cacheRoot = resolve(input.cacheRoot);
+    this.ownedPublicationRoot = resolve(input.ownedPublicationRoot ?? input.cacheRoot);
     this.leasePath = join(
       this.cacheRoot,
       '.reference-generation-leases',
@@ -147,36 +154,61 @@ export class ReferenceGenerationRetention {
     if (!this.rendererRestored) return [];
     await this.checkpoint();
     const deleted: string[] = [];
-    for (const catalogId of this.input.catalogIds) {
+    const catalogIds = [
+      ...new Set([
+        ...this.input.catalogIds,
+        ...(await readdir(this.cacheRoot, { withFileTypes: true }))
+          .filter((entry) => entry.isDirectory() && SAFE_ID.test(entry.name))
+          .map((entry) => entry.name),
+      ]),
+    ];
+    for (const catalogId of catalogIds) {
       if (!SAFE_ID.test(catalogId)) continue;
       const familyRoot = join(this.cacheRoot, catalogId);
       const generationParent = join(familyRoot, 'generations');
       if (!(await this.plainDirectory(generationParent))) continue;
       const lease = await this.input.acquireWriterLease?.(familyRoot);
       try {
-        const protectedVersions = await this.protectedVersions();
+        const protectedVersions = await this.protectedVersions(catalogIds);
+        const ownedAssemblyRoot = join(this.ownedPublicationRoot, catalogId);
+        const ownedCurrent = await readFile(
+          join(ownedAssemblyRoot, REFERENCE_ASSET_PUBLICATION_FILE),
+          'utf8'
+        )
+          .then((text) => parseReferenceAssetPublicationV1(JSON.parse(text), catalogId))
+          .catch(() => null);
+        const ownedCurrentRoot = ownedCurrent
+          ? join(generationParent, ownedCurrent.publicationId)
+          : null;
+        const ownedCurrentDefinition =
+          ownedCurrentRoot && (await this.plainDirectory(ownedCurrentRoot))
+            ? await lstat(join(ownedCurrentRoot, 'prepared-reference-definition.v1.json')).catch(
+                () => null
+              )
+            : null;
+        if (!ownedCurrentDefinition?.isFile() || ownedCurrentDefinition.isSymbolicLink()) continue;
+        const ownedHistory =
+          this.ownedPublicationRoot === this.cacheRoot
+            ? new Set(
+                (await readReferenceVersionHistory(familyRoot)).map(
+                  (version) => version.bundleFingerprint
+                )
+              )
+            : new Set<string>();
         for (const name of await readdir(generationParent)) {
           const version = { catalogId, generationId: name };
           if (!validVersion(version) || protectedVersions.has(this.key(version))) continue;
           const generationRoot = join(generationParent, name);
           if (!(await this.plainDirectory(generationRoot))) continue;
-          const history = await lstat(
-            join(familyRoot, '.reference-version-history', `${name}.json`)
-          ).catch(() => null);
-          const definition = await lstat(
-            join(generationRoot, 'prepared-reference-definition.v1.json')
-          ).catch(() => null);
-          if (
-            !(history?.isFile() && !history.isSymbolicLink()) &&
-            !(
-              LEGACY_GENERATION_ID.test(name) &&
-              definition?.isFile() &&
-              !definition.isSymbolicLink()
-            )
-          )
-            continue;
+          if (isScopedReferenceGenerationId(name)) {
+            if (!isOwnedReferenceGenerationId(name, ownedAssemblyRoot)) continue;
+            const definition = await lstat(
+              join(generationRoot, 'prepared-reference-definition.v1.json')
+            ).catch(() => null);
+            if (!definition?.isFile() || definition.isSymbolicLink()) continue;
+          } else if (!ownedHistory.has(name)) continue;
           await lease?.assertOwned();
-          if ((await this.protectedVersions()).has(this.key(version))) continue;
+          if ((await this.protectedVersions(catalogIds)).has(this.key(version))) continue;
           await rm(generationRoot, { recursive: true, force: true });
           this.input.onCollected?.(generationRoot);
           deleted.push(generationRoot);
@@ -188,10 +220,10 @@ export class ReferenceGenerationRetention {
     return deleted;
   }
 
-  private async protectedVersions(): Promise<Set<string>> {
+  private async protectedVersions(catalogIds: readonly string[]): Promise<Set<string>> {
     const protectedVersions = new Set(this.localVersions().map((version) => this.key(version)));
     for (const root of this.input.publicationRoots) {
-      for (const catalogId of this.input.catalogIds) {
+      for (const catalogId of catalogIds) {
         try {
           const pointer = parseReferenceAssetPublicationV1(
             JSON.parse(
@@ -233,7 +265,7 @@ export class ReferenceGenerationRetention {
         }
         for (const version of lease.versions) protectedVersions.add(this.key(version));
       } catch {
-        for (const catalogId of this.input.catalogIds) {
+        for (const catalogId of catalogIds) {
           for (const generationId of await readdir(
             join(this.cacheRoot, catalogId, 'generations')
           ).catch(() => [] as string[]))
