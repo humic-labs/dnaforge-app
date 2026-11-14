@@ -1,5 +1,6 @@
 import { PresentationBoundary } from '../../../presentation/PresentationSurface';
 import { usePresentationListener } from '../../../presentation/PresentationSurface';
+import { usePresentationScope } from '../../../presentation/PresentationSurface';
 import { userMessage } from '@waypoint/user-messages';
 import { findUnsettledEntityDetailsSession } from '../../entity-details/public/editing-sessions';
 import { requestManagedSequenceMetadata } from '../../sequence/public/managed-sequence-metadata';
@@ -51,6 +52,7 @@ export const Panel = React.memo(function Panel(props: PanelProps) {
 
 function PanelBody({ panel, isFocused }: PanelProps) {
   const presentationEvents = usePresentationListener();
+  const presentation = usePresentationScope();
 
   const setActiveTab = useCanvasStore((state) => state.setActiveTab);
   const closeTab = useCanvasStore((state) => state.closeTab);
@@ -114,6 +116,7 @@ function PanelBody({ panel, isFocused }: PanelProps) {
       };
       observeCanvasNavigation(operation, 'accepted');
       try {
+        presentation.owner.dispatch({ type: 'focus', id: presentation.id });
         setActiveTab(panel.id, tabId);
       } catch (error) {
         pendingVisibleTabSwitchRef.current = null;
@@ -130,7 +133,7 @@ function PanelBody({ panel, isFocused }: PanelProps) {
       registerCanvasReadRequest({ panelId: panel.id, tabId, operation });
       return true;
     },
-    [setActiveTab, panel.id]
+    [setActiveTab, panel.id, presentation]
   );
 
   useEffect(() => {
