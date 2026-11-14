@@ -1551,7 +1551,7 @@ async def alignment_tile_route(
                 tile_index=tile_index,
                 guides_only=body.guides_only,
             )
-            return JSONResponse(content=result)
+            return JSONResponse(content=result, headers={"Content-Encoding": "identity"})
         try:
             snapshot = await get_external_runtime().materialize_htsget_region(
                 body.htsget_token,
@@ -1584,7 +1584,7 @@ async def alignment_tile_route(
             return _refuse_response(exc)
         except HtsgetSourceError as exc:
             raise _htsget_tile_error(exc) from exc
-        return JSONResponse(content=result)
+        return JSONResponse(content=result, headers={"Content-Encoding": "identity"})
 
     bam_path = _require_file_bam_path(body)
 
@@ -1653,7 +1653,7 @@ async def alignment_tile_route(
                 detail=_TRUNCATED_ALIGNMENT_DETAIL,
             ) from exc
         raise
-    return JSONResponse(content=result)
+    return JSONResponse(content=result, headers={"Content-Encoding": "identity"})
 
 
 class _AlignmentHeaderBody(_AlignedReadSourceBody):
@@ -1910,4 +1910,4 @@ async def annotation_tile_route(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except annotation_tiles.AnnotationPyramidMissingError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return JSONResponse(content=result)
+    return JSONResponse(content=result, headers={"Content-Encoding": "identity"})

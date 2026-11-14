@@ -1,5 +1,6 @@
 import asyncio
 import threading
+from types import SimpleNamespace
 
 import pytest
 from starlette.requests import Request
@@ -206,3 +207,23 @@ async def test_cancelled_local_owner_waits_for_noncooperative_worker_ack(monkeyp
         await old
     assert calls == [0, 1]
     assert pool.stats()["active"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["alignment", "annotation"])
+async def test_json_tile_body_size_has_an_observable_uncompressed_encoding(monkeypatch, kind):
+    payload = {"reads": [{"readId": "résumé"}], "transcripts": []}
+    _, body = local_route(monkeypatch, lambda *_: payload)
+    if kind == "alignment":
+        response = await tiles.alignment_tile_route(0, 0, body)
+    else:
+        monkeypatch.setattr(
+            tiles,
+            "_load_annotation_services",
+            lambda: SimpleNamespace(annotation_tile=lambda *_args, **_kwargs: payload),
+        )
+        response = await tiles.annotation_tile_route(
+            0, 0, tiles.AnnotationTileBody(gffPath="/local/genes.gff.gz", chrom="chr1")
+        )
+    assert response.headers.get("content-encoding") == "identity"
+    assert int(response.headers["content-length"]) == len(response.body)
