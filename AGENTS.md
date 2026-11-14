@@ -1,8 +1,8 @@
 # Working on DNAForge
 
 Read `README.md`, `CONTRIBUTING.md` and `MAINTAINING.md` before changing code.
-This repository is the source of truth for product development. Use a feature
-branch and open a pull request against `main`.
+This repository is the source of truth for product development. Use feature
+branches and follow the complete-feature integration rule in `MAINTAINING.md`.
 
 Run focused checks for the behavior you change. Existing CI owns the complete
 builds and test suites. Preserve other contributors' work and keep unrelated
