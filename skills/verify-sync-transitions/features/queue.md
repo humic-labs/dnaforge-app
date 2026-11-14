@@ -39,6 +39,9 @@ Run the skill's `drive` command. Selected cases come from
 `workspace-sync-actions.test.ts` and `workspace-sync-conflicts.test.ts` under
 `apps/desktop/src/main/__tests__`.
 
+`workspace-sync-transition-authority.test.ts` additionally checks the source
+ownership boundary, each stale lease field, and rollback through the command API.
+
 Observe the queue row, binding, version and retained snapshot assertions. The
 rollback case injects a SQLite trigger failure after conflict cancellation and
 compares all queue, binding and version rows to their original values. The stale

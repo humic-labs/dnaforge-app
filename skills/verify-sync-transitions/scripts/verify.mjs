@@ -44,6 +44,7 @@ if (mode === 'doctor') {
   if (prepared.status !== 0) throw new Error('SQLite doctor failed; see doctor.log.');
   const sources = [
     'apps/desktop/src/main/workspace-sync-queue.ts',
+    'apps/desktop/src/main/__tests__/workspace-sync-transition-authority.test.ts',
     'apps/desktop/src/main/workspace-sync-upload-worker.ts',
     'apps/desktop/src/main/workspace-sync-actions.ts',
     'apps/desktop/src/main/workspace-sync-conflicts.ts',
@@ -67,12 +68,13 @@ if (mode === 'doctor') {
     '--config',
     '../../skills/verify-sync-transitions/scripts/vitest.config.ts',
     'src/main/__tests__/workspace-sync-queue.test.ts',
+    'src/main/__tests__/workspace-sync-transition-authority.test.ts',
     'src/main/__tests__/workspace-sync-upload-worker.test.ts',
     'src/main/__tests__/workspace-sync-actions.test.ts',
     'src/main/__tests__/workspace-sync-conflicts.test.ts',
     'src/main/__tests__/workspace-sync-runtime.test.ts',
     '-t',
-    'retains native accepted identity|refuses a failure callback from the previously accepted|recovers stale running locks|pauses jobs for the wrong active account|does not overwrite a terminal state|reactivates only a sync-disabled upload|does not let a newer upload overtake|commits native upload acceptance before|rejects an older native upload acknowledgement|does not acknowledge a response after another worker|backs off retryable failures durably|rolls back upload acknowledgement|supersedes an older failed upload|disables sync by canceling pending uploads|keep_local rebases the pending upload|use_remote preserves the active workspace identity|keeps the old conflict binding if the atomic replacement|rolls back conflict cancellation when replacement enqueue fails|persists a retryable failure when listing remote workspaces|settles an old recovery quarantine|keeps a failed package recovery quarantined|unblocks account-paused durable work',
+    'retains native accepted identity|refuses a failure callback from the previously accepted|recovers stale running locks|pauses jobs for the wrong active account|does not overwrite a terminal state|reactivates only a sync-disabled upload|does not let a newer upload overtake|commits native upload acceptance before|rejects an older native upload acknowledgement|does not acknowledge a response after another worker|backs off retryable failures durably|rolls back upload acknowledgement|supersedes an older failed upload|disables sync by canceling pending uploads|keep_local rebases the pending upload|use_remote preserves the active workspace identity|keeps the old conflict binding if the atomic replacement|rolls back conflict cancellation when replacement enqueue fails|persists a retryable failure when listing remote workspaces|settles an old recovery quarantine|keeps a failed package recovery quarantined|unblocks account-paused durable work|workspace sync transition authority',
     '--reporter=default',
     '--reporter=json',
   ];
