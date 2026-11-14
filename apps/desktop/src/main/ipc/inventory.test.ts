@@ -30,6 +30,7 @@ const request: InventoryExecuteRequest = {
 };
 let owner: NativeInventoryOwner | null;
 let execute: ReturnType<typeof vi.fn>;
+let availability: ReturnType<typeof vi.fn>;
 const call = (input: unknown = request) =>
   (
     captured.handlers.execute as (
@@ -40,13 +41,27 @@ const call = (input: unknown = request) =>
 
 beforeEach(() => {
   execute = vi.fn(() => ({ status: 'committed' }));
-  owner = { execute } as unknown as NativeInventoryOwner;
+  availability = vi.fn(() => null);
+  owner = { execute, availability } as unknown as NativeInventoryOwner;
   registerInventoryHandlers({ owner: () => owner, target: () => target });
+});
+
+it('reads availability through the current native profile owner', () => {
+  const input = { project: 'project', inventoryId: 'inventory' };
+  const handler = captured.handlers.availability as (
+    event: IpcMainInvokeEvent,
+    request: unknown
+  ) => unknown;
+  expect(handler(event, input)).toBeNull();
+  expect(availability).toHaveBeenCalledExactlyOnceWith(input);
+  expect(() =>
+    handler({ sender: { id: 9, isDestroyed: () => false } } as IpcMainInvokeEvent, input)
+  ).toThrow('INVENTORY_DESKTOP_CALLER_UNAVAILABLE');
 });
 
 it('passes trusted human identity and a live caller check to the shared owner', () => {
   expect(call()).toEqual({ status: 'committed' });
-  expect(execute).toHaveBeenCalledWith(request, expect.any(Function), 'human:desktop:7');
+  expect(execute).toHaveBeenCalledWith(request, expect.any(Function), { actor: 'human:desktop:7' });
   const assertCurrent = execute.mock.calls[0][1] as () => void;
   expect(assertCurrent).not.toThrow();
   owner = null;

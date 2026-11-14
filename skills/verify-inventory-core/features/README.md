@@ -13,3 +13,6 @@
 
 - [Composition and concentrations](concentration.md): exact ratios, explicit
   unknowns, lossless edits and immutable input facts.
+
+- [Reservations](reservations.md): explicit holds, available quantity, partial
+  fulfillment, stable holders and recorded release or expiry.

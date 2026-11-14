@@ -4,6 +4,7 @@ import type {
   InventoryErrorCode,
   InventoryLot,
   InventoryQuantity,
+  InventoryReservation,
   InventorySourceIdentity,
   InventoryState,
   InventoryStock,
@@ -32,6 +33,7 @@ export interface InventoryMaterialDraft {
   readonly lots: Record<string, InventoryLot>;
   readonly vessels: Record<string, InventoryVessel>;
   readonly storage: InventoryState['storage'];
+  readonly reservations: Readonly<Record<string, InventoryReservation>>;
 }
 
 type Refusal = { readonly ok: false; readonly code: InventoryErrorCode; readonly message: string };
@@ -92,7 +94,7 @@ export function inventoryWithdrawalResult(
 }
 
 function hasId(state: InventoryMaterialDraft, id: string): boolean {
-  return [state.stocks, state.lots, state.vessels, state.storage].some((rows) =>
+  return [state.stocks, state.lots, state.vessels, state.storage, state.reservations].some((rows) =>
     Object.hasOwn(rows, id)
   );
 }

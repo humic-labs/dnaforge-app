@@ -7,6 +7,20 @@ import {
 
 const identity = z.string().min(1).max(256);
 const revision = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
+const profileKey = z.string().regex(/^[a-f0-9]{64}$/);
+
+export const inventoryPrincipalSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('local-profile'), profileKey }).strict(),
+  z.object({ kind: z.literal('agent'), identityId: z.string().min(1).max(500) }).strict(),
+]);
+
+export const inventoryReceiptContextSchema = z
+  .object({
+    version: z.literal(1),
+    principal: inventoryPrincipalSchema,
+    authority: z.object({ kind: z.literal('local-profile'), profileKey }).strict(),
+  })
+  .strict();
 
 export const inventoryReadRequestSchema = z
   .object({ project: z.string().min(1).max(4096), inventoryId: identity })
@@ -56,6 +70,7 @@ export const inventoryReceiptSchema = z
     actor: z.string().min(1).max(1024),
     recordedAt: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
     requestDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+    context: inventoryReceiptContextSchema.optional(),
   })
   .strict();
 
@@ -65,6 +80,7 @@ export type InventoryExecuteRequest = InventoryReadRequest &
 export type InventoryOperationRequest = z.infer<typeof inventoryOperationRequestSchema>;
 export type InventoryHistoryRequest = z.infer<typeof inventoryHistoryRequestSchema>;
 export type NativeInventoryReceipt = z.infer<typeof inventoryReceiptSchema>;
+export type NativeInventoryReceiptContext = z.infer<typeof inventoryReceiptContextSchema>;
 export interface NativeInventoryRejection {
   readonly status: 'rejected';
   readonly inventoryId: string;

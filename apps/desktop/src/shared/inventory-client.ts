@@ -1,4 +1,8 @@
-import type { InventoryState } from '@waypoint/domain-services';
+import type {
+  InventoryAvailability,
+  InventoryPrincipal,
+  InventoryState,
+} from '@waypoint/domain-services';
 import type {
   InventoryExecuteRequest,
   InventoryHistoryRequest,
@@ -43,10 +47,17 @@ export interface InventoryChanged {
   readonly operationId: string;
 }
 
+export interface InventoryAvailabilitySnapshot extends InventoryAvailability {
+  readonly revision: number;
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+}
+
 export interface InventoryClient {
   projects(): Promise<readonly InventoryProject[]>;
   materials(input: InventoryMaterialQuery): Promise<InventoryMaterialPage>;
   inspect(input: InventoryReadRequest): Promise<InventoryState | null>;
+  availability(input: InventoryReadRequest): Promise<InventoryAvailabilitySnapshot | null>;
   execute(input: InventoryExecuteRequest): Promise<NativeInventoryExecution>;
   operation(input: InventoryOperationRequest): Promise<NativeInventoryReceipt | null>;
   history(input: InventoryHistoryRequest): Promise<readonly NativeInventoryHistoryEntry[]>;
@@ -61,6 +72,7 @@ export function unavailableInventoryClient(): InventoryClient {
     projects: unavailable,
     materials: unavailable,
     inspect: unavailable,
+    availability: unavailable,
     execute: async (request) => ({
       status: 'rejected',
       inventoryId: request.inventoryId,

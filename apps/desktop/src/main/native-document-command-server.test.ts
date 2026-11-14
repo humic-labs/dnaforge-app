@@ -100,6 +100,7 @@ async function fixture(
   const inventory = {
     execute: vi.fn(),
     inspect: vi.fn(() => null),
+    availability: vi.fn(() => null),
     operation: vi.fn(() => null),
     history: vi.fn(() => []),
     projects: vi.fn(() => []),
@@ -203,6 +204,11 @@ it.each([
   ['inventory.execute', inventoryRequest, ['read-workspace', 'write-workspace']],
   ['inventory.inspect', { project: '/workspace', inventoryId: 'inventory-1' }, ['read-workspace']],
   [
+    'inventory.availability',
+    { project: '/workspace', inventoryId: 'inventory-1' },
+    ['read-workspace'],
+  ],
+  [
     'inventory.operation',
     { project: '/workspace', inventoryId: 'inventory-1', operationId: 'operation-1' },
     ['read-workspace'],
@@ -226,8 +232,12 @@ it.each([
     expect(f.inventory.execute).toHaveBeenCalledExactlyOnceWith(
       inventoryRequest,
       expect.any(Function),
-      'agent:agent-1'
+      { actor: 'agent:agent-1', principal: { kind: 'agent', identityId: 'agent-1' } }
     );
+  if (command === 'inventory.availability')
+    expect(f.inventory.availability).toHaveBeenCalledExactlyOnceWith(request, {
+      principal: { kind: 'agent', identityId: 'agent-1' },
+    });
 });
 
 it('refuses inventory authority rotated during asynchronous grant verification', async () => {

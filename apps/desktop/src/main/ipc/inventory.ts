@@ -53,6 +53,10 @@ export function registerInventoryHandlers(options: {
       assertCaller(event);
       return currentOwner().inspect(request);
     },
+    availability: (event, request) => {
+      assertCaller(event);
+      return currentOwner().availability(request);
+    },
     operation: (event, request) => {
       assertCaller(event);
       return currentOwner().operation(request);
@@ -93,7 +97,7 @@ export function registerInventoryHandlers(options: {
             );
         };
         assertCurrent();
-        return owner.execute(request, assertCurrent, `human:desktop:${event.sender.id}`);
+        return owner.execute(request, assertCurrent, { actor: `human:desktop:${event.sender.id}` });
       } catch (error) {
         if (error instanceof NativeDocumentCommandError && error.stateChanged === false)
           return reject(error.code, error.message);

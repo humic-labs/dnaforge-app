@@ -13,6 +13,10 @@ import type {
   InventoryData,
 } from './inventory-controller';
 import { InventoryStatusNotice } from './InventoryStatusNotice';
+import {
+  InventoryReservationClaims,
+  type InventoryReservationClaimRow,
+} from './InventoryReservationClaims';
 
 export type InventoryMaterialDialog =
   | { kind: 'lot'; sourceStockId?: string }
@@ -88,6 +92,7 @@ export function InventoryMaterialForm({
   const [destinationId, setDestinationId] = useState('new');
   const [containerName, setContainerName] = useState('');
   const [reason, setReason] = useState('');
+  const [claims, setClaims] = useState<readonly InventoryReservationClaimRow[]>([]);
   const vessel = dialog.kind === 'limits' ? state.vessels[dialog.vesselId] : undefined;
   const [capacity, setCapacity] = useState(
     vessel?.limits.capacity.kind === 'known' ? vessel.limits.capacity.value : ''
@@ -250,7 +255,21 @@ export function InventoryMaterialForm({
             : { kind: 'dilute', ...output, sample: first, diluent: second }
         );
       }
-      if (await controller.submit(commands, title)) onClose();
+      const submitted: InventoryCommand[] = claims.length
+        ? commands.map<InventoryCommand>((command) =>
+            command.kind === 'transfer' || command.kind === 'pool' || command.kind === 'dilute'
+              ? {
+                  kind: 'fulfill-reservations',
+                  claims: claims.map((claim) => ({
+                    reservationId: claim.reservationId,
+                    quantity: { value: claim.quantity, unit: 'uL' as const },
+                  })),
+                  withdrawal: command,
+                }
+              : command
+          )
+        : commands;
+      if (await controller.submit(submitted, title)) onClose();
     } catch (error) {
       setValidation(error instanceof Error ? error.message : 'Check the form values.');
     }
@@ -626,6 +645,17 @@ export function InventoryMaterialForm({
                   ) : (
                     <Notice>The new aliquot inherits the source’s recorded composition.</Notice>
                   )}
+                  <InventoryReservationClaims
+                    data={data}
+                    stockIds={[
+                      dialog.stockId,
+                      ...(dialog.kind === 'transfer'
+                        ? []
+                        : [secondId, ...extraInputs.map((input) => input.stockId)]),
+                    ]}
+                    claims={claims}
+                    onChange={setClaims}
+                  />
                 </>
               )}
               {dialog.kind !== 'lot' ? (

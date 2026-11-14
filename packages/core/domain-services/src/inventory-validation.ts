@@ -1,5 +1,6 @@
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_COMPOSITION_SCHEMA,
   INVENTORY_MATERIAL_SCHEMA,
   INVENTORY_LAYOUT_SCHEMA,
   INVENTORY_DECIMAL_PATTERN,
@@ -13,9 +14,12 @@ import {
   type InventoryCompositionInput,
   type InventoryConcentration,
   type InventoryConcentrationInput,
+  type InventoryExecutionContext,
   type InventoryLayout,
   type InventoryLot,
   type InventoryQuantity,
+  type InventoryReservation,
+  type InventoryWithdrawalCommand,
   type InventoryState,
   type InventoryStock,
   type InventoryStorage,
@@ -210,6 +214,43 @@ const physicalItem = fields('Physical inventory item', {
   kind: union('Physical item kind', [literal('storage'), literal('vessel')]),
   id,
 });
+const reservationItem = union('Reserved physical item', [
+  fields('Reserved storage item', { kind: literal('storage'), id }),
+  fields('Reserved vessel item', { kind: literal('vessel'), id: vesselId }),
+]);
+const timestamp = integer('Inventory timestamp', 0, Number.MAX_SAFE_INTEGER);
+const deadline: Codec<number | null> = {
+  schema: { anyOf: [timestamp.schema, { type: 'null' }] },
+  parse(value) {
+    return value === null ? null : timestamp.parse(value);
+  },
+};
+const authority = fields('Inventory profile authority', {
+  kind: literal('local-profile'),
+  profileKey: id,
+});
+const principal = union('Inventory acting principal', [
+  authority,
+  fields('Inventory agent principal', { kind: literal('agent'), identityId: id }),
+]);
+const executionContext: Codec<InventoryExecutionContext> = checked(
+  fields('Inventory execution context', {
+    at: timestamp,
+    principal,
+    authority,
+  }),
+  (value) => {
+    if (
+      value.principal.kind === 'local-profile' &&
+      value.principal.profileKey !== value.authority.profileKey
+    )
+      invalid('A local profile principal must match its profile authority.');
+  }
+);
+
+export function parseInventoryExecutionContext(value: unknown): InventoryExecutionContext {
+  return executionContext.parse(value);
+}
 const dimensions = {
   rows: integer('Layout rows', 1, MAX_INVENTORY_STORAGE_SLOTS),
   columns: integer('Layout columns', 1, MAX_INVENTORY_STORAGE_SLOTS),
@@ -439,6 +480,37 @@ const diluteFields = {
   sample: withdrawal,
   diluent: withdrawal,
 };
+const transferCommand = union('Transfer command', [
+  fields('Legacy transfer command', transferFields),
+  fields('Mixed transfer command', {
+    ...transferFields,
+    destination: fields('Existing destination stock', {
+      kind: literal('existing-stock'),
+      stockId: id,
+    }),
+    mixing,
+  }),
+]);
+const poolCommand = union('Pool command', [
+  fields('Legacy pool command', poolFields),
+  fields('Mixed pool command', { ...poolFields, mixing }),
+]);
+const diluteCommand = union('Dilution command', [
+  fields('Legacy dilution command', diluteFields),
+  fields('Mixed dilution command', { ...diluteFields, mixing }),
+]);
+const consumeCommand = fields('Consume command', {
+  kind: literal('consume'),
+  stockId: id,
+  quantity: volume,
+  reason,
+});
+const withdrawalCommand: Codec<InventoryWithdrawalCommand> = union('Reservation withdrawal', [
+  consumeCommand,
+  transferCommand,
+  poolCommand,
+  diluteCommand,
+]);
 
 const commands = {
   'create-lot': fields('Create lot command', {
@@ -474,25 +546,9 @@ const commands = {
     composition: compositionInput,
     reason,
   }),
-  transfer: union('Transfer command', [
-    fields('Legacy transfer command', transferFields),
-    fields('Mixed transfer command', {
-      ...transferFields,
-      destination: fields('Existing destination stock', {
-        kind: literal('existing-stock'),
-        stockId: id,
-      }),
-      mixing,
-    }),
-  ]),
-  pool: union('Pool command', [
-    fields('Legacy pool command', poolFields),
-    fields('Mixed pool command', { ...poolFields, mixing }),
-  ]),
-  dilute: union('Dilution command', [
-    fields('Legacy dilution command', diluteFields),
-    fields('Mixed dilution command', { ...diluteFields, mixing }),
-  ]),
+  transfer: transferCommand,
+  pool: poolCommand,
+  dilute: diluteCommand,
   'create-storage': fields('Create storage command', {
     kind: literal('create-storage'),
     id,
@@ -531,12 +587,7 @@ const commands = {
     id,
     placement: vesselPlacement,
   }),
-  consume: fields('Consume command', {
-    kind: literal('consume'),
-    stockId: id,
-    quantity: volume,
-    reason,
-  }),
+  consume: consumeCommand,
   reconcile: fields('Reconcile command', {
     kind: literal('reconcile'),
     stockId: id,
@@ -561,6 +612,44 @@ const commands = {
     stackId: id,
     item: physicalItem,
     destination,
+  }),
+  'reserve-quantity': fields('Reserve quantity command', {
+    kind: literal('reserve-quantity'),
+    id,
+    stockId: id,
+    quantity: volume,
+    deadline,
+    purpose: reason,
+  }),
+  'reserve-item': fields('Reserve item command', {
+    kind: literal('reserve-item'),
+    id,
+    item: reservationItem,
+    deadline,
+    purpose: reason,
+  }),
+  'release-reservation': fields('Release reservation command', {
+    kind: literal('release-reservation'),
+    reservationId: id,
+    reason,
+  }),
+  'cancel-reservation': fields('Cancel reservation command', {
+    kind: literal('cancel-reservation'),
+    reservationId: id,
+    reason,
+  }),
+  'expire-reservations': fields('Expire reservations command', {
+    kind: literal('expire-reservations'),
+    ids: array(id, MAX_INVENTORY_BATCH_COMMANDS, 1, true),
+  }),
+  'fulfill-reservations': fields('Fulfill reservations command', {
+    kind: literal('fulfill-reservations'),
+    claims: array(
+      fields('Reservation fulfillment claim', { reservationId: id, quantity: volume }),
+      MAX_INVENTORY_BATCH_COMMANDS,
+      1
+    ),
+    withdrawal: withdrawalCommand,
   }),
 } satisfies {
   [K in InventoryCommand['kind']]: Codec<Extract<InventoryCommand, { readonly kind: K }>>;
@@ -614,6 +703,44 @@ const stockRecord = fields('Stock record', {
   ...materialStockFields,
   composition: storedComposition,
 });
+const reservationVolume = checked(volume, (value) => {
+  const normalized = normalizeInventoryVolume(value);
+  if (normalized.value !== value.value || normalized.unit !== value.unit)
+    invalid('Stored reservation volumes require canonical uL decimal values.');
+});
+const reservationFacts = {
+  id,
+  holder: principal,
+  purpose: reason,
+  createdAt: timestamp,
+  deadline,
+  lifecycle: union('Reservation lifecycle', [
+    fields('Active reservation', { kind: literal('active') }),
+    fields('Fulfilled reservation', { kind: literal('fulfilled'), at: timestamp }),
+    fields('Released reservation', { kind: literal('released'), at: timestamp, reason }),
+    fields('Cancelled reservation', {
+      kind: literal('cancelled'),
+      at: timestamp,
+      reason,
+      authority,
+    }),
+    fields('Expired reservation', { kind: literal('expired'), at: timestamp }),
+  ]),
+};
+const reservationRecord: Codec<InventoryReservation> = union('Reservation record', [
+  fields('Quantity reservation record', {
+    ...reservationFacts,
+    kind: literal('quantity'),
+    stockId: id,
+    quantity: reservationVolume,
+    remaining: reservationVolume,
+  }),
+  fields('Item reservation record', {
+    ...reservationFacts,
+    kind: literal('item'),
+    item: reservationItem,
+  }),
+]);
 
 const storageRecord = fields('Storage record', {
   id,
@@ -691,7 +818,7 @@ function validateState(state: InventoryState): void {
     ])
   );
   const allIds = new Set<string>();
-  for (const rows of [state.storage, state.vessels, state.stocks, state.lots]) {
+  for (const rows of [state.storage, state.vessels, state.stocks, state.lots, state.reservations]) {
     for (const identifier of Object.keys(rows)) {
       if (allIds.has(identifier)) invalid('Inventory record identifiers must be distinct.');
       allIds.add(identifier);
@@ -863,20 +990,68 @@ function validateState(state: InventoryState): void {
     )
       invalid('A recorded quantity cannot exceed known container capacity.');
   }
+  for (const reservation of Object.values(state.reservations)) {
+    if (
+      reservation.createdAt > state.lastRecordedAt ||
+      (reservation.deadline !== null && reservation.deadline <= reservation.createdAt)
+    )
+      invalid('Reservation timestamps must follow creation and the recorded clock floor.');
+    if (reservation.lifecycle.kind !== 'active') {
+      if (
+        reservation.lifecycle.at < reservation.createdAt ||
+        reservation.lifecycle.at > state.lastRecordedAt
+      )
+        invalid('Terminal reservation timestamps must be inside the recorded lifetime.');
+      if (
+        reservation.lifecycle.kind === 'expired' &&
+        (reservation.deadline === null || reservation.lifecycle.at < reservation.deadline)
+      )
+        invalid('Expired reservations require a reached deadline.');
+    }
+    if (reservation.kind === 'quantity') {
+      if (!state.stocks[reservation.stockId])
+        invalid('A quantity reservation requires an existing stock.');
+      if (
+        reservation.quantity.value === '0' ||
+        compareInventoryVolumes(reservation.remaining, reservation.quantity) > 0
+      )
+        invalid(
+          'A reservation requires positive original quantity and a bounded remaining quantity.'
+        );
+      if (
+        (reservation.lifecycle.kind === 'active' && reservation.remaining.value === '0') ||
+        (reservation.lifecycle.kind === 'fulfilled' && reservation.remaining.value !== '0')
+      )
+        invalid('Reservation remaining quantity must match its lifecycle.');
+    } else if (
+      !(reservation.item.kind === 'storage'
+        ? state.storage[reservation.item.id]
+        : state.vessels[reservation.item.id])
+    )
+      invalid('An item reservation requires an existing physical item.');
+  }
 }
 
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const material = current || row.schema === INVENTORY_MATERIAL_SCHEMA;
+  const composition = current || row.schema === INVENTORY_COMPOSITION_SCHEMA;
+  const material = composition || row.schema === INVENTORY_MATERIAL_SCHEMA;
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_COMPOSITION_SCHEMA),
       literal(INVENTORY_MATERIAL_SCHEMA),
       literal(INVENTORY_LAYOUT_SCHEMA),
       literal(LEGACY_INVENTORY_SCHEMA),
     ]),
     revision,
+    ...(current
+      ? {
+          lastRecordedAt: timestamp,
+          reservations: { schema: { type: 'object' }, parse: (input: unknown) => input },
+        }
+      : {}),
     storage: { schema: { type: 'object' }, parse: (input: unknown) => input },
     vessels: { schema: { type: 'object' }, parse: (input: unknown) => input },
     stocks: { schema: { type: 'object' }, parse: (input: unknown) => input },
@@ -909,10 +1084,14 @@ export function parseInventoryState(value: unknown): InventoryState {
   const state: InventoryState = {
     schema: INVENTORY_SCHEMA,
     revision: shape.revision,
+    lastRecordedAt: current ? timestamp.parse(shape.lastRecordedAt) : 0,
+    reservations: current
+      ? records(shape.reservations, (raw) => reservationRecord.parse(raw))
+      : (Object.create(null) as Record<string, InventoryReservation>),
     storage,
     vessels,
     stocks: records(shape.stocks, (raw): InventoryStock => {
-      if (current) return stockRecord.parse(raw);
+      if (composition) return stockRecord.parse(raw);
       if (material) return { ...materialStockRecord.parse(raw), composition: { kind: 'unknown' } };
       const stock = previousStockRecord.parse(raw);
       return {
@@ -923,7 +1102,7 @@ export function parseInventoryState(value: unknown): InventoryState {
     }),
     lots: material
       ? records(shape.lots, (raw): InventoryLot => {
-          if (current) return lotRecord.parse(raw);
+          if (composition) return lotRecord.parse(raw);
           const lot = previousLotRecord.parse(raw);
           const { origin } = lot;
           const unknown = { kind: 'unknown' as const };

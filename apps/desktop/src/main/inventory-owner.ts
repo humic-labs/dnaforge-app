@@ -3,7 +3,9 @@ import type Database from 'better-sqlite3';
 import {
   applyInventoryCommandBatch,
   createInventoryState,
+  inventoryAvailability,
   parseInventoryState,
+  type InventoryPrincipal,
   type InventoryState,
 } from '@waypoint/domain-services';
 import {
@@ -13,6 +15,8 @@ import {
   inventoryOperationRequestSchema,
   inventoryReadRequestSchema,
   inventoryReceiptSchema,
+  inventoryPrincipalSchema,
+  inventoryReceiptContextSchema,
   type InventoryExecuteRequest,
   type NativeInventoryExecution,
   type NativeInventoryHistoryEntry,
@@ -20,6 +24,7 @@ import {
 } from '../shared/inventory-command';
 import type {
   InventoryChanged,
+  InventoryAvailabilitySnapshot,
   InventoryMaterial,
   InventoryMaterialPage,
   InventoryProject,
@@ -121,8 +126,25 @@ export function createNativeInventoryOwner(options: {
   db(): Database.Database;
   projectAuthority: RegisteredProjectAuthority;
   actor(): string;
+  profileKey: string;
   now?: () => number;
 }) {
+  const authority = inventoryReceiptContextSchema.shape.authority.parse({
+    kind: 'local-profile',
+    profileKey: options.profileKey,
+  });
+  const principal = (invocation: NativeInventoryInvocation): InventoryPrincipal =>
+    inventoryPrincipalSchema.parse(invocation.principal ?? authority);
+  const observationTime = (state: InventoryState): number => {
+    const now = (options.now ?? Date.now)();
+    if (!Number.isSafeInteger(now) || now < 0)
+      throw new NativeDocumentCommandError(
+        'INVENTORY_CLOCK_UNAVAILABLE',
+        'The native inventory clock is unavailable.',
+        false
+      );
+    return Math.max(now, state.lastRecordedAt);
+  };
   const listeners = new Set<(event: InventoryChanged) => void>();
   const resolveProject = (reference: string, mutating: boolean): RegisteredProject => {
     assertCommittedDatabaseReadAllowed(options.db());
@@ -233,7 +255,7 @@ export function createNativeInventoryOwner(options: {
     execute(
       input: unknown,
       assertCurrent: () => void = () => {},
-      trustedActor?: string
+      invocation: NativeInventoryInvocation = {}
     ): NativeInventoryExecution {
       const parsed = inventoryExecuteRequestSchema.parse(input);
       const project = resolveProject(parsed.project, true);
@@ -252,8 +274,6 @@ export function createNativeInventoryOwner(options: {
         );
       const request: InventoryExecuteRequest = { ...parsed, project: project.projectId };
       const canonical = canonicalNativeMutationRequest(request);
-      const actor = trustedActor ?? options.actor();
-      const recordedAt = (options.now ?? Date.now)();
       assertCurrent();
       assertProject();
 
@@ -297,10 +317,17 @@ export function createNativeInventoryOwner(options: {
             return entry.receipt;
           }
           const previous = row ? stateFromRow(row) : createInventoryState();
+          const recordedAt = observationTime(previous);
+          const context = inventoryReceiptContextSchema.parse({
+            version: 1,
+            principal: principal(invocation),
+            authority,
+          });
           const lotMaterials = new Map(
             Object.values(previous.lots).map((lot) => [lot.id, lot.materialId])
           );
-          for (const command of request.commands) {
+          for (const input of request.commands) {
+            const command = input.kind === 'fulfill-reservations' ? input.withdrawal : input;
             if (command.kind === 'create-lot') lotMaterials.set(command.id, command.materialId);
             if (command.kind === 'pool' || command.kind === 'dilute')
               lotMaterials.set(command.lotId, command.materialId);
@@ -338,10 +365,14 @@ export function createNativeInventoryOwner(options: {
                 };
             }
           }
-          const result = applyInventoryCommandBatch(previous, {
-            expectedRevision: request.expectedRevision,
-            commands: request.commands,
-          });
+          const result = applyInventoryCommandBatch(
+            previous,
+            {
+              expectedRevision: request.expectedRevision,
+              commands: request.commands,
+            },
+            { at: recordedAt, principal: context.principal, authority: context.authority }
+          );
           if (!result.ok)
             return {
               status: 'rejected',
@@ -356,8 +387,9 @@ export function createNativeInventoryOwner(options: {
             inventoryId: request.inventoryId,
             operationId: request.operationId,
             revision: result.state.revision,
-            actor,
+            actor: invocation.actor ?? options.actor(),
             recordedAt,
+            context,
             requestDigest: requestDigest(request),
           });
           assertCurrent();
@@ -407,6 +439,23 @@ export function createNativeInventoryOwner(options: {
       return row ? stateFromRow(row) : null;
     },
 
+    availability(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventoryAvailabilitySnapshot | null {
+      const { row } = read(input);
+      if (!row) return null;
+      const state = stateFromRow(row);
+      const asOf = observationTime(state);
+      const caller = principal(invocation);
+      return {
+        ...inventoryAvailability(state, caller, asOf),
+        revision: state.revision,
+        asOf,
+        principal: caller,
+      };
+    },
+
     operation(input: unknown): NativeInventoryReceipt | null {
       const request = inventoryOperationRequestSchema.parse(input);
       const { project, row } = read({ project: request.project, inventoryId: request.inventoryId });
@@ -447,10 +496,20 @@ export function createNativeInventoryOwner(options: {
       let state = createInventoryState();
       for (const saved of journal) {
         const entry = entryFromRow(saved, project.projectId);
-        const result = applyInventoryCommandBatch(state, {
-          expectedRevision: entry.request.expectedRevision,
-          commands: entry.request.commands,
-        });
+        const result = applyInventoryCommandBatch(
+          state,
+          {
+            expectedRevision: entry.request.expectedRevision,
+            commands: entry.request.commands,
+          },
+          entry.receipt.context
+            ? {
+                at: entry.receipt.recordedAt,
+                principal: entry.receipt.context.principal,
+                authority: entry.receipt.context.authority,
+              }
+            : undefined
+        );
         if (!result.ok) return dataError();
         state = result.state;
       }
@@ -464,3 +523,8 @@ export function createNativeInventoryOwner(options: {
 }
 
 export type NativeInventoryOwner = ReturnType<typeof createNativeInventoryOwner>;
+
+export interface NativeInventoryInvocation {
+  readonly actor?: string;
+  readonly principal?: InventoryPrincipal;
+}

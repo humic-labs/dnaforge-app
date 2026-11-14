@@ -25,13 +25,16 @@ let dbPath: string;
 let db: Database.Database;
 let owner: ReturnType<typeof createNativeInventoryOwner>;
 let actor = 'native:fixture-instance';
+const profileKey = 'a'.repeat(64);
+let now = 1_700_000_000_000;
 
 function startOwner() {
   owner = createNativeInventoryOwner({
     db: () => db,
     projectAuthority: createRegisteredProjectAuthority({ db: () => db }),
     actor: () => actor,
-    now: () => 1_700_000_000_000,
+    profileKey,
+    now: () => now,
   });
   owner.initialize();
 }
@@ -98,6 +101,7 @@ beforeEach(() => {
      VALUES('synthetic-material','record','material-schema','material-schema-v1','Synthetic material','{}',41,'registered',1,1)`
   ).run();
   actor = 'native:fixture-instance';
+  now = 1_700_000_000_000;
   startOwner();
 });
 
@@ -107,6 +111,43 @@ afterEach(() => {
 });
 
 describe('durable native inventory commands', () => {
+  it('records stable native profile context and a nondecreasing accepted clock through reopen', () => {
+    createFixture();
+    const first = owner.operation({ ...scope(), operationId: 'receive' });
+    expect(first).toMatchObject({
+      recordedAt: now,
+      context: {
+        version: 1,
+        principal: { kind: 'local-profile', profileKey },
+        authority: { kind: 'local-profile', profileKey },
+      },
+    });
+    expect(owner.inspect(scope())?.lastRecordedAt).toBe(now);
+    const before = owner.inspect(scope());
+    expect(owner.availability(scope())).toMatchObject({
+      revision: 1,
+      asOf: now,
+      principal: { kind: 'local-profile', profileKey },
+      stocks: { stock: { onHand: { kind: 'known', value: '100', unit: 'uL' } } },
+    });
+    expect(owner.inspect(scope())).toEqual(before);
+    db.close();
+    db = openFileTestDb(dbPath);
+    now -= 1_000;
+    actor = 'native:restarted-instance';
+    startOwner();
+    const next = execute('clock-after-restart', 1, [
+      { kind: 'set-quality', stockId: 'stock', quality: 'quarantined', reason: 'Incoming check' },
+    ]);
+    expect(next).toMatchObject({
+      status: 'committed',
+      actor,
+      recordedAt: 1_700_000_000_000,
+      context: first?.context,
+    });
+    expect(owner.replay(scope())).toEqual({ state: owner.inspect(scope()), acceptedOperations: 2 });
+  });
+
   it('reads frozen v1 SQLite state and exact receipts without rewriting them, then accepts new commands', () => {
     const stateJson =
       '{"schema":"dnaforge.inventory.v1","revision":1,"storage":{"legacy-freezer":{"id":"legacy-freezer","name":"Legacy freezer","slots":["A1"],"placement":{"kind":"root"}}},"vessels":{"legacy-tube":{"id":"legacy-tube","name":"Legacy tube","placement":{"kind":"located","storageId":"legacy-freezer","slotId":"A1"},"lifecycle":"active"}},"stocks":{"legacy-stock":{"id":"legacy-stock","vesselId":"legacy-tube","materialId":"synthetic-material","quantity":{"kind":"known","value":"100","unit":"uL"},"quality":"usable"}}}';
@@ -133,7 +174,7 @@ describe('durable native inventory commands', () => {
     startOwner();
     const scope = { project: 'inventory-project', inventoryId: 'legacy-inventory' };
     const read = owner.inspect(scope)!;
-    expect(read.schema).toBe('dnaforge.inventory.v4');
+    expect(read.schema).toBe('dnaforge.inventory.v5');
     expect(read.storage['legacy-freezer'].layout).toEqual({ kind: 'named', slots: ['A1'] });
     expect(owner.replay(scope)).toEqual({ state: read, acceptedOperations: 1 });
     expect(owner.execute(JSON.parse(requestJson))).toEqual(receipt);
@@ -187,10 +228,15 @@ describe('durable native inventory commands', () => {
         { kind: 'create-vessel', id: 'tube', name: 'Tube', placement: { kind: 'unplaced' } },
       ],
     };
-    const receipt = owner.execute(request, () => {}, 'human:desktop:7');
+    const receipt = owner.execute(request, () => {}, { actor: 'human:desktop:7' });
     expect(receipt).toMatchObject({ status: 'committed', actor: 'human:desktop:7' });
     expect(notifications).toHaveLength(1);
-    expect(owner.execute(request, () => {}, 'agent:another-identity')).toEqual(receipt);
+    expect(
+      owner.execute(request, () => {}, {
+        actor: 'agent:another-identity',
+        principal: { kind: 'agent', identityId: 'another-identity' },
+      })
+    ).toEqual(receipt);
     expect(notifications).toHaveLength(1);
     unsubscribe();
     expect(owner.projects()[0].defaultInventoryId).toBe(
@@ -202,6 +248,72 @@ describe('durable native inventory commands', () => {
       ],
       nextCursor: null,
     });
+  });
+
+  it('recovers original receipts before consulting an unavailable native clock', () => {
+    createFixture();
+    const original = owner.history(scope())[0];
+    const before = owner.inspect(scope());
+    now = Number.NaN;
+    expect(owner.execute(original.request)).toEqual(original.receipt);
+    expect(() =>
+      execute('invalid-clock', 1, [
+        { kind: 'consume', stockId: 'stock', quantity: { value: '1', unit: 'uL' }, reason: 'Use' },
+      ])
+    ).toThrow('INVENTORY_CLOCK_UNAVAILABLE');
+    expect(owner.inspect(scope())).toEqual(before);
+    expect(owner.operation({ ...scope(), operationId: 'invalid-clock' })).toBeNull();
+  });
+
+  it('admits scientific output references inside atomic reservation fulfillment', () => {
+    createFixture();
+    expect(
+      execute('prepare-reserved-pool', 1, [
+        { kind: 'create-vessel', id: 'other-tube', name: 'Other', placement: { kind: 'unplaced' } },
+        { kind: 'create-vessel', id: 'pool-tube', name: 'Pool', placement: { kind: 'unplaced' } },
+        {
+          kind: 'receive-stock',
+          id: 'other-stock',
+          vesselId: 'other-tube',
+          materialId: 'synthetic-material',
+          quantity: { kind: 'known', value: '100', unit: 'uL' },
+          quality: 'usable',
+        },
+        {
+          kind: 'reserve-quantity',
+          id: 'pool-hold',
+          stockId: 'stock',
+          quantity: { value: '5', unit: 'uL' },
+          deadline: null,
+          purpose: 'Pool preparation',
+        },
+      ])
+    ).toMatchObject({ status: 'committed', revision: 2 });
+    const before = owner.inspect(scope());
+    expect(
+      execute('unadmitted-pool', 2, [
+        {
+          kind: 'fulfill-reservations',
+          claims: [{ reservationId: 'pool-hold', quantity: { value: '5', unit: 'uL' } }],
+          withdrawal: {
+            kind: 'pool',
+            lotId: 'pool-lot',
+            stockId: 'pool-stock',
+            vesselId: 'pool-tube',
+            materialId: 'unadmitted-material',
+            name: 'Pool',
+            inputs: [
+              { stockId: 'stock', quantity: { value: '5', unit: 'uL' } },
+              { stockId: 'other-stock', quantity: { value: '5', unit: 'uL' } },
+            ],
+            mixing: 'unknown',
+            reason: 'Prepare pool',
+          },
+        },
+      ])
+    ).toMatchObject({ status: 'rejected', code: 'INVENTORY_MATERIAL_UNAVAILABLE' });
+    expect(owner.inspect(scope())).toEqual(before);
+    expect(owner.operation({ ...scope(), operationId: 'unadmitted-pool' })).toBeNull();
   });
 
   it('preserves exact aliquot accounting and lot attribution through receipt retry and SQLite reopen', () => {

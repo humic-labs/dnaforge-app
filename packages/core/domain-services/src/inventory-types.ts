@@ -12,7 +12,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v4' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v5' as const;
+export const INVENTORY_COMPOSITION_SCHEMA = 'dnaforge.inventory.v4' as const;
 export const INVENTORY_MATERIAL_SCHEMA = 'dnaforge.inventory.v3' as const;
 export const INVENTORY_LAYOUT_SCHEMA = 'dnaforge.inventory.v2' as const;
 export const INVENTORY_DECIMAL_PATTERN = '^(?:0|[1-9]\\d*)(?:\\.\\d+)?$';
@@ -141,10 +142,96 @@ export interface InventoryStock {
 export interface InventoryState {
   readonly schema: typeof INVENTORY_SCHEMA;
   readonly revision: number;
+  readonly lastRecordedAt: number;
   readonly storage: Readonly<Record<string, InventoryStorage>>;
   readonly vessels: Readonly<Record<string, InventoryVessel>>;
   readonly stocks: Readonly<Record<string, InventoryStock>>;
   readonly lots: Readonly<Record<string, InventoryLot>>;
+  readonly reservations: Readonly<Record<string, InventoryReservation>>;
+}
+
+export type InventoryPrincipal =
+  | { readonly kind: 'local-profile'; readonly profileKey: string }
+  | { readonly kind: 'agent'; readonly identityId: string };
+
+export interface InventoryAuthority {
+  readonly kind: 'local-profile';
+  readonly profileKey: string;
+}
+
+export interface InventoryExecutionContext {
+  readonly at: number;
+  readonly principal: InventoryPrincipal;
+  readonly authority: InventoryAuthority;
+}
+
+export type InventoryReservationLifecycle =
+  | { readonly kind: 'active' }
+  | { readonly kind: 'fulfilled'; readonly at: number }
+  | { readonly kind: 'released'; readonly at: number; readonly reason: string }
+  | {
+      readonly kind: 'cancelled';
+      readonly at: number;
+      readonly reason: string;
+      readonly authority: InventoryAuthority;
+    }
+  | { readonly kind: 'expired'; readonly at: number };
+
+interface InventoryReservationFacts {
+  readonly id: string;
+  readonly holder: InventoryPrincipal;
+  readonly purpose: string;
+  readonly createdAt: number;
+  readonly deadline: number | null;
+  readonly lifecycle: InventoryReservationLifecycle;
+}
+
+export type InventoryReservation = InventoryReservationFacts &
+  (
+    | {
+        readonly kind: 'quantity';
+        readonly stockId: string;
+        readonly quantity: InventoryVolume;
+        readonly remaining: InventoryVolume;
+      }
+    | { readonly kind: 'item'; readonly item: InventoryPhysicalItem }
+  );
+
+export type InventoryAvailabilityBlocker =
+  | { readonly code: 'QUANTITY_UNKNOWN' }
+  | { readonly code: 'STOCK_QUARANTINED' }
+  | { readonly code: 'VESSEL_DISPOSED' }
+  | { readonly code: 'ALLOCATION_SHORTFALL' }
+  | { readonly code: 'EXPIRY_PENDING' }
+  | { readonly code: 'ITEM_RESERVED'; readonly reservationIds: readonly string[] };
+
+export interface InventoryStockAvailability {
+  readonly stockId: string;
+  readonly onHand: InventoryQuantity;
+  readonly held: InventoryVolume;
+  readonly unreserved: InventoryQuantity;
+  readonly mine: InventoryVolume;
+  readonly deadVolume: InventoryQuantity;
+  readonly blockers: readonly InventoryAvailabilityBlocker[];
+  readonly reservationIds: readonly string[];
+}
+
+export interface InventoryReservationAvailability {
+  readonly reservation: InventoryReservation;
+  readonly mine: boolean;
+  readonly overdue: boolean;
+  readonly blockers: readonly InventoryAvailabilityBlocker[];
+  readonly actions: {
+    readonly release: boolean;
+    readonly cancel: boolean;
+    readonly expire: boolean;
+    readonly fulfill: boolean;
+  };
+}
+
+export interface InventoryAvailability {
+  readonly stocks: Readonly<Record<string, InventoryStockAvailability>>;
+  readonly reservations: Readonly<Record<string, InventoryReservationAvailability>>;
 }
 
 export interface InventoryWithdrawal {
@@ -236,6 +323,7 @@ export type InventoryMaterialCommand =
   | (InventoryLegacyDiluteCommand & { readonly mixing: InventoryMixing });
 
 export type InventoryCommand =
+  | InventoryReservationCommand
   | InventoryMaterialCommand
   | {
       readonly kind: 'create-storage';
@@ -301,6 +389,49 @@ export interface InventoryCommandBatch {
   readonly commands: readonly InventoryCommand[];
 }
 
+export type InventoryWithdrawalCommand = Extract<
+  | InventoryMaterialCommand
+  | {
+      readonly kind: 'consume';
+      readonly stockId: string;
+      readonly quantity: InventoryVolume;
+      readonly reason: string;
+    },
+  { readonly kind: 'transfer' | 'pool' | 'dilute' | 'consume' }
+>;
+
+export type InventoryReservationCommand =
+  | {
+      readonly kind: 'reserve-quantity';
+      readonly id: string;
+      readonly stockId: string;
+      readonly quantity: InventoryVolume;
+      readonly deadline: number | null;
+      readonly purpose: string;
+    }
+  | {
+      readonly kind: 'reserve-item';
+      readonly id: string;
+      readonly item: InventoryPhysicalItem;
+      readonly deadline: number | null;
+      readonly purpose: string;
+    }
+  | {
+      readonly kind: 'release-reservation';
+      readonly reservationId: string;
+      readonly reason: string;
+    }
+  | { readonly kind: 'cancel-reservation'; readonly reservationId: string; readonly reason: string }
+  | { readonly kind: 'expire-reservations'; readonly ids: readonly string[] }
+  | {
+      readonly kind: 'fulfill-reservations';
+      readonly claims: readonly {
+        readonly reservationId: string;
+        readonly quantity: InventoryVolume;
+      }[];
+      readonly withdrawal: InventoryWithdrawalCommand;
+    };
+
 export type InventoryErrorCode =
   | 'INVALID_INVENTORY_INPUT'
   | 'REVISION_CONFLICT'
@@ -327,7 +458,19 @@ export type InventoryErrorCode =
   | 'LOT_NOT_FOUND'
   | 'INCOMPATIBLE_PROVENANCE'
   | 'CAPACITY_EXCEEDED'
-  | 'DEAD_VOLUME_REQUIRED';
+  | 'DEAD_VOLUME_REQUIRED'
+  | 'CONTEXT_REQUIRED'
+  | 'CLOCK_REGRESSION'
+  | 'RESERVATION_NOT_FOUND'
+  | 'RESERVATION_NOT_ACTIVE'
+  | 'RESERVATION_NOT_OWNED'
+  | 'RESERVATION_CONFLICT'
+  | 'EXPIRY_PENDING'
+  | 'ALLOCATION_SHORTFALL'
+  | 'QUANTITY_RESERVED'
+  | 'ITEM_RESERVED'
+  | 'INVALID_RESERVATION_CLAIM'
+  | 'AUTHORITY_REQUIRED';
 
 export type InventoryTransition =
   | { readonly ok: true; readonly state: InventoryState }
@@ -341,9 +484,11 @@ export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
     revision: 0,
+    lastRecordedAt: 0,
     storage: Object.create(null) as Record<string, InventoryStorage>,
     vessels: Object.create(null) as Record<string, InventoryVessel>,
     stocks: Object.create(null) as Record<string, InventoryStock>,
     lots: Object.create(null) as Record<string, InventoryLot>,
+    reservations: Object.create(null) as Record<string, InventoryReservation>,
   };
 }

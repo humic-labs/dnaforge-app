@@ -2,9 +2,11 @@ import {
   type InventoryCommand,
   type InventoryCommandBatch,
   type InventoryErrorCode,
+  type InventoryExecutionContext,
   type InventoryLayout,
   type InventoryLot,
   type InventoryPhysicalItem,
+  type InventoryReservation,
   type InventoryState,
   type InventoryStock,
   type InventoryStorage,
@@ -25,16 +27,27 @@ import {
   inventoryWithdrawalResult,
   unknownInventoryVesselLimits,
 } from './inventory-materials';
-import { InventoryValidationError, parseInventoryCommandBatch } from './inventory-validation';
+import {
+  InventoryValidationError,
+  parseInventoryCommandBatch,
+  parseInventoryExecutionContext,
+} from './inventory-validation';
+import {
+  applyInventoryReservationCommand,
+  inventoryReservationGuard,
+  prepareInventoryFulfillment,
+} from './inventory-reservations';
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
 type Placement = InventoryStoragePlacement | InventoryVesselPlacement;
 type PhysicalRecord = InventoryStorage | InventoryVessel;
 interface Draft {
+  lastRecordedAt: number;
   storage: Record<string, InventoryStorage>;
   vessels: Record<string, InventoryVessel>;
   stocks: Record<string, InventoryStock>;
   lots: Record<string, InventoryLot>;
+  reservations: Record<string, InventoryReservation>;
 }
 
 function failure(code: InventoryErrorCode, message: string): Failure {
@@ -42,7 +55,7 @@ function failure(code: InventoryErrorCode, message: string): Failure {
 }
 
 function hasId(state: Draft, id: string): boolean {
-  return [state.storage, state.vessels, state.stocks, state.lots].some((rows) =>
+  return [state.storage, state.vessels, state.stocks, state.lots, state.reservations].some((rows) =>
     Object.hasOwn(rows, id)
   );
 }
@@ -209,7 +222,19 @@ function stockVessel(state: Draft, stock: InventoryStock): InventoryVessel | Fai
     : vessel;
 }
 
-function applyCommand(state: Draft, command: InventoryCommand): Failure | null {
+function applyCommand(
+  state: Draft,
+  command: InventoryCommand,
+  context?: InventoryExecutionContext
+): Failure | null {
+  const reservation = applyInventoryReservationCommand(state, command, context);
+  if (reservation !== undefined) return reservation;
+  if (command.kind === 'fulfill-reservations') {
+    const invalid = prepareInventoryFulfillment(state, command, context);
+    return invalid ?? applyCommand(state, command.withdrawal, context);
+  }
+  const reserved = inventoryReservationGuard(state, command, context);
+  if (reserved) return reserved;
   const material = applyInventoryMaterialCommand(state, command);
   if (material !== undefined) return material;
   switch (command.kind) {
@@ -379,10 +404,12 @@ function applyCommand(state: Draft, command: InventoryCommand): Failure | null {
 
 export function applyInventoryCommandBatch(
   state: InventoryState,
-  batch: InventoryCommandBatch
+  batch: InventoryCommandBatch,
+  context?: InventoryExecutionContext
 ): InventoryTransition {
   try {
     batch = parseInventoryCommandBatch(batch);
+    if (context !== undefined) context = parseInventoryExecutionContext(context);
   } catch (error) {
     if (error instanceof InventoryValidationError)
       return failure('INVALID_INVENTORY_INPUT', error.message);
@@ -395,15 +422,22 @@ export function applyInventoryCommandBatch(
     );
   if (state.revision === Number.MAX_SAFE_INTEGER)
     return failure('REVISION_EXHAUSTED', 'The inventory revision cannot advance safely.');
+  if (context && context.at < state.lastRecordedAt)
+    return failure('CLOCK_REGRESSION', 'The trusted timestamp precedes the inventory clock floor.');
   const draft: Draft = {
+    lastRecordedAt: context?.at ?? state.lastRecordedAt,
     storage: Object.assign(Object.create(null) as Record<string, InventoryStorage>, state.storage),
     vessels: Object.assign(Object.create(null) as Record<string, InventoryVessel>, state.vessels),
     stocks: Object.assign(Object.create(null) as Record<string, InventoryStock>, state.stocks),
     lots: Object.assign(Object.create(null) as Record<string, InventoryLot>, state.lots),
+    reservations: Object.assign(
+      Object.create(null) as Record<string, InventoryReservation>,
+      state.reservations
+    ),
   };
   try {
     for (const command of batch.commands) {
-      const invalid = applyCommand(draft, command);
+      const invalid = applyCommand(draft, command, context);
       if (invalid) return invalid;
     }
   } catch (error) {

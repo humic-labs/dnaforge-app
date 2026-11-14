@@ -1,5 +1,6 @@
 import type { InventoryMaterialDialog } from './InventoryMaterialForm';
 import type { InventoryCompositionDialog } from './InventoryCompositionForm';
+import type { InventoryReservationDialog } from './InventoryReservations';
 import {
   inventoryStoragePositions,
   inventoryStackItems,
@@ -23,6 +24,7 @@ export type InventoryItem = { kind: 'storage' | 'vessel'; id: string };
 export type InventoryDialog =
   | InventoryMaterialDialog
   | InventoryCompositionDialog
+  | InventoryReservationDialog
   | { kind: 'none' }
   | { kind: 'location'; parentId?: string }
   | { kind: 'receive'; placement?: InventoryLocatedPlacement; vesselId?: string }
@@ -142,6 +144,18 @@ export function destinationPositions(
 
 export function historyLabel(command: InventoryCommand, state: InventoryState): string {
   switch (command.kind) {
+    case 'reserve-quantity':
+      return `Reserved ${command.quantity.value} ${command.quantity.unit === 'uL' ? 'µL' : command.quantity.unit} for ${command.purpose}`;
+    case 'reserve-item':
+      return `Reserved item for ${command.purpose}`;
+    case 'release-reservation':
+      return 'Released reservation';
+    case 'cancel-reservation':
+      return 'Cancelled reservation';
+    case 'expire-reservations':
+      return 'Recorded reservation expiry';
+    case 'fulfill-reservations':
+      return `Fulfilled reservation · ${historyLabel(command.withdrawal, state)}`;
     case 'create-lot':
       return `Added batch ${command.name}`;
     case 'receive-lot-stock':

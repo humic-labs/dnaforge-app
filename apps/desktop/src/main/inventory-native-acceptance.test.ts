@@ -12,6 +12,7 @@ import type {
   NativeInventoryHistoryEntry,
   NativeInventoryReceipt,
 } from '../shared/inventory-command';
+import type { InventoryAvailabilitySnapshot } from '../shared/inventory-client';
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
@@ -27,10 +28,12 @@ import { createRegisteredProjectAuthority } from './registered-project-authority
 import { createNativeInventoryOwner } from './inventory-owner';
 import { startNativeDocumentCommandServer } from './native-document-command-server';
 import { createNativeAgentGrantAuthorizer } from './agent-grant-authority';
+import { nativeDocumentProfileKey } from './native-document-owner-identity';
 
 type InventoryNativeCommand =
   | 'inventory.execute'
   | 'inventory.inspect'
+  | 'inventory.availability'
   | 'inventory.operation'
   | 'inventory.history'
   | 'inventory.projects'
@@ -81,12 +84,20 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
   let server: Server | undefined;
   let owner: ReturnType<typeof createNativeInventoryOwner>;
   let instance = 0;
+  let clock = 1_700_000_000_001;
   let authority: { ownerInstanceId: string; token: string };
   const scope = { project: 'Synthetic inventory project', inventoryId: 'inventory-synthetic' };
   const projectScope = { kind: 'project-roots' as const, roots: [projectPath] };
+  const profileKey = nativeDocumentProfileKey(root);
   const grantSnapshot = [
     {
       id: 'synthetic-inventory-writer',
+      scopes: ['read-workspace', 'write-workspace'],
+      revokedAt: null,
+      expiresAt: null,
+    },
+    {
+      id: 'synthetic-other-writer',
       scopes: ['read-workspace', 'write-workspace'],
       revokedAt: null,
       expiresAt: null,
@@ -135,7 +146,8 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       db: () => db!,
       projectAuthority,
       actor: () => `native:${authority.ownerInstanceId}`,
-      now: () => 1_700_000_000_000 + instance,
+      profileKey,
+      now: () => clock,
     });
     owner.initialize();
     server = await startNativeDocumentCommandServer({
@@ -222,6 +234,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     const keys: Record<InventoryNativeCommand, string> = {
       'inventory.execute': 'execution',
       'inventory.inspect': 'state',
+      'inventory.availability': 'availability',
       'inventory.operation': 'receipt',
       'inventory.history': 'entries',
       'inventory.projects': 'projects',
@@ -232,7 +245,8 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
   }
 
   async function loseAcknowledgement(
-    request: InventoryExecuteRequest
+    request: InventoryExecuteRequest,
+    evidenceKey = 'lostAcknowledgement'
   ): Promise<NativeInventoryReceipt> {
     if (!server) throw new Error('Fixture server is closed.');
     const attempt: Record<string, unknown> = {
@@ -243,7 +257,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       phase: 'connecting',
       responseBodyConsumed: false,
     };
-    evidence.lostAcknowledgement = attempt;
+    evidence[evidenceKey] = attempt;
     const address = new URL(server.url);
     const socket = createConnection({ host: address.hostname, port: Number(address.port) });
     socket.pause();
@@ -281,7 +295,11 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       let receipt: NativeInventoryReceipt | null = null;
       while (!receipt && Date.now() < deadline) {
         await new Promise<void>((accept) => setImmediate(accept));
-        receipt = owner.operation({ ...scope, operationId: request.operationId });
+        receipt = owner.operation({
+          project: request.project,
+          inventoryId: request.inventoryId,
+          operationId: request.operationId,
+        });
       }
       if (!receipt)
         throw new Error('Lost-acknowledgement command did not commit within two seconds.');
@@ -331,6 +349,12 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     expect(projects[0].defaultInventoryId).toBe(`inventory:${projects[0].projectId}`);
     expect(
       await success('inspect absent inventory dictionary', 'inventory.inspect', {
+        ...scope,
+        inventoryId: 'absent',
+      })
+    ).toBeNull();
+    expect(
+      await success('availability absent inventory dictionary', 'inventory.availability', {
         ...scope,
         inventoryId: 'absent',
       })
@@ -408,6 +432,11 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       status: 'committed',
       revision: 1,
       actor: 'agent:synthetic-inventory-writer',
+      context: {
+        version: 1,
+        principal: { kind: 'agent', identityId: 'synthetic-inventory-writer' },
+        authority: { kind: 'local-profile', profileKey },
+      },
     });
     expect(
       await success<NativeInventoryExecution>('move tube', 'inventory.execute', {
@@ -521,6 +550,277 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       )
     ).toHaveLength(3);
 
+    const reservationScope = { ...scope, inventoryId: 'inventory-reservations' };
+    expect(
+      await success<NativeInventoryExecution>('receive reservation stock', 'inventory.execute', {
+        ...reservationScope,
+        operationId: 'reservation-receive',
+        expectedRevision: 0,
+        commands: receive,
+      })
+    ).toMatchObject({ status: 'committed', revision: 1 });
+    const identities = ['synthetic-inventory-writer', 'synthetic-other-writer'];
+    const agents = identities.map((identityId) => ({
+      agent: { identityId, capabilities: ['read-workspace', 'write-workspace'] },
+    }));
+    const deadline = clock + 1_000;
+    const holdRequests: InventoryExecuteRequest[] = ['70', '40'].map((value, index) => ({
+      ...reservationScope,
+      operationId: `competing-hold-${index}`,
+      expectedRevision: 1,
+      commands: [
+        {
+          kind: 'reserve-quantity',
+          id: `hold-${index}`,
+          stockId: 'stock',
+          quantity: { value, unit: 'uL' },
+          deadline,
+          purpose: 'Synthetic competing experiment',
+        },
+      ],
+    }));
+    const competition = await Promise.all(
+      holdRequests.map((request, index) =>
+        success<NativeInventoryExecution>(
+          `competing granted holder ${index}`,
+          'inventory.execute',
+          request,
+          agents[index]
+        )
+      )
+    );
+    expect(competition.filter((result) => result.status === 'committed')).toHaveLength(1);
+    expect(competition.filter((result) => result.status === 'rejected')).toEqual([
+      expect.objectContaining({ code: 'REVISION_CONFLICT', currentRevision: 2 }),
+    ]);
+    const winnerIndex = competition.findIndex((result) => result.status === 'committed');
+    const loserIndex = 1 - winnerIndex;
+    const winnerHold = `hold-${winnerIndex}`;
+    const winnerVolume = winnerIndex === 0 ? '70' : '40';
+    const afterCompetition = await success<InventoryState>(
+      'inspect latest inventory after competing hold conflict',
+      'inventory.inspect',
+      reservationScope,
+      agents[loserIndex]
+    );
+    expect(afterCompetition.revision).toBe(2);
+    expect(afterCompetition.stocks.stock.quantity).toEqual({
+      kind: 'known',
+      value: '100',
+      unit: 'uL',
+    });
+    expect(Object.keys(afterCompetition.reservations)).toHaveLength(1);
+    const loserRequest = {
+      ...holdRequests[loserIndex],
+      operationId: `competing-hold-${loserIndex}-fresh`,
+      expectedRevision: afterCompetition.revision,
+    };
+    expect(
+      await success<NativeInventoryExecution>(
+        'refuse over-allocation after fresh inspection',
+        'inventory.execute',
+        loserRequest,
+        agents[loserIndex]
+      )
+    ).toMatchObject({ status: 'rejected', currentRevision: 2 });
+    expect(
+      owner.operation({ ...reservationScope, operationId: loserRequest.operationId })
+    ).toBeNull();
+    const heldState = owner.inspect(reservationScope);
+    const grantedAvailability = await Promise.all(
+      agents.map((agent, index) =>
+        success<InventoryAvailabilitySnapshot>(
+          `read availability as granted holder ${index}`,
+          'inventory.availability',
+          reservationScope,
+          agent
+        )
+      )
+    );
+    for (const [index, available] of grantedAvailability.entries()) {
+      expect(available).toMatchObject({
+        revision: 2,
+        asOf: clock,
+        principal: { kind: 'agent', identityId: identities[index] },
+        stocks: {
+          stock: {
+            onHand: { kind: 'known', value: '100', unit: 'uL' },
+            held: { value: winnerVolume, unit: 'uL' },
+            mine: { value: index === winnerIndex ? winnerVolume : '0', unit: 'uL' },
+          },
+        },
+      });
+    }
+    clock = deadline;
+    const expiryPending = await success<InventoryAvailabilitySnapshot>(
+      'observe exact deadline without silently expiring',
+      'inventory.availability',
+      reservationScope,
+      agents[winnerIndex]
+    );
+    expect(expiryPending.reservations[winnerHold]).toMatchObject({
+      overdue: true,
+      actions: { fulfill: false, expire: true },
+    });
+    expect(expiryPending.stocks.stock.held).toEqual({ value: winnerVolume, unit: 'uL' });
+    expect(owner.inspect(reservationScope)).toEqual(heldState);
+    expect(
+      await success<NativeInventoryExecution>(
+        'refuse fulfillment at exact deadline',
+        'inventory.execute',
+        {
+          ...reservationScope,
+          operationId: 'deadline-fulfill',
+          expectedRevision: 2,
+          commands: [
+            {
+              kind: 'fulfill-reservations',
+              claims: [{ reservationId: winnerHold, quantity: { value: '1', unit: 'uL' } }],
+              withdrawal: {
+                kind: 'consume',
+                stockId: 'stock',
+                quantity: { value: '1', unit: 'uL' },
+                reason: 'Synthetic deadline refusal',
+              },
+            },
+          ],
+        },
+        agents[winnerIndex]
+      )
+    ).toMatchObject({ status: 'rejected', currentRevision: 2 });
+    expect(owner.operation({ ...reservationScope, operationId: 'deadline-fulfill' })).toBeNull();
+    expect(owner.inspect(reservationScope)).toEqual(heldState);
+    expect(
+      await success<NativeInventoryExecution>(
+        'record expiry at exact trusted deadline',
+        'inventory.execute',
+        {
+          ...reservationScope,
+          operationId: 'record-expiry',
+          expectedRevision: 2,
+          commands: [{ kind: 'expire-reservations', ids: [winnerHold] }],
+        },
+        agents[loserIndex]
+      )
+    ).toMatchObject({ status: 'committed', revision: 3, recordedAt: deadline });
+    clock -= 5_000;
+    const profileHoldRequest: InventoryExecuteRequest = {
+      ...reservationScope,
+      operationId: 'profile-hold',
+      expectedRevision: 3,
+      commands: [
+        {
+          kind: 'reserve-quantity',
+          id: 'profile-hold',
+          stockId: 'stock',
+          quantity: { value: '30', unit: 'uL' },
+          deadline: null,
+          purpose: 'Synthetic local profile experiment',
+        },
+      ],
+    };
+    const profileHoldReceipt = await loseAcknowledgement(
+      profileHoldRequest,
+      'reservationLostAcknowledgement'
+    );
+    expect(profileHoldReceipt).toMatchObject({
+      status: 'committed',
+      revision: 4,
+      recordedAt: deadline,
+      context: {
+        version: 1,
+        principal: { kind: 'local-profile', profileKey },
+        authority: { kind: 'local-profile', profileKey },
+      },
+    });
+    expect(
+      await success<NativeInventoryExecution>(
+        'recover exact lost reservation acknowledgement',
+        'inventory.execute',
+        profileHoldRequest
+      )
+    ).toEqual(profileHoldReceipt);
+    expect(
+      await success<NativeInventoryExecution>('fulfill profile hold once', 'inventory.execute', {
+        ...reservationScope,
+        operationId: 'profile-fulfill',
+        expectedRevision: 4,
+        commands: [
+          {
+            kind: 'fulfill-reservations',
+            claims: [{ reservationId: 'profile-hold', quantity: { value: '20', unit: 'uL' } }],
+            withdrawal: {
+              kind: 'consume',
+              stockId: 'stock',
+              quantity: { value: '20', unit: 'uL' },
+              reason: 'Synthetic reservation fulfillment',
+            },
+          },
+        ],
+      })
+    ).toMatchObject({ status: 'committed', revision: 5, recordedAt: deadline });
+    const reservationBeforeRestart = owner.inspect(reservationScope);
+    const reservationHistoryBeforeRestart = owner.history(reservationScope);
+    const profileAvailability = await success<InventoryAvailabilitySnapshot>(
+      'inspect remaining profile allocation before restart',
+      'inventory.availability',
+      reservationScope
+    );
+    expect(profileAvailability).toMatchObject({
+      revision: 5,
+      asOf: deadline,
+      principal: { kind: 'local-profile', profileKey },
+      stocks: {
+        stock: {
+          onHand: { kind: 'known', value: '80', unit: 'uL' },
+          held: { value: '10', unit: 'uL' },
+          mine: { value: '10', unit: 'uL' },
+          unreserved: { kind: 'known', value: '70', unit: 'uL' },
+        },
+      },
+    });
+    evidence.reservationBeforeRestart = {
+      competition,
+      heldState,
+      grantedAvailability,
+      expiryPending,
+      state: reservationBeforeRestart,
+      history: reservationHistoryBeforeRestart,
+      profileHoldReceipt,
+      availability: profileAvailability,
+    };
+    for (const request of [
+      { ...profileHoldRequest, at: 0 },
+      {
+        ...profileHoldRequest,
+        context: {
+          principal: { kind: 'agent', identityId: identities[winnerIndex] },
+          at: 0,
+        },
+      },
+      {
+        ...profileHoldRequest,
+        commands: [
+          {
+            ...profileHoldRequest.commands[0],
+            holder: { kind: 'agent', identityId: identities[winnerIndex] },
+          },
+        ],
+      },
+    ]) {
+      const forged = await call(
+        'reject caller-supplied holder or execution time',
+        'inventory.execute',
+        request
+      );
+      expect(forged).toMatchObject({
+        status: 400,
+        body: { ok: false, accepted: false, error: { code: 'INVALID_NATIVE_DOCUMENT_REQUEST' } },
+      });
+      expect(owner.inspect(reservationScope)).toEqual(reservationBeforeRestart);
+      expect(owner.history(reservationScope)).toEqual(reservationHistoryBeforeRestart);
+    }
+
     await server!.close();
     server = undefined;
     db.close();
@@ -528,6 +828,37 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     db = openFileTestDb(dbPath);
     await start();
     evidence.closedAndReopened = true;
+    expect(owner.inspect(reservationScope)).toEqual(reservationBeforeRestart);
+    expect(owner.history(reservationScope)).toEqual(reservationHistoryBeforeRestart);
+    expect(
+      await success<InventoryAvailabilitySnapshot>(
+        'read exact profile availability after native reopen',
+        'inventory.availability',
+        reservationScope
+      )
+    ).toEqual(profileAvailability);
+    expect(
+      await success<NativeInventoryExecution>(
+        'retry original reservation after later fulfillment and native reopen',
+        'inventory.execute',
+        profileHoldRequest
+      )
+    ).toEqual(profileHoldReceipt);
+    const reservationReplay = owner.replay(reservationScope);
+    expect(reservationReplay).toEqual({
+      state: reservationBeforeRestart,
+      acceptedOperations: 5,
+    });
+    evidence.reservationReopenedReadback = {
+      state: owner.inspect(reservationScope),
+      history: owner.history(reservationScope),
+      availability: owner.availability(reservationScope),
+      receipt: owner.operation({
+        ...reservationScope,
+        operationId: profileHoldRequest.operationId,
+      }),
+      replay: reservationReplay,
+    };
     expect(
       await success<NativeInventoryExecution>(
         'retry original consume after restart',

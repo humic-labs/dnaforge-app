@@ -10,12 +10,17 @@ import {
   type NativeInventoryHistoryEntry,
   type NativeInventoryReceipt,
 } from '../../shared/inventory-command';
-import type { InventoryClient, InventoryProject } from '../../shared/inventory-client';
+import type {
+  InventoryAvailabilitySnapshot,
+  InventoryClient,
+  InventoryProject,
+} from '../../shared/inventory-client';
 
 export interface InventoryData {
   project: InventoryProject;
   state: InventoryState;
   history: readonly NativeInventoryHistoryEntry[];
+  availability: InventoryAvailabilitySnapshot | null;
 }
 
 export interface InventoryAttempt {
@@ -248,25 +253,37 @@ export class InventoryController {
     const request = { project: project.projectId, inventoryId: project.defaultInventoryId };
     let data: InventoryData;
     for (let attempt = 0; ; attempt += 1) {
-      const state = (await this.client.inspect(request)) ?? createInventoryState();
-      const history = await this.client.history({
-        ...request,
-        afterRevision: Math.max(0, state.revision - 100),
-        limit: 100,
-      });
+      const inspected = await this.client.inspect(request);
+      const state = inspected ?? createInventoryState();
+      const [history, availability] = await Promise.all([
+        this.client.history({
+          ...request,
+          afterRevision: Math.max(0, state.revision - 100),
+          limit: 100,
+        }),
+        this.client.availability(request),
+      ]);
+      const observed =
+        this.observedRevision.get(scopeKey(request.project, request.inventoryId)) ?? 0;
+      if (
+        (inspected && !availability) ||
+        (availability && availability.revision !== state.revision) ||
+        state.revision < observed
+      ) {
+        if (attempt < 2) continue;
+        throw new Error(
+          'Inventory and availability changed while being read. Refresh to try again.'
+        );
+      }
       data = {
         project:
           this.snapshot.projects.find((candidate) => candidate.projectId === project.projectId) ??
           project,
         state,
-        history,
+        history: history.filter((entry) => entry.receipt.revision <= state.revision),
+        availability,
       };
-      if (
-        attempt >= 2 ||
-        state.revision >=
-          (this.observedRevision.get(scopeKey(request.project, request.inventoryId)) ?? 0)
-      )
-        return data;
+      return data;
     }
   }
 

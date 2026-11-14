@@ -87,6 +87,15 @@ const commandSchema = z.discriminatedUnion('command', [
     .object({
       ownerInstanceId: identity,
       projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.availability'),
+      request: inventoryReadRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
       command: z.literal('inventory.operation'),
       request: inventoryOperationRequestSchema,
       agent: agentAuthoritySchema.optional(),
@@ -227,7 +236,7 @@ export async function startNativeDocumentCommandServer(options: {
   administration?: Pick<AdministrationOwner, 'execute'>;
   inventory?: Pick<
     ReturnType<typeof createNativeInventoryOwner>,
-    'execute' | 'inspect' | 'operation' | 'history' | 'projects' | 'materials'
+    'execute' | 'inspect' | 'availability' | 'operation' | 'history' | 'projects' | 'materials'
   >;
   authorizeInventoryAgent?(agent: NativeAgentAuthority, required: readonly string[]): Promise<void>;
   getAuthority(): NativeCommandAuthority | null;
@@ -321,6 +330,7 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'administration.execute' ||
           body.command === 'inventory.execute' ||
           body.command === 'inventory.inspect' ||
+          body.command === 'inventory.availability' ||
           body.command === 'inventory.operation' ||
           body.command === 'inventory.history' ||
           body.command === 'inventory.projects' ||
@@ -372,15 +382,30 @@ export async function startNativeDocumentCommandServer(options: {
               }
               if (body.command === 'inventory.execute') {
                 const request = body.request;
-                const actor = body.agent ? `agent:${body.agent.identityId}` : undefined;
+                const invocation = body.agent
+                  ? {
+                      actor: `agent:${body.agent.identityId}`,
+                      principal: { kind: 'agent' as const, identityId: body.agent.identityId },
+                    }
+                  : undefined;
                 return () => ({
                   kind: 'execution',
-                  execution: receiver.execute(request, assertCurrent, actor),
+                  execution: receiver.execute(request, assertCurrent, invocation),
                 });
               }
               if (body.command === 'inventory.inspect') {
                 const request = body.request;
                 return () => ({ kind: 'inspection', state: receiver.inspect(request) });
+              }
+              if (body.command === 'inventory.availability') {
+                const request = body.request;
+                const invocation = body.agent
+                  ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
+                  : undefined;
+                return () => ({
+                  kind: 'availability',
+                  availability: receiver.availability(request, invocation),
+                });
               }
               if (body.command === 'inventory.operation') {
                 const request = body.request;
@@ -427,6 +452,7 @@ export async function startNativeDocumentCommandServer(options: {
           assertCurrent();
           accepted =
             body.command !== 'inventory.inspect' &&
+            body.command !== 'inventory.availability' &&
             body.command !== 'inventory.operation' &&
             body.command !== 'inventory.history';
           if (body.command === 'inventory.projects' || body.command === 'inventory.materials')

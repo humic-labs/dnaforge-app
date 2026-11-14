@@ -16,8 +16,8 @@ Layouts distinguish named positions, grids, removable-tube boxes, permanent-well
 plates and ordered stacks. This version supports one stock per vessel and exact
 volume accounting. Lots, internal preparations, exact-volume transfers, pooling,
 tracked dilution, exact concentration facts and known container limits use the
-same command owner. Team synchronization and physical equipment qualification
-remain separate work.
+same command owner. Quantity and item reservations use that owner too. Physical
+custody, team synchronization and equipment qualification remain separate work.
 
 Permanent wells have stable identity and remain attached to their plate. A plate
 moves with all its wells. Whole-plate disposal retains historical stock and
@@ -26,11 +26,12 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v4. v1/v2/v3 composition facts upcast to explicit unknown
-values. Reading v1 upcasts named layouts and movable vessels; v1/v2 stocks
-receive distinct unattributed roots and unknown container limits. Reads do not
-write or increment revision. Historical command shapes and request digests stay
-unchanged for retry and replay.
+Canonical state is v5. v1/v2/v3 composition facts upcast to explicit unknown
+values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
+without a revision change. Reading v1 upcasts named layouts and movable vessels;
+v1/v2 stocks receive distinct unattributed roots and unknown container limits.
+Reads do not write or increment revision. Historical command shapes and request
+digests stay unchanged for retry and replay.
 
 ## Independent states
 
@@ -81,6 +82,56 @@ exact arithmetic and canonical `uL` readback. Unsupported units, negative
 values, exponential notation and unrepresentable results are refused.
 Consumption requires a positive amount. Reconciliation, quality changes,
 consumption and disposal require a reason.
+
+## Reservations and trusted time
+
+Reservations record planned allocation independently of physical quantity and
+placement. Each hold belongs to a stable local profile or verified agent. A
+local profile represents an installation profile, not a verified person.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Active: reserve quantity or exclusive item
+    Active --> Active: commit partial claimed withdrawal
+    Active --> Fulfilled: commit final claimed withdrawal
+    Active --> Released: holder releases with reason
+    Active --> Cancelled: local authority cancels with reason
+    Active --> Expired: record expiry at or after deadline
+```
+
+All terminal states are final. The clock passing a deadline changes eligibility
+for fulfillment; it does not mutate the hold. An overdue hold remains allocated
+until explicitly released, cancelled or expired. No timer owns business state.
+
+```mermaid
+flowchart LR
+    Facts[On-hand quantity and known dead volume] --> Availability
+    Holds[Active remaining quantity holds] --> Availability
+    Context[Verified principal and native observation time] --> Availability
+    Availability --> Free[Unreserved quantity and typed blockers]
+    Withdrawal[Explicit reservation claims and material operation] --> Transaction
+    Transaction --> Commit[Hold changes and material changes commit together]
+    Transaction --> Refuse[Failure leaves all facts unchanged]
+```
+
+Availability is derived, never stored as another status. Unknown quantity,
+quarantine, disposed containers, conflicting item holds and allocation
+shortfalls are explicit blockers. Reconciliation can reveal that promises exceed
+stock; it retains both the truthful measurement and holds. An overdue hold does
+not prevent using the unreserved remainder.
+
+Ordinary withdrawals protect held quantity. Reserved withdrawals explicitly bind
+claims to source debits through `fulfill-reservations`. Item holds respect
+ancestor and descendant containment, including permanent wells. Movement cannot
+introduce overlapping holds belonging to different principals.
+
+The native owner derives the principal and samples time inside the same SQLite
+transaction as the accepted state, receipt and journal. Accepted time is at
+least the previous recorded floor. Exact operation retries return the original
+receipt before sampling a new clock. New receipts carry versioned context
+separately from the existing actor string. Replay uses saved context and time;
+historical receipt bytes and request digests remain unchanged. This is a local
+monotonic clock guarantee; shared authority belongs to team synchronization.
 
 ## Material identity and conservation
 

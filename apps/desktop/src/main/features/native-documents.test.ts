@@ -50,9 +50,11 @@ const mocks = vi.hoisted(() => ({
     materials: vi.fn(() => ({ items: [], nextCursor: null })),
     execute: vi.fn(),
     inspect: vi.fn(),
+    availability: vi.fn(),
     operation: vi.fn(),
     history: vi.fn(),
   },
+  inventoryOptions: [] as Array<{ profileKey: string; actor(): string }>,
 }));
 
 vi.mock('../analytics', () => ({ trackEvent: mocks.saveTelemetry }));
@@ -119,7 +121,10 @@ vi.mock('../ipc/path-allowlist', () => ({
 }));
 vi.mock('../ipc/database', () => ({ getDb: vi.fn() }));
 vi.mock('../inventory-owner', () => ({
-  createNativeInventoryOwner: () => mocks.inventory,
+  createNativeInventoryOwner: (options: { profileKey: string; actor(): string }) => {
+    mocks.inventoryOptions.push(options);
+    return mocks.inventory;
+  },
 }));
 vi.mock('../native-annotation-document-owner', () => ({
   NativeAnnotationDocumentOwner: class {
@@ -191,6 +196,7 @@ beforeEach(() => {
   mocks.registeredRoots.length = 0;
   mocks.owners.length = 0;
   mocks.recoveries.length = 0;
+  mocks.inventoryOptions.length = 0;
   mocks.authority.value = AUTHORITY;
   mocks.snapshotState.value = 'ready';
   mocks.startServer.mockResolvedValue({ url: 'http://127.0.0.1:4100/', close: mocks.serverClose });
@@ -303,6 +309,8 @@ describe('native documents main feature', () => {
 
     expect(owner()).toMatchObject({ nativeOwnerInstanceId: 'owner-1', fetch: mocks.fetch });
     expect(mocks.startServer).toHaveBeenCalledTimes(1);
+    expect(mocks.inventoryOptions[0]).toMatchObject({ profileKey: 'profile:/user-data' });
+    expect(mocks.inventoryOptions[0]?.actor()).toBe('native:owner-1');
     const { getAuthority } = mocks.startServer.mock.calls[0]?.[0] as {
       getAuthority: () => unknown;
     };

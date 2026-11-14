@@ -205,6 +205,7 @@ export function createNativeDocuments(
       db: getDb,
       projectAuthority,
       actor: () => `native:${nativeAuthority.ownerInstanceId}`,
+      profileKey: boundProfileKey,
     });
     inventory.initialize();
     detachInventoryPublisher = inventory.subscribe((event) => {

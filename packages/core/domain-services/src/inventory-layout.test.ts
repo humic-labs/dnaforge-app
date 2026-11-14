@@ -476,6 +476,12 @@ it('exports the same strict command variants used by the parser as machine-reada
     'dispose-plate',
     'push-stack',
     'pop-stack',
+    'reserve-quantity',
+    'reserve-item',
+    'release-reservation',
+    'cancel-reservation',
+    'expire-reservations',
+    'fulfill-reservations',
   ]);
   for (const variant of variants) {
     expect(variant.additionalProperties).toBe(false);

@@ -77,19 +77,28 @@ async def test_search_runs_without_a_renderer_or_any_write_capability(native):
 
 
 @pytest.mark.asyncio
-async def test_inventory_reads_dispatch_scoped_dictionaries_with_current_grant(native):
+@pytest.mark.parametrize(
+    "operation, result_kind, result_field",
+    [
+        ("inspect", "inspection", "state"),
+        ("availability", "availability", "availability"),
+    ],
+)
+async def test_inventory_reads_dispatch_scoped_dictionaries_with_current_grant(
+    native, operation, result_kind, result_field
+):
     state, context = native
     state["scope"] = ["read-workspace"]
-    state["result"] = {"kind": "inspection", "state": None}
+    state["result"] = {"kind": result_kind, result_field: None}
     result = await execute_native_workflow(
         "inventory",
-        {"operation": {"kind": "inspect", "project": "project", "inventoryId": "inventory"}},
+        {"operation": {"kind": operation, "project": "project", "inventoryId": "inventory"}},
         context,
     )
-    assert result == {"ok": True, "result": {"kind": "inspection", "state": None, "ok": True}}
+    assert result == {"ok": True, "result": {"kind": result_kind, result_field: None, "ok": True}}
     assert state["calls"] == [
         {
-            "command": "inventory.inspect",
+            "command": f"inventory.{operation}",
             "request": {"project": "project", "inventoryId": "inventory"},
             "projectScope": {"kind": "app-following"},
             "agent": {"identityId": "caller", "capabilities": ["read-workspace"]},

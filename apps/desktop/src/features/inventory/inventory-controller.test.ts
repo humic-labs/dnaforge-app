@@ -2,11 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   applyInventoryCommandBatch,
   createInventoryState,
+  inventoryAvailability,
   type InventoryCommand,
   type InventoryState,
 } from '@waypoint/domain-services';
 import type {
   InventoryChanged,
+  InventoryAvailabilitySnapshot,
   InventoryClient,
   InventoryProject,
 } from '../../shared/inventory-client';
@@ -46,6 +48,7 @@ const other: InventoryProject = {
   path: '/synthetic/b',
   pinned: false,
 };
+const principal = { kind: 'local-profile' as const, profileKey: 'test-profile' };
 const useOne: InventoryCommand[] = [
   { kind: 'consume', stockId: 'stock', quantity: { value: '1', unit: 'uL' }, reason: 'Experiment' },
 ];
@@ -113,6 +116,15 @@ function fixture() {
     inspect: vi.fn(async (request) =>
       request.project === other.projectId ? createInventoryState() : state
     ),
+    availability: vi.fn(async (request) => {
+      const current = request.project === other.projectId ? createInventoryState() : state;
+      return {
+        ...inventoryAvailability(current, principal, 1),
+        revision: current.revision,
+        asOf: 1,
+        principal,
+      };
+    }),
     history: vi.fn(async () => entries),
     execute: vi.fn(async (request) => commit(request)),
     operation: vi.fn(
@@ -139,6 +151,85 @@ function fixture() {
 }
 
 describe('inventory interaction controller', () => {
+  it('rereads state and availability together when their revisions differ', async () => {
+    const f = fixture();
+    const current = await f.client.availability({
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+    });
+    vi.mocked(f.client.availability).mockResolvedValueOnce({ ...current!, revision: 2 });
+    await f.controller.initialize();
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'ready',
+      data: { state: { revision: 1 }, availability: { revision: 1, principal } },
+    });
+    expect(f.client.inspect).toHaveBeenCalledTimes(2);
+    f.controller.dispose();
+  });
+
+  it('refuses readiness when availability never reaches the same revision as inventory', async () => {
+    const f = fixture();
+    const current = await f.client.availability({
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+    });
+    vi.mocked(f.client.availability).mockResolvedValue({ ...current!, revision: 0 });
+    await f.controller.initialize();
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'refused',
+      code: 'INVENTORY_READ_FAILED',
+    });
+    expect(f.client.inspect).toHaveBeenCalledTimes(3);
+    expect(f.client.execute).not.toHaveBeenCalled();
+    f.controller.dispose();
+  });
+
+  it('fences delayed availability from a previously selected project', async () => {
+    const f = fixture();
+    vi.mocked(f.client.projects).mockResolvedValue([project, other]);
+    await f.controller.initialize();
+    const snapshot = await f.client.availability({
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+    });
+    const delayed = deferred<InventoryAvailabilitySnapshot | null>();
+    vi.mocked(f.client.availability).mockReturnValueOnce(delayed.promise);
+    const selecting = f.controller.selectProject(project.projectId);
+    await Promise.resolve();
+    await f.controller.selectProject(other.projectId);
+    delayed.resolve(snapshot);
+    await selecting;
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'ready',
+      data: {
+        project: { projectId: other.projectId },
+        state: { revision: 0 },
+        availability: { revision: 0 },
+      },
+    });
+    f.controller.dispose();
+  });
+
+  it('retains the committed receipt when availability refresh fails and never resends the mutation', async () => {
+    const f = fixture();
+    await f.controller.initialize();
+    vi.mocked(f.client.availability).mockRejectedValueOnce(new Error('Availability disconnected'));
+    await f.controller.submit(useOne, 'Use stock');
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'committed-refresh-failed',
+      attempt: { receipt: { revision: 2 } },
+    });
+    expect(f.saved()[0].receipt?.revision).toBe(2);
+    await f.controller.refresh();
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'ready',
+      data: { state: { revision: 2 }, availability: { revision: 2 } },
+    });
+    expect(f.client.execute).toHaveBeenCalledTimes(1);
+    expect(f.saved()).toEqual([]);
+    f.controller.dispose();
+  });
+
   it('validates a draft before retaining or sending it, then accepts a corrected draft', async () => {
     const f = fixture();
     await f.controller.initialize();

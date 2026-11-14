@@ -28,6 +28,12 @@ import {
 import { InventoryMaterialForm, isInventoryMaterialDialog } from './InventoryMaterialForm';
 import { InventoryForm } from './InventoryForm';
 import { InventoryCompositionForm } from './InventoryCompositionForm';
+import { InventoryReservationForm } from './InventoryReservationForm';
+import {
+  InventoryReservationList,
+  InventoryStockAvailability,
+  isInventoryReservationDialog,
+} from './InventoryReservations';
 import { InventoryStatusNotice } from './InventoryStatusNotice';
 import {
   historyLabel,
@@ -58,7 +64,8 @@ function sharedController(): InventoryController {
 type Drawer =
   | { kind: 'closed' }
   | { kind: 'history' }
-  | { kind: 'stock'; stockId: string; tab: 'details' | 'history' };
+  | { kind: 'reservations' }
+  | { kind: 'stock'; stockId: string; tab: 'details' | 'history' | 'reservations' };
 
 function quantityLabel(stock: InventoryStock): string {
   return stock.quantity.kind === 'unknown'
@@ -295,21 +302,38 @@ export function InventoryPanel() {
     data?.history.filter(
       (entry) =>
         !selectedStock ||
-        entry.request.commands.some(
-          (command) =>
-            ('stockId' in command && command.stockId === selectedStock.id) ||
-            (command.kind === 'transfer' &&
-              (command.sourceStockId === selectedStock.id ||
-                command.destination.stockId === selectedStock.id)) ||
-            (command.kind === 'pool' &&
-              command.inputs.some((input) => input.stockId === selectedStock.id)) ||
-            (command.kind === 'dilute' &&
-              (command.sample.stockId === selectedStock.id ||
-                command.diluent.stockId === selectedStock.id)) ||
-            ('vesselId' in command && command.vesselId === selectedStock.vesselId) ||
-            ('id' in command && command.id === selectedStock.vesselId) ||
-            ('item' in command && command.item.id === selectedStock.vesselId)
-        )
+        entry.request.commands
+          .flatMap((command) =>
+            command.kind === 'fulfill-reservations' ? [command, command.withdrawal] : [command]
+          )
+          .some(
+            (command) =>
+              (command.kind === 'release-reservation' || command.kind === 'cancel-reservation'
+                ? data?.availability?.stocks[selectedStock.id]?.reservationIds.includes(
+                    command.reservationId
+                  )
+                : command.kind === 'expire-reservations'
+                  ? command.ids.some((id) =>
+                      data?.availability?.stocks[selectedStock.id]?.reservationIds.includes(id)
+                    )
+                  : command.kind === 'reserve-item'
+                    ? data?.availability?.stocks[selectedStock.id]?.reservationIds.includes(
+                        command.id
+                      )
+                    : false) ||
+              ('stockId' in command && command.stockId === selectedStock.id) ||
+              (command.kind === 'transfer' &&
+                (command.sourceStockId === selectedStock.id ||
+                  command.destination.stockId === selectedStock.id)) ||
+              (command.kind === 'pool' &&
+                command.inputs.some((input) => input.stockId === selectedStock.id)) ||
+              (command.kind === 'dilute' &&
+                (command.sample.stockId === selectedStock.id ||
+                  command.diluent.stockId === selectedStock.id)) ||
+              ('vesselId' in command && command.vesselId === selectedStock.vesselId) ||
+              ('id' in command && command.id === selectedStock.vesselId) ||
+              ('item' in command && command.item.id === selectedStock.vesselId)
+          )
     ) ?? [];
 
   function renderHistory(entries: readonly NativeInventoryHistoryEntry[]) {
@@ -332,13 +356,18 @@ export function InventoryPanel() {
                   .join(' · ')}
               </p>
               {entry.request.commands
-                .flatMap((command) => ('reason' in command ? [command.reason] : []))
+                .flatMap((command) => {
+                  const action =
+                    command.kind === 'fulfill-reservations' ? command.withdrawal : command;
+                  return 'reason' in action ? [action.reason] : [];
+                })
                 .map((reason, index) => (
                   <p key={index} className="break-words text-xs text-fg-muted">
                     {reason}
                   </p>
                 ))}
               {entry.request.commands.flatMap((command) => {
+                command = command.kind === 'fulfill-reservations' ? command.withdrawal : command;
                 const lotId =
                   command.kind === 'create-lot'
                     ? command.id
@@ -432,6 +461,9 @@ export function InventoryPanel() {
         </Button>
         <Button disabled={!data} onClick={() => setDrawer({ kind: 'history' })}>
           History
+        </Button>
+        <Button disabled={!data} onClick={() => setDrawer({ kind: 'reservations' })}>
+          Reservations
         </Button>
         <Button disabled={!editable} onClick={() => setDialog({ kind: 'lot' })}>
           Add lot
@@ -567,6 +599,17 @@ export function InventoryPanel() {
                 </div>
                 {selectedLocation ? (
                   <>
+                    <Button
+                      disabled={!editable}
+                      onClick={() =>
+                        setDialog({
+                          kind: 'reserve-item',
+                          item: { kind: 'storage', id: selectedLocation.id },
+                        })
+                      }
+                    >
+                      Reserve location
+                    </Button>
                     <Button
                       disabled={!editable || selectedLocation.lifecycle !== 'active'}
                       onClick={() =>
@@ -809,7 +852,9 @@ export function InventoryPanel() {
                   <h2 className="break-words text-sm font-semibold">
                     {selectedStock
                       ? (materialNames[selectedStock.materialId] ?? 'Stock details')
-                      : 'Inventory history'}
+                      : drawer.kind === 'reservations'
+                        ? 'Reservations'
+                        : 'Inventory history'}
                   </h2>
                   {selectedVessel ? (
                     <p className="mt-1 text-xs text-fg-muted">{selectedVessel.name}</p>
@@ -830,7 +875,7 @@ export function InventoryPanel() {
                     aria-label="Stock information"
                     className="flex gap-2 border-b border-border p-3"
                   >
-                    {(['details', 'history'] as const).map((tab) => (
+                    {(['details', 'history', 'reservations'] as const).map((tab) => (
                       <button
                         key={tab}
                         role="tab"
@@ -844,15 +889,21 @@ export function InventoryPanel() {
                   </div>
                   {drawer.tab === 'history' ? (
                     renderHistory(history)
+                  ) : drawer.tab === 'reservations' ? (
+                    <InventoryReservationList
+                      data={data}
+                      editable={editable}
+                      stockId={selectedStock.id}
+                      reservationIds={
+                        data.availability?.stocks[selectedStock.id]?.reservationIds ?? []
+                      }
+                      onDialog={setDialog}
+                      onRefresh={() => void controller.refresh()}
+                    />
                   ) : (
                     <div className="space-y-5 p-4">
+                      <InventoryStockAvailability data={data} stockId={selectedStock.id} />
                       <dl className="space-y-3 text-sm">
-                        <div>
-                          <dt className="text-xs text-fg-muted">Quantity</dt>
-                          <dd className="mt-1 text-2xl font-semibold tabular-nums">
-                            {quantityLabel(selectedStock)}
-                          </dd>
-                        </div>
                         <div>
                           <dt className="text-xs text-fg-muted">Location</dt>
                           <dd className="mt-1 break-words">
@@ -908,6 +959,36 @@ export function InventoryPanel() {
                       {selectedVessel.lifecycle === 'active' ? (
                         <>
                           <div className="flex flex-wrap gap-2">
+                            <Button
+                              disabled={!editable}
+                              onClick={() =>
+                                setDialog({ kind: 'reserve-quantity', stockId: selectedStock.id })
+                              }
+                            >
+                              Reserve quantity
+                            </Button>
+                            <Button
+                              disabled={!editable}
+                              onClick={() =>
+                                setDialog({
+                                  kind: 'reserve-item',
+                                  item: { kind: 'vessel', id: selectedVessel.id },
+                                })
+                              }
+                            >
+                              Reserve item
+                            </Button>
+                            <Button
+                              disabled={!editable}
+                              onClick={() =>
+                                setDialog({
+                                  kind: 'fulfill-reservation',
+                                  stockId: selectedStock.id,
+                                })
+                              }
+                            >
+                              Use reserved stock
+                            </Button>
                             <Button
                               disabled={!editable}
                               onClick={() =>
@@ -1047,6 +1128,13 @@ export function InventoryPanel() {
                     </div>
                   )}
                 </>
+              ) : drawer.kind === 'reservations' ? (
+                <InventoryReservationList
+                  data={data}
+                  editable={editable}
+                  onDialog={setDialog}
+                  onRefresh={() => void controller.refresh()}
+                />
               ) : (
                 renderHistory(data.history)
               )}
@@ -1055,7 +1143,16 @@ export function InventoryPanel() {
         </div>
       )}
       {dialog.kind !== 'none' && data ? (
-        dialog.kind === 'composition' ? (
+        isInventoryReservationDialog(dialog) ? (
+          <InventoryReservationForm
+            key={`${data.project.projectId}:${dialog.kind}:${'stockId' in dialog ? dialog.stockId : 'reservationId' in dialog ? dialog.reservationId : dialog.item.id}`}
+            dialog={dialog}
+            data={data}
+            status={status}
+            controller={controller}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : dialog.kind === 'composition' ? (
           <InventoryCompositionForm
             key={`${data.project.projectId}:${dialog.stockId}`}
             dialog={dialog}

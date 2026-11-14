@@ -6,6 +6,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
 import { runInventoryCompositionJourney } from './journeys/inventory-composition.mjs';
+import {
+  runInventoryReservationJourney,
+  runInventoryReservationReopen,
+} from './journeys/inventory-reservations.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const args = process.argv.slice(2);
@@ -23,6 +27,8 @@ assert.ok(
     'layouts',
     'composition',
     'composition-reopen',
+    'reservations',
+    'reservation-reopen',
   ].includes(stage),
   'Choose a mapped inventory journey stage.'
 );
@@ -563,6 +569,20 @@ try {
     );
   }
 
+  if (stage === 'reservations' || stage === 'reservation-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass the inventory journey fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    const run =
+      stage === 'reservations' ? runInventoryReservationJourney : runInventoryReservationReopen;
+    receipt.expected = await run({ page, expect, choose, inventoryRead, capture, fixture });
+    writeFileSync(
+      path.join(out, 'reservation-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
   if (stage === 'composition') {
     assert.ok(args.includes('--fixture'), 'Pass the material journey fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

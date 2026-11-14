@@ -179,6 +179,7 @@ async def execute_native_workflow(
             "projects",
             "materials",
             "inspect",
+            "availability",
             "execute",
             "operation",
             "history",

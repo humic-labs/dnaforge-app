@@ -1,5 +1,6 @@
 import type { InventoryMaterialDialog } from './InventoryMaterialForm';
 import type { InventoryCompositionDialog } from './InventoryCompositionForm';
+import type { InventoryReservationDialog } from './InventoryReservations';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   inventoryStoragePositions,
@@ -33,7 +34,10 @@ import {
 
 type OpenDialog = Exclude<
   InventoryDialog,
-  InventoryMaterialDialog | InventoryCompositionDialog | { kind: 'none' }
+  | InventoryMaterialDialog
+  | InventoryCompositionDialog
+  | InventoryReservationDialog
+  | { kind: 'none' }
 >;
 type Materials =
   | { kind: 'loading' }
