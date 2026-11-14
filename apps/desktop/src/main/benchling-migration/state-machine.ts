@@ -40,6 +40,45 @@ const INTERRUPTED_STATES = new Set<InterruptedMigrationState>([
 
 const TERMINAL_STATES = new Set<MigrationState>(['unlocked', 'failed', 'discarded']);
 
+export type MigrationRecoveryEvent =
+  | { type: 'retry_preserved_local_zip'; now: string }
+  | { type: 'rollback_failed_unlock'; readyRun: MigrationRun };
+
+export function recoverMigrationRun(
+  run: MigrationRun,
+  event: MigrationRecoveryEvent
+): MigrationRun {
+  switch (event.type) {
+    case 'retry_preserved_local_zip': {
+      if (
+        run.state !== 'failed' ||
+        run.lastError?.code !== 'internal_invariant' ||
+        run.scope.acquisition !== 'local_bundle' ||
+        run.localExportArtifact?.format !== 'zip'
+      ) {
+        throw new Error('This failed migration cannot retry from preserved local evidence.');
+      }
+      return {
+        ...run,
+        state: 'parsing',
+        resumeState: null,
+        updatedAt: event.now,
+        unlockedAt: null,
+        lastError: null,
+      };
+    }
+    case 'rollback_failed_unlock': {
+      if (run.state !== 'unlocked' || event.readyRun.state !== 'ready_to_unlock') {
+        throw new Error('Failed-unlock recovery requires unlocked and ready-to-unlock run states.');
+      }
+      if (run.id !== event.readyRun.id) {
+        throw new Error('Failed-unlock recovery run identity does not match.');
+      }
+      return event.readyRun;
+    }
+  }
+}
+
 export class IllegalMigrationTransitionError extends Error {
   constructor(from: MigrationState, to: MigrationState) {
     super(`Illegal Benchling migration transition: ${from} -> ${to}`);

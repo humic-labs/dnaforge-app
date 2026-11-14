@@ -20,6 +20,7 @@ import {
 } from './local-export-bundle';
 import { createMigrationStagingWorkspace } from './staging-workspace';
 import { transitionMigrationRun } from './state-machine';
+import * as migrationStateMachine from './state-machine';
 import { migrationDatabasePath, MigrationStore } from './store';
 
 const NOW = '2026-08-14T18:00:02.000Z';
@@ -27,6 +28,37 @@ const cleanup: Array<() => void> = [];
 
 afterEach(() => {
   for (const dispose of cleanup.splice(0).reverse()) dispose();
+});
+
+describe('migration recovery authority boundary', () => {
+  it.each(['retry_preserved_local_zip', 'rollback_failed_unlock'] as const)(
+    'cannot persist %s when the state authority refuses it',
+    (type) => {
+      const ready = readyRun();
+      const expected =
+        type === 'retry_preserved_local_zip'
+          ? failedRun()
+          : transitionMigrationRun(ready, 'unlocked', NOW);
+      const { store } = fileStore(expected);
+      const authority = vi
+        .spyOn(migrationStateMachine, 'recoverMigrationRun')
+        .mockImplementation(() => {
+          throw new Error('Recovery refused by the state authority.');
+        });
+      try {
+        expect(() =>
+          store.recoverRun(
+            expected,
+            type === 'retry_preserved_local_zip' ? { type, now: NOW } : { type, readyRun: ready }
+          )
+        ).toThrow('Recovery refused by the state authority.');
+        expect(authority).toHaveBeenCalledOnce();
+        expect(store.getRun()).toEqual(expected);
+      } finally {
+        authority.mockRestore();
+      }
+    }
+  );
 });
 
 function readyRun(): MigrationRun {
@@ -83,20 +115,11 @@ function fileStore(run: MigrationRun) {
 }
 
 function retry(store: MigrationStore, run: MigrationRun): MigrationRun {
-  const retryRun: MigrationRun = {
-    ...run,
-    state: 'parsing',
-    resumeState: null,
-    updatedAt: NOW,
-    unlockedAt: null,
-    lastError: null,
-  };
-  store.restoreFailedLocalRunForRetry({ failedRun: run, retryRun });
-  return retryRun;
+  return store.recoverRun(run, { type: 'retry_preserved_local_zip', now: NOW });
 }
 
 function rollback(store: MigrationStore, unlockedRun: MigrationRun, ready: MigrationRun): void {
-  store.restoreReadyRunAfterFailedUnlock({ unlockedRun, readyRun: ready });
+  store.recoverRun(unlockedRun, { type: 'rollback_failed_unlock', readyRun: ready });
 }
 
 describe('migration recovery authority', () => {

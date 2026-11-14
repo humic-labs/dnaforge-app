@@ -9,6 +9,7 @@
 - Reject ineligible states, mismatched identity, changed source evidence and
   stale writes.
 - Ordinary transitions continue to treat failed and unlocked runs as terminal.
+- Recovery persistence cannot bypass a refusal from the state authority.
 - Resume the preserved ZIP through the coordinator and publish the completed
   workspace.
 

@@ -773,11 +773,11 @@ describe('MigrationStore', () => {
       lastError: null,
     };
 
-    store.restoreFailedLocalRunForRetry({ failedRun: failed, retryRun: retry });
+    store.recoverRun(failed, { type: 'retry_preserved_local_zip', now: retry.updatedAt });
 
     expect(store.getRun()).toEqual(retry);
     expect(() =>
-      store.restoreFailedLocalRunForRetry({ failedRun: failed, retryRun: retry })
+      store.recoverRun(failed, { type: 'retry_preserved_local_zip', now: retry.updatedAt })
     ).toThrow('compare-and-set');
     db.close();
   });
