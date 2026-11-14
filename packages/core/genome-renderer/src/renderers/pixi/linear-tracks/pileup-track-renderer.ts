@@ -1794,7 +1794,8 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       state.readSourceTruncated ||
       (state.readDisplayMode !== 'reads' && state.readDisplayMode !== 'blend') ||
       state.rowsMeshSourceGenerationKey !== read.sourceGenerationKey ||
-      state.readPresentationOwnerKey !== (read.presentationOwnerKey ?? read.sourceGenerationKey) ||
+      this.readHitPresentationOwnerKey(state) !==
+        (read.presentationOwnerKey ?? read.sourceGenerationKey) ||
       !state.rowsMeshRecordsRef ||
       !state.rowsMeshRowsRef ||
       !state.rowsMeshReadHitIndex
@@ -1816,6 +1817,12 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     });
   }
 
+  private readHitPresentationOwnerKey(state: ContainerState): string {
+    return state.readPresentationOwnerKey === state.readSourceGenerationKey
+      ? state.rowsMeshSourceGenerationKey
+      : state.readPresentationOwnerKey;
+  }
+
   private readHitPayload(
     state: ContainerState,
     record: PileupRecord,
@@ -1831,6 +1838,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     },
     event?: NonNullable<ReadHitPayload['event']>
   ): ReadHitPayload {
+    const presentationOwnerKey = this.readHitPresentationOwnerKey(state);
     const chromosomeGlobalStartBp =
       typeof args.chromosomeGlobalStartBp === 'function'
         ? args.chromosomeGlobalStartBp(record.chrom)
@@ -1843,9 +1851,9 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     return {
       trackId: args.trackId,
       sourceGenerationKey: state.rowsMeshSourceGenerationKey,
-      ...(state.readPresentationOwnerKey === state.rowsMeshSourceGenerationKey
+      ...(presentationOwnerKey === state.rowsMeshSourceGenerationKey
         ? {}
-        : { presentationOwnerKey: state.readPresentationOwnerKey }),
+        : { presentationOwnerKey }),
       readId: record.readId,
       chrom: record.chrom,
       referenceStart: alignmentReferenceStart,
@@ -2429,10 +2437,11 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     const sourceGenerationKey = data?.readSource?.sourceGenerationKey ?? '';
     const presentationOwnerKey = data?.readSource?.presentationOwnerKey ?? sourceGenerationKey;
     if (
-      presentationOwnerKey !== state.readPresentationOwnerKey ||
-      sourceGenerationKey !== state.readSourceGenerationKey ||
-      ((state.rows !== null || state.rowsMeshRecordsRef !== null) &&
-        sourceGenerationKey !== state.rowsMeshSourceGenerationKey)
+      (tileEngineAuthority || data?.readSource?.presentationOwnerKey !== undefined) &&
+      (presentationOwnerKey !== state.readPresentationOwnerKey ||
+        sourceGenerationKey !== state.readSourceGenerationKey ||
+        ((state.rows !== null || state.rowsMeshRecordsRef !== null) &&
+          sourceGenerationKey !== state.rowsMeshSourceGenerationKey))
     ) {
       this.clearExactReadRecords(state);
       state.layout.reset();

@@ -1166,6 +1166,8 @@ export function ReferenceGenomePicker({
               document: {
                 ...managedView.document,
                 ...managedTracks,
+                dataTracks: [...restoredTracks.dataTracks],
+                bamTracks: [...restoredTracks.bamTracks],
               },
             },
             placementOptions
