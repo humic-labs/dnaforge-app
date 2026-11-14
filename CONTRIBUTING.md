@@ -2,8 +2,9 @@
 
 Thank you for helping improve DNAForge.
 
-This is the canonical product repository. Open pull requests against `main`. You
-can develop locally and open a pull request without running our hosted CI.
+This is the canonical repository for the desktop app, local compute and portable
+shared libraries. Open pull requests against `main`. You can develop locally and
+open a pull request without running our hosted CI.
 
 ## Before you start
 
