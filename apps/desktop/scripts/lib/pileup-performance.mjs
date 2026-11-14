@@ -54,6 +54,9 @@ function classifySource(report) {
   } else if (source.commit !== source.runtimeCommit) {
     invalidate(check, 'runtime-source-mismatch');
   }
+  for (const flag of ['sourceModified', 'runtimeModified']) {
+    if (source[flag] !== false) invalidate(check, `${flag}:clean-source-not-qualified`);
+  }
   if (!text(source.fixtureId)) invalidate(check, 'fixture-identity-missing');
   if (!text(source.generationKey)) invalidate(check, 'alignment-generation-missing');
   if (
@@ -85,6 +88,8 @@ function classifySource(report) {
   check.metrics = {
     commit: source.commit ?? null,
     runtimeCommit: source.runtimeCommit ?? null,
+    sourceModified: typeof source.sourceModified === 'boolean' ? source.sourceModified : null,
+    runtimeModified: typeof source.runtimeModified === 'boolean' ? source.runtimeModified : null,
     fixtureId: source.fixtureId ?? null,
     coldScope: source.coldScope ?? null,
     assemblyLengthBp: source.assemblyLengthBp ?? null,

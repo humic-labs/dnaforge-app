@@ -51,6 +51,8 @@ function report(profile = 'portable-dense') {
     source: {
       commit: 'a'.repeat(40),
       runtimeCommit: 'a'.repeat(40),
+      sourceModified: false,
+      runtimeModified: false,
       fixtureId: profile === 'full-genome' ? 'hg002-grch38' : 'synthetic-dense-bam',
       generationKey,
       coldScope:
@@ -294,6 +296,20 @@ describe('saved pileup performance qualification', () => {
     input.profile = 'full-genome';
     expect(check(input, 'source').found.status).toBe('unqualified');
     expect(classifyPileupPerformance(input).qualifiedForFullGenome).toBe(false);
+  });
+
+  it.each([
+    ['sourceModified', true],
+    ['runtimeModified', true],
+    ['sourceModified', null],
+    ['runtimeModified', null],
+  ] as const)('requires a measured clean %s flag instead of %s', (flag, value) => {
+    const input = report('full-genome');
+    Object.assign(input.source, { [flag]: value });
+    const { result, found } = check(input, 'source');
+    expect(found.status).toBe('unqualified');
+    expect(result.status).toBe('unqualified');
+    expect(result.qualifiedForFullGenome).toBe(false);
   });
 
   it('retains optional process memory as observations without inventing a budget verdict', () => {
