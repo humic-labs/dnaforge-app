@@ -1686,6 +1686,75 @@ describe('FileBrowser', () => {
       expect(mockSetSelectedPath).toHaveBeenLastCalledWith(null);
     });
 
+    it.each(['Notes.txt', 'Notes.md'])(
+      'makes registered %s available without starting a project rebuild',
+      async (name) => {
+        const changed = vi.fn();
+        render(
+          <FileBrowser onFileSelect={vi.fn()} onAddFolder={vi.fn()} onWorkspaceChanged={changed} />
+        );
+        await screen.findByText('plasmid');
+        fireEvent.contextMenu(screen.getByText('plasmid'));
+        fireEvent.click(screen.getByRole('menuitem', { name: 'Text File', exact: true }));
+        const input = await screen.findByTestId('file-tree-rename-input');
+        fireEvent.change(input, { target: { value: name } });
+        fireEvent.keyDown(input, { key: 'Enter' });
+        await waitFor(() =>
+          expect(telemetryMocks.operations.at(-1)?.complete).toHaveBeenCalledWith({
+            status: 'created',
+          })
+        );
+        expect(platformMocks.writeTextFile).toHaveBeenCalledWith(
+          `/mock/test/workspace/${name}`,
+          ''
+        );
+        expect(catalogMocks.registerWorkspaceFile).toHaveBeenCalledWith(
+          expect.objectContaining({
+            path: `/mock/test/workspace/${name}`,
+            entityType: 'file',
+            fileKind: 'text',
+          })
+        );
+        expect(changed).not.toHaveBeenCalled();
+        expect(mockRevealPath).toHaveBeenCalledWith(`/mock/test/workspace/${name}`);
+        expect(screen.queryByTestId('file-tree-rename-input')).not.toBeInTheDocument();
+      }
+    );
+
+    it.each(['Sequence.gb', 'Notebook.wpnote.json', 'Notes.txt'])(
+      'retains project rebuilding for specialized or unregistered %s',
+      async (name) => {
+        const changed = vi.fn();
+        const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        if (name === 'Notes.txt')
+          catalogMocks.registerWorkspaceFile.mockRejectedValueOnce(
+            new Error('catalog unavailable')
+          );
+        try {
+          render(
+            <FileBrowser
+              onFileSelect={vi.fn()}
+              onAddFolder={vi.fn()}
+              onWorkspaceChanged={changed}
+            />
+          );
+          await screen.findByText('plasmid');
+          fireEvent.contextMenu(screen.getByText('plasmid'));
+          fireEvent.click(screen.getByRole('menuitem', { name: 'Text File', exact: true }));
+          const input = await screen.findByTestId('file-tree-rename-input');
+          fireEvent.change(input, { target: { value: name } });
+          fireEvent.keyDown(input, { key: 'Enter' });
+          await waitFor(() => expect(changed).toHaveBeenCalledWith('/mock/test/workspace'));
+          expect(platformMocks.writeTextFile).toHaveBeenCalledWith(
+            `/mock/test/workspace/${name}`,
+            ''
+          );
+        } finally {
+          warning.mockRestore();
+        }
+      }
+    );
+
     it('creates folders beside a right-clicked file', async () => {
       render(<FileBrowser onFileSelect={vi.fn()} onAddFolder={vi.fn()} />);
 
