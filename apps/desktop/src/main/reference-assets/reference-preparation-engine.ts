@@ -98,6 +98,7 @@ import {
   type PreparedSourceIdentitySet,
 } from './prepared-reference-source-receipt';
 import { materializePreparedReferenceAssembly } from './prepared-reference-assembly-materializer';
+import { forkPreparedReferenceSourceGeneration } from './fork-prepared-reference-source';
 import { HOSTED_REFERENCE_CATALOG_V1 } from './hosted-reference-catalog';
 import {
   matureHostedPreparedReferenceSemanticsV1,
@@ -577,19 +578,9 @@ async function ensureReferenceAssetPreparation(params: {
       sourceGenerationRoot,
     };
   }
-  if (currentReady && sourceGenerationRoot) {
-    return {
-      result: {
-        status: 'needs-refresh',
-        reason: 'verification-failed',
-        message:
-          'This profile inherited a read-only reference publication whose derived products need refresh.',
-      },
-      publication,
-      sourceGenerationRoot,
-    };
-  }
-  if (input.publishedEntry) {
+  const inheritedSourceRoot =
+    currentFamily && sourceGenerationRoot && inheritedPublication ? sourceGenerationRoot : null;
+  if (input.publishedEntry && !inheritedSourceRoot) {
     return {
       result: {
         status: 'needs-refresh',
@@ -615,7 +606,13 @@ async function ensureReferenceAssetPreparation(params: {
   const transaction = await runSourceFirstReferenceGenerationTransaction({
     prepareSource: async () => {
       await reserveReferenceAssetGenerationRoot(workspaceRoot, generatedSourceRoot);
-      if (preparation) {
+      if (inheritedSourceRoot) {
+        await forkPreparedReferenceSourceGeneration({
+          entry: sourceOwner,
+          sourceGenerationRoot: inheritedSourceRoot,
+          destinationGenerationRoot: generatedSourceRoot,
+        });
+      } else if (preparation) {
         const semanticCandidates = await materializePreparedReferenceAssembly(
           preparation,
           generatedSourceRoot,
@@ -647,15 +644,13 @@ async function ensureReferenceAssetPreparation(params: {
           report
         );
       }
-      const preparedSources = await inspectPreparedReferenceSources(
-        sourceOwner,
-        projectRoot,
-        generatedSourceRoot
-      );
+      const preparedSources = inheritedSourceRoot
+        ? await inspectCommittedPreparedReferenceSources(sourceOwner, generatedSourceRoot)
+        : await inspectPreparedReferenceSources(sourceOwner, projectRoot, generatedSourceRoot);
       if (preparedSources.status === 'stale') {
         throw new Error(preparedSources.message);
       }
-      if (preparation) {
+      if (preparation && !inheritedSourceRoot) {
         await writePreparedReferenceDefinition(preparation, generatedSourceRoot, maturedSemantics);
       }
       const sourceFingerprint = await preparedSourceMaterializationFingerprint(
@@ -1313,11 +1308,9 @@ async function inspectPublishedReferenceSources(
   projectRoot: string,
   sourceGenerationRoot: string
 ): Promise<PreparedSourceInspection> {
-  const prepared = await inspectPreparedReferenceSources(
-    sourceOwner,
-    projectRoot,
-    sourceGenerationRoot
-  );
+  const prepared = sourceOwner.members.every((member) => member.importSource)
+    ? await inspectPreparedReferenceSources(sourceOwner, projectRoot, sourceGenerationRoot)
+    : await inspectCommittedPreparedReferenceSources(sourceOwner, sourceGenerationRoot);
   if (prepared.status === 'stale') return prepared;
   const fingerprint = await preparedSourceMaterializationFingerprint(
     sourceOwner,

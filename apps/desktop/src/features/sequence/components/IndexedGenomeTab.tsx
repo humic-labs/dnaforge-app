@@ -499,6 +499,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
     let unsubscribeLocal = (): void => undefined;
     let localStatusReconciliationTimer: ReturnType<typeof setTimeout> | null = null;
     let localReadyAdmissionAttempts = 0;
+    let localProductRepairState: 'idle' | 'preparing' | 'ready' | 'failed' = 'idle';
     let reconcileDurableLocalPreparation: (() => Promise<void>) | null = null;
     const localCapabilitiesPending = (): boolean => {
       const current = indexedStateRef.current;
@@ -512,6 +513,8 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         cancelled ||
         assemblyReferenceKindRef.current !== 'local' ||
         !localCapabilitiesPending() ||
+        localProductRepairState === 'preparing' ||
+        localProductRepairState === 'failed' ||
         localStatusReconciliationTimer !== null ||
         !reconcileDurableLocalPreparation
       ) {
@@ -610,6 +613,56 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         });
     };
 
+    const repairLocalProducts = async (): Promise<void> => {
+      if (cancelled || localProductRepairState === 'preparing') return;
+      if (localProductRepairState !== 'idle') {
+        localProductRepairState = 'failed';
+        setHostedBackgroundPreparation({
+          status: 'failed',
+          message:
+            'Reference preparation finished, but the published annotation and search generation could not be admitted.',
+        });
+        return;
+      }
+      const current = indexedStateRef.current;
+      if (
+        current?.assemblySourceReadiness !== 'ready' ||
+        typeof referenceAssets.retryLocal !== 'function'
+      ) {
+        localProductRepairState = 'failed';
+        setHostedBackgroundPreparation({
+          status: 'failed',
+          message:
+            'Reference preparation status is unavailable. Retry to finish annotations and search.',
+        });
+        return;
+      }
+      localProductRepairState = 'preparing';
+      setHostedBackgroundPreparation({
+        status: 'preparing',
+        label: `Preparing ${current.assembly?.displayName ?? tab.label} annotations and search`,
+      });
+      try {
+        await referenceAssets.retryLocal({
+          operationId: `reference-products-${crypto.randomUUID()}`,
+          assemblyId,
+          themeMode: annotationProductThemeMode,
+        });
+        if (cancelled) return;
+        localProductRepairState = 'ready';
+        setAnnotationProductAdmissionGeneration((generation) => generation + 1);
+        requestRefresh({ kind: 'local' });
+      } catch (error) {
+        localProductRepairState = 'failed';
+        if (!cancelled) {
+          setHostedBackgroundPreparation({
+            status: 'failed',
+            message: toUserMessage(error, 'failure.the-prepared-reference-could-not-be-admitted'),
+          });
+        }
+      }
+    };
+
     reconcileDurableLocalPreparation = async (): Promise<void> => {
       if (
         cancelled ||
@@ -635,11 +688,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         return;
       }
       if (localReadyAdmissionAttempts >= 3) {
-        setHostedBackgroundPreparation({
-          status: 'failed',
-          message:
-            'Reference preparation finished, but the published annotation and search generation could not be admitted.',
-        });
+        await repairLocalProducts();
         return;
       }
       localReadyAdmissionAttempts += 1;
@@ -695,13 +744,13 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
               );
             }
           });
-          const current = indexedStateRef.current;
           const canReconcileDurableStatus =
             typeof referenceAssets.getLocalPreparationStatus === 'function';
           const durableStatus = canReconcileDurableStatus
             ? await referenceAssets.getLocalPreparationStatus({ assemblyId }).catch(() => null)
             : null;
           if (cancelled) return;
+          const current = indexedStateRef.current;
           if (durableStatus?.status === 'failed') {
             setHostedBackgroundPreparation({
               status: 'failed',
@@ -713,11 +762,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
             (current?.assemblyAnnotationProductsReadiness === 'pending' ||
               current?.assemblySearchReadiness === 'pending')
           ) {
-            setHostedBackgroundPreparation({
-              status: 'failed',
-              message:
-                'Reference preparation was interrupted before its status was saved. Retry to finish annotations and search.',
-            });
+            await repairLocalProducts();
           } else if (
             current?.assemblyAnnotationProductsReadiness === 'pending' ||
             current?.assemblySearchReadiness === 'pending'

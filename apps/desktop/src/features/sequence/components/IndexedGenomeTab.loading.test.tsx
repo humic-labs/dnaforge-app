@@ -2203,7 +2203,101 @@ describe('IndexedGenomeTab loading screen — phase transitions', () => {
     expect(mockInstallHostedReference).not.toHaveBeenCalled();
   });
 
-  it('keeps a restored pending local failure non-visual when durable status is missing', async () => {
+  it.each(['missing', 'ready'] as const)(
+    'repairs an inherited local reference with %s durable preparation status and preserves the open view',
+    async (durableStatus) => {
+      const tab = freshAssemblyIndexedTab();
+      tab.initialAnnotationMapperPolicy = { isoformMode: 'expanded', laneLimit: 12 };
+      tab.viewState = { indexedViewport: { start0: 1_809_290_000, end0: 1_809_316_612 } };
+      tab.indexedGenome = {
+        ...tab.indexedGenome!,
+        assemblySourceReadiness: 'ready',
+        assemblyAnnotationProductsReadiness: 'pending',
+        assemblySearchReadiness: 'pending',
+      };
+      const prepared = referenceAssemblyById('grch38');
+      if (!prepared) throw new Error('Missing GRCh38 catalog fixture');
+      const repair = createDeferred<{ status: 'ready'; entry: typeof prepared }>();
+      let productsReady = false;
+      mockListLocalReferences.mockResolvedValue([prepared]);
+      mockGetLocalPreparationStatus.mockResolvedValue(
+        durableStatus === 'missing'
+          ? null
+          : {
+              assemblyId: 'grch38',
+              status: 'ready',
+              phase: 'ready',
+              label: 'GRCh38 is ready',
+              updatedAtMs: 1,
+            }
+      );
+      mockRetryLocalReference.mockReturnValue(repair.promise);
+      mockReadAssemblyAnnotationProductSetInventory.mockImplementation(async () =>
+        productsReady
+          ? {
+              status: 'ready',
+              sourceFingerprint: 'a'.repeat(24),
+              inventoryFingerprint: 'b'.repeat(64),
+              trackTypes: ['mRNA'],
+            }
+          : { status: 'unavailable' }
+      );
+      mockReadTextFile.mockResolvedValue(
+        JSON.stringify({
+          contract: 'reference-asset-publication.v1',
+          assetCacheKey: prepared.assetCacheKey,
+          publicationId: 'local-repaired-generation',
+          sourceMaterializationFingerprint: 'c'.repeat(64),
+          publishedAtMs: 6,
+        })
+      );
+
+      resetCanvasStore(tab);
+      render(<StoredIndexedGenomeTab entityId="assembly:grch38" />);
+
+      await waitFor(() => expect(mockRetryLocalReference).toHaveBeenCalledOnce(), {
+        timeout: 3_000,
+      });
+      expect(mockRetryLocalReference).toHaveBeenCalledWith({
+        operationId: expect.any(String),
+        assemblyId: 'grch38',
+        themeMode: 'light',
+      });
+      const changedViewport = { start0: 2_187_888_242, end0: 2_296_636_214 };
+      act(() => {
+        useCanvasStore.getState().updateTab('main', tab.id, {
+          isDirty: true,
+          viewState: { indexedViewport: changedViewport },
+        });
+      });
+      productsReady = true;
+      repair.resolve({ status: 'ready', entry: prepared });
+
+      await waitFor(() =>
+        expect(useCanvasStore.getState().panels.main.tabs[0].indexedGenome).toMatchObject({
+          assemblySourceReadiness: 'ready',
+          assemblyAnnotationProductsReadiness: 'ready',
+          assemblySearchReadiness: 'ready',
+          assemblyAssetGeneration: { inventoryFingerprint: 'b'.repeat(64) },
+        })
+      );
+      expect(useCanvasStore.getState().panels.main.tabs[0]).toMatchObject({
+        id: tab.id,
+        entityId: tab.entityId,
+        isDirty: true,
+        viewState: { indexedViewport: changedViewport },
+        initialAnnotationMapperPolicy: { isoformMode: 'expanded', laneLimit: 12 },
+      });
+      expect(
+        screen.queryByTestId('hosted-reference-background-preparation')
+      ).not.toBeInTheDocument();
+      expect(screen.queryByTestId('hosted-reference-background-retry')).not.toBeInTheDocument();
+      expect(mockRetryLocalReference).toHaveBeenCalledOnce();
+      expect(mockInstallHostedReference).not.toHaveBeenCalled();
+    }
+  );
+
+  it('keeps annotation products pending when an inherited local repair fails', async () => {
     const tab = freshAssemblyIndexedTab();
     tab.indexedGenome = {
       ...tab.indexedGenome!,
@@ -2211,20 +2305,9 @@ describe('IndexedGenomeTab loading screen — phase transitions', () => {
       assemblyAnnotationProductsReadiness: 'pending',
       assemblySearchReadiness: 'pending',
     };
-    const prepared = referenceAssemblyById('grch38');
-    if (!prepared) throw new Error('Missing GRCh38 catalog fixture');
-    mockListLocalReferences.mockResolvedValue([prepared]);
     mockGetLocalPreparationStatus.mockResolvedValue(null);
-    mockRetryLocalReference.mockResolvedValue({ status: 'ready', entry: prepared });
-    mockReadTextFile.mockResolvedValue(
-      JSON.stringify({
-        contract: 'reference-asset-publication.v1',
-        assetCacheKey: prepared.assetCacheKey,
-        publicationId: 'local-interrupted-generation',
-        sourceMaterializationFingerprint: 'c'.repeat(64),
-        publishedAtMs: 6,
-      })
-    );
+    mockRetryLocalReference.mockRejectedValue(new Error('The prepared source identity changed.'));
+    mockReadAssemblyAnnotationProductSetInventory.mockResolvedValue({ status: 'unavailable' });
 
     resetCanvasStore(tab);
     render(<StoredIndexedGenomeTab entityId="assembly:grch38" />);
@@ -2235,9 +2318,11 @@ describe('IndexedGenomeTab loading screen — phase transitions', () => {
         'failed'
       )
     );
-    expect(screen.queryByTestId('hosted-reference-background-preparation')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('hosted-reference-background-retry')).not.toBeInTheDocument();
-    expect(mockRetryLocalReference).not.toHaveBeenCalled();
+    expect(useCanvasStore.getState().panels.main.tabs[0].indexedGenome).toMatchObject({
+      assemblyAnnotationProductsReadiness: 'pending',
+      assemblySearchReadiness: 'pending',
+    });
+    expect(mockRetryLocalReference).toHaveBeenCalledOnce();
     expect(mockInstallHostedReference).not.toHaveBeenCalled();
   });
 

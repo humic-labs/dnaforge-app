@@ -111,14 +111,19 @@ export function TrackViewActions({
     [completeRequestedSave]
   );
   const draftIsDirty = useCallback(() => {
-    if (!readyForDirtyCheck) return false;
+    if (!readyForDirtyCheck) {
+      const currentTab = Object.values(useCanvasStore.getState().panels)
+        .flatMap((panel) => panel.tabs)
+        .find((candidate) => candidate.id === tab.id && candidate.entityId === tab.entityId);
+      return Boolean(currentTab?.isDirty ?? tab.isDirty);
+    }
     if (!tab.trackView) return true;
     try {
       return !trackViewMatchesSavedConfiguration(latestCapture.current(), tab.trackView.document);
     } catch {
       return true;
     }
-  }, [readyForDirtyCheck, tab.trackView, lanes]);
+  }, [readyForDirtyCheck, tab.id, tab.entityId, tab.isDirty, tab.trackView, lanes]);
   const beginNaming = useCallback(
     (mode: 'save' | 'rename' | 'copy') => {
       const currentName = tab.trackView?.document.name ?? `${referenceName} view`;

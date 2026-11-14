@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   focusedPanelId: 'panel',
   activeTabId: 'tab-1',
   locations: vi.fn(),
+  storedTab: null as Tab | null,
 }));
 vi.mock('../../../platform', () => ({
   platform: () => ({ trackViews: { locations: mocks.locations } }),
@@ -53,7 +54,13 @@ vi.mock('../../canvas/store', () => ({
   useCanvasStore: {
     getState: () => ({
       focusedPanelId: mocks.focusedPanelId,
-      panels: { panel: { id: 'panel', activeTabId: mocks.activeTabId, tabs: [props(true).tab] } },
+      panels: {
+        panel: {
+          id: 'panel',
+          activeTabId: mocks.activeTabId,
+          tabs: [mocks.storedTab ?? props(true).tab],
+        },
+      },
       updateTab: mocks.updateTab,
     }),
   },
@@ -97,6 +104,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.focusedPanelId = 'panel';
   mocks.activeTabId = 'tab-1';
+  mocks.storedTab = null;
   mocks.locations.mockResolvedValue({ defaultDirectory: '/library', homeDirectory: '/home' });
   mocks.save.mockImplementation(async ({ document }) => ({
     saved: { document, revision: 'b'.repeat(64), path: '/library/view.json' },
@@ -421,6 +429,24 @@ describe('Track view actions', () => {
     expect(mocks.updateTab).not.toHaveBeenCalled();
     rerender(<TrackViewActions {...input} capture={capture} readyForDirtyCheck />);
     expect(mocks.updateTab).toHaveBeenCalledWith('panel', 'tab-1', { isDirty: true });
+  });
+
+  it('preserves current unsaved changes while the restored view cannot be captured', () => {
+    const input = props(true);
+    mocks.storedTab = { ...input.tab, isDirty: true };
+    const capture = vi.fn(input.capture);
+    const { rerender } = render(
+      <TrackViewActions {...input} capture={capture} readyForDirtyCheck={false} />
+    );
+
+    expect(documentLifecycle.dirty(saveTargetForTab(input.tab), input.tab.id)).toBe(true);
+    expect(capture).not.toHaveBeenCalled();
+    expect(mocks.updateTab).not.toHaveBeenCalledWith('panel', 'tab-1', { isDirty: false });
+
+    rerender(<TrackViewActions {...input} capture={capture} readyForDirtyCheck />);
+
+    expect(documentLifecycle.dirty(saveTargetForTab(input.tab), input.tab.id)).toBe(false);
+    expect(mocks.updateTab).toHaveBeenCalledWith('panel', 'tab-1', { isDirty: false });
   });
 
   it('does not close away edits made while a previous save was writing', async () => {
