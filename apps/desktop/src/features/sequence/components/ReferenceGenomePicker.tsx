@@ -15,7 +15,7 @@ import { ReferenceSavedViewMenu } from './ReferenceSavedViewMenu';
 import { projectSavedTrackView } from '../track-view-library';
 import { assertTrackViewReference, openSavedTrackView } from '../open-track-view';
 import { recoverScenarioTrackView } from '../recover-scenario-track-view';
-import type { SavedTrackView } from '../../../shared/track-view';
+import { validateTrackViewDocument, type SavedTrackView } from '../../../shared/track-view';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   REFERENCE_ASSEMBLY_CATALOG,
@@ -1163,12 +1163,12 @@ export function ReferenceGenomePicker({
         ? await openSavedTrackView(
             {
               ...managedView,
-              document: {
+              document: validateTrackViewDocument({
                 ...managedView.document,
                 ...managedTracks,
                 dataTracks: [...restoredTracks.dataTracks],
                 bamTracks: [...restoredTracks.bamTracks],
-              },
+              }),
             },
             placementOptions
           )
