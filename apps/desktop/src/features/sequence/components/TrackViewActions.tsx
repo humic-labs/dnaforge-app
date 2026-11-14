@@ -1,3 +1,4 @@
+import { reportSaveFailure } from '../../../lib/report-save-failure';
 import {
   usePresentationOverlay,
   PresentationScopeContext,
@@ -285,6 +286,7 @@ export function TrackViewActions({
           warning: result.warning,
         };
       } catch (error) {
+        reportSaveFailure('[TrackViewActions] Save failed:', { tabId: tab.id }, error);
         const message = error instanceof Error ? error.message : 'Could not save this Track view.';
         setError(toUserMessage(message, 'tracks.loadFailed'));
         useToastStore.getState().addToast(toUserMessage(message, 'tracks.loadFailed'), {

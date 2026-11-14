@@ -1,3 +1,4 @@
+import { reportSaveFailure } from '../../../lib/report-save-failure';
 import { useDocumentLifecycle } from '../../../shared/use-document-lifecycle';
 import {
   toUserMessage,
@@ -406,6 +407,7 @@ export function PrimerCreationTab({ tab, panelId }: PrimerCreationTabProps) {
         }
       );
     } catch (error) {
+      reportSaveFailure('[PrimerCreationTab] Save completion failed:', { tabId: tab.id }, error);
       if (!requestIsCurrent(epoch, captured)) return;
 
       setLoadError(toUserMessage(error, 'failure.the-primer-save-could-not-finish'));
