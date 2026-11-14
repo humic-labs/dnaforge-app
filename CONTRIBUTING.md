@@ -50,6 +50,19 @@ permission is separate from an approving pull-request review.
 For another contribution, fetch `upstream` again and start a new branch from
 `upstream/main`. Keep unrelated changes in separate pull requests.
 
+When a maintainer asks you to bring an existing contribution up to date, run
+these commands from that contribution's branch:
+
+```bash
+git fetch upstream
+git merge --signoff upstream/main
+git push origin HEAD
+```
+
+The merge commit needs its own sign-off. `--signoff` adds it without rewriting
+the branch's existing commits. Resolve any conflicts and rerun the affected
+checks before pushing.
+
 ## Contributor License Agreement
 
 Every contribution is accepted under the
