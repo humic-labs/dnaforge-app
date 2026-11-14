@@ -12,7 +12,8 @@ import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
-import { useCommandRegistry } from '../../commands';
+import { COMMAND_IDS, useCommandRegistry } from '../../commands';
+import { matchesAppShortcut } from '../../keyboard/shortcutRegistry';
 import { confirmDialog } from '../../components/confirm-dialog-store';
 import { createTerminalFileLinkProvider } from './terminal-links';
 import { quoteTerminalPath, splitTerminalInput } from './terminal-input';
@@ -33,6 +34,7 @@ import {
   terminalHistoryShortcut,
   terminalLinkShortcut,
   terminalHostPlatform,
+  terminalNavigateGroupDirection,
   terminalSplitShortcut,
   terminalResizeDirection,
   type TerminalResizeDirection,
@@ -781,10 +783,22 @@ export function TerminalPane({
         callbacks.current.onHistory(id, history);
         return false;
       }
-      if (event.code === 'Tab' && event.ctrlKey && !event.metaKey && !event.altKey) {
+      const groupDirection = terminalNavigateGroupDirection(terminalHostPlatform(), event);
+      if (groupDirection !== null) {
         event.preventDefault();
         event.stopPropagation();
-        callbacks.current.onNavigateGroup(id, event.shiftKey ? -1 : 1);
+        callbacks.current.onNavigateGroup(id, groupDirection);
+        return false;
+      }
+      const workspaceTabCommand = matchesAppShortcut(event, 'tabs.next')
+        ? COMMAND_IDS.canvasNextTab
+        : matchesAppShortcut(event, 'tabs.previous')
+          ? COMMAND_IDS.canvasPreviousTab
+          : null;
+      if (workspaceTabCommand) {
+        event.preventDefault();
+        event.stopPropagation();
+        dispatchCommand(workspaceTabCommand, { source: 'keyboard', event });
         return false;
       }
       if (terminalSplitShortcut(terminalHostPlatform(), event)) {
@@ -802,19 +816,6 @@ export function TerminalPane({
       ) {
         event.preventDefault();
         void pane.toggleContentWidth().catch(report);
-        return false;
-      }
-      if (
-        isMac
-          ? event.metaKey &&
-            event.shiftKey &&
-            (event.code === 'BracketLeft' || event.code === 'BracketRight')
-          : event.ctrlKey && (key === 'pageup' || key === 'pagedown')
-      ) {
-        callbacks.current.onNavigateGroup(
-          id,
-          event.code === 'BracketLeft' || key === 'pageup' ? -1 : 1
-        );
         return false;
       }
       if (

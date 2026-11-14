@@ -26,6 +26,7 @@ export type ShortcutScope =
   | 'find-bar'
   | 'page'
   | 'document'
+  | 'terminal'
   | 'chat'
   | 'genome'
   | 'development';
@@ -469,6 +470,24 @@ export const APP_SHORTCUTS: readonly AppShortcut[] = [
     chords: [['ctrl', 'shift', 'tab']],
     commandIds: [COMMAND_IDS.canvasPreviousTab],
     when: 'Focused pane, outside editors and blocking dialogs or menus',
+  },
+  {
+    id: 'terminal.next-tab',
+    area: 'tabs',
+    label: 'Next terminal subtab',
+    scope: 'terminal',
+    availability: 'active',
+    chords: [{ apple: ['cmd', 'shift', ']'], standard: ['ctrl', 'PageDown'] }],
+    when: 'Terminal input or terminal subtab list',
+  },
+  {
+    id: 'terminal.previous-tab',
+    area: 'tabs',
+    label: 'Previous terminal subtab',
+    scope: 'terminal',
+    availability: 'active',
+    chords: [{ apple: ['cmd', 'shift', '['], standard: ['ctrl', 'PageUp'] }],
+    when: 'Terminal input or terminal subtab list',
   },
   {
     id: 'tabs.close',

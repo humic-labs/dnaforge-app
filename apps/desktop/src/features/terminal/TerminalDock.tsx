@@ -69,6 +69,7 @@ import {
 import { TERMINAL_EDITOR_ACTION_EVENT, useTerminalEditorTargets } from './terminal-placement';
 import {
   terminalHostPlatform,
+  terminalNavigateGroupDirection,
   terminalSplitShortcut,
   type TerminalResizeDirection,
 } from './terminal-keyboard';
@@ -1742,14 +1743,14 @@ export function TerminalDock({
                           if (event.altKey) void create(true, session.cwd, session.id);
                         };
                         const navigate: KeyboardEventHandler<HTMLButtonElement> = (event) => {
-                          if (
-                            event.code === 'Tab' &&
-                            event.ctrlKey &&
-                            !event.metaKey &&
-                            !event.altKey
-                          ) {
+                          const groupDirection = terminalNavigateGroupDirection(
+                            terminalHostPlatform(),
+                            event
+                          );
+                          if (groupDirection !== null) {
                             event.preventDefault();
-                            navigateGroup(session.id, event.shiftKey ? -1 : 1);
+                            event.stopPropagation();
+                            navigateGroup(session.id, groupDirection);
                           } else if (terminalSplitShortcut(terminalHostPlatform(), event)) {
                             event.preventDefault();
                             void create(true, undefined, session.id);

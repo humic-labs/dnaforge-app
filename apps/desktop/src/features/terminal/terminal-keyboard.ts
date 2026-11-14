@@ -2,6 +2,23 @@ export type TerminalHostPlatform = 'darwin' | 'win32' | 'linux';
 type Key = Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey'>;
 type PhysicalKey = Pick<KeyboardEvent, 'code' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey'>;
 
+export function terminalNavigateGroupDirection(
+  platform: TerminalHostPlatform,
+  event: PhysicalKey
+): -1 | 1 | null {
+  if (event.altKey) return null;
+  if (platform === 'darwin') {
+    if (!event.metaKey || !event.shiftKey || event.ctrlKey) return null;
+    if (event.code === 'BracketLeft') return -1;
+    if (event.code === 'BracketRight') return 1;
+  } else {
+    if (!event.ctrlKey || event.metaKey || event.shiftKey) return null;
+    if (event.code === 'PageUp') return -1;
+    if (event.code === 'PageDown') return 1;
+  }
+  return null;
+}
+
 export function terminalFindShortcut(platform: TerminalHostPlatform, event: PhysicalKey): boolean {
   return (
     event.code === 'KeyF' &&
