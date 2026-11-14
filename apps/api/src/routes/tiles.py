@@ -506,6 +506,10 @@ def _compute_alignment_read(
     )
 
 
+class _LocalAlignmentClientClosed(Exception):
+    pass
+
+
 async def _run_alignment_native(
     bam_path: str, worker: Callable[..., dict], *args: object, control: bool = False
 ) -> dict:
@@ -1567,7 +1571,7 @@ async def alignment_tile_route(
                 and not pileup._is_remote_bam(bam_path)
                 and await request.is_disconnected()
             ):
-                raise asyncio.CancelledError
+                raise _LocalAlignmentClientClosed
             result = await _run_alignment_native(
                 bam_path,
                 _compute_alignment_tile,
@@ -1589,6 +1593,10 @@ async def alignment_tile_route(
 
     try:
         result = await _run_alignment_request(bam_path, request, admitted_read)
+    except _LocalAlignmentClientClosed:
+        return JSONResponse(
+            status_code=499, content={"detail": "Client closed alignment request"}
+        )
     except QueueRefusal as exc:
         return _refuse_response(exc)
     except pileup.SourceGenerationChangedError as exc:

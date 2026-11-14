@@ -62,13 +62,30 @@ async def test_disconnected_queued_local_read_does_not_start_native_work(monkeyp
             tiles.alignment_tile_route(0, 1, body, current_request)
         )
         await wait_for_queue(pool, 2)
-    with pytest.raises(asyncio.CancelledError):
-        await obsolete
+    closed = await obsolete
+    assert closed.status_code == 499
     response = await current
     assert response.status_code == 200
     assert calls == [1]
     assert pool.stats()["active"] == 0
     assert pool.stats()["queued"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "bam_path", ["/local/whole-genome.bam", "https://source/reads.bam"]
+)
+async def test_real_alignment_task_cancellation_is_not_a_client_closed_response(
+    monkeypatch, bam_path
+):
+    async def cancelled(*_):
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(tiles, "_run_alignment_request", cancelled)
+    body = tiles._TileSourceBody(bamPath=bam_path, chrom="chr1")
+    request, _ = request_with_disconnect()
+    with pytest.raises(asyncio.CancelledError):
+        await tiles.alignment_tile_route(0, 0, body, request)
 
 
 @pytest.mark.asyncio
