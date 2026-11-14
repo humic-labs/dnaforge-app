@@ -268,13 +268,32 @@ async function saveView(page, fixture, name) {
   return savedViewPath;
 }
 
-async function closeView(page) {
-  const tab = page.locator('[role="tab"][data-tab-id][aria-selected="true"]');
+async function closeView(page, { tabId, discardChanges = false } = {}) {
+  const tab = page.locator(
+    tabId
+      ? `[role="tab"][data-tab-id=${JSON.stringify(tabId)}]`
+      : '[role="tab"][data-tab-id][aria-selected="true"]'
+  );
   const id = await tab.getAttribute('data-tab-id');
   assert.ok(id, 'The saved view has no active tab.');
   await tab.hover();
   await page.getByTestId(`tab-close-${id}`).click();
-  await viewer(page).waitFor({ state: 'detached' });
+  const confirmation = page.getByRole('dialog', { name: 'Do you want to save changes?' });
+  const closed = await poll(
+    async () => ({
+      removed: (await tab.count()) === 0,
+      confirmation: await confirmation.isVisible(),
+    }),
+    (state) => state.removed || state.confirmation,
+    5000,
+    'Closing the saved view did not remove its tab or show a decision'
+  );
+  if (closed.confirmation) {
+    assert.ok(discardChanges, 'The saved copy unexpectedly still has unsaved changes.');
+    await confirmation.getByRole('button', { name: "Don't Save", exact: true }).click();
+  }
+  await tab.waitFor({ state: 'detached' });
+  return id;
 }
 
 async function savedFileRow(page, fixture, savedViewPath) {
@@ -376,9 +395,7 @@ async function startCadence(page) {
       wheel: { eventCount: 0, deltaY: 0, untrustedCount: 0 },
       onWheel: null,
     };
-    const canvas = document.querySelector('[data-testid="indexed-genome-visible-viewer"] canvas');
     capture.onWheel = (event) => {
-      if (event.target !== canvas) return;
       capture.wheel.eventCount += 1;
       capture.wheel.deltaY += event.deltaY;
       if (!event.isTrusted) capture.wheel.untrustedCount += 1;
@@ -491,34 +508,43 @@ export async function runPileupPerformanceJourney({
     diagnostics: { consoleMessages: [], httpFailures: [], requestFailures: [] },
   };
   const errors = [];
+  let preparing = !fixture?.savedViewPath;
+  let scope = 'preparation';
   const onError = (error) => errors.push(`Renderer: ${error.message}`);
   const onRequestFailure = (request) => {
     report.diagnostics.requestFailures.push({
       atEpochMs: Date.now(),
+      scope,
       url: request.url(),
       method: request.method(),
       error: request.failure()?.errorText,
     });
-    if (/\/tiles\//u.test(request.url()) && request.failure()?.errorText !== 'net::ERR_ABORTED') {
+    if (request.failure()?.errorText !== 'net::ERR_ABORTED') {
       errors.push(`${request.url()}: ${request.failure()?.errorText}`);
     }
   };
   const onResponse = (response) => {
     if (response.status() >= 400) {
+      const preparationPending =
+        preparing &&
+        response.status() === 425 &&
+        new URL(response.url()).pathname === '/tiles/coverage-corridor-floor';
       report.diagnostics.httpFailures.push({
         atEpochMs: Date.now(),
+        scope,
+        disposition: preparationPending ? 'preparation-pending' : 'failure',
         url: response.url(),
         method: response.request().method(),
         status: response.status(),
       });
-      if (/\/tiles\//u.test(response.url()))
-        errors.push(`${response.url()}: HTTP ${response.status()}`);
+      if (!preparationPending) errors.push(`${response.url()}: HTTP ${response.status()}`);
     }
   };
   const onConsole = (message) => {
     if (['error', 'warning'].includes(message.type())) {
       report.diagnostics.consoleMessages.push({
         atEpochMs: Date.now(),
+        scope,
         type: message.type(),
         text: message.text(),
         location: message.location(),
@@ -557,6 +583,8 @@ export async function runPileupPerformanceJourney({
       ...(fixture ?? (await createDensePileupFixture(path.join(output, 'fixture')))),
     };
     if (!supplied) fixture = await admitPortable(page, fixture);
+    preparing = false;
+    scope = 'between-phases';
     assert.ok(
       fixture.workspaceRoot && fixture.bamPath && Number.isFinite(fixture.locusStart),
       'The saved fixture needs workspaceRoot, bamPath and locusStart.'
@@ -581,20 +609,10 @@ export async function runPileupPerformanceJourney({
       phase.failures.push(...errors.filter((error) => !phase.failures.includes(error)));
       report.phases.push(phase);
       await flush();
-      try {
-        phase.visibleFlanks = await visibleFlanks(page, lane, phase.viewport);
-        if (phase.visibleFlanks && (!phase.visibleFlanks.left || !phase.visibleFlanks.right)) {
-          phase.failures.push('Visible readable rows do not reach both viewport flanks.');
-        }
-        await page.screenshot({ path: path.join(output, `${phase.label}.png`) });
-      } catch (error) {
-        phase.failures.push(`Evidence capture failed: ${error.message}`);
-        throw error;
-      } finally {
-        await flush();
-      }
+      scope = 'between-phases';
     };
     const beginInput = async (label, options) => {
+      scope = label;
       if (nativeTrace) {
         activeTrace = { label, token: await nativeTrace.start({ label, page, cdp }) };
       }
@@ -608,6 +626,7 @@ export async function runPileupPerformanceJourney({
       return { ...input, nativePresentation };
     };
     const open = async (label, kind, savedViewPath) => {
+      scope = label;
       const row = await savedFileRow(page, fixture, savedViewPath);
       const firstError = errors.length;
       const started = performance.now();
@@ -714,8 +733,17 @@ export async function runPileupPerformanceJourney({
       await gesture(`pan-${span}bp-return`, -1);
     }
     await frame(page, fixture.locusStart, 26612);
+    const sourceTabId = await page
+      .locator('[role="tab"][data-tab-id][aria-selected="true"]')
+      .getAttribute('data-tab-id');
     const savedViewPath = await saveView(page, fixture, `Warm alignment performance ${Date.now()}`);
-    await closeView(page);
+    const savedTabId = await closeView(page);
+    if (
+      sourceTabId !== savedTabId &&
+      (await page.locator(`[role="tab"][data-tab-id=${JSON.stringify(sourceTabId)}]`).count())
+    ) {
+      await closeView(page, { tabId: sourceTabId, discardChanges: true });
+    }
     await open('reopen-26612bp', 'reopen', savedViewPath);
     for (let cycle = 0; cycle < 4; cycle += 1) {
       await gesture(`warm-${cycle}-26612bp-away`, 1);
@@ -737,6 +765,45 @@ export async function runPileupPerformanceJourney({
         viewport: state.viewport,
       });
       await flush();
+    }
+    for (const phase of report.phases) {
+      scope = `evidence:${phase.label}`;
+      try {
+        await frame(page, phase.viewport.startBp, phase.viewport.endBp - phase.viewport.startBp);
+        const failures = [];
+        const state = await complete(
+          page,
+          lane,
+          fixture.readLengthBp,
+          performance.now(),
+          failures,
+          {
+            startBp: phase.viewport.startBp,
+            spanBp: phase.viewport.endBp - phase.viewport.startBp,
+          }
+        );
+        phase.failures.push(...failures);
+        phase.evidence = {
+          stage: 'post-measurement-replay',
+          viewport: state.viewport,
+          visibleFlanks: await visibleFlanks(page, lane, state.viewport),
+          screenshot: `${phase.label}.png`,
+        };
+        if (
+          phase.evidence.visibleFlanks &&
+          (!phase.evidence.visibleFlanks.left || !phase.evidence.visibleFlanks.right)
+        ) {
+          phase.failures.push(
+            'Visible readable rows do not reach both viewport flanks during evidence replay.'
+          );
+        }
+        await page.screenshot({ path: path.join(output, phase.evidence.screenshot) });
+      } catch (error) {
+        phase.failures.push(`Evidence capture failed: ${error.message}`);
+        throw error;
+      } finally {
+        await flush();
+      }
     }
     report.failures = errors;
     await flush();
