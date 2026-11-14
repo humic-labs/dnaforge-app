@@ -37,6 +37,7 @@ import { NativeDocumentStartupRecovery } from '../native-document-startup-recove
 import { NativeDocumentWorkspaces } from '../native-document-workspaces';
 import { getDb } from '../ipc/database';
 import { createNativeInventoryOwner } from '../inventory-owner';
+import { createNativeAgentGrantAuthorizer } from '../agent-grant-authority';
 import {
   nativeDocumentFetch,
   registerNativeDocumentCommandServer,
@@ -276,6 +277,7 @@ export function createNativeDocuments(
     commandServer = await startNativeDocumentCommandServer({
       projectAuthority,
       inventory,
+      authorizeInventoryAgent: createNativeAgentGrantAuthorizer(nativeDocumentFetch, 'INVENTORY'),
       owner,
       fileOwner: fileDocuments,
       sequenceOwner: sequenceDocuments,

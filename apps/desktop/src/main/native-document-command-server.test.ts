@@ -13,7 +13,12 @@ afterEach(async () => {
   for (const server of servers.splice(0)) await server.close();
 });
 
-async function fixture() {
+async function fixture(
+  options: Pick<
+    Parameters<typeof startNativeDocumentCommandServer>[0],
+    'authorizeInventoryAgent'
+  > = {}
+) {
   const owner = {
     inspect: vi.fn(async () => ({ operationId: 'op-1' })),
     apply: vi.fn(async () => ({ status: 'blocked', reason: 'Fixture refusal' })),
@@ -92,12 +97,22 @@ async function fixture() {
     ),
   };
   const getAuthority = vi.fn(() => authority);
+  const inventory = {
+    execute: vi.fn(),
+    inspect: vi.fn(() => null),
+    operation: vi.fn(() => null),
+    history: vi.fn(() => []),
+    projects: vi.fn(() => []),
+    materials: vi.fn(() => ({ items: [], nextCursor: null })),
+  };
   const server = await startNativeDocumentCommandServer({
     owner,
     fileOwner,
     sequenceOwner,
     notebookOwner,
     importReviews,
+    inventory,
+    ...options,
     getAuthority,
   });
   servers.push(server);
@@ -116,6 +131,7 @@ async function fixture() {
     sequenceOwner,
     notebookOwner,
     importReviews,
+    inventory,
     authority,
     getAuthority,
     body,
@@ -147,6 +163,125 @@ it('dispatches a private native inspection without a window or renderer bridge',
     result: { operationId: 'op-1' },
   });
   expect(f.owner.inspect).toHaveBeenCalledExactlyOnceWith(f.body.target, f.body.authority);
+});
+
+const inventoryRequest = {
+  project: '/workspace',
+  inventoryId: 'inventory-1',
+  operationId: 'operation-1',
+  expectedRevision: 0,
+  commands: [{ kind: 'create-vessel', id: 'tube', name: 'Tube', placement: { kind: 'unplaced' } }],
+};
+const inventoryAgent = {
+  identityId: 'agent-1',
+  capabilities: ['read-workspace', 'write-workspace'],
+};
+
+it('requires current agent verification while retaining native inventory automation', async () => {
+  const f = await fixture();
+  const input = {
+    ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
+    command: 'inventory.execute',
+    request: inventoryRequest,
+  };
+  const denied = await f.call({ ...input, agent: inventoryAgent });
+  expect(denied.status).toBe(200);
+  expect(await denied.json()).toMatchObject({
+    result: { ok: false, code: 'INVENTORY_CAPABILITY_DENIED', stateChanged: false },
+  });
+  expect(f.inventory.execute).not.toHaveBeenCalled();
+  expect((await f.call(input)).status).toBe(200);
+  expect(f.inventory.execute).toHaveBeenCalledExactlyOnceWith(
+    inventoryRequest,
+    expect.any(Function),
+    undefined
+  );
+});
+
+it.each([
+  ['inventory.execute', inventoryRequest, ['read-workspace', 'write-workspace']],
+  ['inventory.inspect', { project: '/workspace', inventoryId: 'inventory-1' }, ['read-workspace']],
+  [
+    'inventory.operation',
+    { project: '/workspace', inventoryId: 'inventory-1', operationId: 'operation-1' },
+    ['read-workspace'],
+  ],
+  ['inventory.history', { project: '/workspace', inventoryId: 'inventory-1' }, ['read-workspace']],
+  ['inventory.projects', {}, ['read-workspace']],
+  ['inventory.materials', { project: '/workspace', query: '' }, ['read-workspace']],
+])('verifies current grant scopes for %s', async (command, request, required) => {
+  const authorizeInventoryAgent = vi.fn(async () => {});
+  const f = await fixture({ authorizeInventoryAgent });
+  const response = await f.call({
+    ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
+    command,
+    request,
+    agent: inventoryAgent,
+  });
+  expect(response.status).toBe(200);
+  expect(authorizeInventoryAgent).toHaveBeenCalledExactlyOnceWith(inventoryAgent, required);
+  if (command === 'inventory.execute')
+    expect(f.inventory.execute).toHaveBeenCalledExactlyOnceWith(
+      inventoryRequest,
+      expect.any(Function),
+      'agent:agent-1'
+    );
+});
+
+it('refuses inventory authority rotated during asynchronous grant verification', async () => {
+  let completeAuthorization: (() => void) | undefined;
+  const authorizeInventoryAgent = vi.fn(
+    () => new Promise<void>((resolve) => (completeAuthorization = resolve))
+  );
+  const f = await fixture({ authorizeInventoryAgent });
+  const response = f.call({
+    ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
+    command: 'inventory.execute',
+    request: inventoryRequest,
+    agent: inventoryAgent,
+  });
+  await vi.waitFor(() => expect(authorizeInventoryAgent).toHaveBeenCalledOnce());
+  f.authority.token = 'rotated-native-token';
+  if (!completeAuthorization) throw new Error('Grant verification did not start.');
+  completeAuthorization();
+  const refused = await response;
+  expect(refused.status).toBe(409);
+  expect(await refused.json()).toMatchObject({ ok: false, accepted: false });
+  expect(f.inventory.execute).not.toHaveBeenCalled();
+});
+
+it('limits no-effect grant refusals to authorization before inventory dispatch', async () => {
+  const authorizeInventoryAgent = vi.fn(async () => {
+    throw new Error('INVENTORY_CAPABILITY_DENIED: The current grant was revoked.');
+  });
+  const f = await fixture({ authorizeInventoryAgent });
+  const input = {
+    ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
+    command: 'inventory.execute',
+    request: inventoryRequest,
+    agent: inventoryAgent,
+  };
+  const denied = await f.call(input);
+  expect(denied.status).toBe(200);
+  expect(await denied.json()).toMatchObject({
+    result: { ok: false, code: 'INVENTORY_CAPABILITY_DENIED', stateChanged: false },
+  });
+  expect(f.inventory.execute).not.toHaveBeenCalled();
+  authorizeInventoryAgent.mockResolvedValue(undefined);
+  f.inventory.execute.mockImplementation(() => {
+    throw new Error('INVENTORY_CAPABILITY_DENIED: A post-commit observation failed.');
+  });
+  const uncertain = await f.call(input);
+  expect(uncertain.status).toBe(500);
+  expect(await uncertain.json()).toMatchObject({
+    ok: false,
+    accepted: true,
+    error: { code: 'NATIVE_DOCUMENT_OUTCOME_UNCONFIRMED' },
+  });
 });
 
 it('routes bounded public notebook commands directly to the native owner and refuses UI transactions', async () => {

@@ -29,6 +29,7 @@ import {
 } from '../shared/inventory-command';
 import type { createNativeInventoryOwner } from './inventory-owner';
 import { hasRequiredCapabilities } from '../shared/capability-policy';
+import type { NativeAgentAuthority } from './agent-grant-authority';
 import {
   withAgentProjectScope,
   type RegisteredProjectAuthority,
@@ -228,6 +229,7 @@ export async function startNativeDocumentCommandServer(options: {
     ReturnType<typeof createNativeInventoryOwner>,
     'execute' | 'inspect' | 'operation' | 'history' | 'projects' | 'materials'
   >;
+  authorizeInventoryAgent?(agent: NativeAgentAuthority, required: readonly string[]): Promise<void>;
   getAuthority(): NativeCommandAuthority | null;
 }): Promise<{ url: string; close(): Promise<void> }> {
   let closing = false;
@@ -324,26 +326,44 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'inventory.projects' ||
           body.command === 'inventory.materials'
         ) {
+          if (
+            options.inventory &&
+            body.command.startsWith('inventory.') &&
+            'agent' in body &&
+            body.agent
+          ) {
+            const required =
+              body.command === 'inventory.execute'
+                ? ['read-workspace', 'write-workspace']
+                : ['read-workspace'];
+            if (!hasRequiredCapabilities(body.agent.capabilities, required))
+              throw new NativeDocumentCommandError(
+                'INSUFFICIENT_SCOPE',
+                'The current grant does not permit this inventory operation.',
+                false
+              );
+            if (!options.authorizeInventoryAgent)
+              throw new NativeDocumentCommandError(
+                'INVENTORY_CAPABILITY_DENIED',
+                'Current inventory agent access could not be verified.',
+                false
+              );
+            try {
+              await options.authorizeInventoryAgent(body.agent, required);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              throw new NativeDocumentCommandError(
+                message.match(/^(INVENTORY_(?:CAPABILITY_DENIED|GRANTS_UNAVAILABLE)):/)?.[1] ??
+                  'INVENTORY_CAPABILITY_DENIED',
+                message,
+                false
+              );
+            }
+            assertCurrent();
+          }
           const run = (() => {
             if (options.inventory) {
               const receiver = options.inventory;
-              if (
-                body.command.startsWith('inventory.') &&
-                'agent' in body &&
-                body.agent &&
-                !hasRequiredCapabilities(
-                  body.agent.capabilities,
-                  body.command === 'inventory.execute'
-                    ? ['read-workspace', 'write-workspace']
-                    : ['read-workspace']
-                )
-              )
-                return () => ({
-                  ok: false,
-                  code: 'INSUFFICIENT_SCOPE',
-                  error: 'The current grant does not permit this inventory operation.',
-                  stateChanged: false,
-                });
               if (body.command === 'inventory.projects')
                 return () => ({ kind: 'projects', projects: receiver.projects() });
               if (body.command === 'inventory.materials') {

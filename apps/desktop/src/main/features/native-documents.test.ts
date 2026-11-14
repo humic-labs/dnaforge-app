@@ -57,6 +57,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../analytics', () => ({ trackEvent: mocks.saveTelemetry }));
 vi.mock('../boot-log', () => ({ appendBootLog: mocks.bootLog }));
+vi.mock('../config', () => ({ getApiUrl: () => 'http://synthetic-grants.invalid' }));
 
 vi.mock('../registered-project-authority', () => ({
   withAgentProjectScope: (_scope: unknown, operation: () => unknown) => operation(),
@@ -324,6 +325,30 @@ describe('native documents main feature', () => {
     await documents.workspaces.replaceRoots([ROOT]);
     await documents.start({ editingClient: 'none', canAssertNoEditingClient: () => true });
     expect(mocks.recoveries[0]?.request).toHaveBeenCalledTimes(1);
+  });
+
+  it('wires inventory agent verification to the current shared grant authorizer', async () => {
+    mocks.fetch.mockResolvedValue(
+      Response.json({
+        ok: true,
+        grants: [{ id: 'inventory-agent', scopes: ['read-workspace'] }],
+        hasMore: false,
+      })
+    );
+    await started('renderer').start;
+    const { authorizeInventoryAgent } = mocks.startServer.mock.calls[0]?.[0] as {
+      authorizeInventoryAgent: (
+        agent: { identityId: string; capabilities: string[] },
+        required: string[]
+      ) => Promise<void>;
+    };
+    await expect(
+      authorizeInventoryAgent(
+        { identityId: 'inventory-agent', capabilities: ['read-workspace', 'write-workspace'] },
+        ['read-workspace', 'write-workspace']
+      )
+    ).rejects.toThrow('INVENTORY_CAPABILITY_DENIED');
+    expect(String(mocks.fetch.mock.calls[0]?.[0])).toContain('/agent-grants?');
   });
 
   it('protects a renderer edit with registered project authority independently of display', async () => {

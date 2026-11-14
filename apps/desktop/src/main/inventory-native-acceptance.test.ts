@@ -18,6 +18,7 @@ vi.mock('electron', () => ({
   dialog: { showErrorBox: vi.fn() },
   app: { getPath: () => '/tmp', getVersion: () => '1.0.0', exit: vi.fn() },
 }));
+vi.mock('./config', () => ({ getApiUrl: () => 'http://synthetic-grants.invalid' }));
 
 import { openFileTestDb } from './__tests__/test-db';
 import { ensureSchema } from './schema';
@@ -25,6 +26,7 @@ import { rememberOriginalDefaultProject } from './original-default-project';
 import { createRegisteredProjectAuthority } from './registered-project-authority';
 import { createNativeInventoryOwner } from './inventory-owner';
 import { startNativeDocumentCommandServer } from './native-document-command-server';
+import { createNativeAgentGrantAuthorizer } from './agent-grant-authority';
 
 type InventoryNativeCommand =
   | 'inventory.execute'
@@ -46,6 +48,7 @@ interface TraceEntry {
   request: unknown;
   ownerInstanceId: string;
   projectScope: unknown;
+  agent?: { identityId: string; capabilities: string[] };
   authentication: 'valid' | 'invalid';
   response?: { status: number; body: unknown };
   failure?: string;
@@ -81,6 +84,41 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
   let authority: { ownerInstanceId: string; token: string };
   const scope = { project: 'Synthetic inventory project', inventoryId: 'inventory-synthetic' };
   const projectScope = { kind: 'project-roots' as const, roots: [projectPath] };
+  const grantSnapshot = [
+    {
+      id: 'synthetic-inventory-writer',
+      scopes: ['read-workspace', 'write-workspace'],
+      revokedAt: null,
+      expiresAt: null,
+    },
+    {
+      id: 'synthetic-read-only',
+      scopes: ['read-workspace'],
+      revokedAt: null,
+      expiresAt: null,
+    },
+    {
+      id: 'synthetic-revoked',
+      scopes: ['read-workspace', 'write-workspace'],
+      revokedAt: '2026-01-01T00:00:00.000Z',
+      expiresAt: null,
+    },
+    {
+      id: 'synthetic-expired',
+      scopes: ['read-workspace', 'write-workspace'],
+      revokedAt: null,
+      expiresAt: '2000-01-01T00:00:00.000Z',
+    },
+  ];
+  const grantReads: string[] = [];
+  const grantFetch: typeof fetch = async (input) => {
+    const url = String(input);
+    expect(new URL(url).pathname).toBe('/agent-grants');
+    grantReads.push(url);
+    return Response.json({ ok: true, grants: grantSnapshot, hasMore: false });
+  };
+  evidence.grantSnapshot = grantSnapshot;
+  evidence.grantReads = grantReads;
 
   async function start() {
     if (!db) throw new Error('Fixture database is closed.');
@@ -111,6 +149,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
         close: async () => {},
       },
       inventory: owner,
+      authorizeInventoryAgent: createNativeAgentGrantAuthorizer(grantFetch, 'INVENTORY'),
       projectAuthority,
       getAuthority: () => authority,
     });
@@ -139,6 +178,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       request,
       ownerInstanceId: authority.ownerInstanceId,
       projectScope: options.roots ? { kind: 'project-roots', roots: options.roots } : projectScope,
+      ...(options.agent ? { agent: options.agent } : {}),
       authentication: options.invalidToken ? 'invalid' : 'valid',
     };
     trace.push(entry);
@@ -410,6 +450,38 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     });
     expect(owner.inspect(scope)?.revision).toBe(2);
     expect(owner.operation({ ...scope, operationId: 'consume' })).toBeNull();
+    expect(
+      await success('read-only current grant can inspect inventory', 'inventory.inspect', scope, {
+        agent: { identityId: 'synthetic-read-only', capabilities: ['read-workspace'] },
+      })
+    ).toEqual(owner.inspect(scope));
+    const stateBeforeGrantRefusals = owner.inspect(scope);
+    const historyBeforeGrantRefusals = owner.history(scope);
+    for (const identityId of [
+      'synthetic-read-only',
+      'synthetic-revoked',
+      'synthetic-expired',
+      'synthetic-missing',
+    ]) {
+      const operationId = `refused-grant:${identityId}`;
+      const denied = await call(
+        `reject current grant ${identityId} claiming write access`,
+        'inventory.execute',
+        { ...consume, operationId },
+        { agent: { identityId, capabilities: ['read-workspace', 'write-workspace'] } }
+      );
+      expect(denied).toMatchObject({
+        status: 200,
+        body: {
+          ok: true,
+          result: { ok: false, code: 'INVENTORY_CAPABILITY_DENIED', stateChanged: false },
+        },
+      });
+      expect(owner.operation({ ...scope, operationId })).toBeNull();
+      expect(owner.inspect(scope)).toEqual(stateBeforeGrantRefusals);
+      expect(owner.history(scope)).toEqual(historyBeforeGrantRefusals);
+    }
+    expect(grantReads).toHaveLength(6);
     const receipt = await loseAcknowledgement(consume);
     expect(receipt).toMatchObject({
       status: 'committed',
