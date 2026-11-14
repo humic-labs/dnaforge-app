@@ -1,5 +1,6 @@
 import { PresentationBoundary } from '../../../presentation/PresentationSurface';
 import { usePresentationListener } from '../../../presentation/PresentationSurface';
+import { usePresentationScope } from '../../../presentation/PresentationSurface';
 import { userMessage } from '@waypoint/user-messages';
 import { findUnsettledEntityDetailsSession } from '../../entity-details/public/editing-sessions';
 import { requestManagedSequenceMetadata } from '../../sequence/public/managed-sequence-metadata';
@@ -29,6 +30,8 @@ import { useCommandScope } from '../../../commands/useCommandScope';
 import { keyboardCommandBelongsToTarget } from '../../../commands/commandRegistry';
 import { COMMAND_IDS, COMMAND_SCOPES } from '../../../commands/types';
 import { matchesAppShortcut } from '../../../keyboard/shortcutRegistry';
+import { platform } from '../../../platform';
+import { isDesktopRuntime } from '../../../utils/environment';
 import {
   registerCanvasReadRequest,
   commitCanvasReadPlacement,
@@ -51,12 +54,13 @@ export const Panel = React.memo(function Panel(props: PanelProps) {
 
 function PanelBody({ panel, isFocused }: PanelProps) {
   const presentationEvents = usePresentationListener();
+  const presentation = usePresentationScope();
 
   const setActiveTab = useCanvasStore((state) => state.setActiveTab);
   const closeTab = useCanvasStore((state) => state.closeTab);
   const reorderTab = useCanvasStore((state) => state.reorderTab);
   const focusPanel = useCanvasStore((state) => state.focusPanel);
-  const { dispatchCommand } = useCommandRegistry();
+  const { dispatchCommand, getDebugState } = useCommandRegistry();
   const documentScope = useCommandScope(COMMAND_SCOPES.canvasPanel, { enabled: isFocused });
 
   const [pendingCloseTab, setPendingCloseTab] = useState<Tab | null>(null);
@@ -114,6 +118,7 @@ function PanelBody({ panel, isFocused }: PanelProps) {
       };
       observeCanvasNavigation(operation, 'accepted');
       try {
+        presentation.owner.dispatch({ type: 'focus', id: presentation.id });
         setActiveTab(panel.id, tabId);
       } catch (error) {
         pendingVisibleTabSwitchRef.current = null;
@@ -130,7 +135,7 @@ function PanelBody({ panel, isFocused }: PanelProps) {
       registerCanvasReadRequest({ panelId: panel.id, tabId, operation });
       return true;
     },
-    [setActiveTab, panel.id]
+    [setActiveTab, panel.id, presentation]
   );
 
   useEffect(() => {
@@ -423,13 +428,34 @@ function PanelBody({ panel, isFocused }: PanelProps) {
   const nextTab = useCallback(() => cycleTabs(1), [cycleTabs]);
   const previousTab = useCallback(() => cycleTabs(-1), [cycleTabs]);
   useCommandHandler(COMMAND_IDS.canvasNextTab, nextTab, {
-    active: isFocused,
     enabled: canCycleTabs,
   });
   useCommandHandler(COMMAND_IDS.canvasPreviousTab, previousTab, {
-    active: isFocused,
     enabled: canCycleTabs,
   });
+
+  useEffect(() => {
+    if (!isDesktopRuntime()) return;
+    return platform().on('window:frame-tab-navigation', ({ frameName, direction }) => {
+      const frame = document.activeElement;
+      if (
+        !(frame instanceof HTMLIFrameElement) ||
+        frame.name !== frameName ||
+        !panelRef.current?.contains(frame) ||
+        !presentation.owner.allowsFocus(presentation.id)
+      )
+        return;
+      const scopes = getDebugState().activeScopes;
+      if (scopes.includes(COMMAND_SCOPES.modal) || scopes.includes(COMMAND_SCOPES.menuContext))
+        return;
+      presentation.owner.dispatch({ type: 'focus', id: presentation.id });
+      focusPanel(panel.id);
+      dispatchCommand(direction === 1 ? COMMAND_IDS.canvasNextTab : COMMAND_IDS.canvasPreviousTab, {
+        source: 'electron-menu',
+        bypassBlockingScopes: [COMMAND_SCOPES.inputEditor],
+      });
+    });
+  }, [dispatchCommand, focusPanel, getDebugState, panel.id, presentation]);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -440,13 +466,20 @@ function PanelBody({ panel, isFocused }: PanelProps) {
         : matchesAppShortcut(e, 'tabs.previous')
           ? COMMAND_IDS.canvasPreviousTab
           : null;
-      if (!command || keyboardCommandBelongsToTarget(e, command)) return;
-      const result = dispatchCommand(command, { source: 'keyboard', event: e });
-      if (result.handled) e.preventDefault();
+      if (!command || keyboardCommandBelongsToTarget(e, command, true)) return;
+      const result = dispatchCommand(command, {
+        source: 'keyboard',
+        event: e,
+        bypassBlockingScopes: [COMMAND_SCOPES.inputEditor],
+      });
+      if (result.handled) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     };
 
-    presentationEvents.add(window, 'keydown', handler);
-    return () => presentationEvents.remove(window, 'keydown', handler);
+    presentationEvents.add(window, 'keydown', handler, true);
+    return () => presentationEvents.remove(window, 'keydown', handler, true);
   }, [dispatchCommand, isFocused, panel.id, presentationEvents]);
 
   useEffect(() => {

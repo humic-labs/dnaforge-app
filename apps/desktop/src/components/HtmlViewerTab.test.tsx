@@ -30,6 +30,28 @@ describe('HtmlViewerTab ', () => {
     expect(iframe.getAttribute('sandbox')).toBe('');
   });
 
+  it('names each file and sandbox instance independently without exposing its path', async () => {
+    const { rerender } = render(<HtmlViewerTab filePath="/private-project/report.html" />);
+    const initial = await screen.findByTestId('html-viewer-iframe');
+    const initialName = initial.getAttribute('name');
+    expect(initialName).toMatch(/^dnaforge-tab-frame:[0-9a-f-]{36}$/);
+    expect(initialName).not.toContain('private-project');
+    fireEvent.click(screen.getByTestId('html-viewer-enable-scripts'));
+    const scripted = await screen.findByTestId('html-viewer-iframe');
+    expect(scripted).not.toBe(initial);
+    expect(scripted.getAttribute('name')).not.toBe(initialName);
+
+    rerender(<HtmlViewerTab filePath="/private-project/next.html" />);
+
+    await waitFor(() => {
+      const next = screen.getByTestId('html-viewer-iframe');
+      expect(next).not.toBe(scripted);
+      expect(next.getAttribute('name')).toMatch(/^dnaforge-tab-frame:[0-9a-f-]{36}$/);
+      expect(next.getAttribute('name')).not.toBe(scripted.getAttribute('name'));
+      expect(next.getAttribute('sandbox')).toBe('');
+    });
+  });
+
   it('enabling scripts adds ONLY allow-scripts — never allow-same-origin', async () => {
     render(<HtmlViewerTab filePath="/ws/report.html" />);
     await screen.findByTestId('html-viewer-iframe');
