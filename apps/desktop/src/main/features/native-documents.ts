@@ -35,6 +35,7 @@ import {
 import { NativeDocumentStartupRecovery } from '../native-document-startup-recovery';
 import { NativeDocumentWorkspaces } from '../native-document-workspaces';
 import { getDb } from '../ipc/database';
+import { createNativeInventoryOwner } from '../inventory-owner';
 import {
   nativeDocumentFetch,
   registerNativeDocumentCommandServer,
@@ -189,6 +190,12 @@ export function createNativeDocuments(
       throw new Error('The managed runtime requires its own native document authority.');
     }
     if (!nativeAuthority) return;
+    const inventory = createNativeInventoryOwner({
+      db: getDb,
+      projectAuthority,
+      actor: () => `native:${nativeAuthority.ownerInstanceId}`,
+    });
+    inventory.initialize();
     const owner = new NativeAnnotationDocumentOwner({
       nativeOwnerInstanceId: nativeAuthority.ownerInstanceId,
       db: getDb,
@@ -254,6 +261,7 @@ export function createNativeDocuments(
     });
     commandServer = await startNativeDocumentCommandServer({
       projectAuthority,
+      inventory,
       owner,
       fileOwner: fileDocuments,
       sequenceOwner: sequenceDocuments,

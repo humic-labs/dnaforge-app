@@ -11,6 +11,9 @@ can develop locally and open a pull request without running our hosted CI.
   your operating system and the steps that reproduce it. Leave out private
   sequences and lab data; a public sequence that shows the problem is enough.
 - For a larger change, open an issue to discuss it before writing code.
+- For a feature split across pull requests, use the maintainer's dedicated
+  integration branch as the target. Follow `MAINTAINING.md`; partial features
+  do not target `main`.
 
 ## Making a change
 

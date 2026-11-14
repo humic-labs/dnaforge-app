@@ -21,6 +21,13 @@ import type { NativeImportReviews } from './native-import-reviews';
 import type { AdministrationOwner } from './administration-owner';
 import { agentProjectScopeSchema } from '../shared/agent-project-scope';
 import {
+  inventoryExecuteRequestSchema,
+  inventoryHistoryRequestSchema,
+  inventoryOperationRequestSchema,
+  inventoryReadRequestSchema,
+} from '../shared/inventory-command';
+import type { createNativeInventoryOwner } from './inventory-owner';
+import {
   withAgentProjectScope,
   type RegisteredProjectAuthority,
 } from './registered-project-authority';
@@ -55,6 +62,38 @@ const selection = target
   })
   .strict();
 const commandSchema = z.discriminatedUnion('command', [
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.execute'),
+      request: inventoryExecuteRequestSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.inspect'),
+      request: inventoryReadRequestSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.operation'),
+      request: inventoryOperationRequestSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.history'),
+      request: inventoryHistoryRequestSchema,
+    })
+    .strict(),
   z
     .object({
       ownerInstanceId: identity,
@@ -161,6 +200,10 @@ export async function startNativeDocumentCommandServer(options: {
   workspaceCommands?: Pick<ReturnType<typeof createNativeWorkspaceCommands>, 'search' | 'history'>;
   importReviews?: Pick<NativeImportReviews, 'executeAgent'>;
   administration?: Pick<AdministrationOwner, 'execute'>;
+  inventory?: Pick<
+    ReturnType<typeof createNativeInventoryOwner>,
+    'execute' | 'inspect' | 'operation' | 'history'
+  >;
   getAuthority(): NativeCommandAuthority | null;
 }): Promise<{ url: string; close(): Promise<void> }> {
   let closing = false;
@@ -249,9 +292,32 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'workspace.search' ||
           body.command === 'project-history.execute' ||
           body.command === 'import-review.execute' ||
-          body.command === 'administration.execute'
+          body.command === 'administration.execute' ||
+          body.command === 'inventory.execute' ||
+          body.command === 'inventory.inspect' ||
+          body.command === 'inventory.operation' ||
+          body.command === 'inventory.history'
         ) {
           const run = (() => {
+            if (options.inventory) {
+              const receiver = options.inventory;
+              if (body.command === 'inventory.execute') {
+                const request = body.request;
+                return () => receiver.execute(request, assertCurrent);
+              }
+              if (body.command === 'inventory.inspect') {
+                const request = body.request;
+                return () => receiver.inspect(request);
+              }
+              if (body.command === 'inventory.operation') {
+                const request = body.request;
+                return () => receiver.operation(request);
+              }
+              if (body.command === 'inventory.history') {
+                const request = body.request;
+                return () => receiver.history(request);
+              }
+            }
             if (body.command === 'workspace.search' && options.workspaceCommands) {
               const receiver = options.workspaceCommands,
                 request = body.request;
@@ -286,7 +352,10 @@ export async function startNativeDocumentCommandServer(options: {
           )
             await options.flushFileClients?.();
           assertCurrent();
-          accepted = true;
+          accepted =
+            body.command !== 'inventory.inspect' &&
+            body.command !== 'inventory.operation' &&
+            body.command !== 'inventory.history';
           const result = await run();
           json(res, 200, { ok: true, ownerInstanceId: authority.ownerInstanceId, result });
           return;

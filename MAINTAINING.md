@@ -2,17 +2,38 @@
 
 ## Source ownership
 
-Product changes belong in this repository and land on `main` through pull
-requests. Use short-lived branches. Maintainer branches and community forks
-follow the same required checks.
+Product changes belong in this repository. `main` receives complete features
+through pull requests. Maintainer branches and community forks follow the same
+required checks.
 
-When bringing over work started elsewhere, apply the product patch to a branch
-based on current `main`. Preserve contributor attribution and sign-offs. Keep
+## Complete-feature integration
+
+For a program delivered through multiple pull requests, create a dedicated
+integration branch from `main` and target each implementation pull request at
+that branch. Partial implementations must never merge into `main`.
+
+Measure completion against the user's whole assigned outcome, not an individual
+child ticket, passing slice, or pull request. Keep the integration branch until
+the full feature and its scoped acceptance are complete. Honor any requested
+design or scope feedback checkpoint before proceeding past it. Only then
+prepare the complete feature for `main`; an implementation request does not
+override an explicit feedback or delivery hold.
+
+This changes the integration target, not the required automated checks or
+GitHub review rules.
+
+When the owner requests CI at the end of the integration branch, use focused
+local checks during construction and keep incremental work out of CI-triggering
+pull requests. Run the full required CI on the completed integration candidate.
+
+When bringing over work started elsewhere, apply the product patch to the
+feature's integration branch when one exists, otherwise a branch based on
+current `main`. Preserve contributor attribution and sign-offs. Keep
 private credentials, operational records and private Git history out of the
 patch. Preserve changes already accepted here; never replace `main` with an
 exported snapshot or force-push it.
 
-## Landing a change
+## Landing a complete feature on main
 
 1. Read the complete diff, including workflow, dependency and install-script
    changes. For an external fork, do this before permitting its workflows to
