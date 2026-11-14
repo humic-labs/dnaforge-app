@@ -36,10 +36,10 @@
   },
   "license": "GPL-3.0-only",
   "dependencies": {
-    "@gmod/indexedfasta": "^5.0.5",
-    "@gmod/tabix": "^3.3.3",
+    "@gmod/indexedfasta": "^5.0.14",
+    "@gmod/tabix": "^3.13.1",
     "@waypoint/sequence-utils": "workspace:*",
-    "generic-filehandle2": "^2.1.7"
+    "generic-filehandle2": "^2.5.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
