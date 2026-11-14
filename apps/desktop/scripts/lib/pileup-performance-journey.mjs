@@ -5,6 +5,7 @@ import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { createDensePileupFixture } from './pileup-performance-fixture.mjs';
+import { pileupRangeMatchesViewport } from './pileup-performance.mjs';
 
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 const viewer = (page) => page.getByTestId('indexed-genome-visible-viewer');
@@ -154,7 +155,7 @@ async function activeLane(page, bamPath) {
 }
 
 async function observation(page, lane, readLengthBp) {
-  return page.evaluate(
+  const result = await page.evaluate(
     ({ lane, readLengthBp }) => {
       const renderer = window.__webglRenderer;
       const mapper = renderer?.getCurrentPathMapper?.();
@@ -179,7 +180,6 @@ async function observation(page, lane, readLengthBp) {
             text: gutter.textContent,
           }
         : null;
-      const matchesViewport = (range) => range?.start === startBp && range?.end === endBp;
       const checks = {
         sourceComplete: diagnostic.readSourceWindowCoversViewport === true,
         meshComplete: diagnostic.rowsMeshViewportCoverageFraction >= 0.999,
@@ -196,7 +196,6 @@ async function observation(page, lane, readLengthBp) {
           diagnostic.rowsAssignmentBuildInProgress === false,
         visible:
           diagnostic.rowsMeshVisible === true && diagnostic.rowsVertexCount > 0 && rowsAlpha > 0.02,
-        stableBand: composition?.stableBandReady === true,
         densityMatchesScale: physicalReadPx >= 3.6 ? densityAlpha <= 0.02 : densityAlpha > 0.02,
         densityCoversViewport:
           densityAlpha <= 0.02 ||
@@ -215,8 +214,6 @@ async function observation(page, lane, readLengthBp) {
           typeof lifecycle?.planKey === 'string' &&
           lifecycle.planKey.length > 0 &&
           lifecycle.planKey === lifecycle.currentPlanKey,
-        lifecycleCurrentRange: matchesViewport(lifecycle?.currentRange),
-        lifecyclePresentedRange: matchesViewport(lifecycle?.lastPresentedRange),
         presentationCommitted: lifecycle?.pendingPresentation === null,
         gutterReady: gutterObservation?.phase === 'ready' && gutterObservation.visible,
       };
@@ -246,6 +243,9 @@ async function observation(page, lane, readLengthBp) {
           rowsMeshRecordCursor: diagnostic.rowsMeshBuildRecordCursor,
           rowsMeshTargetRecordCount: diagnostic.rowsMeshBuildRecordCount,
           corridorFloorState: driver.coverageCorridorFloor?.state,
+          residentBandReady: composition?.stableBandReady,
+          residentReadyTileCount: composition?.readyBandTileCount,
+          residentExpectedTileCount: composition?.expectedBandTileCount,
           lifecyclePhase: lifecycle?.status?.phase,
           lifecycleRequestSequence: lifecycle?.requestSequence,
           lifecyclePlanKey: lifecycle?.planKey,
@@ -266,6 +266,17 @@ async function observation(page, lane, readLengthBp) {
     },
     { lane, readLengthBp }
   );
+  if (!result) return null;
+  const lifecycle = result.presentation.lifecycle;
+  result.checks.lifecycleCurrentRange = pileupRangeMatchesViewport(
+    lifecycle?.currentRange,
+    result.viewport
+  );
+  result.checks.lifecyclePresentedRange = pileupRangeMatchesViewport(
+    lifecycle?.lastPresentedRange,
+    result.viewport
+  );
+  return result;
 }
 
 async function visibleFlanks(page, lane, viewport) {

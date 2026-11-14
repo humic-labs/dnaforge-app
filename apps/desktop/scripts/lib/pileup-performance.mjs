@@ -24,6 +24,27 @@ const bounds = (start, end) => nonnegative(start) && nonnegative(end) && end > s
 const maximum = (values) =>
   values.length > 0 ? values.reduce((max, value) => Math.max(max, value)) : null;
 
+export function pileupRangeMatchesViewport(range, viewport) {
+  if (
+    !object(range) ||
+    !object(viewport) ||
+    !bounds(range.start, range.end) ||
+    !bounds(viewport.startBp, viewport.endBp)
+  )
+    return false;
+  const equalCoordinate = (left, right) => {
+    if (left === right) return true;
+    const magnitude = Math.max(Math.abs(left), Math.abs(right));
+    let exponent = Math.floor(Math.log2(magnitude));
+    if (2 ** exponent > magnitude) exponent -= 1;
+    const ulp = Math.max(Number.MIN_VALUE, 2 ** (exponent - 52));
+    return Math.abs(left - right) <= Math.min(1e-6, ulp * 4);
+  };
+  return (
+    equalCoordinate(range.start, viewport.startBp) && equalCoordinate(range.end, viewport.endBp)
+  );
+}
+
 function createCheck(id, required = true) {
   return { id, required, status: 'pass', failures: [], metrics: {} };
 }
@@ -225,7 +246,7 @@ function classifyPresentation(phases, generationKey) {
       if (!bounds(range.start, range.end)) invalidate(check, `${label}:${name}-missing`);
       else if (
         bounds(viewport.startBp, viewport.endBp) &&
-        (range.start !== viewport.startBp || range.end !== viewport.endBp)
+        !pileupRangeMatchesViewport(range, viewport)
       )
         fail(check, `${label}:${name}-stale`);
     }

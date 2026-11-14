@@ -261,6 +261,61 @@ describe('saved pileup performance qualification', () => {
     expect(classifyPileupPerformance(input).status).toBe('unqualified');
   });
 
+  it('qualifies complete visible presented reads while resident halo tiles are pending', () => {
+    const input = report();
+    Object.assign(input.phases[0], {
+      preparation: {
+        residentBandReady: false,
+        residentReadyTileCount: 2,
+        residentExpectedTileCount: 16,
+      },
+    });
+    expect(input.phases[0].viewport.pendingTiles).toBe(0);
+    expect(classifyPileupPerformance(input).status).toBe('pass');
+  });
+
+  it.each([1, 4])('accepts %i ULPs of camera representation roundoff', (ulps) => {
+    const input = report('full-genome');
+    const phase = input.phases[1];
+    const start = 1_809_290_000;
+    const end = start + 26_612;
+    const roundoff = ulps * 2 ** -22;
+    Object.assign(phase.viewport, { startBp: start, endBp: end });
+    Object.assign(phase.presentation.lifecycle, {
+      currentRange: { start, end: end + roundoff },
+      lastPresentedRange: { start: start + roundoff, end },
+    });
+    expect(check(input, 'presentation').found.status).toBe('pass');
+    expect(classifyPileupPerformance(input).status).toBe('pass');
+  });
+
+  it.each([5 * 2 ** -22, 0.001, 1])('rejects a stale genomic range shifted by %s bp', (shift) => {
+    const input = report('full-genome');
+    const phase = input.phases[1];
+    const start = 1_809_290_000;
+    const end = start + 26_612;
+    Object.assign(phase.viewport, { startBp: start, endBp: end });
+    Object.assign(phase.presentation.lifecycle, {
+      currentRange: { start, end },
+      lastPresentedRange: { start: start + shift, end },
+    });
+    expect(check(input, 'presentation').found.status).toBe('fail');
+    expect(classifyPileupPerformance(input).status).toBe('fail');
+  });
+
+  it('rejects five ULPs at lower coordinates before the absolute ceiling applies', () => {
+    const input = report('full-genome');
+    const phase = input.phases[1];
+    const start = 1_000_000;
+    const end = start + 26_612;
+    Object.assign(phase.viewport, { startBp: start, endBp: end });
+    Object.assign(phase.presentation.lifecycle, {
+      currentRange: { start, end },
+      lastPresentedRange: { start, end: end + 5 * 2 ** -33 },
+    });
+    expect(check(input, 'presentation').found.status).toBe('fail');
+  });
+
   it.each([
     ['slow cold open', 0, 5_001],
     ['slow gesture settlement', 1, 1_001],
