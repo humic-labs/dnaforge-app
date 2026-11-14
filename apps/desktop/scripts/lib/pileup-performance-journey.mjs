@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
@@ -100,12 +100,19 @@ async function activeLane(page, bamPath) {
     );
     if (!lane) return null;
     const source = lane.dataset.source;
+    const tab = Object.values(window.__test.getCanvasStore().panels)
+      .flatMap((panel) => panel.tabs)
+      .find((candidate) => candidate.id === selected);
+    const chromosomes = tab?.indexedGenome?.assembly?.chromosomes;
     return {
       trackId: lane.dataset.trackId,
       label: lane.dataset.label,
       generationKey: source.generation ? alignedReadSourceGenerationKey(source.generation) : null,
       assemblyId: lane.assemblyId,
       sourcePath: source.bamPath,
+      assemblyLengthBp: chromosomes?.reduce((total, chromosome) => total + chromosome.length, 0),
+      chromosomeCount: chromosomes?.length,
+      bamSizeBytes: source.generation?.alignment?.size,
     };
   }, bamPath);
 }
@@ -513,7 +520,6 @@ export async function runPileupPerformanceJourney({
       'The saved fixture needs workspaceRoot, bamPath and locusStart.'
     );
     report.source = {
-      ...fixture.source,
       ...identity,
       fixtureId: fixture.fixtureId ?? path.basename(fixture.savedViewPath),
       coldScope: fixture.coldScope ?? 'fresh-view-prepared-source',
@@ -552,13 +558,36 @@ export async function runPileupPerformanceJourney({
       await waitForViewer(page);
       lane = await poll(
         () => activeLane(page, fixture.bamPath),
-        Boolean,
+        (value) => Boolean(value?.generationKey),
         10_000,
         'The reopened BAM lane is absent'
       );
       const failures = [];
       const state = await complete(page, lane, fixture.readLengthBp, started, failures);
-      if (!report.source.generationKey) report.source.generationKey = lane.generationKey;
+      const bam = await stat(fixture.bamPath);
+      assert.equal(
+        lane.bamSizeBytes,
+        bam.size,
+        'The admitted BAM generation no longer matches its file.'
+      );
+      assert.ok(
+        lane.assemblyLengthBp > 0 && lane.chromosomeCount > 0,
+        'The opened viewer has no reference assembly identity.'
+      );
+      if (!report.source.generationKey) {
+        Object.assign(report.source, {
+          generationKey: lane.generationKey,
+          assemblyLengthBp: lane.assemblyLengthBp,
+          chromosomeCount: lane.chromosomeCount,
+          bamSizeBytes: bam.size,
+        });
+      } else if (
+        report.source.assemblyLengthBp !== lane.assemblyLengthBp ||
+        report.source.chromosomeCount !== lane.chromosomeCount ||
+        report.source.bamSizeBytes !== bam.size
+      ) {
+        failures.push('The reopened saved view changed its reference or BAM identity.');
+      }
       failures.push(...errors.slice(firstError), ...(state.errors ?? []));
       await record({ label, kind, ...state, failures });
     };
