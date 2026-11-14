@@ -120,6 +120,7 @@ function fixture(t) {
   put(appDir, 'node_modules/.vite/deps/cache-sentinel.js', 'preoptimized-dependency-v1\n');
   for (const name of [
     'dev-single-instance-guard.cjs',
+    'dev-windows-stack.cjs',
     'dev-launch-profile.cjs',
     'background-electron-launch.cjs',
     'background-window-policy.cjs',

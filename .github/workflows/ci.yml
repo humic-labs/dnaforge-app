@@ -156,7 +156,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: contributor-macOS
-          path: .evidence/contributor-macOS
+          path: |
+            .evidence/contributor-macOS
+            !.evidence/contributor-macOS/profile/**
           include-hidden-files: true
           if-no-files-found: warn
 
@@ -216,7 +218,9 @@ jobs:
         run: node start.mjs --yes --check
 
       - name: Run the documented focused desktop test
-        run: pnpm --dir apps/desktop test -- src/shared/native-entity-reference.test.ts
+        run: |
+          node --test apps/desktop/scripts/dev-windows-stack.test.cjs
+          pnpm --dir apps/desktop test -- src/shared/native-entity-reference.test.ts
 
       - name: Edit, save, reload source and run a focused test on Linux
         if: runner.os == 'Linux'
@@ -232,6 +236,8 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: contributor-${{ matrix.platform }}
-          path: .evidence/contributor-${{ matrix.platform }}
+          path: |
+            .evidence/contributor-${{ matrix.platform }}
+            !.evidence/contributor-${{ matrix.platform }}/profile/**
           include-hidden-files: true
           if-no-files-found: warn

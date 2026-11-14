@@ -39,29 +39,24 @@ apps/desktop/resources/helpers/
 inside a kill-on-close Windows Job Object. An abort or helper crash therefore
 cannot leave a Git process behind.
 
-The source directory may contain several host variants. Packaging is
-architecture-pure: the electron-builder `afterPack` hook removes every foreign
-variant from the staged `.app/Contents/Helpers` before codesign. It never
-deletes from this source directory. This matters on x64 builds because the
-repository currently carries an arm64 fallback binary; copying both into one app
-makes codesign reject the outer bundle.
+The source directory may contain several host variants. The electron-builder
+`afterPack` hook removes foreign variants from the staged `.app/Contents/Helpers`
+before codesign. It never deletes from this source directory.
 
-The repo tracks these via Git LFS for the PR cycle (see `.gitattributes`). At
-ship time, the GH Release pipeline takes over: binaries upload to GitHub
-Releases under helper-specific tags such as `dna-indexer-v0.1.0` and
-`dna-coverage-v0.1.0`, and `scripts/download-binaries.sh` fetches them on
-install. LFS becomes the fallback source.
+These binaries and `coverage-build-provenance.json` are generated locally and
+ignored by Git. Do not add them to a contribution.
 
 ## Build locally (current platform only)
 
+From the repository root:
+
 ```sh
-cd /path/to/waypoint
-cargo build --release
-# Copy the built binary into this dir with the platform suffix:
-TARGET=$(rustc -vV | sed -n 's|host: ||p')
-cp target/release/dna-indexer "apps/desktop/resources/helpers/dna-indexer-$TARGET"
-cp target/release/dna-coverage "apps/desktop/resources/helpers/dna-coverage-$TARGET"
+pnpm --dir apps/desktop helpers:build
 ```
+
+This builds and copies the helpers for the current platform. Native Windows
+builds the indexer and process guardian; the HTSlib-based coverage helper is
+supported on macOS and Linux.
 
 ## How the sidecar finds these at runtime
 

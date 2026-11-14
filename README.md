@@ -46,8 +46,10 @@ platform toolchain before starting the development server.
 
 The following block uses a macOS or Linux shell. On Windows, use PowerShell
 and set the typecheck memory limit with `$env:NODE_OPTIONS="--max-old-space-size=4096"`
-before running `pnpm --dir apps/desktop typecheck`. The other commands in this
-block also work in PowerShell. Packaging an installer is not documented yet.
+before running `pnpm --dir apps/desktop typecheck`. For the Cargo command, use
+`cargo build --release --bin dna-indexer --bin dna-process-guardian` on Windows;
+the coverage helper is unsupported there. The other commands in this block
+also work in PowerShell. Packaging an installer is not documented yet.
 
 ```bash
 corepack enable

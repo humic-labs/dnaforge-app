@@ -114,6 +114,7 @@ async function fixture(t, ports) {
     put(appDir, `scripts/${file}`, readFileSync(join(appSource, 'scripts', file), 'utf8'));
   for (const file of [
     'dev-single-instance-guard.cjs',
+    'dev-windows-stack.cjs',
     'dev-launch-profile.cjs',
     'background-electron-launch.cjs',
     'background-window-policy.cjs',

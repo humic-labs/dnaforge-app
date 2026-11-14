@@ -98,6 +98,7 @@ for (const stubbornMain of [false, true]) {
       });
       for (const name of [
         'dev-single-instance-guard.cjs',
+        'dev-windows-stack.cjs',
         'dev-launch-profile.cjs',
         'background-electron-launch.cjs',
         'background-window-policy.cjs',
