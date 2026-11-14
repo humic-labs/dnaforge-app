@@ -25,3 +25,10 @@ changing prior results.
 A projected result is intentionally bounded. Its full response is available
 only for live delivery; reopening must preserve the projection, not recreate
 discarded data. The harness substitutes the external renderer transport.
+
+`test_audited_live_result_recovers_without_reading_projected_sqlite` drives a
+projected tool through the real audit route and bridge after a lost response. It
+requires the committed renderer's full live delivery before any SQLite fallback,
+then checks that subsequent reads and reopening retain only the projection.
+`test_renderer_recovery_prefers_live_delivery_result_over_projected_sqlite`
+preserves the direct recovery boundary contract.
