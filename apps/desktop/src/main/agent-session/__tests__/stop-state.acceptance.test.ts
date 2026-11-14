@@ -18,10 +18,14 @@ vi.mock('../../agent-sdk/agent-permission-catalog', async () => ({
 
 import { createFileTestDb, openFileTestDb } from '../../__tests__/test-db';
 import { ensureSchema } from '../../schema';
-import { AgentSessionManager } from '../manager';
+import { AgentSessionManager, type AgentSessionManagerDependencies } from '../manager';
 import { findProviderContinuation } from '../provider-continuation';
 import type { ProviderCapabilityReport } from '../types';
-import type { QueryOptions, QueryResult } from '../../agent-sdk/query';
+import type { QueryOptions } from '../../agent-sdk/query';
+
+type ProviderQueryResult = Awaited<
+  ReturnType<NonNullable<AgentSessionManagerDependencies['queryCodex']>>
+>;
 
 const capabilities: ProviderCapabilityReport = {
   provider: 'codex-sdk',
@@ -84,7 +88,7 @@ function outbox(db: ReturnType<typeof openFileTestDb>, sessionId: string) {
 
 function manager(
   db: ReturnType<typeof openFileTestDb>,
-  overrides: Partial<ConstructorParameters<typeof AgentSessionManager>[0]> = {}
+  overrides: Partial<AgentSessionManagerDependencies> = {}
 ) {
   return new AgentSessionManager({
     db,
@@ -164,7 +168,7 @@ describe('agent session stop-state acceptance', () => {
   it('keeps stopping active until observation ends without provider confirmation', async () => {
     const fixture = database('active-to-unconfirmed');
     const entered = deferred<QueryOptions>();
-    const provider = deferred<QueryResult>();
+    const provider = deferred<ProviderQueryResult>();
     const owner = manager(fixture.db, {
       queryCodex: async (_prompt, options) => {
         entered.resolve(options);
@@ -214,7 +218,7 @@ describe('agent session stop-state acceptance', () => {
   it('preserves provider-confirmed cancellation as a distinct terminal outcome', async () => {
     const fixture = database('confirmed-stop');
     const entered = deferred<void>();
-    const provider = deferred<QueryResult>();
+    const provider = deferred<ProviderQueryResult>();
     const owner = manager(fixture.db, {
       queryCodex: async () => {
         entered.resolve();
@@ -337,7 +341,7 @@ describe('agent session stop-state acceptance', () => {
   it('allows continuation only after the previous session commits its terminal outcome', async () => {
     const fixture = database('continuation');
     const entered = deferred<void>();
-    const provider = deferred<QueryResult>();
+    const provider = deferred<ProviderQueryResult>();
     const owner = manager(fixture.db, {
       queryCodex: async () => {
         entered.resolve();

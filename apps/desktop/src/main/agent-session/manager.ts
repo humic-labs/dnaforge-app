@@ -1,4 +1,3 @@
-import { createCliAssistantTextAccumulator } from '../../shared/cli-assistant-text';
 import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import {
@@ -94,10 +93,12 @@ import {
 } from '../conversation-ledger';
 import type {
   AgentProvider,
+  AgentSessionActiveStatus,
   AgentSessionRecord,
   AgentSessionRunResult,
   AgentSessionStartRequest,
   AgentSessionStatus,
+  AgentSessionTerminalStatus,
   AgentSessionTraceEnvelope,
   ProviderAuthorityProfile,
   ProviderCapabilityReport,
@@ -244,10 +245,10 @@ function permissionModeLabel(profile: ProviderAuthorityProfile): string {
   return profile.authorityClass;
 }
 
-function statusForTerminal(terminal: ProviderTerminalState): AgentSessionStatus {
+function statusForTerminal(terminal: ProviderTerminalState): AgentSessionTerminalStatus {
   if (terminal === 'completed') return 'completed';
   if (terminal === 'cancelled') return 'cancelled';
-  if (terminal === 'stop_requested') return 'stop_requested';
+  if (terminal === 'stop_requested') return 'stop_unconfirmed';
   return 'failed';
 }
 
@@ -426,14 +427,14 @@ export class AgentSessionManager {
         `SELECT id, provider, status, provider_conversation_id, started_at,
                 telemetry_had_workspace_context, telemetry_continuation
            FROM agent_sessions
-          WHERE status IN ('starting', 'running', 'stop_requested')
+          WHERE status IN ('starting', 'running', 'stopping')
             AND completed_at IS NULL
           ORDER BY started_at, id`
       )
       .all() as Array<{
       id: string;
       provider: AgentProvider;
-      status: 'starting' | 'running' | 'stop_requested';
+      status: AgentSessionActiveStatus;
       provider_conversation_id: string | null;
       started_at: number;
       telemetry_had_workspace_context: 0 | 1;
@@ -442,8 +443,8 @@ export class AgentSessionManager {
     for (const stale of staleSessions) {
       this.completeSession(
         stale.id,
-        'interrupted',
-        stale.status === 'stop_requested'
+        stale.status === 'stopping' ? 'stop_unconfirmed' : 'interrupted',
+        stale.status === 'stopping'
           ? 'App restarted before Stop was acknowledged.'
           : 'App restarted before the provider session completed.',
         stale.provider_conversation_id,
@@ -455,7 +456,7 @@ export class AgentSessionManager {
           completedWorkspaceToolCount: 'unknown',
           hadWorkspaceContext: stale.telemetry_had_workspace_context === 1,
           continuation: stale.telemetry_continuation === 1,
-          unconfirmedStop: stale.status === 'stop_requested',
+          recovered: true,
         }
       );
     }
@@ -746,7 +747,7 @@ export class AgentSessionManager {
       this.startingSessions.delete(sessionId);
       if (this.pendingStopRequests.delete(sessionId)) {
         abortController.abort();
-        this.updateSessionStatus(sessionId, 'stop_requested', 'Stop requested.');
+        this.markStopping(sessionId);
       }
     } catch (error) {
       this.startingSessions.delete(sessionId);
@@ -760,7 +761,6 @@ export class AgentSessionManager {
     let lastFailureMessage: string | null = null;
     const sessionEventSink = eventSink ?? this.eventSink;
     const observedToolCallIds = new Set<string>();
-    const observedAssistantText = createCliAssistantTextAccumulator();
     const publishTraceEvent = (event: ProviderTraceEvent): void => {
       sessionEventSink?.({
         sessionId,
@@ -818,7 +818,6 @@ export class AgentSessionManager {
       confirmDestructiveFile,
       requestUserInput,
       traceSink: (event) => {
-        observedAssistantText.append(event);
         for (const toolCall of event.toolCalls ?? []) {
           observedToolCallIds.add(toolCall.id);
         }
@@ -939,8 +938,7 @@ export class AgentSessionManager {
           durationMs: result.durationMs,
           actionId: request.turnId,
           reasonHint: result.failureReason,
-          visibleAssistantText:
-            terminal === 'stop_requested' ? observedAssistantText.text() : result.text,
+          visibleAssistantText: result.text,
           toolCallCount: observedToolCallIds.size,
           completedWorkspaceToolCount: new Set(workspaceProvenance.completedWorkspaceTools).size,
           hadWorkspaceContext: Boolean(request.cwd?.trim()),
@@ -992,7 +990,7 @@ export class AgentSessionManager {
           provider: request.provider,
           durationMs,
           actionId: request.turnId,
-          visibleAssistantText: terminal === 'stop_requested' ? observedAssistantText.text() : '',
+          visibleAssistantText: '',
           toolCallCount: observedToolCallIds.size,
           completedWorkspaceToolCount: new Set(workspaceProvenance.completedWorkspaceTools).size,
           hadWorkspaceContext: Boolean(request.cwd?.trim()),
@@ -1047,7 +1045,7 @@ export class AgentSessionManager {
       active.cancelledRendererToolCalls += cancelledRendererToolCalls;
       active.abortController.abort();
     }
-    this.updateSessionStatus(sessionId, 'stop_requested', 'Stop requested.');
+    this.markStopping(sessionId);
     return { ok: true, cancelled: true, state: 'stop_requested' };
   }
 
@@ -1155,41 +1153,30 @@ export class AgentSessionManager {
       );
   }
 
-  private updateSessionStatus(
-    sessionId: string,
-    status: AgentSessionStatus,
-    terminalReason: string | null
-  ): void {
+  private markStopping(sessionId: string): void {
     this.db
       .prepare(
         `
           UPDATE agent_sessions
-          SET status = ?,
-              terminal_reason = ?,
+          SET status = 'stopping',
+              terminal_reason = 'Stop requested.',
               updated_at = ?
           WHERE id = ?
+            AND status IN ('starting', 'running')
+            AND completed_at IS NULL
         `
       )
-      .run(status, terminalReason, this.now(), sessionId);
+      .run(this.now(), sessionId);
   }
 
   private completeSession(
     sessionId: string,
-    status: AgentSessionStatus,
+    status: AgentSessionTerminalStatus,
     terminalReason: string | null,
     providerConversationId: string | null,
     telemetry: Omit<LocalAiTurnTerminalInput, 'sessionId' | 'status'>
   ): void {
     const now = this.now();
-    if (
-      status !== 'completed' &&
-      status !== 'failed' &&
-      status !== 'cancelled' &&
-      status !== 'stop_requested' &&
-      status !== 'interrupted'
-    ) {
-      throw new Error(`Cannot terminalize agent session ${sessionId} with status ${status}.`);
-    }
     const properties = buildLocalAiTurnFinished({ sessionId, status, ...telemetry });
     const eventId = localAiTurnFinishedEventId(sessionId);
     this.db.transaction(() => {
@@ -1203,6 +1190,7 @@ export class AgentSessionManager {
                 updated_at = ?,
                 completed_at = ?
             WHERE id = ? AND completed_at IS NULL
+              AND status IN ('starting', 'running', 'stopping')
           `
         )
         .run(status, terminalReason, providerConversationId, now, now, sessionId);

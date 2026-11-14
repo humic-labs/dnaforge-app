@@ -38,7 +38,7 @@ git diff --binary > "$AGENT_STOP_EVIDENCE/source.patch"
 ## Drive
 
 ```sh
-pnpm --dir apps/desktop test -- src/main/agent-session/__tests__/stop-state.acceptance.test.ts --reporter=verbose --reporter=json --outputFile="$AGENT_STOP_EVIDENCE/results.json" > "$AGENT_STOP_EVIDENCE/drive.txt" 2>&1
+pnpm --dir apps/desktop test -- src/main/agent-session/__tests__/stop-state.acceptance.test.ts src/main/agent-session/__tests__/stop-state-migration.test.ts --reporter=verbose --reporter=json --outputFile="$AGENT_STOP_EVIDENCE/results.json" > "$AGENT_STOP_EVIDENCE/drive.txt" 2>&1
 ```
 
 The mapped [features](features/README.md) cover active Stop, provider-confirmed

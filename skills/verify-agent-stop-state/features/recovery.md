@@ -24,3 +24,7 @@ event with reason `stop_unconfirmed`, and stable state on another restart.
 Seeded legacy and crash records are deliberate boundary inputs. Schema migration
 must not emit new terminal analytics for historical completed records or alter
 their original timestamps and content.
+
+The separate versioned migration case opens a schema 47 file through
+`ensureSchemaForBuild`, verifies refusal when migration is disallowed, then
+upgrades through the existing authorized route and reopens without repairs.
