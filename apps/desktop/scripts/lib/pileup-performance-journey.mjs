@@ -56,6 +56,64 @@ async function poll(read, accepts, timeoutMs, description) {
   throw new Error(`${description}: ${JSON.stringify(value)}`);
 }
 
+async function nativeReadiness(page, apiPort) {
+  const started = performance.now();
+  const result = { startedAtEpochMs: Date.now(), ready: false, samples: [] };
+  const deadline = started + 60_000;
+  do {
+    const startup = page.evaluate(async () => {
+      if (typeof window.electronAPI?.startup?.getState !== 'function')
+        throw new Error('The native startup state API is unavailable.');
+      const state = await window.electronAPI.startup.getState();
+      return {
+        observedAtEpochMs: performance.timeOrigin + performance.now(),
+        loadId: state?.loadId ?? null,
+        pageLoaded: state?.pageLoaded === true,
+        shellReady: state?.shellReady === true,
+      };
+    });
+    const api = (async () => {
+      const requestedAtEpochMs = Date.now();
+      const response = await fetch(`http://127.0.0.1:${apiPort}/health`, {
+        signal: AbortSignal.timeout(2000),
+      });
+      return { requestedAtEpochMs, observedAtEpochMs: Date.now(), status: response.status };
+    })();
+    let timeout;
+    const settled = await Promise.race([
+      Promise.allSettled([startup, api]),
+      new Promise((resolve) => {
+        timeout = setTimeout(
+          () => resolve(null),
+          Math.max(1, Math.min(5000, deadline - performance.now()))
+        );
+      }),
+    ]).finally(() => clearTimeout(timeout));
+    if (!settled) {
+      result.samples.push({
+        observedAtEpochMs: Date.now(),
+        error: 'Readiness readback timed out.',
+      });
+      break;
+    }
+    const value = (entry) =>
+      entry.status === 'fulfilled' ? entry.value : { error: String(entry.reason) };
+    const sample = {
+      observedAtEpochMs: Date.now(),
+      startup: value(settled[0]),
+      api: value(settled[1]),
+    };
+    result.samples.push(sample);
+    if (sample.startup.pageLoaded && sample.startup.shellReady && sample.api.status === 200) {
+      result.ready = true;
+      result.readyAtEpochMs = sample.observedAtEpochMs;
+      break;
+    }
+    await delay(250);
+  } while (performance.now() < deadline);
+  return { ...result, finishedAtEpochMs: Date.now(), elapsedMs: performance.now() - started };
+}
+
 async function mountWorkspace(page, workspaceRoot) {
   await page.evaluate(async (root) => {
     if (!window.__test?.mountFolderInPlace) throw new Error('Workspace admission is unavailable.');
@@ -621,7 +679,7 @@ export async function runPileupPerformanceJourney({
     source: {},
     phases: [],
     resourceSamples: [],
-    diagnostics: { consoleMessages: [], httpFailures: [], requestFailures: [] },
+    diagnostics: { consoleMessages: [], httpFailures: [], requestFailures: [], openings: [] },
   };
   const errors = [];
   let preparing = !fixture?.savedViewPath;
@@ -689,6 +747,13 @@ export async function runPileupPerformanceJourney({
     );
   try {
     const identity = await sourceIdentity(page, apiPort);
+    report.readiness = await nativeReadiness(page, apiPort);
+    await flush();
+    assert.equal(
+      report.readiness.ready,
+      true,
+      'The native desktop and task API did not become ready.'
+    );
     if (nativeTrace) {
       assert.equal(typeof nativeTrace.start, 'function', 'Native tracing needs a start callback.');
       assert.equal(typeof nativeTrace.stop, 'function', 'Native tracing needs a stop callback.');
@@ -751,24 +816,38 @@ export async function runPileupPerformanceJourney({
       const row = await savedFileRow(page, fixture, savedViewPath);
       const firstError = errors.length;
       const started = performance.now();
+      const opening = { label, kind, startedAtEpochMs: Date.now(), stages: [] };
+      report.diagnostics.openings.push(opening);
+      const mark = (stage) =>
+        opening.stages.push({
+          stage,
+          atEpochMs: Date.now(),
+          elapsedMs: performance.now() - started,
+        });
+      mark('before-dblclick');
       await row.dblclick();
+      mark('after-dblclick');
       await waitForViewer(page);
+      mark('viewer-visible');
       const files = page.getByRole('tree', { name: 'Project files' });
       if (await files.isVisible()) {
         await page.getByTestId('files-button').click();
         await files.waitFor({ state: 'hidden' });
       }
+      mark('files-hidden');
       lane = await poll(
         () => activeLane(page, fixture.bamPath),
         (value) => Boolean(value?.generationKey),
         10_000,
         'The reopened BAM lane is absent'
       );
+      mark('lane-ready');
       const failures = [];
       const state = await complete(page, lane, fixture.readLengthBp, started, failures, {
         startBp: fixture.locusStart,
         spanBp: kind === 'cold-open' ? 4000 : 26612,
       });
+      mark(failures.length === 0 ? 'first-complete' : 'completion-timeout');
       const bam = await stat(fixture.bamPath);
       assert.equal(
         lane.bamSizeBytes,
@@ -794,7 +873,7 @@ export async function runPileupPerformanceJourney({
         failures.push('The reopened saved view changed its reference or BAM identity.');
       }
       failures.push(...errors.slice(firstError), ...(state.errors ?? []));
-      await record({ label, kind, ...state, failures });
+      await record({ label, kind, ...state, opening, failures });
     };
     const gesture = async (label, direction) => {
       const firstError = errors.length;

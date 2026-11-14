@@ -65,6 +65,11 @@ function report(profile = 'portable-dense') {
     schema: 'dnaforge.pileup-performance.v1',
     profile,
     failures: [] as string[],
+    readiness: {
+      ready: true,
+      readyAtEpochMs: 1_790_000_000_000,
+      samples: [{ startup: { pageLoaded: true, shellReady: true }, api: { status: 200 } }],
+    },
     source: {
       commit: 'a'.repeat(40),
       runtimeCommit: 'a'.repeat(40),
@@ -485,6 +490,17 @@ describe('saved pileup performance qualification', () => {
     const input = report();
     mutate(input);
     expect(classifyPileupPerformance(input).status).not.toBe('pass');
+  });
+
+  it.each([
+    ['missing readiness', (r: Report) => Object.assign(r, { readiness: null })],
+    ['unready shell', (r: Report) => (r.readiness.samples[0].startup.shellReady = false)],
+    ['unready API', (r: Report) => (r.readiness.samples[0].api.status = 503)],
+  ] as const)('cannot qualify opening before %s', (_name, mutate) => {
+    const input = report();
+    mutate(input);
+    expect(check(input, 'source').found.status).toBe('unqualified');
+    expect(classifyPileupPerformance(input).status).toBe('unqualified');
   });
 
   it('cannot promote a portable or already-warm fixture into full-genome proof', () => {

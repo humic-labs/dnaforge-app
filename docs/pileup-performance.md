@@ -14,7 +14,10 @@ human sequence or private service is needed.
 The command prints its evidence directory. Set `PILEUP_PERFORMANCE_OUTPUT` to
 choose a directory. Original JSON measurements and screenshots remain there,
 including measurements from a failed attempt. The result includes each
-requirement and its observed values.
+requirement and its observed values. All journey callers wait for the native
+startup state and task API health before opening a saved view. The report
+retains those readiness observations and opening stages; the opening clock still
+starts before the file's double click.
 
 ## Requirements
 

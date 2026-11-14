@@ -78,6 +78,17 @@ function classifySource(report) {
   for (const flag of ['sourceModified', 'runtimeModified']) {
     if (source[flag] !== false) invalidate(check, `${flag}:clean-source-not-qualified`);
   }
+  const readiness = object(report?.readiness) ? report.readiness : {};
+  const samples = Array.isArray(readiness.samples) ? readiness.samples : [];
+  const ready = samples.at(-1);
+  if (
+    readiness.ready !== true ||
+    !positive(readiness.readyAtEpochMs) ||
+    ready?.startup?.pageLoaded !== true ||
+    ready?.startup?.shellReady !== true ||
+    ready?.api?.status !== 200
+  )
+    invalidate(check, 'native-startup-and-api-readiness-unqualified');
   if (!text(source.fixtureId)) invalidate(check, 'fixture-identity-missing');
   if (!text(source.generationKey)) invalidate(check, 'alignment-generation-missing');
   if (
