@@ -6,10 +6,7 @@ import {
   toolboxStatusToolboxStatusGet,
 } from '@waypoint/api-client';
 import { serviceManager } from '../services/service-manager';
-import {
-  configureRendererSidecarApiClient,
-  rendererSidecarRequestAuthorityState,
-} from '../services/sidecar-session';
+import { rendererSidecarRequestAuthorityState } from '../services/sidecar-session';
 
 interface ComponentStatus {
   id: string;
@@ -68,8 +65,7 @@ async function fetchToolboxStatus() {
     return;
   }
   try {
-    configureRendererSidecarApiClient(serviceManager.getBaseUrl());
-    const response = await toolboxStatusToolboxStatusGet();
+    const response = await toolboxStatusToolboxStatusGet(serviceManager.client().options());
     sharedData = response.data as ToolboxData;
     sharedLoadState = 'loaded';
   } catch (error) {
@@ -134,28 +130,32 @@ export function useToolboxStatus() {
     fetchToolboxStatus();
   }, []);
 
-  const postToolboxAction = useCallback(async (action: () => Promise<unknown>) => {
-    const authorityState = await rendererSidecarRequestAuthorityState();
-    if (authorityState !== 'ready') {
-      sharedLoadState = authorityState === 'unavailable' ? 'unavailable' : 'loading';
-      updatePollRate();
-      notifyListeners();
-      return;
-    }
-    try {
-      configureRendererSidecarApiClient(serviceManager.getBaseUrl());
-      await action();
-    } catch {}
-    fetchToolboxStatus();
-  }, []);
+  const postToolboxAction = useCallback(
+    async (action: (options: RequestInit) => Promise<unknown>) => {
+      const authorityState = await rendererSidecarRequestAuthorityState();
+      if (authorityState !== 'ready') {
+        sharedLoadState = authorityState === 'unavailable' ? 'unavailable' : 'loading';
+        updatePollRate();
+        notifyListeners();
+        return;
+      }
+      try {
+        await action(serviceManager.client().options());
+      } catch {}
+      fetchToolboxStatus();
+    },
+    []
+  );
 
   const retry = useCallback(
-    (capId: string) => postToolboxAction(() => toolboxRetryToolboxRetryCapIdPost(capId)),
+    (capId: string) =>
+      postToolboxAction((options) => toolboxRetryToolboxRetryCapIdPost(capId, options)),
     [postToolboxAction]
   );
 
   const healthCheck = useCallback(
-    (capId: string) => postToolboxAction(() => toolboxHealthCheckToolboxHealthCapIdPost(capId)),
+    (capId: string) =>
+      postToolboxAction((options) => toolboxHealthCheckToolboxHealthCapIdPost(capId, options)),
     [postToolboxAction]
   );
 

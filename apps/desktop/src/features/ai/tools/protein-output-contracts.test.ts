@@ -57,7 +57,7 @@ vi.mock('@waypoint/api-client', () => ({
   postFetchExternalFetchPost: operations.context,
 }));
 vi.mock('../../../services/sidecar-session', () => ({
-  configureRendererSidecarApiClient: vi.fn(),
+  createRendererSidecarApiClient: vi.fn(() => ({ options: (options: RequestInit = {}) => options })),
   resolveExternalLookupBaseUrl: vi.fn(async () => 'http://sidecar.test'),
 }));
 

@@ -3,7 +3,7 @@ import { externalFetchPayloadSchema } from './external-output-schemas';
 export { externalFetchOutputSchema } from './external-output-schemas';
 import { z } from 'zod';
 import {
-  configureRendererSidecarApiClient,
+  createRendererSidecarApiClient,
   resolveExternalLookupBaseUrl,
 } from '../../../services/sidecar-session';
 import {
@@ -39,7 +39,7 @@ export const externalFetchTool = resultTool({
     args: z.infer<typeof externalFetchSchema>,
     context: { abortSignal?: AbortSignal; toolCallId?: string; grantedCapabilities?: string[] }
   ) => {
-    configureRendererSidecarApiClient(await resolveExternalLookupBaseUrl('external.fetch'));
+    const apiClient = createRendererSidecarApiClient(await resolveExternalLookupBaseUrl('external.fetch'));
     const headers: Record<string, string> = {};
     if (context.toolCallId) {
       headers['X-DNAForge-Action-Id'] = context.toolCallId;
@@ -47,7 +47,7 @@ export const externalFetchTool = resultTool({
     try {
       const response = await postFetchExternalFetchPost(
         { ...args, granted_capabilities: context.grantedCapabilities ?? [] },
-        { headers, signal: context.abortSignal }
+        apiClient.options({ headers, signal: context.abortSignal })
       );
       const parsed = externalFetchPayloadSchema.safeParse(response.data);
       if (!parsed.success) {

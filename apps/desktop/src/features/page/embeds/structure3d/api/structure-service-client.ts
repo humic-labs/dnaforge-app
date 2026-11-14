@@ -94,14 +94,14 @@ export async function validateRcsbId(
   pdbId: string,
   signal?: AbortSignal
 ): Promise<ValidateStructureIdResult> {
-  configureStructureSidecarClient();
+  const apiClient = serviceManager.externalLookupClient();
   const body = await callGeneratedStructureJson('/external/rcsb/validate', () =>
     postRcsbValidateExternalRcsbValidatePost(
       {
         pdb_id: pdbId,
         granted_capabilities: [...ANNOTATION_CAPABILITIES],
       },
-      { signal }
+      apiClient.options({ signal })
     )
   );
   if (!body) return { valid: false };
@@ -122,14 +122,14 @@ export async function validateAlphaFoldId(
   uniprotId: string,
   signal?: AbortSignal
 ): Promise<ValidateStructureIdResult> {
-  configureStructureSidecarClient();
+  const apiClient = serviceManager.externalLookupClient();
   const alphafold = await callGeneratedStructureJson('/external/alphafold/summary', () =>
     postAlphafoldSummaryExternalAlphafoldSummaryPost(
       {
         accession: uniprotId,
         granted_capabilities: [...ANNOTATION_CAPABILITIES],
       },
-      { signal }
+      apiClient.options({ signal })
     )
   );
   if (!alphafold?.valid) return { valid: false };
@@ -143,7 +143,7 @@ export async function validateAlphaFoldId(
           accession: uniprotId,
           granted_capabilities: [...ANNOTATION_CAPABILITIES],
         },
-        { signal }
+        apiClient.options({ signal })
       ),
     { serverErrorIsNull: true }
   );
@@ -226,10 +226,6 @@ function throwForBlockingSidecarStatus(status: number, path: string): never {
   throw Object.assign(new Error(`Structure sidecar provider failure ${path}: HTTP ${status}`), {
     name: 'SidecarProviderError',
   });
-}
-
-function configureStructureSidecarClient(): void {
-  serviceManager.bindExternalLookupClient();
 }
 
 function throwForBlockingSidecarFailure(response: Response, path: string): void {

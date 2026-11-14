@@ -1,3 +1,4 @@
+import type { ApiClient } from '@waypoint/api-client';
 import {
   applyAnnotationDocumentOperationsAnnotationDocumentsApplyPost,
   inspectAnnotationDocumentOperationsAnnotationDocumentsInspectPost,
@@ -86,6 +87,7 @@ export interface ManagedOperationsRuntimeSource {
 }
 
 export interface RegisteredOperationStartContext {
+  readonly apiClient: ApiClient;
   readonly scopeId: string;
   readonly submissionKey: string;
   readonly acceptedWorkspaceInput?: OperationAcceptedWorkspaceInput;
@@ -109,7 +111,7 @@ export interface ManagedOperationsEventSource {
 export interface ManagedOperationsApi {
   configureBaseUrl(baseUrl: string): void;
   getBaseUrl(): string;
-  bindGeneratedClient(): void;
+  client(): ApiClient;
   discover(): Promise<OperationCatalog>;
   startAnnotation(input: AnnotationSubmission): Promise<OperationSnapshot>;
   getOperation(operationId: string): Promise<OperationSnapshot>;
@@ -305,53 +307,78 @@ const generatedOperationsApi: ManagedOperationsApi = {
   getBaseUrl() {
     return managedOperationsServiceManager.getBaseUrl();
   },
-  bindGeneratedClient() {
-    managedOperationsServiceManager.bindGeneratedClient();
+  client() {
+    return managedOperationsServiceManager.client();
   },
   async discover() {
-    const response = await discoverOperationsOperationsCatalogGet();
+    const response = await discoverOperationsOperationsCatalogGet(
+      managedOperationsServiceManager.client().options()
+    );
     if (response.status !== 200) throw new Error('Operation catalog request was rejected.');
     return response.data;
   },
   async startAnnotation(input) {
-    const response = await startAnnotationOperationOperationsAnnotationPost(input);
+    const response = await startAnnotationOperationOperationsAnnotationPost(
+      input,
+      managedOperationsServiceManager.client().options()
+    );
     if (response.status !== 202) throw new Error('Annotation operation request was rejected.');
     return response.data;
   },
   async getOperation(operationId) {
-    const response = await getOperationOperationsOperationIdGet(operationId);
+    const response = await getOperationOperationsOperationIdGet(
+      operationId,
+      managedOperationsServiceManager.client().options()
+    );
     if (response.status !== 200) throw new Error('Operation request was rejected.');
     return response.data;
   },
   async getActions(operationId, params) {
-    const response = await listOperationActionsOperationsOperationIdActionsGet(operationId, params);
+    const response = await listOperationActionsOperationsOperationIdActionsGet(
+      operationId,
+      params,
+      managedOperationsServiceManager.client().options()
+    );
     if (response.status !== 200) throw new Error('Operation action history request was rejected.');
     return response.data;
   },
   async getResult(operationId) {
-    const response = await getOperationResultOperationsOperationIdResultGet(operationId);
+    const response = await getOperationResultOperationsOperationIdResultGet(
+      operationId,
+      managedOperationsServiceManager.client().options()
+    );
     if (response.status !== 200) throw new Error('Operation result request was rejected.');
     return response.data;
   },
   async inspectAnnotationDocument(target) {
-    const response =
-      await inspectAnnotationDocumentOperationsAnnotationDocumentsInspectPost(target);
+    const response = await inspectAnnotationDocumentOperationsAnnotationDocumentsInspectPost(
+      target,
+      managedOperationsServiceManager.client().options()
+    );
     if (response.status !== 200) throw new Error('Document inspection was rejected.');
     return response.data;
   },
   async applyAnnotationDocument(selection) {
-    const response = await applyAnnotationDocumentOperationsAnnotationDocumentsApplyPost(selection);
+    const response = await applyAnnotationDocumentOperationsAnnotationDocumentsApplyPost(
+      selection,
+      managedOperationsServiceManager.client().options()
+    );
     if (response.status !== 200) throw new Error('Document Apply was rejected.');
     return response.data;
   },
   async releaseResult(operationId) {
-    const response =
-      await releaseOperationResultOperationsOperationIdReleaseResultPost(operationId);
+    const response = await releaseOperationResultOperationsOperationIdReleaseResultPost(
+      operationId,
+      managedOperationsServiceManager.client().options()
+    );
     if (response.status !== 200) throw new Error('Operation result release was rejected.');
     return response.data;
   },
   async requestCancel(operationId) {
-    const response = await requestOperationCancelOperationsOperationIdCancelPost(operationId);
+    const response = await requestOperationCancelOperationsOperationIdCancelPost(
+      operationId,
+      managedOperationsServiceManager.client().options()
+    );
     if (response.status !== 200) throw new Error('Operation cancellation request was rejected.');
     return response.data;
   },
@@ -449,8 +476,8 @@ export class ManagedOperationsStore {
     ) {
       throw new Error('The saved input files do not belong to the current execution owner.');
     }
-    this.dependencies.api.bindGeneratedClient();
     const snapshot = await start({
+      apiClient: this.dependencies.api.client(),
       scopeId: command.scopeId,
       submissionKey,
       ...(acceptedWorkspaceInput ? { acceptedWorkspaceInput, expectedAccountId: ownerId! } : {}),
@@ -512,7 +539,6 @@ export class ManagedOperationsStore {
 
   async getOperation(operationId: string): Promise<OperationSnapshot> {
     const command = this.requireConnectedRuntime();
-    this.dependencies.api.bindGeneratedClient();
     const snapshot = await this.dependencies.api.getOperation(operationId);
     this.requireSameConnection(command.connectionGeneration, 'Operation read');
     this.acceptSnapshot(snapshot);
@@ -618,7 +644,6 @@ export class ManagedOperationsStore {
       subjectId: record.snapshot.subject.subject_id,
     };
 
-    this.dependencies.api.bindGeneratedClient();
     const page = await this.dependencies.api.getActions(operationId, { limit, offset: 0 });
     this.requireSameConnection(command.connectionGeneration, 'Operation action history read');
 
@@ -640,7 +665,6 @@ export class ManagedOperationsStore {
 
   async getResult(operationId: string): Promise<ManagedOperationResultEnvelope> {
     const command = this.requireConnectedRuntime();
-    this.dependencies.api.bindGeneratedClient();
     const result = await this.dependencies.api.getResult(operationId);
     this.requireSameConnection(command.connectionGeneration, 'Operation result read');
     return result;
@@ -650,7 +674,6 @@ export class ManagedOperationsStore {
     target: AnnotationDocumentTarget
   ): Promise<AnnotationDocumentInspection> {
     const command = this.requireConnectedRuntime();
-    this.dependencies.api.bindGeneratedClient();
     const result = await this.dependencies.api.inspectAnnotationDocument({ ...target });
     this.requireSameConnection(command.connectionGeneration, 'Document inspection');
     return result;
@@ -661,7 +684,6 @@ export class ManagedOperationsStore {
   ): Promise<AnnotationDocumentApplyResponse> {
     const command = this.requireConnectedRuntime();
     const reviewed = { ...selection, selectedCandidateIds: [...selection.selectedCandidateIds] };
-    this.dependencies.api.bindGeneratedClient();
     const receipt = await this.dependencies.api.applyAnnotationDocument(reviewed);
     if (!this.isSameConnectedRuntime(command.connectionGeneration)) {
       throw new ManagedDocumentReceiptFromPreviousRuntimeError(reviewed.operationId, receipt);
@@ -671,7 +693,6 @@ export class ManagedOperationsStore {
 
   async releaseResult(operationId: string): Promise<OperationReleaseResponse> {
     const command = this.requireConnectedRuntime();
-    this.dependencies.api.bindGeneratedClient();
     const response = await this.dependencies.api.releaseResult(operationId);
     this.requireSameConnection(command.connectionGeneration, 'Operation result release');
     this.acceptSnapshot(response.snapshot);
@@ -680,7 +701,6 @@ export class ManagedOperationsStore {
 
   async requestCancel(operationId: string): Promise<OperationCancelResponse> {
     const command = this.requireConnectedRuntime();
-    this.dependencies.api.bindGeneratedClient();
     const response = await this.dependencies.api.requestCancel(operationId);
     this.requireSameConnection(command.connectionGeneration, 'Cancellation request');
     this.acceptSnapshot(response.snapshot, response);
@@ -779,7 +799,6 @@ export class ManagedOperationsStore {
       const baseUrl = await runtimeSource.getBaseUrl();
       if (!this.isCurrentConnection(attachGeneration, connectionGeneration)) return;
       this.dependencies.api.configureBaseUrl(baseUrl);
-      this.dependencies.api.bindGeneratedClient();
       const catalog = await this.dependencies.api.discover();
       if (!this.isCurrentConnection(attachGeneration, connectionGeneration)) return;
 

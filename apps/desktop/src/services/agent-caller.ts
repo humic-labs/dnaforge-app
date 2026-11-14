@@ -1,5 +1,5 @@
 import { isApiError, getCurrentAgentCaller } from '@waypoint/api-client';
-import { configureRendererSidecarApiClient, resolveSidecarBaseUrl } from './sidecar-session';
+import { createRendererSidecarApiClient, resolveSidecarBaseUrl } from './sidecar-session';
 import {
   AgentAuthorityError,
   agentAuthorityUnavailable,
@@ -24,8 +24,10 @@ export async function resolveCurrentAgentCaller(signal?: AbortSignal): Promise<A
       (async () => {
         const baseUrl = await resolveSidecarBaseUrl('Agent authority');
         lookupSignal.throwIfAborted();
-        configureRendererSidecarApiClient(baseUrl);
-        const response = await getCurrentAgentCaller({ signal: lookupSignal, cache: 'no-store' });
+        const apiClient = createRendererSidecarApiClient(baseUrl);
+        const response = await getCurrentAgentCaller(
+          apiClient.options({ signal: lookupSignal, cache: 'no-store' })
+        );
         lookupSignal.throwIfAborted();
         return parseAgentCallerResponse(response.data);
       })(),
