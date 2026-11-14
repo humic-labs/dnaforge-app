@@ -1,3 +1,4 @@
+import { reportSaveFailure } from '../../../lib/report-save-failure';
 import { useDocumentLifecycle } from '../../../shared/use-document-lifecycle';
 import { userMessage } from '@waypoint/user-messages';
 import { useCallback, useEffect, useRef } from 'react';
@@ -198,7 +199,12 @@ export function useDesignSaveOwner({
               try {
                 await flush();
                 return ownsTarget();
-              } catch {
+              } catch (error) {
+                reportSaveFailure(
+                  '[DesignTab] Save failed:',
+                  { designId, tabId: ownedTab.id },
+                  error
+                );
                 useToastStore
                   .getState()
                   .addToast(

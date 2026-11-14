@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 const h = vi.hoisted(() => ({
@@ -89,6 +89,29 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('protein draft save ownership', () => {
+  it('records the original write failure and retains the unsaved residues', async () => {
+    const entityId = 'protein-a';
+    const failure = new Error('EACCES: protein write denied');
+    h.save.mockRejectedValueOnce(failure);
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      render(<ProteinSequenceTab entityId={entityId} onUnavailable={unavailable} />);
+      fireEvent.click(await screen.findByTestId('protein-edit-sequence'));
+      fireEvent.change(screen.getByLabelText('Amino-acid sequence'), { target: { value: 'MKW' } });
+      fireEvent.click(screen.getByTestId('protein-save-sequence'));
+      await waitFor(() =>
+        expect(report).toHaveBeenCalledWith(
+          '[ProteinSequenceTab] Save failed:',
+          { entityId },
+          failure
+        )
+      );
+      expect(screen.getByLabelText('Amino-acid sequence')).toHaveValue('MKW');
+    } finally {
+      report.mockRestore();
+    }
+  });
+
   it('keeps newer residues editable and uses the accepted revision for the next save', async () => {
     const pending = deferred();
     h.save.mockImplementationOnce(async ({ entity, bases }) => {

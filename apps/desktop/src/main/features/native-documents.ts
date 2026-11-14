@@ -41,6 +41,7 @@ import {
   sidecarSessionAuthority,
 } from '../sidecar-session-runtime';
 import { withNativeDocumentSettlementTestSeam } from './test-hooks';
+import { reportNativeSaveFailure } from '../save-failure-diagnostics';
 import { workspaceNativeDocumentsContract } from '../../shared/ipc/workspace-native-documents.contract';
 import {
   createRegisteredProjectAuthority,
@@ -418,13 +419,43 @@ export function createNativeDocuments(
       await flushFileDocumentClients(purpose);
   }
 
-  function settleDirtyDocuments(request: NativeDirtySettlementRequest) {
-    return settleNativeDirtyDocuments(request, {
-      listDirty: () => fileDocuments.listDirty(),
-      execute: (request) => fileDocuments.execute(request),
-      beforeList: () =>
-        flushDirtyDocumentClients(request.action === 'discard' ? 'discard' : 'synchronize'),
-    });
+  async function settleDirtyDocuments(request: NativeDirtySettlementRequest) {
+    const reported = new Set<unknown>();
+    const reportedMessages = new Set<string>();
+    const report = (error: unknown): void => {
+      if (request.action !== 'save' || reported.has(error)) return;
+      reported.add(error);
+      reportedMessages.add(error instanceof Error ? error.message : String(error));
+      reportNativeSaveFailure(error);
+    };
+    const observe = async <T>(run: () => Promise<T>): Promise<T> => {
+      try {
+        return await run();
+      } catch (error) {
+        report(error);
+        throw error;
+      }
+    };
+    try {
+      const result = await settleNativeDirtyDocuments(request, {
+        listDirty: () => observe(() => fileDocuments.listDirty()),
+        execute: (command) => observe(() => fileDocuments.execute(command)),
+        beforeList: () =>
+          observe(() =>
+            flushDirtyDocumentClients(request.action === 'discard' ? 'discard' : 'synchronize')
+          ),
+      });
+      if (request.action === 'save') {
+        for (const failure of result.failures)
+          if (!reportedMessages.has(failure.error)) report(failure.error);
+        if (!result.failures.length && result.remaining.length)
+          report('Some native documents still have unsaved work.');
+      }
+      return result;
+    } catch (error) {
+      report(error);
+      throw error;
+    }
   }
 
   return {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync } from 'fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, statSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -56,6 +56,7 @@ describe('writeRendererBreadcrumbs  item 4)', () => {
     root = mkdtempSync(join(tmpdir(), 'crumbs-'));
     paths.userData = root;
     mkdirSync(join(root, 'logs'), { recursive: true });
+    registerDiagnosticsHandlers();
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -67,5 +68,41 @@ describe('writeRendererBreadcrumbs  item 4)', () => {
 
   it('ignores a non-array payload without throwing', () => {
     expect(() => writeRendererBreadcrumbs('not-an-array')).not.toThrow();
+  });
+
+  it('preserves the failed save from the previous session when the next renderer starts', () => {
+    writeFileSync(join(root, 'logs', 'renderer-breadcrumbs.log'), 'error: prior save EACCES');
+    writeRendererBreadcrumbs(['warn: new startup']);
+    expect(readFileSync(join(root, 'logs', 'renderer-breadcrumbs.log'), 'utf8')).toBe(
+      'error: prior save EACCES\nwarn: new startup'
+    );
+  });
+
+  it('retains each new breadcrumb once across overlapping snapshots', () => {
+    writeRendererBreadcrumbs(['warn: a', 'error: b']);
+    writeRendererBreadcrumbs(['warn: a', 'error: b']);
+    writeRendererBreadcrumbs(['error: b', 'error: c']);
+    expect(readFileSync(join(root, 'logs', 'renderer-breadcrumbs.log'), 'utf8')).toBe(
+      'warn: a\nerror: b\nerror: c'
+    );
+  });
+
+  it('does not drop the final error when a pagehide snapshot immediately follows a flush', () => {
+    const fire = (lines: string[]) => handlers.get('diagnostics:breadcrumbs')?.({}, lines);
+    fire(['warn: startup']);
+    fire(['warn: startup', 'error: save EIO']);
+    expect(readFileSync(join(root, 'logs', 'renderer-breadcrumbs.log'), 'utf8')).toContain(
+      'error: save EIO'
+    );
+  });
+
+  it('bounds retained history and preserves the newest error', () => {
+    const path = join(root, 'logs', 'renderer-breadcrumbs.log');
+    writeFileSync(path, 'old\n'.repeat(30_000));
+    writeRendererBreadcrumbs(['error: latest EIO']);
+    const content = readFileSync(path, 'utf8');
+    expect(content).toContain('old\n');
+    expect(content.endsWith('error: latest EIO')).toBe(true);
+    expect(statSync(path).size).toBeLessThanOrEqual(64 * 1024);
   });
 });

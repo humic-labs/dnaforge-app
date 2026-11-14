@@ -1,3 +1,4 @@
+import { reportSaveFailure } from '../../lib/report-save-failure';
 import { documentLifecycle } from '../../shared/document-lifecycle';
 import { useDocumentLifecycle } from '../../shared/use-document-lifecycle';
 import { toUserMessage, userMessage, userEntityLabel } from '@waypoint/user-messages';
@@ -566,6 +567,11 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
           }, 1_500);
         return outcome === 'saved';
       } catch (saveError) {
+        reportSaveFailure(
+          '[ScientificDocumentTab] Save failed:',
+          { filePath, tabId: canvasTabId },
+          saveError
+        );
         if (saveOwner.finish(operation) === 'retired') return false;
         setError(toUserMessage(saveError, 'failure.failed-to-save-document'));
         return false;
@@ -580,6 +586,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
       if (saveInFlight.current?.promise === run) saveInFlight.current = null;
     }
   }, [
+    canvasTabId,
     saveOwner,
     dismissExternalChange,
     dirty,

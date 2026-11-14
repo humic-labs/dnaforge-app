@@ -1,3 +1,4 @@
+import { reportSaveFailure } from '../../lib/report-save-failure';
 import { toUserMessage, userMessage, type UserMessage } from '@waypoint/user-messages';
 import { SavedDocumentCompletionError } from '../../services/saved-document-completion';
 import {
@@ -560,6 +561,11 @@ export class EntityDetailsSession {
       });
       void this.loadHistory();
     } catch (cause) {
+      reportSaveFailure(
+        '[EntityDetailsSession] Save failed:',
+        { entityId: this.target.entityId },
+        cause
+      );
       if (cause instanceof SavedDocumentCompletionError) {
         this.completion = cause.complete;
         this.publish({
@@ -630,6 +636,11 @@ export class EntityDetailsSession {
       this.ports.changed(this.target.entityId);
       void this.loadHistory();
     } catch (cause) {
+      reportSaveFailure(
+        '[EntityDetailsSession] Save completion failed:',
+        { entityId: this.target.entityId },
+        cause
+      );
       this.publish({
         error: !this.state.saveConfirmed
           ? toUserMessage(cause, 'document.saveUnconfirmed')

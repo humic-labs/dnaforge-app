@@ -57,6 +57,27 @@ function setup() {
 }
 
 describe('entity-owned metadata session', () => {
+  it('records the original save failure while retaining the metadata draft', async () => {
+    const { session, save } = setup();
+    await session.load();
+    const failure = new Error('EACCES: record write denied');
+    save.mockRejectedValueOnce(failure);
+    session.stage('count', { valid: true, value: 5 });
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await session.save();
+      expect(report).toHaveBeenCalledWith(
+        '[EntityDetailsSession] Save failed:',
+        { entityId: 'specimen-1' },
+        failure
+      );
+      expect(session.dirty).toBe(true);
+      expect(session.getSnapshot().draft?.fields.count).toBe(5);
+    } finally {
+      report.mockRestore();
+    }
+  });
+
   it('does not replace a completed save with a read started before that save', async () => {
     const { session, save, ports, definition } = setup();
     await session.load();
