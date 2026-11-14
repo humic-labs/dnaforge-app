@@ -4,6 +4,7 @@ import type { Assembly } from '@waypoint/genome-renderer';
 
 import type { ActiveStressDataset } from '../lane-contract-store';
 import type { PileupSource } from '../pileup-source';
+import { alignedReadSourceGenerationKey } from '../aligned-read-source-generation';
 import type { TileEngineFeed } from '../tile-engine-driver';
 import { ExperimentalHybridPileupPublisher } from '../experimental-hybrid-pileup';
 import {
@@ -1038,6 +1039,106 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
     unmount();
   });
 
+  it.each(['http', 'htsget', 'local-reference'] as const)(
+    'publishes complete presentation owner identity for %s without changing the raw file generation contract',
+    async (kind) => {
+      const renderer = fakeRenderer();
+      const range = { start: 100_000, end: 102_000 };
+      const assembly = rendererAssembly();
+      const webglRef = {
+        current: {
+          getLinearRenderer: () => renderer,
+          getViewportRange: () => range,
+          requestRender: vi.fn(),
+        },
+      };
+      const source = (version: number): PileupSource =>
+        kind === 'http'
+          ? {
+              bamPath: `https://reads.example.test/source-${version}.bam`,
+              indexPath: `https://reads.example.test/source-${version}.bam.bai`,
+            }
+          : kind === 'htsget'
+            ? {
+                bamPath: `htsget-runtime://${String(version).repeat(64)}/source.bam`,
+                htsget: {
+                  sourceToken: 'fixture-grant',
+                  sourceIdentity: String(version).repeat(64),
+                  format: 'BAM',
+                },
+                grantExpiresAtMs: 100_000,
+              }
+            : {
+                bamPath: '/fixtures/HG002.bam',
+                indexPath: '/fixtures/HG002.bam.bai',
+                generation: sourceGeneration(1),
+              };
+      const expectedRawGeneration = alignedReadSourceGenerationKey(source(1).generation);
+      const { result, rerender, unmount } = renderHook(
+        ({ version }: { version: number }) =>
+          useIndexedPileupStreaming({
+            webglRef,
+            rendererAssembly: assembly,
+            containerWidth: 1_000,
+            activeStressDatasets: [pileupDataset(source(version))],
+            ...(kind === 'local-reference'
+              ? {
+                  referencePathsByChrom: new Map([
+                    ['chr11', `/reference/version-${version}/chr11.fa.gz`],
+                  ]),
+                }
+              : {}),
+          }),
+        { initialProps: { version: 1 } }
+      );
+      const publish = (index: number) =>
+        act(() =>
+          driverMock.instances[index]!.options.onFeed({
+            ownerPresentation: { kind: 'reads' },
+            requiredReadBandReady: true,
+            viewRange: range,
+            records: [
+              { start: 100_100, end: 100_250, readId: 'owner-bound-read', strand: '+', mapq: 60 },
+            ],
+            readSource: { truncated: false, windowStartBp: 99_328, windowEndBp: 102_400 },
+            coverage: { startBp: 99_328, binSize: 128, bins: new Array(24).fill(8), maxDepth: 8 },
+          })
+        );
+      const publishedReadSource = () => {
+        const payload = renderer.setTrackData.mock.calls.at(-1)?.[1] as
+          | { readSource?: { sourceGenerationKey?: string; presentationOwnerKey?: string } }
+          | undefined;
+        expect(payload?.readSource?.sourceGenerationKey).toBe(expectedRawGeneration);
+        return payload?.readSource;
+      };
+      try {
+        act(() => {
+          result.current.streamPileupViaTileEngine(range);
+        });
+        await waitFor(() => expect(driverMock.instances).toHaveLength(1));
+        publish(0);
+        const firstOwner = publishedReadSource()?.presentationOwnerKey;
+        expect(
+          firstOwner,
+          'every admitted producer needs a nonempty surface owner identity'
+        ).toEqual(expect.any(String));
+        expect(firstOwner?.length).toBeGreaterThan(0);
+
+        rerender({ version: 2 });
+        act(() => {
+          result.current.streamPileupViaTileEngine(range);
+        });
+        await waitFor(() => expect(driverMock.instances).toHaveLength(2));
+        publish(1);
+        const secondOwner = publishedReadSource()?.presentationOwnerKey;
+        expect(secondOwner?.length).toBeGreaterThan(0);
+        expect(secondOwner).not.toBe(firstOwner);
+      } finally {
+        unmount();
+      }
+    }
+  );
+
   it('rebuilds resident data when the same paths have a new local file generation', async () => {
     const renderer = fakeRenderer();
     const webglRef = { current: { getLinearRenderer: () => renderer } };
@@ -1564,7 +1665,12 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
       records,
       alternateColumns: [],
       referenceIntervals: [],
-      readSource: { windowStartBp: 0, windowEndBp: 2_000, sourceGenerationKey: '' },
+      readSource: {
+        windowStartBp: 0,
+        windowEndBp: 2_000,
+        sourceGenerationKey: '',
+        presentationOwnerKey: expect.any(String),
+      },
     });
 
     unmount();
@@ -1801,6 +1907,11 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
         readSource,
       });
     });
+    const firstPublishedPayload = renderer.setTrackData.mock.calls.at(-1)?.[1] as {
+      readSource?: { presentationOwnerKey?: string };
+    };
+    const presentationOwnerKey = firstPublishedPayload.readSource?.presentationOwnerKey;
+    expect(presentationOwnerKey?.length).toBeGreaterThan(0);
     renderer.setTrackData.mockClear();
 
     act(() => {
@@ -1818,7 +1929,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
       dataset.trackId,
       expect.objectContaining({
         records,
-        readSource,
+        readSource: { ...readSource, presentationOwnerKey },
         coverageGpuAtlasPresentation: 'active',
       })
     );
@@ -1890,6 +2001,11 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
         referenceIntervals: [],
       });
     });
+    const firstPublishedPayload = renderer.setTrackData.mock.calls.at(-1)?.[1] as {
+      readSource?: { presentationOwnerKey?: string };
+    };
+    const presentationOwnerKey = firstPublishedPayload.readSource?.presentationOwnerKey;
+    expect(presentationOwnerKey?.length).toBeGreaterThan(0);
 
     currentRange = { start: 99_500, end: 100_500 };
     act(() => {
@@ -1907,7 +2023,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
       'hybrid-right-left',
       expect.objectContaining({
         records,
-        readSource,
+        readSource: { ...readSource, presentationOwnerKey },
         referenceIntervals: [{ startBp: 99_500, endBp: 100_000, state: 'pending' }],
         experimentalReadHandoff: expect.objectContaining({ readsLoading: true }),
       })

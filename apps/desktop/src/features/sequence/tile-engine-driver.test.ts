@@ -4,6 +4,7 @@ import {
   binBp,
   maxBoundedForegroundCoverageLevel,
   maxLevelForAssembly,
+  TileCache,
   tileIndex,
   tileSpanBp,
   type Assembly,
@@ -659,7 +660,10 @@ function holdAlternateColumnAlignmentTransport(): {
   };
 }
 
-function holdCalledAlternateColumnTileTransport(targetGlobalBp: number): {
+function holdCalledAlternateColumnTileTransport(
+  targetGlobalBp: number,
+  targetLevel: number
+): {
   transport: TileTransport;
   pendingCalledTileCount: () => number;
   releaseCalledTile: () => void;
@@ -675,11 +679,11 @@ function holdCalledAlternateColumnTileTransport(targetGlobalBp: number): {
 
   return {
     transport: (req, signal) => {
-      const isCalledGuideTile =
+      const isCalledTile =
         req.kind === 'alignment' &&
-        req.level === 3 &&
+        req.level === targetLevel &&
         req.tileIndex === tileIndex(targetGlobalBp, req.level);
-      if (!isCalledGuideTile) return emptyTransport(req, signal);
+      if (!isCalledTile) return emptyTransport(req, signal);
       return new Promise((resolve, reject) => {
         const item = { req, signal, resolve, reject };
         pending.push(item);
@@ -1653,6 +1657,77 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
     expect(feed?.ownerPresentation).toEqual({ kind: 'empty' });
     expect(feed?.referenceIntervals?.some((interval) => interval.state === 'empty')).toBe(true);
     driver.dispose();
+  });
+
+  it('settles an empty chromosome without waiting for an offscreen neighboring fragment', async () => {
+    const assembly = buildAssembly('empty-near-seam', 'empty near seam', [
+      { id: 'chrA', displayName: 'chrA', length: 1_500, cytobands: [] },
+      { id: 'chrB', displayName: 'chrB', length: 1_500, cytobands: [] },
+    ] as never);
+    const feeds: TileEngineFeed[] = [];
+    const requests: Array<Parameters<TileTransport>[0]> = [];
+    const base = fakeTransport();
+    const transport: TileTransport = async (request, signal) => {
+      requests.push(request);
+      if (request.kind === 'alignment') {
+        return {
+          ok: true,
+          status: 200,
+          body: { reads: [], alternateColumns: [], truncated: false, count: 0 },
+        };
+      }
+      const response = await base(request, signal);
+      const body = response.body as {
+        bins?: number[];
+        maxDepth?: number;
+        segments?: Array<{ bins: number[]; maxDepth: number }>;
+      };
+      body.bins?.fill(0);
+      body.maxDepth = 0;
+      for (const segment of body.segments ?? []) {
+        segment.bins.fill(0);
+        segment.maxDepth = 0;
+      }
+      return response;
+    };
+    const driver = new TileEngineDriver({
+      assembly,
+      source: { bamPath: '/empty.bam' },
+      baseUrl: 'http://sidecar',
+      onFeed: (feed) => feeds.push(feed),
+      transport,
+    });
+    const view = { start: 100, end: 300 };
+
+    try {
+      await feedFor(driver, feeds, view, 1024);
+      await flushFeedCycle();
+      const snapshot = driver.debugSnapshot();
+      expect(snapshot.inFlight).toBe(0);
+      expect(snapshot.aln.pending).toBe(0);
+      expect(snapshot.aln.error).toBe(0);
+      expect(snapshot.transportQueue.active).toEqual([]);
+      expect(snapshot.transportQueue.queued).toEqual([]);
+      expect(
+        requests.some((request) => request.kind === 'alignment' && request.body.chrom === 'chrB')
+      ).toBe(false);
+      expect(snapshot.readComposition?.stableBandReady).toBe(true);
+      expect(snapshot.readComposition?.readyCoversViewport).toBe(true);
+      expect(feeds.at(-1)?.records).toEqual([]);
+      expect(feeds.at(-1)?.ownerPresentation).toEqual({ kind: 'empty' });
+      expect(
+        feeds
+          .at(-1)
+          ?.referenceIntervals?.some(
+            (interval) =>
+              interval.state === 'empty' &&
+              interval.startBp <= view.start &&
+              interval.endBp >= view.end
+          )
+      ).toBe(true);
+    } finally {
+      driver.dispose();
+    }
   });
 
   it('presents an empty viewport even when the resident halo still contains reads', async () => {
@@ -4351,6 +4426,114 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
     driver.dispose();
   });
 
+  it('keeps a chromosome fragment pending when its neighbor shares the same global tile', async () => {
+    const assembly = buildAssembly('split-tile', 'split tile', [
+      { id: 'chrA', displayName: 'chrA', length: 1_500, cytobands: [] },
+      { id: 'chrB', displayName: 'chrB', length: 1_500, cytobands: [] },
+    ] as never);
+    const feeds: TileEngineFeed[] = [];
+    const held = deferred<Awaited<ReturnType<TileTransport>>>();
+    let heldRequestCount = 0;
+    const alignmentReply = (chrom: string): Awaited<ReturnType<TileTransport>> => ({
+      ok: true,
+      status: 200,
+      body: {
+        reads: [
+          {
+            start: chrom === 'chrA' ? 1_400 : 10,
+            end: chrom === 'chrA' ? 1_450 : 60,
+            strand: '+',
+            mapq: 60,
+            readId: `${chrom}-seam-read`,
+          },
+        ],
+        alternateColumns: [],
+        truncated: false,
+      },
+    });
+    const driver = new TileEngineDriver({
+      assembly,
+      source: { bamPath: '/fake.bam' },
+      baseUrl: 'http://sidecar',
+      onFeed: (feed) => feeds.push(feed),
+      transport: (request: Parameters<TileTransport>[0], signal: AbortSignal) => {
+        if (request.kind !== 'alignment') return fakeTransport()(request, signal);
+        const chrom = String(request.body.chrom);
+        if (request.level === 0 && request.tileIndex === 1) {
+          if (chrom === 'chrB') {
+            heldRequestCount += 1;
+            signal.addEventListener('abort', () => held.reject(new Error('aborted')), {
+              once: true,
+            });
+            return held.promise;
+          }
+          return Promise.resolve(alignmentReply(chrom));
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          body: { reads: [], alternateColumns: [], truncated: false },
+        });
+      },
+    } as never);
+    const view = { start: 1_400, end: 1_600 };
+
+    try {
+      await feedFor(driver, feeds, view, 1024);
+      await flushFeedCycle();
+      expect(heldRequestCount).toBe(1);
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        if (attempt > 0) {
+          driver.presentViewport(view, 1024);
+          await flushFeedCycle();
+        }
+        const pending = driver.debugSnapshot();
+        expect(pending.aln.pending).toBe(1);
+        expect
+          .soft(
+            pending.readComposition?.stableBandReady,
+            'a ready chrA fragment cannot settle the pending chrB half of the same tile'
+          )
+          .toBe(false);
+        expect.soft(pending.readComposition?.readCoversViewport).toBe(false);
+        expect.soft(feeds.at(-1)?.ownerPresentation?.kind).not.toBe('reads');
+        expect.soft(feeds.at(-1)?.ownerPresentation?.kind).not.toBe('empty');
+        expect
+          .soft(
+            feeds
+              .at(-1)
+              ?.referenceIntervals?.some(
+                (interval) =>
+                  interval.state === 'pending' &&
+                  interval.startBp <= 1_500 &&
+                  interval.endBp >= 1_600
+              )
+          )
+          .toBe(true);
+      }
+
+      held.resolve(alignmentReply('chrB'));
+      await flushFeedCycle();
+      const complete = driver.debugSnapshot();
+      expect(complete.aln.pending).toBe(0);
+      expect(complete.readComposition?.stableBandReady).toBe(true);
+      expect(complete.readComposition?.readCoversViewport).toBe(true);
+      expect(feeds.at(-1)?.ownerPresentation).toEqual({ kind: 'reads' });
+      expect(
+        feeds
+          .at(-1)
+          ?.records.map((record) => record.chrom)
+          .sort()
+      ).toEqual(['chrA', 'chrB']);
+      expect(feeds.at(-1)?.records.find((record) => record.chrom === 'chrB')).toMatchObject({
+        start: 1_510,
+        end: 1_560,
+      });
+    } finally {
+      driver.dispose();
+    }
+  });
+
   it('publishes viewport-complete exact reads while independent coverage is still pending', async () => {
     const feeds: TileEngineFeed[] = [];
     const held = holdCoverageTransport();
@@ -4404,6 +4587,225 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
     driver.dispose();
   });
 
+  it.each([26_612, 44_000])(
+    'settles whole-viewport exact reads at a physically readable %ibp histogram viewport',
+    async (spanBp) => {
+      const feeds: TileEngineFeed[] = [];
+      const requests: Array<Parameters<TileTransport>[0]> = [];
+      const driver = new TileEngineDriver({
+        assembly: humanScaleAssembly(),
+        source: { bamPath: '/fake.bam' },
+        baseUrl: 'http://sidecar',
+        onFeed: (feed) => feeds.push(feed),
+        transport: recordingTransport(requests),
+      } as never);
+      const presentationPx = 622;
+      const samplePx = presentationPx * 2;
+      const view = { start: 1_809_315_000, end: 1_809_315_000 + spanBp };
+
+      try {
+        await feedFor(driver, feeds, view, samplePx, presentationPx);
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          await flushFeedCycle();
+          const snapshot = driver.debugSnapshot();
+          if (
+            snapshot.inFlight === 0 &&
+            snapshot.transportQueue.active.length === 0 &&
+            snapshot.transportQueue.queued.length === 0 &&
+            snapshot.aln.pending === 0 &&
+            snapshot.cov.pending === 0
+          ) {
+            break;
+          }
+        }
+
+        const snapshot = driver.debugSnapshot();
+        expect(snapshot.inFlight).toBe(0);
+        expect(snapshot.transportQueue.active).toEqual([]);
+        expect(snapshot.transportQueue.queued).toEqual([]);
+        expect(snapshot.transportQueue.started).toBe(snapshot.transportQueue.settled);
+        expect(snapshot.aln.pending).toBe(0);
+        expect(snapshot.aln.error).toBe(0);
+        expect(snapshot.cov.pending).toBe(0);
+        expect(snapshot.cov.error).toBe(0);
+        expect(
+          requests.some((request) => request.kind === 'alignment' && request.level <= 2),
+          'fine BAM tiles must be available before the settled exact-read publication'
+        ).toBe(true);
+
+        const settledFeed = feeds.at(-1);
+        expect(
+          settledFeed?.ownerPresentation,
+          `${spanBp}bp at ${presentationPx}px is physically readable even while coverage uses a coarser grid`
+        ).toEqual({ kind: 'reads' });
+        expect(settledFeed?.readSource?.truncated).not.toBe(true);
+        expect(settledFeed?.readSource?.windowStartBp).toBeLessThanOrEqual(view.start);
+        expect(settledFeed?.readSource?.windowEndBp).toBeGreaterThanOrEqual(view.end);
+        expect(settledFeed?.records.length ?? 0).toBeGreaterThan(0);
+        expect(
+          settledFeed?.records.some(
+            (record) => record.end > view.start && record.start < view.start + spanBp / 3
+          ),
+          'the left flank must receive current exact reads'
+        ).toBe(true);
+        expect(
+          settledFeed?.records.some(
+            (record) => record.end > view.end - spanBp / 3 && record.start < view.end
+          ),
+          'the right flank must receive current exact reads'
+        ).toBe(true);
+      } finally {
+        driver.dispose();
+      }
+    }
+  );
+
+  it.each([26_612, 44_000])(
+    'replaces the detailed seed across the whole %ibp viewport after widening and panning',
+    async (spanBp) => {
+      const feeds: TileEngineFeed[] = [];
+      const driver = new TileEngineDriver({
+        assembly: humanScaleAssembly(),
+        source: { bamPath: '/fake.bam' },
+        baseUrl: 'http://sidecar',
+        onFeed: (feed) => feeds.push(feed),
+        transport: fakeTransport(),
+      } as never);
+      const presentationPx = 622;
+      const samplePx = presentationPx * 2;
+      const seed = { start: 1_809_293_194, end: 1_809_297_194 };
+      const widened = { start: 1_809_315_000, end: 1_809_315_000 + spanBp };
+      const panned = {
+        start: widened.start + spanBp,
+        end: widened.end + spanBp,
+      };
+
+      try {
+        for (const [label, view] of [
+          ['detailed seed', seed],
+          ['widened', widened],
+          ['panned', panned],
+        ] as const) {
+          await feedFor(driver, feeds, view, samplePx, presentationPx);
+          for (let attempt = 0; attempt < 20; attempt += 1) {
+            await flushFeedCycle();
+            const snapshot = driver.debugSnapshot();
+            if (
+              snapshot.inFlight === 0 &&
+              snapshot.transportQueue.active.length === 0 &&
+              snapshot.transportQueue.queued.length === 0 &&
+              snapshot.aln.pending === 0 &&
+              snapshot.cov.pending === 0
+            ) {
+              break;
+            }
+          }
+
+          const snapshot = driver.debugSnapshot();
+          expect(snapshot.inFlight, `${label} requests settled`).toBe(0);
+          expect(snapshot.transportQueue.active).toEqual([]);
+          expect(snapshot.transportQueue.queued).toEqual([]);
+          expect(snapshot.aln.pending).toBe(0);
+          expect(snapshot.aln.error).toBe(0);
+          expect(snapshot.cov.pending).toBe(0);
+          expect(snapshot.cov.error).toBe(0);
+          const settledFeed = feeds.at(-1);
+          expect(settledFeed?.ownerPresentation, `${label} exact-read ownership`).toEqual({
+            kind: 'reads',
+          });
+          expect(settledFeed?.readSource?.truncated).not.toBe(true);
+          expect(settledFeed?.readSource?.windowStartBp, `${label} left flank`).toBeLessThanOrEqual(
+            view.start
+          );
+          expect(
+            settledFeed?.readSource?.windowEndBp,
+            `${label} right flank`
+          ).toBeGreaterThanOrEqual(view.end);
+          expect(
+            settledFeed?.records.some(
+              (record) => record.end > view.start && record.start < view.end
+            ),
+            `${label} exact records belong to the current viewport`
+          ).toBe(true);
+        }
+      } finally {
+        driver.dispose();
+      }
+    }
+  );
+
+  it('refuses cache-only pan completion when bounded fine reads do not cover the new viewport', async () => {
+    const feeds: TileEngineFeed[] = [];
+    const requests: Array<Parameters<TileTransport>[0]> = [];
+    const assembly = buildAssembly('bounded-pan', 'bounded pan', [
+      { id: 'chrA', displayName: 'chrA', length: 1_000_000, cytobands: [] },
+    ] as never);
+    const driver = new TileEngineDriver({
+      assembly,
+      source: {
+        bamPath: 'http://bounded.test/reads.bam',
+        remote: {
+          locator: {
+            contract: 'remote-alignment-locator.v1',
+            endpointId: 'bounded-test',
+            target: 'bounded-test',
+            alignmentPath: '/reads.bam',
+          },
+        },
+      },
+      baseUrl: 'http://sidecar',
+      onFeed: (feed) => feeds.push(feed),
+      transport: recordingTransport(requests),
+    } as never);
+    const initial = { start: 100_000, end: 144_000 };
+    const panned = { start: 115_000, end: 159_000 };
+    const samplePx = 2488;
+    const presentationPx = 1244;
+
+    try {
+      const first = await feedFor(driver, feeds, initial, samplePx, presentationPx);
+      await flushFeedCycle();
+      const before = driver.debugSnapshot();
+      expect(first?.ownerPresentation).toEqual({ kind: 'reads' });
+      expect(before.inFlight).toBe(0);
+      expect(before.transportQueue.active).toEqual([]);
+      expect(before.transportQueue.queued).toEqual([]);
+      const coverageTileSpan = tileSpanBp(before.level!);
+      expect(Math.floor(panned.start / coverageTileSpan)).toBe(
+        Math.floor(initial.start / coverageTileSpan)
+      );
+      expect(Math.floor((panned.end - 1) / coverageTileSpan)).toBe(
+        Math.floor((initial.end - 1) / coverageTileSpan)
+      );
+      const requestCount = requests.length;
+
+      const presented = driver.presentViewport(panned, samplePx, presentationPx);
+      await flushFeedCycle();
+      const missingReads = driver.debugSnapshot();
+      expect(missingReads.readComposition?.readyCoversViewport).toBe(false);
+      expect(missingReads.inFlight).toBe(0);
+      expect(missingReads.transportQueue.active).toEqual([]);
+      expect(missingReads.transportQueue.queued).toEqual([]);
+      expect(requests).toHaveLength(requestCount);
+      expect(
+        presented,
+        'a complete coverage band cannot suppress fetching the missing fine-read flank'
+      ).toBe(false);
+
+      await feedFor(driver, feeds, panned, samplePx, presentationPx);
+      await flushFeedCycle();
+      const complete = driver.debugSnapshot();
+      expect(complete.readComposition?.readyCoversViewport).toBe(true);
+      expect(complete.readComposition?.readCoversViewport).toBe(true);
+      expect(feeds.at(-1)?.ownerPresentation).toEqual({ kind: 'reads' });
+      expect(feeds.at(-1)?.readSource?.windowStartBp).toBeLessThanOrEqual(panned.start);
+      expect(feeds.at(-1)?.readSource?.windowEndBp).toBeGreaterThanOrEqual(panned.end);
+      expect(requests.length).toBeGreaterThan(requestCount);
+    } finally {
+      driver.dispose();
+    }
+  });
+
   it('publishes exact one-base coverage with reads when deep zoom magnifies bases beyond one pixel', async () => {
     const feeds: TileEngineFeed[] = [];
     const driver = new TileEngineDriver({
@@ -4434,7 +4836,7 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
     driver.dispose();
   });
 
-  it('warms exact-read handoff tiles before the read threshold without starving current coverage', async () => {
+  it('loads a bounded current read band without starving blend coverage', async () => {
     const feeds: TileEngineFeed[] = [];
     const requests: Array<Parameters<TileTransport>[0]> = [];
     const assembly = humanScaleAssembly();
@@ -4446,7 +4848,8 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
       transport: recordingTransport(requests),
     } as never);
 
-    await feedFor(driver, feeds, { start: 1_543_721_334, end: 1_543_921_334 }, 2676);
+    const view = { start: 1_543_721_334, end: 1_543_921_334 };
+    const feed = await feedFor(driver, feeds, view, 2676);
 
     expect(requests[0]?.kind, 'visible coverage must not be queued behind read warmup').toBe(
       'coverage-assembly'
@@ -4482,27 +4885,103 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
       'the publishable density bridge must queue before exact read-density coverage'
     ).toBeLessThan(exactDensityIndex);
 
-    const readWarmupLevels = new Set(
-      requests
-        .filter((req) => req.kind === 'alignment' && req.priority?.purpose === 'critical-handoff')
-        .map((req) => req.level)
-    );
-    for (const level of [1, 2]) {
-      expect(
-        readWarmupLevels.has(level),
-        `alignment level ${level} must already be warming before the camera reaches read zoom`
-      ).toBe(true);
-    }
     const alignmentRequests = requests.filter((req) => req.kind === 'alignment');
+    const fineRequests = alignmentRequests.filter((request) => request.level <= 2);
     expect(
-      alignmentRequests.every((req) => req.level <= 2),
-      'production must not request coarse alignment levels 3-8; those giant read payloads starve exact read tiles and belong to coverage/histogram'
+      fineRequests.some(
+        (request) => request.level === 2 && request.priority?.purpose === 'current'
+      ),
+      'physically readable rows are current work even while coverage uses L7'
     ).toBe(true);
     expect(
-      alignmentRequests.length,
-      'read handoff warmup must stay centered instead of flooding a whole chromosome'
-    ).toBeLessThanOrEqual(32);
+      alignmentRequests.every(
+        (request) => request.level <= 2 || (request.level === 3 && request.body.guidesOnly === true)
+      ),
+      'coarser alignment requests contain bounded guides rather than coarse read payloads'
+    ).toBe(true);
+    const fineSpan = tileSpanBp(2);
+    const visibleFineTiles = Math.ceil(view.end / fineSpan) - Math.floor(view.start / fineSpan);
+    expect(
+      fineRequests.length,
+      'current read preparation covers the viewport with only its bounded margin'
+    ).toBeLessThanOrEqual(visibleFineTiles + 32);
+    expect(feed?.ownerPresentation).toEqual({ kind: 'reads' });
+    expect(feed?.readSource?.windowStartBp).toBeLessThanOrEqual(view.start);
+    expect(feed?.readSource?.windowEndBp).toBeGreaterThanOrEqual(view.end);
+    expect(feed?.coveragePresentation).toEqual({ kind: 'current' });
+    expect(coverageCoversRange(feed!.coverage!, view)).toBe(true);
     driver.dispose();
+  });
+
+  it('prepares fine coverage before read preparation at the production sample width', async () => {
+    const feeds: TileEngineFeed[] = [];
+    const requests: Array<Parameters<TileTransport>[0]> = [];
+    const driver = new TileEngineDriver({
+      assembly: humanScaleAssembly(),
+      source: { bamPath: '/fake.bam' },
+      baseUrl: 'http://sidecar',
+      onFeed: (feed) => feeds.push(feed),
+      transport: recordingTransport(requests),
+    } as never);
+    const view = { start: 1_543_721_334, end: 1_543_921_334 };
+
+    try {
+      const feed = await feedFor(driver, feeds, view, 2676, 1338);
+      expect(requests[0]?.kind).toBe('coverage-assembly');
+      expect(requests[0]?.level).toBe(7);
+      expect(requests.filter((request) => request.kind === 'alignment')).toEqual([]);
+      expect(feed?.ownerPresentation).toEqual({ kind: 'coverage' });
+      expect(feed?.records).toEqual([]);
+      expect(feed?.coveragePresentation).toEqual({ kind: 'current' });
+      expect(coverageCoversRange(feed!.coverage!, view)).toBe(true);
+    } finally {
+      driver.dispose();
+    }
+  });
+
+  it('publishes current blend coverage while every alignment request remains unresolved', async () => {
+    const feeds: TileEngineFeed[] = [];
+    const held = holdAlternateColumnAlignmentTransport();
+    const driver = new TileEngineDriver({
+      assembly: humanScaleAssembly(),
+      source: { bamPath: '/fake.bam' },
+      baseUrl: 'http://sidecar',
+      onFeed: (feed) => feeds.push(feed),
+      transport: held.transport,
+    } as never);
+    const view = { start: 1_543_721_334, end: 1_543_921_334 };
+    const presentationPx = 2676;
+
+    try {
+      await feedFor(driver, feeds, view, presentationPx * 2, presentationPx);
+      for (let attempt = 0; attempt < 5; attempt += 1) await flushFeedCycle();
+      const snapshot = driver.debugSnapshot();
+      expect(held.pendingAlignmentCount()).toBeGreaterThan(0);
+      expect(snapshot.readComposition?.readCoversViewport).toBe(false);
+      const fineQueue = [
+        ...snapshot.transportQueue.active,
+        ...snapshot.transportQueue.queued,
+      ].filter((request) => request.kind === 'alignment' && request.level <= 2);
+      const fineSpan = tileSpanBp(2);
+      const visibleFineTiles = Math.ceil(view.end / fineSpan) - Math.floor(view.start / fineSpan);
+      expect(
+        fineQueue.length,
+        'exact-read preparation stays within the visible band and its bounded margin'
+      ).toBeLessThanOrEqual(visibleFineTiles + 32);
+      const coverage = feeds.find(
+        (feed) => feed.coverage && coverageCoversRange(feed.coverage, view)
+      );
+      expect(
+        coverage,
+        'current histogram coverage must progress before any exact-read request is released'
+      ).toBeTruthy();
+      expect(coverage?.coveragePresentation).toEqual({ kind: 'current' });
+      expect(coverage?.coverage?.binSize).toBeLessThanOrEqual(binBp(snapshot.level!));
+      expect(coverage?.coverage?.maxDepth).toBeGreaterThan(0);
+    } finally {
+      held.releaseAlignment();
+      driver.dispose();
+    }
   });
 
   it('does not cache an initial coverage not-ready response as a terminal blank overview', async () => {
@@ -4703,12 +5182,25 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
     expect(overview?.coverage, 'sanity: overview coverage present').toBeTruthy();
 
     held.holdCoverage(true);
-    const deep = await feedFor(driver, feeds, { start: 1_000_000_000, end: 1_000_050_000 }, 2676);
+    const view = { start: 1_000_000_000, end: 1_000_050_000 };
+    const deep = await feedFor(driver, feeds, view, 2676);
 
     expect(
-      deep,
-      'a permanently unavailable fine target must emit no coarse stretched replacement; the renderer keeps its last accepted exact frame'
-    ).toBeUndefined();
+      deep?.records.length,
+      'current exact rows may publish independently while every fine coverage target is held'
+    ).toBeGreaterThan(0);
+    expect(deep?.ownerPresentation).toEqual({ kind: 'reads' });
+    expect(deep?.readSource?.truncated).not.toBe(true);
+    expect(deep?.readSource?.windowStartBp).toBeLessThanOrEqual(view.start);
+    expect(deep?.readSource?.windowEndBp).toBeGreaterThanOrEqual(view.end);
+    for (const feed of feeds) {
+      expect(
+        feed.coverage,
+        'a held fine coverage target must never be replaced by a stretched coarse histogram'
+      ).toBeUndefined();
+      expect(feed.coverageGpuAtlas).toBeUndefined();
+      expect(feed.coveragePresentation).toEqual({ kind: 'none', reason: 'no-presentable-surface' });
+    }
     expect(
       held.pendingCoverageCount(),
       'sanity: the fine target level really was held'
@@ -5167,6 +5659,7 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
 
   it('keeps successful exact prefetch coverage publishable after raw cache eviction', async () => {
     const feeds: TileEngineFeed[] = [];
+    const cacheLookups = vi.spyOn(TileCache.prototype, 'peek');
     const assembly = humanScaleAssembly();
     const targetChromGlobalStart = assembly.chromosomes.find(
       (placement) => placement.chromosome.id === 'chr21'
@@ -5181,41 +5674,84 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
       transport: fakeTransport(),
     } as never);
 
-    await feedFor(driver, feeds, initialRange, 2676);
-    const level = driver.debugSnapshot().level;
-    expect(level, 'sanity: the 90 kb view should use the fine histogram target level').toBe(6);
+    try {
+      await feedFor(driver, feeds, initialRange, 2676);
+      const level = driver.debugSnapshot().level;
+      expect(level, 'sanity: the 90 kb view should use the fine histogram target level').toBe(6);
 
-    const sameLevelTileSpan = tileSpanBp(level!);
-    const prefetchedCenter = center + sameLevelTileSpan * 2;
-    const prefetchedRange = {
-      start: prefetchedCenter - 45_000,
-      end: prefetchedCenter + 45_000,
-    };
-    feeds.length = 0;
-    expect(
-      driver.presentViewport(prefetchedRange, 2676),
-      'sanity: the bounded floor working set made the multi-tile future pan presentable'
-    ).toBe(true);
+      const sameLevelTileSpan = tileSpanBp(level!);
+      const prefetchedCenter = center + sameLevelTileSpan * 2;
+      const prefetchedRange = {
+        start: prefetchedCenter - 45_000,
+        end: prefetchedCenter + 45_000,
+      };
+      feeds.length = 0;
+      expect(
+        driver.presentViewport(prefetchedRange, 2676),
+        'cached coverage does not complete the missing fine-read flank'
+      ).toBe(false);
+      expect(driver.debugSnapshot().readComposition?.readCoversViewport).toBe(false);
+      const prefetchedFeed = feeds.at(-1);
+      expect(prefetchedFeed?.coveragePresentation).toEqual({ kind: 'current' });
+      expect(coverageCoversRange(prefetchedFeed!.coverage!, prefetchedRange)).toBe(true);
+      expect(prefetchedFeed!.coverage!.binSize).toBeLessThanOrEqual(binBp(level!));
+      expect(prefetchedFeed!.coverage!.maxDepth).toBe(10);
+      const rawTargetKeys = cacheLookups.mock.calls.flatMap(([key], index) => {
+        const result = cacheLookups.mock.results[index];
+        return key.sourceId.startsWith('covasm:') &&
+          key.level === level &&
+          key.index * sameLevelTileSpan < prefetchedRange.end &&
+          (key.index + 1) * sameLevelTileSpan > prefetchedRange.start &&
+          result?.type === 'return' &&
+          result.value !== undefined
+          ? [key]
+          : [];
+      });
+      expect(
+        rawTargetKeys.length,
+        'the future viewport has a real raw coverage tile to evict'
+      ).toBeGreaterThan(0);
 
-    const farCenter = targetChromGlobalStart + 80_000_000;
-    await feedFor(driver, feeds, { start: farCenter - 45_000, end: farCenter + 45_000 }, 2676);
+      const farCenter = targetChromGlobalStart + 80_000_000;
+      await feedFor(driver, feeds, { start: farCenter - 45_000, end: farCenter + 45_000 }, 2676);
+      cacheLookups.mockClear();
+      driver.debugSnapshot({ ...prefetchedRange, viewportPx: 2676 });
+      expect(
+        rawTargetKeys.every((expected) =>
+          cacheLookups.mock.calls.some(([key], index) => {
+            const result = cacheLookups.mock.results[index];
+            return (
+              key.sourceId === expected.sourceId &&
+              key.level === expected.level &&
+              key.index === expected.index &&
+              result?.type === 'return' &&
+              result.value === undefined
+            );
+          })
+        )
+      ).toBe(true);
 
-    feeds.length = 0;
-    expect(
-      driver.presentViewport(prefetchedRange, 2676),
-      'successful exact coverage is a durable residency fact, not only a raw cache entry'
-    ).toBe(true);
+      feeds.length = 0;
+      expect(
+        driver.presentViewport(prefetchedRange, 2676),
+        'durable coverage still cannot claim completion of missing exact reads'
+      ).toBe(false);
+      expect(driver.debugSnapshot().readComposition?.readCoversViewport).toBe(false);
 
-    const feed = feeds.at(-1);
-    expect(feed?.coveragePresentation).toEqual({ kind: 'current' });
-    expect(feed?.coverage, 'prefetched pan target is never blank after eviction').toBeTruthy();
-    expect(coverageCoversRange(feed!.coverage!, prefetchedRange)).toBe(true);
-    expect(
-      feed!.coverage!.binSize,
-      'presented at floor-or-current resolution, not the broad overview'
-    ).toBeLessThanOrEqual(binBp(level!));
-
-    driver.dispose();
+      const feed = feeds.at(-1);
+      expect(feed?.coveragePresentation).toEqual({ kind: 'current' });
+      expect(feed?.coverage, 'prefetched pan target is never blank after eviction').toBeTruthy();
+      expect(coverageCoversRange(feed!.coverage!, prefetchedRange)).toBe(true);
+      expect(feed!.coverage!.maxDepth).toBe(10);
+      expect(feed!.coverage!.provenance?.exact).toBe(true);
+      expect(
+        feed!.coverage!.binSize,
+        'presented at floor-or-current resolution, not the broad overview'
+      ).toBeLessThanOrEqual(binBp(level!));
+    } finally {
+      driver.dispose();
+      cacheLookups.mockRestore();
+    }
   });
 
   it('does not let a narrower same-level surface evict the full-genome resident floor', async () => {
@@ -5562,7 +6098,7 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
     driver.dispose();
   });
 
-  it('publishes mutation columns without read rows at the first histogram level', async () => {
+  it('preserves mutation columns with physically readable rows at the first histogram level', async () => {
     const feeds: TileEngineFeed[] = [];
     const requests: Array<Parameters<TileTransport>[0]> = [];
     const base = alternateColumnTransport();
@@ -5581,13 +6117,13 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
     const feed = await feedFor(driver, feeds, view, 1024);
 
     expect(driver.debugSnapshot().level, 'sanity: this is the first histogram LOD').toBe(3);
-    expect(feed?.records, 'histogram ownership must not serialize or publish read rows').toEqual(
-      []
-    );
+    expect(feed?.records.length, 'the physical read size permits exact rows').toBeGreaterThan(0);
+    expect(feed?.ownerPresentation).toEqual({ kind: 'reads' });
     expect(
-      feed?.readSource,
-      'histogram columns must not claim exact-read ownership'
-    ).toBeUndefined();
+      feed?.readSource?.windowStartBp,
+      'exact reads cover the left edge while histogram columns remain available'
+    ).toBeLessThanOrEqual(view.start);
+    expect(feed?.readSource?.windowEndBp).toBeGreaterThanOrEqual(view.end);
     expect(
       feed?.alternateColumns.length,
       'BAM mismatch columns should remain available over the first histogram raster'
@@ -5595,9 +6131,16 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
     expect(
       requests.some(
         (request) =>
+          request.kind === 'alignment' && request.level === 2 && request.body.guidesOnly !== true
+      ),
+      'the histogram grid must not replace exact BAM reads with guide-only payloads'
+    ).toBe(true);
+    expect(
+      requests.some(
+        (request) =>
           request.kind === 'alignment' && request.level === 3 && request.body.guidesOnly === true
       ),
-      'L3 must request the bounded guide-only alignment contract'
+      'coarser alignment prefetch remains a bounded guide-only request'
     ).toBe(true);
 
     driver.dispose();
@@ -5619,7 +6162,7 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
     await flushFeedCycle();
     expect(driver.debugSnapshot().level).toBe(3);
     expect(held.pendingAlignmentCount()).toBeGreaterThan(0);
-    expect(feeds.at(-1)?.coverage, 'coverage settles before guide-only BAM tiles').toBeTruthy();
+    expect(feeds.at(-1)?.coverage, 'coverage settles before BAM tiles').toBeTruthy();
     expect(feeds.at(-1)?.alternateColumns ?? []).toEqual([]);
 
     held.releaseAlignment();
@@ -5627,17 +6170,20 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
 
     expect(
       feeds.at(-1)?.alternateColumns.length,
-      'late guide-only BAM tiles must publish even when the coverage memo is unchanged'
+      'late BAM mutation columns must publish even when the coverage memo is unchanged'
     ).toBeGreaterThan(0);
-    expect(feeds.at(-1)?.records).toEqual([]);
+    expect(feeds.at(-1)?.records.length).toBeGreaterThan(0);
+    expect(feeds.at(-1)?.ownerPresentation).toEqual({ kind: 'reads' });
+    expect(feeds.at(-1)?.readSource?.windowStartBp).toBeLessThanOrEqual(view.start);
+    expect(feeds.at(-1)?.readSource?.windowEndBp).toBeGreaterThanOrEqual(view.end);
     driver.dispose();
   });
 
-  it('publishes a called guide tile that settles after the histogram band is otherwise stable', async () => {
+  it('publishes a called exact-read tile that settles after the histogram band is otherwise stable', async () => {
     const feeds: TileEngineFeed[] = [];
     const calledPosition = 7_500_037;
-    const expectedColumnPosition = tileIndex(calledPosition, 3) * tileSpanBp(3) + 37;
-    const held = holdCalledAlternateColumnTileTransport(calledPosition);
+    const expectedColumnPosition = tileIndex(calledPosition, 2) * tileSpanBp(2) + 37;
+    const held = holdCalledAlternateColumnTileTransport(calledPosition, 2);
     const driver = new TileEngineDriver({
       assembly: twoChromAssembly(),
       source: { bamPath: '/fake.bam' },

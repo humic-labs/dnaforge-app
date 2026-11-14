@@ -8,6 +8,7 @@ import { webglThemeForMode, type WebGLRenderTheme } from '../shared/theme';
 import { buildCoverageGpuAtlas } from './coverage-gpu-atlas';
 import { PENDING_INTERVAL_BAND_HEIGHT_PX } from './pileup-pending-interval-layer';
 import { PersistentRowLayout } from './pileup-row-layout';
+import { TrackDataStore } from './track-data-store';
 import { pileupReadBodyVerticalGeometry } from './pileup-read-glyph-layer';
 import type { TrackMountArgs, TrackPaintArgs } from './types';
 import {
@@ -3436,6 +3437,171 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       ).not.toHaveBeenCalled();
       clone.mockRestore();
     });
+
+    it('rejects old-source read pixels when an empty reset and replacement feed coalesce before paint', () => {
+      const renderer = new PixiPileupTrackRenderer({
+        type: 'pileup-test',
+        maxRows: 80,
+        readRowsAssignRecordsPerFrame: 1,
+        readRowsBuildRecordsPerFrame: 1,
+      });
+      const container = renderer.mount(mountArgs);
+      const data = new TrackDataStore();
+      const trackId = 'generation-replacement';
+      const payload = (sourceGenerationKey: string, count: number): PileupTrackData => ({
+        dataAuthority: 'tile-engine',
+        records: Array.from({ length: count }, (_, index) =>
+          read(100 + index * 200, 250 + index * 200, `${sourceGenerationKey}-${index}`)
+        ),
+        readSource: {
+          truncated: false,
+          windowStartBp: 0,
+          windowEndBp: 8_192,
+          sourceGenerationKey,
+        },
+        coverage: { startBp: 0, binSize: 128, bins: new Array(64).fill(8), maxDepth: 8 },
+      });
+      const paint = () =>
+        renderer.paint(
+          paintArgsZoom(
+            container,
+            data.get<PileupTrackData>(trackId)!,
+            4 / 150,
+            { start: 0, end: 8_192 },
+            800,
+            240
+          )
+        );
+      try {
+        data.set(trackId, payload('old-bam', 8));
+        let frames = 0;
+        do {
+          paint();
+        } while (renderer.hasPendingPaintWork(container) && frames++ < 100);
+        expect(renderer.hasPendingPaintWork(container)).toBe(false);
+        expect(renderer.getDiagnostics(container)?.renderedReadRowsAlpha).toBe(1);
+
+        data.set(trackId, { dataAuthority: 'tile-engine', records: [] });
+        data.set(trackId, payload('replacement-bam', 32));
+        paint();
+
+        const state = (
+          renderer as unknown as {
+            containerState: WeakMap<
+              object,
+              { rowsMeshSourceGenerationKey: string; readSourceGenerationKey: string }
+            >;
+          }
+        ).containerState.get(container)!;
+        const during = renderer.getDiagnostics(container)!;
+        expect(state.readSourceGenerationKey).toBe('replacement-bam');
+        expect(during.rowsAssignmentBuildInProgress).toBe(true);
+        if (state.rowsMeshSourceGenerationKey !== state.readSourceGenerationKey) {
+          expect(
+            during.renderedReadRowsAlpha,
+            'a committed mesh from another BAM generation must not remain visible'
+          ).toBe(0);
+        }
+
+        frames = 0;
+        while (renderer.hasPendingPaintWork(container) && frames++ < 200) paint();
+        expect(renderer.hasPendingPaintWork(container)).toBe(false);
+        expect(state.rowsMeshSourceGenerationKey).toBe('replacement-bam');
+        expect(renderer.getDiagnostics(container)?.rowsMeshRecordCount).toBe(32);
+        expect(renderer.getDiagnostics(container)?.renderedReadRowsAlpha).toBe(1);
+      } finally {
+        renderer.unmount(container);
+      }
+    });
+
+    it.each(['same-file-generation', ''])(
+      'retires another presentation owner while preserving raw generation %j for read hits',
+      (sourceGenerationKey) => {
+        const renderer = new PixiPileupTrackRenderer({
+          type: 'pileup-test',
+          maxRows: 80,
+          readRowsAssignRecordsPerFrame: 1,
+          readRowsBuildRecordsPerFrame: 1,
+        });
+        const container = renderer.mount(mountArgs);
+        const payload = (presentationOwnerKey: string, count: number): PileupTrackData => {
+          const readSource = {
+            truncated: false,
+            windowStartBp: 0,
+            windowEndBp: 8_192,
+            sourceGenerationKey,
+            presentationOwnerKey,
+          };
+          return {
+            dataAuthority: 'tile-engine',
+            readSource,
+            records: Array.from({ length: count }, (_, index) =>
+              read(100 + index * 200, 250 + index * 200, `same-read-${index}`)
+            ),
+            coverage: { startBp: 0, binSize: 128, bins: new Array(64).fill(8), maxDepth: 8 },
+          };
+        };
+        const args = (data: PileupTrackData) =>
+          paintArgsZoom(container, data, 4 / 150, { start: 0, end: 8_192 }, 800, 240);
+        const paint = (data: PileupTrackData) => renderer.paint(args(data));
+        try {
+          const old = payload('old-reference-or-locator', 8);
+          let frames = 0;
+          do {
+            paint(old);
+          } while (renderer.hasPendingPaintWork(container) && frames++ < 100);
+          expect(renderer.hasPendingPaintWork(container)).toBe(false);
+          expect(renderer.getDiagnostics(container)?.renderedReadRowsAlpha).toBe(1);
+          const locateArgs = {
+            trackId: 'presentation-owner',
+            pathMapper: args(old).pathMapper,
+            containerTopPx: 50,
+            chromosomeGlobalStartBp: 0,
+          };
+          const pointer = {
+            ...locateArgs,
+            localX: (175 * 4) / 150,
+            localY: 1.5,
+            screenX: (175 * 4) / 150,
+            screenY: 51.5,
+          };
+          const oldHit = renderer.hitTestReadEvent(container, pointer);
+          if (!oldHit) throw new Error('The original painted read must be selectable.');
+          expect(renderer.locateRead(container, oldHit, locateArgs)).not.toBeNull();
+          const replacement = payload('current-reference-or-locator', 32);
+          paint(replacement);
+          const during = renderer.getDiagnostics(container)!;
+          expect(
+            during.renderedReadRowsAlpha,
+            'equal raw file generations do not authorize another locator or reference surface'
+          ).toBe(0);
+          frames = 0;
+          while (renderer.hasPendingPaintWork(container) && frames++ < 200) paint(replacement);
+          expect(renderer.hasPendingPaintWork(container)).toBe(false);
+          expect(renderer.getDiagnostics(container)?.rowsMeshRecordCount).toBe(32);
+          expect(renderer.getDiagnostics(container)?.renderedReadRowsAlpha).toBe(1);
+          const state = (
+            renderer as unknown as {
+              containerState: WeakMap<object, { rowsMeshSourceGenerationKey: string }>;
+            }
+          ).containerState.get(container)!;
+          expect(state.rowsMeshSourceGenerationKey).toBe(sourceGenerationKey);
+          expect(
+            renderer.locateRead(container, oldHit, locateArgs),
+            'a pinned read from the retired owner must not migrate to the same read ID in another source'
+          ).toBeNull();
+          const currentHit = renderer.hitTestReadEvent(container, pointer);
+          if (!currentHit) throw new Error('The replacement painted read must be selectable.');
+          expect(currentHit).toMatchObject({
+            sourceGenerationKey,
+            presentationOwnerKey: 'current-reference-or-locator',
+          });
+          expect(renderer.locateRead(container, currentHit, locateArgs)).not.toBeNull();
+        } finally {
+          renderer.unmount(container);
+        }
+      }
+    );
 
     it('NEVER-BLANK: the OLD mesh stays RESIDENT while a NEW window builds, then swaps atomically', async () => {
       const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
