@@ -133,6 +133,7 @@ export async function prepareAgentProcessConfinement(input: {
     '(allow network-bind (local ip "*:*"))',
     '(allow network-inbound (local ip "*:*"))',
     '(allow system-socket (socket-domain AF_UNIX))',
+    '(allow network-outbound (remote unix-socket (path "/private/var/run/mDNSResponder")))',
     `(allow network-bind (local unix-socket (subpath ${JSON.stringify(scratchRoot)})))`,
     `(allow network-outbound (remote unix-socket (subpath ${JSON.stringify(scratchRoot)})))`,
     '(deny system-fcntl (fcntl-command 80 110))',
