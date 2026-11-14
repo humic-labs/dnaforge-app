@@ -137,6 +137,7 @@ jobs:
 
       - name: Run the app from source and wait until it is up
         env:
+          ELECTRON_CLI_ARGS: '["--disable-skia-graphite"]'
           PILEUP_PERFORMANCE_OUTPUT: ${{ runner.temp }}/pileup-evidence
           PILEUP_PERFORMANCE_DIAGNOSTICS: '1'
         run: |

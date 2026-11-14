@@ -67,6 +67,15 @@ retained resources. It does not claim whole-genome loading or physical display
 smoothness. Animation callbacks alone cannot establish that a frame reached the
 display.
 
+Hosted macOS CI selects Chromium's Ganesh graphics backend on Apple's
+paravirtual GPU with `ELECTRON_CLI_ARGS='["--disable-skia-graphite"]'`.
+[Chromium also tests this supported configuration](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/web_tests/FlagSpecificConfig).
+The journey, checks and timing limits stay the same. This result covers the
+portable profile on that CI backend. It does not qualify the default Graphite
+backend or physical display timing. Preserve the original failed default-backend
+measurements and traces when comparing the two. Physical full-genome
+qualification uses the app's default backend and declares its actual display.
+
 The exported `runPileupPerformanceJourney` accepts a supplied saved fixture and
 the `full-genome` profile for the 24-chromosome human reference and a full-sized
 alignment file. That profile requires a newly started app with durable prepared
