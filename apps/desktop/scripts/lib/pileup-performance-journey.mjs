@@ -194,13 +194,12 @@ async function visibleFlanks(page, lane, viewport) {
   if (viewport.physicalReadPx < 3.6) return null;
   return page.evaluate(
     async ({ lane, viewport }) => {
-      if (typeof window.__webglRequestRender !== 'function') {
-        throw new Error('The indexed renderer invalidation bridge is unavailable.');
+      if (typeof window.__webglRenderNowForTests !== 'function') {
+        throw new Error('The indexed renderer diagnostic frame bridge is unavailable.');
       }
       window.__dna119ExposePileupRows = true;
       try {
-        window.__webglRequestRender();
-        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        window.__webglRenderNowForTests();
         const diagnostic = window.__webglRenderer.getTrackDiagnostics(lane.trackId);
         const samples = diagnostic?.visibleReadSamples ?? [];
         const span = viewport.endBp - viewport.startBp;
@@ -211,19 +210,25 @@ async function visibleFlanks(page, lane, viewport) {
         };
       } finally {
         window.__dna119ExposePileupRows = false;
-        window.__webglRequestRender();
-        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        window.__webglRenderNowForTests();
       }
     },
     { lane, viewport }
   );
 }
 
-async function complete(page, lane, readLengthBp, started, failures) {
+async function complete(page, lane, readLengthBp, started, failures, target = {}) {
   let latest = null;
   const deadline = performance.now() + 10_000;
   do {
     latest = await observation(page, lane, readLengthBp);
+    if (latest) {
+      latest.checks.cameraAtTarget =
+        (!Number.isFinite(target.startBp) ||
+          Math.abs(latest.viewport.startBp - target.startBp) <= 2) &&
+        (!Number.isFinite(target.spanBp) ||
+          Math.abs(latest.viewport.endBp - latest.viewport.startBp - target.spanBp) <= 2);
+    }
     if (latest && Object.values(latest.checks).every(Boolean) && latest.errors.length === 0) {
       return { ...latest, elapsedMs: performance.now() - started };
     }
@@ -234,7 +239,20 @@ async function complete(page, lane, readLengthBp, started, failures) {
 }
 
 async function saveView(page, fixture, name) {
-  await page.getByRole('button', { name: 'Save view', exact: true }).click();
+  const managed = await page.evaluate(() => {
+    const selected = document
+      .querySelector('[role="tab"][data-tab-id][aria-selected="true"]')
+      ?.getAttribute('data-tab-id');
+    return Object.values(window.__test.getCanvasStore().panels)
+      .flatMap((panel) => panel.tabs)
+      .some((tab) => tab.id === selected && tab.trackView);
+  });
+  if (managed) {
+    await page.getByRole('button', { name: 'Track view actions', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Save As…', exact: true }).click();
+  } else {
+    await page.getByRole('button', { name: 'Save view', exact: true }).click();
+  }
   const dialog = page.getByTestId('track-view-save-dialog');
   await dialog.waitFor({ state: 'visible' });
   await dialog.getByTestId(`track-view-picker-folder-${fixture.workspaceRoot}`).click();
@@ -355,7 +373,17 @@ async function startCadence(page) {
       longTaskDurationsMs: hasLongTasks ? [] : null,
       raf: 0,
       observer: null,
+      wheel: { eventCount: 0, deltaY: 0, untrustedCount: 0 },
+      onWheel: null,
     };
+    const canvas = document.querySelector('[data-testid="indexed-genome-visible-viewer"] canvas');
+    capture.onWheel = (event) => {
+      if (event.target !== canvas) return;
+      capture.wheel.eventCount += 1;
+      capture.wheel.deltaY += event.deltaY;
+      if (!event.isTrusted) capture.wheel.untrustedCount += 1;
+    };
+    document.addEventListener('wheel', capture.onWheel, { capture: true, passive: true });
     const tick = () => {
       const time = performance.now();
       capture.rafIntervalsMs.push(time - capture.previous);
@@ -386,6 +414,7 @@ async function stopCadence(page) {
       if (entry.startTime >= capture.started) capture.longTaskDurationsMs.push(entry.duration);
     }
     capture.observer?.disconnect();
+    document.removeEventListener('wheel', capture.onWheel, true);
     if (ended > capture.previous) capture.rafIntervalsMs.push(ended - capture.previous);
     delete window.__pileupPerformanceCapture;
     return {
@@ -393,6 +422,7 @@ async function stopCadence(page) {
       rafIntervalsMs: capture.rafIntervalsMs,
       longTaskDurationsMs: capture.longTaskDurationsMs,
       endedAtEpochMs: performance.timeOrigin + ended,
+      wheel: capture.wheel,
     };
   });
 }
@@ -424,7 +454,13 @@ async function wheelGesture(page, cdp, { deltaY, modifiers = 0 }) {
   }
   await Promise.all(requests);
   const cadence = await stopCadence(page);
-  return { finalInput, inputStartEpochMs, inputEndEpochMs: cadence.endedAtEpochMs, cadence };
+  return {
+    finalInput,
+    inputStartEpochMs,
+    inputEndEpochMs: cadence.endedAtEpochMs,
+    cadence,
+    requestedWheel: { eventCount: 120, deltaY: deltaY * 120, modifiers },
+  };
 }
 
 export async function runPileupPerformanceJourney({
@@ -534,6 +570,14 @@ export async function runPileupPerformanceJourney({
     const record = async (phase) => {
       phase.sourceCommit = identity.commit;
       phase.runtimeCommit = identity.runtimeCommit;
+      if (
+        phase.kind === 'gesture' &&
+        (phase.cadence.wheel.untrustedCount > 0 ||
+          phase.cadence.wheel.eventCount === 0 ||
+          Math.abs(phase.cadence.wheel.deltaY - phase.requestedWheel.deltaY) > 0.001)
+      ) {
+        phase.failures.push('The trusted wheel events did not deliver the requested total delta.');
+      }
       phase.failures.push(...errors.filter((error) => !phase.failures.includes(error)));
       report.phases.push(phase);
       await flush();
@@ -581,7 +625,10 @@ export async function runPileupPerformanceJourney({
         'The reopened BAM lane is absent'
       );
       const failures = [];
-      const state = await complete(page, lane, fixture.readLengthBp, started, failures);
+      const state = await complete(page, lane, fixture.readLengthBp, started, failures, {
+        startBp: fixture.locusStart,
+        spanBp: kind === 'cold-open' ? 4000 : 26612,
+      });
       const bam = await stat(fixture.bamPath);
       assert.equal(
         lane.bamSizeBytes,
@@ -614,10 +661,13 @@ export async function runPileupPerformanceJourney({
       const before = await observation(page, lane, fixture.readLengthBp);
       let input = await beginInput(label, { deltaY: direction * 25 });
       const failures = [];
-      const state = await complete(page, lane, fixture.readLengthBp, input.finalInput, failures);
+      const span = before.viewport.endBp - before.viewport.startBp;
+      const state = await complete(page, lane, fixture.readLengthBp, input.finalInput, failures, {
+        startBp: before.viewport.startBp + direction * span * 3,
+        spanBp: span,
+      });
       input = await finishInput(input);
       const movement = Math.abs(state.viewport.startBp - before.viewport.startBp);
-      const span = before.viewport.endBp - before.viewport.startBp;
       if (movement < span * 2)
         failures.push(`The wheel gesture moved only ${movement} bp for a ${span} bp viewport.`);
       if (Math.abs(state.viewport.endBp - state.viewport.startBp - span) > 2)
@@ -647,7 +697,9 @@ export async function runPileupPerformanceJourney({
         modifiers: 2,
       });
       const failures = [];
-      const state = await complete(page, lane, fixture.readLengthBp, input.finalInput, failures);
+      const state = await complete(page, lane, fixture.readLengthBp, input.finalInput, failures, {
+        spanBp: span,
+      });
       input = await finishInput(input);
       if (Math.abs(state.viewport.endBp - state.viewport.startBp - span) > 2) {
         failures.push(`The native wheel zoom did not reach ${span} bp.`);
@@ -662,7 +714,7 @@ export async function runPileupPerformanceJourney({
       await gesture(`pan-${span}bp-return`, -1);
     }
     await frame(page, fixture.locusStart, 26612);
-    const savedViewPath = await saveView(page, fixture, 'Warm alignment performance');
+    const savedViewPath = await saveView(page, fixture, `Warm alignment performance ${Date.now()}`);
     await closeView(page);
     await open('reopen-26612bp', 'reopen', savedViewPath);
     for (let cycle = 0; cycle < 4; cycle += 1) {
@@ -708,6 +760,7 @@ export async function runPileupPerformanceJourney({
         if (capture) {
           cancelAnimationFrame(capture.raf);
           capture.observer?.disconnect();
+          document.removeEventListener('wheel', capture.onWheel, true);
           delete window.__pileupPerformanceCapture;
         }
         if (previous.rows === undefined) delete window.__dna119ExposePileupRows;
