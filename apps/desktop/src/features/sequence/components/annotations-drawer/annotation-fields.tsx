@@ -1,7 +1,7 @@
 import { usePresentationListener } from '../../../../presentation/PresentationSurface';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import type { Annotation } from '@waypoint/sequence-utils';
-import { ANNOTATION_TYPES, COLOR_PALETTES } from './helpers';
+import { ANNOTATION_COLOR_PALETTES, type Annotation } from '@waypoint/sequence-utils';
+import { ANNOTATION_TYPES } from './helpers';
 
 export function DirectionIndicator({
   direction,
@@ -225,11 +225,11 @@ export function ColorPaletteSelector({
 
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const activePaletteIndex = COLOR_PALETTES.findIndex((p) => p.colors.includes(value));
+  const activePaletteIndex = ANNOTATION_COLOR_PALETTES.findIndex((p) => p.colors.includes(value));
   const [selectedPalette, setSelectedPalette] = useState(
     activePaletteIndex >= 0 ? activePaletteIndex : 0
   );
-  const palette = COLOR_PALETTES[selectedPalette];
+  const palette = ANNOTATION_COLOR_PALETTES[selectedPalette];
 
   useEffect(() => {
     if (!open) return;
@@ -275,7 +275,7 @@ export function ColorPaletteSelector({
           </button>
           {open && (
             <div className="absolute top-full left-0 mt-1 bg-bg border border-border rounded shadow-lg z-20 min-w-[100px]">
-              {COLOR_PALETTES.map((p, i) => (
+              {ANNOTATION_COLOR_PALETTES.map((p, i) => (
                 <button
                   key={p.name}
                   onClick={() => {

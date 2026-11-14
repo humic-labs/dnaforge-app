@@ -24,6 +24,15 @@ export {
 } from './colors';
 
 export {
+  ANNOTATION_COLOR_PALETTES,
+  DEFAULT_MANUAL_ANNOTATION_COLOR,
+  TRACK_COLOR_PRESETS,
+  TRACK_DEFAULT_COLORS,
+  VARIANT_CLASS_COLORS,
+  type ColorSwatchPalette,
+} from './color-palettes';
+
+export {
   assemblyScaffoldTooltip,
   createAssemblyScaffoldLayout,
   assemblyScaffoldRulerTicks,

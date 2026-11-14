@@ -18,7 +18,6 @@ import {
   requirePersistedBamTrack,
   savedRemoteAlignmentMatchesRuntime,
 } from './bam-track-persistence';
-import { READ_PILEUP_DEFAULT_COLOR } from './read-pileup-import';
 
 const PERSISTED_TRACK: IndexedGenomeBamTrackState = {
   trackId: 'pileup-grch38-stable-user-identity',
@@ -676,7 +675,7 @@ describe('BAM track persistence descriptor', () => {
     });
 
     expect(indexedGenomeBamTrackFromLane(lane)).toMatchObject({
-      color: READ_PILEUP_DEFAULT_COLOR,
+      color: 0xa8ceff,
       trackPx: 276,
       laneHeightPx: 3,
       maxLanes: 80,

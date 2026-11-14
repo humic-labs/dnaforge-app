@@ -1,3 +1,4 @@
+import { TRACK_DEFAULT_COLORS } from '@waypoint/sequence-utils';
 import {
   DEFAULT_QUANTITATIVE_TRACK_PRESENTATION,
   type AdmittedTrackSource,
@@ -13,8 +14,6 @@ import {
 } from '@waypoint/genome-renderer';
 
 import type { ActiveStressDataset } from './lane-contract-store';
-
-export const ADMITTED_TRACK_LANE_COLOR = 0x3b82f6;
 
 export type RenderableAdmittedScientificKind = Extract<
   ScientificTrackKind,
@@ -36,7 +35,7 @@ export function datasetForAdmittedTrack(input: {
     trackType: definition.type,
     trackId: input.trackId,
     label: input.label,
-    color: ADMITTED_TRACK_LANE_COLOR,
+    color: TRACK_DEFAULT_COLORS.importedData,
     laneHeightPx: 8,
     maxLanes: 32,
     trackPx,

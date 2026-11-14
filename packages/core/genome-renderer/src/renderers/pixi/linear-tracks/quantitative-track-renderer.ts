@@ -1,3 +1,4 @@
+import { TRACK_DEFAULT_COLORS } from '@waypoint/sequence-utils';
 import {
   Buffer as PixiBuffer,
   BufferUsage,
@@ -32,8 +33,6 @@ import {
 import type { PixiLinearTrackRenderer, TrackMountArgs, TrackPaintArgs } from './types';
 import { normalizeTrackColor } from './track-presentation';
 
-const DEFAULT_SIGNAL_COLOR = 0x2563eb;
-const DEFAULT_PEAK_COLOR = 0x7c3aed;
 const CLIPPED_MARKER_STYLE = 'same-hue-cap' as const;
 const CLIPPED_MARKER_THICKNESS_PX = 2;
 const CLIPPED_MARKER_DARKEN_FACTOR = 0.62;
@@ -196,7 +195,10 @@ export class PixiQuantitativeTrackRenderer implements PixiLinearTrackRenderer<Qu
     this.type = options.type;
     this.mode = options.mode ?? 'signal';
     this.defaultColor =
-      options.defaultColor ?? (this.mode === 'peak' ? DEFAULT_PEAK_COLOR : DEFAULT_SIGNAL_COLOR);
+      options.defaultColor ??
+      (this.mode === 'peak'
+        ? TRACK_DEFAULT_COLORS.peak
+        : TRACK_DEFAULT_COLORS.quantitativeFallback);
   }
 
   mount(_args: TrackMountArgs): Container {

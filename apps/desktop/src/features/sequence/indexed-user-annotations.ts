@@ -1,3 +1,4 @@
+import { TRACK_DEFAULT_COLORS } from '@waypoint/sequence-utils';
 import type { AnnotationRecord } from '@waypoint/genome-data';
 
 import type {
@@ -9,7 +10,6 @@ import type { IndexedAssemblyCoordinates } from './indexed-viewport-command';
 
 export const INDEXED_USER_ANNOTATION_TRACK_ID = 'indexed-user-annotations';
 const INDEXED_USER_ANNOTATION_TRACK_TYPE = 'generic-interval';
-const DEFAULT_USER_ANNOTATION_COLOR = 0x16a34a;
 
 export function upsertIndexedUserAnnotation(
   annotations: ReadonlyArray<IndexedGenomeUserAnnotation>,
@@ -72,7 +72,7 @@ export function indexedUserAnnotationDataset(
     trackType: INDEXED_USER_ANNOTATION_TRACK_TYPE,
     trackId: INDEXED_USER_ANNOTATION_TRACK_ID,
     label: 'User annotations',
-    color: DEFAULT_USER_ANNOTATION_COLOR,
+    color: TRACK_DEFAULT_COLORS.userAnnotation,
     laneHeightPx: 18,
     maxLanes: 24,
     trackPx: 44,
@@ -112,7 +112,7 @@ function rendererRangeForAnnotation(
 function parseAnnotationColor(color: string | undefined): number {
   return color && /^#[0-9a-f]{6}$/i.test(color)
     ? Number.parseInt(color.slice(1), 16)
-    : DEFAULT_USER_ANNOTATION_COLOR;
+    : TRACK_DEFAULT_COLORS.userAnnotation;
 }
 
 function strandForDirection(direction: -1 | 0 | 1): '+' | '-' | '.' {
