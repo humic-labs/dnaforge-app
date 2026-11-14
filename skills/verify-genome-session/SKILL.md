@@ -34,7 +34,7 @@ session readiness, navigates and saves, closes the tab, and reopens the same
 file. See the [feature map](features/README.md).
 
 Run
-`pnpm --dir apps/desktop exec vitest run src/features/sequence/components/IndexedGenomeTab.loading.test.tsx src/features/sequence/genome-live-session.test.ts`
+`pnpm --dir apps/desktop exec vitest run src/features/sequence/components/IndexedGenomeTab.loading.test.tsx src/features/sequence/genome-live-session.test.ts src/main/ipc/assembly-annotation-product-index-ipc-surface.test.ts`
 for lost event recovery, stale events, errors before/after presentation, lease
 disposal and generation admission. Those controlled native-boundary tests
 supplement the real app; they do not establish native UI qualification by
