@@ -192,6 +192,7 @@ const CACHE_MAX_ENTRIES = 512;
 const CACHE_MAX_BYTES = 192 * 1024 * 1024;
 
 const MAX_CONCURRENT_TILE_FETCHES = 8;
+const MAX_CONCURRENT_HTTP_TILE_FETCHES = 6;
 const EMPTY_REGION_SETTLE_MS = 200;
 const RESIDENT_COVERAGE_SURFACES_PER_LEVEL = 16;
 const EXACT_COVERAGE_TILE_STORE_MAX = 4096;
@@ -512,7 +513,9 @@ export class TileEngineDriver {
     if (remoteSessionId && options.transport == null) {
       rawTransport = trackRemoteTileSessionTransport(remoteSessionId, rawTransport);
     }
-    this.transport = limitConcurrency(rawTransport, MAX_CONCURRENT_TILE_FETCHES, {
+    const transportLimit =
+      options.transport == null ? MAX_CONCURRENT_HTTP_TILE_FETCHES : MAX_CONCURRENT_TILE_FETCHES;
+    this.transport = limitConcurrency(rawTransport, transportLimit, {
       canAbortActive: (request) =>
         options.transport == null && options.source.htsget == null && request.kind === 'alignment',
       preferCurrentCoverage: () => {

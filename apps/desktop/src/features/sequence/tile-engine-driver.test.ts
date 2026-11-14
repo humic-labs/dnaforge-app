@@ -1441,6 +1441,98 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
     }
   });
 
+  it.each(['local', 'remote'] as const)(
+    'keeps %s HTTP requests inside the socket budget and dispatches queued current reads first',
+    async (kind) => {
+      const started: Array<{
+        level: number | null;
+        index: number | null;
+        result: ReturnType<typeof deferred<Response>>;
+      }> = [];
+      const fetchImpl: typeof fetch = async (url) => {
+        if (String(url).includes('/tiles/coverage-corridor-floor'))
+          return new Response('{}', { status: 425 });
+        const match = /\/tiles\/alignment\/(\d+)\/(\d+)$/.exec(String(url));
+        const result = deferred<Response>();
+        started.push({
+          level: match ? Number(match[1]) : null,
+          index: match ? Number(match[2]) : null,
+          result,
+        });
+        return result.promise;
+      };
+      const driver = new TileEngineDriver({
+        assembly: twoChromAssembly(),
+        source: {
+          bamPath: kind === 'local' ? '/local/reads.bam' : 'https://remote/reads.bam',
+          ...(kind === 'remote'
+            ? {
+                remote: {
+                  sessionId: 'http-socket-budget',
+                  locator: {
+                    contract: 'remote-alignment-locator.v1',
+                    endpointId: 'remote-cluster',
+                    target: 'remote-cluster',
+                    alignmentPath: '/data/reads.bam',
+                  },
+                },
+              }
+            : {}),
+        },
+        baseUrl: 'http://sidecar',
+        fetchImpl,
+        onFeed: () => undefined,
+      } as never);
+      const response = (): Response =>
+        new Response(JSON.stringify({ reads: [], count: 0, alternateColumns: [] }));
+      try {
+        const view = { start: 50_000, end: 76_612 };
+        driver.setViewport(view, 2204);
+        await flushMicrotasks();
+        expect(started).toHaveLength(6);
+        expect(driver.debugSnapshot().transportQueue.queued.length).toBeGreaterThan(0);
+        const activeRead = started.find((request) => request.level === 2);
+        expect(activeRead).toBeDefined();
+        activeRead!.result.resolve(response());
+        await flushMicrotasks();
+        expect(started).toHaveLength(7);
+        const next = started[6]!;
+        expect(next.level).toBe(2);
+        expect(next.index).toBeGreaterThanOrEqual(Math.floor(view.start / tileSpanBp(2)));
+        expect(next.index).toBeLessThan(Math.ceil(view.end / tileSpanBp(2)));
+      } finally {
+        driver.dispose();
+        for (const request of started) request.result.resolve(response());
+        await flushMicrotasks();
+      }
+    }
+  );
+
+  it('preserves the eight-request budget for injected tile transports', async () => {
+    type ResponseData = Awaited<ReturnType<TileTransport>>;
+    const started: Array<ReturnType<typeof deferred<ResponseData>>> = [];
+    const driver = new TileEngineDriver({
+      assembly: twoChromAssembly(),
+      source: { bamPath: '/injected/reads.bam' },
+      baseUrl: 'http://sidecar',
+      transport: () => {
+        const result = deferred<Awaited<ReturnType<TileTransport>>>();
+        started.push(result);
+        return result.promise;
+      },
+      onFeed: () => undefined,
+    });
+    try {
+      driver.setViewport({ start: 50_000, end: 76_612 }, 2204);
+      await flushMicrotasks();
+      expect(started).toHaveLength(8);
+    } finally {
+      driver.dispose();
+      for (const result of started) result.resolve({ ok: true, status: 200, body: {} });
+      await flushMicrotasks();
+    }
+  });
+
   it('cancels obsolete local alignment HTTP work while keeping coverage and current reads alive', async () => {
     const alignments: Array<{ url: string; signal: AbortSignal }> = [];
     const coverageSignals: AbortSignal[] = [];
@@ -1507,16 +1599,16 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
     } as never);
     try {
       driver.setViewport({ start: 1000, end: 3000 }, 2000);
-      await flushMicrotasks();
+      await flushFeedCycle();
       const initial = driver.debugSnapshot().readComposition;
       expect(initial?.stableBandReady).toBe(true);
       expect(initial?.expectedBandTileCount).toBeLessThanOrEqual(5);
       const readyUrls = [...requests.keys()].filter((url) => url.includes('/tiles/alignment/'));
       expect(readyUrls.length).toBeGreaterThan(0);
       driver.setViewport({ start: 16000, end: 18000 }, 2000);
-      await flushMicrotasks();
+      await flushFeedCycle();
       driver.setViewport({ start: 1000, end: 3000 }, 2000);
-      await flushMicrotasks();
+      await flushFeedCycle();
       expect(readyUrls.every((url) => requests.get(url) === 1)).toBe(true);
       expect(driver.debugSnapshot().readComposition?.stableBandReady).toBe(true);
     } finally {
