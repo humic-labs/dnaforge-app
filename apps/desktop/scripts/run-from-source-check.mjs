@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { chromium } from 'playwright';
+import { runPileupPerformanceJourney } from './lib/pileup-performance-journey.mjs';
+import { classifyPileupPerformance } from './lib/pileup-performance.mjs';
 
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const envPath = path.join(appDir, '.env.local');
@@ -135,6 +140,8 @@ const startedAt = Date.now();
 let startup = null;
 let sidecar = 0;
 let failure = null;
+let pileupPerformance = null;
+let evidenceDirectory = null;
 try {
   for (;;) {
     if (exited) {
@@ -151,6 +158,34 @@ try {
     }
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
+  if (!failure) {
+    evidenceDirectory = process.env.PILEUP_PERFORMANCE_OUTPUT
+      ? path.resolve(process.env.PILEUP_PERFORMANCE_OUTPUT)
+      : await mkdtemp(path.join(tmpdir(), 'dnaforge-pileup-performance-'));
+    const browser = await chromium.connectOverCDP(`http://127.0.0.1:${ports.debugPort}`);
+    try {
+      const page = browser.contexts().flatMap((context) => context.pages()).find((candidate) =>
+        new RegExp(`^http://(localhost|127\\.0\\.0\\.1):${ports.devPort}/`, 'u').test(candidate.url())
+      );
+      assert.ok(page, 'The source-started desktop renderer is missing.');
+      const report = await runPileupPerformanceJourney({
+        page,
+        output: evidenceDirectory,
+        apiPort: ports.apiPort,
+      });
+      pileupPerformance = classifyPileupPerformance(report);
+      await writeFile(
+        path.join(evidenceDirectory, 'pileup-performance-result.json'),
+        JSON.stringify(pileupPerformance, null, 2)
+      );
+      console.log(`PILEUP_PERFORMANCE ${JSON.stringify(pileupPerformance)}`);
+      if (pileupPerformance.status !== 'pass') failure = 'The dense saved-pileup performance journey did not pass.';
+    } finally {
+      await browser.close();
+    }
+  }
+} catch (error) {
+  failure = error instanceof Error ? error.stack ?? error.message : String(error);
 } finally {
   stopStack();
   if (!exited) child.kill('SIGTERM');
@@ -162,6 +197,8 @@ const summary = JSON.stringify({
   window: startup?.state ?? null,
   title: startup?.title ?? null,
   sidecarHealthStatus: sidecar,
+  pileupPerformanceStatus: pileupPerformance?.status ?? null,
+  evidenceDirectory,
 });
 if (failure) {
   console.error(`RUN_FROM_SOURCE_FAILED ${failure} ${summary}`);
