@@ -117,9 +117,11 @@ describe('AgentSessionManager provider continuation', () => {
             'app-supervised', 'read_only', ?, '/workspace', ?, '{}', '{}', 1, 2, 2)`
         )
         .run(provider, authorityProfileId, previousSessionStatus, providerThreadId);
+      fixture.db.pragma('user_version = 47');
       fixture.db.close();
 
       const reopened = openFileTestDb(fixture.dbPath);
+      ensureSchema(reopened, fixture.dbPath);
       const queryProvider = vi.fn(async (prompt: string, options: QueryOptions) => {
         expect(prompt).toBe('CURRENT_DELTA_ONLY');
         expect(options.providerConversationId).toBe(providerThreadId);

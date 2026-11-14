@@ -46,6 +46,19 @@ and unconfirmed outcomes, pre-admission Stop, late renderer cancellation,
 migration, restart recovery and continuation. Success requires all cases to
 pass. Keep failed attempts; a failed assertion is evidence, not qualification.
 
+When changing the schema version, also drive the existing scientific recovery
+commands against their isolated files and SQLite databases:
+
+```sh
+pnpm --dir apps/desktop test -- src/main/scientific-migration-recovery.test.ts --reporter=verbose --reporter=json --outputFile="$AGENT_STOP_EVIDENCE/scientific-recovery.json" > "$AGENT_STOP_EVIDENCE/scientific-recovery.txt" 2>&1
+```
+
+Require current-schema enrollment and an independent schema 41 recovery copy,
+with the original database and project bytes preserved. The same drive checks
+schema 47 compatibility, incomplete native-table refusal and unsupported-version
+refusal. Its fixtures clean their own temporary directories; retain the JSON
+result and full transcript outside those directories.
+
 ## Evidence
 
 Each case saves a SQLite backup and JSON observation record in
