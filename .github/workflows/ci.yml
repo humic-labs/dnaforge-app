@@ -191,7 +191,11 @@ jobs:
 
       - name: Set up and start the app from a fresh clone on Linux
         if: runner.os == 'Linux'
-        run: xvfb-run -a node start.mjs --yes --check
+        run: |
+          node start.mjs --yes --setup-only
+          sudo -n chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo -n chmod 4755 node_modules/electron/dist/chrome-sandbox
+          xvfb-run -a node start.mjs --yes --check
 
       - name: Set up and start the app from a fresh clone on Windows
         if: runner.os == 'Windows'

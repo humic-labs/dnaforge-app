@@ -52,7 +52,7 @@ genome = [
 
 
 
-    "pysam>=0.24.0",
+    "pysam>=0.24.0; sys_platform != 'win32'",
 ]
 sidecar = [
     "nuitka>=2.0",
@@ -67,7 +67,7 @@ dev = [
     "black>=24.0.0",
     "ruff>=0.7.0",
     "nuitka>=2.0",
-    "pysam>=0.24.0",
+    "pysam>=0.24.0; sys_platform != 'win32'",
 
 
     "biopython>=1.80",
