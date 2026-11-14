@@ -62,8 +62,9 @@ export function useKeyboardNav({
     if (existing) return existing;
     const callback: React.RefCallback<HTMLDivElement> = (el) => {
       if (el) {
+        cellRefCallbacks.current.set(key, callback);
         cellRefs.current.set(key, el);
-      } else {
+      } else if (cellRefCallbacks.current.get(key) === callback) {
         cellRefs.current.delete(key);
         cellRefCallbacks.current.delete(key);
       }
