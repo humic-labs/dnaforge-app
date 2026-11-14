@@ -792,6 +792,7 @@ export async function runPileupPerformanceJourney({
     if (nativeTrace) {
       assert.equal(typeof nativeTrace.start, 'function', 'Native tracing needs a start callback.');
       assert.equal(typeof nativeTrace.stop, 'function', 'Native tracing needs a stop callback.');
+      await nativeTrace.beginJourney?.({ page, cdp });
     }
     const supplied = Boolean(fixture?.savedViewPath);
     if (!fixture) {
@@ -1007,6 +1008,7 @@ export async function runPileupPerformanceJourney({
       });
       await flush();
     }
+    await nativeTrace?.finishJourney?.({ page, cdp });
     for (const phase of report.phases) {
       scope = `evidence:${phase.label}`;
       try {
@@ -1068,6 +1070,12 @@ export async function runPileupPerformanceJourney({
     if (activeTrace) {
       await nativeTrace.stop({ ...activeTrace, page, cdp, aborted: true }).catch(() => {});
     }
+    try {
+      await nativeTrace?.finishJourney?.({ page, cdp });
+    } catch (error) {
+      report.failures = [...(report.failures ?? errors), `Native capture: ${String(error)}`];
+    }
+    await flush();
     await page
       .evaluate((previous) => {
         const capture = window.__pileupPerformanceCapture;
