@@ -154,6 +154,8 @@ function headerColumnNearestX(
 }
 
 interface TableGridProps {
+  autoFocus?: boolean;
+
   displayCells: Cell[][];
 
   cells: Cell[][];
@@ -240,6 +242,7 @@ interface TableGridProps {
 }
 
 export function TableGrid({
+  autoFocus = false,
   displayCells,
   cells,
   visibleRowIndices,
@@ -1225,6 +1228,13 @@ export function TableGrid({
       safeFocus(focusSinkRef.current);
     }
   }, [focusedCell, editingState]);
+
+  const hasAutoFocused = useRef(false);
+  useLayoutEffect(() => {
+    if (!autoFocus || hasAutoFocused.current || readOnly || rows === 0 || cols === 0) return;
+    hasAutoFocused.current = true;
+    setSelection({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
+  }, [autoFocus, readOnly, rows, cols, setSelection]);
 
   const handleEditingValueChange = useCallback(
     (value: string, cursorPosition: number) => {
