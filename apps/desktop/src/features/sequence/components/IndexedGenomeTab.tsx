@@ -1,3 +1,4 @@
+import { useTrackViewSessionSource } from './useTrackViewSessionSource';
 import {
   usePresentationListener,
   usePresentationScope,
@@ -2893,6 +2894,53 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
     }
   );
 
+  const trackViewSession = useTrackViewSessionSource(tab, {
+    referenceName: assembly?.displayName ?? tab.label,
+    readyForDirtyCheck:
+      liveViewportRange !== null &&
+      visibleAnnotationTrackIds !== null &&
+      orderedAnnotationTrackIds !== null &&
+      bamTrackRestore.status === 'ready' &&
+      dataTrackRestore.status === 'ready' &&
+      (!portableViewRestoreCommand || committedViewRestoreId === portableViewRestoreCommand.id),
+    capturePortableReference: async () => {
+      const current = indexedStateRef.current;
+      if (!current) throw new Error('The reference is still opening.');
+      return portableReferenceFromIndexedGenome(current);
+    },
+    capture: () => {
+      const current = indexedStateRef.current;
+      if (!current) throw new Error('The reference is still opening.');
+      const visible = visibleAnnotationTrackIds ?? new Set<string>();
+      const order = orderedAnnotationTrackIds ?? [...(current.assemblyAnnotationTrackTypes ?? [])];
+      const viewport = liveViewportRangeRef.current ?? displayedViewportRange;
+      const savedViewport = normalizeIndexedViewportForPersistence(viewport, length);
+      if (!savedViewport) throw new Error('The displayed view has no valid viewport.');
+      const liveLanes = useLaneContractStore.getState().lanesForOwner(tab.id);
+      return {
+        reference: trackViewReference(current),
+        viewport: savedViewport,
+        scope: current.scope ?? { kind: 'all' },
+        annotation: {
+          policy: { ...annotationMapperPolicy },
+          orderedTrackIds: [...order],
+          visibilityByTrackId: Object.fromEntries(order.map((id) => [id, visible.has(id)])),
+        },
+        dataTracks: liveLanes.flatMap((lane) => {
+          const track = indexedGenomeDataTrackFromLane(lane);
+          return track ? [track] : [];
+        }),
+        bamTracks: current.bamTracks ?? [],
+        signalReadPileupViews: liveLanes.flatMap((lane) => {
+          const view = indexedGenomeSignalReadPileupViewFromLane(lane);
+          return view ? [view] : [];
+        }),
+        ...(current.variantSource ? { variantSource: current.variantSource } : {}),
+        ...trackViewUserLayers(current),
+      };
+    },
+  });
+
   return (
     <IndexedGenomeTabShell
       sessionScene={sessionScene}
@@ -2949,61 +2997,8 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         ]}
         featureDetailsState={featureDetailsState}
         viewActions={
-          assembly ? (
-            <TrackViewActions
-              readyForDirtyCheck={
-                liveViewportRange !== null &&
-                visibleAnnotationTrackIds !== null &&
-                orderedAnnotationTrackIds !== null &&
-                bamTrackRestore.status === 'ready' &&
-                dataTrackRestore.status === 'ready' &&
-                (!portableViewRestoreCommand ||
-                  committedViewRestoreId === portableViewRestoreCommand.id)
-              }
-              isActive={isActive}
-              tab={tab}
-              referenceName={assembly.displayName}
-              capturePortableReference={async () => {
-                const current = indexedStateRef.current;
-                if (!current) throw new Error('The reference is still opening.');
-                return portableReferenceFromIndexedGenome(current);
-              }}
-              capture={() => {
-                const current = indexedStateRef.current;
-                if (!current) throw new Error('The reference is still opening.');
-                const visible = visibleAnnotationTrackIds ?? new Set<string>();
-                const order = orderedAnnotationTrackIds ?? [
-                  ...(current.assemblyAnnotationTrackTypes ?? []),
-                ];
-                const viewport = liveViewportRangeRef.current ?? displayedViewportRange;
-                const savedViewport = normalizeIndexedViewportForPersistence(viewport, length);
-                if (!savedViewport) throw new Error('The displayed view has no valid viewport.');
-                const liveLanes = useLaneContractStore.getState().lanesForOwner(tab.id);
-                return {
-                  reference: trackViewReference(current),
-                  viewport: savedViewport,
-                  scope: current.scope ?? { kind: 'all' },
-                  annotation: {
-                    policy: { ...annotationMapperPolicy },
-                    orderedTrackIds: [...order],
-                    visibilityByTrackId: Object.fromEntries(
-                      order.map((id) => [id, visible.has(id)])
-                    ),
-                  },
-                  dataTracks: liveLanes.flatMap((lane) => {
-                    const track = indexedGenomeDataTrackFromLane(lane);
-                    return track ? [track] : [];
-                  }),
-                  bamTracks: current.bamTracks ?? [],
-                  signalReadPileupViews: liveLanes.flatMap((lane) => {
-                    const view = indexedGenomeSignalReadPileupViewFromLane(lane);
-                    return view ? [view] : [];
-                  }),
-                  ...(current.variantSource ? { variantSource: current.variantSource } : {}),
-                  ...trackViewUserLayers(current),
-                };
-              }}
-            />
+          assembly && trackViewSession ? (
+            <TrackViewActions tab={tab} session={trackViewSession} isActive={isActive} />
           ) : undefined
         }
       />

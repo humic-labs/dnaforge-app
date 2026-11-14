@@ -19,7 +19,7 @@ Run `node apps/desktop/scripts/check-track-view-session.mjs --out /absolute/dura
 It creates a disposable project through project controls, imports a small local
 reference through the native command, and drives human and agent saves. No model
 credential or large download is needed. Follow [the feature map](features/README.md).
-Run `pnpm --dir apps/desktop exec vitest run src/features/sequence/components/TrackViewSession.acceptance.test.tsx`
+Run `pnpm --dir apps/desktop exec vitest run src/features/sequence/components/TrackViewSession.acceptance.test.tsx src/features/sequence/track-view-session.test.ts`
 for the deterministic delayed-write and detached-control ownership cases.
 
 ## Evidence
