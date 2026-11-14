@@ -1562,6 +1562,12 @@ async def alignment_tile_route(
                 body,
                 pileup.require_aligned_read_source_generation,
             )
+            if (
+                request is not None
+                and not pileup._is_remote_bam(bam_path)
+                and await request.is_disconnected()
+            ):
+                raise asyncio.CancelledError
             result = await _run_alignment_native(
                 bam_path,
                 _compute_alignment_tile,

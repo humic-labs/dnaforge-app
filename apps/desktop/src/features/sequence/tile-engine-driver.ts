@@ -481,6 +481,7 @@ export class TileEngineDriver {
   private disposed = false;
   private readonly maxReadAlignment = maxReadAlignmentLevel();
   private readonly maxAlternateGuide = maxAlternateGuideLevel();
+  private readonly boundedReadBand: boolean;
   private readonly residentBaseLayer = new Map<string, ResidentCoverageLayer>();
   private residentBaseLayerState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
   private residentBaseLayerVerified = false;
@@ -500,6 +501,7 @@ export class TileEngineDriver {
   constructor(options: TileEngineDriverOptions) {
     this.assembly = options.assembly;
     this.opts = options;
+    this.boundedReadBand = options.source.remote != null || options.transport == null;
     let rawTransport =
       options.transport ??
       httpTileTransport({
@@ -512,7 +514,7 @@ export class TileEngineDriver {
     }
     this.transport = limitConcurrency(rawTransport, MAX_CONCURRENT_TILE_FETCHES, {
       canAbortActive: (request) =>
-        Boolean(remoteSessionId && options.transport == null && request.kind === 'alignment'),
+        options.transport == null && options.source.htsget == null && request.kind === 'alignment',
       preferCurrentCoverage: () => {
         const view = this.lastViewport;
         if (!view) return false;
@@ -522,7 +524,7 @@ export class TileEngineDriver {
         );
       },
       currentReadAlignmentLevel:
-        remoteSessionId && options.transport == null
+        options.transport == null
           ? () =>
               this.lastViewport
                 ? this.readLevelForView(this.lastViewport, this.coordinator.level ?? 0)
@@ -805,7 +807,7 @@ export class TileEngineDriver {
         createAlignmentTileSource(
           file,
           baseOpts,
-          this.opts.source.remote == null ? 'local' : 'bounded-network'
+          this.boundedReadBand ? 'bounded-network' : 'local'
         ),
         chrom,
         `:${chrom}`
@@ -1069,7 +1071,7 @@ export class TileEngineDriver {
 
     for (const entry of this.cache.entries()) {
       if (entry.state !== 'pending' && entry.state !== 'ready') continue;
-      if (entry.state === 'pending' && this.opts.source.remote != null) continue;
+      if (entry.state === 'pending') continue;
       if (!entry.key.sourceId.startsWith('aln:')) continue;
       if (entry.key.level < minLevel || entry.key.level > maxLevel) continue;
       const tileStart = tileGlobalStart(entry.key.index, entry.key.level);
@@ -1369,7 +1371,8 @@ export class TileEngineDriver {
         exactReadOwner &&
         readsCoverViewport &&
         !readsTruncated &&
-        (exactReadOwnerPresentationKind === 'reads' || exactReadOwnerPresentationKind === 'empty') &&
+        (exactReadOwnerPresentationKind === 'reads' ||
+          exactReadOwnerPresentationKind === 'empty') &&
         published?.ownerPresentation?.kind === exactReadOwnerPresentationKind &&
         published.readSource &&
         !published.readSource.truncated &&
@@ -2650,7 +2653,7 @@ export class TileEngineDriver {
     const firstVisibleTile = Math.floor(view.globalStart / alignmentTileSpanBp);
     const lastVisibleTileExclusive = Math.ceil(view.globalEnd / alignmentTileSpanBp);
     const visibleTileCount = Math.max(1, lastVisibleTileExclusive - firstVisibleTile);
-    const boundedNetwork = this.opts.source.remote != null;
+    const boundedNetwork = this.boundedReadBand;
     const boundedNetworkMarginTiles = Math.max(
       0,
       Math.floor(
