@@ -1,3 +1,6 @@
+import type { Tab } from '../canvas/public/types';
+import { useCanvasStore } from '../canvas/public/store';
+import { TrackViewSession } from './track-view-session';
 import type {
   TrackViewDocument,
   SaveTrackViewRequest,
@@ -32,13 +35,38 @@ export interface TrackViewControl {
     | { ok: false; error: string }
   >;
 }
-const controls = new Map<string, TrackViewControl>();
-export function registerTrackViewControl(tabId: string, control: TrackViewControl) {
-  controls.set(tabId, control);
-  return () => {
-    if (controls.get(tabId) === control) controls.delete(tabId);
-  };
+const sessions = new Map<string, TrackViewSession>();
+function supportsTrackView(tab: Tab | undefined) {
+  return (
+    tab?.type === 'sequence' &&
+    Boolean(tab.trackView || tab.indexedGenome || tab.sequenceDocument?.kind === 'indexed-sequence')
+  );
 }
-export function getTrackViewControl(tabId: string) {
-  return controls.get(tabId) ?? null;
+function findTab(tabId: string) {
+  return Object.values(useCanvasStore.getState().panels)
+    .flatMap((panel) => panel.tabs)
+    .find((tab) => tab.id === tabId);
+}
+useCanvasStore.subscribe(() => {
+  for (const [tabId, session] of sessions) {
+    const tab = findTab(tabId);
+    if (tab && supportsTrackView(tab) && session.ownsTab(tab)) session.receiveTab(tab);
+    else {
+      sessions.delete(tabId);
+      session.dispose();
+    }
+  }
+});
+export function getTrackViewSession(tabId: string) {
+  const tab = findTab(tabId);
+  if (!tab || !supportsTrackView(tab)) return null;
+  let session = sessions.get(tabId);
+  if (!session) {
+    session = new TrackViewSession(tab);
+    sessions.set(tabId, session);
+  }
+  return session;
+}
+export function getTrackViewControl(tabId: string): TrackViewControl | null {
+  return getTrackViewSession(tabId);
 }
