@@ -9,6 +9,7 @@ import { execFileSync } from 'child_process';
 import { createRequire } from 'module';
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
+import MagicString from 'magic-string';
 import { normalizePath, type Plugin } from 'vite';
 import {
   BUILD_SOURCE_GIT_EXECUTABLE,
@@ -130,7 +131,7 @@ const MAIN_EXTERNALS: (string | RegExp)[] = [
 function injectDirnameShim(): Plugin {
   return {
     name: 'inject-dirname-shim',
-    renderChunk(code: string) {
+    renderChunk(code: string, _chunk, outputOptions) {
       const shim = `
 // -- CommonJS Shims --
 import __cjs_mod__ from 'node:module';
@@ -142,7 +143,13 @@ const require = __cjs_mod__.createRequire(import.meta.url);
         !code.includes('// -- CommonJS Shims --') &&
         /__filename|__dirname|require\(|require\.resolve\(/.test(code)
       ) {
-        return `${shim}${code}`;
+        const transformed = new MagicString(code).prepend(shim);
+        return {
+          code: transformed.toString(),
+          map: outputOptions.sourcemap
+            ? transformed.generateMap({ hires: true, includeContent: true })
+            : null,
+        };
       }
       return null;
     },

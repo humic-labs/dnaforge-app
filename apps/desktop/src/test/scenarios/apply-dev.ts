@@ -1781,7 +1781,10 @@ async function materializeScenarioFilesForRuntime(
       scenario.canvas?.tabs[0]?.label ??
       'scenario'
   );
-  const scenarioRoot = `${appDataDir}/${ELECTRON_SCENARIO_ROOT_NAME}/${scenarioId}`;
+  const checkoutRoot = await bridge.path.projectRoot();
+  const scenarioRoot = checkoutRoot
+    ? `${stripTrailingSlash(checkoutRoot)}/test-results/${ELECTRON_SCENARIO_ROOT_NAME}/${scenarioId}`
+    : `${appDataDir}/${ELECTRON_SCENARIO_ROOT_NAME}/${scenarioId}`;
 
   const pathMap = new Map<string, string>();
   const materializedFiles: Record<string, string | Uint8Array> = {};
@@ -1852,7 +1855,10 @@ async function materializeScenarioFilesForRuntime(
     directories.add(targetPath.slice(0, targetPath.lastIndexOf('/')));
   }
   for (const targetParent of directories) {
-    if (!authoringRoots.has(targetParent)) await bridge.fs.mkdir(targetParent, { recursive: true });
+    if (authoringRoots.has(targetParent)) continue;
+    await bridge.fs.mkdir(targetParent, { recursive: true }).catch((cause: unknown) => {
+      throw new Error(`Scenario directory was refused: ${targetParent}`, { cause });
+    });
   }
   for (const root of referenceRoots.keys()) {
     for (const args of [

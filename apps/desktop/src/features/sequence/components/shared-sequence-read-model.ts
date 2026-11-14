@@ -1,6 +1,7 @@
 import type { Genome } from '@waypoint/genome-renderer';
 import type { TraceData } from '@waypoint/sequence-utils';
 import type { CoordinateSpace } from '@waypoint/workspace-editor';
+import { validateTraceQuality } from '../../trace/public';
 import type { ChromatogramLaneOptions } from '../tracks/chromatogram-lane';
 
 export interface SharedSequenceAxis {
@@ -149,6 +150,7 @@ function sangerLane(
   if (sourceColumns.length !== peakCount || (sequence && sequence.length !== peakCount)) {
     throw new Error(`Sanger read ${label} has inconsistent called-base and peak counts`);
   }
+  validateTraceQuality(options.quality, peakCount);
   return {
     id,
     kind: 'sanger',

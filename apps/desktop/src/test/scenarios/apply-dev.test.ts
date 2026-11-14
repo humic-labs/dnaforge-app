@@ -1332,6 +1332,34 @@ describe('applyScenarioDev', () => {
     expect(platformMock.writeTextFile).not.toHaveBeenCalled();
   });
 
+  it(' stages unowned reference roots in the checkout, never inside app data', async () => {
+    vi.mocked(isDesktopRuntime).mockReturnValue(true);
+    allowElectronScenarioMutation();
+    const appData = await platformMock.appDataDir();
+    const checkout = await platformMock.projectRoot();
+    await applyDevScenarioPreset('recently-edited-reference-boundary');
+    const registration = platformMock.ensureWorkspaceOwner.mock.calls.find(
+      (call) => call[1] === 'reference'
+    );
+    const root = registration![0] as string;
+    expect(root.startsWith(`${appData}/`)).toBe(false);
+    expect(root.startsWith(`${checkout}/test-results/dev-scenarios/`)).toBe(true);
+    const authoringRoots = await Promise.all(
+      platformMock.createEmptyWorkspace.mock.results.map(
+        async (result) => (await result.value).rootPath as string
+      )
+    );
+    const unownedInsideAppData = [
+      ...platformMock.mkdir.mock.calls.map(([path]) => path),
+      ...platformMock.writeTextFile.mock.calls.map(([path]) => path),
+    ].filter(
+      (path) =>
+        path.startsWith(`${appData}/`) &&
+        !authoringRoots.some((owned) => path === owned || path.startsWith(`${owned}/`))
+    );
+    expect(unownedInsideAppData).toEqual([]);
+  });
+
   it('imports the assembly demo through its created project without creating unowned or project-root directories', async () => {
     vi.mocked(isDesktopRuntime).mockReturnValue(true);
     allowElectronScenarioMutation();

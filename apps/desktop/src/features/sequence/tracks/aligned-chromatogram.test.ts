@@ -174,6 +174,37 @@ describe('buildAlignedChromatogramOptions', () => {
     expect(withoutQ.laneOptions.quality).toBeUndefined();
   });
 
+  it.each([[[0, 20, 30]], [[0, 20, 30, 40, 50]], [[0, 20, 30, 256]], [Array<number>(4)]])(
+    'rejects malformed quality before dropping or mapping bases (%j)',
+    (readQuality) => {
+      expect(() =>
+        buildAlignedChromatogramOptions({
+          referenceSequence: 'ACGT',
+          trace: fakeTrace(4),
+          readSequence: 'ACGT',
+          readQuality,
+          alignedQuery: 'ACGT',
+          alignedReference: 'ACGT',
+        })
+      ).toThrow('Quality values do not match the called bases.');
+    }
+  );
+
+  it.each([[[]], [[0, 20, 30, 40]]])(
+    'keeps unavailable quality distinct from Q0 after alignment (%j)',
+    (readQuality) => {
+      const result = buildAlignedChromatogramOptions({
+        referenceSequence: 'ACGT',
+        trace: fakeTrace(4),
+        readSequence: 'ACGT',
+        readQuality,
+        alignedQuery: 'ACGT',
+        alignedReference: 'ACGT',
+      });
+      expect(result.laneOptions.quality).toEqual(readQuality.length ? readQuality : undefined);
+    }
+  );
+
   it('output is always display-ready: laneOptions.reverseComplemented is always false', () => {
     const trace = fakeTrace(4);
     const rcResult = buildAlignedChromatogramOptions({

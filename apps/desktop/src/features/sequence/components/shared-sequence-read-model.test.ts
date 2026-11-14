@@ -90,6 +90,48 @@ describe('shared sequence/read scene', () => {
     expect(scene.genome.length).toBe(4);
   });
 
+  it.each([
+    [[10, 20, 30]],
+    [[10, 20, 30, 40, 50]],
+    [[0, 10, 256, 40]],
+    [[0, 10, -1, 40]],
+    [[0, 10, 2.5, 40]],
+    [[0, 10, Number.NaN, 40]],
+    [Array<number>(4)],
+  ])('rejects inconsistent quality before admitting either read lane (%j)', (quality) => {
+    const input = { genome: genome(), documentId: 'read-quality' };
+    expect(() =>
+      buildSharedSequenceReadScene({
+        ...input,
+        directRead: { trace, sequence: 'ACGT', quality },
+      })
+    ).toThrow('Quality values do not match the called bases.');
+    expect(() =>
+      buildSharedSequenceReadScene({
+        ...input,
+        attachedReads: [
+          {
+            id: 'read-1',
+            label: 'read.ab1',
+            laneOptions: { trace, sequence: 'ACGT', quality, totalColumns: 4 },
+          },
+        ],
+      })
+    ).toThrow('Quality values do not match the called bases.');
+  });
+
+  it.each([[undefined], [[]], [[0, 19, 20, 255]]])(
+    'preserves missing and valid quality without replacing Q0 (%j)',
+    (quality) => {
+      const scene = buildSharedSequenceReadScene({
+        genome: genome(),
+        documentId: 'read-quality',
+        directRead: { trace, sequence: 'ACGT', quality },
+      });
+      expect(scene.lanes[0]).toHaveProperty('quality', quality);
+    }
+  );
+
   it('uses gapped columns for the reference, feature, query row, and attached read', () => {
     const scene = buildSharedSequenceReadScene({
       genome: genome(),

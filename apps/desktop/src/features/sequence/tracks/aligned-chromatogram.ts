@@ -1,4 +1,4 @@
-import { reverseComplementTrace, type TraceData } from '../../trace/public';
+import { reverseComplementTrace, validateTraceQuality, type TraceData } from '../../trace/public';
 import type { ChromatogramLaneOptions } from './chromatogram-lane';
 
 export interface AlignmentInput {
@@ -43,6 +43,7 @@ export function buildAlignedChromatogramOptions(input: AlignmentInput): Alignmen
       `peakPositions (${rawTrace.peakPositions.length}) and readSequence (${readSequence.length}) must have the same length`
     );
   }
+  validateTraceQuality(readQuality, readSequence.length);
 
   const trace = reverseComplemented ? reverseComplementTrace(rawTrace) : rawTrace;
 
@@ -136,7 +137,7 @@ export function buildAlignedChromatogramOptions(input: AlignmentInput): Alignmen
 
   const trimmedPeakPositions = retainedPeaks.map((i) => trace.peakPositions[i]);
   const trimmedSequence = retainedPeaks.map((i) => readSequence[i]).join('');
-  const trimmedQuality = readQuality ? retainedPeaks.map((i) => readQuality[i] ?? 0) : undefined;
+  const trimmedQuality = readQuality?.length ? retainedPeaks.map((i) => readQuality[i]) : undefined;
 
   const trimmedTrace: TraceData = {
     channels: trace.channels,
