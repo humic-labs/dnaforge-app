@@ -117,11 +117,17 @@ try {
     .first();
   await expect(sequenceItem).toBeVisible({ timeout: 30000 });
   const previousTabIds = new Set((await tabs()).map((tab) => tab.id));
-  await sequenceItem.dblclick();
+  const openedSequence = async () =>
+    Object.values((await snapshot()).panels)
+      .flatMap((panel) => panel.tabs.filter((tab) => tab.id === panel.activeTabId))
+      .find((tab) => tab.type === 'sequence' && !previousTabIds.has(tab.id));
+  await expect(async () => {
+    if (await openedSequence()) return;
+    await sequenceItem.dblclick({ timeout: 2000 });
+    await expect.poll(openedSequence, { timeout: 2000 }).toBeTruthy();
+  }).toPass({ timeout: 60000, intervals: [250, 500, 1000] });
   await expect(page.getByTestId('sequence-loaded')).toBeVisible({ timeout: 60000 });
-  const sequence = Object.values((await snapshot()).panels)
-    .flatMap((panel) => panel.tabs.filter((tab) => tab.id === panel.activeTabId))
-    .find((tab) => tab.type === 'sequence' && !previousTabIds.has(tab.id));
+  const sequence = await openedSequence();
   assert.ok(sequence?.sequenceDocument);
   assert.notEqual(sequence.entityId, sequencePath);
   await step('opened-native-sequence');
