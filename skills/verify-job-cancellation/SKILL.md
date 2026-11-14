@@ -31,7 +31,7 @@ Set `CANCELLATION_EVIDENCE` to a new directory outside the checkout. From
 `apps/api`, run:
 
 ```sh
-python -m pytest --no-cov -q -o tmp_path_retention_policy=all tests/test_job_cancellation_acceptance.py --basetemp="$CANCELLATION_EVIDENCE/scratch" --junitxml="$CANCELLATION_EVIDENCE/results.xml" > "$CANCELLATION_EVIDENCE/transcript.txt" 2>&1
+python -m pytest --no-cov -q -o tmp_path_retention_policy=all tests/test_job_cancellation_acceptance.py tests/test_job_cancellation_compatibility.py --basetemp="$CANCELLATION_EVIDENCE/scratch" --junitxml="$CANCELLATION_EVIDENCE/results.xml" > "$CANCELLATION_EVIDENCE/transcript.txt" 2>&1
 ```
 
 Read the exit code and transcript. Compare the managed-operation reference:

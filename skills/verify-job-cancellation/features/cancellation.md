@@ -17,6 +17,9 @@ and `test_cancel_before_runner_entry_never_starts_handler` in the acceptance
 file. While cleanup waits, the owner and pool slot remain live and SQLite has
 no completed outcome. After acknowledgment, exactly one terminal stream event
 and one durable canceled outcome appear.
+`test_human_collection_keeps_stopping_job_active` and
+`test_cancel_pool_waiter_never_enters_its_handler` in the compatibility file
+cover the human job collection and a canceled pool waiter.
 
 ## Gotchas
 
