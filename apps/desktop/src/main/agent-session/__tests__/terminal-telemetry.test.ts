@@ -45,12 +45,12 @@ describe('local AI terminal telemetry', () => {
     expect(JSON.stringify(event)).not.toContain('private scientific answer');
   });
 
-  it('qualifies useful partial output only after acknowledged Stop', () => {
+  it('does not label an unconfirmed Stop as acknowledged or qualify partial output', () => {
     expect(
       buildLocalAiTurnFinished({
         ...base,
         provider: 'claude-agent-sdk',
-        status: 'stop_requested',
+        status: 'stop_unconfirmed',
         visibleAssistantText: 'useful partial answer',
         toolCallCount: 3,
         completedWorkspaceToolCount: 1,
@@ -59,11 +59,11 @@ describe('local AI terminal telemetry', () => {
       })
     ).toMatchObject({
       route: 'local_claude',
-      outcome: 'stopped',
-      value_delivered: true,
-      qualification_basis: 'partial_response_before_stop',
+      outcome: 'interrupted',
+      value_delivered: false,
+      qualification_basis: 'none',
       initiated_by: 'user',
-      reason_code: 'user_stop_acknowledged',
+      reason_code: 'stop_unconfirmed',
       tool_call_count_bucket: 'two_to_five',
       workspace_tool_count_bucket: 'one',
       effect_state: 'unknown',
@@ -90,8 +90,8 @@ describe('local AI terminal telemetry', () => {
     expect(
       buildLocalAiTurnFinished({
         ...base,
-        status: 'interrupted',
-        unconfirmedStop: true,
+        status: 'stop_unconfirmed',
+        recovered: true,
         durationMs: 45_000,
       })
     ).toMatchObject({
