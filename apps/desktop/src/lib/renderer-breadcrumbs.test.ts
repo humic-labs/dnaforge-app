@@ -135,6 +135,17 @@ describe('renderer-breadcrumbs  item 4)', () => {
       expect(line).not.toContain('pageId=');
     });
 
+    it('retains the canonical repo UUID scope produced for a managed notebook', () => {
+      const pageId = scopedProjectionId(
+        workspaceScopeKey('ab5fb349-9c0f-4d1c-b449-bfdd6d32bf63', 3),
+        '830a9677-d9c5-4e17-9d5c-a3562463360c'
+      );
+      reportSaveFailure('[Notebook]', { pageId, operation: 'manual' }, new Error('EACCES'));
+      const line = win.electronAPI.sendBreadcrumbs.mock.calls[0][0][0] as string;
+      expect(line).toContain(`pageId=${pageId}`);
+      expect(line).toContain('operation=manual');
+    });
+
     it('retains an opaque native document target and rejects arbitrary context labels', () => {
       const documentId = 'file-document:830a9677-d9c5-4e17-9d5c-a3562463360c';
       reportSaveFailure(
