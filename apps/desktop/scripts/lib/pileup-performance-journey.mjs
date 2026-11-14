@@ -141,15 +141,6 @@ async function createFixtureWorkspace(page) {
 }
 
 async function frame(page, start, span, lane) {
-  await page.evaluate(
-    ({ start, span }) => {
-      if (!window.__test?.workspaceViewer?.setViewport) {
-        throw new Error('The indexed viewport precondition bridge is unavailable.');
-      }
-      window.__test.workspaceViewer.setViewport({ start, end: start + span });
-    },
-    { start, span }
-  );
   await poll(
     () =>
       page.evaluate((trackId) => {
@@ -164,6 +155,15 @@ async function frame(page, start, span, lane) {
     (state) => Object.values(state).every(Boolean),
     30_000,
     'The active indexed renderer did not become ready for its admitted read lane'
+  );
+  await page.evaluate(
+    ({ start, span }) => {
+      if (!window.__test?.workspaceViewer?.setViewport) {
+        throw new Error('The indexed viewport precondition bridge is unavailable.');
+      }
+      window.__test.workspaceViewer.setViewport({ start, end: start + span });
+    },
+    { start, span }
   );
   await page.evaluate(() => {
     window.__webglFireCameraChange('zoom');
