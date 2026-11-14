@@ -58,8 +58,27 @@ async function poll(read, accepts, timeoutMs, description) {
 async function mountWorkspace(page, workspaceRoot) {
   await page.evaluate(async (root) => {
     if (!window.__test?.mountFolderInPlace) throw new Error('Workspace admission is unavailable.');
-    await window.__test.mountFolderInPlace(root);
+    if (!window.__test.getWorkspaceRootPaths().includes(root)) {
+      await window.__test.mountFolderInPlace(root);
+    }
+    if (!window.__test.getWorkspaceRootPaths().includes(root)) {
+      throw new Error(`The native workspace did not admit ${root}.`);
+    }
   }, workspaceRoot);
+}
+
+async function createFixtureWorkspace(page) {
+  return page.evaluate(async () => {
+    if (!window.__test?.createEmptyWorkspace || !window.__test.getWorkspaceRootPaths) {
+      throw new Error('Native project creation is unavailable.');
+    }
+    const previous = new Set(window.__test.getWorkspaceRootPaths());
+    await window.__test.createEmptyWorkspace();
+    const added = window.__test.getWorkspaceRootPaths().filter((root) => !previous.has(root));
+    if (added.length !== 1)
+      throw new Error(`Project creation returned ${added.length} new native workspace roots.`);
+    return added[0];
+  });
 }
 
 async function frame(page, start, span) {
@@ -326,6 +345,8 @@ async function waitForViewer(page) {
 async function admitPortable(page, fixture) {
   await mountWorkspace(page, fixture.workspaceRoot);
   await page.evaluate(async (fixture) => {
+    await window.electronAPI.fs.stat(fixture.bamPath);
+    await window.electronAPI.fs.stat(fixture.indexPath);
     const imported = await window.electronAPI.referenceAssets.importLocal({
       operationId: crypto.randomUUID(),
       themeMode: 'light',
@@ -578,11 +599,16 @@ export async function runPileupPerformanceJourney({
       assert.equal(typeof nativeTrace.stop, 'function', 'Native tracing needs a stop callback.');
     }
     const supplied = Boolean(fixture?.savedViewPath);
-    fixture = {
-      readLengthBp: 150,
-      ...(fixture ?? (await createDensePileupFixture(path.join(output, 'fixture')))),
-    };
+    if (!fixture) {
+      const workspaceRoot = await createFixtureWorkspace(page);
+      fixture = {
+        ...(await createDensePileupFixture(path.join(workspaceRoot, 'pileup-performance-fixture'))),
+        workspaceRoot,
+      };
+    }
+    fixture = { readLengthBp: 150, ...fixture };
     if (!supplied) fixture = await admitPortable(page, fixture);
+    await writeFile(path.join(output, 'fixture.json'), JSON.stringify(fixture, null, 2));
     preparing = false;
     scope = 'between-phases';
     assert.ok(

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, realpath, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -47,6 +47,7 @@ print(json.dumps({'fixtureId': 'synthetic-two-contig-80x-120000x150-v1', 'refere
 export async function createDensePileupFixture(directory) {
   assert.ok(path.isAbsolute(directory), 'The fixture directory must be absolute.');
   await mkdir(directory, { recursive: true });
+  directory = await realpath(directory);
   const python = path.join(
     repository,
     'apps/api/.venv',
