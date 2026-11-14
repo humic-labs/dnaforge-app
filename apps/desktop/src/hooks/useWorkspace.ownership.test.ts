@@ -2,6 +2,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useWorkspace } from './useWorkspace';
+import { useWorkspaceStore } from '../stores/workspaceStore';
 const ports = vi.hoisted(() => ({
   read: vi.fn(),
   projects: vi.fn(),
@@ -45,6 +46,10 @@ function deferred<T>() {
 describe('active workspace request ownership', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    useWorkspaceStore.setState({
+      folders: [],
+      workspaceSelection: { phase: 'uninitialized', path: null, error: null },
+    });
     ports.projects.mockResolvedValue([{ path: '/old-project' }]);
     ports.write.mockResolvedValue(undefined);
     ports.remove.mockResolvedValue(undefined);

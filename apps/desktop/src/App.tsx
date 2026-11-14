@@ -704,7 +704,6 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
   }, []);
 
   const e2eHasInitializedRef = useRef(false);
-  const removingWorkspacePathRef = useRef<string | null>(null);
 
   const workspaceSetPathDeliveryIdsRef = useRef<Set<string> | null>(null);
   const workspaceSetPathInFlightDeliveryIdsRef = useRef(new Set<string>());
@@ -713,12 +712,7 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
   }
 
   const workspace = useWorkspace();
-  const {
-    path: workspacePath,
-    loading: workspaceLoading,
-    setWorkspacePath,
-    clearWorkspace,
-  } = workspace;
+  const { path: workspacePath, loading: workspaceLoading, setWorkspacePath } = workspace;
   const { folders, addFolder, removeFolder, renameFolder, selectedPath, fileTreeRefreshToken } =
     useWorkspaceStore();
   const electronWorkspaceRootsKey = folders
@@ -772,48 +766,6 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
   }, [folders, recentlyEditedWorkspaceAccessKey]);
   const recentlyEditedReady = preparedRecentlyEditedAccessKey === recentlyEditedWorkspaceAccessKey;
 
-  const projectedWorkspacePathRef = useRef<string | null>(null);
-  useEffect(() => {
-    console.log('[App] Workspace sync effect:', {
-      workspacePath,
-      workspaceLoading,
-      foldersLength: folders.length,
-    });
-    if (workspaceLoading) return;
-    const workspacePathChanged = workspacePath !== projectedWorkspacePathRef.current;
-    projectedWorkspacePathRef.current = workspacePath;
-
-    if (
-      workspacePath &&
-      workspacePathChanged &&
-      !folders.some((folder) => folder.path === workspacePath)
-    ) {
-      if (removingWorkspacePathRef.current === workspacePath) {
-        return;
-      }
-      console.log('[App] Adding folder to store:', workspacePath);
-      addFolder(workspacePath);
-    }
-
-    if (!workspacePath && folders.length > 0) {
-      const userFolder = soleWritableProjectRoot(folders);
-      if (userFolder) {
-        if (removingWorkspacePathRef.current === userFolder.path) {
-          return;
-        }
-        console.log('[App] Reverse-syncing workspace path from folders:', userFolder.path);
-        setWorkspacePath(userFolder.path);
-      }
-    }
-    if (
-      removingWorkspacePathRef.current &&
-      workspacePath !== removingWorkspacePathRef.current &&
-      !folders.some((folder) => folder.path === removingWorkspacePathRef.current)
-    ) {
-      removingWorkspacePathRef.current = null;
-    }
-  }, [workspacePath, workspaceLoading, folders, addFolder, setWorkspacePath]);
-
   useEffect(() => {
     try {
       const p = platform();
@@ -837,11 +789,7 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
           console.log('[App] Setting workspace from main process:', wsPath);
           void openWorkspaceFromSource(
             { kind: 'local-folder', path: wsPath },
-            { inPlace: true, makeCurrent: true },
-            {
-              currentLegacyWorkspacePath: workspacePath,
-              setLegacyWorkspacePath: setWorkspacePath,
-            }
+            { inPlace: true, makeCurrent: true }
           )
             .then(() => {
               if (deliveryId) {
@@ -1645,7 +1593,6 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
     handleOpenRegistryFromProjectHome,
     handleRevealProject,
     handleOpenProjectSwitcherFromHome,
-    handleFolderRemoved,
     handleNewPage,
     handleNewDesign,
     handleCreateEntityFromUi,
@@ -1662,14 +1609,12 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
     addFolder,
     removeFolder,
     setWorkspacePath,
-    clearWorkspace,
     setProjectHomePath,
     setProjectLibraryPopover,
     setCreateDestinationRequest,
     setHostedStatus,
     setHostedBrowserReadOpen,
     hostedFileInputRef,
-    removingWorkspacePathRef,
     projectCollectionRestoredRef,
     handleFileSelect,
     reconcileChangedWorkspace,
@@ -1767,7 +1712,6 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
         onRenameProject={(repoPath) => void handleRenameProject(repoPath)}
         onArchiveProject={(repoPath) => void handleArchiveProject(repoPath)}
         onTrashProject={(repoPath) => void handleTrashProject(repoPath)}
-        onFolderRemoved={handleFolderRemoved}
         onNewNotebook={handleNewPage}
         onNewAssembly={handleNewDesign}
         onCreateAssembly={handleCreateAssembly}
@@ -1796,7 +1740,6 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
       handleRenameProject,
       handleArchiveProject,
       handleTrashProject,
-      handleFolderRemoved,
       handleNewPage,
       handleNewDesign,
       handleCreateAssembly,
