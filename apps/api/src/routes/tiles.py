@@ -21,6 +21,7 @@ import asyncio
 import json as _json
 import os
 import struct
+import threading
 from pathlib import Path
 from typing import Awaitable, Callable, Literal, Mapping, NoReturn
 from uuid import uuid4
@@ -449,7 +450,10 @@ def _compute_alignment_tile(
     tile_index: int,
     chrom_global_start: int,
     guides_only: bool,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> dict:
+    if check_cancelled is not None:
+        check_cancelled()
     alignment_tiles, pileup = _load_alignment_services()
     resolved = pileup._resolve_bam_path(bam_path)
     resolved_index = pileup._resolve_index_path(index_path)
@@ -471,6 +475,7 @@ def _compute_alignment_tile(
             reference_fasta=reference_path,
             guides_only=guides_only,
             opened_alignment=bam,
+            check_cancelled=check_cancelled,
         )
 
 
@@ -511,7 +516,11 @@ class _LocalAlignmentClientClosed(Exception):
 
 
 async def _run_alignment_native(
-    bam_path: str, worker: Callable[..., dict], *args: object, control: bool = False
+    bam_path: str,
+    worker: Callable[..., dict],
+    *args: object,
+    control: bool = False,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> dict:
     _, pileup = _load_alignment_services()
     if pileup._is_remote_bam(bam_path):
@@ -520,40 +529,60 @@ async def _run_alignment_native(
         return await run_remote_htslib(
             worker, *args, pool="control" if control else "alignment"
         )
+    if check_cancelled is not None:
+        return await asyncio.to_thread(worker, *args, check_cancelled)
     return await asyncio.to_thread(worker, *args)
 
 
 async def _run_alignment_request(
-    bam_path: str, request: Request | None, admitted_read: Callable[[], Awaitable[dict]]
+    bam_path: str,
+    request: Request | None,
+    admitted_read: Callable[[], Awaitable[dict]],
+    local_cancellation: threading.Event | None = None,
 ) -> dict:
     _, pileup = _load_alignment_services()
-    if request is None or not pileup._is_remote_bam(bam_path):
+    remote = pileup._is_remote_bam(bam_path)
+    if local_cancellation is None and (request is None or not remote):
         return await admitted_read()
-    if await request.is_disconnected():
-        raise asyncio.CancelledError
+    if request is not None and await request.is_disconnected():
+        if remote:
+            raise asyncio.CancelledError
+        raise _LocalAlignmentClientClosed
 
     read = asyncio.create_task(admitted_read())
     completed = asyncio.Event()
 
+    def retire_read() -> None:
+        if remote:
+            read.cancel()
+        elif local_cancellation is not None:
+            local_cancellation.set()
+
     async def watch_disconnect() -> None:
         while not completed.is_set():
             if await request.is_disconnected():
-                read.cancel()
+                retire_read()
                 return
             try:
                 await asyncio.wait_for(completed.wait(), timeout=0.05)
             except asyncio.TimeoutError:
                 pass
 
-    watcher = asyncio.create_task(watch_disconnect())
+    watcher = asyncio.create_task(watch_disconnect()) if request is not None else None
     try:
-        return await asyncio.shield(read)
+        result = await asyncio.shield(read)
+        if local_cancellation is not None and local_cancellation.is_set():
+            raise _LocalAlignmentClientClosed
+        return result
     finally:
         completed.set()
-        watcher.cancel()
+        if watcher is not None:
+            watcher.cancel()
         if not read.done():
-            read.cancel()
-        cleanup = asyncio.gather(read, watcher, return_exceptions=True)
+            retire_read()
+        cleanup = asyncio.gather(
+            read, *([watcher] if watcher is not None else []), return_exceptions=True
+        )
         cancelled_during_cleanup = False
         while True:
             try:
@@ -1559,8 +1588,15 @@ async def alignment_tile_route(
 
     bam_path = _require_file_bam_path(body)
 
+    local_cancellation = threading.Event()
+
+    def check_cancelled() -> None:
+        if local_cancellation.is_set():
+            raise _LocalAlignmentClientClosed
+
     async def admitted_read() -> dict:
         async with pool.slot():
+            check_cancelled()
             await asyncio.to_thread(
                 _validate_aligned_read_source_generation,
                 body,
@@ -1583,6 +1619,7 @@ async def alignment_tile_route(
                 tile_index,
                 body.chrom_global_start,
                 body.guides_only,
+                check_cancelled=check_cancelled,
             )
             await asyncio.to_thread(
                 _validate_aligned_read_source_generation,
@@ -1592,7 +1629,9 @@ async def alignment_tile_route(
             return result
 
     try:
-        result = await _run_alignment_request(bam_path, request, admitted_read)
+        result = await _run_alignment_request(
+            bam_path, request, admitted_read, local_cancellation
+        )
     except _LocalAlignmentClientClosed:
         return JSONResponse(
             status_code=499, content={"detail": "Client closed alignment request"}

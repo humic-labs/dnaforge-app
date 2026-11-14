@@ -6,6 +6,7 @@ acceptance or performance oracle.
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 import pysam
@@ -13,6 +14,64 @@ import pytest
 
 from src.services import alignment_tiles
 from tests.sidecar_test_client import AuthenticatedSidecarTestClient as TestClient
+
+
+@pytest.mark.parametrize("stage", ["fetch", "events", "aggregate", "payload"])
+def test_retired_alignment_work_stops_between_real_records(
+    nucleotide_alignment_fixture: dict[str, str], monkeypatch, stage: str
+) -> None:
+    fixture = nucleotide_alignment_fixture
+    retired = threading.Event()
+    processed = []
+
+    class ExtractionRetired(Exception):
+        pass
+
+    def check_cancelled():
+        if retired.is_set():
+            raise ExtractionRetired
+
+    if stage != "fetch":
+        target = {
+            "events": "_events_from_md",
+            "aggregate": "_usable_for_aggregate",
+            "payload": "_read_payload",
+        }[stage]
+        original = getattr(alignment_tiles, target)
+
+        def retire_after_record(read, *args, **kwargs):
+            result = original(read, *args, **kwargs)
+            processed.append(read.query_name)
+            retired.set()
+            return result
+
+        monkeypatch.setattr(alignment_tiles, target, retire_after_record)
+
+    with pysam.AlignmentFile(fixture["bam"], index_filename=fixture["index"]) as bam:
+
+        class RecordingAlignment:
+            def fetch(self, *args):
+                for read in bam.fetch(*args):
+                    if stage == "fetch":
+                        processed.append(read.query_name)
+                        retired.set()
+                    yield read
+
+        with pytest.raises(ExtractionRetired):
+            alignment_tiles.alignment_tile(
+                fixture["bam"],
+                "chrT",
+                0,
+                80,
+                level=0,
+                tile_index=0,
+                index_path=fixture["index"],
+                reference_fasta=fixture["reference"],
+                opened_alignment=RecordingAlignment(),
+                check_cancelled=check_cancelled,
+            )
+
+    assert processed == ["duplicate-qname"]
 
 
 def test_spliced_read_blocks_break_on_introns() -> None:

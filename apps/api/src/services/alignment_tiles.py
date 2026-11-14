@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Literal, NotRequired, Optional, TypedDict
+from typing import Callable, Literal, NotRequired, Optional, TypedDict
 
 import pysam
 
@@ -434,6 +434,7 @@ def _alternate_columns(
     *,
     start: int,
     end: int,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> list[AlignmentAlternateColumn]:
     span = max(0, end - start)
     if span == 0:
@@ -447,6 +448,8 @@ def _alternate_columns(
     ] = {}
 
     for read, events in reads_with_events:
+        if check_cancelled is not None:
+            check_cancelled()
         if not _usable_for_aggregate(read):
             continue
         map_weight = _phred_probability(int(read.mapping_quality))
@@ -485,6 +488,8 @@ def _alternate_columns(
     depth = 0.0
     count = 0
     for index in range(span):
+        if index % 1024 == 0 and check_cancelled is not None:
+            check_cancelled()
         depth += depth_diff[index]
         count += count_diff[index]
         weighted_depths[index] = depth
@@ -492,6 +497,8 @@ def _alternate_columns(
 
     accepted: list[AlignmentAlternateColumn] = []
     for key, accumulator in support.items():
+        if check_cancelled is not None:
+            check_cancelled()
         pos, kind, length, ref_base, read_base = key
         weighted_depth = weighted_depths[pos - start]
         weighted_support = accumulator["weightedSupport"]
@@ -557,6 +564,7 @@ def alignment_tile(
     reference_fasta: Optional[str] = None,
     guides_only: bool = False,
     opened_alignment: pysam.AlignmentFile | None = None,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> AlignmentTile:
     """Return sparse read differences for an indexed fine-level tile.
 
@@ -564,6 +572,8 @@ def alignment_tile(
     read-to-histogram handoff without serializing individual read rows.
     """
 
+    if check_cancelled is not None:
+        check_cancelled()
     empty: AlignmentTile = {
         "chrom": chrom,
         "level": level,
@@ -594,6 +604,8 @@ def alignment_tile(
     )
     with reader as bam:
         for read in bam.fetch(chrom, start, end):
+            if check_cancelled is not None:
+                check_cancelled()
             if (
                 read.is_unmapped
                 or read.is_secondary
@@ -603,7 +615,12 @@ def alignment_tile(
                 continue
             aligned_reads.append(read)
 
-    fallback_reads = [read for read in aligned_reads if _needs_reference_fallback(read)]
+    fallback_reads = []
+    for read in aligned_reads:
+        if check_cancelled is not None:
+            check_cancelled()
+        if _needs_reference_fallback(read):
+            fallback_reads.append(read)
     reference_start = 0
     reference_sequence = ""
     if fallback_reads:
@@ -620,9 +637,13 @@ def alignment_tile(
             reference_sequence = reference.fetch(
                 chrom, reference_start, reference_end
             ).upper()
+        if check_cancelled is not None:
+            check_cancelled()
 
     reads_with_events: list[tuple[pysam.AlignedSegment, list[AlignmentMismatch]]] = []
     for read in aligned_reads:
+        if check_cancelled is not None:
+            check_cancelled()
         if _edit_distance(read) == 0:
             events: list[AlignmentMismatch] = []
         elif read.has_tag("MD"):
@@ -639,6 +660,7 @@ def alignment_tile(
         reads_with_events,
         start=start,
         end=end,
+        check_cancelled=check_cancelled,
     )
     if guides_only:
         truncated = False
@@ -650,7 +672,14 @@ def alignment_tile(
             displayed = reads_with_events[::stride]
         else:
             displayed = reads_with_events
-        reads = [_read_payload(read, events) for read, events in displayed]
+        reads = []
+        for read, events in displayed:
+            if check_cancelled is not None:
+                check_cancelled()
+            reads.append(_read_payload(read, events))
+
+    if check_cancelled is not None:
+        check_cancelled()
 
     return {
         "chrom": chrom,

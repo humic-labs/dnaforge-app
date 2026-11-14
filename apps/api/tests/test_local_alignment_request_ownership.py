@@ -122,3 +122,87 @@ async def test_disconnected_running_local_read_keeps_capacity_until_thread_finis
         await asyncio.gather(old, *([current] if current else []))
     assert calls == [0, 1]
     assert pool.stats()["active"] == 0
+
+
+@pytest.mark.asyncio
+async def test_disconnected_local_extraction_stops_before_current_worker_starts(monkeypatch):
+    started = threading.Event()
+    acknowledged = threading.Event()
+    release = threading.Event()
+    calls = []
+
+    def worker(*args):
+        tile_index = args[5]
+        calls.append(tile_index)
+        if tile_index == 0:
+            started.set()
+            check_cancelled = args[8] if len(args) > 8 else None
+            try:
+                while not release.wait(0.001):
+                    if check_cancelled is not None:
+                        check_cancelled()
+            except tiles._LocalAlignmentClientClosed:
+                acknowledged.set()
+                raise
+        else:
+            assert acknowledged.is_set()
+        return {"reads": [], "count": 0}
+
+    pool, body = local_route(monkeypatch, worker)
+    old_request, disconnected = request_with_disconnect()
+    current_request, _ = request_with_disconnect()
+    old = asyncio.create_task(tiles.alignment_tile_route(0, 0, body, old_request))
+    current = None
+    try:
+        assert await asyncio.to_thread(started.wait, 1)
+        disconnected.put_nowait({"type": "http.disconnect"})
+        current = asyncio.create_task(
+            tiles.alignment_tile_route(0, 1, body, current_request)
+        )
+        closed = await asyncio.wait_for(asyncio.shield(old), 0.5)
+        assert closed.status_code == 499
+        assert (await current).status_code == 200
+        assert calls == [0, 1]
+        assert pool.stats()["active"] == 0
+        assert pool.stats()["queued"] == 0
+    finally:
+        release.set()
+        await asyncio.gather(old, *([current] if current else []), return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_cancelled_local_owner_waits_for_noncooperative_worker_ack(monkeypatch):
+    started = threading.Event()
+    release = threading.Event()
+    calls = []
+
+    def worker(*args):
+        calls.append(args[5])
+        if args[5] == 0:
+            started.set()
+            if not release.wait(2):
+                raise AssertionError("The test did not release its owned worker")
+        return {"reads": [], "count": 0}
+
+    pool, body = local_route(monkeypatch, worker)
+    old_request, _ = request_with_disconnect()
+    current_request, _ = request_with_disconnect()
+    old = asyncio.create_task(tiles.alignment_tile_route(0, 0, body, old_request))
+    current = None
+    try:
+        assert await asyncio.to_thread(started.wait, 1)
+        old.cancel()
+        current = asyncio.create_task(
+            tiles.alignment_tile_route(0, 1, body, current_request)
+        )
+        await wait_for_queue(pool, 1)
+        assert not old.done()
+        assert pool.stats()["active"] == 1
+        assert calls == [0]
+    finally:
+        release.set()
+        await asyncio.gather(old, *([current] if current else []), return_exceptions=True)
+    with pytest.raises(asyncio.CancelledError):
+        await old
+    assert calls == [0, 1]
+    assert pool.stats()["active"] == 0
