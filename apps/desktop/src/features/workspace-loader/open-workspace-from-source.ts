@@ -18,11 +18,6 @@ import {
 import { normalizePathForBoundary, pathIsAtOrUnder } from '../../shared/path-boundary';
 
 export interface OpenWorkspaceContext {
-  currentLegacyWorkspacePath?: string | null;
-  setLegacyWorkspacePath?: (
-    path: string,
-    options?: { addToRecents?: boolean; isCurrent?: () => boolean }
-  ) => Promise<void>;
   openFile?: (request: {
     filePath: string;
     label: string;
@@ -45,7 +40,6 @@ let nextOpenRequest = 0;
 let latestForegroundRequest = 0;
 let latestCommittedReplace = 0;
 let foregroundPresentation: AbortController | undefined;
-let compatibilityWrite: Promise<void> = Promise.resolve();
 
 export async function openWorkspaceFromSource(
   source: WorkspaceSource,
@@ -218,46 +212,28 @@ export async function openWorkspaceFromSource(
         releaseProjectLifecycle(root.path);
     }
     for (const root of instance.rootFolders) bindProjectLifecycle(root.path, lifecycle);
-    useWorkspaceStore.setState({
-      lastRemovedFolderPath:
-        current.lastRemovedFolderPath &&
-        openedRoots.has(normalizePathForBoundary(current.lastRemovedFolderPath))
-          ? null
-          : current.lastRemovedFolderPath,
+    useWorkspaceStore.getState().commitMountedFolders({
       folders: projectedFolders,
       expandedPaths,
       activeWorkspaceFile: ownsPresentation()
         ? (instance.workspaceFilePath ?? current.activeWorkspaceFile)
         : current.activeWorkspaceFile,
-      error: null,
     });
 
     lifecycle.phase('mounted');
     lifecycle.stage('selection');
-    const compatibilityPath = options.makeCurrent
-      ? (soleWritableProjectRoot(instance.rootFolders)?.path ??
-        selectLegacyCompatibilityPath(projectedFolders))
-      : selectLegacyCompatibilityPath(projectedFolders);
-    if (
-      compatibilityPath &&
-      context.setLegacyWorkspacePath &&
-      (options.replaceCurrent || options.makeCurrent || !context.currentLegacyWorkspacePath)
-    ) {
-      const write = compatibilityWrite.then(async () => {
-        if (!ownsPresentation()) return;
-        await context.setLegacyWorkspacePath?.(compatibilityPath, {
-          addToRecents: false,
-          isCurrent: ownsPresentation,
-        });
-      });
-      compatibilityWrite = write.catch(() => {});
-      try {
-        await write;
-      } catch (error) {
-        lifecycle.phase('selection_failed');
-        console.warn('[workspace-loader] Failed to project legacy workspace path:', error);
-      }
-    }
+    const preferredPath =
+      ownsPresentation() &&
+      (options.replaceCurrent ||
+        options.makeCurrent ||
+        !useWorkspaceStore.getState().workspaceSelection.path)
+        ? ((options.makeCurrent
+            ? soleWritableProjectRoot(instance.rootFolders)?.path
+            : undefined) ??
+          selectDefaultWorkspacePath(projectedFolders) ??
+          undefined)
+        : undefined;
+    await useWorkspaceStore.getState().acceptMountedWorkspaceSelection(preferredPath);
 
     await context.onWorkspaceCommitted?.({ instance, options });
     const primaryRoot = soleReadableProjectRoot(instance.rootFolders)?.path;
@@ -497,7 +473,7 @@ export function projectWorkspaceFolders(
   return folders;
 }
 
-export function selectLegacyCompatibilityPath(folders: WorkspaceFolder[]): string | null {
+export function selectDefaultWorkspacePath(folders: WorkspaceFolder[]): string | null {
   return soleWritableProjectRoot(folders)?.path ?? null;
 }
 

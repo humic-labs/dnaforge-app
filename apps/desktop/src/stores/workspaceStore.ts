@@ -1,3 +1,8 @@
+import {
+  DesktopWorkspaceSelection,
+  type WorkspaceSelectionState,
+  type WorkspaceActivationOptions,
+} from '../features/workspace-session/desktop-selection';
 import { create } from 'zustand';
 import { platform } from '../platform';
 import { findContainingPathBoundary, normalizePathForBoundary } from '../shared/path-boundary';
@@ -44,6 +49,16 @@ export interface PendingImport {
 }
 
 interface WorkspaceState {
+  workspaceSelection: WorkspaceSelectionState;
+  initializeWorkspaceSelection(): Promise<void>;
+  refreshWorkspaceSelection(): Promise<void>;
+  activateWorkspace(path: string, options?: WorkspaceActivationOptions): Promise<void>;
+  clearWorkspaceSelection(): Promise<void>;
+  selectWorkspaceDirectory(): Promise<string | null>;
+  acceptMountedWorkspaceSelection(preferredPath?: string): Promise<void>;
+  commitMountedFolders(
+    patch: Pick<WorkspaceState, 'folders' | 'expandedPaths' | 'activeWorkspaceFile'>
+  ): void;
   folders: WorkspaceFolder[];
   lastRemovedFolderPath: string | null;
   activeWorkspaceFile: string | null;
@@ -154,6 +169,24 @@ export function resolveWorkspaceRevealPath(
 }
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
+  workspaceSelection: { phase: 'uninitialized', path: null, error: null },
+  initializeWorkspaceSelection: () => desktopWorkspaceSelection.restore(),
+  refreshWorkspaceSelection: () => desktopWorkspaceSelection.restore(true),
+  activateWorkspace: (path, options) => desktopWorkspaceSelection.activate(path, options),
+  clearWorkspaceSelection: () => desktopWorkspaceSelection.clear(),
+  selectWorkspaceDirectory: () => desktopWorkspaceSelection.selectDirectory(),
+  acceptMountedWorkspaceSelection: (path) => desktopWorkspaceSelection.acceptMounts(path),
+  commitMountedFolders: (patch) => {
+    desktopWorkspaceSelection.invalidateMountRestore();
+    set({
+      ...patch,
+      isLoading: false,
+      error: null,
+      lastRemovedFolderPath: patch.folders.some((root) => root.path === get().lastRemovedFolderPath)
+        ? null
+        : get().lastRemovedFolderPath,
+    });
+  },
   folders: [],
   fileTreeRefreshToken: 0,
   bumpFileTreeRefresh: () =>
@@ -204,6 +237,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       return;
     }
 
+    desktopWorkspaceSelection.invalidateMountRestore();
     const newFolder: WorkspaceFolder = {
       path,
       name: name || getFolderName(path),
@@ -215,6 +249,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     newExpanded.add(path);
 
     set({
+      isLoading: false,
       folders: [...folders, newFolder],
       lastRemovedFolderPath: lastRemovedFolderPath === path ? null : lastRemovedFolderPath,
       expandedPaths: newExpanded,
@@ -223,6 +258,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   removeFolder: (path: string) => {
+    desktopWorkspaceSelection.invalidateMountRestore();
     const { folders, expandedPaths } = get();
 
     const newExpanded = new Set(expandedPaths);
@@ -233,10 +269,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }
 
     set({
+      isLoading: false,
       folders: folders.filter((f) => f.path !== path),
       lastRemovedFolderPath: path,
       expandedPaths: newExpanded,
     });
+    desktopWorkspaceSelection.removed(path);
   },
 
   renameFolder: (path: string, newName: string) => {
@@ -262,8 +300,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   clearWorkspace: () => {
+    desktopWorkspaceSelection.invalidateMountRestore();
+    void desktopWorkspaceSelection.clear();
     set({
       folders: [],
+      isLoading: false,
       activeWorkspaceFile: null,
       expandedPaths: new Set(),
       collapseOthersRequest: null,
@@ -402,6 +443,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   loadWorkspace: async (filePath: string) => {
+    const ownsRequest = desktopWorkspaceSelection.beginMountRestore();
     if (isBrowserOnly()) {
       console.log('[WorkspaceStore] Browser mode - workspace load simulated');
       set({
@@ -411,6 +453,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         ],
         activeWorkspaceFile: filePath,
       });
+      await desktopWorkspaceSelection.acceptMounts();
       return;
     }
 
@@ -418,6 +461,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
     try {
       const content = await platform().fs.readTextFile(filePath);
+      if (!ownsRequest()) return;
       const workspaceData: WorkspaceFile = JSON.parse(content);
 
       const folders: WorkspaceFolder[] = workspaceData.folders.map((f) => ({
@@ -433,7 +477,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         expandedPaths: new Set(),
         isLoading: false,
       });
+      await desktopWorkspaceSelection.acceptMounts();
     } catch (err) {
+      if (!ownsRequest()) return;
       console.error('[WorkspaceStore] Failed to load workspace:', err);
       set({
         error: err instanceof Error ? err.message : 'Failed to load project',
@@ -447,6 +493,13 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set({ activeWorkspaceFile: filePath });
   },
 }));
+
+const desktopWorkspaceSelection = new DesktopWorkspaceSelection({
+  readState: () => useWorkspaceStore.getState().workspaceSelection,
+  publish: (workspaceSelection) => useWorkspaceStore.setState({ workspaceSelection }),
+  roots: () => useWorkspaceStore.getState().folders,
+  mount: (path) => useWorkspaceStore.getState().addFolder(path),
+});
 
 export function getCurrentWorkspaceScope(): string | null {
   return workspaceScopeFromState(useWorkspaceStore.getState());
