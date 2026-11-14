@@ -11,6 +11,7 @@ export interface PileupRowAssignmentJob {
   records: ReadonlyArray<PileupRecord>;
   maxRows: number;
   rows: Int32Array;
+  rowCursors: number[];
   order: number[] | null;
   totalCount: number;
   processedCount: number;
@@ -112,35 +113,34 @@ export class PersistentRowLayout implements PileupRowLayout {
   private placed = new Map<string, number>();
   private rows: { maxEnd: number; iv: IV[] }[] = [];
 
-  private rowClear(r: number, s: number, e: number): boolean {
+  private rowClear(r: number, s: number, e: number, cursors: number[]): boolean {
     const row = this.rows[r];
     if (s >= row.maxEnd) return true;
-    let lo = 0;
-    let hi = row.iv.length;
-    while (lo < hi) {
-      const m = (lo + hi) >> 1;
-      if (row.iv[m][0] < s) lo = m + 1;
-      else hi = m;
+    let cursor = cursors[r] ?? 0;
+    while (cursor < row.iv.length) {
+      const interval = row.iv[cursor];
+      if (interval[1] > s && this.placed.has(interval[2])) {
+        cursors[r] = cursor;
+        return interval[0] >= e;
+      }
+      cursor++;
     }
-    for (let i = lo; i < row.iv.length && row.iv[i][0] < e; i++) {
-      if (this.placed.has(row.iv[i][2])) return false;
-    }
-    for (let i = lo - 1; i >= 0 && row.iv[i][1] > s; i--) {
-      if (this.placed.has(row.iv[i][2])) return false;
-    }
+    cursors[r] = cursor;
     return true;
   }
 
-  private place(key: string, s: number, e: number, maxRows: number): number {
+  private place(key: string, s: number, e: number, maxRows: number, cursors: number[]): number {
     const existing = this.placed.get(key);
     if (existing != null) return existing;
     let r = 0;
-    for (; r < this.rows.length; r++) if (this.rowClear(r, s, e)) break;
+    for (; r < this.rows.length; r++) if (this.rowClear(r, s, e, cursors)) break;
     if (r >= maxRows) return -1;
     if (r === this.rows.length) this.rows.push({ maxEnd: 0, iv: [] });
     const row = this.rows[r];
-    if (s >= row.maxEnd) row.iv.push([s, e, key]);
-    else {
+    if (s >= row.maxEnd) {
+      cursors[r] = row.iv.length;
+      row.iv.push([s, e, key]);
+    } else {
       let lo = 0;
       let hi = row.iv.length;
       while (lo < hi) {
@@ -149,6 +149,7 @@ export class PersistentRowLayout implements PileupRowLayout {
         else hi = m;
       }
       row.iv.splice(lo, 0, [s, e, key]);
+      cursors[r] = lo;
     }
     if (e > row.maxEnd) row.maxEnd = e;
     this.placed.set(key, r);
@@ -191,6 +192,7 @@ export class PersistentRowLayout implements PileupRowLayout {
       records,
       maxRows,
       rows,
+      rowCursors: [],
       order,
       totalCount: n,
       processedCount: 0,
@@ -210,7 +212,7 @@ export class PersistentRowLayout implements PileupRowLayout {
       const idx = job.order ? job.order[ordinal] : ordinal;
       const rec = job.records[idx];
       const key = pileupReadPlacementKey(rec);
-      const row = this.place(key, rec.start, rec.end, job.maxRows);
+      const row = this.place(key, rec.start, rec.end, job.maxRows, job.rowCursors);
       job.rows[idx] = row;
       if (row < 0) job.hiddenReadCount++;
       else {

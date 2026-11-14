@@ -200,6 +200,55 @@ describe('PersistentRowLayout (JBrowse2-style)', () => {
     expect([...layout.finishAssignment(job).rows]).toEqual([...sync.rows]);
   });
 
+  it('bounds interval searches while filling a dense retained window in coordinate order', () => {
+    const depth = 80;
+    const retained: PileupRecord[] = [];
+    const added: PileupRecord[] = [];
+    for (let block = 0; block < 120; block++) {
+      for (let lane = 0; lane < depth; lane++) {
+        const start = block * 200;
+        retained.push({
+          chrom: 'chr1',
+          start,
+          end: start + 100,
+          readId: `retained-${block}-${lane}`,
+          strand: '+',
+          mapq: 60,
+        });
+        added.push({
+          chrom: 'chr1',
+          start: start + 100,
+          end: start + 200,
+          readId: `added-${block}-${lane}`,
+          strand: '+',
+          mapq: 60,
+        });
+      }
+    }
+    const layout = new PersistentRowLayout();
+    const initial = layout.assign(retained, depth);
+    let intervalReads = 0;
+    const storedRows = Reflect.get(layout, 'rows') as Array<{ iv: unknown[] }>;
+    for (const row of storedRows) {
+      row.iv = new Proxy(row.iv, {
+        get(target, property, receiver) {
+          if (typeof property === 'string' && /^\d+$/.test(property)) intervalReads++;
+          return Reflect.get(target, property, receiver);
+        },
+      });
+    }
+    const job = layout.beginAssignment(added, depth, { coordinateOrdered: true });
+    while (!job.complete) layout.advanceAssignmentWithinBudget(job, 512, 0.75);
+    const result = layout.finishAssignment(job);
+
+    expect(result.hiddenReadCount).toBe(0);
+    expect([...result.rows]).toEqual([...initial.rows]);
+    expect(intervalReads).toBeLessThan(added.length * 200);
+    expect([...layout.assign([...retained].reverse(), depth).rows]).toEqual(
+      [...initial.rows].reverse()
+    );
+  });
+
   it('trusts the coordinate-order receipt without synchronously rescanning the input', () => {
     const reads = makeReads(1_000, 20, 46);
     const guarded = reads.map((record, index) =>
