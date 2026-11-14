@@ -249,6 +249,24 @@ describe('PersistentRowLayout (JBrowse2-style)', () => {
     );
   });
 
+  it('checks dense interval occupancy without hashing every conflicting read identity', () => {
+    const reads = makeReads(80_000, 80, 47);
+    const layout = new PersistentRowLayout();
+    const placements = Reflect.get(layout, 'placed') as Map<string, unknown>;
+    const has = placements.has.bind(placements);
+    let membershipChecks = 0;
+    placements.has = (key) => {
+      membershipChecks++;
+      return has(key);
+    };
+
+    const result = layout.assign(reads, 200);
+
+    expect(result.hiddenReadCount).toBe(0);
+    expect(collisions(reads, rowMapOf(layout, reads, 200))).toBe(0);
+    expect(membershipChecks).toBeLessThan(reads.length * 2);
+  });
+
   it('trusts the coordinate-order receipt without synchronously rescanning the input', () => {
     const reads = makeReads(1_000, 20, 46);
     const guarded = reads.map((record, index) =>

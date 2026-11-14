@@ -26,7 +26,7 @@ export interface PileupRowRetainJob {
   activeRecords: ReadonlyArray<PileupRecord>;
   activeKeys: Set<string>;
   activeIndex: number;
-  placedIterator: IterableIterator<[string, number]> | null;
+  placedIterator: IterableIterator<[string, IV]> | null;
   dirtyRows: Set<number>;
   dirtyRowIndices: number[] | null;
   dirtyRowIndex: number;
@@ -107,10 +107,10 @@ export class PileupReadHitIndex {
   }
 }
 
-type IV = [start: number, end: number, id: string];
+type IV = [start: number, end: number, id: string, active: boolean, row: number];
 
 export class PersistentRowLayout implements PileupRowLayout {
-  private placed = new Map<string, number>();
+  private placed = new Map<string, IV>();
   private rows: { maxEnd: number; iv: IV[] }[] = [];
 
   private rowClear(r: number, s: number, e: number, cursors: number[]): boolean {
@@ -119,7 +119,7 @@ export class PersistentRowLayout implements PileupRowLayout {
     let cursor = cursors[r] ?? 0;
     while (cursor < row.iv.length) {
       const interval = row.iv[cursor];
-      if (interval[1] > s && this.placed.has(interval[2])) {
+      if (interval[1] > s && interval[3]) {
         cursors[r] = cursor;
         return interval[0] >= e;
       }
@@ -131,15 +131,16 @@ export class PersistentRowLayout implements PileupRowLayout {
 
   private place(key: string, s: number, e: number, maxRows: number, cursors: number[]): number {
     const existing = this.placed.get(key);
-    if (existing != null) return existing;
+    if (existing != null) return existing[4];
     let r = 0;
     for (; r < this.rows.length; r++) if (this.rowClear(r, s, e, cursors)) break;
     if (r >= maxRows) return -1;
     if (r === this.rows.length) this.rows.push({ maxEnd: 0, iv: [] });
     const row = this.rows[r];
+    const interval: IV = [s, e, key, true, r];
     if (s >= row.maxEnd) {
       cursors[r] = row.iv.length;
-      row.iv.push([s, e, key]);
+      row.iv.push(interval);
     } else {
       let lo = 0;
       let hi = row.iv.length;
@@ -148,11 +149,11 @@ export class PersistentRowLayout implements PileupRowLayout {
         if (row.iv[m][0] < s) lo = m + 1;
         else hi = m;
       }
-      row.iv.splice(lo, 0, [s, e, key]);
+      row.iv.splice(lo, 0, interval);
       cursors[r] = lo;
     }
     if (e > row.maxEnd) row.maxEnd = e;
-    this.placed.set(key, r);
+    this.placed.set(key, interval);
     return r;
   }
 
@@ -266,10 +267,13 @@ export class PersistentRowLayout implements PileupRowLayout {
 
   clone(): PersistentRowLayout {
     const copy = new PersistentRowLayout();
-    copy.placed = new Map(this.placed);
     copy.rows = this.rows.map((row) => ({
       maxEnd: row.maxEnd,
-      iv: row.iv.slice(),
+      iv: row.iv.map((interval) => {
+        const cloned: IV = [...interval];
+        if (cloned[3]) copy.placed.set(cloned[2], cloned);
+        return cloned;
+      }),
     }));
     return copy;
   }
@@ -317,10 +321,11 @@ export class PersistentRowLayout implements PileupRowLayout {
             job.phase = 'compact-rows';
             break;
           }
-          const [id, row] = next.value;
+          const [id, interval] = next.value;
           if (!job.activeKeys.has(id)) {
+            interval[3] = false;
             this.placed.delete(id);
-            job.dirtyRows.add(row);
+            job.dirtyRows.add(interval[4]);
           }
           remaining--;
           processed++;
@@ -346,7 +351,7 @@ export class PersistentRowLayout implements PileupRowLayout {
   private compactRow(r: number): void {
     const row = this.rows[r];
     if (!row) return;
-    row.iv = row.iv.filter((x) => this.placed.has(x[2]));
+    row.iv = row.iv.filter((x) => x[3]);
     row.maxEnd = row.iv.reduce((m, x) => (x[1] > m ? x[1] : m), 0);
   }
 
