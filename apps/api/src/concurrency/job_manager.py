@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from ..operations import ManagedOperationService
     from ..security.native_document_authority import NativeDocumentAuthority
 
-JobStatus = Literal["queued", "running", "completed", "failed", "canceled"]
+JobStatus = Literal["queued", "running", "stopping", "completed", "failed", "canceled"]
 IdempotencyCacheKey = tuple[str, str]
 
 DEFAULT_MAX_TERMINAL_JOBS = 256
@@ -39,6 +39,7 @@ DEFAULT_MAX_EVENT_SUBSCRIBERS_PER_AGENT = 32
 DEFAULT_EVENT_SUBSCRIBER_QUEUE_SIZE = 8
 RENDERER_INLINE_WAIT_SECONDS = 1.0
 TERMINAL_JOB_STATUSES: tuple[JobStatus, ...] = ("completed", "failed", "canceled")
+ACTIVE_JOB_STATUSES: tuple[JobStatus, ...] = ("queued", "running", "stopping")
 EventQueue = asyncio.Queue[dict[str, Any] | None]
 
 
@@ -63,12 +64,14 @@ class JobRecord:
     observation_id: str | None = None
 
     def snapshot(self) -> dict[str, Any]:
-        data = {
+        data: dict[str, Any] = {
             "jobId": self.id,
             "toolName": self.tool_name,
             "pool": self.pool,
-            "status": self.status,
+            "status": "running" if self.status == "stopping" else self.status,
         }
+        if self.status == "stopping":
+            data["cancelRequested"] = True
         return data
 
 
@@ -115,15 +118,16 @@ class JobEventSubscription:
         self._started = True
         try:
             for event in self._replay_events:
-                yield event
+                if event.get("event") not in TERMINAL_JOB_STATUSES:
+                    yield event
             if self._event_queue is not None:
                 while True:
                     event = await self._event_queue.get()
                     if event is None:
                         return
-                    yield event
                     if event.get("event") in TERMINAL_JOB_STATUSES:
                         break
+                    yield event
             yield {
                 "event": self._job.status,
                 "data": self._manager.snapshot(self._job.id) or self._job.snapshot(),
@@ -177,7 +181,7 @@ class JobManager:
 
         self._prune_expired()
         job = self._jobs.get(job_id)
-        if job is None or job.status not in {"queued", "running"}:
+        if job is None or job.status not in ACTIVE_JOB_STATUSES:
             return None
         return job
 
@@ -241,7 +245,7 @@ class JobManager:
                 and job.agent_identity_id != agent_identity_id
             ):
                 continue
-            if job.status == "running":
+            if job.status in {"running", "stopping"}:
                 counts["active"] += 1
             elif job.status == "queued":
                 counts["queued"] += 1
@@ -400,27 +404,18 @@ class JobManager:
 
     async def cancel(self, job_id: str) -> bool:
         job = self.get(job_id)
-        if job is None:
+        if job is None or not job.cancelable:
             return False
-        if job.status in ("completed", "failed", "canceled"):
+        if job.status in TERMINAL_JOB_STATUSES or job.status == "stopping":
             return True
+        running = job.status == "running"
+        job.status = "stopping"
+        job.updated_at = time.time()
         if job.cancel_event is not None:
             job.cancel_event.set()
-        if job.task is not None:
+        self._push_event(job, "stopping", job.snapshot())
+        if running and job.task is not None:
             job.task.cancel()
-        job.status = "canceled"
-        job.updated_at = time.time()
-        try:
-            get_control_plane_store().complete_agent_action(
-                job.id,
-                error={"code": "CANCELED", "message": "Job canceled"},
-                terminal_expires_at=time.time() + self.ttl_seconds,
-            )
-        finally:
-
-            self._mark_terminal(job, None)
-            self._push_event(job, "canceled", job.snapshot())
-            self._compact_terminal(job)
         return True
 
     def subscribe_events(self, job_id: str) -> JobEventSubscription | None:
@@ -488,6 +483,8 @@ class JobManager:
                     await observe_action(
                         job.id, admitted=True, operation_id=job.observation_id
                     )
+            if cancel_event.is_set():
+                raise asyncio.CancelledError
             job.status = "running"
             job.updated_at = time.time()
             self._push_event(job, "running", {"status": "running"})
@@ -501,19 +498,11 @@ class JobManager:
                 managed_operations=managed_operations,
                 native_document_authority=native_document_authority,
             )
-            if cancel_event.is_set():
-                raise asyncio.CancelledError
-            result = await get_pool_manager().run(
-                spec.pool, _maybe_await(handler(args, context))
-            )
+            async with get_pool_manager().get(spec.pool).slot():
+                result = await _maybe_await(handler(args, context))
 
             if not (isinstance(result, dict) and result.get("ok") is False):
                 validate_tool_value(result, spec.outputs, output=True)
-            if cancel_event.is_set() and not (
-                spec.home == ToolHome.RENDERER.value
-                and job.status in TERMINAL_JOB_STATUSES
-            ):
-                raise asyncio.CancelledError
             persisted_result = (
                 persisted_result_projector(result)
                 if persisted_result_projector is not None
@@ -945,7 +934,7 @@ class JobManager:
         planned = sum(
             1
             for job in self._jobs.values()
-            if job.pool == pool_name and job.status in ("queued", "running")
+            if job.pool == pool_name and job.status in ACTIVE_JOB_STATUSES
         )
         capacity = pool_stats["size"]
         max_queued = pool_stats["max_queued_jobs"]
