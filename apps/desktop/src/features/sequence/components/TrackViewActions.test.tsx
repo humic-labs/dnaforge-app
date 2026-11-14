@@ -13,7 +13,8 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TrackViewActions } from './TrackViewActions';
 import { trackViewFixture } from '../../../shared/track-view-fixture';
-import type { Tab } from '../../canvas/types';
+import type { CanvasTabIdentity, Tab, TabUpdates } from '../../canvas/types';
+import { sequenceDocumentKey } from '../../../shared/managed-sequence-document';
 import { getTrackViewControl } from '../track-view-control';
 import { saveTargetForTab } from '../../canvas/public/artifact-document-lifecycle';
 
@@ -55,6 +56,20 @@ vi.mock('../../canvas/store', () => ({
       focusedPanelId: mocks.focusedPanelId,
       panels: { panel: { id: 'panel', activeTabId: mocks.activeTabId, tabs: [props(true).tab] } },
       updateTab: mocks.updateTab,
+      retargetTab: (
+        panelId: string,
+        tabId: string,
+        identity: CanvasTabIdentity,
+        updates: TabUpdates = {}
+      ) =>
+        mocks.updateTab(panelId, tabId, {
+          entityId:
+            identity.type === 'sequence'
+              ? sequenceDocumentKey(identity.sequenceDocument)
+              : identity.entityId,
+          ...(identity.type === 'sequence' ? { sequenceDocument: identity.sequenceDocument } : {}),
+          ...updates,
+        }),
     }),
   },
 }));
