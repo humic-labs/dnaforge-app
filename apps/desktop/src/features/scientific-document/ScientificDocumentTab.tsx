@@ -567,7 +567,11 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
           }, 1_500);
         return outcome === 'saved';
       } catch (saveError) {
-        reportSaveFailure('[ScientificDocumentTab] Save failed:', { filePath }, saveError);
+        reportSaveFailure(
+          '[ScientificDocumentTab] Save failed:',
+          { filePath, tabId: canvasTabId },
+          saveError
+        );
         if (saveOwner.finish(operation) === 'retired') return false;
         setError(toUserMessage(saveError, 'failure.failed-to-save-document'));
         return false;
@@ -582,6 +586,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
       if (saveInFlight.current?.promise === run) saveInFlight.current = null;
     }
   }, [
+    canvasTabId,
     saveOwner,
     dismissExternalChange,
     dirty,

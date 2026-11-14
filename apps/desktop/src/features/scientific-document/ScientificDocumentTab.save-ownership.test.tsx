@@ -100,18 +100,19 @@ afterEach(cleanup);
 describe('scientific draft save ownership', () => {
   it('records the original write failure and retains the unsaved protocol', async () => {
     const filePath = '/ws/First/.forge/protocol.json';
+    const tabId = 'c4816abe-ece5-4f10-b753-7fb3f5216aa0';
     const failure = new Error('EACCES: protocol write denied');
     h.save.mockRejectedValueOnce(failure);
     const report = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
-      render(<ScientificDocumentTab filePath={filePath} />);
+      render(<ScientificDocumentTab filePath={filePath} canvasTabId={tabId} />);
       const title = await screen.findByLabelText('Document title');
       fireEvent.change(title, { target: { value: 'Unsaved title' } });
       fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
       await waitFor(() =>
         expect(report).toHaveBeenCalledWith(
           '[ScientificDocumentTab] Save failed:',
-          { filePath },
+          { filePath, tabId },
           failure
         )
       );

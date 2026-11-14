@@ -504,7 +504,17 @@ export function TextViewerTab({
       );
       return true;
     } catch (error) {
-      reportSaveFailure('[TextViewerTab] Save failed:', { filePath }, error);
+      reportSaveFailure(
+        '[TextViewerTab] Save failed:',
+        {
+          filePath,
+          tabId: canvasTabId,
+          ...(document instanceof FileDocumentClient
+            ? { documentId: document.snapshot?.documentId }
+            : {}),
+        },
+        error
+      );
       lastSaveError.current = error instanceof Error ? error.message : 'Failed to save file';
       if (mountedRef.current && currentDocumentRef.current === document) {
         useToastStore.getState().addToast(toUserMessage(error, 'failure.failed-to-save-file'), {
@@ -515,7 +525,7 @@ export function TextViewerTab({
     } finally {
       if (mountedRef.current && currentDocumentRef.current === document) setSaving(document.saving);
     }
-  }, [document, filePath, flushDraft, readOnly, updateOriginalContent]);
+  }, [canvasTabId, document, filePath, flushDraft, readOnly, updateOriginalContent]);
 
   const handleDiscard = useCallback(() => {
     if (document.persistedContent === null) return;

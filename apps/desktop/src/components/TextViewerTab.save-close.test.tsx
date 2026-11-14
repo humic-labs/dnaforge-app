@@ -497,7 +497,12 @@ describe('text Save and Close durable revision', () => {
       edit(editA);
       save();
       await finish(0, failure);
-      expect(report).toHaveBeenCalledWith('[TextViewerTab] Save failed:', { filePath }, failure);
+      expect(report).toHaveBeenCalledWith(
+        '[TextViewerTab] Save failed:',
+        { filePath, tabId, documentId: io.records.get(filePath)?.documentId },
+        failure
+      );
+      expect(io.records.get(filePath)?.documentId).toMatch(/^file-document:/);
       expect(editor()).toHaveValue(editA);
       expect(io.files.get(filePath)).toBe(baseline);
       expect(stillOpen()).toBe(true);

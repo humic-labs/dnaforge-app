@@ -529,14 +529,24 @@ export function TabularFileViewerTab({
       setSaveState(document.saving ? 'saving' : document.dirty ? 'idle' : 'saved');
       return true;
     } catch (err) {
-      reportSaveFailure('[TabularFileViewerTab] Save failed:', { filePath }, err);
+      reportSaveFailure(
+        '[TabularFileViewerTab] Save failed:',
+        {
+          filePath,
+          tabId: canvasTabId,
+          ...(document instanceof FileDocumentClient
+            ? { documentId: document.snapshot?.documentId }
+            : {}),
+        },
+        err
+      );
       lastSaveError.current = err instanceof Error ? err.message : 'Failed to save table file';
       if (!mounted.current || currentDocument.current !== document) return false;
       setSaveState('error');
       setSaveError(toUserMessage(err, 'failure.failed-to-save-table-file'));
       return false;
     }
-  }, [delimiterInfo, document, filePath, flushDraft, readOnly, state]);
+  }, [canvasTabId, delimiterInfo, document, filePath, flushDraft, readOnly, state]);
 
   useDocumentLifecycle({
     target: { kind: 'file', filePath },
