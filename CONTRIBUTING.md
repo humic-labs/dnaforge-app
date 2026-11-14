@@ -45,9 +45,13 @@ enable GitHub Actions in your own fork.
 
 To run CI in your fork, open its **Actions** tab and enable workflows if GitHub
 asks. Select **CI**, click **Run workflow**, choose your contribution branch,
-and start the run. That branch must contain the `workflow_dispatch` entry in
-`.github/workflows/ci.yml`; update older branches from current `upstream/main`
-using the signed-off merge below if the manual option is missing. CI also runs
+and start the run. Both your fork's default branch and the selected branch must
+contain the `workflow_dispatch` entry in `.github/workflows/ci.yml`. If the
+manual option is missing, bring your fork's `main` up to date with upstream
+without discarding local commits, then update your contribution branch using
+the signed-off merge below. See GitHub's
+[manual workflow instructions](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
+CI also runs
 on pushes to `main` and pull requests in your fork. Running your own hosted CI
 is optional: local checks are enough to open an upstream pull request.
 
