@@ -600,6 +600,7 @@ interface ContainerState {
   cachedReadRows: Int32Array | null;
   cachedReadHitIndex: PileupReadHitIndex | null;
   readSourceGenerationKey: string;
+  readPresentationOwnerKey: string;
   readRowHeightField: ReadRowHeightField | null;
   collapsedPileupField: CollapsedPileupField | null;
   visibleReadColumnCoverage: number | null;
@@ -1793,6 +1794,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       state.readSourceTruncated ||
       (state.readDisplayMode !== 'reads' && state.readDisplayMode !== 'blend') ||
       state.rowsMeshSourceGenerationKey !== read.sourceGenerationKey ||
+      state.readPresentationOwnerKey !== (read.presentationOwnerKey ?? read.sourceGenerationKey) ||
       !state.rowsMeshRecordsRef ||
       !state.rowsMeshRowsRef ||
       !state.rowsMeshReadHitIndex
@@ -1841,6 +1843,9 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     return {
       trackId: args.trackId,
       sourceGenerationKey: state.rowsMeshSourceGenerationKey,
+      ...(state.readPresentationOwnerKey === state.rowsMeshSourceGenerationKey
+        ? {}
+        : { presentationOwnerKey: state.readPresentationOwnerKey }),
       readId: record.readId,
       chrom: record.chrom,
       referenceStart: alignmentReferenceStart,
@@ -2022,6 +2027,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       readSourceWindowStartBp: null,
       readSourceWindowEndBp: null,
       readSourceGenerationKey: '',
+      readPresentationOwnerKey: '',
       readOccupancy: null,
       cachedReadRows: null,
       cachedReadHitIndex: null,
@@ -2421,12 +2427,26 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     const sourceWindowStartBp = data?.readSource?.windowStartBp ?? null;
     const sourceWindowEndBp = data?.readSource?.windowEndBp ?? null;
     const sourceGenerationKey = data?.readSource?.sourceGenerationKey ?? '';
+    const presentationOwnerKey = data?.readSource?.presentationOwnerKey ?? sourceGenerationKey;
+    if (
+      presentationOwnerKey !== state.readPresentationOwnerKey ||
+      sourceGenerationKey !== state.readSourceGenerationKey ||
+      ((state.rows !== null || state.rowsMeshRecordsRef !== null) &&
+        sourceGenerationKey !== state.rowsMeshSourceGenerationKey)
+    ) {
+      this.clearExactReadRecords(state);
+      state.layout.reset();
+      state.cachedRecordsExactDerived = false;
+      this.disposeDensityRows(state);
+      this.disposeOverflowRows(state);
+    }
+    state.readPresentationOwnerKey = presentationOwnerKey;
     const recordsSampleKey = pileupRecordsKey(
       records,
       sourceWindowStartBp,
       sourceWindowEndBp,
       readSourceTruncated,
-      sourceGenerationKey
+      presentationOwnerKey
     );
     const recordsKey =
       recordsSampleKey === state.cachedRecordsSampleKey &&
@@ -3211,8 +3231,9 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     }
 
     const requestedGenerationKey = data?.readSource?.sourceGenerationKey ?? '';
-    if (requestedGenerationKey !== state.experimentalHybridSourceGenerationKey) {
-      state.experimentalHybridSourceGenerationKey = requestedGenerationKey;
+    const requestedOwnerKey = data?.readSource?.presentationOwnerKey ?? requestedGenerationKey;
+    if (requestedOwnerKey !== state.experimentalHybridSourceGenerationKey) {
+      state.experimentalHybridSourceGenerationKey = requestedOwnerKey;
       state.experimentalHybridCompletedIntervals.length = 0;
     }
     const completedViewport = completedHybridIntervalsCover(

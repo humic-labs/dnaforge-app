@@ -1364,6 +1364,7 @@ export function useIndexedPileupStreaming({
                       sourceGenerationKey: alignedReadSourceGenerationKey(
                         currentDataset?.source?.generation
                       ),
+                      presentationOwnerKey: sourceKey,
                     }
                   : undefined;
               const publishedPayload: PileupTrackData = {
