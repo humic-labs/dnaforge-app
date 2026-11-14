@@ -2,7 +2,7 @@ import { documentLifecycle } from './document-lifecycle';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   settle: vi.fn(),
-  saveSequences: vi.fn(async () => ({ saved: 0, failed: [] })),
+  saveSequences: vi.fn(async () => ({ saved: 0, failed: [] as string[] })),
   tabs: [] as Array<{ id: string; type: string; entityId: string; isDirty: boolean }>,
   dirtyPaths: {} as Record<string, boolean>,
 }));
@@ -56,6 +56,21 @@ beforeEach(() => {
   });
 });
 describe('Save All shares the native dirty owner', () => {
+  it('rejects a failed sequence save even when its batch promise resolves', async () => {
+    mocks.dirtyPaths = { 'legacy-sequence': true };
+    mocks.saveSequences.mockResolvedValueOnce({ saved: 0, failed: ['legacy-sequence'] });
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await expect(saveAllUnsavedWork()).rejects.toThrow('Some documents still have unsaved work.');
+      expect(report).toHaveBeenCalledWith('[Save All] Sequence saves not completed:', {
+        documentIds: ['legacy-sequence'],
+        failedCount: 1,
+      });
+    } finally {
+      report.mockRestore();
+    }
+  });
+
   it('settles closed drafts before legacy saves and skips duplicate native views', async () => {
     mocks.dirtyPaths = { 'native-sequence': true, 'legacy-sequence': true };
     mocks.tabs = [

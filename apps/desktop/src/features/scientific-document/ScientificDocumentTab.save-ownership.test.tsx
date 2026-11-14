@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 
@@ -98,6 +98,32 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('scientific draft save ownership', () => {
+  it('records the original write failure and retains the unsaved protocol', async () => {
+    const filePath = '/ws/First/.forge/protocol.json';
+    const tabId = 'c4816abe-ece5-4f10-b753-7fb3f5216aa0';
+    const failure = new Error('EACCES: protocol write denied');
+    h.save.mockRejectedValueOnce(failure);
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      render(<ScientificDocumentTab filePath={filePath} canvasTabId={tabId} />);
+      const title = await screen.findByLabelText('Document title');
+      fireEvent.change(title, { target: { value: 'Unsaved title' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
+      await waitFor(() =>
+        expect(report).toHaveBeenCalledWith(
+          '[ScientificDocumentTab] Save failed:',
+          { filePath, tabId },
+          failure
+        )
+      );
+      expect(title).toHaveValue('Unsaved title');
+      expect(screen.getByText('Unsaved', { exact: true })).toBeVisible();
+      expect(screen.queryByText('Saved', { exact: true })).toBeNull();
+    } finally {
+      report.mockRestore();
+    }
+  });
+
   it('preserves title and body edits made during saving and saves them against the accepted snapshot', async () => {
     const pending = deferred();
     h.save.mockReturnValueOnce(pending.promise);

@@ -56,7 +56,7 @@ vi.mock('../utils/environment', async (original) => ({
 }));
 vi.mock('../lib/workflow-telemetry', () => ({ observeWorkflowAction: vi.fn() }));
 vi.mock('../features/sequence/save-all-sequences', () => ({
-  saveAllDirtySequences: async () => {},
+  saveAllDirtySequences: async () => ({ saved: 0, failed: [] }),
 }));
 vi.mock('../features/canvas/components/TabPortalTarget', () => ({
   TabPortalTarget: ({ tab }: { tab: Tab }) => (
@@ -487,6 +487,28 @@ describe('text Save and Close durable revision', () => {
     await finish(2);
     expect(io.files.get(filePath)).toBe(editB);
     await waitFor(() => expect(stillOpen()).toBe(false));
+  });
+
+  it('records the original write failure while retaining the unsaved text', async () => {
+    await mount();
+    const failure = new Error('EACCES: text write denied');
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      edit(editA);
+      save();
+      await finish(0, failure);
+      expect(report).toHaveBeenCalledWith(
+        '[TextViewerTab] Save failed:',
+        { filePath, tabId, documentId: io.records.get(filePath)?.documentId },
+        failure
+      );
+      expect(io.records.get(filePath)?.documentId).toMatch(/^file-document:/);
+      expect(editor()).toHaveValue(editA);
+      expect(io.files.get(filePath)).toBe(baseline);
+      expect(stillOpen()).toBe(true);
+    } finally {
+      report.mockRestore();
+    }
   });
 
   it('shares same-revision keyboard, editor, and close requests in one write', async () => {
