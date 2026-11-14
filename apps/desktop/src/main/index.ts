@@ -3,6 +3,7 @@ import './background-launch-cwd';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { getShellReadiness, installShellReadiness } from './ipc/shell-readiness';
 import { installSequenceWheelMetadata } from './sequence-wheel-ownership';
+import { installFrameTabNavigation } from './frame-tab-navigation';
 import { mainIpc, sendRendererIpc } from '../shared/ipc-contract';
 import {
   app,
@@ -572,6 +573,7 @@ async function createWindowOnce(): Promise<BrowserWindow> {
   terminalPrimaryOwnerRef = mainWindow.webContents.id;
   appendBootLog(`main_window_instance_created id=${mainWindow.id}`);
   installSequenceWheelMetadata(mainWindow);
+  installFrameTabNavigation(mainWindow);
   if (
     backgroundWindow ||
     (isTest && process.platform === 'linux') ||
