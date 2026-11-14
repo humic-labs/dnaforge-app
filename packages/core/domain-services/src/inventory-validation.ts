@@ -1,5 +1,7 @@
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_LAYOUT_SCHEMA,
+  INVENTORY_DECIMAL_PATTERN,
   LEGACY_INVENTORY_SCHEMA,
   INVENTORY_VOLUME_UNITS,
   MAX_INVENTORY_BATCH_COMMANDS,
@@ -7,6 +9,7 @@ import {
   type InventoryCommand,
   type InventoryCommandBatch,
   type InventoryLayout,
+  type InventoryLot,
   type InventoryQuantity,
   type InventoryState,
   type InventoryStock,
@@ -19,7 +22,8 @@ import {
   inventoryStoragePositions,
   inventoryWellId,
 } from './inventory-layout';
-import { normalizeInventoryVolume } from './inventory-volume';
+import { compareInventoryVolumes, normalizeInventoryVolume } from './inventory-volume';
+import { unknownInventoryVesselLimits } from './inventory-materials';
 
 export class InventoryValidationError extends TypeError {
   readonly code = 'INVALID_INVENTORY_INPUT';
@@ -82,15 +86,16 @@ function literal<const T extends string>(value: T): Codec<T> {
   };
 }
 
-function text(label: string, maxLength = 512, trim = false): Codec<string> {
+function text(label: string, maxLength = 512, trim = false, pattern = '\\S'): Codec<string> {
   return {
-    schema: { type: 'string', minLength: 1, maxLength, pattern: '\\S' },
+    schema: { type: 'string', minLength: 1, maxLength, pattern },
     parse(value) {
       if (
         typeof value !== 'string' ||
         value.length > maxLength ||
         !value.trim() ||
-        value.includes('\0')
+        value.includes('\0') ||
+        !new RegExp(pattern, 'u').test(value)
       )
         return invalid(`${label} requires non-empty text with at most ${maxLength} characters.`);
       if (trim && value.trim() !== value)
@@ -216,8 +221,8 @@ const layout: Codec<InventoryLayout> = union('Inventory layout', [
   }),
 ]);
 const volumeFields = {
-  value: checked(text('Decimal volume', 128), (value) => {
-    if (!/^(?:0|[1-9]\d*)(?:\.\d+)?$/u.test(value))
+  value: checked(text('Decimal volume', 128, false, INVENTORY_DECIMAL_PATTERN), (value) => {
+    if (!new RegExp(INVENTORY_DECIMAL_PATTERN, 'u').test(value))
       invalid('Volume requires a non-negative decimal string.');
   }),
   unit: union(
@@ -244,7 +249,98 @@ const storedQuantity = checked(quantity, (value) => {
     invalid('Stored inventory quantities require canonical uL decimal values.');
 });
 
+const stockSource = union('Stock provenance', [
+  fields('Unattributed stock root', { kind: literal('unattributed'), rootStockId: id }),
+  fields('Stock lot', { kind: literal('lot'), lotId: id }),
+]);
+const sourceIdentityFields = { stockId: id, materialId: id, source: stockSource };
+const sourceIdentity = fields('Source identity', sourceIdentityFields);
+const contribution = fields('Material contribution', { ...sourceIdentityFields, quantity: volume });
+const receivedOrigin = fields('Received lot origin', {
+  kind: literal('received'),
+  supplier: text('Supplier'),
+  lotNumber: text('Supplier lot number'),
+});
+const preparedOriginInput = fields('Preparation origin', {
+  kind: literal('prepared'),
+  sourceStockIds: array(id, MAX_INVENTORY_BATCH_COMMANDS, 0, true),
+  method: text('Preparation method', 2000),
+});
+const lotOrigin = union('Lot origin', [
+  receivedOrigin,
+  fields('Prepared lot origin', {
+    kind: literal('prepared'),
+    inputs: array(sourceIdentity, MAX_INVENTORY_BATCH_COMMANDS),
+    method: text('Preparation method', 2000),
+  }),
+  fields('Pooled lot origin', {
+    kind: literal('pooled'),
+    inputs: array(contribution, MAX_INVENTORY_BATCH_COMMANDS, 2),
+  }),
+  fields('Diluted lot origin', {
+    kind: literal('diluted'),
+    sample: contribution,
+    diluent: contribution,
+  }),
+]);
+const lotRecord = fields('Lot record', { id, materialId: id, name, origin: lotOrigin });
+const limits = fields('Container limits', { capacity: quantity, deadVolume: quantity });
+const storedLimits = fields('Stored container limits', {
+  capacity: storedQuantity,
+  deadVolume: storedQuantity,
+});
+const withdrawal = fields('Material withdrawal', { stockId: id, quantity: volume });
+const derivedOutput = { lotId: id, stockId: id, vesselId, materialId: id, name, reason };
+
 const commands = {
+  'create-lot': fields('Create lot command', {
+    kind: literal('create-lot'),
+    id,
+    materialId: id,
+    name,
+    origin: union('New lot origin', [receivedOrigin, preparedOriginInput]),
+  }),
+  'receive-lot-stock': fields('Receive lot stock command', {
+    kind: literal('receive-lot-stock'),
+    id,
+    vesselId,
+    lotId: id,
+    quantity,
+    quality,
+  }),
+  'associate-stock-lot': fields('Attribute stock command', {
+    kind: literal('associate-stock-lot'),
+    stockId: id,
+    lotId: id,
+    reason,
+  }),
+  'set-vessel-limits': fields('Container limits command', {
+    kind: literal('set-vessel-limits'),
+    vesselId,
+    limits,
+    reason,
+  }),
+  transfer: fields('Transfer command', {
+    kind: literal('transfer'),
+    sourceStockId: id,
+    quantity: volume,
+    destination: union('Transfer destination', [
+      fields('New destination stock', { kind: literal('new-stock'), stockId: id, vesselId }),
+      fields('Existing destination stock', { kind: literal('existing-stock'), stockId: id }),
+    ]),
+    reason,
+  }),
+  pool: fields('Pool command', {
+    kind: literal('pool'),
+    ...derivedOutput,
+    inputs: array(withdrawal, MAX_INVENTORY_BATCH_COMMANDS, 2),
+  }),
+  dilute: fields('Dilution command', {
+    kind: literal('dilute'),
+    ...derivedOutput,
+    sample: withdrawal,
+    diluent: withdrawal,
+  }),
   'create-storage': fields('Create storage command', {
     kind: literal('create-storage'),
     id,
@@ -342,13 +438,22 @@ export function parseInventoryCommandBatch(value: unknown): InventoryCommandBatc
   return batchCodec.parse(value);
 }
 
-const stockRecord = fields('Stock record', {
+const previousStockRecord = fields('Stock record', {
   id,
   vesselId,
   materialId: id,
   quantity: storedQuantity,
   quality,
 });
+const stockRecord = fields('Stock record', {
+  id,
+  vesselId,
+  materialId: id,
+  quantity: storedQuantity,
+  quality,
+  source: stockSource,
+});
+
 const storageRecord = fields('Storage record', {
   id,
   name,
@@ -356,7 +461,7 @@ const storageRecord = fields('Storage record', {
   placement: storagePlacement,
   lifecycle,
 });
-const vesselRecord = union('Vessel record', [
+const previousVesselRecord = union('Vessel record', [
   fields('Movable vessel record', {
     kind: literal('movable'),
     id,
@@ -372,6 +477,25 @@ const vesselRecord = union('Vessel record', [
     lifecycle,
   }),
 ]);
+const vesselRecord = union('Vessel record', [
+  fields('Movable vessel record', {
+    kind: literal('movable'),
+    id,
+    name,
+    placement: vesselPlacement,
+    lifecycle,
+    limits: storedLimits,
+  }),
+  fields('Permanent well record', {
+    kind: literal('fixed-well'),
+    id: text('Permanent well identifier', 1024, true),
+    name,
+    placement: located,
+    lifecycle,
+    limits: storedLimits,
+  }),
+]);
+
 const legacyStorage = fields('Legacy storage record', {
   id,
   name,
@@ -406,7 +530,7 @@ function validateState(state: InventoryState): void {
     ])
   );
   const allIds = new Set<string>();
-  for (const rows of [state.storage, state.vessels, state.stocks]) {
+  for (const rows of [state.storage, state.vessels, state.stocks, state.lots]) {
     for (const identifier of Object.keys(rows)) {
       if (allIds.has(identifier)) invalid('Inventory record identifiers must be distinct.');
       allIds.add(identifier);
@@ -488,26 +612,112 @@ function validateState(state: InventoryState): void {
       }
     }
   }
+  for (const vessel of Object.values(state.vessels)) {
+    const { capacity, deadVolume } = vessel.limits;
+    if (
+      capacity.kind === 'known' &&
+      deadVolume.kind === 'known' &&
+      compareInventoryVolumes(deadVolume, capacity) > 0
+    )
+      invalid('Dead volume cannot exceed known capacity.');
+  }
+  function validateSource(value: { materialId: string; source: InventoryStock['source'] }): void {
+    if (value.source.kind === 'lot') {
+      const lot = state.lots[value.source.lotId];
+      if (!lot || lot.materialId !== value.materialId)
+        invalid('A stock lot must identify the same material.');
+    } else {
+      const root = state.stocks[value.source.rootStockId];
+      if (!root || root.materialId !== value.materialId)
+        invalid('An unattributed stock requires its original material root.');
+    }
+  }
+  for (const lot of Object.values(state.lots)) {
+    const origin = lot.origin;
+    const inputs =
+      origin.kind === 'received'
+        ? []
+        : origin.kind === 'diluted'
+          ? [origin.sample, origin.diluent]
+          : origin.inputs;
+    if (new Set(inputs.map((input) => input.stockId)).size !== inputs.length)
+      invalid('Lot contributions must identify distinct stocks.');
+    for (const input of inputs) {
+      if (
+        !state.stocks[input.stockId] ||
+        state.stocks[input.stockId].materialId !== input.materialId
+      )
+        invalid('Lot provenance requires an existing source material.');
+      validateSource(input);
+      if ('quantity' in input) {
+        const quantity = volume.parse(input.quantity);
+        const normalized = normalizeInventoryVolume(quantity);
+        if (
+          normalized.value !== quantity.value ||
+          normalized.unit !== quantity.unit ||
+          normalized.value === '0'
+        )
+          invalid('Recorded contributions require positive canonical volumes.');
+      }
+    }
+  }
+  const dependents = new Map<string, string[]>();
+  const dependencies = new Map<string, number>();
+  for (const lot of Object.values(state.lots)) {
+    const origin = lot.origin;
+    const inputs =
+      origin.kind === 'received'
+        ? []
+        : origin.kind === 'diluted'
+          ? [origin.sample, origin.diluent]
+          : origin.inputs;
+    const parents = new Set(
+      inputs.flatMap((input) => (input.source.kind === 'lot' ? [input.source.lotId] : []))
+    );
+    dependencies.set(lot.id, parents.size);
+    for (const parent of parents)
+      dependents.set(parent, [...(dependents.get(parent) ?? []), lot.id]);
+  }
+  const ready = [...dependencies].filter(([, count]) => count === 0).map(([id]) => id);
+  for (let index = 0; index < ready.length; index++) {
+    for (const child of dependents.get(ready[index]) ?? []) {
+      const count = dependencies.get(child)! - 1;
+      dependencies.set(child, count);
+      if (count === 0) ready.push(child);
+    }
+  }
+  if (ready.length !== dependencies.size) invalid('Lot provenance must not contain a cycle.');
   const stockVessels = new Set<string>();
   for (const stock of Object.values(state.stocks)) {
     if (!Object.hasOwn(state.vessels, stock.vesselId))
       invalid('Every stock must reference an existing vessel.');
     if (stockVessels.has(stock.vesselId)) invalid('This version supports one stock per vessel.');
     stockVessels.add(stock.vesselId);
+    validateSource(stock);
+    const capacity = state.vessels[stock.vesselId].limits.capacity;
+    if (
+      stock.quantity.kind === 'known' &&
+      capacity.kind === 'known' &&
+      compareInventoryVolumes(stock.quantity, capacity) > 0
+    )
+      invalid('A recorded quantity cannot exceed known container capacity.');
   }
 }
 
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
+  const current = row.schema === INVENTORY_SCHEMA;
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_LAYOUT_SCHEMA),
       literal(LEGACY_INVENTORY_SCHEMA),
     ]),
     revision,
     storage: { schema: { type: 'object' }, parse: (input: unknown) => input },
     vessels: { schema: { type: 'object' }, parse: (input: unknown) => input },
     stocks: { schema: { type: 'object' }, parse: (input: unknown) => input },
+    ...(current ? { lots: { schema: { type: 'object' }, parse: (input: unknown) => input } } : {}),
   }).parse(row);
   const legacy = shape.schema === LEGACY_INVENTORY_SCHEMA;
   const storage = records(shape.storage, (raw): InventoryStorage => {
@@ -524,14 +734,28 @@ export function parseInventoryState(value: unknown): InventoryState {
   const vessels = records(
     shape.vessels,
     (raw): InventoryVessel =>
-      legacy ? { kind: 'movable', ...legacyVessel.parse(raw) } : vesselRecord.parse(raw)
+      current
+        ? vesselRecord.parse(raw)
+        : {
+            ...(legacy
+              ? { kind: 'movable' as const, ...legacyVessel.parse(raw) }
+              : previousVesselRecord.parse(raw)),
+            limits: unknownInventoryVesselLimits(),
+          }
   );
   const state: InventoryState = {
     schema: INVENTORY_SCHEMA,
     revision: shape.revision,
     storage,
     vessels,
-    stocks: records(shape.stocks, (raw): InventoryStock => stockRecord.parse(raw)),
+    stocks: records(shape.stocks, (raw): InventoryStock => {
+      if (current) return stockRecord.parse(raw);
+      const stock = previousStockRecord.parse(raw);
+      return { ...stock, source: { kind: 'unattributed', rootStockId: stock.id } };
+    }),
+    lots: current
+      ? records(shape.lots, (raw): InventoryLot => lotRecord.parse(raw))
+      : (Object.create(null) as Record<string, InventoryLot>),
   };
   validateState(state);
   return state;

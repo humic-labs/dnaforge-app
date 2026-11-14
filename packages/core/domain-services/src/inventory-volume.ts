@@ -1,4 +1,9 @@
-import type { InventoryQuantity, InventoryVolume, InventoryVolumeUnit } from './inventory-types';
+import {
+  INVENTORY_DECIMAL_PATTERN,
+  type InventoryQuantity,
+  type InventoryVolume,
+  type InventoryVolumeUnit,
+} from './inventory-types';
 
 const UNIT_EXPONENT: Readonly<Record<InventoryVolumeUnit, number>> = {
   L: 6,
@@ -6,7 +11,7 @@ const UNIT_EXPONENT: Readonly<Record<InventoryVolumeUnit, number>> = {
   uL: 0,
   nL: -3,
 };
-const DECIMAL = /^(?:0|[1-9]\d*)(?:\.\d+)?$/u;
+const DECIMAL = new RegExp(INVENTORY_DECIMAL_PATTERN, 'u');
 
 interface DecimalVolume {
   readonly coefficient: bigint;
@@ -72,4 +77,26 @@ export function subtractInventoryVolume(
           unit: 'uL',
         }),
       };
+}
+
+export function compareInventoryVolumes(
+  first: InventoryVolume,
+  second: InventoryVolume
+): -1 | 0 | 1 {
+  const left = decimalVolume(first);
+  const right = decimalVolume(second);
+  const scale = Math.max(left.scale, right.scale);
+  const a = left.coefficient * 10n ** BigInt(scale - left.scale);
+  const b = right.coefficient * 10n ** BigInt(scale - right.scale);
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+export function addInventoryVolumes(values: readonly InventoryVolume[]): InventoryVolume {
+  const parsed = values.map(decimalVolume);
+  const scale = Math.max(0, ...parsed.map((value) => value.scale));
+  const coefficient = parsed.reduce(
+    (sum, value) => sum + value.coefficient * 10n ** BigInt(scale - value.scale),
+    0n
+  );
+  return normalizeInventoryVolume({ value: renderDecimal({ coefficient, scale }), unit: 'uL' });
 }

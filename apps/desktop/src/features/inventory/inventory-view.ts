@@ -1,3 +1,4 @@
+import type { InventoryMaterialDialog } from './InventoryMaterialForm';
 import {
   inventoryStoragePositions,
   inventoryStackItems,
@@ -17,6 +18,7 @@ export type InventorySelection =
 export type InventoryItem = { kind: 'storage' | 'vessel'; id: string };
 
 export type InventoryDialog =
+  | InventoryMaterialDialog
   | { kind: 'none' }
   | { kind: 'location'; parentId?: string }
   | { kind: 'receive'; placement?: InventoryLocatedPlacement; vesselId?: string }
@@ -117,6 +119,20 @@ export function destinationPositions(
 
 export function historyLabel(command: InventoryCommand, state: InventoryState): string {
   switch (command.kind) {
+    case 'create-lot':
+      return `Added batch ${command.name}`;
+    case 'receive-lot-stock':
+      return `Received batch ${state.lots[command.lotId]?.name ?? command.lotId}`;
+    case 'associate-stock-lot':
+      return `Attributed stock to ${state.lots[command.lotId]?.name ?? command.lotId}`;
+    case 'set-vessel-limits':
+      return `Recorded container limits for ${state.vessels[command.vesselId]?.name ?? command.vesselId}`;
+    case 'transfer':
+      return `Transferred ${command.quantity.value} ${command.quantity.unit === 'uL' ? 'µL' : command.quantity.unit}`;
+    case 'pool':
+      return `Pooled stocks into ${command.name}`;
+    case 'dilute':
+      return `Diluted stock into ${command.name}`;
     case 'create-storage':
     case 'create-layout-storage':
       return `Added location ${command.name}`;

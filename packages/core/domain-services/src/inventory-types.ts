@@ -1,4 +1,6 @@
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v2' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v3' as const;
+export const INVENTORY_LAYOUT_SCHEMA = 'dnaforge.inventory.v2' as const;
+export const INVENTORY_DECIMAL_PATTERN = '^(?:0|[1-9]\\d*)(?:\\.\\d+)?$';
 export const LEGACY_INVENTORY_SCHEMA = 'dnaforge.inventory.v1' as const;
 export const INVENTORY_VOLUME_UNITS = ['L', 'mL', 'uL', 'nL'] as const;
 export const MAX_INVENTORY_BATCH_COMMANDS = 256;
@@ -46,17 +48,59 @@ export interface InventoryStorage {
   readonly lifecycle: 'active' | 'disposed';
 }
 
+export interface InventoryVesselLimits {
+  readonly capacity: InventoryQuantity;
+  readonly deadVolume: InventoryQuantity;
+}
+
 export interface InventoryVessel {
   readonly kind: 'movable' | 'fixed-well';
+  readonly limits: InventoryVesselLimits;
   readonly id: string;
   readonly name: string;
   readonly placement: InventoryVesselPlacement;
   readonly lifecycle: 'active' | 'disposed';
 }
 
+export type InventoryStockSource =
+  | { readonly kind: 'unattributed'; readonly rootStockId: string }
+  | { readonly kind: 'lot'; readonly lotId: string };
+
+export interface InventorySourceIdentity {
+  readonly stockId: string;
+  readonly materialId: string;
+  readonly source: InventoryStockSource;
+}
+
+export interface InventoryContribution extends InventorySourceIdentity {
+  readonly quantity: InventoryVolume;
+}
+
+export type InventoryLotOrigin =
+  | { readonly kind: 'received'; readonly supplier: string; readonly lotNumber: string }
+  | {
+      readonly kind: 'prepared';
+      readonly inputs: readonly InventorySourceIdentity[];
+      readonly method: string;
+    }
+  | { readonly kind: 'pooled'; readonly inputs: readonly InventoryContribution[] }
+  | {
+      readonly kind: 'diluted';
+      readonly sample: InventoryContribution;
+      readonly diluent: InventoryContribution;
+    };
+
+export interface InventoryLot {
+  readonly id: string;
+  readonly materialId: string;
+  readonly name: string;
+  readonly origin: InventoryLotOrigin;
+}
+
 export interface InventoryStock {
   readonly id: string;
   readonly vesselId: string;
+  readonly source: InventoryStockSource;
   readonly materialId: string;
   readonly quantity: InventoryQuantity;
   readonly quality: InventoryQuality;
@@ -68,9 +112,81 @@ export interface InventoryState {
   readonly storage: Readonly<Record<string, InventoryStorage>>;
   readonly vessels: Readonly<Record<string, InventoryVessel>>;
   readonly stocks: Readonly<Record<string, InventoryStock>>;
+  readonly lots: Readonly<Record<string, InventoryLot>>;
 }
 
+export interface InventoryWithdrawal {
+  readonly stockId: string;
+  readonly quantity: InventoryVolume;
+}
+
+export type InventoryMaterialCommand =
+  | {
+      readonly kind: 'create-lot';
+      readonly id: string;
+      readonly materialId: string;
+      readonly name: string;
+      readonly origin:
+        | { readonly kind: 'received'; readonly supplier: string; readonly lotNumber: string }
+        | {
+            readonly kind: 'prepared';
+            readonly sourceStockIds: readonly string[];
+            readonly method: string;
+          };
+    }
+  | {
+      readonly kind: 'receive-lot-stock';
+      readonly id: string;
+      readonly vesselId: string;
+      readonly lotId: string;
+      readonly quantity: InventoryQuantity;
+      readonly quality: InventoryQuality;
+    }
+  | {
+      readonly kind: 'associate-stock-lot';
+      readonly stockId: string;
+      readonly lotId: string;
+      readonly reason: string;
+    }
+  | {
+      readonly kind: 'set-vessel-limits';
+      readonly vesselId: string;
+      readonly limits: InventoryVesselLimits;
+      readonly reason: string;
+    }
+  | {
+      readonly kind: 'transfer';
+      readonly sourceStockId: string;
+      readonly quantity: InventoryVolume;
+      readonly destination:
+        | { readonly kind: 'new-stock'; readonly stockId: string; readonly vesselId: string }
+        | { readonly kind: 'existing-stock'; readonly stockId: string };
+      readonly reason: string;
+    }
+  | {
+      readonly kind: 'pool';
+      readonly lotId: string;
+      readonly stockId: string;
+      readonly vesselId: string;
+      readonly materialId: string;
+      readonly name: string;
+      readonly inputs: readonly InventoryWithdrawal[];
+      readonly reason: string;
+    }
+  | {
+      readonly kind: 'dilute';
+      readonly lotId: string;
+      readonly stockId: string;
+      readonly vesselId: string;
+      readonly materialId: string;
+      readonly name: string;
+      readonly sample: InventoryWithdrawal;
+      readonly diluent: InventoryWithdrawal;
+      readonly reason: string;
+    };
+
 export type InventoryCommand =
+  | InventoryMaterialCommand
   | {
       readonly kind: 'create-storage';
       readonly id: string;
@@ -91,7 +207,7 @@ export type InventoryCommand =
       readonly name: string;
       readonly placement: InventoryVesselPlacement;
     }
-  | ({ readonly kind: 'receive-stock' } & InventoryStock)
+  | ({ readonly kind: 'receive-stock' } & Omit<InventoryStock, 'source'>)
   | {
       readonly kind: 'move-storage';
       readonly id: string;
@@ -157,7 +273,11 @@ export type InventoryErrorCode =
   | 'STOCK_QUARANTINED'
   | 'QUANTITY_UNKNOWN'
   | 'INVALID_QUANTITY'
-  | 'INSUFFICIENT_QUANTITY';
+  | 'INSUFFICIENT_QUANTITY'
+  | 'LOT_NOT_FOUND'
+  | 'INCOMPATIBLE_PROVENANCE'
+  | 'CAPACITY_EXCEEDED'
+  | 'DEAD_VOLUME_REQUIRED';
 
 export type InventoryTransition =
   | { readonly ok: true; readonly state: InventoryState }
@@ -174,5 +294,6 @@ export function createInventoryState(): InventoryState {
     storage: Object.create(null) as Record<string, InventoryStorage>,
     vessels: Object.create(null) as Record<string, InventoryVessel>,
     stocks: Object.create(null) as Record<string, InventoryStock>,
+    lots: Object.create(null) as Record<string, InventoryLot>,
   };
 }

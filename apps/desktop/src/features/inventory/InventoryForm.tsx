@@ -1,3 +1,4 @@
+import type { InventoryMaterialDialog } from './InventoryMaterialForm';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   inventoryStoragePositions,
@@ -29,7 +30,7 @@ import {
   type InventoryDialog,
 } from './inventory-view';
 
-type OpenDialog = Exclude<InventoryDialog, { kind: 'none' }>;
+type OpenDialog = Exclude<InventoryDialog, InventoryMaterialDialog | { kind: 'none' }>;
 type Materials =
   | { kind: 'loading' }
   | { kind: 'ready'; page: InventoryMaterialPage }
@@ -97,6 +98,7 @@ export function InventoryForm({
   const [reason, setReason] = useState('');
   const [query, setQuery] = useState('');
   const [materialId, setMaterialId] = useState('');
+  const [lotId, setLotId] = useState('');
   const [containerId, setContainerId] = useState(
     dialog.kind === 'receive' ? (dialog.vesselId ?? '') : ''
   );
@@ -251,17 +253,31 @@ export function InventoryForm({
               item: { kind: 'vessel', id: vesselId },
             });
         }
-        commands.push({
-          kind: 'receive-stock',
-          id: crypto.randomUUID(),
-          vesselId,
-          materialId,
-          quantity:
-            quantityKind === 'unknown'
-              ? { kind: 'unknown' }
-              : { kind: 'known', value: quantity, unit },
-          quality: 'usable',
-        });
+        commands.push(
+          lotId
+            ? {
+                kind: 'receive-lot-stock',
+                id: crypto.randomUUID(),
+                vesselId,
+                lotId,
+                quantity:
+                  quantityKind === 'unknown'
+                    ? { kind: 'unknown' }
+                    : { kind: 'known', value: quantity, unit },
+                quality: 'usable',
+              }
+            : {
+                kind: 'receive-stock',
+                id: crypto.randomUUID(),
+                vesselId,
+                materialId,
+                quantity:
+                  quantityKind === 'unknown'
+                    ? { kind: 'unknown' }
+                    : { kind: 'known', value: quantity, unit },
+                quality: 'usable',
+              }
+        );
       } else if (dialog.kind === 'move') {
         if (storageId && !selectedPosition) throw new Error('Choose an available position.');
         commands.push(...destinationCommands(state, dialog.item, destination()));
@@ -505,6 +521,7 @@ export function InventoryForm({
                       value={query}
                       onChange={(event) => {
                         setMaterialId('');
+                        setLotId('');
                         setQuery(event.target.value);
                       }}
                       placeholder="Search this project’s materials"
@@ -528,6 +545,7 @@ export function InventoryForm({
                       ]}
                       onValueChange={(id) => {
                         setMaterialId(id);
+                        setLotId('');
                         const item =
                           materials.kind === 'ready'
                             ? materials.page.items.find((item) => item.id === id)
@@ -550,6 +568,21 @@ export function InventoryForm({
                       Showing the first matching materials. Refine the search to find another
                       record.
                     </p>
+                  ) : null}
+                  {materialId ? (
+                    <Field label="Lot or preparation">
+                      <Select
+                        ariaLabel="Lot or preparation"
+                        value={lotId}
+                        options={[
+                          { value: '', label: 'Unattributed stock' },
+                          ...Object.values(state.lots)
+                            .filter((lot) => lot.materialId === materialId)
+                            .map((lot) => ({ value: lot.id, label: lot.name })),
+                        ]}
+                        onValueChange={setLotId}
+                      />
+                    </Field>
                   ) : null}
                   {containers.length > 0 ? (
                     <Field label="Container">
@@ -590,7 +623,7 @@ export function InventoryForm({
               {quantityFields}
               {dialog.kind === 'use' && stock ? (
                 <Notice>
-                  Available:{' '}
+                  Recorded quantity:{' '}
                   {stock.quantity.kind === 'known'
                     ? `${stock.quantity.value} ${stock.quantity.unit === 'uL' ? 'µL' : stock.quantity.unit}`
                     : 'Unknown'}

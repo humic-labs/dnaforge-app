@@ -72,6 +72,7 @@ describe('physical inventory command transitions', () => {
     expect(state.revision).toBe(1);
     expect(state.stocks.stock).toEqual({
       id: 'stock',
+      source: { kind: 'unattributed', rootStockId: 'stock' },
       vesselId: 'tube',
       materialId: 'material-1',
       quantity: { kind: 'known', value: '100', unit: 'uL' },

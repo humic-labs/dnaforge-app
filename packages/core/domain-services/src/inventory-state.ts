@@ -3,6 +3,7 @@ import {
   type InventoryCommandBatch,
   type InventoryErrorCode,
   type InventoryLayout,
+  type InventoryLot,
   type InventoryPhysicalItem,
   type InventoryState,
   type InventoryStock,
@@ -17,7 +18,13 @@ import {
   inventoryStoragePositions,
   inventoryWellId,
 } from './inventory-layout';
-import { normalizeInventoryQuantity, subtractInventoryVolume } from './inventory-volume';
+import { normalizeInventoryQuantity } from './inventory-volume';
+import {
+  applyInventoryMaterialCommand,
+  inventoryCapacityFailure,
+  inventoryWithdrawalResult,
+  unknownInventoryVesselLimits,
+} from './inventory-materials';
 import { InventoryValidationError, parseInventoryCommandBatch } from './inventory-validation';
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
@@ -27,6 +34,7 @@ interface Draft {
   storage: Record<string, InventoryStorage>;
   vessels: Record<string, InventoryVessel>;
   stocks: Record<string, InventoryStock>;
+  lots: Record<string, InventoryLot>;
 }
 
 function failure(code: InventoryErrorCode, message: string): Failure {
@@ -34,7 +42,9 @@ function failure(code: InventoryErrorCode, message: string): Failure {
 }
 
 function hasId(state: Draft, id: string): boolean {
-  return [state.storage, state.vessels, state.stocks].some((rows) => Object.hasOwn(rows, id));
+  return [state.storage, state.vessels, state.stocks, state.lots].some((rows) =>
+    Object.hasOwn(rows, id)
+  );
 }
 
 function itemRecord(state: Draft, item: InventoryPhysicalItem): PhysicalRecord | Failure {
@@ -180,6 +190,7 @@ function createStorage(
         return failure('ID_ALREADY_EXISTS', 'A permanent well identifier already exists.');
       state.vessels[id] = {
         kind: 'fixed-well',
+        limits: unknownInventoryVesselLimits(),
         id,
         name: position,
         placement: { kind: 'located', storageId: storage.id, slotId: position },
@@ -199,6 +210,8 @@ function stockVessel(state: Draft, stock: InventoryStock): InventoryVessel | Fai
 }
 
 function applyCommand(state: Draft, command: InventoryCommand): Failure | null {
+  const material = applyInventoryMaterialCommand(state, command);
+  if (material !== undefined) return material;
   switch (command.kind) {
     case 'create-storage':
       return createStorage(state, { ...command, layout: { kind: 'named', slots: command.slots } });
@@ -215,6 +228,7 @@ function applyCommand(state: Draft, command: InventoryCommand): Failure | null {
       if (invalid) return invalid;
       state.vessels[command.id] = {
         kind: 'movable',
+        limits: unknownInventoryVesselLimits(),
         id: command.id,
         name: command.name,
         placement: { ...command.placement },
@@ -231,11 +245,15 @@ function applyCommand(state: Draft, command: InventoryCommand): Failure | null {
         return failure('VESSEL_DISPOSED', 'Stock cannot be received into a disposed vessel.');
       if (Object.values(state.stocks).some((stock) => stock.vesselId === vessel.id))
         return failure('STOCK_ALREADY_PRESENT', 'This version supports one stock per vessel.');
+      const quantity = normalizeInventoryQuantity(command.quantity);
+      const capacity = inventoryCapacityFailure(vessel, quantity);
+      if (capacity) return capacity;
       state.stocks[command.id] = {
         id: command.id,
+        source: { kind: 'unattributed', rootStockId: command.id },
         vesselId: command.vesselId,
         materialId: command.materialId,
-        quantity: normalizeInventoryQuantity(command.quantity),
+        quantity,
         quality: command.quality,
       };
       return null;
@@ -267,25 +285,17 @@ function applyCommand(state: Draft, command: InventoryCommand): Failure | null {
         return null;
       }
       if (command.kind === 'reconcile') {
+        const capacity = inventoryCapacityFailure(vessel, command.quantity);
+        if (capacity) return capacity;
         state.stocks[stock.id] = {
           ...stock,
           quantity: normalizeInventoryQuantity(command.quantity),
         };
         return null;
       }
-      if (stock.quality === 'quarantined')
-        return failure('STOCK_QUARANTINED', 'Quarantined stock must be released before use.');
-      if (stock.quantity.kind === 'unknown')
-        return failure(
-          'QUANTITY_UNKNOWN',
-          'Measure and reconcile an unknown stock quantity before use.'
-        );
-      const result = subtractInventoryVolume(stock.quantity, command.quantity);
-      if (result.kind === 'non-positive')
-        return failure('INVALID_QUANTITY', 'Consumption requires a positive volume.');
-      if (result.kind === 'insufficient')
-        return failure('INSUFFICIENT_QUANTITY', 'The stock does not contain the requested volume.');
-      state.stocks[stock.id] = { ...stock, quantity: { kind: 'known', ...result.quantity } };
+      const result = inventoryWithdrawalResult(stock, vessel, command.quantity);
+      if ('ok' in result) return result;
+      state.stocks[stock.id] = { ...stock, quantity: result.quantity };
       return null;
     }
     case 'dispose-vessel': {
@@ -361,6 +371,8 @@ function applyCommand(state: Draft, command: InventoryCommand): Failure | null {
       placeItem(state, command.item, record, command.destination);
       return null;
     }
+    default:
+      return failure('INVALID_INVENTORY_INPUT', 'Unsupported inventory command.');
   }
 }
 
@@ -386,6 +398,7 @@ export function applyInventoryCommandBatch(
     storage: Object.assign(Object.create(null) as Record<string, InventoryStorage>, state.storage),
     vessels: Object.assign(Object.create(null) as Record<string, InventoryVessel>, state.vessels),
     stocks: Object.assign(Object.create(null) as Record<string, InventoryStock>, state.stocks),
+    lots: Object.assign(Object.create(null) as Record<string, InventoryLot>, state.lots),
   };
   try {
     for (const command of batch.commands) {

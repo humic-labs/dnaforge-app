@@ -46956,6 +46956,566 @@
                         {
                           "type": "object",
                           "additionalProperties": false,
+                          "required": ["kind", "id", "materialId", "name", "origin"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "create-lot" },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "materialId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "origin": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "supplier", "lotNumber"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "received" },
+                                    "supplier": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    },
+                                    "lotNumber": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "sourceStockIds", "method"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "prepared" },
+                                    "sourceStockIds": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 512,
+                                        "pattern": "\\S"
+                                      },
+                                      "minItems": 0,
+                                      "maxItems": 256,
+                                      "uniqueItems": true
+                                    },
+                                    "method": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 2000,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "id", "vesselId", "lotId", "quantity", "quality"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "receive-lot-stock" },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "vesselId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1024,
+                              "pattern": "\\S"
+                            },
+                            "lotId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "quantity": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "unknown" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "value", "unit"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "known" },
+                                    "value": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 128,
+                                      "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                    },
+                                    "unit": {
+                                      "oneOf": [
+                                        { "type": "string", "const": "L" },
+                                        { "type": "string", "const": "mL" },
+                                        { "type": "string", "const": "uL" },
+                                        { "type": "string", "const": "nL" }
+                                      ]
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "quality": {
+                              "oneOf": [
+                                { "type": "string", "const": "usable" },
+                                { "type": "string", "const": "quarantined" }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "stockId", "lotId", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "associate-stock-lot" },
+                            "stockId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "lotId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "vesselId", "limits", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "set-vessel-limits" },
+                            "vesselId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1024,
+                              "pattern": "\\S"
+                            },
+                            "limits": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["capacity", "deadVolume"],
+                              "properties": {
+                                "capacity": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": ["kind"],
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "unknown" }
+                                      }
+                                    },
+                                    {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": ["kind", "value", "unit"],
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "known" },
+                                        "value": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 128,
+                                          "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                        },
+                                        "unit": {
+                                          "oneOf": [
+                                            { "type": "string", "const": "L" },
+                                            { "type": "string", "const": "mL" },
+                                            { "type": "string", "const": "uL" },
+                                            { "type": "string", "const": "nL" }
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  ]
+                                },
+                                "deadVolume": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": ["kind"],
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "unknown" }
+                                      }
+                                    },
+                                    {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": ["kind", "value", "unit"],
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "known" },
+                                        "value": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 128,
+                                          "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                        },
+                                        "unit": {
+                                          "oneOf": [
+                                            { "type": "string", "const": "L" },
+                                            { "type": "string", "const": "mL" },
+                                            { "type": "string", "const": "uL" },
+                                            { "type": "string", "const": "nL" }
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "kind",
+                            "sourceStockId",
+                            "quantity",
+                            "destination",
+                            "reason"
+                          ],
+                          "properties": {
+                            "kind": { "type": "string", "const": "transfer" },
+                            "sourceStockId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "quantity": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["value", "unit"],
+                              "properties": {
+                                "value": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 128,
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                },
+                                "unit": {
+                                  "oneOf": [
+                                    { "type": "string", "const": "L" },
+                                    { "type": "string", "const": "mL" },
+                                    { "type": "string", "const": "uL" },
+                                    { "type": "string", "const": "nL" }
+                                  ]
+                                }
+                              }
+                            },
+                            "destination": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "stockId", "vesselId"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "new-stock" },
+                                    "stockId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    },
+                                    "vesselId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 1024,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "stockId"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "existing-stock" },
+                                    "stockId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "kind",
+                            "lotId",
+                            "stockId",
+                            "vesselId",
+                            "materialId",
+                            "name",
+                            "reason",
+                            "inputs"
+                          ],
+                          "properties": {
+                            "kind": { "type": "string", "const": "pool" },
+                            "lotId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "stockId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "vesselId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1024,
+                              "pattern": "\\S"
+                            },
+                            "materialId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            },
+                            "inputs": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": ["stockId", "quantity"],
+                                "properties": {
+                                  "stockId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 512,
+                                    "pattern": "\\S"
+                                  },
+                                  "quantity": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["value", "unit"],
+                                    "properties": {
+                                      "value": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128,
+                                        "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                      },
+                                      "unit": {
+                                        "oneOf": [
+                                          { "type": "string", "const": "L" },
+                                          { "type": "string", "const": "mL" },
+                                          { "type": "string", "const": "uL" },
+                                          { "type": "string", "const": "nL" }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "minItems": 2,
+                              "maxItems": 256
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "kind",
+                            "lotId",
+                            "stockId",
+                            "vesselId",
+                            "materialId",
+                            "name",
+                            "reason",
+                            "sample",
+                            "diluent"
+                          ],
+                          "properties": {
+                            "kind": { "type": "string", "const": "dilute" },
+                            "lotId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "stockId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "vesselId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1024,
+                              "pattern": "\\S"
+                            },
+                            "materialId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            },
+                            "sample": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["stockId", "quantity"],
+                              "properties": {
+                                "stockId": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 512,
+                                  "pattern": "\\S"
+                                },
+                                "quantity": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["value", "unit"],
+                                  "properties": {
+                                    "value": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 128,
+                                      "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                    },
+                                    "unit": {
+                                      "oneOf": [
+                                        { "type": "string", "const": "L" },
+                                        { "type": "string", "const": "mL" },
+                                        { "type": "string", "const": "uL" },
+                                        { "type": "string", "const": "nL" }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "diluent": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["stockId", "quantity"],
+                              "properties": {
+                                "stockId": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 512,
+                                  "pattern": "\\S"
+                                },
+                                "quantity": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["value", "unit"],
+                                  "properties": {
+                                    "value": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 128,
+                                      "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                    },
+                                    "unit": {
+                                      "oneOf": [
+                                        { "type": "string", "const": "L" },
+                                        { "type": "string", "const": "mL" },
+                                        { "type": "string", "const": "uL" },
+                                        { "type": "string", "const": "nL" }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
                           "required": ["kind", "id", "name", "slots", "placement"],
                           "properties": {
                             "kind": { "type": "string", "const": "create-storage" },
@@ -47234,7 +47794,7 @@
                                       "type": "string",
                                       "minLength": 1,
                                       "maxLength": 128,
-                                      "pattern": "\\S"
+                                      "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
                                     },
                                     "unit": {
                                       "oneOf": [
@@ -47367,7 +47927,7 @@
                                   "type": "string",
                                   "minLength": 1,
                                   "maxLength": 128,
-                                  "pattern": "\\S"
+                                  "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
                                 },
                                 "unit": {
                                   "oneOf": [
@@ -47417,7 +47977,7 @@
                                       "type": "string",
                                       "minLength": 1,
                                       "maxLength": 128,
-                                      "pattern": "\\S"
+                                      "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
                                     },
                                     "unit": {
                                       "oneOf": [

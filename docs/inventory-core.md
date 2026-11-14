@@ -14,8 +14,10 @@ server invokes the same owner that later interfaces can consume.
 The Inventory workspace and authenticated agent tool consume this same owner.
 Layouts distinguish named positions, grids, removable-tube boxes, permanent-well
 plates and ordered stacks. This version supports one stock per vessel and exact
-volume accounting. Team synchronization, preparations, lots, mixtures and
-physical equipment qualification remain separate work.
+volume accounting. Lots, internal preparations, exact-volume transfers, pooling,
+tracked dilution and known container limits use the same command owner. Team
+synchronization, concentration/mixture calculations and physical equipment
+qualification remain separate work.
 
 Permanent wells have stable identity and remain attached to their plate. A plate
 moves with all its wells. Whole-plate disposal retains historical stock and
@@ -24,8 +26,9 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v2. Reading v1 upcasts named layouts and movable vessels
-without writing or incrementing revision. Historical command shapes and request
+Canonical state is v3. Reading v1 upcasts named layouts and movable vessels;
+v1/v2 stocks receive distinct unattributed roots and unknown container limits.
+Reads do not write or increment revision. Historical command shapes and request
 digests stay unchanged for retry and replay.
 
 ## Independent states
@@ -77,6 +80,31 @@ exact arithmetic and canonical `uL` readback. Unsupported units, negative
 values, exponential notation and unrepresentable results are refused.
 Consumption requires a positive amount. Reconciliation, quality changes,
 consumption and disposal require a reason.
+
+## Material identity and conservation
+
+A scientific record identifies a material. A lot identifies one supplier batch
+or internal preparation. Stocks reference a lot or an explicit unattributed
+root. An aliquot inherits that reference. Independent unattributed stocks are
+not compatible merely because both lack batch metadata.
+
+Lots retain immutable supplier/preparation/pool/dilution origins. Contribution
+snapshots retain source stock, material, provenance and exact withdrawn volume.
+Later attribution does not change earlier snapshots or aliquots. Creating a
+preparation records source identity, not a volume withdrawal. Lot provenance is
+acyclic and does not follow a root stock’s mutable current attribution.
+
+Transfer debits equal destination credits. Existing destinations require the
+same scientific identity and provenance. Pool and dilute require an empty
+destination, explicit output material and a new lot. Pool credits equal summed
+contributions; dilution debits both the sample and a tracked diluent. Every
+source debit, output credit and lineage record commits in one revision.
+
+Known capacity limits additions and measured quantities. Known dead volume
+limits withdrawals. Unknown limits remain explicit. Reconciliation records a
+measurement; it does not invent a transfer. Quantities use exact decimal
+arithmetic, including mixed units. Concentration is not inferred from lot names,
+volume ratios or the word “diluent.”
 
 ## Atomic commands and receipts
 

@@ -133,7 +133,7 @@ describe('durable native inventory commands', () => {
     startOwner();
     const scope = { project: 'inventory-project', inventoryId: 'legacy-inventory' };
     const read = owner.inspect(scope)!;
-    expect(read.schema).toBe('dnaforge.inventory.v2');
+    expect(read.schema).toBe('dnaforge.inventory.v3');
     expect(read.storage['legacy-freezer'].layout).toEqual({ kind: 'named', slots: ['A1'] });
     expect(owner.replay(scope)).toEqual({ state: read, acceptedOperations: 1 });
     expect(owner.execute(JSON.parse(requestJson))).toEqual(receipt);
@@ -202,6 +202,87 @@ describe('durable native inventory commands', () => {
       ],
       nextCursor: null,
     });
+  });
+
+  it('preserves exact aliquot accounting and lot attribution through receipt retry and SQLite reopen', () => {
+    createFixture();
+    const commands: InventoryCommand[] = [
+      {
+        kind: 'create-lot',
+        id: 'supplier-lot',
+        name: 'Supplier batch',
+        materialId: 'synthetic-material',
+        origin: { kind: 'received', supplier: 'Supplier', lotNumber: 'A123' },
+      },
+      {
+        kind: 'associate-stock-lot',
+        stockId: 'stock',
+        lotId: 'supplier-lot',
+        reason: 'Verified supplier label',
+      },
+      {
+        kind: 'create-vessel',
+        id: 'aliquot-tube',
+        name: 'Aliquot tube',
+        placement: { kind: 'unplaced' },
+      },
+      {
+        kind: 'transfer',
+        sourceStockId: 'stock',
+        quantity: { value: '20', unit: 'uL' },
+        destination: { kind: 'new-stock', stockId: 'aliquot', vesselId: 'aliquot-tube' },
+        reason: 'Prepare aliquot',
+      },
+    ];
+    const receipt = execute('aliquot', 1, commands);
+    expect(receipt).toMatchObject({ status: 'committed', revision: 2 });
+    expect(execute('aliquot', 1, commands)).toEqual(receipt);
+    const before = owner.inspect(scope())!;
+    expect(before.stocks.stock.quantity).toMatchObject({ value: '80' });
+    expect(before.stocks.aliquot).toMatchObject({
+      quantity: { value: '20' },
+      source: { kind: 'lot', lotId: 'supplier-lot' },
+    });
+    db.close();
+    db = openFileTestDb(dbPath);
+    startOwner();
+    expect(owner.inspect(scope())).toEqual(before);
+    expect(owner.replay(scope())).toEqual({ state: before, acceptedOperations: 2 });
+    expect(execute('aliquot', 1, commands)).toEqual(receipt);
+  });
+
+  it('rejects new lot and mixture material references outside the selected project without partial effects', () => {
+    createFixture();
+    const before = owner.inspect(scope());
+    for (const command of [
+      {
+        kind: 'create-lot',
+        id: 'bad-lot',
+        name: 'Missing material',
+        materialId: 'missing-material',
+        origin: { kind: 'received', supplier: 'Supplier', lotNumber: 'X' },
+      },
+      {
+        kind: 'pool',
+        lotId: 'bad-pool',
+        stockId: 'output',
+        vesselId: 'tube',
+        materialId: 'missing-material',
+        name: 'Pool',
+        inputs: [
+          { stockId: 'stock', quantity: { value: '1', unit: 'uL' } },
+          { stockId: 'other', quantity: { value: '1', unit: 'uL' } },
+        ],
+        reason: 'Pool',
+      },
+    ] satisfies InventoryCommand[]) {
+      expect(execute(`denied-${command.kind}`, 1, [command])).toMatchObject({
+        status: 'rejected',
+        code: 'INVENTORY_MATERIAL_UNAVAILABLE',
+      });
+      expect(owner.inspect(scope())).toEqual(before);
+      expect(owner.operation({ ...scope(), operationId: `denied-${command.kind}` })).toBeNull();
+    }
   });
 
   it('keeps quantities, placement, immutable receipts and replay after reopening', () => {

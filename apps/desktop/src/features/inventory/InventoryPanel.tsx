@@ -21,6 +21,7 @@ import {
   inventoryData,
   inventoryCanEdit,
 } from './inventory-controller';
+import { InventoryMaterialForm, isInventoryMaterialDialog } from './InventoryMaterialForm';
 import { InventoryForm } from './InventoryForm';
 import { InventoryStatusNotice } from './InventoryStatusNotice';
 import {
@@ -100,7 +101,7 @@ export function InventoryPanel() {
         return (
           vessel &&
           stockInSelection(state, vessel, selection) &&
-          `${materialNames[stock.materialId] ?? ''} ${registryIds[stock.materialId] ?? ''} ${stock.id} ${stock.materialId} ${stock.vesselId} ${vessel.name} ${vesselLocation(state, vessel)}`
+          `${materialNames[stock.materialId] ?? ''} ${registryIds[stock.materialId] ?? ''} ${stock.source.kind === 'lot' ? `${stock.source.lotId} ${state.lots[stock.source.lotId].name}` : stock.source.rootStockId} ${stock.id} ${stock.materialId} ${stock.vesselId} ${vessel.name} ${vesselLocation(state, vessel)}`
             .toLowerCase()
             .includes(search.toLowerCase())
         );
@@ -246,6 +247,14 @@ export function InventoryPanel() {
         entry.request.commands.some(
           (command) =>
             ('stockId' in command && command.stockId === selectedStock.id) ||
+            (command.kind === 'transfer' &&
+              (command.sourceStockId === selectedStock.id ||
+                command.destination.stockId === selectedStock.id)) ||
+            (command.kind === 'pool' &&
+              command.inputs.some((input) => input.stockId === selectedStock.id)) ||
+            (command.kind === 'dilute' &&
+              (command.sample.stockId === selectedStock.id ||
+                command.diluent.stockId === selectedStock.id)) ||
             ('vesselId' in command && command.vesselId === selectedStock.vesselId) ||
             ('id' in command && command.id === selectedStock.vesselId) ||
             ('item' in command && command.item.id === selectedStock.vesselId)
@@ -333,6 +342,9 @@ export function InventoryPanel() {
         </Button>
         <Button disabled={!data} onClick={() => setDrawer({ kind: 'history' })}>
           History
+        </Button>
+        <Button disabled={!editable} onClick={() => setDialog({ kind: 'lot' })}>
+          Add lot
         </Button>
         <Button
           disabled={!editable}
@@ -758,6 +770,27 @@ export function InventoryPanel() {
                           </dd>
                         </div>
                         <div>
+                          <dt className="text-xs text-fg-muted">Lot or preparation</dt>
+                          <dd className="mt-1">
+                            {selectedStock.source.kind === 'lot'
+                              ? state!.lots[selectedStock.source.lotId].name
+                              : 'Unattributed'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-fg-muted">Container limits</dt>
+                          <dd className="mt-1">
+                            Capacity{' '}
+                            {selectedVessel.limits.capacity.kind === 'known'
+                              ? `${selectedVessel.limits.capacity.value} µL`
+                              : 'unknown'}{' '}
+                            · Dead volume{' '}
+                            {selectedVessel.limits.deadVolume.kind === 'known'
+                              ? `${selectedVessel.limits.deadVolume.value} µL`
+                              : 'unknown'}
+                          </dd>
+                        </div>
+                        <div>
                           <dt className="text-xs text-fg-muted">Condition</dt>
                           <dd className="mt-1">
                             {selectedVessel.lifecycle === 'disposed'
@@ -771,6 +804,52 @@ export function InventoryPanel() {
                       {selectedVessel.lifecycle === 'active' ? (
                         <>
                           <div className="flex flex-wrap gap-2">
+                            <Button
+                              disabled={!editable}
+                              onClick={() =>
+                                setDialog({ kind: 'attribute', stockId: selectedStock.id })
+                              }
+                            >
+                              Assign lot
+                            </Button>
+                            <Button
+                              disabled={!editable}
+                              onClick={() =>
+                                setDialog({ kind: 'transfer', stockId: selectedStock.id })
+                              }
+                            >
+                              Transfer or aliquot
+                            </Button>
+                            <Button
+                              disabled={!editable}
+                              onClick={() => setDialog({ kind: 'pool', stockId: selectedStock.id })}
+                            >
+                              Pool stocks
+                            </Button>
+                            <Button
+                              disabled={!editable}
+                              onClick={() =>
+                                setDialog({ kind: 'dilute', stockId: selectedStock.id })
+                              }
+                            >
+                              Dilute stock
+                            </Button>
+                            <Button
+                              disabled={!editable}
+                              onClick={() =>
+                                setDialog({ kind: 'limits', vesselId: selectedVessel.id })
+                              }
+                            >
+                              Container limits
+                            </Button>
+                            <Button
+                              disabled={!editable}
+                              onClick={() =>
+                                setDialog({ kind: 'lot', sourceStockId: selectedStock.id })
+                              }
+                            >
+                              Record preparation
+                            </Button>
                             <Button
                               variant="primary"
                               disabled={
@@ -864,16 +943,28 @@ export function InventoryPanel() {
         </div>
       )}
       {dialog.kind !== 'none' && data ? (
-        <InventoryForm
-          key={`${data.project.projectId}:${dialog.kind}:${'stockId' in dialog ? dialog.stockId : 'item' in dialog ? dialog.item.id : ''}`}
-          dialog={dialog}
-          data={data}
-          status={status}
-          controller={controller}
-          client={platform().inventory}
-          onClose={() => setDialog({ kind: 'none' })}
-          onMaterial={(id, name) => setMaterialNames((current) => ({ ...current, [id]: name }))}
-        />
+        isInventoryMaterialDialog(dialog) ? (
+          <InventoryMaterialForm
+            key={`${data.project.projectId}:${dialog.kind}:${'stockId' in dialog ? dialog.stockId : ''}`}
+            dialog={dialog}
+            data={data}
+            status={status}
+            controller={controller}
+            client={platform().inventory}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : (
+          <InventoryForm
+            key={`${data.project.projectId}:${dialog.kind}:${'stockId' in dialog ? dialog.stockId : 'item' in dialog ? dialog.item.id : ''}`}
+            dialog={dialog}
+            data={data}
+            status={status}
+            controller={controller}
+            client={platform().inventory}
+            onClose={() => setDialog({ kind: 'none' })}
+            onMaterial={(id, name) => setMaterialNames((current) => ({ ...current, [id]: name }))}
+          />
+        )
       ) : null}
     </section>
   );

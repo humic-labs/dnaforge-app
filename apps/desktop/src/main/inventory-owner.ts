@@ -297,15 +297,30 @@ export function createNativeInventoryOwner(options: {
             return entry.receipt;
           }
           const previous = row ? stateFromRow(row) : createInventoryState();
+          const lotMaterials = new Map(
+            Object.values(previous.lots).map((lot) => [lot.id, lot.materialId])
+          );
           for (const command of request.commands) {
-            if (command.kind !== 'receive-stock') continue;
+            if (command.kind === 'create-lot') lotMaterials.set(command.id, command.materialId);
+            if (command.kind === 'pool' || command.kind === 'dilute')
+              lotMaterials.set(command.lotId, command.materialId);
+            const materialId =
+              command.kind === 'receive-stock' ||
+              command.kind === 'create-lot' ||
+              command.kind === 'pool' ||
+              command.kind === 'dilute'
+                ? command.materialId
+                : command.kind === 'receive-lot-stock' || command.kind === 'associate-stock-lot'
+                  ? lotMaterials.get(command.lotId)
+                  : undefined;
+            if (!materialId) continue;
             const entity = db
               .prepare(
                 `SELECT id,fields FROM lims_entity
                WHERE id = ? AND tombstone = 0 AND archived_at IS NULL
                AND (${registrySourceEligibilitySql(db)})`
               )
-              .get(command.materialId) as { id: string; fields: string } | undefined;
+              .get(materialId) as { id: string; fields: string } | undefined;
             if (!entity || materialProject(db, entity.id, entity.fields) !== project.id)
               return {
                 status: 'rejected',
