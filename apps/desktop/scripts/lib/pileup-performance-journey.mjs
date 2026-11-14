@@ -814,6 +814,7 @@ export async function runPileupPerformanceJourney({
         Array.isArray(fixture.annotationExpectation.intervals),
       'The saved fixture needs workspaceRoot, bamPath, locusStart and independently known annotationExpectation intervals.'
     );
+    if (supplied) await mountWorkspace(page, fixture.workspaceRoot);
     report.source = {
       ...identity,
       fixtureId: fixture.fixtureId ?? path.basename(fixture.savedViewPath),
