@@ -100,8 +100,6 @@ jobs:
     name: Run the app from source on macOS
     runs-on: macos-latest
     timeout-minutes: 40
-    env:
-      PILEUP_PERFORMANCE_DIAGNOSTICS: '1'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
