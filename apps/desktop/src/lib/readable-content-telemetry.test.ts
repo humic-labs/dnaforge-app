@@ -108,7 +108,7 @@ describe('readable content telemetry', () => {
       register();
       useCanvasStore
         .getState()
-        .updateTab('main', 'tab-1', { entityId: '/workspace/replacement.txt' });
+        .retargetTab('main', 'tab-1', { type: 'text', entityId: '/workspace/replacement.txt' });
       expect(commitCanvasReadPlacement(operation)).toBe(false);
       expect(workflowMocks.observeWorkflowAction).not.toHaveBeenCalled();
     });

@@ -215,7 +215,8 @@ describe('resolved reference presentation', () => {
         async (document: SequenceDocumentRef, options: OpenSequenceDocumentOptions) => {
           const existing = useCanvasStore.getState().findTab('sequence', TEST_SEQUENCE_DOCUMENT_ID);
           if (existing) {
-            useCanvasStore.getState().updateTab(existing.panelId, existing.tabId, {
+            useCanvasStore.getState().retargetTab(existing.panelId, existing.tabId, {
+              type: 'sequence',
               sequenceDocument: document,
             });
             return existing.tabId;
