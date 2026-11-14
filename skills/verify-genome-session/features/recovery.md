@@ -4,6 +4,7 @@
 
 - Recover a lost native update by polling the current session.
 - Reject stale session/generation updates after replacement or closure.
+- Admit restored assembly products before the live-session owner opens native data.
 - Fail initial preparation, preserve a presented viewport on later capability
   failure.
 
@@ -19,6 +20,11 @@ Freeze and run existing IndexedGenomeTab.loading.test.tsx recovery and
 presentation cases before refactoring. Force event loss and completion order at
 the native port. Then run the native open/reopen recipe; original video proves
 actual continuity.
+
+The restored hosted-tab case exercises the admission order through the native
+port. `assembly-annotation-product-index-ipc-surface.test.ts` checks that the
+component supplies admission through `prepareSource`, the session owner awaits
+it before native opening, and neither boundary starts annotation compilation.
 
 ## Gotchas
 
