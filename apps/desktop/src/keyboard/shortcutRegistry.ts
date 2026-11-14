@@ -458,7 +458,7 @@ export const APP_SHORTCUTS: readonly AppShortcut[] = [
     availability: 'active',
     chords: [['ctrl', 'tab']],
     commandIds: [COMMAND_IDS.canvasNextTab],
-    when: 'Focused pane, outside editors and blocking dialogs or menus',
+    when: 'Focused pane, including editors, outside blocking dialogs or menus',
   },
   {
     id: 'tabs.previous',
@@ -468,7 +468,7 @@ export const APP_SHORTCUTS: readonly AppShortcut[] = [
     availability: 'active',
     chords: [['ctrl', 'shift', 'tab']],
     commandIds: [COMMAND_IDS.canvasPreviousTab],
-    when: 'Focused pane, outside editors and blocking dialogs or menus',
+    when: 'Focused pane, including editors, outside blocking dialogs or menus',
   },
   {
     id: 'tabs.close',

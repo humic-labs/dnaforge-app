@@ -440,13 +440,20 @@ function PanelBody({ panel, isFocused }: PanelProps) {
         : matchesAppShortcut(e, 'tabs.previous')
           ? COMMAND_IDS.canvasPreviousTab
           : null;
-      if (!command || keyboardCommandBelongsToTarget(e, command)) return;
-      const result = dispatchCommand(command, { source: 'keyboard', event: e });
-      if (result.handled) e.preventDefault();
+      if (!command || keyboardCommandBelongsToTarget(e, command, true)) return;
+      const result = dispatchCommand(command, {
+        source: 'keyboard',
+        event: e,
+        bypassBlockingScopes: [COMMAND_SCOPES.inputEditor],
+      });
+      if (result.handled) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     };
 
-    presentationEvents.add(window, 'keydown', handler);
-    return () => presentationEvents.remove(window, 'keydown', handler);
+    presentationEvents.add(window, 'keydown', handler, true);
+    return () => presentationEvents.remove(window, 'keydown', handler, true);
   }, [dispatchCommand, isFocused, panel.id, presentationEvents]);
 
   useEffect(() => {
