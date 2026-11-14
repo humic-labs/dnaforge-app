@@ -47,12 +47,28 @@ describe('commandRegistry', () => {
     terminal.append(button);
     const event = keydown({ key: 'Tab', ctrlKey: true });
     button.dispatchEvent(event);
-    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasNextTab)).toBe(true);
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasNextTab)).toBe(false);
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasPreviousTab)).toBe(false);
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.fileSave)).toBe(true);
     expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.terminalNew)).toBe(false);
     terminal.removeAttribute('data-terminal-surface');
     terminal.dataset.commandShortcutOwner = COMMAND_IDS.canvasNextTab;
     expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasNextTab)).toBe(true);
     expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasPreviousTab)).toBe(false);
+  });
+
+  it('lets workspace tab cycling through terminal input while preserving other shell keys', () => {
+    const terminal = document.createElement('div');
+    terminal.dataset.terminalSurface = '';
+    const input = document.createElement('textarea');
+    terminal.append(input);
+    const event = keydown({ key: 'Tab', ctrlKey: true });
+    input.dispatchEvent(event);
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasNextTab)).toBe(false);
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasPreviousTab)).toBe(false);
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.fileSave)).toBe(true);
+    terminal.removeAttribute('data-terminal-surface');
+    expect(keyboardCommandBelongsToTarget(event, COMMAND_IDS.canvasNextTab)).toBe(true);
   });
 
   it('preserves the established editable exception for bindings that explicitly allow input', () => {

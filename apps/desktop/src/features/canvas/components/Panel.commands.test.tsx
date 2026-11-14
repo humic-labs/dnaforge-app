@@ -224,16 +224,37 @@ describe('CV2 real Panel/store/command authority', () => {
     }
   );
 
-  it('leaves editable, terminal, explicitly owned and already-consumed events with their targets', async () => {
+  it('cycles workspace tabs from terminal input and controls without changing their contents', () => {
+    render(
+      <Scene>
+        <div data-terminal-surface>
+          <button>Terminal control</button>
+          <textarea aria-label="Terminal input" defaultValue="unfinished command" />
+        </div>
+      </Scene>
+    );
+    for (const target of [
+      screen.getByRole('button', { name: 'Terminal control' }),
+      screen.getByRole('textbox', { name: 'Terminal input' }),
+    ]) {
+      expect(press(target).defaultPrevented).toBe(true);
+      expect(active('main')).toBe(left[0]);
+      expect(press(target, true).defaultPrevented).toBe(true);
+      expect(active('main')).toBe(left[2]);
+      expect(active(rightPanel)).toBe(right[1]);
+    }
+    expect(screen.getByRole('textbox', { name: 'Terminal input' })).toHaveValue(
+      'unfinished command'
+    );
+  });
+
+  it('leaves editable, explicitly owned and already-consumed events with their targets', async () => {
     const widget = vi.fn();
     render(
       <Scene>
         <input aria-label="editor" defaultValue="retained" />
         <div contentEditable suppressContentEditableWarning data-testid="editable">
           retained
-        </div>
-        <div data-terminal-surface>
-          <button>Terminal control</button>
         </div>
         <div data-command-shortcut-owner={COMMAND_IDS.canvasNextTab}>
           <button onKeyDown={widget}>Owned control</button>
@@ -245,7 +266,6 @@ describe('CV2 real Panel/store/command authority', () => {
     for (const target of [
       screen.getByLabelText('editor'),
       screen.getByTestId('editable'),
-      screen.getByRole('button', { name: 'Terminal control' }),
       screen.getByRole('button', { name: 'Owned control' }),
     ]) {
       expect(press(target).defaultPrevented).toBe(false);
