@@ -248,7 +248,7 @@ async function closeView(page) {
 
 async function savedFileRow(page, fixture, savedViewPath) {
   const tree = page.getByRole('tree', { name: 'Project files' });
-  if (!(await tree.isVisible())) await page.getByTestId('files-button').click();
+  await page.keyboard.press('ControlOrMeta+Shift+E');
   await tree.waitFor({ state: 'visible' });
   const root = tree.locator(`[data-entry-path=${JSON.stringify(fixture.workspaceRoot)}]`);
   if ((await root.count()) && (await root.getAttribute('aria-expanded')) === 'false')
@@ -256,6 +256,21 @@ async function savedFileRow(page, fixture, savedViewPath) {
   const row = tree.locator(`[data-entry-path=${JSON.stringify(savedViewPath)}]`);
   await row.waitFor({ state: 'visible', timeout: 15_000 });
   return row;
+}
+
+async function waitForViewer(page) {
+  await poll(
+    async () => {
+      const errors = await page
+        .locator('[data-testid="sequence-error"]:visible, [data-testid="toast-error"]:visible')
+        .allTextContents();
+      if (errors.length) throw new Error(`The saved view failed to open: ${errors.join('\n')}`);
+      return viewer(page).isVisible();
+    },
+    Boolean,
+    15_000,
+    'The saved file did not open an indexed genome viewer'
+  );
 }
 
 async function admitPortable(page, fixture) {
@@ -424,21 +439,47 @@ export async function runPileupPerformanceJourney({
     source: {},
     phases: [],
     resourceSamples: [],
+    diagnostics: { consoleMessages: [], httpFailures: [], requestFailures: [] },
   };
   const errors = [];
   const onError = (error) => errors.push(`Renderer: ${error.message}`);
   const onRequestFailure = (request) => {
+    report.diagnostics.requestFailures.push({
+      atEpochMs: Date.now(),
+      url: request.url(),
+      method: request.method(),
+      error: request.failure()?.errorText,
+    });
     if (/\/tiles\//u.test(request.url()) && request.failure()?.errorText !== 'net::ERR_ABORTED') {
       errors.push(`${request.url()}: ${request.failure()?.errorText}`);
     }
   };
   const onResponse = (response) => {
-    if (/\/tiles\//u.test(response.url()) && response.status() >= 400)
-      errors.push(`${response.url()}: HTTP ${response.status()}`);
+    if (response.status() >= 400) {
+      report.diagnostics.httpFailures.push({
+        atEpochMs: Date.now(),
+        url: response.url(),
+        method: response.request().method(),
+        status: response.status(),
+      });
+      if (/\/tiles\//u.test(response.url()))
+        errors.push(`${response.url()}: HTTP ${response.status()}`);
+    }
+  };
+  const onConsole = (message) => {
+    if (['error', 'warning'].includes(message.type())) {
+      report.diagnostics.consoleMessages.push({
+        atEpochMs: Date.now(),
+        type: message.type(),
+        text: message.text(),
+        location: message.location(),
+      });
+    }
   };
   page.on('pageerror', onError);
   page.on('requestfailed', onRequestFailure);
   page.on('response', onResponse);
+  page.on('console', onConsole);
   const cdp = await page.context().newCDPSession(page);
   let activeTrace = null;
   const previousDebug = await page.evaluate(() => {
@@ -508,7 +549,7 @@ export async function runPileupPerformanceJourney({
       const firstError = errors.length;
       const started = performance.now();
       await row.dblclick();
-      await viewer(page).waitFor({ state: 'visible', timeout: 15_000 });
+      await waitForViewer(page);
       lane = await poll(
         () => activeLane(page, fixture.bamPath),
         Boolean,
@@ -603,6 +644,10 @@ export async function runPileupPerformanceJourney({
     return report;
   } catch (error) {
     report.failures = [...errors, String(error?.stack ?? error)];
+    report.diagnostics.failureUiText = await page
+      .locator('body')
+      .innerText()
+      .catch(() => null);
     await flush();
     await page.screenshot({ path: path.join(output, 'journey-failure.png') }).catch(() => {});
     throw error;
@@ -627,6 +672,7 @@ export async function runPileupPerformanceJourney({
     page.off('pageerror', onError);
     page.off('requestfailed', onRequestFailure);
     page.off('response', onResponse);
+    page.off('console', onConsole);
     await cdp.detach();
   }
 }
