@@ -200,7 +200,7 @@ describe('shortcut registry', () => {
   });
 });
 
-it('declares pane cycling once and leaves its registered command dispatch in bubble phase', () => {
+it('declares pane cycling once for the shared focused-pane handler', () => {
   const next = APP_SHORTCUTS.find((row) => row.id === 'tabs.next');
   const previous = APP_SHORTCUTS.find((row) => row.id === 'tabs.previous');
   expect(next).toMatchObject({
