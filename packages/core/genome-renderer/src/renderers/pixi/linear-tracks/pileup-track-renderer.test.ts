@@ -2591,6 +2591,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         .mockImplementation(function (this: PersistentRowLayout, job, maxRecords, budgetMs) {
           return advance.call(this, job, maxRecords, budgetMs, () => job.processedCount * 0.001);
         });
+      let meshClock: ReturnType<typeof vi.spyOn> | undefined;
       try {
         r.paint(readPaint(c, records));
         expect(assignment.mock.lastCall?.slice(1)).toEqual([4_096, 2]);
@@ -2602,9 +2603,15 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
           r.paint(readPaint(c, records));
           d = r.getDiagnostics(c)!;
         }
+        let clock = 0;
+        meshClock = vi.spyOn(performance, 'now').mockImplementation(() => (clock += 0.01));
         r.paint(readPaint(c, records));
-        expect(r.getDiagnostics(c)?.rowsMeshBuildRecordsLastFrame).toBe(4_096);
+        const mesh = r.getDiagnostics(c)!;
+        expect(mesh.rowsMeshBuildRecordsLastFrame).toBeGreaterThan(0);
+        expect(mesh.rowsMeshBuildRecordsLastFrame).toBeLessThan(records.length);
+        expect(mesh.rowsMeshBuildInProgress).toBe(true);
       } finally {
+        meshClock?.mockRestore();
         assignment.mockRestore();
         r.unmount(c);
       }
@@ -2641,6 +2648,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         type: 'pileup-test',
         rowHeightPx: 4,
         maxRows: 4000,
+        readRowsAssignRecordsPerFrame: 512,
       });
       const c = r.mount(mountArgs);
       const frontRecords = makeWindowReads(100, 2_048);
@@ -3092,6 +3100,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
     it('bounds a normal 80× tile-engine read window across frames under the default budget', async () => {
       const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
       const DEFAULT_URGENT_CHUNK_CAP = 4_096;
+      const DEFAULT_URGENT_MESH_CHUNK_CAP = 8_192;
       const DEFAULT_RETAIN_CHUNK_CAP = 512;
       const r = new PixiPileupTrackRenderer({
         type: 'pileup-test',
@@ -3118,7 +3127,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         r.paint(readPaint(c, records));
         d = r.getDiagnostics(c)!;
         expect(d.rowsAssignmentBuildRecordsLastFrame).toBeLessThanOrEqual(DEFAULT_URGENT_CHUNK_CAP);
-        expect(d.rowsMeshBuildRecordsLastFrame).toBeLessThanOrEqual(DEFAULT_URGENT_CHUNK_CAP);
+        expect(d.rowsMeshBuildRecordsLastFrame).toBeLessThanOrEqual(DEFAULT_URGENT_MESH_CHUNK_CAP);
         expect(d.rowsRetainBuildRecordsLastFrame).toBeLessThanOrEqual(DEFAULT_RETAIN_CHUNK_CAP);
         frames++;
       }

@@ -235,6 +235,8 @@ const READ_ROWS_URGENT_ASSIGN_WORK_BUDGET_MS = 2;
 const READ_ROWS_RETAIN_RECORDS_PER_FRAME = 512;
 const READ_ROWS_BUILD_RECORDS_PER_FRAME = 512;
 const READ_ROWS_URGENT_RECORDS_PER_FRAME = 4_096;
+const READ_ROWS_URGENT_BUILD_RECORDS_PER_FRAME = 8_192;
+const READ_ROWS_URGENT_BUILD_OPTIONS = { workBudgetMs: 2 } as const;
 const READ_ROWS_HANDOFF_RUNWAY_VIEWPORTS = 1;
 const READ_ROW_HEIGHT_FIELD_TARGET_BIN_BP = 16;
 const READ_ROW_HEIGHT_FIELD_MAX_BINS = 32768;
@@ -1627,6 +1629,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
   private rowsMeshBufferAllocCount = 0;
   private readonly readRowsBuildRecordsPerFrame: number;
   private readonly readRowsUrgentBuildRecordsPerFrame: number;
+  private readonly readRowsUrgentBuildOptions: typeof READ_ROWS_URGENT_BUILD_OPTIONS | undefined;
   private readonly readRowsAssignRecordsPerFrame: number;
   private readonly readRowsUrgentAssignRecordsPerFrame: number;
   private readonly readRowsAssignWorkBudgetMs: number;
@@ -1653,8 +1656,10 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     );
     this.readRowsUrgentBuildRecordsPerFrame =
       options.readRowsBuildRecordsPerFrame == null
-        ? Math.max(this.readRowsBuildRecordsPerFrame, READ_ROWS_URGENT_RECORDS_PER_FRAME)
+        ? Math.max(this.readRowsBuildRecordsPerFrame, READ_ROWS_URGENT_BUILD_RECORDS_PER_FRAME)
         : this.readRowsBuildRecordsPerFrame;
+    this.readRowsUrgentBuildOptions =
+      options.readRowsBuildRecordsPerFrame == null ? READ_ROWS_URGENT_BUILD_OPTIONS : undefined;
     this.readRowsAssignRecordsPerFrame = Math.max(
       1,
       options.readRowsAssignRecordsPerFrame ?? READ_ROWS_ASSIGN_RECORDS_PER_FRAME
@@ -4308,7 +4313,8 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         active.job,
         urgentReadRowsBuild
           ? this.readRowsUrgentBuildRecordsPerFrame
-          : this.readRowsBuildRecordsPerFrame
+          : this.readRowsBuildRecordsPerFrame,
+        urgentReadRowsBuild ? this.readRowsUrgentBuildOptions : undefined
       );
       if (isAnnotationRecordVerticesJobComplete(active.job)) {
         const v = finishAnnotationRecordVerticesJob(active.job);

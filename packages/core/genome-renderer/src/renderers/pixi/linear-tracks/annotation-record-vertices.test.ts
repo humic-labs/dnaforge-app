@@ -9,6 +9,7 @@ import {
   createAnnotationRecordVerticesPool,
   ensureVerticesPoolCapacity,
   finishAnnotationRecordVerticesJob,
+  isAnnotationRecordVerticesJobComplete,
   type BuildVerticesConfig,
 } from './annotation-record-vertices';
 
@@ -20,6 +21,79 @@ const defaultConfig: BuildVerticesConfig = {
   laneHeightPx: 8,
   defaultColor: 0x3b82f6,
 };
+
+describe('time-bounded vertex preparation', () => {
+  it('yields under expensive records and resumes to byte-identical complete geometry', () => {
+    const records = Array.from({ length: 64 }, (_, index) =>
+      rec(index * 200, index * 200 + 150, index % 2 ? 0xabcdef : undefined)
+    );
+    const lanes = Int32Array.from(records, (_, index) => (index % 7 === 0 ? -1 : index % 4));
+    let clock = 0;
+    const config: BuildVerticesConfig = {
+      ...defaultConfig,
+      includeRecord: (_record, index) => {
+        clock += 0.5;
+        return index % 5 !== 0;
+      },
+      colorForRecord: (_record, index) => (index % 3 ? 0x123456 : 0xff8800),
+    };
+    const expected = buildAnnotationRecordVertices(records, lanes, config);
+    const job = beginAnnotationRecordVerticesJob(records, lanes, config);
+    clock = 0;
+    const options = { workBudgetMs: 2, now: () => clock };
+    const consumed = advanceAnnotationRecordVerticesJob(job, records.length, options);
+
+    expect(consumed).toBeGreaterThan(0);
+    expect(consumed).toBeLessThan(records.length);
+    expect(clock).toBeLessThanOrEqual(4);
+    expect(job.recordCursor).toBe(consumed);
+    expect(isAnnotationRecordVerticesJobComplete(job)).toBe(false);
+    let iterations = 0;
+    while (!isAnnotationRecordVerticesJobComplete(job) && iterations++ < records.length) {
+      expect(advanceAnnotationRecordVerticesJob(job, records.length, options)).toBeGreaterThan(0);
+    }
+
+    expect(isAnnotationRecordVerticesJobComplete(job)).toBe(true);
+    expect(finishAnnotationRecordVerticesJob(job)).toEqual(expected);
+  });
+
+  it('yields even when every expensive record is filtered out', () => {
+    const records = Array.from({ length: 64 }, (_, index) => rec(index * 200, index * 200 + 150));
+    let clock = 0;
+    const job = beginAnnotationRecordVerticesJob(records, new Int32Array(records.length), {
+      ...defaultConfig,
+      includeRecord: () => {
+        clock += 0.5;
+        return false;
+      },
+    });
+    clock = 0;
+    const consumed = advanceAnnotationRecordVerticesJob(job, records.length, {
+      workBudgetMs: 2,
+      now: () => clock,
+    });
+
+    expect(consumed).toBeGreaterThan(0);
+    expect(consumed).toBeLessThan(records.length);
+    expect(clock).toBeLessThanOrEqual(4);
+    expect(job.recordCursor).toBe(consumed);
+    expect(job.vertexCursor).toBe(0);
+    expect(isAnnotationRecordVerticesJobComplete(job)).toBe(false);
+  });
+
+  it('keeps an explicit record cap while time remains', () => {
+    const records = Array.from({ length: 8 }, (_, index) => rec(index * 200, index * 200 + 150));
+    const job = beginAnnotationRecordVerticesJob(
+      records,
+      new Int32Array(records.length),
+      defaultConfig
+    );
+
+    expect(advanceAnnotationRecordVerticesJob(job, 2, { workBudgetMs: 2, now: () => 0 })).toBe(2);
+    expect(job.recordCursor).toBe(2);
+    expect(isAnnotationRecordVerticesJobComplete(job)).toBe(false);
+  });
+});
 
 describe('buildAnnotationRecordVertices', () => {
   it('returns empty buffers for empty input', () => {
