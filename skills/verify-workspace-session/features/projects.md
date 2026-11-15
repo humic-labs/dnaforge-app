@@ -26,3 +26,16 @@ Mounted roots are different from the inspected file snapshot. The current
 project preference is a selection within the mounted collection. Pinned
 development roots must not become the writable selection. Native registration,
 materialization and preference writes can finish at different times.
+
+The selection owner uses `apps/desktop/src/db/connection.ts`.
+`apps/desktop/src/db/index.ts` re-exports that same database object for existing
+consumers. Importing the workspace store must not initialize reconciliation or
+document services. When changing this boundary, run the unchanged consumer pins:
+
+```sh
+pnpm --dir apps/desktop exec vitest run src/features/workspace-loader/workspace-telemetry.test.ts src/services/workspace-artifact-open.test.ts
+```
+
+These checks supplement the native workflow. For a connection-only relocation,
+record whether its initializer and workspace command bodies are unchanged, and
+link the existing native receipts without claiming a new native run.

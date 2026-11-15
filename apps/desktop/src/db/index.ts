@@ -1,5 +1,3 @@
-import { drizzle } from 'drizzle-orm/sqlite-proxy';
-import * as schema from './schema';
 import { platform } from '../platform';
 import type {
   ChatTurnIpcStatus,
@@ -7,39 +5,13 @@ import type {
   CommitChatTurnTerminalStateResult,
   CreateChatTurnWithUserMessageRequest,
 } from '../shared/chat-turn-ipc';
-import type { SqliteIpcRow, SqliteIpcValue } from '../shared/sqlite-ipc';
 import {
   isAgentAttachmentManifest,
   type AgentAttachmentManifest,
 } from '../shared/agent-attachments';
 import type { AgentStructuredOutputReceipt } from '../shared/agent-structured-output';
 export { getSetting, setSetting } from './settings';
-import { waitForWorkspaceSyncDatabase } from './workspace-sync-retry';
-
-export const db = drizzle<typeof schema>(
-  async (sql, params, method) => {
-    const sqlite = platform().db;
-
-    try {
-      return await waitForWorkspaceSyncDatabase(async () => {
-        if (method === 'run') {
-          const result = await sqlite.execute(sql, params as SqliteIpcValue[]);
-          return { rows: [], ...result };
-        } else {
-          const rows = await sqlite.select<SqliteIpcRow[]>(sql, params as SqliteIpcValue[]);
-          const results = rows.map((row) => Object.values(row));
-          return { rows: method === 'all' ? results : results[0] };
-        }
-      });
-    } catch (error) {
-      console.error('Database error:', error);
-      console.error('Query:', sql);
-      console.error('Params:', params);
-      throw error;
-    }
-  },
-  { schema, logger: import.meta.env.DEV }
-);
+export { db } from './connection';
 
 export function getConnection(): ReturnType<typeof platform>['db'] {
   return platform().db;
