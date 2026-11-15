@@ -11,7 +11,9 @@ function rowLabel(index: number): string {
   return label;
 }
 
-export function inventoryStoragePositions(storage: InventoryStorage): readonly string[] {
+export function inventoryStoragePositions(
+  storage: Pick<InventoryStorage, 'layout'>
+): readonly string[] {
   const layout = storage.layout;
   if (layout.kind === 'named') return [...layout.slots];
   if (layout.kind === 'stack')

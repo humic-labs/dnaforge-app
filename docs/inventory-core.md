@@ -17,8 +17,8 @@ plates and ordered stacks. This version supports one stock per vessel and exact
 volume accounting. Lots, internal preparations, exact-volume transfers, pooling,
 tracked dilution, exact concentration facts and known container limits use the
 same command owner. Quantity and item reservations and physical custody use that
-owner too. Team synchronization and equipment qualification remain separate
-work.
+owner too. Physical types, equipment recipes, installed arrangements and scoped
+fit evidence use that owner. Team synchronization remains separate work.
 
 Permanent wells have stable identity and remain attached to their plate. A plate
 moves with all its wells. Whole-plate disposal retains historical stock and
@@ -27,12 +27,14 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v6. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v7. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
 Reads do not write or increment revision. Historical command shapes and request
-digests stay unchanged for retry and replay.
+digests stay unchanged for retry and replay. v1–v6 snapshots gain empty type,
+recipe and fit-evidence maps and explicit untyped item configurations. The
+original request and receipt bytes remain unchanged.
 
 ## Independent states
 
@@ -184,6 +186,77 @@ restores available custody at the accepted destination; immutable history
 retains prior responsibility. Reads and old-state upcasts never create custody
 events.
 
+## Physical definitions, installed arrangements and fit
+
+A physical type describes a storage item or container, its scalar metadata
+fields, default dimensions and structural rules. A recipe names an exact set of
+type versions and their parent positions. Scientific material schemas remain
+separate; both editors share the scalar field-definition and value primitives.
+Creating equipment creates only the explicitly selected components and their
+required ancestors. It does not create boxes, vessels or stock merely because a
+brochure advertises a capacity.
+
+```mermaid
+flowchart LR
+    Draft[Unpublished editor draft] -->|publish| V1[Immutable type or recipe version 1]
+    V1 -->|publish successor| V2[Immutable version 2]
+    V1 -->|instantiate| A[Installed item pinned to version 1]
+    V1 -->|instantiate| B[Another item pinned to version 1]
+    A -->|explicit instance edit| A2[Customized installed arrangement]
+```
+
+Publishing a successor never mutates existing versions or installed items.
+Stable type-family IDs define allowed children; concrete version IDs pin
+physical defaults and evidence. Instance-only layout edits preserve the type and
+other instances. Removing occupied positions or changing occupied permanent well
+geometry is refused. Unavailable positions retain their identities and recorded
+contents but refuse new placements. Catalog retirement and replacement are not
+yet modeled as business states.
+
+Geometry distinguishes external bounds from usable internal bounds. Decimal
+dimensions normalize exactly to millimeters. Unknown axes stay unknown. Known
+mounting orientations record upright quarter turns; an unknown orientation uses
+conservative possible-axis bounds. A smaller bounding box alone never
+establishes compatibility with an insert, opening or mounting system.
+
+```mermaid
+flowchart LR
+    Structure[Kind, allowed children, layout and unavailable positions] --> Logical[Logical placement result]
+    Dimensions[Versioned geometry, instance measurements and orientation] --> Fit[Derived fit result]
+    Evidence[Exact type-version or installed-configuration evidence] --> Fit
+    Logical --> Placement[Placement decision and explanation]
+    Fit --> Placement
+```
+
+Fit is a projection, not a persisted state machine. It is compatible,
+incompatible or unknown, with reasons and applicable evidence IDs. Explicit
+structural incompatibility or known physical incompatibility refuses placement.
+Unknown fit permits custom equipment and remains visibly unknown. A source URL
+alone does not establish fit. Manufacturer assertions and local observations
+retain their basis, exact subjects, position scope and orientations. Metadata
+corrections preserve a physical configuration revision; relevant physical edits
+invalidate evidence scoped to the previous configuration. Recording truthful
+dimensions retains current occupancy and exposes a newly discovered misfit.
+
+The curated catalog currently contains 20 configurations from two freezer
+families. Each retains manufacturer sources, page locators and publication
+scope. Rack alternatives and heterogeneous upper/bottom components remain
+distinct. Conflicting exterior-depth sources leave that axis unknown. Catalog
+reads are local and do not seed an inventory. Installation atomically publishes
+missing definitions and selected components; an existing definition ID with
+different content is refused rather than overwritten.
+
+| Command                        | Effect                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------- |
+| `define-physical-type`         | Publish an immutable physical type version.                               |
+| `define-equipment-recipe`      | Publish an immutable arrangement pinned to exact type versions.           |
+| `instantiate-physical-type`    | Create one named installed item with explicit metadata and destination.   |
+| `instantiate-equipment-recipe` | Create the selected ancestor-closed components without stock.             |
+| `configure-item`               | Explicitly set type pin, metadata, orientation and unavailable positions. |
+| `reconfigure-storage`          | Change an instance layout while retaining valid identities and occupancy. |
+| `record-item-geometry`         | Record reason-bearing dimensions and their optional source.               |
+| `record-fit-evidence`          | Record scoped manufacturer support or local observation.                  |
+
 ## Material identity and conservation
 
 A scientific record identifies a material. A lot identifies one supplier batch
@@ -278,14 +351,16 @@ require a separate reconciliation protocol.
 All routes use the existing loopback endpoint, native credential, owner instance
 identity and registered project scope:
 
-| Command               | Request and result                                                                          |
-| --------------------- | ------------------------------------------------------------------------------------------- |
-| `inventory.projects`  | List admitted projects and stable default inventory identities.                             |
-| `inventory.materials` | Search eligible scientific material in one admitted project.                                |
-| `inventory.execute`   | Apply an expected-revision command batch; return a committed receipt or explicit rejection. |
-| `inventory.inspect`   | Read current state for an admitted project and inventory.                                   |
-| `inventory.operation` | Read one original committed operation receipt.                                              |
-| `inventory.history`   | Read accepted operations with revision pagination.                                          |
+| Command                  | Request and result                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------- |
+| `inventory.projects`     | List admitted projects and stable default inventory identities.                             |
+| `inventory.materials`    | Search eligible scientific material in one admitted project.                                |
+| `inventory.catalog`      | Read detached equipment definitions for an admitted project without inventory creation.     |
+| `inventory.availability` | Derive quantities, reservations, custody and physical compatibility from current facts.     |
+| `inventory.execute`      | Apply an expected-revision command batch; return a committed receipt or explicit rejection. |
+| `inventory.inspect`      | Read current state for an admitted project and inventory.                                   |
+| `inventory.operation`    | Read one original committed operation receipt.                                              |
+| `inventory.history`      | Read accepted operations with revision pagination.                                          |
 
 Agent requests recheck their exact current grant through the shared native
 authorizer before read/write dispatch. Forwarded capability claims alone do not

@@ -4,7 +4,11 @@ import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type Database from 'better-sqlite3';
-import type { InventoryCommand, InventoryState } from '@waypoint/domain-services';
+import type {
+  InventoryCommand,
+  InventoryGeometry,
+  InventoryState,
+} from '@waypoint/domain-services';
 import { expect, it, vi } from 'vitest';
 import type {
   InventoryExecuteRequest,
@@ -37,6 +41,7 @@ type InventoryNativeCommand =
   | 'inventory.operation'
   | 'inventory.history'
   | 'inventory.projects'
+  | 'inventory.catalog'
   | 'inventory.materials';
 type Server = Awaited<ReturnType<typeof startNativeDocumentCommandServer>>;
 interface NativeResponse<T> {
@@ -238,6 +243,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       'inventory.operation': 'receipt',
       'inventory.history': 'entries',
       'inventory.projects': 'projects',
+      'inventory.catalog': 'entries',
       'inventory.materials': 'page',
     };
     expect(wrapped).toHaveProperty(keys[command]);
@@ -347,6 +353,32 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     );
     expect(projects).toHaveLength(1);
     expect(projects[0].defaultInventoryId).toBe(`inventory:${projects[0].projectId}`);
+    const catalog = await success<readonly { id: string; recipeVersionId: string }[]>(
+      'discover built-in equipment recipes without installing inventory',
+      'inventory.catalog',
+      { project: scope.project }
+    );
+    expect(catalog.length).toBeGreaterThan(0);
+    expect(new Set(catalog.map((entry) => entry.id)).size).toBe(catalog.length);
+    expect(catalog.every((entry) => typeof entry.recipeVersionId === 'string')).toBe(true);
+    expect(owner.inspect(scope)).toBeNull();
+    expect(owner.history(scope)).toEqual([]);
+    expect(db.prepare('SELECT COUNT(*) AS count FROM inventory_state').get()).toEqual({ count: 0 });
+    expect(db.prepare('SELECT COUNT(*) AS count FROM inventory_journal').get()).toEqual({
+      count: 0,
+    });
+    expect(
+      await call(
+        'refuse catalog discovery outside captured project roots',
+        'inventory.catalog',
+        { project: scope.project },
+        { roots: [otherPath] }
+      )
+    ).toMatchObject({
+      status: 200,
+      body: { ok: true, result: { ok: false, code: 'PROJECT_ACCESS_DENIED', stateChanged: false } },
+    });
+    evidence.catalogRead = catalog;
     expect(
       await success('inspect absent inventory dictionary', 'inventory.inspect', {
         ...scope,
@@ -511,6 +543,18 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       expect(owner.history(scope)).toEqual(historyBeforeGrantRefusals);
     }
     expect(grantReads).toHaveLength(6);
+    expect(
+      await success(
+        'current read-only grant discovers the same equipment catalog',
+        'inventory.catalog',
+        { project: scope.project },
+        {
+          agent: { identityId: 'synthetic-read-only', capabilities: ['read-workspace'] },
+        }
+      )
+    ).toEqual(catalog);
+    expect(owner.inspect(scope)).toEqual(stateBeforeGrantRefusals);
+    expect(owner.history(scope)).toEqual(historyBeforeGrantRefusals);
     const receipt = await loseAcknowledgement(consume);
     expect(receipt).toMatchObject({
       status: 'committed',
@@ -1465,6 +1509,380 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       plateAvailability,
     };
 
+    const physicalScope = { ...scope, inventoryId: 'inventory-physical-configuration' };
+    async function physicalAttempt(label: string, commands: readonly InventoryCommand[]) {
+      const before = await success<InventoryState | null>(
+        `${label}: inspect current physical configuration`,
+        'inventory.inspect',
+        physicalScope
+      );
+      const request: InventoryExecuteRequest = {
+        ...physicalScope,
+        operationId: `physical:${label}`,
+        expectedRevision: before?.revision ?? 0,
+        commands,
+      };
+      const result = await success<NativeInventoryExecution>(label, 'inventory.execute', request);
+      return { before, request, result };
+    }
+    async function physicalCommit(label: string, commands: readonly InventoryCommand[]) {
+      const attempt = await physicalAttempt(label, commands);
+      expect(attempt.result, label).toMatchObject({ status: 'committed' });
+      return attempt;
+    }
+    async function physicalRefusal(label: string, commands: readonly InventoryCommand[]) {
+      const attempt = await physicalAttempt(label, commands);
+      expect(attempt.result, label).toMatchObject({ status: 'rejected' });
+      expect(owner.inspect(physicalScope), label).toEqual(attempt.before);
+      expect(owner.history(physicalScope), label).toHaveLength(attempt.before?.revision ?? 0);
+      expect(
+        owner.operation({ ...physicalScope, operationId: attempt.request.operationId })
+      ).toBeNull();
+      return attempt;
+    }
+    const unknownGeometry: InventoryGeometry = {
+      external: {
+        width: { kind: 'unknown' },
+        height: { kind: 'unknown' },
+        depth: { kind: 'unknown' },
+      },
+      usable: {
+        width: { kind: 'unknown' },
+        height: { kind: 'unknown' },
+        depth: { kind: 'unknown' },
+      },
+    };
+    const tubeDefinition = {
+      kind: 'vessel' as const,
+      mobility: 'movable' as const,
+      limits: {
+        capacity: { kind: 'known' as const, value: '200', unit: 'uL' as const },
+        deadVolume: { kind: 'known' as const, value: '0', unit: 'uL' as const },
+      },
+      geometry: unknownGeometry,
+    };
+    await physicalCommit('publish immutable physical types and a pinned recipe', [
+      {
+        kind: 'define-physical-type',
+        id: 'physical-tube-v1',
+        typeId: 'physical-tube',
+        name: 'Synthetic tube',
+        description: 'Synthetic movable tube type',
+        sources: [],
+        fields: [
+          { key: 'assetTag', label: 'Asset tag', type: 'text', required: true, maxLength: 30 },
+        ],
+        definition: tubeDefinition,
+      },
+      {
+        kind: 'define-physical-type',
+        id: 'physical-rack-v1',
+        typeId: 'physical-rack',
+        name: 'Synthetic rack',
+        description: 'Synthetic rack with explicit allowed child type',
+        sources: [],
+        fields: [
+          { key: 'assetTag', label: 'Asset tag', type: 'text', required: true },
+          { key: 'notes', label: 'Notes', type: 'long_text' },
+          { key: 'active', label: 'Active', type: 'boolean', required: true },
+          { key: 'color', label: 'Color', type: 'enum', enumOptions: ['red', 'blue'] },
+          { key: 'collected', label: 'Collected', type: 'date' },
+          { key: 'score', label: 'Score', type: 'number', minValue: 0, maxValue: 10 },
+          { key: 'tags', label: 'Tags', type: 'string_array' },
+        ],
+        definition: {
+          kind: 'storage',
+          layout: { kind: 'named', slots: ['A1', 'A2'] },
+          childPolicy: { kind: 'types', typeIds: ['physical-tube'] },
+          positionRules: {},
+          geometry: unknownGeometry,
+        },
+      },
+      {
+        kind: 'define-equipment-recipe',
+        id: 'physical-recipe-v1',
+        recipeId: 'physical-recipe',
+        name: 'Synthetic rack and tube',
+        description: 'Synthetic recipe pins explicit physical type versions',
+        model: {
+          manufacturer: 'Synthetic fixture',
+          model: 'R2',
+          partNumber: null,
+          region: null,
+          revision: 'A',
+        },
+        components: [
+          {
+            key: 'rack',
+            parentKey: null,
+            positionId: null,
+            name: 'Rack',
+            typeVersionId: 'physical-rack-v1',
+          },
+          {
+            key: 'tube',
+            parentKey: 'rack',
+            positionId: 'A1',
+            name: 'Tube',
+            typeVersionId: 'physical-tube-v1',
+          },
+        ],
+        sources: [
+          {
+            url: 'https://example.invalid/synthetic-rack-specification',
+            title: 'Synthetic acceptance fixture; no manufacturer claim',
+            locator: 'Fixture rack and tube arrangement',
+            readAt: '2026-11-14',
+            documentRevision: 'synthetic-A',
+            sha256: null,
+          },
+        ],
+      },
+    ]);
+    const instantiateRequest: InventoryExecuteRequest = {
+      ...physicalScope,
+      operationId: 'physical:lost-recipe-installation',
+      expectedRevision: owner.inspect(physicalScope)!.revision,
+      commands: [
+        {
+          kind: 'instantiate-equipment-recipe',
+          recipeVersionId: 'physical-recipe-v1',
+          name: 'Installed synthetic rack',
+          components: [
+            {
+              key: 'rack',
+              id: 'installed-rack',
+              metadata: {
+                assetTag: 'rack-01',
+                notes: 'Keep dry',
+                active: false,
+                color: 'blue',
+                collected: '15/01/2024',
+                score: 0,
+                tags: [],
+              },
+            },
+            { key: 'tube', id: 'installed-tube', metadata: { assetTag: 'tube-01' } },
+          ],
+          destination: { kind: 'root' },
+          reason: 'Record actual synthetic installation',
+        },
+      ],
+    };
+    await physicalRefusal('refuse incomplete recipe atomically before creating any component', [
+      {
+        kind: 'instantiate-equipment-recipe',
+        recipeVersionId: 'physical-recipe-v1',
+        name: 'Incomplete installation',
+        components: [
+          {
+            key: 'rack',
+            id: 'incomplete-rack',
+            metadata: { assetTag: 'not-created', active: false },
+          },
+          { key: 'tube', id: 'incomplete-tube', metadata: {} },
+        ],
+        destination: { kind: 'root' },
+        reason: 'Missing child metadata must refuse the whole installation',
+      },
+    ]);
+    const installationReceipt = await loseAcknowledgement(
+      instantiateRequest,
+      'physicalLostAcknowledgement'
+    );
+    expect(installationReceipt.context?.principal).toEqual(nativeHolder);
+    const installed = owner.inspect(physicalScope)!;
+    expect(installed.storage['installed-rack'].configuration).toMatchObject({
+      typeVersionId: 'physical-rack-v1',
+      metadata: { assetTag: 'rack-01', active: false, score: 0, tags: [] },
+      recipe: { recipeVersionId: 'physical-recipe-v1', componentKey: 'rack' },
+    });
+    expect(installed.vessels['installed-tube']).toMatchObject({
+      placement: { kind: 'located', storageId: 'installed-rack', slotId: 'A1' },
+      limits: tubeDefinition.limits,
+      configuration: {
+        typeVersionId: 'physical-tube-v1',
+        recipe: { recipeVersionId: 'physical-recipe-v1', componentKey: 'tube' },
+      },
+    });
+    const installedAvailability = await success<InventoryAvailabilitySnapshot>(
+      'read physical projection with honest unknown fit',
+      'inventory.availability',
+      physicalScope
+    );
+    expect(installedAvailability.physical.items['installed-tube']).toMatchObject({
+      metadataIssues: { malformed: [], incomplete: [] },
+      placementCompatibility: { logical: 'allowed', fit: 'unknown' },
+    });
+    await physicalRefusal('refuse missing required physical metadata without a receipt', [
+      {
+        kind: 'configure-item',
+        item: { kind: 'vessel', id: 'installed-tube' },
+        typeVersionId: 'physical-tube-v1',
+        metadata: {},
+        orientation: { kind: 'unknown' },
+        unavailablePositions: {},
+        reason: 'Incomplete metadata must not replace current installation',
+      },
+    ]);
+    await physicalRefusal('refuse undeclared physical metadata without a receipt', [
+      {
+        kind: 'configure-item',
+        item: { kind: 'vessel', id: 'installed-tube' },
+        typeVersionId: 'physical-tube-v1',
+        metadata: { assetTag: 'tube-01', undeclared: 'not permitted' },
+        orientation: { kind: 'unknown' },
+        unavailablePositions: {},
+        reason: 'Unknown fields must not enter installed metadata',
+      },
+    ]);
+    await physicalCommit('publish next tube version without rewriting installed pins', [
+      {
+        kind: 'define-physical-type',
+        id: 'physical-tube-v2',
+        typeId: 'physical-tube',
+        name: 'Synthetic larger tube',
+        description: 'A new version, separate from installed v1',
+        sources: [],
+        fields: [{ key: 'assetTag', label: 'Asset tag', type: 'text', required: true }],
+        definition: {
+          ...tubeDefinition,
+          limits: {
+            ...tubeDefinition.limits,
+            capacity: { kind: 'known', value: '500', unit: 'uL' },
+          },
+        },
+      },
+    ]);
+    expect(owner.inspect(physicalScope)!.vessels['installed-tube']).toEqual(
+      installed.vessels['installed-tube']
+    );
+    await physicalCommit('instantiate a newer allowed child type version and scientific stock', [
+      {
+        kind: 'instantiate-physical-type',
+        typeVersionId: 'physical-tube-v2',
+        id: 'second-installed-tube',
+        name: 'Second tube',
+        destination: { kind: 'located', storageId: 'installed-rack', slotId: 'A2' },
+        metadata: { assetTag: 'tube-02' },
+        reason: 'Stable allowed child identity accepts the explicit newer version',
+      },
+      {
+        kind: 'create-vessel',
+        id: 'untyped-tube',
+        name: 'Untyped tube',
+        placement: { kind: 'unplaced' },
+      },
+      {
+        kind: 'receive-stock',
+        id: 'physical-stock',
+        vesselId: 'installed-tube',
+        materialId: 'synthetic-material',
+        quantity: { kind: 'known', value: '100', unit: 'uL' },
+        quality: 'usable',
+      },
+    ]);
+    await physicalRefusal('refuse removing an occupied configured position', [
+      {
+        kind: 'reconfigure-storage',
+        storageId: 'installed-rack',
+        layout: { kind: 'named', slots: ['A1'] },
+        reason: 'Occupied A2 cannot disappear',
+      },
+    ]);
+    await physicalCommit('move newer tube aside before checking child policy', [
+      {
+        kind: 'move-vessel',
+        id: 'second-installed-tube',
+        placement: { kind: 'unplaced' },
+      },
+    ]);
+    await physicalRefusal('refuse logically disallowed untyped child despite an empty position', [
+      {
+        kind: 'move-vessel',
+        id: 'untyped-tube',
+        placement: { kind: 'located', storageId: 'installed-rack', slotId: 'A2' },
+      },
+    ]);
+    await physicalCommit('record installed geometry separately from immutable type versions', [
+      {
+        kind: 'record-item-geometry',
+        item: { kind: 'storage', id: 'installed-rack' },
+        geometry: {
+          ...unknownGeometry,
+          usable: {
+            width: { kind: 'known', value: '1', unit: 'cm' },
+            height: { kind: 'known', value: '1', unit: 'cm' },
+            depth: { kind: 'known', value: '1', unit: 'cm' },
+          },
+        },
+        source: null,
+        reason: 'Synthetic observed usable dimensions',
+      },
+      {
+        kind: 'record-item-geometry',
+        item: { kind: 'vessel', id: 'second-installed-tube' },
+        geometry: {
+          ...unknownGeometry,
+          external: {
+            width: { kind: 'known', value: '20', unit: 'mm' },
+            height: { kind: 'known', value: '20', unit: 'mm' },
+            depth: { kind: 'known', value: '20', unit: 'mm' },
+          },
+        },
+        source: null,
+        reason: 'Synthetic observed external dimensions',
+      },
+    ]);
+    await physicalRefusal('refuse a known geometry contradiction despite an allowed type', [
+      {
+        kind: 'move-vessel',
+        id: 'second-installed-tube',
+        placement: { kind: 'located', storageId: 'installed-rack', slotId: 'A2' },
+      },
+    ]);
+    expect(
+      owner.inspect(physicalScope)!.storage['installed-rack'].configuration.geometryOverride
+    ).toMatchObject({
+      geometry: { usable: { width: { kind: 'known', value: '10', unit: 'mm' } } },
+    });
+    expect(
+      owner.inspect(physicalScope)!.typeVersions['physical-rack-v1'].definition.geometry
+    ).toEqual(unknownGeometry);
+    await physicalCommit('consume scientific material from explicitly configured physical vessel', [
+      {
+        kind: 'consume',
+        stockId: 'physical-stock',
+        quantity: { value: '10', unit: 'uL' },
+        reason: 'Synthetic configured-vessel use',
+      },
+    ]);
+    expect(
+      await success<NativeInventoryExecution>(
+        'retry exact lost recipe installation after later commands',
+        'inventory.execute',
+        instantiateRequest
+      )
+    ).toEqual(installationReceipt);
+    const physicalBeforeRestart = owner.inspect(physicalScope)!;
+    const physicalHistoryBeforeRestart = owner.history(physicalScope);
+    const physicalAvailabilityBeforeRestart = await success<InventoryAvailabilitySnapshot>(
+      'inspect physical configuration before native restart',
+      'inventory.availability',
+      physicalScope
+    );
+    expect(physicalBeforeRestart.stocks['physical-stock'].quantity).toEqual({
+      kind: 'known',
+      value: '90',
+      unit: 'uL',
+    });
+    evidence.physicalBeforeRestart = {
+      state: physicalBeforeRestart,
+      history: physicalHistoryBeforeRestart,
+      availability: physicalAvailabilityBeforeRestart,
+      installationReceipt,
+    };
+
     await server!.close();
     server = undefined;
     db.close();
@@ -1472,6 +1890,34 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     db = openFileTestDb(dbPath);
     await start();
     evidence.closedAndReopened = true;
+    expect(owner.inspect(physicalScope)).toEqual(physicalBeforeRestart);
+    expect(owner.history(physicalScope)).toEqual(physicalHistoryBeforeRestart);
+    expect(
+      await success<InventoryAvailabilitySnapshot>(
+        'read exact physical projection after native reopen',
+        'inventory.availability',
+        physicalScope
+      )
+    ).toEqual(physicalAvailabilityBeforeRestart);
+    expect(
+      await success<NativeInventoryExecution>(
+        'retry lost recipe installation after native reopen',
+        'inventory.execute',
+        instantiateRequest
+      )
+    ).toEqual(installationReceipt);
+    const physicalReplay = owner.replay(physicalScope);
+    expect(physicalReplay).toEqual({
+      state: physicalBeforeRestart,
+      acceptedOperations: physicalHistoryBeforeRestart.length,
+    });
+    evidence.physicalReopenedReadback = {
+      state: owner.inspect(physicalScope),
+      history: owner.history(physicalScope),
+      availability: owner.availability(physicalScope),
+      receipt: owner.operation({ ...physicalScope, operationId: instantiateRequest.operationId }),
+      replay: physicalReplay,
+    };
     expect(owner.inspect(custodyScope)).toEqual(custodyBeforeRestart);
     expect(owner.history(custodyScope)).toEqual(custodyHistoryBeforeRestart);
     expect(

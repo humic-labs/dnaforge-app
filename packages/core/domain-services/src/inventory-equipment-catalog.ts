@@ -1,0 +1,402 @@
+import type {
+  InventoryConfigurationCommand,
+  InventoryDimensions,
+  InventoryEquipmentModel,
+  InventoryGeometry,
+  InventorySourceReference,
+} from './inventory-configuration-types';
+import type { InventoryState } from './inventory-types';
+import type { MetadataFieldDefinition } from './metadata-fields';
+import { parseInventoryCommand } from './inventory-validation';
+import { normalizeInventoryGeometry } from './inventory-geometry';
+
+export type InventoryCatalogDefinition = Extract<
+  InventoryConfigurationCommand,
+  { kind: 'define-physical-type' | 'define-equipment-recipe' | 'record-fit-evidence' }
+>;
+
+export interface InventoryEquipmentCatalogEntry {
+  readonly id: string;
+  readonly name: string;
+  readonly model: InventoryEquipmentModel;
+  readonly description: string;
+  readonly sources: readonly InventorySourceReference[];
+  readonly recipeVersionId: string;
+  readonly nominalBoxClass: string;
+  readonly boxPositions: number;
+  readonly definitions: readonly InventoryCatalogDefinition[];
+}
+
+const thermoSource = (locator: string): InventorySourceReference => ({
+  url: 'https://assets.thermofisher.com/TFS-Assets/LED/brochures/TSX-ULT-Freezer-Green-Brochure_Americas.pdf',
+  title: 'Thermo Scientific TSX Series Ultra-Low Freezers',
+  locator,
+  readAt: '2026-11-14',
+  documentRevision: null,
+  sha256: '2b5c042164560c52d01172c2a5ba148d130106e664184501771dadb316496c56',
+});
+const eppendorfSource = (locator: string): InventorySourceReference => ({
+  url: 'https://www.eppendorf.com/product-media/doc/en/236365/Freezers_Brochure_F740-Series-green_Protect-What-Matters.pdf',
+  title: 'Protect What Matters: CryoCube F740 Series',
+  locator,
+  readAt: '2026-11-14',
+  documentRevision: 'AN.02011.020/EN6/ESE',
+  sha256: 'bd1bcfb77da253ee9132aec0e036dc05410d208510e3189757337a92e7229c52',
+});
+
+const cabinetFields: readonly MetadataFieldDefinition[] = [
+  { key: 'asset_tag', label: 'Asset tag', type: 'text' },
+  { key: 'serial_number', label: 'Serial number', type: 'text' },
+  { key: 'notes', label: 'Notes', type: 'long_text' },
+];
+const eppendorfDepthScope: InventorySourceReference = {
+  url: 'https://www.eppendorf.com/us-en/Products/Cold-Storage/ULT-Freezers/CryoCube-F740-Series-p-PF-393431',
+  title: 'Eppendorf CryoCube F740 Series technical data',
+  locator:
+    'F740h exterior depth: US page 91.3 cm versus cited brochure 91.5 cm; region/revision scope unresolved.',
+  readAt: '2026-11-14',
+  documentRevision: null,
+  sha256: null,
+};
+
+function dimensions(width: number, height: number, depth: number): InventoryDimensions {
+  const axis = (value: number) => ({
+    kind: 'known' as const,
+    value: String(value),
+    unit: 'mm' as const,
+  });
+  return { width: axis(width), height: axis(height), depth: axis(depth) };
+}
+function unknownDimensions(): InventoryDimensions {
+  return { width: { kind: 'unknown' }, height: { kind: 'unknown' }, depth: { kind: 'unknown' } };
+}
+function positions(shelves: number, racks: number): string[] {
+  return Array.from({ length: shelves }, (_, shelf) =>
+    Array.from({ length: racks }, (_, rack) => `shelf-${shelf + 1}-rack-${rack + 1}`)
+  ).flat();
+}
+function typeDefinition(
+  id: string,
+  name: string,
+  slots: readonly string[],
+  geometry: InventoryGeometry,
+  sources: readonly InventorySourceReference[],
+  description: string,
+  fields: readonly MetadataFieldDefinition[] = []
+): Extract<InventoryCatalogDefinition, { kind: 'define-physical-type' }> {
+  return {
+    kind: 'define-physical-type',
+    id: `${id}:v1`,
+    typeId: id,
+    name,
+    description,
+    fields,
+    sources,
+    definition: {
+      kind: 'storage',
+      layout: { kind: 'named', slots },
+      childPolicy: { kind: 'any-legal' },
+      positionRules: {},
+      geometry,
+    },
+  };
+}
+function supportedFit(
+  id: string,
+  parentVersionId: string,
+  childVersionId: string,
+  positionId: string,
+  source: InventorySourceReference
+): Extract<InventoryCatalogDefinition, { kind: 'record-fit-evidence' }> {
+  return {
+    kind: 'record-fit-evidence',
+    id,
+    parent: { kind: 'type-version', versionId: parentVersionId },
+    child: { kind: 'type-version', versionId: childVersionId },
+    positionId,
+    orientations: [0],
+    result: 'compatible',
+    basis: 'manufacturer-supported',
+    source,
+    reason:
+      'Cited rack SKU in the specified freezer configuration, upright. This does not qualify an installed unit or an arbitrary box.',
+  };
+}
+
+function thermoEntries(): InventoryEquipmentCatalogEntry[] {
+  const rackSource = thermoSource(
+    'Page 6, nominal box classes, rack dimensions and model-specific counts.'
+  );
+  const cabinetSource = thermoSource('Page 3, dimensions and handle/hinge width allowance.');
+  const racks = [
+    { sku: '920090', count: 25, label: '2-inch (source nominal label 5.08 cm)' },
+    { sku: '920091', count: 15, label: '3-inch (source nominal label 7.62 cm)' },
+  ].map((rack) => ({
+    ...rack,
+    type: typeDefinition(
+      `catalog:thermo:rack:${rack.sku}`,
+      `Thermo ${rack.sku} rack`,
+      Array.from({ length: rack.count }, (_, i) => `box-${i + 1}`),
+      { external: dimensions(140, 302, 683), usable: unknownDimensions() },
+      [rackSource],
+      `${rack.count} logical positions for the source's ${rack.label} class. Drawer/grid arrangement and arbitrary box dimensions remain unspecified.`
+    ),
+  }));
+  return [
+    { model: 'TSX40086', racks: 4, insideWidth: 588, outsideWidth: 719 },
+    { model: 'TSX50086', racks: 5, insideWidth: 730, outsideWidth: 864 },
+    { model: 'TSX60086', racks: 6, insideWidth: 873, outsideWidth: 1006 },
+    { model: 'TSX70086', racks: 7, insideWidth: 1016, outsideWidth: 1148 },
+  ].flatMap((spec) => {
+    const slots = positions(4, spec.racks);
+    const root = typeDefinition(
+      `catalog:thermo:${spec.model.toLowerCase()}`,
+      `Thermo ${spec.model} rack positions`,
+      slots,
+      {
+        external: dimensions(spec.outsideWidth + 107, 1981, 955),
+        usable: dimensions(spec.insideWidth, 1301, 719),
+      },
+      [cabinetSource, rackSource],
+      'Outer width adds the stated 107 mm handle/hinge allowance to the cabinet width. Interior dimensions are cavity bounds, not insertion-clearance qualification. Four logical shelf groups follow the rack table; no removable shelf hardware is invented.',
+      cabinetFields
+    );
+    return racks.map((rack) => {
+      const boxPositions = slots.length * rack.count;
+      const id = `catalog:thermo:${spec.model.toLowerCase()}:${rack.sku}`;
+      const model = {
+        manufacturer: 'Thermo Scientific',
+        model: spec.model,
+        partNumber: null,
+        region: 'Americas',
+        revision: null,
+      };
+      const recipe: Extract<InventoryCatalogDefinition, { kind: 'define-equipment-recipe' }> = {
+        kind: 'define-equipment-recipe',
+        id: `${id}:v1`,
+        recipeId: id,
+        name: `${spec.model} · ${rack.sku} · ${boxPositions} box positions`,
+        description:
+          'Selected full rack configuration. Adding selected components records installed racks, not boxes or stock. Model lifecycle, actual box geometry and local physical qualification remain unspecified.',
+        model,
+        sources: [cabinetSource, rackSource],
+        components: [
+          {
+            key: 'freezer',
+            parentKey: null,
+            positionId: null,
+            name: spec.model,
+            typeVersionId: root.id,
+          },
+          ...slots.map((positionId) => ({
+            key: positionId,
+            parentKey: 'freezer',
+            positionId,
+            name: `${positionId} · ${rack.sku}`,
+            typeVersionId: rack.type.id,
+          })),
+        ],
+      };
+      return {
+        id,
+        name: recipe.name,
+        model,
+        description: recipe.description,
+        sources: recipe.sources,
+        recipeVersionId: recipe.id,
+        nominalBoxClass: rack.label,
+        boxPositions,
+        definitions: [
+          root,
+          rack.type,
+          recipe,
+          ...slots.map((slot) =>
+            supportedFit(`${id}:fit:${slot}:v1`, root.id, rack.type.id, slot, rackSource)
+          ),
+        ],
+      };
+    });
+  });
+}
+
+function eppendorfEntries(): InventoryEquipmentCatalogEntry[] {
+  const rackSource = eppendorfSource(
+    'Page 19, rack ordering table and MAX/compatibility footnotes.'
+  );
+  const cabinetSource = eppendorfSource('Pages 16–17, dimensions and handle/hinge allowance.');
+  return ['F740h', 'F740hi', 'F740hiw'].flatMap((modelName) =>
+    [3, 5].flatMap((shelves) =>
+      ['drawer', 'side-access'].map((access) => {
+        const drawer = access === 'drawer';
+        const stem = `catalog:eppendorf:${modelName.toLowerCase()}:${shelves}c`;
+        const slots = positions(shelves, 6);
+        const cabinetSources =
+          modelName === 'F740h'
+            ? [cabinetSource, rackSource, eppendorfDepthScope]
+            : [cabinetSource, rackSource];
+        const root = typeDefinition(
+          stem,
+          `Eppendorf ${modelName} ${shelves}-compartment rack positions`,
+          slots,
+          {
+            external:
+              modelName === 'F740h'
+                ? { ...dimensions(1190, 1973, 915), depth: { kind: 'unknown' } }
+                : dimensions(1190, 1973, 980),
+            usable: dimensions(865, 1390, 621),
+          },
+          cabinetSources,
+          'Outer width adds the stated 80 mm handle/hinge allowance. Cavity bounds do not qualify insertion paths or open-door clearance. Compartment count differs from inner-door count. F740h exterior depth remains unknown because published regional/revision scope is unresolved.',
+          cabinetFields
+        );
+        const specs =
+          shelves === 3
+            ? [{ sku: drawer ? '6001072210' : '6001071210', count: 32, height: drawer ? 449 : 444 }]
+            : [
+                {
+                  sku: drawer ? '6001022210' : '6001021210',
+                  count: 16,
+                  height: drawer ? 231 : 230,
+                },
+                {
+                  sku: drawer ? '6001082210' : '6001081210',
+                  count: 24,
+                  height: drawer ? 346 : 343,
+                },
+              ];
+        const racks = specs.map((spec) =>
+          typeDefinition(
+            `catalog:eppendorf:rack:${spec.sku}`,
+            `Eppendorf ${spec.sku} ${access} rack`,
+            Array.from({ length: spec.count }, (_, i) => `box-${i + 1}`),
+            {
+              external: dimensions(drawer ? 140 : 139, spec.height, drawer ? 563 : 569),
+              usable: unknownDimensions(),
+            },
+            [rackSource],
+            `${spec.count} logical positions for the source's nominal 53 mm box class. No arbitrary box geometry, drawer map or reverse compatibility is inferred.`
+          )
+        );
+        const selectedRack = (position: string) =>
+          shelves === 5 && position.startsWith('shelf-5-') ? racks[1] : racks[0];
+        const id = `${stem}:${access}:53mm`;
+        const model = {
+          manufacturer: 'Eppendorf',
+          model: modelName,
+          partNumber: null,
+          region: null,
+          revision: null,
+        };
+        const boxPositions = shelves === 3 ? 576 : 528;
+        const recipe: Extract<InventoryCatalogDefinition, { kind: 'define-equipment-recipe' }> = {
+          kind: 'define-equipment-recipe',
+          id: `${id}:v1`,
+          recipeId: id,
+          name: `${modelName} · ${shelves} compartments · ${access} · ${boxPositions} box positions`,
+          description:
+            shelves === 3
+              ? 'MAX-rack configuration with 18 racks and 576 nominal 53 mm box positions, distinct from the 504-box standard-rack option. No boxes or stock are created.'
+              : 'Heterogeneous configuration: 24 upper racks with 16 positions plus six bottom racks with 24 positions. Adding selected components records installed racks, not boxes or stock.',
+          model,
+          sources: cabinetSources,
+          components: [
+            {
+              key: 'freezer',
+              parentKey: null,
+              positionId: null,
+              name: `${modelName} ${shelves} compartments`,
+              typeVersionId: root.id,
+            },
+            ...slots.map((positionId) => ({
+              key: positionId,
+              parentKey: 'freezer',
+              positionId,
+              name: `${positionId} · ${selectedRack(positionId).name}`,
+              typeVersionId: selectedRack(positionId).id,
+            })),
+          ],
+        };
+        return {
+          id,
+          name: recipe.name,
+          model,
+          description: recipe.description,
+          sources: recipe.sources,
+          recipeVersionId: recipe.id,
+          nominalBoxClass: '53 mm (source nominal two-inch label)',
+          boxPositions,
+          definitions: [
+            root,
+            ...racks,
+            recipe,
+            ...slots.map((slot) =>
+              supportedFit(`${id}:fit:${slot}:v1`, root.id, selectedRack(slot).id, slot, rackSource)
+            ),
+          ],
+        };
+      })
+    )
+  );
+}
+
+export function inventoryEquipmentCatalog(): readonly InventoryEquipmentCatalogEntry[] {
+  return [...thermoEntries(), ...eppendorfEntries()].map((entry) => structuredClone(entry));
+}
+
+function canonical(value: unknown): string {
+  return JSON.stringify(value, (_key, entry: unknown) =>
+    entry && typeof entry === 'object' && !Array.isArray(entry)
+      ? Object.fromEntries(Object.entries(entry).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : entry
+  );
+}
+
+export function inventoryEquipmentCatalogMissingDefinitions(
+  state: Pick<InventoryState, 'typeVersions' | 'recipeVersions' | 'fitEvidence'>,
+  entry: InventoryEquipmentCatalogEntry
+): readonly InventoryCatalogDefinition[] {
+  const missing: InventoryCatalogDefinition[] = [];
+  for (const definition of entry.definitions) {
+    const parsed = parseInventoryCommand(definition) as InventoryCatalogDefinition;
+    const rows =
+      parsed.kind === 'define-physical-type'
+        ? state.typeVersions
+        : parsed.kind === 'define-equipment-recipe'
+          ? state.recipeVersions
+          : state.fitEvidence;
+    const existing = rows[parsed.id];
+    if (!existing) {
+      missing.push(structuredClone(parsed));
+      continue;
+    }
+    const normalized =
+      parsed.kind === 'define-physical-type'
+        ? {
+            ...parsed,
+            definition: {
+              ...parsed.definition,
+              geometry: normalizeInventoryGeometry(parsed.definition.geometry),
+            },
+          }
+        : parsed;
+    const { kind: _kind, ...expected } = normalized;
+    const actual = Object.fromEntries(
+      Object.keys(expected).map((key) => [
+        key,
+        (existing as unknown as Record<string, unknown>)[key],
+      ])
+    );
+    if (parsed.kind === 'define-physical-type') {
+      const definition = actual.definition as typeof parsed.definition;
+      actual.definition = {
+        ...definition,
+        geometry: normalizeInventoryGeometry(definition.geometry),
+      };
+    }
+    if (canonical(actual) !== canonical(expected))
+      throw new Error(
+        `Catalog definition ${parsed.id} differs from the inventory's existing definition.`
+      );
+  }
+  return missing;
+}

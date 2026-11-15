@@ -7,6 +7,10 @@ import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
 import { runInventoryCompositionJourney } from './journeys/inventory-composition.mjs';
 import {
+  runInventoryConfigurationJourney,
+  runInventoryConfigurationReopen,
+} from './journeys/inventory-configuration.mjs';
+import {
   runInventoryCustodyJourney,
   runInventoryCustodyReopen,
 } from './journeys/inventory-custody.mjs';
@@ -35,6 +39,8 @@ assert.ok(
     'reservation-reopen',
     'custody',
     'custody-reopen',
+    'configuration',
+    'configuration-reopen',
   ].includes(stage),
   'Choose a mapped inventory journey stage.'
 );
@@ -68,8 +74,16 @@ const files = execFileSync(
     'apps/desktop/src/main/agent-grant-authority.ts',
     'apps/desktop/src/preload',
     'apps/desktop/src/platform',
+    'apps/desktop/electron.vite.config.ts',
     'apps/api/src/native_workflow_tools.py',
     'packages/core/agent-tools/renderer-tool-manifest.json',
+    'packages/core/domain-services/src/metadata-fields.ts',
+    'packages/core/domain-services/src/index.ts',
+    'packages/core/domain-services/package.json',
+    'packages/core/scientific-artifacts/src/shared/lims.ts',
+    'packages/core/scientific-artifacts/src/shared/entity-schema.ts',
+    'apps/desktop/src/shared/components/entity-metadata',
+    'apps/desktop/src/features/lims/components/registry/RegistrySchemaManager.tsx',
   ],
   {
     cwd: root,
@@ -575,6 +589,22 @@ try {
     );
   }
 
+  if (stage === 'configuration' || stage === 'configuration-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass the inventory journey fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    const run =
+      stage === 'configuration'
+        ? runInventoryConfigurationJourney
+        : runInventoryConfigurationReopen;
+    receipt.expected = await run({ page, expect, choose, inventoryRead, capture, fixture });
+    writeFileSync(
+      path.join(out, 'configuration-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
   if (stage === 'custody' || stage === 'custody-reopen') {
     assert.ok(args.includes('--fixture'), 'Pass the inventory journey fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

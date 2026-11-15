@@ -22,6 +22,7 @@ import type { AdministrationOwner } from './administration-owner';
 import { agentProjectScopeSchema } from '../shared/agent-project-scope';
 import {
   inventoryExecuteRequestSchema,
+  inventoryCatalogQuerySchema,
   inventoryHistoryRequestSchema,
   inventoryMaterialQuerySchema,
   inventoryOperationRequestSchema,
@@ -125,6 +126,15 @@ const commandSchema = z.discriminatedUnion('command', [
       projectScope: agentProjectScopeSchema,
       command: z.literal('inventory.materials'),
       request: inventoryMaterialQuerySchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.catalog'),
+      request: inventoryCatalogQuerySchema,
       agent: agentAuthoritySchema.optional(),
     })
     .strict(),
@@ -334,6 +344,7 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'inventory.operation' ||
           body.command === 'inventory.history' ||
           body.command === 'inventory.projects' ||
+          body.command === 'inventory.catalog' ||
           body.command === 'inventory.materials'
         ) {
           if (
@@ -376,6 +387,10 @@ export async function startNativeDocumentCommandServer(options: {
               const receiver = options.inventory;
               if (body.command === 'inventory.projects')
                 return () => ({ kind: 'projects', projects: receiver.projects() });
+              if (body.command === 'inventory.catalog') {
+                const request = body.request;
+                return () => ({ kind: 'catalog', entries: receiver.catalog(request) });
+              }
               if (body.command === 'inventory.materials') {
                 const request = body.request;
                 return () => ({ kind: 'materials', page: receiver.materials(request) });
@@ -455,7 +470,11 @@ export async function startNativeDocumentCommandServer(options: {
             body.command !== 'inventory.availability' &&
             body.command !== 'inventory.operation' &&
             body.command !== 'inventory.history';
-          if (body.command === 'inventory.projects' || body.command === 'inventory.materials')
+          if (
+            body.command === 'inventory.projects' ||
+            body.command === 'inventory.catalog' ||
+            body.command === 'inventory.materials'
+          )
             accepted = false;
           const result = await run();
           json(res, 200, { ok: true, ownerInstanceId: authority.ownerInstanceId, result });

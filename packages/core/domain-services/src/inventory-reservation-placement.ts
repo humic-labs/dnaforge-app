@@ -47,3 +47,23 @@ export function inventoryReservationPlacementFailure(
   }
   return null;
 }
+export function inventoryReservationDestinationFailure(
+  state: State,
+  destination: InventoryPhysicalItem,
+  principal: InventoryPrincipal
+): Extract<InventoryTransition, { ok: false }> | null {
+  const conflicting = Object.values(state.reservations).some(
+    (reservation) =>
+      reservation.kind === 'item' &&
+      reservation.lifecycle.kind === 'active' &&
+      !sameHolder(reservation.holder, principal) &&
+      inventoryItemContains(state, reservation.item, destination)
+  );
+  return conflicting
+    ? {
+        ok: false,
+        code: 'ITEM_RESERVED',
+        message: 'Another holder reserved the destination location.',
+      }
+    : null;
+}

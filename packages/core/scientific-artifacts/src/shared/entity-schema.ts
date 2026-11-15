@@ -1,22 +1,9 @@
-export interface EntitySchemaFieldSnapshot {
-  key: string;
-  label: string;
+import type { MetadataFieldDefinition } from '@waypoint/domain-services/metadata-fields';
 
-  type: string;
-  required?: boolean;
-  suggested?: boolean;
-  enumOptions?: readonly string[];
-  maxLength?: number;
-  minValue?: number;
-  maxValue?: number;
-  minDate?: string;
-  maxDate?: string;
-  description?: string;
+export interface EntitySchemaFieldSnapshot extends MetadataFieldDefinition<string> {
   requireResolved?: boolean;
 
   intrinsic?: 'sequence.length' | 'sequence.topology' | 'sequence.geneticCode';
-
-  readOnly?: boolean;
 }
 
 export interface PortableEntitySchemaRevisionSnapshot<BaseKind extends string = string> {

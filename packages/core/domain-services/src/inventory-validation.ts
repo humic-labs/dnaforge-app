@@ -1,5 +1,23 @@
+import { validateInventoryPhysicalState } from './inventory-configuration';
+import {
+  parseMetadataFieldDefinitions,
+  metadataFieldDefinitionsJsonSchema,
+  validateMetadataValues,
+} from './metadata-fields';
+import {
+  emptyInventoryPhysicalConfiguration,
+  normalizeInventoryDimension,
+  normalizeInventoryGeometry,
+} from './inventory-geometry';
+import type {
+  InventoryPhysicalConfiguration,
+  InventoryPhysicalTypeVersion,
+  InventoryEquipmentRecipeVersion,
+  InventoryFitEvidence,
+} from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_CUSTODY_SCHEMA,
   INVENTORY_RESERVATION_SCHEMA,
   INVENTORY_COMPOSITION_SCHEMA,
   INVENTORY_MATERIAL_SCHEMA,
@@ -566,6 +584,224 @@ const withdrawalCommand: Codec<InventoryWithdrawalCommand> = union('Reservation 
   diluteCommand,
 ]);
 
+function stringMap<T>(codec: Codec<T>, maximum = 10000): Codec<Readonly<Record<string, T>>> {
+  return {
+    schema: { type: 'object', maxProperties: maximum, additionalProperties: codec.schema },
+    parse(value) {
+      const rows = Object.entries(object(value, 'Inventory configuration map'));
+      if (rows.length > maximum) invalid('Configuration map is too large.');
+      const result: Record<string, T> = Object.create(null);
+      for (const [key, input] of rows) result[id.parse(key)] = codec.parse(input);
+      return result;
+    },
+  };
+}
+const description: Codec<string> = {
+  schema: { type: 'string', maxLength: 2000 },
+  parse(value) {
+    if (typeof value !== 'string' || value.length > 2000 || value.includes('\0'))
+      return invalid('Description requires bounded text.');
+    return value;
+  },
+};
+const metadataFields = {
+  schema: metadataFieldDefinitionsJsonSchema(),
+  parse(value: unknown) {
+    try {
+      return parseMetadataFieldDefinitions(value);
+    } catch (error) {
+      return invalid(error instanceof Error ? error.message : 'Invalid metadata fields.');
+    }
+  },
+};
+const metadataValue: Codec<import('./inventory-configuration-types').InventoryMetadataValue> = {
+  schema: {
+    oneOf: [
+      { type: 'string' },
+      { type: 'number' },
+      { type: 'boolean' },
+      { type: 'null' },
+      { type: 'array', items: { type: 'string' } },
+    ],
+  },
+  parse(value) {
+    if (
+      value === null ||
+      typeof value === 'boolean' ||
+      (typeof value === 'number' && Number.isFinite(value)) ||
+      (typeof value === 'string' && value.length <= 10000)
+    )
+      return value as string | number | boolean | null;
+    if (
+      Array.isArray(value) &&
+      value.length <= 1000 &&
+      value.every((item) => typeof item === 'string' && item.length <= 10000)
+    )
+      return [...value];
+    return invalid('Metadata requires bounded scalar values or text lists.');
+  },
+};
+const metadata = stringMap(metadataValue, 256);
+const dimension = checked(
+  union('Physical dimension', [
+    fields('Unknown dimension', { kind: literal('unknown') }),
+    fields('Known dimension', {
+      kind: literal('known'),
+      value: text('Dimension decimal', 128, true, INVENTORY_DECIMAL_PATTERN),
+      unit: union('Length unit', [literal('mm'), literal('cm'), literal('in')]),
+    }),
+  ]),
+  (value) => {
+    try {
+      normalizeInventoryDimension(value);
+    } catch (error) {
+      invalid(error instanceof Error ? error.message : 'Invalid dimension.');
+    }
+  }
+);
+const physicalDimensions = fields('Physical dimensions', {
+  width: dimension,
+  height: dimension,
+  depth: dimension,
+});
+const geometry = fields('Physical geometry', {
+  external: physicalDimensions,
+  usable: physicalDimensions,
+});
+const turn: Codec<0 | 1 | 2 | 3> = {
+  schema: { type: 'integer', enum: [0, 1, 2, 3] },
+  parse(value) {
+    return integer('Quarter turns', 0, 3).parse(value) as 0 | 1 | 2 | 3;
+  },
+};
+const orientation = union('Physical mounting orientation', [
+  fields('Unknown orientation', { kind: literal('unknown') }),
+  fields('Known upright orientation', { kind: literal('known'), quarterTurns: turn }),
+]);
+const childPolicy = union('Allowed child policy', [
+  fields('Any legal child', { kind: literal('any-legal') }),
+  fields('No children', { kind: literal('none') }),
+  fields('Selected child types', { kind: literal('types'), typeIds: array(id, 256, 1, true) }),
+]);
+const positionRule = union('Physical position policy', [
+  fields('Unavailable position', { kind: literal('unavailable'), reason }),
+  fields('Available position', {
+    kind: literal('available'),
+    childPolicy: nullable(childPolicy),
+    usable: nullable(physicalDimensions),
+  }),
+]);
+const sourceReference = fields('Source reference', {
+  url: text('Source URL', 4000, true, '^https?://'),
+  title: name,
+  locator: text('Source page or section', 2000),
+  readAt: text('Source read date', 10, true, '^\\d{4}-\\d{2}-\\d{2}$'),
+  documentRevision: nullable(text('Source document revision')),
+  sha256: nullable(text('Source hash', 64, true, '^[a-f0-9]{64}$')),
+});
+const physicalDefinition = union('Physical type definition', [
+  fields('Storage type definition', {
+    kind: literal('storage'),
+    layout,
+    childPolicy,
+    positionRules: stringMap(positionRule),
+    geometry,
+  }),
+  fields('Vessel type definition', {
+    kind: literal('vessel'),
+    mobility: union('Vessel mobility', [literal('movable'), literal('fixed-well')]),
+    limits,
+    geometry,
+  }),
+]);
+const recipeComponent = fields('Recipe component', {
+  key: id,
+  parentKey: nullable(id),
+  positionId: nullable(slot),
+  name,
+  typeVersionId: id,
+});
+const equipmentModel = fields('Equipment model identity', {
+  manufacturer: name,
+  model: name,
+  partNumber: nullable(name),
+  region: nullable(name),
+  revision: nullable(name),
+});
+const fitSubject = union('Fit subject pin', [
+  fields('Physical type fit subject', { kind: literal('type-version'), versionId: id }),
+  fields('Installed fit subject', {
+    kind: literal('installed'),
+    item: reservationItem,
+    configurationRevision: revision,
+  }),
+]);
+const fitFacts = {
+  id,
+  parent: fitSubject,
+  child: fitSubject,
+  positionId: nullable(slot),
+  orientations: array(turn, 4, 1, true),
+  result: union('Fit assertion', [literal('compatible'), literal('incompatible')]),
+  basis: union('Fit evidence basis', [
+    literal('manufacturer-supported'),
+    literal('locally-verified'),
+  ]),
+  source: nullable(sourceReference),
+  reason,
+};
+const configurationRecord: Codec<InventoryPhysicalConfiguration> = fields(
+  'Installed physical configuration',
+  {
+    revision,
+    typeVersionId: nullable(id),
+    metadata,
+    geometryOverride: nullable(
+      fields('Recorded local geometry', {
+        geometry,
+        source: nullable(sourceReference),
+        at: timestamp,
+        by: principal,
+        reason,
+      })
+    ),
+    orientation,
+    unavailablePositions: stringMap(reason),
+    recipe: nullable(fields('Installed recipe pin', { recipeVersionId: id, componentKey: id })),
+  }
+);
+const typeVersionRecord: Codec<InventoryPhysicalTypeVersion> = fields('Physical type version', {
+  id,
+  typeId: id,
+  version: integer('Physical type version', 1, Number.MAX_SAFE_INTEGER),
+  name,
+  description,
+  fields: metadataFields,
+  sources: array(sourceReference, 256),
+  definition: physicalDefinition,
+  publishedAt: timestamp,
+  publishedBy: principal,
+});
+const recipeVersionRecord: Codec<InventoryEquipmentRecipeVersion> = fields(
+  'Equipment recipe version',
+  {
+    id,
+    recipeId: id,
+    version: integer('Recipe version', 1, Number.MAX_SAFE_INTEGER),
+    name,
+    description,
+    model: equipmentModel,
+    components: array(recipeComponent, 10000, 1),
+    sources: array(sourceReference, 256),
+    publishedAt: timestamp,
+    publishedBy: principal,
+  }
+);
+const fitEvidenceRecord: Codec<InventoryFitEvidence> = fields('Fit evidence', {
+  ...fitFacts,
+  at: timestamp,
+  by: principal,
+});
 const commands = {
   'create-lot': fields('Create lot command', {
     kind: literal('create-lot'),
@@ -734,6 +970,69 @@ const commands = {
     destination: custodyDestination,
     reason,
   }),
+  'define-physical-type': fields('Define physical type command', {
+    kind: literal('define-physical-type'),
+    id,
+    typeId: id,
+    name,
+    description,
+    fields: metadataFields,
+    sources: array(sourceReference, 256),
+    definition: physicalDefinition,
+  }),
+  'define-equipment-recipe': fields('Define equipment recipe command', {
+    kind: literal('define-equipment-recipe'),
+    id,
+    recipeId: id,
+    name,
+    description,
+    model: equipmentModel,
+    components: array(recipeComponent, 10000, 1),
+    sources: array(sourceReference, 256),
+  }),
+  'instantiate-physical-type': fields('Instantiate physical type command', {
+    kind: literal('instantiate-physical-type'),
+    typeVersionId: id,
+    id,
+    name,
+    destination: custodyDestination,
+    metadata,
+    reason,
+  }),
+  'instantiate-equipment-recipe': fields('Instantiate equipment recipe command', {
+    kind: literal('instantiate-equipment-recipe'),
+    recipeVersionId: id,
+    name,
+    components: array(fields('Actual component binding', { key: id, id, metadata }), 10000, 1),
+    destination: custodyDestination,
+    reason,
+  }),
+  'configure-item': fields('Configure installed item command', {
+    kind: literal('configure-item'),
+    item: reservationItem,
+    typeVersionId: nullable(id),
+    metadata,
+    orientation,
+    unavailablePositions: stringMap(reason),
+    reason,
+  }),
+  'record-item-geometry': fields('Record installed geometry command', {
+    kind: literal('record-item-geometry'),
+    item: reservationItem,
+    geometry,
+    source: nullable(sourceReference),
+    reason,
+  }),
+  'reconfigure-storage': fields('Reconfigure installed layout command', {
+    kind: literal('reconfigure-storage'),
+    storageId: id,
+    layout,
+    reason,
+  }),
+  'record-fit-evidence': fields('Record scoped fit assertion command', {
+    kind: literal('record-fit-evidence'),
+    ...fitFacts,
+  }),
 } satisfies {
   [K in InventoryCommand['kind']]: Codec<Extract<InventoryCommand, { readonly kind: K }>>;
 };
@@ -827,7 +1126,15 @@ const reservationRecord: Codec<InventoryReservation> = union('Reservation record
 
 const storageFields = { id, name, layout, placement: storagePlacement, lifecycle };
 const previousStorageRecord = fields('Previous storage record', storageFields);
-const storageRecord = fields('Storage record', { ...storageFields, custody: custodyRecord });
+const custodyStorageRecord = fields('Previous custody storage record', {
+  ...storageFields,
+  custody: custodyRecord,
+});
+const storageRecord = fields('Storage record', {
+  ...storageFields,
+  custody: custodyRecord,
+  configuration: configurationRecord,
+});
 const previousVesselRecord = union('Vessel record', [
   fields('Movable vessel record', {
     kind: literal('movable'),
@@ -863,7 +1170,7 @@ const materialVesselRecord = union('Vessel record', [
   }),
 ]);
 
-const vesselRecord = union('Vessel record', [
+const custodyVesselRecord = union('Vessel record', [
   fields('Movable vessel record', {
     kind: literal('movable'),
     id,
@@ -880,6 +1187,28 @@ const vesselRecord = union('Vessel record', [
     placement: located,
     lifecycle,
     limits: storedLimits,
+  }),
+]);
+
+const vesselRecord = union('Vessel record', [
+  fields('Movable vessel record', {
+    kind: literal('movable'),
+    id,
+    name,
+    placement: vesselPlacement,
+    lifecycle,
+    limits: storedLimits,
+    configuration: configurationRecord,
+    custody: custodyRecord,
+  }),
+  fields('Permanent well record', {
+    kind: literal('fixed-well'),
+    id: text('Permanent well identifier', 1024, true),
+    name,
+    placement: located,
+    lifecycle,
+    limits: storedLimits,
+    configuration: configurationRecord,
   }),
 ]);
 
@@ -917,7 +1246,16 @@ function validateState(state: InventoryState): void {
     ])
   );
   const allIds = new Set<string>();
-  for (const rows of [state.storage, state.vessels, state.stocks, state.lots, state.reservations]) {
+  for (const rows of [
+    state.storage,
+    state.vessels,
+    state.stocks,
+    state.lots,
+    state.reservations,
+    state.typeVersions,
+    state.recipeVersions,
+    state.fitEvidence,
+  ]) {
     for (const identifier of Object.keys(rows)) {
       if (allIds.has(identifier)) invalid('Inventory record identifiers must be distinct.');
       allIds.add(identifier);
@@ -1154,12 +1492,14 @@ function validateState(state: InventoryState): void {
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const reservation = current || row.schema === INVENTORY_RESERVATION_SCHEMA;
+  const custody = current || row.schema === INVENTORY_CUSTODY_SCHEMA;
+  const reservation = custody || row.schema === INVENTORY_RESERVATION_SCHEMA;
   const composition = reservation || row.schema === INVENTORY_COMPOSITION_SCHEMA;
   const material = composition || row.schema === INVENTORY_MATERIAL_SCHEMA;
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_CUSTODY_SCHEMA),
       literal(INVENTORY_RESERVATION_SCHEMA),
       literal(INVENTORY_COMPOSITION_SCHEMA),
       literal(INVENTORY_MATERIAL_SCHEMA),
@@ -1167,6 +1507,13 @@ export function parseInventoryState(value: unknown): InventoryState {
       literal(LEGACY_INVENTORY_SCHEMA),
     ]),
     revision,
+    ...(current
+      ? {
+          typeVersions: { schema: { type: 'object' }, parse: (input: unknown) => input },
+          recipeVersions: { schema: { type: 'object' }, parse: (input: unknown) => input },
+          fitEvidence: { schema: { type: 'object' }, parse: (input: unknown) => input },
+        }
+      : {}),
     ...(reservation
       ? {
           lastRecordedAt: timestamp,
@@ -1181,7 +1528,17 @@ export function parseInventoryState(value: unknown): InventoryState {
   const legacy = shape.schema === LEGACY_INVENTORY_SCHEMA;
   const storage = records(shape.storage, (raw): InventoryStorage => {
     if (current) return storageRecord.parse(raw);
-    if (!legacy) return { ...previousStorageRecord.parse(raw), custody: { kind: 'available' } };
+    if (custody)
+      return {
+        ...custodyStorageRecord.parse(raw),
+        configuration: emptyInventoryPhysicalConfiguration(),
+      };
+    if (!legacy)
+      return {
+        ...previousStorageRecord.parse(raw),
+        custody: { kind: 'available' },
+        configuration: emptyInventoryPhysicalConfiguration(),
+      };
     const item = legacyStorage.parse(raw);
     return {
       id: item.id,
@@ -1190,10 +1547,16 @@ export function parseInventoryState(value: unknown): InventoryState {
       placement: item.placement,
       lifecycle: 'active',
       custody: { kind: 'available' },
+      configuration: emptyInventoryPhysicalConfiguration(),
     };
   });
   const vessels = records(shape.vessels, (raw): InventoryVessel => {
     if (current) return vesselRecord.parse(raw);
+    if (custody)
+      return {
+        ...custodyVesselRecord.parse(raw),
+        configuration: emptyInventoryPhysicalConfiguration(),
+      };
     const vessel = material
       ? materialVesselRecord.parse(raw)
       : {
@@ -1202,10 +1565,25 @@ export function parseInventoryState(value: unknown): InventoryState {
             : previousVesselRecord.parse(raw)),
           limits: unknownInventoryVesselLimits(),
         };
-    return vessel.kind === 'movable' ? { ...vessel, custody: { kind: 'available' } } : vessel;
+    return vessel.kind === 'movable'
+      ? {
+          ...vessel,
+          custody: { kind: 'available' },
+          configuration: emptyInventoryPhysicalConfiguration(),
+        }
+      : { ...vessel, configuration: emptyInventoryPhysicalConfiguration() };
   });
   const state: InventoryState = {
     schema: INVENTORY_SCHEMA,
+    typeVersions: current
+      ? records(shape.typeVersions, (raw) => typeVersionRecord.parse(raw))
+      : (Object.create(null) as Record<string, InventoryPhysicalTypeVersion>),
+    recipeVersions: current
+      ? records(shape.recipeVersions, (raw) => recipeVersionRecord.parse(raw))
+      : (Object.create(null) as Record<string, InventoryEquipmentRecipeVersion>),
+    fitEvidence: current
+      ? records(shape.fitEvidence, (raw) => fitEvidenceRecord.parse(raw))
+      : (Object.create(null) as Record<string, InventoryFitEvidence>),
     revision: shape.revision,
     lastRecordedAt: reservation ? timestamp.parse(shape.lastRecordedAt) : 0,
     reservations: reservation
@@ -1259,5 +1637,10 @@ export function parseInventoryState(value: unknown): InventoryState {
       : (Object.create(null) as Record<string, InventoryLot>),
   };
   validateState(state);
+  try {
+    validateInventoryPhysicalState(state);
+  } catch (error) {
+    invalid(error instanceof Error ? error.message : 'Invalid physical configuration.');
+  }
   return state;
 }

@@ -34,7 +34,7 @@ describe('frozen inventory v4 reservation migration', () => {
     const bytes = JSON.stringify(raw);
     const state = parseInventoryState(raw);
     expect(JSON.stringify(raw)).toBe(bytes);
-    expect(state.schema).toBe('dnaforge.inventory.v6');
+    expect(state.schema).toBe('dnaforge.inventory.v7');
     expect(state.revision).toBe(1);
     expect(state.lastRecordedAt).toBe(0);
     expect(state.reservations).toEqual({});

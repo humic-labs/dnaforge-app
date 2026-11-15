@@ -1,4 +1,13 @@
 import type {
+  InventoryPhysicalConfiguration,
+  InventoryPhysicalTypeVersion,
+  InventoryEquipmentRecipeVersion,
+  InventoryFitEvidence,
+  InventoryPhysicalProjection,
+  InventoryConfigurationCommand,
+} from './inventory-configuration-types';
+export type * from './inventory-configuration-types';
+import type {
   InventoryComposition,
   InventoryConcentration,
   InventoryConcentrationUnit,
@@ -12,7 +21,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v6' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v7' as const;
+export const INVENTORY_CUSTODY_SCHEMA = 'dnaforge.inventory.v6' as const;
 export const INVENTORY_RESERVATION_SCHEMA = 'dnaforge.inventory.v5' as const;
 export const INVENTORY_COMPOSITION_SCHEMA = 'dnaforge.inventory.v4' as const;
 export const INVENTORY_MATERIAL_SCHEMA = 'dnaforge.inventory.v3' as const;
@@ -140,6 +150,7 @@ export interface InventoryPhysicalItem {
 }
 
 export interface InventoryStorage {
+  readonly configuration: InventoryPhysicalConfiguration;
   readonly id: string;
   readonly name: string;
   readonly layout: InventoryLayout;
@@ -154,6 +165,7 @@ export interface InventoryVesselLimits {
 }
 
 interface InventoryVesselFacts {
+  readonly configuration: InventoryPhysicalConfiguration;
   readonly limits: InventoryVesselLimits;
   readonly id: string;
   readonly name: string;
@@ -213,6 +225,9 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly typeVersions: Readonly<Record<string, InventoryPhysicalTypeVersion>>;
+  readonly recipeVersions: Readonly<Record<string, InventoryEquipmentRecipeVersion>>;
+  readonly fitEvidence: Readonly<Record<string, InventoryFitEvidence>>;
   readonly schema: typeof INVENTORY_SCHEMA;
   readonly revision: number;
   readonly lastRecordedAt: number;
@@ -271,6 +286,7 @@ export type InventoryReservation = InventoryReservationFacts &
   );
 
 export type InventoryAvailabilityBlocker =
+  | { readonly code: 'POSITION_UNAVAILABLE'; readonly item: InventoryPhysicalItem }
   | {
       readonly code: 'ITEM_CHECKED_OUT';
       readonly item: InventoryPhysicalItem;
@@ -310,6 +326,7 @@ export interface InventoryReservationAvailability {
 }
 
 export interface InventoryAvailability {
+  readonly physical: InventoryPhysicalProjection;
   readonly items: Readonly<Record<string, InventoryItemCustody>>;
   readonly stocks: Readonly<Record<string, InventoryStockAvailability>>;
   readonly reservations: Readonly<Record<string, InventoryReservationAvailability>>;
@@ -404,6 +421,7 @@ export type InventoryMaterialCommand =
   | (InventoryLegacyDiluteCommand & { readonly mixing: InventoryMixing });
 
 export type InventoryCommand =
+  | InventoryConfigurationCommand
   | InventoryCustodyCommand
   | InventoryReservationCommand
   | InventoryMaterialCommand
@@ -589,7 +607,8 @@ export type InventoryErrorCode =
   | 'ITEM_MISSING'
   | 'CUSTODY_STATE_CONFLICT'
   | 'CUSTODY_NOT_OWNED'
-  | 'CUSTODY_TRANSITION_REQUIRED';
+  | 'CUSTODY_TRANSITION_REQUIRED'
+  | 'POSITION_UNAVAILABLE';
 
 export type InventoryTransition =
   | { readonly ok: true; readonly state: InventoryState }
@@ -603,6 +622,9 @@ export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
     revision: 0,
+    typeVersions: Object.create(null) as Record<string, InventoryPhysicalTypeVersion>,
+    recipeVersions: Object.create(null) as Record<string, InventoryEquipmentRecipeVersion>,
+    fitEvidence: Object.create(null) as Record<string, InventoryFitEvidence>,
     lastRecordedAt: 0,
     storage: Object.create(null) as Record<string, InventoryStorage>,
     vessels: Object.create(null) as Record<string, InventoryVessel>,

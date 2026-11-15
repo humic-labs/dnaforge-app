@@ -45,6 +45,10 @@ export function registerInventoryHandlers(options: {
       assertCaller(event);
       return currentOwner().projects();
     },
+    catalog: (event, request) => {
+      assertCaller(event);
+      return currentOwner().catalog(request);
+    },
     materials: (event, request) => {
       assertCaller(event);
       return currentOwner().materials(request);

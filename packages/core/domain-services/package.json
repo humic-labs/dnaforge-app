@@ -10,6 +10,11 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./metadata-fields": {
+      "types": "./src/metadata-fields.ts",
+      "import": "./src/metadata-fields.ts",
+      "default": "./src/metadata-fields.ts"
     }
   },
   "scripts": {

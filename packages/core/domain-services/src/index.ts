@@ -5,3 +5,5 @@ export * from './workspace-sessions';
 export * from './workspace-session-controller';
 export type * from './track-view-commands';
 export * from './inventory';
+export * from './metadata-fields';
+export * from './inventory-equipment-catalog';

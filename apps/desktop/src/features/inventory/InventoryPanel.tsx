@@ -31,6 +31,9 @@ import { InventoryCompositionForm } from './InventoryCompositionForm';
 import { InventoryReservationForm } from './InventoryReservationForm';
 import { InventoryCustodyForm } from './InventoryCustodyForm';
 import { InventoryCustodyPanel } from './InventoryCustodyPanel';
+import { InventoryPhysicalDetails } from './InventoryPhysicalDetails';
+import { InventoryPhysicalWorkspace } from './InventoryPhysicalWorkspace';
+import { isInventoryPhysicalDialog } from './inventory-physical-view';
 import {
   InventoryReservationList,
   InventoryStockAvailability,
@@ -115,7 +118,7 @@ function lotInputs(
 
 export function InventoryPanel() {
   const controller = useMemo(sharedController, []);
-  const { projects, status, projectsError } = useSyncExternalStore(
+  const { projects, status, projectsError, catalog } = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot
   );
@@ -528,6 +531,9 @@ export function InventoryPanel() {
         <Button disabled={!editable} onClick={() => setDialog({ kind: 'container' })}>
           Add container
         </Button>
+        <Button disabled={!data} onClick={() => setDialog({ kind: 'setup' })}>
+          Inventory setup
+        </Button>
       </header>
       {projectsError ? (
         <div className="px-5 pt-3">
@@ -681,13 +687,21 @@ export function InventoryPanel() {
                 ) : null}
               </div>
               {selectedLocation ? (
-                <InventoryCustodyPanel
-                  data={data}
-                  item={{ kind: 'storage', id: selectedLocation.id }}
-                  editable={editable}
-                  onDialog={setDialog}
-                  onOpenItem={openItem}
-                />
+                <>
+                  <InventoryCustodyPanel
+                    data={data}
+                    item={{ kind: 'storage', id: selectedLocation.id }}
+                    editable={editable}
+                    onDialog={setDialog}
+                    onOpenItem={openItem}
+                  />
+                  <InventoryPhysicalDetails
+                    data={data}
+                    item={{ kind: 'storage', id: selectedLocation.id }}
+                    editable={editable}
+                    onDialog={setDialog}
+                  />
+                </>
               ) : null}
               {selectedLocation ? (
                 <>
@@ -718,6 +732,15 @@ export function InventoryPanel() {
                     >
                       {positions.slice(0, shownPositions).map((position) => {
                         const occupant = inventoryOccupant(state!, selectedLocation.id, position);
+                        const physicalLocation =
+                          data.availability?.physical.items[selectedLocation.id];
+                        const typeRule =
+                          physicalLocation?.type?.definition.kind === 'storage'
+                            ? physicalLocation.type.definition.positionRules[position]
+                            : undefined;
+                        const unavailableReason =
+                          physicalLocation?.configuration.unavailablePositions[position] ??
+                          (typeRule?.kind === 'unavailable' ? typeRule.reason : undefined);
                         const vessel =
                           occupant && Object.hasOwn(state!.vessels, occupant.id)
                             ? state!.vessels[occupant.id]
@@ -737,14 +760,20 @@ export function InventoryPanel() {
                             ? (materialNames[stock.materialId] ?? 'Loading material…')
                             : vessel?.kind === 'fixed-well'
                               ? 'Empty well'
-                              : (vessel?.name ?? 'Empty'));
+                              : (vessel?.name ?? (unavailableReason ? 'Unavailable' : 'Empty')));
                         return (
                           <button
                             key={position}
                             data-location-id={selectedLocation.id}
                             data-position-id={position}
+                            data-position-state={unavailableReason ? 'unavailable' : 'available'}
+                            title={unavailableReason}
                             aria-label={`Position ${position}, ${label}`}
-                            disabled={!occupiedLocation && !stock && !editable}
+                            disabled={
+                              !occupiedLocation &&
+                              !stock &&
+                              (!editable || Boolean(unavailableReason))
+                            }
                             className={`min-h-16 rounded-md border p-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${stock ? (stock.quality === 'quarantined' ? 'border-warning/40 bg-warning/5' : 'border-accent/30 bg-accent-subtle') : occupiedLocation ? 'border-border bg-bg-subtle' : 'border-dashed border-border hover:bg-bg-subtle'}`}
                             onClick={() => {
                               if (occupiedLocation)
@@ -770,6 +799,11 @@ export function InventoryPanel() {
                           >
                             <span className="block font-semibold">{position}</span>
                             <span className="mt-1 block truncate text-fg-muted">{label}</span>
+                            {unavailableReason ? (
+                              <span className="mt-1 block truncate text-xs text-fg-muted">
+                                {unavailableReason}
+                              </span>
+                            ) : null}
                             {occupant ? (
                               <span className="mt-1 block text-fg-muted">
                                 {inventoryCustodyLabel(data.availability?.items[occupant.id])}
@@ -996,6 +1030,12 @@ export function InventoryPanel() {
                         onOpenItem={openItem}
                       />
                       <InventoryStockAvailability data={data} stockId={selectedStock.id} />
+                      <InventoryPhysicalDetails
+                        data={data}
+                        item={{ kind: 'vessel', id: selectedVessel.id }}
+                        editable={editable}
+                        onDialog={setDialog}
+                      />
                       <dl className="space-y-3 text-sm">
                         <div>
                           <dt className="text-xs text-fg-muted">Lot or preparation</dt>
@@ -1229,6 +1269,12 @@ export function InventoryPanel() {
                     onOpenItem={openItem}
                   />
                   <Notice>No stock is recorded in this container.</Notice>
+                  <InventoryPhysicalDetails
+                    data={data}
+                    item={drawer.item}
+                    editable={editable}
+                    onDialog={setDialog}
+                  />
                   {drawer.item.kind === 'vessel' && selectedItem.lifecycle === 'active' ? (
                     <div className="flex flex-wrap gap-2">
                       <Button
@@ -1273,7 +1319,18 @@ export function InventoryPanel() {
         </div>
       )}
       {dialog.kind !== 'none' && data ? (
-        dialog.kind === 'custody' ? (
+        isInventoryPhysicalDialog(dialog) ? (
+          <InventoryPhysicalWorkspace
+            key={`${data.project.projectId}:${dialog.kind}:${'item' in dialog ? dialog.item.id : 'versionId' in dialog ? dialog.versionId : 'catalogId' in dialog ? dialog.catalogId : ''}`}
+            dialog={dialog}
+            data={data}
+            controller={controller}
+            status={status}
+            catalog={catalog}
+            onDialog={setDialog}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : dialog.kind === 'custody' ? (
           <InventoryCustodyForm
             key={`${data.project.projectId}:${dialog.item.id}:${dialog.action}`}
             dialog={dialog}

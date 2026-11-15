@@ -1,6 +1,7 @@
 import {
   createInventoryState,
   type InventoryCommand,
+  type InventoryEquipmentCatalogEntry,
   type InventoryState,
 } from '@waypoint/domain-services';
 import {
@@ -69,7 +70,14 @@ export interface InventoryControllerSnapshot {
   projects: readonly InventoryProject[];
   status: InventoryControllerState;
   projectsError?: string;
+  catalog: InventoryCatalogState;
 }
+
+export type InventoryCatalogState =
+  | { kind: 'idle' }
+  | { kind: 'loading'; projectId: string }
+  | { kind: 'ready'; projectId: string; entries: readonly InventoryEquipmentCatalogEntry[] }
+  | { kind: 'failed'; projectId: string; message: string };
 
 export interface InventoryAttemptStorage {
   read(): readonly InventoryAttempt[];
@@ -131,6 +139,7 @@ export class InventoryController {
   private snapshot: InventoryControllerSnapshot = {
     projects: [],
     status: { kind: 'loading', project: null },
+    catalog: { kind: 'idle' },
   };
   private readonly listeners = new Set<() => void>();
   private readonly pending = new Map<string, InventoryAttempt>();
@@ -138,6 +147,8 @@ export class InventoryController {
   private generation = 0;
   private projectsGeneration = 0;
   private initialized = false;
+  private catalogGeneration = 0;
+  private readonly catalogCache = new Map<string, readonly InventoryEquipmentCatalogEntry[]>();
   private opening: Promise<void> | undefined;
   private unsubscribe: (() => void) | undefined;
 
@@ -207,6 +218,7 @@ export class InventoryController {
 
   async initialize(): Promise<void> {
     const generation = ++this.generation;
+    this.catalogGeneration += 1;
     try {
       this.unsubscribe?.();
       this.pending.clear();
@@ -219,7 +231,7 @@ export class InventoryController {
       const projects = await this.client.projects();
       if (generation !== this.generation) return;
       this.initialized = true;
-      this.snapshot = { projects, status: { kind: 'no-project' } };
+      this.snapshot = { projects, status: { kind: 'no-project' }, catalog: { kind: 'idle' } };
       this.unsubscribe = this.client.onChanged((event) => {
         const key = scopeKey(event.projectId, event.inventoryId);
         this.observedRevision.set(
@@ -304,6 +316,12 @@ export class InventoryController {
   async selectProject(projectId: string): Promise<void> {
     const project = this.snapshot.projects.find((candidate) => candidate.projectId === projectId);
     const generation = ++this.generation;
+    this.catalogGeneration += 1;
+    const cached = this.catalogCache.get(projectId);
+    this.snapshot = {
+      ...this.snapshot,
+      catalog: cached ? { kind: 'ready', projectId, entries: cached } : { kind: 'idle' },
+    };
     if (!project) {
       this.set({ kind: 'no-project' });
       return;
@@ -339,6 +357,43 @@ export class InventoryController {
           message: 'This inventory could not be loaded. Refresh it or choose another project.',
         });
     }
+  }
+
+  async loadCatalog(projectId: string): Promise<void> {
+    const status = this.snapshot.status;
+    const current =
+      status.kind === 'loading'
+        ? status.project
+        : (inventoryData(status)?.project ?? ('project' in status ? status.project : null));
+    if (current?.projectId !== projectId) return;
+    const cached = this.catalogCache.get(projectId);
+    if (cached) {
+      this.snapshot = { ...this.snapshot, catalog: { kind: 'ready', projectId, entries: cached } };
+      this.set(this.snapshot.status);
+      return;
+    }
+    if (this.snapshot.catalog.kind === 'loading' && this.snapshot.catalog.projectId === projectId)
+      return;
+    const generation = ++this.catalogGeneration;
+    this.snapshot = { ...this.snapshot, catalog: { kind: 'loading', projectId } };
+    this.set(this.snapshot.status);
+    try {
+      const entries = await this.client.catalog({ project: projectId });
+      if (generation !== this.catalogGeneration) return;
+      this.catalogCache.set(projectId, entries);
+      this.snapshot = { ...this.snapshot, catalog: { kind: 'ready', projectId, entries } };
+    } catch {
+      if (generation !== this.catalogGeneration) return;
+      this.snapshot = {
+        ...this.snapshot,
+        catalog: {
+          kind: 'failed',
+          projectId,
+          message: 'Equipment catalog could not be loaded. Existing inventory remains available.',
+        },
+      };
+    }
+    this.set(this.snapshot.status);
   }
 
   async refresh(): Promise<void> {
@@ -586,6 +641,7 @@ export class InventoryController {
 
   dispose(): void {
     ++this.generation;
+    ++this.catalogGeneration;
     ++this.projectsGeneration;
     this.unsubscribe?.();
     this.listeners.clear();

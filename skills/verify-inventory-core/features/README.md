@@ -19,3 +19,6 @@
 
 - [Physical custody](custody.md): empty containers, aggregate checkout, return,
   missing observations, transit and immutable location history.
+
+- [Physical configuration](physical-configuration.md): reusable types, pinned
+  recipes, scoped fit evidence and source-backed installed arrangements.

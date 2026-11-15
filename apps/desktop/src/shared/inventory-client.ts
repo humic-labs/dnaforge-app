@@ -1,5 +1,6 @@
 import type {
   InventoryAvailability,
+  InventoryEquipmentCatalogEntry,
   InventoryPrincipal,
   InventoryState,
 } from '@waypoint/domain-services';
@@ -35,6 +36,10 @@ export interface InventoryMaterialQuery {
   readonly limit?: number;
 }
 
+export interface InventoryCatalogQuery {
+  readonly project: string;
+}
+
 export interface InventoryMaterialPage {
   readonly items: readonly InventoryMaterial[];
   readonly nextCursor: string | null;
@@ -55,6 +60,7 @@ export interface InventoryAvailabilitySnapshot extends InventoryAvailability {
 
 export interface InventoryClient {
   projects(): Promise<readonly InventoryProject[]>;
+  catalog(input: InventoryCatalogQuery): Promise<readonly InventoryEquipmentCatalogEntry[]>;
   materials(input: InventoryMaterialQuery): Promise<InventoryMaterialPage>;
   inspect(input: InventoryReadRequest): Promise<InventoryState | null>;
   availability(input: InventoryReadRequest): Promise<InventoryAvailabilitySnapshot | null>;
@@ -70,6 +76,7 @@ export function unavailableInventoryClient(): InventoryClient {
   };
   return {
     projects: unavailable,
+    catalog: unavailable,
     materials: unavailable,
     inspect: unavailable,
     availability: unavailable,

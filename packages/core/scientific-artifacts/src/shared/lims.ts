@@ -6,6 +6,11 @@ import type {
   EntitySchemaFieldSnapshot,
   ProjectableEntitySchemaRevisionSnapshot,
 } from './entity-schema';
+import {
+  isMetadataValueMissing as isMissing,
+  validateMetadataFieldValue,
+  type MetadataFieldDefinition,
+} from '@waypoint/domain-services/metadata-fields';
 import type { ScientificAcceptedDocumentRevision } from '@waypoint/domain-services';
 import type { ProjectableRelationshipSchemaRevisionSnapshot } from './relationship-schema';
 import type { GeneticCodeSpec } from '@waypoint/sequence-utils';
@@ -221,25 +226,10 @@ export type LimsFormulaResultValue = {
   stale: boolean;
 };
 
-export interface LimsFieldDefinition {
-  key: string;
-  label: string;
-  type: LimsFieldType;
-  required?: boolean;
-  suggested?: boolean;
-  enumOptions?: readonly string[];
-  maxLength?: number;
-  minValue?: number;
-  maxValue?: number;
-  minDate?: string;
-  maxDate?: string;
-  description?: string;
-
+export interface LimsFieldDefinition extends MetadataFieldDefinition<LimsFieldType> {
   requireResolved?: boolean;
 
   intrinsic?: 'sequence.length' | 'sequence.topology' | 'sequence.geneticCode';
-
-  readOnly?: boolean;
 }
 
 export function requireSupportedLimsFieldDefinitions(
@@ -2229,37 +2219,13 @@ function validateFieldValue(
 ): string | null {
   switch (field.type) {
     case 'text':
-    case 'long_text': {
-      if (typeof value !== 'string') return `${field.key} must be a string`;
-      return field.maxLength !== undefined && value.length > field.maxLength
-        ? `${field.key} exceeds ${field.maxLength} characters`
-        : null;
-    }
+    case 'long_text':
     case 'date':
-      return validateDateField(field, value);
-    case 'number': {
-      if (typeof value !== 'number' || !Number.isFinite(value)) {
-        return `${field.key} must be a finite number`;
-      }
-      if (field.minValue !== undefined && value < field.minValue) {
-        return `${field.key} must be at least ${field.minValue}`;
-      }
-      if (field.maxValue !== undefined && value > field.maxValue) {
-        return `${field.key} must be at most ${field.maxValue}`;
-      }
-      return null;
-    }
+    case 'number':
     case 'boolean':
-      return typeof value === 'boolean' ? null : `${field.key} must be a boolean`;
     case 'string_array':
-      return Array.isArray(value) && value.every((v) => typeof v === 'string')
-        ? null
-        : `${field.key} must be an array of strings`;
     case 'enum':
-      if (typeof value !== 'string') return `${field.key} must be a string`;
-      return field.enumOptions && !field.enumOptions.includes(value)
-        ? `${field.key} must be one of ${field.enumOptions.join(', ')}`
-        : null;
+      return validateMetadataFieldValue({ ...field, type: field.type }, value);
     case 'dna_sequence':
       return validateDnaSequenceRef(kind, field, value);
     case 'rna_sequence':
@@ -2282,21 +2248,6 @@ function validateFieldValue(
         ? null
         : `${field.key} must be a genetic code`;
   }
-}
-
-function validateDateField(field: LimsFieldDefinition, value: unknown): string | null {
-  if (typeof value !== 'string') return `${field.key} must be a string`;
-
-  if (field.minDate === undefined && field.maxDate === undefined) return null;
-  const epoch = Date.parse(value);
-  if (!Number.isFinite(epoch)) return `${field.key} must be a valid date`;
-  if (field.minDate !== undefined && epoch < Date.parse(field.minDate)) {
-    return `${field.key} must be on or after ${field.minDate}`;
-  }
-  if (field.maxDate !== undefined && epoch > Date.parse(field.maxDate)) {
-    return `${field.key} must be on or before ${field.maxDate}`;
-  }
-  return null;
 }
 
 function validateAcceptedSequencePin(
@@ -2753,10 +2704,6 @@ export function normalizeInlineAminoAcidSequenceRef(bases: string): InlineAminoA
     bases: cleaned,
     length: cleaned.length,
   };
-}
-
-function isMissing(value: unknown): boolean {
-  return value === undefined || value === null || value === '';
 }
 
 function parseJsonObject(value: string): Record<string, unknown> {

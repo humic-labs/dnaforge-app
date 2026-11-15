@@ -2,6 +2,7 @@ import type { InventoryMaterialDialog } from './InventoryMaterialForm';
 import type { InventoryCompositionDialog } from './InventoryCompositionForm';
 import type { InventoryReservationDialog } from './InventoryReservations';
 import type { InventoryCustodyDialog } from './InventoryCustodyForm';
+import type { InventoryPhysicalDialogKind } from './inventory-physical-view';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   inventoryStoragePositions,
@@ -26,6 +27,11 @@ import type {
 import { inventoryCanEdit } from './inventory-controller';
 import { InventoryStatusNotice } from './InventoryStatusNotice';
 import {
+  InventoryMetadataFields,
+  inventoryMetadata,
+  InventorySourceDetails,
+} from './InventoryPhysicalControls';
+import {
   destinationCommands,
   destinationPositions,
   locationPath,
@@ -39,6 +45,7 @@ type OpenDialog = Exclude<
   | InventoryCompositionDialog
   | InventoryReservationDialog
   | InventoryCustodyDialog
+  | InventoryPhysicalDialogKind
   | { kind: 'none' }
 >;
 type Materials =
@@ -106,6 +113,12 @@ export function InventoryForm({
   );
   const [unit, setUnit] = useState<InventoryVolumeUnit>('uL');
   const [reason, setReason] = useState('');
+  const [typeVersionId, setTypeVersionId] = useState(
+    'typeVersionId' in dialog ? (dialog.typeVersionId ?? '') : ''
+  );
+  const [metadata, setMetadata] = useState<Readonly<Record<string, unknown>>>({});
+  const [invalidFields, setInvalidFields] = useState<ReadonlySet<string>>(new Set());
+  const physicalType = typeVersionId ? state.typeVersions[typeVersionId] : undefined;
   const [query, setQuery] = useState('');
   const [materialId, setMaterialId] = useState('');
   const [lotId, setLotId] = useState('');
@@ -205,7 +218,24 @@ export function InventoryForm({
     if (!canSubmit) return;
     try {
       const commands: InventoryCommand[] = [];
-      if (dialog.kind === 'location') {
+      if (physicalType && (dialog.kind === 'location' || dialog.kind === 'container')) {
+        if (invalidFields.size)
+          throw new Error('Correct the invalid additional fields before saving.');
+        if (!name.trim()) throw new Error('Enter an item name.');
+        const target = destination();
+        commands.push({
+          kind: 'instantiate-physical-type',
+          typeVersionId,
+          id: crypto.randomUUID(),
+          name: name.trim(),
+          destination:
+            selectedStorage?.layout.kind === 'stack'
+              ? { kind: 'stack-top', stackId: selectedStorage.id }
+              : (target ?? (dialog.kind === 'location' ? { kind: 'root' } : { kind: 'unplaced' })),
+          metadata: inventoryMetadata(physicalType.fields, metadata),
+          reason: reason.trim(),
+        });
+      } else if (dialog.kind === 'location') {
         const layout: InventoryLayout =
           layoutKind === 'named'
             ? {
@@ -468,6 +498,33 @@ export function InventoryForm({
             <div className="flex min-h-0 flex-col gap-4 overflow-y-auto p-5">
               <InventoryStatusNotice controller={controller} status={status} />
               {validation ? <Notice tone="error">{validation}</Notice> : null}
+              {dialog.kind === 'location' || dialog.kind === 'container' ? (
+                <Field label="Type">
+                  <Select
+                    ariaLabel="Type"
+                    value={typeVersionId}
+                    options={[
+                      { value: '', label: 'Unspecified' },
+                      ...Object.values(state.typeVersions)
+                        .filter((type) =>
+                          dialog.kind === 'location'
+                            ? type.definition.kind === 'storage'
+                            : type.definition.kind === 'vessel' &&
+                              type.definition.mobility === 'movable'
+                        )
+                        .map((type) => ({
+                          value: type.id,
+                          label: `${type.name} · v${type.version}`,
+                        })),
+                    ]}
+                    onValueChange={(id) => {
+                      setTypeVersionId(id);
+                      setMetadata({});
+                      setInvalidFields(new Set());
+                    }}
+                  />
+                </Field>
+              ) : null}
               {dialog.kind === 'container' ? (
                 <Field label="Container name">
                   <TextField
@@ -491,67 +548,76 @@ export function InventoryForm({
                       required
                     />
                   </Field>
-                  <Field label="Positions">
-                    <Select
-                      ariaLabel="Position layout"
-                      value={layoutKind}
-                      options={[
-                        { value: 'named', label: 'Named positions' },
-                        { value: 'grid', label: 'Grid' },
-                        { value: 'removable-tube', label: 'Tube box' },
-                        { value: 'fixed-well', label: 'Well plate' },
-                        { value: 'stack', label: 'Ordered stack' },
-                      ]}
-                      onValueChange={(value) => setLayoutKind(value as InventoryLayout['kind'])}
-                    />
-                  </Field>
-                  {layoutKind === 'named' ? (
-                    <Field label="Position names, separated by commas">
-                      <TextArea
-                        aria-label="Position names"
-                        value={positions}
-                        onChange={(event) => setPositions(event.target.value)}
-                        rows={3}
-                        required
-                      />
-                    </Field>
-                  ) : layoutKind === 'stack' ? (
-                    <Field label="Stack capacity">
-                      <TextField
-                        aria-label="Stack capacity"
-                        type="number"
-                        min={1}
-                        max={10000}
-                        value={capacity}
-                        onChange={(event) => setCapacity(event.target.value)}
-                        required
-                      />
-                    </Field>
+                  {!physicalType ? (
+                    <>
+                      <Field label="Positions">
+                        <Select
+                          ariaLabel="Position layout"
+                          value={layoutKind}
+                          options={[
+                            { value: 'named', label: 'Named positions' },
+                            { value: 'grid', label: 'Grid' },
+                            { value: 'removable-tube', label: 'Tube box' },
+                            { value: 'fixed-well', label: 'Well plate' },
+                            { value: 'stack', label: 'Ordered stack' },
+                          ]}
+                          onValueChange={(value) => setLayoutKind(value as InventoryLayout['kind'])}
+                        />
+                      </Field>
+                      {layoutKind === 'named' ? (
+                        <Field label="Position names, separated by commas">
+                          <TextArea
+                            aria-label="Position names"
+                            value={positions}
+                            onChange={(event) => setPositions(event.target.value)}
+                            rows={3}
+                            required
+                          />
+                        </Field>
+                      ) : layoutKind === 'stack' ? (
+                        <Field label="Stack capacity">
+                          <TextField
+                            aria-label="Stack capacity"
+                            type="number"
+                            min={1}
+                            max={10000}
+                            value={capacity}
+                            onChange={(event) => setCapacity(event.target.value)}
+                            required
+                          />
+                        </Field>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          <Field label="Rows">
+                            <TextField
+                              aria-label="Rows"
+                              type="number"
+                              min={1}
+                              max={10000}
+                              value={rows}
+                              onChange={(event) => setRows(event.target.value)}
+                              required
+                            />
+                          </Field>
+                          <Field label="Columns">
+                            <TextField
+                              aria-label="Columns"
+                              type="number"
+                              min={1}
+                              max={10000}
+                              value={columns}
+                              onChange={(event) => setColumns(event.target.value)}
+                              required
+                            />
+                          </Field>
+                        </div>
+                      )}
+                    </>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field label="Rows">
-                        <TextField
-                          aria-label="Rows"
-                          type="number"
-                          min={1}
-                          max={10000}
-                          value={rows}
-                          onChange={(event) => setRows(event.target.value)}
-                          required
-                        />
-                      </Field>
-                      <Field label="Columns">
-                        <TextField
-                          aria-label="Columns"
-                          type="number"
-                          min={1}
-                          max={10000}
-                          value={columns}
-                          onChange={(event) => setColumns(event.target.value)}
-                          required
-                        />
-                      </Field>
-                    </div>
+                    <Notice>
+                      Uses {physicalType.name} version {physicalType.version}. Its layout and
+                      structural defaults are pinned when this item is created.
+                    </Notice>
                   )}
                 </>
               ) : null}
@@ -671,6 +737,26 @@ export function InventoryForm({
                   ) : null}
                 </>
               ) : null}
+              {physicalType ? (
+                <>
+                  <InventoryMetadataFields
+                    fields={physicalType.fields}
+                    values={metadata}
+                    onChange={setMetadata}
+                    onValidityChange={(key, valid) =>
+                      setInvalidFields((current) => {
+                        const next = new Set(current);
+                        if (valid) next.delete(key);
+                        else next.add(key);
+                        return next;
+                      })
+                    }
+                  />
+                  {physicalType.sources.map((source, index) => (
+                    <InventorySourceDetails key={index} source={source} />
+                  ))}
+                </>
+              ) : null}
               {placementFields}
               {quantityFields}
               {dialog.kind === 'use' && stock ? (
@@ -690,7 +776,8 @@ export function InventoryForm({
                     : 'This container cannot be used again.'}
                 </Notice>
               ) : null}
-              {['use', 'reconcile', 'quality', 'dispose'].includes(dialog.kind) ? (
+              {['use', 'reconcile', 'quality', 'dispose'].includes(dialog.kind) ||
+              Boolean(physicalType) ? (
                 <Field label="Reason">
                   <TextArea
                     aria-label="Reason"
@@ -710,7 +797,9 @@ export function InventoryForm({
                 type="submit"
                 variant={dialog.kind === 'dispose' ? 'danger' : 'primary'}
                 disabled={
-                  !canSubmit || Boolean(selectedStorage && !containerId && available.length === 0)
+                  !canSubmit ||
+                  invalidFields.size > 0 ||
+                  Boolean(selectedStorage && !containerId && available.length === 0)
                 }
               >
                 {busy ? 'Saving…' : title}

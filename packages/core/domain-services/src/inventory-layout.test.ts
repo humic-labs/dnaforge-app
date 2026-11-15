@@ -487,6 +487,14 @@ it('exports the same strict command variants used by the parser as machine-reada
     'return-item',
     'report-item-missing',
     'locate-item',
+    'define-physical-type',
+    'define-equipment-recipe',
+    'instantiate-physical-type',
+    'instantiate-equipment-recipe',
+    'configure-item',
+    'record-item-geometry',
+    'reconfigure-storage',
+    'record-fit-evidence',
   ]);
   for (const variant of variants) {
     expect(variant.additionalProperties).toBe(false);

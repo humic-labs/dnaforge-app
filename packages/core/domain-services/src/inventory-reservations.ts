@@ -1,3 +1,7 @@
+import {
+  inventoryPhysicalProjection,
+  inventoryPhysicalPositionUnavailable,
+} from './inventory-configuration';
 import { inventoryReservationPlacementFailure } from './inventory-reservation-placement';
 import { inventoryCommandWithdrawals } from './inventory-materials';
 import { inventoryCustodyAccess, inventoryItemCustody } from './inventory-custody';
@@ -28,7 +32,15 @@ import {
 
 type ReservationState = Pick<
   InventoryState,
-  'stocks' | 'vessels' | 'storage' | 'lots' | 'reservations' | 'lastRecordedAt'
+  | 'stocks'
+  | 'vessels'
+  | 'storage'
+  | 'lots'
+  | 'reservations'
+  | 'lastRecordedAt'
+  | 'typeVersions'
+  | 'recipeVersions'
+  | 'fitEvidence'
 >;
 export interface InventoryReservationDraft extends Omit<ReservationState, 'reservations'> {
   readonly reservations: Record<string, InventoryReservation>;
@@ -104,6 +116,8 @@ function stockAvailability(
       .map((reservation) => reservation.remaining)
   );
   const blockers: InventoryAvailabilityBlocker[] = [];
+  if (inventoryPhysicalPositionUnavailable(state, item))
+    blockers.push({ code: 'POSITION_UNAVAILABLE', item });
   blockers.push(...inventoryItemCustody(state, item, principal, state.lastRecordedAt).blockers);
   if (stock.quantity.kind === 'unknown') blockers.push({ code: 'QUANTITY_UNKNOWN' });
   if (stock.quality !== 'usable') blockers.push({ code: 'STOCK_QUARANTINED' });
@@ -189,7 +203,7 @@ export function inventoryAvailability(
     ...Object.keys(state.vessels).map((id) => ({ kind: 'vessel' as const, id })),
   ])
     items[item.id] = inventoryItemCustody(state, item, principal, at);
-  return { stocks, reservations, items };
+  return { stocks, reservations, items, physical: inventoryPhysicalProjection(state) };
 }
 
 function itemConflict(
@@ -333,9 +347,16 @@ export function applyInventoryReservationCommand(
     );
   if (command.kind === 'reserve-quantity' || command.kind === 'reserve-item') {
     if (
-      [state.reservations, state.storage, state.vessels, state.stocks, state.lots].some((rows) =>
-        Object.hasOwn(rows, command.id)
-      )
+      [
+        state.reservations,
+        state.storage,
+        state.vessels,
+        state.stocks,
+        state.lots,
+        state.typeVersions,
+        state.recipeVersions,
+        state.fitEvidence,
+      ].some((rows) => Object.hasOwn(rows, command.id))
     )
       return refuse('ID_ALREADY_EXISTS', 'That inventory identifier already exists.');
     if (command.deadline !== null && command.deadline <= context.at)

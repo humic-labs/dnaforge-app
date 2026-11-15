@@ -2,6 +2,7 @@ import type { InventoryMaterialDialog } from './InventoryMaterialForm';
 import type { InventoryCompositionDialog } from './InventoryCompositionForm';
 import type { InventoryReservationDialog } from './InventoryReservations';
 import type { InventoryCustodyDialog } from './InventoryCustodyForm';
+import type { InventoryPhysicalDialogKind } from './inventory-physical-view';
 import {
   inventoryStoragePositions,
   inventoryStackItems,
@@ -30,9 +31,10 @@ export type InventoryDialog =
   | InventoryCompositionDialog
   | InventoryReservationDialog
   | InventoryCustodyDialog
+  | InventoryPhysicalDialogKind
   | { kind: 'none' }
-  | { kind: 'container'; placement?: InventoryLocatedPlacement }
-  | { kind: 'location'; parentId?: string }
+  | { kind: 'container'; placement?: InventoryLocatedPlacement; typeVersionId?: string }
+  | { kind: 'location'; parentId?: string; typeVersionId?: string }
   | { kind: 'receive'; placement?: InventoryLocatedPlacement; vesselId?: string }
   | { kind: 'move'; item: InventoryItem }
   | { kind: 'use'; stockId: string }
@@ -103,6 +105,7 @@ export function inventoryBlockerLabel(blocker: InventoryAvailabilityBlocker): st
     ITEM_CHECKED_OUT: 'This item is checked out to another holder',
     ITEM_IN_TRANSIT: 'This item is in transit',
     ITEM_MISSING: 'The current location of this item is unknown',
+    POSITION_UNAVAILABLE: 'This position is marked unavailable',
   };
   return labels[blocker.code];
 }
@@ -189,6 +192,22 @@ export function destinationPositions(
 
 export function historyLabel(command: InventoryCommand, state: InventoryState): string {
   switch (command.kind) {
+    case 'define-physical-type':
+      return `Published type ${command.name}`;
+    case 'define-equipment-recipe':
+      return `Published equipment recipe ${command.name}`;
+    case 'instantiate-physical-type':
+      return `Added typed item ${command.name}`;
+    case 'instantiate-equipment-recipe':
+      return `Added equipment ${command.name}`;
+    case 'configure-item':
+      return 'Updated installed arrangement';
+    case 'reconfigure-storage':
+      return 'Updated installed layout';
+    case 'record-item-geometry':
+      return 'Recorded installed dimensions';
+    case 'record-fit-evidence':
+      return 'Recorded fit evidence';
     case 'checkout-item':
       return 'Checked out item';
     case 'start-item-transit':

@@ -1,4 +1,10 @@
 import {
+  applyInventoryConfigurationCommand,
+  inventoryRecordIdExists,
+  inventoryConfigurationAccess,
+} from './inventory-configuration';
+import { emptyInventoryPhysicalConfiguration } from './inventory-geometry';
+import {
   inventoryPhysicalRecord,
   inventoryRemovalFailure,
   inventoryPlacementFailure,
@@ -47,6 +53,9 @@ import {
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
 interface Draft {
+  typeVersions: Record<string, InventoryState['typeVersions'][string]>;
+  recipeVersions: Record<string, InventoryState['recipeVersions'][string]>;
+  fitEvidence: Record<string, InventoryState['fitEvidence'][string]>;
   lastRecordedAt: number;
   storage: Record<string, InventoryStorage>;
   vessels: Record<string, InventoryVessel>;
@@ -60,9 +69,7 @@ function failure(code: InventoryErrorCode, message: string): Failure {
 }
 
 function hasId(state: Draft, id: string): boolean {
-  return [state.storage, state.vessels, state.stocks, state.lots, state.reservations].some((rows) =>
-    Object.hasOwn(rows, id)
-  );
+  return inventoryRecordIdExists(state, id);
 }
 
 function createStorage(
@@ -92,6 +99,7 @@ function createStorage(
         : { ...command.layout },
     placement: { ...command.placement },
     lifecycle: 'active',
+    configuration: emptyInventoryPhysicalConfiguration(),
   };
   state.storage[storage.id] = storage;
   if (storage.layout.kind === 'fixed-well') {
@@ -106,6 +114,7 @@ function createStorage(
         name: position,
         placement: { kind: 'located', storageId: storage.id, slotId: position },
         lifecycle: 'active',
+        configuration: emptyInventoryPhysicalConfiguration(),
       };
     }
   }
@@ -125,6 +134,10 @@ function applyCommand(
   command: InventoryCommand,
   context?: InventoryExecutionContext
 ): Failure | null {
+  const configuration = applyInventoryConfigurationCommand(state, command, context, (inner) =>
+    applyCommand(state, inner, context)
+  );
+  if (configuration !== undefined) return configuration;
   const custody = applyInventoryCustodyCommand(state, command, context);
   if (custody !== undefined) return custody;
   const reservation = applyInventoryReservationCommand(state, command, context);
@@ -133,6 +146,8 @@ function applyCommand(
     const invalid = prepareInventoryFulfillment(state, command, context);
     return invalid ?? applyCommand(state, command.withdrawal, context);
   }
+  const configurationAccess = inventoryConfigurationAccess(state, command);
+  if (configurationAccess) return configurationAccess;
   const physical = inventoryCustodyGuard(state, command, context);
   if (physical) return physical;
   const reserved = inventoryReservationGuard(state, command, context);
@@ -161,6 +176,7 @@ function applyCommand(
         name: command.name,
         placement: { ...command.placement },
         lifecycle: 'active',
+        configuration: emptyInventoryPhysicalConfiguration(),
       };
       return null;
     }
@@ -328,6 +344,9 @@ export function applyInventoryCommandBatch(
   if (context && context.at < state.lastRecordedAt)
     return failure('CLOCK_REGRESSION', 'The trusted timestamp precedes the inventory clock floor.');
   const draft: Draft = {
+    typeVersions: Object.assign(Object.create(null), state.typeVersions),
+    recipeVersions: Object.assign(Object.create(null), state.recipeVersions),
+    fitEvidence: Object.assign(Object.create(null), state.fitEvidence),
     lastRecordedAt: context?.at ?? state.lastRecordedAt,
     storage: Object.assign(Object.create(null) as Record<string, InventoryStorage>, state.storage),
     vessels: Object.assign(Object.create(null) as Record<string, InventoryVessel>, state.vessels),

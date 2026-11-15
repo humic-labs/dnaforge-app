@@ -113,6 +113,7 @@ function fixture() {
   const client: InventoryClient = {
     projects: vi.fn(async () => [project]),
     materials: vi.fn(async () => ({ items: [], nextCursor: null })),
+    catalog: vi.fn(async () => []),
     inspect: vi.fn(async (request) =>
       request.project === other.projectId ? createInventoryState() : state
     ),
@@ -151,6 +152,56 @@ function fixture() {
 }
 
 describe('inventory interaction controller', () => {
+  it('loads the equipment catalog lazily and retains its cache across stock mutations', async () => {
+    const f = fixture();
+    await f.controller.initialize();
+    expect(f.client.catalog).not.toHaveBeenCalled();
+    await f.controller.loadCatalog(project.projectId);
+    expect(f.controller.getSnapshot().catalog).toEqual({
+      kind: 'ready',
+      projectId: project.projectId,
+      entries: [],
+    });
+    await f.controller.submit(useOne, 'Use stock');
+    await f.controller.loadCatalog(project.projectId);
+    expect(f.client.catalog).toHaveBeenCalledTimes(1);
+    expect(f.controller.getSnapshot().status.kind).toBe('ready');
+    f.controller.dispose();
+  });
+
+  it('keeps stock ready when the independent equipment catalog fails', async () => {
+    const f = fixture();
+    await f.controller.initialize();
+    vi.mocked(f.client.catalog).mockRejectedValueOnce(new Error('Catalog disconnected'));
+    await f.controller.loadCatalog(project.projectId);
+    expect(f.controller.getSnapshot().catalog).toMatchObject({
+      kind: 'failed',
+      projectId: project.projectId,
+    });
+    expect(f.controller.getSnapshot().status.kind).toBe('ready');
+    expect(await f.controller.submit(useOne, 'Use stock')).toMatchObject({ status: 'committed' });
+    f.controller.dispose();
+  });
+
+  it('discards a catalog response from a previously selected project', async () => {
+    const f = fixture();
+    vi.mocked(f.client.projects).mockResolvedValue([project, other]);
+    await f.controller.initialize();
+    await f.controller.selectProject(project.projectId);
+    const pending = deferred<Awaited<ReturnType<InventoryClient['catalog']>>>();
+    vi.mocked(f.client.catalog).mockReturnValueOnce(pending.promise);
+    const loading = f.controller.loadCatalog(project.projectId);
+    await f.controller.selectProject(other.projectId);
+    pending.resolve([]);
+    await loading;
+    expect(f.controller.getSnapshot().catalog).toEqual({ kind: 'idle' });
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'ready',
+      data: { project: { projectId: other.projectId } },
+    });
+    f.controller.dispose();
+  });
+
   it('rereads state and availability together when their revisions differ', async () => {
     const f = fixture();
     const current = await f.client.availability({

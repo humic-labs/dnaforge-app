@@ -61,6 +61,8 @@ export const inventoryMaterialQuerySchema = z
   })
   .strict();
 
+export const inventoryCatalogQuerySchema = inventoryMaterialQuerySchema.pick({ project: true });
+
 export const inventoryReceiptSchema = z
   .object({
     status: z.literal('committed'),

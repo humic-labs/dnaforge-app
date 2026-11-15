@@ -104,6 +104,7 @@ async function fixture(
     operation: vi.fn(() => null),
     history: vi.fn(() => []),
     projects: vi.fn(() => []),
+    catalog: vi.fn(() => []),
     materials: vi.fn(() => ({ items: [], nextCursor: null })),
   };
   const server = await startNativeDocumentCommandServer({
@@ -215,6 +216,7 @@ it.each([
   ],
   ['inventory.history', { project: '/workspace', inventoryId: 'inventory-1' }, ['read-workspace']],
   ['inventory.projects', {}, ['read-workspace']],
+  ['inventory.catalog', { project: '/workspace' }, ['read-workspace']],
   ['inventory.materials', { project: '/workspace', query: '' }, ['read-workspace']],
 ])('verifies current grant scopes for %s', async (command, request, required) => {
   const authorizeInventoryAgent = vi.fn(async () => {});

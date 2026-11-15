@@ -107,6 +107,24 @@ async def test_inventory_reads_dispatch_scoped_dictionaries_with_current_grant(
 
 
 @pytest.mark.asyncio
+async def test_inventory_catalog_is_read_only_and_project_scoped(native):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    state["result"] = {"kind": "catalog", "entries": []}
+    assert await execute_native_workflow(
+        "inventory", {"operation": {"kind": "catalog", "project": "project"}}, context
+    ) == {"ok": True, "result": {"kind": "catalog", "entries": [], "ok": True}}
+    assert state["calls"] == [
+        {
+            "command": "inventory.catalog",
+            "request": {"project": "project"},
+            "projectScope": {"kind": "app-following"},
+            "agent": {"identityId": "caller", "capabilities": ["read-workspace"]},
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_inventory_write_requires_current_grant_and_rejection_is_not_success(native):
     state, context = native
     request = {

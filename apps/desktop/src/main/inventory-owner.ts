@@ -4,12 +4,15 @@ import {
   applyInventoryCommandBatch,
   createInventoryState,
   inventoryAvailability,
+  inventoryEquipmentCatalog,
   parseInventoryState,
   type InventoryPrincipal,
+  type InventoryEquipmentCatalogEntry,
   type InventoryState,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
+  inventoryCatalogQuerySchema,
   inventoryHistoryRequestSchema,
   inventoryMaterialQuerySchema,
   inventoryOperationRequestSchema,
@@ -188,6 +191,12 @@ export function createNativeInventoryOwner(options: {
         pinned: project.pinned,
         defaultInventoryId: `inventory:${project.projectId}`,
       }));
+    },
+
+    catalog(input: unknown): readonly InventoryEquipmentCatalogEntry[] {
+      const request = inventoryCatalogQuerySchema.parse(input);
+      resolveProject(request.project, false);
+      return inventoryEquipmentCatalog();
     },
 
     materials(input: unknown): InventoryMaterialPage {

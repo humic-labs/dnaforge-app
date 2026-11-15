@@ -1,5 +1,9 @@
 import { expect, it } from 'vitest';
-import { createInventoryState, type InventoryStorage } from '@waypoint/domain-services';
+import {
+  createInventoryState,
+  emptyInventoryPhysicalConfiguration,
+  type InventoryStorage,
+} from '@waypoint/domain-services';
 import { inventoryLocationPathLabel, locationPath } from './inventory-view';
 
 function storage(
@@ -14,6 +18,7 @@ function storage(
     layout: { kind: 'named', slots: [] },
     lifecycle: 'active',
     custody: { kind: 'available' },
+    configuration: emptyInventoryPhysicalConfiguration(),
   };
 }
 

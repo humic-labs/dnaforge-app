@@ -1,3 +1,4 @@
+import { inventoryPlacementCompatibility } from './inventory-configuration';
 import type {
   InventoryErrorCode,
   InventoryPhysicalItem,
@@ -15,6 +16,9 @@ type Failure = { readonly ok: false; readonly code: InventoryErrorCode; readonly
 type Placement = InventoryPlacement;
 type PhysicalRecord = InventoryStorage | InventoryVessel;
 export interface InventoryPlacementDraft {
+  readonly typeVersions?: InventoryState['typeVersions'];
+  readonly recipeVersions?: InventoryState['recipeVersions'];
+  readonly fitEvidence?: InventoryState['fitEvidence'];
   readonly storage: Record<string, InventoryStorage>;
   readonly vessels: Record<string, InventoryVessel>;
 }
@@ -122,6 +126,23 @@ export function inventoryPlacementFailure(
     [...Object.values(state.storage), ...Object.values(state.vessels)].some(samePosition)
   )
     return failure('SLOT_OCCUPIED', 'The destination position is occupied.');
+  if (checkOccupancy && state.typeVersions && state.recipeVersions && state.fitEvidence) {
+    const fit = inventoryPlacementCompatibility(
+      {
+        storage: state.storage,
+        vessels: state.vessels,
+        typeVersions: state.typeVersions,
+        recipeVersions: state.recipeVersions,
+        fitEvidence: state.fitEvidence,
+      },
+      moving,
+      placement.storageId,
+      placement.slotId,
+      !(moving.kind === 'storage' ? state.storage[moving.id] : state.vessels[moving.id])
+    );
+    if (fit.logical === 'incompatible' || fit.fit === 'incompatible')
+      return failure('INCOMPATIBLE_LAYOUT', fit.reasons.join(', '));
+  }
   return null;
 }
 

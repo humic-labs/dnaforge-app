@@ -174,7 +174,7 @@ describe('durable native inventory commands', () => {
     startOwner();
     const scope = { project: 'inventory-project', inventoryId: 'legacy-inventory' };
     const read = owner.inspect(scope)!;
-    expect(read.schema).toBe('dnaforge.inventory.v6');
+    expect(read.schema).toBe('dnaforge.inventory.v7');
     expect(read.storage['legacy-freezer'].layout).toEqual({ kind: 'named', slots: ['A1'] });
     expect(owner.replay(scope)).toEqual({ state: read, acceptedOperations: 1 });
     expect(owner.execute(JSON.parse(requestJson))).toEqual(receipt);

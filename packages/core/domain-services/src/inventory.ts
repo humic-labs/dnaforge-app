@@ -23,3 +23,15 @@ export {
   inventoryStackItems,
   inventoryWellId,
 } from './inventory-layout';
+
+export {
+  inventoryPhysicalProjection,
+  inventoryPlacementCompatibility,
+  inventoryEffectiveGeometry,
+} from './inventory-configuration';
+export {
+  unknownInventoryGeometry,
+  emptyInventoryPhysicalConfiguration,
+  normalizeInventoryDimension,
+  normalizeInventoryGeometry,
+} from './inventory-geometry';

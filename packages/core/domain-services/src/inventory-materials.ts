@@ -29,6 +29,9 @@ import {
 } from './inventory-volume';
 
 export interface InventoryMaterialDraft {
+  readonly typeVersions: InventoryState['typeVersions'];
+  readonly recipeVersions: InventoryState['recipeVersions'];
+  readonly fitEvidence: InventoryState['fitEvidence'];
   readonly stocks: Record<string, InventoryStock>;
   readonly lots: Record<string, InventoryLot>;
   readonly vessels: Record<string, InventoryVessel>;
@@ -94,9 +97,16 @@ export function inventoryWithdrawalResult(
 }
 
 function hasId(state: InventoryMaterialDraft, id: string): boolean {
-  return [state.stocks, state.lots, state.vessels, state.storage, state.reservations].some((rows) =>
-    Object.hasOwn(rows, id)
-  );
+  return [
+    state.stocks,
+    state.lots,
+    state.vessels,
+    state.storage,
+    state.reservations,
+    state.typeVersions,
+    state.recipeVersions,
+    state.fitEvidence,
+  ].some((rows) => Object.hasOwn(rows, id));
 }
 
 function sameSource(first: InventoryStockSource, second: InventoryStockSource): boolean {

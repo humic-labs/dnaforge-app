@@ -525,6 +525,7 @@ export default defineConfig(({ mode, command }) => {
           : []),
         externalizeDepsPlugin({
           exclude: [
+            '@waypoint/domain-services',
             '@waypoint/scientific-artifacts',
             '@waypoint/sequence-utils',
             '@waypoint/user-messages',
