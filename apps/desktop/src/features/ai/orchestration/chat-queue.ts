@@ -32,33 +32,21 @@ import {
   isChatConversationDeleted,
   isChatSendClaimed,
   replaceConversationState,
+  recoverOrphanedChatExecution,
   setConversationState,
   type ChatStoreGet,
   type ChatStoreSet,
 } from './chat-runtime';
 import { runChatTurn } from './run-chat-turn';
 
-const activeQueueDrains = new Set<string>();
-const advanceThroughTargets = new Map<string, string>();
-type SubmissionEffects = Pick<ChatSendOptions, 'onStarted' | 'onNotStarted'> & {
-  routeFallback?: Extract<AssistantSendRouteResolution, { status: 'fallback' }>;
-};
-const conversationSubmissions = new Map<string, Map<string, SubmissionEffects>>();
+import { conversationExecution } from './conversation-execution';
 
-function takeSubmissionEffects(
-  conversationId: string,
-  messageId: string
-): SubmissionEffects | undefined {
-  const submissions = conversationSubmissions.get(conversationId);
-  const effects = submissions?.get(messageId);
-  submissions?.delete(messageId);
-  if (submissions?.size === 0) conversationSubmissions.delete(conversationId);
-  return effects;
+function takeSubmissionEffects(conversationId: string, messageId: string) {
+  return conversationExecution(conversationId).takeSubmission(messageId);
 }
 
 export function disposeConversationQueue(conversationId: string): void {
-  conversationSubmissions.delete(conversationId);
-  advanceThroughTargets.delete(conversationId);
+  conversationExecution(conversationId).disposeQueue();
 }
 
 function resolveSubmissionConversationId(
@@ -95,8 +83,8 @@ async function drainConversationQueue(
   preserveInitialHeadOnPreconditionFailure: boolean,
   onInitialHeadSettled?: (accepted: boolean) => void
 ): Promise<void> {
-  if (activeQueueDrains.has(conversationId)) return;
-  activeQueueDrains.add(conversationId);
+  const releaseDrain = conversationExecution(conversationId).beginDrain();
+  if (!releaseDrain) return;
   let preserveOnPreconditionFailure = preserveInitialHeadOnPreconditionFailure;
   let initialHeadSettled = false;
   const settleInitialHead = (accepted: boolean): void => {
@@ -113,7 +101,7 @@ async function drainConversationQueue(
       if (!next.routeSelection || !next.routeSnapshot) {
         const error = userMessage('assistant.queuedRouteMissing');
         takeSubmissionEffects(conversationId, next.id)?.onNotStarted?.(error);
-        advanceThroughTargets.delete(conversationId);
+        conversationExecution(conversationId).clearAdvance();
         settleInitialHead(false);
         return;
       }
@@ -134,42 +122,55 @@ async function drainConversationQueue(
             console.error('[Chat] onStarted callback failed after durable turn creation:', error);
           }
         }
-        if (advanceThroughTargets.has(conversationId)) {
-          const targetId = advanceThroughTargets.get(conversationId);
+        if (conversationExecution(conversationId).target) {
+          const targetId = conversationExecution(conversationId).target;
           if (!targetId) return;
           if (next.id === targetId) {
-            advanceThroughTargets.delete(conversationId);
+            conversationExecution(conversationId).clearAdvance();
             return;
           }
           cancelChatGeneration(conversationId, 'queue_advance');
         }
       };
-      await runChatTurn(
-        set,
-        get,
-        next.content,
-        next.workspacePath,
-        conversationId,
-        next.referenceIds,
-        {
-          activateConversation: false,
-          userMessageId: next.id,
-          removeVisibleQueueRowOnAccept: keepVisibleUntilAccepted,
-          onUserMessageAccepted: onAccepted,
-          onNotStarted: (error) => {
-            const onNotStarted = takeSubmissionEffects(conversationId, next.id)?.onNotStarted;
-            if (onNotStarted) {
-              onNotStarted(error);
-            } else {
-              setConversationState(set, conversationId, () => ({ error }));
-            }
-          },
-          routeSelection: next.routeSelection,
-          routeSnapshot: next.routeSnapshot,
-          capabilitySelection: next.capabilitySelection,
-          attachments: next.attachments,
-        }
-      );
+      try {
+        await runChatTurn(
+          set,
+          get,
+          next.content,
+          next.workspacePath,
+          conversationId,
+          next.referenceIds,
+          {
+            activateConversation: false,
+            userMessageId: next.id,
+            removeVisibleQueueRowOnAccept: keepVisibleUntilAccepted,
+            onUserMessageAccepted: onAccepted,
+            onNotStarted: (error) => {
+              const onNotStarted = takeSubmissionEffects(conversationId, next.id)?.onNotStarted;
+              if (onNotStarted) {
+                onNotStarted(error);
+              } else {
+                setConversationState(set, conversationId, () => ({ error }));
+              }
+            },
+            routeSelection: next.routeSelection,
+            routeSnapshot: next.routeSnapshot,
+            capabilitySelection: next.capabilitySelection,
+            attachments: next.attachments,
+          }
+        );
+      } catch (error) {
+        setConversationState(set, conversationId, () => ({
+          error: toUserMessage(error, 'assistant.failed'),
+        }));
+        conversationExecution(conversationId).clearAdvance();
+        settleInitialHead(
+          get()
+            ._convStates.get(conversationId)
+            ?.messages.some((message) => message.id === next.id) ?? false
+        );
+        return;
+      }
 
       const after = get()._convStates.get(conversationId) ?? EMPTY_CONV_STATE;
       const userMessagesAfter = after.messages.filter((message) => message.role === 'user');
@@ -180,7 +181,7 @@ async function drainConversationQueue(
 
       if (!accepted) {
         takeSubmissionEffects(conversationId, next.id);
-        advanceThroughTargets.delete(conversationId);
+        conversationExecution(conversationId).clearAdvance();
         if (!preserveOnPreconditionFailure) {
           setConversationState(set, conversationId, (previous) => ({
             queuedMessages: previous.queuedMessages.filter((message) => message.id !== next.id),
@@ -194,7 +195,7 @@ async function drainConversationQueue(
         ? after.turns[acceptedMessage.turnId]?.status
         : null;
       if (terminalStatus === 'failed' || terminalStatus === 'cancelled') {
-        advanceThroughTargets.delete(conversationId);
+        conversationExecution(conversationId).clearAdvance();
         return;
       }
 
@@ -202,11 +203,11 @@ async function drainConversationQueue(
     }
   } finally {
     settleInitialHead(false);
-    activeQueueDrains.delete(conversationId);
-    const remainingTarget = advanceThroughTargets.get(conversationId);
+    releaseDrain();
+    const remainingTarget = conversationExecution(conversationId).target;
     const remainingQueue = get()._convStates.get(conversationId)?.queuedMessages ?? [];
     if (remainingTarget && !remainingQueue.some((message) => message.id === remainingTarget)) {
-      advanceThroughTargets.delete(conversationId);
+      conversationExecution(conversationId).clearAdvance();
     }
   }
 }
@@ -289,7 +290,7 @@ export function submitChatMessage(
     ...(get()._convStates.get(resolvedConversationId) ?? {}),
   };
   const wasAlreadyQueuedOrRunning =
-    activeQueueDrains.has(resolvedConversationId) ||
+    conversationExecution(resolvedConversationId).isDraining ||
     isChatSendClaimed(resolvedConversationId) ||
     previous.isLoading ||
     previous.queuedMessages.length > 0;
@@ -309,21 +310,18 @@ export function submitChatMessage(
       : {}),
     createdAt: Date.now(),
   };
-  const submissions =
-    conversationSubmissions.get(resolvedConversationId) ?? new Map<string, SubmissionEffects>();
-  submissions.set(item.id, {
+  conversationExecution(resolvedConversationId).submitted(item.id, {
     onStarted: options?.onStarted,
     onNotStarted: options?.onNotStarted,
     ...(routeResolution.status === 'fallback' ? { routeFallback: routeResolution } : {}),
   });
-  conversationSubmissions.set(resolvedConversationId, submissions);
 
   setConversationState(set, resolvedConversationId, (state) => ({
     queuedMessages: [...state.queuedMessages, item],
   }));
 
   if (
-    activeQueueDrains.has(resolvedConversationId) ||
+    conversationExecution(resolvedConversationId).isDraining ||
     isChatSendClaimed(resolvedConversationId) ||
     previous.isLoading
   ) {
@@ -364,21 +362,13 @@ export function stopChatGeneration(
   }
 
   if (conversation.isLoading || conversation.isStreaming) {
-    setConversationState(set, resolvedConversationId, () => ({
-      isLoading: false,
-      isStreaming: false,
-      streamingBlocks: [],
-    }));
+    recoverOrphanedChatExecution(set, resolvedConversationId);
   }
   if (conversation.queuedMessages.length > 0) {
     void drainConversationQueue(set, get, resolvedConversationId, true);
     return;
   }
-  setConversationState(set, resolvedConversationId, () => ({
-    isLoading: false,
-    isStreaming: false,
-    streamingBlocks: [],
-  }));
+  recoverOrphanedChatExecution(set, resolvedConversationId);
 }
 
 export function advanceChatQueueThrough(
@@ -393,19 +383,15 @@ export function advanceChatQueueThrough(
   const conversation = get()._convStates.get(resolvedConversationId) ?? EMPTY_CONV_STATE;
   if (!conversation.queuedMessages.some((message) => message.id === targetMessageId)) return;
 
-  advanceThroughTargets.set(resolvedConversationId, targetMessageId);
+  conversationExecution(resolvedConversationId).requestAdvance(targetMessageId);
   const hasActiveIteration =
-    activeQueueDrains.has(resolvedConversationId) ||
+    conversationExecution(resolvedConversationId).isDraining ||
     conversation.isLoading ||
     isChatSendClaimed(resolvedConversationId);
   if (hasActiveIteration && cancelChatGeneration(resolvedConversationId, 'queue_advance')) return;
 
   if (conversation.isLoading || conversation.isStreaming) {
-    setConversationState(set, resolvedConversationId, () => ({
-      isLoading: false,
-      isStreaming: false,
-      streamingBlocks: [],
-    }));
+    recoverOrphanedChatExecution(set, resolvedConversationId);
   }
   void drainConversationQueue(set, get, resolvedConversationId, true);
 }

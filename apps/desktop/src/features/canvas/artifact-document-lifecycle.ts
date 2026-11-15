@@ -1,3 +1,4 @@
+import { classifyTabSession } from './tab-document-session';
 import { documentLifecycle } from '../../shared/document-lifecycle';
 import { TAB_DOCUMENT_LIFECYCLES } from '../../shared/tab-kind';
 import type { SaveDocumentTarget } from '../../shared/save-document-events';
@@ -19,6 +20,7 @@ export function shouldRememberClosedTab(tab: Tab): boolean {
 }
 
 export function saveTargetForTab(tab: Tab): SaveDocumentTarget {
+  const session = classifyTabSession(tab);
   if (
     tab.artifactDocument ||
     tab.type === 'record' ||
@@ -28,13 +30,7 @@ export function saveTargetForTab(tab: Tab): SaveDocumentTarget {
     return { kind: 'tab', tabId: tab.id };
   if (tab.type === 'page') return { kind: 'page', pageId: tab.entityId };
   if (tab.type === 'sequence') {
-    if (
-      tab.sequenceDocument?.kind === 'indexed-sequence' ||
-      tab.indexedGenome ||
-      tab.loadStatus === 'indexed-pending' ||
-      tab.loadStatus === 'indexed' ||
-      tab.loadStatus === 'indexed-error'
-    )
+    if (session.kind === 'sequence' && session.editor === 'indexed')
       return { kind: 'tab', tabId: tab.id };
     return { kind: 'sequence-document', documentId: tab.entityId };
   }

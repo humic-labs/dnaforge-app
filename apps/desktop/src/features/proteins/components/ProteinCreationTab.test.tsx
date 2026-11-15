@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   updateTab: vi.fn(),
+  retargetTab: vi.fn(),
   closeTab: vi.fn(),
   recordProtein: vi.fn(),
   addToast: vi.fn(),
@@ -16,7 +17,13 @@ vi.mock('../../canvas/store', () => ({
   useCanvasStore: Object.assign(
     (selector: (state: Record<string, unknown>) => unknown) =>
       selector({ updateTab: mocks.updateTab, closeTab: mocks.closeTab }),
-    { getState: () => ({ panels: {}, updateTab: mocks.updateTab }) }
+    {
+      getState: () => ({
+        panels: {},
+        updateTab: mocks.updateTab,
+        retargetTab: mocks.retargetTab,
+      }),
+    }
   ),
 }));
 vi.mock('../../../stores/workspaceStore', () => ({
@@ -120,12 +127,12 @@ describe('ProteinCreationTab', () => {
         notes: undefined,
       })
     );
-    expect(mocks.updateTab).toHaveBeenCalledWith('panel-1', tab.id, {
-      entityId: 'protein-1',
-      label: 'GFP',
-      artifactDocument: undefined,
-      isDirty: false,
-    });
+    expect(mocks.retargetTab).toHaveBeenCalledWith(
+      'panel-1',
+      tab.id,
+      { type: 'protein', entityId: 'protein-1' },
+      { label: 'GFP', artifactDocument: undefined, isDirty: false }
+    );
     expect(changed).toHaveBeenCalledTimes(1);
     expectToastCall(mocks.addToast, 'Created protein GFP.', 'success');
   });

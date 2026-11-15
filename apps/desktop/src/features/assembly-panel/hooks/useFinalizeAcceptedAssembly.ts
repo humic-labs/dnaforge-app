@@ -241,14 +241,17 @@ export function useFinalizeAcceptedAssembly(design: SequenceDesign, projectRoot?
           .map((tab) => ({ panelId, tabId: tab.id }))
       )[0];
       if (embedded) {
-        canvas.updateTab(embedded.panelId, embedded.tabId, {
-          assemblyEditDesignId: undefined,
-          entityId: result.constructId,
-          sequenceDocument: result.sequenceDocument,
-          label:
-            productSequence.name || result.productPath.split(/[\\/]/).pop() || result.productPath,
-          isDirty: false,
-        });
+        canvas.setSequenceAssemblyEdit(embedded.panelId, embedded.tabId, null);
+        canvas.retargetTab(
+          embedded.panelId,
+          embedded.tabId,
+          { type: 'sequence', sequenceDocument: result.sequenceDocument },
+          {
+            label:
+              productSequence.name || result.productPath.split(/[\\/]/).pop() || result.productPath,
+            isDirty: false,
+          }
+        );
       } else if (canvas.findTab('design', design.id)) {
         canvas.promoteTabToSequence({
           fromType: 'design',

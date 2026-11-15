@@ -1,3 +1,4 @@
+import { cancelWorkspaceSyncUploadsBeforeStart } from './workspace-sync-queue';
 import { userMessage, type UserMessage } from '@waypoint/user-messages';
 import type Database from 'better-sqlite3';
 import { publishWorkspaceSyncEnablementTelemetry } from './workspace-sync-enablement-telemetry';
@@ -322,7 +323,7 @@ export async function setWorkspaceSyncEnabled(
     deps.runtime.pauseWorkspace(workspaceUuid);
     deps.runtime.stopWatchingWorkspace(workspaceUuid);
     try {
-      cancelNotStartedWorkspaceSyncUploads(db, binding.workspace_id, deps.nowMs?.() ?? Date.now());
+      cancelWorkspaceSyncUploadsBeforeStart(db, binding.workspace_id, deps.nowMs?.() ?? Date.now());
       await deps.runtime.waitForIdle(workspaceUuid);
       const disabled = disableWorkspaceSync(db, workspaceUuid, deps.nowMs?.() ?? Date.now());
       deps.statusPublisher?.invalidate(workspaceUuid, 'binding_changed');
@@ -469,29 +470,9 @@ function disableWorkspaceSync(
            updated_at = ?
        WHERE workspace_uuid = ?`
     ).run(nowMs, workspaceUuid);
-    cancelNotStartedWorkspaceSyncUploads(db, binding.workspace_id, nowMs);
+    cancelWorkspaceSyncUploadsBeforeStart(db, binding.workspace_id, nowMs);
     return true;
   })();
-}
-
-function cancelNotStartedWorkspaceSyncUploads(
-  db: Database.Database,
-  workspaceId: number,
-  nowMs: number
-): void {
-  db.prepare(
-    `UPDATE workspace_sync_queue
-     SET status = 'canceled',
-         locked_at = NULL,
-         locked_by_device_id = NULL,
-         next_attempt_at = NULL,
-         error_code = 'SYNC_DISABLED',
-         error_message = 'Auto sync was turned off before this upload ran.',
-         updated_at = ?
-     WHERE workspace_id = ?
-       AND operation = 'upload'
-       AND status IN ('pending', 'blocked')`
-  ).run(nowMs, workspaceId);
 }
 
 function readActionBinding(

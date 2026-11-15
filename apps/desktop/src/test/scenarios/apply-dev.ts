@@ -752,35 +752,41 @@ async function persistComposedTrackViewAsSaved(
     document,
     expectedRevision: existing?.revision ?? null,
   });
-  useCanvasStore.getState().updateTab(found.panelId, tabId, {
-    entityId: saved.document.id,
-    label: saved.document.name,
-    sequenceDocument: { kind: 'indexed-sequence', documentId: saved.document.id },
-    trackView: saved,
-    isDirty: false,
-    initialAnnotationMapperPolicy: { ...saved.document.annotation.policy },
-    indexedGenome: {
-      ...indexedGenome,
-      scope: { ...saved.document.scope },
-      dataTracks: saved.document.dataTracks.map((track) => ({ ...track })),
-      bamTracks: saved.document.bamTracks.map((track) => ({ ...track })),
-      variantSource: saved.document.variantSource,
+  useCanvasStore.getState().retargetTab(
+    found.panelId,
+    tabId,
+    {
+      type: 'sequence',
+      sequenceDocument: { kind: 'indexed-sequence', documentId: saved.document.id },
     },
-    viewState: {
-      ...found.tab.viewState,
-      indexedViewport: { ...saved.document.viewport },
-      indexedViewportCommand: null,
-      indexedGenomeViewRestoreCommand: {
-        id: crypto.randomUUID(),
-        viewport: { kind: 'assembly-range', ...saved.document.viewport },
-        annotationPolicy: { ...saved.document.annotation.policy },
-        orderedAnnotationTrackIds: [...saved.document.annotation.orderedTrackIds],
-        visibleAnnotationTrackIds: Object.entries(saved.document.annotation.visibilityByTrackId)
-          .filter(([, visible]) => visible)
-          .map(([trackId]) => trackId),
+    {
+      label: saved.document.name,
+      trackView: saved,
+      isDirty: false,
+      initialAnnotationMapperPolicy: { ...saved.document.annotation.policy },
+      indexedGenome: {
+        ...indexedGenome,
+        scope: { ...saved.document.scope },
+        dataTracks: saved.document.dataTracks.map((track) => ({ ...track })),
+        bamTracks: saved.document.bamTracks.map((track) => ({ ...track })),
+        variantSource: saved.document.variantSource,
       },
-    },
-  });
+      viewState: {
+        ...found.tab.viewState,
+        indexedViewport: { ...saved.document.viewport },
+        indexedViewportCommand: null,
+        indexedGenomeViewRestoreCommand: {
+          id: crypto.randomUUID(),
+          viewport: { kind: 'assembly-range', ...saved.document.viewport },
+          annotationPolicy: { ...saved.document.annotation.policy },
+          orderedAnnotationTrackIds: [...saved.document.annotation.orderedTrackIds],
+          visibleAnnotationTrackIds: Object.entries(saved.document.annotation.visibilityByTrackId)
+            .filter(([, visible]) => visible)
+            .map(([trackId]) => trackId),
+        },
+      },
+    }
+  );
 }
 
 function assemblyGlobalViewport(

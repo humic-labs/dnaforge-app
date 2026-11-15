@@ -211,7 +211,9 @@ describe('AgentSessionManager', () => {
           ok: outcome === 'ready',
           stopState: expectedState,
         });
-        expect(manager.getSession(`startup_${outcome}`)?.status).toBe(expectedState);
+        expect(manager.getSession(`startup_${outcome}`)?.status).toBe(
+          outcome === 'user-stop' ? 'stop_unconfirmed' : expectedState
+        );
         expect(manager.requestStop(`startup_${outcome}`)).toMatchObject({
           cancelled: false,
           state: 'not_found',
@@ -1300,7 +1302,7 @@ describe('AgentSessionManager', () => {
     });
   });
 
-  it('propagates stop to the provider abort signal and records stop_requested', async () => {
+  it('separates active stopping from an unconfirmed terminal observation', async () => {
     const db = createTestDb();
     ensureSchema(db, ':memory:');
     db.prepare(
@@ -1376,7 +1378,7 @@ describe('AgentSessionManager', () => {
     expect(cancelRenderer).toHaveBeenCalledWith('session_stop');
     expect(queryState.abort?.signal.aborted).toBe(true);
     expect(manager.getSession('session_stop')).toMatchObject({
-      status: 'stop_requested',
+      status: 'stopping',
       terminalReason: 'Stop requested.',
     });
 
@@ -1394,7 +1396,7 @@ describe('AgentSessionManager', () => {
       error: 'Stop requested.',
     });
     expect(manager.getSession('session_stop')).toMatchObject({
-      status: 'stop_requested',
+      status: 'stop_unconfirmed',
       terminalReason: 'Stop requested.',
     });
   });
@@ -1454,7 +1456,7 @@ describe('AgentSessionManager', () => {
     });
     expect(queryCodex).not.toHaveBeenCalled();
     expect(manager.getSession('session_prestart_stop')).toMatchObject({
-      status: 'stop_requested',
+      status: 'stop_unconfirmed',
       terminalReason: 'Stop requested.',
     });
   });
@@ -1581,7 +1583,7 @@ describe('AgentSessionManager', () => {
       'app-supervised',
       'read_only',
       'app-supervised',
-      'stop_requested',
+      'stopping',
       '/workspace',
       '{}',
       '{}',
@@ -1674,7 +1676,7 @@ describe('AgentSessionManager', () => {
     expect(row.properties_json).not.toContain('/tmp/scratch');
   });
 
-  it('qualifies acknowledged Stop from the same assistant trace items retained by the renderer', async () => {
+  it('does not claim acknowledged Stop from partial assistant trace items', async () => {
     const db = createTestDb();
     ensureSchema(db, ':memory:');
     const actionId = '22222222-2222-4222-8222-222222222222';
@@ -1743,9 +1745,10 @@ describe('AgentSessionManager', () => {
       .get('session_partial_stop') as { properties_json: string };
     expect(JSON.parse(row.properties_json)).toMatchObject({
       action_id: actionId,
-      outcome: 'stopped',
-      value_delivered: true,
-      qualification_basis: 'partial_response_before_stop',
+      outcome: 'interrupted',
+      reason_code: 'stop_unconfirmed',
+      value_delivered: false,
+      qualification_basis: 'none',
       effect_state: 'none',
     });
     expect(row.properties_json).not.toMatch(/Private|scratch|text-1|thought-1/);

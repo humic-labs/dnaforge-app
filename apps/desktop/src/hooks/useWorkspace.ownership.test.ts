@@ -2,6 +2,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useWorkspace } from './useWorkspace';
+import { useWorkspaceStore } from '../stores/workspaceStore';
 const ports = vi.hoisted(() => ({
   read: vi.fn(),
   projects: vi.fn(),
@@ -25,6 +26,12 @@ vi.mock('../db', () => {
     },
   };
 });
+vi.mock('../db/connection', async () => ({ db: (await import('../db')).db }));
+vi.mock('../db/schema', async () => {
+  const { settings, workspaces } = await import('../db');
+  return { settings, workspaces };
+});
+
 vi.mock('drizzle-orm', () => ({ and: vi.fn(), eq: vi.fn(), isNull: vi.fn() }));
 vi.mock('../platform', () => ({
   platform: () => ({ db: { ensureWorkspaceOwner: ports.ensure } }),
@@ -45,6 +52,10 @@ function deferred<T>() {
 describe('active workspace request ownership', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    useWorkspaceStore.setState({
+      folders: [],
+      workspaceSelection: { phase: 'uninitialized', path: null, error: null },
+    });
     ports.projects.mockResolvedValue([{ path: '/old-project' }]);
     ports.write.mockResolvedValue(undefined);
     ports.remove.mockResolvedValue(undefined);

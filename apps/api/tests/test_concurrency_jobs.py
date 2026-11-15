@@ -591,7 +591,9 @@ async def test_cancel_persists_terminal_error_and_retention_together():
         handler=_sleepy_handler,
     )
 
+    owner = job.task
     await manager.cancel(job.id)
+    await owner
 
     action = get_control_plane_store().get_agent_action(job.id)
     assert action["completed_at"] is not None
@@ -620,10 +622,9 @@ async def test_terminal_store_failure_still_releases_cancel_owners_after_ttl(
         raise RuntimeError("injected terminal-store failure")
 
     monkeypatch.setattr(store, "complete_agent_action", fail_terminal_write)
-    with pytest.raises(RuntimeError, match="injected terminal-store failure"):
-        await manager.cancel(job.id)
+    assert await manager.cancel(job.id)
     if task is not None:
-        with pytest.raises((RuntimeError, asyncio.CancelledError)):
+        with pytest.raises(RuntimeError, match="injected terminal-store failure"):
             await task
 
     assert job.status == "canceled"
@@ -975,7 +976,6 @@ async def test_terminal_job_releases_execution_only_runtime_owners():
     assert [event["event"] for event in replayed] == [
         "queued",
         "running",
-        "completed",
         "completed",
     ]
 

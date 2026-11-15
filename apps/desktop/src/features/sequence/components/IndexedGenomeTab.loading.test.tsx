@@ -4092,4 +4092,31 @@ describe('IndexedGenomeTab loading screen — phase transitions', () => {
     expect(screen.getByText(/Couldn't open chr11/)).toBeInTheDocument();
     expect(screen.getByText(userMessage('tracks.loadFailed'))).toBeInTheDocument();
   });
+  it('does not demote a ready current session when a delayed preparing event arrives', async () => {
+    const tab = reopenIndexedTab();
+    resetCanvasStore(tab);
+    render(<IndexedGenomeTab tab={tab} />);
+    await waitForSessionSubscription();
+    act(() => {
+      emitPlatformEvent('genome:sessionUpdated', readySessionUpdate(tab.indexedGenome!));
+    });
+    await waitFor(() =>
+      expect(screen.queryByTestId('indexed-genome-loading')).not.toBeInTheDocument()
+    );
+    act(() => {
+      const ready = readySessionUpdate(tab.indexedGenome!);
+      emitPlatformEvent('genome:sessionUpdated', {
+        ...ready,
+        prepareStatus: 'preparing',
+        prepareLoadPhase: 'indexing',
+        shell: { ...ready.shell, openReady: false },
+      });
+    });
+    expect(screen.queryByTestId('indexed-genome-loading')).not.toBeInTheDocument();
+    expect(screen.getByTestId('indexed-genome-tab')).toHaveAttribute(
+      'data-session-open-ready',
+      'true'
+    );
+    expect(screen.getByLabelText('Go to coordinate')).toBeEnabled();
+  });
 });

@@ -36,7 +36,7 @@ const SCIENTIFIC_TABLES = [
   'scientific_revision_blobs',
 ] as const;
 const UUID = /^[0-9a-f-]{36}$/u;
-const LEGACY_RECOVERY_SCHEMAS = new Set([42, 43, 47]);
+const LEGACY_RECOVERY_SCHEMAS = new Set([42, 43, 47, 48]);
 
 interface LegacyRecoveryReceipt {
   format: 'dnaforge.legacy-recovery-copy';
@@ -314,7 +314,7 @@ export function assertScientificLegacyDatabaseCanRelocate(input: {
   const version = db.pragma('user_version', { simple: true });
   if (!LEGACY_RECOVERY_SCHEMAS.has(Number(version)))
     throw new Error(
-      'Legacy recovery supports only the qualified scientific schema 42 or 43 to 41 conversion, or the qualified schema 47 to 41 conversion.'
+      'Legacy recovery supports only the qualified scientific schema 42 or 43 to 41 conversion, or the qualified schema 47 or 48 to 41 conversion.'
     );
   const identities = Boolean(
     db
@@ -331,7 +331,7 @@ export function assertScientificLegacyDatabaseCanRelocate(input: {
       ))
   )
     throw new Error('Legacy recovery scientific identity schema is incomplete or inconsistent.');
-  if (version === 47) {
+  if (version === 47 || version === 48) {
     const queueColumns = new Set(
       (db.pragma('table_info(workspace_sync_queue)') as { name: string }[]).map(
         (column) => column.name
@@ -349,7 +349,7 @@ export function assertScientificLegacyDatabaseCanRelocate(input: {
         )
         .get()
     )
-      throw new Error('Legacy recovery schema 47 is incomplete or inconsistent.');
+      throw new Error(`Legacy recovery schema ${version} is incomplete or inconsistent.`);
   }
   const owner = db.prepare('SELECT path FROM workspaces WHERE id=?').get(workspaceId) as
     | { path: string }

@@ -82,7 +82,7 @@ describe('I1 real routing/presentation/owner composition', () => {
       );
       if (tab && !replaced) {
         replaced = true;
-        state.updateTab('main', tab.id, { entityId: B });
+        state.retargetTab('main', tab.id, { type: 'image', entityId: B });
       }
     });
     const result = await openDocument({ target: { kind: 'file', path: A } });
@@ -107,7 +107,9 @@ describe('I1 real routing/presentation/owner composition', () => {
   it('fences late owner attachment after the real admitted tab is retargeted', async () => {
     const result = await openDocument({ target: { kind: 'file', path: A } });
     if (result.status !== 'presented') throw new Error('Synthetic presentation failed');
-    useCanvasStore.getState().updateTab(result.panelId, result.tabId, { entityId: B });
+    useCanvasStore
+      .getState()
+      .retargetTab(result.panelId, result.tabId, { type: 'image', entityId: B });
     render(<ImageViewerTab canvasTabId={result.tabId} filePath={B} />);
     await decode();
     expect(terminals()).toHaveLength(1);

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { AgentProvider, AgentSessionStatus } from './types';
+import type { AgentProvider, AgentSessionTerminalStatus } from './types';
 import {
   aiTurnCountBucket,
   aiTurnDurationBucket,
@@ -22,10 +22,7 @@ export interface LocalAiTurnTerminalInput {
   sessionId: string;
   actionId?: string | null;
   provider: AgentProvider;
-  status: Extract<
-    AgentSessionStatus,
-    'completed' | 'failed' | 'cancelled' | 'stop_requested' | 'interrupted'
-  >;
+  status: AgentSessionTerminalStatus;
   durationMs: number;
   visibleAssistantText: string;
   toolCallCount: number | 'unknown';
@@ -41,7 +38,7 @@ export interface LocalAiTurnTerminalInput {
     | 'transport_lost'
     | 'tool_failed'
     | 'unknown';
-  unconfirmedStop?: boolean;
+  recovered?: boolean;
 }
 
 function routeForProvider(provider: AgentProvider): 'local_codex' | 'local_claude' | 'local_grok' {
@@ -91,13 +88,13 @@ function terminalDimensions(input: LocalAiTurnTerminalInput): {
       stage: 'finalization',
     };
   }
-  if (input.status === 'stop_requested') {
+  if (input.status === 'stop_unconfirmed') {
     return {
-      outcome: 'stopped',
+      outcome: 'interrupted',
       initiatedBy: 'user',
-      reason: 'user_stop_acknowledged',
-      failureClass: 'none',
-      stage: 'provider_stream',
+      reason: 'stop_unconfirmed',
+      failureClass: 'interruption',
+      stage: input.recovered ? 'recovery' : 'provider_stream',
     };
   }
   if (input.status === 'cancelled') {
@@ -110,21 +107,13 @@ function terminalDimensions(input: LocalAiTurnTerminalInput): {
     };
   }
   if (input.status === 'interrupted') {
-    return input.unconfirmedStop
-      ? {
-          outcome: 'interrupted',
-          initiatedBy: 'user',
-          reason: 'stop_unconfirmed',
-          failureClass: 'interruption',
-          stage: 'recovery',
-        }
-      : {
-          outcome: 'interrupted',
-          initiatedBy: 'desktop',
-          reason: 'app_restarted',
-          failureClass: 'interruption',
-          stage: 'recovery',
-        };
+    return {
+      outcome: 'interrupted',
+      initiatedBy: 'desktop',
+      reason: 'app_restarted',
+      failureClass: 'interruption',
+      stage: 'recovery',
+    };
   }
   const failure = failureDimensions(input.reasonHint);
   return {
@@ -146,14 +135,8 @@ export function buildLocalAiTurnFinished(
 ): AiTurnFinishedProperties {
   const terminal = terminalDimensions(input);
   const valueDelivered =
-    (terminal.outcome === 'completed' || terminal.outcome === 'stopped') &&
-    hasQualifyingAssistantContent(input.visibleAssistantText);
-  const qualificationBasis =
-    valueDelivered && terminal.outcome === 'completed'
-      ? 'completed_response'
-      : valueDelivered && terminal.outcome === 'stopped'
-        ? 'partial_response_before_stop'
-        : 'none';
+    terminal.outcome === 'completed' && hasQualifyingAssistantContent(input.visibleAssistantText);
+  const qualificationBasis = valueDelivered ? 'completed_response' : 'none';
   return {
     ...(input.actionId &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(

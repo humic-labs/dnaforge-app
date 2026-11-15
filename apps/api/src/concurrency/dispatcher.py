@@ -47,6 +47,7 @@ async def dispatch_tool(
         args=args,
         audit_parameters=registered.audit_parameters(args),
         handler=registered.handler,
+        completion_owner=registered.action_completion_owner(args),
         agent_identity_id=agent_identity_id,
         agent_capabilities=agent_capabilities,
         idempotency_key=idempotency_key,

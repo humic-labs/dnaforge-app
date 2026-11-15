@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import {
-  configureApiClient,
+  createApiClient,
   discoverOperationsOperationsCatalogGet,
   getOperationOperationsOperationIdGet,
   getOperationResultOperationsOperationIdResultGet,
@@ -308,26 +308,39 @@ export function createManagedGenomeIndexRunner(dependencies: ManagedGenomeIndexR
   };
 }
 
-function bindMainSidecarApiClient(): void {
-  configureApiClient({ baseUrl: getApiUrl(), fetch: sidecarFetch });
+function mainSidecarApiClient() {
+  return createApiClient({ baseUrl: getApiUrl(), fetch: sidecarFetch });
 }
 
 const generatedGenomeIndexApi: ManagedGenomeIndexApi = {
   async discover(signal) {
-    bindMainSidecarApiClient();
-    return (await discoverOperationsOperationsCatalogGet({ signal })).data;
+    return (
+      await discoverOperationsOperationsCatalogGet(mainSidecarApiClient().options({ signal }))
+    ).data;
   },
   async start(submission) {
-    bindMainSidecarApiClient();
-    return (await startGenomeIndexingOperationOperationsGenomeIndexingPost(submission)).data;
+    return (
+      await startGenomeIndexingOperationOperationsGenomeIndexingPost(
+        submission,
+        mainSidecarApiClient().options()
+      )
+    ).data;
   },
   async get(operationId, signal) {
-    bindMainSidecarApiClient();
-    return (await getOperationOperationsOperationIdGet(operationId, { signal })).data;
+    return (
+      await getOperationOperationsOperationIdGet(
+        operationId,
+        mainSidecarApiClient().options({ signal })
+      )
+    ).data;
   },
   async getResult(operationId, signal) {
-    bindMainSidecarApiClient();
-    return (await getOperationResultOperationsOperationIdResultGet(operationId, { signal })).data;
+    return (
+      await getOperationResultOperationsOperationIdResultGet(
+        operationId,
+        mainSidecarApiClient().options({ signal })
+      )
+    ).data;
   },
 };
 

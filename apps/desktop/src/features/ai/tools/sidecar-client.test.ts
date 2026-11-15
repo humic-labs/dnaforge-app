@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { customFetch } from '@waypoint/api-client';
 import {
-  configureSidecarApiClient,
+  resolveSidecarApiClient,
   sidecarFetchSequenceBytes,
   sidecarFetchSequenceUrlBytes,
 } from './sidecar-client';
@@ -32,8 +32,8 @@ function mockFetchResponse(init: {
 }
 
 describe('sidecarFetchSequenceBytes', () => {
-  it('configures the runtime URL without renderer session authority', async () => {
-    await configureSidecarApiClient('test.renderer-authority');
+  it('binds the runtime URL without renderer session authority', async () => {
+    const client = await resolveSidecarApiClient('test.renderer-authority');
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
         status: 200,
@@ -41,14 +41,14 @@ describe('sidecarFetchSequenceBytes', () => {
       })
     );
 
-    await customFetch('/health');
+    await customFetch('/health', client.options());
 
     const headers = new Headers((fetchSpy.mock.calls[0][1] as RequestInit).headers);
     expect(headers.get('X-DNAForge-Session')).toBeNull();
   });
 
-  it('does not leak an AI-tool-specific token error into a later shared-client request', async () => {
-    await configureSidecarApiClient('test.shared-provider');
+  it('does not manufacture renderer authority for a later request', async () => {
+    const client = await resolveSidecarApiClient('test.shared-provider');
     delete (globalThis as any).electronAPI;
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ detail: 'missing session' }), {
@@ -57,7 +57,7 @@ describe('sidecarFetchSequenceBytes', () => {
       })
     );
 
-    await expect(customFetch('/health')).rejects.toMatchObject({ status: 401 });
+    await expect(customFetch('/health', client.options())).rejects.toMatchObject({ status: 401 });
 
     expect(fetchSpy).toHaveBeenCalledOnce();
     const headers = new Headers((fetchSpy.mock.calls[0][1] as RequestInit).headers);

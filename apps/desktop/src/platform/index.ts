@@ -1,5 +1,5 @@
 import { serviceManager } from '../services/service-manager';
-import { configureRendererSidecarApiClient } from '../services/sidecar-session';
+import { configureApiClient } from '@waypoint/api-client';
 import { waitForWorkspaceSyncDatabase } from '../db/workspace-sync-retry';
 import type { PlatformBridge } from './types';
 import type { PrepackedAnnotationSceneLoadInput } from '@waypoint/genome-renderer';
@@ -76,7 +76,7 @@ export function initPlatform(): Promise<PlatformBridge> {
     }
     const apiUrl = await bridge.config.getApiUrl();
     serviceManager.setBaseUrl(apiUrl);
-    configureRendererSidecarApiClient(apiUrl);
+    configureApiClient({ baseUrl: apiUrl });
     console.log(`[Platform] API URL from main process: ${apiUrl}`);
 
     _bridge = bridge;

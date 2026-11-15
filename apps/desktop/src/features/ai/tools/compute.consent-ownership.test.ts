@@ -50,7 +50,7 @@ vi.mock('@waypoint/api-client', () => ({
   cancelJobComputeProviderIdCancelPost: api.cancel,
 }));
 
-vi.mock('./sidecar-client', () => ({ configureSidecarApiClient: vi.fn(async () => undefined) }));
+vi.mock('./sidecar-client', () => ({ resolveSidecarApiClient: vi.fn(async () => ({ options: (options: RequestInit = {}) => options })) }));
 
 const platformBridge = vi.hoisted(() => ({
   listProviders: vi.fn(async () => [

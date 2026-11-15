@@ -1,3 +1,4 @@
+import { useTrackViewSessionSource } from './useTrackViewSessionSource';
 import {
   usePresentationListener,
   usePresentationScope,
@@ -13,7 +14,7 @@ import {
 
 import { TrackViewActions } from './TrackViewActions';
 import { assertTrackViewReference, trackViewReference } from '../open-track-view';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Tab } from '../../canvas/public/types';
 import { useCanvasStore } from '../../canvas/public/store';
 import { useWorkspaceStore } from '../../../stores/workspaceStore';
@@ -25,8 +26,6 @@ import type {
   AssemblyAnnotationSceneSourceRequest,
   AssemblySequenceSearchSourceV1,
   GenomeOpenSource,
-  GenomeSessionShell,
-  GenomeSessionUpdate,
   GenomeTrackDescriptor,
   IndexedGenomeManifest,
   IndexedGenomePrimerBinding,
@@ -40,11 +39,7 @@ import {
   assemblyReferenceAssetGenerationForThemeV1,
 } from '../../../shared/indexed-genome';
 import { extensionForPath } from '../indexed-genome-paths';
-import {
-  beginIndexedGenomeOpen,
-  claimIndexedGenomeOpen,
-  type IndexedGenomeOpenTelemetry,
-} from '../indexed-genome-lifecycle-telemetry';
+import { GenomeLiveSession, genomeLiveSessionView } from '../genome-live-session';
 import { completeManifestFromIndexedGff3Source } from '../assembly-indexed-manifest';
 import {
   REFERENCE_INTERVAL_MAX_FEATURE_WINDOW_BP,
@@ -55,12 +50,7 @@ import { SequenceContextMenu } from '@waypoint/ui-components';
 import { matchesShortcut } from '@waypoint/ui-components/keyboard';
 import type { IndexedGenomeAnnotationMapperPolicy } from './IndexedGenomeViewer';
 import { buildIndexedGenomeScene, type IndexedGenomeSceneViewport } from './indexed-genome-scene';
-import {
-  computeLoadPhase,
-  type IndexedGenomePrepareLoadPhase,
-  type IndexedGenomePrepareStatus,
-  type IndexedGenomeViewerLoadPhase,
-} from './indexed-genome-load-phase';
+import { computeLoadPhase } from './indexed-genome-load-phase';
 import { useAssemblyAnnotationFeatures } from './useAssemblyAnnotationFeatures';
 import { assemblyOverviewTextureReadRequestForAssembly } from './useAssemblyOverviewTexture';
 import { useAssemblyPrepackedAnnotationSceneCache } from './useAssemblyPrepackedAnnotationSceneCache';
@@ -94,7 +84,6 @@ import {
   indexedGenomeFullAssemblyReadinessRequired,
   indexedGenomeLaneAssemblyId,
   indexedGenomeOpenSourceSizeBytes,
-  indexedGenomePrepareLoadPhase,
   indexedGenomeRangeEnd,
   indexedGenomeAdmittedAnnotationSceneRequest,
   indexedGenomeSearchSources,
@@ -177,11 +166,7 @@ import {
   type PendingAminoAcidCreation,
 } from '../../proteins/public/components/CreateAminoAcidSequenceDialog';
 import { openLimsEntity } from '../../lims/public/open-entity';
-import {
-  createPlatformIndexedGenomeDataSource,
-  isIndexedSourceUnavailable,
-} from '../../../shared/platform-indexed-genome-data-source';
-import { withoutSessionReadinessDemotion } from '../../../shared/genome-session-readiness';
+import { createPlatformIndexedGenomeDataSource } from '../../../shared/platform-indexed-genome-data-source';
 import {
   IndexedGenomeIsoformDialog,
   type IndexedGenomeIsoformDialogState,
@@ -200,9 +185,6 @@ interface IndexedGenomeTabProps {
   isActive?: boolean;
 }
 
-type PrepareStatus = IndexedGenomePrepareStatus;
-type PrepareLoadPhase = IndexedGenomePrepareLoadPhase;
-type ViewerLoadPhase = IndexedGenomeViewerLoadPhase;
 type RangeStatus = 'idle' | 'loading' | 'error';
 
 type IndexedCdsActionTarget = {
@@ -423,10 +405,6 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
   );
   const [hostedBackgroundPreparation, setHostedBackgroundPreparation] =
     useState<HostedBackgroundPreparationState>({ status: 'idle' });
-  const visibleHostedBackgroundPreparation = indexedGenomeVisibleHostedBackgroundPreparation(
-    hostedBackgroundPreparation,
-    deriveHostedBackgroundPreparation(indexedState)
-  );
   const [annotationProductAdmissionGeneration, setAnnotationProductAdmissionGeneration] =
     useState(0);
   const assemblyReferenceKindRef = useRef<'hosted' | 'local' | null>(null);
@@ -464,9 +442,6 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
   const latestAdmittedAssemblyProductRef = useRef<PreparedAssemblyAnnotationProductSet | null>(
     null
   );
-  const lastAppliedSessionUpdateFingerprintRef = useRef<string | null>(null);
-  const capabilityUpgradeTailRef = useRef<Promise<void>>(Promise.resolve());
-  const requestedCapabilityUpgradeKeyRef = useRef<string | null>(null);
   indexedStateRef.current = indexedState;
   useEffect(() => {
     const next = tab.indexedGenome ?? null;
@@ -858,30 +833,30 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
     assembly?.assemblyId,
     genomeOpenSourcePath
   );
-  const [prepareStatus, setPrepareStatus] = useState<PrepareStatus>('preparing');
-  const viewerPresentationRef = useRef<string | null>(null);
-  const [prepareLoadPhase, setPrepareLoadPhase] = useState<PrepareLoadPhase>(
-    indexedGenomePrepareLoadPhase(Boolean(initialIndexedState?.manifest))
+  const [liveSession] = useState(
+    () => new GenomeLiveSession(Boolean(initialIndexedState?.manifest))
   );
-  const [prepareError, setPrepareError] = useState<UserMessage | null>(
-    toOptionalUserMessage(initialIndexedState?.error, 'tracks.loadFailed') ?? null
+  const liveSnapshot = useSyncExternalStore(liveSession.subscribe, liveSession.getSnapshot);
+  const {
+    prepareStatus,
+    prepareLoadPhase,
+    prepareError,
+    viewerLoadPhase,
+    viewerLoadError,
+    sessionShell,
+  } = genomeLiveSessionView(liveSnapshot);
+  const visibleHostedBackgroundPreparation = liveSnapshot.capabilityError
+    ? { status: 'failed' as const, message: liveSnapshot.capabilityError }
+    : indexedGenomeVisibleHostedBackgroundPreparation(
+        hostedBackgroundPreparation,
+        deriveHostedBackgroundPreparation(indexedState)
+      );
+  const handleViewportPresented = useCallback(
+    (sessionId: string, commandId: number | null) => {
+      liveSession.viewportPresented(sessionId, commandId);
+    },
+    [liveSession]
   );
-  const [viewerLoadPhase, setViewerLoadPhase] = useState<ViewerLoadPhase>('loading');
-  const [viewerLoadError, setViewerLoadError] = useState<UserMessage | null>(null);
-  const [sessionShell, setSessionShell] = useState<GenomeSessionShell | null>(null);
-  const currentSessionIdRef = useRef<string | null>(null);
-  currentSessionIdRef.current = sessionShell?.sessionId ?? null;
-  const lifecycleOwnerRef = useRef<{
-    source: string;
-    sessionId: string | null;
-    operation: IndexedGenomeOpenTelemetry;
-  } | null>(null);
-  const handleViewportPresented = useCallback((sessionId: string, commandId: number | null) => {
-    const owner = lifecycleOwnerRef.current;
-    if (owner?.sessionId !== sessionId || currentSessionIdRef.current !== sessionId) return;
-    if (commandId === null) owner.operation.firstViewportPresented();
-    else owner.operation.viewportPresented(commandId);
-  }, []);
   const [rangeStatus, setRangeStatus] = useState<RangeStatus>('idle');
   const [rangeError, setRangeError] = useState<UserMessage | null>(null);
   const [rangeStart, setRangeStart] = useState(0);
@@ -1022,7 +997,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
     const next = projectIndexedViewportCommand(local, assembly);
     if (!next) return;
     const viewerCommandId = ++viewportCommandIdRef.current;
-    lifecycleOwnerRef.current?.operation.acceptViewport(viewerCommandId);
+    liveSession.acceptViewport(viewerCommandId);
     pendingIndexedViewportCommandRef.current = {
       viewerCommandId,
       toolCommandId: command.id,
@@ -1036,7 +1011,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
     });
     setRangeStart(local.start0);
     setPositionInput(formatIndexedCoordinateInput(String(local.start0 + 1)));
-  }, [assembly, tab.viewState?.indexedViewportCommand]);
+  }, [assembly, liveSession, tab.viewState?.indexedViewportCommand]);
 
   const pendingPortableViewportRef = useRef<{ viewerCommandId: number; restoreId: string } | null>(
     null
@@ -1577,55 +1552,19 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
   useEffect(() => {
     if (!sessionActivated) return;
     if (!workspace.loading && !workspaceRoot) {
-      claimIndexedGenomeOpen(tab.id)?.end({ outcome: 'refused', reason: 'source_unavailable' });
-      setPrepareError(
+      liveSession.refuse(
+        tab.id,
         userMessage('failure.open-a-project-containing-this-genome-before-indexing-it')
       );
-      setPrepareStatus('error');
       return;
     }
     if (workspace.loading || !workspaceRoot) return;
     if (assemblyIdeogramOnly) {
-      setSessionShell(null);
-      setPrepareLoadPhase('opening');
-      setPrepareError(null);
-      setPrepareStatus('ready');
-      setViewerLoadPhase('loading');
-      setViewerLoadError(null);
+      liveSession.showIdeogram(viewerPresentationOwnerKey);
       return;
     }
-
-    const previousOwner = lifecycleOwnerRef.current;
-    const lifecycle: NonNullable<typeof lifecycleOwnerRef.current> = {
-      source: viewerPresentationOwnerKey,
-      sessionId: null,
-      operation:
-        claimIndexedGenomeOpen(tab.id) ??
-        beginIndexedGenomeOpen(
-          !previousOwner
-            ? 'restored'
-            : previousOwner.source === viewerPresentationOwnerKey
-              ? 'retry'
-              : 'source_switch'
-        ),
-    };
-    lifecycleOwnerRef.current = lifecycle;
-
-    const manifestAtOpen = indexedStateRef.current?.manifest ?? null;
-    const continuingPresentedOwner =
-      viewerPresentationRef.current === viewerPresentationOwnerKey &&
-      assemblyReferenceKindRef.current === 'hosted';
-    if (!continuingPresentedOwner) {
-      viewerPresentationRef.current = null;
-    }
-
-    let isCurrent = true;
-    let activeSessionId: string | null = null;
-    let pendingSessionUpdate: GenomeSessionUpdate | null = null;
-    let terminalSessionUpdateSeen = false;
-    let recoveryPoll: ReturnType<typeof setInterval> | null = null;
-    let unsubscribe: (() => void) | null = null;
     let preparedAssemblyProduct: PreparedAssemblyAnnotationProductSet | null = null;
+    const manifestAtOpen = indexedStateRef.current?.manifest ?? null;
     const sourceBase = {
       sourcePath: genomeOpenSourcePath,
       workspaceRoot,
@@ -1633,30 +1572,6 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
       sourceSizeBytes: genomeOpenSourceSizeBytes,
       chrom: sourceChrom,
     };
-
-    const stopRecoveryPoll = () => {
-      if (recoveryPoll === null) return;
-      clearInterval(recoveryPoll);
-      recoveryPoll = null;
-    };
-
-    const applyPreparationError = (message: string, tabState?: IndexedGenomeTabState) => {
-      terminalSessionUpdateSeen = true;
-      stopRecoveryPoll();
-      if (tabState) persistIndexedState(tabState, 'indexed-error');
-      if (viewerPresentationRef.current === viewerPresentationOwnerKey) {
-        setSessionShell((current) =>
-          current ? markGenomeSessionTrackError(current, 'sequence', message) : current
-        );
-        setPrepareError(null);
-        setPrepareStatus('ready');
-        return;
-      }
-      lifecycle.operation.end({ outcome: 'failed', reason: 'index' });
-      setPrepareError(toUserMessage(message, 'tracks.loadFailed'));
-      setPrepareStatus('error');
-    };
-
     const assemblyProductForSessionUpdate = (): PreparedAssemblyAnnotationProductSet | null => {
       const latestAdmitted = latestAdmittedAssemblyProductRef.current;
       if (
@@ -1668,223 +1583,72 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
       }
       return preparedAssemblyProduct;
     };
-
-    const recoverSessionFromMain = async (sessionId: string) => {
-      if (terminalSessionUpdateSeen) return;
-      const latestShell = await platform().genome.getSession(sessionId);
-      if (terminalSessionUpdateSeen || !isCurrent || latestShell.sessionId !== activeSessionId) {
-        return;
-      }
-      if (latestShell.coordinateReady) lifecycle.operation.coordinateReady();
-      setSessionShell((current) => withoutSessionReadinessDemotion(current, latestShell));
-
-      if (latestShell.preparationError !== undefined) {
-        applyPreparationError(latestShell.preparationError, {
-          sourcePath: latestShell.sourcePath,
-          sourceSizeBytes: latestShell.sourceSizeBytes,
-          ...sourceTimestamps,
-          sourceExt: sourceExtForValidation,
-          chrom: latestShell.chrom,
-          error: latestShell.preparationError,
-        });
-        return;
-      }
-
-      const recoveredTabState = tabStateFromReadySessionShell({
-        shell: latestShell,
-        sourceExt: sourceExtForValidation,
-        sourceTimestamps,
-      });
-      if (!recoveredTabState) return;
-
-      terminalSessionUpdateSeen = true;
-      stopRecoveryPoll();
-      persistIndexedState(
-        tabStateWithPreparedAssemblyProduct(recoveredTabState, assemblyProductForSessionUpdate()),
-        'indexed'
-      );
-      setPrepareLoadPhase('opening');
-      setPrepareError(null);
-      setPrepareStatus('ready');
-    };
-
-    const startRecoveryPoll = (sessionId: string) => {
-      stopRecoveryPoll();
-      void recoverSessionFromMain(sessionId).catch(() => undefined);
-      recoveryPoll = setInterval(() => {
-        void recoverSessionFromMain(sessionId).catch(() => undefined);
-      }, 750);
-    };
-
-    setSessionShell(null);
-    setPrepareLoadPhase(manifestAtOpen ? 'opening' : 'indexing');
-    setPrepareError(null);
-    setViewerLoadError(null);
-    if (!continuingPresentedOwner) {
-      setPrepareStatus('preparing');
-      setViewerLoadPhase('loading');
-    }
-
-    const applySessionUpdate = (update: GenomeSessionUpdate) => {
-      const fingerprint = JSON.stringify(update);
-      if (fingerprint === lastAppliedSessionUpdateFingerprintRef.current) return;
-      lastAppliedSessionUpdateFingerprintRef.current = fingerprint;
-
-      if (update.shell.coordinateReady) lifecycle.operation.coordinateReady();
-      setSessionShell((current) => withoutSessionReadinessDemotion(current, update.shell));
-      setPrepareLoadPhase(update.prepareLoadPhase);
-
-      if (update.prepareStatus === 'ready') {
-        terminalSessionUpdateSeen = true;
-        stopRecoveryPoll();
-        if (update.tabState) {
-          persistIndexedState(
-            tabStateWithPreparedAssemblyProduct(update.tabState, assemblyProductForSessionUpdate()),
-            'indexed'
-          );
-        }
-        setPrepareError(null);
-        setPrepareStatus('ready');
-        return;
-      }
-
-      if (update.prepareStatus === 'error') {
-        const message = update.error ?? update.tabState?.error ?? 'Failed to index genome';
-        applyPreparationError(message, update.tabState);
-        return;
-      }
-
-      if (update.tabState)
-        persistIndexedState(
-          update.tabState,
-          update.tabState.manifest ? 'indexed' : 'indexed-pending'
+    const close = liveSession.open({
+      tabId: tab.id,
+      ownerKey: viewerPresentationOwnerKey,
+      hasManifest: Boolean(manifestAtOpen),
+      retainPresentation: assemblyReferenceKindRef.current === 'hosted',
+      restorationSource: { ...sourceBase, ...sourceTimestamps },
+      projectReadyState: (state) =>
+        tabStateWithPreparedAssemblyProduct(state, assemblyProductForSessionUpdate()),
+      persist: persistIndexedState,
+      prepareSource: async () => {
+        const persistedAtOpen = indexedStateRef.current;
+        const portableAdmissionReady = Boolean(
+          assembly &&
+          persistedAtOpen?.assemblyAnnotationProductsReadiness === 'ready' &&
+          /^[0-9a-f]{64}$/.test(persistedAtOpen.assemblyPortableBundleFingerprint ?? '')
         );
-      setPrepareStatus('preparing');
-    };
-
-    const openPreparedSession = async () => {
-      const persistedAtOpen = indexedStateRef.current;
-      const portableAdmissionReady = Boolean(
-        assembly &&
-        persistedAtOpen?.assemblyAnnotationProductsReadiness === 'ready' &&
-        /^[0-9a-f]{64}$/.test(persistedAtOpen.assemblyPortableBundleFingerprint ?? '')
-      );
-      const productReady = assembly
-        ? portableAdmissionReady
-          ? {
-              assembly,
-              ...(persistedAtOpen?.assemblySearchSource
-                ? { searchSource: persistedAtOpen.assemblySearchSource }
-                : {}),
-              ...(persistedAtOpen?.assemblyAssetGeneration
-                ? { generation: persistedAtOpen.assemblyAssetGeneration }
-                : {}),
-              ...(persistedAtOpen?.assemblyAnnotationTrackTypes
-                ? { trackTypes: persistedAtOpen.assemblyAnnotationTrackTypes }
-                : {}),
-              annotationProductsReadiness: 'ready' as const,
-              searchReadiness:
-                persistedAtOpen?.assemblySearchReadiness === 'ready'
-                  ? ('ready' as const)
-                  : ('pending' as const),
-            }
-          : await prepareCurrentAssemblyAnnotationProductSet(assembly, {
-              workspaceRoot,
-              ...initialAssemblyProductPreparationOptionsRef.current,
-            })
-        : null;
-      if (!isCurrent) return;
-      preparedAssemblyProduct = productReady;
-      const openedManifest = productReady
-        ? (productReady.assembly.chromosomes.find((chromosome) => chromosome.chrom === sourceChrom)
-            ?.manifest ?? null)
-        : manifestAtOpen;
-      const source: GenomeOpenSource = {
-        ...sourceBase,
-        ...(openedManifest ? { manifest: openedManifest } : {}),
-        intent: assembly
-          ? {
-              kind: 'reference-assembly',
-              annotationProductsReadiness: productReady?.annotationProductsReadiness ?? 'pending',
-              searchReadiness: productReady?.searchReadiness ?? 'pending',
-              ...(productReady?.searchSource ? { searchSource: productReady.searchSource } : {}),
-              ...(productReady?.generation ? { assetGeneration: productReady.generation } : {}),
-            }
-          : { kind: 'reference-single' },
-      };
-
-      unsubscribe = platform().on('genome:sessionUpdated', (payload) => {
-        const update = payload as GenomeSessionUpdate;
-        if (!isCurrent) return;
-        if (activeSessionId === null && update.shell.sourcePath === genomeOpenSourcePath) {
-          pendingSessionUpdate = update;
-          return;
-        }
-        if (update.sessionId !== activeSessionId) return;
-        applySessionUpdate(update);
-      });
-
-      try {
-        const shell = await platform().genome.open(source);
-        if (!isCurrent) {
-          await platform()
-            .genome.closeSession(shell.sessionId)
-            .catch(() => false);
-          return;
-        }
-        activeSessionId = shell.sessionId;
-        lifecycle.sessionId = shell.sessionId;
-        if (shell.coordinateReady) lifecycle.operation.coordinateReady();
-        setSessionShell(shell);
-        if (pendingSessionUpdate?.sessionId === shell.sessionId) {
-          const update = pendingSessionUpdate;
-          pendingSessionUpdate = null;
-          applySessionUpdate(update);
-        }
-        if (!terminalSessionUpdateSeen) startRecoveryPoll(shell.sessionId);
-      } catch (err) {
-        if (!isCurrent) return;
-        lifecycle.operation.end(
-          isIndexedSourceUnavailable(err)
-            ? { outcome: 'refused', reason: 'source_unavailable' }
-            : { outcome: 'failed', reason: 'session' }
-        );
-        const message = toUserMessage(err, 'tracks.loadFailed');
-        const failed: IndexedGenomeTabState = {
-          sourcePath: genomeOpenSourcePath,
-          sourceSizeBytes: genomeOpenSourceSizeBytes,
-          ...sourceTimestamps,
-          sourceExt: extensionForPath(genomeOpenSourcePath),
-          chrom: initialIndexedState?.chrom ?? fileName.replace(/\.[^.]+$/, ''),
-          error: message,
+        const productReady = assembly
+          ? portableAdmissionReady
+            ? {
+                assembly,
+                ...(persistedAtOpen?.assemblySearchSource
+                  ? { searchSource: persistedAtOpen.assemblySearchSource }
+                  : {}),
+                ...(persistedAtOpen?.assemblyAssetGeneration
+                  ? { generation: persistedAtOpen.assemblyAssetGeneration }
+                  : {}),
+                ...(persistedAtOpen?.assemblyAnnotationTrackTypes
+                  ? { trackTypes: persistedAtOpen.assemblyAnnotationTrackTypes }
+                  : {}),
+                annotationProductsReadiness: 'ready' as const,
+                searchReadiness:
+                  persistedAtOpen?.assemblySearchReadiness === 'ready'
+                    ? ('ready' as const)
+                    : ('pending' as const),
+              }
+            : await prepareCurrentAssemblyAnnotationProductSet(assembly, {
+                workspaceRoot,
+                ...initialAssemblyProductPreparationOptionsRef.current,
+              })
+          : null;
+        preparedAssemblyProduct = productReady;
+        const openedManifest = productReady
+          ? (productReady.assembly.chromosomes.find(
+              (chromosome) => chromosome.chrom === sourceChrom
+            )?.manifest ?? null)
+          : manifestAtOpen;
+        const source: GenomeOpenSource = {
+          ...sourceBase,
+          ...(openedManifest ? { manifest: openedManifest } : {}),
+          intent: assembly
+            ? {
+                kind: 'reference-assembly',
+                annotationProductsReadiness: productReady?.annotationProductsReadiness ?? 'pending',
+                searchReadiness: productReady?.searchReadiness ?? 'pending',
+                ...(productReady?.searchSource ? { searchSource: productReady.searchSource } : {}),
+                ...(productReady?.generation ? { assetGeneration: productReady.generation } : {}),
+              }
+            : { kind: 'reference-single' },
         };
-        persistIndexedState(failed, 'indexed-error');
-        setPrepareError(message);
-        setPrepareStatus('error');
-      }
-    };
 
-    void openPreparedSession();
-
-    return () => {
-      isCurrent = false;
-      lifecycle.sessionId = null;
-      lifecycle.operation.end(
-        mountedRef.current
-          ? { outcome: 'superseded', reason: 'superseded' }
-          : { outcome: 'cancelled', reason: 'closed' }
-      );
-      stopRecoveryPoll();
-      unsubscribe?.();
-      const sessionId = activeSessionId;
-      activeSessionId = null;
-      if (sessionId) {
-        void platform()
-          .genome.closeSession(sessionId)
-          .catch(() => false);
-      }
-    };
+        return source;
+      },
+    });
+    return () => close(mountedRef.current ? 'superseded' : 'closed');
   }, [
+    liveSession,
     assembly?.assemblyId,
     assemblyIdeogramOnly,
     genomeOpenSourcePath,
@@ -1902,74 +1666,8 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
   useEffect(() => {
     if (!sessionShell?.openReady) return;
     const source = genomeSessionCapabilityUpgradeSource({ indexedState, workspaceRoot });
-    if (!source || source.intent.kind !== 'reference-assembly') return;
-    const requestedSearchReadiness = source.intent.searchReadiness;
-    const alreadyAdmitted =
-      sessionShell.assemblyAnnotationProductsReadiness === 'ready' &&
-      (requestedSearchReadiness !== 'ready' || sessionShell.assemblySearchReadiness === 'ready') &&
-      sessionShell.assemblyAssetGeneration?.sourceFingerprint ===
-        source.intent.assetGeneration?.sourceFingerprint &&
-      sessionShell.assemblyAssetGeneration?.inventoryFingerprint ===
-        source.intent.assetGeneration?.inventoryFingerprint;
-    if (alreadyAdmitted) return;
-
-    const requestKey = [
-      sessionShell.sessionId,
-      source.intent.assetGeneration?.sourceFingerprint,
-      source.intent.assetGeneration?.inventoryFingerprint,
-      requestedSearchReadiness,
-    ].join(':');
-    if (requestedCapabilityUpgradeKeyRef.current === requestKey) return;
-    requestedCapabilityUpgradeKeyRef.current = requestKey;
-    const sessionId = sessionShell.sessionId;
-    const queued = capabilityUpgradeTailRef.current
-      .catch(() => undefined)
-      .then(async () => {
-        const upgraded = await platform().genome.upgradeSessionCapabilities(sessionId, source);
-        if (
-          mountedRef.current &&
-          currentSessionIdRef.current === sessionId &&
-          requestedCapabilityUpgradeKeyRef.current === requestKey
-        ) {
-          setSessionShell((current) => {
-            if (current?.sessionId !== sessionId || upgraded.sessionId !== sessionId)
-              return current;
-            if (
-              (current.assemblyAnnotationProductsReadiness === 'ready' &&
-                upgraded.assemblyAnnotationProductsReadiness !== 'ready') ||
-              (current.assemblySearchReadiness === 'ready' &&
-                upgraded.assemblySearchReadiness !== 'ready')
-            ) {
-              return current;
-            }
-            return upgraded;
-          });
-        }
-      })
-      .catch((error) => {
-        if (requestedCapabilityUpgradeKeyRef.current === requestKey) {
-          requestedCapabilityUpgradeKeyRef.current = null;
-        }
-        if (mountedRef.current && currentSessionIdRef.current === sessionId) {
-          setHostedBackgroundPreparation({
-            status: 'failed',
-            message: toUserMessage(
-              error,
-              'failure.prepared-genome-capabilities-could-not-be-admitted'
-            ),
-          });
-        }
-      });
-    capabilityUpgradeTailRef.current = queued;
-  }, [
-    indexedState,
-    sessionShell?.assemblyAnnotationProductsReadiness,
-    sessionShell?.assemblyAssetGeneration,
-    sessionShell?.assemblySearchReadiness,
-    sessionShell?.openReady,
-    sessionShell?.sessionId,
-    workspaceRoot,
-  ]);
+    if (source) liveSession.requestCapabilities(source);
+  }, [indexedState, liveSession, sessionShell, workspaceRoot]);
 
   const loadRange = useCallback(
     (
@@ -1988,7 +1686,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
       setRangeError(null);
       if (options.commitViewport ?? true) {
         const viewerCommandId = ++viewportCommandIdRef.current;
-        lifecycleOwnerRef.current?.operation.acceptViewport(viewerCommandId);
+        liveSession.acceptViewport(viewerCommandId);
         pendingIndexedViewportCommitRef.current = viewerCommandId;
         setViewportCommand({
           id: viewerCommandId,
@@ -1997,7 +1695,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         });
       }
     },
-    [length, manifest, windowSize]
+    [length, liveSession, manifest, windowSize]
   );
 
   useEffect(() => {
@@ -2016,7 +1714,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
   const goToInputPosition = () => {
     const parsed = parseIndexedCoordinateInput(positionInput);
     if (parsed === null) {
-      lifecycleOwnerRef.current?.operation.refuseViewport();
+      liveSession.refuseViewport();
       useToastStore
         .getState()
         .addToast(userMessage('notice.enter-one-assembly-coordinate-using-numbers-only'), {
@@ -2063,11 +1761,9 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
 
   const markVisibleTrackError = useCallback(
     (kind: GenomeTrackDescriptor['kind'], message: string) => {
-      setSessionShell((current) =>
-        current ? markGenomeSessionTrackError(current, kind, message) : current
-      );
+      liveSession.trackError(liveSnapshot.generation, kind, message);
     },
-    []
+    [liveSession, liveSnapshot.generation]
   );
 
   const loadPhase = computeLoadPhase({
@@ -2684,7 +2380,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
       });
       const viewport = mutationViewport({ globalRange, chromosomeGlobalRange });
       const viewerCommandId = ++viewportCommandIdRef.current;
-      lifecycleOwnerRef.current?.operation.acceptViewport(viewerCommandId);
+      liveSession.acceptViewport(viewerCommandId);
       pendingIndexedViewportCommitRef.current = viewerCommandId;
       setViewportCommand({
         id: viewerCommandId,
@@ -2698,7 +2394,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
       });
       selectMutationVariant(variant.id);
     },
-    [assembly, canNavigate, displayedChrom, length, selectMutationVariant]
+    [assembly, canNavigate, displayedChrom, length, liveSession, selectMutationVariant]
   );
   const sceneViewport = useMemo<IndexedGenomeSceneViewport | null>(() => {
     if (length <= 0) return null;
@@ -2743,7 +2439,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
       });
       const nextViewportId = ++viewportCommandIdRef.current;
       const nextHighlightId = ++searchHighlightIdRef.current;
-      lifecycleOwnerRef.current?.operation.acceptViewport(nextViewportId);
+      liveSession.acceptViewport(nextViewportId);
       pendingIndexedViewportCommitRef.current = nextViewportId;
       setViewportCommand({ id: nextViewportId, start: zoomed.start, end: zoomed.end });
       setSearchHighlight({
@@ -2759,7 +2455,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         ...(match.protein?.segments?.length ? { proteinSegments: match.protein.segments } : {}),
       });
     },
-    [canNavigate, length, liveViewportRange, rangeEnd, rangeStart, viewportCommand]
+    [canNavigate, length, liveSession, liveViewportRange, rangeEnd, rangeStart, viewportCommand]
   );
 
   const [viewerWidthPx, setViewerWidthPx] = useState(0);
@@ -2938,6 +2634,53 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
     }
   );
 
+  const trackViewSession = useTrackViewSessionSource(tab, {
+    referenceName: assembly?.displayName ?? tab.label,
+    readyForDirtyCheck:
+      liveViewportRange !== null &&
+      visibleAnnotationTrackIds !== null &&
+      orderedAnnotationTrackIds !== null &&
+      bamTrackRestore.status === 'ready' &&
+      dataTrackRestore.status === 'ready' &&
+      (!portableViewRestoreCommand || committedViewRestoreId === portableViewRestoreCommand.id),
+    capturePortableReference: async () => {
+      const current = indexedStateRef.current;
+      if (!current) throw new Error('The reference is still opening.');
+      return portableReferenceFromIndexedGenome(current);
+    },
+    capture: () => {
+      const current = indexedStateRef.current;
+      if (!current) throw new Error('The reference is still opening.');
+      const visible = visibleAnnotationTrackIds ?? new Set<string>();
+      const order = orderedAnnotationTrackIds ?? [...(current.assemblyAnnotationTrackTypes ?? [])];
+      const viewport = liveViewportRangeRef.current ?? displayedViewportRange;
+      const savedViewport = normalizeIndexedViewportForPersistence(viewport, length);
+      if (!savedViewport) throw new Error('The displayed view has no valid viewport.');
+      const liveLanes = useLaneContractStore.getState().lanesForOwner(tab.id);
+      return {
+        reference: trackViewReference(current),
+        viewport: savedViewport,
+        scope: current.scope ?? { kind: 'all' },
+        annotation: {
+          policy: { ...annotationMapperPolicy },
+          orderedTrackIds: [...order],
+          visibilityByTrackId: Object.fromEntries(order.map((id) => [id, visible.has(id)])),
+        },
+        dataTracks: liveLanes.flatMap((lane) => {
+          const track = indexedGenomeDataTrackFromLane(lane);
+          return track ? [track] : [];
+        }),
+        bamTracks: current.bamTracks ?? [],
+        signalReadPileupViews: liveLanes.flatMap((lane) => {
+          const view = indexedGenomeSignalReadPileupViewFromLane(lane);
+          return view ? [view] : [];
+        }),
+        ...(current.variantSource ? { variantSource: current.variantSource } : {}),
+        ...trackViewUserLayers(current),
+      };
+    },
+  });
+
   return (
     <IndexedGenomeTabShell
       sessionScene={sessionScene}
@@ -2994,61 +2737,8 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         ]}
         featureDetailsState={featureDetailsState}
         viewActions={
-          assembly ? (
-            <TrackViewActions
-              readyForDirtyCheck={
-                liveViewportRange !== null &&
-                visibleAnnotationTrackIds !== null &&
-                orderedAnnotationTrackIds !== null &&
-                bamTrackRestore.status === 'ready' &&
-                dataTrackRestore.status === 'ready' &&
-                (!portableViewRestoreCommand ||
-                  committedViewRestoreId === portableViewRestoreCommand.id)
-              }
-              isActive={isActive}
-              tab={tab}
-              referenceName={assembly.displayName}
-              capturePortableReference={async () => {
-                const current = indexedStateRef.current;
-                if (!current) throw new Error('The reference is still opening.');
-                return portableReferenceFromIndexedGenome(current);
-              }}
-              capture={() => {
-                const current = indexedStateRef.current;
-                if (!current) throw new Error('The reference is still opening.');
-                const visible = visibleAnnotationTrackIds ?? new Set<string>();
-                const order = orderedAnnotationTrackIds ?? [
-                  ...(current.assemblyAnnotationTrackTypes ?? []),
-                ];
-                const viewport = liveViewportRangeRef.current ?? displayedViewportRange;
-                const savedViewport = normalizeIndexedViewportForPersistence(viewport, length);
-                if (!savedViewport) throw new Error('The displayed view has no valid viewport.');
-                const liveLanes = useLaneContractStore.getState().lanesForOwner(tab.id);
-                return {
-                  reference: trackViewReference(current),
-                  viewport: savedViewport,
-                  scope: current.scope ?? { kind: 'all' },
-                  annotation: {
-                    policy: { ...annotationMapperPolicy },
-                    orderedTrackIds: [...order],
-                    visibilityByTrackId: Object.fromEntries(
-                      order.map((id) => [id, visible.has(id)])
-                    ),
-                  },
-                  dataTracks: liveLanes.flatMap((lane) => {
-                    const track = indexedGenomeDataTrackFromLane(lane);
-                    return track ? [track] : [];
-                  }),
-                  bamTracks: current.bamTracks ?? [],
-                  signalReadPileupViews: liveLanes.flatMap((lane) => {
-                    const view = indexedGenomeSignalReadPileupViewFromLane(lane);
-                    return view ? [view] : [];
-                  }),
-                  ...(current.variantSource ? { variantSource: current.variantSource } : {}),
-                  ...trackViewUserLayers(current),
-                };
-              }}
-            />
+          assembly && trackViewSession ? (
+            <TrackViewActions tab={tab} session={trackViewSession} isActive={isActive} />
           ) : undefined
         }
       />
@@ -3085,27 +2775,9 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
               }
             : null
         }
-        onViewerLoadPhase={(phase, message) => {
-          if (phase === 'ready') {
-            viewerPresentationRef.current = viewerPresentationOwnerKey;
-          }
-          const owner = lifecycleOwnerRef.current;
-          if (
-            phase === 'error' &&
-            owner?.sessionId &&
-            owner.sessionId === sessionShell?.sessionId
-          ) {
-            owner.operation.end({ outcome: 'failed', reason: 'renderer' });
-          }
-          setViewerLoadPhase(phase);
-          setViewerLoadError(
-            phase === 'error'
-              ? message != null
-                ? toUserMessage(message, 'tracks.loadFailed')
-                : null
-              : null
-          );
-        }}
+        onViewerLoadPhase={(phase, message) =>
+          liveSession.viewerPhase(liveSnapshot.generation, phase, message)
+        }
         onTrackError={markVisibleTrackError}
         onFeatureDetailsStateChange={setFeatureDetailsState}
         assemblyChromIds={assemblyChromIds}
@@ -3287,52 +2959,4 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
       />
     </IndexedGenomeTabShell>
   );
-}
-
-function markGenomeSessionTrackError(
-  shell: GenomeSessionShell,
-  kind: GenomeTrackDescriptor['kind'],
-  message: string
-): GenomeSessionShell {
-  return {
-    ...shell,
-    tracks: shell.tracks.map((track) =>
-      track.kind === kind
-        ? {
-            ...track,
-            state: 'error',
-            userState: 'Needs attention',
-            message,
-          }
-        : track
-    ),
-  };
-}
-
-function tabStateFromReadySessionShell(input: {
-  shell: GenomeSessionShell;
-  sourceExt: string;
-  sourceTimestamps: Pick<IndexedGenomeTabState, 'sourceMtimeMs' | 'sourceCtimeMs'>;
-}): IndexedGenomeTabState | null {
-  const { shell } = input;
-  if (!shell.openReady) return null;
-  if (shell.validationState !== 'strong_match') return null;
-  if (!shell.coordinateReady || !shell.manifest || typeof shell.length !== 'number') return null;
-
-  return {
-    sourcePath: shell.sourcePath,
-    sourceSizeBytes: shell.sourceSizeBytes,
-    ...input.sourceTimestamps,
-    sourceExt: input.sourceExt,
-    chrom: shell.chrom,
-    manifest: {
-      ...shell.manifest,
-      length: shell.length,
-    },
-    metadata: {
-      length: shell.length,
-      circular: shell.manifest.circular ?? false,
-    },
-    indexedAt: Date.now(),
-  };
 }

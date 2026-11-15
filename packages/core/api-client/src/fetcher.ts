@@ -39,6 +39,21 @@ export interface ApiClientConfiguration {
   fetch?: (input: string | URL, init?: RequestInit) => Promise<Response>;
 }
 
+export interface ApiRequestOptions extends RequestInit {
+  readonly apiClient?: Readonly<ApiClientConfiguration>;
+}
+
+export interface ApiClient {
+  options(options?: RequestInit): ApiRequestOptions;
+}
+
+export function createApiClient(configuration: ApiClientConfiguration): ApiClient {
+  const apiClient = Object.freeze(normalizeConfiguration(configuration));
+  return Object.freeze({
+    options: (options: RequestInit = {}): ApiRequestOptions => ({ ...options, apiClient }),
+  });
+}
+
 let runtimeConfiguration: ApiClientConfiguration | null = null;
 
 function normalizeConfiguration(configuration: ApiClientConfiguration): ApiClientConfiguration {
@@ -165,9 +180,10 @@ function appendQueryParams(url: string, params?: QueryParams): string {
 
 export async function customFetch<T>(
   urlOrConfig: string | ReactQueryConfig,
-  options?: RequestInit,
+  options?: ApiRequestOptions,
   requestConfiguration?: ApiClientConfiguration
 ): Promise<T> {
+  const { apiClient, ...requestOptions } = options ?? {};
   let url: string;
   let finalOptions: RequestInit;
 
@@ -175,19 +191,20 @@ export async function customFetch<T>(
     url = appendQueryParams(urlOrConfig.url, urlOrConfig.params);
 
     finalOptions = {
-      ...options,
+      ...requestOptions,
       method: urlOrConfig.method,
-      headers: mergeHeaders(urlOrConfig.headers, options?.headers),
-      body: urlOrConfig.data === undefined ? options?.body : JSON.stringify(urlOrConfig.data),
-      signal: urlOrConfig.signal ?? options?.signal,
+      headers: mergeHeaders(urlOrConfig.headers, requestOptions.headers),
+      body: urlOrConfig.data === undefined ? requestOptions.body : JSON.stringify(urlOrConfig.data),
+      signal: urlOrConfig.signal ?? requestOptions.signal,
     };
   } else {
     url = urlOrConfig;
-    finalOptions = options || {};
+    finalOptions = requestOptions;
   }
 
-  const configuration = requestConfiguration
-    ? normalizeConfiguration(requestConfiguration)
+  const explicitConfiguration = requestConfiguration ?? apiClient;
+  const configuration = explicitConfiguration
+    ? normalizeConfiguration(explicitConfiguration)
     : runtimeConfiguration;
   const baseUrl = getBaseUrl(configuration);
   const fullUrl = `${baseUrl}${url}`;

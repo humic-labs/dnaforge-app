@@ -104,12 +104,10 @@ type WorkspaceProjectActionsOptions = WorkspaceArtifactActionsOptions &
     readonly addFolder: WorkspaceStoreState['addFolder'];
     readonly removeFolder: WorkspaceStoreState['removeFolder'];
     readonly setWorkspacePath: UseWorkspaceReturn['setWorkspacePath'];
-    readonly clearWorkspace: UseWorkspaceReturn['clearWorkspace'];
     readonly setProjectLibraryPopover: Dispatch<SetStateAction<ProjectLibraryPopover>>;
     readonly setHostedStatus: Dispatch<SetStateAction<string | null>>;
     readonly setHostedBrowserReadOpen: Dispatch<SetStateAction<boolean>>;
     readonly hostedFileInputRef: MutableRefObject<HTMLInputElement | null>;
-    readonly removingWorkspacePathRef: MutableRefObject<string | null>;
     readonly projectCollectionRestoredRef: MutableRefObject<boolean>;
     readonly handleFileSelect: (
       path: string,
@@ -142,14 +140,12 @@ export function useWorkspaceProjectActions(options: WorkspaceProjectActionsOptio
     addFolder,
     removeFolder,
     setWorkspacePath,
-    clearWorkspace,
     setProjectHomePath,
     setProjectLibraryPopover,
     setCreateDestinationRequest,
     setHostedStatus,
     setHostedBrowserReadOpen,
     hostedFileInputRef,
-    removingWorkspacePathRef,
     projectCollectionRestoredRef,
     handleFileSelect,
     reconcileChangedWorkspace,
@@ -172,8 +168,6 @@ export function useWorkspaceProjectActions(options: WorkspaceProjectActionsOptio
     async (source: WorkspaceSource, options: OpenWorkspaceOptions = {}) => {
       try {
         const result = await openWorkspaceFromSource(source, options, {
-          currentLegacyWorkspacePath: workspacePath,
-          setLegacyWorkspacePath: setWorkspacePath,
           openFile: async ({ filePath, label, signal }) => {
             const tabType = getTabTypeForFile(filePath);
             if (tabType === 'sequence') {
@@ -228,13 +222,7 @@ export function useWorkspaceProjectActions(options: WorkspaceProjectActionsOptio
         return false;
       }
     },
-    [
-      workspacePath,
-      setWorkspacePath,
-      refreshWorkspaceLibrary,
-      handleFileSelect,
-      trackFirstProductActionProxyOnce,
-    ]
+    [refreshWorkspaceLibrary, handleFileSelect, trackFirstProductActionProxyOnce]
   );
 
   const { handleBenchlingMigrationUnlocked, handleOpenBenchlingWorkspace, migrationSettings } =
@@ -839,31 +827,11 @@ export function useWorkspaceProjectActions(options: WorkspaceProjectActionsOptio
         (folder) => !folder.pinned && folder.path === repoPath
       );
       if (wasMounted) {
-        const remainingUserFolders = mountedFolders.filter(
-          (folder) => !folder.pinned && folder.path !== repoPath
-        );
         removeFolder(repoPath);
-        if (workspacePath === repoPath) {
-          removingWorkspacePathRef.current = repoPath;
-          const nextCompatibilityRoot = remainingUserFolders[0]?.path ?? null;
-          if (nextCompatibilityRoot) {
-            await setWorkspacePath(nextCompatibilityRoot, { addToRecents: false });
-          } else {
-            await clearWorkspace();
-          }
-        }
       }
       if (projectHomePath === repoPath) setProjectHomePath(null);
     },
-    [
-      clearWorkspace,
-      projectHomePath,
-      removeFolder,
-      removingWorkspacePathRef,
-      setProjectHomePath,
-      setWorkspacePath,
-      workspacePath,
-    ]
+    [projectHomePath, removeFolder, setProjectHomePath]
   );
 
   useEffect(
@@ -1067,19 +1035,6 @@ export function useWorkspaceProjectActions(options: WorkspaceProjectActionsOptio
     setProjectLibraryPopover({ x: 92, y: 44 });
   }, [setProjectLibraryPopover]);
 
-  const handleFolderRemoved = useCallback(
-    (removedPath: string) => {
-      const userFolders = useWorkspaceStore.getState().folders.filter((folder) => !folder.pinned);
-      const removedOnlyUserFolder =
-        userFolders.length === 1 && userFolders[0]?.path === removedPath;
-      if (workspacePath === removedPath || removedOnlyUserFolder) {
-        removingWorkspacePathRef.current = removedPath;
-        clearWorkspace();
-      }
-    },
-    [workspacePath, clearWorkspace, removingWorkspacePathRef]
-  );
-
   const artifactActions = useWorkspaceArtifactActions({
     folders,
     setCreateDestinationRequest,
@@ -1114,7 +1069,6 @@ export function useWorkspaceProjectActions(options: WorkspaceProjectActionsOptio
     handleOpenRegistryFromProjectHome,
     handleRevealProject,
     handleOpenProjectSwitcherFromHome,
-    handleFolderRemoved,
     ...artifactActions,
   };
 }

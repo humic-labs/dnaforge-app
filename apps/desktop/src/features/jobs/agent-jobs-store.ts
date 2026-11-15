@@ -5,7 +5,7 @@ import {
 } from '@waypoint/api-client';
 import { create } from 'zustand';
 
-import { configureSidecarApiClient } from '../../services/sidecar-session';
+import { resolveSidecarApiClient } from '../../services/sidecar-session';
 import type { AgentJobRecord } from './agent-jobs-presentation';
 
 export interface AgentJobsState {
@@ -44,8 +44,11 @@ async function loadAgentJobs(): Promise<{
   terminalCount: number;
   historyComplete: boolean;
 }> {
-  await configureSidecarApiClient('Agent jobs');
-  const response = await listAgentJobsOperationsAgentJobsGet({ limit: 200, offset: 0 });
+  const apiClient = await resolveSidecarApiClient('Agent jobs');
+  const response = await listAgentJobsOperationsAgentJobsGet(
+    { limit: 200, offset: 0 },
+    apiClient.options()
+  );
   if (response.status !== 200) throw new Error('Could not load agent jobs.');
   return {
     jobs: response.data.jobs.map(agentJob),
@@ -105,10 +108,13 @@ export const useAgentJobsStore = create<AgentJobsState>((set, get) => {
       requestSequence += 1;
       set({ loading: false, collectionStale: true });
       try {
-        await configureSidecarApiClient('Agent jobs');
+        const apiClient = await resolveSidecarApiClient('Agent jobs');
         if (runtime !== runtimeGeneration)
           throw new Error('Jobs runtime changed. Refresh Jobs before requesting Stop.');
-        const response = await cancelAgentJobOperationsAgentJobsJobIdDelete(actionId);
+        const response = await cancelAgentJobOperationsAgentJobsJobIdDelete(
+          actionId,
+          apiClient.options()
+        );
         if (response.status !== 204) throw new Error('Could not stop the agent job.');
         if (runtime !== runtimeGeneration)
           throw new Error(

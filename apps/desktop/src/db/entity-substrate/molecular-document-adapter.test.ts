@@ -5,10 +5,9 @@ import { initializeTestSchema } from '../../test/initializeTestSchema';
 import { molecularDocumentFixture } from '../../test/fixtures/molecular-documents';
 import { platform } from '../../platform';
 import { serializeMolecularDocument } from '../../shared/molecular-document';
+import { coordinateDigest } from '../../shared/molecular-view';
 import {
   getCatalogEntityForFilePath,
-  getCatalogLinksForEntity,
-  registerCatalogEntity,
   resolveWorkspaceId,
   resolveWorkspaceScope,
 } from '../workspace-catalog';
@@ -27,8 +26,16 @@ describe('molecular document file projections', () => {
     await platform().lims.resetRegistry();
     __resetEntityAdapterRegistryForTests();
     registerMolecularDocumentAdapter();
+    vi.spyOn(platform().molecularDocuments, 'reconcileSourceLinks').mockResolvedValue({
+      entityId: 'native-entity',
+      revision: 'native-revision',
+      sourceLinkCount: 0,
+    });
   });
-  afterEach(() => __resetEntityAdapterRegistryForTests());
+  afterEach(() => {
+    __resetEntityAdapterRegistryForTests();
+    vi.restoreAllMocks();
+  });
 
   it('rebuilds the catalog and Registry from a copied native file without any saved-result database rows', async () => {
     const document = await molecularDocumentFixture();
@@ -96,49 +103,26 @@ describe('molecular document file projections', () => {
     ]);
   });
 
-  it('projects optional source edges with exact coordinate pins without inventing a raw-source entity', async () => {
+  it('delegates source projection with its file identity, exact document hash and mutation capability', async () => {
     const document = await molecularDocumentFixture();
     const workspaceRoot = '/projects/one';
     const context = {
       workspaceRoot,
       workspaceId: await resolveWorkspaceId(workspaceRoot),
       workspaceScope: await resolveWorkspaceScope(workspaceRoot),
+      mutationToken: 'existing-mutation',
     };
-    const source = await registerCatalogEntity({
-      id: 'source-structure',
-      type: 'structure',
-      name: 'Raw coordinates',
-      locator: 'entity://structure/source-structure',
-      storageType: 'file',
-      workspaceRoot,
-    });
-    document.history[0].snapshot.source.artifactEntityId = source.id;
-    document.history[0].snapshot.source.artifactRevisionId = 'sha256:exact-raw-source';
-    document.history[1].snapshot.source.artifactEntityId = 'missing-source';
     const path = `${workspaceRoot}/Pocket.dnaforge-molecular.json`;
-    const result = await reconcileEntityFile(
-      molecularDocumentAdapter,
-      serializeMolecularDocument(document),
-      path,
-      Date.now(),
-      context
+    const id = molecularDocumentAdapter.identity(document, context);
+    await molecularDocumentAdapter.reconcileRelationships!(document, id, path, context);
+    expect(platform().molecularDocuments.reconcileSourceLinks).toHaveBeenCalledWith(
+      {
+        path,
+        workspaceRoot,
+        entityId: id,
+        documentHash: await coordinateDigest(serializeMolecularDocument(document)),
+      },
+      'existing-mutation'
     );
-    await molecularDocumentAdapter.reconcileRelationships!(document, result.id, path, context);
-    const links = await getCatalogLinksForEntity(result.id);
-    expect(links).toHaveLength(1);
-    expect(links[0]).toMatchObject({
-      target_entity_id: source.id,
-      relation: 'uses-source',
-      confidence: 'confirmed',
-    });
-    expect(JSON.parse(links[0].evidence!)).toMatchObject({
-      pins: [
-        {
-          referenceId: document.history[0].referenceId,
-          coordinateSha256: document.history[0].snapshot.coordinates.sha256,
-          artifactRevisionId: 'sha256:exact-raw-source',
-        },
-      ],
-    });
   });
 });
