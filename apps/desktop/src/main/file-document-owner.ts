@@ -941,13 +941,14 @@ export class NativeFileDocumentOwner {
       document.recovery = undefined;
       await this.persist(document);
       document.saves.delete(revision);
-      return this.publish(document);
+      return this.snapshot(document);
     })();
     document.saves.set(revision, run);
     document.saveTargets.set(revision, content);
     return run.finally(() => {
       if (document.saves.get(revision) === run) document.saves.delete(revision);
       document.saveTargets.delete(revision);
+      this.publish(document);
     });
   }
 
