@@ -44,7 +44,7 @@ async def echo_handler(args: dict[str, Any], context: ToolContext) -> dict[str, 
         if isinstance(delay_ms, int) and not isinstance(delay_ms, bool):
             await asyncio.sleep(max(0, min(delay_ms, 30_000)) / 1000)
     if context.cancel_event.is_set():
-        return {"canceled": True, "jobId": context.job_id}
+        raise asyncio.CancelledError
     return {"echo": args, "jobId": context.job_id}
 
 
@@ -56,7 +56,7 @@ async def prepare_workflow_run_handler(
     args: dict[str, Any], context: ToolContext
 ) -> dict[str, Any]:
     if context.cancel_event.is_set():
-        return {"canceled": True, "jobId": context.job_id}
+        raise asyncio.CancelledError
     workflow_id = args.get("workflowId") or args.get("workflow_id")
     if not isinstance(workflow_id, str) or not workflow_id:
         raise ValueError("workflowId must be a non-empty string.")
@@ -84,7 +84,7 @@ async def register_artifact_handler(
     args: dict[str, Any], context: ToolContext
 ) -> dict[str, Any]:
     if context.cancel_event.is_set():
-        return {"canceled": True, "jobId": context.job_id}
+        raise asyncio.CancelledError
     try:
         roots = await resolve_artifact_workspace_roots(
             get_control_plane_store().get_agent_identity(context.agent_identity_id),
@@ -109,7 +109,7 @@ async def create_analysis_run_handler(
     args: dict[str, Any], context: ToolContext
 ) -> dict[str, Any]:
     if context.cancel_event.is_set():
-        return {"canceled": True, "jobId": context.job_id}
+        raise asyncio.CancelledError
     try:
         return register_agent_analysis_run(
             args,
@@ -129,7 +129,7 @@ async def create_resource_link_handler(
     args: dict[str, Any], context: ToolContext
 ) -> dict[str, Any]:
     if context.cancel_event.is_set():
-        return {"canceled": True, "jobId": context.job_id}
+        raise asyncio.CancelledError
     return register_agent_resource_link(
         args,
         agent_identity_id=context.agent_identity_id,

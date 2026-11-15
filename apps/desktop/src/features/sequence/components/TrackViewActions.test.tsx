@@ -1,7 +1,7 @@
 import { documentLifecycle } from '../../../shared/document-lifecycle';
 import { WorkspaceCommandProvider as CommandScopeProvider } from '../../../test/document-save-commands';
 import { DocumentSaveCommands } from '../../../test/document-save-commands';
-import type { ReactElement, ReactNode } from 'react';
+import { useMemo, type ReactElement, type ReactNode } from 'react';
 import {
   act,
   cleanup,
@@ -11,9 +11,11 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TrackViewActions } from './TrackViewActions';
+import { TrackViewActions as SessionActions } from './TrackViewActions';
+import { useTrackViewSessionSource } from './useTrackViewSessionSource';
 import { trackViewFixture } from '../../../shared/track-view-fixture';
-import type { Tab } from '../../canvas/types';
+import type { CanvasTabIdentity, Tab, TabUpdates } from '../../canvas/types';
+import { sequenceDocumentKey } from '../../../shared/managed-sequence-document';
 import { getTrackViewControl } from '../track-view-control';
 import { saveTargetForTab } from '../../canvas/public/artifact-document-lifecycle';
 
@@ -25,6 +27,8 @@ const mocks = vi.hoisted(() => ({
   focusedPanelId: 'panel',
   activeTabId: 'tab-1',
   locations: vi.fn(),
+  tabs: new Map<string, Tab>(),
+  listeners: new Set<() => void>(),
 }));
 vi.mock('../../../platform', () => ({
   platform: () => ({ trackViews: { locations: mocks.locations } }),
@@ -51,13 +55,46 @@ vi.mock('../../../stores/toast-store', () => ({
 }));
 vi.mock('../../canvas/store', () => ({
   useCanvasStore: {
+    subscribe: (listener: () => void) => {
+      mocks.listeners.add(listener);
+      return () => mocks.listeners.delete(listener);
+    },
     getState: () => ({
       focusedPanelId: mocks.focusedPanelId,
-      panels: { panel: { id: 'panel', activeTabId: mocks.activeTabId, tabs: [props(true).tab] } },
+      panels: {
+        panel: { id: 'panel', activeTabId: mocks.activeTabId, tabs: [...mocks.tabs.values()] },
+      },
       updateTab: mocks.updateTab,
+      retargetTab: (
+        panelId: string,
+        tabId: string,
+        identity: CanvasTabIdentity,
+        updates: TabUpdates = {}
+      ) =>
+        mocks.updateTab(panelId, tabId, {
+          entityId:
+            identity.type === 'sequence'
+              ? sequenceDocumentKey(identity.sequenceDocument)
+              : identity.entityId,
+          ...(identity.type === 'sequence' ? { sequenceDocument: identity.sequenceDocument } : {}),
+          ...updates,
+        }),
     }),
   },
 }));
+
+function TrackViewActions(input: ReturnType<typeof props> & { readyForDirtyCheck?: boolean }) {
+  useMemo(() => {
+    mocks.tabs.set(input.tab.id, input.tab);
+    for (const listener of mocks.listeners) listener();
+  }, [input.tab]);
+  const session = useTrackViewSessionSource(input.tab, {
+    ...input,
+    readyForDirtyCheck: input.readyForDirtyCheck ?? true,
+  });
+  if (!session) throw new Error('Fixture tab must have a document session');
+  return <SessionActions tab={input.tab} session={session} isActive={input.isActive} />;
+}
 
 function render(ui: ReactElement) {
   return renderReact(ui, {
@@ -94,7 +131,14 @@ function props(saved = false, isActive = true) {
 }
 
 beforeEach(() => {
+  mocks.tabs.clear();
+  for (const listener of mocks.listeners) listener();
   vi.clearAllMocks();
+  mocks.updateTab.mockImplementation((_panelId: string, tabId: string, updates: Partial<Tab>) => {
+    const previous = mocks.tabs.get(tabId);
+    if (previous) mocks.tabs.set(tabId, { ...previous, ...updates });
+    for (const listener of mocks.listeners) listener();
+  });
   mocks.focusedPanelId = 'panel';
   mocks.activeTabId = 'tab-1';
   mocks.locations.mockResolvedValue({ defaultDirectory: '/library', homeDirectory: '/home' });
@@ -154,7 +198,7 @@ describe('Track view actions', () => {
     });
     expect(mocks.save).toHaveBeenCalledOnce();
     unmount();
-    expect(getTrackViewControl(initial.tab.id)).toBeNull();
+    expect(getTrackViewControl(initial.tab.id)).toBe(control);
   });
 
   it('preserves the name a person is typing when an agent requests a save', async () => {

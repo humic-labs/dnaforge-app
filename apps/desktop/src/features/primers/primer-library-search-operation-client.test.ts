@@ -85,7 +85,11 @@ describe('primer library search operation client', () => {
     vi.mocked(managedOperations.startRegisteredOperation)
       .mockReset()
       .mockImplementation((start, submissionKey) =>
-        start({ scopeId: 'workspace-a', submissionKey: submissionKey ?? 'submission-1' })
+        start({
+          apiClient: { options: (options: RequestInit = {}) => options },
+          scopeId: 'workspace-a',
+          submissionKey: submissionKey ?? 'submission-1',
+        })
       );
     vi.mocked(managedOperations.waitForTerminal)
       .mockReset()
@@ -117,7 +121,7 @@ describe('primer library search operation client', () => {
         subject: { scope_id: 'workspace-a' },
         input: INPUT,
       },
-      undefined
+      {}
     );
   });
 
@@ -139,6 +143,7 @@ describe('primer library search operation client', () => {
     vi.mocked(managedOperations.startRegisteredOperation).mockImplementation(
       (start, submissionKey) =>
         start({
+          apiClient: { options: (options: RequestInit = {}) => options },
           scopeId: 'workspace-a',
           submissionKey: submissionKey ?? 'submission-1',
           acceptedWorkspaceInput: accepted,

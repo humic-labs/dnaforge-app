@@ -38,7 +38,7 @@ import {
   useComputeStore,
 } from '../../compute/public/agent-tools';
 import type { WorkspaceFolder } from '../../../stores/workspaceStore';
-import { configureSidecarApiClient } from './sidecar-client';
+import { resolveSidecarApiClient } from './sidecar-client';
 import { withComputeSubmissionAdmission } from './compute-submission-admission';
 import {
   prepareInspectionPrediction,
@@ -235,7 +235,7 @@ export const computeListToolsTool = resultTool({
     'Discover dynamically; do not assume tool ids. Read-only, never prompts.',
   inputSchema: computeListToolsSchema,
   execute: async (args: z.infer<typeof computeListToolsSchema>, context: ToolContext) => {
-    await configureSidecarApiClient('compute.listTools');
+    const apiClient = await resolveSidecarApiClient('compute.listTools');
     try {
       const response = await listToolsComputeProviderIdToolsPost(
         args.provider,
@@ -244,7 +244,7 @@ export const computeListToolsTool = resultTool({
           search: args.search ?? null,
           tags: args.tags ?? [],
         },
-        { headers: requestHeaders(context), signal: context.abortSignal }
+        apiClient.options({ headers: requestHeaders(context), signal: context.abortSignal })
       );
       const data = data200<ListToolsResponse>(response);
       return toolSuccess({ provider: args.provider, tools: data.tools });
@@ -263,12 +263,12 @@ export const computeGetSchemaTool = resultTool({
     "Get a compute tool's settings schema before building a job. Read-only, never prompts.",
   inputSchema: computeGetSchemaSchema,
   execute: async (args: z.infer<typeof computeGetSchemaSchema>, context: ToolContext) => {
-    await configureSidecarApiClient('compute.getSchema');
+    const apiClient = await resolveSidecarApiClient('compute.getSchema');
     try {
       const response = await getSchemaComputeProviderIdSchemaPost(
         args.provider,
         { granted_capabilities: granted(context), tool_id: args.tool_id },
-        { headers: requestHeaders(context), signal: context.abortSignal }
+        apiClient.options({ headers: requestHeaders(context), signal: context.abortSignal })
       );
       const data = data200<SchemaResponse>(response);
       return toolSuccess({ provider: args.provider, tool_id: args.tool_id, schema: data.schema });
@@ -287,7 +287,7 @@ export const computeValidateTool = resultTool({
     'Validate job settings with the provider before spending anything. Always call before compute.submit. Read-only, never prompts.',
   inputSchema: computeValidateSchema,
   execute: async (args: z.infer<typeof computeValidateSchema>, context: ToolContext) => {
-    await configureSidecarApiClient('compute.validate');
+    const apiClient = await resolveSidecarApiClient('compute.validate');
     try {
       const response = await validateSettingsComputeProviderIdValidatePost(
         args.provider,
@@ -296,7 +296,7 @@ export const computeValidateTool = resultTool({
           tool_id: args.tool_id,
           settings: args.settings as Record<string, never>,
         },
-        { headers: requestHeaders(context), signal: context.abortSignal }
+        apiClient.options({ headers: requestHeaders(context), signal: context.abortSignal })
       );
       const data = data200<ValidateResponse>(response);
       return toolSuccess({
@@ -318,7 +318,7 @@ export const computeEstimateTool = resultTool({
     'Estimate cost and runtime before submitting. Always call before compute.submit and pass the result as estimated_cost. Read-only, never prompts.',
   inputSchema: computeEstimateSchema,
   execute: async (args: z.infer<typeof computeEstimateSchema>, context: ToolContext) => {
-    await configureSidecarApiClient('compute.estimate');
+    const apiClient = await resolveSidecarApiClient('compute.estimate');
     try {
       const response = await estimateCostComputeProviderIdEstimatePost(
         args.provider,
@@ -327,7 +327,7 @@ export const computeEstimateTool = resultTool({
           tool_id: args.tool_id,
           settings: args.settings as Record<string, never>,
         },
-        { headers: requestHeaders(context), signal: context.abortSignal }
+        apiClient.options({ headers: requestHeaders(context), signal: context.abortSignal })
       );
       return toolSuccess({ ...data200<EstimateResponse>(response) });
     } catch (error) {
@@ -449,7 +449,7 @@ async function executeComputeSubmit(
       useComputeConsentStore.getState().recordConfirmation(args.provider);
     }
     admission.phase = 'retaining';
-    await configureSidecarApiClient('compute.submit');
+    const apiClient = await resolveSidecarApiClient('compute.submit');
 
     const providerSummary = useComputeStore
       .getState()
@@ -508,7 +508,7 @@ async function executeComputeSubmit(
           idempotency_key: intent.idempotencyKey,
           files: retained.files,
         },
-        { headers: requestHeaders(context), signal: context.abortSignal }
+        apiClient.options({ headers: requestHeaders(context), signal: context.abortSignal })
       );
       useComputeConsentStore.getState().recordSubmit(args.provider, cost);
       const ref = data200<JobRefModel>(response);
@@ -606,7 +606,7 @@ export const computeStatusTool = resultTool({
     "Check a submitted job's status. Read-only, never prompts. Poll no more than once every 15 seconds.",
   inputSchema: computeJobRefSchema,
   execute: async (args: z.infer<typeof computeJobRefSchema>, context: ToolContext) => {
-    await configureSidecarApiClient('compute.status');
+    const apiClient = await resolveSidecarApiClient('compute.status');
     try {
       const response = await jobStatusComputeProviderIdStatusPost(
         args.provider,
@@ -615,7 +615,7 @@ export const computeStatusTool = resultTool({
           remote_id: args.remote_id,
           tool_id: args.tool_id,
         },
-        { headers: requestHeaders(context), signal: context.abortSignal }
+        apiClient.options({ headers: requestHeaders(context), signal: context.abortSignal })
       );
       return toolSuccess({ ...data200<JobStatusResponse>(response) });
     } catch (error) {
@@ -635,7 +635,7 @@ export function createComputeImportResultTool(
       "Fetch a completed job's result from the provider and land it in the workspace: each predicted structure becomes a molecular view file beside the job's source sequence (or at the project top level), registered with provenance, and the first structure opens in the 3D viewer. Other output files stay with the job record, not the project. Read-only on the provider side, never prompts.",
     inputSchema: computeImportResultSchema,
     execute: async (args: z.infer<typeof computeImportResultSchema>, context: ToolContext) => {
-      await configureSidecarApiClient('compute.importResult');
+      const apiClient = await resolveSidecarApiClient('compute.importResult');
       let bundle: ResultResponse;
       try {
         const response = await jobResultComputeProviderIdResultPost(
@@ -645,7 +645,7 @@ export function createComputeImportResultTool(
             remote_id: args.remote_id,
             tool_id: args.tool_id,
           },
-          { headers: requestHeaders(context), signal: context.abortSignal }
+          apiClient.options({ headers: requestHeaders(context), signal: context.abortSignal })
         );
         bundle = data200<ResultResponse>(response);
       } catch (error) {
@@ -763,12 +763,12 @@ export async function cancelComputeJob(
   args: z.infer<typeof computeJobRefSchema>,
   context: ToolContext
 ) {
-  await configureSidecarApiClient('compute.cancel');
+  const apiClient = await resolveSidecarApiClient('compute.cancel');
   try {
     const response = await cancelJobComputeProviderIdCancelPost(
       args.provider,
       { granted_capabilities: granted(context), remote_id: args.remote_id, tool_id: args.tool_id },
-      { headers: requestHeaders(context), signal: context.abortSignal }
+      apiClient.options({ headers: requestHeaders(context), signal: context.abortSignal })
     );
     return toolSuccess({ ...data200<JobStatusResponse>(response) });
   } catch (error) {

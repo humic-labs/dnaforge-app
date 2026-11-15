@@ -132,7 +132,6 @@ interface FileBrowserProps {
   onTrashProject?: (repoPath: string) => void | Promise<void>;
   onNewNotebook?: WorkspaceCreateHandler;
   onNewAssembly?: WorkspaceCreateHandler;
-  onFolderRemoved?: (path: string) => void;
   onWorkspaceChanged?: (rootPath: string | null) => void | Promise<void>;
   onFindInFolder?: (path: string) => void;
   refreshSignal?: number;
@@ -431,7 +430,6 @@ export function FileBrowser({
   onTrashProject,
   onNewNotebook,
   onNewAssembly,
-  onFolderRemoved,
   onWorkspaceChanged,
   onFindInFolder,
   refreshSignal,
@@ -696,9 +694,8 @@ export function FileBrowser({
         );
       return;
     }
-    onFolderRemoved?.(filesystemContextMenu.path);
     removeFolder(filesystemContextMenu.path);
-  }, [filesystemContextMenu, folders, removeFolder, onFolderRemoved]);
+  }, [filesystemContextMenu, folders, removeFolder]);
 
   const archiveProjectPath = useCallback(
     async (repoPath: string, label: string) => {
@@ -754,10 +751,9 @@ export function FileBrowser({
         );
         return;
       }
-      onFolderRemoved?.(repoPath);
       removeFolder(repoPath);
     },
-    [folders, onArchiveProject, onFolderRemoved, removeFolder]
+    [folders, onArchiveProject, removeFolder]
   );
 
   const handleArchiveContextProject = useCallback(async () => {

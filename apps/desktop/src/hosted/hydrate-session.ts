@@ -114,7 +114,7 @@ function remapHostedPageTab(title: string, pageId: string): void {
     for (const tab of panel.tabs) {
       if (tab.type !== 'page' || tab.entityId === pageId) continue;
       if (tab.label !== title && tab.sourceFileName !== title) continue;
-      canvas.updateTabByEntityId(tab.entityId, { entityId: pageId });
+      canvas.retargetTabsByEntityId(tab.entityId, { type: 'page', entityId: pageId });
     }
   }
 }
@@ -144,12 +144,11 @@ function remapHostedCanvasTabs(
       ) {
         continue;
       }
-      canvas.updateTabByEntityId(tab.entityId, {
-        entityId: documentId,
-        sequenceDocument,
-        sourceFileName: match.fileName,
-        loadStatus: 'loaded',
-      });
+      canvas.retargetTabsByEntityId(
+        tab.entityId,
+        { type: 'sequence', sequenceDocument: sequenceDocument },
+        { sourceFileName: match.fileName, loadStatus: 'loaded' }
+      );
     }
   }
 }

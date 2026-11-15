@@ -3,8 +3,11 @@ import { serviceManager } from '@/services/service-manager';
 import { hasAnnotationResultShape } from './annotation-result';
 
 export async function parseAnnotationOutputFile(content: string, format: 'json' | 'gff3') {
-  serviceManager.bindGeneratedClient();
-  const response = await parseAnnotationOutputAnnotationOutputParsePost({ content, format });
+  const apiClient = serviceManager.client();
+  const response = await parseAnnotationOutputAnnotationOutputParsePost(
+    { content, format },
+    apiClient.options()
+  );
   const payload: unknown = response.data;
   if (
     response.status !== 200 ||

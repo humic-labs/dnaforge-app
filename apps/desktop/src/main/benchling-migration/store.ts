@@ -95,7 +95,12 @@ import {
   type ScopedFolderTraversalPageRequest,
   type ScopedFolderTraversalScopeKind,
 } from './scoped-folder-traversal-journal';
-import { canTransitionMigrationRun, isTerminalMigrationState } from './state-machine';
+import {
+  canTransitionMigrationRun,
+  isTerminalMigrationState,
+  recoverMigrationRun,
+  type MigrationRecoveryEvent,
+} from './state-machine';
 import { sourceObjectMaterializationView } from './source-object-materialization-view';
 import { sourceObjectValidationView } from './source-object-validation-view';
 import { assertValidationReportRendererPrivacySafe } from './validation-report-privacy';
@@ -1381,18 +1386,10 @@ export class MigrationStore {
     })();
   }
 
-  restoreReadyRunAfterFailedUnlock(input: {
-    unlockedRun: MigrationRun;
-    readyRun: MigrationRun;
-  }): void {
-    if (input.unlockedRun.state !== 'unlocked' || input.readyRun.state !== 'ready_to_unlock') {
-      throw new Error('Failed-unlock recovery requires unlocked and ready-to-unlock run states.');
-    }
-    if (input.unlockedRun.id !== input.readyRun.id) {
-      throw new Error('Failed-unlock recovery run identity does not match.');
-    }
-    assertImmutableRunFields(input.unlockedRun, input.readyRun);
-    assertProviderTaskPrivacySafe(input.readyRun, 'migration run');
+  recoverRun(expectedRun: MigrationRun, event: MigrationRecoveryEvent): MigrationRun {
+    const recoveredRun = recoverMigrationRun(expectedRun, event);
+    assertImmutableRunFields(expectedRun, recoveredRun);
+    assertProviderTaskPrivacySafe(recoveredRun, 'migration run');
     const restored = this.db
       .prepare(
         `UPDATE migration_run
@@ -1400,52 +1397,17 @@ export class MigrationStore {
          WHERE singleton = 1 AND id = ? AND state = ? AND body_json = ?`
       )
       .run(
-        input.readyRun.state,
-        JSON.stringify(input.readyRun),
-        input.readyRun.updatedAt,
-        input.readyRun.id,
-        input.unlockedRun.state,
-        JSON.stringify(input.unlockedRun)
+        recoveredRun.state,
+        JSON.stringify(recoveredRun),
+        recoveredRun.updatedAt,
+        recoveredRun.id,
+        expectedRun.state,
+        JSON.stringify(expectedRun)
       );
     if (restored.changes !== 1) {
-      throw new Error('Failed-unlock recovery lost its unlocked-run compare-and-set.');
+      throw new Error(`Migration recovery lost its ${expectedRun.state}-run compare-and-set.`);
     }
-  }
-
-  restoreFailedLocalRunForRetry(input: { failedRun: MigrationRun; retryRun: MigrationRun }): void {
-    const { failedRun, retryRun } = input;
-    if (
-      failedRun.state !== 'failed' ||
-      failedRun.lastError?.code !== 'internal_invariant' ||
-      failedRun.scope.acquisition !== 'local_bundle' ||
-      failedRun.localExportArtifact?.format !== 'zip' ||
-      retryRun.state !== 'parsing' ||
-      retryRun.resumeState !== null ||
-      retryRun.lastError !== null ||
-      retryRun.attempt !== failedRun.attempt ||
-      retryRun.unlockedAt !== null
-    ) {
-      throw new Error('Failed migration retry requires one preserved local ZIP invariant failure.');
-    }
-    assertImmutableRunFields(failedRun, retryRun);
-    assertProviderTaskPrivacySafe(retryRun, 'migration run');
-    const restored = this.db
-      .prepare(
-        `UPDATE migration_run
-           SET state = ?, body_json = ?, updated_at = ?
-         WHERE singleton = 1 AND id = ? AND state = ? AND body_json = ?`
-      )
-      .run(
-        retryRun.state,
-        JSON.stringify(retryRun),
-        retryRun.updatedAt,
-        retryRun.id,
-        failedRun.state,
-        JSON.stringify(failedRun)
-      );
-    if (restored.changes !== 1) {
-      throw new Error('Failed migration retry lost its failed-run compare-and-set.');
-    }
+    return recoveredRun;
   }
 
   getRun(): MigrationRun | null {

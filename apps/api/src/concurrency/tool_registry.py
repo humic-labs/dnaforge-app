@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
+from ..action_completion import ActionCompletionOwner
 from .schema import DNAForgeTool, ToolDuration
 
 if TYPE_CHECKING:
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
 ToolHandler = Callable[[dict[str, Any], "ToolContext"], Awaitable[dict[str, Any]]]
 AuditParameterProjector = Callable[[dict[str, Any]], dict[str, Any]]
 AuditResultProjector = Callable[[dict[str, Any]], dict[str, Any]]
+CompletionOwnerResolver = Callable[[dict[str, Any]], ActionCompletionOwner]
 
 AUDIT_RESULT_PROJECTION_KEY = "_dnaforge_audit_result_projection_v1"
 MAX_AUDIT_RESULT_PROJECTION_BYTES = 16 * 1024
@@ -47,6 +49,14 @@ class RegisteredTool:
     replay_policy: ToolReplayPolicy = ToolReplayPolicy.REUSE_RESULT
     audit_parameter_projector: AuditParameterProjector | None = None
     audit_result_projector: AuditResultProjector | None = None
+    completion_owner: ActionCompletionOwner | CompletionOwnerResolver = "job"
+
+    def action_completion_owner(self, args: dict[str, Any]) -> ActionCompletionOwner:
+        return (
+            self.completion_owner(args)
+            if callable(self.completion_owner)
+            else self.completion_owner
+        )
 
     def audit_parameters(self, args: dict[str, Any]) -> dict[str, Any]:
         if self.audit_parameter_projector is None:
@@ -84,6 +94,7 @@ class AgentToolRegistry:
         replay_policy: ToolReplayPolicy = ToolReplayPolicy.REUSE_RESULT,
         audit_parameter_projector: AuditParameterProjector | None = None,
         audit_result_projector: AuditResultProjector | None = None,
+        completion_owner: ActionCompletionOwner | CompletionOwnerResolver = "job",
     ) -> None:
         self.register_many(
             (
@@ -93,6 +104,7 @@ class AgentToolRegistry:
                     replay_policy=replay_policy,
                     audit_parameter_projector=audit_parameter_projector,
                     audit_result_projector=audit_result_projector,
+                    completion_owner=completion_owner,
                 ),
             ),
             replace_existing=True,

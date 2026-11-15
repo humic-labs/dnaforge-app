@@ -21,7 +21,7 @@ import { getCurrentWorkspaceScope, type WorkspaceFolder } from '../../../stores/
 import { extractCurrentPdfFilePages, type ExtractedPdfBlock } from '../../pdf/public/extract';
 import { capturePaperSourceText } from './capture-paper-source';
 import { getUserFolders, resolveMultiRootPath, type ResolvedMultiRootPath } from './path-utils';
-import { configureSidecarApiClient } from './sidecar-client';
+import { resolveSidecarApiClient } from './sidecar-client';
 
 const sha256Schema = z.string().regex(/^sha256:[a-f0-9]{64}$/);
 const relationshipSchema = z.enum(['identifies_as', 'cites', 'uses_method_from', 'supplement_to']);
@@ -117,7 +117,7 @@ export function createRecordPaperReferenceTraceTool(folders: WorkspaceFolder[]) 
             ? await preparePdfRecord(folders, input.source, input.traces)
             : await prepareCapturedTextRecord(input.source, input.traces);
 
-        await configureSidecarApiClient('record_paper_reference_trace');
+        const apiClient = await resolveSidecarApiClient('record_paper_reference_trace');
         try {
           effects.attemptedMutation();
           const response = await postPaperReferenceGraphRecordExternalPaperReferenceGraphRecordPost(
@@ -128,7 +128,7 @@ export function createRecordPaperReferenceTraceTool(folders: WorkspaceFolder[]) 
               traces: prepared.traces,
               granted_capabilities: [...(context.grantedCapabilities ?? [])],
             },
-            { signal: context.abortSignal }
+            apiClient.options({ signal: context.abortSignal })
           );
           return recordPaperReferenceTraceOutputSchema.omit({ ok: true }).parse(response.data);
         } catch (error) {
@@ -159,7 +159,7 @@ export function createGetPaperReferenceGraphTool(folders: WorkspaceFolder[]) {
         }
         if (!sourceSha256) throw new Error('Paper graph source identity is missing.');
 
-        await configureSidecarApiClient('get_paper_reference_graph');
+        const apiClient = await resolveSidecarApiClient('get_paper_reference_graph');
         try {
           const response = await postPaperReferenceGraphQueryExternalPaperReferenceGraphQueryPost(
             {
@@ -169,7 +169,7 @@ export function createGetPaperReferenceGraphTool(folders: WorkspaceFolder[]) {
               max_nodes: input.maxNodes,
               granted_capabilities: [...(context.grantedCapabilities ?? [])],
             },
-            { signal: context.abortSignal }
+            apiClient.options({ signal: context.abortSignal })
           );
           return getPaperReferenceGraphOutputSchema.omit({ ok: true }).parse(response.data);
         } catch (error) {

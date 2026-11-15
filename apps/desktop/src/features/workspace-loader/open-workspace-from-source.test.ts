@@ -27,7 +27,7 @@ import {
   openWorkspaceFromSource,
   projectWorkspaceFolders,
   resolveWorkspaceAssetPath,
-  selectLegacyCompatibilityPath,
+  selectDefaultWorkspacePath,
   validateWorkspaceRelativePath,
 } from './open-workspace-from-source';
 import type { WorkspaceFolder } from '../../stores/workspaceStore';
@@ -123,16 +123,16 @@ describe('workspace folder projection', () => {
       '/Users/me/dev-fixtures',
       '/Users/me/AppData/Sample Workspaces/standard-samples/v1/workspace',
     ]);
-    expect(selectLegacyCompatibilityPath(folders)).toBe(
+    expect(selectDefaultWorkspacePath(folders)).toBe(
       '/Users/me/AppData/Sample Workspaces/standard-samples/v1/workspace'
     );
   });
 
   it('projects legacy current-project compatibility only when the writable project is unambiguous', () => {
-    expect(selectLegacyCompatibilityPath(existing)).toBe('/Users/me/lab');
-    expect(selectLegacyCompatibilityPath(existing.filter((folder) => folder.pinned))).toBeNull();
+    expect(selectDefaultWorkspacePath(existing)).toBe('/Users/me/lab');
+    expect(selectDefaultWorkspacePath(existing.filter((folder) => folder.pinned))).toBeNull();
     expect(
-      selectLegacyCompatibilityPath([
+      selectDefaultWorkspacePath([
         { path: '/Users/me/a', name: 'A', addedAt: 1 },
         { path: '/Users/me/b', name: 'B', addedAt: 2 },
       ])
@@ -234,20 +234,15 @@ describe('openWorkspaceFromSource local-folder compatibility', () => {
     expect(useWorkspaceStore.getState().folders).toEqual([]);
   });
   it('mounts a local folder, reveals it, and projects legacy current_workspace_path', async () => {
-    const projectedPaths: Array<{ path: string; addToRecents?: boolean }> = [];
     const committedRoots: string[] = [];
 
     const result = await openWorkspaceFromSource(
       { kind: 'local-folder', path: '/Users/me/lab/' },
       { addToRecents: false },
       {
-        currentLegacyWorkspacePath: null,
-        setLegacyWorkspacePath: async (path, options) => {
-          projectedPaths.push({ path, addToRecents: options?.addToRecents });
-        },
         onWorkspaceCommitted: ({ instance }) => {
           expect(useWorkspaceStore.getState().folders[0]?.path).toBe('/Users/me/lab');
-          expect(projectedPaths).toEqual([{ path: '/Users/me/lab', addToRecents: false }]);
+          expect(useWorkspaceStore.getState().workspaceSelection.path).toBe('/Users/me/lab');
           committedRoots.push(instance.rootFolders[0].path);
         },
       }
@@ -261,34 +256,28 @@ describe('openWorkspaceFromSource local-folder compatibility', () => {
       { path: '/Users/me/lab', name: 'lab' },
     ]);
     expect(useWorkspaceStore.getState().selectedPath).toBe('/Users/me/lab');
-    expect(projectedPaths).toEqual([{ path: '/Users/me/lab', addToRecents: false }]);
+    expect(useWorkspaceStore.getState().workspaceSelection.path).toBe('/Users/me/lab');
     expect(committedRoots).toEqual(['/Users/me/lab']);
   });
 
   it('merge-opens additional local folders without overwriting an existing legacy path', async () => {
-    const projectedPaths: string[] = [];
     useWorkspaceStore.setState({
       folders: [{ path: '/Users/me/current', name: 'current', addedAt: 1 }],
       expandedPaths: new Set(['/Users/me/current']),
       selectedPath: '/Users/me/current',
+      workspaceSelection: { phase: 'ready', path: '/Users/me/current', error: null },
     });
 
     await openWorkspaceFromSource(
       { kind: 'local-folder', path: '/Users/me/other' },
-      { addToRecents: false },
-      {
-        currentLegacyWorkspacePath: '/Users/me/current',
-        setLegacyWorkspacePath: async (path) => {
-          projectedPaths.push(path);
-        },
-      }
+      { addToRecents: false }
     );
 
     expect(useWorkspaceStore.getState().folders.map((folder) => folder.path)).toEqual([
       '/Users/me/current',
       '/Users/me/other',
     ]);
-    expect(projectedPaths).toEqual([]);
+    expect(useWorkspaceStore.getState().workspaceSelection.path).toBe('/Users/me/current');
   });
 
   it('reveals an asset without opening a tab', async () => {
@@ -380,15 +369,10 @@ describe('current project collection ownership (F22)', () => {
     dbMocks.finishRegistration.mockReturnValueOnce(promise);
     return resolve;
   }
-  const open = (
-    path: string,
-    extra: Parameters<typeof openWorkspaceFromSource>[1] = {},
-    setPath = vi.fn()
-  ) =>
+  const open = (path: string, extra: Parameters<typeof openWorkspaceFromSource>[1] = {}) =>
     openWorkspaceFromSource(
       { kind: 'local-folder', path },
-      { inPlace: true, makeCurrent: true, ...extra },
-      { setLegacyWorkspacePath: setPath }
+      { inPlace: true, makeCurrent: true, ...extra }
     );
 
   afterEach(() => {
@@ -399,10 +383,9 @@ describe('current project collection ownership (F22)', () => {
 
   it('retains a newer added root and selection when old registration finishes', async () => {
     const settle = deferredRegistration();
-    const setPath = vi.fn().mockResolvedValue(undefined);
-    const a = open('/fixture/a', {}, setPath);
+    const a = open('/fixture/a');
     await vi.waitFor(() => expect(dbMocks.requestStarted).toHaveBeenCalledOnce());
-    await open('/fixture/b', {}, setPath);
+    await open('/fixture/b');
     settle();
     await a;
     expect(
@@ -412,8 +395,7 @@ describe('current project collection ownership (F22)', () => {
         .sort()
     ).toEqual(['/fixture/a', '/fixture/b']);
     expect(useWorkspaceStore.getState().selectedPath).toBe('/fixture/b');
-    expect(setPath).toHaveBeenCalledTimes(1);
-    expect(setPath.mock.calls[0][0]).toBe('/fixture/b');
+    expect(useWorkspaceStore.getState().workspaceSelection.path).toBe('/fixture/b');
   });
 
   it('does not revive a closed root or its expanded paths', async () => {
@@ -586,33 +568,33 @@ describe('compatibility preference ordering (F22)', () => {
   });
   it('an old preference acknowledgement cannot claim the newer pointer', async () => {
     let finish!: () => void;
-    let projected: string | null = null;
     const pending = new Promise<void>((r) => {
       finish = r;
     });
-    const setter = vi.fn(async (path: string, options?: { isCurrent?: () => boolean }) => {
-      if (path === '/fixture/a') await pending;
-      if (options?.isCurrent?.()) projected = path;
+    const nativeExecute = platform().db.execute.bind(platform().db);
+    const setter = vi.spyOn(platform().db, 'execute').mockImplementation(async (sql, args) => {
+      if (sql.includes('settings') && args?.includes('/fixture/a')) await pending;
+      return nativeExecute(sql, args);
     });
     const old = openWorkspaceFromSource(
       { kind: 'local-folder', path: '/fixture/a' },
-      { inPlace: true, makeCurrent: true },
-      { setLegacyWorkspacePath: setter }
+      { inPlace: true, makeCurrent: true }
     );
     await vi.waitFor(() => expect(setter).toHaveBeenCalledOnce());
     const current = openWorkspaceFromSource(
       { kind: 'local-folder', path: '/fixture/b' },
-      { inPlace: true, makeCurrent: true },
-      { setLegacyWorkspacePath: setter }
+      { inPlace: true, makeCurrent: true }
     );
     await vi.waitFor(() =>
       expect(useWorkspaceStore.getState().folders.some((f) => f.path === '/fixture/b')).toBe(true)
     );
     finish();
     await Promise.all([old, current]);
-    expect(projected).toBe('/fixture/b');
+    expect(useWorkspaceStore.getState().workspaceSelection.path).toBe('/fixture/b');
     expect(useWorkspaceStore.getState().selectedPath).toBe('/fixture/b');
-    expect(setter.mock.calls.map(([path]) => path)).toEqual(['/fixture/a', '/fixture/b']);
+    expect(
+      setter.mock.calls.filter(([sql]) => sql.includes('settings')).map(([, args]) => args?.[1])
+    ).toEqual(['/fixture/a', '/fixture/b']);
   });
 });
 

@@ -1,4 +1,5 @@
 import { isTrustedRendererUrl } from './security';
+import type { SidecarSessionSnapshot } from './sidecar-session-authority';
 
 export const SIDECAR_SESSION_HEADER = 'X-DNAForge-Session';
 export const SIDECAR_OPERATION_AUTHORITY_HEADER = 'X-DNAForge-Operation-Authority';
@@ -91,12 +92,7 @@ export function stripSidecarSessionHeaders(
   return headers;
 }
 
-interface ReadySessionSnapshot {
-  readonly owner: 'electron' | 'external';
-  readonly generation: number;
-  readonly state: 'starting' | 'ready' | 'restarting' | 'stopped';
-  readonly token: string;
-}
+type ReadySessionSnapshot = SidecarSessionSnapshot;
 
 export type SidecarHeaderFailureStage = 'sidecar-session' | 'compute-header' | 'header-callback';
 

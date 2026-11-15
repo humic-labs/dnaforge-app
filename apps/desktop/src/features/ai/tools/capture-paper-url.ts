@@ -11,7 +11,7 @@ import { platform } from '../../../platform';
 import type { WorkspaceFolder } from '../../../stores/workspaceStore';
 import { capturePaperSourceText } from './capture-paper-source';
 import { resolveMultiRootPath } from './path-utils';
-import { configureSidecarApiClient } from './sidecar-client';
+import { resolveSidecarApiClient } from './sidecar-client';
 
 export const capturePaperUrlSchema = z
   .object({
@@ -48,7 +48,7 @@ export function createCapturePaperUrlTool(folders: WorkspaceFolder[]) {
     inputSchema: capturePaperUrlSchema,
     execute: async (input: CapturePaperUrlInput, context: CapturePaperUrlContext) =>
       runPaperTool('CAPTURE_PAPER_URL_FAILED', async (effects) => {
-        await configureSidecarApiClient('capture_paper_url');
+        const apiClient = await resolveSidecarApiClient('capture_paper_url');
         let response;
         try {
           response = await postPaperSourceExternalPaperSourcePost(
@@ -56,7 +56,7 @@ export function createCapturePaperUrlTool(folders: WorkspaceFolder[]) {
               url: input.url,
               granted_capabilities: context.grantedCapabilities ?? [],
             },
-            { signal: context.abortSignal }
+            apiClient.options({ signal: context.abortSignal })
           );
         } catch (error) {
           if (error instanceof ApiResponseParseError) {

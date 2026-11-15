@@ -2117,6 +2117,9 @@ export const browserMockBridge: PlatformBridge = {
     },
   },
   molecularDocuments: {
+    reconcileSourceLinks: async () => {
+      throw new Error('Molecular document source projection requires the desktop app.');
+    },
     read: async () => {
       throw new Error('Molecular documents require the desktop app.');
     },

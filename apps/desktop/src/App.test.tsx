@@ -1,12 +1,20 @@
 import { userMessage } from '@waypoint/user-messages';
 import { expectToastCall, expectNoToastCall } from './test/toast-assertions';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest';
 import { DESKTOP_ANALYTICS_TOAST_MESSAGE } from '@waypoint/analytics-policy';
 import { StrictMode } from 'react';
 import type { PlatformBridge } from './platform/types';
 
+type WorkspaceStore = typeof import('./stores/workspaceStore').useWorkspaceStore;
+type WorkspaceState = ReturnType<WorkspaceStore['getState']>;
+
 const appTestMocks = vi.hoisted(() => ({
+  workspaceOwner: null as WorkspaceStore | null,
+  readWorkspaceSelection: vi.fn().mockResolvedValue([]),
+  readWorkspaceOwners: vi.fn().mockResolvedValue([]),
+  writeWorkspaceSelection: vi.fn(),
+  persistedWorkspacePath: null as string | null,
   addFolder: vi.fn(),
   getFolders: vi.fn(
     () => [] as Array<{ path: string; name: string; addedAt: number; pinned?: boolean }>
@@ -102,22 +110,43 @@ const mockCreateDesign = appTestMocks.createDesign;
 const mockCreateNotebookArtifactFile = appTestMocks.createNotebookArtifactFile;
 const mockCreateDesignArtifactFile = appTestMocks.createDesignArtifactFile;
 
-vi.mock('./db', () => ({
-  getSetting: vi.fn().mockResolvedValue(null),
-  setSetting: vi.fn().mockResolvedValue(undefined),
-  db: {
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue([]),
+vi.mock('./db', () => {
+  const settings = { key: 'key' };
+  return {
+    getSetting: vi.fn().mockResolvedValue(null),
+    setSetting: vi.fn().mockResolvedValue(undefined),
+    db: {
+      select: vi.fn(() => ({
+        from: vi.fn((table: unknown) => ({
+          where: () =>
+            table === settings
+              ? appTestMocks.readWorkspaceSelection()
+              : appTestMocks.readWorkspaceOwners(),
+        })),
+      })),
+      insert: vi.fn(() => ({
+        values: ({ value }: { value: string }) => ({
+          onConflictDoUpdate: async () => {
+            appTestMocks.writeWorkspaceSelection(value);
+            appTestMocks.persistedWorkspacePath = value;
+          },
+        }),
+      })),
+      delete: vi.fn().mockReturnValue({
+        where: vi.fn(async () => {
+          appTestMocks.persistedWorkspacePath = null;
+        }),
       }),
-    }),
-    delete: vi.fn().mockReturnValue({
-      where: vi.fn().mockResolvedValue(undefined),
-    }),
-  },
-  settings: { key: 'key' },
-  workspaces: { path: 'path' },
-}));
+    },
+    settings,
+    workspaces: { path: 'path', archivedAt: 'archivedAt', trashedAt: 'trashedAt' },
+  };
+});
+vi.mock('./db/connection', async () => ({ db: (await import('./db')).db }));
+vi.mock('./db/schema', async () => {
+  const { settings, workspaces } = await import('./db');
+  return { settings, workspaces };
+});
 
 vi.mock('./platform', () => ({
   platform: vi.fn(() => ({
@@ -240,6 +269,8 @@ vi.mock('./lib/analytics', async () => {
 
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn(),
+  and: vi.fn(),
+  isNull: vi.fn(),
 }));
 
 vi.mock('@waypoint/workspace-editor', async (importOriginal) => ({
@@ -307,6 +338,10 @@ vi.mock('./stores/workspaceStore', () => {
   });
   appTestMocks.setWorkspaceState.mockImplementation(
     (patch: Partial<ReturnType<typeof snapshot>>) => {
+      if (appTestMocks.workspaceOwner) {
+        appTestMocks.workspaceOwner.setState(patch);
+        return;
+      }
       const previous = snapshot();
       if (patch.folders) mockGetFolders.mockReturnValue(patch.folders);
       if (patch.expandedPaths) expandedPaths = patch.expandedPaths;
@@ -317,11 +352,13 @@ vi.mock('./stores/workspaceStore', () => {
   );
   return {
     useWorkspaceStore: Object.assign(
-      vi.fn((selector?: (state: ReturnType<typeof snapshot>) => unknown) =>
-        selector ? selector(snapshot()) : snapshot()
-      ),
+      vi.fn((selector?: (state: WorkspaceState) => unknown) => {
+        const owner = appTestMocks.workspaceOwner;
+        if (owner) return selector ? owner(selector) : owner();
+        return selector ? selector(snapshot() as WorkspaceState) : snapshot();
+      }),
       {
-        getState: vi.fn(snapshot),
+        getState: vi.fn(() => appTestMocks.workspaceOwner?.getState() ?? snapshot()),
         setState: appTestMocks.setWorkspaceState,
         subscribe: (
           listener: (
@@ -329,6 +366,14 @@ vi.mock('./stores/workspaceStore', () => {
             previous: ReturnType<typeof snapshot>
           ) => void
         ) => {
+          if (appTestMocks.workspaceOwner) {
+            return appTestMocks.workspaceOwner.subscribe((current, previous) =>
+              listener(
+                current as ReturnType<typeof snapshot>,
+                previous as ReturnType<typeof snapshot>
+              )
+            );
+          }
           listeners.add(listener);
           return () => listeners.delete(listener);
         },
@@ -706,10 +751,12 @@ vi.mock('./features/auth/AuthFlowHost', () => ({
 import { getSetting, setSetting } from './db';
 import App from './App';
 import { __resetWorkspaceTelemetryForTests } from './features/workspace-loader/workspace-telemetry';
+import { loadWorkspaceDeliveryReceipts } from './features/workspace-loader/workspace-delivery-receipts';
 import { setAnalyticsConsent } from './lib/analytics';
 import { CommandScopeProviderForTest } from './commands';
 import { useWorkspace } from './hooks/useWorkspace';
 import { useSequenceStore } from './features/sequence';
+import { isBrowserOnly } from './utils/environment';
 
 type MockRichToastInput = {
   message: string;
@@ -724,6 +771,30 @@ function renderApp() {
       <App />
     </CommandScopeProviderForTest>
   );
+}
+
+async function workspaceOwnerFixture() {
+  const { useWorkspaceStore } =
+    await vi.importActual<typeof import('./stores/workspaceStore')>('./stores/workspaceStore');
+  const { useWorkspace: useWorkspaceOwner } =
+    await vi.importActual<typeof import('./hooks/useWorkspace')>('./hooks/useWorkspace');
+  const electronSession = await import('./features/workspace-session/electron-session');
+  const initializeSession = vi
+    .spyOn(electronSession, 'initializeElectronWorkspaceSession')
+    .mockResolvedValue(undefined);
+  onTestFinished(() => initializeSession.mockRestore());
+  await useWorkspaceStore.getState().clearWorkspaceSelection();
+  useWorkspaceStore.setState(useWorkspaceStore.getInitialState(), true);
+  appTestMocks.workspaceOwner = useWorkspaceStore;
+  vi.mocked(isBrowserOnly).mockReturnValue(false);
+  vi.mocked(useWorkspace).mockImplementation(useWorkspaceOwner);
+  const publishedRoots = vi.fn();
+  onTestFinished(
+    useWorkspaceStore.subscribe((state, previous) => {
+      if (state.folders !== previous.folders) publishedRoots(state.folders);
+    })
+  );
+  return { store: useWorkspaceStore, publishedRoots };
 }
 
 describe('App', () => {
@@ -902,6 +973,11 @@ describe('App', () => {
   });
   beforeEach(() => {
     vi.clearAllMocks();
+    appTestMocks.workspaceOwner = null;
+    appTestMocks.readWorkspaceSelection.mockResolvedValue([]);
+    appTestMocks.readWorkspaceOwners.mockResolvedValue([]);
+    appTestMocks.persistedWorkspacePath = null;
+    vi.mocked(isBrowserOnly).mockReturnValue(true);
     window.sessionStorage.clear();
     window.localStorage.clear();
     vi.mocked(getSetting).mockResolvedValue(null);
@@ -1839,190 +1915,147 @@ describe('App', () => {
     expect(setAnalyticsConsent).toHaveBeenCalledWith(false);
   });
 
-  it('syncs workspace path to workspaceStore when workspace is selected', async () => {
+  it('mounts and persists the workspace selected through its owner', async () => {
     const testPath = '/Users/test/my-workspace';
-
-    mockGetFolders.mockReturnValue([]);
-
-    vi.mocked(useWorkspace).mockReturnValue({
-      path: testPath,
-      loading: false,
-      error: null,
-      selectWorkspace: vi.fn(),
-      setWorkspacePath: vi.fn(),
-      clearWorkspace: vi.fn(),
-      refresh: vi.fn(),
-    });
-
+    const { store } = await workspaceOwnerFixture();
     renderApp();
+    await waitFor(() => expect(store.getState().workspaceSelection.phase).toBe('ready'));
 
-    await waitFor(() => {
-      expect(mockAddFolder).toHaveBeenCalledWith(testPath);
+    await act(async () => store.getState().activateWorkspace(testPath));
+
+    expect(store.getState().folders.map((folder) => folder.path)).toEqual([testPath]);
+    expect(store.getState().workspaceSelection.path).toBe(testPath);
+    expect(appTestMocks.persistedWorkspacePath).toBe(testPath);
+    expect(appTestMocks.ensureWorkspaceOwner).toHaveBeenCalledWith(testPath, undefined, {
+      recordOpen: true,
     });
   });
 
   it('does not resurrect a replaced root while its compatibility pointer is unchanged', async () => {
     const oldPath = '/Users/test/replaced-project';
     const newPath = '/Users/test/replacement-project';
-    const hook = {
-      path: oldPath,
-      loading: false,
-      error: null,
-      selectWorkspace: vi.fn(),
-      setWorkspacePath: vi.fn(),
-      clearWorkspace: vi.fn(),
-      refresh: vi.fn(),
-    };
-    mockGetFolders.mockReturnValue([{ path: oldPath, name: 'Old project', addedAt: 1 }]);
-    vi.mocked(useWorkspace).mockReturnValue(hook);
-    const view = renderApp();
-    mockAddFolder.mockClear();
+    const { store } = await workspaceOwnerFixture();
+    await store.getState().activateWorkspace(oldPath);
+    renderApp();
 
-    mockGetFolders.mockReturnValue([{ path: newPath, name: 'New project', addedAt: 2 }]);
-    view.rerender(
-      <CommandScopeProviderForTest>
-        <App />
-      </CommandScopeProviderForTest>
-    );
-    expect(mockAddFolder).not.toHaveBeenCalledWith(oldPath);
+    act(() => {
+      store.getState().commitMountedFolders({
+        folders: [{ path: newPath, name: 'New project', addedAt: 2 }],
+        expandedPaths: new Set([newPath]),
+        activeWorkspaceFile: null,
+      });
+    });
+    expect(store.getState().workspaceSelection.path).toBe(oldPath);
+    expect(store.getState().folders.map((folder) => folder.path)).toEqual([newPath]);
 
-    vi.mocked(useWorkspace).mockReturnValue({ ...hook, path: '/Users/test/new-selection' });
-    view.rerender(
-      <CommandScopeProviderForTest>
-        <App />
-      </CommandScopeProviderForTest>
-    );
-    expect(mockAddFolder).toHaveBeenCalledWith('/Users/test/new-selection');
+    await act(async () => store.getState().acceptMountedWorkspaceSelection());
+    expect(store.getState().workspaceSelection.path).toBe(newPath);
+    expect(appTestMocks.persistedWorkspacePath).toBe(newPath);
+
+    await act(async () => store.getState().activateWorkspace('/Users/test/new-selection'));
+    expect(store.getState().folders.map((folder) => folder.path)).toEqual([
+      newPath,
+      '/Users/test/new-selection',
+    ]);
+    expect(appTestMocks.persistedWorkspacePath).toBe('/Users/test/new-selection');
   });
 
   it('does not add duplicate folders to workspaceStore', async () => {
     const testPath = '/Users/test/my-workspace';
-
-    mockGetFolders.mockReturnValue([{ path: testPath, name: 'my-workspace', addedAt: Date.now() }]);
-
-    vi.mocked(useWorkspace).mockReturnValue({
-      path: testPath,
-      loading: false,
-      error: null,
-      selectWorkspace: vi.fn(),
-      setWorkspacePath: vi.fn(),
-      clearWorkspace: vi.fn(),
-      refresh: vi.fn(),
-    });
-
+    const { store } = await workspaceOwnerFixture();
+    await store.getState().activateWorkspace(testPath);
     renderApp();
 
-    await waitFor(() => {
-      expect(mockAddFolder).not.toHaveBeenCalledWith(testPath);
-    });
+    await act(async () => store.getState().activateWorkspace(testPath));
+
+    expect(store.getState().folders.map((folder) => folder.path)).toEqual([testPath]);
+    expect(store.getState().workspaceSelection.path).toBe(testPath);
+    expect(appTestMocks.persistedWorkspacePath).toBe(testPath);
   });
 
   it('restores the persisted current workspace even when another project mounted first', async () => {
     const persistedCurrentPath = '/Users/test/persisted-current-workspace';
     const mountedDefaultPath = '/Users/test/default-workspace';
-    mockGetFolders.mockReturnValue([
-      { path: mountedDefaultPath, name: 'My Workspace', addedAt: Date.now() },
-    ]);
-    vi.mocked(useWorkspace).mockReturnValue({
-      path: persistedCurrentPath,
-      loading: false,
-      error: null,
-      selectWorkspace: vi.fn(),
-      setWorkspacePath: vi.fn(),
-      clearWorkspace: vi.fn(),
-      refresh: vi.fn(),
-    });
+    const { store } = await workspaceOwnerFixture();
+    appTestMocks.persistedWorkspacePath = persistedCurrentPath;
+    appTestMocks.readWorkspaceSelection.mockResolvedValue([{ value: persistedCurrentPath }]);
+    appTestMocks.readWorkspaceOwners.mockResolvedValue([{ path: persistedCurrentPath }]);
+    store.getState().addFolder(mountedDefaultPath, 'My Workspace');
 
     renderApp();
 
-    await waitFor(() => {
-      expect(mockAddFolder).toHaveBeenCalledWith(persistedCurrentPath);
-    });
+    await waitFor(() =>
+      expect(store.getState().workspaceSelection).toEqual({
+        phase: 'ready',
+        path: persistedCurrentPath,
+        error: null,
+      })
+    );
+    expect(store.getState().folders.map((folder) => folder.path)).toEqual([
+      mountedDefaultPath,
+      persistedCurrentPath,
+    ]);
+    expect(appTestMocks.persistedWorkspacePath).toBe(persistedCurrentPath);
   });
 
   it('applies each main-process workspace delivery exactly once across transport retries', async () => {
     const originalPath = '/Users/test/original-workspace';
     const replacementPath = '/Users/test/scenario-workspace';
-    const setWorkspacePath = vi.fn().mockResolvedValue(undefined);
-    mockGetFolders.mockReturnValue([
-      { path: originalPath, name: 'original-workspace', addedAt: Date.now() },
-    ]);
-    vi.mocked(useWorkspace).mockReturnValue({
-      path: originalPath,
-      loading: false,
-      error: null,
-      selectWorkspace: vi.fn(),
-      setWorkspacePath,
-      clearWorkspace: vi.fn(),
-      refresh: vi.fn(),
-    });
-
+    const { store, publishedRoots } = await workspaceOwnerFixture();
+    await store.getState().activateWorkspace(originalPath);
     renderApp();
     await waitFor(() =>
       expect(appTestMocks.platformListeners.has('workspace:set-path')).toBe(true)
     );
     const deliver = appTestMocks.platformListeners.get('workspace:set-path');
-    expect(deliver).toBeDefined();
+    appTestMocks.ensureWorkspaceOwner.mockClear();
+    appTestMocks.writeWorkspaceSelection.mockClear();
+    publishedRoots.mockClear();
 
     act(() => deliver?.(originalPath, 'delivery-a'));
     await waitFor(() =>
-      expect(appTestMocks.setWorkspaceState).toHaveBeenCalledWith(
-        expect.objectContaining({
-          folders: expect.arrayContaining([expect.objectContaining({ path: originalPath })]),
-        })
-      )
+      expect(loadWorkspaceDeliveryReceipts(sessionStorage)).toContain('delivery-a')
     );
-    expect(appTestMocks.ensureWorkspaceOwner).toHaveBeenCalledWith(originalPath, undefined, {
-      name: 'original-workspace',
-      recordOpen: true,
-    });
+    expect(publishedRoots).toHaveBeenCalledWith([expect.objectContaining({ path: originalPath })]);
+    expect(appTestMocks.ensureWorkspaceOwner).toHaveBeenCalledExactlyOnceWith(
+      originalPath,
+      undefined,
+      {
+        name: 'original-workspace',
+        recordOpen: true,
+      }
+    );
     expect(appTestMocks.ensureWorkspaceOwner.mock.invocationCallOrder[0]).toBeLessThan(
-      appTestMocks.setWorkspaceState.mock.invocationCallOrder[0]
+      publishedRoots.mock.invocationCallOrder[0]
     );
-    expect(setWorkspacePath).toHaveBeenCalledWith(originalPath, {
-      addToRecents: false,
-      isCurrent: expect.any(Function),
-    });
+    expect(appTestMocks.writeWorkspaceSelection).toHaveBeenCalledExactlyOnceWith(originalPath);
+    expect(appTestMocks.persistedWorkspacePath).toBe(originalPath);
 
     appTestMocks.ensureWorkspaceOwner.mockClear();
-    appTestMocks.setWorkspaceState.mockClear();
-    setWorkspacePath.mockClear();
+    appTestMocks.writeWorkspaceSelection.mockClear();
+    publishedRoots.mockClear();
     act(() => deliver?.(originalPath, 'delivery-a'));
     expect(appTestMocks.ensureWorkspaceOwner).not.toHaveBeenCalled();
-    expect(appTestMocks.setWorkspaceState).not.toHaveBeenCalled();
-    expect(setWorkspacePath).not.toHaveBeenCalled();
+    expect(publishedRoots).not.toHaveBeenCalled();
+    expect(appTestMocks.writeWorkspaceSelection).not.toHaveBeenCalled();
 
     act(() => deliver?.(replacementPath, 'delivery-b'));
     await waitFor(() =>
-      expect(appTestMocks.setWorkspaceState).toHaveBeenCalledWith(
-        expect.objectContaining({
-          folders: expect.arrayContaining([expect.objectContaining({ path: replacementPath })]),
-        })
-      )
+      expect(loadWorkspaceDeliveryReceipts(sessionStorage)).toContain('delivery-b')
     );
-    expect(setWorkspacePath).toHaveBeenCalledWith(replacementPath, {
-      addToRecents: false,
-      isCurrent: expect.any(Function),
-    });
+    expect(publishedRoots).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ path: replacementPath })])
+    );
+    expect(store.getState().workspaceSelection.path).toBe(replacementPath);
+    expect(appTestMocks.writeWorkspaceSelection).toHaveBeenCalledExactlyOnceWith(replacementPath);
+    expect(appTestMocks.persistedWorkspacePath).toBe(replacementPath);
   });
 
   it('does not replay an acknowledged workspace delivery after the renderer reloads', async () => {
     const originalPath = '/Users/test/original-workspace';
     const replacementPath = '/Users/test/scenario-workspace';
-    const setWorkspacePath = vi.fn().mockResolvedValue(undefined);
-    mockGetFolders.mockReturnValue([
-      { path: replacementPath, name: 'scenario-workspace', addedAt: Date.now() },
-    ]);
-    vi.mocked(useWorkspace).mockReturnValue({
-      path: replacementPath,
-      loading: false,
-      error: null,
-      selectWorkspace: vi.fn(),
-      setWorkspacePath,
-      clearWorkspace: vi.fn(),
-      refresh: vi.fn(),
-    });
-
+    const { store, publishedRoots } = await workspaceOwnerFixture();
+    await store.getState().activateWorkspace(replacementPath);
     const firstRenderer = renderApp();
     await waitFor(() =>
       expect(appTestMocks.platformListeners.has('workspace:set-path')).toBe(true)
@@ -2031,50 +2064,46 @@ describe('App', () => {
       appTestMocks.platformListeners.get('workspace:set-path')?.(originalPath, 'delivery-a')
     );
     await waitFor(() =>
-      expect(appTestMocks.setWorkspaceState).toHaveBeenCalledWith(
-        expect.objectContaining({
-          folders: expect.arrayContaining([expect.objectContaining({ path: originalPath })]),
-        })
-      )
+      expect(loadWorkspaceDeliveryReceipts(sessionStorage)).toContain('delivery-a')
     );
-    expect(setWorkspacePath).toHaveBeenCalledWith(originalPath, {
-      addToRecents: false,
-      isCurrent: expect.any(Function),
-    });
+    expect(store.getState().workspaceSelection.path).toBe(originalPath);
+    expect(appTestMocks.persistedWorkspacePath).toBe(originalPath);
 
     firstRenderer.unmount();
-    appTestMocks.ensureWorkspaceOwner.mockClear();
-    appTestMocks.setWorkspaceState.mockClear();
-    setWorkspacePath.mockClear();
-
+    store.setState(store.getInitialState(), true);
+    appTestMocks.readWorkspaceSelection.mockResolvedValue([{ value: originalPath }]);
+    appTestMocks.readWorkspaceOwners.mockResolvedValue([{ path: originalPath }]);
     renderApp();
+    await waitFor(() =>
+      expect(store.getState().workspaceSelection).toEqual({
+        phase: 'ready',
+        path: originalPath,
+        error: null,
+      })
+    );
     await waitFor(() =>
       expect(appTestMocks.platformListeners.has('workspace:set-path')).toBe(true)
     );
+    appTestMocks.ensureWorkspaceOwner.mockClear();
+    appTestMocks.writeWorkspaceSelection.mockClear();
+    publishedRoots.mockClear();
     act(() =>
       appTestMocks.platformListeners.get('workspace:set-path')?.(originalPath, 'delivery-a')
     );
 
     expect(appTestMocks.ensureWorkspaceOwner).not.toHaveBeenCalled();
-    expect(appTestMocks.setWorkspaceState).not.toHaveBeenCalled();
-    expect(setWorkspacePath).not.toHaveBeenCalledWith(originalPath);
+    expect(publishedRoots).not.toHaveBeenCalled();
+    expect(appTestMocks.writeWorkspaceSelection).not.toHaveBeenCalled();
+    expect(store.getState().workspaceSelection.path).toBe(originalPath);
+    expect(appTestMocks.persistedWorkspacePath).toBe(originalPath);
   });
 
   it('retries a main-process workspace delivery when registration fails before publication', async () => {
     const workspacePath = '/Users/test/retry-workspace';
-    const setWorkspacePath = vi.fn().mockResolvedValue(undefined);
+    const { store, publishedRoots } = await workspaceOwnerFixture();
     appTestMocks.ensureWorkspaceOwner.mockRejectedValueOnce(new Error('database unavailable'));
-    vi.mocked(useWorkspace).mockReturnValue({
-      path: null,
-      loading: false,
-      error: null,
-      selectWorkspace: vi.fn(),
-      setWorkspacePath,
-      clearWorkspace: vi.fn(),
-      refresh: vi.fn(),
-    });
-
     renderApp();
+    await waitFor(() => expect(store.getState().workspaceSelection.phase).toBe('ready'));
     await waitFor(() =>
       expect(appTestMocks.platformListeners.has('workspace:set-path')).toBe(true)
     );
@@ -2084,21 +2113,22 @@ describe('App', () => {
     await waitFor(() =>
       expectToastCall(appTestMocks.addToast, userMessage('failure.failed-to-open-project'), 'error')
     );
-    expect(appTestMocks.setWorkspaceState).not.toHaveBeenCalled();
-    expect(setWorkspacePath).not.toHaveBeenCalled();
+    expect(publishedRoots).not.toHaveBeenCalled();
+    expect(appTestMocks.writeWorkspaceSelection).not.toHaveBeenCalled();
+    expect(store.getState().folders).toEqual([]);
+    expect(store.getState().workspaceSelection.path).toBeNull();
+    expect(appTestMocks.persistedWorkspacePath).toBeNull();
+    expect(loadWorkspaceDeliveryReceipts(sessionStorage)).not.toContain('delivery-retry');
 
     act(() => deliver?.(workspacePath, 'delivery-retry'));
     await waitFor(() =>
-      expect(appTestMocks.setWorkspaceState).toHaveBeenCalledWith(
-        expect.objectContaining({
-          folders: expect.arrayContaining([expect.objectContaining({ path: workspacePath })]),
-        })
-      )
+      expect(loadWorkspaceDeliveryReceipts(sessionStorage)).toContain('delivery-retry')
     );
-    expect(setWorkspacePath).toHaveBeenCalledWith(workspacePath, {
-      addToRecents: false,
-      isCurrent: expect.any(Function),
-    });
+    expect(publishedRoots).toHaveBeenCalledWith([expect.objectContaining({ path: workspacePath })]);
+    expect(appTestMocks.ensureWorkspaceOwner).toHaveBeenCalledTimes(2);
+    expect(store.getState().workspaceSelection.path).toBe(workspacePath);
+    expect(appTestMocks.writeWorkspaceSelection).toHaveBeenCalledExactlyOnceWith(workspacePath);
+    expect(appTestMocks.persistedWorkspacePath).toBe(workspacePath);
   });
 
   it('passes the workspace selected path into FileBrowser for tab reveal', async () => {

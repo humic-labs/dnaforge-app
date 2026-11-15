@@ -4,7 +4,13 @@ import {
   type ChatState,
   type ConversationState,
 } from './chat-store-types';
-import { createConversationSendLease } from './send-lease';
+import {
+  conversationExecution,
+  claimConversationExecution,
+  resetConversationExecutionsForTests,
+  type ChatCancellationReason,
+} from './conversation-execution';
+export type { ChatCancellationReason } from './conversation-execution';
 
 export type ChatStore = ChatState & ChatActions;
 export type ChatStoreGet = () => ChatStore;
@@ -12,15 +18,6 @@ export type ChatStoreSet = (
   patch: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)
 ) => void;
 
-const abortControllers = new Map<string, AbortController>();
-export type ChatCancellationReason =
-  | 'user_stop'
-  | 'queue_advance'
-  | 'conversation_deleted'
-  | 'unknown';
-const pendingCancellationRequests = new Map<string, ChatCancellationReason>();
-const deletedConversationIds = new Set<string>();
-const chatSendLease = createConversationSendLease();
 let activeConversationSelectionVersion = 0;
 
 export function beginActiveConversationSelection(): number {
@@ -33,60 +30,80 @@ export function isLatestActiveConversationSelection(version: number): boolean {
 }
 
 export function markChatConversationDeleted(conversationId: string): void {
-  deletedConversationIds.add(conversationId);
+  conversationExecution(conversationId).markDeleted();
 }
 
 export function unmarkChatConversationDeleted(conversationId: string): void {
-  deletedConversationIds.delete(conversationId);
+  conversationExecution(conversationId).restoreAfterRejectedDelete();
 }
 
 export function isChatConversationDeleted(conversationId: string): boolean {
-  return deletedConversationIds.has(conversationId);
+  return conversationExecution(conversationId).isDeleted;
 }
 
 export function resetDeletedChatConversationsForTests(): void {
-  deletedConversationIds.clear();
+  resetConversationExecutionsForTests();
 }
 
-export function claimChatSend(key: string) {
-  return chatSendLease.tryAcquire(key);
+export function claimChatSend(key: string, conversationId = key) {
+  return claimConversationExecution(key, conversationId);
 }
 
 export function isChatSendClaimed(key: string): boolean {
-  return chatSendLease.isClaimed(key);
+  return conversationExecution(key).isClaimed;
 }
 
 export function registerChatAbortController(
   conversationId: string,
   controller: AbortController
 ): void {
-  abortControllers.set(conversationId, controller);
-  const pendingReason = pendingCancellationRequests.get(conversationId);
-  pendingCancellationRequests.delete(conversationId);
-  if (deletedConversationIds.has(conversationId) || pendingReason) {
-    controller.abort(
-      deletedConversationIds.has(conversationId) ? 'conversation_deleted' : pendingReason
-    );
-  }
+  conversationExecution(conversationId).attachController(controller);
 }
 
 export function cancelChatGeneration(
   conversationId: string,
   reason: ChatCancellationReason = 'unknown'
 ): boolean {
-  const controller = abortControllers.get(conversationId);
-  if (!controller) {
-    if (!chatSendLease.isClaimed(conversationId)) return false;
-    pendingCancellationRequests.set(conversationId, reason);
-    return true;
-  }
-  controller.abort(reason);
-  return true;
+  return conversationExecution(conversationId).cancel(reason);
 }
 
 export function releaseChatAbortController(conversationId: string): void {
-  abortControllers.delete(conversationId);
-  pendingCancellationRequests.delete(conversationId);
+  conversationExecution(conversationId).detachController();
+}
+
+export function projectChatExecution(set: ChatStoreSet, conversationId: string): void {
+  setConversationState(set, conversationId, () =>
+    conversationExecution(conversationId).projection()
+  );
+}
+
+export function chatProviderPhase(
+  set: ChatStoreSet,
+  conversationId: string,
+  controller: AbortController,
+  phase: 'streaming' | 'settling'
+): void {
+  setConversationState(set, conversationId, () => {
+    const owner = conversationExecution(conversationId);
+    return owner.providerPhase(controller, phase) ? owner.projection() : {};
+  });
+}
+
+export function recoverOrphanedChatExecution(set: ChatStoreSet, conversationId: string): void {
+  setConversationState(set, conversationId, () =>
+    conversationExecution(conversationId).isClaimed
+      ? {}
+      : { isLoading: false, isStreaming: false, streamingBlocks: [] }
+  );
+}
+
+function deriveExecutionProjection(
+  conversationId: string,
+  state: ConversationState
+): ConversationState {
+  const owner = conversationExecution(conversationId);
+  const projection = owner.projection();
+  return owner.isClaimed && projection.isLoading ? { ...state, ...projection } : state;
 }
 
 function activeConversationProjection(next: ConversationState): Partial<ChatStore> {
@@ -127,6 +144,7 @@ export function replaceConversationState(
   }
   set((state) => {
     const states = new Map(state._convStates);
+    next = deriveExecutionProjection(convId, next);
     states.set(convId, next);
     const isActive = shouldActivate || state.currentConversationId === convId;
     return {
@@ -166,9 +184,9 @@ export function setConversationState(
   updater: (previous: ConversationState) => Partial<ConversationState>
 ): void {
   set((state) => {
-    if (deletedConversationIds.has(convId)) return {};
+    if (isChatConversationDeleted(convId)) return {};
     const previous = { ...EMPTY_CONV_STATE, ...(state._convStates.get(convId) ?? {}) };
-    const next = { ...previous, ...updater(previous) };
+    const next = deriveExecutionProjection(convId, { ...previous, ...updater(previous) });
     const states = new Map(state._convStates);
     states.set(convId, next);
     const isActive = state.currentConversationId === convId;

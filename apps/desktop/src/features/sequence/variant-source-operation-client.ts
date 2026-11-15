@@ -20,24 +20,29 @@ export interface VariantSourceWaitOptions {
 export async function startVariantSourceOperation(
   input: VariantSourceRequest
 ): Promise<OperationSnapshot> {
-  return managedOperations.startRegisteredOperation(async ({ scopeId, submissionKey }) => {
-    const response =
-      await startVariantSourcePreparationOperationOperationsVariantSourcePreparationPost({
-        submission_key: submissionKey,
-        subject: { scope_id: scopeId },
-        input,
-      });
-    if (response.status !== 202) {
-      throw withUserMessage(
-        new Error(response.data.detail.message),
-        variantMessageKey(response.data.detail.code, 'variant.preparationFailed')
-      );
+  return managedOperations.startRegisteredOperation(
+    async ({ apiClient, scopeId, submissionKey }) => {
+      const response =
+        await startVariantSourcePreparationOperationOperationsVariantSourcePreparationPost(
+          {
+            submission_key: submissionKey,
+            subject: { scope_id: scopeId },
+            input,
+          },
+          apiClient.options()
+        );
+      if (response.status !== 202) {
+        throw withUserMessage(
+          new Error(response.data.detail.message),
+          variantMessageKey(response.data.detail.code, 'variant.preparationFailed')
+        );
+      }
+      if (response.data.kind !== OPERATION_KIND || response.data.subject.scope_id !== scopeId) {
+        throw new Error('The operation owner returned an invalid variant-source job.');
+      }
+      return response.data;
     }
-    if (response.data.kind !== OPERATION_KIND || response.data.subject.scope_id !== scopeId) {
-      throw new Error('The operation owner returned an invalid variant-source job.');
-    }
-    return response.data;
-  });
+  );
 }
 
 export async function waitForVariantSourceResult(

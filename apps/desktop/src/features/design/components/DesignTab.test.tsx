@@ -420,7 +420,11 @@ describe('published assembly Save', () => {
       await waitFor(() =>
         expect(artifactMocks.writeDesignArtifactSnapshot).toHaveBeenCalledTimes(1)
       );
-      act(() => useCanvasStore.getState().updateTab('main', tab.id, { entityId: replacementId }));
+      act(() =>
+        useCanvasStore
+          .getState()
+          .retargetTab('main', tab.id, { type: 'design', entityId: replacementId })
+      );
       await act(async () => {
         releaseWrite?.();
       });
@@ -439,7 +443,9 @@ describe('published assembly Save', () => {
     const replacementId = useDesignStore.getState().createDesign('Replacement');
     mountPublishedAssembly(designId, tab);
     await act(async () => {
-      useCanvasStore.getState().updateTab('main', tab.id, { entityId: replacementId });
+      useCanvasStore
+        .getState()
+        .retargetTab('main', tab.id, { type: 'design', entityId: replacementId });
       void documentLifecycle.save({ kind: 'tab', tabId: tab.id }, tab.id);
     });
     expect(artifactMocks.writeDesignArtifactSnapshot).not.toHaveBeenCalled();

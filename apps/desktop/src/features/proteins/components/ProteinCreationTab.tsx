@@ -95,12 +95,14 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
         sourceCds: sourceCds.trim() || undefined,
         notes: notes.trim() || undefined,
       });
-      updateTab(panelId, tab.id, {
-        entityId: result.limsEntity.id,
-        label: result.limsEntity.name,
-        artifactDocument: undefined,
-        isDirty: false,
-      });
+      useCanvasStore
+        .getState()
+        .retargetTab(
+          panelId,
+          tab.id,
+          { type: 'protein', entityId: result.limsEntity.id },
+          { label: result.limsEntity.name, artifactDocument: undefined, isDirty: false }
+        );
       window.dispatchEvent(
         new CustomEvent('waypoint:workspace-files-changed', {
           detail: { workspaceRoot: context.workspaceRoot, revealPath: result.artifactPath },

@@ -8,7 +8,12 @@ vi.mock('@waypoint/api-client', () => ({
   parseAnnotationOutputAnnotationOutputParsePost: mocks.parse,
 }));
 vi.mock('@/services/service-manager', () => ({
-  serviceManager: { bindGeneratedClient: mocks.bind },
+  serviceManager: {
+    client: () => {
+      mocks.bind();
+      return { options: (options: RequestInit = {}) => options };
+    },
+  },
 }));
 
 describe('annotation output parser client', () => {
@@ -19,7 +24,7 @@ describe('annotation output parser client', () => {
     mocks.parse.mockResolvedValue({ status: 200, data });
     expect(await parseAnnotationOutputFile('##gff-version 3\n', 'gff3')).toBe(data);
     expect(mocks.bind).toHaveBeenCalledOnce();
-    expect(mocks.parse).toHaveBeenCalledWith({ content: '##gff-version 3\n', format: 'gff3' });
+    expect(mocks.parse).toHaveBeenCalledWith({ content: '##gff-version 3\n', format: 'gff3' }, {});
   });
 
   it.each([

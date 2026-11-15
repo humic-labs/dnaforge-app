@@ -1,4 +1,4 @@
-import { configureApiClient } from '@waypoint/api-client';
+import { createApiClient, type ApiClient } from '@waypoint/api-client';
 import { UserMessageError } from '@waypoint/user-messages';
 import { requireHostedCapability } from '../hosted/capabilities';
 import { isHostedBrowserRuntime } from '../utils/environment';
@@ -43,13 +43,13 @@ export async function resolveExternalLookupBaseUrl(callerName: string): Promise<
   return hostedExternalLookupBaseUrl() ?? (await resolveSidecarBaseUrl(callerName));
 }
 
-export function configureRendererSidecarApiClient(baseUrl: string): void {
-  configureApiClient({ baseUrl });
+export function createRendererSidecarApiClient(baseUrl: string): ApiClient {
+  return createApiClient({ baseUrl });
 }
 
-export async function configureSidecarApiClient(callerName: string): Promise<void> {
+export async function resolveSidecarApiClient(callerName: string): Promise<ApiClient> {
   const baseUrl = await resolveSidecarBaseUrl(callerName);
-  configureRendererSidecarApiClient(baseUrl);
+  return createRendererSidecarApiClient(baseUrl);
 }
 
 export function sidecarFetch(

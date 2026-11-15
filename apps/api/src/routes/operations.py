@@ -23,7 +23,7 @@ from ..annotation_document_responses import (
     AnnotationDocumentApplyResponse,
     AnnotationDocumentInspection,
 )
-from ..concurrency.job_manager import JobRecord, get_job_manager
+from ..concurrency.job_manager import ACTIVE_JOB_STATUSES, JobRecord, get_job_manager
 from ..control_plane import get_control_plane_store
 from ..managed_annotation_document_actions import ManagedAnnotationDocumentActions
 from ..managed_annotation_documents import (
@@ -191,8 +191,8 @@ def _agent_job_state(row: dict[str, Any], live: JobRecord | None) -> tuple[
 ]:
     error = row.get("error_json")
     error_code = error.get("code") if isinstance(error, dict) else None
-    if live is not None and live.status in {"queued", "running"}:
-        return live.status, error_code
+    if live is not None and live.status in ACTIVE_JOB_STATUSES:
+        return "running" if live.status == "stopping" else live.status, error_code
     if error_code == "OUTCOME_UNRESOLVED":
         return "interrupted", error_code
     if error_code == "CANCELED":

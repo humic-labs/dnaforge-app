@@ -1,3 +1,4 @@
+import { cancelWorkspaceSyncJobsForReplacedReplica } from './workspace-sync-queue';
 import { userMessage, type UserMessage } from '@waypoint/user-messages';
 import {
   acceptWorkspaceSyncRestoreTelemetry,
@@ -4473,18 +4474,7 @@ function commitMissingLocalReplicaRepair(
        SELECT id FROM workspace_sync_queue WHERE workspace_id = @workspaceId
      )`
   ).run({ workspaceId: binding.workspace_id });
-  db.prepare(
-    `UPDATE workspace_sync_queue
-     SET status = 'canceled',
-         next_attempt_at = NULL,
-         locked_at = NULL,
-         locked_by_device_id = NULL,
-         error_code = 'LOCAL_REPLICA_REPLACED',
-         error_message = 'Missing local replica was replaced from its cloud copy.',
-         updated_at = @nowMs
-     WHERE workspace_id = @workspaceId
-       AND status IN ('pending', 'running', 'retry_wait', 'blocked', 'failed')`
-  ).run({ workspaceId: binding.workspace_id, nowMs });
+  cancelWorkspaceSyncJobsForReplacedReplica(db, { workspaceId: binding.workspace_id, nowMs });
   db.prepare(
     `UPDATE workspaces
      SET archived_at = COALESCE(archived_at, @nowMs),
