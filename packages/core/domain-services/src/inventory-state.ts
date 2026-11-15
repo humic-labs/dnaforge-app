@@ -50,9 +50,11 @@ import {
   inventoryReservationGuard,
   prepareInventoryFulfillment,
 } from './inventory-reservations';
+import { applyInventoryItemCodeCommand } from './inventory-item-codes';
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
 interface Draft {
+  itemCodes: Record<string, InventoryState['itemCodes'][string]>;
   typeVersions: Record<string, InventoryState['typeVersions'][string]>;
   recipeVersions: Record<string, InventoryState['recipeVersions'][string]>;
   fitEvidence: Record<string, InventoryState['fitEvidence'][string]>;
@@ -134,6 +136,8 @@ function applyCommand(
   command: InventoryCommand,
   context?: InventoryExecutionContext
 ): Failure | null {
+  const itemCode = applyInventoryItemCodeCommand(state, command, context);
+  if (itemCode !== undefined) return itemCode;
   const configuration = applyInventoryConfigurationCommand(state, command, context, (inner) =>
     applyCommand(state, inner, context)
   );
@@ -344,6 +348,7 @@ export function applyInventoryCommandBatch(
   if (context && context.at < state.lastRecordedAt)
     return failure('CLOCK_REGRESSION', 'The trusted timestamp precedes the inventory clock floor.');
   const draft: Draft = {
+    itemCodes: Object.assign(Object.create(null), state.itemCodes),
     typeVersions: Object.assign(Object.create(null), state.typeVersions),
     recipeVersions: Object.assign(Object.create(null), state.recipeVersions),
     fitEvidence: Object.assign(Object.create(null), state.fitEvidence),

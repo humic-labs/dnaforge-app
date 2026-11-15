@@ -162,6 +162,48 @@ async def test_inventory_catalog_update_preview_uses_current_read_only_grant(nat
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("namespace, value", [(None, " 001a "), ("Uppercase", "001a\r\n")])
+async def test_inventory_item_code_read_preserves_raw_query_and_rechecks_grant(
+    native, namespace, value
+):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    lookup = {
+        "projectId": "project",
+        "inventoryId": "inventory",
+        "revision": 0,
+        "asOf": 1,
+        "principal": {"kind": "agent", "identityId": "caller"},
+        "resolution": {"kind": "not-found"},
+        "targets": [],
+    }
+    state["result"] = {"kind": "item-code-resolution", "lookup": lookup}
+    request = {
+        "project": "project",
+        "inventoryId": "inventory",
+        "query": {"namespace": namespace, "value": value},
+    }
+    args = {"operation": {"kind": "resolve-item-code", **request}}
+    assert await execute_native_workflow("inventory", args, context) == {
+        "ok": True,
+        "result": {"kind": "item-code-resolution", "lookup": lookup, "ok": True},
+    }
+    assert state["calls"] == [
+        {
+            "command": "inventory.resolve-item-code",
+            "request": request,
+            "projectScope": {"kind": "app-following"},
+            "agent": {"identityId": "caller", "capabilities": ["read-workspace"]},
+        }
+    ]
+    state["revoked"] = True
+    with pytest.raises(ToolExecutionFailure) as revoked:
+        await execute_native_workflow("inventory", args, context)
+    assert revoked.value.code == "GRANT_REVOKED"
+    assert len(state["calls"]) == 1
+
+
+@pytest.mark.asyncio
 async def test_inventory_write_requires_current_grant_and_rejection_is_not_success(native):
     state, context = native
     request = {

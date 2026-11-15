@@ -3,6 +3,7 @@ import type { InventoryCompositionDialog } from './InventoryCompositionForm';
 import type { InventoryReservationDialog } from './InventoryReservations';
 import type { InventoryCustodyDialog } from './InventoryCustodyForm';
 import type { InventoryPhysicalDialogKind } from './inventory-physical-view';
+import type { InventoryItemCodeDialog } from './inventory-item-code-view';
 import {
   inventoryStoragePositions,
   inventoryStackItems,
@@ -32,6 +33,7 @@ export type InventoryDialog =
   | InventoryReservationDialog
   | InventoryCustodyDialog
   | InventoryPhysicalDialogKind
+  | InventoryItemCodeDialog
   | { kind: 'none' }
   | { kind: 'container'; placement?: InventoryLocatedPlacement; typeVersionId?: string }
   | { kind: 'location'; parentId?: string; typeVersionId?: string }
@@ -192,6 +194,10 @@ export function destinationPositions(
 
 export function historyLabel(command: InventoryCommand, state: InventoryState): string {
   switch (command.kind) {
+    case 'attach-item-code':
+      return `Attached item code ${command.namespace} ${JSON.stringify(command.value)}`;
+    case 'retire-item-code':
+      return 'Retired item code';
     case 'retire-catalog-version':
       return 'Retired catalog version';
     case 'restore-catalog-version':

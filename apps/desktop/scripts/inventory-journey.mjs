@@ -7,6 +7,10 @@ import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
 import { runInventoryCompositionJourney } from './journeys/inventory-composition.mjs';
 import {
+  runInventoryItemCodeJourney,
+  runInventoryItemCodeReopen,
+} from './journeys/inventory-item-codes.mjs';
+import {
   runInventoryCatalogJourney,
   runInventoryCatalogReopen,
 } from './journeys/inventory-catalog.mjs';
@@ -47,6 +51,8 @@ assert.ok(
     'configuration-reopen',
     'catalog',
     'catalog-reopen',
+    'item-codes',
+    'item-code-reopen',
   ].includes(stage),
   'Choose a mapped inventory journey stage.'
 );
@@ -183,13 +189,28 @@ async function choose(scope, label, name) {
 }
 
 async function inventoryRead(scope) {
-  return page.evaluate(
-    async (input) => ({
-      state: await window.electronAPI.inventory.inspect(input),
-      history: await window.electronAPI.inventory.history({ ...input, limit: 100 }),
-    }),
-    scope
-  );
+  return page.evaluate(async (input) => {
+    const state = await window.electronAPI.inventory.inspect(input);
+    const history = [];
+    let afterRevision = 0;
+    while (afterRevision < (state?.revision ?? 0)) {
+      const entries = await window.electronAPI.inventory.history({
+        ...input,
+        afterRevision,
+        limit: 1000,
+      });
+      const snapshotEntries = entries.filter((entry) => entry.receipt.revision <= state.revision);
+      if (!snapshotEntries.length)
+        throw new Error('Inventory history is incomplete for the captured revision.');
+      for (const entry of snapshotEntries) {
+        if (entry.receipt.revision !== afterRevision + 1)
+          throw new Error('Inventory history has a missing or repeated revision.');
+        history.push(entry);
+        afterRevision = entry.receipt.revision;
+      }
+    }
+    return { state, history };
+  }, scope);
 }
 
 async function openInventory(projectName) {
@@ -595,6 +616,19 @@ try {
     );
   }
 
+  if (stage === 'item-codes' || stage === 'item-code-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass the earlier inventory journey fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    const run = stage === 'item-codes' ? runInventoryItemCodeJourney : runInventoryItemCodeReopen;
+    receipt.expected = await run({ page, expect, choose, inventoryRead, capture, fixture });
+    writeFileSync(
+      path.join(out, 'item-code-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
   if (stage === 'catalog' || stage === 'catalog-reopen') {
     assert.ok(args.includes('--fixture'), 'Pass the configuration journey fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

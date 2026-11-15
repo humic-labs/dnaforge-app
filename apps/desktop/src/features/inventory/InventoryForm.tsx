@@ -3,6 +3,7 @@ import type { InventoryCompositionDialog } from './InventoryCompositionForm';
 import type { InventoryReservationDialog } from './InventoryReservations';
 import type { InventoryCustodyDialog } from './InventoryCustodyForm';
 import type { InventoryPhysicalDialogKind } from './inventory-physical-view';
+import type { InventoryItemCodeDialog } from './inventory-item-code-view';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   inventoryStoragePositions,
@@ -51,6 +52,7 @@ type OpenDialog = Exclude<
   | InventoryReservationDialog
   | InventoryCustodyDialog
   | InventoryPhysicalDialogKind
+  | InventoryItemCodeDialog
   | { kind: 'none' }
 >;
 type Materials =

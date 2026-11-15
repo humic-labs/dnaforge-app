@@ -33,6 +33,9 @@ import { InventoryCustodyForm } from './InventoryCustodyForm';
 import { InventoryCustodyPanel } from './InventoryCustodyPanel';
 import { InventoryPhysicalDetails } from './InventoryPhysicalDetails';
 import { InventoryPhysicalWorkspace } from './InventoryPhysicalWorkspace';
+import { InventoryItemCodes } from './InventoryItemCodes';
+import { InventoryItemCodeForm } from './InventoryItemCodeForm';
+import { isInventoryItemCodeDialog } from './inventory-item-code-view';
 import { isInventoryPhysicalDialog } from './inventory-physical-view';
 import {
   InventoryReservationList,
@@ -118,7 +121,7 @@ function lotInputs(
 
 export function InventoryPanel() {
   const controller = useMemo(sharedController, []);
-  const { projects, status, projectsError, catalog } = useSyncExternalStore(
+  const { projects, status, projectsError, catalog, itemCodeLookup } = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot
   );
@@ -534,6 +537,9 @@ export function InventoryPanel() {
         <Button disabled={!data} onClick={() => setDialog({ kind: 'setup' })}>
           Inventory setup
         </Button>
+        <Button disabled={!data} onClick={() => setDialog({ kind: 'item-code-lookup' })}>
+          Scan or enter code
+        </Button>
       </header>
       {projectsError ? (
         <div className="px-5 pt-3">
@@ -696,6 +702,12 @@ export function InventoryPanel() {
                     onOpenItem={openItem}
                   />
                   <InventoryPhysicalDetails
+                    data={data}
+                    item={{ kind: 'storage', id: selectedLocation.id }}
+                    editable={editable}
+                    onDialog={setDialog}
+                  />
+                  <InventoryItemCodes
                     data={data}
                     item={{ kind: 'storage', id: selectedLocation.id }}
                     editable={editable}
@@ -1036,6 +1048,12 @@ export function InventoryPanel() {
                         editable={editable}
                         onDialog={setDialog}
                       />
+                      <InventoryItemCodes
+                        data={data}
+                        item={{ kind: 'vessel', id: selectedVessel.id }}
+                        editable={editable}
+                        onDialog={setDialog}
+                      />
                       <dl className="space-y-3 text-sm">
                         <div>
                           <dt className="text-xs text-fg-muted">Lot or preparation</dt>
@@ -1275,6 +1293,12 @@ export function InventoryPanel() {
                     editable={editable}
                     onDialog={setDialog}
                   />
+                  <InventoryItemCodes
+                    data={data}
+                    item={drawer.item}
+                    editable={editable}
+                    onDialog={setDialog}
+                  />
                   {drawer.item.kind === 'vessel' && selectedItem.lifecycle === 'active' ? (
                     <div className="flex flex-wrap gap-2">
                       <Button
@@ -1319,7 +1343,22 @@ export function InventoryPanel() {
         </div>
       )}
       {dialog.kind !== 'none' && data ? (
-        isInventoryPhysicalDialog(dialog) ? (
+        isInventoryItemCodeDialog(dialog) ? (
+          <InventoryItemCodeForm
+            key={`${data.project.projectId}:${dialog.kind}:${'item' in dialog ? dialog.item.id : 'expected' in dialog ? dialog.expected?.id : 'codeId' in dialog ? dialog.codeId : ''}`}
+            dialog={dialog}
+            data={data}
+            status={status}
+            controller={controller}
+            lookup={itemCodeLookup}
+            materialNames={materialNames}
+            onClose={() => setDialog({ kind: 'none' })}
+            onInspect={(item) => {
+              setDialog({ kind: 'none' });
+              openItem(item);
+            }}
+          />
+        ) : isInventoryPhysicalDialog(dialog) ? (
           <InventoryPhysicalWorkspace
             key={data.project.projectId}
             dialog={dialog}

@@ -27,7 +27,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v8. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v9. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -36,7 +36,9 @@ digests stay unchanged for retry and replay. v1–v6 snapshots gain empty type,
 recipe and fit-evidence maps and explicit untyped item configurations. The
 original request and receipt bytes remain unchanged. v1–v7 published type and
 recipe versions gain explicit available selection state without changing their
-content, installed pins, revision or clock.
+content, installed pins, revision or clock. v1–v8 snapshots gain an empty
+item-code map through state-only upcast; existing retired catalog selections
+remain intact.
 
 ## Independent states
 
@@ -311,6 +313,67 @@ session. Returning from an exact-target dialog preserves that view; closing the
 session resets it. Each target form owns a separate draft so changing targets
 never carries another version's reason or selections.
 
+## Physical item codes and exact lookup
+
+Codes bind existing storage or movable vessels, separately from their stock,
+material, placement and custody. Empty containers are valid targets. Permanent
+wells use their plate's identity plus an explicit coordinate rather than an
+independent movable-container label.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Unassigned
+    Unassigned --> Active: attach exact namespace and value
+    Active --> Retired: retire with trusted actor, time and reason
+```
+
+`attach-item-code` records an immutable target, namespace and value with trusted
+assignment provenance. `retire-item-code` preserves that assignment permanently.
+The exact namespace/value tuple stays reserved after retirement. New duplicate
+attachments refuse; an exact operation retry returns the original receipt, even
+after later retirement, without reactivating the code. Moving, emptying or
+disposing an item never implicitly changes its code lifecycle. Correcting a
+wrong label uses a new code and explicit retirement, not silent reassignment.
+
+Namespaces are bounded lowercase ASCII technical identifiers. Values are one to
+512 printable ASCII characters with at least one non-space character. Case,
+punctuation, leading zeros and spaces remain exact. Unsupported characters and
+invalid namespaces are explicit errors. No semantic parser trims, folds case,
+coerces numbers or normalizes Unicode. The focused raw-input owner visibly
+removes at most one trailing CRLF, LF or CR scanner terminator; interior
+controls remain invalid. Scanned URLs remain opaque text and are never fetched.
+
+```mermaid
+flowchart LR
+    Scope[Admitted project and inventory] --> Lookup[Pure exact alias lookup]
+    Query[Exact code and explicit or all namespaces] --> Lookup
+    Bindings[Active and retired assignments] --> Lookup
+    Lookup --> Result[Invalid, not found, resolved, retired or ambiguous]
+    Result --> Facts[Current target facts at one captured inventory revision]
+```
+
+Null namespace searches all namespaces in the selected inventory. Multiple exact
+matches are ambiguous, including retired matches or aliases of the same item.
+There is no first, newest or active preference and no scientific material-search
+fallback. Item IDs are inventory-scoped; lookup never silently searches another
+inventory or switches projects. Codes grant no access.
+
+The native read returns canonical scope, revision, trusted read time, principal,
+resolution and matched target facts. Target records, effective custody, physical
+configuration, current location and stock availability come from one parsed
+state and availability context. Missing/transit/checkout retain last-known
+observations separately from current location. An absent inventory stays absent;
+lookup writes no rows, journal, clocks or events.
+
+Lookup never locates a missing item, uses stock, releases holds, changes
+quality, or records printing/attachment verification. Expected-item checking
+compares full scope and tagged physical identity; a retired match remains
+historical. The UI fences old responses by input, scope and inventory revision
+and renders the returned snapshot rather than merging another revision's
+availability. Ordinary follow-up actions revalidate through the existing command
+owner. Generated symbols, immutable label artifacts, file export and physical
+hardware qualification remain separate work.
+
 ## Material identity and conservation
 
 A scientific record identifies a material. A lot identifies one supplier batch
@@ -411,6 +474,7 @@ identity and registered project scope:
 | `inventory.materials`              | Search eligible scientific material in one admitted project.                                        |
 | `inventory.catalog`                | Read detached equipment definitions for an admitted project without inventory creation.             |
 | `inventory.catalog-update-preview` | Classify one built-in pack against an admitted inventory without publication or inventory creation. |
+| `inventory.resolve-item-code`      | Resolve exact scoped physical item codes and current target facts without mutation.                 |
 | `inventory.availability`           | Derive quantities, reservations, custody and physical compatibility from current facts.             |
 | `inventory.execute`                | Apply an expected-revision command batch; return a committed receipt or explicit rejection.         |
 | `inventory.inspect`                | Read current state for an admitted project and inventory.                                           |

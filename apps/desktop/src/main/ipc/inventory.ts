@@ -53,6 +53,10 @@ export function registerInventoryHandlers(options: {
       assertCaller(event);
       return currentOwner().catalogUpdatePreview(request);
     },
+    resolveItemCode: (event, request) => {
+      assertCaller(event);
+      return currentOwner().resolveItemCode(request);
+    },
     materials: (event, request) => {
       assertCaller(event);
       return currentOwner().materials(request);

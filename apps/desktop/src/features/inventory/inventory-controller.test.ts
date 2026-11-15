@@ -3,6 +3,7 @@ import {
   applyInventoryCommandBatch,
   createInventoryState,
   inventoryAvailability,
+  inventoryResolveItemCode,
   type InventoryCommand,
   type InventoryEquipmentCatalogUpdatePreview,
   type InventoryState,
@@ -12,6 +13,7 @@ import type {
   InventoryAvailabilitySnapshot,
   InventoryClient,
   InventoryProject,
+  InventoryItemCodeLookupSnapshot,
 } from '../../shared/inventory-client';
 import type {
   InventoryExecuteRequest,
@@ -118,6 +120,18 @@ function fixture() {
     catalogUpdatePreview: vi.fn(async (): Promise<InventoryEquipmentCatalogUpdatePreview> => {
       throw new Error('Catalog preview is not used by this controller fixture.');
     }),
+    resolveItemCode: vi.fn(async (request): Promise<InventoryItemCodeLookupSnapshot> => {
+      const current = request.project === other.projectId ? createInventoryState() : state;
+      return {
+        projectId: request.project,
+        inventoryId: request.inventoryId,
+        revision: current.revision,
+        asOf: 1,
+        principal,
+        resolution: inventoryResolveItemCode(current, request.query),
+        targets: [],
+      };
+    }),
     inspect: vi.fn(async (request) =>
       request.project === other.projectId ? createInventoryState() : state
     ),
@@ -156,6 +170,116 @@ function fixture() {
 }
 
 describe('inventory interaction controller', () => {
+  it('resolves an exact code as a read without changing stock or pending mutations', async () => {
+    const f = fixture();
+    await f.controller.open();
+    const before = structuredClone(f.state());
+    await f.controller.resolveItemCode({ namespace: 'lab', value: ' 00AbC ' });
+    expect(f.client.resolveItemCode).toHaveBeenCalledWith({
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      query: { namespace: 'lab', value: ' 00AbC ' },
+    });
+    expect(f.controller.getSnapshot().itemCodeLookup).toMatchObject({
+      kind: 'ready',
+      lookup: { resolution: { kind: 'not-found' }, revision: before.revision },
+    });
+    expect(f.state()).toEqual(before);
+    expect(f.client.execute).not.toHaveBeenCalled();
+    expect(f.saved()).toEqual([]);
+  });
+
+  it('discards an older lookup after the raw input changes and another code is read', async () => {
+    const f = fixture();
+    await f.controller.open();
+    const old = await f.client.resolveItemCode({
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      query: { namespace: null, value: 'old' },
+    });
+    const pending = deferred<InventoryItemCodeLookupSnapshot>();
+    vi.mocked(f.client.resolveItemCode).mockImplementationOnce(() => pending.promise);
+    const first = f.controller.resolveItemCode({ namespace: null, value: 'old' });
+    f.controller.clearItemCodeLookup();
+    await f.controller.resolveItemCode({ namespace: null, value: 'new' });
+    pending.resolve(old);
+    await first;
+    expect(f.controller.getSnapshot().itemCodeLookup).toMatchObject({
+      kind: 'ready',
+      query: { value: 'new' },
+    });
+  });
+
+  it('discards lookup results after a project switch', async () => {
+    const f = fixture();
+    vi.mocked(f.client.projects).mockResolvedValue([project, other]);
+    await f.controller.open();
+    await f.controller.selectProject(project.projectId);
+    const old = await f.client.resolveItemCode({
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      query: { namespace: null, value: '001' },
+    });
+    const pending = deferred<InventoryItemCodeLookupSnapshot>();
+    vi.mocked(f.client.resolveItemCode).mockImplementationOnce(() => pending.promise);
+    const read = f.controller.resolveItemCode({ namespace: null, value: '001' });
+    await f.controller.selectProject(other.projectId);
+    pending.resolve(old);
+    await read;
+    expect(f.controller.getSnapshot().itemCodeLookup).toEqual({ kind: 'idle' });
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'ready',
+      data: { project: { projectId: other.projectId } },
+    });
+  });
+
+  it('discards a pending lookup when newer inventory and availability are loaded', async () => {
+    const f = fixture();
+    await f.controller.open();
+    const old = await f.client.resolveItemCode({
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      query: { namespace: null, value: '001' },
+    });
+    const pending = deferred<InventoryItemCodeLookupSnapshot>();
+    vi.mocked(f.client.resolveItemCode).mockImplementationOnce(() => pending.promise);
+    const read = f.controller.resolveItemCode({ namespace: null, value: '001' });
+    f.commit({
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      operationId: 'external-use',
+      expectedRevision: f.state().revision,
+      commands: useOne,
+    });
+    await f.controller.refresh();
+    pending.resolve(old);
+    await read;
+    expect(f.controller.getSnapshot().itemCodeLookup).toEqual({ kind: 'idle' });
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'ready',
+      data: { availability: { revision: old.revision + 1 } },
+    });
+  });
+
+  it('reports unavailable rather than not found for a mismatched revision or failed lookup', async () => {
+    const f = fixture();
+    await f.controller.open();
+    const response = await f.client.resolveItemCode({
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      query: { namespace: null, value: '001' },
+    });
+    vi.mocked(f.client.resolveItemCode).mockResolvedValueOnce({
+      ...response,
+      revision: response.revision + 1,
+    });
+    await f.controller.resolveItemCode({ namespace: null, value: '001' });
+    expect(f.controller.getSnapshot().itemCodeLookup.kind).toBe('unavailable');
+    vi.mocked(f.client.resolveItemCode).mockRejectedValueOnce(new Error('Transport unavailable'));
+    await f.controller.resolveItemCode({ namespace: null, value: '001' });
+    expect(f.controller.getSnapshot().itemCodeLookup.kind).toBe('unavailable');
+  });
+
   it('loads the equipment catalog lazily and retains its cache across stock mutations', async () => {
     const f = fixture();
     await f.controller.initialize();

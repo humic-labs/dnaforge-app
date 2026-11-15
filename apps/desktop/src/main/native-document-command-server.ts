@@ -28,6 +28,7 @@ import {
   inventoryMaterialQuerySchema,
   inventoryOperationRequestSchema,
   inventoryReadRequestSchema,
+  inventoryResolveItemCodeRequestSchema,
 } from '../shared/inventory-command';
 import type { createNativeInventoryOwner } from './inventory-owner';
 import { hasRequiredCapabilities } from '../shared/capability-policy';
@@ -152,6 +153,15 @@ const commandSchema = z.discriminatedUnion('command', [
     .object({
       ownerInstanceId: identity,
       projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.resolve-item-code'),
+      request: inventoryResolveItemCodeRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
       command: z.literal('project-scope.inspect'),
     })
     .strict(),
@@ -265,6 +275,7 @@ export async function startNativeDocumentCommandServer(options: {
     | 'materials'
     | 'catalog'
     | 'catalogUpdatePreview'
+    | 'resolveItemCode'
   >;
   authorizeInventoryAgent?(agent: NativeAgentAuthority, required: readonly string[]): Promise<void>;
   getAuthority(): NativeCommandAuthority | null;
@@ -364,6 +375,7 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'inventory.projects' ||
           body.command === 'inventory.catalog' ||
           body.command === 'inventory.catalog-update-preview' ||
+          body.command === 'inventory.resolve-item-code' ||
           body.command === 'inventory.materials'
         ) {
           if (
@@ -415,6 +427,16 @@ export async function startNativeDocumentCommandServer(options: {
                 return () => ({
                   kind: 'catalog-update-preview',
                   preview: receiver.catalogUpdatePreview(request),
+                });
+              }
+              if (body.command === 'inventory.resolve-item-code') {
+                const request = body.request;
+                const invocation = body.agent
+                  ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
+                  : undefined;
+                return () => ({
+                  kind: 'item-code-resolution',
+                  lookup: receiver.resolveItemCode(request, invocation),
                 });
               }
               if (body.command === 'inventory.materials') {
@@ -500,6 +522,7 @@ export async function startNativeDocumentCommandServer(options: {
             body.command === 'inventory.projects' ||
             body.command === 'inventory.catalog' ||
             body.command === 'inventory.catalog-update-preview' ||
+            body.command === 'inventory.resolve-item-code' ||
             body.command === 'inventory.materials'
           )
             accepted = false;

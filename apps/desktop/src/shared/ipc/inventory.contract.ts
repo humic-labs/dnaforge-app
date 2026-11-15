@@ -16,6 +16,8 @@ import type {
   InventoryOperationRequest,
   InventoryProject,
   InventoryReadRequest,
+  InventoryResolveItemCodeRequest,
+  InventoryItemCodeLookupSnapshot,
   NativeInventoryExecution,
   NativeInventoryHistoryEntry,
   NativeInventoryReceipt,
@@ -27,6 +29,10 @@ export const inventoryContract = defineGroup('inventory', {
   catalogUpdatePreview: invoke<
     [request: InventoryCatalogUpdatePreviewRequest],
     InventoryEquipmentCatalogUpdatePreview
+  >(),
+  resolveItemCode: invoke<
+    [request: InventoryResolveItemCodeRequest],
+    InventoryItemCodeLookupSnapshot
   >(),
   materials: invoke<[request: InventoryMaterialQuery], InventoryMaterialPage>(),
   inspect: invoke<[request: InventoryReadRequest], InventoryState | null>(),

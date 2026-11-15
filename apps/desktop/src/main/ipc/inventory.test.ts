@@ -33,6 +33,7 @@ let execute: ReturnType<typeof vi.fn>;
 let availability: ReturnType<typeof vi.fn>;
 let catalog: ReturnType<typeof vi.fn>;
 let catalogUpdatePreview: ReturnType<typeof vi.fn>;
+let resolveItemCode: ReturnType<typeof vi.fn>;
 const call = (input: unknown = request) =>
   (
     captured.handlers.execute as (
@@ -46,11 +47,13 @@ beforeEach(() => {
   availability = vi.fn(() => null);
   catalog = vi.fn(() => []);
   catalogUpdatePreview = vi.fn(() => ({ revision: 0, canApply: true }));
+  resolveItemCode = vi.fn(() => ({ revision: 0, resolution: { kind: 'not-found' } }));
   owner = {
     execute,
     availability,
     catalog,
     catalogUpdatePreview,
+    resolveItemCode,
   } as unknown as NativeInventoryOwner;
   registerInventoryHandlers({ owner: () => owner, target: () => target });
 });
@@ -79,6 +82,31 @@ it('previews a catalog update through the current desktop owner without executin
   expect(execute).not.toHaveBeenCalled();
   expect(() =>
     handler({ sender: { id: 9, isDestroyed: () => false } } as IpcMainInvokeEvent, input)
+  ).toThrow('INVENTORY_DESKTOP_CALLER_UNAVAILABLE');
+  owner = null;
+  expect(() => handler(event, input)).toThrow('INVENTORY_OWNER_UNAVAILABLE');
+});
+
+it('resolves raw item codes through the current desktop caller without executing commands', () => {
+  const input = {
+    project: 'project',
+    inventoryId: 'inventory',
+    query: { namespace: null, value: ' 001a\r\n' },
+  };
+  const handler = captured.handlers.resolveItemCode as (
+    event: IpcMainInvokeEvent,
+    request: unknown
+  ) => unknown;
+  expect(handler(event, input)).toEqual({ revision: 0, resolution: { kind: 'not-found' } });
+  expect(resolveItemCode).toHaveBeenCalledExactlyOnceWith(input);
+  expect(execute).not.toHaveBeenCalled();
+  expect(() =>
+    handler(
+      {
+        sender: { id: 9, isDestroyed: () => false },
+      } as IpcMainInvokeEvent,
+      input
+    )
   ).toThrow('INVENTORY_DESKTOP_CALLER_UNAVAILABLE');
   owner = null;
   expect(() => handler(event, input)).toThrow('INVENTORY_OWNER_UNAVAILABLE');

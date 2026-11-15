@@ -21,7 +21,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v8' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v9' as const;
+export const INVENTORY_CATALOG_SCHEMA = 'dnaforge.inventory.v8' as const;
 export const INVENTORY_CONFIGURATION_SCHEMA = 'dnaforge.inventory.v7' as const;
 export const INVENTORY_CUSTODY_SCHEMA = 'dnaforge.inventory.v6' as const;
 export const INVENTORY_RESERVATION_SCHEMA = 'dnaforge.inventory.v5' as const;
@@ -33,6 +34,9 @@ export const LEGACY_INVENTORY_SCHEMA = 'dnaforge.inventory.v1' as const;
 export const INVENTORY_VOLUME_UNITS = ['L', 'mL', 'uL', 'nL'] as const;
 export const MAX_INVENTORY_BATCH_COMMANDS = 256;
 export const MAX_INVENTORY_STORAGE_SLOTS = 10_000;
+export const INVENTORY_ITEM_CODE_NAMESPACE_PATTERN = '^[a-z][a-z0-9._:-]{0,63}$(?![\\s\\S])';
+export const INVENTORY_ITEM_CODE_VALUE_PATTERN =
+  '^[\\x20-\\x7E]*[\\x21-\\x7E][\\x20-\\x7E]*$(?![\\s\\S])';
 
 export type InventoryVolumeUnit = (typeof INVENTORY_VOLUME_UNITS)[number];
 export type InventoryQuality = 'usable' | 'quarantined';
@@ -226,6 +230,7 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly itemCodes: Readonly<Record<string, InventoryItemCode>>;
   readonly typeVersions: Readonly<Record<string, InventoryPhysicalTypeVersion>>;
   readonly recipeVersions: Readonly<Record<string, InventoryEquipmentRecipeVersion>>;
   readonly fitEvidence: Readonly<Record<string, InventoryFitEvidence>>;
@@ -242,6 +247,44 @@ export interface InventoryState {
 export type InventoryPrincipal =
   | { readonly kind: 'local-profile'; readonly profileKey: string }
   | { readonly kind: 'agent'; readonly identityId: string };
+
+export interface InventoryItemCode {
+  readonly id: string;
+  readonly namespace: string;
+  readonly value: string;
+  readonly item: InventoryPhysicalItem;
+  readonly assignedAt: number;
+  readonly assignedBy: InventoryPrincipal;
+  readonly reason: string;
+  readonly lifecycle:
+    | { readonly kind: 'active' }
+    | {
+        readonly kind: 'retired';
+        readonly at: number;
+        readonly by: InventoryPrincipal;
+        readonly reason: string;
+      };
+}
+export interface InventoryItemCodeQuery {
+  readonly namespace: string | null;
+  readonly value: string;
+}
+export type InventoryItemCodeResolution =
+  | { readonly kind: 'invalid'; readonly message: string }
+  | { readonly kind: 'not-found' }
+  | { readonly kind: 'resolved'; readonly match: InventoryItemCode }
+  | { readonly kind: 'retired'; readonly match: InventoryItemCode }
+  | { readonly kind: 'ambiguous'; readonly matches: readonly InventoryItemCode[] };
+export type InventoryItemCodeCommand =
+  | {
+      readonly kind: 'attach-item-code';
+      readonly id: string;
+      readonly namespace: string;
+      readonly value: string;
+      readonly item: InventoryPhysicalItem;
+      readonly reason: string;
+    }
+  | { readonly kind: 'retire-item-code'; readonly codeId: string; readonly reason: string };
 
 export interface InventoryAuthority {
   readonly kind: 'local-profile';
@@ -422,6 +465,7 @@ export type InventoryMaterialCommand =
   | (InventoryLegacyDiluteCommand & { readonly mixing: InventoryMixing });
 
 export type InventoryCommand =
+  | InventoryItemCodeCommand
   | InventoryConfigurationCommand
   | InventoryCustodyCommand
   | InventoryReservationCommand
@@ -612,6 +656,10 @@ export type InventoryErrorCode =
   | 'CATALOG_VERSION_RETIRED'
   | 'CATALOG_DEPENDENCY_RETIRED'
   | 'INVALID_CATALOG_TRANSITION'
+  | 'ITEM_CODE_NOT_FOUND'
+  | 'ITEM_CODE_ALREADY_ASSIGNED'
+  | 'ITEM_CODE_CONFLICT'
+  | 'ITEM_CODE_RETIRED'
   | 'POSITION_UNAVAILABLE';
 
 export type InventoryTransition =
@@ -626,6 +674,7 @@ export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
     revision: 0,
+    itemCodes: Object.create(null) as Record<string, InventoryItemCode>,
     typeVersions: Object.create(null) as Record<string, InventoryPhysicalTypeVersion>,
     recipeVersions: Object.create(null) as Record<string, InventoryEquipmentRecipeVersion>,
     fitEvidence: Object.create(null) as Record<string, InventoryFitEvidence>,

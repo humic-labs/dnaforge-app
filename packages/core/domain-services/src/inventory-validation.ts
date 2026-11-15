@@ -1,4 +1,5 @@
 import { validateInventoryPhysicalState } from './inventory-configuration';
+import { validateInventoryItemCodes } from './inventory-item-codes';
 import {
   parseMetadataFieldDefinitions,
   metadataFieldDefinitionsJsonSchema,
@@ -17,6 +18,9 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_CATALOG_SCHEMA,
+  INVENTORY_ITEM_CODE_NAMESPACE_PATTERN,
+  INVENTORY_ITEM_CODE_VALUE_PATTERN,
   INVENTORY_CONFIGURATION_SCHEMA,
   INVENTORY_CUSTODY_SCHEMA,
   INVENTORY_RESERVATION_SCHEMA,
@@ -29,6 +33,8 @@ import {
   MAX_INVENTORY_BATCH_COMMANDS,
   MAX_INVENTORY_STORAGE_SLOTS,
   type InventoryCommand,
+  type InventoryItemCode,
+  type InventoryItemCodeQuery,
   type InventoryCommandBatch,
   type InventoryComposition,
   type InventoryCompositionInput,
@@ -254,6 +260,30 @@ const principal = union('Inventory acting principal', [
   authority,
   fields('Inventory agent principal', { kind: literal('agent'), identityId: id }),
 ]);
+const itemCodeNamespace = text(
+  'Item code namespace',
+  64,
+  false,
+  INVENTORY_ITEM_CODE_NAMESPACE_PATTERN
+);
+const itemCodeValue = text('Exact item code value', 512, false, INVENTORY_ITEM_CODE_VALUE_PATTERN);
+const itemCodeQuery: Codec<InventoryItemCodeQuery> = fields('Item code query', {
+  namespace: nullable(itemCodeNamespace),
+  value: itemCodeValue,
+});
+const itemCodeRecord: Codec<InventoryItemCode> = fields('Physical item code', {
+  id,
+  namespace: itemCodeNamespace,
+  value: itemCodeValue,
+  item: reservationItem,
+  assignedAt: timestamp,
+  assignedBy: principal,
+  reason,
+  lifecycle: union('Item code lifecycle', [
+    fields('Active item code', { kind: literal('active') }),
+    fields('Retired item code', { kind: literal('retired'), at: timestamp, by: principal, reason }),
+  ]),
+});
 const executionContext: Codec<InventoryExecutionContext> = checked(
   fields('Inventory execution context', {
     at: timestamp,
@@ -827,6 +857,19 @@ const fitEvidenceRecord: Codec<InventoryFitEvidence> = fields('Fit evidence', {
   by: principal,
 });
 const commands = {
+  'attach-item-code': fields('Attach physical item code command', {
+    kind: literal('attach-item-code'),
+    id,
+    namespace: itemCodeNamespace,
+    value: itemCodeValue,
+    item: reservationItem,
+    reason,
+  }),
+  'retire-item-code': fields('Retire physical item code command', {
+    kind: literal('retire-item-code'),
+    codeId: id,
+    reason,
+  }),
   'retire-catalog-version': fields('Retire catalog version command', {
     kind: literal('retire-catalog-version'),
     target: catalogTarget,
@@ -1082,6 +1125,10 @@ export function parseInventoryCommand(value: unknown): InventoryCommand {
   return commands[row.kind as keyof typeof commands].parse(row);
 }
 
+export function parseInventoryItemCodeQuery(value: unknown): InventoryItemCodeQuery {
+  return itemCodeQuery.parse(value);
+}
+
 const commandCodec = {
   schema: {
     oneOf: Object.values(commands).flatMap((codec) =>
@@ -1289,6 +1336,7 @@ function validateState(state: InventoryState): void {
     state.typeVersions,
     state.recipeVersions,
     state.fitEvidence,
+    state.itemCodes,
   ]) {
     for (const identifier of Object.keys(rows)) {
       if (allIds.has(identifier)) invalid('Inventory record identifiers must be distinct.');
@@ -1526,7 +1574,8 @@ function validateState(state: InventoryState): void {
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const configuration = current || row.schema === INVENTORY_CONFIGURATION_SCHEMA;
+  const catalog = current || row.schema === INVENTORY_CATALOG_SCHEMA;
+  const configuration = catalog || row.schema === INVENTORY_CONFIGURATION_SCHEMA;
   const custody = configuration || row.schema === INVENTORY_CUSTODY_SCHEMA;
   const reservation = custody || row.schema === INVENTORY_RESERVATION_SCHEMA;
   const composition = reservation || row.schema === INVENTORY_COMPOSITION_SCHEMA;
@@ -1534,6 +1583,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_CATALOG_SCHEMA),
       literal(INVENTORY_CONFIGURATION_SCHEMA),
       literal(INVENTORY_CUSTODY_SCHEMA),
       literal(INVENTORY_RESERVATION_SCHEMA),
@@ -1543,6 +1593,9 @@ export function parseInventoryState(value: unknown): InventoryState {
       literal(LEGACY_INVENTORY_SCHEMA),
     ]),
     revision,
+    ...(current
+      ? { itemCodes: { schema: { type: 'object' }, parse: (input: unknown) => input } }
+      : {}),
     ...(configuration
       ? {
           typeVersions: { schema: { type: 'object' }, parse: (input: unknown) => input },
@@ -1611,9 +1664,12 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   const state: InventoryState = {
     schema: INVENTORY_SCHEMA,
+    itemCodes: current
+      ? records(shape.itemCodes, (raw) => itemCodeRecord.parse(raw))
+      : (Object.create(null) as Record<string, InventoryItemCode>),
     typeVersions: configuration
       ? records(shape.typeVersions, (raw) =>
-          current
+          catalog
             ? typeVersionRecord.parse(raw)
             : {
                 ...previousTypeVersionRecord.parse(raw),
@@ -1623,7 +1679,7 @@ export function parseInventoryState(value: unknown): InventoryState {
       : (Object.create(null) as Record<string, InventoryPhysicalTypeVersion>),
     recipeVersions: configuration
       ? records(shape.recipeVersions, (raw) =>
-          current
+          catalog
             ? recipeVersionRecord.parse(raw)
             : {
                 ...previousRecipeVersionRecord.parse(raw),
@@ -1688,6 +1744,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   };
   validateState(state);
   try {
+    validateInventoryItemCodes(state);
     validateInventoryPhysicalState(state);
   } catch (error) {
     invalid(error instanceof Error ? error.message : 'Invalid physical configuration.');

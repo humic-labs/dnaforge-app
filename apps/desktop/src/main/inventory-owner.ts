@@ -6,6 +6,9 @@ import {
   inventoryAvailability,
   inventoryEquipmentCatalog,
   inventoryEquipmentCatalogUpdatePreview,
+  inventoryCurrentLocationPath,
+  inventoryItemContains,
+  inventoryResolveItemCode,
   parseInventoryState,
   type InventoryPrincipal,
   type InventoryEquipmentCatalogEntry,
@@ -20,6 +23,7 @@ import {
   inventoryMaterialQuerySchema,
   inventoryOperationRequestSchema,
   inventoryReadRequestSchema,
+  inventoryResolveItemCodeRequestSchema,
   inventoryReceiptSchema,
   inventoryPrincipalSchema,
   inventoryReceiptContextSchema,
@@ -34,6 +38,7 @@ import type {
   InventoryMaterial,
   InventoryMaterialPage,
   InventoryProject,
+  InventoryItemCodeLookupSnapshot,
 } from '../shared/inventory-client';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import type { RegisteredProject, RegisteredProjectAuthority } from './registered-project-authority';
@@ -218,6 +223,55 @@ export function createNativeInventoryOwner(options: {
         row ? stateFromRow(row) : createInventoryState(),
         entry
       );
+    },
+
+    resolveItemCode(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventoryItemCodeLookupSnapshot {
+      const request = inventoryResolveItemCodeRequestSchema.parse(input);
+      const { project, row } = read({ project: request.project, inventoryId: request.inventoryId });
+      const state = row ? stateFromRow(row) : createInventoryState();
+      const asOf = observationTime(state);
+      const caller = principal(invocation);
+      const resolution = inventoryResolveItemCode(state, request.query);
+      const matches =
+        resolution.kind === 'resolved' || resolution.kind === 'retired'
+          ? [resolution.match]
+          : resolution.kind === 'ambiguous'
+            ? resolution.matches
+            : [];
+      const items = new Map(
+        matches.map((match) => [`${match.item.kind}:${match.item.id}`, match.item] as const)
+      );
+      const availability = items.size ? inventoryAvailability(state, caller, asOf) : null;
+      const targets = [...items.values()].map((item) => {
+        const record = item.kind === 'storage' ? state.storage[item.id] : state.vessels[item.id];
+        const custody = availability?.items[item.id];
+        const physical = availability?.physical.items[item.id];
+        if (!record || !custody || !physical) return dataError();
+        return {
+          item,
+          record,
+          custody,
+          physical,
+          currentLocationPath: inventoryCurrentLocationPath(state, item),
+          stocks: Object.values(state.stocks)
+            .filter((stock) =>
+              inventoryItemContains(state, item, { kind: 'vessel', id: stock.vesselId })
+            )
+            .map((stock) => ({ stock, availability: availability!.stocks[stock.id] })),
+        };
+      });
+      return structuredClone({
+        projectId: project.projectId,
+        inventoryId: request.inventoryId,
+        revision: state.revision,
+        asOf,
+        principal: caller,
+        resolution,
+        targets,
+      });
     },
 
     materials(input: unknown): InventoryMaterialPage {

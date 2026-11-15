@@ -25,3 +25,6 @@
 
 - [Catalog lifecycle](catalog-lifecycle.md): explicit retirement, selected
   component eligibility, source-pack previews and controlled publication.
+
+- [Physical item codes](item-codes.md): scoped exact lookup, immutable bindings,
+  retirement, ambiguity and separate expected-item checking.

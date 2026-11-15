@@ -17,7 +17,10 @@ import type {
   NativeInventoryHistoryEntry,
   NativeInventoryReceipt,
 } from '../shared/inventory-command';
-import type { InventoryAvailabilitySnapshot } from '../shared/inventory-client';
+import type {
+  InventoryAvailabilitySnapshot,
+  InventoryItemCodeLookupSnapshot,
+} from '../shared/inventory-client';
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
@@ -27,6 +30,10 @@ vi.mock('electron', () => ({
 vi.mock('./config', () => ({ getApiUrl: () => 'http://synthetic-grants.invalid' }));
 
 import { openFileTestDb } from './__tests__/test-db';
+import {
+  runNativeItemCodeJourney,
+  verifyNativeItemCodeReopen,
+} from './__tests__/inventory-code-native-journey';
 import { ensureSchema } from './schema';
 import { rememberOriginalDefaultProject } from './original-default-project';
 import { createRegisteredProjectAuthority } from './registered-project-authority';
@@ -44,6 +51,7 @@ type InventoryNativeCommand =
   | 'inventory.projects'
   | 'inventory.catalog'
   | 'inventory.catalog-update-preview'
+  | 'inventory.resolve-item-code'
   | 'inventory.materials';
 type Server = Awaited<ReturnType<typeof startNativeDocumentCommandServer>>;
 interface NativeResponse<T> {
@@ -247,6 +255,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       'inventory.projects': 'projects',
       'inventory.catalog': 'entries',
       'inventory.catalog-update-preview': 'preview',
+      'inventory.resolve-item-code': 'lookup',
       'inventory.materials': 'page',
     };
     expect(wrapped).toHaveProperty(keys[command]);
@@ -392,6 +401,42 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       body: { ok: true, result: { ok: false, code: 'PROJECT_ACCESS_DENIED', stateChanged: false } },
     });
     evidence.catalogPreviewRead = catalogPreview;
+    const changesBeforeCodeRead = db.prepare('SELECT total_changes() AS count').get();
+    const absentCode = await success<InventoryItemCodeLookupSnapshot>(
+      'resolve code in absent inventory without creating it',
+      'inventory.resolve-item-code',
+      { ...scope, query: { namespace: null, value: '00123' } }
+    );
+    expect(absentCode).toMatchObject({
+      revision: 0,
+      resolution: { kind: 'not-found' },
+      targets: [],
+    });
+    const readOnlyCode = await success<InventoryItemCodeLookupSnapshot>(
+      'current read-only grant resolves codes without mutation',
+      'inventory.resolve-item-code',
+      { ...scope, query: { namespace: 'internal', value: '00123' } },
+      { agent: { identityId: 'synthetic-read-only', capabilities: ['read-workspace'] } }
+    );
+    expect(readOnlyCode).toMatchObject({
+      revision: 0,
+      principal: { kind: 'agent', identityId: 'synthetic-read-only' },
+      resolution: { kind: 'not-found' },
+      targets: [],
+    });
+    expect(db.prepare('SELECT total_changes() AS count').get()).toEqual(changesBeforeCodeRead);
+    expect(
+      await call(
+        'deny code lookup outside captured scope before disclosing targets',
+        'inventory.resolve-item-code',
+        { ...scope, query: { namespace: null, value: '00123' } },
+        { roots: [otherPath] }
+      )
+    ).toMatchObject({
+      status: 200,
+      body: { ok: true, result: { ok: false, code: 'PROJECT_ACCESS_DENIED', stateChanged: false } },
+    });
+    evidence.itemCodeAbsentRead = { absentCode, readOnlyCode, changesBeforeCodeRead };
     expect(owner.inspect(scope)).toBeNull();
     expect(owner.history(scope)).toEqual([]);
     expect(db.prepare('SELECT COUNT(*) AS count FROM inventory_state').get()).toEqual({ count: 0 });
@@ -2047,6 +2092,15 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       retirementReceipt,
     };
 
+    const itemCodeBeforeRestart = await runNativeItemCodeJourney({
+      scope,
+      projectId: projects[0].projectId,
+      owner,
+      principal: nativeHolder,
+      success,
+      loseAcknowledgement,
+    });
+    evidence.itemCodesBeforeRestart = itemCodeBeforeRestart;
     await server!.close();
     server = undefined;
     db.close();
@@ -2054,6 +2108,17 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     db = openFileTestDb(dbPath);
     await start();
     evidence.closedAndReopened = true;
+    evidence.itemCodesReopenedReadback = await verifyNativeItemCodeReopen(
+      {
+        scope,
+        projectId: projects[0].projectId,
+        owner,
+        principal: nativeHolder,
+        success,
+        loseAcknowledgement,
+      },
+      itemCodeBeforeRestart
+    );
     expect(owner.inspect(physicalScope)).toEqual(physicalBeforeRestart);
     expect(owner.history(physicalScope)).toEqual(physicalHistoryBeforeRestart);
     expect(

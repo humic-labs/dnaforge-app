@@ -188,6 +188,20 @@ function physicalPath(
   throw new TypeError('A last-known location path cannot contain a cycle.');
 }
 
+export function inventoryCurrentLocationPath(
+  state: CustodyState,
+  item: InventoryPhysicalItem
+): readonly InventoryLocationPathEntry[] | null {
+  const record = recordFor(state, item);
+  if (!record) throw new TypeError('The physical inventory item does not exist.');
+  if (
+    record.placement.kind === 'unplaced' ||
+    inventoryEffectiveCustody(state, item).state.kind !== 'available'
+  )
+    return null;
+  return physicalPath(state, item);
+}
+
 function observation(
   state: CustodyState,
   item: InventoryPhysicalItem,

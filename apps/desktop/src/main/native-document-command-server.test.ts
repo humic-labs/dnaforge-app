@@ -7,6 +7,7 @@ import type { FileDocumentSnapshot } from '../shared/file-document';
 import type { ImportReviewAgentInput } from '../shared/import-review-command';
 import type { ImportReviewInspection } from '../shared/import-review';
 import type { SequenceDocumentSnapshot } from '../shared/sequence-document';
+import type { InventoryItemCodeLookupSnapshot } from '../shared/inventory-client';
 import {
   createInventoryState,
   inventoryEquipmentCatalog,
@@ -112,6 +113,17 @@ async function fixture(
     catalog: vi.fn(() => []),
     catalogUpdatePreview: vi.fn(() =>
       inventoryEquipmentCatalogUpdatePreview(createInventoryState(), inventoryEquipmentCatalog()[0])
+    ),
+    resolveItemCode: vi.fn(
+      (): InventoryItemCodeLookupSnapshot => ({
+        projectId: 'project-1',
+        inventoryId: 'inventory-1',
+        revision: 0,
+        asOf: 1,
+        principal: { kind: 'local-profile', profileKey: 'a'.repeat(64) },
+        resolution: { kind: 'not-found' },
+        targets: [],
+      })
     ),
     materials: vi.fn(() => ({ items: [], nextCursor: null })),
   };
@@ -231,6 +243,15 @@ it.each([
     ['read-workspace'],
   ],
   ['inventory.materials', { project: '/workspace', query: '' }, ['read-workspace']],
+  [
+    'inventory.resolve-item-code',
+    {
+      project: '/workspace',
+      inventoryId: 'inventory-1',
+      query: { namespace: null, value: ' 001a ' },
+    },
+    ['read-workspace'],
+  ],
 ])('verifies current grant scopes for %s', async (command, request, required) => {
   const authorizeInventoryAgent = vi.fn(async () => {});
   const f = await fixture({ authorizeInventoryAgent });
@@ -255,6 +276,10 @@ it.each([
     });
   if (command === 'inventory.catalog-update-preview')
     expect(f.inventory.catalogUpdatePreview).toHaveBeenCalledExactlyOnceWith(request);
+  if (command === 'inventory.resolve-item-code')
+    expect(f.inventory.resolveItemCode).toHaveBeenCalledExactlyOnceWith(request, {
+      principal: { kind: 'agent', identityId: 'agent-1' },
+    });
 });
 
 it('routes catalog previews with read-only grants and preserves known no-write refusals', async () => {
@@ -294,6 +319,49 @@ it('routes catalog previews with read-only grants and preserves known no-write r
   const malformed = await f.call({ ...input, request: { ...input.request, commands: [] } });
   expect(malformed.status).toBe(400);
   expect(f.inventory.catalogUpdatePreview).toHaveBeenCalledTimes(2);
+  expect(f.inventory.execute).not.toHaveBeenCalled();
+});
+
+it('preserves raw code queries under a current read-only grant and rejects unknown query fields', async () => {
+  const authorizeInventoryAgent = vi.fn(async () => {});
+  const f = await fixture({ authorizeInventoryAgent });
+  const agent = { ...inventoryAgent, capabilities: ['read-workspace'] };
+  const input = {
+    ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
+    command: 'inventory.resolve-item-code',
+    request: {
+      project: '/workspace',
+      inventoryId: 'inventory-1',
+      query: { namespace: 'Uppercase', value: ' 001a\r\n' },
+    },
+    agent,
+  };
+  const response = await f.call(input);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    result: {
+      kind: 'item-code-resolution',
+      lookup: { resolution: { kind: 'not-found' }, revision: 0 },
+    },
+  });
+  expect(authorizeInventoryAgent).toHaveBeenCalledExactlyOnceWith(agent, ['read-workspace']);
+  expect(f.inventory.resolveItemCode).toHaveBeenCalledExactlyOnceWith(input.request, {
+    principal: { kind: 'agent', identityId: agent.identityId },
+  });
+  const malformed = await f.call({
+    ...input,
+    request: {
+      ...input.request,
+      query: { ...input.request.query, extra: true },
+    },
+  });
+  expect(malformed.status).toBe(400);
+  const denied = await f.call({ ...input, agent: { ...agent, capabilities: [] } });
+  expect(await denied.json()).toMatchObject({
+    result: { ok: false, code: 'INSUFFICIENT_SCOPE', stateChanged: false },
+  });
+  expect(f.inventory.resolveItemCode).toHaveBeenCalledTimes(1);
   expect(f.inventory.execute).not.toHaveBeenCalled();
 });
 

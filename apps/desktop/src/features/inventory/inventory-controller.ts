@@ -2,6 +2,7 @@ import {
   createInventoryState,
   type InventoryCommand,
   type InventoryEquipmentCatalogEntry,
+  type InventoryItemCodeQuery,
   type InventoryState,
 } from '@waypoint/domain-services';
 import {
@@ -15,6 +16,7 @@ import type {
   InventoryAvailabilitySnapshot,
   InventoryClient,
   InventoryProject,
+  InventoryItemCodeLookupSnapshot,
 } from '../../shared/inventory-client';
 
 export interface InventoryData {
@@ -71,7 +73,20 @@ export interface InventoryControllerSnapshot {
   status: InventoryControllerState;
   projectsError?: string;
   catalog: InventoryCatalogState;
+  itemCodeLookup: InventoryItemCodeLookupState;
 }
+
+export type InventoryItemCodeLookupState =
+  | { kind: 'idle' }
+  | {
+      kind: 'resolving';
+      projectId: string;
+      inventoryId: string;
+      revision: number;
+      query: InventoryItemCodeQuery;
+    }
+  | { kind: 'ready'; query: InventoryItemCodeQuery; lookup: InventoryItemCodeLookupSnapshot }
+  | { kind: 'unavailable'; message: string };
 
 export type InventoryCatalogState =
   | { kind: 'idle' }
@@ -140,6 +155,7 @@ export class InventoryController {
     projects: [],
     status: { kind: 'loading', project: null },
     catalog: { kind: 'idle' },
+    itemCodeLookup: { kind: 'idle' },
   };
   private readonly listeners = new Set<() => void>();
   private readonly pending = new Map<string, InventoryAttempt>();
@@ -148,6 +164,7 @@ export class InventoryController {
   private projectsGeneration = 0;
   private initialized = false;
   private catalogGeneration = 0;
+  private itemCodeGeneration = 0;
   private readonly catalogCache = new Map<string, readonly InventoryEquipmentCatalogEntry[]>();
   private opening: Promise<void> | undefined;
   private unsubscribe: (() => void) | undefined;
@@ -166,7 +183,24 @@ export class InventoryController {
   };
 
   private set(status: InventoryControllerState): void {
-    this.snapshot = { ...this.snapshot, status };
+    let itemCodeLookup = this.snapshot.itemCodeLookup;
+    const scope =
+      itemCodeLookup.kind === 'ready'
+        ? itemCodeLookup.lookup
+        : itemCodeLookup.kind === 'resolving'
+          ? itemCodeLookup
+          : null;
+    if (
+      scope &&
+      (status.kind !== 'ready' ||
+        status.data.project.projectId !== scope.projectId ||
+        status.data.project.defaultInventoryId !== scope.inventoryId ||
+        status.data.state.revision !== scope.revision)
+    ) {
+      this.itemCodeGeneration += 1;
+      itemCodeLookup = { kind: 'idle' };
+    }
+    this.snapshot = { ...this.snapshot, status, itemCodeLookup };
     for (const listener of this.listeners) listener();
   }
 
@@ -219,6 +253,7 @@ export class InventoryController {
   async initialize(): Promise<void> {
     const generation = ++this.generation;
     this.catalogGeneration += 1;
+    this.itemCodeGeneration += 1;
     try {
       this.unsubscribe?.();
       this.pending.clear();
@@ -231,7 +266,12 @@ export class InventoryController {
       const projects = await this.client.projects();
       if (generation !== this.generation) return;
       this.initialized = true;
-      this.snapshot = { projects, status: { kind: 'no-project' }, catalog: { kind: 'idle' } };
+      this.snapshot = {
+        projects,
+        status: { kind: 'no-project' },
+        catalog: { kind: 'idle' },
+        itemCodeLookup: { kind: 'idle' },
+      };
       this.unsubscribe = this.client.onChanged((event) => {
         const key = scopeKey(event.projectId, event.inventoryId);
         this.observedRevision.set(
@@ -390,6 +430,65 @@ export class InventoryController {
           kind: 'failed',
           projectId,
           message: 'Equipment catalog could not be loaded. Existing inventory remains available.',
+        },
+      };
+    }
+    this.set(this.snapshot.status);
+  }
+
+  clearItemCodeLookup(): void {
+    this.itemCodeGeneration += 1;
+    this.snapshot = { ...this.snapshot, itemCodeLookup: { kind: 'idle' } };
+    this.set(this.snapshot.status);
+  }
+
+  async resolveItemCode(query: InventoryItemCodeQuery): Promise<void> {
+    const status = this.snapshot.status;
+    const generation = ++this.itemCodeGeneration;
+    if (status.kind !== 'ready') {
+      this.snapshot = {
+        ...this.snapshot,
+        itemCodeLookup: {
+          kind: 'unavailable',
+          message: 'Load the current inventory before looking up a code.',
+        },
+      };
+      this.set(status);
+      return;
+    }
+    const projectId = status.data.project.projectId;
+    const inventoryId = status.data.project.defaultInventoryId;
+    const revision = status.data.state.revision;
+    this.snapshot = {
+      ...this.snapshot,
+      itemCodeLookup: { kind: 'resolving', projectId, inventoryId, revision, query: { ...query } },
+    };
+    this.set(status);
+    try {
+      const lookup = await this.client.resolveItemCode({ project: projectId, inventoryId, query });
+      if (generation !== this.itemCodeGeneration) return;
+      const current = this.snapshot.status;
+      if (
+        current.kind !== 'ready' ||
+        current.data.project.projectId !== projectId ||
+        current.data.project.defaultInventoryId !== inventoryId ||
+        current.data.state.revision !== revision ||
+        lookup.projectId !== projectId ||
+        lookup.inventoryId !== inventoryId ||
+        lookup.revision !== revision
+      )
+        throw new Error('Inventory changed while resolving the code.');
+      this.snapshot = {
+        ...this.snapshot,
+        itemCodeLookup: { kind: 'ready', query: { ...query }, lookup },
+      };
+    } catch {
+      if (generation !== this.itemCodeGeneration) return;
+      this.snapshot = {
+        ...this.snapshot,
+        itemCodeLookup: {
+          kind: 'unavailable',
+          message: 'Code lookup is unavailable. Refresh inventory and look up the code again.',
         },
       };
     }
@@ -643,6 +742,7 @@ export class InventoryController {
     ++this.generation;
     ++this.catalogGeneration;
     ++this.projectsGeneration;
+    ++this.itemCodeGeneration;
     this.unsubscribe?.();
     this.listeners.clear();
   }

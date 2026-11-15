@@ -7,6 +7,7 @@ import {
 } from '@waypoint/domain-services';
 import {
   inventoryCatalogUpdatePreviewRequestSchema,
+  inventoryResolveItemCodeRequestSchema,
   inventoryReceiptSchema,
 } from '../../../shared/inventory-command';
 import { jsonObjectSchema } from '../../../shared/json-value';
@@ -21,6 +22,9 @@ const plainInput = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('catalog'), project }).strict(),
   inventoryCatalogUpdatePreviewRequestSchema
     .extend({ kind: z.literal('catalog-update-preview') })
+    .strict(),
+  inventoryResolveItemCodeRequestSchema
+    .extend({ kind: z.literal('resolve-item-code') })
     .strict(),
   z
     .object({
@@ -98,6 +102,7 @@ export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
   z
     .object({ ...ok, kind: z.literal('catalog-update-preview'), preview: jsonObjectSchema })
     .strict(),
+  z.object({ ...ok, kind: z.literal('item-code-resolution'), lookup: jsonObjectSchema }).strict(),
   z
     .object({
       ...ok,
@@ -142,6 +147,7 @@ export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
 ]);
 
 export const INVENTORY_DESCRIPTION =
+  'Resolve exact physical item codes with resolve-item-code in an explicit project and inventory. Pass query.namespace as an exact technical namespace or null for all namespaces and query.value as the unchanged code. Case, leading zeros and spaces matter. Invalid, not found, retired and ambiguous are distinct results; never prefer one ambiguous match or fall back to scientific material search. The lookup returns current target facts, custody and stock availability at one revision. Codes grant no access, and URL text is not navigation. Lookup never changes inventory. ' +
   'Use catalog-update-preview with an exact catalogEntryId and inventoryId to classify built-in definitions and inspect source scope and installed references without inventory writes. Any definition conflict blocks applying the entire pack. Apply selected new definitions through execute at the current revision; identical retired definitions remain retired. ' +
   'Inspect and change physical laboratory inventory through the same native owner as the Inventory view. Start with projects, then materials in the exact selected project. Inspect the returned defaultInventoryId before changing it. Read catalog for built-in physical type and equipment recipe definitions without installing them. Existing definition ID conflicts require explicit resolution; never overwrite. Execute only needed definitions plus explicit recipe instantiation as one atomic batch. Read availability at the matching revision for exact on-hand, held and unreserved quantities, item custody, reservation actions and blocking reasons. Execute an atomic typed command batch with the inspected expectedRevision and one stable operationId. Exact retries return the original receipt; changed requests require a new explicitly reviewed operation. A timeout leaves the outcome unknown: inspect the original operationId or retry that identical request. Publish immutable physical type and equipment recipe versions, then instantiate explicit pinned versions. Physical metadata is separate from scientific material identity. Allowed child types constrain placement logically; unknown fit remains unknown, and known geometric contradictions refuse placement. Read the physical projection for installed configuration, metadata issues and fit evidence. Reservations do not subtract on-hand quantity. Expiry requires an explicit recorded command. Checkout, transit and missing reports free the previous position and retain immutable last-known location facts. Planned destinations and last-known positions are not current locations. Return or locate requires an explicit valid destination; use stack-top for a stack. A plate or box governs effective custody of its contents, and permanent wells cannot depart independently. Missing or in-transit items block physical use and additions; reconciliation and quality observations remain distinct. Custody never changes quantity or silently releases reservations. Hold ownership, custody responsibility and execution time come from the native authority. Known zero quantity differs from unknown quantity. Scientific designs do not imply physical possession. Placement, quantity, quality, disposal and storage-layout rules are validated by the inventory owner. History retains accepted requests, trusted actors and durable owner context. Read operations need read-workspace; execute also needs write-workspace.';
 

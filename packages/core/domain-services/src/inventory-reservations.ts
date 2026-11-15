@@ -41,6 +41,7 @@ type ReservationState = Pick<
   | 'typeVersions'
   | 'recipeVersions'
   | 'fitEvidence'
+  | 'itemCodes'
 >;
 export interface InventoryReservationDraft extends Omit<ReservationState, 'reservations'> {
   readonly reservations: Record<string, InventoryReservation>;
@@ -356,6 +357,7 @@ export function applyInventoryReservationCommand(
         state.typeVersions,
         state.recipeVersions,
         state.fitEvidence,
+        state.itemCodes,
       ].some((rows) => Object.hasOwn(rows, command.id))
     )
       return refuse('ID_ALREADY_EXISTS', 'That inventory identifier already exists.');

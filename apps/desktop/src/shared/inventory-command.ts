@@ -30,6 +30,12 @@ export const inventoryCatalogUpdatePreviewRequestSchema = inventoryReadRequestSc
   .extend({ catalogEntryId: identity })
   .strict();
 
+export const inventoryResolveItemCodeRequestSchema = inventoryReadRequestSchema
+  .extend({
+    query: z.object({ namespace: z.string().nullable(), value: z.string() }).strict(),
+  })
+  .strict();
+
 export const inventoryExecuteRequestSchema = inventoryReadRequestSchema
   .extend({
     operationId: identity,
@@ -81,6 +87,7 @@ export const inventoryReceiptSchema = z
   .strict();
 
 export type InventoryReadRequest = z.infer<typeof inventoryReadRequestSchema>;
+export type InventoryResolveItemCodeRequest = z.infer<typeof inventoryResolveItemCodeRequestSchema>;
 export type InventoryCatalogUpdatePreviewRequest = z.infer<
   typeof inventoryCatalogUpdatePreviewRequestSchema
 >;

@@ -778,6 +778,12 @@ describe('durable native inventory commands', () => {
     for (const operation of [
       () => owner.inspect({ ...scope(), project: 'Other' }),
       () =>
+        owner.resolveItemCode({
+          ...scope(),
+          project: 'Other',
+          query: { namespace: null, value: 'synthetic-material' },
+        }),
+      () =>
         owner.catalogUpdatePreview({
           ...scope(),
           project: 'Other',
@@ -805,6 +811,11 @@ describe('durable native inventory commands', () => {
     expect(() =>
       withAgentProjectScope({ kind: 'project-roots', roots: [otherPath] }, () =>
         owner.inspect(scope())
+      )
+    ).toThrow('PROJECT_ACCESS_DENIED');
+    expect(() =>
+      withAgentProjectScope({ kind: 'project-roots', roots: [otherPath] }, () =>
+        owner.resolveItemCode({ ...scope(), query: { namespace: null, value: '001' } })
       )
     ).toThrow('PROJECT_ACCESS_DENIED');
     expect(() =>
@@ -951,6 +962,226 @@ describe('durable native inventory commands', () => {
     expect(db.prepare('SELECT COUNT(*) AS n FROM inventory_state').get()).toEqual({ n: 0 });
     expect(db.prepare('SELECT COUNT(*) AS n FROM inventory_journal').get()).toEqual({ n: 0 });
     expect(db.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+  });
+
+  it('resolves absent-inventory item codes without seeding rows, events or scientific fallback', () => {
+    const changed = vi.fn();
+    owner.subscribe(changed);
+    const before = db.prepare('SELECT total_changes() AS n').get();
+    const result = owner.resolveItemCode({
+      ...scope(),
+      inventoryId: 'absent',
+      query: { namespace: null, value: 'synthetic-material' },
+    });
+    expect(result).toEqual({
+      projectId: 'inventory-project',
+      inventoryId: 'absent',
+      revision: 0,
+      asOf: now,
+      principal: { kind: 'local-profile', profileKey },
+      resolution: { kind: 'not-found' },
+      targets: [],
+    });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM inventory_state').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM inventory_journal').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it('returns typed invalid code queries and rejects unknown request fields without normalization', () => {
+    const before = db.prepare('SELECT total_changes() AS n').get();
+    for (const query of [
+      { namespace: 'Uppercase', value: '001a' },
+      { namespace: null, value: '' },
+      { namespace: null, value: '   ' },
+      { namespace: null, value: '001a\r\n' },
+      { namespace: null, value: '001a\t' },
+      { namespace: null, value: '001é' },
+      { namespace: null, value: '0'.repeat(513) },
+    ]) {
+      expect(owner.resolveItemCode({ ...scope(), query })).toMatchObject({
+        resolution: { kind: 'invalid', message: expect.any(String) },
+        targets: [],
+        revision: 0,
+      });
+    }
+    for (const query of [
+      { namespace: null, value: '001a', extra: true },
+      { value: '001a' },
+      { namespace: null, value: 1 },
+    ])
+      expect(() => owner.resolveItemCode({ ...scope(), query })).toThrow();
+    expect(() =>
+      owner.resolveItemCode({
+        ...scope(),
+        query: { namespace: null, value: '001a' },
+        commands: [],
+      })
+    ).toThrow();
+    expect(db.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+  });
+
+  it('returns bounded exact-code target facts and availability from one admitted snapshot', () => {
+    createFixture();
+    expect(
+      execute('code-fixture', 1, [
+        {
+          kind: 'move-vessel',
+          id: 'tube',
+          placement: { kind: 'located', storageId: 'box', slotId: 'A1' },
+        },
+        {
+          kind: 'attach-item-code',
+          id: 'tube-code',
+          namespace: 'lab',
+          value: ' 001a ',
+          item: { kind: 'vessel', id: 'tube' },
+          reason: 'Existing physical tube code.',
+        },
+        {
+          kind: 'attach-item-code',
+          id: 'freezer-code',
+          namespace: 'equipment',
+          value: 'https://example.invalid/code',
+          item: { kind: 'storage', id: 'freezer' },
+          reason: 'Existing physical equipment code, treated only as text.',
+        },
+        {
+          kind: 'create-vessel',
+          id: 'other-tube',
+          name: 'Other tube',
+          placement: { kind: 'unplaced' },
+        },
+        {
+          kind: 'receive-stock',
+          id: 'other-stock',
+          vesselId: 'other-tube',
+          materialId: 'synthetic-material',
+          quantity: { kind: 'known', value: '5', unit: 'uL' },
+          quality: 'usable',
+        },
+      ])
+    ).toMatchObject({ status: 'committed', revision: 2 });
+    const state = owner.inspect(scope())!;
+    const invocation = { principal: { kind: 'agent' as const, identityId: 'code-reader' } };
+    now += 1000;
+    const availability = owner.availability(scope(), invocation)!;
+    const before = db.prepare('SELECT total_changes() AS n').get();
+    const changed = vi.fn();
+    owner.subscribe(changed);
+    const lookup = owner.resolveItemCode(
+      {
+        ...scope(),
+        query: { namespace: 'lab', value: ' 001a ' },
+      },
+      invocation
+    );
+    expect(lookup).toMatchObject({
+      projectId: 'inventory-project',
+      inventoryId: scope().inventoryId,
+      revision: 2,
+      asOf: now,
+      principal: invocation.principal,
+      resolution: { kind: 'resolved', match: { id: 'tube-code', value: ' 001a ' } },
+    });
+    expect(lookup.targets).toEqual([
+      {
+        item: { kind: 'vessel', id: 'tube' },
+        record: state.vessels.tube,
+        custody: availability.items.tube,
+        physical: availability.physical.items.tube,
+        currentLocationPath: [
+          { item: { kind: 'storage', id: 'freezer' }, name: 'Freezer', position: null },
+          { item: { kind: 'storage', id: 'box' }, name: 'Box', position: 'top' },
+          { item: { kind: 'vessel', id: 'tube' }, name: 'Tube', position: 'A1' },
+        ],
+        stocks: [{ stock: state.stocks.stock, availability: availability.stocks.stock }],
+      },
+    ]);
+    const freezer = owner.resolveItemCode({
+      ...scope(),
+      query: { namespace: 'equipment', value: 'https://example.invalid/code' },
+    });
+    expect(freezer.targets[0].stocks.map((row) => row.stock.id)).toEqual(['stock']);
+    for (const value of ['001a', ' 001A ', 'synthetic-material'])
+      expect(
+        owner.resolveItemCode({ ...scope(), query: { namespace: null, value } }).resolution
+      ).toEqual({ kind: 'not-found' });
+    Object.assign(lookup.targets[0].record, { name: 'Caller draft' });
+    expect(owner.inspect(scope())).toEqual(state);
+    expect(db.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it('retains retired namespace ambiguity and missing-item facts without changing stock', () => {
+    createFixture();
+    expect(
+      execute('code-history', 1, [
+        {
+          kind: 'attach-item-code',
+          id: 'active-code',
+          namespace: 'lab',
+          value: '001',
+          item: { kind: 'vessel', id: 'tube' },
+          reason: 'Existing tube code.',
+        },
+        {
+          kind: 'attach-item-code',
+          id: 'retired-code',
+          namespace: 'site',
+          value: '001',
+          item: { kind: 'vessel', id: 'tube' },
+          reason: 'Older tube code.',
+        },
+        { kind: 'retire-item-code', codeId: 'retired-code', reason: 'Retain reserved old code.' },
+        {
+          kind: 'report-item-missing',
+          item: { kind: 'vessel', id: 'tube' },
+          reason: 'Reported missing.',
+        },
+      ])
+    ).toMatchObject({ status: 'committed', revision: 2 });
+    const before = owner.inspect(scope());
+    const changes = db.prepare('SELECT total_changes() AS n').get();
+    const ambiguous = owner.resolveItemCode({
+      ...scope(),
+      query: { namespace: null, value: '001' },
+    });
+    expect(ambiguous.resolution).toMatchObject({
+      kind: 'ambiguous',
+      matches: [
+        expect.objectContaining({ id: 'active-code', lifecycle: { kind: 'active' } }),
+        expect.objectContaining({
+          id: 'retired-code',
+          lifecycle: expect.objectContaining({ kind: 'retired' }),
+        }),
+      ],
+    });
+    expect(ambiguous.targets).toHaveLength(1);
+    expect(ambiguous.targets[0]).toMatchObject({
+      item: { kind: 'vessel', id: 'tube' },
+      record: { lifecycle: 'active' },
+      custody: { state: { kind: 'missing' }, lastKnown: expect.any(Object) },
+      currentLocationPath: null,
+      stocks: [{ stock: { quantity: { kind: 'known', value: '100', unit: 'uL' } } }],
+    });
+    const retired = owner.resolveItemCode({
+      ...scope(),
+      query: { namespace: 'site', value: '001' },
+    });
+    expect(retired.resolution).toMatchObject({ kind: 'retired', match: { id: 'retired-code' } });
+    expect(retired.targets).toEqual(ambiguous.targets);
+    db.prepare("UPDATE workspaces SET access_mode='reference' WHERE id=41").run();
+    expect(
+      owner.resolveItemCode({
+        ...scope(),
+        query: { namespace: 'lab', value: '001' },
+      }).resolution
+    ).toMatchObject({ kind: 'resolved', match: { id: 'active-code' } });
+    expect(owner.inspect(scope())).toEqual(before);
+    expect(db.prepare('SELECT total_changes() AS n').get()).toEqual({
+      n: (changes as { n: number }).n + 1,
+    });
   });
 
   it('detects a changed journal payload and a projection divergent from accepted history', () => {

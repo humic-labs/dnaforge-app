@@ -2,8 +2,17 @@ import type {
   InventoryAvailability,
   InventoryEquipmentCatalogEntry,
   InventoryEquipmentCatalogUpdatePreview,
+  InventoryItemCodeResolution,
+  InventoryItemCustody,
+  InventoryLocationPathEntry,
+  InventoryPhysicalItem,
+  InventoryPhysicalItemProjection,
   InventoryPrincipal,
   InventoryState,
+  InventoryStock,
+  InventoryStockAvailability,
+  InventoryStorage,
+  InventoryVessel,
 } from '@waypoint/domain-services';
 import type {
   InventoryCatalogUpdatePreviewRequest,
@@ -11,6 +20,7 @@ import type {
   InventoryHistoryRequest,
   InventoryOperationRequest,
   InventoryReadRequest,
+  InventoryResolveItemCodeRequest,
   NativeInventoryExecution,
   NativeInventoryHistoryEntry,
   NativeInventoryReceipt,
@@ -60,12 +70,35 @@ export interface InventoryAvailabilitySnapshot extends InventoryAvailability {
   readonly principal: InventoryPrincipal;
 }
 
+export interface InventoryItemCodeTargetSnapshot {
+  readonly item: InventoryPhysicalItem;
+  readonly record: InventoryStorage | InventoryVessel;
+  readonly custody: InventoryItemCustody;
+  readonly physical: InventoryPhysicalItemProjection;
+  readonly currentLocationPath: readonly InventoryLocationPathEntry[] | null;
+  readonly stocks: readonly {
+    readonly stock: InventoryStock;
+    readonly availability: InventoryStockAvailability;
+  }[];
+}
+
+export interface InventoryItemCodeLookupSnapshot {
+  readonly projectId: string;
+  readonly inventoryId: string;
+  readonly revision: number;
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+  readonly resolution: InventoryItemCodeResolution;
+  readonly targets: readonly InventoryItemCodeTargetSnapshot[];
+}
+
 export interface InventoryClient {
   projects(): Promise<readonly InventoryProject[]>;
   catalog(input: InventoryCatalogQuery): Promise<readonly InventoryEquipmentCatalogEntry[]>;
   catalogUpdatePreview(
     input: InventoryCatalogUpdatePreviewRequest
   ): Promise<InventoryEquipmentCatalogUpdatePreview>;
+  resolveItemCode(input: InventoryResolveItemCodeRequest): Promise<InventoryItemCodeLookupSnapshot>;
   materials(input: InventoryMaterialQuery): Promise<InventoryMaterialPage>;
   inspect(input: InventoryReadRequest): Promise<InventoryState | null>;
   availability(input: InventoryReadRequest): Promise<InventoryAvailabilitySnapshot | null>;
@@ -83,6 +116,7 @@ export function unavailableInventoryClient(): InventoryClient {
     projects: unavailable,
     catalog: unavailable,
     catalogUpdatePreview: unavailable,
+    resolveItemCode: unavailable,
     materials: unavailable,
     inspect: unavailable,
     availability: unavailable,
@@ -105,6 +139,7 @@ export type {
   InventoryHistoryRequest,
   InventoryOperationRequest,
   InventoryReadRequest,
+  InventoryResolveItemCodeRequest,
   NativeInventoryExecution,
   NativeInventoryHistoryEntry,
   NativeInventoryReceipt,

@@ -8,6 +8,7 @@ export {
   mixInventoryCompositions,
 } from './inventory-concentration';
 export { applyInventoryCommandBatch } from './inventory-state';
+export { inventoryResolveItemCode } from './inventory-item-codes';
 export {
   inventoryCatalogVersionStatus,
   inventoryCatalogProjection,
@@ -15,10 +16,15 @@ export {
   inventoryCatalogRecipeEligibility,
 } from './inventory-catalog-lifecycle';
 export { inventoryAvailability, inventoryItemContains } from './inventory-reservations';
-export { inventoryEffectiveCustody, inventoryItemCustody } from './inventory-custody';
+export {
+  inventoryEffectiveCustody,
+  inventoryItemCustody,
+  inventoryCurrentLocationPath,
+} from './inventory-custody';
 export {
   InventoryValidationError,
   parseInventoryCommand,
+  parseInventoryItemCodeQuery,
   parseInventoryCommandBatch,
   parseInventoryExecutionContext,
   parseInventoryState,
