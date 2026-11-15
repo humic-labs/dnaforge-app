@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import type { WorkspaceTextFileAtomicWriteInput } from '../shared/workspace-file-atomic';
+import { WorkspaceFilePreconditionError } from '../main/primer-artifact-files';
 
 import { contentFingerprint } from './entity-substrate/adapter';
 import { parseNotebookPackageDocument, parseNotebookPackageMetadata } from './notebook-package';
@@ -71,13 +72,18 @@ class MemoryFileOps implements NotebookPackageFileOps {
   async writeWorkspaceTextFileAtomic(input: WorkspaceTextFileAtomicWriteInput) {
     const current = this.files.get(input.path);
     if (input.mode === 'create') {
-      if (current !== undefined) throw new Error('already exists');
+      if (current !== undefined)
+        throw Object.assign(new Error('already exists'), {
+          name: 'WorkspaceFilePreconditionError',
+        });
     } else {
       const currentHash = createHash('sha256')
         .update(current ?? '', 'utf8')
         .digest('hex');
       if (current === undefined || currentHash !== input.expectedContentHash) {
-        throw new Error('changed since it was opened');
+        throw Object.assign(new Error('changed since it was opened'), {
+          name: 'WorkspaceFilePreconditionError',
+        });
       }
     }
     this.files.set(input.path, input.content);
@@ -695,5 +701,99 @@ describe('restart-safe notebook package migration', () => {
 
     await expect(publishNotebookPackageV2(fs, INPUT)).rejects.toThrow();
     expect(fs.files.get('/workspace/Legacy/Legacy.md')).toBe(malformed);
+  });
+});
+
+describe('notebook write failure causes', () => {
+  async function failureFixture(boundary: 'canonical Markdown' | 'v1 metadata') {
+    const fs = new MemoryFileOps();
+    const metaPath = '/workspace/Legacy/.forge/notebook.json';
+    const canonicalPath = '/workspace/Legacy/Legacy.md';
+    fs.files.set(metaPath, V1);
+    if (boundary === 'canonical Markdown') {
+      const initial = await publishNotebookPackageV2(fs, INPUT);
+      return {
+        fs,
+        targetPath: canonicalPath,
+        input: {
+          ...INPUT,
+          sourceShape: 'v2-package' as const,
+          existingMetadataRaw: fs.files.get(metaPath) ?? '',
+          formerAuthorityRaw: null,
+          content: notebookContent('Retained local draft'),
+          expectedCanonicalFingerprint: initial.canonicalFingerprint,
+        },
+      };
+    }
+    return {
+      fs,
+      targetPath: metaPath,
+      input: { ...INPUT, content: notebookContent('Retained local draft') },
+    };
+  }
+
+  describe.each(['canonical Markdown', 'v1 metadata'] as const)('%s', (boundary) => {
+    it.each(['EACCES', 'EPERM'] as const)(
+      'retains the original %s error and cause',
+      async (code) => {
+        const { fs, targetPath, input } = await failureFixture(boundary);
+        const before = fs.files.get(targetPath);
+        const cause = new Error('The operating system refused publication.');
+        const originalError = Object.assign(new Error(`${code}: publication refused`, { cause }), {
+          code,
+          syscall: 'rename',
+          path: targetPath,
+        });
+        const write = fs.writeWorkspaceTextFileAtomic.bind(fs);
+        let attempted = false;
+        fs.writeWorkspaceTextFileAtomic = async (request) => {
+          if (request.path === targetPath) {
+            attempted = true;
+            throw originalError;
+          }
+          return write(request);
+        };
+
+        const failure: unknown = await publishNotebookPackageV2(fs, input).then(
+          () => undefined,
+          (error) => error
+        );
+
+        expect(attempted).toBe(true);
+        expect(fs.files.get(targetPath)).toBe(before);
+        expect([...fs.files.keys()].filter((path) => path.includes('dnaforge-stage'))).toEqual([]);
+        expect(failure).toBe(originalError);
+        expect(failure).toHaveProperty('code', code);
+        expect((failure as Error).cause).toBe(cause);
+      }
+    );
+
+    it('retains the typed precondition failure as the conflict cause', async () => {
+      const { fs, targetPath, input } = await failureFixture(boundary);
+      const before = fs.files.get(targetPath);
+      const originalError = new WorkspaceFilePreconditionError(
+        'Notebook artifact changed since it was opened; reload it before saving.'
+      );
+      const write = fs.writeWorkspaceTextFileAtomic.bind(fs);
+      let attempted = false;
+      fs.writeWorkspaceTextFileAtomic = async (request) => {
+        if (request.path === targetPath) {
+          attempted = true;
+          throw originalError;
+        }
+        return write(request);
+      };
+
+      const failure: unknown = await publishNotebookPackageV2(fs, input).then(
+        () => undefined,
+        (error) => error
+      );
+
+      expect(attempted).toBe(true);
+      expect(fs.files.get(targetPath)).toBe(before);
+      expect([...fs.files.keys()].filter((path) => path.includes('dnaforge-stage'))).toEqual([]);
+      expect(failure).toBeInstanceOf(NotebookExternalConflictError);
+      expect((failure as Error).cause).toBe(originalError);
+    });
   });
 });
