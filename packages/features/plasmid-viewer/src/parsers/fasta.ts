@@ -43,14 +43,14 @@ export function parseFasta(content: string): ParsedFastaSequence[] {
       }
 
       const headerContent = trimmed.substring(1).trim();
-      const spaceIndex = headerContent.indexOf(' ');
+      const whitespaceIndex = headerContent.search(/\s/);
 
-      if (spaceIndex === -1) {
+      if (whitespaceIndex === -1) {
         currentName = headerContent || `Sequence_${sequences.length + 1}`;
         currentDescription = '';
       } else {
-        currentName = headerContent.substring(0, spaceIndex);
-        currentDescription = headerContent.substring(spaceIndex + 1).trim();
+        currentName = headerContent.substring(0, whitespaceIndex);
+        currentDescription = headerContent.substring(whitespaceIndex + 1).trim();
       }
 
       currentSequence = '';

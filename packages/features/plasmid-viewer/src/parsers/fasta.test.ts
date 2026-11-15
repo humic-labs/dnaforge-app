@@ -52,6 +52,33 @@ ATGCATGC`;
     expect(result[0].description).toBeUndefined();
   });
 
+  it.each(['\t', ' \t ', '\t\t'])(
+    'splits the identifier from the description at whitespace %j',
+    (separator) => {
+      const result = parseFasta(`>chr1${separator}Chromosome one\nACGT`);
+
+      expect(result[0].name).toBe('chr1');
+      expect(result[0].description).toBe('Chromosome one');
+      expect(result[0].sequence).toBe('ACGT');
+    }
+  );
+
+  it('preserves whitespace inside the description', () => {
+    const result = parseFasta('>chr1\tChromosome\tone  description\nACGT');
+
+    expect(result[0].name).toBe('chr1');
+    expect(result[0].description).toBe('Chromosome\tone  description');
+  });
+
+  it('keeps identifiers and descriptions separate in multi-FASTA imports', () => {
+    const result = parseMultiFasta('>chr1\tFirst chromosome\nACGT\n>chr2\tSecond chromosome\nTGCA');
+
+    expect(result.map(({ name, definition }) => ({ name, definition }))).toEqual([
+      { name: 'chr1', definition: 'First chromosome' },
+      { name: 'chr2', definition: 'Second chromosome' },
+    ]);
+  });
+
   it('handles empty lines between sequences', () => {
     const content = `>Seq1
 ATGC
