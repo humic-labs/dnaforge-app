@@ -511,6 +511,33 @@ describe('text Save and Close durable revision', () => {
     }
   });
 
+  it.each(['deferred', 'immediate'] as const)(
+    'enables the Save button after a %s write failure and retries through that button',
+    async (timing) => {
+      const failure = new Error('EACCES: controlled text write denied');
+      const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        if (timing === 'immediate') io.writeTextFileAtomic.mockRejectedValueOnce(failure);
+        await mount();
+        edit(editA);
+        save();
+        if (timing === 'deferred') await finish(0, failure);
+        await waitFor(() => expect(report).toHaveBeenCalled());
+        await waitFor(() =>
+          expect(screen.getByRole('button', { name: 'Save', exact: true })).toBeEnabled()
+        );
+        expect(editor()).toHaveValue(editA);
+        expect(io.files.get(filePath)).toBe(baseline);
+        fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
+        await finish(timing === 'deferred' ? 1 : 0);
+        expect(io.files.get(filePath)).toBe(editA);
+        expect(stillOpen()).toBe(true);
+      } finally {
+        report.mockRestore();
+      }
+    }
+  );
+
   it('shares same-revision keyboard, editor, and close requests in one write', async () => {
     await mount();
     edit(editA);

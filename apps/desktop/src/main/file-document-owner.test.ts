@@ -244,6 +244,68 @@ describe('native file working copies without a view', () => {
     );
   });
 
+  it.each([false, true])(
+    'publishes failed-save completion without hiding another captured save: overlapping=%s',
+    async (overlapping) => {
+      const gate = Promise.withResolvers<void>();
+      const failure = new Error('EACCES: controlled captured save failure');
+      const f = await fixture('failed-capture.txt', 'before', () => gate.promise);
+      const published: FileDocumentSnapshot[] = [];
+      f.owner.subscribe((snapshot) => published.push(snapshot));
+      const first = await f.command(await f.inspect(), {
+        kind: 'replace-text',
+        from: 0,
+        to: 6,
+        text: 'first',
+      });
+      const capture = (snapshot: FileDocumentSnapshot) =>
+        f.owner.execute(
+          {
+            target: { documentId: snapshot.documentId },
+            expectedRevision: snapshot.revision,
+            projection: 'document',
+            operation: { kind: 'capture-save' },
+          },
+          'renderer'
+        );
+      const captures = [await capture(first)];
+      if (overlapping) {
+        const later = await f.command(first, {
+          kind: 'replace-text',
+          from: 0,
+          to: 5,
+          text: 'later',
+        });
+        captures.push(await capture(later));
+      }
+      expect(captures.every((snapshot) => snapshot.saving)).toBe(true);
+      const count = published.length;
+      const outcomes = Promise.allSettled(
+        captures.map((snapshot) =>
+          f.owner.execute(
+            {
+              target: { documentId: snapshot.documentId },
+              projection: 'document',
+              operation: { kind: 'await-save', saveCaptureId: snapshot.saveCaptureId! },
+            },
+            'renderer'
+          )
+        )
+      );
+      gate.reject(failure);
+      expect((await outcomes).every((result) => result.status === 'rejected')).toBe(true);
+      expect(published.slice(count).map((snapshot) => snapshot.saving)).toEqual(
+        overlapping ? [true, false] : [false]
+      );
+      expect(published.at(-1)).toMatchObject({
+        saving: false,
+        dirty: true,
+        content: overlapping ? 'later' : 'first',
+      });
+      expect(await readFile(f.path, 'utf8')).toBe('before');
+    }
+  );
+
   it('retains a later edit while its captured save publishes', async () => {
     let release!: () => void, begun!: () => void;
     const started = new Promise<void>((resolve) => {
