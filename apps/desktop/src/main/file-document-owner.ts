@@ -1011,7 +1011,19 @@ export class NativeFileDocumentOwner {
 
   private publish(document: WorkingCopy): FileDocumentSnapshot {
     const snapshot = this.snapshot(document);
-    for (const listener of this.listeners) listener(snapshot);
+    for (const listener of this.listeners) {
+      try {
+        listener(snapshot);
+      } catch (error) {
+        try {
+          console.error(
+            '[FileDocumentOwner] Change notification failed:',
+            { filePath: document.path, documentId: document.documentId },
+            error
+          );
+        } catch {}
+      }
+    }
     return snapshot;
   }
 
