@@ -2121,14 +2121,8 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       args,
       readPreparationAllowance
     );
-    let deferReadRowsMeshWork =
-      exactReadCommit === null ||
+    if (exactReadCommit !== null) {
       this.commitExactReadRecords(state, exactReadCommit, rowBudget, readPreparationAllowance);
-    if (deferReadRowsMeshWork && state.rows !== null) {
-      const runwayBp = (state.rowsMeshEndBp - state.rowsMeshStartBp) / 8;
-      deferReadRowsMeshWork =
-        args.viewportBpRange.start - state.rowsMeshStartBp >= runwayBp &&
-        state.rowsMeshEndBp - args.viewportBpRange.end >= runwayBp;
     }
     const recordsMs = nowMs() - recordsStartedAt;
 
@@ -2143,7 +2137,6 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         args,
         exactReadCommit,
         rowBudget.readRowsTopPx,
-        deferReadRowsMeshWork,
         readPreparationAllowance
       );
     }
@@ -2733,7 +2726,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     input: ExactReadCommitInput,
     rowBudget: ReadRowBudget,
     allowance: ReadRowsPreparationAllowance
-  ): boolean {
+  ): void {
     const {
       records,
       recordsKey,
@@ -2752,7 +2745,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       !(shouldBuildExactDerivedRecords && !state.cachedRecordsExactDerived) &&
       state.rowsAssignmentBuildJob === null
     ) {
-      return false;
+      return;
     }
     const commitStartedAt = nowMs();
     const work = emptyRecordsCommitWork();
@@ -2825,11 +2818,6 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     if (!records) {
       state.cachedOverflowRowsKey = '';
     }
-    return (
-      work.exactDerivedBuilt &&
-      input.tileEngineAuthority &&
-      (records?.length ?? 0) > this.readRowsAssignRecordsPerFrame
-    );
   }
 
   private commitEmptyHybridReadFront(
@@ -3152,7 +3140,6 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     args: TrackPaintArgs<PileupTrackData>,
     input: ExactReadCommitInput,
     readRowsTopPx: number,
-    deferBuildWork: boolean,
     allowance: ReadRowsPreparationAllowance
   ): void {
     const { records, recordsKey } = input;
@@ -3170,7 +3157,6 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         recordsKey,
         args,
         readRowsTopPx,
-        deferBuildWork,
         allowance,
         input
       );
@@ -4353,7 +4339,6 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     recordsKey: string,
     args: TrackPaintArgs<PileupTrackData>,
     readRowsTopPx: number,
-    deferBuildWork: boolean,
     allowance: ReadRowsPreparationAllowance,
     input: ExactReadCommitInput
   ): void {
@@ -4473,8 +4458,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         job.rows
       );
       if (admitted !== false) {
-        if (admitted && !deferBuildWork)
-          this.advanceReadRowsMeshBuild(state, args, rowsY, allowance);
+        if (admitted) this.advanceReadRowsMeshBuild(state, args, rowsY, allowance);
         else if (state.rows) this.applyCamera(state.rows, args, rowsY);
         return;
       }
@@ -4509,7 +4493,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       };
     }
 
-    if (!deferBuildWork) this.advanceReadRowsMeshBuild(state, args, rowsY, allowance);
+    this.advanceReadRowsMeshBuild(state, args, rowsY, allowance);
   }
 
   private advanceReadRowsMeshBuild(

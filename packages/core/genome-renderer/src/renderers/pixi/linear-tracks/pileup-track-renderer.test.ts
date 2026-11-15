@@ -3041,6 +3041,43 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       }
     });
 
+    it('uses remaining preparation time for drawing when assignment finishes', () => {
+      const renderer = new PixiPileupTrackRenderer({
+        type: 'pileup-test',
+        readRowsAssignRecordsPerFrame: 512,
+        readRowsBuildRecordsPerFrame: 8,
+      });
+      const container = renderer.mount(mountArgs);
+      const records = makeWindowReads(513, 100_000);
+      const clock = vi.spyOn(performance, 'now').mockReturnValue(1_000);
+      try {
+        renderer.paint(readPaint(container, records));
+        expect(renderer.getDiagnostics(container)?.rowsAssignmentBuildInProgress).toBe(true);
+        expect(renderer.getDiagnostics(container)?.rowsAssignmentBuildRecordsLastFrame).toBe(512);
+
+        renderer.paint(readPaint(container, records));
+
+        const joining = renderer.getDiagnostics(container)!;
+        expect(joining.rowsAssignmentBuildInProgress).toBe(false);
+        expect(joining.rowsMeshBuildInProgress).toBe(true);
+        expect(joining.rowsMeshBuildRecordCursor).toBe(8);
+        expect(joining.rowsMeshBuildRecordsLastFrame).toBe(8);
+        expect(renderer.getReadPresentationSnapshot(container)?.kind).toBe('pending');
+        for (let frame = 0; renderer.hasPendingPaintWork(container) && frame < 100; frame++) {
+          renderer.paint(readPaint(container, records));
+          expect(
+            renderer.getDiagnostics(container)?.rowsMeshBuildRecordsLastFrame
+          ).toBeLessThanOrEqual(8);
+        }
+        expect(renderer.hasPendingPaintWork(container)).toBe(false);
+        expect(renderer.getDiagnostics(container)?.rowsMeshRecordCount).toBe(records.length);
+        expect(renderer.getReadPresentationSnapshot(container)?.kind).toBe('reads');
+      } finally {
+        clock.mockRestore();
+        renderer.unmount(container);
+      }
+    });
+
     it('prioritizes a missing read front within the urgent elapsed-work budget', () => {
       const r = new PixiPileupTrackRenderer({ type: 'pileup-test' });
       const c = r.mount(mountArgs);
@@ -3824,12 +3861,9 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       expect(d.recordsCommitTiming?.assignmentPending).toBe(false);
       expect(d.recordsCommitTiming?.exactDerivedBuilt).toBe(true);
       expect(d.rowsUsed).toBeGreaterThan(0);
-      expect(d.rowsMeshBuildInProgress).toBe(true);
-      expect(d.rowsMeshBuildRecordsLastFrame).toBe(0);
-      expect(d.rowsVertexCount).toBe(0);
-      expect(r.hasPendingPaintWork(c)).toBe(true);
-      r.paint(paint());
-      d = r.getDiagnostics(c)!;
+      expect(d.rowsMeshBuildInProgress).toBe(false);
+      expect(d.rowsMeshBuildRecordsLastFrame).toBe(records.length);
+      expect(r.hasPendingPaintWork(c)).toBe(false);
       expect(d.rowsVertexCount).toBe(records.length * 6);
       expect(d.rowsAssignmentBuildChunkCount).toBeGreaterThanOrEqual(
         Math.ceil(records.length / ASSIGN_CAP)
@@ -3944,20 +3978,10 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         guard++;
       }
       expect(d.rowsAssignmentBuildInProgress).toBe(false);
-      expect(d.rowsMeshBuildInProgress).toBe(true);
-      expect(r.hasPendingPaintWork(c)).toBe(true);
-      r.paint(
-        paintArgsZoom(
-          c,
-          dataFor(records.map((record) => ({ ...record }))),
-          4.0 / 150,
-          { start: 0, end: 100_000 },
-          800,
-          240
-        )
-      );
-      d = r.getDiagnostics(c)!;
+      expect(d.rowsMeshBuildInProgress).toBe(false);
+      expect(r.hasPendingPaintWork(c)).toBe(false);
       expect(d.rowsVertexCount).toBe(records.length * 6);
+      expect(r.getReadPresentationSnapshot(c)?.kind).toBe('reads');
     });
 
     it('commits a current-only row layout without scheduling redundant retain work', async () => {
@@ -4517,8 +4541,6 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         read(45_000 + i * 20, 45_010 + i * 20, `b${i}`)
       );
       r.paint(paintWindow(bRecords, 20_000, 100_000));
-      r.paint(paintWindow(bRecords, 20_000, 100_000));
-      expect(r.getDiagnostics(c)!.rowsMeshBuildRecordCursor).toBe(0);
       r.paint(paintWindow(bRecords, 20_000, 100_000));
       const bBuilding = r.getDiagnostics(c)!;
       expect(bBuilding.rowsMeshBuildInProgress).toBe(true);
