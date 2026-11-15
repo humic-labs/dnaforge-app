@@ -24,6 +24,15 @@ const bounds = (start, end) => nonnegative(start) && nonnegative(end) && end > s
 const maximum = (values) =>
   values.length > 0 ? values.reduce((max, value) => Math.max(max, value)) : null;
 
+function equalCoordinate(left, right) {
+  if (left === right) return true;
+  const magnitude = Math.max(Math.abs(left), Math.abs(right));
+  let exponent = Math.floor(Math.log2(magnitude));
+  if (2 ** exponent > magnitude) exponent -= 1;
+  const ulp = Math.max(Number.MIN_VALUE, 2 ** (exponent - 52));
+  return Math.abs(left - right) <= Math.min(1e-6, ulp * 4);
+}
+
 export function pileupRangeMatchesViewport(range, viewport) {
   if (
     !object(range) ||
@@ -32,16 +41,23 @@ export function pileupRangeMatchesViewport(range, viewport) {
     !bounds(viewport.startBp, viewport.endBp)
   )
     return false;
-  const equalCoordinate = (left, right) => {
-    if (left === right) return true;
-    const magnitude = Math.max(Math.abs(left), Math.abs(right));
-    let exponent = Math.floor(Math.log2(magnitude));
-    if (2 ** exponent > magnitude) exponent -= 1;
-    const ulp = Math.max(Number.MIN_VALUE, 2 ** (exponent - 52));
-    return Math.abs(left - right) <= Math.min(1e-6, ulp * 4);
-  };
   return (
     equalCoordinate(range.start, viewport.startBp) && equalCoordinate(range.end, viewport.endBp)
+  );
+}
+
+export function pileupCoverageCoversViewport(viewport) {
+  if (
+    !object(viewport) ||
+    !bounds(viewport.startBp, viewport.endBp) ||
+    !bounds(viewport.coverageStartBp, viewport.coverageEndBp)
+  )
+    return false;
+  return (
+    (viewport.coverageStartBp <= viewport.startBp ||
+      equalCoordinate(viewport.coverageStartBp, viewport.startBp)) &&
+    (viewport.coverageEndBp >= viewport.endBp ||
+      equalCoordinate(viewport.coverageEndBp, viewport.endBp))
   );
 }
 
@@ -213,7 +229,7 @@ function classifyViewport(phases, generationKey) {
         invalidate(check, `${label}:blend-coverage-bounds-missing`);
       } else if (
         bounds(viewport.startBp, viewport.endBp) &&
-        (viewport.coverageStartBp > viewport.startBp || viewport.coverageEndBp < viewport.endBp)
+        !pileupCoverageCoversViewport(viewport)
       ) {
         fail(check, `${label}:blend-coverage-misses-viewport`);
       }

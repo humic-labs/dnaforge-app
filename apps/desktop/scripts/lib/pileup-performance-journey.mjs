@@ -5,7 +5,11 @@ import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { createDensePileupFixture } from './pileup-performance-fixture.mjs';
-import { classifyPileupAnnotation, pileupRangeMatchesViewport } from './pileup-performance.mjs';
+import {
+  classifyPileupAnnotation,
+  pileupCoverageCoversViewport,
+  pileupRangeMatchesViewport,
+} from './pileup-performance.mjs';
 
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 const viewer = (page) => page.getByTestId('indexed-genome-visible-viewer');
@@ -280,9 +284,6 @@ async function observation(page, lane, readLengthBp) {
         visible:
           diagnostic.rowsMeshVisible === true && diagnostic.rowsVertexCount > 0 && rowsAlpha > 0.02,
         densityMatchesScale: physicalReadPx >= 3.6 ? densityAlpha <= 0.02 : densityAlpha > 0.02,
-        densityCoversViewport:
-          densityAlpha <= 0.02 ||
-          (diagnostic.coverageSignalStartBp <= startBp && diagnostic.coverageSignalEndBp >= endBp),
         lifecycleReady: lifecycle?.status?.phase === 'ready' && lifecycle.status.kind === 'reads',
         lifecycleCurrentSource:
           typeof lifecycle?.sourceKey === 'string' &&
@@ -351,6 +352,8 @@ async function observation(page, lane, readLengthBp) {
     { lane: { trackId: lane.trackId, generationKey: lane.generationKey }, readLengthBp }
   );
   if (!result) return null;
+  result.checks.densityCoversViewport =
+    result.viewport.densityAlpha <= 0.02 || pileupCoverageCoversViewport(result.viewport);
   result.annotation.expectation = lane.annotationExpectation ?? null;
   const annotations = classifyPileupAnnotation(result.annotation, result.viewport);
   result.checks.annotationsCurrent = annotations.status === 'pass';

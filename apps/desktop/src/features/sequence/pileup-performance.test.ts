@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PILEUP_PERFORMANCE_LIMITS,
   classifyPileupPerformance,
+  pileupCoverageCoversViewport,
 } from '../../../scripts/lib/pileup-performance.mjs';
 
 function report(profile = 'portable-dense') {
@@ -436,6 +437,56 @@ describe('saved pileup performance qualification', () => {
   it('accepts a complete physical blend with current coverage on both flanks', () => {
     const { found } = check(report(), 'viewport');
     expect(found.status).toBe('pass');
+  });
+
+  it.each([
+    ['left', 1],
+    ['left', 4],
+    ['right', 1],
+    ['right', 4],
+  ] as const)('accepts %s blend coverage with %i ULPs of camera roundoff', (edge, ulps) => {
+    const input = report();
+    const viewport = input.phases[2].viewport;
+    Object.assign(viewport, { coverageStartBp: 60_000, coverageEndBp: 104_000 });
+    if (edge === 'left') viewport.startBp -= ulps * 2 ** -37;
+    else viewport.endBp += ulps * 2 ** -36;
+    expect(check(input, 'viewport').found.status).toBe('pass');
+    expect(pileupCoverageCoversViewport(viewport)).toBe(true);
+  });
+
+  it.each([
+    ['left one-base gap', { coverageStartBp: 60_001 }, 'fail'],
+    ['right one-base gap', { coverageEndBp: 103_999 }, 'fail'],
+    ['left five-ULP gap', { coverageStartBp: 60_000 + 5 * 2 ** -37 }, 'fail'],
+    ['right five-ULP gap', { coverageEndBp: 104_000 - 5 * 2 ** -36 }, 'fail'],
+    ['missing left coverage', { coverageStartBp: undefined }, 'unqualified'],
+    ['missing right coverage', { coverageEndBp: undefined }, 'unqualified'],
+    ['NaN left coverage', { coverageStartBp: Number.NaN }, 'unqualified'],
+    ['NaN right coverage', { coverageEndBp: Number.NaN }, 'unqualified'],
+    ['reversed coverage', { coverageStartBp: 104_000, coverageEndBp: 60_000 }, 'unqualified'],
+    ['different interval', { coverageStartBp: 160_000, coverageEndBp: 204_000 }, 'fail'],
+  ] as const)('rejects %s at the blend coverage boundary', (_name, coverage, status) => {
+    const input = report();
+    Object.assign(input.phases[2].viewport, {
+      coverageStartBp: 60_000,
+      coverageEndBp: 104_000,
+      ...coverage,
+    });
+    expect(check(input, 'viewport').found.status).toBe(status);
+    expect(pileupCoverageCoversViewport(input.phases[2].viewport)).toBe(false);
+  });
+
+  it('keeps the absolute camera roundoff ceiling for blend coverage', () => {
+    const input = report();
+    const start = 2 ** 40;
+    Object.assign(input.phases[2].viewport, {
+      startBp: start,
+      endBp: start + 44_000,
+      coverageStartBp: start + 2 ** -12,
+      coverageEndBp: start + 44_000,
+    });
+    expect(check(input, 'viewport').found.status).toBe('fail');
+    expect(pileupCoverageCoversViewport(input.phases[2].viewport)).toBe(false);
   });
 
   it('requires the 44kb phase to actually exercise a physical blend', () => {
