@@ -52,7 +52,7 @@ it('a portaled dialog suspends its entire backdrop and restores the same pending
     </PresentationBoundary>
   );
   const dialog = screen.getByRole('dialog');
-  const backdrop = dialog.parentElement!;
+  const backdrop = dialog.closest<HTMLElement>('[data-presentation-surface]')!;
   expect(backdrop.dataset.presentationSurface).toBeTruthy();
   expect(backdrop).not.toHaveAttribute('inert');
   view.rerender(

@@ -3,6 +3,7 @@ import {
   type LegacyUnsavedDiscardSnapshot,
 } from '../../shared/legacy-unsaved-discard';
 import type { DirtyWorkState } from '../../shared/dirty-work-state';
+import { SaveAllError } from '../../shared/save-all-result';
 import { workspaceMutationRootIdentity } from '../workspace-sync-mutation-lease';
 import type { UnsavedWorkSaver } from '../quit-consent';
 import type {
@@ -71,10 +72,7 @@ export function createNativeDocumentQuitSaver<Window extends NativeDocumentQuitW
       }
       const result = await deps.nativeDocuments.settleDirtyDocuments({ action: 'save' });
       if (result.failures.length || result.remaining.length)
-        throw new Error(
-          result.failures.map((item) => item.error).join(' ') ||
-            'Some native drafts remain unsaved.'
-        );
+        throw new SaveAllError(result.failures);
     },
     readDirty: deps.readCurrentDirtyState,
     discardRecoveryCopies: async (win) => {
