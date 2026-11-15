@@ -6,6 +6,8 @@ import {
 } from '@waypoint/user-messages';
 import { createUserDialogs, type UserMessageBoxOptions } from './user-dialogs';
 import { app, dialog, type BrowserWindow } from 'electron';
+import { basename } from 'node:path';
+import { failedSaveAllResult, type SaveAllResult } from '../shared/save-all-result';
 
 type QuitConsent = 'pending' | 'granted';
 let quitConsent: QuitConsent = 'pending';
@@ -128,10 +130,12 @@ async function presentUnsavedWorkDialog(
   if (!canSave || response !== SAVE || !saver) return 'cancel';
 
   let saveFailed = false;
+  let failureDetails = '';
   try {
     await saver.saveAll(win);
   } catch (error) {
     saveFailed = true;
+    failureDetails = describeSaveFailures(failedSaveAllResult(error));
     console.warn('[quit-consent] Some changes were not saved:', error);
   }
   let remaining: { hasDirtyWork: boolean; details: string };
@@ -150,10 +154,15 @@ async function presentUnsavedWorkDialog(
     message: userMessageWithValues('dialog.dnaforge-couldn-t-save-value', {
       value0: userMessageValue(remaining.details || 'some of your changes'),
     }),
-    detail: userMessageWithValues(
-      'dialog.cancel-to-keep-working-and-try-saving-again-or-value-without-them',
-      { value0: userMessageValue(verb.toLowerCase()) }
-    ),
+    detail: failureDetails
+      ? userMessageWithValues('dialog.unsavedSaveFailure', {
+          failures: userMessageValue(failureDetails),
+          action: userMessageValue(verb.toLowerCase()),
+        })
+      : userMessageWithValues(
+          'dialog.cancel-to-keep-working-and-try-saving-again-or-value-without-them',
+          { value0: userMessageValue(verb.toLowerCase()) }
+        ),
     buttons: [
       userMessage('dialog.cancel'),
       userMessageWithValues('dialog.value-without-saving', { value0: userMessageValue(verb) }),
@@ -163,6 +172,26 @@ async function presentUnsavedWorkDialog(
   if (retry !== DISCARD) return 'cancel';
   if (!(await discardCopies(win))) return 'cancel';
   return 'proceed';
+}
+
+function describeSaveFailures(result: Extract<SaveAllResult, { status: 'failed' }>): string {
+  const lines = result.failures.slice(0, 5).map((failure) => {
+    const name = failure.path ? basename(failure.path.replaceAll('\\', '/')) : '';
+    const reason = (failure.path ? failure.error.replaceAll(failure.path, name) : failure.error)
+      .replace(/^Error invoking remote method '[^'\n]{1,128}':\s*/, '')
+      .replace(/^(?:(?:Error|NativeDocumentCommandError):\s*){1,3}/, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 240);
+    const safeReason =
+      userMessageValue(reason) === reason ? reason : userMessage('operation.failed');
+    return name
+      ? `${userMessageValue(name.replace(/\s+/g, ' ').slice(0, 120))}: ${safeReason}`
+      : safeReason;
+  });
+  const omitted = result.failures.length - lines.length;
+  if (omitted) lines.push(`And ${omitted} more save ${omitted === 1 ? 'failure' : 'failures'}.`);
+  return lines.join('; ');
 }
 
 async function discardCopies(win: BrowserWindow | null): Promise<boolean> {

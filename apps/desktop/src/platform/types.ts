@@ -2,6 +2,7 @@ import type {
   AppendProjectMemoryEventInput,
   ProjectMemorySnapshot,
 } from '../db/project-memory-owner';
+import type { SaveAllResult } from '../shared/save-all-result';
 import type { SqliteIpcValue } from '../shared/sqlite-ipc';
 import type { ArtifactFiles, ArtifactDatabase, ArtifactRegistryIO } from '../shared/artifact-io';
 import type {
@@ -1167,7 +1168,7 @@ export interface PlatformBridge {
   };
   app: {
     reportDirtyState(state: DirtyWorkState): void;
-    saveAllDone(requestId: string): void;
+    saveAllDone(requestId: string, result?: SaveAllResult): void;
   };
   update: {
     install(expectedVersion?: string): Promise<UpdateInstallResult>;

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BrowserWindow, MessageBoxOptions, MessageBoxReturnValue } from 'electron';
 import { configureUnsavedWorkSaver, showUnsavedWorkDialog } from './quit-consent';
+import { SaveAllError } from '../shared/save-all-result';
 
 const { showMessageBox } = vi.hoisted(() => ({ showMessageBox: vi.fn() }));
 vi.mock('electron', () => ({
@@ -194,5 +195,85 @@ describe('saving from the unsaved-work warning ', () => {
     showMessageBox.mockResolvedValueOnce({ response: 1, checkboxChecked: false });
     await showUnsavedWorkDialog(windowFixture(), { staged: false, details: '2 sequences' });
     expect(discardRecoveryCopies).not.toHaveBeenCalled();
+  });
+});
+
+describe('native save failure details', () => {
+  it.each([
+    ['win32', false],
+    ['win32', true],
+    ['darwin', false],
+    ['darwin', true],
+  ] as const)(
+    'names the failed file and reason while keeping Cancel safe on %s (restart=%s)',
+    async (platform, staged) => {
+      usePlatform(platform);
+      const discardRecoveryCopies = vi.fn(async () => {});
+      const path =
+        platform === 'win32' ? 'C:\\workspace\\Blocked Save.txt' : '/workspace/Blocked Save.txt';
+      configureUnsavedWorkSaver({
+        canSave: () => true,
+        saveAll: async () => {
+          throw new SaveAllError([
+            { documentId: 'doc-blocked', path, error: 'The text file is read-only.' },
+          ]);
+        },
+        readDirty: async () => ({ hasDirtyWork: true, details: '1 text file' }),
+        discardRecoveryCopies,
+      });
+      showMessageBox.mockResolvedValueOnce({ response: 2 }).mockResolvedValueOnce({ response: 0 });
+      expect(
+        await showUnsavedWorkDialog(windowFixture(), { staged, details: '2 text files' })
+      ).toBe('cancel');
+      const options = showMessageBox.mock.calls[1].at(-1) as MessageBoxOptions;
+      expect(options).toMatchObject({
+        detail: `Blocked Save.txt: The text file is read-only.\n\nCancel to keep working and try saving again, or ${staged ? 'restart' : 'close'} without them.`,
+        buttons: ['Cancel', staged ? 'Restart Without Saving' : 'Close Without Saving'],
+        defaultId: 0,
+        cancelId: 0,
+      });
+      expect(options.detail).not.toContain('workspace');
+      expect(discardRecoveryCopies).not.toHaveBeenCalled();
+    }
+  );
+
+  it('does not proceed on a failed acknowledgement even when the dirty cache appears clean', async () => {
+    configureUnsavedWorkSaver({
+      canSave: () => true,
+      saveAll: async () => {
+        throw new SaveAllError([
+          { documentId: null, error: 'Saving timed out before the editor confirmed completion.' },
+        ]);
+      },
+      readDirty: () => ({ hasDirtyWork: false, details: '' }),
+    });
+    showMessageBox.mockResolvedValueOnce({ response: 2 }).mockResolvedValueOnce({ response: 0 });
+    expect(
+      await showUnsavedWorkDialog(windowFixture(), { staged: true, details: '1 text file' })
+    ).toBe('cancel');
+    expect(showMessageBox.mock.calls[1][1].detail).toContain('Saving timed out');
+  });
+
+  it('bounds native error details and removes the affected absolute path from its reason', async () => {
+    configureUnsavedWorkSaver({
+      canSave: () => true,
+      saveAll: async () => {
+        throw new SaveAllError(
+          Array.from({ length: 6 }, (_, index) => ({
+            documentId: `doc-${index}`,
+            path: `/private/project/blocked-${index}.txt`,
+            error: `EACCES: permission denied, open '/private/project/blocked-${index}.txt'\n${'x'.repeat(1000)}`,
+          }))
+        );
+      },
+      readDirty: () => ({ hasDirtyWork: true, details: '6 text files' }),
+    });
+    showMessageBox.mockResolvedValueOnce({ response: 2 }).mockResolvedValueOnce({ response: 0 });
+    await showUnsavedWorkDialog(windowFixture(), { staged: false, details: '6 text files' });
+    const detail = showMessageBox.mock.calls[1][1].detail as string;
+    expect(detail).toContain('blocked-0.txt: EACCES: permission denied');
+    expect(detail).not.toContain('/private/project');
+    expect(detail).toContain('And 1 more save failure.');
+    expect(detail.length).toBeLessThan(2000);
   });
 });
