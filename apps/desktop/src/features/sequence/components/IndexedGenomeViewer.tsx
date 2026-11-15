@@ -3515,6 +3515,7 @@ export function IndexedGenomeViewer({
       height={height}
       hasDataTracks={activeStressDatasets.length > 0}
       hasQuantitativeTracks={allTrackLanes.some((lane) => isQuantitativeDataset(lane.dataset))}
+      hasPileupTracks={allTrackLanes.some((lane) => lane.visible && lane.dataset.kind === 'pileup')}
       containerWidth={containerWidth}
       glyphV2Enabled={glyphV2Enabled}
       rendererAssembly={rendererAssembly}
