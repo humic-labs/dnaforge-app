@@ -82,7 +82,7 @@ export type EditableTabType = {
 export const TAB_DOCUMENT_OWNER_MODULES = {
   sequence: [
     'features/sequence/components/SequenceTab.tsx',
-    'features/sequence/components/TrackViewActions.tsx',
+    'features/sequence/track-view-session.ts',
     'features/design/components/useEmbeddedAssemblyWorkingCopyOwner.ts',
   ],
   text: ['components/TextViewerTab.tsx'],
