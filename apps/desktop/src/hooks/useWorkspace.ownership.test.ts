@@ -26,6 +26,12 @@ vi.mock('../db', () => {
     },
   };
 });
+vi.mock('../db/connection', async () => ({ db: (await import('../db')).db }));
+vi.mock('../db/schema', async () => {
+  const { settings, workspaces } = await import('../db');
+  return { settings, workspaces };
+});
+
 vi.mock('drizzle-orm', () => ({ and: vi.fn(), eq: vi.fn(), isNull: vi.fn() }));
 vi.mock('../platform', () => ({
   platform: () => ({ db: { ensureWorkspaceOwner: ports.ensure } }),

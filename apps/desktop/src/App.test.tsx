@@ -142,6 +142,11 @@ vi.mock('./db', () => {
     workspaces: { path: 'path', archivedAt: 'archivedAt', trashedAt: 'trashedAt' },
   };
 });
+vi.mock('./db/connection', async () => ({ db: (await import('./db')).db }));
+vi.mock('./db/schema', async () => {
+  const { settings, workspaces } = await import('./db');
+  return { settings, workspaces };
+});
 
 vi.mock('./platform', () => ({
   platform: vi.fn(() => ({

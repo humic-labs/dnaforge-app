@@ -1,5 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
-import { db, settings, workspaces } from '../../db';
+import { db } from '../../db/connection';
+import { settings, workspaces } from '../../db/schema';
 import { platform } from '../../platform';
 import { isBrowserOnly, isHostedBrowserRuntime } from '../../utils/environment';
 import { MOCK_WORKSPACE_PATH } from '../../utils/browser-mocks';
