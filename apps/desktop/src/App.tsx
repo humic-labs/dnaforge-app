@@ -53,6 +53,7 @@ import { platform } from './platform';
 import { StartupSurface } from './startup/StartupSurface';
 import { isBrowserOnly, isDesktopRuntime, isHostedBrowserRuntime } from './utils/environment';
 import { useWorkspace } from './hooks/useWorkspace';
+import { useWorkspacePathSync } from './hooks/useWorkspacePathSync';
 import { useWorkspaceStore } from './stores/workspaceStore';
 import { useDevFixturesMounted } from './dev/dev-fixtures-mount';
 import { FileBrowser, type WorkspaceCreationContext } from './components/FileBrowser';
@@ -176,12 +177,6 @@ import { useToastStore } from './stores/toast-store';
 import { getDevSurfaceState } from './lib/dev-surface-gates';
 import type { TabType } from './features/canvas/types';
 import type { AssistantHostId } from './features/ai/assistant-hosts';
-import { openWorkspaceFromSource } from './features/workspace-loader/open-workspace-from-source';
-import { observeWorkspaceSetPath } from './features/workspace-loader/workspace-telemetry';
-import {
-  loadWorkspaceDeliveryReceipts,
-  rememberWorkspaceDeliveryReceipt,
-} from './features/workspace-loader/workspace-delivery-receipts';
 import { resolveChatWorkspacePath } from './features/canvas/components/chat-workspace';
 import { soleWritableProjectRoot } from './shared/project-root-selection';
 
@@ -706,12 +701,6 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
   const e2eHasInitializedRef = useRef(false);
   const removingWorkspacePathRef = useRef<string | null>(null);
 
-  const workspaceSetPathDeliveryIdsRef = useRef<Set<string> | null>(null);
-  const workspaceSetPathInFlightDeliveryIdsRef = useRef(new Set<string>());
-  if (workspaceSetPathDeliveryIdsRef.current === null) {
-    workspaceSetPathDeliveryIdsRef.current = loadWorkspaceDeliveryReceipts(sessionStorage);
-  }
-
   const workspace = useWorkspace();
   const {
     path: workspacePath,
@@ -721,6 +710,14 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
   } = workspace;
   const { folders, addFolder, removeFolder, renameFolder, selectedPath, fileTreeRefreshToken } =
     useWorkspaceStore();
+  useWorkspacePathSync({
+    workspacePath,
+    workspaceLoading,
+    folders,
+    addFolder,
+    setWorkspacePath,
+    removingWorkspacePathRef,
+  });
   const electronWorkspaceRootsKey = folders
     .map((folder) => `${folder.path}\0${folder.name}`)
     .join('\0');
@@ -771,106 +768,6 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
     };
   }, [folders, recentlyEditedWorkspaceAccessKey]);
   const recentlyEditedReady = preparedRecentlyEditedAccessKey === recentlyEditedWorkspaceAccessKey;
-
-  const projectedWorkspacePathRef = useRef<string | null>(null);
-  useEffect(() => {
-    console.log('[App] Workspace sync effect:', {
-      workspacePath,
-      workspaceLoading,
-      foldersLength: folders.length,
-    });
-    if (workspaceLoading) return;
-    const workspacePathChanged = workspacePath !== projectedWorkspacePathRef.current;
-    projectedWorkspacePathRef.current = workspacePath;
-
-    if (
-      workspacePath &&
-      workspacePathChanged &&
-      !folders.some((folder) => folder.path === workspacePath)
-    ) {
-      if (removingWorkspacePathRef.current === workspacePath) {
-        return;
-      }
-      console.log('[App] Adding folder to store:', workspacePath);
-      addFolder(workspacePath);
-    }
-
-    if (!workspacePath && folders.length > 0) {
-      const userFolder = soleWritableProjectRoot(folders);
-      if (userFolder) {
-        if (removingWorkspacePathRef.current === userFolder.path) {
-          return;
-        }
-        console.log('[App] Reverse-syncing workspace path from folders:', userFolder.path);
-        setWorkspacePath(userFolder.path);
-      }
-    }
-    if (
-      removingWorkspacePathRef.current &&
-      workspacePath !== removingWorkspacePathRef.current &&
-      !folders.some((folder) => folder.path === removingWorkspacePathRef.current)
-    ) {
-      removingWorkspacePathRef.current = null;
-    }
-  }, [workspacePath, workspaceLoading, folders, addFolder, setWorkspacePath]);
-
-  useEffect(() => {
-    try {
-      const p = platform();
-      if (p?.on) {
-        return p.on('workspace:set-path', (...args: unknown[]) => {
-          const wsPath = typeof args[0] === 'string' ? args[0] : '';
-          if (!wsPath) return;
-          const deliveryId = typeof args[1] === 'string' ? args[1] : undefined;
-          const telemetryContext = args[2];
-          if (deliveryId) {
-            const delivered = workspaceSetPathDeliveryIdsRef.current;
-            if (!delivered) return;
-            if (
-              delivered.has(deliveryId) ||
-              workspaceSetPathInFlightDeliveryIdsRef.current.has(deliveryId)
-            ) {
-              return;
-            }
-            workspaceSetPathInFlightDeliveryIdsRef.current.add(deliveryId);
-          }
-          console.log('[App] Setting workspace from main process:', wsPath);
-          void openWorkspaceFromSource(
-            { kind: 'local-folder', path: wsPath },
-            { inPlace: true, makeCurrent: true },
-            {
-              currentLegacyWorkspacePath: workspacePath,
-              setLegacyWorkspacePath: setWorkspacePath,
-            }
-          )
-            .then(() => {
-              if (deliveryId) {
-                const delivered = workspaceSetPathDeliveryIdsRef.current;
-                if (!delivered) return;
-                if (!rememberWorkspaceDeliveryReceipt(delivered, deliveryId, sessionStorage)) {
-                  return;
-                }
-              }
-
-              observeWorkspaceSetPath(wsPath, deliveryId, telemetryContext);
-            })
-            .catch((error) => {
-              console.error('[App] Failed to mount workspace from main process:', error);
-              useToastStore
-                .getState()
-                .addToast(toUserMessage(error, 'failure.failed-to-open-project'), {
-                  definition: 'app-failed-to-open-project',
-                });
-            })
-            .finally(() => {
-              if (deliveryId) {
-                workspaceSetPathInFlightDeliveryIdsRef.current.delete(deliveryId);
-              }
-            });
-        });
-      }
-    } catch {}
-  }, [setWorkspacePath, workspacePath]);
 
   useEffect(() => {
     if (import.meta.env.DEV !== true) return;
