@@ -1,10 +1,14 @@
 import type { InventoryMaterialDialog } from './InventoryMaterialForm';
 import type { InventoryCompositionDialog } from './InventoryCompositionForm';
 import type { InventoryReservationDialog } from './InventoryReservations';
+import type { InventoryCustodyDialog } from './InventoryCustodyForm';
 import {
   inventoryStoragePositions,
   inventoryStackItems,
   type InventoryCommand,
+  type InventoryAvailabilityBlocker,
+  type InventoryItemCustody,
+  type InventoryLocationPathEntry,
   type InventoryConcentration,
   type InventoryConcentrationUnit,
   type InventoryLocatedPlacement,
@@ -25,7 +29,9 @@ export type InventoryDialog =
   | InventoryMaterialDialog
   | InventoryCompositionDialog
   | InventoryReservationDialog
+  | InventoryCustodyDialog
   | { kind: 'none' }
+  | { kind: 'container'; placement?: InventoryLocatedPlacement }
   | { kind: 'location'; parentId?: string }
   | { kind: 'receive'; placement?: InventoryLocatedPlacement; vesselId?: string }
   | { kind: 'move'; item: InventoryItem }
@@ -74,12 +80,51 @@ export function locationPath(state: InventoryState, id: string): string {
     visited.add(current.id);
     names.unshift(current.name);
     if (current.placement.kind !== 'located') break;
+    names.unshift(current.placement.slotId);
     current = state.storage[current.placement.storageId];
   }
   return names.join(' / ');
 }
 
-export function vesselLocation(state: InventoryState, vessel: InventoryVessel): string {
+export function inventoryLocationPathLabel(path: readonly InventoryLocationPathEntry[]): string {
+  return path
+    .flatMap((entry) => (entry.position === null ? [entry.name] : [entry.position, entry.name]))
+    .join(' / ');
+}
+
+export function inventoryBlockerLabel(blocker: InventoryAvailabilityBlocker): string {
+  const labels: Record<InventoryAvailabilityBlocker['code'], string> = {
+    QUANTITY_UNKNOWN: 'Recorded quantity is unknown',
+    STOCK_QUARANTINED: 'This stock is quarantined',
+    VESSEL_DISPOSED: 'This container has been disposed',
+    ALLOCATION_SHORTFALL: 'Reservations exceed recorded stock',
+    ITEM_RESERVED: 'This item is reserved',
+    EXPIRY_PENDING: 'Past deadline; still allocated until released or expired',
+    ITEM_CHECKED_OUT: 'This item is checked out to another holder',
+    ITEM_IN_TRANSIT: 'This item is in transit',
+    ITEM_MISSING: 'The current location of this item is unknown',
+  };
+  return labels[blocker.code];
+}
+
+export function inventoryCustodyLabel(custody: InventoryItemCustody | undefined): string {
+  return custody
+    ? {
+        available: 'Available',
+        'checked-out': 'Checked out',
+        'in-transit': 'In transit',
+        missing: 'Missing',
+      }[custody.state.kind]
+    : 'Custody unavailable';
+}
+
+export function vesselLocation(
+  state: InventoryState,
+  vessel: InventoryVessel,
+  custody?: InventoryItemCustody
+): string {
+  if (custody?.state.kind === 'missing') return 'Location unknown';
+  if (custody && custody.state.kind !== 'available') return inventoryCustodyLabel(custody);
   return vessel.placement.kind === 'located'
     ? `${locationPath(state, vessel.placement.storageId)} / ${vessel.placement.slotId}`
     : 'Unplaced';
@@ -144,6 +189,16 @@ export function destinationPositions(
 
 export function historyLabel(command: InventoryCommand, state: InventoryState): string {
   switch (command.kind) {
+    case 'checkout-item':
+      return 'Checked out item';
+    case 'start-item-transit':
+      return 'Started item transfer';
+    case 'return-item':
+      return 'Recorded item return or arrival';
+    case 'report-item-missing':
+      return 'Reported item missing';
+    case 'locate-item':
+      return 'Recorded item location';
     case 'reserve-quantity':
       return `Reserved ${command.quantity.value} ${command.quantity.unit === 'uL' ? 'µL' : command.quantity.unit} for ${command.purpose}`;
     case 'reserve-item':

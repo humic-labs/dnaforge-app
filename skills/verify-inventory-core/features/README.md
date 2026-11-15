@@ -16,3 +16,6 @@
 
 - [Reservations](reservations.md): explicit holds, available quantity, partial
   fulfillment, stable holders and recorded release or expiry.
+
+- [Physical custody](custody.md): empty containers, aggregate checkout, return,
+  missing observations, transit and immutable location history.

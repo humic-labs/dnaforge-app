@@ -16,8 +16,9 @@ Layouts distinguish named positions, grids, removable-tube boxes, permanent-well
 plates and ordered stacks. This version supports one stock per vessel and exact
 volume accounting. Lots, internal preparations, exact-volume transfers, pooling,
 tracked dilution, exact concentration facts and known container limits use the
-same command owner. Quantity and item reservations use that owner too. Physical
-custody, team synchronization and equipment qualification remain separate work.
+same command owner. Quantity and item reservations and physical custody use that
+owner too. Team synchronization and equipment qualification remain separate
+work.
 
 Permanent wells have stable identity and remain attached to their plate. A plate
 moves with all its wells. Whole-plate disposal retains historical stock and
@@ -26,7 +27,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v5. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v6. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -132,6 +133,56 @@ receipt before sampling a new clock. New receipts carry versioned context
 separately from the existing actor string. Replay uses saved context and time;
 historical receipt bytes and request digests remain unchanged. This is a local
 monotonic clock guarantee; shared authority belongs to team synchronization.
+
+## Physical custody and observations
+
+Custody is independent of quality, quantity, reservation and lifecycle. Each
+storage aggregate or movable vessel has a direct custody state. Permanent wells
+inherit their plate's custody. One shared projection finds the controlling
+ancestor; checking out a box never rewrites every descendant. v1–v5 state
+upcasts to available direct custody without writes or revision changes.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Available
+    Available --> CheckedOut: check out with trusted holder
+    Available --> InTransit: start transfer
+    CheckedOut --> InTransit: custodian starts transfer
+    CheckedOut --> Available: return to explicit destination
+    InTransit --> Available: record arrival at explicit destination
+    Available --> Missing: report observed absence
+    CheckedOut --> Missing: report observed absence
+    InTransit --> Missing: report observed absence
+    Missing --> Available: record observed location
+```
+
+Available here means no outstanding custody record. It does not establish usable
+quality or unreserved quantity. Checkout due dates are observation facts; they
+never run a timer that returns an item or releases a reservation.
+
+Departure frees the previous slot. Last-known observations retain immutable
+names, positions and time separately from current placement. An inherited
+subtree split preserves the original absolute observation and separately dates
+its relative membership facts. An intended transfer destination is a plan, not
+occupied or reserved space. Return and arrival revalidate the actual
+destination.
+
+Ordinary movement cannot erase direct or inherited custody. Explicit authorized
+custody commands can split a movable subtree; permanent wells never split from
+their plate. Missing and transit block physical material debits and credits.
+Owned checked-out items remain subject to quality, quantity and reservation
+rules. Reconciliation and quality observations remain separate commands.
+
+Checkout and dispatch obey top-only stack retrieval and protect foreign holds. A
+missing report records truth, retaining stock amounts, holds and the prior
+responsible holder separately from the reporter. A middle-stack missing report
+removes recorded occupancy and compacts the remaining ordinal metadata while
+preserving relative order. It does not record physical retrieval of the others.
+
+Locating a missing item is an explicit reason-bearing physical observation. It
+restores available custody at the accepted destination; immutable history
+retains prior responsibility. Reads and old-state upcasts never create custody
+events.
 
 ## Material identity and conservation
 

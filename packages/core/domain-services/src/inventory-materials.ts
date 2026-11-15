@@ -380,3 +380,20 @@ export function applyInventoryMaterialCommand(
       return undefined;
   }
 }
+
+export function inventoryCommandWithdrawals(
+  command: InventoryCommand
+): readonly InventoryWithdrawal[] {
+  switch (command.kind) {
+    case 'consume':
+      return [{ stockId: command.stockId, quantity: command.quantity }];
+    case 'transfer':
+      return [{ stockId: command.sourceStockId, quantity: command.quantity }];
+    case 'pool':
+      return command.inputs;
+    case 'dilute':
+      return [command.sample, command.diluent];
+    default:
+      return [];
+  }
+}

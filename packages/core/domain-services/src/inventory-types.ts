@@ -12,7 +12,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v5' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v6' as const;
+export const INVENTORY_RESERVATION_SCHEMA = 'dnaforge.inventory.v5' as const;
 export const INVENTORY_COMPOSITION_SCHEMA = 'dnaforge.inventory.v4' as const;
 export const INVENTORY_MATERIAL_SCHEMA = 'dnaforge.inventory.v3' as const;
 export const INVENTORY_LAYOUT_SCHEMA = 'dnaforge.inventory.v2' as const;
@@ -58,6 +59,73 @@ export interface InventoryLocatedPlacement {
 export type InventoryStoragePlacement = { readonly kind: 'root' } | InventoryLocatedPlacement;
 
 export type InventoryVesselPlacement = { readonly kind: 'unplaced' } | InventoryLocatedPlacement;
+export type InventoryPlacement = InventoryStoragePlacement | InventoryVesselPlacement;
+export type InventoryCustodyDestination =
+  | InventoryPlacement
+  | { readonly kind: 'stack-top'; readonly stackId: string };
+
+export interface InventoryLocationPathEntry {
+  readonly item: InventoryPhysicalItem;
+  readonly name: string;
+  readonly position: string | null;
+}
+
+export interface InventoryLocationObservation {
+  readonly observedAt: number;
+  readonly placement: InventoryPlacement;
+  readonly path: readonly InventoryLocationPathEntry[];
+  readonly custodyRoot: InventoryPhysicalItem | null;
+  readonly relativePath: readonly InventoryLocationPathEntry[];
+  readonly relativeAt: number | null;
+}
+
+export type InventoryCustody =
+  | { readonly kind: 'available' }
+  | {
+      readonly kind: 'checked-out';
+      readonly reason: string;
+      readonly holder: InventoryPrincipal;
+      readonly at: number;
+      readonly dueAt: number | null;
+      readonly lastKnown: InventoryLocationObservation;
+    }
+  | {
+      readonly kind: 'in-transit';
+      readonly reason: string;
+      readonly holder: InventoryPrincipal;
+      readonly at: number;
+      readonly destination: InventoryCustodyDestination;
+      readonly lastKnown: InventoryLocationObservation;
+    }
+  | {
+      readonly kind: 'missing';
+      readonly holder: InventoryPrincipal | null;
+      readonly reportedBy: InventoryPrincipal;
+      readonly at: number;
+      readonly reason: string;
+      readonly lastKnown: InventoryLocationObservation;
+    };
+
+export interface InventoryEffectiveCustody {
+  readonly root: InventoryPhysicalItem | null;
+  readonly state: InventoryCustody;
+  readonly inherited: boolean;
+}
+
+export interface InventoryItemCustody extends InventoryEffectiveCustody {
+  readonly item: InventoryPhysicalItem;
+  readonly placement: InventoryPlacement;
+  readonly lastKnown: InventoryLocationObservation | null;
+  readonly overdue: boolean;
+  readonly blockers: readonly InventoryAvailabilityBlocker[];
+  readonly actions: {
+    readonly checkout: boolean;
+    readonly startTransit: boolean;
+    readonly return: boolean;
+    readonly reportMissing: boolean;
+    readonly locate: boolean;
+  };
+}
 
 export type InventoryLayout =
   | { readonly kind: 'named'; readonly slots: readonly string[] }
@@ -77,6 +145,7 @@ export interface InventoryStorage {
   readonly layout: InventoryLayout;
   readonly placement: InventoryStoragePlacement;
   readonly lifecycle: 'active' | 'disposed';
+  readonly custody: InventoryCustody;
 }
 
 export interface InventoryVesselLimits {
@@ -84,14 +153,18 @@ export interface InventoryVesselLimits {
   readonly deadVolume: InventoryQuantity;
 }
 
-export interface InventoryVessel {
-  readonly kind: 'movable' | 'fixed-well';
+interface InventoryVesselFacts {
   readonly limits: InventoryVesselLimits;
   readonly id: string;
   readonly name: string;
   readonly placement: InventoryVesselPlacement;
   readonly lifecycle: 'active' | 'disposed';
 }
+export type InventoryVessel = InventoryVesselFacts &
+  (
+    | { readonly kind: 'movable'; readonly custody: InventoryCustody }
+    | { readonly kind: 'fixed-well' }
+  );
 
 export type InventoryStockSource =
   | { readonly kind: 'unattributed'; readonly rootStockId: string }
@@ -198,6 +271,13 @@ export type InventoryReservation = InventoryReservationFacts &
   );
 
 export type InventoryAvailabilityBlocker =
+  | {
+      readonly code: 'ITEM_CHECKED_OUT';
+      readonly item: InventoryPhysicalItem;
+      readonly holder: InventoryPrincipal;
+    }
+  | { readonly code: 'ITEM_IN_TRANSIT'; readonly item: InventoryPhysicalItem }
+  | { readonly code: 'ITEM_MISSING'; readonly item: InventoryPhysicalItem }
   | { readonly code: 'QUANTITY_UNKNOWN' }
   | { readonly code: 'STOCK_QUARANTINED' }
   | { readonly code: 'VESSEL_DISPOSED' }
@@ -230,6 +310,7 @@ export interface InventoryReservationAvailability {
 }
 
 export interface InventoryAvailability {
+  readonly items: Readonly<Record<string, InventoryItemCustody>>;
   readonly stocks: Readonly<Record<string, InventoryStockAvailability>>;
   readonly reservations: Readonly<Record<string, InventoryReservationAvailability>>;
 }
@@ -323,6 +404,7 @@ export type InventoryMaterialCommand =
   | (InventoryLegacyDiluteCommand & { readonly mixing: InventoryMixing });
 
 export type InventoryCommand =
+  | InventoryCustodyCommand
   | InventoryReservationCommand
   | InventoryMaterialCommand
   | {
@@ -432,6 +514,37 @@ export type InventoryReservationCommand =
       readonly withdrawal: InventoryWithdrawalCommand;
     };
 
+export type InventoryCustodyCommand =
+  | {
+      readonly kind: 'checkout-item';
+      readonly item: InventoryPhysicalItem;
+      readonly dueAt: number | null;
+      readonly reason: string;
+    }
+  | {
+      readonly kind: 'start-item-transit';
+      readonly item: InventoryPhysicalItem;
+      readonly destination: InventoryCustodyDestination;
+      readonly reason: string;
+    }
+  | {
+      readonly kind: 'return-item';
+      readonly item: InventoryPhysicalItem;
+      readonly destination: InventoryCustodyDestination;
+      readonly reason: string;
+    }
+  | {
+      readonly kind: 'report-item-missing';
+      readonly item: InventoryPhysicalItem;
+      readonly reason: string;
+    }
+  | {
+      readonly kind: 'locate-item';
+      readonly item: InventoryPhysicalItem;
+      readonly destination: InventoryCustodyDestination;
+      readonly reason: string;
+    };
+
 export type InventoryErrorCode =
   | 'INVALID_INVENTORY_INPUT'
   | 'REVISION_CONFLICT'
@@ -470,7 +583,13 @@ export type InventoryErrorCode =
   | 'QUANTITY_RESERVED'
   | 'ITEM_RESERVED'
   | 'INVALID_RESERVATION_CLAIM'
-  | 'AUTHORITY_REQUIRED';
+  | 'AUTHORITY_REQUIRED'
+  | 'ITEM_CHECKED_OUT'
+  | 'ITEM_IN_TRANSIT'
+  | 'ITEM_MISSING'
+  | 'CUSTODY_STATE_CONFLICT'
+  | 'CUSTODY_NOT_OWNED'
+  | 'CUSTODY_TRANSITION_REQUIRED';
 
 export type InventoryTransition =
   | { readonly ok: true; readonly state: InventoryState }

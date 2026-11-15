@@ -1,6 +1,7 @@
 import type { InventoryMaterialDialog } from './InventoryMaterialForm';
 import type { InventoryCompositionDialog } from './InventoryCompositionForm';
 import type { InventoryReservationDialog } from './InventoryReservations';
+import type { InventoryCustodyDialog } from './InventoryCustodyForm';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   inventoryStoragePositions,
@@ -37,6 +38,7 @@ type OpenDialog = Exclude<
   | InventoryMaterialDialog
   | InventoryCompositionDialog
   | InventoryReservationDialog
+  | InventoryCustodyDialog
   | { kind: 'none' }
 >;
 type Materials =
@@ -81,7 +83,7 @@ export function InventoryForm({
         : state.vessels[dialog.item.id]
       : undefined;
   const initialPlacement =
-    dialog.kind === 'receive'
+    dialog.kind === 'receive' || dialog.kind === 'container'
       ? dialog.placement
       : moving?.placement.kind === 'located'
         ? moving.placement
@@ -120,19 +122,21 @@ export function InventoryForm({
   const title =
     dialog.kind === 'location'
       ? 'Add location'
-      : dialog.kind === 'receive'
-        ? 'Receive stock'
-        : dialog.kind === 'move'
-          ? `Move ${dialog.item.kind === 'storage' ? 'location' : 'container'}`
-          : dialog.kind === 'use'
-            ? 'Use stock'
-            : dialog.kind === 'reconcile'
-              ? 'Record quantity'
-              : dialog.kind === 'quality'
-                ? dialog.quality === 'quarantined'
-                  ? 'Quarantine stock'
-                  : 'Release stock'
-                : 'Dispose';
+      : dialog.kind === 'container'
+        ? 'Add container'
+        : dialog.kind === 'receive'
+          ? 'Receive stock'
+          : dialog.kind === 'move'
+            ? `Move ${dialog.item.kind === 'storage' ? 'location' : 'container'}`
+            : dialog.kind === 'use'
+              ? 'Use stock'
+              : dialog.kind === 'reconcile'
+                ? 'Record quantity'
+                : dialog.kind === 'quality'
+                  ? dialog.quality === 'quarantined'
+                    ? 'Quarantine stock'
+                    : 'Release stock'
+                  : 'Dispose';
 
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
@@ -235,6 +239,25 @@ export function InventoryForm({
             stackId: selectedStorage.id,
             item: { kind: 'storage', id },
           });
+      } else if (dialog.kind === 'container') {
+        if (!name.trim()) throw new Error('Enter a container name.');
+        const id = crypto.randomUUID();
+        const target = destination();
+        commands.push({
+          kind: 'create-vessel',
+          id,
+          name: name.trim(),
+          placement:
+            selectedStorage?.layout.kind === 'stack'
+              ? { kind: 'unplaced' }
+              : (target ?? { kind: 'unplaced' }),
+        });
+        if (selectedStorage?.layout.kind === 'stack')
+          commands.push({
+            kind: 'push-stack',
+            stackId: selectedStorage.id,
+            item: { kind: 'vessel', id },
+          });
       } else if (dialog.kind === 'receive') {
         if (!materialId) throw new Error('Choose a material from this project.');
         let vesselId = containerId;
@@ -328,6 +351,7 @@ export function InventoryForm({
 
   const placementFields =
     dialog.kind === 'location' ||
+    dialog.kind === 'container' ||
     dialog.kind === 'move' ||
     (dialog.kind === 'receive' && !containerId) ? (
       <>
@@ -444,6 +468,17 @@ export function InventoryForm({
             <div className="flex min-h-0 flex-col gap-4 overflow-y-auto p-5">
               <InventoryStatusNotice controller={controller} status={status} />
               {validation ? <Notice tone="error">{validation}</Notice> : null}
+              {dialog.kind === 'container' ? (
+                <Field label="Container name">
+                  <TextField
+                    autoFocus
+                    aria-label="Container name"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    required
+                  />
+                </Field>
+              ) : null}
               {dialog.kind === 'location' ? (
                 <>
                   <Field label="Location name">
@@ -602,7 +637,11 @@ export function InventoryForm({
                           ...containers.map((item) => ({
                             value: item.id,
                             label: item.name,
-                            description: vesselLocation(state, item),
+                            description: vesselLocation(
+                              state,
+                              item,
+                              data.availability?.items[item.id]
+                            ),
                           })),
                         ]}
                         onValueChange={setContainerId}
@@ -612,7 +651,12 @@ export function InventoryForm({
                   {selectedContainer ? (
                     <Notice>
                       Receive into {selectedContainer.name} at{' '}
-                      {vesselLocation(state, selectedContainer)}.
+                      {vesselLocation(
+                        state,
+                        selectedContainer,
+                        data.availability?.items[selectedContainer.id]
+                      )}
+                      .
                     </Notice>
                   ) : !fixedWell ? (
                     <Field label="Container name">

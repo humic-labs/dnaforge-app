@@ -1,5 +1,6 @@
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_RESERVATION_SCHEMA,
   INVENTORY_COMPOSITION_SCHEMA,
   INVENTORY_MATERIAL_SCHEMA,
   INVENTORY_LAYOUT_SCHEMA,
@@ -15,6 +16,7 @@ import {
   type InventoryConcentration,
   type InventoryConcentrationInput,
   type InventoryExecutionContext,
+  type InventoryCustody,
   type InventoryLayout,
   type InventoryLot,
   type InventoryQuantity,
@@ -251,6 +253,58 @@ const executionContext: Codec<InventoryExecutionContext> = checked(
 export function parseInventoryExecutionContext(value: unknown): InventoryExecutionContext {
   return executionContext.parse(value);
 }
+const custodyDestination = union('Custody destination', [
+  root,
+  unplaced,
+  located,
+  fields('Stack top destination', { kind: literal('stack-top'), stackId: id }),
+]);
+function nullable<T>(codec: Codec<T>): Codec<T | null> {
+  return {
+    schema: { anyOf: [codec.schema, { type: 'null' }] },
+    parse: (value) => (value === null ? null : codec.parse(value)),
+  };
+}
+const locationPathEntry = fields('Observed location path entry', {
+  item: reservationItem,
+  name,
+  position: nullable(slot),
+});
+const locationObservation = fields('Last-known location observation', {
+  observedAt: timestamp,
+  placement: union('Observed placement', [root, unplaced, located]),
+  path: array(locationPathEntry, MAX_INVENTORY_STORAGE_SLOTS, 1),
+  custodyRoot: nullable(reservationItem),
+  relativePath: array(locationPathEntry, MAX_INVENTORY_STORAGE_SLOTS),
+  relativeAt: deadline,
+});
+const custodyRecord: Codec<InventoryCustody> = union('Item custody', [
+  fields('Available item custody', { kind: literal('available') }),
+  fields('Checked-out item custody', {
+    kind: literal('checked-out'),
+    reason,
+    holder: principal,
+    at: timestamp,
+    dueAt: deadline,
+    lastKnown: locationObservation,
+  }),
+  fields('In-transit item custody', {
+    kind: literal('in-transit'),
+    reason,
+    holder: principal,
+    at: timestamp,
+    destination: custodyDestination,
+    lastKnown: locationObservation,
+  }),
+  fields('Missing item custody', {
+    kind: literal('missing'),
+    holder: nullable(principal),
+    reportedBy: principal,
+    at: timestamp,
+    reason,
+    lastKnown: locationObservation,
+  }),
+]);
 const dimensions = {
   rows: integer('Layout rows', 1, MAX_INVENTORY_STORAGE_SLOTS),
   columns: integer('Layout columns', 1, MAX_INVENTORY_STORAGE_SLOTS),
@@ -651,6 +705,35 @@ const commands = {
     ),
     withdrawal: withdrawalCommand,
   }),
+  'checkout-item': fields('Checkout item command', {
+    kind: literal('checkout-item'),
+    item: reservationItem,
+    dueAt: deadline,
+    reason,
+  }),
+  'start-item-transit': fields('Start item transit command', {
+    kind: literal('start-item-transit'),
+    item: reservationItem,
+    destination: custodyDestination,
+    reason,
+  }),
+  'return-item': fields('Return item command', {
+    kind: literal('return-item'),
+    item: reservationItem,
+    destination: custodyDestination,
+    reason,
+  }),
+  'report-item-missing': fields('Report missing item command', {
+    kind: literal('report-item-missing'),
+    item: reservationItem,
+    reason,
+  }),
+  'locate-item': fields('Locate item command', {
+    kind: literal('locate-item'),
+    item: reservationItem,
+    destination: custodyDestination,
+    reason,
+  }),
 } satisfies {
   [K in InventoryCommand['kind']]: Codec<Extract<InventoryCommand, { readonly kind: K }>>;
 };
@@ -742,13 +825,9 @@ const reservationRecord: Codec<InventoryReservation> = union('Reservation record
   }),
 ]);
 
-const storageRecord = fields('Storage record', {
-  id,
-  name,
-  layout,
-  placement: storagePlacement,
-  lifecycle,
-});
+const storageFields = { id, name, layout, placement: storagePlacement, lifecycle };
+const previousStorageRecord = fields('Previous storage record', storageFields);
+const storageRecord = fields('Storage record', { ...storageFields, custody: custodyRecord });
 const previousVesselRecord = union('Vessel record', [
   fields('Movable vessel record', {
     kind: literal('movable'),
@@ -765,6 +844,25 @@ const previousVesselRecord = union('Vessel record', [
     lifecycle,
   }),
 ]);
+const materialVesselRecord = union('Vessel record', [
+  fields('Movable vessel record', {
+    kind: literal('movable'),
+    id,
+    name,
+    placement: vesselPlacement,
+    lifecycle,
+    limits: storedLimits,
+  }),
+  fields('Permanent well record', {
+    kind: literal('fixed-well'),
+    id: text('Permanent well identifier', 1024, true),
+    name,
+    placement: located,
+    lifecycle,
+    limits: storedLimits,
+  }),
+]);
+
 const vesselRecord = union('Vessel record', [
   fields('Movable vessel record', {
     kind: literal('movable'),
@@ -773,6 +871,7 @@ const vesselRecord = union('Vessel record', [
     placement: vesselPlacement,
     lifecycle,
     limits: storedLimits,
+    custody: custodyRecord,
   }),
   fields('Permanent well record', {
     kind: literal('fixed-well'),
@@ -826,6 +925,26 @@ function validateState(state: InventoryState): void {
   }
   const occupied = new Map<string, Set<string>>();
   for (const item of [...Object.values(state.storage), ...Object.values(state.vessels)]) {
+    if ('custody' in item && item.custody.kind !== 'available') {
+      const custody = item.custody;
+      if (item.placement.kind === 'located')
+        invalid('A non-available custody root requires neutral placement.');
+      if (custody.at > state.lastRecordedAt || custody.lastKnown.observedAt > custody.at)
+        invalid('Custody observations cannot exceed accepted inventory time.');
+      if (custody.kind === 'checked-out' && custody.dueAt !== null && custody.dueAt <= custody.at)
+        invalid('A checkout due time must follow its accepted checkout.');
+      const observation = custody.lastKnown;
+      if (
+        observation.relativeAt !== null &&
+        (observation.relativeAt < observation.observedAt || observation.relativeAt > custody.at)
+      )
+        invalid('Relative location time must be inside the recorded observation lifetime.');
+      if (
+        (observation.relativePath.length === 0) !== (observation.relativeAt === null) ||
+        (observation.relativePath.length === 0) !== (observation.custodyRoot === null)
+      )
+        invalid('Inherited location observations require relative path and time together.');
+    }
     const isWell = 'kind' in item && item.kind === 'fixed-well';
     if (
       'layout' in item &&
@@ -1035,18 +1154,20 @@ function validateState(state: InventoryState): void {
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const composition = current || row.schema === INVENTORY_COMPOSITION_SCHEMA;
+  const reservation = current || row.schema === INVENTORY_RESERVATION_SCHEMA;
+  const composition = reservation || row.schema === INVENTORY_COMPOSITION_SCHEMA;
   const material = composition || row.schema === INVENTORY_MATERIAL_SCHEMA;
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_RESERVATION_SCHEMA),
       literal(INVENTORY_COMPOSITION_SCHEMA),
       literal(INVENTORY_MATERIAL_SCHEMA),
       literal(INVENTORY_LAYOUT_SCHEMA),
       literal(LEGACY_INVENTORY_SCHEMA),
     ]),
     revision,
-    ...(current
+    ...(reservation
       ? {
           lastRecordedAt: timestamp,
           reservations: { schema: { type: 'object' }, parse: (input: unknown) => input },
@@ -1059,7 +1180,8 @@ export function parseInventoryState(value: unknown): InventoryState {
   }).parse(row);
   const legacy = shape.schema === LEGACY_INVENTORY_SCHEMA;
   const storage = records(shape.storage, (raw): InventoryStorage => {
-    if (!legacy) return storageRecord.parse(raw);
+    if (current) return storageRecord.parse(raw);
+    if (!legacy) return { ...previousStorageRecord.parse(raw), custody: { kind: 'available' } };
     const item = legacyStorage.parse(raw);
     return {
       id: item.id,
@@ -1067,25 +1189,26 @@ export function parseInventoryState(value: unknown): InventoryState {
       layout: { kind: 'named', slots: item.slots },
       placement: item.placement,
       lifecycle: 'active',
+      custody: { kind: 'available' },
     };
   });
-  const vessels = records(
-    shape.vessels,
-    (raw): InventoryVessel =>
-      material
-        ? vesselRecord.parse(raw)
-        : {
-            ...(legacy
-              ? { kind: 'movable' as const, ...legacyVessel.parse(raw) }
-              : previousVesselRecord.parse(raw)),
-            limits: unknownInventoryVesselLimits(),
-          }
-  );
+  const vessels = records(shape.vessels, (raw): InventoryVessel => {
+    if (current) return vesselRecord.parse(raw);
+    const vessel = material
+      ? materialVesselRecord.parse(raw)
+      : {
+          ...(legacy
+            ? { kind: 'movable' as const, ...legacyVessel.parse(raw) }
+            : previousVesselRecord.parse(raw)),
+          limits: unknownInventoryVesselLimits(),
+        };
+    return vessel.kind === 'movable' ? { ...vessel, custody: { kind: 'available' } } : vessel;
+  });
   const state: InventoryState = {
     schema: INVENTORY_SCHEMA,
     revision: shape.revision,
-    lastRecordedAt: current ? timestamp.parse(shape.lastRecordedAt) : 0,
-    reservations: current
+    lastRecordedAt: reservation ? timestamp.parse(shape.lastRecordedAt) : 0,
+    reservations: reservation
       ? records(shape.reservations, (raw) => reservationRecord.parse(raw))
       : (Object.create(null) as Record<string, InventoryReservation>),
     storage,

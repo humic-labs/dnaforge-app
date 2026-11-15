@@ -29,6 +29,8 @@ import { InventoryMaterialForm, isInventoryMaterialDialog } from './InventoryMat
 import { InventoryForm } from './InventoryForm';
 import { InventoryCompositionForm } from './InventoryCompositionForm';
 import { InventoryReservationForm } from './InventoryReservationForm';
+import { InventoryCustodyForm } from './InventoryCustodyForm';
+import { InventoryCustodyPanel } from './InventoryCustodyPanel';
 import {
   InventoryReservationList,
   InventoryStockAvailability,
@@ -38,12 +40,14 @@ import { InventoryStatusNotice } from './InventoryStatusNotice';
 import {
   historyLabel,
   inventoryConcentrationLabel,
+  inventoryCustodyLabel,
   inventoryOccupant,
   locationPath,
   stockInSelection,
   vesselLocation,
   type InventoryDialog,
   type InventorySelection,
+  type InventoryItem,
 } from './inventory-view';
 
 let activeController: InventoryController | undefined;
@@ -65,6 +69,7 @@ type Drawer =
   | { kind: 'closed' }
   | { kind: 'history' }
   | { kind: 'reservations' }
+  | { kind: 'item'; item: InventoryItem }
   | { kind: 'stock'; stockId: string; tab: 'details' | 'history' | 'reservations' };
 
 function quantityLabel(stock: InventoryStock): string {
@@ -132,6 +137,12 @@ export function InventoryPanel() {
   const editable = inventoryCanEdit(status);
   const selectedStock = state && drawer.kind === 'stock' ? state.stocks[drawer.stockId] : undefined;
   const selectedVessel = state && selectedStock ? state.vessels[selectedStock.vesselId] : undefined;
+  const selectedItem =
+    state && drawer.kind === 'item'
+      ? drawer.item.kind === 'storage'
+        ? state.storage[drawer.item.id]
+        : state.vessels[drawer.item.id]
+      : undefined;
   const selectedLot =
     state && selectedStock?.source.kind === 'lot'
       ? state.lots[selectedStock.source.lotId]
@@ -154,11 +165,22 @@ export function InventoryPanel() {
         return (
           vessel &&
           stockInSelection(state, vessel, selection) &&
-          `${materialNames[stock.materialId] ?? ''} ${registryIds[stock.materialId] ?? ''} ${stock.source.kind === 'lot' ? `${stock.source.lotId} ${state.lots[stock.source.lotId].name}` : stock.source.rootStockId} ${stock.id} ${stock.materialId} ${stock.vesselId} ${vessel.name} ${vesselLocation(state, vessel)}`
+          `${materialNames[stock.materialId] ?? ''} ${registryIds[stock.materialId] ?? ''} ${stock.source.kind === 'lot' ? `${stock.source.lotId} ${state.lots[stock.source.lotId].name}` : stock.source.rootStockId} ${stock.id} ${stock.materialId} ${stock.vesselId} ${vessel.name} ${vesselLocation(state, vessel, data?.availability?.items[vessel.id])}`
             .toLowerCase()
             .includes(search.toLowerCase())
         );
       })
+    : [];
+  const emptyContainers = state
+    ? Object.values(state.vessels).filter(
+        (vessel) =>
+          vessel.kind === 'movable' &&
+          !Object.values(state.stocks).some((stock) => stock.vesselId === vessel.id) &&
+          stockInSelection(state, vessel, selection) &&
+          `${vessel.name} ${vessel.id} ${vesselLocation(state, vessel, data?.availability?.items[vessel.id])}`
+            .toLowerCase()
+            .includes(search.toLowerCase())
+      )
     : [];
   const visibleStocks = stocks.slice(0, shown);
   const labelIds = [
@@ -236,6 +258,12 @@ export function InventoryPanel() {
   }, [controller]);
 
   useEffect(() => {
+    if (!state || drawer.kind !== 'item' || drawer.item.kind !== 'vessel') return;
+    const stock = Object.values(state.stocks).find((stock) => stock.vesselId === drawer.item.id);
+    if (stock) setDrawer({ kind: 'stock', stockId: stock.id, tab: 'details' });
+  }, [state, drawer]);
+
+  useEffect(() => {
     const refresh = () => {
       void controller.refresh();
     };
@@ -248,6 +276,17 @@ export function InventoryPanel() {
     setShown(100);
     setShownPositions(200);
     setDrawer({ kind: 'closed' });
+  }
+
+  function openItem(item: InventoryItem) {
+    if (item.kind === 'storage') choose({ kind: 'location', id: item.id });
+    else {
+      const stock =
+        state && Object.values(state.stocks).find((stock) => stock.vesselId === item.id);
+      setDrawer(
+        stock ? { kind: 'stock', stockId: stock.id, tab: 'details' } : { kind: 'item', item }
+      );
+    }
   }
 
   const treeRows: { id: string; depth: number; children: boolean }[] = [];
@@ -486,6 +525,9 @@ export function InventoryPanel() {
         >
           Receive stock
         </Button>
+        <Button disabled={!editable} onClick={() => setDialog({ kind: 'container' })}>
+          Add container
+        </Button>
       </header>
       {projectsError ? (
         <div className="px-5 pt-3">
@@ -639,6 +681,15 @@ export function InventoryPanel() {
                 ) : null}
               </div>
               {selectedLocation ? (
+                <InventoryCustodyPanel
+                  data={data}
+                  item={{ kind: 'storage', id: selectedLocation.id }}
+                  editable={editable}
+                  onDialog={setDialog}
+                  onOpenItem={openItem}
+                />
+              ) : null}
+              {selectedLocation ? (
                 <>
                   <div className="flex items-center justify-between text-xs text-fg-muted">
                     <span>
@@ -700,6 +751,8 @@ export function InventoryPanel() {
                                 choose({ kind: 'location', id: occupiedLocation.id });
                               else if (stock)
                                 setDrawer({ kind: 'stock', stockId: stock.id, tab: 'details' });
+                              else if (vessel?.kind === 'movable')
+                                openItem({ kind: 'vessel', id: vessel.id });
                               else
                                 setDialog({
                                   kind: 'receive',
@@ -717,6 +770,11 @@ export function InventoryPanel() {
                           >
                             <span className="block font-semibold">{position}</span>
                             <span className="mt-1 block truncate text-fg-muted">{label}</span>
+                            {occupant ? (
+                              <span className="mt-1 block text-fg-muted">
+                                {inventoryCustodyLabel(data.availability?.items[occupant.id])}
+                              </span>
+                            ) : null}
                           </button>
                         );
                       })}
@@ -747,7 +805,7 @@ export function InventoryPanel() {
               </div>
             </div>
             {stocks.length ? (
-              <div className="overflow-x-auto px-5 pb-5">
+              <div className="shrink-0 overflow-x-auto px-5 pb-5">
                 <table
                   data-testid="inventory-stock-table"
                   className="w-full border-collapse text-left text-sm"
@@ -796,7 +854,7 @@ export function InventoryPanel() {
                           <td className="max-w-xs px-3 py-3 text-xs text-fg-muted">
                             {vessel.lifecycle === 'disposed'
                               ? 'Disposed'
-                              : vesselLocation(state!, vessel)}
+                              : vesselLocation(state!, vessel, data.availability?.items[vessel.id])}
                           </td>
                           <td
                             className={`px-3 py-3 text-xs ${stock.quality === 'quarantined' ? 'text-warning' : 'text-fg-muted'}`}
@@ -805,7 +863,10 @@ export function InventoryPanel() {
                               ? 'Disposed'
                               : stock.quality === 'quarantined'
                                 ? 'Quarantined'
-                                : 'Available'}
+                                : 'Usable'}
+                            <span className="mt-1 block">
+                              {inventoryCustodyLabel(data.availability?.items[vessel.id])}
+                            </span>
                           </td>
                         </tr>
                       );
@@ -828,9 +889,11 @@ export function InventoryPanel() {
                 <p className="mt-2 max-w-md text-sm leading-6 text-fg-muted">
                   {search
                     ? 'Try another material, container, or location name.'
-                    : selection.kind === 'disposed'
-                      ? 'Disposed containers remain in history and appear here.'
-                      : 'Receive physical stock from a scientific record, then place it in a location.'}
+                    : emptyContainers.length
+                      ? 'Empty containers are listed below. Receive stock when material is physically added.'
+                      : selection.kind === 'disposed'
+                        ? 'Disposed containers remain in history and appear here.'
+                        : 'Receive physical stock from a scientific record, then place it in a location.'}
                 </p>
                 {!search && editable && selection.kind !== 'disposed' ? (
                   <div className="mt-4">
@@ -841,6 +904,27 @@ export function InventoryPanel() {
                 ) : null}
               </div>
             )}
+            {emptyContainers.length ? (
+              <section data-testid="inventory-empty-containers" className="space-y-3 px-5 pb-5">
+                <h3 className="text-sm font-semibold">Empty containers</h3>
+                <div className="divide-y divide-border rounded border border-border">
+                  {emptyContainers.slice(0, shown).map((vessel) => (
+                    <button
+                      key={vessel.id}
+                      data-vessel-id={vessel.id}
+                      className="flex w-full flex-wrap justify-between gap-2 px-3 py-3 text-left text-sm hover:bg-bg-subtle"
+                      onClick={() => openItem({ kind: 'vessel', id: vessel.id })}
+                    >
+                      <span className="font-medium">{vessel.name}</span>
+                      <span className="text-xs text-fg-muted">
+                        {vesselLocation(state!, vessel, data.availability?.items[vessel.id])} ·{' '}
+                        {inventoryCustodyLabel(data.availability?.items[vessel.id])}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </div>
           {drawer.kind !== 'closed' ? (
             <aside
@@ -852,9 +936,11 @@ export function InventoryPanel() {
                   <h2 className="break-words text-sm font-semibold">
                     {selectedStock
                       ? (materialNames[selectedStock.materialId] ?? 'Stock details')
-                      : drawer.kind === 'reservations'
-                        ? 'Reservations'
-                        : 'Inventory history'}
+                      : selectedItem
+                        ? selectedItem.name
+                        : drawer.kind === 'reservations'
+                          ? 'Reservations'
+                          : 'Inventory history'}
                   </h2>
                   {selectedVessel ? (
                     <p className="mt-1 text-xs text-fg-muted">{selectedVessel.name}</p>
@@ -902,14 +988,15 @@ export function InventoryPanel() {
                     />
                   ) : (
                     <div className="space-y-5 p-4">
+                      <InventoryCustodyPanel
+                        data={data}
+                        item={{ kind: 'vessel', id: selectedVessel.id }}
+                        editable={editable}
+                        onDialog={setDialog}
+                        onOpenItem={openItem}
+                      />
                       <InventoryStockAvailability data={data} stockId={selectedStock.id} />
                       <dl className="space-y-3 text-sm">
-                        <div>
-                          <dt className="text-xs text-fg-muted">Location</dt>
-                          <dd className="mt-1 break-words">
-                            {vesselLocation(state!, selectedVessel)}
-                          </dd>
-                        </div>
                         <div>
                           <dt className="text-xs text-fg-muted">Lot or preparation</dt>
                           <dd className="mt-1">
@@ -952,7 +1039,7 @@ export function InventoryPanel() {
                               ? 'Disposed'
                               : selectedStock.quality === 'quarantined'
                                 ? 'Quarantined'
-                                : 'Available'}
+                                : 'Usable'}
                           </dd>
                         </div>
                       </dl>
@@ -1128,6 +1215,49 @@ export function InventoryPanel() {
                     </div>
                   )}
                 </>
+              ) : drawer.kind === 'item' && selectedItem ? (
+                <div
+                  className="space-y-4 p-4"
+                  data-testid="inventory-item-details"
+                  data-item-id={drawer.item.id}
+                >
+                  <InventoryCustodyPanel
+                    data={data}
+                    item={drawer.item}
+                    editable={editable}
+                    onDialog={setDialog}
+                    onOpenItem={openItem}
+                  />
+                  <Notice>No stock is recorded in this container.</Notice>
+                  {drawer.item.kind === 'vessel' && selectedItem.lifecycle === 'active' ? (
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        disabled={!editable}
+                        onClick={() => setDialog({ kind: 'receive', vesselId: drawer.item.id })}
+                      >
+                        Receive stock
+                      </Button>
+                      <Button
+                        disabled={!editable}
+                        onClick={() => setDialog({ kind: 'reserve-item', item: drawer.item })}
+                      >
+                        Reserve item
+                      </Button>
+                      <Button
+                        disabled={!editable}
+                        onClick={() => setDialog({ kind: 'move', item: drawer.item })}
+                      >
+                        Move
+                      </Button>
+                      <Button
+                        disabled={!editable}
+                        onClick={() => setDialog({ kind: 'dispose', item: drawer.item })}
+                      >
+                        Dispose container
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
               ) : drawer.kind === 'reservations' ? (
                 <InventoryReservationList
                   data={data}
@@ -1143,7 +1273,16 @@ export function InventoryPanel() {
         </div>
       )}
       {dialog.kind !== 'none' && data ? (
-        isInventoryReservationDialog(dialog) ? (
+        dialog.kind === 'custody' ? (
+          <InventoryCustodyForm
+            key={`${data.project.projectId}:${dialog.item.id}:${dialog.action}`}
+            dialog={dialog}
+            data={data}
+            status={status}
+            controller={controller}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : isInventoryReservationDialog(dialog) ? (
           <InventoryReservationForm
             key={`${data.project.projectId}:${dialog.kind}:${'stockId' in dialog ? dialog.stockId : 'reservationId' in dialog ? dialog.reservationId : dialog.item.id}`}
             dialog={dialog}

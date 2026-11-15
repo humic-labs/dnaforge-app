@@ -2,6 +2,7 @@ import type { InventoryQuantity, InventoryVolume } from '@waypoint/domain-servic
 import { Button, Notice } from '../../components/ui';
 import type { InventoryData } from './inventory-controller';
 import type { InventoryItem } from './inventory-view';
+import { inventoryBlockerLabel } from './inventory-view';
 
 export type InventoryReservationDialog =
   | { kind: 'reserve-quantity'; stockId: string }
@@ -19,22 +20,6 @@ export function isInventoryReservationDialog(dialog: {
 
 type Availability = NonNullable<InventoryData['availability']>;
 export type InventoryReservationView = Availability['reservations'][string];
-
-type Blocker =
-  | Availability['stocks'][string]['blockers'][number]
-  | InventoryReservationView['blockers'][number];
-
-function blockerLabel(blocker: Blocker): string {
-  const labels: Record<Blocker['code'], string> = {
-    QUANTITY_UNKNOWN: 'Recorded quantity is unknown',
-    STOCK_QUARANTINED: 'This stock is quarantined',
-    VESSEL_DISPOSED: 'This container has been disposed',
-    ALLOCATION_SHORTFALL: 'Reservations exceed recorded stock',
-    ITEM_RESERVED: 'This item is reserved',
-    EXPIRY_PENDING: 'Past deadline; still allocated until released or expired',
-  };
-  return labels[blocker.code];
-}
 
 export function inventoryAmountLabel(amount: InventoryQuantity | InventoryVolume): string {
   return 'kind' in amount && amount.kind === 'unknown'
@@ -86,7 +71,7 @@ export function InventoryStockAvailability({
       </dl>
       {availability.blockers.map((blocker) => (
         <Notice key={blocker.code}>
-          <span data-blocker-code={blocker.code}>{blockerLabel(blocker)}</span>
+          <span data-blocker-code={blocker.code}>{inventoryBlockerLabel(blocker)}</span>
         </Notice>
       ))}
       <p className="text-xs text-fg-muted">
@@ -179,7 +164,7 @@ export function InventoryReservationList({
                   data-blocker-code={blocker.code}
                   className="text-xs text-fg-muted"
                 >
-                  {blockerLabel(blocker)}
+                  {inventoryBlockerLabel(blocker)}
                 </p>
               ))}
               {view.overdue ? (

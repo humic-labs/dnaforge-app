@@ -9,6 +9,7 @@ export {
 } from './inventory-concentration';
 export { applyInventoryCommandBatch } from './inventory-state';
 export { inventoryAvailability, inventoryItemContains } from './inventory-reservations';
+export { inventoryEffectiveCustody, inventoryItemCustody } from './inventory-custody';
 export {
   InventoryValidationError,
   parseInventoryCommand,

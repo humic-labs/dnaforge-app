@@ -46878,7 +46878,7 @@
     },
     {
       "name": "inventory",
-      "description": "Inspect and change physical laboratory inventory through the same native owner as the Inventory view. Start with projects, then materials in the exact selected project. Inspect the returned defaultInventoryId before changing it. Read availability at the matching revision for exact on-hand, held and unreserved quantities, reservation actions and blocking reasons. Execute an atomic typed command batch with the inspected expectedRevision and one stable operationId. Exact retries return the original receipt; changed requests require a new explicitly reviewed operation. A timeout leaves the outcome unknown: inspect the original operationId or retry that identical request. Reservations do not subtract on-hand quantity. Expiry requires an explicit recorded command. Hold ownership and execution time come from the native authority. Known zero quantity differs from unknown quantity. Scientific designs do not imply physical possession. Placement, quantity, quality, disposal and storage-layout rules are validated by the inventory owner. History retains accepted requests, trusted actors and durable owner context. Read operations need read-workspace; execute also needs write-workspace.",
+      "description": "Inspect and change physical laboratory inventory through the same native owner as the Inventory view. Start with projects, then materials in the exact selected project. Inspect the returned defaultInventoryId before changing it. Read availability at the matching revision for exact on-hand, held and unreserved quantities, item custody, reservation actions and blocking reasons. Execute an atomic typed command batch with the inspected expectedRevision and one stable operationId. Exact retries return the original receipt; changed requests require a new explicitly reviewed operation. A timeout leaves the outcome unknown: inspect the original operationId or retry that identical request. Reservations do not subtract on-hand quantity. Expiry requires an explicit recorded command. Checkout, transit and missing reports free the previous position and retain immutable last-known location facts. Planned destinations and last-known positions are not current locations. Return or locate requires an explicit valid destination; use stack-top for a stack. A plate or box governs effective custody of its contents, and permanent wells cannot depart independently. Missing or in-transit items block physical use and additions; reconciliation and quality observations remain distinct. Custody never changes quantity or silently releases reservations. Hold ownership, custody responsibility and execution time come from the native authority. Known zero quantity differs from unknown quantity. Scientific designs do not imply physical possession. Placement, quantity, quality, disposal and storage-layout rules are validated by the inventory owner. History retains accepted requests, trusted actors and durable owner context. Read operations need read-workspace; execute also needs write-workspace.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -49491,6 +49491,398 @@
                                   ]
                                 }
                               ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "item", "dueAt", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "checkout-item" },
+                            "item": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "storage" },
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "vessel" },
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 1024,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "dueAt": {
+                              "anyOf": [
+                                { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                                { "type": "null" }
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "item", "destination", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "start-item-transit" },
+                            "item": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "storage" },
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "vessel" },
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 1024,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "destination": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "root" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "unplaced" }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "storageId", "slotId"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "located" },
+                                    "storageId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    },
+                                    "slotId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "stackId"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "stack-top" },
+                                    "stackId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "item", "destination", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "return-item" },
+                            "item": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "storage" },
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "vessel" },
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 1024,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "destination": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "root" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "unplaced" }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "storageId", "slotId"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "located" },
+                                    "storageId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    },
+                                    "slotId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "stackId"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "stack-top" },
+                                    "stackId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "item", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "report-item-missing" },
+                            "item": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "storage" },
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "vessel" },
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 1024,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "item", "destination", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "locate-item" },
+                            "item": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "storage" },
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "vessel" },
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 1024,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "destination": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "root" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "unplaced" }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "storageId", "slotId"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "located" },
+                                    "storageId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    },
+                                    "slotId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "stackId"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "stack-top" },
+                                    "stackId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
                             }
                           }
                         }

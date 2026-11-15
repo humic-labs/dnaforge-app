@@ -821,6 +821,650 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       expect(owner.history(reservationScope)).toEqual(reservationHistoryBeforeRestart);
     }
 
+    const custodyScope = { ...scope, inventoryId: 'inventory-custody' };
+    async function custodyAttempt(
+      label: string,
+      commands: readonly InventoryCommand[],
+      options: { agent?: { identityId: string; capabilities: string[] } } = {}
+    ) {
+      const before = await success<InventoryState | null>(
+        `${label}: inspect current custody`,
+        'inventory.inspect',
+        custodyScope,
+        options
+      );
+      const request: InventoryExecuteRequest = {
+        ...custodyScope,
+        operationId: `custody:${label}`,
+        expectedRevision: before?.revision ?? 0,
+        commands,
+      };
+      const result = await success<NativeInventoryExecution>(
+        label,
+        'inventory.execute',
+        request,
+        options
+      );
+      return { before, request, result };
+    }
+    async function custodyCommit(
+      label: string,
+      commands: readonly InventoryCommand[],
+      options: { agent?: { identityId: string; capabilities: string[] } } = {}
+    ) {
+      const attempt = await custodyAttempt(label, commands, options);
+      expect(attempt.result, label).toMatchObject({ status: 'committed' });
+      return attempt;
+    }
+    async function custodyRefusal(
+      label: string,
+      commands: readonly InventoryCommand[],
+      options: { agent?: { identityId: string; capabilities: string[] } } = {},
+      code?: string
+    ) {
+      const attempt = await custodyAttempt(label, commands, options);
+      expect(attempt.result, label).toMatchObject({
+        status: 'rejected',
+        ...(code ? { code } : {}),
+      });
+      expect(owner.inspect(custodyScope), label).toEqual(attempt.before);
+      expect(owner.history(custodyScope), label).toHaveLength(attempt.before?.revision ?? 0);
+      expect(
+        owner.operation({ ...custodyScope, operationId: attempt.request.operationId }),
+        label
+      ).toBeNull();
+      return attempt;
+    }
+    const tubeItem = { kind: 'vessel' as const, id: 'tube' };
+    const nativeHolder = { kind: 'local-profile' as const, profileKey };
+    await custodyCommit('receive custody stock and empty container', [
+      ...receive,
+      {
+        kind: 'create-vessel',
+        id: 'empty-transit',
+        name: 'Empty transit container',
+        placement: { kind: 'unplaced' },
+      },
+    ]);
+    await custodyCommit(
+      'reserve foreign quantity before departure',
+      [
+        {
+          kind: 'reserve-quantity',
+          id: 'foreign-custody-hold',
+          stockId: 'stock',
+          quantity: { value: '10', unit: 'uL' },
+          deadline: null,
+          purpose: 'Other operator experiment',
+        },
+      ],
+      agents[1]
+    );
+    await custodyRefusal('refuse checkout over foreign allocation', [
+      { kind: 'checkout-item', item: tubeItem, dueAt: null, reason: 'Retrieve for bench work' },
+    ]);
+    await custodyCommit(
+      'release foreign allocation before departure',
+      [
+        {
+          kind: 'release-reservation',
+          reservationId: 'foreign-custody-hold',
+          reason: 'Experiment rescheduled',
+        },
+      ],
+      agents[1]
+    );
+    const checkoutDue = clock + 1_000;
+    const custodyCheckoutRequest: InventoryExecuteRequest = {
+      ...custodyScope,
+      operationId: 'custody:lost-checkout',
+      expectedRevision: owner.inspect(custodyScope)!.revision,
+      commands: [
+        {
+          kind: 'checkout-item',
+          item: tubeItem,
+          dueAt: checkoutDue,
+          reason: 'Retrieve for bench work',
+        },
+      ],
+    };
+    const custodyCheckoutReceipt = await loseAcknowledgement(
+      custodyCheckoutRequest,
+      'custodyLostAcknowledgement'
+    );
+    expect(custodyCheckoutReceipt.context?.principal).toEqual(nativeHolder);
+    const checkedOut = owner.inspect(custodyScope)!;
+    expect(checkedOut.vessels.tube).toMatchObject({
+      placement: { kind: 'unplaced' },
+      custody: { kind: 'checked-out', holder: nativeHolder, dueAt: checkoutDue },
+    });
+    const checkedOutTube = checkedOut.vessels.tube;
+    if (checkedOutTube.kind !== 'movable') throw new Error('The fixture tube must be movable.');
+    const originalCustody = checkedOutTube.custody;
+    if (originalCustody.kind !== 'checked-out') throw new Error('Checkout did not persist.');
+    clock = checkoutDue + 1;
+    const overdueCustody = await success<InventoryAvailabilitySnapshot>(
+      'observe overdue checkout without automatic return',
+      'inventory.availability',
+      custodyScope
+    );
+    expect(overdueCustody.items.tube).toMatchObject({
+      overdue: true,
+      state: { kind: 'checked-out', holder: nativeHolder },
+    });
+    expect(owner.inspect(custodyScope)).toEqual(checkedOut);
+    await custodyRefusal(
+      'refuse foreign use of checked-out stock',
+      [
+        {
+          kind: 'consume',
+          stockId: 'stock',
+          quantity: { value: '1', unit: 'uL' },
+          reason: 'Foreign use attempt',
+        },
+      ],
+      agents[1]
+    );
+    await custodyRefusal(
+      'refuse foreign ordinary return',
+      [
+        {
+          kind: 'return-item',
+          item: tubeItem,
+          destination: { kind: 'located', storageId: 'box', slotId: 'A2' },
+          reason: 'Foreign return attempt',
+        },
+      ],
+      agents[1]
+    );
+    await custodyCommit('use owned checked-out stock', [
+      {
+        kind: 'consume',
+        stockId: 'stock',
+        quantity: { value: '20', unit: 'uL' },
+        reason: 'Bench experiment',
+      },
+    ]);
+    await custodyCommit('reuse vacated original position', [
+      {
+        kind: 'create-vessel',
+        id: 'blocker',
+        name: 'Other physical container',
+        placement: { kind: 'located', storageId: 'box', slotId: 'A1' },
+      },
+    ]);
+    await custodyRefusal(
+      'refuse occupied return without changing custody',
+      [
+        {
+          kind: 'return-item',
+          item: tubeItem,
+          destination: { kind: 'located', storageId: 'box', slotId: 'A1' },
+          reason: 'Return after experiment',
+        },
+      ],
+      {},
+      'SLOT_OCCUPIED'
+    );
+    await custodyCommit('move former ancestor while container is checked out', [
+      {
+        kind: 'move-storage',
+        id: 'box',
+        placement: { kind: 'located', storageId: 'freezer', slotId: 'bottom' },
+      },
+    ]);
+    const movedAncestorTube = owner.inspect(custodyScope)!.vessels.tube;
+    if (movedAncestorTube.kind !== 'movable') throw new Error('The fixture tube must be movable.');
+    expect(movedAncestorTube.custody).toMatchObject({
+      kind: 'checked-out',
+      lastKnown: originalCustody.lastKnown,
+    });
+    await custodyCommit('return to explicit alternate position', [
+      {
+        kind: 'return-item',
+        item: tubeItem,
+        destination: { kind: 'located', storageId: 'box', slotId: 'A2' },
+        reason: 'Return after experiment',
+      },
+    ]);
+    expect(owner.inspect(custodyScope)!.vessels.tube).toMatchObject({
+      placement: { kind: 'located', storageId: 'box', slotId: 'A2' },
+      custody: { kind: 'available' },
+    });
+    await custodyCommit('retain owned allocation across absence', [
+      {
+        kind: 'reserve-quantity',
+        id: 'custody-retained-hold',
+        stockId: 'stock',
+        quantity: { value: '15', unit: 'uL' },
+        deadline: null,
+        purpose: 'Next bench experiment',
+      },
+      { kind: 'checkout-item', item: tubeItem, dueAt: null, reason: 'Prepare transport' },
+    ]);
+    await custodyCommit('begin explicit container transit', [
+      {
+        kind: 'start-item-transit',
+        item: tubeItem,
+        destination: { kind: 'located', storageId: 'box', slotId: 'A2' },
+        reason: 'Transport between work areas',
+      },
+    ]);
+    const inTransit = owner.inspect(custodyScope)!;
+    const transitTube = inTransit.vessels.tube;
+    if (transitTube.kind !== 'movable' || transitTube.custody.kind !== 'in-transit')
+      throw new Error('The fixture tube must retain its explicit transit state.');
+    expect(inTransit.vessels.tube).toMatchObject({
+      placement: { kind: 'unplaced' },
+      custody: {
+        kind: 'in-transit',
+        holder: nativeHolder,
+        destination: { kind: 'located', storageId: 'box', slotId: 'A2' },
+      },
+    });
+    await custodyRefusal('refuse physical withdrawal during transit', [
+      {
+        kind: 'consume',
+        stockId: 'stock',
+        quantity: { value: '1', unit: 'uL' },
+        reason: 'Transit use attempt',
+      },
+    ]);
+    await custodyRefusal('refuse legacy movement as transit arrival', [
+      {
+        kind: 'move-vessel',
+        id: 'tube',
+        placement: { kind: 'located', storageId: 'box', slotId: 'A2' },
+      },
+    ]);
+    await custodyCommit('record truthful quality and quantity observations during transit', [
+      { kind: 'set-quality', stockId: 'stock', quality: 'quarantined', reason: 'Receiving review' },
+      {
+        kind: 'reconcile',
+        stockId: 'stock',
+        quantity: { kind: 'known', value: '80', unit: 'uL' },
+        reason: 'Reported balance',
+      },
+      { kind: 'set-quality', stockId: 'stock', quality: 'usable', reason: 'Review complete' },
+    ]);
+    await custodyCommit('check out and dispatch an empty container', [
+      {
+        kind: 'checkout-item',
+        item: { kind: 'vessel', id: 'empty-transit' },
+        dueAt: null,
+        reason: 'Transport empty vessel',
+      },
+      {
+        kind: 'start-item-transit',
+        item: { kind: 'vessel', id: 'empty-transit' },
+        destination: { kind: 'unplaced' },
+        reason: 'Transport empty vessel',
+      },
+    ]);
+    await custodyRefusal('refuse physical receipt into an in-transit empty vessel', [
+      {
+        kind: 'receive-stock',
+        id: 'unreceived-stock',
+        vesselId: 'empty-transit',
+        materialId: 'synthetic-material',
+        quantity: { kind: 'known', value: '1', unit: 'uL' },
+        quality: 'usable',
+      },
+    ]);
+    await custodyCommit(
+      'report missing without erasing another holder',
+      [{ kind: 'report-item-missing', item: tubeItem, reason: 'Not found at transport handoff' }],
+      agents[1]
+    );
+    const missingCustodyState = owner.inspect(custodyScope)!;
+    expect(missingCustodyState.vessels.tube).toMatchObject({
+      placement: { kind: 'unplaced' },
+      custody: {
+        kind: 'missing',
+        holder: nativeHolder,
+        reportedBy: { kind: 'agent', identityId: identities[1] },
+        lastKnown: transitTube.custody.lastKnown,
+      },
+    });
+    expect(missingCustodyState.reservations['custody-retained-hold']).toMatchObject({
+      lifecycle: { kind: 'active' },
+      remaining: { value: '15', unit: 'uL' },
+    });
+    await custodyRefusal('refuse missing stock withdrawal', [
+      {
+        kind: 'consume',
+        stockId: 'stock',
+        quantity: { value: '1', unit: 'uL' },
+        reason: 'Missing stock use attempt',
+      },
+    ]);
+    await custodyRefusal(
+      'refuse occupied locate without losing missing responsibility',
+      [
+        {
+          kind: 'locate-item',
+          item: tubeItem,
+          destination: { kind: 'located', storageId: 'box', slotId: 'A1' },
+          reason: 'Found at handoff',
+        },
+      ],
+      agents[1],
+      'SLOT_OCCUPIED'
+    );
+    await custodyCommit(
+      'record observed return by current granted operator',
+      [
+        {
+          kind: 'locate-item',
+          item: tubeItem,
+          destination: { kind: 'located', storageId: 'box', slotId: 'A2' },
+          reason: 'Found and physically returned at handoff',
+        },
+      ],
+      agents[1]
+    );
+    expect(owner.inspect(custodyScope)!.vessels.tube).toMatchObject({
+      placement: { kind: 'located', storageId: 'box', slotId: 'A2' },
+      custody: { kind: 'available' },
+    });
+    await custodyCommit('release retained quantity before another custodian checkout', [
+      {
+        kind: 'release-reservation',
+        reservationId: 'custody-retained-hold',
+        reason: 'Handoff complete',
+      },
+    ]);
+    await custodyCommit(
+      'grant operator checks out available stock',
+      [
+        {
+          kind: 'checkout-item',
+          item: tubeItem,
+          dueAt: null,
+          reason: 'Granted operator bench work',
+        },
+      ],
+      agents[0]
+    );
+    await custodyRefusal('profile authority cannot silently debit foreign custody', [
+      {
+        kind: 'consume',
+        stockId: 'stock',
+        quantity: { value: '1', unit: 'uL' },
+        reason: 'Profile use attempt',
+      },
+    ]);
+    await custodyCommit('record reason-bearing local profile recovery return', [
+      {
+        kind: 'return-item',
+        item: tubeItem,
+        destination: { kind: 'located', storageId: 'box', slotId: 'A2' },
+        reason: 'Local operator physically recovered and returned this container',
+      },
+    ]);
+    await custodyCommit('leave container checked out for native restart', [
+      {
+        kind: 'checkout-item',
+        item: tubeItem,
+        dueAt: null,
+        reason: 'Continue bench work after restart',
+      },
+    ]);
+    await custodyCommit('receive material in a container before aggregate checkout', [
+      {
+        kind: 'receive-stock',
+        id: 'nested-stock',
+        vesselId: 'blocker',
+        materialId: 'synthetic-material',
+        quantity: { kind: 'known', value: '30', unit: 'uL' },
+        quality: 'usable',
+      },
+      {
+        kind: 'checkout-item',
+        item: { kind: 'storage', id: 'box' },
+        dueAt: null,
+        reason: 'Retrieve complete box',
+      },
+    ]);
+    const aggregateAvailability = await success<InventoryAvailabilitySnapshot>(
+      'read inherited box custody',
+      'inventory.availability',
+      custodyScope
+    );
+    expect(aggregateAvailability.items.blocker).toMatchObject({
+      root: { kind: 'storage', id: 'box' },
+      inherited: true,
+      state: { kind: 'checked-out', holder: nativeHolder },
+    });
+    await custodyRefusal(
+      'refuse foreign withdrawal from checked-out box',
+      [
+        {
+          kind: 'consume',
+          stockId: 'nested-stock',
+          quantity: { value: '1', unit: 'uL' },
+          reason: 'Foreign nested use attempt',
+        },
+      ],
+      agents[1]
+    );
+    await custodyCommit('use stock through owned ancestor custody', [
+      {
+        kind: 'consume',
+        stockId: 'nested-stock',
+        quantity: { value: '5', unit: 'uL' },
+        reason: 'Owned box experiment',
+      },
+    ]);
+    await custodyRefusal('refuse child movement escaping inherited custody', [
+      { kind: 'move-vessel', id: 'blocker', placement: { kind: 'unplaced' } },
+    ]);
+    await custodyCommit('explicitly split a child checkout from owned aggregate', [
+      {
+        kind: 'checkout-item',
+        item: { kind: 'vessel', id: 'blocker' },
+        dueAt: null,
+        reason: 'Extract one container from the box',
+      },
+      {
+        kind: 'return-item',
+        item: { kind: 'vessel', id: 'blocker' },
+        destination: { kind: 'located', storageId: 'freezer', slotId: 'top' },
+        reason: 'Return extracted container to a distinct position',
+      },
+    ]);
+    expect(owner.inspect(custodyScope)!.stocks['nested-stock'].quantity).toEqual({
+      kind: 'known',
+      value: '25',
+      unit: 'uL',
+    });
+    await custodyCommit('create a three-plate stack with stable permanent wells', [
+      {
+        kind: 'create-layout-storage',
+        id: 'custody-stack',
+        name: 'Custody stack',
+        layout: { kind: 'stack', capacity: 3, removal: 'top-only' },
+        placement: { kind: 'root' },
+      },
+      ...['plate-a', 'plate-b', 'plate-c'].map(
+        (id): InventoryCommand => ({
+          kind: 'create-layout-storage',
+          id,
+          name: id,
+          layout: { kind: 'fixed-well', rows: 1, columns: 1 },
+          placement: { kind: 'root' },
+        })
+      ),
+      {
+        kind: 'receive-stock',
+        id: 'plate-stock',
+        vesselId: 'well:plate-b#A1',
+        materialId: 'synthetic-material',
+        quantity: { kind: 'known', value: '5', unit: 'uL' },
+        quality: 'usable',
+      },
+      ...['plate-a', 'plate-b', 'plate-c'].map(
+        (id): InventoryCommand => ({
+          kind: 'push-stack',
+          stackId: 'custody-stack',
+          item: { kind: 'storage', id },
+        })
+      ),
+    ]);
+    await custodyRefusal(
+      'refuse physical retrieval of middle plate',
+      [
+        {
+          kind: 'checkout-item',
+          item: { kind: 'storage', id: 'plate-b' },
+          dueAt: null,
+          reason: 'Middle plate retrieval attempt',
+        },
+      ],
+      {},
+      'STACK_TOP_REQUIRED'
+    );
+    await custodyCommit(
+      'record truthful middle-stack absence',
+      [
+        {
+          kind: 'report-item-missing',
+          item: { kind: 'storage', id: 'plate-b' },
+          reason: 'Observed plate absent during stack count',
+        },
+      ],
+      agents[1]
+    );
+    const missingMiddle = owner.inspect(custodyScope)!;
+    expect(missingMiddle.storage['plate-b']).toMatchObject({
+      placement: { kind: 'root' },
+      custody: {
+        kind: 'missing',
+        holder: null,
+        lastKnown: { placement: { kind: 'located', storageId: 'custody-stack', slotId: '2' } },
+      },
+    });
+    expect(missingMiddle.storage['plate-a'].placement).toEqual({
+      kind: 'located',
+      storageId: 'custody-stack',
+      slotId: '1',
+    });
+    expect(missingMiddle.storage['plate-c'].placement).toEqual({
+      kind: 'located',
+      storageId: 'custody-stack',
+      slotId: '2',
+    });
+    expect(missingMiddle.vessels['well:plate-b#A1']).toMatchObject({
+      kind: 'fixed-well',
+      placement: { kind: 'located', storageId: 'plate-b', slotId: 'A1' },
+    });
+    await custodyCommit(
+      'locate missing plate explicitly at stack top',
+      [
+        {
+          kind: 'locate-item',
+          item: { kind: 'storage', id: 'plate-b' },
+          destination: { kind: 'stack-top', stackId: 'custody-stack' },
+          reason: 'Found and placed above counted stack',
+        },
+      ],
+      agents[1]
+    );
+    await custodyCommit('check out top plate with fixed wells attached', [
+      {
+        kind: 'checkout-item',
+        item: { kind: 'storage', id: 'plate-b' },
+        dueAt: null,
+        reason: 'Plate experiment',
+      },
+    ]);
+    const plateAvailability = await success<InventoryAvailabilitySnapshot>(
+      'read permanent well inherited custody',
+      'inventory.availability',
+      custodyScope
+    );
+    expect(plateAvailability.items['well:plate-b#A1']).toMatchObject({
+      root: { kind: 'storage', id: 'plate-b' },
+      inherited: true,
+      state: { kind: 'checked-out', holder: nativeHolder },
+    });
+    await custodyRefusal(
+      'refuse independent permanent-well checkout',
+      [
+        {
+          kind: 'checkout-item',
+          item: { kind: 'vessel', id: 'well:plate-b#A1' },
+          dueAt: null,
+          reason: 'Independent well retrieval attempt',
+        },
+      ],
+      {},
+      'FIXED_WELL_IMMUTABLE'
+    );
+    await custodyRefusal(
+      'refuse arbitrary stack ordinal on return',
+      [
+        {
+          kind: 'return-item',
+          item: { kind: 'storage', id: 'plate-b' },
+          destination: { kind: 'located', storageId: 'custody-stack', slotId: '3' },
+          reason: 'Ordinal return attempt',
+        },
+      ],
+      {},
+      'STACK_OPERATION_REQUIRED'
+    );
+    await custodyCommit('retrieve next top after earlier plate checkout', [
+      {
+        kind: 'checkout-item',
+        item: { kind: 'storage', id: 'plate-c' },
+        dueAt: null,
+        reason: 'Second plate experiment',
+      },
+    ]);
+    await custodyCommit('return checked-out plates with explicit stack pushes', [
+      {
+        kind: 'return-item',
+        item: { kind: 'storage', id: 'plate-c' },
+        destination: { kind: 'stack-top', stackId: 'custody-stack' },
+        reason: 'Return second plate',
+      },
+      {
+        kind: 'return-item',
+        item: { kind: 'storage', id: 'plate-b' },
+        destination: { kind: 'stack-top', stackId: 'custody-stack' },
+        reason: 'Return first plate',
+      },
+    ]);
+    const custodyBeforeRestart = owner.inspect(custodyScope)!;
+    const custodyHistoryBeforeRestart = owner.history(custodyScope);
+    const custodyAvailabilityBeforeRestart = await success<InventoryAvailabilitySnapshot>(
+      'inspect custody before native restart',
+      'inventory.availability',
+      custodyScope
+    );
+    expect(custodyBeforeRestart.stocks.stock.quantity).toEqual({
+      kind: 'known',
+      value: '80',
+      unit: 'uL',
+    });
+    expect(custodyBeforeRestart.stocks['plate-stock'].quantity).toEqual({
+      kind: 'known',
+      value: '5',
+      unit: 'uL',
+    });
+    evidence.custodyBeforeRestart = {
+      state: custodyBeforeRestart,
+      history: custodyHistoryBeforeRestart,
+      availability: custodyAvailabilityBeforeRestart,
+      checkoutReceipt: custodyCheckoutReceipt,
+      originalLocation: originalCustody.lastKnown,
+      missingState: missingCustodyState,
+      missingMiddle,
+      aggregateAvailability,
+      plateAvailability,
+    };
+
     await server!.close();
     server = undefined;
     db.close();
@@ -828,6 +1472,37 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     db = openFileTestDb(dbPath);
     await start();
     evidence.closedAndReopened = true;
+    expect(owner.inspect(custodyScope)).toEqual(custodyBeforeRestart);
+    expect(owner.history(custodyScope)).toEqual(custodyHistoryBeforeRestart);
+    expect(
+      await success<InventoryAvailabilitySnapshot>(
+        'read exact custody after native reopen',
+        'inventory.availability',
+        custodyScope
+      )
+    ).toEqual(custodyAvailabilityBeforeRestart);
+    expect(
+      await success<NativeInventoryExecution>(
+        'retry lost checkout after later returns and native reopen',
+        'inventory.execute',
+        custodyCheckoutRequest
+      )
+    ).toEqual(custodyCheckoutReceipt);
+    const custodyReplay = owner.replay(custodyScope);
+    expect(custodyReplay).toEqual({
+      state: custodyBeforeRestart,
+      acceptedOperations: custodyHistoryBeforeRestart.length,
+    });
+    evidence.custodyReopenedReadback = {
+      state: owner.inspect(custodyScope),
+      history: owner.history(custodyScope),
+      availability: owner.availability(custodyScope),
+      receipt: owner.operation({
+        ...custodyScope,
+        operationId: custodyCheckoutRequest.operationId,
+      }),
+      replay: custodyReplay,
+    };
     expect(owner.inspect(reservationScope)).toEqual(reservationBeforeRestart);
     expect(owner.history(reservationScope)).toEqual(reservationHistoryBeforeRestart);
     expect(

@@ -482,6 +482,11 @@ it('exports the same strict command variants used by the parser as machine-reada
     'cancel-reservation',
     'expire-reservations',
     'fulfill-reservations',
+    'checkout-item',
+    'start-item-transit',
+    'return-item',
+    'report-item-missing',
+    'locate-item',
   ]);
   for (const variant of variants) {
     expect(variant.additionalProperties).toBe(false);

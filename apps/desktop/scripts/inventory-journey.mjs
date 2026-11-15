@@ -7,6 +7,10 @@ import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
 import { runInventoryCompositionJourney } from './journeys/inventory-composition.mjs';
 import {
+  runInventoryCustodyJourney,
+  runInventoryCustodyReopen,
+} from './journeys/inventory-custody.mjs';
+import {
   runInventoryReservationJourney,
   runInventoryReservationReopen,
 } from './journeys/inventory-reservations.mjs';
@@ -29,6 +33,8 @@ assert.ok(
     'composition-reopen',
     'reservations',
     'reservation-reopen',
+    'custody',
+    'custody-reopen',
   ].includes(stage),
   'Choose a mapped inventory journey stage.'
 );
@@ -272,7 +278,7 @@ try {
       new RegExp(material.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     );
     await receive.getByLabel('Container name', { exact: true }).fill('Tube acceptance');
-    await choose(receive, 'Location', 'Freezer acceptance / Box acceptance');
+    await choose(receive, 'Location', 'Freezer acceptance / Shelf 1 / Box acceptance');
     await choose(receive, 'Position', 'A1');
     await receive.getByLabel('Quantity', { exact: true }).fill('100');
     await capture('03-receive-form', { quantity: '100', unit: 'uL', position: 'A1' });
@@ -295,7 +301,7 @@ try {
     await row.click();
     await page.getByRole('button', { name: 'Move', exact: true }).click();
     const move = page.getByRole('dialog', { name: 'Move container', exact: true });
-    await choose(move, 'Location', 'Freezer acceptance / Box acceptance');
+    await choose(move, 'Location', 'Freezer acceptance / Shelf 1 / Box acceptance');
     await choose(move, 'Position', 'A2');
     await move.getByRole('button', { name: 'Move container', exact: true }).click();
     await expect(move).toBeHidden();
@@ -569,6 +575,19 @@ try {
     );
   }
 
+  if (stage === 'custody' || stage === 'custody-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass the inventory journey fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    const run = stage === 'custody' ? runInventoryCustodyJourney : runInventoryCustodyReopen;
+    receipt.expected = await run({ page, expect, choose, inventoryRead, capture, fixture });
+    writeFileSync(
+      path.join(out, 'custody-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
   if (stage === 'reservations' || stage === 'reservation-reopen') {
     assert.ok(args.includes('--fixture'), 'Pass the inventory journey fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

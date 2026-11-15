@@ -1,3 +1,8 @@
+import { inventoryReservationPlacementFailure } from './inventory-reservation-placement';
+import { inventoryCommandWithdrawals } from './inventory-materials';
+import { inventoryCustodyAccess, inventoryItemCustody } from './inventory-custody';
+import { inventoryItemContains } from './inventory-placement';
+export { inventoryItemContains } from './inventory-placement';
 import type {
   InventoryAvailability,
   InventoryAvailabilityBlocker,
@@ -45,24 +50,6 @@ function samePrincipal(first: InventoryPrincipal, second: InventoryPrincipal | u
 
 function due(reservation: InventoryReservation, at: number): boolean {
   return reservation.deadline !== null && at >= reservation.deadline;
-}
-
-export function inventoryItemContains(
-  state: Pick<InventoryState, 'storage' | 'vessels'>,
-  container: InventoryPhysicalItem,
-  item: InventoryPhysicalItem
-): boolean {
-  if (container.kind === item.kind && container.id === item.id) return true;
-  if (container.kind !== 'storage') return false;
-  let record = item.kind === 'storage' ? state.storage[item.id] : state.vessels[item.id];
-  const visited = new Set<string>();
-  while (record?.placement.kind === 'located') {
-    if (record.placement.storageId === container.id) return true;
-    if (visited.has(record.placement.storageId)) return false;
-    visited.add(record.placement.storageId);
-    record = state.storage[record.placement.storageId];
-  }
-  return false;
 }
 
 function overlap(
@@ -117,6 +104,7 @@ function stockAvailability(
       .map((reservation) => reservation.remaining)
   );
   const blockers: InventoryAvailabilityBlocker[] = [];
+  blockers.push(...inventoryItemCustody(state, item, principal, state.lastRecordedAt).blockers);
   if (stock.quantity.kind === 'unknown') blockers.push({ code: 'QUANTITY_UNKNOWN' });
   if (stock.quality !== 'usable') blockers.push({ code: 'STOCK_QUARANTINED' });
   if (vessel.lifecycle !== 'active') blockers.push({ code: 'VESSEL_DISPOSED' });
@@ -195,24 +183,13 @@ export function inventoryAvailability(
       },
     };
   }
-  return { stocks, reservations };
-}
-
-export function inventoryCommandWithdrawals(
-  command: InventoryCommand
-): readonly InventoryWithdrawal[] {
-  switch (command.kind) {
-    case 'consume':
-      return [{ stockId: command.stockId, quantity: command.quantity }];
-    case 'transfer':
-      return [{ stockId: command.sourceStockId, quantity: command.quantity }];
-    case 'pool':
-      return command.inputs;
-    case 'dilute':
-      return [command.sample, command.diluent];
-    default:
-      return [];
-  }
+  const items: Record<string, InventoryAvailability['items'][string]> = Object.create(null);
+  for (const item of [
+    ...Object.keys(state.storage).map((id) => ({ kind: 'storage' as const, id })),
+    ...Object.keys(state.vessels).map((id) => ({ kind: 'vessel' as const, id })),
+  ])
+    items[item.id] = inventoryItemCustody(state, item, principal, at);
+  return { stocks, reservations, items };
 }
 
 function itemConflict(
@@ -329,33 +306,8 @@ export function inventoryReservationGuard(
     )
   )
     return refuse('ITEM_RESERVED', 'Another holder has reserved the destination storage location.');
-  if (['move-storage', 'move-vessel', 'push-stack', 'pop-stack'].includes(command.kind)) {
-    const active = Object.values(state.reservations).filter(
-      (reservation) => reservation.lifecycle.kind === 'active'
-    );
-    for (const booking of active) {
-      if (
-        booking.kind !== 'item' ||
-        !locations.some((location) => inventoryItemContains(state, booking.item, location))
-      )
-        continue;
-      if (
-        active.some((reservation) => {
-          if (reservation.kind !== 'quantity' || samePrincipal(reservation.holder, booking.holder))
-            return false;
-          const allocated = stockTarget(state, reservation.stockId);
-          return (
-            allocated !== undefined &&
-            items.some((moving) => inventoryItemContains(state, moving, allocated))
-          );
-        })
-      )
-        return refuse(
-          'RESERVATION_CONFLICT',
-          'The move would place another holder’s allocated stock inside this item booking.'
-        );
-    }
-  }
+  if (['move-storage', 'move-vessel', 'push-stack', 'pop-stack'].includes(command.kind))
+    return inventoryReservationPlacementFailure(state, items, locations);
   return null;
 }
 
@@ -434,6 +386,8 @@ export function applyInventoryReservationCommand(
           command.item.kind === 'storage' ? 'STORAGE_NOT_FOUND' : 'VESSEL_NOT_FOUND',
           'The reserved item does not exist.'
         );
+      const physical = inventoryCustodyAccess(state, command.item, context.principal);
+      if (physical) return physical;
       if (item.lifecycle !== 'active')
         return refuse(
           command.item.kind === 'storage' ? 'STORAGE_DISPOSED' : 'VESSEL_DISPOSED',
