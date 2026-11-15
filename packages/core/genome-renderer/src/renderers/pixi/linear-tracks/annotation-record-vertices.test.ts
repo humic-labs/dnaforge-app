@@ -23,6 +23,26 @@ const defaultConfig: BuildVerticesConfig = {
 };
 
 describe('time-bounded vertex preparation', () => {
+  it('uses a prepared exact visible count without rescanning record predicates', () => {
+    const records = [rec(0, 10), rec(10, 20), rec(20, 30)];
+    const lanes = new Int32Array([0, -1, 1]);
+    let predicateCalls = 0;
+    const config = {
+      ...defaultConfig,
+      includeRecord: (_record: AnnotationRecord, index: number) => {
+        predicateCalls += 1;
+        return index !== 2;
+      },
+    };
+    const expected = buildAnnotationRecordVertices(records, lanes, config);
+    predicateCalls = 0;
+    const job = beginAnnotationRecordVerticesJob(records, lanes, config, { visibleRecordCount: 1 });
+    expect(predicateCalls).toBe(0);
+    advanceAnnotationRecordVerticesJob(job, records.length);
+    expect(finishAnnotationRecordVerticesJob(job)).toEqual(expected);
+    expect(predicateCalls).toBe(records.length);
+  });
+
   it('yields under expensive records and resumes to byte-identical complete geometry', () => {
     const records = Array.from({ length: 64 }, (_, index) =>
       rec(index * 200, index * 200 + 150, index % 2 ? 0xabcdef : undefined)

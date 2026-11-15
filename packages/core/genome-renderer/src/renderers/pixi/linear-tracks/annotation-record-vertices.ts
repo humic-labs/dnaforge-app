@@ -86,6 +86,7 @@ export function buildAnnotationRecordVertices(
 
 export interface BeginJobOptions {
   pool?: AnnotationRecordVerticesPool;
+  visibleRecordCount?: number;
 }
 
 export interface AnnotationRecordVerticesJob {
@@ -123,10 +124,14 @@ export function beginAnnotationRecordVerticesJob(
   const defaultAlpha = config.defaultAlpha ?? 1;
   if (laneHeightPx <= 0) throw new Error(`laneHeightPx must be positive`);
 
-  let visibleCount = 0;
-  for (let i = 0; i < records.length; i++) {
-    if (includeRecord && !includeRecord(records[i], i)) continue;
-    if (laneAssignment[i] >= 0) visibleCount++;
+  let visibleCount = options?.visibleRecordCount ?? 0;
+  if (options?.visibleRecordCount === undefined) {
+    for (let i = 0; i < records.length; i++) {
+      if (includeRecord && !includeRecord(records[i], i)) continue;
+      if (laneAssignment[i] >= 0) visibleCount++;
+    }
+  } else if (!Number.isInteger(visibleCount) || visibleCount < 0 || visibleCount > records.length) {
+    throw new RangeError('prepared visible record count must fit records');
   }
   const vertexCount = visibleCount * 6;
 

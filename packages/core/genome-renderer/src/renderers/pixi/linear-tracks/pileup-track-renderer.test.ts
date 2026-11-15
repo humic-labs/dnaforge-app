@@ -8,8 +8,12 @@ import { webglThemeForMode, type WebGLRenderTheme } from '../shared/theme';
 import { buildCoverageGpuAtlas } from './coverage-gpu-atlas';
 import { PENDING_INTERVAL_BAND_HEIGHT_PX } from './pileup-pending-interval-layer';
 import { PersistentRowLayout } from './pileup-row-layout';
+import * as rowHeightField from './pileup-read-row-height-field';
 import { TrackDataStore } from './track-data-store';
-import { PileupReadDifferenceLayer, pileupReadBodyVerticalGeometry } from './pileup-read-glyph-layer';
+import {
+  PileupReadDifferenceLayer,
+  pileupReadBodyVerticalGeometry,
+} from './pileup-read-glyph-layer';
 import type { TrackMountArgs, TrackPaintArgs } from './types';
 import {
   pileupExactReadPreparationEligible,
@@ -1821,6 +1825,112 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
     }
   );
 
+  it.each(['replace', 'cancel-source'] as const)(
+    'keeps read fronts and hits paired while height preparation is held: %s',
+    (mode) => {
+      const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+      const container = renderer.mount(mountArgs);
+      const initial = read(100, 110, 'initial', {
+        mismatches: [{ pos: 104, kind: 'sub', refBase: 'A', readBase: 'T' }],
+      });
+      const replacement = read(100, 110, 'replacement', {
+        mismatches: [{ pos: 106, kind: 'sub', refBase: 'C', readBase: 'G' }],
+      });
+      const newest = read(100, 110, 'newest', {
+        mismatches: [{ pos: 108, kind: 'sub', refBase: 'G', readBase: 'A' }],
+      });
+      const args = (record: PileupRecord, generation: string) =>
+        paintArgsZoom(
+          container,
+          {
+            dataAuthority: 'tile-engine',
+            records: [record],
+            readSource: {
+              truncated: false,
+              windowStartBp: 90,
+              windowEndBp: 190,
+              sourceGenerationKey: generation,
+            },
+          },
+          4,
+          { start: 90, end: 190 },
+          800,
+          240
+        );
+      const initialArgs = args(initial, 'source-a');
+      const replacementArgs = args(replacement, mode === 'replace' ? 'source-a' : 'source-b');
+      const newestArgs = args(newest, 'source-c');
+      const hit = (position: number, paint: TrackPaintArgs<PileupTrackData>, row = 0) =>
+        renderer.hitTestReadEvent(container, {
+          trackId: 'test-bam',
+          localX: position * 4 + 1,
+          localY: row * (renderer.getDiagnostics(container)?.effectiveRowHeightPx ?? 3) + 1,
+          screenX: position * 4 + 1,
+          screenY: 51 + row * (renderer.getDiagnostics(container)?.effectiveRowHeightPx ?? 3),
+          pathMapper: paint.pathMapper,
+          chromosomeGlobalStartBp: 0,
+        });
+      let restore = () => {};
+      try {
+        renderer.paint(initialArgs);
+        for (let count = 0; renderer.hasPendingPaintWork(container) && count < 20; count++) {
+          renderer.paint(initialArgs);
+        }
+        const before = renderer.getDiagnostics(container)!;
+        expect(before.readDifferenceMarkCount).toBe(1);
+        expect(hit(104, initialArgs)).toMatchObject({ readId: 'initial', event: { pos: 104 } });
+
+        let hold = true;
+        const original = rowHeightField.advanceReadRowHeightFieldJob;
+        const preparation = vi
+          .spyOn(rowHeightField, 'advanceReadRowHeightFieldJob')
+          .mockImplementation((...parameters: Parameters<typeof original>) =>
+            hold ? 0 : original(...parameters)
+          );
+        restore = () => preparation.mockRestore();
+        for (let count = 0; count < 3; count++) renderer.paint(replacementArgs);
+        expect(renderer.hasPendingPaintWork(container)).toBe(true);
+        const pending = renderer.getDiagnostics(container)!;
+        expect(pending.readDifferenceBuildCount).toBe(before.readDifferenceBuildCount);
+        if (mode === 'replace') {
+          expect(pending.rowsMeshGenerationKey).toBe(before.rowsMeshGenerationKey);
+          expect(hit(104, replacementArgs)).toMatchObject({
+            readId: 'initial',
+            event: { pos: 104 },
+          });
+        } else {
+          expect(pending.readDifferenceLayerVisible).toBe(false);
+          expect(hit(104, replacementArgs)).toBeNull();
+          for (let count = 0; count < 3; count++) renderer.paint(newestArgs);
+          expect(renderer.getDiagnostics(container)?.readDifferenceLayerVisible).toBe(false);
+        }
+
+        hold = false;
+        const finalArgs = mode === 'replace' ? replacementArgs : newestArgs;
+        for (let count = 0; renderer.hasPendingPaintWork(container) && count < 20; count++) {
+          renderer.paint(finalArgs);
+        }
+        expect(renderer.hasPendingPaintWork(container)).toBe(false);
+        expect(renderer.getDiagnostics(container)).toMatchObject({
+          readDifferenceMarkCount: 1,
+          readDifferenceInstanceCount: 1,
+          readDifferenceLayerVisible: true,
+        });
+        const position = mode === 'replace' ? 106 : 108;
+        const committedRow = mode === 'replace' ? 1 : 0;
+        expect(hit(position, finalArgs, committedRow)).toMatchObject({
+          readId: mode === 'replace' ? 'replacement' : 'newest',
+          sourceGenerationKey: mode === 'replace' ? 'source-a' : 'source-c',
+          event: { pos: position },
+        });
+        expect(hit(mode === 'replace' ? 104 : 106, finalArgs, committedRow)?.event).toBeUndefined();
+      } finally {
+        restore();
+        renderer.unmount(container);
+      }
+    }
+  );
+
   it.each([
     {
       name: 'highest matching coordinate',
@@ -2396,8 +2506,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
     };
     const records = [read(100, 150, 'a'), read(160, 200, 'b')];
     let viewport = { start: 100, end: 200 };
-    const paint = (data: PileupTrackDataFixture) =>
-      r.paint(paintArgsZoom(c, data, 10, viewport));
+    const paint = (data: PileupTrackDataFixture) => r.paint(paintArgsZoom(c, data, 10, viewport));
     paint({ dataAuthority: 'tile-engine', records, readSource: source });
     expect(r.getReadPresentationSnapshot(c)?.kind).toBe('pending');
     let frames = 0;
@@ -2405,11 +2514,22 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       paint({ dataAuthority: 'tile-engine', records, readSource: source });
     }
     expect(r.getReadPresentationSnapshot(c)).toMatchObject({
-      kind: 'reads', sourceGenerationKey: 'generation-a', presentationOwnerKey: 'owner-a',
-      viewStartBp: 100, viewEndBp: 200, sourceCoversViewport: true, meshCoverageFraction: 1,
-      truncated: false, visible: true, recordCount: 2,
+      kind: 'reads',
+      sourceGenerationKey: 'generation-a',
+      presentationOwnerKey: 'owner-a',
+      viewStartBp: 100,
+      viewEndBp: 200,
+      sourceCoversViewport: true,
+      meshCoverageFraction: 1,
+      truncated: false,
+      visible: true,
+      recordCount: 2,
     });
-    paint({ dataAuthority: 'tile-engine', records: [...records, read(600, 650, 'offscreen')], readSource: source });
+    paint({
+      dataAuthority: 'tile-engine',
+      records: [...records, read(600, 650, 'offscreen')],
+      readSource: source,
+    });
     expect(r.getDiagnostics(c)?.rowsAssignmentBuildInProgress).toBe(true);
     expect(r.getReadPresentationSnapshot(c)?.kind).toBe('reads');
     viewport = { start: 800, end: 1_200 };
@@ -2419,15 +2539,30 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       readSource: { ...source, windowEndBp: 2_000 },
     });
     expect(r.getReadPresentationSnapshot(c)).toMatchObject({
-      kind: 'pending', meshCoverageFraction: 0.5, sourceCoversViewport: true,
+      kind: 'pending',
+      meshCoverageFraction: 0.5,
+      sourceCoversViewport: true,
     });
     viewport = { start: 100, end: 200 };
     paint({ dataAuthority: 'tile-engine', records, readSource: { ...source, truncated: true } });
     expect(r.getReadPresentationSnapshot(c)?.kind).toBe('pending');
-    paint({ dataAuthority: 'tile-engine', records, readSource: { ...source, presentationOwnerKey: 'owner-b' } });
-    expect(r.getReadPresentationSnapshot(c)).toMatchObject({ kind: 'pending', presentationOwnerKey: 'owner-b', visible: false });
+    paint({
+      dataAuthority: 'tile-engine',
+      records,
+      readSource: { ...source, presentationOwnerKey: 'owner-b' },
+    });
+    expect(r.getReadPresentationSnapshot(c)).toMatchObject({
+      kind: 'pending',
+      presentationOwnerKey: 'owner-b',
+      visible: false,
+    });
     paint({ dataAuthority: 'tile-engine', records: [], readSource: source });
-    expect(r.getReadPresentationSnapshot(c)).toMatchObject({ kind: 'empty', recordCount: 0, visible: false, sourceCoversViewport: true });
+    expect(r.getReadPresentationSnapshot(c)).toMatchObject({
+      kind: 'empty',
+      recordCount: 0,
+      visible: false,
+      sourceCoversViewport: true,
+    });
     r.unmount(c);
   });
 
@@ -2732,22 +2867,89 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         240
       );
 
+    it('shares the elapsed allowance with height finalization before publishing new reads', () => {
+      const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+      const container = renderer.mount(mountArgs);
+      const initial = [read(100, 105, 'initial')];
+      const initialPaint = readPaint(container, initial);
+      let clock = 0;
+      let derivedWork = false;
+      const records = makeWindowReads(1_500, 110_000).map((record) => {
+        const { start, end } = record;
+        Object.defineProperties(record, {
+          start: {
+            get: () => {
+              if (derivedWork) clock += 0.005;
+              return start;
+            },
+          },
+          end: {
+            get: () => {
+              if (derivedWork) clock += 0.005;
+              return end;
+            },
+          },
+        });
+        return record;
+      });
+      const advance = PersistentRowLayout.prototype.advanceAssignmentWithinBudget;
+      let assignment: ReturnType<typeof vi.spyOn> | undefined;
+      let timer: ReturnType<typeof vi.spyOn> | undefined;
+      try {
+        renderer.paint(initialPaint);
+        for (let frame = 0; renderer.hasPendingPaintWork(container) && frame < 20; frame++) {
+          renderer.paint(initialPaint);
+        }
+        const before = renderer.getDiagnostics(container)!;
+        expect(before.rowsMeshRecordCount).toBe(1);
+        assignment = vi
+          .spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget')
+          .mockImplementation(function (this: PersistentRowLayout, job, ...args) {
+            const processed = advance.call(this, job, ...args);
+            if (job.complete) derivedWork = true;
+            return processed;
+          });
+        timer = vi.spyOn(performance, 'now').mockImplementation(() => clock);
+        const replacement = readPaint(container, records, 110_000);
+        renderer.paint(replacement);
+
+        expect(clock).toBeLessThanOrEqual(2.25);
+        expect(renderer.hasPendingPaintWork(container)).toBe(true);
+        expect(renderer.getDiagnostics(container)?.rowsMeshRecordCount).toBe(1);
+        for (let frame = 0; renderer.hasPendingPaintWork(container) && frame < 400; frame++) {
+          const started = clock;
+          renderer.paint(replacement);
+          expect(clock - started).toBeLessThanOrEqual(2.25);
+        }
+        expect(renderer.hasPendingPaintWork(container)).toBe(false);
+        expect(renderer.getDiagnostics(container)?.rowsMeshRecordCount).toBe(records.length);
+      } finally {
+        timer?.mockRestore();
+        assignment?.mockRestore();
+        renderer.unmount(container);
+      }
+    });
+
     it('prioritizes a missing read front within the urgent elapsed-work budget', () => {
       const r = new PixiPileupTrackRenderer({ type: 'pileup-test' });
       const c = r.mount(mountArgs);
       const records = makeWindowReads(5_500, 100_000);
       const advance = PersistentRowLayout.prototype.advanceAssignmentWithinBudget;
-      const assignment = vi.spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget')
+      const assignment = vi
+        .spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget')
         .mockImplementation(function (this: PersistentRowLayout, job, maxRecords, budgetMs) {
           return advance.call(this, job, maxRecords, budgetMs, () => job.processedCount * 0.001);
         });
       let meshClock: ReturnType<typeof vi.spyOn> | undefined;
       try {
         r.paint(readPaint(c, records));
-        expect(assignment.mock.lastCall?.slice(1)).toEqual([4_096, 2]);
+        expect(assignment.mock.lastCall?.[1]).toBe(4_096);
+        expect(assignment.mock.lastCall?.[2]).toBeGreaterThan(0);
+        expect(assignment.mock.lastCall?.[2]).toBeLessThanOrEqual(2);
         let d = r.getDiagnostics(c)!;
-        expect(d.rowsAssignmentBuildRecordsLastFrame).toBeGreaterThanOrEqual(2_000);
-        expect(d.rowsAssignmentBuildRecordsLastFrame).toBeLessThanOrEqual(2_004);
+        const expectedRecords = Math.floor(assignment.mock.lastCall![2] * 1_000);
+        expect(d.rowsAssignmentBuildRecordsLastFrame).toBeGreaterThanOrEqual(expectedRecords);
+        expect(d.rowsAssignmentBuildRecordsLastFrame).toBeLessThanOrEqual(expectedRecords + 4);
         expect(d.rowsAssignmentBuildInProgress).toBe(true);
         while (d.rowsAssignmentBuildInProgress) {
           r.paint(readPaint(c, records));
@@ -2755,8 +2957,13 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         }
         let clock = 0;
         meshClock = vi.spyOn(performance, 'now').mockImplementation(() => (clock += 0.01));
-        r.paint(readPaint(c, records));
-        const mesh = r.getDiagnostics(c)!;
+        let mesh = r.getDiagnostics(c)!;
+        for (let frame = 0; frame < 100; frame++) {
+          r.paint(readPaint(c, records));
+          mesh = r.getDiagnostics(c)!;
+          if (mesh.rowsMeshBuildRecordsLastFrame > 0) break;
+          expect(r.hasPendingPaintWork(c)).toBe(true);
+        }
         expect(mesh.rowsMeshBuildRecordsLastFrame).toBeGreaterThan(0);
         expect(mesh.rowsMeshBuildRecordsLastFrame).toBeLessThan(records.length);
         expect(mesh.rowsMeshBuildInProgress).toBe(true);
@@ -2771,20 +2978,32 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       const r = new PixiPileupTrackRenderer({ type: 'pileup-test' });
       const c = r.mount(mountArgs);
       const paint = (records: PileupRecord[], end: number) =>
-        r.paint(paintArgsZoom(c, {
-          dataAuthority: 'tile-engine',
-          records,
-          readSource: { truncated: false, windowStartBp: 0, windowEndBp: end },
-        }, 4 / 150, { start: 40_000, end: 60_000 }, 800, 240));
+        r.paint(
+          paintArgsZoom(
+            c,
+            {
+              dataAuthority: 'tile-engine',
+              records,
+              readSource: { truncated: false, windowStartBp: 0, windowEndBp: end },
+            },
+            4 / 150,
+            { start: 40_000, end: 60_000 },
+            800,
+            240
+          )
+        );
       paint([read(100, 150, 'front')], 100_000);
       const advance = PersistentRowLayout.prototype.advanceAssignmentWithinBudget;
-      const assignment = vi.spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget')
+      const assignment = vi
+        .spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget')
         .mockImplementation(function (this: PersistentRowLayout, job, maxRecords, budgetMs) {
           return advance.call(this, job, maxRecords, budgetMs, () => 0);
         });
       try {
         paint(makeWindowReads(5_500, 110_000), 110_000);
-        expect(assignment.mock.lastCall?.slice(1)).toEqual([512, 0.75]);
+        expect(assignment.mock.lastCall?.[1]).toBe(512);
+        expect(assignment.mock.lastCall?.[2]).toBeGreaterThan(0);
+        expect(assignment.mock.lastCall?.[2]).toBeLessThanOrEqual(0.75);
         expect(r.getDiagnostics(c)?.rowsAssignmentBuildRecordsLastFrame).toBe(512);
       } finally {
         assignment.mockRestore();
@@ -3336,7 +3555,9 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         }
         expect(d.rowsAssignmentBuildInProgress).toBe(false);
         expect(assignmentFrames).toBeLessThan(50);
-        expect(assignmentClock.mock.calls.every(([, , budgetMs]) => budgetMs === 2)).toBe(true);
+        expect(
+          assignmentClock.mock.calls.every(([, , budgetMs]) => budgetMs > 0 && budgetMs <= 2)
+        ).toBe(true);
 
         expect(d.rowsMeshBuildInProgress).toBe(true);
         expect(d.rowsMeshBuildRecordsLastFrame).toBeLessThanOrEqual(CAP);
