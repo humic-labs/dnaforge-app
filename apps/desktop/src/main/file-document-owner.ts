@@ -941,13 +941,14 @@ export class NativeFileDocumentOwner {
       document.recovery = undefined;
       await this.persist(document);
       document.saves.delete(revision);
-      return this.publish(document);
+      return this.snapshot(document);
     })();
     document.saves.set(revision, run);
     document.saveTargets.set(revision, content);
     return run.finally(() => {
       if (document.saves.get(revision) === run) document.saves.delete(revision);
       document.saveTargets.delete(revision);
+      this.publish(document);
     });
   }
 
@@ -1010,7 +1011,19 @@ export class NativeFileDocumentOwner {
 
   private publish(document: WorkingCopy): FileDocumentSnapshot {
     const snapshot = this.snapshot(document);
-    for (const listener of this.listeners) listener(snapshot);
+    for (const listener of this.listeners) {
+      try {
+        listener(snapshot);
+      } catch (error) {
+        try {
+          console.error(
+            '[FileDocumentOwner] Change notification failed:',
+            { filePath: document.path, documentId: document.documentId },
+            error
+          );
+        } catch {}
+      }
+    }
     return snapshot;
   }
 

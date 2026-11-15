@@ -134,7 +134,7 @@ export class FileDocumentClient {
       this.pending > 0
     )
       return;
-    this.accept(snapshot, true);
+    this.accept(snapshot, !this.error || this.content === snapshot.content);
   }
 
   load(fallback?: string): Promise<void> {
@@ -258,11 +258,16 @@ export class FileDocumentClient {
     const run = this.enqueue({ kind: 'capture-save' }).then(async (capture) => {
       if (!capture.saveCaptureId)
         throw new Error('The native file owner did not acknowledge its save capture.');
-      await platform().fs.fileDocument({
-        target: { documentId: capture.documentId },
-        operation: { kind: 'await-save', saveCaptureId: capture.saveCaptureId },
-        projection: 'document',
-      });
+      try {
+        await platform().fs.fileDocument({
+          target: { documentId: capture.documentId },
+          operation: { kind: 'await-save', saveCaptureId: capture.saveCaptureId },
+          projection: 'document',
+        });
+      } catch (error) {
+        await this.refreshAfterFailedSave(capture.documentId);
+        throw error;
+      }
       const snapshot = await this.enqueue({
         kind: 'inspect',
         offset: 0,
@@ -292,6 +297,29 @@ export class FileDocumentClient {
     }
     await this.tail;
     if (this.error && this.content !== this.snapshot?.content) throw new Error(this.error);
+  }
+
+  private refreshAfterFailedSave(documentId: string): Promise<void> {
+    const refresh = this.tail.then(async () => {
+      if (this.snapshot?.documentId !== documentId) return;
+      const snapshot = await platform().fs.fileDocument({
+        target: { documentId },
+        operation: {
+          kind: 'inspect',
+          offset: 0,
+          limit: 2000,
+          rowOffset: 0,
+          rowLimit: 20,
+          columnOffset: 0,
+          columnLimit: 20,
+        },
+        projection: 'document',
+      });
+      if (this.snapshot?.documentId === documentId && snapshot.documentId === documentId)
+        this.accept(snapshot, false);
+    });
+    this.tail = refresh.catch(() => {});
+    return refresh.catch(() => {});
   }
 
   private enqueue(
