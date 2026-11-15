@@ -2770,7 +2770,6 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     work: RecordsCommitWork
   ): void {
     const {
-      recordsKey,
       sourceWindowStartBp,
       sourceWindowEndBp,
       exactRowsMayRender,
@@ -2785,13 +2784,8 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     const assignment = finishedAssignmentJob.layout.finishAssignment(finishedAssignmentJob.job);
     work.finishAssignmentMs = nowMs() - finishAssignmentStartedAt;
     state.layout = finishedAssignmentJob.layout;
-    const beginRetainStartedAt = nowMs();
-    state.rowsRetainBuildJob = {
-      recordsKey,
-      job: state.layout.beginRetain(records),
-    };
-    work.beginRetainMs = nowMs() - beginRetainStartedAt;
-    work.retainScheduled = true;
+    state.rowsRetainBuildJob = null;
+    state.rowsRetainBuildRecordsLastFrame = 0;
     state.rowsAssignmentBuildJob = null;
     state.cachedReadRows = assignment.rows;
     state.cachedReadHitIndex = assignment.readHitIndex;

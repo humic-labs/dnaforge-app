@@ -3451,7 +3451,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       expect(d.rowsVertexCount).toBe(records.length * 6);
     });
 
-    it('schedules row-layout retain cleanup as bounded post-commit work', async () => {
+    it('commits a current-only row layout without scheduling redundant retain work', async () => {
       const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
       const RETAIN_CAP = 1;
       const r = new PixiPileupTrackRenderer({
@@ -3503,11 +3503,15 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       d = r.getDiagnostics(c)!;
 
       expect(d.recordsCommitTiming?.exactDerivedBuilt).toBe(true);
-      expect(d.recordsCommitTiming?.retainScheduled).toBe(true);
-      expect(d.rowsRetainBuildInProgress).toBe(true);
-      expect(d.rowsRetainBuildRecordsLastFrame).toBeLessThanOrEqual(RETAIN_CAP);
+      expect(d.recordsCommitTiming?.retainScheduled).toBe(false);
+      expect(d.recordsCommitTiming?.beginRetainMs).toBe(0);
+      expect(d.rowsRetainBuildInProgress).toBe(false);
+      expect(d.rowsRetainBuildRecordsLastFrame).toBe(0);
+      expect(d.rowsRetainedPlacementCount).toBe(bRecords.length);
+      expect(d.rowsRetainedIntervalCount).toBe(bRecords.length);
       expect(d.paintTiming?.retainMs).toBeGreaterThanOrEqual(0);
       expect(d.rowsVertexCount).toBe(bRecords.length * 6);
+      r.unmount(c);
     });
 
     it('does not clone the complete retained row map for an overlapping handoff', async () => {
