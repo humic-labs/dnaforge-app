@@ -1,5 +1,5 @@
-import { healthCheck, isApiError } from '@waypoint/api-client';
-import { configureRendererSidecarApiClient, hostedExternalLookupBaseUrl } from './sidecar-session';
+import { healthCheck, isApiError, type ApiClient } from '@waypoint/api-client';
+import { createRendererSidecarApiClient, hostedExternalLookupBaseUrl } from './sidecar-session';
 
 export interface HealthCheckResult {
   healthy: boolean;
@@ -18,7 +18,6 @@ export class ServiceManager {
 
   constructor(baseUrl?: string) {
     this.baseUrl = normalizeBaseUrl(baseUrl);
-    if (this.baseUrl) configureRendererSidecarApiClient(this.baseUrl);
   }
 
   isReady(): boolean {
@@ -40,29 +39,29 @@ export class ServiceManager {
       throw new Error('ServiceManager base URL cannot be empty.');
     }
     this.baseUrl = normalized;
-    configureRendererSidecarApiClient(normalized);
   }
 
-  bindGeneratedClient(): void {
-    configureRendererSidecarApiClient(this.getBaseUrl());
+  client(): ApiClient {
+    return createRendererSidecarApiClient(this.getBaseUrl());
   }
 
   getExternalLookupBaseUrl(): string {
     return hostedExternalLookupBaseUrl() ?? this.getBaseUrl();
   }
 
-  bindExternalLookupClient(): void {
-    configureRendererSidecarApiClient(this.getExternalLookupBaseUrl());
+  externalLookupClient(): ApiClient {
+    return createRendererSidecarApiClient(this.getExternalLookupBaseUrl());
   }
 
   async checkHealth(): Promise<HealthCheckResult> {
     const startTime = Date.now();
 
     try {
-      this.bindGeneratedClient();
-      await healthCheck({
-        signal: AbortSignal.timeout(5000),
-      });
+      await healthCheck(
+        this.client().options({
+          signal: AbortSignal.timeout(5000),
+        })
+      );
 
       const latencyMs = Date.now() - startTime;
       this.ready = true;

@@ -1,5 +1,5 @@
 import {
-  configureRendererSidecarApiClient,
+  createRendererSidecarApiClient,
   resolveSidecarBaseUrl,
 } from '../../../services/sidecar-session';
 import {
@@ -45,7 +45,7 @@ export async function sidecarNebTm(
   opts: { signal?: AbortSignal; grantedCapabilities?: readonly string[] } = {}
 ): Promise<SidecarNebTmResult> {
   const baseUrl = await resolveSidecarBaseUrl(TOOL_NAME);
-  configureRendererSidecarApiClient(baseUrl);
+  const apiClient = createRendererSidecarApiClient(baseUrl);
   const prodcode = params.prodcode ?? 'q5-0';
   const concNm = params.concNm ?? 250;
   const body = {
@@ -59,7 +59,7 @@ export async function sidecarNebTm(
 
   let response: Awaited<ReturnType<typeof postNebTmExternalNebTmPost>>;
   try {
-    response = await postNebTmExternalNebTmPost(body, { signal: opts.signal });
+    response = await postNebTmExternalNebTmPost(body, apiClient.options({ signal: opts.signal }));
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') throw err;
     if (isApiError(err)) throw new Error(describeNebTmApiError(err.status, err.body));
@@ -156,7 +156,7 @@ export async function sidecarNebTmBatch(
 ): Promise<SidecarNebTmResult[]> {
   if (params.sequences.length === 0) return [];
   const baseUrl = await resolveSidecarBaseUrl(TOOL_NAME);
-  configureRendererSidecarApiClient(baseUrl);
+  const apiClient = createRendererSidecarApiClient(baseUrl);
   const prodcode = params.prodcode ?? 'q5-0';
   const concNm = params.concNm ?? 250;
   const body = {
@@ -169,7 +169,10 @@ export async function sidecarNebTmBatch(
 
   let response: Awaited<ReturnType<typeof postNebTmBatchExternalNebTmBatchPost>>;
   try {
-    response = await postNebTmBatchExternalNebTmBatchPost(body, { signal: opts.signal });
+    response = await postNebTmBatchExternalNebTmBatchPost(
+      body,
+      apiClient.options({ signal: opts.signal })
+    );
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') throw err;
     if (isApiError(err)) throw new Error(describeNebTmApiError(err.status, err.body));

@@ -17,7 +17,12 @@ import {
   type HostedToolResultPart,
 } from '../transports/hosted';
 import { blocksToMessages, createdAtAfter } from './chat-projections';
-import { setConversationState, type ChatStoreGet, type ChatStoreSet } from './chat-runtime';
+import {
+  chatProviderPhase,
+  setConversationState,
+  type ChatStoreGet,
+  type ChatStoreSet,
+} from './chat-runtime';
 import { EMPTY_CONV_STATE } from './chat-store-types';
 import type { ChatMessage } from './chat-types';
 import { inferInitialDirectToolStep, type DirectToolName } from './tool-policy';
@@ -269,8 +274,8 @@ export async function executeHostedTurn({
     apiKey,
     modelInjection,
   });
+  chatProviderPhase(set, conversationId, controller, 'streaming');
   setConversationState(set, conversationId, () => ({
-    isStreaming: true,
     streamingBlocks: [],
   }));
 
@@ -508,10 +513,10 @@ export async function executeHostedTurn({
       const blocks = get()._convStates.get(conversationId)?.streamingBlocks ?? [];
       const messages = blocksToMessages(await finalizeInlineBlocks(blocks, true), turnId);
       if (messages.length > 0) {
+        chatProviderPhase(set, conversationId, controller, 'settling');
         setConversationState(set, conversationId, (previous) => ({
           messages: [...previous.messages, ...messages],
           streamingBlocks: [],
-          isStreaming: false,
         }));
         messages.forEach((message) => queueTerminalMessage(message, message.referenceIds));
       }
@@ -524,10 +529,10 @@ export async function executeHostedTurn({
       await onStopped?.();
     } catch (error) {
       if (messages.length > 0) {
+        chatProviderPhase(set, conversationId, controller, 'settling');
         setConversationState(set, conversationId, (previous) => ({
           messages: [...previous.messages, ...messages],
           streamingBlocks: [],
-          isStreaming: false,
         }));
         messages.forEach((message) => queueTerminalMessage(message, message.referenceIds));
       }
@@ -545,10 +550,10 @@ export async function executeHostedTurn({
         createdAt: createdAtAfter(messages),
       });
     }
+    chatProviderPhase(set, conversationId, controller, 'settling');
     setConversationState(set, conversationId, (previous) => ({
       messages: [...previous.messages, ...messages],
       streamingBlocks: [],
-      isStreaming: false,
     }));
     messages.forEach((message) => queueTerminalMessage(message, message.referenceIds));
     await finishTurn('stopped', chatInterruptionReason(controller.signal));
@@ -578,10 +583,10 @@ export async function executeHostedTurn({
       createdAt: createdAtAfter(messages),
     });
   }
+  chatProviderPhase(set, conversationId, controller, 'settling');
   setConversationState(set, conversationId, (previous) => ({
     messages: [...previous.messages, ...messages],
     streamingBlocks: [],
-    isStreaming: false,
   }));
   messages.forEach((message) => queueTerminalMessage(message, message.referenceIds));
   await finishTurn('completed', 'completed');

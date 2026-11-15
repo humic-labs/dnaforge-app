@@ -11,7 +11,7 @@ import { useCanvasStore } from '../canvas/public/store';
 
 export async function startNgsReadAnalysis(input: NgsReadAnalysisRequest, referencePath?: string) {
   return managedOperations.startRegisteredOperation(
-    async ({ scopeId, submissionKey, acceptedWorkspaceInput, expectedAccountId }) => {
+    async ({ apiClient, scopeId, submissionKey, acceptedWorkspaceInput, expectedAccountId }) => {
       const response = await startNgsReadAnalysisOperationOperationsNgsReadAnalysisPost(
         {
           submission_key: submissionKey,
@@ -21,9 +21,11 @@ export async function startNgsReadAnalysis(input: NgsReadAnalysisRequest, refere
           },
           input,
         },
-        acceptedWorkspaceInput
-          ? { headers: { 'X-DNAForge-Account-ID': expectedAccountId! } }
-          : undefined
+        apiClient.options(
+          acceptedWorkspaceInput
+            ? { headers: { 'X-DNAForge-Account-ID': expectedAccountId! } }
+            : undefined
+        )
       );
       if (response.status !== 202) throw new Error(response.data.detail.message);
       if (response.data.kind !== 'ngs-read-analysis' || response.data.subject.scope_id !== scopeId)

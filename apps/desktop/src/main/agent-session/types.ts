@@ -237,14 +237,16 @@ export interface ProviderSessionStartSpec {
   releaseChannel: RuntimeReleaseChannel;
 }
 
-export type AgentSessionStatus =
-  | 'starting'
-  | 'running'
-  | 'stop_requested'
+export type AgentSessionActiveStatus = 'starting' | 'running' | 'stopping';
+
+export type AgentSessionTerminalStatus =
   | 'completed'
   | 'failed'
   | 'cancelled'
+  | 'stop_unconfirmed'
   | 'interrupted';
+
+export type AgentSessionStatus = AgentSessionActiveStatus | AgentSessionTerminalStatus;
 
 export type WorkspaceGroundingPolicy = 'required' | 'not-required';
 

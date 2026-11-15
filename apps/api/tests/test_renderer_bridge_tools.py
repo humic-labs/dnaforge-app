@@ -649,6 +649,7 @@ def test_renderer_audit_accepts_declared_provider_alias(
     store = initialize_control_plane(tmp_path / "control.sqlite3")
     store.ensure_agent_identity("agent-1", scope=["read-workspace"])
     action_id = store.insert_agent_action(
+        completion_owner="renderer",
         agent_identity_id="agent-1",
         tool_name=action_tool,
         parameters={},
@@ -769,6 +770,7 @@ def test_renderer_audit_projects_managed_operation_result(tmp_path, monkeypatch)
     monkeypatch.setenv("DNAFORGE_RENDERER_BRIDGE_TOKEN", "renderer-secret")
     store.ensure_agent_identity("agent-1", scope=capabilities)
     action_id = store.insert_agent_action(
+        completion_owner="renderer",
         agent_identity_id="agent-1",
         tool_name="operations.annotation.inspect",
         parameters={"operationId": "operation-1", "targetDocumentId": "sequence-1"},
@@ -1712,6 +1714,7 @@ def test_terminal_renderer_audit_reconciles_unresolved_action_and_survives_resta
     monkeypatch.setenv("DNAFORGE_RENDERER_BRIDGE_TOKEN", "renderer-secret")
     store.ensure_agent_identity("agent-1", scope=["modify-tabs"])
     action_id = store.insert_agent_action(
+        completion_owner="renderer",
         agent_identity_id="agent-1",
         tool_name="open_tab",
         parameters={},
@@ -1719,8 +1722,10 @@ def test_terminal_renderer_audit_reconciles_unresolved_action_and_survives_resta
         job_pool="cpu-fast",
         job_cancelable=False,
     )
-    store.complete_agent_action(
-        action_id, error={"code": "OUTCOME_UNRESOLVED", "retriable": False}
+    store.reconcile_interrupted_agent_action(
+        action_id,
+        error={"code": "OUTCOME_UNRESOLVED", "retriable": False},
+        terminal_expires_at=0,
     )
     client = TestClient(app)
     body = {

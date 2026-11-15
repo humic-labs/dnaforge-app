@@ -37,7 +37,7 @@ import {
   type CliTranscriptAccumulator,
 } from '../transports/cli';
 import { blocksToMessages, createdAtAfter, hasMaterializedAssistantText } from './chat-projections';
-import { setConversationState, type ChatStoreSet } from './chat-runtime';
+import { chatProviderPhase, setConversationState, type ChatStoreSet } from './chat-runtime';
 import type { ChatMessage } from './chat-types';
 import { referenceCompletionFallback } from './reference-completion';
 import type { FinishChatTurn, QueueTerminalMessage } from './turn-execution';
@@ -169,8 +169,8 @@ export async function executeCliTurn({
   attachments,
   finishTurn,
 }: ExecuteCliTurnOptions): Promise<CliTurnDisposition> {
+  chatProviderPhase(set, conversationId, controller, 'streaming');
   setConversationState(set, conversationId, () => ({
-    isStreaming: true,
     streamingBlocks: [],
   }));
   const inlineReferences = createInlineReferenceSession({
@@ -232,10 +232,10 @@ export async function executeCliTurn({
       content: '*[Stopped. Send a follow-up to resume.]*',
       createdAt: createdAtAfter(activityMessages),
     };
+    chatProviderPhase(set, conversationId, controller, 'settling');
     setConversationState(set, conversationId, (previous) => ({
       messages: [...previous.messages, ...activityMessages, stoppedMessage],
       streamingBlocks: [],
-      isStreaming: false,
     }));
     activityMessages.forEach((message) => queueTerminalMessage(message, message.referenceIds));
     queueTerminalMessage(stoppedMessage);
@@ -457,10 +457,10 @@ export async function executeCliTurn({
     }
     const activityMessages = await materializeActivity(true);
     if (activityMessages.length > 0) {
+      chatProviderPhase(set, conversationId, controller, 'settling');
       setConversationState(set, conversationId, (previous) => ({
         messages: [...previous.messages, ...activityMessages],
         streamingBlocks: [],
-        isStreaming: false,
       }));
       activityMessages.forEach((message) => queueTerminalMessage(message, message.referenceIds));
     }
@@ -515,6 +515,7 @@ export async function executeCliTurn({
         referenceIds: finalizedFinalBlock?.referenceIds,
         structuredOutput: result.structuredOutput,
       };
+  chatProviderPhase(set, conversationId, controller, 'settling');
   setConversationState(set, conversationId, (previous) => ({
     messages: [
       ...previous.messages,
@@ -522,7 +523,6 @@ export async function executeCliTurn({
       ...(assistantMessage ? [assistantMessage] : []),
     ],
     streamingBlocks: [],
-    isStreaming: false,
   }));
   activityMessages.forEach((message) => queueTerminalMessage(message, message.referenceIds));
   if (assistantMessage) queueTerminalMessage(assistantMessage, assistantMessage.referenceIds);

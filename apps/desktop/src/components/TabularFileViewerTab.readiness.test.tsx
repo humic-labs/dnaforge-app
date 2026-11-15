@@ -163,7 +163,9 @@ describe('CV1 real table read/parse/grid generation and canvas placement', () =>
     render(<TabularFileViewerTab canvasTabId={tabId} filePath={path} />);
     place();
     act(() =>
-      useCanvasStore.getState().updateTab('main', tabId, { entityId: '/synthetic/replacement.csv' })
+      useCanvasStore
+        .getState()
+        .retargetTab('main', tabId, { type: 'table', entityId: '/synthetic/replacement.csv' })
     );
     await act(async () => {
       read.resolve('sample,value\nA,7\n');

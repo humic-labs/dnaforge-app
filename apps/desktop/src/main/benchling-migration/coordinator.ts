@@ -1336,24 +1336,10 @@ export class LocalBenchlingMigrationCoordinator {
   async resume(runId: string): Promise<MigrationRun> {
     const run = await this.requireRun(runId);
     if (run.state === 'failed') {
-      if (
-        run.lastError?.code !== 'internal_invariant' ||
-        run.scope.acquisition !== 'local_bundle' ||
-        !migrationRunHasZipSource(run)
-      ) {
-        throw new Error('This failed migration cannot retry from preserved local evidence.');
-      }
-      const retryRun: MigrationRun = {
-        ...run,
-        state: 'parsing',
-        resumeState: null,
-        updatedAt: this.now(),
-        unlockedAt: null,
-        lastError: null,
-      };
       const store = this.openStore(run.workspacePath);
+      let retryRun: MigrationRun;
       try {
-        store.restoreFailedLocalRunForRetry({ failedRun: run, retryRun });
+        retryRun = store.recoverRun(run, { type: 'retry_preserved_local_zip', now: this.now() });
       } finally {
         store.close();
       }

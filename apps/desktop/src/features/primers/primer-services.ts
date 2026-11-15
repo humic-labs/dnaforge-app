@@ -4,7 +4,7 @@ import { getCurrentCatalogFileForEntity } from '../../db/workspace-catalog';
 import type { LimsEntity } from '../../shared/lims';
 import { queryLimsEntities } from '../lims/public/operations';
 import { resolveSidecarBaseUrl } from '../../services/sidecar-session';
-import { configureRendererSidecarApiClient } from '../../services/sidecar-session';
+import { createRendererSidecarApiClient } from '../../services/sidecar-session';
 import { bindPrimerApiToolsPrimersBindPost, designPrimers, isApiError } from '@waypoint/api-client';
 import { notifyPrimerBindingsChanged } from './primer-binding-events';
 import {
@@ -271,14 +271,14 @@ async function primerSidecarRequest(
   upstreamSignal?: AbortSignal
 ): Promise<unknown> {
   const baseUrl = await resolveSidecarBaseUrl(toolName);
-  configureRendererSidecarApiClient(baseUrl);
+  const apiClient = createRendererSidecarApiClient(baseUrl);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PRIMER_SIDECAR_TIMEOUT_MS);
   const abort = () => controller.abort();
   upstreamSignal?.addEventListener('abort', abort, { once: true });
   if (upstreamSignal?.aborted) controller.abort();
   try {
-    const response = await request({ signal: controller.signal });
+    const response = await request(apiClient.options({ signal: controller.signal }));
     return response.data;
   } catch (error) {
     if (controller.signal.aborted && !upstreamSignal?.aborted) {

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { isApiError, postFetchExternalFetchPost } from '@waypoint/api-client';
 import { resultTool, toolFailure, toolSuccess } from '../../agent-bridge/public/tool-result';
 import {
-  configureRendererSidecarApiClient,
+  createRendererSidecarApiClient,
   resolveExternalLookupBaseUrl,
 } from '../../../services/sidecar-session';
 
@@ -83,12 +83,12 @@ export function createProteinGetContextTool() {
       const externalId = JSON.stringify(request);
       if (externalId.length > 200) return failure('Context request exceeds the 200-character provider request budget.', 'PROTEIN_CONTEXT_REQUEST_TOO_LARGE');
       try {
-        configureRendererSidecarApiClient(await resolveExternalLookupBaseUrl('protein_get_context'));
+        const apiClient = createRendererSidecarApiClient(await resolveExternalLookupBaseUrl('protein_get_context'));
         const options = context as typeof context & { grantedCapabilities?: string[] };
         const response = await postFetchExternalFetchPost({
           provider: source, external_id: externalId,
           granted_capabilities: options.grantedCapabilities ?? [],
-        }, { signal: context.abortSignal, headers: context.toolCallId ? { 'X-DNAForge-Action-Id': context.toolCallId } : {} });
+        }, apiClient.options({ signal: context.abortSignal, headers: context.toolCallId ? { 'X-DNAForge-Action-Id': context.toolCallId } : {} }));
         return toolSuccess({ ...response.data, source });
       } catch (error) {
         if (isApiError(error)) return failure(JSON.stringify(error.body ?? { status: error.status }), 'PROTEIN_CONTEXT_PROVIDER_ERROR', error.status >= 500);

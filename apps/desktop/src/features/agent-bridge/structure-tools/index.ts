@@ -2461,15 +2461,23 @@ export async function handleMolSaveView(
               ) {
                 if (projectSave && adoptedAppearance)
                   savedStructureViewId = `molecular-document:${projectSave.catalogEntityId}`;
-                useCanvasStore.getState().updateTab(panel.id, tab.id, {
-                  ...(projectSave && adoptedAppearance
-                    ? {
+                if (projectSave && adoptedAppearance) {
+                  useCanvasStore
+                    .getState()
+                    .retargetTab(
+                      panel.id,
+                      tab.id,
+                      {
+                        type: 'structure',
                         entityId: `molecular-document:${projectSave.catalogEntityId}`,
-                        label: projectSave.document.name,
-                      }
-                    : {}),
-                  initialStructureAttrs: next,
-                });
+                      },
+                      { label: projectSave.document.name, initialStructureAttrs: next }
+                    );
+                } else {
+                  useCanvasStore
+                    .getState()
+                    .updateTab(panel.id, tab.id, { initialStructureAttrs: next });
+                }
               }
         }
         if (adoptingHost && !adoptingHost.tab.structureInspection)

@@ -155,6 +155,7 @@ async function createReadyRegistryUnlockFixture(input: {
   root: string;
   globalDb: ReturnType<typeof createTestDb>;
   workspaceId: string;
+  fileBacked?: boolean;
 }): Promise<{
   run: MigrationRun;
   store: MigrationStore;
@@ -197,7 +198,9 @@ async function createReadyRegistryUnlockFixture(input: {
     state: 'ready_to_unlock',
     updatedAt: '2026-07-17T00:10:00.000Z',
   };
-  const migrationDb = createTestDb();
+  const migrationDb = input.fileBacked
+    ? openFileTestDb(join(run.workspacePath, '.dnaforge/migration/migration.sqlite'))
+    : createTestDb();
   const store = new MigrationStore(migrationDb);
   store.saveRun(run);
   store.saveValidationReport(passingReport(run));
@@ -1209,6 +1212,7 @@ describe('migration staging workspace', () => {
       root,
       globalDb,
       workspaceId: 'workspace-unlock-commit-failure',
+      fileBacked: true,
     });
     const before = globalUnlockCounts(globalDb);
     let rejectNextCommit = true;

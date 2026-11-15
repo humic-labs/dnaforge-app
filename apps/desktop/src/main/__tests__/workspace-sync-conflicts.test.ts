@@ -129,6 +129,33 @@ describe('workspace sync conflict resolution', () => {
     expect(status.canDisplayPlainSynced).toBe(false);
   });
 
+  it('rolls back conflict cancellation when replacement enqueue fails', async () => {
+    const tables = ['workspace_sync_queue', 'workspace_sync_bindings', 'workspace_sync_versions'];
+    const before = tables.map((table) => db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all());
+    db.exec(`CREATE TRIGGER reject_replacement_queue BEFORE INSERT ON workspace_sync_queue
+      WHEN NEW.id = 'replacement-refused'
+      BEGIN SELECT RAISE(ABORT, 'replacement enqueue refused'); END`);
+
+    await expect(
+      resolveWorkspaceSyncConflict(db, {
+        workspaceUuid: 'workspace-a',
+        resolution: 'keep_local',
+        managedRootDir: managedRoot,
+        client,
+        nowMs: () => 2000,
+        createJobId: () => 'replacement-refused',
+        getCurrentLocalHeadSha: () => 'head-local',
+      })
+    ).resolves.toMatchObject({
+      ok: false,
+      message: expect.stringContaining('replacement enqueue refused'),
+    });
+
+    expect(
+      tables.map((table) => db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all())
+    ).toEqual(before);
+  });
+
   it('reports conflict resolution outcomes without names or ids', async () => {
     const observations: WorkspaceSyncObservation[] = [];
     bindWorkspaceSyncObservationSink((observation) => observations.push(observation));

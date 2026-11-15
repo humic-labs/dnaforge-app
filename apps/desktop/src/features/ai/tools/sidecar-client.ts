@@ -4,12 +4,12 @@ import {
   postSequenceUrlBytesExternalSequenceUrlBytesPost,
 } from '@waypoint/api-client';
 import {
-  configureRendererSidecarApiClient,
+  createRendererSidecarApiClient,
   resolveExternalLookupBaseUrl,
 } from '../../../services/sidecar-session';
 
 export {
-  configureSidecarApiClient,
+  resolveSidecarApiClient,
   getSidecarBaseUrl,
   resolveSidecarBaseUrl,
 } from '../../../services/sidecar-session';
@@ -59,7 +59,7 @@ export async function sidecarFetchSequenceBytes(
   opts: { signal?: AbortSignal; grantedCapabilities?: readonly string[] } = {}
 ): Promise<SidecarSequenceImportResult> {
   const toolName = 'import_sequence';
-  configureRendererSidecarApiClient(await resolveExternalLookupBaseUrl(toolName));
+  const apiClient = createRendererSidecarApiClient(await resolveExternalLookupBaseUrl(toolName));
   const body = {
     provider: params.provider ?? 'ncbi-nuccore',
     external_id: params.externalId,
@@ -71,9 +71,9 @@ export async function sidecarFetchSequenceBytes(
   };
 
   try {
-    const response = await postSequenceBytesExternalSequenceBytesPost(body, {
+    const response = await postSequenceBytesExternalSequenceBytesPost(body, apiClient.options({
       signal: opts.signal,
-    });
+    }));
     const data = response.data as SidecarSequenceBytesWire;
     const content = typeof data.content === 'string' ? data.content : '';
     if (content.length === 0) {
@@ -113,7 +113,7 @@ export async function sidecarFetchSequenceUrlBytes(
   params: SidecarFetchSequenceUrlBytesParams,
   opts: { signal?: AbortSignal; grantedCapabilities?: readonly string[] } = {}
 ): Promise<SidecarSequenceImportResult> {
-  configureRendererSidecarApiClient(await resolveExternalLookupBaseUrl('import_sequence'));
+  const apiClient = createRendererSidecarApiClient(await resolveExternalLookupBaseUrl('import_sequence'));
   try {
     const response = await postSequenceUrlBytesExternalSequenceUrlBytesPost(
       {
@@ -123,7 +123,7 @@ export async function sidecarFetchSequenceUrlBytes(
           ...(opts.grantedCapabilities ?? ['external-fetch:annotation']),
         ],
       },
-      { signal: opts.signal }
+      apiClient.options({ signal: opts.signal })
     );
     return sequenceImportResult(response.data as SidecarSequenceBytesWire, params.url);
   } catch (err) {

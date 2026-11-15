@@ -169,6 +169,14 @@ export interface Tab {
   recoveredDraft?: Record<string, string>;
 }
 
+export type CanvasTabIdentity =
+  | { type: 'sequence'; sequenceDocument: SequenceDocumentRef }
+  | { type: Exclude<TabType, 'sequence'>; entityId: string };
+
+export type TabUpdates = Partial<
+  Omit<Tab, 'id' | 'type' | 'entityId' | 'sequenceDocument' | 'assemblyEditDesignId'>
+>;
+
 export interface PanelState {
   id: string;
   tabs: Tab[];

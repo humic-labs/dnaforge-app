@@ -1,7 +1,7 @@
 import type { McpStdioServerConfig } from '@anthropic-ai/claude-agent-sdk';
 import type { McpServerStdio } from '@agentclientprotocol/sdk';
 import {
-  configureApiClient,
+  createApiClient,
   discoverMcpSurfaceWithContextMcpDiscoverPost,
   isApiError,
 } from '@waypoint/api-client';
@@ -116,7 +116,7 @@ export async function listDnaForgeMcpToolNames(
       return config.sessionToken;
     },
   });
-  configureApiClient({
+  const apiClient = createApiClient({
     baseUrl: config.apiUrl,
     fetch: authenticatedFetch,
   });
@@ -126,13 +126,13 @@ export async function listDnaForgeMcpToolNames(
       body = (
         await discoverMcpSurfaceWithContextMcpDiscoverPost(
           { clientInfo },
-          {
+          apiClient.options({
             signal: requestController.signal,
             headers: {
               'X-DNAForge-Agent-Identity': config.agentIdentityId,
               'X-DNAForge-Agent-Capabilities': JSON.stringify(config.capabilities),
             },
-          }
+          })
         )
       ).data as typeof body;
     } catch (error) {

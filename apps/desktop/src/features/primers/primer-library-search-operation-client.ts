@@ -21,7 +21,7 @@ export async function startPrimerLibrarySearchOperation(
   inputFiles: readonly ManagedOperationInputFile[] = []
 ): Promise<OperationSnapshot> {
   return managedOperations.startRegisteredOperation(
-    async ({ scopeId, submissionKey, acceptedWorkspaceInput, expectedAccountId }) => {
+    async ({ apiClient, scopeId, submissionKey, acceptedWorkspaceInput, expectedAccountId }) => {
       const response = await startPrimerLibrarySearchOperationOperationsPrimerLibrarySearchPost(
         {
           submission_key: submissionKey,
@@ -31,9 +31,11 @@ export async function startPrimerLibrarySearchOperation(
           },
           input,
         },
-        acceptedWorkspaceInput
-          ? { headers: { 'X-DNAForge-Account-ID': expectedAccountId! } }
-          : undefined
+        apiClient.options(
+          acceptedWorkspaceInput
+            ? { headers: { 'X-DNAForge-Account-ID': expectedAccountId! } }
+            : undefined
+        )
       );
       if (response.status !== 202) {
         throw new Error(response.data.detail.message);

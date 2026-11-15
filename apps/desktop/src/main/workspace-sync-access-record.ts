@@ -1,6 +1,7 @@
+import { blockWorkspaceSyncJobsAfterAccessRemoval } from './workspace-sync-queue';
 import type Database from 'better-sqlite3';
 
-export const WORKSPACE_SYNC_ACCESS_REMOVED_CODE = 'ACCESS_REMOVED';
+export { WORKSPACE_SYNC_ACCESS_REMOVED_CODE } from './workspace-sync-queue';
 
 export interface WorkspaceSyncAccessBindingRow {
   workspace_id: number;
@@ -70,26 +71,8 @@ export function markWorkspaceSyncAccessRemoved(
            AND (detached_reason IS NULL OR detached_reason <> 'access_removed')`
       )
       .run({ workspaceId: input.workspaceId, nowMs: input.nowMs }).changes;
-    db.prepare(
-      `UPDATE workspace_sync_queue
-       SET status = 'blocked',
-           locked_at = NULL,
-           locked_by_device_id = NULL,
-           next_attempt_at = NULL,
-           error_code = @code,
-           error_message = @message,
-           updated_at = @nowMs
-       WHERE workspace_id = @workspaceId
-         AND operation IN ('upload', 'refresh')
-         AND status IN ('pending', 'retry_wait', 'blocked', 'failed')`
-    ).run({
-      workspaceId: input.workspaceId,
-      code: WORKSPACE_SYNC_ACCESS_REMOVED_CODE,
-      message:
-        input.reason ??
-        'You no longer have access to this shared project. Your unsent changes are kept on this computer.',
-      nowMs: input.nowMs,
-    });
+    blockWorkspaceSyncJobsAfterAccessRemoval(db, input);
+
     return updated === 1;
   })();
 }

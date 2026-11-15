@@ -452,6 +452,7 @@ export function ensureSchema(
 
     if (version < 46) createAdministrationTables(db);
     if (version < 47) ensureWorkspaceSyncOperationIdentityColumns(db);
+    if (version < 48) migrateAgentSessionStopStates(db);
 
     repairCurrentSchemaWithLimsWriteGuards(db, version < 26, isVirginDatabase);
   } catch (err) {
@@ -620,6 +621,7 @@ function repairCurrentSchema(db: Database.Database): void {
     'telemetry_continuation',
     'INTEGER NOT NULL DEFAULT 0 CHECK(telemetry_continuation IN (0, 1))'
   );
+  migrateAgentSessionStopStates(db);
   ensureEntityReferenceWorkspaceScope(db);
   ensureCatalogSequenceFingerprint(db);
   ensureOneCurrentBindingPerEntity(db);
@@ -1762,6 +1764,15 @@ function dropLimsSafetyWriteGuards(db: Database.Database): void {
       db.exec(`DROP TRIGGER IF EXISTS ${trigger}`);
     }
   }
+}
+
+function migrateAgentSessionStopStates(db: Database.Database): void {
+  if (!tableExists(db, 'agent_sessions')) return;
+  db.exec(`
+    UPDATE agent_sessions
+    SET status = CASE WHEN completed_at IS NULL THEN 'stopping' ELSE 'stop_unconfirmed' END
+    WHERE status = 'stop_requested'
+  `);
 }
 
 function createAgentSessionTables(db: Database.Database): void {

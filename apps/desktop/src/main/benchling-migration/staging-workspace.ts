@@ -540,7 +540,7 @@ export async function unlockMigrationWorkspace(input: {
         transactionDb.exec('ROLLBACK');
       }
       if (unlockedRunSaved && unlockedRun) {
-        store.restoreReadyRunAfterFailedUnlock({ unlockedRun, readyRun: run });
+        store.recoverRun(unlockedRun, { type: 'rollback_failed_unlock', readyRun: run });
       }
       if (run.state === 'ready_to_unlock') {
         await restoreLockedWorkspaceAfterFailedUnlock(run, limsSnapshot);
