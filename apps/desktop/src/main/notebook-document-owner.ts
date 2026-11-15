@@ -984,11 +984,13 @@ export class NativeNotebookWorkingCopyOwner {
     })()
       .catch((error) => {
         if (error instanceof NativeDocumentCommandError) throw error;
-        throw new NativeDocumentCommandError(
+        const failure = new NativeDocumentCommandError(
           'NOTEBOOK_SAVE_FAILED',
           error instanceof Error ? error.message : String(error),
           published ? true : 'unknown'
         );
+        failure.cause = error;
+        throw failure;
       })
       .finally(() => {
         if (copy.saves.get(version) === run) copy.saves.delete(version);
