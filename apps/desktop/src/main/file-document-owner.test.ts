@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NativeFileDocumentOwner, type NativeFileDocumentRecord } from './file-document-owner';
 import { writeTextFileAtomicInMain } from './text-file-atomic';
 import type { FileDocumentClientOperation, FileDocumentSnapshot } from '../shared/file-document';
@@ -303,6 +303,58 @@ describe('native file working copies without a view', () => {
         content: overlapping ? 'later' : 'first',
       });
       expect(await readFile(f.path, 'utf8')).toBe('before');
+    }
+  );
+
+  it.each(['saved', 'write refused', 'write refused and logger unavailable'])(
+    'preserves the save outcome when a completion subscriber fails: %s',
+    async (outcome) => {
+      const gate = Promise.withResolvers<void>();
+      const entered = Promise.withResolvers<void>();
+      const writeFailure = new Error('EACCES: original file write denied');
+      const notificationFailure = new Error('EPIPE: renderer notification unavailable');
+      const f = await fixture('notification.txt', 'before', async () => {
+        entered.resolve();
+        await gate.promise;
+      });
+      const changed = await f.command(await f.inspect(), {
+        kind: 'replace-text',
+        from: 0,
+        to: 6,
+        text: 'draft',
+      });
+      const save = f.command(changed, { kind: 'save' });
+      const settled = save.then(
+        (value) => ({ value, error: null }),
+        (error: unknown) => ({ value: null, error })
+      );
+      await entered.promise;
+      const published: FileDocumentSnapshot[] = [];
+      f.owner.subscribe(() => {
+        throw notificationFailure;
+      });
+      f.owner.subscribe((snapshot) => published.push(snapshot));
+      const report = vi.spyOn(console, 'error').mockImplementation(() => {
+        if (outcome.endsWith('logger unavailable')) throw new Error('Diagnostic sink unavailable');
+      });
+      try {
+        if (outcome === 'saved') gate.resolve();
+        else gate.reject(writeFailure);
+        const result = await settled;
+        if (outcome === 'saved') {
+          expect(result.error).toBeNull();
+          expect(result.value).toMatchObject({ saving: false, dirty: false });
+        } else expect(result.error).toBe(writeFailure);
+        expect(await readFile(f.path, 'utf8')).toBe(outcome === 'saved' ? 'draft' : 'before');
+        expect(published.at(-1)).toMatchObject({ saving: false, content: 'draft' });
+        expect(report).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({ filePath: f.path, documentId: changed.documentId }),
+          notificationFailure
+        );
+      } finally {
+        report.mockRestore();
+      }
     }
   );
 
