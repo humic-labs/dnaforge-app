@@ -128,13 +128,13 @@ export function classifyChromiumSurfaceFrameBudget(
   }
   const outcomes = [...outcomeGroups.values()].map((group) => {
     const states = new Set(group.map((reporter) => reporter.state));
-    const state = states.has('PRESENTED_ALL')
-      ? 'PRESENTED_ALL'
+    const state = states.has('DROPPED')
+      ? 'DROPPED'
       : states.has('PRESENTED_PARTIAL')
         ? 'PRESENTED_PARTIAL'
-        : states.has('NO_UPDATE')
-          ? 'NO_UPDATE'
-          : 'DROPPED';
+        : states.has('PRESENTED_ALL')
+          ? 'PRESENTED_ALL'
+          : 'NO_UPDATE';
     return {
       frameSource: group[0]?.frameSource ?? null,
       frameSequence: group[0]?.frameSequence ?? null,

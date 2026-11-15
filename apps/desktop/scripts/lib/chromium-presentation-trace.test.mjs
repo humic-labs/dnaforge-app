@@ -331,9 +331,41 @@ test('exposes native graphics context waits overlapping dropped frames without e
     threadCpuMs: 0.083,
     pid: 7,
     tid: 1,
-    overlappingFailedFrameSequences: [1],
+    overlappingFailedFrameSequences: [1, 2],
   }]);
 });
+
+for (const state of ['STATE_DROPPED', 'STATE_PRESENTED_PARTIAL']) {
+  test(`retains graphics waits overlapping a ${state} sibling of a fully presented reporter`, () => {
+    const nativeWait = {
+      name: 'GLContextEGL::MakeCurrent', cat: 'gpu', ph: 'X',
+      pid: 7, tid: 1, ts: START_US + 21_000, dur: 500,
+    };
+    const events = [
+      ...processMetadata(7, 'GPU Process', 'CrGpuMain'),
+      ...modernPipelinePair({
+        id: 'adverse-sibling', state, beginUs: START_US + 20_000,
+        diagnostics: { frame_source: 9, frame_type: 'FORKED', affects_smoothness: true },
+      }),
+      ...modernPipelinePair({
+        id: 'presented-sibling', beginUs: START_US + 20_000,
+        endUs: START_US + 30_000, diagnostics: { frame_source: 9 },
+      }),
+      ...frameTimes().map((timestampUs) => framePresented(timestampUs)),
+      nativeWait,
+      { ...nativeWait, ts: START_US + 25_000 },
+    ];
+
+    const result = parse(envelope(events));
+
+    assert.equal(result.status, 'valid');
+    assert.equal(result.claimStatus, 'fail');
+    assert.deepEqual(
+      result.gpu.contextMakeCurrentEvents.map((event) => event.overlappingFailedFrameSequences),
+      [[1], []]
+    );
+  });
+}
 
 test('uses only explicitly presented PipelineReporter terminations when Electron omits native events', () => {
   const events = [];

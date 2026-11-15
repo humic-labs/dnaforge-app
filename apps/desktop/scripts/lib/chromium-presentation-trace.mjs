@@ -892,20 +892,11 @@ export function parseChromiumPresentationTrace(
         metadataName(event) === 'CrGpuMain')
       .map((event) => `${event.pid}:${event.tid}`)
   );
-  const frameReporters = new Map();
-  for (const reporter of selectedPipeline) {
-    const key = `${reporter.frameSource}:${reporter.frameSequence}`;
-    const group = frameReporters.get(key) ?? [];
-    group.push(reporter);
-    frameReporters.set(key, group);
-  }
-  const failedReporters = [...frameReporters.values()].flatMap((group) => {
-    if (group.some((reporter) => reporter.hasMissingContent)) return group;
-    if (group.some((reporter) => reporter.state === PIPELINE_PRESENTATION_STATE.PRESENTED_ALL)) return [];
-    if (group.some((reporter) => reporter.state === PIPELINE_PRESENTATION_STATE.PRESENTED_PARTIAL)) return group;
-    if (group.some((reporter) => reporter.state === PIPELINE_PRESENTATION_STATE.NO_UPDATE)) return [];
-    return group;
-  });
+  const failedReporters = selectedPipeline.filter(
+    (reporter) => reporter.hasMissingContent ||
+      reporter.state === PIPELINE_PRESENTATION_STATE.DROPPED ||
+      reporter.state === PIPELINE_PRESENTATION_STATE.PRESENTED_PARTIAL
+  );
   const contextMakeCurrentEvents = events
     .filter((event) =>
       event?.name === 'GLContextEGL::MakeCurrent' && event.ph === 'X' &&

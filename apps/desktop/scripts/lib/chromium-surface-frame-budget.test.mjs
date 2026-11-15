@@ -141,13 +141,14 @@ test('fails when Chromium classifies one target-surface frame as dropped', () =>
   assert.ok(result.failures.includes('surface-pipeline-dropped:1'));
 });
 
-test('collapses forked reporters to one frame-sequence outcome when that tick fully presented', () => {
+test('retains a forked dropped update when its sibling later fully presented', () => {
   const input = trace();
   input.pipeline.reporters.push({
-    ...input.pipeline.reporters[300],
+    ...input.pipeline.reporters[301],
     state: 'DROPPED',
-    beginTraceTimestampUs: input.pipeline.reporters[300].beginTraceTimestampUs,
-    endTraceTimestampUs: input.pipeline.reporters[300].endTraceTimestampUs - 1_000,
+    affectsSmoothness: true,
+    frameType: 'FORKED',
+    endTraceTimestampUs: input.pipeline.reporters[301].endTraceTimestampUs - 1_000,
   });
 
   const result = classifyChromiumSurfaceFrameBudget(input, {
@@ -155,11 +156,66 @@ test('collapses forked reporters to one frame-sequence outcome when that tick fu
     budgetMs: 8.3,
   });
 
-  assert.equal(result.status, 'pass', JSON.stringify(result));
+  assert.equal(result.status, 'fail', JSON.stringify(result));
   assert.equal(result.rawPipelineReporterCount, 600);
   assert.equal(result.refreshOutcomeCount, 599);
+  assert.equal(result.refreshOutcomeCoverage, 0.9983);
+  assert.equal(result.frameSequenceDuplicateCount, 1);
+  assert.equal(result.droppedFrameCount, 1);
+  assert.ok(result.failures.includes('surface-pipeline-dropped:1'));
+  assert.equal(result.failedOutcomes[0].reporterCount, 2);
+  assert.equal(result.failedOutcomes[0].reporters[1].affectsSmoothness, true);
+});
+
+for (const state of ['DROPPED', 'PRESENTED_PARTIAL']) {
+  for (const siblingState of ['PRESENTED_ALL', 'NO_UPDATE']) {
+    for (const failureFirst of [false, true]) {
+      test(`retains ${state} before ${siblingState} with the adverse sibling ${failureFirst ? 'first' : 'last'}`, () => {
+        const input = trace({ noUpdateEvery: 0 });
+        const sibling = input.pipeline.reporters[301];
+        sibling.state = siblingState;
+        const adverse = {
+          ...sibling,
+          state,
+          affectsSmoothness: true,
+          frameType: 'FORKED',
+        };
+        input.pipeline.reporters.splice(301 + Number(!failureFirst), 0, adverse);
+
+        const result = classifyChromiumSurfaceFrameBudget(input, {
+          requestedMeasurementDurationMs: 5_000,
+          budgetMs: 8.3,
+        });
+
+        assert.equal(result.status, 'fail', JSON.stringify(result));
+        assert.equal(result.refreshOutcomeCount, 599);
+        assert.equal(result.refreshOutcomeCoverage, 0.9983);
+        assert.equal(result.frameSequenceGapCount, 0);
+        assert.equal(result.frameSequenceDuplicateCount, 1);
+        assert.equal(result.failedOutcomes.length, 1);
+        assert.equal(result.failedOutcomes[0].state, state);
+        assert.equal(result.failedOutcomes[0].frameSequence, sibling.frameSequence);
+        assert.equal(result.failedOutcomes[0].reporterCount, 2);
+      });
+    }
+  }
+}
+
+test('counts fully presented and intentional no-update siblings as one clean refresh outcome', () => {
+  const input = trace({ noUpdateEvery: 0 });
+  input.pipeline.reporters.push({ ...input.pipeline.reporters[301], state: 'NO_UPDATE' });
+
+  const result = classifyChromiumSurfaceFrameBudget(input, {
+    requestedMeasurementDurationMs: 5_000,
+    budgetMs: 8.3,
+  });
+
+  assert.equal(result.status, 'pass', JSON.stringify(result));
+  assert.equal(result.refreshOutcomeCount, 599);
+  assert.equal(result.refreshOutcomeCoverage, 0.9983);
   assert.equal(result.frameSequenceDuplicateCount, 1);
   assert.equal(result.droppedFrameCount, 0);
+  assert.equal(result.partialFrameCount, 0);
 });
 
 test('fails partial presentation and missing content instead of counting them as clean frames', () => {
