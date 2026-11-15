@@ -1321,7 +1321,7 @@ export function InventoryPanel() {
       {dialog.kind !== 'none' && data ? (
         isInventoryPhysicalDialog(dialog) ? (
           <InventoryPhysicalWorkspace
-            key={`${data.project.projectId}:${dialog.kind}:${'item' in dialog ? dialog.item.id : 'versionId' in dialog ? dialog.versionId : 'catalogId' in dialog ? dialog.catalogId : ''}`}
+            key={data.project.projectId}
             dialog={dialog}
             data={data}
             controller={controller}

@@ -4,6 +4,7 @@ import {
   createInventoryState,
   inventoryAvailability,
   type InventoryCommand,
+  type InventoryEquipmentCatalogUpdatePreview,
   type InventoryState,
 } from '@waypoint/domain-services';
 import type {
@@ -114,6 +115,9 @@ function fixture() {
     projects: vi.fn(async () => [project]),
     materials: vi.fn(async () => ({ items: [], nextCursor: null })),
     catalog: vi.fn(async () => []),
+    catalogUpdatePreview: vi.fn(async (): Promise<InventoryEquipmentCatalogUpdatePreview> => {
+      throw new Error('Catalog preview is not used by this controller fixture.');
+    }),
     inspect: vi.fn(async (request) =>
       request.project === other.projectId ? createInventoryState() : state
     ),

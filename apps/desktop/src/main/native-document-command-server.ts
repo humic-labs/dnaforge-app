@@ -23,6 +23,7 @@ import { agentProjectScopeSchema } from '../shared/agent-project-scope';
 import {
   inventoryExecuteRequestSchema,
   inventoryCatalogQuerySchema,
+  inventoryCatalogUpdatePreviewRequestSchema,
   inventoryHistoryRequestSchema,
   inventoryMaterialQuerySchema,
   inventoryOperationRequestSchema,
@@ -142,6 +143,15 @@ const commandSchema = z.discriminatedUnion('command', [
     .object({
       ownerInstanceId: identity,
       projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.catalog-update-preview'),
+      request: inventoryCatalogUpdatePreviewRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
       command: z.literal('project-scope.inspect'),
     })
     .strict(),
@@ -246,7 +256,15 @@ export async function startNativeDocumentCommandServer(options: {
   administration?: Pick<AdministrationOwner, 'execute'>;
   inventory?: Pick<
     ReturnType<typeof createNativeInventoryOwner>,
-    'execute' | 'inspect' | 'availability' | 'operation' | 'history' | 'projects' | 'materials'
+    | 'execute'
+    | 'inspect'
+    | 'availability'
+    | 'operation'
+    | 'history'
+    | 'projects'
+    | 'materials'
+    | 'catalog'
+    | 'catalogUpdatePreview'
   >;
   authorizeInventoryAgent?(agent: NativeAgentAuthority, required: readonly string[]): Promise<void>;
   getAuthority(): NativeCommandAuthority | null;
@@ -345,6 +363,7 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'inventory.history' ||
           body.command === 'inventory.projects' ||
           body.command === 'inventory.catalog' ||
+          body.command === 'inventory.catalog-update-preview' ||
           body.command === 'inventory.materials'
         ) {
           if (
@@ -390,6 +409,13 @@ export async function startNativeDocumentCommandServer(options: {
               if (body.command === 'inventory.catalog') {
                 const request = body.request;
                 return () => ({ kind: 'catalog', entries: receiver.catalog(request) });
+              }
+              if (body.command === 'inventory.catalog-update-preview') {
+                const request = body.request;
+                return () => ({
+                  kind: 'catalog-update-preview',
+                  preview: receiver.catalogUpdatePreview(request),
+                });
               }
               if (body.command === 'inventory.materials') {
                 const request = body.request;
@@ -473,6 +499,7 @@ export async function startNativeDocumentCommandServer(options: {
           if (
             body.command === 'inventory.projects' ||
             body.command === 'inventory.catalog' ||
+            body.command === 'inventory.catalog-update-preview' ||
             body.command === 'inventory.materials'
           )
             accepted = false;

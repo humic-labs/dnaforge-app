@@ -452,6 +452,8 @@ it('exports the same strict command variants used by the parser as machine-reada
     additionalProperties: boolean;
   }[];
   expect(variants.map((variant) => variant.properties.kind.const)).toEqual([
+    'retire-catalog-version',
+    'restore-catalog-version',
     'create-lot',
     'receive-lot-stock',
     'associate-stock-lot',

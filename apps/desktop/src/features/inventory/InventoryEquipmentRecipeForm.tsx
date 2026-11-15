@@ -17,6 +17,10 @@ import {
   InventorySourceFields,
   inventorySourceDraft,
 } from './InventoryPhysicalControls';
+import {
+  inventoryCatalogStatusAt,
+  inventoryCatalogVersionLabel,
+} from './InventoryCatalogSelection';
 
 export function InventoryEquipmentRecipeForm({
   data,
@@ -166,6 +170,11 @@ export function InventoryEquipmentRecipeForm({
                     ...types.map((type) => ({
                       value: type.id,
                       label: `${type.name} · v${type.version}`,
+                      description: inventoryCatalogVersionLabel(
+                        type.name,
+                        type.version,
+                        inventoryCatalogStatusAt(data, { kind: 'type-version', versionId: type.id })
+                      ),
                     })),
                   ]}
                   onValueChange={(typeVersionId) =>

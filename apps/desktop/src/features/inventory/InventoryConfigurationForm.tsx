@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import {
+  inventoryCatalogTypeAdoption,
   inventoryStoragePositions,
   type InventoryCommand,
   type InventoryOrientation,
@@ -23,6 +24,11 @@ import {
   inventoryLayoutFromDraft,
   inventoryLayoutPositions,
 } from './InventoryLayoutFields';
+import {
+  inventoryCatalogStatusAt,
+  inventoryCatalogVersionLabel,
+  InventoryCatalogEligibilityNotice,
+} from './InventoryCatalogSelection';
 
 export function InventoryConfigurationForm({
   data,
@@ -67,6 +73,7 @@ export function InventoryConfigurationForm({
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const type = types.find((type) => type.id === typeId);
+  const adoption = inventoryCatalogTypeAdoption(data.state, item, typeId || null);
   const availablePositions =
     item.kind === 'storage'
       ? editLayout
@@ -89,6 +96,8 @@ export function InventoryConfigurationForm({
     event.preventDefault();
     setError(null);
     try {
+      if (adoption?.kind !== 'selectable')
+        throw new Error('This type version is unavailable for adoption.');
       if (invalidFields.size)
         throw new Error('Correct the invalid additional fields before saving.');
       const mounting: InventoryOrientation =
@@ -130,7 +139,7 @@ export function InventoryConfigurationForm({
       onClose={onClose}
       onSubmit={(event) => void submit(event)}
       submitLabel="Save this arrangement"
-      disabled={invalidFields.size > 0}
+      disabled={invalidFields.size > 0 || adoption?.kind !== 'selectable'}
     >
       {error ? <Notice tone="error">{error}</Notice> : null}
       <Notice>
@@ -143,7 +152,17 @@ export function InventoryConfigurationForm({
           value={typeId}
           options={[
             { value: '', label: 'Unspecified' },
-            ...types.map((type) => ({ value: type.id, label: `${type.name} · v${type.version}` })),
+            ...types.map((type) => ({
+              value: type.id,
+              label: `${type.name} · v${type.version}`,
+              description: inventoryCatalogVersionLabel(
+                type.name,
+                type.version,
+                inventoryCatalogStatusAt(data, { kind: 'type-version', versionId: type.id })
+              ),
+              disabled:
+                inventoryCatalogTypeAdoption(data.state, item, type.id)?.kind !== 'selectable',
+            })),
           ]}
           onValueChange={(id) => {
             setTypeId(id);
@@ -159,6 +178,7 @@ export function InventoryConfigurationForm({
           }}
         />
       </PhysicalField>
+      <InventoryCatalogEligibilityNotice data={data} eligibility={adoption} />
       <InventoryMetadataFields
         fields={type?.fields ?? []}
         values={metadata}

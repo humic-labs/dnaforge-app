@@ -7,6 +7,10 @@ import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
 import { runInventoryCompositionJourney } from './journeys/inventory-composition.mjs';
 import {
+  runInventoryCatalogJourney,
+  runInventoryCatalogReopen,
+} from './journeys/inventory-catalog.mjs';
+import {
   runInventoryConfigurationJourney,
   runInventoryConfigurationReopen,
 } from './journeys/inventory-configuration.mjs';
@@ -41,6 +45,8 @@ assert.ok(
     'custody-reopen',
     'configuration',
     'configuration-reopen',
+    'catalog',
+    'catalog-reopen',
   ].includes(stage),
   'Choose a mapped inventory journey stage.'
 );
@@ -589,6 +595,19 @@ try {
     );
   }
 
+  if (stage === 'catalog' || stage === 'catalog-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass the configuration journey fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    const run = stage === 'catalog' ? runInventoryCatalogJourney : runInventoryCatalogReopen;
+    receipt.expected = await run({ page, expect, choose, inventoryRead, capture, fixture });
+    writeFileSync(
+      path.join(out, 'catalog-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
   if (stage === 'configuration' || stage === 'configuration-reopen') {
     assert.ok(args.includes('--fixture'), 'Pass the inventory journey fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

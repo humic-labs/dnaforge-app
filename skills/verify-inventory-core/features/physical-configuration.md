@@ -53,8 +53,8 @@ Require exact state and accepted-history parity after the native process
 restarts. Inspect visible instance pins, metadata, unknown versus applicable
 fit, source references and the actual installed component counts. Keep original
 screenshots, movies, frames, timestamps, native values and failed attempts.
-Dimension units must retain their case: `mm` is millimeters; display styling must
-not render it as `Mm`.
+Dimension units must retain their case: `mm` is millimeters; display styling
+must not render it as `Mm`.
 
 Focused native and domain checks separately cover logical/geometry refusals,
 unavailable positions, immutable wells, exact units, stale evidence, truthful
@@ -71,5 +71,5 @@ creates inventory state. Catalog failure must not block ordinary stock reads.
 - Manufacturer support is distinct from a physical check of an installed unit.
 - Synthetic acceptance evidence does not qualify physical laboratory hardware.
 - Physical mounting orientation never renames logical wells or positions.
-- Temperature constraints, catalog retirement and broader occupied-layout
-  reconciliation remain separate scoped work until their workflows are proved.
+- Temperature constraints and broader occupied-layout reconciliation remain
+  separate scoped work until their workflows are proved.

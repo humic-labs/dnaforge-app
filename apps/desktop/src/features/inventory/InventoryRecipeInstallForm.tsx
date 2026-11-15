@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import {
+  inventoryCatalogRecipeEligibility,
   inventoryEquipmentCatalogMissingDefinitions,
+  inventoryEquipmentCatalogUpdatePreview,
   inventoryStoragePositions,
   type InventoryConfigurationCommand,
   type InventoryEquipmentCatalogEntry,
@@ -21,6 +23,10 @@ import {
   InventorySourceDetails,
   PhysicalField,
 } from './InventoryPhysicalControls';
+import {
+  inventoryCatalogBlockerText,
+  InventoryCatalogEligibilityNotice,
+} from './InventoryCatalogSelection';
 
 export function InventoryRecipeInstallForm({
   data,
@@ -70,13 +76,25 @@ export function InventoryRecipeInstallForm({
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const invalidSelection = [...selected].some((key) => invalid[key]?.size);
+  const versionId = entry?.recipeVersionId ?? recipeVersionId;
+  const preview = entry ? inventoryEquipmentCatalogUpdatePreview(data.state, entry) : null;
+  const eligibility =
+    recipe && versionId
+      ? inventoryCatalogRecipeEligibility(data.state, versionId, recipe.components, [...selected])
+      : null;
+  const fullEligibility =
+    recipe && versionId
+      ? inventoryCatalogRecipeEligibility(data.state, versionId, recipe.components)
+      : null;
+  const blocked = eligibility?.kind !== 'selectable' || preview?.canApply === false;
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     try {
       if (!recipe || !root || !rootType) throw new Error('The recipe definition is unavailable.');
-      const versionId = entry?.recipeVersionId ?? recipeVersionId;
       if (!versionId) throw new Error('Choose a recipe version.');
+      if (eligibility?.kind !== 'selectable')
+        throw new Error('The selected recipe components are unavailable for new installation.');
       if (invalidSelection) throw new Error('Correct the invalid additional fields.');
       const bindings = recipe.components
         .filter((component) => selected.has(component.key))
@@ -122,9 +140,16 @@ export function InventoryRecipeInstallForm({
       status={status}
       onClose={onClose}
       onSubmit={(event) => void submit(event)}
-      disabled={invalidSelection}
+      disabled={invalidSelection || blocked}
     >
       {error ? <Notice tone="error">{error}</Notice> : null}
+      <InventoryCatalogEligibilityNotice data={data} eligibility={eligibility} />
+      {preview?.canApply === false ? (
+        <Notice tone="warning">
+          This source pack conflicts with saved definitions. Open its catalog update preview to
+          inspect the differences before adding equipment.
+        </Notice>
+      ) : null}
       <Notice>
         Record only the components actually installed. Empty positions do not create physical boxes
         or stock. Unknown fit remains usable.
@@ -153,6 +178,7 @@ export function InventoryRecipeInstallForm({
       ) : null}
       <div className="flex flex-wrap gap-2">
         <Button
+          disabled={fullEligibility?.kind !== 'selectable'}
           onClick={() =>
             setSelected(new Set(recipe?.components.map((component) => component.key) ?? []))
           }
@@ -163,10 +189,25 @@ export function InventoryRecipeInstallForm({
           Use empty equipment shell
         </Button>
       </div>
+      {fullEligibility?.kind === 'blocked' && eligibility?.kind === 'selectable' ? (
+        <div className="space-y-1 text-xs text-fg-muted">
+          <p>The full arrangement is unavailable. Select only the components being installed.</p>
+          {fullEligibility.blockers.map((blocker, index) => (
+            <p key={index} data-catalog-blocker={blocker.code}>
+              {inventoryCatalogBlockerText(data, blocker)}
+            </p>
+          ))}
+        </div>
+      ) : null}
       <div data-testid="inventory-install-components" className="space-y-3">
         {recipe?.components.map((component) => {
           const type = typeAt(component.typeVersionId);
           const active = selected.has(component.key);
+          const componentEligibility = versionId
+            ? inventoryCatalogRecipeEligibility(data.state, versionId, recipe.components, [
+                component.key,
+              ])
+            : null;
           return (
             <section
               key={component.key}
@@ -178,7 +219,10 @@ export function InventoryRecipeInstallForm({
                   type="checkbox"
                   aria-label={`Install ${component.name}`}
                   checked={active}
-                  disabled={component.parentKey === null}
+                  disabled={
+                    component.parentKey === null ||
+                    (!active && componentEligibility?.kind !== 'selectable')
+                  }
                   onChange={(event) =>
                     setSelected((current) => {
                       const next = new Set(current);
@@ -197,6 +241,15 @@ export function InventoryRecipeInstallForm({
                   ? ` · ${inventoryStoragePositions(type.definition).length} configured positions`
                   : ''}
               </p>
+              {componentEligibility?.kind === 'blocked' ? (
+                <div className="space-y-1 text-xs text-fg-muted">
+                  {componentEligibility.blockers.map((blocker, index) => (
+                    <p key={index} data-catalog-blocker={blocker.code}>
+                      {inventoryCatalogBlockerText(data, blocker)}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
               {active ? (
                 <InventoryMetadataFields
                   prefix={`inventory-component-${component.key}`}

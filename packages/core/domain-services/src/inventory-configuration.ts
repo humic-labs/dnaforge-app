@@ -36,6 +36,11 @@ import {
 } from './inventory-placement';
 import { inventoryStoragePositions, inventoryWellId } from './inventory-layout';
 import { inventoryCustodyAccess } from './inventory-custody';
+import {
+  inventoryCatalogProjection,
+  inventoryCatalogTypeAdoption,
+  inventoryCatalogVersionStatus,
+} from './inventory-catalog-lifecycle';
 
 type State = Pick<
   InventoryState,
@@ -264,6 +269,7 @@ export function inventoryPhysicalProjection(state: State): InventoryPhysicalProj
     };
   }
   return {
+    catalog: inventoryCatalogProjection(state),
     typeVersions: structuredClone(Object.values(state.typeVersions)),
     recipeVersions: structuredClone(Object.values(state.recipeVersions)),
     fitEvidence: structuredClone(Object.values(state.fitEvidence)),
@@ -347,6 +353,8 @@ export function applyInventoryConfigurationCommand(
       'record-item-geometry',
       'reconfigure-storage',
       'record-fit-evidence',
+      'retire-catalog-version',
+      'restore-catalog-version',
     ].includes(command.kind)
   )
     return undefined;
@@ -372,6 +380,15 @@ export function applyInventoryConfigurationCommand(
     const type = state.typeVersions[typeVersionId];
     if (!type)
       return refuse('INVALID_INVENTORY_INPUT', 'The physical type version does not exist.');
+    const eligibility = inventoryCatalogVersionStatus(state, {
+      kind: 'type-version',
+      versionId: typeVersionId,
+    })!.eligibility;
+    if (eligibility.kind === 'blocked')
+      return refuse(
+        'CATALOG_VERSION_RETIRED',
+        'The physical type version is retired for new selection.'
+      );
     const errors = validateMetadataValues(type.fields, metadata, { rejectUnknownFields: true });
     if (errors.length) return refuse('INVALID_INVENTORY_INPUT', errors.join(' '));
     let invalid: Failure | null;
@@ -433,6 +450,30 @@ export function applyInventoryConfigurationCommand(
     return null;
   };
   switch (cmd.kind) {
+    case 'retire-catalog-version':
+    case 'restore-catalog-version': {
+      const rows = cmd.target.kind === 'type-version' ? state.typeVersions : state.recipeVersions;
+      const row = rows[cmd.target.versionId];
+      if (!row) return refuse('INVALID_INVENTORY_INPUT', 'The catalog version does not exist.');
+      if ((cmd.kind === 'retire-catalog-version') !== (row.selection.kind === 'available'))
+        return refuse(
+          'INVALID_CATALOG_TRANSITION',
+          'The catalog version is already in the requested selection state.'
+        );
+      const selection =
+        cmd.kind === 'retire-catalog-version'
+          ? {
+              kind: 'retired' as const,
+              at: context.at,
+              by: { ...context.principal },
+              reason: cmd.reason,
+            }
+          : { kind: 'available' as const };
+      if (cmd.target.kind === 'type-version')
+        state.typeVersions[row.id] = { ...state.typeVersions[row.id], selection };
+      else state.recipeVersions[row.id] = { ...state.recipeVersions[row.id], selection };
+      return null;
+    }
     case 'define-physical-type': {
       if (inventoryRecordIdExists(state, cmd.id))
         return refuse('ID_ALREADY_EXISTS', 'The type version identifier already exists.');
@@ -468,6 +509,7 @@ export function applyInventoryConfigurationCommand(
         fields: structuredClone(cmd.fields),
         sources: structuredClone(cmd.sources),
         definition,
+        selection: { kind: 'available' },
         ...publication,
       };
       return null;
@@ -509,6 +551,12 @@ export function applyInventoryConfigurationCommand(
       const type = cmd.typeVersionId ? state.typeVersions[cmd.typeVersionId] : undefined;
       if (cmd.typeVersionId && !type)
         return refuse('INVALID_INVENTORY_INPUT', 'The physical type version does not exist.');
+      const eligibility = inventoryCatalogTypeAdoption(state, cmd.item, cmd.typeVersionId);
+      if (eligibility?.kind === 'blocked')
+        return refuse(
+          'CATALOG_VERSION_RETIRED',
+          'The physical type version is retired for new adoption.'
+        );
       if (type) {
         const invalid = bindingFailure(type, cmd.item, row);
         if (invalid) return invalid;
@@ -710,6 +758,7 @@ export function applyInventoryConfigurationCommand(
         model: structuredClone(cmd.model),
         components: structuredClone(cmd.components),
         sources: structuredClone(cmd.sources),
+        selection: { kind: 'available' },
         ...publication,
       };
       return null;
@@ -741,6 +790,16 @@ export function applyInventoryConfigurationCommand(
             'An installed component requires its selected actual parent.'
           );
       }
+      const eligibility = inventoryCatalogVersionStatus(
+        state,
+        { kind: 'recipe-version', versionId: recipe.id },
+        [...selected.keys()]
+      )!.eligibility;
+      if (eligibility.kind === 'blocked')
+        return refuse(
+          eligibility.blockers[0].code,
+          'The selected recipe or selected component type is retired for new installation.'
+        );
       for (const parent of recipe.components) {
         const type = state.typeVersions[parent.typeVersionId];
         if (type.definition.kind === 'storage' && type.definition.layout.kind === 'stack') {
@@ -851,6 +910,11 @@ export function validateInventoryPhysicalState(state: InventoryState): void {
   for (const type of Object.values(state.typeVersions)) {
     if (type.publishedAt > state.lastRecordedAt)
       error('A physical type cannot be published after the recorded clock.');
+    if (
+      type.selection.kind === 'retired' &&
+      (type.selection.at < type.publishedAt || type.selection.at > state.lastRecordedAt)
+    )
+      error('A catalog retirement must follow publication and the recorded clock.');
     families.set(type.typeId, [...(families.get(type.typeId) ?? []), type.version]);
     if (
       type.definition.kind === 'storage' &&
@@ -866,6 +930,11 @@ export function validateInventoryPhysicalState(state: InventoryState): void {
   for (const recipe of Object.values(state.recipeVersions)) {
     if (recipe.publishedAt > state.lastRecordedAt)
       error('A recipe cannot be published after the recorded clock.');
+    if (
+      recipe.selection.kind === 'retired' &&
+      (recipe.selection.at < recipe.publishedAt || recipe.selection.at > state.lastRecordedAt)
+    )
+      error('A catalog retirement must follow publication and the recorded clock.');
     recipes.set(recipe.recipeId, [...(recipes.get(recipe.recipeId) ?? []), recipe.version]);
     const map = new Map(recipe.components.map((component) => [component.key, component]));
     if (

@@ -27,14 +27,16 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v7. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v8. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
 Reads do not write or increment revision. Historical command shapes and request
 digests stay unchanged for retry and replay. v1–v6 snapshots gain empty type,
 recipe and fit-evidence maps and explicit untyped item configurations. The
-original request and receipt bytes remain unchanged.
+original request and receipt bytes remain unchanged. v1–v7 published type and
+recipe versions gain explicit available selection state without changing their
+content, installed pins, revision or clock.
 
 ## Independent states
 
@@ -210,8 +212,8 @@ Stable type-family IDs define allowed children; concrete version IDs pin
 physical defaults and evidence. Instance-only layout edits preserve the type and
 other instances. Removing occupied positions or changing occupied permanent well
 geometry is refused. Unavailable positions retain their identities and recorded
-contents but refuse new placements. Catalog retirement and replacement are not
-yet modeled as business states.
+contents but refuse new placements. Catalog selection lifecycle is separate from
+this immutable content.
 
 Geometry distinguishes external bounds from usable internal bounds. Decimal
 dimensions normalize exactly to millimeters. Unknown axes stay unknown. Known
@@ -256,6 +258,58 @@ different content is refused rather than overwritten.
 | `reconfigure-storage`          | Change an instance layout while retaining valid identities and occupancy. |
 | `record-item-geometry`         | Record reason-bearing dimensions and their optional source.               |
 | `record-fit-evidence`          | Record scoped manufacturer support or local observation.                  |
+
+## Catalog selection and update previews
+
+Each exact type and recipe version has an explicit selection state. Content and
+publication provenance stay immutable. Retirement changes future selection,
+independently of the installed equipment's lifecycle, custody and contents.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Available: publish exact version
+    Available --> Retired: retire with trusted actor, time and reason
+    Retired --> Available: restore exact version with reason
+```
+
+`retire-catalog-version` and `restore-catalog-version` name a tagged
+type-version or recipe-version target. Repeated invalid transitions refuse
+atomically. Exact operation retries return the original receipt; replaying a
+retirement after a later restore does not retire the version again.
+
+Current versus superseded is derived from version order. The highest published
+version remains the current head when retired; an older version never silently
+becomes the default. An available superseded version remains an explicit choice.
+Retirement never changes installed pins, geometry, fit evidence, stock, holds or
+custody. Same-pin edits and material use remain available under ordinary rules.
+New instantiation or adoption of a retired version is refused.
+
+Recipe eligibility uses its exact version and the selected components plus their
+required ancestors. A retired recipe blocks every new installation. A retired
+optional rack blocks selecting that rack; an explicitly selected shell omitting
+it remains allowed if its root is available. Restoring a recipe does not restore
+its component types. Full-arrangement dependency blockers and actual selected
+component eligibility come from the same pure owner.
+
+Catalog update preview classifies strict definitions as new, identical or
+conflicting and shows source/model scope and exact installed references. It
+never fabricates publication timestamps or writes inventory. Any conflicting ID
+blocks applying that pack, including partial fit or recipe publication that
+could otherwise refer to different existing geometry. Identical retired
+definitions remain retired. Applying selected new definitions uses the ordinary
+expected-revision batch owner; stale revisions and conflicting IDs refuse.
+Nothing automatically synchronizes sources, replaces versions or migrates
+installed equipment.
+
+The native preview reads the offered built-in pack against the current admitted
+inventory. An absent inventory is a pure empty snapshot for this calculation; it
+remains absent afterward. Human and agent transports invoke the same domain
+classifier. Their final write still passes through `inventory.execute`.
+
+The setup view owns its tab and search query for the whole editor/preview
+session. Returning from an exact-target dialog preserves that view; closing the
+session resets it. Each target form owns a separate draft so changing targets
+never carries another version's reason or selections.
 
 ## Material identity and conservation
 
@@ -351,16 +405,17 @@ require a separate reconciliation protocol.
 All routes use the existing loopback endpoint, native credential, owner instance
 identity and registered project scope:
 
-| Command                  | Request and result                                                                          |
-| ------------------------ | ------------------------------------------------------------------------------------------- |
-| `inventory.projects`     | List admitted projects and stable default inventory identities.                             |
-| `inventory.materials`    | Search eligible scientific material in one admitted project.                                |
-| `inventory.catalog`      | Read detached equipment definitions for an admitted project without inventory creation.     |
-| `inventory.availability` | Derive quantities, reservations, custody and physical compatibility from current facts.     |
-| `inventory.execute`      | Apply an expected-revision command batch; return a committed receipt or explicit rejection. |
-| `inventory.inspect`      | Read current state for an admitted project and inventory.                                   |
-| `inventory.operation`    | Read one original committed operation receipt.                                              |
-| `inventory.history`      | Read accepted operations with revision pagination.                                          |
+| Command                            | Request and result                                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `inventory.projects`               | List admitted projects and stable default inventory identities.                                     |
+| `inventory.materials`              | Search eligible scientific material in one admitted project.                                        |
+| `inventory.catalog`                | Read detached equipment definitions for an admitted project without inventory creation.             |
+| `inventory.catalog-update-preview` | Classify one built-in pack against an admitted inventory without publication or inventory creation. |
+| `inventory.availability`           | Derive quantities, reservations, custody and physical compatibility from current facts.             |
+| `inventory.execute`                | Apply an expected-revision command batch; return a committed receipt or explicit rejection.         |
+| `inventory.inspect`                | Read current state for an admitted project and inventory.                                           |
+| `inventory.operation`              | Read one original committed operation receipt.                                                      |
+| `inventory.history`                | Read accepted operations with revision pagination.                                                  |
 
 Agent requests recheck their exact current grant through the shared native
 authorizer before read/write dispatch. Forwarded capability claims alone do not

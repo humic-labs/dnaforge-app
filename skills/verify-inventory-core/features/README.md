@@ -22,3 +22,6 @@
 
 - [Physical configuration](physical-configuration.md): reusable types, pinned
   recipes, scoped fit evidence and source-backed installed arrangements.
+
+- [Catalog lifecycle](catalog-lifecycle.md): explicit retirement, selected
+  component eligibility, source-pack previews and controlled publication.

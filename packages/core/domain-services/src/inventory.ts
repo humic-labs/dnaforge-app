@@ -8,6 +8,12 @@ export {
   mixInventoryCompositions,
 } from './inventory-concentration';
 export { applyInventoryCommandBatch } from './inventory-state';
+export {
+  inventoryCatalogVersionStatus,
+  inventoryCatalogProjection,
+  inventoryCatalogTypeAdoption,
+  inventoryCatalogRecipeEligibility,
+} from './inventory-catalog-lifecycle';
 export { inventoryAvailability, inventoryItemContains } from './inventory-reservations';
 export { inventoryEffectiveCustody, inventoryItemCustody } from './inventory-custody';
 export {

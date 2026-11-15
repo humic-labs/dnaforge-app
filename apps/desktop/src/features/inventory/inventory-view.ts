@@ -192,6 +192,10 @@ export function destinationPositions(
 
 export function historyLabel(command: InventoryCommand, state: InventoryState): string {
   switch (command.kind) {
+    case 'retire-catalog-version':
+      return 'Retired catalog version';
+    case 'restore-catalog-version':
+      return 'Restored catalog version';
     case 'define-physical-type':
       return `Published type ${command.name}`;
     case 'define-equipment-recipe':

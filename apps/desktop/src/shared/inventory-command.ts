@@ -26,6 +26,10 @@ export const inventoryReadRequestSchema = z
   .object({ project: z.string().min(1).max(4096), inventoryId: identity })
   .strict();
 
+export const inventoryCatalogUpdatePreviewRequestSchema = inventoryReadRequestSchema
+  .extend({ catalogEntryId: identity })
+  .strict();
+
 export const inventoryExecuteRequestSchema = inventoryReadRequestSchema
   .extend({
     operationId: identity,
@@ -77,6 +81,9 @@ export const inventoryReceiptSchema = z
   .strict();
 
 export type InventoryReadRequest = z.infer<typeof inventoryReadRequestSchema>;
+export type InventoryCatalogUpdatePreviewRequest = z.infer<
+  typeof inventoryCatalogUpdatePreviewRequestSchema
+>;
 export type InventoryExecuteRequest = InventoryReadRequest &
   InventoryCommandBatch & { readonly operationId: string };
 export type InventoryOperationRequest = z.infer<typeof inventoryOperationRequestSchema>;

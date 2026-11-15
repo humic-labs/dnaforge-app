@@ -32,6 +32,7 @@ let owner: NativeInventoryOwner | null;
 let execute: ReturnType<typeof vi.fn>;
 let availability: ReturnType<typeof vi.fn>;
 let catalog: ReturnType<typeof vi.fn>;
+let catalogUpdatePreview: ReturnType<typeof vi.fn>;
 const call = (input: unknown = request) =>
   (
     captured.handlers.execute as (
@@ -44,7 +45,13 @@ beforeEach(() => {
   execute = vi.fn(() => ({ status: 'committed' }));
   availability = vi.fn(() => null);
   catalog = vi.fn(() => []);
-  owner = { execute, availability, catalog } as unknown as NativeInventoryOwner;
+  catalogUpdatePreview = vi.fn(() => ({ revision: 0, canApply: true }));
+  owner = {
+    execute,
+    availability,
+    catalog,
+    catalogUpdatePreview,
+  } as unknown as NativeInventoryOwner;
   registerInventoryHandlers({ owner: () => owner, target: () => target });
 });
 
@@ -59,6 +66,22 @@ it('reads the catalog through the current desktop owner and caller', () => {
   expect(() =>
     handler({ sender: { id: 9, isDestroyed: () => false } } as IpcMainInvokeEvent, input)
   ).toThrow('INVENTORY_DESKTOP_CALLER_UNAVAILABLE');
+});
+
+it('previews a catalog update through the current desktop owner without executing commands', () => {
+  const input = { project: 'project', inventoryId: 'inventory', catalogEntryId: 'catalog-entry' };
+  const handler = captured.handlers.catalogUpdatePreview as (
+    event: IpcMainInvokeEvent,
+    request: unknown
+  ) => unknown;
+  expect(handler(event, input)).toEqual({ revision: 0, canApply: true });
+  expect(catalogUpdatePreview).toHaveBeenCalledExactlyOnceWith(input);
+  expect(execute).not.toHaveBeenCalled();
+  expect(() =>
+    handler({ sender: { id: 9, isDestroyed: () => false } } as IpcMainInvokeEvent, input)
+  ).toThrow('INVENTORY_DESKTOP_CALLER_UNAVAILABLE');
+  owner = null;
+  expect(() => handler(event, input)).toThrow('INVENTORY_OWNER_UNAVAILABLE');
 });
 
 it('reads availability through the current native profile owner', () => {

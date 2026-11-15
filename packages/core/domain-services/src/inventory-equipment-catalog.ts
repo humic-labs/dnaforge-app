@@ -5,7 +5,7 @@ import type {
   InventoryGeometry,
   InventorySourceReference,
 } from './inventory-configuration-types';
-import type { InventoryState } from './inventory-types';
+import type { InventoryPhysicalItem, InventoryState } from './inventory-types';
 import type { MetadataFieldDefinition } from './metadata-fields';
 import { parseInventoryCommand } from './inventory-validation';
 import { normalizeInventoryGeometry } from './inventory-geometry';
@@ -25,6 +25,33 @@ export interface InventoryEquipmentCatalogEntry {
   readonly nominalBoxClass: string;
   readonly boxPositions: number;
   readonly definitions: readonly InventoryCatalogDefinition[];
+}
+
+export interface InventoryCatalogInstalledReference {
+  readonly item: InventoryPhysicalItem;
+  readonly name: string;
+  readonly typeVersionId: string | null;
+  readonly recipeVersionId: string | null;
+}
+
+export interface InventoryCatalogDefinitionUpdatePreview {
+  readonly definition: InventoryCatalogDefinition;
+  readonly status: 'new' | 'identical' | 'conflicting';
+  readonly installedReferences: readonly InventoryCatalogInstalledReference[];
+}
+
+export interface InventoryEquipmentCatalogUpdatePreview {
+  readonly revision: number;
+  readonly entryId: string;
+  readonly name: string;
+  readonly description: string;
+  readonly model: InventoryEquipmentModel;
+  readonly sources: readonly InventorySourceReference[];
+  readonly recipeVersionId: string;
+  readonly canApply: boolean;
+  readonly conflictCount: number;
+  readonly definitions: readonly InventoryCatalogDefinitionUpdatePreview[];
+  readonly installedReferences: readonly InventoryCatalogInstalledReference[];
 }
 
 const thermoSource = (locator: string): InventorySourceReference => ({
@@ -351,52 +378,154 @@ function canonical(value: unknown): string {
   );
 }
 
+type CatalogDefinitionState = Pick<
+  InventoryState,
+  'typeVersions' | 'recipeVersions' | 'fitEvidence'
+>;
+
+function normalizedCatalogDefinition(definition: InventoryCatalogDefinition) {
+  return definition.kind === 'define-physical-type'
+    ? {
+        ...definition,
+        definition: {
+          ...definition.definition,
+          geometry: normalizeInventoryGeometry(definition.definition.geometry),
+        },
+      }
+    : definition;
+}
+
+function compareCatalogDefinition(
+  state: CatalogDefinitionState,
+  definition: InventoryCatalogDefinition
+): Omit<InventoryCatalogDefinitionUpdatePreview, 'installedReferences'> {
+  const parsed = parseInventoryCommand(definition);
+  if (
+    parsed.kind !== 'define-physical-type' &&
+    parsed.kind !== 'define-equipment-recipe' &&
+    parsed.kind !== 'record-fit-evidence'
+  )
+    throw new TypeError('Catalog packs may contain only type, recipe and fit definitions.');
+  const rows =
+    parsed.kind === 'define-physical-type'
+      ? state.typeVersions
+      : parsed.kind === 'define-equipment-recipe'
+        ? state.recipeVersions
+        : state.fitEvidence;
+  const existing = rows[parsed.id];
+  if (!existing)
+    return {
+      definition: parsed,
+      status: [state.typeVersions, state.recipeVersions, state.fitEvidence].some((rows) =>
+        Object.hasOwn(rows, parsed.id)
+      )
+        ? 'conflicting'
+        : 'new',
+    };
+  const { kind: _kind, ...expected } = normalizedCatalogDefinition(parsed);
+  const actual = Object.fromEntries(
+    Object.keys(expected).map((key) => [key, (existing as unknown as Record<string, unknown>)[key]])
+  );
+  if (parsed.kind === 'define-physical-type') {
+    const definition = actual.definition as typeof parsed.definition;
+    actual.definition = {
+      ...definition,
+      geometry: normalizeInventoryGeometry(definition.geometry),
+    };
+  }
+  return {
+    definition: parsed,
+    status: canonical(actual) === canonical(expected) ? 'identical' : 'conflicting',
+  };
+}
+
+function compareCatalogDefinitions(
+  state: CatalogDefinitionState,
+  definitions: readonly InventoryCatalogDefinition[]
+): readonly Omit<InventoryCatalogDefinitionUpdatePreview, 'installedReferences'>[] {
+  const comparisons = definitions.map((definition) => compareCatalogDefinition(state, definition));
+  const contents = new Map<string, string>();
+  const conflicts = new Set<string>();
+  for (const { definition } of comparisons) {
+    const content = canonical(normalizedCatalogDefinition(definition));
+    if (contents.has(definition.id) && contents.get(definition.id) !== content)
+      conflicts.add(definition.id);
+    contents.set(definition.id, content);
+  }
+  return comparisons.map((row) =>
+    conflicts.has(row.definition.id) ? { ...row, status: 'conflicting' } : row
+  );
+}
+
 export function inventoryEquipmentCatalogMissingDefinitions(
-  state: Pick<InventoryState, 'typeVersions' | 'recipeVersions' | 'fitEvidence'>,
+  state: CatalogDefinitionState,
   entry: InventoryEquipmentCatalogEntry
 ): readonly InventoryCatalogDefinition[] {
-  const missing: InventoryCatalogDefinition[] = [];
-  for (const definition of entry.definitions) {
-    const parsed = parseInventoryCommand(definition) as InventoryCatalogDefinition;
-    const rows =
-      parsed.kind === 'define-physical-type'
-        ? state.typeVersions
-        : parsed.kind === 'define-equipment-recipe'
-          ? state.recipeVersions
-          : state.fitEvidence;
-    const existing = rows[parsed.id];
-    if (!existing) {
-      missing.push(structuredClone(parsed));
-      continue;
-    }
-    const normalized =
-      parsed.kind === 'define-physical-type'
-        ? {
-            ...parsed,
-            definition: {
-              ...parsed.definition,
-              geometry: normalizeInventoryGeometry(parsed.definition.geometry),
-            },
-          }
-        : parsed;
-    const { kind: _kind, ...expected } = normalized;
-    const actual = Object.fromEntries(
-      Object.keys(expected).map((key) => [
-        key,
-        (existing as unknown as Record<string, unknown>)[key],
-      ])
+  const comparisons = compareCatalogDefinitions(state, entry.definitions);
+  const conflict = comparisons.find((row) => row.status === 'conflicting');
+  if (conflict)
+    throw new Error(
+      `Catalog definition ${conflict.definition.id} differs from the inventory's existing definition.`
     );
-    if (parsed.kind === 'define-physical-type') {
-      const definition = actual.definition as typeof parsed.definition;
-      actual.definition = {
-        ...definition,
-        geometry: normalizeInventoryGeometry(definition.geometry),
-      };
-    }
-    if (canonical(actual) !== canonical(expected))
-      throw new Error(
-        `Catalog definition ${parsed.id} differs from the inventory's existing definition.`
-      );
-  }
-  return missing;
+  return [
+    ...new Map(
+      comparisons
+        .filter((row) => row.status === 'new')
+        .map((row) => [row.definition.id, structuredClone(row.definition)] as const)
+    ).values(),
+  ];
+}
+
+export function inventoryEquipmentCatalogUpdatePreview(
+  state: CatalogDefinitionState & Pick<InventoryState, 'revision' | 'storage' | 'vessels'>,
+  entry: InventoryEquipmentCatalogEntry
+): InventoryEquipmentCatalogUpdatePreview {
+  const installed: InventoryCatalogInstalledReference[] = (['storage', 'vessel'] as const).flatMap(
+    (kind) =>
+      Object.values(kind === 'storage' ? state.storage : state.vessels).map((record) => ({
+        item: { kind, id: record.id },
+        name: record.name,
+        typeVersionId: record.configuration.typeVersionId,
+        recipeVersionId: record.configuration.recipe?.recipeVersionId ?? null,
+      }))
+  );
+  const definitions = compareCatalogDefinitions(state, entry.definitions).map((comparison) => {
+    const parsed = comparison.definition;
+    return {
+      ...comparison,
+      installedReferences: installed.filter((reference) =>
+        parsed.kind === 'define-physical-type'
+          ? reference.typeVersionId === parsed.id
+          : parsed.kind === 'define-equipment-recipe'
+            ? reference.recipeVersionId === parsed.id
+            : [parsed.parent, parsed.child].some(
+                (subject) =>
+                  subject.kind === 'installed' &&
+                  subject.item.kind === reference.item.kind &&
+                  subject.item.id === reference.item.id
+              )
+      ),
+    };
+  });
+  const conflictCount = definitions.filter((row) => row.status === 'conflicting').length;
+  const references = new Map(
+    definitions.flatMap((row) =>
+      row.installedReferences.map(
+        (reference) => [`${reference.item.kind}:${reference.item.id}`, reference] as const
+      )
+    )
+  );
+  return structuredClone({
+    revision: state.revision,
+    entryId: entry.id,
+    name: entry.name,
+    description: entry.description,
+    model: entry.model,
+    sources: entry.sources,
+    recipeVersionId: entry.recipeVersionId,
+    canApply: conflictCount === 0,
+    conflictCount,
+    definitions,
+    installedReferences: [...references.values()],
+  });
 }

@@ -178,6 +178,7 @@ async def execute_native_workflow(
         if not isinstance(operation, dict) or operation.get("kind") not in {
             "projects",
             "catalog",
+            "catalog-update-preview",
             "materials",
             "inspect",
             "availability",

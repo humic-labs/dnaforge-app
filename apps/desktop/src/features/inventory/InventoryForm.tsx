@@ -25,6 +25,11 @@ import type {
   InventoryData,
 } from './inventory-controller';
 import { inventoryCanEdit } from './inventory-controller';
+import {
+  inventoryCatalogStatusAt,
+  inventoryCatalogVersionLabel,
+  InventoryCatalogEligibilityNotice,
+} from './InventoryCatalogSelection';
 import { InventoryStatusNotice } from './InventoryStatusNotice';
 import {
   InventoryMetadataFields,
@@ -119,6 +124,10 @@ export function InventoryForm({
   const [metadata, setMetadata] = useState<Readonly<Record<string, unknown>>>({});
   const [invalidFields, setInvalidFields] = useState<ReadonlySet<string>>(new Set());
   const physicalType = typeVersionId ? state.typeVersions[typeVersionId] : undefined;
+  const typeSelection = physicalType
+    ? inventoryCatalogStatusAt(data, { kind: 'type-version', versionId: physicalType.id })
+    : undefined;
+  const typeBlocked = Boolean(typeVersionId && typeSelection?.eligibility.kind !== 'selectable');
   const [query, setQuery] = useState('');
   const [materialId, setMaterialId] = useState('');
   const [lotId, setLotId] = useState('');
@@ -217,6 +226,8 @@ export function InventoryForm({
     setValidation(null);
     if (!canSubmit) return;
     try {
+      if ((dialog.kind === 'location' || dialog.kind === 'container') && typeBlocked)
+        throw new Error('This type version is unavailable for new items.');
       const commands: InventoryCommand[] = [];
       if (physicalType && (dialog.kind === 'location' || dialog.kind === 'container')) {
         if (invalidFields.size)
@@ -512,10 +523,22 @@ export function InventoryForm({
                             : type.definition.kind === 'vessel' &&
                               type.definition.mobility === 'movable'
                         )
-                        .map((type) => ({
-                          value: type.id,
-                          label: `${type.name} · v${type.version}`,
-                        })),
+                        .map((type) => {
+                          const selection = inventoryCatalogStatusAt(data, {
+                            kind: 'type-version',
+                            versionId: type.id,
+                          });
+                          return {
+                            value: type.id,
+                            label: `${type.name} · v${type.version}`,
+                            description: inventoryCatalogVersionLabel(
+                              type.name,
+                              type.version,
+                              selection
+                            ),
+                            disabled: selection?.eligibility.kind !== 'selectable',
+                          };
+                        }),
                     ]}
                     onValueChange={(id) => {
                       setTypeVersionId(id);
@@ -739,6 +762,10 @@ export function InventoryForm({
               ) : null}
               {physicalType ? (
                 <>
+                  <InventoryCatalogEligibilityNotice
+                    data={data}
+                    eligibility={typeSelection?.eligibility}
+                  />
                   <InventoryMetadataFields
                     fields={physicalType.fields}
                     values={metadata}
@@ -798,6 +825,7 @@ export function InventoryForm({
                 variant={dialog.kind === 'dispose' ? 'danger' : 'primary'}
                 disabled={
                   !canSubmit ||
+                  typeBlocked ||
                   invalidFields.size > 0 ||
                   Boolean(selectedStorage && !containerId && available.length === 0)
                 }

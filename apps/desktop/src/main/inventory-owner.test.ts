@@ -3,7 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { InventoryCommand } from '@waypoint/domain-services';
+import {
+  INVENTORY_SCHEMA,
+  createInventoryState,
+  inventoryEquipmentCatalog,
+  inventoryEquipmentCatalogUpdatePreview,
+  type InventoryCommand,
+} from '@waypoint/domain-services';
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
@@ -174,7 +180,7 @@ describe('durable native inventory commands', () => {
     startOwner();
     const scope = { project: 'inventory-project', inventoryId: 'legacy-inventory' };
     const read = owner.inspect(scope)!;
-    expect(read.schema).toBe('dnaforge.inventory.v7');
+    expect(read.schema).toBe(INVENTORY_SCHEMA);
     expect(read.storage['legacy-freezer'].layout).toEqual({ kind: 'named', slots: ['A1'] });
     expect(owner.replay(scope)).toEqual({ state: read, acceptedOperations: 1 });
     expect(owner.execute(JSON.parse(requestJson))).toEqual(receipt);
@@ -771,6 +777,12 @@ describe('durable native inventory commands', () => {
     ).run(otherPath);
     for (const operation of [
       () => owner.inspect({ ...scope(), project: 'Other' }),
+      () =>
+        owner.catalogUpdatePreview({
+          ...scope(),
+          project: 'Other',
+          catalogEntryId: inventoryEquipmentCatalog()[0].id,
+        }),
       () => owner.history({ ...scope(), project: 'Other' }),
       () => owner.operation({ ...scope(), project: 'Other', operationId: 'receive' }),
       () =>
@@ -793,6 +805,14 @@ describe('durable native inventory commands', () => {
     expect(() =>
       withAgentProjectScope({ kind: 'project-roots', roots: [otherPath] }, () =>
         owner.inspect(scope())
+      )
+    ).toThrow('PROJECT_ACCESS_DENIED');
+    expect(() =>
+      withAgentProjectScope({ kind: 'project-roots', roots: [otherPath] }, () =>
+        owner.catalogUpdatePreview({
+          ...scope(),
+          catalogEntryId: inventoryEquipmentCatalog()[0].id,
+        })
       )
     ).toThrow('PROJECT_ACCESS_DENIED');
     db.prepare("UPDATE workspaces SET access_mode='reference' WHERE id=41").run();
@@ -864,6 +884,73 @@ describe('durable native inventory commands', () => {
     createFixture();
     db.prepare('UPDATE inventory_state SET state_json=?').run('{broken');
     expect(() => owner.inspect(scope())).toThrow('INVENTORY_DATA_INVALID');
+  });
+
+  it('previews catalog updates for an absent inventory without database writes or change events', () => {
+    const entry = inventoryEquipmentCatalog()[0];
+    const request = { ...scope(), inventoryId: 'absent', catalogEntryId: entry.id };
+    const changed = vi.fn();
+    owner.subscribe(changed);
+    const before = db.prepare('SELECT total_changes() AS n').get();
+    const preview = owner.catalogUpdatePreview(request);
+    expect(preview).toEqual(inventoryEquipmentCatalogUpdatePreview(createInventoryState(), entry));
+    expect(preview.revision).toBe(0);
+    expect(preview.definitions.every((row) => row.status === 'new')).toBe(true);
+    expect(
+      owner.inspect({ project: request.project, inventoryId: request.inventoryId })
+    ).toBeNull();
+    expect(db.prepare('SELECT COUNT(*) AS n FROM inventory_state').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM inventory_journal').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT total_changes() AS n').get()).toEqual(before);
+    expect(changed).not.toHaveBeenCalled();
+    Object.assign(preview.model, { region: 'Caller draft' });
+    expect(owner.catalogUpdatePreview(request).model).toEqual(entry.model);
+  });
+
+  it('previews current persisted catalog conflicts without changing saved state or history', () => {
+    createFixture();
+    const entry = inventoryEquipmentCatalog()[0];
+    const first = entry.definitions[0];
+    if (first.kind !== 'define-physical-type') throw new Error('Expected physical type.');
+    expect(
+      execute('local-definition', 1, [{ ...first, name: 'Local physical definition' }])
+    ).toMatchObject({ status: 'committed', revision: 2 });
+    const before = {
+      state: db.prepare('SELECT * FROM inventory_state').all(),
+      history: db.prepare('SELECT * FROM inventory_journal').all(),
+      changes: db.prepare('SELECT total_changes() AS n').get(),
+    };
+    const preview = owner.catalogUpdatePreview({ ...scope(), catalogEntryId: entry.id });
+    expect(preview.revision).toBe(2);
+    expect(preview.canApply).toBe(false);
+    expect(preview.conflictCount).toBe(1);
+    expect(preview.definitions[0].status).toBe('conflicting');
+    expect(owner.inspect(scope())?.stocks.stock.quantity).toEqual({
+      kind: 'known',
+      value: '100',
+      unit: 'uL',
+    });
+    expect(db.prepare('SELECT * FROM inventory_state').all()).toEqual(before.state);
+    expect(db.prepare('SELECT * FROM inventory_journal').all()).toEqual(before.history);
+    expect(db.prepare('SELECT total_changes() AS n').get()).toEqual(before.changes);
+  });
+
+  it('refuses unknown catalog entries and malformed preview requests without creating inventory', () => {
+    const request = { ...scope(), catalogEntryId: inventoryEquipmentCatalog()[0].id };
+    const before = db.prepare('SELECT total_changes() AS n').get();
+    expect(() =>
+      owner.catalogUpdatePreview({ ...request, catalogEntryId: 'unknown-entry' })
+    ).toThrow('INVENTORY_CATALOG_ENTRY_NOT_FOUND');
+    for (const input of [
+      { ...request, catalogEntryId: '' },
+      { ...request, catalogEntryId: 'x'.repeat(257) },
+      { ...request, commands: [] },
+      { project: request.project, catalogEntryId: request.catalogEntryId },
+    ])
+      expect(() => owner.catalogUpdatePreview(input)).toThrow();
+    expect(db.prepare('SELECT COUNT(*) AS n FROM inventory_state').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM inventory_journal').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT total_changes() AS n').get()).toEqual(before);
   });
 
   it('detects a changed journal payload and a projection divergent from accepted history', () => {

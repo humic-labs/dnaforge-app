@@ -1,4 +1,4 @@
-import type { InventoryDimension } from '@waypoint/domain-services';
+import type { InventoryCatalogTarget, InventoryDimension } from '@waypoint/domain-services';
 import type { InventoryItem } from './inventory-view';
 
 export type InventoryPhysicalDialogKind =
@@ -7,6 +7,8 @@ export type InventoryPhysicalDialogKind =
   | { kind: 'equipment-recipe'; versionId?: string }
   | { kind: 'install-recipe'; versionId: string }
   | { kind: 'install-catalog'; catalogId: string }
+  | { kind: 'catalog-preview'; catalogId: string }
+  | { kind: 'catalog-lifecycle'; target: InventoryCatalogTarget; action: 'retire' | 'restore' }
   | { kind: 'physical-configuration'; item: InventoryItem }
   | { kind: 'physical-geometry'; item: InventoryItem }
   | { kind: 'physical-fit'; item: InventoryItem };
@@ -20,6 +22,8 @@ export function isInventoryPhysicalDialog(dialog: {
     'equipment-recipe',
     'install-recipe',
     'install-catalog',
+    'catalog-preview',
+    'catalog-lifecycle',
     'physical-configuration',
     'physical-geometry',
     'physical-fit',

@@ -49,6 +49,10 @@ export function registerInventoryHandlers(options: {
       assertCaller(event);
       return currentOwner().catalog(request);
     },
+    catalogUpdatePreview: (event, request) => {
+      assertCaller(event);
+      return currentOwner().catalogUpdatePreview(request);
+    },
     materials: (event, request) => {
       assertCaller(event);
       return currentOwner().materials(request);

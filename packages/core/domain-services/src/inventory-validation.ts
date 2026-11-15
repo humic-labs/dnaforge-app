@@ -17,6 +17,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_CONFIGURATION_SCHEMA,
   INVENTORY_CUSTODY_SCHEMA,
   INVENTORY_RESERVATION_SCHEMA,
   INVENTORY_COMPOSITION_SCHEMA,
@@ -770,7 +771,20 @@ const configurationRecord: Codec<InventoryPhysicalConfiguration> = fields(
     recipe: nullable(fields('Installed recipe pin', { recipeVersionId: id, componentKey: id })),
   }
 );
-const typeVersionRecord: Codec<InventoryPhysicalTypeVersion> = fields('Physical type version', {
+const catalogTarget = union('Catalog version target', [
+  fields('Physical type version target', { kind: literal('type-version'), versionId: id }),
+  fields('Equipment recipe version target', { kind: literal('recipe-version'), versionId: id }),
+]);
+const catalogSelection = union('Catalog selection state', [
+  fields('Available catalog version', { kind: literal('available') }),
+  fields('Retired catalog version', {
+    kind: literal('retired'),
+    at: timestamp,
+    by: principal,
+    reason,
+  }),
+]);
+const typeVersionFields = {
   id,
   typeId: id,
   version: integer('Physical type version', 1, Number.MAX_SAFE_INTEGER),
@@ -781,20 +795,30 @@ const typeVersionRecord: Codec<InventoryPhysicalTypeVersion> = fields('Physical 
   definition: physicalDefinition,
   publishedAt: timestamp,
   publishedBy: principal,
+};
+const previousTypeVersionRecord = fields('V7 physical type version', typeVersionFields);
+const typeVersionRecord: Codec<InventoryPhysicalTypeVersion> = fields('Physical type version', {
+  ...typeVersionFields,
+  selection: catalogSelection,
 });
+const recipeVersionFields = {
+  id,
+  recipeId: id,
+  version: integer('Recipe version', 1, Number.MAX_SAFE_INTEGER),
+  name,
+  description,
+  model: equipmentModel,
+  components: array(recipeComponent, 10000, 1),
+  sources: array(sourceReference, 256),
+  publishedAt: timestamp,
+  publishedBy: principal,
+};
+const previousRecipeVersionRecord = fields('V7 equipment recipe version', recipeVersionFields);
 const recipeVersionRecord: Codec<InventoryEquipmentRecipeVersion> = fields(
   'Equipment recipe version',
   {
-    id,
-    recipeId: id,
-    version: integer('Recipe version', 1, Number.MAX_SAFE_INTEGER),
-    name,
-    description,
-    model: equipmentModel,
-    components: array(recipeComponent, 10000, 1),
-    sources: array(sourceReference, 256),
-    publishedAt: timestamp,
-    publishedBy: principal,
+    ...recipeVersionFields,
+    selection: catalogSelection,
   }
 );
 const fitEvidenceRecord: Codec<InventoryFitEvidence> = fields('Fit evidence', {
@@ -803,6 +827,16 @@ const fitEvidenceRecord: Codec<InventoryFitEvidence> = fields('Fit evidence', {
   by: principal,
 });
 const commands = {
+  'retire-catalog-version': fields('Retire catalog version command', {
+    kind: literal('retire-catalog-version'),
+    target: catalogTarget,
+    reason,
+  }),
+  'restore-catalog-version': fields('Restore catalog version command', {
+    kind: literal('restore-catalog-version'),
+    target: catalogTarget,
+    reason,
+  }),
   'create-lot': fields('Create lot command', {
     kind: literal('create-lot'),
     id,
@@ -1492,13 +1526,15 @@ function validateState(state: InventoryState): void {
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const custody = current || row.schema === INVENTORY_CUSTODY_SCHEMA;
+  const configuration = current || row.schema === INVENTORY_CONFIGURATION_SCHEMA;
+  const custody = configuration || row.schema === INVENTORY_CUSTODY_SCHEMA;
   const reservation = custody || row.schema === INVENTORY_RESERVATION_SCHEMA;
   const composition = reservation || row.schema === INVENTORY_COMPOSITION_SCHEMA;
   const material = composition || row.schema === INVENTORY_MATERIAL_SCHEMA;
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_CONFIGURATION_SCHEMA),
       literal(INVENTORY_CUSTODY_SCHEMA),
       literal(INVENTORY_RESERVATION_SCHEMA),
       literal(INVENTORY_COMPOSITION_SCHEMA),
@@ -1507,7 +1543,7 @@ export function parseInventoryState(value: unknown): InventoryState {
       literal(LEGACY_INVENTORY_SCHEMA),
     ]),
     revision,
-    ...(current
+    ...(configuration
       ? {
           typeVersions: { schema: { type: 'object' }, parse: (input: unknown) => input },
           recipeVersions: { schema: { type: 'object' }, parse: (input: unknown) => input },
@@ -1527,7 +1563,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   }).parse(row);
   const legacy = shape.schema === LEGACY_INVENTORY_SCHEMA;
   const storage = records(shape.storage, (raw): InventoryStorage => {
-    if (current) return storageRecord.parse(raw);
+    if (configuration) return storageRecord.parse(raw);
     if (custody)
       return {
         ...custodyStorageRecord.parse(raw),
@@ -1551,7 +1587,7 @@ export function parseInventoryState(value: unknown): InventoryState {
     };
   });
   const vessels = records(shape.vessels, (raw): InventoryVessel => {
-    if (current) return vesselRecord.parse(raw);
+    if (configuration) return vesselRecord.parse(raw);
     if (custody)
       return {
         ...custodyVesselRecord.parse(raw),
@@ -1575,13 +1611,27 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   const state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    typeVersions: current
-      ? records(shape.typeVersions, (raw) => typeVersionRecord.parse(raw))
+    typeVersions: configuration
+      ? records(shape.typeVersions, (raw) =>
+          current
+            ? typeVersionRecord.parse(raw)
+            : {
+                ...previousTypeVersionRecord.parse(raw),
+                selection: { kind: 'available' as const },
+              }
+        )
       : (Object.create(null) as Record<string, InventoryPhysicalTypeVersion>),
-    recipeVersions: current
-      ? records(shape.recipeVersions, (raw) => recipeVersionRecord.parse(raw))
+    recipeVersions: configuration
+      ? records(shape.recipeVersions, (raw) =>
+          current
+            ? recipeVersionRecord.parse(raw)
+            : {
+                ...previousRecipeVersionRecord.parse(raw),
+                selection: { kind: 'available' as const },
+              }
+        )
       : (Object.create(null) as Record<string, InventoryEquipmentRecipeVersion>),
-    fitEvidence: current
+    fitEvidence: configuration
       ? records(shape.fitEvidence, (raw) => fitEvidenceRecord.parse(raw))
       : (Object.create(null) as Record<string, InventoryFitEvidence>),
     revision: shape.revision,

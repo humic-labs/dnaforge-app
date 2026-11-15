@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import type Database from 'better-sqlite3';
 import type {
   InventoryCommand,
+  InventoryEquipmentCatalogUpdatePreview,
   InventoryGeometry,
   InventoryState,
 } from '@waypoint/domain-services';
@@ -42,6 +43,7 @@ type InventoryNativeCommand =
   | 'inventory.history'
   | 'inventory.projects'
   | 'inventory.catalog'
+  | 'inventory.catalog-update-preview'
   | 'inventory.materials';
 type Server = Awaited<ReturnType<typeof startNativeDocumentCommandServer>>;
 interface NativeResponse<T> {
@@ -244,6 +246,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       'inventory.history': 'entries',
       'inventory.projects': 'projects',
       'inventory.catalog': 'entries',
+      'inventory.catalog-update-preview': 'preview',
       'inventory.materials': 'page',
     };
     expect(wrapped).toHaveProperty(keys[command]);
@@ -361,6 +364,34 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     expect(catalog.length).toBeGreaterThan(0);
     expect(new Set(catalog.map((entry) => entry.id)).size).toBe(catalog.length);
     expect(catalog.every((entry) => typeof entry.recipeVersionId === 'string')).toBe(true);
+    const catalogPreview = await success<InventoryEquipmentCatalogUpdatePreview>(
+      'preview built-in catalog update on absent inventory without creating it',
+      'inventory.catalog-update-preview',
+      { ...scope, catalogEntryId: catalog[0].id }
+    );
+    expect(catalogPreview).toMatchObject({ revision: 0, canApply: true, conflictCount: 0 });
+    expect(catalogPreview.definitions.every((row) => row.status === 'new')).toBe(true);
+    expect(catalogPreview.installedReferences).toEqual([]);
+    expect(
+      await success<InventoryEquipmentCatalogUpdatePreview>(
+        'current read-only grant previews a catalog update without publication',
+        'inventory.catalog-update-preview',
+        { ...scope, catalogEntryId: catalog[0].id },
+        { agent: { identityId: 'synthetic-read-only', capabilities: ['read-workspace'] } }
+      )
+    ).toEqual(catalogPreview);
+    expect(
+      await call(
+        'refuse catalog update preview outside captured project roots',
+        'inventory.catalog-update-preview',
+        { ...scope, catalogEntryId: catalog[0].id },
+        { roots: [otherPath] }
+      )
+    ).toMatchObject({
+      status: 200,
+      body: { ok: true, result: { ok: false, code: 'PROJECT_ACCESS_DENIED', stateChanged: false } },
+    });
+    evidence.catalogPreviewRead = catalogPreview;
     expect(owner.inspect(scope)).toBeNull();
     expect(owner.history(scope)).toEqual([]);
     expect(db.prepare('SELECT COUNT(*) AS count FROM inventory_state').get()).toEqual({ count: 0 });
@@ -525,6 +556,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       'synthetic-missing',
     ]) {
       const operationId = `refused-grant:${identityId}`;
+      const grantReadsBeforeAttempt = grantReads.length;
       const denied = await call(
         `reject current grant ${identityId} claiming write access`,
         'inventory.execute',
@@ -541,8 +573,8 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       expect(owner.operation({ ...scope, operationId })).toBeNull();
       expect(owner.inspect(scope)).toEqual(stateBeforeGrantRefusals);
       expect(owner.history(scope)).toEqual(historyBeforeGrantRefusals);
+      expect(grantReads).toHaveLength(grantReadsBeforeAttempt + 1);
     }
-    expect(grantReads).toHaveLength(6);
     expect(
       await success(
         'current read-only grant discovers the same equipment catalog',
@@ -1857,6 +1889,137 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
         reason: 'Synthetic configured-vessel use',
       },
     ]);
+    const installedBeforeRetirement =
+      owner.inspect(physicalScope)!.vessels['second-installed-tube'];
+    await physicalCommit('retire the newest tube version without selecting an older default', [
+      {
+        kind: 'retire-catalog-version',
+        target: { kind: 'type-version', versionId: 'physical-tube-v2' },
+        reason: 'Synthetic newest-version retirement',
+      },
+    ]);
+    const retiredCatalog = await success<InventoryAvailabilitySnapshot>(
+      'read explicit retired newest version and superseded predecessor',
+      'inventory.availability',
+      physicalScope
+    );
+    expect(retiredCatalog.physical.catalog.typeVersions['physical-tube-v2']).toMatchObject({
+      selection: { kind: 'retired', by: nativeHolder },
+      relationship: 'current',
+      headVersionId: 'physical-tube-v2',
+      eligibility: { kind: 'blocked' },
+    });
+    expect(retiredCatalog.physical.catalog.typeVersions['physical-tube-v1']).toMatchObject({
+      selection: { kind: 'available' },
+      relationship: 'superseded',
+      headVersionId: 'physical-tube-v2',
+    });
+    expect(owner.inspect(physicalScope)!.vessels['second-installed-tube']).toEqual(
+      installedBeforeRetirement
+    );
+    await physicalRefusal('refuse new installation of the retired newest type', [
+      {
+        kind: 'instantiate-physical-type',
+        typeVersionId: 'physical-tube-v2',
+        id: 'retired-type-not-created',
+        name: 'Must not be created',
+        destination: { kind: 'unplaced' },
+        metadata: { assetTag: 'retired-type' },
+        reason: 'Synthetic retired-type refusal',
+      },
+    ]);
+    await physicalRefusal('refuse adopting a retired type on a differently pinned installation', [
+      {
+        kind: 'configure-item',
+        item: { kind: 'vessel', id: 'installed-tube' },
+        typeVersionId: 'physical-tube-v2',
+        metadata: { assetTag: 'tube-01' },
+        orientation: { kind: 'unknown' },
+        unavailablePositions: {},
+        reason: 'Synthetic retired-type adoption refusal',
+      },
+    ]);
+    await physicalCommit('correct metadata on an existing retired pin without changing stock', [
+      {
+        kind: 'configure-item',
+        item: { kind: 'vessel', id: 'second-installed-tube' },
+        typeVersionId: 'physical-tube-v2',
+        metadata: { assetTag: 'tube-02-corrected' },
+        orientation: installedBeforeRetirement.configuration.orientation,
+        unavailablePositions: installedBeforeRetirement.configuration.unavailablePositions,
+        reason: 'Synthetic same-pin metadata correction',
+      },
+    ]);
+    expect(
+      owner.inspect(physicalScope)!.vessels['second-installed-tube'].configuration.revision
+    ).toBe(installedBeforeRetirement.configuration.revision);
+    const retireTypeRequest: InventoryExecuteRequest = {
+      ...physicalScope,
+      operationId: 'physical:lost-type-retirement',
+      expectedRevision: owner.inspect(physicalScope)!.revision,
+      commands: [
+        {
+          kind: 'retire-catalog-version',
+          target: { kind: 'type-version', versionId: 'physical-tube-v1' },
+          reason: 'Synthetic optional component retirement',
+        },
+      ],
+    };
+    const retirementReceipt = await loseAcknowledgement(
+      retireTypeRequest,
+      'catalogLostAcknowledgement'
+    );
+    const recipeInstallation = (suffix: string, includeTube: boolean): InventoryCommand => ({
+      kind: 'instantiate-equipment-recipe',
+      recipeVersionId: 'physical-recipe-v1',
+      name: `Synthetic selection ${suffix}`,
+      components: [
+        { key: 'rack', id: `${suffix}-rack`, metadata: { assetTag: suffix, active: false } },
+        ...(includeTube
+          ? [{ key: 'tube', id: `${suffix}-tube`, metadata: { assetTag: suffix } }]
+          : []),
+      ],
+      destination: { kind: 'root' },
+      reason: 'Synthetic selected-component lifecycle acceptance',
+    });
+    await physicalRefusal('refuse a selected retired recipe component atomically', [
+      recipeInstallation('blocked-component', true),
+    ]);
+    await physicalCommit(
+      'install an explicit empty shell omitting the retired optional component',
+      [recipeInstallation('omitted-component', false)]
+    );
+    expect(owner.inspect(physicalScope)!.vessels['omitted-component-tube']).toBeUndefined();
+    await physicalCommit('retire the exact recipe independently of its component types', [
+      {
+        kind: 'retire-catalog-version',
+        target: { kind: 'recipe-version', versionId: 'physical-recipe-v1' },
+        reason: 'Synthetic recipe retirement',
+      },
+    ]);
+    await physicalRefusal('refuse even an empty shell from a retired recipe', [
+      recipeInstallation('retired-recipe', false),
+    ]);
+    await physicalCommit('restore only the exact recipe', [
+      {
+        kind: 'restore-catalog-version',
+        target: { kind: 'recipe-version', versionId: 'physical-recipe-v1' },
+        reason: 'Synthetic recipe restoration',
+      },
+    ]);
+    await physicalRefusal('restoring a recipe does not restore its retired component', [
+      recipeInstallation('still-retired-component', true),
+    ]);
+    await physicalCommit('restore the explicitly chosen superseded component version', [
+      {
+        kind: 'restore-catalog-version',
+        target: { kind: 'type-version', versionId: 'physical-tube-v1' },
+        reason: 'Synthetic explicit superseded-version restoration',
+      },
+    ]);
+    await physicalCommit('install restored exact component versions explicitly', [
+      recipeInstallation('restored-component', true),
+    ]);
     expect(
       await success<NativeInventoryExecution>(
         'retry exact lost recipe installation after later commands',
@@ -1881,6 +2044,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       history: physicalHistoryBeforeRestart,
       availability: physicalAvailabilityBeforeRestart,
       installationReceipt,
+      retirementReceipt,
     };
 
     await server!.close();
@@ -1906,6 +2070,17 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
         instantiateRequest
       )
     ).toEqual(installationReceipt);
+    expect(
+      await success<NativeInventoryExecution>(
+        'retry lost retirement after restore and native reopen without retiring it again',
+        'inventory.execute',
+        retireTypeRequest
+      )
+    ).toEqual(retirementReceipt);
+    expect(owner.inspect(physicalScope)).toEqual(physicalBeforeRestart);
+    expect(owner.inspect(physicalScope)!.typeVersions['physical-tube-v1'].selection).toEqual({
+      kind: 'available',
+    });
     const physicalReplay = owner.replay(physicalScope);
     expect(physicalReplay).toEqual({
       state: physicalBeforeRestart,
@@ -1916,6 +2091,10 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       history: owner.history(physicalScope),
       availability: owner.availability(physicalScope),
       receipt: owner.operation({ ...physicalScope, operationId: instantiateRequest.operationId }),
+      retirementReceipt: owner.operation({
+        ...physicalScope,
+        operationId: retireTypeRequest.operationId,
+      }),
       replay: physicalReplay,
     };
     expect(owner.inspect(custodyScope)).toEqual(custodyBeforeRestart);

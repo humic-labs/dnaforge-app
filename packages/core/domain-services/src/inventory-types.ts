@@ -21,7 +21,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v7' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v8' as const;
+export const INVENTORY_CONFIGURATION_SCHEMA = 'dnaforge.inventory.v7' as const;
 export const INVENTORY_CUSTODY_SCHEMA = 'dnaforge.inventory.v6' as const;
 export const INVENTORY_RESERVATION_SCHEMA = 'dnaforge.inventory.v5' as const;
 export const INVENTORY_COMPOSITION_SCHEMA = 'dnaforge.inventory.v4' as const;
@@ -608,6 +609,9 @@ export type InventoryErrorCode =
   | 'CUSTODY_STATE_CONFLICT'
   | 'CUSTODY_NOT_OWNED'
   | 'CUSTODY_TRANSITION_REQUIRED'
+  | 'CATALOG_VERSION_RETIRED'
+  | 'CATALOG_DEPENDENCY_RETIRED'
+  | 'INVALID_CATALOG_TRANSITION'
   | 'POSITION_UNAVAILABLE';
 
 export type InventoryTransition =

@@ -3,6 +3,7 @@ import { applyInventoryCommandBatch, createInventoryState, parseInventoryState }
 import {
   inventoryEquipmentCatalog,
   inventoryEquipmentCatalogMissingDefinitions,
+  inventoryEquipmentCatalogUpdatePreview,
   type InventoryEquipmentCatalogEntry,
 } from './inventory-equipment-catalog';
 import type { InventoryCommand, InventoryState } from './inventory-types';
@@ -164,4 +165,242 @@ it('detaches separate catalog entries and subsequent reads from an edited caller
   expect(second.name).toBe(original);
   const fresh = inventoryEquipmentCatalog()[0].definitions[0];
   expect(fresh.kind === 'define-physical-type' ? fresh.name : null).toBe(original);
+});
+
+it('previews new source definitions without changing inventory or the source pack', () => {
+  const state = createInventoryState();
+  const entry = inventoryEquipmentCatalog()[0];
+  const beforeState = structuredClone(state);
+  const beforeEntry = structuredClone(entry);
+  const preview = inventoryEquipmentCatalogUpdatePreview(state, entry);
+  expect(preview).toMatchObject({
+    revision: state.revision,
+    entryId: entry.id,
+    name: entry.name,
+    description: entry.description,
+    model: entry.model,
+    sources: entry.sources,
+    recipeVersionId: entry.recipeVersionId,
+    canApply: true,
+    conflictCount: 0,
+    installedReferences: [],
+  });
+  expect(preview.definitions.map((row) => row.status)).toEqual(entry.definitions.map(() => 'new'));
+  expect(preview.definitions.map((row) => row.definition)).toEqual(entry.definitions);
+  expect(state).toEqual(beforeState);
+  expect(entry).toEqual(beforeEntry);
+  Object.assign(preview.model, { region: 'Edited caller scope' });
+  Object.assign(preview.sources[0], { locator: 'Edited caller source' });
+  const first = preview.definitions[0].definition;
+  if (first.kind !== 'define-physical-type') throw new Error('Expected physical type.');
+  Object.assign(first.definition.geometry.external, {
+    width: { kind: 'known', value: '99', unit: 'mm' },
+  });
+  expect(state).toEqual(beforeState);
+  expect(entry).toEqual(beforeEntry);
+});
+
+it('blocks a conflicting pack and reports exact installed type and recipe references', () => {
+  const entry = inventoryEquipmentCatalog()[0];
+  const state = install(createInventoryState(), entry, 200);
+  const [root, rack, recipe] = entry.definitions;
+  if (
+    root.kind !== 'define-physical-type' ||
+    rack.kind !== 'define-physical-type' ||
+    recipe.kind !== 'define-equipment-recipe'
+  )
+    throw new Error('Expected catalog type and recipe definitions.');
+  const beforeState = structuredClone(state);
+  const custom = {
+    ...entry,
+    definitions: [
+      { ...root, id: `${root.typeId}:v2`, name: 'Published successor draft' },
+      recipe,
+      { ...rack, name: 'Conflicting existing rack definition' },
+      entry.definitions[3],
+    ],
+  };
+  const preview = inventoryEquipmentCatalogUpdatePreview(state, custom);
+  expect(preview.definitions.map((row) => row.status)).toEqual([
+    'new',
+    'identical',
+    'conflicting',
+    'identical',
+  ]);
+  expect(preview.canApply).toBe(false);
+  expect(preview.conflictCount).toBe(1);
+  expect(preview.definitions[0].installedReferences).toEqual([]);
+  expect(preview.definitions[1].installedReferences).toHaveLength(recipe.components.length);
+  expect(preview.definitions[2].installedReferences).toHaveLength(recipe.components.length - 1);
+  expect(preview.definitions[3].installedReferences).toEqual([]);
+  expect(preview.installedReferences).toHaveLength(recipe.components.length);
+  expect(preview.installedReferences).toContainEqual({
+    item: { kind: 'storage', id: 'catalog-instance-200:freezer' },
+    name: 'Catalog acceptance 200',
+    typeVersionId: root.id,
+    recipeVersionId: recipe.id,
+  });
+  Object.assign(preview.installedReferences[0].item, { id: 'Edited caller reference' });
+  expect(state).toEqual(beforeState);
+  expect(() => inventoryEquipmentCatalogMissingDefinitions(state, custom)).toThrow('differs');
+});
+
+it('shares semantic comparison across preview and reuse after both geometry inputs normalize', () => {
+  const entry = inventoryEquipmentCatalog()[0];
+  const first = entry.definitions[0];
+  if (first.kind !== 'define-physical-type') throw new Error('Expected physical type.');
+  const incoming = {
+    ...first,
+    definition: {
+      ...first.definition,
+      geometry: {
+        ...first.definition.geometry,
+        external: {
+          ...first.definition.geometry.external,
+          width: { kind: 'known' as const, value: '1', unit: 'in' as const },
+        },
+      },
+    },
+  };
+  const state = apply(createInventoryState(), [incoming]);
+  Object.assign(state.typeVersions[first.id].definition.geometry.external, {
+    width: { kind: 'known', value: '2.540', unit: 'cm' },
+  });
+  const custom = { ...entry, definitions: [incoming] };
+  const before = structuredClone(state);
+  expect(inventoryEquipmentCatalogUpdatePreview(state, custom).definitions[0].status).toBe(
+    'identical'
+  );
+  expect(inventoryEquipmentCatalogMissingDefinitions(state, custom)).toEqual([]);
+  expect(state).toEqual(before);
+  Object.assign(state.typeVersions[first.id].definition.geometry.external, {
+    width: { kind: 'known', value: '2.541', unit: 'cm' },
+  });
+  expect(inventoryEquipmentCatalogUpdatePreview(state, custom).definitions[0].status).toBe(
+    'conflicting'
+  );
+  expect(() => inventoryEquipmentCatalogMissingDefinitions(state, custom)).toThrow('differs');
+});
+
+it('rejects unsupported and malformed source commands through the strict command parser', () => {
+  const state = createInventoryState();
+  const entry = inventoryEquipmentCatalog()[0];
+  const before = structuredClone(state);
+  const malformed = {
+    ...entry,
+    definitions: [{ ...entry.definitions[0], undeclared: true }],
+  };
+  expect(() => inventoryEquipmentCatalogUpdatePreview(state, malformed)).toThrow();
+  expect(() => inventoryEquipmentCatalogMissingDefinitions(state, malformed)).toThrow();
+  const unsupported = {
+    ...entry,
+    definitions: [
+      {
+        kind: 'instantiate-physical-type',
+        typeVersionId: 'source-type',
+        id: 'source-item',
+        name: 'Source item',
+        destination: { kind: 'root' },
+        metadata: {},
+        reason: 'Must not be applied while previewing.',
+      },
+    ],
+  } as unknown as InventoryEquipmentCatalogEntry;
+  expect(() => inventoryEquipmentCatalogUpdatePreview(state, unsupported)).toThrow();
+  expect(() => inventoryEquipmentCatalogMissingDefinitions(state, unsupported)).toThrow();
+  expect(state).toEqual(before);
+});
+
+it('blocks conflicting definitions sharing a new pack identifier before publication', () => {
+  const state = createInventoryState();
+  const entry = inventoryEquipmentCatalog()[0];
+  const first = entry.definitions[0];
+  if (first.kind !== 'define-physical-type') throw new Error('Expected physical type.');
+  const custom = {
+    ...entry,
+    definitions: [first, { ...first, name: 'Conflicting source content' }],
+  };
+  const before = structuredClone(state);
+  const preview = inventoryEquipmentCatalogUpdatePreview(state, custom);
+  expect(preview.definitions.map((row) => row.status)).toEqual(['conflicting', 'conflicting']);
+  expect(preview.canApply).toBe(false);
+  expect(preview.conflictCount).toBe(2);
+  expect(() => inventoryEquipmentCatalogMissingDefinitions(state, custom)).toThrow('differs');
+  expect(state).toEqual(before);
+});
+
+it('keeps identical retired definitions retired when applying a new successor from a pack', () => {
+  const entry = inventoryEquipmentCatalog()[0];
+  const first = entry.definitions[0];
+  if (first.kind !== 'define-physical-type') throw new Error('Expected physical type.');
+  const installed = install(createInventoryState(), entry, 201);
+  const state = apply(installed, [
+    {
+      kind: 'retire-catalog-version',
+      target: { kind: 'type-version', versionId: first.id },
+      reason: 'Retain installed equipment but stop selecting this version.',
+    },
+    {
+      kind: 'retire-catalog-version',
+      target: { kind: 'recipe-version', versionId: entry.recipeVersionId },
+      reason: 'Retain the exact installed recipe.',
+    },
+  ]);
+  const successor = { ...first, id: `${first.typeId}:v2`, name: 'New catalog successor' };
+  const custom = { ...entry, definitions: [...entry.definitions, successor] };
+  const before = structuredClone(state);
+  const preview = inventoryEquipmentCatalogUpdatePreview(state, custom);
+  expect(preview.canApply).toBe(true);
+  expect(preview.definitions.map((row) => row.status)).toEqual([
+    ...entry.definitions.map(() => 'identical'),
+    'new',
+  ]);
+  expect(state).toEqual(before);
+  const missing = inventoryEquipmentCatalogMissingDefinitions(state, custom);
+  expect(missing).toEqual([successor]);
+  const applied = apply(state, missing);
+  expect(applied.typeVersions[first.id]).toEqual(before.typeVersions[first.id]);
+  expect(applied.recipeVersions[entry.recipeVersionId]).toEqual(
+    before.recipeVersions[entry.recipeVersionId]
+  );
+  expect(applied.storage).toEqual(before.storage);
+  expect(applied.stocks).toEqual(before.stocks);
+});
+
+it('revalidates preview revision and exact identifiers through the ordinary reducer on apply', () => {
+  const state = createInventoryState();
+  const entry = inventoryEquipmentCatalog()[0];
+  const preview = inventoryEquipmentCatalogUpdatePreview(state, entry);
+  const first = entry.definitions[0];
+  if (first.kind !== 'define-physical-type') throw new Error('Expected physical type.');
+  const changed = apply(state, [{ ...first, name: 'Local definition accepted after preview' }]);
+  const before = structuredClone(changed);
+  const context = {
+    at: changed.lastRecordedAt + 1,
+    principal: { kind: 'agent' as const, identityId: 'catalog-acceptance' },
+    authority: { kind: 'local-profile' as const, profileKey: 'catalog-profile' },
+  };
+  const commands = preview.definitions.map((row) => row.definition);
+  expect(
+    applyInventoryCommandBatch(
+      changed,
+      {
+        expectedRevision: preview.revision,
+        commands,
+      },
+      context
+    )
+  ).toMatchObject({ ok: false, code: 'REVISION_CONFLICT' });
+  expect(
+    applyInventoryCommandBatch(
+      changed,
+      {
+        expectedRevision: changed.revision,
+        commands,
+      },
+      context
+    )
+  ).toMatchObject({ ok: false, code: 'ID_ALREADY_EXISTS' });
+  expect(() => inventoryEquipmentCatalogMissingDefinitions(changed, entry)).toThrow('differs');
+  expect(changed).toEqual(before);
 });

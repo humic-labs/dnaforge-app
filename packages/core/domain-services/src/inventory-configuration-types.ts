@@ -42,6 +42,42 @@ export interface InventorySourceReference {
   readonly documentRevision: string | null;
   readonly sha256: string | null;
 }
+export type InventoryCatalogTarget =
+  | { readonly kind: 'type-version'; readonly versionId: string }
+  | { readonly kind: 'recipe-version'; readonly versionId: string };
+export type InventoryCatalogSelectionState =
+  | { readonly kind: 'available' }
+  | {
+      readonly kind: 'retired';
+      readonly at: number;
+      readonly by: InventoryExecutionContext['principal'];
+      readonly reason: string;
+    };
+export type InventoryCatalogSelectionBlocker =
+  | { readonly code: 'CATALOG_VERSION_RETIRED'; readonly target: InventoryCatalogTarget }
+  | {
+      readonly code: 'CATALOG_DEPENDENCY_RETIRED';
+      readonly target: InventoryCatalogTarget;
+      readonly typeVersionIds: readonly string[];
+    };
+export type InventoryCatalogEligibility =
+  | { readonly kind: 'selectable' }
+  | {
+      readonly kind: 'blocked';
+      readonly blockers: readonly InventoryCatalogSelectionBlocker[];
+    };
+export interface InventoryCatalogVersionStatus {
+  readonly target: InventoryCatalogTarget;
+  readonly selection: InventoryCatalogSelectionState;
+  readonly relationship: 'current' | 'superseded';
+  readonly headVersionId: string;
+  readonly eligibility: InventoryCatalogEligibility;
+  readonly actions: { readonly retire: boolean; readonly restore: boolean };
+}
+export interface InventoryCatalogProjection {
+  readonly typeVersions: Readonly<Record<string, InventoryCatalogVersionStatus>>;
+  readonly recipeVersions: Readonly<Record<string, InventoryCatalogVersionStatus>>;
+}
 export type InventoryPhysicalDefinition =
   | {
       readonly kind: 'storage';
@@ -67,6 +103,7 @@ export interface InventoryPhysicalTypeVersion {
   readonly definition: InventoryPhysicalDefinition;
   readonly publishedAt: number;
   readonly publishedBy: InventoryExecutionContext['principal'];
+  readonly selection: InventoryCatalogSelectionState;
 }
 export interface InventoryRecipeComponent {
   readonly key: string;
@@ -93,6 +130,7 @@ export interface InventoryEquipmentRecipeVersion {
   readonly sources: readonly InventorySourceReference[];
   readonly publishedAt: number;
   readonly publishedBy: InventoryExecutionContext['principal'];
+  readonly selection: InventoryCatalogSelectionState;
 }
 export interface InventoryPhysicalConfiguration {
   readonly revision: number;
@@ -150,12 +188,23 @@ export interface InventoryPhysicalItemProjection {
   readonly placementCompatibility: InventoryPlacementCompatibility | null;
 }
 export interface InventoryPhysicalProjection {
+  readonly catalog: InventoryCatalogProjection;
   readonly typeVersions: readonly InventoryPhysicalTypeVersion[];
   readonly recipeVersions: readonly InventoryEquipmentRecipeVersion[];
   readonly fitEvidence: readonly InventoryFitEvidence[];
   readonly items: Readonly<Record<string, InventoryPhysicalItemProjection>>;
 }
 export type InventoryConfigurationCommand =
+  | {
+      readonly kind: 'retire-catalog-version';
+      readonly target: InventoryCatalogTarget;
+      readonly reason: string;
+    }
+  | {
+      readonly kind: 'restore-catalog-version';
+      readonly target: InventoryCatalogTarget;
+      readonly reason: string;
+    }
   | {
       readonly kind: 'instantiate-physical-type';
       readonly typeVersionId: string;

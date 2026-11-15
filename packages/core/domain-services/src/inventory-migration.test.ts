@@ -24,7 +24,7 @@ describe('frozen inventory v1 compatibility', () => {
     const raw = JSON.parse(V1_SNAPSHOT) as unknown;
     const state = parseInventoryState(raw);
     expect(JSON.stringify(raw)).toBe(V1_SNAPSHOT);
-    expect(state.schema).toBe('dnaforge.inventory.v7');
+    expect(state.schema).toBe('dnaforge.inventory.v8');
     expect(state.revision).toBe(2);
     expect(state.storage.box.layout).toEqual({ kind: 'named', slots: ['A1'] });
     expect(state.storage.box.lifecycle).toBe('active');

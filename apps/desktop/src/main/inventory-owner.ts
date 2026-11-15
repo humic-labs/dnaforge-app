@@ -5,14 +5,17 @@ import {
   createInventoryState,
   inventoryAvailability,
   inventoryEquipmentCatalog,
+  inventoryEquipmentCatalogUpdatePreview,
   parseInventoryState,
   type InventoryPrincipal,
   type InventoryEquipmentCatalogEntry,
+  type InventoryEquipmentCatalogUpdatePreview,
   type InventoryState,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
   inventoryCatalogQuerySchema,
+  inventoryCatalogUpdatePreviewRequestSchema,
   inventoryHistoryRequestSchema,
   inventoryMaterialQuerySchema,
   inventoryOperationRequestSchema,
@@ -197,6 +200,24 @@ export function createNativeInventoryOwner(options: {
       const request = inventoryCatalogQuerySchema.parse(input);
       resolveProject(request.project, false);
       return inventoryEquipmentCatalog();
+    },
+
+    catalogUpdatePreview(input: unknown): InventoryEquipmentCatalogUpdatePreview {
+      const request = inventoryCatalogUpdatePreviewRequestSchema.parse(input);
+      const { row } = read({ project: request.project, inventoryId: request.inventoryId });
+      const entry = inventoryEquipmentCatalog().find(
+        (entry) => entry.id === request.catalogEntryId
+      );
+      if (!entry)
+        throw new NativeDocumentCommandError(
+          'INVENTORY_CATALOG_ENTRY_NOT_FOUND',
+          'The requested equipment catalog entry is unavailable.',
+          false
+        );
+      return inventoryEquipmentCatalogUpdatePreview(
+        row ? stateFromRow(row) : createInventoryState(),
+        entry
+      );
     },
 
     materials(input: unknown): InventoryMaterialPage {

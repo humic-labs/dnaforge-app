@@ -1,8 +1,13 @@
 import { defineGroup, event, invoke } from './contract';
-import type { InventoryEquipmentCatalogEntry, InventoryState } from '@waypoint/domain-services';
+import type {
+  InventoryEquipmentCatalogEntry,
+  InventoryEquipmentCatalogUpdatePreview,
+  InventoryState,
+} from '@waypoint/domain-services';
 import type {
   InventoryChanged,
   InventoryCatalogQuery,
+  InventoryCatalogUpdatePreviewRequest,
   InventoryAvailabilitySnapshot,
   InventoryExecuteRequest,
   InventoryHistoryRequest,
@@ -19,6 +24,10 @@ import type {
 export const inventoryContract = defineGroup('inventory', {
   projects: invoke<[], readonly InventoryProject[]>(),
   catalog: invoke<[request: InventoryCatalogQuery], readonly InventoryEquipmentCatalogEntry[]>(),
+  catalogUpdatePreview: invoke<
+    [request: InventoryCatalogUpdatePreviewRequest],
+    InventoryEquipmentCatalogUpdatePreview
+  >(),
   materials: invoke<[request: InventoryMaterialQuery], InventoryMaterialPage>(),
   inspect: invoke<[request: InventoryReadRequest], InventoryState | null>(),
   availability: invoke<[request: InventoryReadRequest], InventoryAvailabilitySnapshot | null>(),

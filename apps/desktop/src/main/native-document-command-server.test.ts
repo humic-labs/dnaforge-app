@@ -7,6 +7,11 @@ import type { FileDocumentSnapshot } from '../shared/file-document';
 import type { ImportReviewAgentInput } from '../shared/import-review-command';
 import type { ImportReviewInspection } from '../shared/import-review';
 import type { SequenceDocumentSnapshot } from '../shared/sequence-document';
+import {
+  createInventoryState,
+  inventoryEquipmentCatalog,
+  inventoryEquipmentCatalogUpdatePreview,
+} from '@waypoint/domain-services';
 
 const servers: { close(): Promise<void> }[] = [];
 afterEach(async () => {
@@ -105,6 +110,9 @@ async function fixture(
     history: vi.fn(() => []),
     projects: vi.fn(() => []),
     catalog: vi.fn(() => []),
+    catalogUpdatePreview: vi.fn(() =>
+      inventoryEquipmentCatalogUpdatePreview(createInventoryState(), inventoryEquipmentCatalog()[0])
+    ),
     materials: vi.fn(() => ({ items: [], nextCursor: null })),
   };
   const server = await startNativeDocumentCommandServer({
@@ -217,6 +225,11 @@ it.each([
   ['inventory.history', { project: '/workspace', inventoryId: 'inventory-1' }, ['read-workspace']],
   ['inventory.projects', {}, ['read-workspace']],
   ['inventory.catalog', { project: '/workspace' }, ['read-workspace']],
+  [
+    'inventory.catalog-update-preview',
+    { project: '/workspace', inventoryId: 'inventory-1', catalogEntryId: 'catalog-entry' },
+    ['read-workspace'],
+  ],
   ['inventory.materials', { project: '/workspace', query: '' }, ['read-workspace']],
 ])('verifies current grant scopes for %s', async (command, request, required) => {
   const authorizeInventoryAgent = vi.fn(async () => {});
@@ -240,6 +253,48 @@ it.each([
     expect(f.inventory.availability).toHaveBeenCalledExactlyOnceWith(request, {
       principal: { kind: 'agent', identityId: 'agent-1' },
     });
+  if (command === 'inventory.catalog-update-preview')
+    expect(f.inventory.catalogUpdatePreview).toHaveBeenCalledExactlyOnceWith(request);
+});
+
+it('routes catalog previews with read-only grants and preserves known no-write refusals', async () => {
+  const authorizeInventoryAgent = vi.fn(async () => {});
+  const f = await fixture({ authorizeInventoryAgent });
+  const agent = { ...inventoryAgent, capabilities: ['read-workspace'] };
+  const input = {
+    ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
+    command: 'inventory.catalog-update-preview',
+    request: {
+      project: '/workspace',
+      inventoryId: 'inventory-1',
+      catalogEntryId: 'catalog-entry',
+    },
+    agent,
+  };
+  const response = await f.call(input);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    ok: true,
+    result: { kind: 'catalog-update-preview', preview: { revision: 0, canApply: true } },
+  });
+  expect(authorizeInventoryAgent).toHaveBeenCalledExactlyOnceWith(agent, ['read-workspace']);
+  f.inventory.catalogUpdatePreview.mockImplementationOnce(() => {
+    throw new NativeDocumentCommandError(
+      'INVENTORY_CATALOG_ENTRY_NOT_FOUND',
+      'Unknown catalog entry.',
+      false
+    );
+  });
+  const refused = await f.call(input);
+  expect(await refused.json()).toMatchObject({
+    ok: true,
+    result: { ok: false, code: 'INVENTORY_CATALOG_ENTRY_NOT_FOUND', stateChanged: false },
+  });
+  const malformed = await f.call({ ...input, request: { ...input.request, commands: [] } });
+  expect(malformed.status).toBe(400);
+  expect(f.inventory.catalogUpdatePreview).toHaveBeenCalledTimes(2);
+  expect(f.inventory.execute).not.toHaveBeenCalled();
 });
 
 it('refuses inventory authority rotated during asynchronous grant verification', async () => {

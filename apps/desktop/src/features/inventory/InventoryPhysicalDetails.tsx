@@ -9,6 +9,10 @@ import {
   type InventoryPhysicalDialogKind,
 } from './inventory-physical-view';
 import { inventoryOccupant, type InventoryItem } from './inventory-view';
+import {
+  inventoryCatalogStatusAt,
+  InventoryCatalogVersionState,
+} from './InventoryCatalogSelection';
 
 export function InventoryPhysicalDetails({
   data,
@@ -39,6 +43,14 @@ export function InventoryPhysicalDetails({
           <dt className="text-fg-muted">Type</dt>
           <dd className="mt-1" data-type-version-id={view.type?.id}>
             {view.type ? `${view.type.name} · v${view.type.version}` : 'Unspecified'}
+            {view.type ? (
+              <InventoryCatalogVersionState
+                status={inventoryCatalogStatusAt(data, {
+                  kind: 'type-version',
+                  versionId: view.type.id,
+                })}
+              />
+            ) : null}
           </dd>
         </div>
         {view.recipe ? (
@@ -47,6 +59,12 @@ export function InventoryPhysicalDetails({
             <dd className="mt-1" data-recipe-version-id={view.recipe.id}>
               {view.recipe.name} · v{view.recipe.version}
               {view.customized ? ' · Customized' : ''}
+              <InventoryCatalogVersionState
+                status={inventoryCatalogStatusAt(data, {
+                  kind: 'recipe-version',
+                  versionId: view.recipe.id,
+                })}
+              />
             </dd>
           </div>
         ) : view.customized ? (
