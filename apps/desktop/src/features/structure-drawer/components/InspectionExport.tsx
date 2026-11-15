@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { platform } from '../../../platform';
 import type { MolecularView } from '../../page/public/embeds/structure3d/molecularView';
 import { inspectionFigureSvg, inspectionMeasurementsCsv } from '../inspection-export';
+import { reportSaveFailure } from '../../../lib/report-save-failure';
 
 export function InspectionExport({ view }: { view: MolecularView }) {
   const [busy, setBusy] = useState(false);
@@ -13,9 +14,11 @@ export function InspectionExport({ view }: { view: MolecularView }) {
     setBusy(true);
     setMessage('');
     setError(false);
+    let phase: 'dialog' | 'serialize' | 'write' = 'dialog';
+    let filePath: string | null = null;
     try {
       const name = view.title.replace(/[^A-Za-z0-9_-]+/g, '-').slice(0, 80) || 'protein-analysis';
-      const path = await platform().dialog.save({
+      filePath = await platform().dialog.save({
         defaultPath: `${name}.${format}`,
         filters: [
           {
@@ -29,16 +32,19 @@ export function InspectionExport({ view }: { view: MolecularView }) {
           },
         ],
       });
-      if (!path) return;
+      if (!filePath) return;
+      phase = 'serialize';
       const content =
         format === 'svg'
           ? await inspectionFigureSvg(view)
           : format === 'csv'
             ? await inspectionMeasurementsCsv(view)
             : JSON.stringify(view, null, 2) + '\n';
-      await platform().fs.writeTextFileAtomic({ path, content });
-      setMessage(`Exported ${path.split(/[\\/]/).pop()}`);
+      phase = 'write';
+      await platform().fs.writeTextFileAtomic({ path: filePath, content });
+      setMessage(`Exported ${filePath.split(/[\\/]/).pop()}`);
     } catch (cause) {
+      reportSaveFailure('[InspectionExport] Save failed:', { format, phase, filePath }, cause);
       setError(true);
       setMessage(
         toUserMessage(cause instanceof Error ? cause.message : String(cause), 'structure.failed')

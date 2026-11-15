@@ -1,4 +1,5 @@
 import { ipcMain, ipcRenderer } from 'electron';
+import type { SaveAllResult } from './save-all-result';
 import {
   isUserMessagePayload,
   renderUserMessagePayload,
@@ -105,7 +106,7 @@ export interface RendererSendContract {
     [payload: { errorClass: string; source: 'error' | 'unhandledrejection' }]
   >;
   'diagnostics:breadcrumbs': EventEntry<[lines: string[]]>;
-  'app:saveAllDone': EventEntry<[requestId: string]>;
+  'app:saveAllDone': EventEntry<[requestId: string, result?: SaveAllResult]>;
   'cloudSync:replicaAppliedAck': EventEntry<[ack: WorkspaceSyncReplicaDeliveryAck]>;
   'workspace:mutationAck': EventEntry<[ack: WorkspaceRendererMutationAck]>;
   'workspace:set-path-listener-ready': EventEntry<[]>;

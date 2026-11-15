@@ -45,6 +45,8 @@ import { ProjectSwitcherPopover } from './ProjectSwitcherPopover';
 import { isPathInsideBoundary } from '../shared/path-boundary';
 import { platform } from '../platform';
 import { isBrowserOnly, isHostedBrowserRuntime } from '../utils/environment';
+import { getTabTypeForFile } from '../utils/fileTypes';
+import { isManagedCatalogHeadCandidate } from '../shared/catalog-file-kind';
 import type { TabType } from '../features/canvas/types';
 import { gitInit } from '../features/workspace/git';
 import {
@@ -1251,6 +1253,7 @@ export function FileBrowser({
         : (normalizedDnaName ?? trimmedFileName);
       const finalPath = `${pending.parentPath}/${finalFileName}`;
       let createdPath: string | null = finalPath;
+      let textFileRegistered = false;
 
       if (
         finalPath !== pending.path &&
@@ -1314,9 +1317,13 @@ export function FileBrowser({
               createdBy: 'file-explorer-new-menu',
               parentPath: pending.parentPath,
             },
-          }).catch((err) => {
-            console.warn('[FileBrowser] Failed to register text file in catalog:', err);
-          });
+          })
+            .then(() => {
+              textFileRegistered = true;
+            })
+            .catch((err) => {
+              console.warn('[FileBrowser] Failed to register text file in catalog:', err);
+            });
         } else {
           await createFolderArtifact({
             path: finalPath,
@@ -1341,7 +1348,13 @@ export function FileBrowser({
       if (createdPath) revealPath(createdPath);
       if (pending.workspaceRoot) {
         notifyGitStatusChanged(pending.workspaceRoot);
-        void Promise.resolve(onWorkspaceChanged?.(pending.workspaceRoot));
+        if (
+          pending.kind !== 'text-file' ||
+          !textFileRegistered ||
+          getTabTypeForFile(finalPath) !== 'text' ||
+          isManagedCatalogHeadCandidate(finalPath)
+        )
+          void Promise.resolve(onWorkspaceChanged?.(pending.workspaceRoot));
       }
       setRefreshTrigger((prev) => prev + 1);
       telemetry.complete({ status: 'created' });

@@ -2745,6 +2745,8 @@ export const USER_MESSAGE_TEMPLATES = {
     'Next run: {value0}\nRequired outputs: {value1}\n\nThe exact source, instructions and scope will be frozen with your approval.',
   'dialog.you-have-unsaved-changes-in-value': 'You have unsaved changes in {value0}.',
   'dialog.dnaforge-couldn-t-save-value': "DNAForge couldn't save {value0}.",
+  'dialog.unsavedSaveFailure':
+    '{failures}\n\nCancel to keep working and try saving again, or {action} without them.',
   'dialog.cancel-to-keep-working-and-try-saving-again-or-value-without-them':
     'Cancel to keep working and try saving again, or {value0} without them.',
   'dialog.there-are-unsaved-changes-in-value-unsaved-edits-cannot-be-included-in':

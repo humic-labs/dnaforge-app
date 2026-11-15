@@ -4,6 +4,7 @@ import {
   createNativeDocumentQuitSaver,
   type NativeDocumentQuitWindow,
 } from './native-document-quit';
+import type { NativeDirtySettlementResult } from '../../shared/native-dirty-documents';
 import type { LegacyUnsavedDiscardSnapshot } from '../../shared/legacy-unsaved-discard';
 
 function fixture() {
@@ -24,10 +25,12 @@ function fixture() {
       isDestroyed: () => false,
       webContents: { executeJavaScript: invoke },
     } satisfies NativeDocumentQuitWindow,
-    settle = vi.fn(async ({ action }: { action: 'save' | 'discard' }) => {
-      order.push(action);
-      return { action, failures: [], remaining: [], settled: [] };
-    }),
+    settle = vi.fn(
+      async ({ action }: { action: 'save' | 'discard' }): Promise<NativeDirtySettlementResult> => {
+        order.push(action);
+        return { action, failures: [], remaining: [], settled: [] };
+      }
+    ),
     deps = {
       getMainWindow: () => window,
       isRendererAvailable: () => true,
@@ -73,4 +76,19 @@ describe('native document quit feature', () => {
     expect(f.invoke).toHaveBeenCalledTimes(1);
     expect(f.scripts[0]).toContain('__dnaforgeCaptureUnsavedCopies');
   });
+});
+
+it('keeps native fallback failure identity and reason when the renderer is unavailable', async () => {
+  const f = fixture();
+  f.deps.isRendererAvailable = () => false;
+  const failures = [
+    {
+      documentId: 'doc-blocked',
+      path: '/project/Blocked Save.txt',
+      error: 'The text file is read-only.',
+    },
+  ];
+  f.settle.mockResolvedValueOnce({ action: 'save', settled: [], failures, remaining: [] });
+  await expect(f.saver.saveAll(null)).rejects.toMatchObject({ failures });
+  expect(f.deps.requestSaveAll).not.toHaveBeenCalled();
 });

@@ -26,6 +26,7 @@ import {
   assemblyPrimerRowTestId,
 } from './AssemblyPrimerOligoControls';
 import { beginFileExport } from '../../../lib/file-export-telemetry';
+import { reportSaveFailure } from '../../../lib/report-save-failure';
 import { writableProjectRoots } from '../../../shared/project-root-selection';
 
 interface ExportSectionProps {
@@ -79,7 +80,12 @@ export function ExportSection({ design, primers, projectRoot }: ExportSectionPro
     let csvContent: string;
     try {
       csvContent = serializePrimerRowsCsv(primerRows);
-    } catch {
+    } catch (error) {
+      reportSaveFailure(
+        '[AssemblyExport] CSV export failed:',
+        { designId: design.id, format: 'csv', phase: 'serialize' },
+        error
+      );
       telemetry?.fail('serialize_failed');
       setExportMessage({
         error: true,
@@ -89,8 +95,9 @@ export function ExportSection({ design, primers, projectRoot }: ExportSectionPro
     }
 
     let failure: 'dialog' | 'write' = 'dialog';
+    let filePath: string | null = null;
     try {
-      const filePath = await platform().dialog.save({
+      filePath = await platform().dialog.save({
         defaultPath: fileName,
         filters: [{ name: 'CSV', extensions: ['csv'] }],
       });
@@ -104,7 +111,11 @@ export function ExportSection({ design, primers, projectRoot }: ExportSectionPro
       telemetry?.complete({ status: 'saved' });
       return;
     } catch (error) {
-      void error;
+      reportSaveFailure(
+        '[AssemblyExport] CSV export failed:',
+        { designId: design.id, format: 'csv', phase: failure, filePath },
+        error
+      );
     }
 
     let url: string | undefined;
@@ -131,7 +142,12 @@ export function ExportSection({ design, primers, projectRoot }: ExportSectionPro
         error: false,
         text: 'Download requested. Check your browser for the CSV file.',
       });
-    } catch {
+    } catch (error) {
+      reportSaveFailure(
+        '[AssemblyExport] CSV export failed:',
+        { designId: design.id, format: 'csv', phase: 'browser-download', filePath },
+        error
+      );
       telemetry?.fail('unknown', {
         outcomeKind:
           failure === 'dialog'
@@ -154,7 +170,7 @@ export function ExportSection({ design, primers, projectRoot }: ExportSectionPro
         void error;
       }
     }
-  }, [primerRows, design.name]);
+  }, [primerRows, design.id, design.name]);
 
   const handleCopy = useCallback(async () => {
     if (!tsvContent) return;
