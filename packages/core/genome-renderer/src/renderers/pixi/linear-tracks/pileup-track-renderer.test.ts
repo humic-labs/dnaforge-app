@@ -9,7 +9,7 @@ import { buildCoverageGpuAtlas } from './coverage-gpu-atlas';
 import { PENDING_INTERVAL_BAND_HEIGHT_PX } from './pileup-pending-interval-layer';
 import { PersistentRowLayout } from './pileup-row-layout';
 import { TrackDataStore } from './track-data-store';
-import { pileupReadBodyVerticalGeometry } from './pileup-read-glyph-layer';
+import { PileupReadDifferenceLayer, pileupReadBodyVerticalGeometry } from './pileup-read-glyph-layer';
 import type { TrackMountArgs, TrackPaintArgs } from './types';
 import {
   pileupExactReadPreparationEligible,
@@ -1710,6 +1710,156 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       screenY: 51,
     });
     expect(renderer.getDiagnostics(container)?.readDifferenceHitTestCandidateCount).toBe(1);
+  });
+
+  it.each(['replace', 'cancel-source'] as const)(
+    'keeps read bodies and difference hits atomic during held preparation: %s',
+    (mode) => {
+      const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+      const container = renderer.mount(mountArgs);
+      const initial = read(100, 110, 'initial', {
+        mismatches: [{ pos: 104, kind: 'sub', refBase: 'A', readBase: 'T' }],
+      });
+      const replacement = read(100, 110, 'replacement', {
+        mismatches: [{ pos: 106, kind: 'sub', refBase: 'C', readBase: 'G' }],
+      });
+      const newest = read(100, 110, 'newest', {
+        mismatches: [{ pos: 108, kind: 'sub', refBase: 'G', readBase: 'A' }],
+      });
+      const args = (record: PileupRecord, generation: string) =>
+        paintArgsZoom(
+          container,
+          {
+            dataAuthority: 'tile-engine',
+            records: [record],
+            readSource: {
+              truncated: false,
+              windowStartBp: 90,
+              windowEndBp: 190,
+              sourceGenerationKey: generation,
+            },
+          },
+          4,
+          { start: 90, end: 190 },
+          800,
+          240
+        );
+      const initialArgs = args(initial, 'source-a');
+      const replacementArgs = args(replacement, mode === 'replace' ? 'source-a' : 'source-b');
+      const newestArgs = args(newest, 'source-c');
+      const hit = (position: number, paint: TrackPaintArgs<PileupTrackData>, row = 0) =>
+        renderer.hitTestReadEvent(container, {
+          trackId: 'test-bam',
+          localX: position * 4 + 1,
+          localY: row * (renderer.getDiagnostics(container)?.effectiveRowHeightPx ?? 3) + 1,
+          screenX: position * 4 + 1,
+          screenY: 51 + row * (renderer.getDiagnostics(container)?.effectiveRowHeightPx ?? 3),
+          pathMapper: paint.pathMapper,
+          chromosomeGlobalStartBp: 0,
+        });
+      let restore = () => {};
+      try {
+        renderer.paint(initialArgs);
+        for (let count = 0; renderer.hasPendingPaintWork(container) && count < 20; count++) {
+          renderer.paint(initialArgs);
+        }
+        const before = renderer.getDiagnostics(container)!;
+        expect(before.readDifferenceMarkCount).toBe(1);
+        expect(hit(104, initialArgs)).toMatchObject({ readId: 'initial', event: { pos: 104 } });
+
+        let hold = true;
+        const original = PileupReadDifferenceLayer.prototype.advancePreparation;
+        const preparation = vi
+          .spyOn(PileupReadDifferenceLayer.prototype, 'advancePreparation')
+          .mockImplementation(function (
+            this: PileupReadDifferenceLayer,
+            ...parameters: Parameters<typeof original>
+          ) {
+            return hold ? 0 : original.apply(this, parameters);
+          });
+        restore = () => preparation.mockRestore();
+        for (let count = 0; count < 3; count++) renderer.paint(replacementArgs);
+        expect(renderer.hasPendingPaintWork(container)).toBe(true);
+        const pending = renderer.getDiagnostics(container)!;
+        expect(pending.readDifferenceBuildCount).toBe(before.readDifferenceBuildCount);
+        if (mode === 'replace') {
+          expect(pending.rowsMeshGenerationKey).toBe(before.rowsMeshGenerationKey);
+          expect(hit(104, replacementArgs)).toMatchObject({
+            readId: 'initial',
+            event: { pos: 104 },
+          });
+        } else {
+          expect(pending.readDifferenceLayerVisible).toBe(false);
+          expect(hit(104, replacementArgs)).toBeNull();
+          for (let count = 0; count < 3; count++) renderer.paint(newestArgs);
+          expect(renderer.getDiagnostics(container)?.readDifferenceLayerVisible).toBe(false);
+        }
+
+        hold = false;
+        const finalArgs = mode === 'replace' ? replacementArgs : newestArgs;
+        for (let count = 0; renderer.hasPendingPaintWork(container) && count < 20; count++) {
+          renderer.paint(finalArgs);
+        }
+        expect(renderer.hasPendingPaintWork(container)).toBe(false);
+        expect(renderer.getDiagnostics(container)).toMatchObject({
+          readDifferenceMarkCount: 1,
+          readDifferenceInstanceCount: 1,
+          readDifferenceLayerVisible: true,
+        });
+        const position = mode === 'replace' ? 106 : 108;
+        const committedRow = mode === 'replace' ? 1 : 0;
+        expect(hit(position, finalArgs, committedRow)).toMatchObject({
+          readId: mode === 'replace' ? 'replacement' : 'newest',
+          sourceGenerationKey: mode === 'replace' ? 'source-a' : 'source-c',
+          event: { pos: position },
+        });
+        expect(hit(mode === 'replace' ? 104 : 106, finalArgs, committedRow)?.event).toBeUndefined();
+      } finally {
+        restore();
+        renderer.unmount(container);
+      }
+    }
+  );
+
+  it.each([
+    {
+      name: 'highest matching coordinate',
+      events: [
+        { pos: 105, kind: 'ins' as const, readBase: 'AA' },
+        { pos: 102, kind: 'del' as const, length: 6 },
+        { pos: 104, kind: 'sub' as const, readBase: 'T' },
+        { pos: 104, kind: 'del' as const, length: 2 },
+      ],
+      expectedIndex: 0,
+    },
+    {
+      name: 'stable event order at one coordinate',
+      events: [
+        { pos: 104, kind: 'sub' as const, readBase: 'T' },
+        { pos: 104, kind: 'ins' as const, readBase: 'AA' },
+      ],
+      expectedIndex: 1,
+    },
+  ])('preserves difference-hit priority for $name', ({ events, expectedIndex }) => {
+    const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+    const container = renderer.mount(mountArgs);
+    const record = read(100, 110, 'overlapping-events', { mismatches: events });
+    const args = paintArgsZoom(container, { records: [record] }, 4, { start: 90, end: 190 }, 800);
+    try {
+      renderer.paint(args);
+      const hit = renderer.hitTestReadEvent(container, {
+        trackId: 'test-bam',
+        localX: 104 * 4 + 1,
+        localY: 1,
+        screenX: 104 * 4 + 1,
+        screenY: 51,
+        pathMapper: args.pathMapper,
+        chromosomeGlobalStartBp: 0,
+      });
+      expect(hit?.event).toBe(events[expectedIndex]);
+    } finally {
+      renderer.unmount(container);
+    }
   });
 
   it('hit-tests the whole committed read body and distinguishes paired alignments with one QNAME', async () => {

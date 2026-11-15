@@ -106,6 +106,7 @@ import {
 import {
   PileupReadDifferenceLayer,
   pileupReadBodyVerticalGeometry,
+  type PileupReadDifferencePreparation,
 } from './pileup-read-glyph-layer';
 import { PILEUP_READ_BODY_COLOR_BY_THEME } from './pileup-read-quality-palette';
 import { normalizeTrackColor } from './track-presentation';
@@ -323,6 +324,7 @@ interface ReadRowsMeshBuildJob {
   readHitIndex: PileupReadHitIndex;
   sourceGenerationKey: string;
   job: AnnotationRecordVerticesJob;
+  difference: PileupReadDifferencePreparation;
 }
 
 interface ReadRowsAssignmentBuildJob {
@@ -2643,6 +2645,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     });
     if (!field) return;
 
+    state.readDifferenceLayer.clear();
     state.loadedStartBp = startBp;
     state.loadedEndBp = endBp;
     state.collapsedPileupField = field;
@@ -4270,6 +4273,11 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         collapsedPileupField: state.collapsedPileupField,
         readHitIndex,
         sourceGenerationKey: state.readSourceGenerationKey,
+        difference: state.readDifferenceLayer.beginPreparation({
+          records,
+          rows,
+          rowHeightPx: state.effectiveRowHeightPx,
+        }),
         job: beginAnnotationRecordVerticesJob(
           records,
           rows,
@@ -4303,14 +4311,36 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
           args.viewportBpRange.start,
           args.viewportBpRange.end
         );
-      this.lastRowsMeshBuildRecordsThisFrame = advanceAnnotationRecordVerticesJob(
-        active.job,
-        urgentReadRowsBuild
-          ? this.readRowsUrgentBuildRecordsPerFrame
-          : this.readRowsBuildRecordsPerFrame,
-        urgentReadRowsBuild ? this.readRowsUrgentBuildOptions : undefined
-      );
-      if (isAnnotationRecordVerticesJobComplete(active.job)) {
+      const preparationStartedAt = nowMs();
+      const workBudgetMs = urgentReadRowsBuild
+        ? READ_ROWS_URGENT_ASSIGN_WORK_BUDGET_MS
+        : READ_ROWS_ASSIGN_WORK_BUDGET_MS;
+      this.lastRowsMeshBuildRecordsThisFrame = isAnnotationRecordVerticesJobComplete(active.job)
+        ? 0
+        : advanceAnnotationRecordVerticesJob(
+            active.job,
+            urgentReadRowsBuild
+              ? this.readRowsUrgentBuildRecordsPerFrame
+              : this.readRowsBuildRecordsPerFrame,
+            urgentReadRowsBuild ? this.readRowsUrgentBuildOptions : undefined
+          );
+      const remainingWorkBudgetMs = workBudgetMs - (nowMs() - preparationStartedAt);
+      if (
+        remainingWorkBudgetMs > 0 &&
+        !state.readDifferenceLayer.isPreparationComplete(active.difference)
+      ) {
+        state.readDifferenceLayer.advancePreparation(
+          active.difference,
+          urgentReadRowsBuild
+            ? READ_ROWS_URGENT_BUILD_RECORDS_PER_FRAME
+            : READ_ROWS_BUILD_RECORDS_PER_FRAME,
+          { workBudgetMs: remainingWorkBudgetMs }
+        );
+      }
+      if (
+        isAnnotationRecordVerticesJobComplete(active.job) &&
+        state.readDifferenceLayer.isPreparationComplete(active.difference)
+      ) {
         const v = finishAnnotationRecordVerticesJob(active.job);
         this.commitReadRowsSwap(state, v, active, args, rowsY);
         state.rowsMeshBuildJob = null;
@@ -4390,6 +4420,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     state.rowsMeshSourceGenerationKey = active.sourceGenerationKey;
     state.rowsMeshHiddenReadCount = active.hiddenReadCount;
     state.rowsMeshCollapsedPileupField = active.collapsedPileupField;
+    state.readDifferenceLayer.commitPreparation(active.difference);
 
     if (back.mesh) {
       back.mesh.mesh.visible = false;
@@ -4408,6 +4439,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
   }
 
   private retireFrontToBack(state: ContainerState): void {
+    state.readDifferenceLayer.clear();
     const back = state.rowsBack;
     if (back.mesh) this.destroyBarMesh(back.mesh);
     back.mesh = state.rows;
@@ -5851,6 +5883,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     const bar = state.rows;
     if (bar) this.destroyBarMesh(bar);
     if (which === 'rows') {
+      state.readDifferenceLayer.clear();
       state.rows = null;
       state.rowsMeshStartBp = 0;
       state.rowsMeshEndBp = 0;
