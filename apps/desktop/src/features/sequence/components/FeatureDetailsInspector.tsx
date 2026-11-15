@@ -1,3 +1,4 @@
+import { GeneDatabaseFacts } from './GeneDatabaseFacts';
 import { toUserMessage } from '@waypoint/user-messages';
 import { featureDisplayName } from './indexed-genome-legacy-adapter';
 import type { FeatureDetailsState } from './useIndexedFeatureDetails';
@@ -59,6 +60,12 @@ export function FeatureDetailsInspector({ state }: { state: FeatureDetailsState 
               {state.details.window.end.toLocaleString()} bp
             </span>
             {state.details.truncated && <span className="text-warning">Details limited</span>}
+            {state.details.feature && (
+              <GeneDatabaseFacts
+                key={`${state.details.featureId}:${JSON.stringify(state.details.feature.attributes)}`}
+                attributes={state.details.feature.attributes}
+              />
+            )}
           </>
         )}
       </div>
