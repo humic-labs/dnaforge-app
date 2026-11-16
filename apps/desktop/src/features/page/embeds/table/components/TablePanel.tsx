@@ -9,9 +9,10 @@ import {
 } from '../../../../../shared/table-document-reference';
 import { useNativeNotebookTableDocument } from '../../../hooks/useNativeNotebookTableDocument';
 import { useNativeNotebookTable } from '../../../hooks/useNativeNotebookTable';
+import { useNativeRichTableDocument } from '../../../hooks/useNativeRichTableDocument';
 ('use client');
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useTableStore } from '../store/tableStore';
 import { useCanvasStore } from '../../../../canvas/public/store';
 import { TableGrid } from './TableGrid';
@@ -56,16 +57,25 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
     }
   }, [tableDocument, tableId]);
   const native = useNativeNotebookTableDocument(resolved.reference);
+  const rich = useNativeRichTableDocument(resolved.reference, tableId);
   const notebook =
     resolved.reference?.backing.kind === 'notebook-inline' ? resolved.reference.backing : null;
-  const table = resolved.reference
-    ? native.data
+  const nativeData = rich.active ? rich.data : native.data;
+  const nativeError = rich.active ? rich.error : native.error;
+  const nativeLoading = rich.active ? rich.loading : native.loading;
+  const nativeWritable = rich.active ? rich.writable : native.writable;
+  const nativeDocument = Boolean(resolved.reference || rich.active);
+  const table = nativeDocument
+    ? nativeData
       ? {
           id: tableId,
-          data: native.data,
-          label: native.data.name ?? 'Table',
+          data: nativeData,
+          label: nativeData.name ?? rich.title ?? 'Table',
           sourcePageId: notebook?.notebookDocumentId,
-          referenceWorkspaceRoot: native.client?.snapshot?.workspaceRoot,
+          referenceWorkspaceRoot:
+            rich.resolved?.owner.kind === 'file'
+              ? rich.resolved.owner.workspaceRoot
+              : native.client?.snapshot?.workspaceRoot,
           sourceGeneration: undefined,
           onUpdate: undefined,
         }
@@ -74,19 +84,45 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
   const updateTableData = useTableStore((state) => state.updateTableData);
   const panels = useCanvasStore((state) => state.panels);
   const updateTab = useCanvasStore((state) => state.updateTab);
+  const retargetTab = useCanvasStore((state) => state.retargetTab);
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [updateFailed, setUpdateFailed] = useState(false);
-  const hasWriter = resolved.reference
-    ? native.writable
+  const [saveFailure, setSaveFailure] = useState<string | null>(null);
+  const hasWriter = nativeDocument
+    ? nativeWritable
     : !isElectron() && typeof table?.onUpdate === 'function';
   const legacyDirty = usePageStore((state) =>
     table?.sourcePageId ? state.dirtyIds.has(table.sourcePageId) : false
   );
 
-  const sourceDirty = resolved.reference ? native.client?.dirty : legacyDirty;
+  const sourceDirty = rich.active
+    ? rich.client?.dirty
+    : resolved.reference
+      ? native.client?.dirty
+      : legacyDirty;
   const saveNative = useCallback(async () => {
+    if (rich.active) {
+      if (!rich.client || !rich.writable) return false;
+      try {
+        setSaveFailure(null);
+        await rich.client.save();
+        return true;
+      } catch (error) {
+        setSaveFailure(error instanceof Error ? error.message : String(error));
+        reportSaveFailure(
+          '[TablePanel] Table document save failed:',
+          {
+            documentId: rich.client.snapshot?.documentId,
+            tableId: rich.resolved?.tableId,
+            tabId: canvasTabId,
+          },
+          error
+        );
+        return false;
+      }
+    }
     const client = native.client;
     if (!client || !notebook || !native.writable) return false;
     const saved = await client.save();
@@ -97,7 +133,16 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
         client.lastCommandError
       );
     return saved;
-  }, [native.client, native.writable, notebook, canvasTabId]);
+  }, [
+    native.client,
+    native.writable,
+    notebook,
+    canvasTabId,
+    rich.active,
+    rich.client,
+    rich.writable,
+    rich.resolved?.tableId,
+  ]);
   useDocumentLifecycle(
     native.client &&
       notebook &&
@@ -114,6 +159,46 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
         }
       : null
   );
+  useDocumentLifecycle(
+    rich.active &&
+      rich.client &&
+      rich.resolved?.owner.kind === 'file' &&
+      rich.data &&
+      rich.resolved.reference.binding.kind === 'current' &&
+      canvasTabId &&
+      !resolved.error
+      ? {
+          target: { kind: 'file', filePath: rich.resolved.owner.path },
+          tabId: canvasTabId,
+          isDirty: () => rich.client!.dirty,
+          save: saveNative,
+          discard: () => rich.client!.discard(),
+        }
+      : null
+  );
+  useEffect(() => {
+    if (!canvasTabId || !rich.resolved || !rich.data) return;
+    const reference = rich.resolved.reference;
+    const key = tableDocumentKey(reference);
+    for (const [panelId, panel] of Object.entries(panels)) {
+      const tab = panel.tabs.find((candidate) => candidate.id === canvasTabId);
+      if (
+        tab &&
+        (tab.entityId !== key || JSON.stringify(tab.tableDocument) !== JSON.stringify(reference))
+      ) {
+        retargetTab(
+          panelId,
+          canvasTabId,
+          { type: 'table', entityId: key },
+          {
+            tableDocument: reference,
+            label: rich.data.name ?? rich.title ?? 'Table',
+          }
+        );
+        return;
+      }
+    }
+  }, [canvasTabId, rich.resolved, rich.data, rich.title, panels, retargetTab]);
 
   const tabInfo = useMemo(() => {
     for (const [panelId, panel] of Object.entries(panels)) {
@@ -126,6 +211,11 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
   const handleUpdateAttrs = useCallback(
     (attrs: Record<string, unknown>, observation?: TableOperationObservation) => {
       try {
+        if (rich.active) {
+          rich.update(attrs);
+          setUpdateFailed(false);
+          return;
+        }
         if (notebook && native.client) {
           if (!native.writable)
             throw new Error(native.error ?? 'The native table is not available for editing.');
@@ -143,7 +233,16 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
         throw error;
       }
     },
-    [tableId, updateTableData, notebook, native.client, native.writable, native.error]
+    [
+      tableId,
+      updateTableData,
+      notebook,
+      native.client,
+      native.writable,
+      native.error,
+      rich.active,
+      rich.update,
+    ]
   );
 
   const nativeTable = useNativeNotebookTable(
@@ -153,6 +252,7 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
   );
   const tableCommands = useTableData({
     ...nativeTable,
+    ...(rich.active ? rich.controls : {}),
     data: table?.data || { cells: [] },
     onUpdateAttrs: handleUpdateAttrs,
     historyEpoch: table?.sourceGeneration,
@@ -206,17 +306,18 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
     setColumnLabel,
     setCellFormat,
   } = tableCommands;
+  const displayName = rich.active ? (rich.data?.name ?? rich.title ?? name) : name;
 
   const handleNameClick = useCallback(() => {
     if (!hasWriter) return;
-    setEditedName(name);
+    setEditedName(displayName);
     setIsEditingName(true);
-  }, [name, hasWriter]);
+  }, [displayName, hasWriter]);
 
   const handleNameBlur = useCallback(() => {
     if (!hasWriter) return;
     const trimmedName = editedName.trim();
-    if (trimmedName && trimmedName !== name) {
+    if (trimmedName && trimmedName !== displayName) {
       try {
         setName(trimmedName);
       } catch {
@@ -227,7 +328,7 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
       }
     }
     setIsEditingName(false);
-  }, [editedName, name, setName, tabInfo, updateTab, hasWriter]);
+  }, [editedName, displayName, setName, tabInfo, updateTab, hasWriter]);
 
   const handleNameKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -235,24 +336,24 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
         handleNameBlur();
       } else if (e.key === 'Escape') {
         setIsEditingName(false);
-        setEditedName(name);
+        setEditedName(displayName);
       }
     },
-    [handleNameBlur, name]
+    [handleNameBlur, displayName]
   );
 
-  const unavailable = resolved.error ?? (native.data ? null : native.error);
+  const unavailable = resolved.error ?? (nativeData ? null : nativeError);
   if (!table || unavailable) {
     return (
       <div className="h-full flex items-center justify-center p-4 text-fg-muted">
         <div className="text-center">
           <div className="text-lg mb-2">
-            {native.loading ? 'Loading table…' : 'Table unavailable'}
+            {nativeLoading ? 'Loading table…' : 'Table unavailable'}
           </div>
           <div role="status" className="text-sm">
             {unavailable ??
-              (native.loading
-                ? 'Opening the saved notebook table.'
+              (nativeLoading
+                ? 'Opening the saved table.'
                 : 'The table may have been removed or is no longer available.')}
           </div>
         </div>
@@ -291,7 +392,7 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
               className="text-sm font-medium hover:text-accent transition-colors"
               title="Click to rename"
             >
-              {name}
+              {displayName}
             </button>
           )}
         </div>
@@ -305,15 +406,20 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
           )}
           <span className="text-fg-muted/50">x</span>
           <span>{cols} cols</span>
-          {notebook && (
+          {(notebook || rich.client) && (
             <button
               type="button"
               data-testid="table-save"
-              disabled={!native.writable || native.client?.saving || !native.client?.dirty}
+              disabled={
+                !nativeWritable ||
+                (rich.active
+                  ? rich.client?.saving || !rich.client?.dirty
+                  : native.client?.saving || !native.client?.dirty)
+              }
               onClick={() => void saveNative()}
               className="rounded border border-border px-2 py-1 disabled:opacity-50"
             >
-              {native.client?.saving ? 'Saving…' : 'Save'}
+              {(rich.active ? rich.client?.saving : native.client?.saving) ? 'Saving…' : 'Save'}
             </button>
           )}
         </div>
@@ -325,7 +431,11 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
             ? native.client?.snapshot?.recovery
               ? 'Resolve the notebook recovery before editing this table.'
               : 'This table is read-only. Your current data is retained.'
-            : 'Source notebook is not available. Reopen it to edit this table.'}
+            : rich.active
+              ? rich.resolved?.owner.kind === 'saved-version'
+                ? 'Saved version. Changes to the current table do not change this view.'
+                : 'This table is read-only. Your current data is retained.'
+              : 'Source notebook is not available. Reopen it to edit this table.'}
         </p>
       )}
       {notebook && native.client?.snapshot && (
@@ -333,9 +443,14 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
           Saving this table also saves changes in {native.client.snapshot.title}.
         </p>
       )}
-      {native.error && native.data && (
+      {nativeError && nativeData && (
         <p role="alert" className="px-4 py-2 text-xs">
-          {native.error}
+          {nativeError}
+        </p>
+      )}
+      {saveFailure && (
+        <p role="alert" className="px-4 py-2 text-xs">
+          {saveFailure}
         </p>
       )}
       {native.client?.lastCommandError != null && (
@@ -347,7 +462,7 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
       )}
       {sourceDirty && (
         <p role="status" className="px-4 py-2 text-xs text-fg-muted">
-          Source notebook has unsaved changes.
+          {rich.active ? 'Table has unsaved changes.' : 'Source notebook has unsaved changes.'}
         </p>
       )}
       {hasWriter && updateFailed && (

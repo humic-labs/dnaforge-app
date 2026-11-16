@@ -32,6 +32,11 @@ The driver uses the native project/notebook commands for fixture setup, then
 uses visible table insertion, expansion, close, cell editing and Save controls.
 Its notebook inspection uses the same native owner as the human editor.
 
+For standalone files, run
+`node apps/desktop/scripts/check-table-files.mjs --out ABSOLUTE_EVIDENCE_DIRECTORY`.
+It drives Files creation, editing, keyboard Save, close and reopen, then
+verifies the actual head and immutable snapshot bytes.
+
 See [the feature map](features/README.md).
 
 ## Evidence

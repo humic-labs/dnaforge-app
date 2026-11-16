@@ -1,9 +1,13 @@
+import { isForgePackageMetaPath } from '../shared/forge-package-path';
+import { parseTablePackageHead } from '../shared/table-package';
+import { publishTablePackageInMain, readTablePackageInMain } from './table-package';
 import { resolveProjectFilePath } from '../shared/workspace-file-path';
 import { inferCatalogFileKind } from '../shared/catalog-file-kind';
 import { registerWorkspaceFileInDb } from './catalog-entity-registration';
 import { createHash, randomUUID } from 'node:crypto';
+import { lstatSync } from 'node:fs';
 import { access, mkdir, open, readFile, readdir, rename, rm } from 'node:fs/promises';
-import { basename, join, relative, isAbsolute } from 'node:path';
+import { basename, dirname, join, relative, isAbsolute } from 'node:path';
 import type Database from 'better-sqlite3';
 import { NativeFileDocumentOwner, type NativeFileDocumentRecord } from './file-document-owner';
 import { canonicalWorkspacePath } from './primer-artifact-files';
@@ -414,6 +418,28 @@ export function createNativeFileDocuments(options: {
         if (eligible.length !== 1)
           throw new Error('OUTSIDE_WORKSPACE: Choose one exact admitted project.');
       }
+      const lexical = resolveProjectFilePath(
+        eligible.map((project) => (requestedRoot ? { ...project, pinned: false } : project)),
+        path
+      );
+      const lexicalTable = isForgePackageMetaPath(lexical.absolutePath, 'table.json')
+        ? lexical
+        : null;
+      const assertTableProvenance = () => {
+        if (!lexicalTable) return;
+        let current = lexicalTable.folder.path;
+        const parts = relative(current, lexicalTable.absolutePath).split(/[\\/]/);
+        for (const [index, part] of ['', ...parts].entries()) {
+          if (part) current = join(current, part);
+          const entry = lstatSync(current);
+          if (
+            entry.isSymbolicLink() ||
+            (index === parts.length ? !entry.isFile() : !entry.isDirectory())
+          )
+            throw new Error('Table package paths must be physical files without symbolic links.');
+        }
+      };
+      assertTableProvenance();
       const normalizedInput = isAbsolute(path) ? workspaceMutationRootIdentity(path) : path;
       const resolved = resolveProjectFilePath(
         eligible.map((project) => (requestedRoot ? { ...project, pinned: false } : project)),
@@ -457,12 +483,15 @@ export function createNativeFileDocuments(options: {
             throw new Error('The document workspace enrollment changed before publication.');
         });
       const member = relative(canonical.root, canonical.candidate);
+      const protectedParts = ['..', '.git', '.forge', '.dnaforge', '.waypoint'];
+      const parts = member.split(/[\\/]/).map((part) => part.toLowerCase());
+      const tableHead =
+        isForgePackageMetaPath(member, 'table.json') &&
+        !parts.slice(0, -2).some((part) => protectedParts.includes(part));
       if (
         !member ||
         isAbsolute(member) ||
-        member
-          .split(/[\\/]/)
-          .some((part) => ['..', '.git', '.forge', '.dnaforge', '.waypoint'].includes(part))
+        (!tableHead && parts.some((part) => protectedParts.includes(part)))
       )
         throw new Error(
           'INTERNAL_PROJECT_PATH: Native project metadata is not an editable ordinary file.'
@@ -481,6 +510,7 @@ export function createNativeFileDocuments(options: {
         readOnly = true;
       }
       const assertCurrent = () => {
+        assertTableProvenance();
         assertEnrollment();
         if (findKnownWorkspaceRoot(options.db(), canonical.candidate) !== root || !enrolled())
           throw new Error('The owning project changed before the file command completed.');
@@ -518,9 +548,35 @@ export function createNativeFileDocuments(options: {
         await file.close();
       }
     },
+    async verifyTablePackage(admission, content) {
+      const verified = await readTablePackageInMain({
+        workspaceRoot: admission.workspaceRoot,
+        packageRoot: dirname(dirname(admission.path)),
+      });
+      admission.assertCurrent();
+      if (
+        workspaceMutationRootIdentity(verified.headPath) !==
+          workspaceMutationRootIdentity(admission.path) ||
+        verified.headText !== content
+      )
+        throw new Error('FILE_CHANGED: The table package changed while it was inspected.');
+    },
     async write(input, admission) {
       await withKnownWorkspacePathMutation(options.db(), [input.path], async () => {
         admission.assertCurrent();
+        if (isForgePackageMetaPath(input.path, 'table.json')) {
+          await publishTablePackageInMain(
+            {
+              workspaceRoot: admission.workspaceRoot,
+              packageRoot: dirname(dirname(input.path)),
+              head: parseTablePackageHead(input.content),
+              mode: 'replace',
+              expectedContentHash: input.expectedContentHash?.replace(/^sha256:/, ''),
+            },
+            { assertCurrent: admission.assertCurrent }
+          );
+          return;
+        }
         await writeTextFileAtomicInMain(input, { beforePublish: admission.assertCurrent });
       });
     },

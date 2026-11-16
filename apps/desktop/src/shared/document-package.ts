@@ -7,7 +7,7 @@ import {
   type ScientificPackageKind,
 } from './scientific-package';
 
-export type DocumentPackageKind = 'notebook' | 'sequence' | ScientificPackageKind;
+export type DocumentPackageKind = 'notebook' | 'sequence' | 'table' | ScientificPackageKind;
 export interface DocumentPackage {
   kind: DocumentPackageKind;
   metadataPath: string;
@@ -32,6 +32,7 @@ export async function detectDocumentPackage(
   const families: Array<[DocumentPackageKind, readonly string[]]> = [
     ['notebook', [NOTEBOOK_PACKAGE_META_NAME]],
     ['sequence', SEQUENCE_PACKAGE_META_ALIASES],
+    ['table', ['table.json']],
     ['protocol', [PROTOCOL_PACKAGE_META_NAME]],
     ['protocol-run', [PROTOCOL_RUN_PACKAGE_META_NAME]],
   ];

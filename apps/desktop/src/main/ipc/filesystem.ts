@@ -666,6 +666,11 @@ export function registerFilesystemHandlers(): void {
       subscription.paths.add(snapshot.path);
       return snapshot;
     },
+    tableDocument: async (_event, command) => {
+      if (command.kind !== 'resolve' && command.kind !== 'open')
+        await nativeDocuments.flushFileDocumentClients();
+      return nativeDocuments.tableDocuments.execute(command);
+    },
     canonicalPath: async (_event, path: string) => {
       const { getDb } = await import('./database');
       return resolveRegisteredProjectPath(path, {

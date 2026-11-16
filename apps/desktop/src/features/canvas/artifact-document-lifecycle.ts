@@ -36,6 +36,12 @@ export function saveTargetForTab(tab: Tab): SaveDocumentTarget {
       : null;
   if (table?.backing.kind === 'notebook-inline' && table.binding.kind === 'current')
     return { kind: 'page', pageId: table.backing.notebookDocumentId };
+  if (
+    table?.backing.kind === 'rich-file' &&
+    table.binding.kind === 'current' &&
+    table.backing.pathHint
+  )
+    return { kind: 'file', filePath: table.backing.pathHint };
   if (tab.type === 'sequence') {
     if (session.kind === 'sequence' && session.editor === 'indexed')
       return { kind: 'tab', tabId: tab.id };
