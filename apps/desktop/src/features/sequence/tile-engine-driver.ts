@@ -429,6 +429,7 @@ export class TileEngineDriver {
   private readonly assembly: Assembly;
   private readonly opts: TileEngineDriverOptions;
   private readonly transport: ReturnType<typeof limitConcurrency>;
+  private readonly readForegroundCoverageSource: TileSource;
   private readonly cache: TileCache;
   private coordinator: TileCoordinator;
   private readonly assemblyCoverageSource: TileSource;
@@ -517,7 +518,11 @@ export class TileEngineDriver {
       options.transport == null ? MAX_CONCURRENT_HTTP_TILE_FETCHES : MAX_CONCURRENT_TILE_FETCHES;
     this.transport = limitConcurrency(rawTransport, transportLimit, {
       canAbortActive: (request) =>
-        options.transport == null && options.source.htsget == null && request.kind === 'alignment',
+        options.transport == null &&
+        options.source.htsget == null &&
+        (request.kind === 'alignment' ||
+          (options.source.remote == null &&
+            (request.kind === 'coverage' || request.kind === 'coverage-assembly'))),
       preferCurrentCoverage: () => {
         const view = this.lastViewport;
         if (!view) return false;
@@ -552,6 +557,12 @@ export class TileEngineDriver {
         ? 'prepared-pyramid'
         : 'bounded-foreground'
     );
+    this.readForegroundCoverageSource = {
+      id: this.assemblyCoverageSource.id,
+      levelRange: this.assemblyCoverageSource.levelRange,
+      prefetch: { ...this.assemblyCoverageSource.prefetch, wholeGenomeResident: false },
+      fetchTile: (...args) => this.assemblyCoverageSource.fetchTile(...args),
+    };
     this.coordinator = this.buildCoordinator();
     const corridorFloorLoader =
       this.opts.source.htsget || options.source.remote != null
@@ -841,10 +852,17 @@ export class TileEngineDriver {
         activeAlignmentSources.push(chromSource.alignment);
       }
     }
+    const coverageSource =
+      this.opts.transport == null &&
+      this.opts.source.remote == null &&
+      this.opts.source.htsget == null &&
+      this.exactReadDetailEligible
+        ? this.readForegroundCoverageSource
+        : this.assemblyCoverageSource;
     const activeSources = requestCoverage
       ? targetLevel > this.maxReadAlignment
-        ? [this.assemblyCoverageSource, ...activeAlignmentSources]
-        : [...activeAlignmentSources, this.assemblyCoverageSource]
+        ? [coverageSource, ...activeAlignmentSources]
+        : [...activeAlignmentSources, coverageSource]
       : activeAlignmentSources;
     this.sources.splice(0, this.sources.length, ...activeSources);
   }
@@ -992,8 +1010,14 @@ export class TileEngineDriver {
   }
 
   private coverageRetentionPins(view: Viewport): TileKey[] {
-    const currentLevel = this.coordinator.level;
-    if (currentLevel == null) return [];
+    const previousLevel = this.coordinator.level;
+    if (previousLevel == null) return [];
+    const deferBroadCoverage =
+      this.opts.transport == null &&
+      this.opts.source.remote == null &&
+      this.opts.source.htsget == null &&
+      this.exactReadPreparationIsEligible(view);
+    const currentLevel = deferBroadCoverage ? this.convergedLevelForView(view) : previousLevel;
     const maxLevel = maxLevelForAssembly(this.assembly);
     const minBroadRetainedLevel = Math.max(0, maxLevel - BROAD_COVERAGE_RETAIN_LEVELS + 1);
     const minRetainedLevel = Math.max(0, currentLevel - 3);
@@ -1038,6 +1062,7 @@ export class TileEngineDriver {
 
       if (inBroadOverviewBand) {
         if (entry.state === 'pending') {
+          if (deferBroadCoverage && !inCurrentBand && !inHandoff) continue;
           if (criticalHandoffLevels.size > 0 && entry.key.level !== maxLevel - 1) continue;
           promotePendingCoveragePriority(entry, this.coordinator.epoch + 1);
         }

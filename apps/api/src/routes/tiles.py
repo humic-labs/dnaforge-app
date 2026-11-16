@@ -730,10 +730,14 @@ async def coverage_precompute_route(
     )
 
 
-def _assembly_depth_scale(body: "CoverageAssemblyTileBody"):
+def _assembly_depth_scale(
+    body: "CoverageAssemblyTileBody", check_cancelled: Callable[[], None] | None = None
+):
     """Genome-wide p98 coverage-depth scale  Ask 1). Memoized + JSON-cached
     in the service, so this is effectively free after the first call; returns the stable
     denominator the renderer uses so histogram height stops moving with scroll/zoom."""
+    if check_cancelled is not None:
+        check_cancelled()
     try:
         from ..services.coverage_pyramid import (
             cached_reference_lengths,
@@ -759,17 +763,24 @@ def _assembly_depth_scale(body: "CoverageAssemblyTileBody"):
                 else None
             ),
             percentile=98.0,
+            **({"check_cancelled": check_cancelled} if check_cancelled is not None else {}),
         )
         return scale.get("scaleDepth") if scale else None
+    except _LocalAlignmentClientClosed:
+        raise
     except Exception:
         return None
 
 
-def _assembly_depth_percentiles(body: "CoverageAssemblyTileBody"):
+def _assembly_depth_percentiles(
+    body: "CoverageAssemblyTileBody", check_cancelled: Callable[[], None] | None = None
+):
     """Genome-wide coverage-depth percentiles  histogram A/B). Memoized +
     JSON-cached in the service, so this is effectively free after the first call;
     returns {p50,p90,p95,p99,max} — the stable denominators the renderer can pick
     between so histogram height stops moving with scroll/zoom."""
+    if check_cancelled is not None:
+        check_cancelled()
     try:
         from ..services.coverage_pyramid import (
             cached_reference_lengths,
@@ -794,14 +805,17 @@ def _assembly_depth_percentiles(body: "CoverageAssemblyTileBody"):
                 if body.reference_path
                 else None
             ),
+            **({"check_cancelled": check_cancelled} if check_cancelled is not None else {}),
         )
+    except _LocalAlignmentClientClosed:
+        raise
     except Exception:
         return None
 
 
 @router.post("/coverage-assembly/{level}/{tile_index}")
 async def coverage_assembly_tile_route(
-    level: int, tile_index: int, body: CoverageAssemblyTileBody
+    level: int, tile_index: int, body: CoverageAssemblyTileBody, request: Request = None
 ) -> JSONResponse:
     """A complete coverage tile for all chromosome segments in one global tile.
 
@@ -889,8 +903,15 @@ async def coverage_assembly_tile_route(
             }
         )
     bam_path = _require_file_bam_path(body)
-    try:
+    local_cancellation = None if pileup._is_remote_bam(bam_path) else threading.Event()
+
+    def check_cancelled() -> None:
+        if local_cancellation is not None and local_cancellation.is_set():
+            raise _LocalAlignmentClientClosed
+
+    async def admitted_read() -> dict:
         async with pool.slot():
+            check_cancelled()
             await asyncio.to_thread(
                 _validate_aligned_read_source_generation,
                 body,
@@ -912,13 +933,22 @@ async def coverage_assembly_tile_route(
                 bin_size_bp=tg.bin_bp(level),
                 index_path=body.index_path,
                 reference_fasta=body.reference_path,
+                **({"check_cancelled": check_cancelled} if local_cancellation is not None else {}),
             )
             result["level"] = level
             result["tileIndex"] = tile_index
-            scale_val = await asyncio.to_thread(_assembly_depth_scale, body)
+            scale_val = await asyncio.to_thread(
+                _assembly_depth_scale,
+                body,
+                **({"check_cancelled": check_cancelled} if local_cancellation is not None else {}),
+            )
             if scale_val is not None:
                 result["globalDepthScale"] = scale_val
-            percentiles_val = await asyncio.to_thread(_assembly_depth_percentiles, body)
+            percentiles_val = await asyncio.to_thread(
+                _assembly_depth_percentiles,
+                body,
+                **({"check_cancelled": check_cancelled} if local_cancellation is not None else {}),
+            )
             if percentiles_val is not None:
                 result["depthPercentiles"] = percentiles_val
             await asyncio.to_thread(
@@ -926,6 +956,18 @@ async def coverage_assembly_tile_route(
                 body,
                 pileup.require_aligned_read_source_generation,
             )
+            check_cancelled()
+            return result
+
+    try:
+        result = await _run_alignment_request(
+            bam_path,
+            request if local_cancellation is not None else None,
+            admitted_read,
+            local_cancellation,
+        )
+    except _LocalAlignmentClientClosed:
+        return JSONResponse(status_code=499, content={"detail": "Client closed coverage request"})
     except QueueRefusal as exc:
         return _refuse_response(exc)
     except pileup.SourceGenerationChangedError as exc:
@@ -1008,7 +1050,7 @@ async def coverage_corridor_floor_route(body: CoverageCorridorFloorBody) -> Resp
 
 @router.post("/coverage/{level}/{tile_index}")
 async def coverage_tile_route(
-    level: int, tile_index: int, body: _TileSourceBody
+    level: int, tile_index: int, body: _TileSourceBody, request: Request = None
 ) -> JSONResponse:
     """A (level, tileIndex) coverage tile from the bounded persisted pyramid.
 
@@ -1085,8 +1127,14 @@ async def coverage_tile_route(
         return JSONResponse(content=result)
 
     bam_path = _require_file_bam_path(body)
+    local_cancellation = None if pileup._is_remote_bam(bam_path) else threading.Event()
+
+    def check_cancelled() -> None:
+        if local_cancellation is not None and local_cancellation.is_set():
+            raise _LocalAlignmentClientClosed
 
     def _compute() -> dict:
+        check_cancelled()
         resolved = pileup._resolve_bam_path(bam_path)
         resolved_index = pileup._resolve_index_path(body.index_path)
         resolved_reference = pileup._resolve_reference_path(body.reference_path)
@@ -1129,13 +1177,15 @@ async def coverage_tile_route(
             index_path=body.index_path,
             reference_fasta=body.reference_path,
             chrom_len=chrom_len,
+            **({"check_cancelled": check_cancelled} if local_cancellation is not None else {}),
         )
         tile["level"] = level
         tile["tileIndex"] = tile_index
         return tile
 
-    try:
+    async def admitted_read() -> dict:
         async with pool.slot():
+            check_cancelled()
             await asyncio.to_thread(
                 _validate_aligned_read_source_generation,
                 body,
@@ -1147,6 +1197,18 @@ async def coverage_tile_route(
                 body,
                 pileup.require_aligned_read_source_generation,
             )
+            check_cancelled()
+            return result
+
+    try:
+        result = await _run_alignment_request(
+            bam_path,
+            request if local_cancellation is not None else None,
+            admitted_read,
+            local_cancellation,
+        )
+    except _LocalAlignmentClientClosed:
+        return JSONResponse(status_code=499, content={"detail": "Client closed coverage request"})
     except QueueRefusal as exc:
         return _refuse_response(exc)
     except pileup.SourceGenerationChangedError as exc:
