@@ -149,8 +149,8 @@ export function createNotebookTableAliases(options: NotebookTableAliasesOptions)
           claims.set(alias.blockId, matches);
         }
       }
-      const observations: unknown[] = [];
-      const conflicts: string[] = [];
+      const observationGroups: unknown[][] = [];
+      const conflictGroups: string[][] = [];
       const resolve = async (reference: TableDocumentReference, sameProject: boolean) => {
         const service = options.tableDocuments?.();
         if (!service) refuse('The native table reference owner is unavailable.');
@@ -178,6 +178,10 @@ export function createNotebookTableAliases(options: NotebookTableAliasesOptions)
         const blockId = node.attrs?.refId;
         if (typeof blockId !== 'string' || !blockId.length)
           refuse('The table placement has no stable block identity.');
+        const observations: unknown[] = [];
+        const conflicts: string[] = [];
+        observationGroups.push(observations);
+        conflictGroups.push(conflicts);
         const matches = claims.get(blockId) ?? [];
         if (matches.length > 1)
           refuse('Multiple active table packages claim the same retired notebook table alias.');
@@ -258,10 +262,11 @@ export function createNotebookTableAliases(options: NotebookTableAliasesOptions)
       };
       const prepared = await visit(content);
       scope.assertCurrent();
+      const conflicts = conflictGroups.flat();
       return {
         content: prepared,
         ...(conflicts.length ? { conflict: [...new Set(conflicts)].join(' ') } : {}),
-        observations,
+        observations: observationGroups.flat(),
       };
     };
     const prepared = await inspect();

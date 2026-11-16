@@ -25,6 +25,7 @@ import type { TableDocumentCommand } from '../shared/table-document-command';
 import { tablePackagePaths, tablePackageHeadWithData } from '../shared/table-package';
 import { publishTablePackageInMain, readTablePackageInMain } from './table-package';
 import { writeWorkspaceTextFileAtomicInMain } from './primer-artifact-files';
+import { relocateWorkspaceFileRefsInDb } from './workspace-relocate';
 
 vi.mock('electron', () => ({
   app: { getPath: (name: 'home' | 'userData') => identityTestPaths[name] },
@@ -299,6 +300,48 @@ async function completed(
 }
 
 describe('recoverable native table promotion', () => {
+  it('keeps completed extraction complete after its table moves without recreating the old destination', async () => {
+    const t = await fixture();
+    const request = await t.request();
+    const { result } = await completed(
+      t,
+      await new NativeTableDocumentCommands(t.f.options).execute(request)
+    );
+    if (result.kind !== 'promoted' || result.table.owner.kind !== 'file')
+      throw new Error('Expected a completed native table');
+    const previous = t.destination();
+    const moved = { workspaceRoot: t.root(), packageRoot: join(t.root(), 'Moved table') };
+    await rename(previous.packageRoot, moved.packageRoot);
+    const headPath = tablePackagePaths(moved.packageRoot).headPath;
+    relocateWorkspaceFileRefsInDb(t.f.db, {
+      workspaceRoot: t.root(),
+      oldPath: previous.packageRoot,
+      newPath: moved.packageRoot,
+    });
+    await t.f.files.relocate(previous.packageRoot, moved.packageRoot);
+    const resolved = await new NativeTableDocumentCommands(t.f.options).execute({
+      kind: 'resolve',
+      reference: result.table.reference,
+    });
+    expect(resolved).toMatchObject({
+      kind: 'resolved',
+      table: { tableId: result.table.tableId, owner: { kind: 'file', path: headPath } },
+    });
+    const before = await readTablePackageInMain(moved);
+    expect(
+      await new NativeTableDocumentCommands(t.f.options).execute({
+        kind: 'list-promotions',
+        workspaceRoot: t.root(),
+      })
+    ).toEqual({ kind: 'promotions', promotions: [] });
+    expect(await t.recover(request.requestId)).toMatchObject({
+      kind: 'promoted',
+      table: { tableId: result.table.tableId, owner: { kind: 'file', path: headPath } },
+    });
+    await expect(access(previous.packageRoot)).rejects.toThrow();
+    expect((await readTablePackageInMain(moved)).headText).toBe(before.headText);
+  });
+
   it('finishes recovery discovery when catalog and native file identifiers are independently scoped', async () => {
     const t = await fixture({ nativeIdentityPrefix: 'native-file:' });
     const { result } = await completed(
