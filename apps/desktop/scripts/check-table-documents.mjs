@@ -169,7 +169,9 @@ try {
   await capture('expanded-with-notebook');
   await page.getByTestId(`tab-close-${sourceTab.id}`).click();
   await expect(notebook).toHaveCount(0);
-  const grid = page.getByTestId('table-grid').filter({ visible: true });
+  const grid = page
+    .getByTestId(`tab-content-container-${expandedTab.entityId}`)
+    .getByTestId('table-grid');
   await expect(grid).toHaveCount(1);
   await capture('notebook-closed', { native: await inspect() });
   await expect(grid).not.toHaveAttribute('data-read-only', 'true');

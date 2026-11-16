@@ -133,12 +133,28 @@ try {
         (previous) =>
           Object.values(window.__test.getCanvasStore().panels)
             .flatMap((panel) => panel.tabs)
-            .some((tab) => tab.type === 'table' && !previous.includes(tab.id)),
+            .some(
+              (tab) =>
+                tab.type === 'table' &&
+                !previous.includes(tab.id) &&
+                tab.tableDocument?.backing.kind === 'rich-file'
+            ),
         previousTabs
       )
     )
     .toBe(true);
-  const grid = page.getByTestId('table-grid').filter({ visible: true });
+  const createdTab = await page.evaluate(
+    (previous) =>
+      Object.values(window.__test.getCanvasStore().panels)
+        .flatMap((panel) => panel.tabs)
+        .find((tab) => tab.type === 'table' && !previous.includes(tab.id)),
+    previousTabs
+  );
+  assert.ok(createdTab, 'A new independent table tab must exist');
+  receipt.tab = createdTab;
+  const grid = page
+    .getByTestId(`tab-content-container-${createdTab.entityId}`)
+    .getByTestId('table-grid');
   await expect(grid).toHaveCount(1);
   await expect(grid).not.toHaveAttribute('data-read-only', 'true');
   const inspect = () =>
@@ -195,12 +211,6 @@ try {
     tableId: head.id,
     snapshotSha256: head.snapshotSha256,
   });
-  const tabs = await page.evaluate(() =>
-    Object.values(window.__test.getCanvasStore().panels).flatMap((panel) => panel.tabs)
-  );
-  const createdTab = tabs.find((tab) => tab.type === 'table' && !previousTabs.includes(tab.id));
-  assert.ok(createdTab, 'A new independent table tab must exist');
-  receipt.tab = createdTab;
   await page.getByTestId(`tab-close-${createdTab.id}`).click();
   await expect(page.getByTestId(`tab-close-${createdTab.id}`)).toHaveCount(0);
   const tableEntry = project.locator(`[data-entry-path=${JSON.stringify(packageRoot)}]`);
