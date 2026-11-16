@@ -9,7 +9,14 @@ import type {
 } from '@waypoint/api-client';
 import { platform } from '../../../platform';
 import { beginWorkflowAction, type WorkflowResultMetadata } from '../../../lib/workflow-telemetry';
-import { classifyMutation, type Annotation, type GeneticCodeSpec } from '@waypoint/sequence-utils';
+import {
+  classifyMutation,
+  interpretReferenceAlignment,
+  mutationAlignmentColumns,
+  type Annotation,
+  type GeneticCodeSpec,
+  type ReferenceAlignmentContext,
+} from '@waypoint/sequence-utils';
 import { markLoadedVerificationState, startVerificationAutosave } from './verification-autosave';
 import type {
   ReferenceVerificationState,
@@ -22,7 +29,13 @@ import type {
   SessionAlignmentOperationStatus,
   SessionAlignmentOperationQuery,
 } from '../types';
-import { stateToSidecar, sidecarToState, serializeSidecar, parseSidecar } from './sidecar';
+import {
+  stateToSidecar,
+  sidecarToState,
+  serializeSidecar,
+  parseSidecar,
+  resolveVerificationStateAlignments,
+} from './sidecar';
 import {
   readAlignmentHistory,
   writeAlignmentHistory,
@@ -73,8 +86,6 @@ import {
   convertMutation,
   convertStructuralAnalysis,
   getTrackStatus,
-  getAlignmentEvidence,
-  calculateCoverage,
   queryInReferenceCoordinates,
   toMutationEffect,
 } from '../utils/mutation-computation';
@@ -1317,22 +1328,45 @@ export const useVerificationStore = create<VerificationStore>()(
               const row = resultById.get(query.id);
               if (!row) throw new Error('The alignment result is missing a query.');
               const alignmentResult = row.alignment as AlignmentApiResponse;
-              const querySequence = queryInReferenceCoordinates(
-                alignmentResult.aligned_reference,
-                alignmentResult.aligned_query,
-                referenceSequence
-              );
+              const topology = operation.testedReference?.topology ?? referenceTopology ?? 'linear';
+              const alignment = {
+                alignedReference: alignmentResult.aligned_reference,
+                alignedQuery: alignmentResult.aligned_query,
+                ...(alignmentResult.circular_offset !== undefined
+                  ? { circularOffset: alignmentResult.circular_offset }
+                  : {}),
+                referenceLength: alignmentResult.reference_length ?? referenceSequence.length,
+                identity: alignmentResult.identity,
+                coverageStart: 0,
+                coverageEnd: 0,
+                algorithm: 'MAFFT',
+              };
+              const interpretation = interpretReferenceAlignment(alignment, {
+                sequence: referenceSequence,
+                topology,
+              });
+              if (interpretation.kind !== 'placed') throw new Error(interpretation.reason);
+              const observed = interpretation.value;
+              alignment.circularOffset = observed.circularOffset;
+              alignment.coverageStart = observed.coverage.start;
+              alignment.coverageEnd = observed.coverage.end;
+              const querySequence = observed.completeInReferenceOrder
+                ? queryInReferenceCoordinates(
+                    alignmentResult.aligned_reference,
+                    alignmentResult.aligned_query,
+                    referenceSequence
+                  )
+                : null;
               const apiMutations = alignmentResult.mutations ?? [];
-              const coverage = calculateCoverage(
-                alignmentResult.aligned_reference,
-                alignmentResult.aligned_query
-              );
               const structuralAnalysis = alignmentResult.analysis
-                ? convertStructuralAnalysis(alignmentResult.analysis)
+                ? convertStructuralAnalysis(alignmentResult.analysis, observed)
                 : undefined;
               const mutations = apiMutations.map((apiMutation, index) => {
                 const mutation = convertMutation(apiMutation, index);
-                if (referenceAnnotations.length > 0) {
+                if (!mutationAlignmentColumns(alignment, mutation, topology)) {
+                  throw new Error('An alignment mutation falls outside its observed columns.');
+                }
+                if (querySequence !== null && referenceAnnotations.length > 0) {
                   const impact = classifyMutation(
                     apiMutation,
                     referenceSequence,
@@ -1347,24 +1381,14 @@ export const useVerificationStore = create<VerificationStore>()(
               const replacement = {
                 queryPath: query.queryPath,
                 ...(query.queryFingerprint ? { queryFingerprint: query.queryFingerprint } : {}),
-                alignment: {
-                  alignedReference: alignmentResult.aligned_reference,
-                  alignedQuery: alignmentResult.aligned_query,
-                  identity: alignmentResult.identity,
-                  coverageStart: coverage.start,
-                  coverageEnd: coverage.end,
-                  algorithm: 'MAFFT' as const,
-                },
+                alignment,
                 mutations,
                 structuralAnalysis,
                 status: getTrackStatus(
                   alignmentResult.identity,
                   apiMutations.length,
                   structuralAnalysis?.overallAssessment,
-                  getAlignmentEvidence(
-                    alignmentResult.aligned_reference,
-                    alignmentResult.aligned_query
-                  ).complete
+                  observed.evidence.complete
                 ),
                 alignedAt,
                 testedReference: operation.testedReference ?? {
@@ -1710,7 +1734,7 @@ export const useVerificationStore = create<VerificationStore>()(
           );
           if (tracksNeedingEnrichment.length === 0) return;
 
-          const [{ annotations, geneticCode: referenceGeneticCode }, referenceBases] =
+          const [{ annotations, geneticCode: referenceGeneticCode, circular }, referenceBases] =
             await Promise.all([
               readReferenceForMutations(sourcePath),
               readSequenceFile(sourcePath),
@@ -1727,6 +1751,15 @@ export const useVerificationStore = create<VerificationStore>()(
           for (const track of tracksNeedingEnrichment) {
             try {
               const referenceSeq = referenceBases;
+              const interpretation = interpretReferenceAlignment(track.alignment, {
+                sequence: referenceBases,
+                topology: circular ? 'circular' : 'linear',
+              });
+              if (
+                interpretation.kind !== 'placed' ||
+                !interpretation.value.completeInReferenceOrder
+              )
+                continue;
               const querySeq = queryInReferenceCoordinates(
                 track.alignment.alignedReference,
                 track.alignment.alignedQuery,
@@ -2467,7 +2500,7 @@ export const useVerificationStore = create<VerificationStore>()(
                     error
                   );
                 }
-                const refState =
+                let refState =
                   (await readPackageEvidenceProjection(
                     documentId,
                     sourcePath,
@@ -2485,6 +2518,7 @@ export const useVerificationStore = create<VerificationStore>()(
                   !referenceChecksum || !currentHash || currentHash !== referenceChecksum;
 
                 let currentSequenceLength: number | null = null;
+                let alignmentReference: ReferenceAlignmentContext | undefined;
                 let currentReference: {
                   fileSha256: string | null;
                   sequenceRevision: string;
@@ -2497,6 +2531,10 @@ export const useVerificationStore = create<VerificationStore>()(
                     readReferenceForMutations(sourcePath),
                   ]);
                   currentSequenceLength = currentSequence.length;
+                  alignmentReference = {
+                    sequence: currentSequence,
+                    topology: reference.circular ? 'circular' : 'linear',
+                  };
                   currentReference = {
                     fileSha256: currentHash,
                     sequenceRevision: await computePairwiseReferenceRevision(currentSequence),
@@ -2504,6 +2542,7 @@ export const useVerificationStore = create<VerificationStore>()(
                     checkpointId: await currentPackageCheckpointId(sourcePath),
                   };
                 } catch {} // eslint-disable-line no-empty
+                refState = resolveVerificationStateAlignments(refState, alignmentReference);
                 const perSessionStale = detectPerSessionStaleness(
                   refState.sessions,
                   checksumStale,

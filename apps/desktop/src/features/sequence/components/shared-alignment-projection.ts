@@ -1,4 +1,5 @@
 import type { CoordinateSpace } from '@waypoint/workspace-editor';
+import { interpretReferenceAlignment } from '@waypoint/sequence-utils';
 import type { SharedAlignmentLane } from './shared-sequence-read-model';
 
 export interface AlignmentProjectionTrack {
@@ -6,6 +7,8 @@ export interface AlignmentProjectionTrack {
   readonly label: string;
   readonly alignedReference: string;
   readonly alignedQuery: string;
+  readonly circularOffset?: number;
+  readonly referenceLength?: number;
 }
 
 export interface SharedAlignmentProjection {
@@ -18,35 +21,37 @@ export interface SharedAlignmentProjection {
 export function buildSharedAlignmentProjection(
   reference: string,
   tracks: ReadonlyArray<AlignmentProjectionTrack>,
-  selectedTrackId?: string | null
+  selectedTrackId?: string | null,
+  topology: 'linear' | 'circular' = 'linear'
 ): SharedAlignmentProjection | null {
   if (!reference || tracks.length === 0) return null;
   const normalizedReference = reference.toUpperCase();
   const parsed = tracks.map((track) => {
     const alignedReference = track.alignedReference.toUpperCase();
     const alignedQuery = track.alignedQuery.toUpperCase();
-    if (
-      alignedReference.length !== alignedQuery.length ||
-      alignedReference.replace(/-/g, '') !== normalizedReference
-    ) {
-      return null;
-    }
-    const insertions: string[][] = Array.from({ length: reference.length + 1 }, () => []);
-    const bases: string[] = [];
+    const interpreted = interpretReferenceAlignment(track, { sequence: reference, topology });
+    if (interpreted.kind !== 'placed') return null;
+    const observation = interpreted.value;
+    const insertions: Array<Array<string | null>> = Array.from(
+      { length: reference.length + 1 },
+      () => []
+    );
+    const bases: Array<string | null> = Array.from({ length: reference.length }, () => null);
     const boundaryByColumn = new Int32Array(alignedReference.length);
     const insertionIndexByColumn = new Int32Array(alignedReference.length).fill(-1);
-    let boundary = 0;
     for (let column = 0; column < alignedReference.length; column += 1) {
+      const position = observation.referencePositions[column];
+      const boundary = position === null ? observation.insertionBoundaries[column]! : position - 1;
       boundaryByColumn[column] = boundary;
-      if (alignedReference[column] === '-') {
+      const query = observation.observedColumns[column] ? alignedQuery[column] : null;
+      if (position === null) {
         insertionIndexByColumn[column] = insertions[boundary].length;
-        insertions[boundary].push(alignedQuery[column]);
+        insertions[boundary].push(query);
       } else {
-        bases.push(alignedQuery[column]);
-        boundary += 1;
+        bases[position - 1] = query;
       }
     }
-    return { track, insertions, bases, boundaryByColumn, insertionIndexByColumn };
+    return { track, observation, insertions, bases, boundaryByColumn, insertionIndexByColumn };
   });
   if (parsed.some((track) => track === null)) return null;
   const rows = parsed.filter((track): track is NonNullable<typeof track> => track !== null);
@@ -62,11 +67,11 @@ export function buildSharedAlignmentProjection(
   }
   const sharedReference = referenceColumns.join('');
   const lanes: SharedAlignmentLane[] = rows.map((row) => {
-    const queryColumns: string[] = [];
+    const queryColumns: Array<string | null> = [];
     for (let boundary = 0; boundary <= reference.length; boundary += 1) {
       queryColumns.push(...row.insertions[boundary]);
       for (let i = row.insertions[boundary].length; i < insertionWidths[boundary]; i += 1) {
-        queryColumns.push('-');
+        queryColumns.push(row.observation.completeInReferenceOrder ? '-' : null);
       }
       if (boundary < reference.length) queryColumns.push(row.bases[boundary]);
     }
@@ -75,7 +80,9 @@ export function buildSharedAlignmentProjection(
       kind: 'alignment',
       label: row.track.label,
       alignedReference: sharedReference,
-      alignedQuery: queryColumns.join(''),
+      ...(row.observation.completeInReferenceOrder
+        ? { alignedQuery: queryColumns.join('') }
+        : { queryColumns }),
     };
   });
   const selected = rows.find((row) => row.track.id === selectedTrackId) ?? rows[0];
@@ -84,7 +91,9 @@ export function buildSharedAlignmentProjection(
     coordinateSpace: {
       mode: 'gapped',
       gappedSequence: sharedReference,
-      alignedQuery: lanes[selectedIndex].alignedQuery,
+      ...(lanes[selectedIndex].alignedQuery !== undefined
+        ? { alignedQuery: lanes[selectedIndex].alignedQuery }
+        : {}),
     },
     lanes,
     selectedTrackId: selected.track.id,

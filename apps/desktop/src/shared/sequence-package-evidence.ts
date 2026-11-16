@@ -83,6 +83,8 @@ export interface SequenceEvidenceTrackState {
   alignment: {
     alignedReference: string;
     alignedQuery: string;
+    circularOffset?: number;
+    referenceLength?: number;
     identity: number;
     coverageStart: number;
     coverageEnd: number;

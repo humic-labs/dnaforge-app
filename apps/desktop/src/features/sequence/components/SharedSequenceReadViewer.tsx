@@ -229,6 +229,7 @@ export function SharedSequenceReadViewer({
       !sourceScene ||
       comparison ||
       coordinateSpace?.mode !== 'gapped' ||
+      !coordinateSpace.alignedQuery ||
       (alignmentLanes?.length ?? 1) > 1
     )
       return null;
@@ -285,13 +286,17 @@ export function SharedSequenceReadViewer({
       );
       return { ...inherited, genome: { ...comparison.after, features: inherited.genome.features } };
     }
-    if (!comparison && coordinateSpace?.mode === 'gapped') {
+    if (!comparison && coordinateSpace?.mode === 'gapped' && coordinateSpace.alignedQuery) {
       return buildAlignmentCodingProjection(biologicalGenome, coordinateSpace, sourceScene.axis);
     }
     return { genome: biologicalGenome, axis: sourceScene.axis };
   }, [sourceScene, comparison, baseComparison, coordinateSpace, biologicalGenome]);
   const cdsModel = useMemo(() => {
-    if (!sourceScene || !codingProjection || (!comparison && coordinateSpace?.mode !== 'gapped'))
+    if (
+      !sourceScene ||
+      !codingProjection ||
+      (!comparison && (coordinateSpace?.mode !== 'gapped' || !coordinateSpace.alignedQuery))
+    )
       return null;
     const reference = baseComparison
       ? { genome: baseComparison.referenceCodingGenome, axis: baseComparison.beforeAxis }

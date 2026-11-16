@@ -6,7 +6,7 @@ import {
   prepareSequenceQueryAttachments,
   readAttachedEvidenceQueryPaths,
 } from './sequence-evidence-query-attachments';
-import { decodeSequenceDocument } from '@waypoint/sequence-utils';
+import { decodeSequenceDocument, interpretReferenceAlignment } from '@waypoint/sequence-utils';
 import {
   fromPackageRelative,
   parseSequencePackageDocument,
@@ -534,19 +534,58 @@ export async function appendSequenceEvidenceStateInMain(
       ) as {
         results?: Array<{
           queryId: string;
-          alignment?: { aligned_reference?: string; aligned_query?: string; identity?: number };
+          alignment?: {
+            aligned_reference?: string;
+            aligned_query?: string;
+            identity?: number;
+            circular_offset?: number;
+            reference_length?: number;
+          };
         }>;
       };
       const rawRows = new Map(rawResult.results?.map((row) => [row.queryId, row]) ?? []);
+      const referencePath = fromPackageRelative(run.reference.artifact.path, input.packageRoot);
+      const referenceBytes = Uint8Array.from(await boundedRead(referencePath));
+      const referenceSequence = decodeSequenceDocument(
+        isBinarySequencePath(referencePath)
+          ? referenceBytes
+          : new TextDecoder('utf-8', { fatal: true }).decode(referenceBytes),
+        { path: referencePath, filename: basename(referencePath) }
+      ).sequence.sequence;
       const stateTracks = run.queries.map((query) => {
         const track = input.tracks.find((candidate) => candidate.queryId === query.id);
         const raw = rawRows.get(query.id)?.alignment;
+        const legacyFull =
+          raw?.aligned_reference?.replace(/-/g, '').toUpperCase() ===
+            referenceSequence.toUpperCase() &&
+          (raw?.circular_offset === undefined || raw.circular_offset === 0);
+        const observation =
+          typeof raw?.aligned_reference === 'string' && typeof raw.aligned_query === 'string'
+            ? interpretReferenceAlignment(
+                {
+                  alignedReference: raw.aligned_reference,
+                  alignedQuery: raw.aligned_query,
+                  circularOffset: raw.circular_offset,
+                  referenceLength:
+                    raw.reference_length ?? (legacyFull ? referenceSequence.length : undefined),
+                },
+                { sequence: referenceSequence, topology: run.reference.topology }
+              )
+            : null;
+        const placementMatches =
+          observation?.kind === 'placed' &&
+          ((legacyFull &&
+            track?.alignment?.circularOffset === undefined &&
+            track?.alignment?.referenceLength === undefined) ||
+            (track?.alignment?.circularOffset === observation.value.circularOffset &&
+              track?.alignment?.referenceLength === observation.value.referenceLength));
         if (
           !track ||
           !raw ||
           track.alignment?.alignedReference !== raw.aligned_reference ||
           track.alignment?.alignedQuery !== raw.aligned_query ||
           track.alignment?.identity !== raw.identity ||
+          !placementMatches ||
           !Array.isArray(track.mutations) ||
           !['pass', 'variants', 'fail', 'incomplete'].includes(track.status) ||
           (track.userStatus !== undefined &&

@@ -11,13 +11,18 @@ export interface SharedSequenceAxis {
   columnToBio(column: number): number | null;
 }
 
-export interface SharedAlignmentLane {
+interface SharedAlignmentLaneIdentity {
   readonly id: string;
   readonly kind: 'alignment';
   readonly label: string;
   readonly alignedReference: string;
-  readonly alignedQuery: string;
 }
+
+export type SharedAlignmentLane = SharedAlignmentLaneIdentity &
+  (
+    | { readonly alignedQuery: string; readonly queryColumns?: never }
+    | { readonly alignedQuery?: never; readonly queryColumns: ReadonlyArray<string | null> }
+  );
 
 export interface SharedSangerLane {
   readonly id: string;
@@ -77,7 +82,7 @@ export function buildSharedSequenceAxis(
 
   const reference = coordinateSpace.gappedSequence;
   const query = coordinateSpace.alignedQuery;
-  if (!reference || !query || reference.length !== query.length) {
+  if (!reference || (query !== undefined && reference.length !== query.length)) {
     throw new Error('Alignment reference and query must have matching nonempty columns');
   }
   if (reference.replace(/-/g, '').toUpperCase() !== sequence.toUpperCase()) {
@@ -188,7 +193,7 @@ export function buildSharedSequenceReadScene(
   const gappedReference = alignmentSpace
     ? requireAlignmentColumns(alignmentSpace.gappedSequence)
     : null;
-  const gappedQuery = alignmentSpace ? requireAlignmentColumns(alignmentSpace.alignedQuery) : null;
+  const gappedQuery = alignmentSpace?.alignedQuery ?? null;
   const displayedGenome: Genome = {
     ...genome,
     sourceIdentity: documentId,
@@ -215,18 +220,21 @@ export function buildSharedSequenceReadScene(
       : genome.features,
   };
   const lanes: SharedSequenceReadLane[] = [];
-  if (gappedReference && gappedQuery) {
+  if (gappedReference) {
     const visibleAlignmentLanes = alignmentLanes ?? [
       {
         id: `alignment-query-${documentId}`,
         kind: 'alignment' as const,
         label: 'Aligned query',
         alignedReference: gappedReference,
-        alignedQuery: gappedQuery,
+        alignedQuery: requireAlignmentColumns(gappedQuery ?? undefined),
       },
     ];
     for (const lane of visibleAlignmentLanes) {
-      if (lane.alignedReference !== gappedReference || lane.alignedQuery.length !== axis.length) {
+      if (
+        lane.alignedReference !== gappedReference ||
+        (lane.queryColumns ?? lane.alignedQuery).length !== axis.length
+      ) {
         throw new Error(`Alignment row ${lane.label} does not match the shared reference columns`);
       }
     }

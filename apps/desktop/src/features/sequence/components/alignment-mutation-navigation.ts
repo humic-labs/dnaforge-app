@@ -38,10 +38,20 @@ export function resolveAlignmentMutationNavigation(
   if (focus.highlightRange) {
     const start = projection.projectTrackColumn(trackId, focus.highlightRange.start);
     const end = projection.projectTrackColumn(trackId, focus.highlightRange.end);
-    if (start === null || end === null || start > end) return null;
+    if (start === null || end === null) return null;
     selection = { start, end };
   }
-  const highlightRange = selection ? primaryBiologicalSelectionForColumns(axis, selection) : null;
+  let highlightRange: PrimarySequenceSelection | null = null;
+  if (selection && selection.start > selection.end) {
+    const tail = primaryBiologicalSelectionForColumns(axis, {
+      start: selection.start,
+      end: axis.length - 1,
+    });
+    const head = primaryBiologicalSelectionForColumns(axis, { start: 0, end: selection.end });
+    highlightRange = tail && head ? { start: tail.start, end: head.end } : (tail ?? head);
+  } else if (selection) {
+    highlightRange = primaryBiologicalSelectionForColumns(axis, selection);
+  }
   const preceding = primaryBiologicalSelectionForColumns(axis, { start: 0, end: column });
   return {
     columnNavigation: {

@@ -5,7 +5,7 @@ import { EyeIcon, EyeOffIcon } from './icons';
 import { InlineEditableText } from './InlineEditableText';
 import { StatusOverridePopover } from './StatusOverridePopover';
 import { StatusBadge } from './StatusBadge';
-import { getAlignmentEvidence } from '../utils/mutation-computation';
+import { alignmentEvidence } from '@waypoint/sequence-utils';
 
 function relativeTime(isoDate: string): string {
   const diffMs = Date.now() - new Date(isoDate).getTime();
@@ -92,10 +92,7 @@ export const CloneListItem = React.forwardRef<HTMLDivElement, CloneListItemProps
   ) {
     const statusButtonRef = React.useRef<HTMLButtonElement>(null);
     const summary = getMutationSummary(track);
-    const evidence = React.useMemo(
-      () => getAlignmentEvidence(track.alignment.alignedReference, track.alignment.alignedQuery),
-      [track.alignment]
-    );
+    const evidence = React.useMemo(() => alignmentEvidence(track.alignment), [track.alignment]);
     const severityColor = {
       high: 'text-red-400',
       medium: 'text-yellow-400',

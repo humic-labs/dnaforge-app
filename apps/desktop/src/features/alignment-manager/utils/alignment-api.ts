@@ -1,6 +1,7 @@
 import { platform } from '../../../platform';
 import { readSequenceFileGuarded } from '../../sequence/public/utils/guarded-read';
 import { isApiError, pairwiseAlignment } from '@waypoint/api-client';
+import type { AlignmentResult } from '@waypoint/api-client/models';
 import {
   userMessagePayload,
   userMessageValue,
@@ -28,6 +29,9 @@ export interface AlignmentApiResponse {
     length: number;
   }>;
   alignment_length: number;
+  circular_offset?: AlignmentResult['circular_offset'];
+  reference_length?: AlignmentResult['reference_length'];
+  query_length?: AlignmentResult['query_length'];
   analysis?: {
     structural_regions: Array<{
       id: string;

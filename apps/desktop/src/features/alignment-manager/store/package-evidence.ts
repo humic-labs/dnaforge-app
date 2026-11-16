@@ -6,6 +6,7 @@ import type {
   VerificationSession,
   VerificationTrack,
 } from '../types';
+import { getAlignmentEvidence } from '../utils/mutation-computation';
 
 export function projectPackageEvidence(input: {
   documentId: string;
@@ -170,16 +171,21 @@ function tracksFromState(
     ) {
       throw new Error('Retained sequencing track is malformed.');
     }
+    const alignment = row.alignment as VerificationTrack['alignment'];
+    const evidence =
+      alignment.circularOffset !== undefined || alignment.referenceLength !== undefined
+        ? getAlignmentEvidence(alignment)
+        : getAlignmentEvidence(alignment.alignedReference, alignment.alignedQuery);
     return {
       id: query.id,
       label: typeof row.label === 'string' && row.label.trim() ? row.label : query.label,
       queryPath: fromPackageRelative(query.artifact.path, packageRoot),
-      alignment: row.alignment as VerificationTrack['alignment'],
+      alignment,
       mutations: row.mutations as VerificationTrack['mutations'],
       ...(row.structuralAnalysis
         ? { structuralAnalysis: row.structuralAnalysis as VerificationTrack['structuralAnalysis'] }
         : {}),
-      status: row.status as VerificationTrack['status'],
+      status: evidence.complete ? (row.status as VerificationTrack['status']) : 'incomplete',
       ...(row.userStatus ? { userStatus: row.userStatus as VerificationTrack['userStatus'] } : {}),
       ...(row.userOverrideReason ? { userOverrideReason: row.userOverrideReason as string } : {}),
       ...(row.checkedMutations ? { checkedMutations: row.checkedMutations as string[] } : {}),
