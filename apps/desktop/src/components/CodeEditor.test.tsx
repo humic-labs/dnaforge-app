@@ -50,6 +50,53 @@ describe('CodeEditor', () => {
     act(() => getView().dispatch({ changes: { from: 0, to: 5, insert: 'edited' } }));
     expect(onChange).toHaveBeenLastCalledWith('edited\r\nbeta\r\n');
   });
+
+  it('keeps a CRLF draft editable after an external replacement', () => {
+    let savedContent: string | undefined;
+    const onSave = vi.fn(() => {
+      savedContent = getView().state.sliceDoc();
+    });
+    const { getView, onChange, rerender } = renderEditor({ value: 'alpha\r\nbeta', onSave });
+    const view = getView();
+
+    act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: ' human' } }));
+    expect(onChange).toHaveBeenLastCalledWith('alpha\r\nbeta human');
+    onChange.mockClear();
+
+    rerender(
+      <CodeEditor
+        value={'agent α\r\nbeta human'}
+        onChange={onChange}
+        onSave={onSave}
+        language="plaintext"
+        darkMode={false}
+        showLineNumbers
+        wordWrap
+      />
+    );
+
+    expect(view.contentDOM.isConnected).toBe(true);
+    expect(view.state.sliceDoc()).toBe('agent α\r\nbeta human');
+    expect(onChange).not.toHaveBeenCalled();
+
+    act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: ' continued' } }));
+    expect(onChange).toHaveBeenLastCalledWith('agent α\r\nbeta human continued');
+
+    act(() => {
+      view.contentDOM.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 's',
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+
+    expect(onSave).toHaveBeenCalledOnce();
+    expect(savedContent).toBe('agent α\r\nbeta human continued');
+  });
+
   it('reapplies a requested cursor position to the current editor after StrictMode recreation', () => {
     const result = render(
       <StrictMode>
