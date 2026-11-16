@@ -571,10 +571,83 @@ async function admitPortable(page, fixture) {
   );
   assert.ok(lane.generationKey, 'The admitted BAM has no current source generation.');
   lane.annotationExpectation = fixture.annotationExpectation;
+  const readAnnotationSelection = () =>
+    page.evaluate(async () => {
+      const selectedTabId = document
+        .querySelector('[role="tab"][data-tab-id][aria-selected="true"]')
+        ?.getAttribute('data-tab-id');
+      const tab = Object.values(window.__test.getCanvasStore().panels)
+        .flatMap((panel) => panel.tabs)
+        .find((candidate) => candidate.id === selectedTabId);
+      const root = document
+        .querySelector('[data-testid="indexed-genome-visible-viewer"]')
+        ?.closest('[data-testid="indexed-genome-tab"]');
+      const state = {
+        assemblyId: tab?.indexedGenome?.assembly?.assemblyId ?? null,
+        readiness: root?.getAttribute('data-session-assembly-annotation-products-readiness'),
+        trackIds: tab?.indexedGenome?.assemblyAnnotationTrackTypes ?? [],
+        pickerOpen: Boolean(document.querySelector('[data-testid="annotation-type-picker"]')),
+        mRNAPressed: document
+          .querySelector('[data-testid="annotation-type-mRNA"]')
+          ?.getAttribute('aria-pressed'),
+      };
+      try {
+        const { getTrackViewControl } =
+          await import('/src/features/sequence/track-view-control.ts');
+        const current = selectedTabId ? getTrackViewControl(selectedTabId)?.inspect() : null;
+        return {
+          ...state,
+          referenceAssemblyId: current?.document.reference.assemblyId ?? null,
+          annotation: current?.document.annotation ?? null,
+        };
+      } catch (error) {
+        return { ...state, error: String(error) };
+      }
+    });
+  const annotationSelectionReady = (state) =>
+    state.assemblyId === lane.assemblyId &&
+    state.referenceAssemblyId === lane.assemblyId &&
+    state.readiness === 'ready' &&
+    state.trackIds.includes('mRNA') &&
+    state.annotation?.orderedTrackIds.includes('mRNA');
+  const onlyMRNASelected = (state) =>
+    annotationSelectionReady(state) &&
+    state.annotation.visibilityByTrackId.mRNA === true &&
+    Object.entries(state.annotation.visibilityByTrackId).every(
+      ([trackId, visible]) => trackId === 'mRNA' || visible === false
+    );
+  await poll(
+    readAnnotationSelection,
+    annotationSelectionReady,
+    10_000,
+    'The admitted annotation catalog and Track view session did not become ready'
+  );
   await page.getByTestId('annotation-type-picker-summary').click();
   await page.getByTestId('annotation-type-preset-none').click();
+  await poll(
+    readAnnotationSelection,
+    (state) =>
+      annotationSelectionReady(state) &&
+      state.mRNAPressed === 'false' &&
+      state.annotation.visibilityByTrackId.mRNA === false &&
+      Object.values(state.annotation.visibilityByTrackId).every((visible) => visible === false),
+    10_000,
+    'The None preset did not clear the requested annotation selection'
+  );
   await page.getByTestId('annotation-type-mRNA').click();
+  await poll(
+    readAnnotationSelection,
+    (state) => state.mRNAPressed === 'true' && onlyMRNASelected(state),
+    10_000,
+    'The mRNA toggle did not reach the requested Track view selection'
+  );
   await page.keyboard.press('Escape');
+  await poll(
+    readAnnotationSelection,
+    (state) => !state.pickerOpen && onlyMRNASelected(state),
+    10_000,
+    'The requested mRNA selection did not persist after closing the picker'
+  );
   await frame(page, fixture.locusStart, 4000, lane);
   const failures = [];
   await complete(page, lane, fixture.readLengthBp, performance.now(), failures);
@@ -798,11 +871,6 @@ export async function runPileupPerformanceJourney({
       true,
       'The native desktop and task API did not become ready.'
     );
-    if (nativeTrace) {
-      assert.equal(typeof nativeTrace.start, 'function', 'Native tracing needs a start callback.');
-      assert.equal(typeof nativeTrace.stop, 'function', 'Native tracing needs a stop callback.');
-      await nativeTrace.beginJourney?.({ page, cdp });
-    }
     const supplied = Boolean(fixture?.savedViewPath);
     if (!fixture) {
       const workspaceRoot = await createFixtureWorkspace(page);
@@ -825,6 +893,11 @@ export async function runPileupPerformanceJourney({
       'The saved fixture needs workspaceRoot, bamPath, locusStart and independently known annotationExpectation intervals.'
     );
     if (supplied) await mountWorkspace(page, fixture.workspaceRoot);
+    if (nativeTrace) {
+      assert.equal(typeof nativeTrace.start, 'function', 'Native tracing needs a start callback.');
+      assert.equal(typeof nativeTrace.stop, 'function', 'Native tracing needs a stop callback.');
+      await nativeTrace.beginJourney?.({ page, cdp });
+    }
     report.source = {
       ...identity,
       fixtureId: fixture.fixtureId ?? path.basename(fixture.savedViewPath),

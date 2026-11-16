@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { gunzipSync } from 'node:zlib';
 import { afterEach, test } from 'vitest';
 import { createPileupNativeTrace } from './pileup-native-trace.mjs';
 
@@ -181,9 +182,12 @@ test('fails all pending results closed and retains raw evidence after finalizati
   assert.equal(f.cdp.calls.filter((call) => call.method === 'Tracing.end').length, 1);
 });
 
-test('preserves the optional first-zoom CPU trace as unqualified diagnostics', async () => {
+test('prearms the bounded first-zoom diagnostic before input without per-gesture startup', async () => {
   const f = await fixture({ diagnosticOnly: true });
   await f.capture.beginJourney(f);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'Profiler.start').length, 1);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'Tracing.start').length, 1);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'IO.read').length, 0);
   assert.equal(await f.gesture('pan'), null);
   const result = await f.gesture('zoom-26612bp');
   await f.capture.finishJourney(f);
@@ -192,6 +196,119 @@ test('preserves the optional first-zoom CPU trace as unqualified diagnostics', a
   assert.equal(f.cdp.calls.filter((call) => call.method === 'Profiler.start').length, 1);
   assert.equal(result.status, 'unqualified');
   assert.ok(result.failures.includes('diagnostic-only-no-declared-display-target'));
+});
+
+test('finalizes prearmed diagnostics when cold opening fails before the first zoom', async () => {
+  const f = await fixture({ diagnosticOnly: true });
+  await f.capture.beginJourney(f);
+  await f.capture.finishJourney(f);
+  await f.capture.finishJourney(f);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'Profiler.stop').length, 1);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'Tracing.end').length, 1);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'IO.close').length, 1);
+  const metadata = JSON.parse(await readFile(path.join(f.output, 'zoom-26612bp.diagnostic.json')));
+  assert.equal(metadata.aborted, true);
+  assert.equal(metadata.reason, 'first-zoom-not-completed');
+});
+
+test('streams diagnostic bytes without joining strings or corrupting split UTF8', async () => {
+  const f = await fixture({ diagnosticOnly: true });
+  const bytes = Buffer.from(JSON.stringify({ traceEvents: [{ name: '🧬' }] }));
+  const split = bytes.indexOf(Buffer.from('🧬')) + 2;
+  const chunks = [bytes.subarray(0, split), bytes.subarray(split)];
+  const send = f.cdp.send;
+  f.cdp.send = async (method, args) => {
+    if (method !== 'IO.read') return send(method, args);
+    f.cdp.calls.push({ method, args });
+    const chunk = chunks.shift();
+    return { data: chunk.toString('base64'), base64Encoded: true, eof: chunks.length === 0 };
+  };
+  await f.capture.beginJourney(f);
+  const result = await f.gesture('zoom-26612bp');
+  assert.equal(result.status, 'unqualified');
+  assert.deepEqual(
+    gunzipSync(await readFile(path.join(f.output, 'zoom-26612bp.trace.json.gz'))),
+    bytes
+  );
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'IO.read').length, 2);
+  assert.equal(
+    (await readdir(f.output)).some((name) => name.endsWith('.partial')),
+    false
+  );
+});
+
+test('records diagnostic trace loss without qualifying the capture', async () => {
+  const f = await fixture({ diagnosticOnly: true, dataLossOccurred: true });
+  await f.capture.beginJourney(f);
+  const result = await f.gesture('zoom-26612bp');
+  assert.equal(result.status, 'unqualified');
+  assert.ok(result.failures.includes('diagnostic-trace-data-loss'));
+  const metadata = JSON.parse(await readFile(path.join(f.output, 'zoom-26612bp.diagnostic.json')));
+  assert.equal(metadata.trace.dataLossOccurred, true);
+});
+
+test('retains CPU evidence and closes the trace stream when diagnostic reading fails', async () => {
+  const f = await fixture({ diagnosticOnly: true });
+  const send = f.cdp.send;
+  f.cdp.send = async (method, args) => {
+    if (method === 'IO.read') throw new Error('stream read failed');
+    return send(method, args);
+  };
+  await f.capture.beginJourney(f);
+  await assert.rejects(f.gesture('zoom-26612bp'), /stream read failed/);
+  await assert.rejects(f.capture.finishJourney(f), /stream read failed/);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'Profiler.stop').length, 1);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'Profiler.disable').length, 1);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'Tracing.end').length, 1);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'IO.close').length, 1);
+  const files = await readdir(f.output);
+  assert.ok(files.includes('zoom-26612bp.cpuprofile'));
+  assert.ok(!files.includes('zoom-26612bp.trace.json.gz'));
+  const metadata = JSON.parse(await readFile(path.join(f.output, 'zoom-26612bp.diagnostic.json')));
+  assert.match(metadata.token.traceError, /stream read failed/);
+});
+
+test('still writes the raw trace when stopping the diagnostic CPU profile fails', async () => {
+  const f = await fixture({ diagnosticOnly: true });
+  const send = f.cdp.send;
+  f.cdp.send = async (method, args) => {
+    if (method === 'Profiler.stop') throw new Error('profile stop failed');
+    return send(method, args);
+  };
+  await f.capture.beginJourney(f);
+  const result = await f.gesture('zoom-26612bp');
+  assert.equal(result.status, 'unqualified');
+  assert.ok(result.failures.includes('diagnostic-cpu-profile-unavailable'));
+  const files = await readdir(f.output);
+  assert.ok(files.includes('zoom-26612bp.trace.json.gz'));
+  assert.ok(!files.includes('zoom-26612bp.cpuprofile'));
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'Profiler.disable').length, 1);
+});
+
+test('releases diagnostic capture ownership when the evidence directory stops being writable', async () => {
+  const f = await fixture({ diagnosticOnly: true });
+  await f.capture.beginJourney(f);
+  await rm(f.output, { recursive: true });
+  await writeFile(f.output, 'occupied');
+  await assert.rejects(f.gesture('zoom-26612bp'));
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'Profiler.stop').length, 1);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'Profiler.disable').length, 1);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'Tracing.end').length, 1);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'IO.close').length, 1);
+});
+
+test('cleans up a CPU profiler if diagnostic tracing cannot start', async () => {
+  const f = await fixture({ diagnosticOnly: true });
+  const send = f.cdp.send;
+  f.cdp.send = async (method, args) => {
+    if (method === 'Tracing.start') throw new Error('trace setup failed');
+    return send(method, args);
+  };
+  await assert.rejects(f.capture.beginJourney(f), /trace setup failed/);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'Profiler.stop').length, 1);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'Profiler.disable').length, 1);
+  assert.equal(f.cdp.calls.filter((call) => call.method === 'Tracing.end').length, 0);
+  assert.equal(await f.capture.finishJourney(f), undefined);
 });
 
 test('requires an owned active journey and an explicit actual display target', async () => {

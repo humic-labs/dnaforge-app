@@ -117,9 +117,10 @@ merely to make a slow run pass.
 
 For a CI-only failure, rerun the macOS source job with GitHub debug logging.
 `RUNNER_DEBUG=1` or `PILEUP_PERFORMANCE_DIAGNOSTICS=1` enables the existing
-diagnostic capture: first-zoom CPU/native traces, whole-journey request timings
-and Playwright actionability call logs without DOM or network snapshots. The
-preserved artifact includes these captures even when the debug job succeeds.
-Instrumented results are explicitly diagnostic and do not qualify performance;
-retain the original failing run. See
+diagnostic capture: CPU/native traces armed after fixture admission and retained
+through the cold opening and first zoom, whole-journey request timings, current
+background native launch logs, and Playwright actionability call logs without
+DOM or network snapshots. The preserved artifact includes these captures even
+when the debug job succeeds. Instrumented results are explicitly diagnostic and
+do not qualify performance; retain the original failing run. See
 [GitHub debug logging](https://docs.github.com/en/actions/how-tos/monitor-workflows/enable-debug-logging).

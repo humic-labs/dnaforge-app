@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +9,7 @@ import { chromium } from 'playwright';
 import { runPileupPerformanceJourney } from './lib/pileup-performance-journey.mjs';
 import { classifyPileupPerformance } from './lib/pileup-performance.mjs';
 import { createPileupNativeTrace } from './lib/pileup-native-trace.mjs';
+import developmentGuard from './dev-single-instance-guard.cjs';
 
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const envPath = path.join(appDir, '.env.local');
@@ -172,12 +173,14 @@ try {
     const diagnosticErrors = [];
     let diagnosticSession;
     let actionTracingContext;
+    let runtimeApplicationRoot;
     const instrumentation =
       process.env.PILEUP_PERFORMANCE_DIAGNOSTICS === '1' || process.env.RUNNER_DEBUG === '1'
         ? {
             qualification: false,
             cpuSamplingIntervalUs: 1000,
-            tracePhases: ['zoom-26612bp'],
+            tracePhases: ['cold-open-4000bp', 'zoom-26612bp'],
+            traceStartup: 'after-fixture-admission-before-cold-open',
             traceCategories: ['CPU', 'GC', 'GPU', 'compositor'],
             networkScope: 'whole-journey',
             actionabilityScope: 'whole-journey-call-log-only',
@@ -195,6 +198,14 @@ try {
       assert.ok(page, 'The source-started desktop renderer is missing.');
       let nativeTrace;
       if (instrumentation) {
+        if (process.platform === 'darwin') {
+          try {
+            const runtime = await page.evaluate(() => window.electronAPI.runtime.getProvenance());
+            runtimeApplicationRoot = path.resolve(path.dirname(runtime.execPath), '../..');
+          } catch (error) {
+            diagnosticErrors.push({ method: 'native-launch-identity', error: String(error) });
+          }
+        }
         await writeFile(
           path.join(evidenceDirectory, 'instrumentation.json'),
           JSON.stringify(instrumentation, null, 2)
@@ -249,7 +260,7 @@ try {
             diagnosticOnly: true,
           });
           nativeTrace = Object.fromEntries(
-            ['start', 'stop'].map((method) => [
+            ['beginJourney', 'start', 'stop', 'finishJourney'].map((method) => [
               method,
               async (input) => {
                 try {
@@ -306,6 +317,28 @@ try {
             path.join(evidenceDirectory, 'network.json'),
             JSON.stringify(diagnosticEvents, null, 2)
           );
+          if (runtimeApplicationRoot) {
+            try {
+              const native = developmentGuard.currentNativeDiagnostics(
+                startedAt,
+                runtimeApplicationRoot
+              );
+              assert.ok(native, 'The current background launch has no owned native logs.');
+              const directory = path.join(evidenceDirectory, 'native-launch');
+              await mkdir(directory, { recursive: true });
+              await Promise.all([
+                copyFile(native.metadataPath, path.join(directory, 'launch.json')),
+                copyFile(native.stdout, path.join(directory, 'stdout.log')),
+                copyFile(native.stderr, path.join(directory, 'stderr.log')),
+              ]);
+              await writeFile(
+                path.join(directory, 'capture.json'),
+                JSON.stringify(native, null, 2)
+              );
+            } catch (error) {
+              diagnosticErrors.push({ method: 'native-launch-capture', error: String(error) });
+            }
+          }
           await writeFile(
             path.join(evidenceDirectory, 'diagnostic-errors.json'),
             JSON.stringify(diagnosticErrors, null, 2)
