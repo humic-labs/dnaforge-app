@@ -1393,7 +1393,12 @@ export function IndexedGenomeViewer({
       let preparedAny = false;
       let pendingOwnerCount = 0;
       do {
-        const result = renderer.preparePrepackedAnnotationFineViews(range.start, range.end);
+        const result = renderer.preparePrepackedAnnotationFineViews(
+          range.start,
+          range.end,
+          undefined,
+          deadlineMs
+        );
         preparedAny ||= result.preparedOwnerKey !== null;
         pendingOwnerCount = result.pendingOwnerCount;
       } while (pendingOwnerCount > 0 && performance.now() < deadlineMs);
@@ -3515,6 +3520,7 @@ export function IndexedGenomeViewer({
       height={height}
       hasDataTracks={activeStressDatasets.length > 0}
       hasQuantitativeTracks={allTrackLanes.some((lane) => isQuantitativeDataset(lane.dataset))}
+      hasPileupTracks={allTrackLanes.some((lane) => lane.visible && lane.dataset.kind === 'pileup')}
       containerWidth={containerWidth}
       glyphV2Enabled={glyphV2Enabled}
       rendererAssembly={rendererAssembly}

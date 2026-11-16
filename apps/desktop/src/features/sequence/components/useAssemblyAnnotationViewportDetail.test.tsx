@@ -1191,6 +1191,95 @@ describe('assembly annotation viewport detail', () => {
     );
   });
 
+  it('forwards the absolute fine deadline and requeues pending work before admission', async () => {
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const preparePrepackedAnnotationFineViews = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        now = 11;
+        return { status: 'prepared', preparedOwnerKey: null, pendingOwnerCount: 1 };
+      })
+      .mockImplementationOnce(() => fineComplete());
+    const renderer = { ...detailRenderer(), preparePrepackedAnnotationFineViews };
+    const scheduled: Array<(deadlineMs: number) => void> = [];
+    const admission = scheduleViewportDetailRendererAdmissionV1({
+      renderer,
+      loadInput: { metadata: { themeMode: 'dark' } } as never,
+      finePrewarmRange: { startBp: 100, endBp: 200 },
+      handle: {
+        getLinearRenderer: () => renderer,
+        schedulePostPresentWork: (work) => scheduled.push(work),
+      },
+      cancelled: () => false,
+    });
+    try {
+      scheduled.shift()!(5);
+      await Promise.resolve();
+      scheduled.shift()!(10);
+      expect(preparePrepackedAnnotationFineViews).toHaveBeenCalledExactlyOnceWith(
+        100,
+        200,
+        'dark',
+        10
+      );
+      expect(renderer.admitPrepackedAnnotationViewportDetailRoster).not.toHaveBeenCalled();
+      await Promise.resolve();
+      expect(scheduled).toHaveLength(1);
+      scheduled.shift()!(20);
+      await expect(admission).resolves.toBe('admitted');
+      expect(preparePrepackedAnnotationFineViews).toHaveBeenLastCalledWith(100, 200, 'dark', 20);
+      expect(renderer.admitPrepackedAnnotationViewportDetailRoster).toHaveBeenCalledOnce();
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it('completes the legacy timeout fallback with one fine preparation call per timeout', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const clock = vi.spyOn(performance, 'now').mockReturnValue(10);
+    let prepared = 0;
+    const preparePrepackedAnnotationFineViews = vi.fn(
+      (_start: number, _end: number, _theme: string, deadlineMs = Number.POSITIVE_INFINITY) => {
+        if (performance.now() < deadlineMs) prepared += 1;
+        return prepared >= 2
+          ? fineComplete()
+          : { status: 'prepared' as const, preparedOwnerKey: null, pendingOwnerCount: 1 };
+      }
+    );
+    const renderer = { ...detailRenderer(), preparePrepackedAnnotationFineViews };
+    const admission = scheduleViewportDetailRendererAdmissionV1({
+      renderer,
+      loadInput: { metadata: { themeMode: 'light' } } as never,
+      finePrewarmRange: { startBp: 100, endBp: 200 },
+      handle: { getLinearRenderer: () => renderer },
+      cancelled: () => false,
+    });
+    try {
+      await vi.runOnlyPendingTimersAsync();
+      expect(renderer.preparePrepackedAnnotationScene).toHaveBeenCalledOnce();
+      expect(preparePrepackedAnnotationFineViews).not.toHaveBeenCalled();
+      await vi.runOnlyPendingTimersAsync();
+      expect(preparePrepackedAnnotationFineViews).toHaveBeenCalledExactlyOnceWith(
+        100,
+        200,
+        'light',
+        undefined
+      );
+      expect(renderer.admitPrepackedAnnotationViewportDetailRoster).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(1);
+      await vi.runOnlyPendingTimersAsync();
+      await expect(admission).resolves.toBe('admitted');
+      expect(preparePrepackedAnnotationFineViews).toHaveBeenCalledTimes(2);
+      expect(renderer.admitPrepackedAnnotationViewportDetailRoster).toHaveBeenCalledOnce();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+      clock.mockRestore();
+    }
+  });
+
   it('runs each admission slice through the exact registered renderer queue', async () => {
     const renderer = detailRenderer();
     const instanceId = 'viewport-detail-registered-renderer';

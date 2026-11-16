@@ -942,6 +942,62 @@ describe('openAssembly  assembly entity open path)', () => {
     ]);
   });
 
+  it('preserves edits made while a mounted view refresh is awaiting annotation products', async () => {
+    const tabId = await openAssembly(grch38());
+    const initial = tabsOf().find((tab) => tab.id === tabId)!;
+    useCanvasStore.getState().updateTab('main', tabId!, { isDirty: false });
+    const inventory = Promise.withResolvers<{
+      status: 'ready';
+      sourceFingerprint: string;
+      inventoryFingerprint: string;
+      trackTypes: string[];
+    }>();
+    mockReadAssemblyAnnotationProductSetInventory
+      .mockClear()
+      .mockReturnValueOnce(inventory.promise);
+
+    const refreshed = openAssembly(grch38(), {
+      refreshExistingTabOnly: true,
+      viewEntity: { id: initial.entityId, name: initial.label },
+    });
+    await vi.waitFor(() =>
+      expect(mockReadAssemblyAnnotationProductSetInventory).toHaveBeenCalledOnce()
+    );
+    const policy = { isoformMode: 'expanded' as const, laneLimit: 12 };
+    const viewport = { start0: 1_809_290_000, end0: 1_809_316_612 };
+    const dataTrack = { ...UCSC_TRACK, label: 'Changed while loading' };
+    useCanvasStore.getState().updateTab('main', tabId!, {
+      initialAnnotationMapperPolicy: policy,
+      viewState: { indexedViewport: viewport },
+      isDirty: true,
+      indexedGenome: {
+        ...initial.indexedGenome!,
+        dataTracks: [dataTrack],
+        bamTracks: [BAM_TRACK],
+        signalReadPileupViews: [SIGNAL_READ_VIEW],
+      },
+    });
+    inventory.resolve({
+      status: 'ready',
+      sourceFingerprint: 'b'.repeat(24),
+      inventoryFingerprint: 'c'.repeat(64),
+      trackTypes: ['enhancer', 'lnc_RNA', 'mRNA'],
+    });
+
+    expect(await refreshed).toBe(tabId);
+    expect(tabsOf().find((tab) => tab.id === tabId)).toMatchObject({
+      entityId: initial.entityId,
+      initialAnnotationMapperPolicy: policy,
+      viewState: { indexedViewport: viewport },
+      isDirty: true,
+      indexedGenome: {
+        dataTracks: [dataTrack],
+        bamTracks: [BAM_TRACK],
+        signalReadPileupViews: [SIGNAL_READ_VIEW],
+      },
+    });
+  });
+
   it('stores an initial annotation policy atomically on the new full-assembly tab', async () => {
     const tabId = await openAssembly(grch38(), {
       initialAnnotationMapperPolicy: { isoformMode: 'expanded', laneLimit: 12 },

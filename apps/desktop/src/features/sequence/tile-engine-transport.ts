@@ -31,6 +31,7 @@ export function limitConcurrency(
   options: {
     canAbortActive?: (request: Parameters<TileTransport>[0]) => boolean;
     currentReadAlignmentLevel?: () => number | null | undefined;
+    preferCurrentCoverage?: () => boolean;
   } = {}
 ): LimitedTileTransport {
   let active = 0;
@@ -69,12 +70,14 @@ export function limitConcurrency(
             speculativeLimit,
             newerEpochSpeculativeLimit
           ) &&
+          !currentCoreWaitsForPeerSurface(item.req, activeRequests, queue, limit) &&
           !alignmentWaitsForRequiredReads(
             item.req,
             options.currentReadAlignmentLevel?.(),
             activeRequests,
             queue
-          )
+          ),
+        limit > 1 && options.preferCurrentCoverage?.() === true
       );
       if (!next) break;
       next.signal.removeEventListener('abort', next.onAbort);
@@ -189,6 +192,41 @@ type QueuedTileTransportRequest = {
   order: number;
 };
 
+function currentCoreSurface(req: Parameters<TileTransport>[0]): 'coverage' | 'reads' | null {
+  if (req.priority?.purpose !== 'current' || req.priority.core !== true) return null;
+  if (req.kind === 'coverage' || req.kind === 'coverage-assembly') return 'coverage';
+  if (req.kind === 'alignment' && req.level <= maxReadAlignmentLevel()) return 'reads';
+  return null;
+}
+
+function currentCoreWaitsForPeerSurface(
+  req: Parameters<TileTransport>[0],
+  activeRequests: ReadonlyArray<Parameters<TileTransport>[0]>,
+  queue: ReadonlyArray<QueuedTileTransportRequest>,
+  limit: number
+): boolean {
+  if (limit < 2 || activeRequests.length < limit - 1) return false;
+  const surface = currentCoreSurface(req);
+  if (surface === null) return false;
+  const epoch = req.priority?.epoch ?? 0;
+  const isPeer = (candidate: Parameters<TileTransport>[0]): boolean => {
+    const candidateSurface = currentCoreSurface(candidate);
+    return (
+      candidateSurface !== null &&
+      candidateSurface !== surface &&
+      (candidate.priority?.epoch ?? 0) >= epoch
+    );
+  };
+  return (
+    activeRequests.some(
+      (candidate) =>
+        currentCoreSurface(candidate) === surface && (candidate.priority?.epoch ?? 0) >= epoch
+    ) &&
+    !activeRequests.some(isPeer) &&
+    queue.some(({ req: candidate }) => isPeer(candidate))
+  );
+}
+
 function alignmentWaitsForRequiredReads(
   req: Parameters<TileTransport>[0],
   currentLevel: number | null | undefined,
@@ -216,12 +254,16 @@ function alignmentWaitsForRequiredReads(
 
 function takeNextQueuedTile<T extends QueuedTileTransportRequest>(
   queue: T[],
-  canStart: (item: T) => boolean
+  canStart: (item: T) => boolean,
+  preferCurrentCoverage: boolean
 ): T | undefined {
   let bestIndex = -1;
   for (let i = 0; i < queue.length; i++) {
     if (!canStart(queue[i]!)) continue;
-    if (bestIndex < 0 || compareQueuedTileRequest(queue[i]!, queue[bestIndex]!) < 0) {
+    if (
+      bestIndex < 0 ||
+      compareQueuedTileRequest(queue[i]!, queue[bestIndex]!, preferCurrentCoverage) < 0
+    ) {
       bestIndex = i;
     }
   }
@@ -270,10 +312,11 @@ function newerEpochSpeculativeActiveLimit(limit: number): number {
 
 function compareQueuedTileRequest(
   a: QueuedTileTransportRequest,
-  b: QueuedTileTransportRequest
+  b: QueuedTileTransportRequest,
+  preferCurrentCoverage: boolean
 ): number {
-  const aPriority = tileTransportPriority(a.req);
-  const bPriority = tileTransportPriority(b.req);
+  const aPriority = tileTransportPriority(a.req, preferCurrentCoverage);
+  const bPriority = tileTransportPriority(b.req, preferCurrentCoverage);
   return (
     bPriority.epoch - aPriority.epoch ||
     aPriority.coreRank - bPriority.coreRank ||
@@ -284,7 +327,10 @@ function compareQueuedTileRequest(
   );
 }
 
-function tileTransportPriority(req: Parameters<TileTransport>[0]): {
+function tileTransportPriority(
+  req: Parameters<TileTransport>[0],
+  preferCurrentCoverage: boolean
+): {
   routeRank: number;
   purposeRank: number;
   epoch: number;
@@ -298,6 +344,9 @@ function tileTransportPriority(req: Parameters<TileTransport>[0]): {
     coreRank: priority?.core === true ? 0 : 1,
     marginDistanceTiles: priority?.marginDistanceTiles ?? 0,
   };
+  if (preferCurrentCoverage && currentCoreSurface(req) === 'coverage') {
+    return { routeRank: -20_000, ...common };
+  }
   if (req.kind === 'alignment' && priority?.purpose === 'current' && priority.core === true) {
     return { routeRank: -10_000 + req.level, ...common };
   }

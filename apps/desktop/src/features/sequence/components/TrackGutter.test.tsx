@@ -651,6 +651,25 @@ describe('TrackGutter', () => {
     expect(onMoveDataRow).toHaveBeenCalledWith('interval', 'signal', 'before');
   });
 
+  it.each([
+    ['loading', 'Loading', 'bg-slate-400'],
+    ['stalled', 'Waiting for SSH', 'bg-amber-500'],
+  ] as const)('keeps the %s status visible without a separate animation', (tone, label, color) => {
+    render(
+      <TrackGutter
+        rows={[dataRow({ label: 'Signal with status' })]}
+        onToggleVisible={noop}
+        onRemove={noop}
+        dataRowTone={() => tone}
+      />
+    );
+
+    const status = screen.getByLabelText(`Signal with status status: ${label}`);
+    expect(status).toBeVisible();
+    expect(status).toHaveClass(color);
+    expect(status).not.toHaveClass('animate-pulse');
+  });
+
   it('omits the redundant healthy status dot but exposes an exceptional track state', () => {
     const row = dataRow({ label: 'Signal with status' });
     const { rerender } = render(

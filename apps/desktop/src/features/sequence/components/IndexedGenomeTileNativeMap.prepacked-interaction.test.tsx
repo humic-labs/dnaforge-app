@@ -143,7 +143,7 @@ const residentPagePublication: AnnotationResidentPagePublication = {
 };
 
 describe('IndexedGenomeTileNativeMap prepacked interaction', () => {
-  it('enables native cadence and edge coverage only for quantitative tracks', () => {
+  it('uses native read cadence without changing quantitative edge coverage', () => {
     const originalPixelRatio = window.devicePixelRatio;
     Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true });
     try {
@@ -153,6 +153,18 @@ describe('IndexedGenomeTileNativeMap prepacked interaction', () => {
       expect(pixi.options?.antialias).toBe(false);
       expect(pixi.options?.resolution).toBe(1.5);
       expect(pixi.options?.minimumFrameIntervalMs).toBe(13);
+      view.rerender(
+        <IndexedGenomeTileNativeMap
+          genome={genome}
+          themeMode="light"
+          width={1_100}
+          height={800}
+          hasPileupTracks
+        />
+      );
+      expect(pixi.options?.antialias).toBe(false);
+      expect(pixi.options?.resolution).toBe(1.5);
+      expect(pixi.options?.minimumFrameIntervalMs).toBe(0);
       view.rerender(
         <IndexedGenomeTileNativeMap
           genome={genome}

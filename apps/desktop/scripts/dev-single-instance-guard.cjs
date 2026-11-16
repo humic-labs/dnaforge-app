@@ -1600,6 +1600,7 @@ module.exports = {
   applyWorktreeIdentity,
   assertRequestedLaunchTarget,
   assertWorktreeIdentity,
+  currentNativeDiagnostics,
   desktopDebugPort,
   devChildEnv,
   electronViteDevArguments,

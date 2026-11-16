@@ -8,6 +8,7 @@ export type {
   TrackHitResult,
   PixiLinearTrackRenderer,
   TrackCoverageDepthSnapshot,
+  TrackReadPresentationSnapshot,
 } from './types';
 
 export { TrackDataStore } from './track-data-store';

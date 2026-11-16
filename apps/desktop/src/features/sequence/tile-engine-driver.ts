@@ -168,6 +168,11 @@ export interface TileEngineDriverOptions {
     viewRange: { start: number; end: number };
     fullAssemblyInteractionCorridorReady: boolean;
   }) => void;
+  onReadPresentationReuse?: (presentation: {
+    feed: TileEngineFeed;
+    viewRange: { start: number; end: number };
+    requiredReadBandReady: boolean;
+  }) => void;
   onTileError?: (failure: { key: TileKey; reason: string }) => void;
   fetchImpl?: typeof fetch;
   transport?: TileTransport;
@@ -187,6 +192,7 @@ const CACHE_MAX_ENTRIES = 512;
 const CACHE_MAX_BYTES = 192 * 1024 * 1024;
 
 const MAX_CONCURRENT_TILE_FETCHES = 8;
+const MAX_CONCURRENT_HTTP_TILE_FETCHES = 6;
 const EMPTY_REGION_SETTLE_MS = 200;
 const RESIDENT_COVERAGE_SURFACES_PER_LEVEL = 16;
 const EXACT_COVERAGE_TILE_STORE_MAX = 4096;
@@ -392,6 +398,7 @@ type ReadCompositionCacheEntry = {
   level: number;
   records: PileupRecord[];
   alternateColumns: PileupAlternateColumn[];
+  supportRanges: Array<{ globalStart: number; globalEnd: number }>;
   windowStartBp?: number;
   windowEndBp?: number;
   truncated: boolean;
@@ -414,6 +421,7 @@ type CoverageBandMemoEntry = {
 interface ChromSources {
   alignment: TileSource;
   globalStartBp: number;
+  globalEndBp: number;
   chrom: string;
 }
 
@@ -421,6 +429,7 @@ export class TileEngineDriver {
   private readonly assembly: Assembly;
   private readonly opts: TileEngineDriverOptions;
   private readonly transport: ReturnType<typeof limitConcurrency>;
+  private readonly readForegroundCoverageSource: TileSource;
   private readonly cache: TileCache;
   private coordinator: TileCoordinator;
   private readonly assemblyCoverageSource: TileSource;
@@ -438,6 +447,7 @@ export class TileEngineDriver {
   private readCompositionOrder = 0;
   private exactReadDetailEligible = false;
   private lastPublishedReadRevisionKey: string | null = null;
+  private lastPublishedFeed: TileEngineFeed | null = null;
   private lastPublishedOwnerPresentationKind: TileEngineOwnerPresentationKind | null = null;
   private alignmentPresentationGeneration = 0;
   private processedAlignmentPresentationGeneration = 0;
@@ -473,6 +483,7 @@ export class TileEngineDriver {
   private disposed = false;
   private readonly maxReadAlignment = maxReadAlignmentLevel();
   private readonly maxAlternateGuide = maxAlternateGuideLevel();
+  private readonly boundedReadBand: boolean;
   private readonly residentBaseLayer = new Map<string, ResidentCoverageLayer>();
   private residentBaseLayerState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
   private residentBaseLayerVerified = false;
@@ -492,6 +503,7 @@ export class TileEngineDriver {
   constructor(options: TileEngineDriverOptions) {
     this.assembly = options.assembly;
     this.opts = options;
+    this.boundedReadBand = options.source.remote != null || options.transport == null;
     let rawTransport =
       options.transport ??
       httpTileTransport({
@@ -502,11 +514,30 @@ export class TileEngineDriver {
     if (remoteSessionId && options.transport == null) {
       rawTransport = trackRemoteTileSessionTransport(remoteSessionId, rawTransport);
     }
-    this.transport = limitConcurrency(rawTransport, MAX_CONCURRENT_TILE_FETCHES, {
+    const transportLimit =
+      options.transport == null ? MAX_CONCURRENT_HTTP_TILE_FETCHES : MAX_CONCURRENT_TILE_FETCHES;
+    this.transport = limitConcurrency(rawTransport, transportLimit, {
       canAbortActive: (request) =>
-        Boolean(remoteSessionId && options.transport == null && request.kind === 'alignment'),
+        options.transport == null &&
+        options.source.htsget == null &&
+        (request.kind === 'alignment' ||
+          (options.source.remote == null &&
+            (request.kind === 'coverage' || request.kind === 'coverage-assembly'))),
+      preferCurrentCoverage: () => {
+        const view = this.lastViewport;
+        if (!view) return false;
+        const viewportPx = this.lastPresentationViewportPx ?? view.viewportPx;
+        return (
+          pileupExactReadZoomAlpha(viewportPx / Math.max(1, view.globalEnd - view.globalStart)) < 1
+        );
+      },
       currentReadAlignmentLevel:
-        remoteSessionId && options.transport == null ? () => this.coordinator.level : undefined,
+        options.transport == null
+          ? () =>
+              this.lastViewport
+                ? this.readLevelForView(this.lastViewport, this.coordinator.level ?? 0)
+                : null
+          : undefined,
     });
     this.cache = new TileCache({
       maxEntries: CACHE_MAX_ENTRIES,
@@ -526,6 +557,12 @@ export class TileEngineDriver {
         ? 'prepared-pyramid'
         : 'bounded-foreground'
     );
+    this.readForegroundCoverageSource = {
+      id: this.assemblyCoverageSource.id,
+      levelRange: this.assemblyCoverageSource.levelRange,
+      prefetch: { ...this.assemblyCoverageSource.prefetch, wholeGenomeResident: false },
+      fetchTile: (...args) => this.assemblyCoverageSource.fetchTile(...args),
+    };
     this.coordinator = this.buildCoordinator();
     const corridorFloorLoader =
       this.opts.source.htsget || options.source.remote != null
@@ -691,6 +728,8 @@ export class TileEngineDriver {
       assembly: this.assembly,
       sources: this.sources,
       cache: this.cache,
+      levelForSource: (source, view, level) =>
+        source.id.startsWith('aln:') ? this.readLevelForView(view, level) : level,
       onTileReady: (key) => {
         this.rememberExactCoverageTile(key);
         if (key.sourceId.startsWith('aln:')) {
@@ -708,7 +747,7 @@ export class TileEngineDriver {
         this.scheduleFeed();
         if (this.tileOwnsCurrentRecoveryPlan(key)) {
           this.retryRequired = true;
-          this.retryRequiredPlanKey = this.viewportFetchPlanKey(this.lastViewport!, key.level);
+          this.retryRequiredPlanKey = this.viewportFetchPlanKey(this.lastViewport!);
           this.opts.onTileError?.({ key, reason });
         }
       },
@@ -723,19 +762,19 @@ export class TileEngineDriver {
       this.disposed ||
       !view ||
       level == null ||
-      key.level !== level ||
       !this.sources.some((source) => source.id === key.sourceId) ||
       this.cache.peek(key)?.state !== 'error'
     ) {
       return false;
     }
-    const exactReadsOwnViewport =
-      level <= this.maxReadAlignment && this.exactReadPreparationIsEligible(view);
+    const readLevel = this.readLevelForView(view, level);
+    if (key.level !== (key.sourceId.startsWith('aln:') ? readLevel : level)) return false;
+    const exactReadsOwnViewport = this.exactReadPreparationIsEligible(view);
     if (exactReadsOwnViewport) {
       return (
         key.sourceId.startsWith('aln:') &&
-        this.computeReadCompositionBand(view, level).expectedBandTileStarts.has(
-          tileGlobalStart(key.index, key.level)
+        this.computeReadCompositionBand(view, readLevel).expectedBandTileKeys.has(
+          tileKeyString(key)
         )
       );
     }
@@ -750,10 +789,16 @@ export class TileEngineDriver {
     const spanBp = tileSpanBp(level);
     const firstCore = Math.floor(view.globalStart / spanBp);
     const lastCore = Math.floor(Math.max(view.globalStart, view.globalEnd - 1) / spanBp);
+    const readLevel = this.readLevelForView(view, level);
+    const readSpanBp = tileSpanBp(readLevel);
+    const firstReadCore = Math.floor(view.globalStart / readSpanBp);
+    const lastReadCore = Math.floor(Math.max(view.globalStart, view.globalEnd - 1) / readSpanBp);
     return [
       `L${level}`,
       `core:${firstCore}-${lastCore}`,
-      `reads:${this.exactReadPreparationIsEligible(view) ? 1 : 0}`,
+      this.exactReadPreparationIsEligible(view)
+        ? `reads:L${readLevel}:${firstReadCore}-${lastReadCore}`
+        : 'reads:0',
     ].join('|');
   }
 
@@ -776,7 +821,7 @@ export class TileEngineDriver {
         createAlignmentTileSource(
           file,
           baseOpts,
-          this.opts.source.remote == null ? 'local' : 'bounded-network'
+          this.boundedReadBand ? 'bounded-network' : 'local'
         ),
         chrom,
         `:${chrom}`
@@ -784,6 +829,7 @@ export class TileEngineDriver {
       this.chromSources.set(chrom, {
         alignment,
         globalStartBp: segment.globalStart,
+        globalEndBp: segment.placement.globalEndBp,
         chrom,
       });
     }
@@ -806,10 +852,17 @@ export class TileEngineDriver {
         activeAlignmentSources.push(chromSource.alignment);
       }
     }
+    const coverageSource =
+      this.opts.transport == null &&
+      this.opts.source.remote == null &&
+      this.opts.source.htsget == null &&
+      this.exactReadDetailEligible
+        ? this.readForegroundCoverageSource
+        : this.assemblyCoverageSource;
     const activeSources = requestCoverage
       ? targetLevel > this.maxReadAlignment
-        ? [this.assemblyCoverageSource, ...activeAlignmentSources]
-        : [...activeAlignmentSources, this.assemblyCoverageSource]
+        ? [coverageSource, ...activeAlignmentSources]
+        : [...activeAlignmentSources, coverageSource]
       : activeAlignmentSources;
     this.sources.splice(0, this.sources.length, ...activeSources);
   }
@@ -864,7 +917,10 @@ export class TileEngineDriver {
     if (this.disposed) return false;
     const view = this.updatePresentationViewport(range, viewportPx, presentationViewportPx);
     if (!view) return false;
-    return this.recomputeFeed();
+    const presented = this.recomputeFeed();
+    if (!presented || !this.exactReadPreparationIsEligible(view)) return presented;
+    return this.composeReads(view, this.readLevelForView(view, this.coordinator.level ?? 0))
+      .coversViewport;
   }
 
   canPresentViewportFromTargetGrid(
@@ -923,6 +979,12 @@ export class TileEngineDriver {
     );
   }
 
+  private readLevelForView(view: Viewport, coverageLevel: number): number {
+    return this.exactReadPreparationIsEligible(view)
+      ? Math.min(coverageLevel, this.maxReadAlignment)
+      : coverageLevel;
+  }
+
   private commitViewportFetch(view: Viewport): void {
     if (this.disposed) return;
     const steps = this.convergenceSteps(view);
@@ -948,8 +1010,14 @@ export class TileEngineDriver {
   }
 
   private coverageRetentionPins(view: Viewport): TileKey[] {
-    const currentLevel = this.coordinator.level;
-    if (currentLevel == null) return [];
+    const previousLevel = this.coordinator.level;
+    if (previousLevel == null) return [];
+    const deferBroadCoverage =
+      this.opts.transport == null &&
+      this.opts.source.remote == null &&
+      this.opts.source.htsget == null &&
+      this.exactReadPreparationIsEligible(view);
+    const currentLevel = deferBroadCoverage ? this.convergedLevelForView(view) : previousLevel;
     const maxLevel = maxLevelForAssembly(this.assembly);
     const minBroadRetainedLevel = Math.max(0, maxLevel - BROAD_COVERAGE_RETAIN_LEVELS + 1);
     const minRetainedLevel = Math.max(0, currentLevel - 3);
@@ -994,6 +1062,7 @@ export class TileEngineDriver {
 
       if (inBroadOverviewBand) {
         if (entry.state === 'pending') {
+          if (deferBroadCoverage && !inCurrentBand && !inHandoff) continue;
           if (criticalHandoffLevels.size > 0 && entry.key.level !== maxLevel - 1) continue;
           promotePendingCoveragePriority(entry, this.coordinator.epoch + 1);
         }
@@ -1017,38 +1086,20 @@ export class TileEngineDriver {
     if (!this.exactReadPreparationIsEligible(view)) {
       return [];
     }
-    const currentLevel = this.coordinator.level;
-    if (currentLevel == null) return [];
-    const handoffActive =
-      currentLevel > this.maxReadAlignment &&
-      this.sources.some(
-        (source) =>
-          source.id.startsWith('aln:') &&
-          source.prefetch?.criticalFinerLevel != null &&
-          currentLevel > source.prefetch.criticalFinerLevel &&
-          currentLevel <=
-            (source.prefetch.criticalFinerMaxCurrentLevel ?? maxLevelForAssembly(this.assembly))
-      );
-    if (currentLevel > this.maxReadAlignment && !handoffActive) return [];
+    const coverageLevel = this.coordinator.level;
+    if (coverageLevel == null) return [];
+    const currentLevel = this.readLevelForView(view, coverageLevel);
     const span = Math.max(1, view.globalEnd - view.globalStart);
-    const haloBp = handoffActive
-      ? FINE_ALIGNMENT_RETAIN_MIN_BP
-      : Math.max(FINE_ALIGNMENT_RETAIN_MIN_BP, span * FINE_ALIGNMENT_RETAIN_VIEWPORTS);
-    const center = (view.globalStart + view.globalEnd) / 2;
-    const retainStart = Math.max(0, handoffActive ? center - haloBp : view.globalStart - haloBp);
-    const retainEnd = Math.min(
-      this.assembly.totalLengthBp,
-      handoffActive ? center + haloBp : view.globalEnd + haloBp
-    );
-    const minLevel = handoffActive
-      ? Math.max(0, this.maxReadAlignment - 1)
-      : Math.max(0, currentLevel - 2);
+    const haloBp = Math.max(FINE_ALIGNMENT_RETAIN_MIN_BP, span * FINE_ALIGNMENT_RETAIN_VIEWPORTS);
+    const retainStart = Math.max(0, view.globalStart - haloBp);
+    const retainEnd = Math.min(this.assembly.totalLengthBp, view.globalEnd + haloBp);
+    const minLevel = Math.max(0, currentLevel - 2);
     const maxLevel = Math.min(this.maxReadAlignment, currentLevel + 2);
     const pins: TileKey[] = [];
 
     for (const entry of this.cache.entries()) {
       if (entry.state !== 'pending' && entry.state !== 'ready') continue;
-      if (entry.state === 'pending' && this.opts.source.remote != null) continue;
+      if (entry.state === 'pending') continue;
       if (!entry.key.sourceId.startsWith('aln:')) continue;
       if (entry.key.level < minLevel || entry.key.level > maxLevel) continue;
       const tileStart = tileGlobalStart(entry.key.index, entry.key.level);
@@ -1063,8 +1114,7 @@ export class TileEngineDriver {
     if (!this.exactReadPreparationIsEligible(view)) {
       return [];
     }
-    const targetLevel = this.convergedLevelForView(view);
-    if (targetLevel > this.maxReadAlignment) return [];
+    const targetLevel = this.readLevelForView(view, this.convergedLevelForView(view));
     const pins: TileKey[] = [];
     for (const source of this.sources) {
       if (!source.id.startsWith('aln:')) continue;
@@ -1214,10 +1264,16 @@ export class TileEngineDriver {
     );
   }
 
+  private publishFeed(feed: TileEngineFeed): void {
+    this.lastPublishedFeed = feed;
+    this.opts.onFeed(feed);
+  }
+
   private recomputeFeed(publishMemoHit = true): boolean {
     const view = this.lastViewport;
     if (!view) return false;
     const level = this.coordinator.level ?? 0;
+    const readLevel = this.readLevelForView(view, level);
     const histogramCoverageBandEligible = this.histogramCoverageBandEligible(view);
     const fullAssemblyInteractionCorridorReady = this.fullAssemblyInteractionCorridorReady(
       view.viewportPx
@@ -1254,9 +1310,8 @@ export class TileEngineDriver {
       revisionKey: readRevisionKey,
       coversViewport: readsCoverViewport,
       stableBandReady,
-    } = this.composeReads(view, level);
-    const exactReadOwner =
-      level <= this.maxReadAlignment && this.exactReadPreparationIsEligible(view);
+    } = this.composeReads(view, readLevel);
+    const exactReadOwner = this.exactReadPreparationIsEligible(view);
     const visibleReadRecordCount = records.reduce(
       (count, record) =>
         count + (record.end > view.globalStart && record.start < view.globalEnd ? 1 : 0),
@@ -1269,7 +1324,9 @@ export class TileEngineDriver {
       this.cancelEmptyRegionSettlement?.();
       this.cancelEmptyRegionSettlement = null;
     }
-    const referenceIntervals = exactReadOwner ? this.referenceIntervalsForView(view, level) : [];
+    const referenceIntervals = exactReadOwner
+      ? this.referenceIntervalsForView(view, readLevel)
+      : [];
     const referenceIntervalSignature = referenceIntervals
       .map((interval) => `${interval.state}:${interval.startBp}:${interval.endBp}`)
       .join('|');
@@ -1315,7 +1372,7 @@ export class TileEngineDriver {
       stableBandReady,
       readsTruncated,
       readsCoverViewport,
-      viewportPx: view.viewportPx,
+      viewportPx: this.lastPresentationViewportPx ?? view.viewportPx,
       viewSpanBp,
     });
     const coverageSemanticKey = this.coverageSemanticKey(
@@ -1337,6 +1394,27 @@ export class TileEngineDriver {
       })
     ) {
       this.coverageMemoHitCount += 1;
+      const published = this.lastPublishedFeed;
+      if (
+        exactReadOwner &&
+        readsCoverViewport &&
+        !readsTruncated &&
+        (exactReadOwnerPresentationKind === 'reads' ||
+          exactReadOwnerPresentationKind === 'empty') &&
+        published?.ownerPresentation?.kind === exactReadOwnerPresentationKind &&
+        published.readSource &&
+        !published.readSource.truncated &&
+        typeof published.readSource.windowStartBp === 'number' &&
+        typeof published.readSource.windowEndBp === 'number' &&
+        published.readSource.windowStartBp <= view.globalStart &&
+        published.readSource.windowEndBp >= view.globalEnd
+      ) {
+        this.opts.onReadPresentationReuse?.({
+          feed: published,
+          viewRange: { start: view.globalStart, end: view.globalEnd },
+          requiredReadBandReady: stableBandReady,
+        });
+      }
       return publishMemoHit;
     }
     const { finest, coverageMaxDepthMs } = this.materializeCoverageForViewport({
@@ -1393,7 +1471,7 @@ export class TileEngineDriver {
       composedCoverage,
       corridorAtlas
     );
-    this.opts.onFeed({
+    this.publishFeed({
       ...(composedCoverage ? { coverage: composedCoverage } : {}),
       ...(corridorAtlas ? { coverageGpuAtlas: corridorAtlas } : {}),
       ...(corridorAtlasPresentation
@@ -1572,8 +1650,7 @@ export class TileEngineDriver {
   }
 
   private histogramCoverageBandEligible(view: Viewport): boolean {
-    const level = this.coordinator.level ?? this.convergedLevelForView(view);
-    return level > this.maxReadAlignment || !this.exactReadPreparationIsEligible(view);
+    return !this.exactReadPreparationIsEligible(view);
   }
 
   private corridorAtlasPresentationForFeed(
@@ -1648,7 +1725,7 @@ export class TileEngineDriver {
       });
       return true;
     }
-    this.opts.onFeed({
+    this.publishFeed({
       coverageGpuAtlas: args.corridorAtlas,
       coverageGpuAtlasPresentation: presentation,
       viewRange: { start: args.view.globalStart, end: args.view.globalEnd },
@@ -2524,29 +2601,19 @@ export class TileEngineDriver {
   ): NonNullable<TileEngineFeed['referenceIntervals']> {
     const span = tileSpanBp(level);
     if (!(span > 0) || !(view.globalEnd > view.globalStart)) return [];
-    const firstTile = Math.max(0, Math.floor(view.globalStart / span));
-    const lastTile = Math.ceil(view.globalEnd / span);
-    const alignmentSources = this.sources.filter((source) => source.id.startsWith('aln:'));
-    if (alignmentSources.length === 0) return [];
     const slices: Array<{ start: number; end: number; state: 'pending' | 'empty' | 'data' }> = [];
-    for (let index = firstTile; index < lastTile; index += 1) {
-      const tileStart = index * span;
-      const tileEnd = tileStart + span;
-      if (tileEnd <= view.globalStart || tileStart >= view.globalEnd) continue;
-      let sawData = false;
-      let sawEmpty = false;
-      let sawPending = false;
-      for (const source of alignmentSources) {
-        const entry = this.cache.peek({ sourceId: source.id, level, index });
-        if (!entry || entry.state === 'pending' || entry.state === 'error') {
-          sawPending = true;
-          continue;
-        }
-        if ((entry.data?.count ?? 0) > 0) sawData = true;
-        else sawEmpty = true;
+    for (const segment of globalRangeToSegments(this.assembly, view.globalStart, view.globalEnd)) {
+      const source = this.chromSources.get(segment.chrom)?.alignment;
+      const firstTile = Math.max(0, Math.floor((segment.globalStart + segment.localStart) / span));
+      const lastTile = Math.ceil((segment.globalStart + segment.localEnd) / span);
+      for (let index = firstTile; index < lastTile; index += 1) {
+        const tileStart = Math.max(index * span, segment.placement.globalStartBp);
+        const tileEnd = Math.min((index + 1) * span, segment.placement.globalEndBp);
+        const entry = source ? this.cache.peek({ sourceId: source.id, level, index }) : undefined;
+        const state =
+          entry?.state === 'ready' ? ((entry.data?.count ?? 0) > 0 ? 'data' : 'empty') : 'pending';
+        slices.push({ start: tileStart, end: tileEnd, state });
       }
-      const state = sawData ? 'data' : sawPending ? 'pending' : sawEmpty ? 'empty' : 'pending';
-      slices.push({ start: tileStart, end: tileEnd, state });
     }
     const merged: typeof slices = [];
     for (const slice of slices) {
@@ -2607,14 +2674,14 @@ export class TileEngineDriver {
     alignmentTileSpanBp: number;
     compositionStartBp: number;
     compositionEndBp: number;
-    expectedBandTileStarts: Set<number>;
+    expectedBandTileKeys: Set<string>;
     expectedBandTileCount: number;
   } {
     const alignmentTileSpanBp = tileSpanBp(level);
     const firstVisibleTile = Math.floor(view.globalStart / alignmentTileSpanBp);
     const lastVisibleTileExclusive = Math.ceil(view.globalEnd / alignmentTileSpanBp);
     const visibleTileCount = Math.max(1, lastVisibleTileExclusive - firstVisibleTile);
-    const boundedNetwork = this.opts.source.remote != null;
+    const boundedNetwork = this.boundedReadBand;
     const boundedNetworkMarginTiles = Math.max(
       0,
       Math.floor(
@@ -2656,7 +2723,7 @@ export class TileEngineDriver {
       this.assembly.totalLengthBp,
       lastBandTileExclusive * alignmentTileSpanBp
     );
-    const expectedBandTileStarts = new Set<number>();
+    const expectedBandTileKeys = new Set<string>();
     for (const placement of this.assembly.chromosomes) {
       if (placement.globalEndBp <= view.globalStart || placement.globalStartBp >= view.globalEnd) {
         continue;
@@ -2665,16 +2732,19 @@ export class TileEngineDriver {
       const placementEnd = Math.min(compositionEndBp, placement.globalEndBp);
       const firstTile = Math.floor(placementStart / alignmentTileSpanBp);
       const lastTileExclusive = Math.ceil(placementEnd / alignmentTileSpanBp);
+      const sourceId =
+        this.chromSources.get(placement.chromosome.id)?.alignment.id ??
+        `aln:${this.opts.source.bamPath}:${placement.chromosome.id}`;
       for (let index = firstTile; index < lastTileExclusive; index += 1) {
-        expectedBandTileStarts.add(index * alignmentTileSpanBp);
+        expectedBandTileKeys.add(tileKeyString({ sourceId, level, index }));
       }
     }
     return {
       alignmentTileSpanBp,
       compositionStartBp,
       compositionEndBp,
-      expectedBandTileStarts,
-      expectedBandTileCount: Math.max(1, expectedBandTileStarts.size),
+      expectedBandTileKeys,
+      expectedBandTileCount: Math.max(1, expectedBandTileKeys.size),
     };
   }
 
@@ -2683,15 +2753,15 @@ export class TileEngineDriver {
     guidesOnly: boolean;
     compositionStartBp: number;
     compositionEndBp: number;
-    expectedBandTileStarts: Set<number>;
+    expectedBandTileKeys: Set<string>;
   }): {
     tiles: SelectedReadTile[];
-    readyBandTileStarts: Set<number>;
+    readyBandTileKeys: Set<string>;
     windowStartBp: number | undefined;
     windowEndBp: number | undefined;
   } {
     const tiles: SelectedReadTile[] = [];
-    const readyBandTileStarts = new Set<number>();
+    const readyBandTileKeys = new Set<string>();
     let windowStartBp: number | undefined;
     let windowEndBp: number | undefined;
     for (const entry of this.cache.entries()) {
@@ -2706,10 +2776,15 @@ export class TileEngineDriver {
       const chrom = chromFromSourceId(sourceId);
       const chromSrc = chrom ? this.chromSources.get(chrom) : undefined;
       if (!chromSrc) continue;
-      const gStart = tileGlobalStart(entry.key.index, args.viewLevel);
-      const gEnd = tileGlobalEnd(entry.key.index, args.viewLevel);
-      if (gEnd <= args.compositionStartBp || gStart >= args.compositionEndBp) continue;
-      if (args.expectedBandTileStarts.has(gStart)) readyBandTileStarts.add(gStart);
+      const gStart = Math.max(
+        tileGlobalStart(entry.key.index, args.viewLevel),
+        chromSrc.globalStartBp
+      );
+      const gEnd = Math.min(tileGlobalEnd(entry.key.index, args.viewLevel), chromSrc.globalEndBp);
+      if (gEnd <= gStart || gEnd <= args.compositionStartBp || gStart >= args.compositionEndBp)
+        continue;
+      const tileIdentity = tileKeyString(entry.key);
+      if (args.expectedBandTileKeys.has(tileIdentity)) readyBandTileKeys.add(tileIdentity);
       const payloadRevision = this.alignmentPayloadRevision(payload);
       const tileRecordsKey = `${sourceId}:${entry.key.level}:${entry.key.index}:g${payloadRevision}`;
       windowStartBp = windowStartBp == null ? gStart : Math.min(windowStartBp, gStart);
@@ -2731,7 +2806,7 @@ export class TileEngineDriver {
         alternateColumns: projection.alternateColumns,
       });
     }
-    return { tiles, readyBandTileStarts, windowStartBp, windowEndBp };
+    return { tiles, readyBandTileKeys, windowStartBp, windowEndBp };
   }
 
   private selectCoveringResidentReadComposition(
@@ -2746,7 +2821,8 @@ export class TileEngineDriver {
         resident.windowStartBp == null ||
         resident.windowEndBp == null ||
         resident.windowStartBp > view.globalStart ||
-        resident.windowEndBp < view.globalEnd
+        resident.windowEndBp < view.globalEnd ||
+        !rangesCoverViewport(resident.supportRanges, view)
       ) {
         continue;
       }
@@ -2781,17 +2857,17 @@ export class TileEngineDriver {
       return this.emptyComposeReadsResult(level);
     }
     const guidesOnly = level > this.maxReadAlignment || !this.exactReadPreparationIsEligible(view);
-    const { compositionStartBp, compositionEndBp, expectedBandTileStarts, expectedBandTileCount } =
+    const { compositionStartBp, compositionEndBp, expectedBandTileKeys, expectedBandTileCount } =
       this.computeReadCompositionBand(view, level);
     const collected = this.collectReadyReadTilesFromCache({
       viewLevel: level,
       guidesOnly,
       compositionStartBp,
       compositionEndBp,
-      expectedBandTileStarts,
+      expectedBandTileKeys,
     });
     let tiles = collected.tiles;
-    const readyBandTileStarts = collected.readyBandTileStarts;
+    const readyBandTileKeys = collected.readyBandTileKeys;
     let windowStartBp = collected.windowStartBp;
     let windowEndBp = collected.windowEndBp;
     if (tiles.length === 0) {
@@ -2811,8 +2887,8 @@ export class TileEngineDriver {
       windowStartBp = tiles[0]!.tileStartBp;
       windowEndBp = tiles.reduce((end, tile) => Math.max(end, tile.tileEndBp), tiles[0]!.tileEndBp);
     }
-    const fullBandReady = [...expectedBandTileStarts].every((tileStart) =>
-      readyBandTileStarts.has(tileStart)
+    const fullBandReady = [...expectedBandTileKeys].every((tileIdentity) =>
+      readyBandTileKeys.has(tileIdentity)
     );
     if (!guidesOnly && !fullBandReady) {
       const coveringResident = this.selectCoveringResidentReadComposition(
@@ -2826,15 +2902,16 @@ export class TileEngineDriver {
           ...coveringResident,
           coversViewport: true,
           stableBandReady: false,
-          readyBandTileCount: readyBandTileStarts.size,
+          readyBandTileCount: readyBandTileKeys.size,
           expectedBandTileCount,
         };
       }
     }
-    const coversViewport = rangesCoverViewport(
-      tiles.map((tile) => ({ globalStart: tile.tileStartBp, globalEnd: tile.tileEndBp })),
-      view
-    );
+    const supportRanges = tiles.map((tile) => ({
+      globalStart: tile.tileStartBp,
+      globalEnd: tile.tileEndBp,
+    }));
+    const coversViewport = rangesCoverViewport(supportRanges, view);
     const cacheKey = tiles.map((tile) => tile.cacheKey).join('|');
     const cached = this.readCompositionCache.get(cacheKey);
     if (cached) {
@@ -2843,7 +2920,7 @@ export class TileEngineDriver {
         ...cached,
         coversViewport,
         stableBandReady: fullBandReady,
-        readyBandTileCount: readyBandTileStarts.size,
+        readyBandTileCount: readyBandTileKeys.size,
         expectedBandTileCount,
       };
     }
@@ -2862,6 +2939,7 @@ export class TileEngineDriver {
       level,
       records: subsampleUniform(records, READS_DISPLAY_MAX_RECORDS),
       alternateColumns,
+      supportRanges,
       windowStartBp,
       windowEndBp,
       truncated: truncated || records.length > READS_DISPLAY_MAX_RECORDS,
@@ -2874,7 +2952,7 @@ export class TileEngineDriver {
       ...composed,
       coversViewport,
       stableBandReady: fullBandReady,
-      readyBandTileCount: readyBandTileStarts.size,
+      readyBandTileCount: readyBandTileKeys.size,
       expectedBandTileCount,
     };
   }
@@ -3160,7 +3238,10 @@ export class TileEngineDriver {
       readComposition:
         level == null || compositionView == null
           ? null
-          : this.describeReadComposition(compositionView, level),
+          : this.describeReadComposition(
+              compositionView,
+              this.readLevelForView(compositionView, level)
+            ),
     };
   }
 
@@ -3187,8 +3268,15 @@ export class TileEngineDriver {
         else if (entry.state === 'error') errorLevels.push(entry.key.level);
         continue;
       }
-      const globalStart = tileGlobalStart(entry.key.index, level);
-      const globalEnd = tileGlobalEnd(entry.key.index, level);
+      const chrom = chromFromSourceId(entry.key.sourceId);
+      const chromSource = chrom ? this.chromSources.get(chrom) : undefined;
+      if (!chromSource) continue;
+      const globalStart = Math.max(
+        tileGlobalStart(entry.key.index, level),
+        chromSource.globalStartBp
+      );
+      const globalEnd = Math.min(tileGlobalEnd(entry.key.index, level), chromSource.globalEndBp);
+      if (globalEnd <= globalStart) continue;
       if (globalEnd <= view.globalStart || globalStart >= view.globalEnd) continue;
       const payload = entry.data?.payload as AlignmentTilePayload | undefined;
       const reads = payload?.reads;
@@ -3197,7 +3285,6 @@ export class TileEngineDriver {
         ? payload.alternateColumns.length
         : null;
       const payloadCount = typeof payload?.count === 'number' ? payload.count : null;
-      const chrom = chromFromSourceId(entry.key.sourceId);
       visibleTiles.push({
         level: entry.key.level,
         index: entry.key.index,
@@ -3389,6 +3476,7 @@ export class TileEngineDriver {
     this.residentCoverageByLevel.clear();
     this.exactCoverageTiles.clear();
     this.readCompositionCache.clear();
+    this.lastPublishedFeed = null;
     this.sources.length = 0;
   }
 }

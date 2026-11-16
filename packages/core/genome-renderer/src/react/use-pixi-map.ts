@@ -1119,6 +1119,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
         try {
           await ptimeAsync('pixi.app.init', () =>
             pixiApp.init({
+              preference: ['webgl'],
               width: initWidth,
               height: initHeight,
               backgroundColor: webglThemeForMode(stateRef.current.themeMode).background,

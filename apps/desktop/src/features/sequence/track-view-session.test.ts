@@ -34,6 +34,30 @@ beforeEach(() => {
 });
 afterEach(() => useCanvasStore.getState().closeAllTabs());
 describe('Track view command settlement', () => {
+  it('preserves canonical unsaved changes while restored metadata cannot be captured', () => {
+    const { owner, document, tabId } = open();
+    const token = Symbol();
+    const capture = vi.fn(() => document);
+    owner.attachSource(token, {
+      referenceName: 'Reference',
+      readyForDirtyCheck: false,
+      capture,
+    });
+    useCanvasStore.getState().updateTab('main', tabId, { isDirty: true });
+
+    expect(documentLifecycle.dirty({ kind: 'tab', tabId }, tabId)).toBe(true);
+    expect(capture).not.toHaveBeenCalled();
+    expect(useCanvasStore.getState().panels.main.tabs[0].isDirty).toBe(true);
+
+    owner.attachSource(token, {
+      referenceName: 'Reference',
+      readyForDirtyCheck: true,
+      capture,
+    });
+
+    expect(documentLifecycle.dirty({ kind: 'tab', tabId }, tabId)).toBe(false);
+    expect(capture).toHaveBeenCalled();
+  });
   it('does not reopen a copy after its source tab closes during native writing', async () => {
     const { owner, document, tabId } = open();
     owner.attachSource(Symbol(), {

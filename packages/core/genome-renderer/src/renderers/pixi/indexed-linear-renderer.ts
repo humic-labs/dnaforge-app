@@ -231,12 +231,14 @@ export class IndexedPixiLinearRenderer extends PixiLinearRenderer {
   preparePrepackedAnnotationFineViews(
     viewportStartBp: number,
     viewportEndBp: number,
-    themeMode = this.getState?.().themeMode ?? 'light'
+    themeMode = this.getState?.().themeMode ?? 'light',
+    deadlineMs = Number.POSITIVE_INFINITY
   ): PrepackedAnnotationFinePreparationResult {
     return this.indexedOverlay.preparePrepackedAnnotationFineViews(
       viewportStartBp,
       viewportEndBp,
-      themeMode
+      themeMode,
+      deadlineMs
     );
   }
 

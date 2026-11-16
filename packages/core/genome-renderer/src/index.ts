@@ -705,6 +705,7 @@ export type {
   TrackHoverArgs,
   TrackHitResult,
   PixiLinearTrackRenderer,
+  TrackReadPresentationSnapshot,
 } from './renderers/pixi/linear-tracks';
 
 export { PixiCytobandTrackRenderer } from './renderers/pixi/linear-tracks';

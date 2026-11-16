@@ -391,9 +391,13 @@ function mountOpenAssemblyTab(args: {
   for (const [panelId, panel] of Object.entries(useCanvasStore.getState().panels)) {
     const currentTab = panel.tabs.find((candidate) => candidate.id === tabId);
     if (currentTab) {
+      const annotationPolicy =
+        args.options.refreshExistingTabOnly && !args.options.restoreView
+          ? (currentTab.initialAnnotationMapperPolicy ?? args.initialAnnotationMapperPolicy)
+          : args.initialAnnotationMapperPolicy;
       const updates: import('../canvas/types').TabUpdates = {
         loadStatus: 'indexed-pending',
-        initialAnnotationMapperPolicy: { ...args.initialAnnotationMapperPolicy },
+        initialAnnotationMapperPolicy: { ...annotationPolicy },
         indexedGenome: args.indexedGenome,
         ...(!args.options.viewEntity && !args.options.refreshExistingTabOnly
           ? { isDirty: true }
