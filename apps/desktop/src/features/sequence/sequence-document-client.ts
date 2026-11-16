@@ -23,6 +23,7 @@ import {
 import { useToastStore } from '../../stores/toast-store';
 import { setSequenceClientPort, isReadOnlySequencePreview } from './sequence-client-port';
 import { canonicalJson } from '../../shared/canonical-json';
+import { WORKSPACE_RECONCILED_EVENT } from '../../services/workspace-reconciled-event';
 
 function captureJson(value: unknown): string {
   return canonicalJson(JSON.parse(JSON.stringify(value)));
@@ -45,6 +46,7 @@ interface Client {
   error?: Error;
   offeredRecovery?: string;
   projected?: boolean;
+  refreshRequested?: boolean;
 }
 let bridge: SequenceDocumentClientBridge | undefined;
 export function getNativeSequenceDocumentClient(): SequenceDocumentClientBridge | undefined {
@@ -57,8 +59,12 @@ export function installNativeSequenceDocumentClient(model: StoreApi<SequenceStor
   const detachPort = setSequenceClientPort(current);
   const detach = platform().fs.subscribeSequenceDocuments((snapshot) => current.observe(snapshot));
   const detachFlush = registerNativeDocumentClientFlush((purpose) => current.flush(purpose));
+  const refresh = () => current.refreshAvailableDocuments();
+  window.addEventListener(WORKSPACE_RECONCILED_EVENT, refresh);
   current.refreshAvailableDocuments();
   return () => {
+    window.removeEventListener(WORKSPACE_RECONCILED_EVENT, refresh);
+    current.command({ method: 'clearAll', args: [] });
     detach();
     detachFlush();
     detachPort();
@@ -78,9 +84,15 @@ export class SequenceDocumentClientBridge {
   private readonly saves = new Map<string, Promise<SequenceDocumentSnapshot>>();
   constructor(private readonly model: StoreApi<SequenceStore>) {}
   refreshAvailableDocuments(): void {
-    for (const [id, sequence] of Object.entries(this.model.getState().sequences))
-      if (!this.clients.get(id)?.projected)
-        this.command({ method: 'setSequence', args: [id, sequence] });
+    for (const [id, sequence] of Object.entries(this.model.getState().sequences)) {
+      const client = this.clients.get(id);
+      if (client?.projected) continue;
+      if (client?.loading) {
+        client.refreshRequested = true;
+        continue;
+      }
+      this.command({ method: 'setSequence', args: [id, sequence] });
+    }
   }
   owns(documentId: string): boolean {
     return this.clients.get(documentId)?.attached === true;
@@ -555,14 +567,31 @@ export class SequenceDocumentClientBridge {
       if (automatic && (await this.scopeIsUnavailable(client.documentId))) return;
       throw error;
     });
-    client.loading = run;
-    return run.finally(() => {
-      if (client.loading === run) {
-        client.loading = undefined;
-        this.model.getState().setLoading(client.documentId, client.explicitPending > 0);
-        if (loaded && !client.pending && client.snapshot) this.accept(client);
-      }
-    });
+    let completed = false;
+    const loading: Promise<void> = run
+      .then(() => {
+        completed = true;
+      })
+      .finally(() => {
+        if (client.loading === loading) {
+          client.loading = undefined;
+          this.model.getState().setLoading(client.documentId, client.explicitPending > 0);
+          if (loaded && !client.pending && client.snapshot) this.accept(client);
+          const refreshRequested = client.refreshRequested;
+          client.refreshRequested = false;
+          if (
+            refreshRequested &&
+            completed &&
+            client.attached &&
+            !client.projected &&
+            !client.error &&
+            this.model.getState().sequences[client.documentId]
+          )
+            return this.load(client, true);
+        }
+      });
+    client.loading = loading;
+    return loading;
   }
   private enqueue(
     client: Client,

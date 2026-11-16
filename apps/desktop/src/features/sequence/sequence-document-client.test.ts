@@ -165,6 +165,53 @@ async function fixture(
 }
 
 describe('sequence UI input client of native owner', () => {
+  it('coalesces a reconciliation refresh behind an in-flight unavailable scope check', async () => {
+    const f = await fixture();
+    const check = deferred();
+    port.available.mockImplementationOnce(async () => {
+      await check.promise;
+      return false;
+    });
+    f.model.getState().setSequence(f.id, f.initial);
+    await vi.waitFor(() => expect(port.available).toHaveBeenCalledOnce());
+    f.bridge.refreshAvailableDocuments();
+    f.bridge.refreshAvailableDocuments();
+    check.resolve();
+    await f.bridge.flush();
+    expect(f.bridge.isInputPending(f.id)).toBe(false);
+    expect(() => f.bridge.assertInput(f.id)).not.toThrow();
+    expect(port.available).toHaveBeenCalledTimes(2);
+    expect(port.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: f.id,
+        operation: expect.objectContaining({ kind: 'inspect' }),
+      })
+    );
+    expect(f.writes).not.toHaveBeenCalled();
+    await f.owner.close();
+  });
+
+  it('does not reattach a cleared document when a queued reconciliation refresh settles', async () => {
+    const f = await fixture();
+    const check = deferred();
+    port.available.mockImplementationOnce(async () => {
+      await check.promise;
+      return false;
+    });
+    f.model.getState().setSequence(f.id, f.initial);
+    await vi.waitFor(() => expect(port.available).toHaveBeenCalledOnce());
+    f.bridge.refreshAvailableDocuments();
+    f.model.getState().clearSequence(f.id);
+    check.resolve();
+    await f.bridge.flush();
+    expect(f.bridge.owns(f.id)).toBe(false);
+    expect(f.model.getState().sequences[f.id]).toBeUndefined();
+    expect(port.available).toHaveBeenCalledOnce();
+    expect(port.execute).not.toHaveBeenCalled();
+    expect(f.writes).not.toHaveBeenCalled();
+    await f.owner.close();
+  });
+
   it('does not admit an unknown Track View discard or poison the loaded plasmid client', async () => {
     const f = await fixture();
     f.model.getState().setSequence(f.id, f.initial);
