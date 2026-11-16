@@ -15,8 +15,10 @@ assert.ok(['transitions', 'restored'].includes(values.phase));
 const out = resolve(values.out);
 const stage = join(out, values.phase);
 mkdirSync(join(stage, 'frames'), { recursive: true });
-const appDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const root = resolve(appDir, '../..');
+const root = resolve(
+  process.env.DNAFORGE_VERIFY_ROOT ?? resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+);
+const appDir = join(root, 'apps/desktop');
 const receipt = {
   phase: values.phase,
   sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),

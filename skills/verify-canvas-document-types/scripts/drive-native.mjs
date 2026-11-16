@@ -12,7 +12,9 @@ const { values } = parseArgs({ options: { out: { type: 'string' } } });
 assert.ok(values.out && isAbsolute(values.out), 'Use --out with an absolute evidence directory');
 const out = values.out;
 mkdirSync(join(out, 'frames'), { recursive: true });
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const root = resolve(
+  process.env.DNAFORGE_VERIFY_ROOT ?? resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+);
 const appDir = join(root, 'apps/desktop');
 const receipt = {
   sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),

@@ -9,7 +9,9 @@ import { chromium } from 'playwright';
 import { expect } from '@playwright/test';
 const { values } = parseArgs({ options: { out: { type: 'string' } } });
 assert.ok(values.out, 'Provide --out /absolute/external/evidence');
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const root = resolve(
+  process.env.DNAFORGE_VERIFY_ROOT ?? resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+);
 const out = resolve(values.out);
 assert.ok(!out.startsWith(root + '/'));
 mkdirSync(out, { recursive: false });

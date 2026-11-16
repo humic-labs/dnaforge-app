@@ -6,7 +6,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const root = path.resolve(
+  process.env.DNAFORGE_VERIFY_ROOT ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
+);
 const sourceFiles = execFileSync('git', ['ls-files', '-co', '--exclude-standard', '-z'], {
   cwd: root,
   encoding: 'utf8',
