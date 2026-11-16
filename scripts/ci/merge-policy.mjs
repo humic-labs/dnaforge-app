@@ -3,8 +3,7 @@ import { readFileSync } from 'node:fs';
 export const policy = JSON.parse(readFileSync(new URL('../../.ci/merge-policy.json', import.meta.url), 'utf8'));
 
 export function selectWorkflowRun(runs, path, headSha) {
-  const collection = path === policy.authority.workflow ? 'required_workflows' : 'workflows';
-  const prefix = `https://api.github.com/repos/${policy.repository.name}/actions/${collection}/`;
+  const prefix = `https://api.github.com/repos/${policy.repository.name}/actions/required_workflows/`;
   return runs.filter((run) => run.path === path && run.head_sha === headSha && run.event === 'pull_request' &&
     run.repository?.id === policy.repository.id && run.workflow_url?.startsWith(prefix) &&
     /^[1-9][0-9]*$/u.test(run.workflow_url.slice(prefix.length)))
@@ -62,14 +61,17 @@ export function proposedRules() {
     organization: {
       endpoint: `orgs/${policy.repository.name.split('/')[0]}/rulesets`,
       body: {
-        name: 'Public main trusted workflow', target: 'branch', enforcement: 'active', bypass_actors: [],
+        name: 'Public main trusted workflows', target: 'branch', enforcement: 'active', bypass_actors: [],
         conditions: {
           repository_id: { repository_ids: [policy.repository.id] },
           ref_name: { include: [policy.authority.ref], exclude: [] },
         },
-        rules: [{ type: 'workflows', parameters: { do_not_enforce_on_create: false, workflows: [{
-          repository_id: policy.repository.id, path: policy.authority.workflow, ref: policy.authority.ref,
-        }] } }],
+        rules: [{ type: 'workflows', parameters: {
+          do_not_enforce_on_create: false,
+          workflows: [policy.authority.workflow, policy.authority.claWorkflow].map((path) => ({
+            repository_id: policy.repository.id, path, ref: policy.authority.ref,
+          })),
+        } }],
       },
     },
   };
@@ -99,11 +101,11 @@ export function assessQualification(candidate, observation) {
   for (const name of policy.requiredChecks) {
     reject(required.some((check) => check.context === name && check.integration_id === policy.authority.appId), `Required check is absent or publisher is unbound: ${name}`);
   }
-  reject(rules.some((rule) => rule.type === 'workflows' && ['Organization', 'Enterprise'].includes(rule.ruleset_source_type) &&
-    rule.parameters?.workflows?.some((workflow) => workflow.repository_id === policy.repository.id && workflow.path === policy.authority.workflow && workflow.ref === policy.authority.ref)),
-  'Organization-required trusted CI workflow is absent');
   const selectedRuns = {};
   for (const path of [policy.authority.workflow, policy.authority.claWorkflow]) {
+    reject(rules.some((rule) => rule.type === 'workflows' && ['Organization', 'Enterprise'].includes(rule.ruleset_source_type) &&
+      rule.parameters?.workflows?.some((workflow) => workflow.repository_id === policy.repository.id && workflow.path === path && workflow.ref === policy.authority.ref)),
+    `Organization-required trusted workflow is absent: ${path}`);
     const run = selectWorkflowRun(runs, path, candidate?.head?.sha);
     selectedRuns[path] = run;
     if (!run || run.status !== 'completed') pending.push(`Current workflow is missing or pending: ${path}`);

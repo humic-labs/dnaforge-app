@@ -23,7 +23,10 @@ test('proposed configuration preserves all old contexts and requires no approval
   assert.equal(rule.parameters.require_code_owner_review, false);
   assert.equal(rule.parameters.require_last_push_approval, false);
   assert.equal(rule.parameters.require_extra_approval_for_unattributed_changes, false);
-  assert.equal(proposal.organization.body.rules[0].parameters.workflows[0].repository_id, policy.repository.id);
+  assert.deepEqual(proposal.organization.body.rules[0].parameters.workflows,
+    [policy.authority.workflow, policy.authority.claWorkflow].map((path) => ({
+      repository_id: policy.repository.id, path, ref: policy.authority.ref,
+    })));
 });
 
 test('a complete source-bound observation qualifies', () => {
@@ -31,13 +34,14 @@ test('a complete source-bound observation qualifies', () => {
   assert.equal(assessQualification(candidate, observation).state, 'qualified');
 });
 
-test('a newer ordinary CI run cannot replace the injected trusted run', () => {
+test('newer ordinary CI and CLA runs cannot replace the injected trusted runs', () => {
   const { candidate, observation } = qualifiedFixture();
-  observation.runs.push({ ...observation.runs[0], id: 100, conclusion: 'failure',
-    workflow_url: `https://api.github.com/repos/${policy.repository.name}/actions/workflows/10` });
+  observation.runs.push(...observation.runs.map((run) => ({ ...run, id: run.id + 100, conclusion: 'failure',
+    workflow_url: `https://api.github.com/repos/${policy.repository.name}/actions/workflows/${run.id}` })));
   const result = assessQualification(candidate, observation);
   assert.equal(result.state, 'qualified');
   assert.equal(result.runs[policy.authority.workflow].id, 10);
+  assert.equal(result.runs[policy.authority.claWorkflow].id, 11);
 });
 
 for (const [name, mutate] of [
@@ -49,6 +53,9 @@ for (const [name, mutate] of [
   ['missing PR rule', (c, o) => { o.rules = o.rules.filter((r) => r.type !== 'pull_request'); }],
   ['unbound publisher', (c, o) => { o.rules.find((r) => r.type === 'required_status_checks').parameters.required_status_checks[0].integration_id = null; }],
   ['missing required workflow', (c, o) => { o.rules = o.rules.filter((r) => r.type !== 'workflows'); }],
+  ['CLA workflow omitted from the organization rule', (c, o) => {
+    o.rules.find((r) => r.type === 'workflows').parameters.workflows.pop();
+  }],
   ['skipped required check', (c, o) => { o.checks[1].conclusion = 'skipped'; }],
   ['cancelled current job', (c, o) => { o.jobs[10][0].conclusion = 'cancelled'; }],
   ['old run attempt receipt', (c, o) => { o.qualification.attempt = 1; }],
@@ -85,6 +92,7 @@ for (const workflowUrl of [
 }
 
 for (const [name, mutate] of [
+  ['ordinary CLA success', (o) => { o.runs[1].workflow_url = `https://api.github.com/repos/${policy.repository.name}/actions/workflows/11`; }],
   ['missing check', (o) => { o.checks.pop(); }],
   ['check from another publisher', (o) => { o.checks[1].app.id = 1; }],
   ['check from another suite', (o) => { o.checks[1].check_suite.id = 1; }],

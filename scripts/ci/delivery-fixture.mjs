@@ -7,7 +7,7 @@ export function qualifiedFixture() {
   const proposal = proposedRules();
   const runs = [policy.authority.workflow, policy.authority.claWorkflow].map((path, index) => ({
     id: 10 + index, run_attempt: 2, event: 'pull_request', path, head_sha: head,
-    workflow_url: `https://api.github.com/repos/${policy.repository.name}/actions/${index === 0 ? 'required_workflows' : 'workflows'}/${10 + index}`,
+    workflow_url: `https://api.github.com/repos/${policy.repository.name}/actions/required_workflows/${10 + index}`,
     check_suite_id: 20 + index, repository: { id: policy.repository.id }, status: 'completed', conclusion: 'success',
   }));
   const checks = policy.requiredChecks.map((name, index) => ({ id: 30 + index, name, head_sha: head,

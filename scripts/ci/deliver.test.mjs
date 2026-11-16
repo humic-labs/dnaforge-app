@@ -109,6 +109,18 @@ test('ordinary CI success cannot download evidence or enqueue a candidate', () =
   assert.deepEqual(harness.writes, []);
 });
 
+test('ordinary CLA success cannot enqueue a candidate even with trusted CI evidence', () => {
+  const harness = qualifiedApi();
+  harness.observation.runs[1].workflow_url = `https://api.github.com/repos/${policy.repository.name}/actions/workflows/11`;
+  const receipt = enqueueQualifiedPullRequest(99, {
+    ...harness, expectedHead: head, authorizeMerge: true, localHead: head, localStatus: '',
+  });
+  assert.equal(receipt.decision.state, 'pending');
+  assert.equal(receipt.decision.runs[policy.authority.claWorkflow], null);
+  assert.deepEqual(harness.artifactRuns, [10]);
+  assert.deepEqual(harness.writes, []);
+});
+
 test('qualified explicit admission sends one exact-head queue mutation, never auto-merge', () => {
   const harness = qualifiedApi();
   const receipt = enqueueQualifiedPullRequest(99, {
