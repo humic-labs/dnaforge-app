@@ -1,0 +1,127 @@
+{
+  "format": "dnaforge.benchling-physical-capture.v1",
+  "apiVersion": "v2",
+  "namespace": "benchling:synthetic-physical-example",
+  "capturedAt": "2026-11-16T23:00:00.000Z",
+  "scope": {
+    "kind": "selected-records",
+    "description": "Synthetic selected physical records and the two linked pages of one selected box; not a tenant-wide export."
+  },
+  "responses": [
+    {
+      "id": "freezer",
+      "request": {
+        "method": "GET",
+        "path": "/api/v2/locations/loc_freezer",
+        "query": {}
+      },
+      "bodyText": "{\"id\":\"loc_freezer\",\"name\":\"Synthetic -80 freezer\",\"parentStorageId\":null,\"totalCapacity\":null}"
+    },
+    {
+      "id": "shelf",
+      "request": {
+        "method": "GET",
+        "path": "/api/v2/locations/loc_shelf",
+        "query": {}
+      },
+      "bodyText": "{\"id\":\"loc_shelf\",\"name\":\"Shelf A\",\"parentStorageId\":\"loc_freezer\"}"
+    },
+    {
+      "id": "box",
+      "request": {
+        "method": "GET",
+        "path": "/api/v2/boxes/box_1",
+        "query": {}
+      },
+      "bodyText": "{\"id\":\"box_1\",\"name\":\"Synthetic tube box\",\"parentStorageId\":\"loc_shelf\",\"schema\":{\"id\":\"boxsch_1\",\"name\":\"Two by two\"}}"
+    },
+    {
+      "id": "box-schema",
+      "request": {
+        "method": "GET",
+        "path": "/api/v2/box-schemas/boxsch_1",
+        "query": {}
+      },
+      "bodyText": "{\"id\":\"boxsch_1\",\"name\":\"Two by two\",\"type\":\"box\",\"height\":2,\"width\":2}"
+    },
+    {
+      "id": "box-page-1",
+      "request": {
+        "method": "GET",
+        "path": "/api/v2/boxes/box_1/contents",
+        "query": {
+          "pageSize": "2"
+        }
+      },
+      "bodyText": "{\"containers\":[{\"id\":\"con_empty\",\"name\":\"Empty movable tube\",\"parentStorageId\":\"box_1\",\"contents\":[],\"quantity\":{\"value\":0,\"units\":\"uL\"},\"gridPosition\":\"A1\",\"gridNumber\":1},{\"id\":\"con_filled\",\"name\":\"Occupied tube\",\"parentStorageId\":\"box_1\",\"contents\":[{\"entity\":{\"id\":\"seq_A\",\"entityType\":\"dna_sequence\"}}],\"quantity\":{\"value\":10.2500,\"units\":\"uL\"},\"gridPosition\":\"A2\",\"gridNumber\":2}],\"nextToken\":\"synthetic-next-page\"}"
+    },
+    {
+      "id": "box-page-2",
+      "request": {
+        "method": "GET",
+        "path": "/api/v2/boxes/box_1/contents",
+        "query": {
+          "pageSize": "2",
+          "nextToken": "synthetic-next-page"
+        }
+      },
+      "bodyText": "{\"containers\":[{\"id\":\"con_multiple\",\"name\":\"Two entities, one container amount\",\"parentStorageId\":\"box_1\",\"contents\":[{\"entity\":{\"id\":\"seq_A\",\"entityType\":\"dna_sequence\"}},{\"entity\":{\"id\":\"seq_B\",\"entityType\":\"dna_sequence\"}}],\"quantity\":{\"value\":1.2300e+2,\"units\":\"uL\"},\"gridPosition\":\"B1\",\"gridNumber\":3},{\"id\":\"con_count\",\"name\":\"Unsupported count dimension\",\"parentStorageId\":\"box_1\",\"contents\":[{\"entity\":{\"id\":\"seq_C\",\"entityType\":\"dna_sequence\"}}],\"quantity\":{\"value\":9007199254740993,\"units\":\"cells\"},\"volume\":{\"value\":2.500,\"units\":\"mg\"},\"gridPosition\":\"B2\",\"gridNumber\":4}],\"nextToken\":\"\"}"
+    },
+    {
+      "id": "container-contradiction",
+      "request": {
+        "method": "GET",
+        "path": "/api/v2/containers/con_filled",
+        "query": {}
+      },
+      "bodyText": "{\"id\":\"con_filled\",\"name\":\"Occupied tube\",\"parentStorageId\":\"box_1\",\"contents\":[{\"entity\":{\"id\":\"seq_A\",\"entityType\":\"dna_sequence\"}}],\"quantity\":{\"value\":11.5,\"units\":\"uL\"},\"checkoutRecord\":{\"status\":\"CHECKED_OUT\",\"assignee\":{\"id\":\"usr_foreign\",\"name\":\"Synthetic foreign actor\"}},\"restrictionStatus\":\"RESTRICTED\"}"
+    },
+    {
+      "id": "container-omissions",
+      "request": {
+        "method": "GET",
+        "path": "/api/v2/containers/con_missing",
+        "query": {
+          "returning": "id,name"
+        }
+      },
+      "bodyText": "{\"id\":\"con_missing\",\"name\":\"Parent, amount and contents deliberately omitted\"}"
+    },
+    {
+      "id": "fixed-schema",
+      "request": {
+        "method": "GET",
+        "path": "/api/v2/plate-schemas/pltsch_fixed",
+        "query": {}
+      },
+      "bodyText": "{\"id\":\"pltsch_fixed\",\"name\":\"Synthetic fixed two by two\",\"type\":\"plate\",\"height\":2,\"width\":2}"
+    },
+    {
+      "id": "matrix-schema",
+      "request": {
+        "method": "GET",
+        "path": "/api/v2/plate-schemas/pltsch_matrix",
+        "query": {}
+      },
+      "bodyText": "{\"id\":\"pltsch_matrix\",\"name\":\"Synthetic matrix two by two\",\"type\":\"plate\",\"height\":2,\"width\":2}"
+    },
+    {
+      "id": "fixed-plate",
+      "request": {
+        "method": "GET",
+        "path": "/api/v2/plates/plt_fixed",
+        "query": {}
+      },
+      "bodyText": "{\"id\":\"plt_fixed\",\"name\":\"Fixed wells\",\"type\":\"well_plate\",\"parentStorageId\":\"loc_shelf\",\"schema\":{\"id\":\"pltsch_fixed\"},\"wells\":{\"A1\":{\"id\":\"con_well_zero\",\"name\":\"Known zero well\",\"parentStorageId\":\"plt_fixed\",\"quantity\":{\"value\":0,\"units\":\"uL\"},\"contents\":[{\"entity\":{\"id\":\"seq_A\",\"entityType\":\"dna_sequence\"}}]},\"A2\":{\"id\":\"con_well_empty\",\"parentStorageId\":\"plt_fixed\",\"contents\":[],\"quantity\":{\"value\":0,\"units\":\"uL\"}}}}"
+    },
+    {
+      "id": "matrix-plate",
+      "request": {
+        "method": "GET",
+        "path": "/api/v2/plates/plt_matrix",
+        "query": {}
+      },
+      "bodyText": "{\"id\":\"plt_matrix\",\"name\":\"Removable matrix tubes\",\"type\":\"matrix_plate\",\"parentStorageId\":\"loc_shelf\",\"schema\":{\"id\":\"pltsch_matrix\"},\"wells\":{\"A1\":{\"id\":\"con_matrix_tube\",\"name\":\"Unknown amount tube\",\"parentStorageId\":\"plt_matrix\",\"quantity\":{\"value\":null,\"units\":\"uL\"},\"contents\":[{\"entity\":{\"id\":\"seq_B\",\"entityType\":\"dna_sequence\"}}]}}}"
+    }
+  ]
+}

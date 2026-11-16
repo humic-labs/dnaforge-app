@@ -22,6 +22,8 @@ import type {
   InventoryHierarchyPreview,
   InventoryMappedTablePreview,
   InventorySourceRevisionPreview,
+  InventoryBenchlingCaptureInspection,
+  InventoryImportTarget,
 } from '@waypoint/domain-services';
 import type { InventoryRenderedLabel } from '@waypoint/domain-services/inventory-label-types';
 import type {
@@ -44,6 +46,7 @@ import type {
   InventoryOperationRequest,
   InventoryPrepareLabelRequest,
   InventoryReadRequest,
+  InventoryInspectBenchlingCaptureRequest,
   InventoryResolveItemCodeRequest,
   InventoryStorageConditionsRequest,
   NativeInventoryExecution,
@@ -170,7 +173,16 @@ export type InventoryMappedTablePreviewSnapshot = InventoryMappedTablePreview & 
   readonly principal: InventoryPrincipal;
 };
 
+export type InventoryBenchlingCaptureSnapshot = InventoryBenchlingCaptureInspection & {
+  readonly target: InventoryImportTarget;
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+};
+
 export interface InventoryClient {
+  inspectBenchlingCapture(
+    input: InventoryInspectBenchlingCaptureRequest
+  ): Promise<InventoryBenchlingCaptureSnapshot>;
   previewMappedTable(
     input: InventoryPreviewMappedTableRequest
   ): Promise<InventoryMappedTablePreviewSnapshot>;
@@ -225,6 +237,7 @@ export function unavailableInventoryClient(): InventoryClient {
     message: 'Inventory requires the connected desktop owner.',
   });
   return {
+    inspectBenchlingCapture: unavailable,
     exportSnapshot: unavailable,
     previewImport: unavailable,
     applyImport: unavailableMutation,
@@ -275,6 +288,7 @@ export type {
   InventoryOperationRequest,
   InventoryPrepareLabelRequest,
   InventoryReadRequest,
+  InventoryInspectBenchlingCaptureRequest,
   InventoryResolveItemCodeRequest,
   InventoryStorageConditionsRequest,
   NativeInventoryExecution,

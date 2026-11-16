@@ -55,6 +55,7 @@ export type InventoryDialog =
   | { kind: 'source-revision' }
   | { kind: 'import-hierarchy' }
   | { kind: 'receive-mapped-table' }
+  | { kind: 'inspect-benchling-capture' }
   | InventoryMaterialDialog
   | InventoryCompositionDialog
   | InventoryReservationDialog

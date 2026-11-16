@@ -12,6 +12,7 @@ import {
   inventoryStorageConditionsProjection,
   parseInventoryState,
   parseInventoryReceiveTableSource,
+  inspectInventoryBenchlingCapture,
   type InventoryPrincipal,
   type InventoryEquipmentCatalogEntry,
   type InventoryEquipmentCatalogUpdatePreview,
@@ -48,6 +49,7 @@ import {
   inventoryMaterialQuerySchema,
   inventoryOperationRequestSchema,
   inventoryReadRequestSchema,
+  inventoryInspectBenchlingCaptureRequestSchema,
   inventoryStorageConditionsRequestSchema,
   inventoryResolveItemCodeRequestSchema,
   inventoryPrepareLabelRequestSchema,
@@ -76,6 +78,7 @@ import type {
   InventoryHierarchyPreviewSnapshot,
   InventoryMappedTablePreviewSnapshot,
   InventorySourceRevisionPreviewSnapshot,
+  InventoryBenchlingCaptureSnapshot,
 } from '../shared/inventory-client';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import type { RegisteredProject, RegisteredProjectAuthority } from './registered-project-authority';
@@ -837,6 +840,37 @@ export function createNativeInventoryOwner(options: {
   };
 
   return {
+    inspectBenchlingCapture(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventoryBenchlingCaptureSnapshot {
+      const request = inventoryInspectBenchlingCaptureRequestSchema.parse(input);
+      const project = resolveProject(request.project, false);
+      const assertProject = options.projectAuthority.capture(project.projectId, false);
+      const db = options.db();
+      assertProject();
+      const snapshot = db
+        .transaction(() => {
+          const row = inventory(db, request.inventoryId, project.projectId);
+          const state = row ? stateFromRow(row) : null;
+          const asOf = observationTime(state ?? createInventoryState());
+          const caller = principal(invocation);
+          const inspection = inspectInventoryBenchlingCapture(
+            request.sourceText,
+            NATIVE_DOCUMENT_MAX_BODY_BYTES
+          );
+          return structuredClone({
+            ...inspection,
+            target: importTarget(db, project, request.inventoryId, row),
+            asOf,
+            principal: caller,
+          });
+        })
+        .deferred();
+      assertProject();
+      return snapshot;
+    },
+
     previewMappedTable(
       input: unknown,
       invocation: NativeInventoryInvocation = {}

@@ -53,3 +53,6 @@
 - [Mapped plate spreadsheets](mapped-plate-tables.md): preserved original
   source, explicit column/plate/well decisions and existing scientific
   identities.
+
+- [Benchling API captures](benchling-captures.md): versioned offline source
+  evidence, explicit completeness and exact numeric interpretation.

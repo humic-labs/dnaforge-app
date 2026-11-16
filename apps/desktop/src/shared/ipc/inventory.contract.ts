@@ -6,6 +6,8 @@ import type {
 } from '@waypoint/domain-services';
 import type {
   InventoryChanged,
+  InventoryInspectBenchlingCaptureRequest,
+  InventoryBenchlingCaptureSnapshot,
   InventoryExportSnapshotRequest,
   InventoryPreviewImportRequest,
   InventoryApplyImportRequest,
@@ -48,6 +50,10 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  inspectBenchlingCapture: invoke<
+    [request: InventoryInspectBenchlingCaptureRequest],
+    InventoryBenchlingCaptureSnapshot
+  >(),
   previewMappedTable: invoke<
     [request: InventoryPreviewMappedTableRequest],
     InventoryMappedTablePreviewSnapshot

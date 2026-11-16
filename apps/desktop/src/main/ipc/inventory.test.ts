@@ -29,6 +29,7 @@ const request: InventoryExecuteRequest = {
   ],
 };
 let owner: NativeInventoryOwner | null;
+let inspectBenchlingCapture: ReturnType<typeof vi.fn>;
 let execute: ReturnType<typeof vi.fn>;
 let availability: ReturnType<typeof vi.fn>;
 let catalog: ReturnType<typeof vi.fn>;
@@ -58,6 +59,7 @@ const call = (input: unknown = request) =>
   )(event, input);
 
 beforeEach(() => {
+  inspectBenchlingCapture = vi.fn(() => ({ kind: 'blocked', capture: null }));
   execute = vi.fn(() => ({ status: 'committed' }));
   availability = vi.fn(() => null);
   catalog = vi.fn(() => []);
@@ -79,6 +81,7 @@ beforeEach(() => {
   previewSourceRevision = vi.fn(() => ({ kind: 'ready', target: { revision: 0 } }));
   acknowledgeSource = vi.fn(() => ({ status: 'committed' }));
   owner = {
+    inspectBenchlingCapture,
     execute,
     availability,
     catalog,
@@ -101,6 +104,21 @@ beforeEach(() => {
     acknowledgeSource,
   } as unknown as NativeInventoryOwner;
   registerInventoryHandlers({ owner: () => owner, target: () => target });
+});
+
+it('keeps capture inspection under the current renderer caller without mutation', () => {
+  const read = captured.handlers.inspectBenchlingCapture as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => unknown;
+  const input = { project: 'project', inventoryId: 'inventory', sourceText: '' };
+  expect(read(event, input)).toEqual({ kind: 'blocked', capture: null });
+  expect(inspectBenchlingCapture).toHaveBeenCalledExactlyOnceWith(input);
+  expect(execute).not.toHaveBeenCalled();
+  expect(() => read({ ...event, senderFrame: {} } as IpcMainInvokeEvent, input)).toThrow();
+  expect(inspectBenchlingCapture).toHaveBeenCalledTimes(1);
+  owner = null;
+  expect(() => read(event, input)).toThrow(/INVENTORY_OWNER_UNAVAILABLE/);
 });
 
 it('keeps source revision preview read-only and source acknowledgement under the same current-caller fence', () => {

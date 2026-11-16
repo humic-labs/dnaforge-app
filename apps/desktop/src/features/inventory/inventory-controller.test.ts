@@ -273,6 +273,9 @@ function fixture(empty = false) {
     previewMappedTable: vi.fn(async () => {
       throw new Error('Mapped preview is not used by this controller fixture.');
     }),
+    inspectBenchlingCapture: vi.fn(async () => {
+      throw new Error('Benchling capture inspection is not used by this controller fixture.');
+    }),
     applyMappedTable: vi.fn(async (request) => commit(request)),
     storageConditions: vi.fn(async (request) => {
       const current = request.project === other.projectId ? createInventoryState() : state;

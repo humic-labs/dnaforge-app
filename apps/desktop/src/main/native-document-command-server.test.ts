@@ -109,6 +109,7 @@ async function fixture(
   };
   const getAuthority = vi.fn(() => authority);
   const inventory = {
+    inspectBenchlingCapture: vi.fn(),
     exportSnapshot: vi.fn(),
     previewImport: vi.fn(),
     applyImport: vi.fn(),
@@ -227,6 +228,47 @@ const inventoryAgent = {
   identityId: 'agent-1',
   capabilities: ['read-workspace', 'write-workspace'],
 };
+
+it('inspects Benchling capture text using only current read authority and never accepts a write', async () => {
+  const authorizeInventoryAgent = vi.fn(async () => {});
+  const f = await fixture({ authorizeInventoryAgent });
+  f.inventory.inspectBenchlingCapture.mockReturnValue({
+    kind: 'blocked',
+    sourceSha256: null,
+    target: { present: false, revision: 0 },
+  });
+  const input = {
+    ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
+    agent: { ...inventoryAgent, capabilities: ['read-workspace'] },
+    command: 'inventory.inspect-benchling-capture',
+    request: { project: '/workspace', inventoryId: 'inventory-1', sourceText: '' },
+  };
+  expect(await (await f.call(input)).json()).toMatchObject({
+    result: { kind: 'benchling-capture-inspection', result: { kind: 'blocked' } },
+  });
+  expect(f.inventory.inspectBenchlingCapture).toHaveBeenCalledExactlyOnceWith(input.request, {
+    principal: { kind: 'agent', identityId: 'agent-1' },
+  });
+  expect(authorizeInventoryAgent).toHaveBeenCalledWith(input.agent, ['read-workspace']);
+  expect(f.inventory.execute).not.toHaveBeenCalled();
+  expect(
+    (
+      await f.call({
+        ...input,
+        request: { ...input.request, principal: { kind: 'agent', identityId: 'other' } },
+      })
+    ).status
+  ).toBe(400);
+  authorizeInventoryAgent.mockRejectedValueOnce(new Error('Grant revoked.'));
+  expect(await (await f.call(input)).json()).toMatchObject({
+    result: { ok: false, code: 'INVENTORY_CAPABILITY_DENIED', stateChanged: false },
+  });
+  expect(f.inventory.inspectBenchlingCapture).toHaveBeenCalledTimes(1);
+  expect(
+    await (await f.call({ ...input, agent: { ...input.agent, capabilities: [] } })).json()
+  ).toMatchObject({ result: { ok: false, code: 'INSUFFICIENT_SCOPE', stateChanged: false } });
+});
 
 it('uses current read authority for source revision preview and current write authority for source acknowledgement', async () => {
   const authorizeInventoryAgent = vi.fn(async () => {});

@@ -33,6 +33,7 @@ import { InventoryStocktakeForm } from './InventoryStocktakeForm';
 import { InventorySourceRevisionForm } from './InventorySourceRevisionForm';
 import { InventoryHierarchyForm } from './InventoryHierarchyForm';
 import { InventoryMappedTableForm } from './InventoryMappedTableForm';
+import { InventoryBenchlingCaptureForm } from './InventoryBenchlingCaptureForm';
 import { InventoryCompositionForm } from './InventoryCompositionForm';
 import { InventoryReservationForm } from './InventoryReservationForm';
 import { InventoryCustodyForm } from './InventoryCustodyForm';
@@ -686,6 +687,9 @@ export function InventoryPanel() {
         </Button>
         <Button disabled={!data} onClick={() => setDialog({ kind: 'item-code-lookup' })}>
           Scan or enter code
+        </Button>
+        <Button disabled={!data} onClick={() => setDialog({ kind: 'inspect-benchling-capture' })}>
+          Inspect Benchling capture
         </Button>
         <Button
           disabled={!data || status.kind === 'submitting' || status.kind === 'outcome-unknown'}
@@ -1599,6 +1603,15 @@ export function InventoryPanel() {
         ) : dialog.kind === 'receive-mapped-table' ? (
           <InventoryMappedTableForm
             key={`${data.project.projectId}:receive-mapped-table`}
+            data={data}
+            controller={controller}
+            status={status}
+            client={platform().inventory}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : dialog.kind === 'inspect-benchling-capture' ? (
+          <InventoryBenchlingCaptureForm
+            key={`${data.project.projectId}:${data.project.defaultInventoryId}:inspect-benchling-capture`}
             data={data}
             controller={controller}
             status={status}

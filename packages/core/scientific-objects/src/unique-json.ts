@@ -6,52 +6,105 @@ export function parseUniqueJson(
     maxDepth?: number;
   } = {}
 ): unknown {
+  const numberReader = options.numberReader ?? Number;
   return new DuplicateRejectingJsonReader(
     text,
     options.fail ??
       ((message) => {
         throw new Error(message);
       }),
-    options.numberReader ?? Number,
+    (lexeme) => numberReader(lexeme),
+    Number.isFinite,
     options.maxDepth ?? 16
   ).parse();
 }
 
-class DuplicateRejectingJsonReader {
+export class JsonNumberLexeme {
+  constructor(readonly lexeme: string) {
+    Object.freeze(this);
+  }
+}
+
+type ParsedJsonValue<TNumber> =
+  | null
+  | boolean
+  | string
+  | TNumber
+  | ParsedJsonValue<TNumber>[]
+  | { [key: string]: ParsedJsonValue<TNumber> };
+
+export type ExactJsonValue = ParsedJsonValue<JsonNumberLexeme>;
+
+export const UNIQUE_JSON_NUMBER_LIMIT_MESSAGE = 'JSON contains too many numeric tokens.';
+
+export function parseUniqueJsonWithNumberLexemes(
+  text: string,
+  options: {
+    fail?: (message: string) => never;
+    maxDepth?: number;
+    maxNumbers?: number;
+  } = {}
+): { value: ExactJsonValue; numberLexemes: ReadonlyMap<string, string> } {
+  const fail =
+    options.fail ??
+    ((message: string) => {
+      throw new Error(message);
+    });
+  const maxNumbers = options.maxNumbers;
+  if (maxNumbers !== undefined && (!Number.isSafeInteger(maxNumbers) || maxNumbers < 0))
+    fail('JSON numeric token limit is invalid.');
+  const numberLexemes = new Map<string, string>();
+  const value = new DuplicateRejectingJsonReader(
+    text,
+    fail,
+    (lexeme, pointer) => {
+      if (maxNumbers !== undefined && numberLexemes.size >= maxNumbers)
+        fail(UNIQUE_JSON_NUMBER_LIMIT_MESSAGE);
+      numberLexemes.set(pointer, lexeme);
+      return new JsonNumberLexeme(lexeme);
+    },
+    () => true,
+    options.maxDepth ?? 16
+  ).parse();
+  return { value, numberLexemes };
+}
+
+class DuplicateRejectingJsonReader<TNumber> {
   private offset = 0;
 
   constructor(
     private readonly source: string,
     private readonly fail: (message: string) => never,
-    private readonly numberReader: (text: string) => number,
+    private readonly numberReader: (text: string, pointer: string) => TNumber,
+    private readonly validNumber: (value: TNumber) => boolean,
     private readonly maxDepth: number
   ) {}
 
-  parse(): unknown {
+  parse(): ParsedJsonValue<TNumber> {
     this.skipWhitespace();
-    const value = this.readValue(0);
+    const value = this.readValue(0, '');
     this.skipWhitespace();
     if (this.offset !== this.source.length) this.syntaxError();
     return value;
   }
 
-  private readValue(depth: number): unknown {
+  private readValue(depth: number, pointer: string): ParsedJsonValue<TNumber> {
     if (depth > this.maxDepth) this.fail('JSON is nested too deeply.');
     const token = this.source[this.offset];
-    if (token === '{') return this.readObject(depth + 1);
-    if (token === '[') return this.readArray(depth + 1);
+    if (token === '{') return this.readObject(depth + 1, pointer);
+    if (token === '[') return this.readArray(depth + 1, pointer);
     if (token === '"') return this.readString();
     if (token === 't') return this.readLiteral('true', true);
     if (token === 'f') return this.readLiteral('false', false);
     if (token === 'n') return this.readLiteral('null', null);
-    if (token === '-' || (token >= '0' && token <= '9')) return this.readNumber();
+    if (token === '-' || (token >= '0' && token <= '9')) return this.readNumber(pointer);
     this.syntaxError();
   }
 
-  private readObject(depth: number): Record<string, unknown> {
+  private readObject(depth: number, pointer: string): Record<string, ParsedJsonValue<TNumber>> {
     this.offset += 1;
     this.skipWhitespace();
-    const values: Array<[string, unknown]> = [];
+    const values: Array<[string, ParsedJsonValue<TNumber>]> = [];
     const keys = new Set<string>();
     if (this.consume('}')) return Object.fromEntries(values);
     while (this.offset < this.source.length) {
@@ -62,7 +115,8 @@ class DuplicateRejectingJsonReader {
       this.skipWhitespace();
       if (!this.consume(':')) this.syntaxError();
       this.skipWhitespace();
-      values.push([key, this.readValue(depth)]);
+      const escapedKey = key.replace(/~/g, '~0').replace(/\//g, '~1');
+      values.push([key, this.readValue(depth, `${pointer}/${escapedKey}`)]);
       this.skipWhitespace();
       if (this.consume('}')) return Object.fromEntries(values);
       if (!this.consume(',')) this.syntaxError();
@@ -71,13 +125,13 @@ class DuplicateRejectingJsonReader {
     this.syntaxError();
   }
 
-  private readArray(depth: number): unknown[] {
+  private readArray(depth: number, pointer: string): ParsedJsonValue<TNumber>[] {
     this.offset += 1;
     this.skipWhitespace();
-    const values: unknown[] = [];
+    const values: ParsedJsonValue<TNumber>[] = [];
     if (this.consume(']')) return values;
     while (this.offset < this.source.length) {
-      values.push(this.readValue(depth));
+      values.push(this.readValue(depth, `${pointer}/${values.length}`));
       this.skipWhitespace();
       if (this.consume(']')) return values;
       if (!this.consume(',')) this.syntaxError();
@@ -113,14 +167,14 @@ class DuplicateRejectingJsonReader {
     this.syntaxError();
   }
 
-  private readNumber(): number {
+  private readNumber(pointer: string): TNumber {
     const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(
       this.source.slice(this.offset)
     );
     if (!match) this.syntaxError();
     this.offset += match[0].length;
-    const value = this.numberReader(match[0]);
-    if (!Number.isFinite(value)) this.syntaxError();
+    const value = this.numberReader(match[0], pointer);
+    if (!this.validNumber(value)) this.syntaxError();
     return value;
   }
 

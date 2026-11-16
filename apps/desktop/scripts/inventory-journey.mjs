@@ -3,6 +3,7 @@ import {
   runInventoryMappedResume,
   runInventoryMappedReopen,
 } from './journeys/inventory-mapped-tables.mjs';
+import { runInventoryBenchlingCaptureJourney } from './journeys/inventory-benchling-captures.mjs';
 import {
   runInventoryHierarchyJourney,
   runInventoryHierarchyReopen,
@@ -104,6 +105,8 @@ assert.ok(
     'mapped-table',
     'mapped-resume',
     'mapped-reopen',
+    'benchling-capture',
+    'benchling-capture-reopen',
   ].includes(stage),
   'Choose a mapped inventory journey stage.'
 );
@@ -677,6 +680,27 @@ try {
     );
   }
 
+  if (stage === 'benchling-capture' || stage === 'benchling-capture-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass the current owned inventory fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    receipt.expected = await runInventoryBenchlingCaptureJourney({
+      page,
+      expect,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+      projectRoot: root,
+      userDataPath: runtime.provenance.userDataPath,
+    });
+    writeFileSync(
+      path.join(out, 'benchling-capture-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
   if (stage === 'mapped-table' || stage === 'mapped-resume' || stage === 'mapped-reopen') {
     assert.ok(args.includes('--fixture'), 'Pass the current owned inventory fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

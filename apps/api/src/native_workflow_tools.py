@@ -205,6 +205,7 @@ async def execute_native_workflow(
             "apply-mapped-table",
             "materials",
             "inspect",
+            "inspect-benchling-capture",
             "availability",
             "execute",
             "operation",

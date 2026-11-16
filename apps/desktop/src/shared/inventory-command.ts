@@ -43,6 +43,10 @@ export const inventoryReadRequestSchema = z
   .object({ project: z.string().min(1).max(4096), inventoryId: identity })
   .strict();
 
+export const inventoryInspectBenchlingCaptureRequestSchema = inventoryReadRequestSchema
+  .extend({ sourceText: z.string() })
+  .strict();
+
 export const inventoryImportBindingSchema = z
   .object({ sourceMaterialId: identity, destinationMaterialId: identity })
   .strict();
@@ -430,6 +434,9 @@ export const inventoryReceiptSchema = z
   .strict();
 
 export type InventoryReadRequest = z.infer<typeof inventoryReadRequestSchema>;
+export type InventoryInspectBenchlingCaptureRequest = z.infer<
+  typeof inventoryInspectBenchlingCaptureRequestSchema
+>;
 export type InventoryExportSnapshotRequest = z.infer<typeof inventoryExportSnapshotRequestSchema>;
 export type InventoryPreviewImportRequest = InventoryReadRequest & {
   readonly sourceText: string;

@@ -2,6 +2,15 @@
 
 Sources, licenses and digests below describe fixtures included in this public source tree.
 
+## test-fixtures/lims-import/benchling-physical/representative-capture.json
+
+- **Source:** DNAForge-owned synthetic physical records in a DNAForge offline
+  capture wrapper around documented Benchling V2 response shapes. No tenant
+  data. Endpoint references, exact source-model limits and interpretation cases
+  are recorded in [the fixture provenance](lims-import/benchling-physical/PROVENANCE.md).
+- **License:** DNAForge-owned synthetic test data, GPL-3.0-only.
+- **SHA-256:** `d6e5539beb9bebd4453d5cf22a97b442c4fb9ea053a4b3691a85af7224a403bb`.
+
 ## test-fixtures/indexed/palette-signal.bw
 
 - **Source:** DNAForge-generated synthetic BigWig with chr1 at 1,000 bp and

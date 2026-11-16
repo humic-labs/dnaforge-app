@@ -28,6 +28,7 @@ import {
   inventoryMaterialQuerySchema,
   inventoryOperationRequestSchema,
   inventoryReadRequestSchema,
+  inventoryInspectBenchlingCaptureRequestSchema,
   inventoryResolveItemCodeRequestSchema,
   inventoryPrepareLabelRequestSchema,
   inventoryStorageConditionsRequestSchema,
@@ -83,6 +84,15 @@ const selection = target
   })
   .strict();
 const commandSchema = z.discriminatedUnion('command', [
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.inspect-benchling-capture'),
+      request: inventoryInspectBenchlingCaptureRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
   z
     .object({
       ownerInstanceId: identity,
@@ -418,6 +428,7 @@ export async function startNativeDocumentCommandServer(options: {
     ReturnType<typeof createNativeInventoryOwner>,
     | 'execute'
     | 'inspect'
+    | 'inspectBenchlingCapture'
     | 'availability'
     | 'operation'
     | 'history'
@@ -437,6 +448,10 @@ export async function startNativeDocumentCommandServer(options: {
     | 'applyStocktake'
     | 'previewHierarchy'
     | 'applyHierarchy'
+    | 'previewMappedTable'
+    | 'applyMappedTable'
+    | 'previewSourceRevision'
+    | 'acknowledgeSource'
   >;
   authorizeInventoryAgent?(agent: NativeAgentAuthority, required: readonly string[]): Promise<void>;
   getAuthority(): NativeCommandAuthority | null;
@@ -529,6 +544,7 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'import-review.execute' ||
           body.command === 'administration.execute' ||
           body.command === 'inventory.execute' ||
+          body.command === 'inventory.inspect-benchling-capture' ||
           body.command === 'inventory.export-snapshot' ||
           body.command === 'inventory.preview-import' ||
           body.command === 'inventory.apply-import' ||
@@ -601,6 +617,16 @@ export async function startNativeDocumentCommandServer(options: {
           const run = (() => {
             if (options.inventory) {
               const receiver = options.inventory;
+              if (body.command === 'inventory.inspect-benchling-capture') {
+                const request = body.request;
+                const invocation = body.agent
+                  ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
+                  : undefined;
+                return () => ({
+                  kind: 'benchling-capture-inspection',
+                  result: receiver.inspectBenchlingCapture(request, invocation),
+                });
+              }
               if (body.command === 'inventory.preview-source-revision') {
                 const request = body.request;
                 const invocation = body.agent
@@ -871,6 +897,7 @@ export async function startNativeDocumentCommandServer(options: {
             body.command !== 'inventory.history';
           if (
             body.command === 'inventory.projects' ||
+            body.command === 'inventory.inspect-benchling-capture' ||
             body.command === 'inventory.export-snapshot' ||
             body.command === 'inventory.preview-import' ||
             body.command === 'inventory.preview-table' ||

@@ -125,6 +125,37 @@ async def test_inventory_catalog_is_read_only_and_project_scoped(native):
 
 
 @pytest.mark.asyncio
+async def test_inventory_benchling_capture_inspection_is_read_only_and_rechecks_grant(native):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    inspection = {"kind": "blocked", "capture": None, "records": []}
+    state["result"] = {"kind": "benchling-capture-inspection", "result": inspection}
+    request = {
+        "project": "project",
+        "inventoryId": "inventory",
+        "sourceText": '{"quantity":{"value":9007199254740993}}\r\n',
+    }
+    args = {"operation": {"kind": "inspect-benchling-capture", **request}}
+    assert await execute_native_workflow("inventory", args, context) == {
+        "ok": True,
+        "result": {"kind": "benchling-capture-inspection", "result": inspection, "ok": True},
+    }
+    assert state["calls"] == [
+        {
+            "command": "inventory.inspect-benchling-capture",
+            "request": request,
+            "projectScope": {"kind": "app-following"},
+            "agent": {"identityId": "caller", "capabilities": ["read-workspace"]},
+        }
+    ]
+    state["revoked"] = True
+    with pytest.raises(ToolExecutionFailure) as revoked:
+        await execute_native_workflow("inventory", args, context)
+    assert revoked.value.code == "GRANT_REVOKED"
+    assert len(state["calls"]) == 1
+
+
+@pytest.mark.asyncio
 async def test_inventory_catalog_update_preview_uses_current_read_only_grant(native):
     state, context = native
     state["scope"] = ["read-workspace"]
@@ -373,10 +404,15 @@ async def test_inventory_mapped_table_preserves_layout_source_and_requires_write
 ):
     state, context = native
     options = {
-        "namespace": "source", "delimiter": ",",
+        "namespace": "source",
+        "delimiter": ",",
         "columns": {"sourceId": "ID", "plate": "Plate", "well": "Well"},
-        "materials": [], "plates": [], "quantity": {"kind": "unknown", "reason": "No source measurements"},
-        "qualities": [], "evidenceOnlyColumns": [], "skips": [],
+        "materials": [],
+        "plates": [],
+        "quantity": {"kind": "unknown", "reason": "No source measurements"},
+        "qualities": [],
+        "evidenceOnlyColumns": [],
+        "skips": [],
     }
     operation = {
         "kind": "preview-mapped-table",

@@ -7,3 +7,5 @@ export type * from './track-view-commands';
 export * from './inventory';
 export * from './metadata-fields';
 export * from './inventory-equipment-catalog';
+export { inspectInventoryBenchlingCapture } from './inventory-benchling-source';
+export type * from './inventory-benchling-types';

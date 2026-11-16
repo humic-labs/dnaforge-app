@@ -135,6 +135,10 @@ export function registerInventoryHandlers(options: {
     }
   };
   return handleGroup(inventoryContract, {
+    inspectBenchlingCapture: (event, request) => {
+      assertCaller(event);
+      return currentOwner().inspectBenchlingCapture(request);
+    },
     previewMappedTable: (event, request) => {
       assertCaller(event);
       return currentOwner().previewMappedTable(request);

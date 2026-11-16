@@ -148,6 +148,42 @@ describe('inventory portability agent contract', () => {
   });
 });
 
+describe('inventory Benchling capture inspection contract', () => {
+  it('retains exact source or an empty draft while refusing authored native facts', () => {
+    const operation = {
+      kind: 'inspect-benchling-capture',
+      project: '/project',
+      inventoryId: 'inventory',
+      sourceText: '{"raw":"exact\\r\\n"}\r\n',
+    };
+    expect(inventoryAgentSchema.parse({ operation })).toEqual({ operation });
+    expect(
+      inventoryAgentSchema.parse({ operation: { ...operation, sourceText: '' } })
+    ).toMatchObject({ operation: { sourceText: '' } });
+    for (const extra of [
+      { recordedAt: 0 },
+      { principal: { kind: 'agent', identityId: 'other' } },
+      { authority: { kind: 'local-profile', profileKey: '0'.repeat(64) } },
+      { operationId: 'cannot-commit' },
+      { format: 'v3' },
+    ])
+      expect(
+        inventoryAgentSchema.safeParse({ operation: { ...operation, ...extra } }).success
+      ).toBe(false);
+    expect(
+      inventoryAgentOutputSchema.parse({
+        ok: true,
+        kind: 'benchling-capture-inspection',
+        result: { kind: 'blocked', capture: null },
+      })
+    ).toMatchObject({ kind: 'benchling-capture-inspection', result: { kind: 'blocked' } });
+    expect(
+      inventoryAgentOutputSchema.safeParse({ ok: true, kind: 'benchling-capture-inspection' })
+        .success
+    ).toBe(false);
+  });
+});
+
 describe('inventory receive table agent contract', () => {
   const options = {
     namespace: 'source',

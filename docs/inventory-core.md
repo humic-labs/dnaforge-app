@@ -902,6 +902,97 @@ the revised evidence file was retained. Original raw source and all decisions
 remain in committed mapped requests. Source baseline discovery normalizes those
 retained requests, never reconstructs source fields from current stock.
 
+## Foreign physical capture boundary
+
+A versioned offline source capture is evidence, not execution authority. The
+Benchling adapter must pin its response version and retain raw page bodies,
+endpoint/query context and explicit scope. An omitted field cannot acquire a
+default physical meaning through parsing.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Omitted
+  [*] --> ExplicitNull
+  [*] --> Present
+  Present --> Conflict: incompatible observation of same source identity
+  Omitted --> Resolved: explicit source or human decision
+  ExplicitNull --> Resolved: declared interpretation
+  Present --> Resolved: supported source fact verified
+  Conflict --> Resolved: explicit conflict disposition
+```
+
+```mermaid
+stateDiagram-v2
+  [*] --> Staged
+  Staged --> NeedsResolution: missing, contradictory or unsupported facts
+  NeedsResolution --> Staged: explicit decisions
+  Staged --> Validated: source, dependencies and target pinned
+  Validated --> Stale: source, target or scientific bindings change
+  Stale --> Staged: regenerate plan
+  Validated --> CommandRecovery: persist exact operation and source
+  CommandRecovery --> Committed: one atomic native operation
+  CommandRecovery --> OutcomeUnknown: acknowledgement unavailable
+  OutcomeUnknown --> CommandRecovery: original receipt or identical retry
+  Staged --> Canceled
+  NeedsResolution --> Canceled
+```
+
+Capture consistency, source completeness, row disposition, identity correlation
+and submitted-command recovery are independent. Page order cannot choose the
+winner among conflicting snapshots. Source actors, archive state, reservations,
+checkout and restrictions cannot become local principals, grants or invented
+history. Multiple contents require a supported mixture interpretation or an
+explicit refusal; never choose one entity silently.
+
+Source numeric precision precedes inventory arithmetic. Keep original JSON
+number lexemes and their decoded pointers through duplicate-key validation.
+Exact volume interpretation uses those tokens, not an already rounded number.
+Unit dimensions and absent/null/zero amounts remain explicit. Empty movable
+containers need lifetime physical identity independent of stock existence.
+
+Physical source correlation and content admission have separate lifetimes.
+Storage already has hierarchy bindings and stock has receive-table bindings.
+Capture application also needs a vessel binding that can refer to an empty
+movable container or a permanent plate well. This is a planned addition;
+read-only capture inspection does not change the current inventory schema.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Unbound
+  Unbound --> Proposed: explicit physical interpretation
+  Proposed --> Unbound: refusal or canceled draft
+  Proposed --> Bound: atomic native commitment
+  Bound --> Bound: move, dispose, reimport or retire label
+```
+
+```mermaid
+stateDiagram-v2
+  [*] --> NoStock
+  NoStock --> ContentProposed: explicit scientific identity and quantity decision
+  ContentProposed --> NoStock: refusal or canceled draft
+  ContentProposed --> StockBound: receive into the already bound vessel
+  StockBound --> StockBound: use, reconcile or acknowledge changed source
+```
+
+Bound is lifetime identity, including a disposed physical target. A missing or
+empty source contents field cannot erase local stock. Resolve existing bindings
+before generating destination-scoped identifiers, including after archive
+adoption. A fixed well binds its foreign container identity to its plate and
+coordinate; a matrix-plate tube remains an independently movable vessel.
+
+Item codes remain physical labels. They can identify empty movable vessels but
+deliberately cannot target permanent wells. Using label retirement and derived
+plate-relative lookups as import correlation would create two hidden identity
+routes. The planned vessel binding keeps one explicit route for both vessel
+kinds, separate from label lifecycle and stock existence.
+
+Foreign physical and stock projections have separate immutable baselines.
+Changing contents or quantity must not allocate a replacement container.
+Changing physical source facts must not overwrite later local movement. Capture
+application must assemble one existing command batch and binding additions for
+one native transaction, rather than chaining independently committed hierarchy,
+vessel and stock imports.
+
 ## Material identity and conservation
 
 A scientific record identifies a material. A lot identifies one supplier batch
