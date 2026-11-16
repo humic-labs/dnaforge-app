@@ -140,6 +140,8 @@ jobs:
       - *a2
       - *a6
       - *a5
+      - name: Verify discovery against real test partitions
+        run: node --test scripts/ci/integration/qualification-shards.test.mjs
       - run: node .ci-control/scripts/ci/qualification.mjs inventory --root "$GITHUB_WORKSPACE" --manifest "$RUNNER_TEMP/candidate/manifest.json" --out "$RUNNER_TEMP/inventory/report.json"
       - name: Build the app required by selected bundle tests
         run: pnpm --dir apps/desktop build

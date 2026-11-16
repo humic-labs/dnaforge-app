@@ -128,6 +128,8 @@ jobs:
         with:
           name: candidate
           path: ${{ runner.temp }}/candidate
+      - name: Verify discovery against real test partitions
+        run: node --test scripts/ci/integration/qualification-shards.test.mjs
       - name: Discover every full-suite file
         run: node .ci-control/scripts/ci/qualification.mjs inventory --root "$GITHUB_WORKSPACE" --manifest "$RUNNER_TEMP/candidate/manifest.json" --out "$RUNNER_TEMP/inventory/inventory.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

@@ -31,6 +31,13 @@ Run the focused report-boundary checks from the public checkout:
 node --test scripts/ci/qualification.test.mjs
 ```
 
+With the desktop's locked dependencies installed, run
+`node --test scripts/ci/integration/qualification-shards.test.mjs`. It drives
+the real test runner against four temporary files, checks each partition's
+declared and executed files, and verifies their disjoint union against the
+independent inventory. It does not run the application test suite. The existing
+inventory jobs run this adapter check before discovering the full suite.
+
 These checks supply small report fixtures to the production assessor. The
 positive controls include all eight desktop shards and all six native journeys.
 Negative controls alter one source identity, report, shard, file, outcome or

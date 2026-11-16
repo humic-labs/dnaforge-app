@@ -62,6 +62,16 @@ validate presence and file formats; the journey's functional assertions decide
 behavior. An empty selection, missing result, wrong source, renderer error or
 missing original capture fails the command.
 
+The shared recording finalizer writes the receipt after encoding. It orders a
+copy of the frames by their capture timestamps, preserves the original arrival
+order and files, and records encoding errors separately from functional errors.
+A missing recording cannot leave a passing receipt. For an encoding repair,
+copy a retained capture into a new evidence directory and drive
+`finalizeJourneyRecording` from
+`apps/desktop/scripts/lib/native-journey-recording.mjs`. Decode the resulting
+video with `ffprobe` and compare its frame count and duration with the capture.
+This proves encoding only; the unchanged full journey must still pass in CI.
+
 ## Gotchas
 
 - The runner temporarily replaces this checkout's regular `.env.local` file with
@@ -73,6 +83,14 @@ missing original capture fails the command.
   launcher's ownership checks stop the app; no process-name kill is used.
   A child that exits during ownership inspection is already stopped. Live
   processes with unknown or foreign ownership remain untouched and fail cleanup.
+  If a previously verified child loses its working directory during shutdown,
+  cleanup waits for confirmed exit within its existing grace period. Only a
+  confirmed missing process makes a raced termination signal harmless.
+- Workspace setup reads the current project list after creating its first
+  project, including any sample project mounted during startup. Canvas reload
+  uses its existing restoration deadline and requires a new native load identity
+  with page and shell readiness, as well as restored visible content and saved
+  document identities. Request and console failures remain in its receipt.
 - An explicit scenario request goes through the existing disposable-profile
   owner using that validated automation path. Ordinary automation gains no
   scenario authority. Shared profiles and unmarked profiles containing user data

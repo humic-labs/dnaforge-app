@@ -9,10 +9,11 @@ import { chromium, expect } from '@playwright/test';
 const root = path.resolve(
   process.env.DNAFORGE_VERIFY_ROOT ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 );
-const sourceFiles = execFileSync('git', ['ls-files', '-co', '--exclude-standard', '-z'], {
-  cwd: root,
-  encoding: 'utf8',
-})
+const sourceFiles = execFileSync(
+  'git',
+  ['ls-files', '-co', '--exclude-standard', '-z', '--', 'apps/desktop/src', 'apps/desktop/scripts', 'packages'],
+  { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
+)
   .split('\0')
   .filter((file) => /^(apps\/desktop\/(src|scripts)|packages)\//u.test(file));
 const sourceHash = createHash('sha256');

@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { chromium } from 'playwright';
 import { expect } from '@playwright/test';
+import { finalizeJourneyRecording } from './lib/native-journey-recording.mjs';
 
 const { values } = parseArgs({
   options: { out: { type: 'string' }, phase: { type: 'string', default: 'transitions' } },
@@ -112,11 +113,11 @@ try {
   }
   if (values.phase === 'transitions') {
     await page.keyboard.press('Escape');
-    const initial = await observe();
     const suffix = Date.now();
     const first = await create(`Session A ${suffix}`);
     await step('created-first-project-and-selected-it');
-    for (const folder of initial.folders.filter((f) => !f.pinned)) await archive(folder);
+    for (const folder of (await observe()).folders.filter((f) => !f.pinned && f.path !== first.path))
+      await archive(folder);
     const second = await create(`Session B ${suffix}`);
     await step('created-second-project-and-selected-it');
     await archive(second);
@@ -145,43 +146,13 @@ try {
   process.exitCode = 1;
 } finally {
   if (cdp) await cdp.send('Page.stopScreencast').catch(() => {});
-  receipt.finishedAt = new Date().toISOString();
-  writeFileSync(join(stage, 'receipt.json'), JSON.stringify(receipt, null, 2));
-  if (receipt.frames.length > 1) {
-    const manifest = receipt.frames
-      .map(
-        (frame, i) =>
-          `file '${frame.file}'\nduration ${Math.max(0.01, (receipt.frames[i + 1]?.timestamp ?? frame.timestamp + 0.25) - frame.timestamp)}`
-      )
-      .join('\n');
-    writeFileSync(join(stage, 'frames.txt'), manifest);
-    const video = spawnSync(
-      'ffmpeg',
-      [
-        '-hide_banner',
-        '-loglevel',
-        'error',
-        '-y',
-        '-f',
-        'concat',
-        '-safe',
-        '0',
-        '-i',
-        'frames.txt',
-        '-vsync',
-        'vfr',
-        '-pix_fmt',
-        'yuv420p',
-        'workflow.mp4',
-      ],
-      { cwd: stage, encoding: 'utf8' }
-    );
-    if (video.status !== 0) {
-      console.error(video.stderr);
-      process.exitCode = 1;
-    }
+  try {
+    finalizeJourneyRecording(stage, receipt);
+    if (receipt.status !== 'passed') process.exitCode = 1;
+    if (receipt.mediaError) console.error(receipt.mediaError);
+  } finally {
+    await browser?.close();
   }
-  await browser?.close();
 }
 console.log(`WORKSPACE_SESSION_${receipt.status.toUpperCase()} ${join(stage, 'receipt.json')}`);
 if (receipt.error) console.error(receipt.error);

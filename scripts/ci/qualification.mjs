@@ -8,6 +8,7 @@ import {
   readdirSync,
   writeFileSync,
 } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -164,24 +165,52 @@ function normalizeFile(root, filename) {
   return relative;
 }
 
-function discover(root, shard) {
-  const output = execFileSync(
-    'pnpm',
-    ['exec', 'vitest', 'list', '--filesOnly', '--no-color', ...(shard ? [`--shard=${shard}`] : [])],
-    {
-      cwd: path.join(root, 'apps/desktop'),
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      env: { ...process.env, DNAFORGE_FULL_ASSEMBLY_CATALOG_TESTS: '1' },
-    }
+async function discover(root, shard) {
+  const desktop = path.join(root, 'apps/desktop');
+  const require = createRequire(path.join(desktop, 'package.json'));
+  const environment = {
+    TEST: 'true',
+    VITEST: 'true',
+    NODE_ENV: process.env.NODE_ENV ?? 'test',
+    DNAFORGE_FULL_ASSEMBLY_CATALOG_TESTS: '1',
+  };
+  const previous = Object.fromEntries(
+    Object.keys(environment).map((key) => [key, process.env[key]])
   );
-  const files = output
-    .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((file) => normalizeFile(root, path.resolve(root, 'apps/desktop', file)));
-  unique(files, 'Discovered files');
-  return files.sort();
+  const cwd = process.cwd();
+  let ctx;
+  try {
+    Object.assign(process.env, environment);
+    process.chdir(desktop);
+    const { createVitest } = await import(pathToFileURL(require.resolve('vitest/node')).href);
+    ctx = await createVitest('test', { root: desktop, run: true, watch: false, shard });
+    let specifications = await ctx.globTestSpecifications();
+    if (shard) {
+      const groups = new Map();
+      for (const spec of specifications) {
+        const key = JSON.stringify([spec.project.config.sequence.groupOrder ?? 0, spec.pool]);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(spec);
+      }
+      const sequencer = new ctx.config.sequence.sequencer(ctx);
+      specifications = (
+        await Promise.all([...groups.values()].map((files) => sequencer.shard(files)))
+      ).flat();
+    }
+    const files = specifications.map((spec) => normalizeFile(root, spec.moduleId));
+    unique(files, 'Discovered files');
+    return files.sort();
+  } finally {
+    try {
+      await ctx?.close();
+    } finally {
+      process.chdir(cwd);
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  }
 }
 
 function options(args) {
@@ -269,12 +298,12 @@ async function main(args) {
     assert.equal(git(root, 'rev-parse', 'HEAD^{tree}'), manifest.sourceTree, 'Tree changed');
   }
   if (command === 'inventory')
-    return write(opt.out, { ...manifest, kind: 'inventory', files: discover(root) });
+    return write(opt.out, { ...manifest, kind: 'inventory', files: await discover(root) });
   if (command === 'desktop') {
     const shard = Number(opt.shard);
     assert.ok(manifest.desktopShards.includes(shard), 'Unknown shard');
     const shards = manifest.desktopShards.length;
-    const expectedFiles = discover(root, `${shard}/${shards}`);
+    const expectedFiles = await discover(root, `${shard}/${shards}`);
     const resultFile = path.resolve(opt.out + '.vitest.json');
     mkdirSync(path.dirname(resultFile), { recursive: true });
     let failure;
