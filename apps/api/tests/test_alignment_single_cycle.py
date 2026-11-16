@@ -84,6 +84,8 @@ async def test_partial_circular_alignment_keeps_structural_mutations_in_local_co
     assert [(mutation.type, mutation.position) for mutation in result.mutations] == [
         ("substitution", 12)
     ]
+    assert result.analysis["point_mutations"][0]["position"] == 12
+    assert result.analysis["point_mutations"][0]["column"] == 2
     assert structural_inputs == [
         (
             "GGGTAAATGA",
@@ -91,7 +93,7 @@ async def test_partial_circular_alignment_keeps_structural_mutations_in_local_co
             [
                 {
                     "type": "substitution",
-                    "position": 3,
+                    "position": 12,
                     "column": 2,
                     "length": 1,
                     "ref_base": "G",
