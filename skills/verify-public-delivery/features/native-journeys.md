@@ -86,11 +86,17 @@ This proves encoding only; the unchanged full journey must still pass in CI.
   If a previously verified child loses its working directory during shutdown,
   cleanup waits for confirmed exit within its existing grace period. Only a
   confirmed missing process makes a raced termination signal harmless.
-- Workspace setup reads the current project list after creating its first
-  project, including any sample project mounted during startup. Canvas reload
-  uses its existing restoration deadline and requires a new native load identity
-  with page and shell readiness, as well as restored visible content and saved
-  document identities. Request and console failures remain in its receipt.
+- Workspace transitions require the runner's fresh scenario profile. Setup
+  waits for successful sample import, the visible Samples project and no pending
+  imports before changing the project collection. It archives setup projects
+  once and verifies exactly one project remains before testing removal refusal.
+  Only the restoration phase reuses that profile.
+- Canvas and palette reloads use `reloadNativePage` from
+  `apps/desktop/scripts/lib/native-journey-readiness.mjs`. Navigation and native
+  readiness share one deadline; a new load identity, page readiness and shell
+  readiness must all be observed. Original content, document identity, enzyme
+  and color persistence assertions still decide whether restoration passed.
+  Before, after and failed startup observations remain in the journey receipt.
 - An explicit scenario request goes through the existing disposable-profile
   owner using that validated automation path. Ordinary automation gains no
   scenario authority. Shared profiles and unmarked profiles containing user data

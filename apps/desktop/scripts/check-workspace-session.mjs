@@ -112,6 +112,33 @@ try {
     }
   }
   if (values.phase === 'transitions') {
+    const runtimeProfile = await page.evaluate(() => window.electronAPI.runtime.getProfile());
+    receipt.setup = { runtimeProfile };
+    assert.equal(
+      runtimeProfile.kind,
+      'scenario-e2e',
+      'Workspace transitions require a fresh, task-owned scenario profile'
+    );
+    assert.equal(runtimeProfile.scenarioMutationAllowed, true);
+    await expect
+      .poll(
+        async () => {
+          const sampleSeed = {
+            completed: await page.evaluate(() =>
+              localStorage.getItem('waypoint:example-workspace-seeded')
+            ),
+            visible: await page
+              .getByTestId('project-root-name')
+              .filter({ hasText: /^DNAForge Samples$/u })
+              .isVisible(),
+            pendingImports: await page.getByTestId('pending-import-row').count(),
+          };
+          receipt.setup.sampleSeed = { ...sampleSeed, observedAt: new Date().toISOString() };
+          return sampleSeed;
+        },
+        { timeout: 60000, message: 'Fresh-profile sample setup must finish before project mutations' }
+      )
+      .toEqual({ completed: '1', visible: true, pendingImports: 0 });
     await page.keyboard.press('Escape');
     const suffix = Date.now();
     const first = await create(`Session A ${suffix}`);
@@ -123,6 +150,11 @@ try {
     await archive(second);
     await expect.poll(async () => (await observe()).preference).toBe(first.path);
     await step('removed-current-project-and-selected-remainder');
+    assert.deepEqual(
+      (await observe()).folders.filter((f) => !f.pinned).map((f) => f.path),
+      [first.path],
+      'Last-project refusal requires exactly one open project'
+    );
     await archive(first, true);
     const final = await step('refused-removal-of-last-project');
     assert.deepEqual(

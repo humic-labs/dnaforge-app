@@ -8,6 +8,7 @@ import { parseArgs } from 'node:util';
 import { chromium } from 'playwright';
 import { expect } from '@playwright/test';
 import { finalizeJourneyRecording } from '../../../apps/desktop/scripts/lib/native-journey-recording.mjs';
+import { reloadNativePage } from '../../../apps/desktop/scripts/lib/native-journey-readiness.mjs';
 
 const { values } = parseArgs({ options: { out: { type: 'string' } } });
 assert.ok(values.out && isAbsolute(values.out), 'Use --out with an absolute evidence directory');
@@ -49,9 +50,12 @@ try {
   assert.ok(page);
   receipt.renderer = renderer;
   page.on('pageerror', (error) => receipt.pageErrors.push(error.message));
-  page.on('requestfailed', (request) => receipt.requestFailures.push({
-    url: request.url(), error: request.failure()?.errorText,
-  }));
+  page.on('requestfailed', (request) =>
+    receipt.requestFailures.push({
+      url: request.url(),
+      error: request.failure()?.errorText,
+    })
+  );
   page.on('console', (message) => {
     if (message.type() === 'error') receipt.consoleErrors.push(message.text());
   });
@@ -184,17 +188,16 @@ try {
   await textItem.dblclick();
   await expect.poll(async () => (await tabs()).some((tab) => tab.entityId === textPath)).toBe(true);
   await step('moved-closed-and-reopened-text-through-file-tree');
-  receipt.beforeReload = await page.evaluate(() => window.electronAPI.startup.getState());
   const restoreDeadline = Date.now() + 60000;
-  await page.reload({ waitUntil: 'commit' });
+  await reloadNativePage(page, {
+    timeoutMs: restoreDeadline - Date.now(),
+    observe: ({ phase, startup }) => {
+      receipt[`${phase}Reload`] = startup;
+    },
+  });
   await expect(page.getByTestId('text-viewer-tab')).toBeVisible({
     timeout: Math.max(1, restoreDeadline - Date.now()),
   });
-  await expect.poll(async () => {
-    receipt.afterReload = await page.evaluate(() => window.electronAPI.startup.getState());
-    return receipt.afterReload.loadId !== receipt.beforeReload.loadId &&
-      receipt.afterReload.pageLoaded && receipt.afterReload.shellReady;
-  }, { timeout: Math.max(1, restoreDeadline - Date.now()) }).toBe(true);
   const restored = await tabs();
   assert.deepEqual(
     restored.find((tab) => tab.id === sequence.id).sequenceDocument,

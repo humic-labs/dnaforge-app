@@ -5,13 +5,24 @@ import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
+import { reloadNativePage } from './lib/native-journey-readiness.mjs';
 
 const root = path.resolve(
-  process.env.DNAFORGE_VERIFY_ROOT ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
+  process.env.DNAFORGE_VERIFY_ROOT ??
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 );
 const sourceFiles = execFileSync(
   'git',
-  ['ls-files', '-co', '--exclude-standard', '-z', '--', 'apps/desktop/src', 'apps/desktop/scripts', 'packages'],
+  [
+    'ls-files',
+    '-co',
+    '--exclude-standard',
+    '-z',
+    '--',
+    'apps/desktop/src',
+    'apps/desktop/scripts',
+    'packages',
+  ],
   { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
 )
   .split('\0')
@@ -52,6 +63,11 @@ page.on('response', (response) => {
     errors.push(`${response.status()} ${response.url()}`);
 });
 const observations = [];
+const reload = (name) =>
+  reloadNativePage(page, {
+    observe: ({ phase, startup }) =>
+      observations.push({ name: `${name}-${phase}`, value: startup }),
+  });
 const capture = async (name, value) => {
   await page.screenshot({ path: path.join(out, `${name}.png`) });
   observations.push({ name, value });
@@ -110,7 +126,7 @@ try {
     await expect.poll(sites).toEqual([expect.objectContaining({ name: 'SacI' })]);
     const selected = await sites();
     await capture('02-selected-sacI', selected);
-    await page.reload();
+    await reload('restore-enzymes');
     await page.getByTestId('toolbar-restriction-enzymes').waitFor();
     await expect.poll(sites).toEqual(selected);
     await page.getByTestId('toolbar-restriction-enzymes').click();
@@ -199,7 +215,7 @@ try {
       diagnostics: await diagnostics(),
       document: JSON.parse(readFileSync(saved.path, 'utf8')),
     });
-    await page.reload();
+    await reload('restore-track-color');
     await page
       .getByRole('button', { name: 'Open settings for Measured signal', exact: true })
       .click();
