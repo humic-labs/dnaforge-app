@@ -116,7 +116,7 @@ it('retains the available native table across equal reference objects and change
   expect(result.current.data?.cells?.[0]?.[0]?.value).toBe('retained data');
   await waitFor(() => expect(result.current.writable).toBe(true));
   expect(io.resolve).toHaveBeenCalledTimes(1);
-  expect(io.client.load).toHaveBeenCalledTimes(1);
+  expect(io.client.load).not.toHaveBeenCalled();
 });
 
 it('resolves a changed saved-version binding while keeping that new view read-only', async () => {
@@ -192,4 +192,18 @@ it('ignores an old pending rejection when activation arrived before that request
   expect(result.current.writable).toBe(true);
   expect(result.current.error).toBe(null);
   expect(io.resolve).toHaveBeenCalledTimes(2);
+});
+
+it('opens another view of an available native owner without reloading its working copy', async () => {
+  const reference = richTableReference(projectId, tableId);
+  io.client.load.mockRejectedValue(
+    new Error('Reloading this working copy would interrupt its active editor.')
+  );
+  const first = renderHook(() => useNativeRichTableDocument(reference, ''));
+  const second = renderHook(() => useNativeRichTableDocument(reference, ''));
+  await waitFor(() => expect(first.result.current.resolved).not.toBe(null));
+  await waitFor(() => expect(second.result.current.resolved).not.toBe(null));
+  expect(io.client.load).not.toHaveBeenCalled();
+  expect(first.result.current.writable).toBe(true);
+  expect(second.result.current.writable).toBe(true);
 });

@@ -128,14 +128,24 @@ export function useNativeRichTableDocument(reference: TableDocumentReference | n
   );
   useEffect(() => {
     let current = true;
-    if (client)
+    const owner = resolved?.owner.kind === 'file' ? resolved.owner : null;
+    const snapshot = client?.snapshot;
+    const loaded = Boolean(
+      owner &&
+      snapshot?.ready &&
+      snapshot.documentId === owner.documentId &&
+      snapshot.tableDocument?.id === resolved?.tableId &&
+      snapshot.tableDocument.status === 'active' &&
+      client?.content
+    );
+    if (client && !loaded)
       void client.load().catch((error) => {
         if (current) setFailure(error instanceof Error ? error.message : String(error));
       });
     return () => {
       current = false;
     };
-  }, [client]);
+  }, [client, resolved]);
   const projection = useMemo(() => {
     if (resolved?.owner.kind === 'saved-version')
       return {
