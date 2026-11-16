@@ -2,6 +2,15 @@ import { readFileSync } from 'node:fs';
 
 export const policy = JSON.parse(readFileSync(new URL('../../.ci/merge-policy.json', import.meta.url), 'utf8'));
 
+export function selectWorkflowRun(runs, path, headSha) {
+  const collection = path === policy.authority.workflow ? 'required_workflows' : 'workflows';
+  const prefix = `https://api.github.com/repos/${policy.repository.name}/actions/${collection}/`;
+  return runs.filter((run) => run.path === path && run.head_sha === headSha && run.event === 'pull_request' &&
+    run.repository?.id === policy.repository.id && run.workflow_url?.startsWith(prefix) &&
+    /^[1-9][0-9]*$/u.test(run.workflow_url.slice(prefix.length)))
+    .sort((a, b) => b.id - a.id || b.run_attempt - a.run_attempt)[0];
+}
+
 export function selectRequiredWork(changedPaths) {
   if (!Array.isArray(changedPaths) || changedPaths.length === 0 ||
       changedPaths.some((path) => typeof path !== 'string' || !path || path.startsWith('/') || path.includes('\0') || path.split('/').includes('..'))) {
@@ -95,9 +104,7 @@ export function assessQualification(candidate, observation) {
   'Organization-required trusted CI workflow is absent');
   const selectedRuns = {};
   for (const path of [policy.authority.workflow, policy.authority.claWorkflow]) {
-    const matching = runs.filter((run) => run.path === path && run.head_sha === candidate?.head?.sha && run.event === 'pull_request' && run.repository?.id === policy.repository.id)
-      .sort((a, b) => b.id - a.id || b.run_attempt - a.run_attempt);
-    const run = matching[0];
+    const run = selectWorkflowRun(runs, path, candidate?.head?.sha);
     selectedRuns[path] = run;
     if (!run || run.status !== 'completed') pending.push(`Current workflow is missing or pending: ${path}`);
     else reject(run.conclusion === 'success', `Current workflow did not succeed: ${path} (${run.conclusion})`);
@@ -124,6 +131,7 @@ export function assessQualification(candidate, observation) {
     reject(['ahead', 'identical'].includes(ancestry.base), 'Qualification base is not an ancestor of current main');
     reject(['ahead', 'identical'].includes(ancestry.control), 'Qualification control source is not an ancestor of current main');
     reject(/^[a-f0-9]{40}$/u.test(qualification.controlSha ?? ''), 'Qualification control revision is missing');
+    reject(qualification.controlRef === `${policy.repository.name}/${policy.authority.workflow}@${policy.authority.ref}`, 'Qualification control workflow is not public CI from protected main');
     const coverage = selectRequiredWork(observation.changedPaths);
     reject(JSON.stringify(qualification.coverage?.journeys) === JSON.stringify(coverage.journeys) && qualification.coverage?.nativeRequired === coverage.nativeRequired && qualification.coverage?.kind === coverage.kind, 'Qualification coverage differs from the required changed-path selection');
     reject(qualification.desktop?.files > 0 && qualification.desktop?.passed > 0, 'Desktop qualification contains no executed tests');

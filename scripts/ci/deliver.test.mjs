@@ -65,6 +65,7 @@ test('argument parsing rejects malformed and duplicate input', () => {
 function qualifiedApi() {
   const { candidate, observation } = qualifiedFixture();
   const writes = [];
+  const artifactRuns = [];
   const api = (path, options = {}) => {
     if (options.method === 'POST') {
       writes.push({ path, body: options.body });
@@ -82,8 +83,31 @@ function qualifiedApi() {
     if (path.includes('/compare/')) return { status: 'identical' };
     throw new Error(`Unexpected request ${path}`);
   };
-  return { api, writes, readArtifact: () => ({ value: observation.qualification, artifact: { id: 99 } }) };
+  return { api, writes, observation, artifactRuns, readArtifact: (run) => {
+    artifactRuns.push(run.id);
+    return { value: observation.qualification, artifact: { id: 99 } };
+  } };
 }
+
+test('inspection downloads only the injected CI result when ordinary CI is newer', () => {
+  const harness = qualifiedApi();
+  harness.observation.runs.push({ ...harness.observation.runs[0], id: 100,
+    workflow_url: `https://api.github.com/repos/${policy.repository.name}/actions/workflows/10` });
+  const receipt = inspectPullRequest(99, harness);
+  assert.equal(receipt.decision.state, 'qualified');
+  assert.deepEqual(harness.artifactRuns, [10]);
+});
+
+test('ordinary CI success cannot download evidence or enqueue a candidate', () => {
+  const harness = qualifiedApi();
+  harness.observation.runs[0].workflow_url = `https://api.github.com/repos/${policy.repository.name}/actions/workflows/10`;
+  const receipt = enqueueQualifiedPullRequest(99, {
+    ...harness, expectedHead: head, authorizeMerge: true, localHead: head, localStatus: '',
+  });
+  assert.equal(receipt.decision.state, 'pending');
+  assert.deepEqual(harness.artifactRuns, []);
+  assert.deepEqual(harness.writes, []);
+});
 
 test('qualified explicit admission sends one exact-head queue mutation, never auto-merge', () => {
   const harness = qualifiedApi();

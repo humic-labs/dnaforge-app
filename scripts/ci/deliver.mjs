@@ -4,7 +4,7 @@ import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, w
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { assessQualification, policy, proposedRules } from './merge-policy.mjs';
+import { assessQualification, policy, proposedRules, selectWorkflowRun } from './merge-policy.mjs';
 
 const repositoryRoute = `repos/${policy.repository.name}`;
 const SHA = /^[a-f0-9]{40}$/u;
@@ -74,7 +74,7 @@ export function inspectPullRequest(number, { expectedHead, api = githubApi, read
     jobs: {}, ancestry: {},
   };
   const latestRuns = [policy.authority.workflow, policy.authority.claWorkflow].map((path) =>
-    observation.runs.filter((run) => run.path === path).sort((a, b) => b.id - a.id || b.run_attempt - a.run_attempt)[0]);
+    selectWorkflowRun(observation.runs, path, candidate.head.sha));
   for (const run of latestRuns.filter(Boolean)) {
     observation.jobs[run.id] = inventory(api, `${repositoryRoute}/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs`, 'jobs');
   }

@@ -31,6 +31,15 @@ test('a complete source-bound observation qualifies', () => {
   assert.equal(assessQualification(candidate, observation).state, 'qualified');
 });
 
+test('a newer ordinary CI run cannot replace the injected trusted run', () => {
+  const { candidate, observation } = qualifiedFixture();
+  observation.runs.push({ ...observation.runs[0], id: 100, conclusion: 'failure',
+    workflow_url: `https://api.github.com/repos/${policy.repository.name}/actions/workflows/10` });
+  const result = assessQualification(candidate, observation);
+  assert.equal(result.state, 'qualified');
+  assert.equal(result.runs[policy.authority.workflow].id, 10);
+});
+
 for (const [name, mutate] of [
   ['draft', (c) => { c.draft = true; }],
   ['explicit hold', (c) => { c.labels = [{ name: 'DO-NOT-MERGE' }]; }],
@@ -46,6 +55,8 @@ for (const [name, mutate] of [
   ['wrong tested tree', (c, o) => { o.qualification.sourceTree = 'a'.repeat(40); }],
   ['different PR tested', (c, o) => { o.sourceCommit.parents[1].sha = 'a'.repeat(40); }],
   ['untrusted control revision', (c, o) => { o.ancestry.control = 'diverged'; }],
+  ['missing control workflow', (c, o) => { delete o.qualification.controlRef; }],
+  ['candidate-owned control workflow', (c, o) => { o.qualification.controlRef = `${policy.repository.name}/${policy.authority.workflow}@refs/pull/99/merge`; }],
   ['coverage weakened by candidate', (c, o) => { o.qualification.coverage = selectRequiredWork(['README.md']); }],
   ['zero tests', (c, o) => { o.qualification.desktop.passed = 0; }],
   ['new failed run despite old success', (c, o) => { o.runs.push({ ...o.runs[0], id: 100, conclusion: 'failure' }); }],
@@ -54,6 +65,22 @@ for (const [name, mutate] of [
     const { candidate, observation } = qualifiedFixture();
     mutate(candidate, observation);
     assert.equal(assessQualification(candidate, observation).state, 'rejected');
+  });
+}
+
+for (const workflowUrl of [
+  `https://api.github.com/repos/${policy.repository.name}/actions/workflows/10`,
+  'https://api.github.com/repos/other/repository/actions/required_workflows/10',
+  `https://api.github.com/repos/${policy.repository.name}/actions/required_workflows/10/other`,
+  undefined,
+]) {
+  test(`does not qualify untrusted CI publisher ${workflowUrl}`, () => {
+    const { candidate, observation } = qualifiedFixture();
+    observation.runs[0].workflow_url = workflowUrl;
+    delete observation.qualification;
+    const result = assessQualification(candidate, observation);
+    assert.equal(result.state, 'pending');
+    assert.equal(result.runs[policy.authority.workflow], null);
   });
 }
 
