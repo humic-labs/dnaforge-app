@@ -855,8 +855,9 @@ async def _execute_pairwise_alignment(
         for m in mutations
     ]
     if circular_offset > 0:
-        for mut in mutations:
+        for mut, structural_mutation in zip(mutations, mutations_for_structural, strict=True):
             mut.position = ((mut.position - 1 + circular_offset) % original_ref_length) + 1
+            structural_mutation["position"] = mut.position
 
     try:
         structural_analysis = analyze_alignment_structure(
