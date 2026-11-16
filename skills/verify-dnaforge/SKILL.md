@@ -1,11 +1,16 @@
 ---
 name: verify-dnaforge
 description:
-  Verify track palette edits and catalog-backed restriction enzyme selection in
-  an isolated DNAForge desktop development app.
+  Verify saved read pileups, annotations, track palette edits and catalog-backed
+  restriction enzyme selection in an isolated DNAForge desktop development app.
 ---
 
-# Verify DNAForge palettes and enzymes
+# Verify DNAForge desktop workflows
+
+Choose the [saved pileup map](features/saved-pileup.md) for read loading,
+annotations, zoom transitions and performance. Its source-start command owns
+launch, readiness checks and cleanup. The sections below describe the
+[palette and enzyme journey](features/palettes-and-enzymes.md).
 
 ## Launch
 

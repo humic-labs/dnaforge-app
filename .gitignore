@@ -313,3 +313,8 @@ apps/desktop/resources/helpers/fastp-aarch64-apple-darwin
 apps/desktop/resources/helpers/fastp-x86_64-apple-darwin
 apps/desktop/resources/helpers/fastp.build.json
 apps/desktop/resources/helpers/fastp.licenses/
+
+apps/desktop/resources/helpers/dna-indexer-*
+apps/desktop/resources/helpers/dna-coverage-*
+apps/desktop/resources/helpers/dna-process-guardian-*
+apps/desktop/resources/helpers/coverage-build-provenance.json

@@ -136,13 +136,27 @@ jobs:
         run: pnpm --dir apps/desktop helpers:build
 
       - name: Run the app from source and wait until it is up
+        env:
+          PILEUP_PERFORMANCE_OUTPUT: ${{ runner.temp }}/pileup-evidence/source
         run: |
           set -euo pipefail
           cp apps/desktop/.env.local.example apps/desktop/.env.local
           pnpm --dir apps/desktop run check:run-from-source
 
       - name: Set up and start the app with the one-command script
+        env:
+          PILEUP_PERFORMANCE_OUTPUT: ${{ runner.temp }}/pileup-evidence/one-command
         run: |
           set -euo pipefail
           rm apps/desktop/.env.local
           node start.mjs --yes --check
+
+      - name: Preserve failed source-check evidence
+        if: failure() || env.PILEUP_PERFORMANCE_DIAGNOSTICS == '1' || runner.debug == '1'
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: macos-source-check-evidence
+          path: ${{ runner.temp }}/pileup-evidence
+          if-no-files-found: ignore
+          retention-days: 7

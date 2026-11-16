@@ -1276,7 +1276,7 @@ function TrackSettingsPanel({
   const { dataset } = lane;
   const commit = (patch: TrackPresentationPatch): UpdateLanePresentationResult => {
     const result = updateLanePresentation(bucket, dataset.trackId, patch);
-    setError(toUserMessage(result, 'sequence.failed'));
+    setError(result.status === 'updated' ? null : toUserMessage(result, 'sequence.failed'));
     return result;
   };
   const canSetColor =

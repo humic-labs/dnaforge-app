@@ -89,6 +89,7 @@ import {
   type BpRange,
   type PixiLinearTrackRenderer,
   type TrackCoverageDepthSnapshot,
+  type TrackReadPresentationSnapshot,
   type TrackHoverArgs,
   type TrackHitResult,
 } from './linear-tracks';
@@ -865,6 +866,15 @@ export class PixiLinearRenderer {
     const renderer = this.trackRenderers.get(track.type);
     if (!container || !renderer?.getCoverageDepthSnapshot) return null;
     return renderer.getCoverageDepthSnapshot(container);
+  }
+
+  getReadPresentationSnapshot(trackId: string): TrackReadPresentationSnapshot | null {
+    const track = this.trackInstancesById.get(trackId);
+    if (!track) return null;
+    const container = this.trackContainers.get(track.id);
+    const renderer = this.trackRenderers.get(track.type);
+    if (!container || !renderer?.getReadPresentationSnapshot) return null;
+    return renderer.getReadPresentationSnapshot(container);
   }
 
   getColdGestureSnapshot(trackId: string): PixiLinearRendererColdGestureSnapshot {

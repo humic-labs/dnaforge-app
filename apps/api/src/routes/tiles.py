@@ -21,6 +21,7 @@ import asyncio
 import json as _json
 import os
 import struct
+import threading
 from pathlib import Path
 from typing import Awaitable, Callable, Literal, Mapping, NoReturn
 from uuid import uuid4
@@ -449,7 +450,10 @@ def _compute_alignment_tile(
     tile_index: int,
     chrom_global_start: int,
     guides_only: bool,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> dict:
+    if check_cancelled is not None:
+        check_cancelled()
     alignment_tiles, pileup = _load_alignment_services()
     resolved = pileup._resolve_bam_path(bam_path)
     resolved_index = pileup._resolve_index_path(index_path)
@@ -471,6 +475,7 @@ def _compute_alignment_tile(
             reference_fasta=reference_path,
             guides_only=guides_only,
             opened_alignment=bam,
+            check_cancelled=check_cancelled,
         )
 
 
@@ -506,8 +511,16 @@ def _compute_alignment_read(
     )
 
 
+class _LocalAlignmentClientClosed(Exception):
+    pass
+
+
 async def _run_alignment_native(
-    bam_path: str, worker: Callable[..., dict], *args: object, control: bool = False
+    bam_path: str,
+    worker: Callable[..., dict],
+    *args: object,
+    control: bool = False,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> dict:
     _, pileup = _load_alignment_services()
     if pileup._is_remote_bam(bam_path):
@@ -516,40 +529,60 @@ async def _run_alignment_native(
         return await run_remote_htslib(
             worker, *args, pool="control" if control else "alignment"
         )
+    if check_cancelled is not None:
+        return await asyncio.to_thread(worker, *args, check_cancelled)
     return await asyncio.to_thread(worker, *args)
 
 
 async def _run_alignment_request(
-    bam_path: str, request: Request | None, admitted_read: Callable[[], Awaitable[dict]]
+    bam_path: str,
+    request: Request | None,
+    admitted_read: Callable[[], Awaitable[dict]],
+    local_cancellation: threading.Event | None = None,
 ) -> dict:
     _, pileup = _load_alignment_services()
-    if request is None or not pileup._is_remote_bam(bam_path):
+    remote = pileup._is_remote_bam(bam_path)
+    if local_cancellation is None and (request is None or not remote):
         return await admitted_read()
-    if await request.is_disconnected():
-        raise asyncio.CancelledError
+    if request is not None and await request.is_disconnected():
+        if remote:
+            raise asyncio.CancelledError
+        raise _LocalAlignmentClientClosed
 
     read = asyncio.create_task(admitted_read())
     completed = asyncio.Event()
 
+    def retire_read() -> None:
+        if remote:
+            read.cancel()
+        elif local_cancellation is not None:
+            local_cancellation.set()
+
     async def watch_disconnect() -> None:
         while not completed.is_set():
             if await request.is_disconnected():
-                read.cancel()
+                retire_read()
                 return
             try:
                 await asyncio.wait_for(completed.wait(), timeout=0.05)
             except asyncio.TimeoutError:
                 pass
 
-    watcher = asyncio.create_task(watch_disconnect())
+    watcher = asyncio.create_task(watch_disconnect()) if request is not None else None
     try:
-        return await asyncio.shield(read)
+        result = await asyncio.shield(read)
+        if local_cancellation is not None and local_cancellation.is_set():
+            raise _LocalAlignmentClientClosed
+        return result
     finally:
         completed.set()
-        watcher.cancel()
+        if watcher is not None:
+            watcher.cancel()
         if not read.done():
-            read.cancel()
-        cleanup = asyncio.gather(read, watcher, return_exceptions=True)
+            retire_read()
+        cleanup = asyncio.gather(
+            read, *([watcher] if watcher is not None else []), return_exceptions=True
+        )
         cancelled_during_cleanup = False
         while True:
             try:
@@ -697,10 +730,14 @@ async def coverage_precompute_route(
     )
 
 
-def _assembly_depth_scale(body: "CoverageAssemblyTileBody"):
+def _assembly_depth_scale(
+    body: "CoverageAssemblyTileBody", check_cancelled: Callable[[], None] | None = None
+):
     """Genome-wide p98 coverage-depth scale  Ask 1). Memoized + JSON-cached
     in the service, so this is effectively free after the first call; returns the stable
     denominator the renderer uses so histogram height stops moving with scroll/zoom."""
+    if check_cancelled is not None:
+        check_cancelled()
     try:
         from ..services.coverage_pyramid import (
             cached_reference_lengths,
@@ -726,17 +763,24 @@ def _assembly_depth_scale(body: "CoverageAssemblyTileBody"):
                 else None
             ),
             percentile=98.0,
+            **({"check_cancelled": check_cancelled} if check_cancelled is not None else {}),
         )
         return scale.get("scaleDepth") if scale else None
+    except _LocalAlignmentClientClosed:
+        raise
     except Exception:
         return None
 
 
-def _assembly_depth_percentiles(body: "CoverageAssemblyTileBody"):
+def _assembly_depth_percentiles(
+    body: "CoverageAssemblyTileBody", check_cancelled: Callable[[], None] | None = None
+):
     """Genome-wide coverage-depth percentiles  histogram A/B). Memoized +
     JSON-cached in the service, so this is effectively free after the first call;
     returns {p50,p90,p95,p99,max} — the stable denominators the renderer can pick
     between so histogram height stops moving with scroll/zoom."""
+    if check_cancelled is not None:
+        check_cancelled()
     try:
         from ..services.coverage_pyramid import (
             cached_reference_lengths,
@@ -761,14 +805,17 @@ def _assembly_depth_percentiles(body: "CoverageAssemblyTileBody"):
                 if body.reference_path
                 else None
             ),
+            **({"check_cancelled": check_cancelled} if check_cancelled is not None else {}),
         )
+    except _LocalAlignmentClientClosed:
+        raise
     except Exception:
         return None
 
 
 @router.post("/coverage-assembly/{level}/{tile_index}")
 async def coverage_assembly_tile_route(
-    level: int, tile_index: int, body: CoverageAssemblyTileBody
+    level: int, tile_index: int, body: CoverageAssemblyTileBody, request: Request = None
 ) -> JSONResponse:
     """A complete coverage tile for all chromosome segments in one global tile.
 
@@ -856,8 +903,15 @@ async def coverage_assembly_tile_route(
             }
         )
     bam_path = _require_file_bam_path(body)
-    try:
+    local_cancellation = None if pileup._is_remote_bam(bam_path) else threading.Event()
+
+    def check_cancelled() -> None:
+        if local_cancellation is not None and local_cancellation.is_set():
+            raise _LocalAlignmentClientClosed
+
+    async def admitted_read() -> dict:
         async with pool.slot():
+            check_cancelled()
             await asyncio.to_thread(
                 _validate_aligned_read_source_generation,
                 body,
@@ -879,13 +933,22 @@ async def coverage_assembly_tile_route(
                 bin_size_bp=tg.bin_bp(level),
                 index_path=body.index_path,
                 reference_fasta=body.reference_path,
+                **({"check_cancelled": check_cancelled} if local_cancellation is not None else {}),
             )
             result["level"] = level
             result["tileIndex"] = tile_index
-            scale_val = await asyncio.to_thread(_assembly_depth_scale, body)
+            scale_val = await asyncio.to_thread(
+                _assembly_depth_scale,
+                body,
+                **({"check_cancelled": check_cancelled} if local_cancellation is not None else {}),
+            )
             if scale_val is not None:
                 result["globalDepthScale"] = scale_val
-            percentiles_val = await asyncio.to_thread(_assembly_depth_percentiles, body)
+            percentiles_val = await asyncio.to_thread(
+                _assembly_depth_percentiles,
+                body,
+                **({"check_cancelled": check_cancelled} if local_cancellation is not None else {}),
+            )
             if percentiles_val is not None:
                 result["depthPercentiles"] = percentiles_val
             await asyncio.to_thread(
@@ -893,6 +956,18 @@ async def coverage_assembly_tile_route(
                 body,
                 pileup.require_aligned_read_source_generation,
             )
+            check_cancelled()
+            return result
+
+    try:
+        result = await _run_alignment_request(
+            bam_path,
+            request if local_cancellation is not None else None,
+            admitted_read,
+            local_cancellation,
+        )
+    except _LocalAlignmentClientClosed:
+        return JSONResponse(status_code=499, content={"detail": "Client closed coverage request"})
     except QueueRefusal as exc:
         return _refuse_response(exc)
     except pileup.SourceGenerationChangedError as exc:
@@ -975,7 +1050,7 @@ async def coverage_corridor_floor_route(body: CoverageCorridorFloorBody) -> Resp
 
 @router.post("/coverage/{level}/{tile_index}")
 async def coverage_tile_route(
-    level: int, tile_index: int, body: _TileSourceBody
+    level: int, tile_index: int, body: _TileSourceBody, request: Request = None
 ) -> JSONResponse:
     """A (level, tileIndex) coverage tile from the bounded persisted pyramid.
 
@@ -1052,8 +1127,14 @@ async def coverage_tile_route(
         return JSONResponse(content=result)
 
     bam_path = _require_file_bam_path(body)
+    local_cancellation = None if pileup._is_remote_bam(bam_path) else threading.Event()
+
+    def check_cancelled() -> None:
+        if local_cancellation is not None and local_cancellation.is_set():
+            raise _LocalAlignmentClientClosed
 
     def _compute() -> dict:
+        check_cancelled()
         resolved = pileup._resolve_bam_path(bam_path)
         resolved_index = pileup._resolve_index_path(body.index_path)
         resolved_reference = pileup._resolve_reference_path(body.reference_path)
@@ -1096,13 +1177,15 @@ async def coverage_tile_route(
             index_path=body.index_path,
             reference_fasta=body.reference_path,
             chrom_len=chrom_len,
+            **({"check_cancelled": check_cancelled} if local_cancellation is not None else {}),
         )
         tile["level"] = level
         tile["tileIndex"] = tile_index
         return tile
 
-    try:
+    async def admitted_read() -> dict:
         async with pool.slot():
+            check_cancelled()
             await asyncio.to_thread(
                 _validate_aligned_read_source_generation,
                 body,
@@ -1114,6 +1197,18 @@ async def coverage_tile_route(
                 body,
                 pileup.require_aligned_read_source_generation,
             )
+            check_cancelled()
+            return result
+
+    try:
+        result = await _run_alignment_request(
+            bam_path,
+            request if local_cancellation is not None else None,
+            admitted_read,
+            local_cancellation,
+        )
+    except _LocalAlignmentClientClosed:
+        return JSONResponse(status_code=499, content={"detail": "Client closed coverage request"})
     except QueueRefusal as exc:
         return _refuse_response(exc)
     except pileup.SourceGenerationChangedError as exc:
@@ -1518,7 +1613,7 @@ async def alignment_tile_route(
                 tile_index=tile_index,
                 guides_only=body.guides_only,
             )
-            return JSONResponse(content=result)
+            return JSONResponse(content=result, headers={"Content-Encoding": "identity"})
         try:
             snapshot = await get_external_runtime().materialize_htsget_region(
                 body.htsget_token,
@@ -1551,17 +1646,30 @@ async def alignment_tile_route(
             return _refuse_response(exc)
         except HtsgetSourceError as exc:
             raise _htsget_tile_error(exc) from exc
-        return JSONResponse(content=result)
+        return JSONResponse(content=result, headers={"Content-Encoding": "identity"})
 
     bam_path = _require_file_bam_path(body)
 
+    local_cancellation = threading.Event()
+
+    def check_cancelled() -> None:
+        if local_cancellation.is_set():
+            raise _LocalAlignmentClientClosed
+
     async def admitted_read() -> dict:
         async with pool.slot():
+            check_cancelled()
             await asyncio.to_thread(
                 _validate_aligned_read_source_generation,
                 body,
                 pileup.require_aligned_read_source_generation,
             )
+            if (
+                request is not None
+                and not pileup._is_remote_bam(bam_path)
+                and await request.is_disconnected()
+            ):
+                raise _LocalAlignmentClientClosed
             result = await _run_alignment_native(
                 bam_path,
                 _compute_alignment_tile,
@@ -1573,6 +1681,7 @@ async def alignment_tile_route(
                 tile_index,
                 body.chrom_global_start,
                 body.guides_only,
+                check_cancelled=check_cancelled,
             )
             await asyncio.to_thread(
                 _validate_aligned_read_source_generation,
@@ -1582,7 +1691,13 @@ async def alignment_tile_route(
             return result
 
     try:
-        result = await _run_alignment_request(bam_path, request, admitted_read)
+        result = await _run_alignment_request(
+            bam_path, request, admitted_read, local_cancellation
+        )
+    except _LocalAlignmentClientClosed:
+        return JSONResponse(
+            status_code=499, content={"detail": "Client closed alignment request"}
+        )
     except QueueRefusal as exc:
         return _refuse_response(exc)
     except pileup.SourceGenerationChangedError as exc:
@@ -1600,7 +1715,7 @@ async def alignment_tile_route(
                 detail=_TRUNCATED_ALIGNMENT_DETAIL,
             ) from exc
         raise
-    return JSONResponse(content=result)
+    return JSONResponse(content=result, headers={"Content-Encoding": "identity"})
 
 
 class _AlignmentHeaderBody(_AlignedReadSourceBody):
@@ -1857,4 +1972,4 @@ async def annotation_tile_route(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except annotation_tiles.AnnotationPyramidMissingError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return JSONResponse(content=result)
+    return JSONResponse(content=result, headers={"Content-Encoding": "identity"})

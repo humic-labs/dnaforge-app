@@ -21,7 +21,7 @@ export interface TileSourceShape {
   readonly prefetch?: TileSource['prefetch'];
   buildBody(level: number, index: number, segments: AssemblySegment[]): Record<string, unknown>;
   countOf(payload: unknown): number;
-  byteSizeOf(payload: unknown): number;
+  byteSizeOf(payload: unknown, bodyByteSize?: number): number;
 }
 
 export interface BaseTileSourceOptions {
@@ -103,7 +103,7 @@ export class BaseTileSource implements TileSource {
       key,
       state: 'ready',
       count: this.shape.countOf(raced.body),
-      byteSize: this.shape.byteSizeOf(raced.body),
+      byteSize: this.shape.byteSizeOf(raced.body, raced.bodyByteSize),
       payload: raced.body,
     };
   }

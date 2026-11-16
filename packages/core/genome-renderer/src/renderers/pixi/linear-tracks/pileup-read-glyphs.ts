@@ -10,38 +10,135 @@ export interface PileupReadDifferenceMark {
   readonly event: PileupMismatch;
 }
 
-export function buildPileupReadDifferenceMarks(input: {
+export interface PileupReadDifferenceMarksInput {
   readonly records: ReadonlyArray<PileupRecord>;
   readonly rows: Int32Array;
   readonly viewportStartBp?: number;
   readonly viewportEndBp?: number;
-}): PileupReadDifferenceMark[] {
-  const marks: PileupReadDifferenceMark[] = [];
-  if (input.rows.length !== input.records.length) return marks;
-  const viewportStartBp = input.viewportStartBp ?? Number.NEGATIVE_INFINITY;
-  const viewportEndBp = input.viewportEndBp ?? Number.POSITIVE_INFINITY;
+}
 
-  for (let recordIndex = 0; recordIndex < input.records.length; recordIndex += 1) {
-    const row = input.rows[recordIndex]!;
-    if (row < 0) continue;
-    const record = input.records[recordIndex]!;
-    if (record.end <= viewportStartBp || record.start >= viewportEndBp) continue;
+export interface PileupReadDifferenceMarksJob {
+  readonly records: ReadonlyArray<PileupRecord>;
+  readonly rows: Int32Array;
+  readonly viewportStartBp: number;
+  readonly viewportEndBp: number;
+  readonly marks: PileupReadDifferenceMark[];
+  readonly rowMarkIndices: Map<number, number[]>;
+  recordCursor: number;
+  eventCursor: number;
+  complete: boolean;
+}
 
-    for (const event of record.mismatches ?? []) {
+export interface PileupReadDifferenceMarksJobOptions {
+  readonly workBudgetMs?: number;
+  readonly now?: () => number;
+  readonly onMark?: (mark: PileupReadDifferenceMark, index: number) => void;
+}
+
+const WORK_BUDGET_CHECK_ITEMS = 4;
+const monotonicNow = (): number => performance.now();
+
+export function beginPileupReadDifferenceMarksJob(
+  input: PileupReadDifferenceMarksInput
+): PileupReadDifferenceMarksJob {
+  return {
+    records: input.records,
+    rows: input.rows,
+    viewportStartBp: input.viewportStartBp ?? Number.NEGATIVE_INFINITY,
+    viewportEndBp: input.viewportEndBp ?? Number.POSITIVE_INFINITY,
+    marks: [],
+    rowMarkIndices: new Map(),
+    recordCursor: 0,
+    eventCursor: 0,
+    complete: input.records.length === 0 || input.rows.length !== input.records.length,
+  };
+}
+
+export function advancePileupReadDifferenceMarksJob(
+  job: PileupReadDifferenceMarksJob,
+  maxItems: number,
+  options?: PileupReadDifferenceMarksJobOptions
+): number {
+  const workBudgetMs = options?.workBudgetMs;
+  if (workBudgetMs !== undefined && (!Number.isFinite(workBudgetMs) || workBudgetMs <= 0)) {
+    throw new TypeError('pileup read-difference work budget must be finite and positive');
+  }
+  if (job.complete || maxItems <= 0) return 0;
+  const limit = Math.max(0, Math.floor(maxItems));
+  const now = options?.now ?? monotonicNow;
+  const startedAt = workBudgetMs === undefined ? 0 : now();
+  let consumed = 0;
+
+  while (!job.complete && consumed < limit) {
+    if (
+      workBudgetMs !== undefined &&
+      consumed > 0 &&
+      consumed % WORK_BUDGET_CHECK_ITEMS === 0 &&
+      now() - startedAt >= workBudgetMs
+    ) {
+      break;
+    }
+    const recordIndex = job.recordCursor;
+    const record = job.records[recordIndex]!;
+    const row = job.rows[recordIndex]!;
+    const outside = record.end <= job.viewportStartBp || record.start >= job.viewportEndBp;
+    const events = row < 0 || outside ? undefined : record.mismatches;
+
+    if (!events || events.length === 0) {
+      job.recordCursor += 1;
+      job.eventCursor = 0;
+    } else {
+      const event = events[job.eventCursor]!;
       const length = Math.max(1, event.length ?? 1);
       const eventEnd = event.kind === 'del' ? event.pos + length : event.pos + 1;
-      if (eventEnd <= viewportStartBp || event.pos >= viewportEndBp) continue;
-      marks.push({
-        bp: event.pos,
-        length,
-        row,
-        recordIndex,
-        event,
-      });
+      if (!(eventEnd <= job.viewportStartBp || event.pos >= job.viewportEndBp)) {
+        const mark: PileupReadDifferenceMark = {
+          bp: event.pos,
+          length,
+          row,
+          recordIndex,
+          event,
+        };
+        const markIndex = job.marks.length;
+        options?.onMark?.(mark, markIndex);
+        job.marks.push(mark);
+        let indices = job.rowMarkIndices.get(row);
+        if (!indices) {
+          indices = [];
+          job.rowMarkIndices.set(row, indices);
+        }
+        indices.push(markIndex);
+      }
+      job.eventCursor += 1;
+      if (job.eventCursor >= events.length) {
+        job.recordCursor += 1;
+        job.eventCursor = 0;
+      }
     }
+    consumed += 1;
+    job.complete = job.recordCursor >= job.records.length;
   }
 
-  return marks;
+  return consumed;
+}
+
+export function isPileupReadDifferenceMarksJobComplete(job: PileupReadDifferenceMarksJob): boolean {
+  return job.complete;
+}
+
+export function finishPileupReadDifferenceMarksJob(
+  job: PileupReadDifferenceMarksJob
+): PileupReadDifferenceMark[] {
+  if (!job.complete) throw new Error('Cannot finish incomplete pileup read-difference marks');
+  return job.marks;
+}
+
+export function buildPileupReadDifferenceMarks(
+  input: PileupReadDifferenceMarksInput
+): PileupReadDifferenceMark[] {
+  const job = beginPileupReadDifferenceMarksJob(input);
+  advancePileupReadDifferenceMarksJob(job, Number.POSITIVE_INFINITY);
+  return finishPileupReadDifferenceMarksJob(job);
 }
 
 export const PILEUP_DIFFERENCE_COLOR_BY_THEME = {

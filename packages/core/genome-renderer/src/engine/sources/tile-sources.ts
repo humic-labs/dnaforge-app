@@ -96,7 +96,9 @@ function alignmentBody(
   return body;
 }
 
-function jsonByteSize(payload: unknown): number {
+function jsonByteSize(payload: unknown, bodyByteSize?: number): number {
+  if (typeof bodyByteSize === 'number' && Number.isSafeInteger(bodyByteSize) && bodyByteSize > 0)
+    return bodyByteSize;
   try {
     return JSON.stringify(payload)?.length ?? 0;
   } catch {

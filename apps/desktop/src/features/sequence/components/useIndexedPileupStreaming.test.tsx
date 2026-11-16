@@ -1,9 +1,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Assembly } from '@waypoint/genome-renderer';
+import type { Assembly, TrackReadPresentationSnapshot } from '@waypoint/genome-renderer';
+import type { PileupTrackData } from '@waypoint/genome-data';
 
 import type { ActiveStressDataset } from '../lane-contract-store';
 import type { PileupSource } from '../pileup-source';
+import { alignedReadSourceGenerationKey } from '../aligned-read-source-generation';
 import type { TileEngineFeed } from '../tile-engine-driver';
 import { ExperimentalHybridPileupPublisher } from '../experimental-hybrid-pileup';
 import {
@@ -16,6 +18,12 @@ type CoverageAtlasReuse = {
   viewRange: { start: number; end: number };
 };
 
+type ReadPresentationReuse = {
+  feed: TileEngineFeed;
+  viewRange: { start: number; end: number };
+  requiredReadBandReady: boolean;
+};
+
 const driverMock = vi.hoisted(() => {
   const instances: Array<{
     options: {
@@ -25,6 +33,7 @@ const driverMock = vi.hoisted(() => {
       timeoutMs: number;
       onFeed: (feed: TileEngineFeed) => void;
       onCoverageAtlasReuse?: (presentation: CoverageAtlasReuse) => void;
+      onReadPresentationReuse?: (presentation: ReadPresentationReuse) => void;
       onTileError?: (failure: {
         key: { sourceId: string; level: number; index: number };
         reason: string;
@@ -46,6 +55,7 @@ const driverMock = vi.hoisted(() => {
       timeoutMs: number;
       onFeed: (feed: TileEngineFeed) => void;
       onCoverageAtlasReuse?: (presentation: CoverageAtlasReuse) => void;
+      onReadPresentationReuse?: (presentation: ReadPresentationReuse) => void;
       onTileError?: (failure: {
         key: { sourceId: string; level: number; index: number };
         reason: string;
@@ -79,6 +89,7 @@ const driverMock = vi.hoisted(() => {
       source: PileupSource;
       onFeed: (feed: TileEngineFeed) => void;
       onCoverageAtlasReuse?: (presentation: CoverageAtlasReuse) => void;
+      onReadPresentationReuse?: (presentation: ReadPresentationReuse) => void;
       onTileError?: (failure: {
         key: { sourceId: string; level: number; index: number };
         reason: string;
@@ -229,9 +240,28 @@ function coverageGpuAtlas(): NonNullable<TileEngineFeed['coverageGpuAtlas']> {
   };
 }
 
-function fakeRenderer() {
+function fakeRenderer(presentedRange?: () => { start: number; end: number }) {
+  const payloads = new Map<string, PileupTrackData>();
   return {
-    setTrackData: vi.fn(),
+    setTrackData: vi.fn((trackId: string, data: PileupTrackData) => payloads.set(trackId, data)),
+    getReadPresentationSnapshot: vi.fn((trackId: string): TrackReadPresentationSnapshot | null => {
+      const data = payloads.get(trackId);
+      const range = presentedRange?.();
+      if (!data || !range) return null;
+      const sourceGenerationKey = data.readSource?.sourceGenerationKey ?? '';
+      return {
+        kind: data.records.length ? 'reads' : 'empty',
+        sourceGenerationKey,
+        presentationOwnerKey: data.readSource?.presentationOwnerKey ?? sourceGenerationKey,
+        viewStartBp: range.start,
+        viewEndBp: range.end,
+        sourceCoversViewport: true,
+        meshCoverageFraction: 1,
+        truncated: false,
+        visible: data.records.length > 0,
+        recordCount: data.records.length,
+      };
+    }),
     getTrackDiagnostics: vi.fn(() => null),
     getRendererDebugSnapshot: vi.fn(() => null),
   };
@@ -335,7 +365,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
   });
 
   it('acknowledges a retained driver feed using the expanded pane plan after a camera dispatch', async () => {
-    const renderer = fakeRenderer();
+    const renderer = fakeRenderer(() => range);
     const range = { start: 100_000, end: 102_000 };
     const assembly = rendererAssembly();
     const dataset = pileupDataset({ bamPath: '/fixtures/expanded-pane-feed.bam' });
@@ -1038,6 +1068,106 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
     unmount();
   });
 
+  it.each(['http', 'htsget', 'local-reference'] as const)(
+    'publishes complete presentation owner identity for %s without changing the raw file generation contract',
+    async (kind) => {
+      const renderer = fakeRenderer();
+      const range = { start: 100_000, end: 102_000 };
+      const assembly = rendererAssembly();
+      const webglRef = {
+        current: {
+          getLinearRenderer: () => renderer,
+          getViewportRange: () => range,
+          requestRender: vi.fn(),
+        },
+      };
+      const source = (version: number): PileupSource =>
+        kind === 'http'
+          ? {
+              bamPath: `https://reads.example.test/source-${version}.bam`,
+              indexPath: `https://reads.example.test/source-${version}.bam.bai`,
+            }
+          : kind === 'htsget'
+            ? {
+                bamPath: `htsget-runtime://${String(version).repeat(64)}/source.bam`,
+                htsget: {
+                  sourceToken: 'fixture-grant',
+                  sourceIdentity: String(version).repeat(64),
+                  format: 'BAM',
+                },
+                grantExpiresAtMs: 100_000,
+              }
+            : {
+                bamPath: '/fixtures/HG002.bam',
+                indexPath: '/fixtures/HG002.bam.bai',
+                generation: sourceGeneration(1),
+              };
+      const expectedRawGeneration = alignedReadSourceGenerationKey(source(1).generation);
+      const { result, rerender, unmount } = renderHook(
+        ({ version }: { version: number }) =>
+          useIndexedPileupStreaming({
+            webglRef,
+            rendererAssembly: assembly,
+            containerWidth: 1_000,
+            activeStressDatasets: [pileupDataset(source(version))],
+            ...(kind === 'local-reference'
+              ? {
+                  referencePathsByChrom: new Map([
+                    ['chr11', `/reference/version-${version}/chr11.fa.gz`],
+                  ]),
+                }
+              : {}),
+          }),
+        { initialProps: { version: 1 } }
+      );
+      const publish = (index: number) =>
+        act(() =>
+          driverMock.instances[index]!.options.onFeed({
+            ownerPresentation: { kind: 'reads' },
+            requiredReadBandReady: true,
+            viewRange: range,
+            records: [
+              { start: 100_100, end: 100_250, readId: 'owner-bound-read', strand: '+', mapq: 60 },
+            ],
+            readSource: { truncated: false, windowStartBp: 99_328, windowEndBp: 102_400 },
+            coverage: { startBp: 99_328, binSize: 128, bins: new Array(24).fill(8), maxDepth: 8 },
+          })
+        );
+      const publishedReadSource = () => {
+        const payload = renderer.setTrackData.mock.calls.at(-1)?.[1] as
+          | { readSource?: { sourceGenerationKey?: string; presentationOwnerKey?: string } }
+          | undefined;
+        expect(payload?.readSource?.sourceGenerationKey).toBe(expectedRawGeneration);
+        return payload?.readSource;
+      };
+      try {
+        act(() => {
+          result.current.streamPileupViaTileEngine(range);
+        });
+        await waitFor(() => expect(driverMock.instances).toHaveLength(1));
+        publish(0);
+        const firstOwner = publishedReadSource()?.presentationOwnerKey;
+        expect(
+          firstOwner,
+          'every admitted producer needs a nonempty surface owner identity'
+        ).toEqual(expect.any(String));
+        expect(firstOwner?.length).toBeGreaterThan(0);
+
+        rerender({ version: 2 });
+        act(() => {
+          result.current.streamPileupViaTileEngine(range);
+        });
+        await waitFor(() => expect(driverMock.instances).toHaveLength(2));
+        publish(1);
+        const secondOwner = publishedReadSource()?.presentationOwnerKey;
+        expect(secondOwner?.length).toBeGreaterThan(0);
+        expect(secondOwner).not.toBe(firstOwner);
+      } finally {
+        unmount();
+      }
+    }
+  );
+
   it('rebuilds resident data when the same paths have a new local file generation', async () => {
     const renderer = fakeRenderer();
     const webglRef = { current: { getLinearRenderer: () => renderer } };
@@ -1564,7 +1694,12 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
       records,
       alternateColumns: [],
       referenceIntervals: [],
-      readSource: { windowStartBp: 0, windowEndBp: 2_000, sourceGenerationKey: '' },
+      readSource: {
+        windowStartBp: 0,
+        windowEndBp: 2_000,
+        sourceGenerationKey: '',
+        presentationOwnerKey: expect.any(String),
+      },
     });
 
     unmount();
@@ -1801,6 +1936,11 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
         readSource,
       });
     });
+    const firstPublishedPayload = renderer.setTrackData.mock.calls.at(-1)?.[1] as {
+      readSource?: { presentationOwnerKey?: string };
+    };
+    const presentationOwnerKey = firstPublishedPayload.readSource?.presentationOwnerKey;
+    expect(presentationOwnerKey?.length).toBeGreaterThan(0);
     renderer.setTrackData.mockClear();
 
     act(() => {
@@ -1818,7 +1958,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
       dataset.trackId,
       expect.objectContaining({
         records,
-        readSource,
+        readSource: { ...readSource, presentationOwnerKey },
         coverageGpuAtlasPresentation: 'active',
       })
     );
@@ -1890,6 +2030,11 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
         referenceIntervals: [],
       });
     });
+    const firstPublishedPayload = renderer.setTrackData.mock.calls.at(-1)?.[1] as {
+      readSource?: { presentationOwnerKey?: string };
+    };
+    const presentationOwnerKey = firstPublishedPayload.readSource?.presentationOwnerKey;
+    expect(presentationOwnerKey?.length).toBeGreaterThan(0);
 
     currentRange = { start: 99_500, end: 100_500 };
     act(() => {
@@ -1907,7 +2052,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
       'hybrid-right-left',
       expect.objectContaining({
         records,
-        readSource,
+        readSource: { ...readSource, presentationOwnerKey },
         referenceIntervals: [{ startBp: 99_500, endBp: 100_000, state: 'pending' }],
         experimentalReadHandoff: expect.objectContaining({ readsLoading: true }),
       })
@@ -2276,6 +2421,102 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
     });
 
     unmount();
+  });
+
+  it('keeps a coalesced cached read commit on the current pane width until its frame is acknowledged', async () => {
+    vi.useFakeTimers();
+    let now = 0;
+    const performanceNowSpy = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    let range = { start: 60_000, end: 64_000 };
+    const renderer = fakeRenderer(() => range);
+    const frames: Array<() => void> = [];
+    const map = {
+      getLinearRenderer: () => renderer,
+      getViewportRange: () => range,
+      requestRender: vi.fn(),
+      subscribeToPresentedFrames: vi.fn((listener: () => void) => {
+        frames.push(listener);
+        return vi.fn();
+      }),
+    };
+    const webglRef = { current: map };
+    const assembly = rendererAssembly();
+    const dataset = pileupDataset({ bamPath: '/fixtures/resized-cached-reads.bam' });
+    const { result, rerender, unmount } = renderHook(
+      ({ width }: { width: number }) =>
+        useIndexedPileupStreaming({
+          webglRef,
+          rendererAssembly: assembly,
+          containerWidth: width,
+          activeStressDatasets: [dataset],
+        }),
+      { initialProps: { width: 622 } }
+    );
+    try {
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(driverMock.instances).toHaveLength(1);
+      const driver = driverMock.instances[0]!;
+      const feed: TileEngineFeed = {
+        records: [{ start: 60_010, end: 60_160, readId: 'retained-read', strand: '+', mapq: 60 }],
+        viewRange: range,
+        ownerPresentation: { kind: 'reads' },
+        readSource: { truncated: false, windowStartBp: 50_000, windowEndBp: 110_000 },
+        requiredReadBandReady: true,
+      };
+      act(() => driver.options.onFeed(feed));
+      act(() => frames.at(-1)?.());
+      expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]).toEqual({
+        phase: 'ready',
+        kind: 'reads',
+      });
+      const publications = renderer.setTrackData.mock.calls.length;
+      const reuse = (viewRange: { start: number; end: number }) => {
+        driver.options.onReadPresentationReuse?.({
+          feed: { ...feed, viewRange },
+          viewRange,
+          requiredReadBandReady: true,
+        });
+        return true;
+      };
+      driver.presentViewport.mockImplementation(reuse);
+      driver.setViewport.mockImplementation(reuse);
+
+      now = 10;
+      range = { start: 60_000, end: 86_612 };
+      act(() => {
+        expect(result.current.streamPileupViaTileEngine(range)).toBe(true);
+      });
+      now = 20;
+      rerender({ width: 884 });
+      expect(driver.setViewport).toHaveBeenCalledTimes(1);
+      now = 96;
+      act(() => vi.advanceTimersByTime(86));
+
+      expect.soft(driver.setViewport).toHaveBeenLastCalledWith(range, 1_768, 884);
+      const debug = (
+        window as unknown as {
+          __tileEngineDebug: () => Record<
+            string,
+            { alignedReadLifecycle: { planKey: string; currentPlanKey: string } }
+          >;
+        }
+      ).__tileEngineDebug()[dataset.trackId]!.alignedReadLifecycle;
+      expect.soft(debug.planKey).toBe(debug.currentPlanKey);
+      act(() => frames.at(-1)?.());
+      expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]).toEqual({
+        phase: 'ready',
+        kind: 'reads',
+      });
+      expect(renderer.setTrackData).toHaveBeenCalledTimes(publications);
+      expect(driverMock.instances).toHaveLength(1);
+      expect(driver.dispose).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+      performanceNowSpy.mockRestore();
+    }
   });
 
   it('coalesces rapid camera commits to the latest tile-engine request plan', async () => {
@@ -2794,7 +3035,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
   it.each(['partial core frame', 'pre-error complete frame'] as const)(
     'keeps required-band recovery through a %s until the complete current band is presented',
     async (ordering) => {
-      const renderer = fakeRenderer();
+      const renderer = fakeRenderer(() => range);
       const range = { start: 100_000, end: 102_000 };
       let presentedFrame:
         | ((receipt: { frameEpoch: number; presentedAtMs: number }) => void)
@@ -2897,7 +3138,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
   );
 
   it('retries one unchanged viewport for duplicate transient failures and waits for presentation', async () => {
-    const renderer = fakeRenderer();
+    const renderer = fakeRenderer(() => range);
     const range = { start: 100_000, end: 220_000 };
     let presentedFrame:
       | ((receipt: { frameEpoch: number; presentedAtMs: number }) => void)
@@ -2991,7 +3232,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
 
   it('reports a side-scroll as active SSH streaming, escalates a silent request, and clears the stall on progress', async () => {
     vi.useFakeTimers();
-    const renderer = fakeRenderer();
+    const renderer = fakeRenderer(() => range);
     let range = { start: 100_000, end: 101_000 };
     let presentedFrame: (() => void) | undefined;
     const webglRef = {
@@ -3291,7 +3532,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
   });
 
   it('presents a successfully settled zero-read band as empty without retrying', async () => {
-    const renderer = fakeRenderer();
+    const renderer = fakeRenderer(() => range);
     const range = { start: 400_000, end: 401_000 };
     let presentedFrame: (() => void) | undefined;
     const webglRef = {
@@ -3342,7 +3583,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
   });
 
   it('arms the presentation receipt on the current live map handle only when needed', async () => {
-    const renderer = fakeRenderer();
+    const renderer = fakeRenderer(() => range);
     const range = { start: 400_000, end: 401_000 };
     let stalePresentedFrame: (() => void) | undefined;
     let livePresentedFrame: (() => void) | undefined;
@@ -3542,8 +3783,8 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
   });
 
   it('replays the last presented payload into a replacement renderer before restoring Ready', async () => {
-    const firstRenderer = fakeRenderer();
-    const replacementRenderer = fakeRenderer();
+    const firstRenderer = fakeRenderer(() => range);
+    const replacementRenderer = fakeRenderer(() => range);
     const range = { start: 400_000, end: 401_000 };
     let liveRenderer = firstRenderer;
     const presentedFrames: Array<() => void> = [];
@@ -3618,8 +3859,8 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
   });
 
   it('re-subscribes when the linear renderer changes behind the same map handle', async () => {
-    const firstRenderer = fakeRenderer();
-    const replacementRenderer = fakeRenderer();
+    const firstRenderer = fakeRenderer(() => range);
+    const replacementRenderer = fakeRenderer(() => range);
     const range = { start: 400_000, end: 401_000 };
     let liveRenderer = firstRenderer;
     const presentedFrames: Array<() => void> = [];
@@ -3681,7 +3922,7 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
     vi.useFakeTimers();
     let now = 0;
     const performanceNowSpy = vi.spyOn(performance, 'now').mockImplementation(() => now);
-    const renderer = fakeRenderer();
+    const renderer = fakeRenderer(() => range);
     let range = { start: 0, end: 20_000_000 };
     let presentedFrame: (() => void) | undefined;
     const webglRef = {
@@ -3751,6 +3992,167 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
     performanceNowSpy.mockRestore();
     unmount();
   });
+
+  it('acknowledges reused readable rows on the current frame without republishing their data', async () => {
+    const renderer = fakeRenderer(() => range);
+    let range = { start: 1_809_290_000, end: 1_809_316_612 };
+    const frames: Array<() => void> = [];
+    const map = {
+      getLinearRenderer: () => renderer,
+      getViewportRange: () => range,
+      requestRender: vi.fn(),
+      subscribeToPresentedFrames: vi.fn((listener: () => void) => {
+        frames.push(listener);
+        return vi.fn();
+      }),
+    };
+    const dataset = pileupDataset({ bamPath: '/fixtures/readable-reuse.bam' });
+    const { result, unmount } = renderHook(() =>
+      useIndexedPileupStreaming({
+        webglRef: { current: map },
+        rendererAssembly: humanScaleRendererAssembly(),
+        containerWidth: 884,
+        activeStressDatasets: [dataset],
+      })
+    );
+    await waitFor(() => expect(driverMock.instances).toHaveLength(1));
+    const driver = driverMock.instances[0]!;
+    const feed: TileEngineFeed = {
+      records: [
+        {
+          chrom: 'chr1',
+          start: range.start,
+          end: range.start + 150,
+          readId: 'r',
+          strand: '+',
+          mapq: 60,
+        },
+      ],
+      viewRange: range,
+      ownerPresentation: { kind: 'reads' },
+      readSource: {
+        truncated: false,
+        windowStartBp: range.start - 20_000,
+        windowEndBp: range.end + 20_000,
+      },
+      requiredReadBandReady: true,
+    };
+    act(() => driver.options.onFeed(feed));
+    act(() => frames.at(-1)?.());
+    expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]?.phase).toBe('ready');
+    const publications = renderer.setTrackData.mock.calls.length;
+    const fetches = driver.setViewport.mock.calls.length;
+    range = { start: range.start + 10, end: range.end + 10 };
+    act(() => result.current.streamPileupViaTileEngine(range));
+
+    expect(driver.options.onReadPresentationReuse).toBeTypeOf('function');
+    const reused = { feed, viewRange: range, requiredReadBandReady: true };
+    act(() => driver.options.onReadPresentationReuse?.(reused));
+    expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]?.phase).not.toBe('ready');
+    expect(renderer.setTrackData).toHaveBeenCalledTimes(publications);
+    expect(driver.setViewport).toHaveBeenCalledTimes(fetches);
+    act(() => frames.at(-1)?.());
+    expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]).toEqual({
+      phase: 'ready',
+      kind: 'reads',
+    });
+
+    const subscriptions = frames.length;
+    range = { start: range.start + 10, end: range.end + 10 };
+    act(() => result.current.streamPileupViaTileEngine(range));
+    act(() =>
+      driver.options.onReadPresentationReuse?.({
+        ...reused,
+        viewRange: range,
+        feed: { ...feed, records: [...feed.records] },
+      })
+    );
+    expect(frames).toHaveLength(subscriptions);
+    act(() => driver.options.onReadPresentationReuse?.({ ...reused, viewRange: range }));
+    const pendingRange = range;
+    range = { start: pendingRange.start, end: pendingRange.end + 5 * 2 ** -22 };
+    act(() => frames.at(-1)?.());
+    expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]?.phase).not.toBe('ready');
+    range = { start: pendingRange.start, end: pendingRange.end + 2 ** -22 };
+    act(() => frames.at(-1)?.());
+    expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]).toEqual({
+      phase: 'ready',
+      kind: 'reads',
+    });
+    expect(renderer.setTrackData).toHaveBeenCalledTimes(publications);
+    unmount();
+  });
+
+  it.each([
+    ['partial front', { meshCoverageFraction: 0.5 }],
+    ['unpresented front', { kind: 'pending' }],
+    ['missing front', null],
+    ['blank front', { visible: false, recordCount: 0 }],
+    ['hidden front', { visible: false }],
+    ['stale source', { sourceGenerationKey: 'old-generation' }],
+    ['stale owner', { presentationOwnerKey: 'old-owner' }],
+    ['truncated front', { truncated: true }],
+    ['uncovered source', { sourceCoversViewport: false }],
+    ['stale viewport', { viewEndBp: 102_001 }],
+  ] as const)(
+    'keeps Loading until the current read geometry presents: %s',
+    async (_name, invalid) => {
+      const range = { start: 100_000, end: 102_000 };
+      const renderer = fakeRenderer(() => range);
+      let presentedFrame: (() => void) | undefined;
+      const map = {
+        getLinearRenderer: () => renderer,
+        getViewportRange: () => range,
+        requestRender: vi.fn(),
+        subscribeToPresentedFrames: vi.fn((listener: () => void) => {
+          presentedFrame = listener;
+          return vi.fn();
+        }),
+      };
+      const dataset = pileupDataset({ bamPath: '/fixtures/presented-geometry.bam' });
+      const { result, unmount } = renderHook(() =>
+        useIndexedPileupStreaming({
+          webglRef: { current: map },
+          rendererAssembly: rendererAssembly(),
+          containerWidth: 884,
+          activeStressDatasets: [dataset],
+        })
+      );
+      await waitFor(() => expect(driverMock.instances).toHaveLength(1));
+      const driver = driverMock.instances[0]!;
+      const feed: TileEngineFeed = {
+        records: [{ start: 100_010, end: 100_160, readId: 'geometry', strand: '+', mapq: 60 }],
+        viewRange: range,
+        ownerPresentation: { kind: 'reads' },
+        readSource: { truncated: false, windowStartBp: 99_000, windowEndBp: 103_000 },
+      };
+      act(() => driver.options.onFeed(feed));
+      const ready = renderer.getReadPresentationSnapshot(dataset.trackId)!;
+      const rejected = invalid === null ? null : { ...ready, ...invalid };
+      renderer.getReadPresentationSnapshot.mockReturnValue(rejected);
+      act(() => presentedFrame?.());
+      expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]?.phase).not.toBe('ready');
+      renderer.getReadPresentationSnapshot.mockReturnValue(ready);
+      act(() => presentedFrame?.());
+      expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]).toEqual({
+        phase: 'ready',
+        kind: 'reads',
+      });
+      renderer.getReadPresentationSnapshot.mockReturnValue(rejected);
+      act(() => driver.options.onFeed({ ...feed, records: [...feed.records] }));
+      act(() => presentedFrame?.());
+      expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]?.phase).toBe(
+        'refreshing'
+      );
+      renderer.getReadPresentationSnapshot.mockReturnValue(ready);
+      act(() => presentedFrame?.());
+      expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]).toEqual({
+        phase: 'ready',
+        kind: 'reads',
+      });
+      unmount();
+    }
+  );
 
   it('turns manual Retry on a remote track into a real transport reconnect', async () => {
     const renderer = fakeRenderer();
