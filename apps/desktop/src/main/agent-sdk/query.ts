@@ -1011,6 +1011,17 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
             : {}),
         });
         providerConversationId = result.threadId;
+        if (result.stopState === 'cancelled') {
+          return {
+            transport: 'codex-sdk',
+            ok: false,
+            text: result.text,
+            error: result.error,
+            durationMs: Date.now() - start,
+            stopState: 'cancelled',
+            providerConversationId,
+          };
+        }
         if (options.abortController?.signal.aborted || result.error === 'Stop requested.') {
           return stoppedResult('codex-sdk', start, providerConversationId);
         }

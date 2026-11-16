@@ -25,6 +25,7 @@ import { codexCliEnv } from './subprocess-env';
 import { DNAFORGE_MCP_SERVER_NAME } from './cli-mcp';
 import { CODEX_APP_MCP_FEATURES } from './codex-mcp-session-config';
 import { codexProfile, type ResolvedAgentPermissions } from '../../shared/agent-permissions';
+import type { AgentQueryStopState } from '../../shared/agent-runtime-ipc';
 import type { ApprovalMemory } from './approval-memory';
 import type { ApprovalRoot } from './approval-rules';
 
@@ -266,13 +267,11 @@ export interface LocalCodexAppServerTransport {
   interrupt(): void;
 }
 
-export interface LocalCodexAppServerTurnResult {
-  ok: boolean;
+export type LocalCodexAppServerTurnResult = TerminalResult & {
   text: string;
   threadId: string;
   turnId: string | null;
-  error?: string;
-}
+};
 
 export const FRESH_MOLECULAR_AUTHOR_CONFIG = {
   project_doc_max_bytes: 0,
@@ -351,10 +350,18 @@ export async function freshMolecularAuthorConfig(
   };
 }
 
-interface TerminalResult {
-  ok: boolean;
-  error?: string;
-}
+type TerminalResult =
+  | { ok: true; stopState?: never; error?: never }
+  | {
+      ok: false;
+      stopState: Extract<AgentQueryStopState, 'cancelled'>;
+      error?: string;
+    }
+  | {
+      ok: false;
+      stopState?: Extract<AgentQueryStopState, 'failed' | 'stop_requested'>;
+      error?: string;
+    };
 
 function appServerExitMessage(reason?: SupervisorTerminationReason | null): string {
   if (!reason || reason === 'child_exit') return 'The Codex App Server exited.';
@@ -668,7 +675,8 @@ export async function runLocalCodexAppServerTurn(options: {
     if (notification.method !== 'turn/completed') return;
     const turn = record(params?.turn);
     if (turn?.status === 'completed') finish({ ok: true });
-    else if (turn?.status === 'interrupted') finish({ ok: false, error: 'Stop requested.' });
+    else if (turn?.status === 'interrupted')
+      finish({ ok: false, error: 'Stop requested.', stopState: 'cancelled' });
     else finish({ ok: false, error: turnFailureMessage(notification.params) });
   });
 
@@ -817,12 +825,17 @@ export async function runLocalCodexAppServerTurn(options: {
     turnId = nestedId(started, 'turn') ?? turnId;
     const outcome = await terminal;
     await Promise.allSettled([...pendingRequests]);
-    return {
-      ok: outcome.ok,
+    const result = {
       text: (completedText ?? deltaText).trim(),
       threadId,
       turnId,
-      ...(outcome.error ? { error: outcome.error } : {}),
+    };
+    if (outcome.ok) return { ok: true, ...result };
+    const { error, ...failure } = outcome;
+    return {
+      ...failure,
+      ...result,
+      ...(error ? { error } : {}),
     };
   } finally {
     options.signal.removeEventListener('abort', abort);
