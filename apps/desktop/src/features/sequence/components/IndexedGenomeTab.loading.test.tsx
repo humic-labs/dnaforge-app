@@ -11,6 +11,7 @@ import { useLaneContractStore } from '../lane-contract-store';
 import { trackViewFixture } from '../../../shared/track-view-fixture';
 import type { TrackViewDocument } from '../../../shared/track-view';
 import { trackViewReference } from '../open-track-view';
+import { getTrackViewControl } from '../track-view-control';
 import { laneFromIndexedGenomeDataTrack } from '../ucsc-track-persistence';
 import * as persistedDataTracks from './usePersistedUcscTracks';
 import * as persistedBamTracks from './usePersistedBamTracks';
@@ -3751,6 +3752,39 @@ describe('IndexedGenomeTab loading screen — phase transitions', () => {
       globalRange: actual,
       commandReceipt: { globalRange: actual },
     });
+  });
+
+  it('captures the current camera before deferred viewport publication', async () => {
+    const tab = assemblyIndexedTab();
+    resetCanvasStore(tab);
+    render(<StoredIndexedGenomeTab entityId={tab.entityId} />);
+    await waitForSessionSubscription();
+    act(() => emitPlatformEvent('genome:sessionUpdated', readySessionUpdate(tab.indexedGenome!)));
+    await waitFor(() => expect(viewerState.props).not.toBeNull());
+    act(() => {
+      (viewerState.props?.onVisibleAnnotationTypesChange as (types: Set<string>) => void)(
+        new Set()
+      );
+      (viewerState.props?.onAnnotationTrackOrderChange as (order: string[]) => void)([]);
+      (viewerState.props?.onViewportRangeChange as (range: { start: number; end: number }) => void)(
+        { start: 0, end: 600_000 }
+      );
+    });
+    const control = getTrackViewControl(tab.id);
+    await waitFor(() =>
+      expect(control?.inspect().document.viewport).toEqual({ start0: 0, end0: 600_000 })
+    );
+
+    let immediatelyCaptured: unknown;
+    act(() => {
+      (viewerState.props?.onCameraSample as (range: { start: number; end: number }) => void)({
+        start: 60_000,
+        end: 64_000,
+      });
+      immediatelyCaptured = control?.inspect().document.viewport;
+    });
+
+    expect(immediatelyCaptured).toEqual({ start0: 60_000, end0: 64_000 });
   });
 
   it.each([-1, 1])(

@@ -2528,6 +2528,13 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
     workspaceFolders,
     openPrimerDocument,
   });
+  const handleCameraSample = useCallback(
+    (range: Readonly<{ start: number; end: number }>) => {
+      liveViewportRangeRef.current = range;
+      indexedTools.onCameraSample(range);
+    },
+    [indexedTools.onCameraSample]
+  );
   primerBindingAtHitRef.current = indexedTools.bindingAtHit;
 
   const { openStructure } = indexedTools;
@@ -2811,7 +2818,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         mutationNavigator={mutationNavigator}
         onSelectMutation={handleSelectMutation}
         sequenceOverlays={indexedTools.sequenceOverlays}
-        onCameraSample={indexedTools.onCameraSample}
+        onCameraSample={handleCameraSample}
         toolRail={indexedTools.toolRail}
         drawerSlot={indexedTools.drawerSlot}
         onViewerWidthChange={setViewerWidthPx}

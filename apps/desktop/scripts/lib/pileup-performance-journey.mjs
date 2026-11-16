@@ -580,6 +580,12 @@ async function admitPortable(page, fixture) {
   await complete(page, lane, fixture.readLengthBp, performance.now(), failures);
   assert.equal(failures.length, 0, failures.join('\n'));
   const savedViewPath = await saveView(page, fixture, 'Dense alignment performance');
+  const savedDocument = JSON.parse(await readFile(savedViewPath, 'utf8'));
+  assert.ok(
+    Math.abs(savedDocument.viewport.start0 - fixture.locusStart) <= 2 &&
+      Math.abs(savedDocument.viewport.end0 - fixture.locusStart - 4000) <= 2,
+    `The prepared saved view captured the wrong viewport: ${JSON.stringify(savedDocument.viewport)}`
+  );
   await closeView(page);
   return { ...fixture, savedViewPath };
 }

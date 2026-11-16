@@ -152,7 +152,7 @@ jobs:
           node start.mjs --yes --check
 
       - name: Preserve failed source-check evidence
-        if: failure() || env.PILEUP_PERFORMANCE_DIAGNOSTICS == '1'
+        if: failure() || env.PILEUP_PERFORMANCE_DIAGNOSTICS == '1' || runner.debug == '1'
         continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:

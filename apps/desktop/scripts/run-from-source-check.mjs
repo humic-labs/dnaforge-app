@@ -171,14 +171,16 @@ try {
     const diagnosticEvents = [];
     const diagnosticErrors = [];
     let diagnosticSession;
+    let actionTracing = false;
     const instrumentation =
-      process.env.PILEUP_PERFORMANCE_DIAGNOSTICS === '1'
+      process.env.PILEUP_PERFORMANCE_DIAGNOSTICS === '1' || process.env.RUNNER_DEBUG === '1'
         ? {
             qualification: false,
             cpuSamplingIntervalUs: 1000,
             tracePhases: ['zoom-26612bp'],
             traceCategories: ['CPU', 'GC', 'GPU', 'compositor'],
             networkScope: 'whole-journey',
+            actionabilityScope: 'whole-journey-call-log-only',
           }
         : null;
     try {
@@ -198,6 +200,10 @@ try {
           JSON.stringify(instrumentation, null, 2)
         );
         try {
+          await page
+            .context()
+            .tracing.start({ screenshots: false, snapshots: false, sources: false });
+          actionTracing = true;
           diagnosticSession = await page.context().newCDPSession(page);
           diagnosticSession.on(
             'Network.requestWillBeSent',
@@ -273,7 +279,10 @@ try {
           JSON.stringify(report, null, 2)
         );
       }
-      pileupPerformance = classifyPileupPerformance(report);
+      pileupPerformance = {
+        ...classifyPileupPerformance(report),
+        ...(instrumentation ? { qualification: false, diagnosticOnly: true } : {}),
+      };
       await writeFile(
         path.join(evidenceDirectory, 'pileup-performance-result.json'),
         JSON.stringify(pileupPerformance, null, 2)
@@ -283,6 +292,13 @@ try {
         failure = 'The dense saved-pileup performance journey did not pass.';
     } finally {
       if (instrumentation) {
+        if (actionTracing)
+          await page
+            .context()
+            .tracing.stop({ path: path.join(evidenceDirectory, 'playwright-actions.trace.zip') })
+            .catch((error) => {
+              diagnosticErrors.push({ method: 'action-trace-stop', error: String(error) });
+            });
         try {
           if (diagnosticSession)
             await diagnosticSession.detach().catch((error) => {
