@@ -25,6 +25,7 @@ vi.mock('../../../lib/analytics', () => ({
 
 const mockReadSequenceFile = vi.fn();
 const mockReadReferenceAnnotations = vi.fn().mockResolvedValue([]);
+const mockReadReferenceForMutations = vi.fn();
 const mockLegacyPairwiseAlignment = vi.fn();
 const mockComputePairwiseReferenceRevision = vi.fn();
 const mockComputeReferenceHash = vi.fn().mockResolvedValue('sha256:current-reference');
@@ -74,10 +75,7 @@ vi.mock('../utils/alignment-api', () => ({
   callAlignmentApi: (...args: unknown[]) => mockLegacyPairwiseAlignment(...args),
   readSequenceFile: (...args: unknown[]) => mockReadSequenceFile(...args),
   readReferenceAnnotations: (...args: unknown[]) => mockReadReferenceAnnotations(...args),
-  readReferenceForMutations: async (...args: unknown[]) => ({
-    annotations: await mockReadReferenceAnnotations(...args),
-    geneticCode: 1,
-  }),
+  readReferenceForMutations: (...args: unknown[]) => mockReadReferenceForMutations(...args),
 }));
 
 vi.mock('../utils/hash', async (importOriginal) => ({
@@ -203,6 +201,11 @@ describe('Alignment Manager managed session operation', () => {
       if (path === REFERENCE_PATH || path === QUERY_PATH) return 'N'.repeat(20);
       throw new Error(`unexpected sequence path: ${path}`);
     });
+    mockReadReferenceForMutations.mockReset().mockImplementation(async (...args: unknown[]) => ({
+      annotations: await mockReadReferenceAnnotations(...args),
+      geneticCode: 1,
+      circular: false,
+    }));
     mockComputePairwiseReferenceRevision.mockImplementation(async (sequence: string) =>
       sequence === 'N'.repeat(20)
         ? `pairwise-reference-v1:sha256:${'c'.repeat(64)}`
@@ -666,6 +669,171 @@ describe('Alignment Manager managed session operation', () => {
       { key: `query:${queryId}`, path: frozenQuery },
     ]);
     expect(session.alignmentOperation?.status).toBe('succeeded');
+    expect(mockFailEvidence).not.toHaveBeenCalled();
+  });
+
+  it('retains partial circular evidence without claiming complete clone or protein coverage', async () => {
+    const root = '/tmp/partial-circular-package';
+    const frozenReference = `${root}/contents/evidence/frozen/reference.gb`;
+    const frozenQuery = `${root}/contents/evidence/frozen/query.fasta`;
+    const canonicalQuery = `${root}/contents/clone-1.fasta`;
+    const referenceSequence = 'ATGAAACCCGGGTAA';
+    const querySequence = 'CCTGGG';
+    const queryId = `pairwise-query:${'e'.repeat(64)}`;
+    const referenceRevision = `pairwise-reference-v1:sha256:${'c'.repeat(64)}`;
+    const digest = `sha256:${'a'.repeat(64)}`;
+    mockFindPackageRoot.mockResolvedValue(root);
+    mockReadPackageMarker.mockResolvedValue(
+      JSON.stringify({
+        schema: 'waypoint.sequence.v1',
+        kind: 'sequence',
+        formatVersion: 4,
+        id: DOCUMENT_ID,
+        name: 'reference',
+        product: { file: 'reference.gb', topology: 'circular' },
+        members: [],
+      })
+    );
+    mockComputeReferenceHash.mockResolvedValue(digest);
+    mockComputePairwiseReferenceRevision.mockResolvedValue(referenceRevision);
+    mockReadReferenceForMutations.mockResolvedValue({
+      annotations: [{ id: 'coding', name: 'coding', type: 'CDS', start: 1, end: 15, direction: 1 }],
+      geneticCode: 1,
+      circular: true,
+    });
+    mockReadSequenceFile.mockImplementation(async (path: string) => {
+      if (path === REFERENCE_PATH || path === frozenReference) return referenceSequence;
+      if (path === QUERY_PATH || path === frozenQuery) return querySequence;
+      throw new Error(`unexpected sequence path: ${path}`);
+    });
+    mockPrepareEvidence.mockImplementation(async (request) => {
+      const createdAt = new Date().toISOString();
+      const run = {
+        id: request.runId,
+        sessionId: request.sessionId,
+        createdAt,
+        status: 'prepared' as const,
+        reference: {
+          artifact: { path: 'contents/evidence/frozen/reference.gb', sha256: digest },
+          sequenceRevision: referenceRevision,
+          topology: 'circular' as const,
+          checkpointId: null,
+        },
+        queries: [
+          {
+            id: queryId,
+            label: 'Partial circular query',
+            artifact: {
+              path: 'contents/evidence/frozen/query.fasta',
+              sha256: `sha256:${'b'.repeat(64)}`,
+            },
+          },
+        ],
+      };
+      mockReadPackageMarker.mockResolvedValue(
+        serializeSequencePackageDocument(
+          buildSequencePackageDocument({
+            id: DOCUMENT_ID,
+            name: 'reference',
+            product: { file: 'reference.gb', topology: 'circular' },
+            members: [run.reference.artifact, run.queries[0].artifact].map((artifact, index) => ({
+              id: `frozen-${index}`,
+              path: artifact.path,
+              role: 'evidence-input',
+              replaceable: false,
+              createdAt,
+            })),
+            evidenceRuns: [run],
+          })
+        )
+      );
+      return {
+        run,
+        referenceReadPath: frozenReference,
+        queryPaths: { [queryId]: frozenQuery },
+        attachedQueryPaths: { [queryId]: canonicalQuery },
+      };
+    });
+    const held = deferred<PairwiseSessionAlignmentResult>();
+    mockWaitForResult.mockReturnValue(held.promise);
+    const sessionId = useVerificationStore.getState().createSession(DOCUMENT_ID, {
+      name: 'Partial circular alignment',
+      mode: 'one-per-clone',
+      queryPaths: [QUERY_PATH],
+    });
+    const alignment = useVerificationStore
+      .getState()
+      .runSessionAlignments(DOCUMENT_ID, sessionId, [QUERY_PATH]);
+    await vi.waitFor(() => expect(mockStartOperation).toHaveBeenCalledOnce());
+    const input = mockStartOperation.mock.calls[0][2] as PairwiseSessionAlignmentRequest;
+    expect(input).toMatchObject({
+      referenceSequence,
+      queries: [{ id: queryId, sequence: querySequence }],
+      isCircular: true,
+    });
+    expect(mockReadSequenceFile).toHaveBeenCalledWith(frozenReference);
+    expect(mockReadSequenceFile).toHaveBeenCalledWith(frozenQuery);
+    const result = resultFor(queryId);
+    result.results[0].alignment = {
+      aligned_reference: 'CCCGGG',
+      aligned_query: querySequence,
+      circular_offset: 6,
+      identity: (5 / 6) * 100,
+      matches: 5,
+      mismatches: 1,
+      gaps: 0,
+      alignment_length: 6,
+      query_length: 6,
+      reference_length: 15,
+      mutations: [{ position: 9, type: 'substitution', ref_base: 'C', query_base: 'T', length: 1 }],
+    };
+    held.resolve(result);
+    await expect(alignment).resolves.toBeUndefined();
+    const session = useVerificationStore.getState().verificationState[DOCUMENT_ID].sessions[0];
+    expect(session.alignmentOperation?.status).toBe('succeeded');
+    expect(session.tracks).toHaveLength(1);
+    expect(session.tracks[0]).toMatchObject({
+      id: queryId,
+      queryPath: canonicalQuery,
+      evidenceRunId: mockPrepareEvidence.mock.calls[0][0].runId,
+      testedReference: { sequenceRevision: referenceRevision, topology: 'circular' },
+      status: 'incomplete',
+      alignment: {
+        alignedReference: 'CCCGGG',
+        alignedQuery: querySequence,
+        circularOffset: 6,
+        coverageStart: 7,
+        coverageEnd: 12,
+      },
+    });
+    expect(session.tracks[0].mutations).toEqual([
+      expect.objectContaining({
+        position: 9,
+        type: 'substitution',
+        referenceBase: 'C',
+        alternateBase: 'T',
+        length: 1,
+      }),
+    ]);
+    expect(session.tracks[0].mutations[0].effect).toBeUndefined();
+    expect(mockActivateEvidence).toHaveBeenCalledOnce();
+    expect(mockCompleteEvidence).toHaveBeenCalledOnce();
+    expect(mockAppendEvidence).toHaveBeenCalledOnce();
+    expect(mockAppendEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        packageRoot: root,
+        packageId: DOCUMENT_ID,
+        runId: session.tracks[0].evidenceRunId,
+        tracks: [
+          expect.objectContaining({
+            queryId,
+            status: 'incomplete',
+            alignment: session.tracks[0].alignment,
+            mutations: session.tracks[0].mutations,
+          }),
+        ],
+      })
+    );
     expect(mockFailEvidence).not.toHaveBeenCalled();
   });
 
