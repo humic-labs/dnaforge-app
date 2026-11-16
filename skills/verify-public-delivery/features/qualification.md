@@ -16,10 +16,10 @@
 
 ## How to get to it (user POV)
 
-Open the public pull request's CI run. Inspect the desktop, native and final
-qualification jobs and download their original reports. Qualification belongs to
-the displayed candidate and workflow attempt, not a previous green run or a
-local result.
+Open a staging or production promotion's CI run, or the retained run after a
+development push. Inspect the desktop, native and `Promotion qualification` jobs
+and download their original reports. Qualification belongs to the displayed
+candidate and workflow attempt, not a previous green run or a local result.
 
 ## Driving it with Node and GitHub Actions
 
@@ -60,6 +60,9 @@ transferred to another file or used as a global skip budget. No skipped case
 becomes a passed case.
 
 These boundary checks are necessary but insufficient for trusted merge
-enforcement. The live required-workflow rule must bind the control revision
-independently of candidate-owned workflow edits. Verify that rule and the actual
-queue behavior through the admission feature.
+enforcement. The control checkout is selected from protected development once
+and pinned to that exact commit for every worker and verdict. Preserve its
+identity separately from GitHub's workflow revision. Verify the live required
+checks and actual queue behavior through the admission feature. The six native
+journeys do not substitute for the separate full `Electron E2E` check required
+for promotion.

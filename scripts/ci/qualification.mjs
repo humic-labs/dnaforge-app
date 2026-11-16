@@ -200,6 +200,17 @@ async function main(args) {
   const root = path.resolve(opt.root ?? process.cwd());
   if (command === 'plan') {
     const { policy, selectRequiredWork } = await import('./merge-policy.mjs');
+    const { ciBranches, ciLane } = await import('./preflight.mjs');
+    const event = read(process.env.GITHUB_EVENT_PATH);
+    const bootstrap =
+      process.env.CI_BOOTSTRAP_MAIN === 'true' &&
+      ((process.env.GITHUB_EVENT_NAME === 'push' && process.env.GITHUB_REF === 'refs/heads/main') ||
+        (process.env.GITHUB_EVENT_NAME === 'pull_request' &&
+          event.pull_request?.base?.ref === 'main'));
+    const lane = bootstrap
+      ? 'qualification'
+      : ciLane(process.env.GITHUB_EVENT_NAME, event, process.env.GITHUB_REF, ciBranches(policy));
+    assert.equal(lane, 'qualification', 'Broad CI is not the development admission lane');
     const sourceSha = git(root, 'rev-parse', 'HEAD');
     assert.equal(sourceSha, process.env.GITHUB_SHA, 'Checkout differs from event candidate');
     const baseSha = opt.base || git(root, 'rev-parse', 'HEAD^1');
@@ -212,8 +223,13 @@ async function main(args) {
       sourceSha,
       sourceTree: git(root, 'rev-parse', 'HEAD^{tree}'),
       baseSha,
-      controlSha: process.env.GITHUB_WORKFLOW_SHA,
-      controlRef: process.env.GITHUB_WORKFLOW_REF,
+      controlSha: git(controlRoot, 'rev-parse', 'HEAD'),
+      controlRef: bootstrap
+        ? process.env.GITHUB_WORKFLOW_REF
+        : `${policy.repository.name}/${policy.branches[policy.release.sourceBranch].workflow}@${policy.authority.ref}`,
+      workflowSha: process.env.GITHUB_WORKFLOW_SHA,
+      workflowRef: process.env.GITHUB_WORKFLOW_REF,
+      lane,
       runId: process.env.GITHUB_RUN_ID,
       attempt: Number(process.env.GITHUB_RUN_ATTEMPT),
       desktopShards: Array.from({ length: policy.desktop.shards }, (_, i) => i + 1),
@@ -221,6 +237,13 @@ async function main(args) {
       changed,
     };
     assert.match(manifest.controlSha, /^[a-f0-9]{40}$/u);
+    assert.match(manifest.workflowSha, /^[a-f0-9]{40}$/u);
+    if (bootstrap)
+      assert.equal(
+        manifest.controlSha,
+        manifest.workflowSha,
+        'Bootstrap control differs from the workflow revision'
+      );
     assert.equal(
       git(controlRoot, 'rev-parse', 'HEAD'),
       manifest.controlSha,
@@ -236,7 +259,7 @@ async function main(args) {
     if (process.env.GITHUB_OUTPUT)
       appendFileSync(
         process.env.GITHUB_OUTPUT,
-        `shards=${JSON.stringify(manifest.desktopShards)}\nnative=${manifest.coverage.nativeRequired}\njourneys=${JSON.stringify(policy.native.journeys)}\nbase=${baseSha}\n`
+        `shards=${JSON.stringify(manifest.desktopShards)}\nnative=${manifest.coverage.nativeRequired}\njourneys=${JSON.stringify(policy.native.journeys)}\nbase=${baseSha}\ncontrol=${manifest.controlSha}\n`
       );
     return;
   }
@@ -285,7 +308,11 @@ async function main(args) {
   if (['bind-native', 'bind-baseline'].includes(command)) {
     const receipt = read(opt.receipt);
     assert.equal(receipt.controlSha, manifest.controlSha, 'Native control revision mismatch');
-    assert.equal(receipt.workflowSha, manifest.controlSha, 'Native workflow revision mismatch');
+    assert.equal(
+      receipt.workflowSha,
+      manifest.workflowSha ?? manifest.controlSha,
+      'Native workflow revision mismatch'
+    );
     assert.equal(receipt.runId, manifest.runId, 'Native run mismatch');
     assert.equal(Number(receipt.runAttempt), manifest.attempt, 'Native run attempt mismatch');
   }

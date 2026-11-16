@@ -1,12 +1,17 @@
 name: CI
 on:
-  pull_request: {}
+  pull_request:
+    branches: [main, staging, prod]
   merge_group:
+    branches: [staging, prod]
     types:
       - checks_requested
   push:
     branches:
       - main
+      - dev
+      - staging
+      - prod
   workflow_dispatch: {}
 permissions:
   contents: read
@@ -23,16 +28,16 @@ jobs:
       native: ${{ steps.plan.outputs.native }}
       journeys: ${{ steps.plan.outputs.journeys }}
       base: ${{ steps.plan.outputs.base }}
+      control: ${{ steps.plan.outputs.control }}
     steps:
       - &a1
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
           persist-credentials: false
-      - &a3
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ (github.ref == 'refs/heads/main' || github.event.pull_request.base.ref == 'main') && github.workflow_sha || 'dev' }}
           path: .ci-control
           persist-credentials: false
       - &a2
@@ -43,6 +48,7 @@ jobs:
         name: Bind selection to source and trusted control
         env:
           BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
+          CI_BOOTSTRAP_MAIN: ${{ github.ref == 'refs/heads/main' || github.event.pull_request.base.ref == 'main' }}
         run: node .ci-control/scripts/ci/qualification.mjs plan --root "$GITHUB_WORKSPACE" --base "${BASE_SHA:-$(git rev-parse HEAD^1)}" --out "$RUNNER_TEMP/candidate/manifest.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
@@ -99,7 +105,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - *a1
-      - *a3
+      - &a3
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.plan.outputs.control }}
+          path: .ci-control
+          persist-credentials: false
       - &a4
         uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda
       - *a2
@@ -375,7 +386,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   qualification:
-    name: Merge qualification
+    name: Promotion qualification
     needs:
       - plan
       - desktop
@@ -408,10 +419,11 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   main-result:
-    name: Retain main failure ownership
+    name: Retain integration failure ownership
     needs:
+      - plan
       - qualification
-    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: always() && github.event_name == 'push' && contains(fromJSON('["main","dev","staging","prod"]'), github.ref_name)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

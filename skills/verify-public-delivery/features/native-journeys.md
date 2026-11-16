@@ -43,6 +43,10 @@ their respective exact source commits. A failed baseline stays a failed
 baseline; the caller decides whether a regression or behavior-preserving
 comparison is required.
 
+In CI, the qualification plan pins the protected development control commit.
+Receipts retain both that control commit and GitHub's actual workflow revision;
+they may differ on a promotion PR. The binder requires each to match the plan.
+
 Doctor runs inside the command. It refuses an already-running app, rejects a
 different source commit or modified tracked source, checks the actual native
 runtime's checkout and disposable profile, and waits for renderer readiness and
