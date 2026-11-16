@@ -51,14 +51,17 @@ let subscribed = false;
 export function getNativeNotebookDocumentClient(pageId: string): NativeNotebookDocumentClient {
   let client = clients.get(pageId);
   if (!client) {
-    client = new NativeNotebookDocumentClient(pageId);
+    const created = new NativeNotebookDocumentClient(pageId);
+    client = created;
     clients.set(pageId, client);
+    registerNativeDocumentClientFlush((purpose) =>
+      purpose === 'retire' || created.ready ? created.flush(purpose) : Promise.resolve()
+    );
   }
   if (!subscribed) {
     platform().notebook.onChanged((snapshot) =>
       clients.get(snapshot.documentId)?.observe(snapshot)
     );
-    registerNativeDocumentClientFlush(flushNativeNotebookDocumentClients);
     subscribed = true;
   }
   return client;
@@ -70,7 +73,9 @@ export async function flushNativeNotebookDocumentClients(
   purpose: FileDocumentFlushPurpose = 'synchronize'
 ): Promise<void> {
   await Promise.all(
-    [...clients.values()].filter((client) => client.ready).map((client) => client.flush(purpose))
+    [...clients.values()]
+      .filter((client) => purpose === 'retire' || client.ready)
+      .map((client) => client.flush(purpose))
   );
 }
 
@@ -132,7 +137,11 @@ export class NativeNotebookDocumentClient {
   private notebookContent: JSONContent | null = null;
   private readonly capturedSaves = new Map<number, Promise<boolean>>();
   private listeners = new Set<() => void>();
-  private readonly editors = new Set<Editor>();
+  private readonly editors = new Map<Editor, (() => Promise<void>) | undefined>();
+  private readonly editorRetirements = new Set<Promise<void>>();
+  private retiring = false;
+  private retirement: Promise<void> | undefined;
+  private readonly admittedOperations = new Set<Promise<unknown>>();
   private applying = false;
   private acknowledgedCapture: {
     revision: string;
@@ -153,7 +162,7 @@ export class NativeNotebookDocumentClient {
     return this.saves > 0 || Boolean(this.snapshot?.saving);
   }
   get statusKey(): string {
-    return `${this.ready}:${this.dirty}:${this.saving}:${this.snapshot?.readOnly ?? true}:${this.snapshot?.publication?.status ?? 'legacy'}:${this.error ?? ''}`;
+    return `${this.ready}:${this.dirty}:${this.saving}:${this.snapshot?.readOnly ?? true}:${this.snapshot?.publication?.status ?? 'legacy'}:${this.error ?? ''}:${this.retiring}`;
   }
   get dirty(): boolean {
     return this.pending > 0 || Boolean(this.snapshot?.dirty) || Boolean(this.snapshot?.recovery);
@@ -167,8 +176,21 @@ export class NativeNotebookDocumentClient {
   private notify(): void {
     for (const listener of this.listeners) listener();
   }
+  private assertActive(): void {
+    if (this.retiring)
+      throw new Error('NOTEBOOK_CLIENT_RETIRED: The native notebook editing client has retired.');
+  }
+  private admit<T>(operation: () => Promise<T>): Promise<T> {
+    this.assertActive();
+    const admitted: Promise<T> = operation().finally(() => {
+      this.admittedOperations.delete(admitted);
+    });
+    this.admittedOperations.add(admitted);
+    return admitted;
+  }
   async initialize(beforeLoad?: Promise<unknown>): Promise<void> {
     if (this.loading) return this.loading;
+    this.assertActive();
     this.loading = (async () => {
       await beforeLoad;
       await waitForNativeFileDocumentReadiness();
@@ -207,10 +229,14 @@ export class NativeNotebookDocumentClient {
     if (!this.pending && !this.error) this.project();
     this.notify();
   }
-  attach(editor: Editor): () => void {
-    this.editors.add(editor);
+  attach(editor: Editor, retire?: () => Promise<void>): () => void {
+    this.editors.set(editor, retire);
     editor.setEditable(false, false);
-    if (this.ready && !this.pending && !this.error) this.project();
+    if (this.retiring) {
+      const pending = this.retireEditor(editor, retire);
+      this.editorRetirements.add(pending);
+      void pending.catch((error) => this.fail(error));
+    } else if (this.ready && !this.pending && !this.error) this.project();
     return () => {
       this.editors.delete(editor);
       void this.flush().catch(() => {});
@@ -218,6 +244,7 @@ export class NativeNotebookDocumentClient {
   }
   capture(transaction: Transaction, content?: JSONContent): void {
     if (this.applying || !transaction.docChanged) return;
+    this.assertActive();
     if (!this.snapshot || this.error) {
       this.fail(new Error('The native notebook working copy is not ready for editing.'));
       return;
@@ -276,6 +303,29 @@ export class NativeNotebookDocumentClient {
     void work.catch(() => {});
   }
   async flush(purpose: FileDocumentFlushPurpose = 'synchronize'): Promise<void> {
+    if (purpose === 'retire') {
+      if (!this.retirement) {
+        this.retiring = true;
+        for (const [editor, retire] of this.editors)
+          this.editorRetirements.add(this.retireEditor(editor, retire));
+        this.notify();
+        this.retirement = (async () => {
+          for (;;) {
+            const retirements = [...this.editorRetirements];
+            await Promise.all(retirements);
+            await Promise.allSettled([
+              this.loading,
+              this.tail,
+              ...this.capturedSaves.values(),
+              ...this.admittedOperations,
+            ]);
+            if (retirements.length === this.editorRetirements.size) break;
+          }
+        })();
+      }
+      await this.retirement;
+      return;
+    }
     if (purpose === 'discard') {
       await Promise.allSettled([this.loading, this.tail, ...this.capturedSaves.values()]);
       return;
@@ -283,7 +333,17 @@ export class NativeNotebookDocumentClient {
     await this.tail;
     if (this.error) throw new Error(this.error);
   }
+  private async retireEditor(editor: Editor, retire?: () => Promise<void>): Promise<void> {
+    editor.setEditable(false, false);
+    await retire?.();
+  }
   async command(operation: NativeNotebookRequest['operation']): Promise<NotebookDocumentSnapshot> {
+    this.assertActive();
+    return this.enqueueCommand(operation);
+  }
+  private async enqueueCommand(
+    operation: NativeNotebookRequest['operation']
+  ): Promise<NotebookDocumentSnapshot> {
     if (
       !['inspect', 'inspect-copy', 'schema', 'capture-save', 'await-save', 'keep-local'].includes(
         operation.kind
@@ -324,26 +384,40 @@ export class NativeNotebookDocumentClient {
     return work;
   }
   async replaceContent(content: JSONContent): Promise<void> {
-    await this.flush();
-    const current = this.snapshot;
-    if (!current) throw new Error('The notebook owner is not ready.');
-    if (canonicalNotebookJson(current.copy.content) === canonicalNotebookJson(content)) return;
-    const model = new NotebookDocumentModel(current.copy.content, current.title),
-      desired = model.state.schema.nodeFromJSON(content);
-    desired.check();
-    const transaction = model.state.tr.replaceWith(
-      0,
-      model.state.doc.content.size,
-      desired.content
-    );
-    await this.command({
-      kind: 'apply-steps',
-      baseFingerprint: contentFingerprint(canonicalNotebookJson(current.copy.content)),
-      steps: transaction.steps.map((step) => step.toJSON()),
-      separateHistory: true,
+    return this.admit(async () => {
+      await this.flush();
+      const current = this.snapshot;
+      if (!current) throw new Error('The notebook owner is not ready.');
+      if (canonicalNotebookJson(current.copy.content) === canonicalNotebookJson(content)) return;
+      const model = new NotebookDocumentModel(current.copy.content, current.title),
+        desired = model.state.schema.nodeFromJSON(content);
+      desired.check();
+      const transaction = model.state.tr.replaceWith(
+        0,
+        model.state.doc.content.size,
+        desired.content
+      );
+      await this.enqueueCommand({
+        kind: 'apply-steps',
+        baseFingerprint: contentFingerprint(canonicalNotebookJson(current.copy.content)),
+        steps: transaction.steps.map((step) => step.toJSON()),
+        separateHistory: true,
+      });
     });
   }
-  save(): Promise<boolean> {
+  save(beforeSave?: Promise<unknown>): Promise<boolean> {
+    if (this.retiring)
+      return Promise.reject(
+        new Error('NOTEBOOK_CLIENT_RETIRED: The native notebook editing client has retired.')
+      );
+    if (beforeSave)
+      return this.admit(async () => {
+        await beforeSave;
+        return this.saveAdmitted();
+      });
+    return this.saveAdmitted();
+  }
+  private saveAdmitted(): Promise<boolean> {
     const version = this.inputVersion,
       previous = this.capturedSaves.get(version);
     if (previous) return previous;
@@ -355,7 +429,7 @@ export class NativeNotebookDocumentClient {
     this.saves++;
     this.notify();
     this.lastCommandError = null;
-    const run = this.command({ kind: 'capture-save' })
+    const run = this.enqueueCommand({ kind: 'capture-save' })
       .then(async (capture) => {
         if (!capture.saveCaptureId)
           throw new Error('The native notebook owner did not acknowledge its save capture.');
@@ -365,7 +439,7 @@ export class NativeNotebookDocumentClient {
         });
         await confirmNativeTableNotebookSave(tableSave, capture, committed);
         confirmNativeNotebookSave(notebookSave, capture, committed, persistedFingerprint);
-        const snapshot = await this.command({ kind: 'inspect-copy' });
+        const snapshot = await this.enqueueCommand({ kind: 'inspect-copy' });
         return (
           !snapshot.dirty &&
           !snapshot.saving &&
@@ -388,24 +462,27 @@ export class NativeNotebookDocumentClient {
     return run;
   }
   async discard(): Promise<void> {
-    await this.tail.catch(() => {});
-    const current = await platform().notebook.execute({
-      documentId: this.nativeDocumentId,
-      operation: { kind: 'inspect-copy' },
+    return this.admit(async () => {
+      await this.tail.catch(() => {});
+      const current = await platform().notebook.execute({
+        documentId: this.nativeDocumentId,
+        operation: { kind: 'inspect-copy' },
+      });
+      const snapshot = await platform().notebook.execute({
+        documentId: this.nativeDocumentId,
+        expectedRevision: current.revision,
+        requestId: crypto.randomUUID(),
+        operation: { kind: 'discard' },
+      });
+      this.error = null;
+      this.observe(snapshot);
     });
-    const snapshot = await platform().notebook.execute({
-      documentId: this.nativeDocumentId,
-      expectedRevision: current.revision,
-      requestId: crypto.randomUUID(),
-      operation: { kind: 'discard' },
-    });
-    this.error = null;
-    this.observe(snapshot);
   }
   history(direction: 'undo' | 'redo'): boolean {
+    this.assertActive();
     const allowed = direction === 'undo' ? this.snapshot?.canUndo : this.snapshot?.canRedo;
     if ((!allowed && !(direction === 'undo' && this.pending > 0)) || this.error) return false;
-    void this.command({ kind: direction }).catch(() => {});
+    void this.enqueueCommand({ kind: direction }).catch(() => {});
     return true;
   }
   private project(): void {
@@ -413,7 +490,7 @@ export class NativeNotebookDocumentClient {
     if (!snapshot) return;
     this.applying = true;
     try {
-      for (const editor of this.editors) {
+      for (const editor of this.editors.keys()) {
         if (editor.isDestroyed) continue;
         const changed =
           canonicalNotebookJson(editor.getJSON()) !== canonicalNotebookJson(snapshot.copy.content);
@@ -426,7 +503,10 @@ export class NativeNotebookDocumentClient {
             to: Math.min(selection.to, size),
           });
         }
-        editor.setEditable(!snapshot.readOnly && !snapshot.recovery && !this.error, false);
+        editor.setEditable(
+          !this.retiring && !snapshot.readOnly && !snapshot.recovery && !this.error,
+          false
+        );
       }
       projectNotebookDocumentSnapshot(snapshot);
     } finally {
@@ -463,7 +543,8 @@ export class NativeNotebookDocumentClient {
   }
   private fail(error: unknown): void {
     this.error = error instanceof Error ? error.message : String(error);
-    for (const editor of this.editors) if (!editor.isDestroyed) editor.setEditable(false, false);
+    for (const editor of this.editors.keys())
+      if (!editor.isDestroyed) editor.setEditable(false, false);
     this.notify();
   }
 }

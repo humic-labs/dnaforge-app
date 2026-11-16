@@ -34,6 +34,7 @@ export interface UseEditorAutosaveReturn {
 
   discardPendingChanges: () => void;
   acceptOwnerClean: () => void;
+  retirePendingChanges: () => Promise<void>;
 }
 
 export function useEditorAutosave({
@@ -75,7 +76,7 @@ export function useEditorAutosave({
   const inFlightPromiseRef = useRef<Promise<boolean> | null>(null);
 
   const discardEpochRef = useRef(0);
-  const lifetimeRef = useRef({ active: true, generation: 0 });
+  const lifetimeRef = useRef({ active: true, generation: 0, retired: false });
   useEffect(
     () =>
       registerWorkspaceEditorBlocker(() => ({
@@ -259,8 +260,17 @@ export function useEditorAutosave({
     setSaveStatus('clean');
   }, []);
 
+  const retirePendingChanges = useCallback(async () => {
+    lifetimeRef.current.retired = true;
+    lifetimeRef.current.active = false;
+    lifetimeRef.current.generation += 1;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    await inFlightPromiseRef.current;
+  }, []);
+
   useEffect(() => {
-    lifetimeRef.current.active = true;
+    lifetimeRef.current.active = !lifetimeRef.current.retired;
     const oldPageId = pageId;
     const oldScope = scopeRef.current;
     return () => {
@@ -303,5 +313,12 @@ export function useEditorAutosave({
     return () => document.removeEventListener('visibilitychange', handler);
   }, [performSave, nativeOwner]);
 
-  return { saveStatus, markDirty, saveNow, discardPendingChanges, acceptOwnerClean };
+  return {
+    saveStatus,
+    markDirty,
+    saveNow,
+    discardPendingChanges,
+    acceptOwnerClean,
+    retirePendingChanges,
+  };
 }

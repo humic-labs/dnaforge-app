@@ -55,6 +55,41 @@ function setupHook(opts: {
 }
 
 describe('useEditorAutosave', () => {
+  it('retires a failed native autosave retry without discarding content or flushing again on unmount', async () => {
+    const failure = new Error('Original publication failure');
+    const onSave = vi.fn().mockRejectedValue(failure);
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const content = { type: 'doc', content: [{ type: 'paragraph' }] };
+    const view = setupHook({ initialContent: content, onSave, nativeOwner: true });
+    try {
+      await act(async () => {
+        view.result.current.api.markDirty();
+        expect(await view.result.current.api.saveNow()).toBe(false);
+      });
+      expect(report).toHaveBeenCalledExactlyOnceWith(
+        '[useEditorAutosave] save failed:',
+        { pageId: 'page-1', operation: 'manual' },
+        failure
+      );
+      await act(async () => {
+        await view.result.current.api.retirePendingChanges();
+      });
+      expect(view.result.current.api.saveStatus).toBe('dirty');
+      expect(view.result.current.contentRef.current).toBe(content);
+      view.rerender({ pageId: 'page-2' });
+      act(() => view.result.current.api.markDirty());
+      expect(await view.result.current.api.saveNow()).toBe(false);
+      view.unmount();
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(onSave).toHaveBeenCalledTimes(1);
+      expect(view.result.current.onSaved).not.toHaveBeenCalled();
+    } finally {
+      vi.clearAllTimers();
+      view.unmount();
+      report.mockRestore();
+    }
+  });
+
   it('keeps an explicitly pending native save dirty and retries without reporting a failure', async () => {
     const onSave = vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true);
     const report = vi.spyOn(console, 'error').mockImplementation(() => {});

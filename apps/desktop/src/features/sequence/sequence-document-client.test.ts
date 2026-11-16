@@ -164,6 +164,144 @@ async function fixture(
   return { owner, model, bridge, id, root, path, initial, records, writes, captures };
 }
 
+it.each(['input', 'execute', 'save', 'reconnect'] as const)(
+  'refuses fresh sequence %s after retirement without another native command',
+  async (operation) => {
+    const f = await fixture();
+    f.model.getState().setSequence(f.id, f.initial);
+    await f.bridge.flush();
+    const capture = f.model.getState().captureForSave(f.id)!;
+    await f.bridge.flush('retire');
+    port.execute.mockClear();
+    port.available.mockClear();
+    try {
+      const attempts = {
+        input: () => f.model.getState().replaceBases(f.id, 0, 1, 'T'),
+        execute: () => f.bridge.execute(f.id, inspect),
+        save: () => f.bridge.save(f.id, { capture }),
+        reconnect: () => f.bridge.command({ method: 'setSequence', args: [f.id, f.initial] }),
+      };
+      await expect(
+        Promise.resolve().then(async () => {
+          await attempts[operation]();
+        })
+      ).rejects.toThrow('SEQUENCE_DOCUMENT_CLIENT_RETIRED');
+      f.bridge.refreshAvailableDocuments();
+      await Promise.resolve();
+      expect(port.execute).not.toHaveBeenCalled();
+      expect(port.available).not.toHaveBeenCalled();
+      expect(f.writes).not.toHaveBeenCalled();
+      expect(f.model.getState().sequences[f.id].sequence).toBe('AAAACCCC');
+    } finally {
+      await f.bridge.flush('discard');
+      await f.owner.close();
+    }
+  }
+);
+
+it('retires a deferred reconciliation refresh without starting another native load', async () => {
+  const f = await fixture();
+  const entered = deferred();
+  const release = deferred();
+  port.available.mockImplementationOnce(async () => {
+    entered.resolve();
+    await release.promise;
+    return false;
+  });
+  f.model.getState().setSequence(f.id, f.initial);
+  await entered.promise;
+  f.bridge.refreshAvailableDocuments();
+  const retirement = f.bridge.flush('retire');
+  try {
+    release.resolve();
+    await retirement;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(port.available).toHaveBeenCalledOnce();
+    expect(port.execute).not.toHaveBeenCalled();
+    expect(f.writes).not.toHaveBeenCalled();
+    expect(f.bridge.isInputPending(f.id)).toBe(true);
+  } finally {
+    release.resolve();
+    await retirement;
+    await f.owner.close();
+  }
+});
+
+it('retires rejected sequence input without requiring a clean synchronization or reconnecting', async () => {
+  const f = await fixture();
+  f.model.getState().setSequence(f.id, f.initial);
+  await f.bridge.flush();
+  const original = await readFile(f.path);
+  const refused = new Error('Original native sequence mutation refused');
+  const execute = port.execute.getMockImplementation()!;
+  port.execute.mockImplementation(async (request) => {
+    if (request.operation.kind === 'client-command') throw refused;
+    return execute(request);
+  });
+  const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    f.model.getState().replaceBases(f.id, 0, 1, 'T');
+    await expect(f.bridge.flush()).rejects.toBe(refused);
+    await expect(f.bridge.flush('retire')).resolves.toBeUndefined();
+    await expect(f.bridge.flush()).rejects.toBe(refused);
+    expect(f.model.getState().sequences[f.id].sequence).toBe('TAAACCCC');
+    expect(await readFile(f.path)).toEqual(original);
+    expect(f.writes).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith('[Native sequence document]', refused, 'command=replaceBases');
+    port.execute.mockClear();
+    port.available.mockClear();
+    f.bridge.refreshAvailableDocuments();
+    await Promise.resolve();
+    expect(port.execute).not.toHaveBeenCalled();
+    expect(port.available).not.toHaveBeenCalled();
+  } finally {
+    log.mockRestore();
+    await f.bridge.flush('discard');
+    await f.owner.close();
+  }
+});
+
+it('completes an already admitted sequence publication before retirement closes its native owner', async () => {
+  const entered = deferred();
+  const release = deferred();
+  const f = await fixture(async () => {
+    entered.resolve();
+    await release.promise;
+  });
+  f.model.getState().setSequence(f.id, f.initial);
+  await f.bridge.flush();
+  f.model.getState().replaceBases(f.id, 0, 1, 'T');
+  await f.bridge.flush();
+  const capture = f.model.getState().captureForSave(f.id)!;
+  const saving = f.bridge.save(f.id, { capture });
+  await entered.promise;
+  let retired = false;
+  const retirement = f.bridge.flush('retire').then(() => {
+    retired = true;
+  });
+  try {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(retired).toBe(false);
+    release.resolve();
+    expect(await saving).toMatchObject({ saved: true });
+    await retirement;
+    await f.owner.close();
+    expect(
+      parseSequenceFileAsDocument(await readFile(f.path, 'utf8'), f.path).sequence.sequence
+    ).toBe('TAAACCCC');
+    expect(f.writes).toHaveBeenCalledOnce();
+    port.execute.mockClear();
+    await expect(f.bridge.execute(f.id, inspect)).rejects.toThrow(
+      'SEQUENCE_DOCUMENT_CLIENT_RETIRED'
+    );
+    expect(port.execute).not.toHaveBeenCalled();
+  } finally {
+    release.resolve();
+    await Promise.allSettled([saving, retirement]);
+    await f.owner.close();
+  }
+});
+
 describe('sequence UI input client of native owner', () => {
   it('coalesces a reconciliation refresh behind an in-flight unavailable scope check', async () => {
     const f = await fixture();

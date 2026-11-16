@@ -82,8 +82,16 @@ const inspect = {
 export class SequenceDocumentClientBridge {
   private readonly clients = new Map<string, Client>();
   private readonly saves = new Map<string, Promise<SequenceDocumentSnapshot>>();
+  private retiring = false;
   constructor(private readonly model: StoreApi<SequenceStore>) {}
+  private assertActive(): void {
+    if (this.retiring)
+      throw new Error(
+        'SEQUENCE_DOCUMENT_CLIENT_RETIRED: The native sequence editing client has retired.'
+      );
+  }
   refreshAvailableDocuments(): void {
+    if (this.retiring) return;
     for (const [id, sequence] of Object.entries(this.model.getState().sequences)) {
       const client = this.clients.get(id);
       if (client?.projected) continue;
@@ -115,10 +123,15 @@ export class SequenceDocumentClientBridge {
   isInputPending(id: string): boolean {
     const client = this.clients.get(id);
     return (
-      !client?.attached || !client.snapshot || Boolean(client.loading) || client.explicitPending > 0
+      this.retiring ||
+      !client?.attached ||
+      !client.snapshot ||
+      Boolean(client.loading) ||
+      client.explicitPending > 0
     );
   }
   assertInput(id: string, purpose?: 'discard'): void {
+    this.assertActive();
     const client = this.clients.get(id);
     if (client?.explicitPending || client?.loading)
       throw new Error('SEQUENCE_DOCUMENT_NOT_READY: The native document is still loading.');
@@ -144,6 +157,7 @@ export class SequenceDocumentClientBridge {
       if (client) client.attached = false;
       return;
     }
+    this.assertActive();
     if (isReadOnlySequencePreview(id)) return;
     if (command.method === 'setSequence') {
       const client = this.client(id);
@@ -271,7 +285,8 @@ export class SequenceDocumentClientBridge {
     this.accept(client);
   }
   async flush(purpose: FileDocumentFlushPurpose = 'synchronize'): Promise<void> {
-    if (purpose === 'discard') {
+    if (purpose === 'retire') this.retiring = true;
+    if (purpose === 'discard' || purpose === 'retire') {
       await Promise.allSettled([
         ...[...this.clients.values()].flatMap((client) => [client.loading, client.tail]),
         ...this.saves.values(),
@@ -291,6 +306,7 @@ export class SequenceDocumentClientBridge {
     operation: SequenceDocumentOperation,
     options: { expectedVersion?: number } = {}
   ): Promise<SequenceDocumentSnapshot> {
+    this.assertActive();
     const client = this.client(documentId);
     if (client.unacknowledged.size && operation.kind !== 'discard')
       throw (
@@ -332,6 +348,7 @@ export class SequenceDocumentClientBridge {
       fromCaptureId?: string;
     }
   ): Promise<SequenceDocumentSnapshot> {
+    this.assertActive();
     options.beforeWrite?.();
     const key = `${documentId}:${options.capture.revision}:${options.fromCaptureId ?? ''}`,
       previous = this.saves.get(key);
@@ -581,6 +598,7 @@ export class SequenceDocumentClientBridge {
           client.refreshRequested = false;
           if (
             refreshRequested &&
+            !this.retiring &&
             completed &&
             client.attached &&
             !client.projected &&

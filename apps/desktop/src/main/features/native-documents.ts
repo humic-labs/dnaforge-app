@@ -160,6 +160,7 @@ export function createNativeDocuments(
   let rendererPublisher: RendererPublisher | null = null;
   let fileClientSync: ReturnType<typeof createFileDocumentClientSync> | null = null;
   let fileEditingClient: 'renderer' | 'none' = 'renderer';
+  let closingDocuments: Promise<void> | undefined;
   let assertNoFileEditingClient: (() => boolean) | undefined;
   let commandServer: CommandServer | null = null;
   let detachCommandServer: (() => void) | null = null;
@@ -372,14 +373,18 @@ export function createNativeDocuments(
     );
   }
 
-  async function closeServerAndRecovery(): Promise<void> {
-    await markdownImporter.close();
-    const recovery = startupRecovery;
-    const server = commandServer;
-    startupRecovery = null;
-    commandServer = null;
-    await Promise.all([recovery?.close(), server?.close()]);
-    await fileDocuments.close();
+  function closeServerAndRecovery(): Promise<void> {
+    closingDocuments ??= (async () => {
+      await markdownImporter.close();
+      const recovery = startupRecovery;
+      const server = commandServer;
+      startupRecovery = null;
+      commandServer = null;
+      await Promise.all([recovery?.close(), server?.close()]);
+      await flushDirtyDocumentClients('retire');
+      await fileDocuments.close();
+    })();
+    return closingDocuments;
   }
 
   function detachServer(): void {

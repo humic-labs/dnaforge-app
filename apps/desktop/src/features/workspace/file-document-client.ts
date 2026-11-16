@@ -13,12 +13,18 @@ const clients = new Map<string, FileDocumentClient>();
 let subscribed = false;
 let flushUnsubscribe: (() => void) | undefined;
 let nativeReadiness: Promise<void> = Promise.resolve();
+let retirementRequested = false;
+let boundLoadId: string | undefined;
 const nativeClientFlushers = new Set<(purpose: FileDocumentFlushPurpose) => Promise<void>>();
 
 export function registerNativeDocumentClientFlush(
   flush: (purpose: FileDocumentFlushPurpose) => Promise<void>
 ): () => void {
   nativeClientFlushers.add(flush);
+  if (retirementRequested)
+    void flush('retire').catch((error) => {
+      console.error('[Native document client] retirement failed:', error);
+    });
   return () => {
     nativeClientFlushers.delete(flush);
   };
@@ -44,6 +50,8 @@ function subscribeNativeDocuments() {
 }
 
 export function installFileDocumentClientSync(loadId: string): () => void {
+  if (boundLoadId !== loadId) retirementRequested = false;
+  boundLoadId = loadId;
   subscribeNativeDocuments();
   flushUnsubscribe?.();
   const unsubscribe = platform().fs.onFileDocumentFlush((request) => {
@@ -72,6 +80,7 @@ export function installFileDocumentClientSync(loadId: string): () => void {
 export function getFileDocumentClient(path: string): FileDocumentClient {
   let client = clients.get(path);
   if (!client) {
+    if (retirementRequested) throw new Error('The native file editing client has retired.');
     client = new FileDocumentClient(path);
     clients.set(path, client);
   }
@@ -85,11 +94,28 @@ export function ownsNativeFileDocument(path: string): boolean {
 export async function flushFileDocumentClients(
   purpose: FileDocumentFlushPurpose = 'synchronize'
 ): Promise<void> {
-  await waitForNativeFileDocumentReadiness();
-  await Promise.all([
-    ...[...new Set(clients.values())].map((client) => client.flush(purpose)),
-    ...[...nativeClientFlushers].map((flush) => flush(purpose)),
-  ]);
+  if (purpose === 'retire') retirementRequested = true;
+  const retirements =
+    purpose === 'retire'
+      ? Promise.all([
+          ...[...new Set(clients.values())].map((client) => client.flush(purpose)),
+          ...[...nativeClientFlushers].map((flush) => flush(purpose)),
+        ])
+      : Promise.resolve();
+  await Promise.all([waitForNativeFileDocumentReadiness(), retirements]);
+  for (;;) {
+    const flushers = [...nativeClientFlushers];
+    await Promise.all([
+      ...[...new Set(clients.values())].map((client) => client.flush(purpose)),
+      ...flushers.map((flush) => flush(purpose)),
+    ]);
+    if (
+      purpose !== 'retire' ||
+      (flushers.length === nativeClientFlushers.size &&
+        flushers.every((flush) => nativeClientFlushers.has(flush)))
+    )
+      return;
+  }
 }
 
 export class FileDocumentClient {
@@ -105,8 +131,13 @@ export class FileDocumentClient {
   private readonly listeners = new Set<() => void>();
   private readonly capturedSaves = new Map<number, Promise<unknown>>();
   private loading: Promise<void> | null = null;
+  private retiring = false;
 
   constructor(readonly filePath: string) {}
+  private assertActive(): void {
+    if (this.retiring)
+      throw new Error('FILE_DOCUMENT_CLIENT_RETIRED: The native file editing client has retired.');
+  }
   get revisionId() {
     return this.snapshot?.revision ?? `file-loading:${this.filePath}`;
   }
@@ -139,6 +170,10 @@ export class FileDocumentClient {
 
   load(fallback?: string): Promise<void> {
     if (this.loading) return this.loading;
+    if (this.retiring)
+      return Promise.reject(
+        new Error('FILE_DOCUMENT_CLIENT_RETIRED: The native file editing client has retired.')
+      );
     const loading = this.loadCurrent(fallback).finally(() => {
       if (this.loading === loading) this.loading = null;
     });
@@ -187,6 +222,7 @@ export class FileDocumentClient {
 
   change(content: string | null): void {
     if (content === null || this.content === content) return;
+    this.assertActive();
     const before = (this.content ?? '').replace(/\r\n/g, '\n');
     const after = content.replace(/\r\n/g, '\n');
     this.content = content;
@@ -210,6 +246,7 @@ export class FileDocumentClient {
   }
 
   changeTable(data: TableData, firstRowAsHeader: boolean): void {
+    this.assertActive();
     const rows = (data.cells ?? []).map((row) => row.map((cell) => cell.value));
     if (firstRowAsHeader) rows.unshift(data.columnLabels ?? []);
     const next = serializeDelimitedRows(
@@ -231,14 +268,17 @@ export class FileDocumentClient {
     sort: { column: number; direction: 'asc' | 'desc' | null } | null,
     filters: Record<number, string>
   ): void {
+    this.assertActive();
     void this.enqueue({ kind: 'table-view', sort, filters }).catch(() => {});
   }
 
-  execute(operation: FileDocumentClientOperation): Promise<FileDocumentSnapshot> {
+  async execute(operation: FileDocumentClientOperation): Promise<FileDocumentSnapshot> {
+    this.assertActive();
     return this.enqueue(operation, true);
   }
 
   discard(): void {
+    this.assertActive();
     this.content = this.persistedContent;
     this.epoch += 1;
     this.emit();
@@ -250,6 +290,7 @@ export class FileDocumentClient {
     assertCurrent: () => void = () => {},
     afterPublish?: () => Promise<void>
   ): Promise<FileDocumentSnapshot> {
+    this.assertActive();
     const revision = this.epoch;
     const previous = this.capturedSaves.get(revision);
     if (previous) return previous as Promise<FileDocumentSnapshot>;
@@ -291,8 +332,13 @@ export class FileDocumentClient {
   }
 
   async flush(purpose: FileDocumentFlushPurpose = 'synchronize'): Promise<void> {
+    if (purpose === 'retire') this.retiring = true;
     if (purpose === 'discard') {
       await Promise.allSettled([this.tail, ...this.capturedSaves.values()]);
+      return;
+    }
+    if (purpose === 'retire') {
+      await Promise.allSettled([this.loading, this.tail, ...this.capturedSaves.values()]);
       return;
     }
     await this.tail;
