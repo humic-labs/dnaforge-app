@@ -1,3 +1,9 @@
+import { tableDataForPersistence } from '../../shared/table-document-data';
+import {
+  parseTablePackageHead,
+  serializeTablePackageHead,
+  tablePackageHeadWithData,
+} from '../../shared/table-package';
 import { platform } from '../../platform';
 import type { FileDocumentFlushPurpose } from '../../shared/file-document-client-sync';
 import type { TextFileAtomicWriteInput } from '../../shared/text-file-atomic';
@@ -103,10 +109,14 @@ export class FileDocumentClient {
   private epoch = 0;
   private tail: Promise<unknown> = Promise.resolve();
   private readonly listeners = new Set<() => void>();
+  private notificationVersion = 0;
   private readonly capturedSaves = new Map<number, Promise<unknown>>();
   private loading: Promise<void> | null = null;
 
   constructor(readonly filePath: string) {}
+  get viewRevision(): number {
+    return this.notificationVersion;
+  }
   get revisionId() {
     return this.snapshot?.revision ?? `file-loading:${this.filePath}`;
   }
@@ -210,6 +220,20 @@ export class FileDocumentClient {
   }
 
   changeTable(data: TableData, firstRowAsHeader: boolean): void {
+    if (this.snapshot?.type === 'table') {
+      const head = parseTablePackageHead(this.content ?? this.snapshot.content ?? '');
+      const persistedData = tableDataForPersistence(data);
+      const next = tablePackageHeadWithData(head, persistedData);
+      this.content = serializeTablePackageHead(next);
+      this.epoch += 1;
+      this.emit();
+      void this.enqueue({
+        kind: 'replace-table',
+        data: structuredClone(persistedData),
+        firstRowAsHeader: false,
+      }).catch(() => {});
+      return;
+    }
     const rows = (data.cells ?? []).map((row) => row.map((cell) => cell.value));
     if (firstRowAsHeader) rows.unshift(data.columnLabels ?? []);
     const next = serializeDelimitedRows(
@@ -246,7 +270,7 @@ export class FileDocumentClient {
   }
 
   async save(
-    _write: (input: TextFileAtomicWriteInput) => Promise<void>,
+    _write?: (input: TextFileAtomicWriteInput) => Promise<void>,
     assertCurrent: () => void = () => {},
     afterPublish?: () => Promise<void>
   ): Promise<FileDocumentSnapshot> {
@@ -372,6 +396,19 @@ export class FileDocumentClient {
   }
 
   private emit(): void {
-    for (const listener of this.listeners) listener();
+    this.notificationVersion++;
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch (error) {
+        try {
+          console.error(
+            '[FileDocumentClient] Observer notification failed:',
+            { documentId: this.snapshot?.documentId, filePath: this.filePath },
+            error
+          );
+        } catch {}
+      }
+    }
   }
 }

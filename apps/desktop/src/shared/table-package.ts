@@ -2,6 +2,7 @@ import { canonicalJson } from './canonical-json';
 import { sha256Hex } from './sha256-sync';
 import { TABLE_NOTEBOOK_BLOCK } from './table-notebook-contract';
 import { isAbsolutePathLike } from './path-boundary';
+import { stripWorkspaceScope } from './workspace-scoped-identity';
 import {
   tableDocumentKey,
   tableDocumentReferenceSchema,
@@ -188,7 +189,8 @@ function alias(value: unknown): asserts value is TableLegacyAlias {
   tableDocumentKey(parsed.data);
   if (
     parsed.data.backing.kind !== 'notebook-inline' ||
-    parsed.data.backing.blockId !== value.blockId
+    parsed.data.backing.blockId !== value.blockId ||
+    stripWorkspaceScope(parsed.data.backing.notebookDocumentId) !== value.notebookId
   )
     invalid('The table alias does not match its earlier notebook and block identity.');
 }

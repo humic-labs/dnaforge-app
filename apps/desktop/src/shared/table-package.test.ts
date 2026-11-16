@@ -211,6 +211,16 @@ describe('portable table package codec', () => {
     ).toThrow();
   });
 
+  it('refuses an alias that names a different notebook from its retained original reference', () => {
+    const f = fixture();
+    const mismatched = {
+      ...f.head,
+      aliases: [{ ...f.head.aliases[0], notebookId: 'different-notebook' }],
+    };
+    expect(() => parseTablePackageHead(bytes(mismatched))).toThrow();
+    expect(f.head.aliases[0].notebookId).toBe(notebookId);
+  });
+
   it('requires a durable promotion identity for a pending destination', () => {
     const f = fixture();
     expect(() =>
