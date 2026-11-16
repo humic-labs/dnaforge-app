@@ -5,7 +5,10 @@ import { useToastStore } from '../stores/toast-store';
 
 const mocks = vi.hoisted(() => ({ materialize: vi.fn(), openPackage: vi.fn() }));
 vi.mock('../platform', () => ({
-  platform: () => ({ fileAssociations: { materializeQuickLookPackage: mocks.materialize } }),
+  platform: () => ({
+    fileAssociations: { materializeQuickLookPackage: mocks.materialize },
+    fs: { canonicalPath: vi.fn(async (path: string) => path) },
+  }),
 }));
 vi.mock('../features/sequence/managed-sequence-repository', () => ({
   managedSequenceRepository: { openPackage: mocks.openPackage },
