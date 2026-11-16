@@ -106,6 +106,7 @@ export interface NativeTableDocumentCommandsOptions {
   db(): Database.Database;
   workspaceRoots(): readonly string[];
   writableWorkspaceRoots(): readonly string[];
+  workspaceAccess?(root: string): { readOnly: boolean } | null;
   managedRootDir(): string;
   captureWorkspace(root: string, mutating: boolean): () => void;
   files: NativeFileDocumentOwner;
@@ -328,13 +329,20 @@ export class NativeTableDocumentCommands {
     const dependencies = this.identityDependencies();
     const initial = admitRegisteredProjectRootInMain(root, dependencies);
     const available = () =>
-      this.options.workspaceRoots().filter((candidate) => realpathSync(candidate) === root);
+      this.options.workspaceAccess
+        ? Boolean(this.options.workspaceAccess(root))
+        : this.options.workspaceRoots().filter((candidate) => realpathSync(candidate) === root)
+            .length === 1;
     const writable = () =>
-      this.options.writableWorkspaceRoots().some((candidate) => realpathSync(candidate) === root);
+      this.options.workspaceAccess
+        ? this.options.workspaceAccess(root)?.readOnly === false
+        : this.options
+            .writableWorkspaceRoots()
+            .some((candidate) => realpathSync(candidate) === root);
     const captured = this.options.captureWorkspace(root, mutating);
     const assertCurrent = () => {
       captured();
-      if (available().length !== 1) refuse('The project has no unique authorized owner.');
+      if (!available()) refuse('The project has no unique authorized owner.');
       const current = admitRegisteredProjectRootInMain(root, this.identityDependencies());
       if (
         current.row.id !== initial.row.id ||

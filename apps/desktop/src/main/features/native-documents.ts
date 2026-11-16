@@ -125,6 +125,7 @@ export function createNativeDocuments(
     db: getDb,
     workspaceRoots: () => workspaces.readableRoots(),
     writableWorkspaceRoots: () => workspaces.roots(),
+    workspaceAccess: (root) => workspaces.access(root),
     managedRootDir: managedProjectStorageRoot,
     captureWorkspace: (root, mutating) =>
       mutating ? workspaces.capture(root) : workspaces.captureReadable(root),
