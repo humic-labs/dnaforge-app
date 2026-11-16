@@ -46,7 +46,13 @@ function subscribeNativeDocuments() {
   const subscribe = platform().fs.subscribeFileDocuments;
   if (!subscribe) throw new Error('The native file-document service is unavailable.');
   subscribed = true;
-  subscribe((snapshot) => clients.get(snapshot.path)?.observe(snapshot));
+  subscribe((snapshot) => {
+    const client =
+      [...new Set(clients.values())].find(
+        (candidate) => candidate.snapshot?.documentId === snapshot.documentId
+      ) ?? clients.get(snapshot.path);
+    client?.observe(snapshot);
+  });
 }
 
 export function installFileDocumentClientSync(loadId: string): () => void {
@@ -140,7 +146,9 @@ export class FileDocumentClient {
 
   observe(snapshot: FileDocumentSnapshot): void {
     if (
-      (snapshot.path !== this.filePath && snapshot.documentId !== this.snapshot?.documentId) ||
+      (this.snapshot
+        ? snapshot.documentId !== this.snapshot.documentId && !this.isTableActivation(snapshot)
+        : snapshot.path !== this.filePath) ||
       this.pending > 0
     )
       return;
@@ -161,8 +169,9 @@ export class FileDocumentClient {
     subscribeNativeDocuments();
     await this.flush();
     await Promise.allSettled([...this.capturedSaves.values()]);
+    const documentId = this.snapshot?.documentId;
     const snapshot = await platform().fs.fileDocument({
-      target: { path: this.filePath },
+      target: documentId ? { documentId } : { path: this.filePath },
       projection: 'document',
       operation: {
         kind: 'inspect',
@@ -174,6 +183,10 @@ export class FileDocumentClient {
         columnLimit: 20,
       },
     });
+    if (documentId && snapshot.documentId !== documentId && !this.isTableActivation(snapshot))
+      throw new Error(
+        'FILE_DOCUMENT_BINDING_CHANGED: The native document identity no longer matches this view.'
+      );
     const current =
       !snapshot.dirty &&
       snapshot.ready &&
@@ -388,11 +401,23 @@ export class FileDocumentClient {
   }
 
   private accept(snapshot: FileDocumentSnapshot, content: boolean): void {
+    for (const [path, client] of clients)
+      if (client === this && path !== snapshot.path) clients.delete(path);
+    clients.set(snapshot.path, this);
     this.snapshot = snapshot;
     this.persistedContent = snapshot.persistedContent;
     this.diskContent = snapshot.diskContent;
     if (content) this.content = snapshot.content;
     this.emit();
+  }
+
+  private isTableActivation(snapshot: FileDocumentSnapshot): boolean {
+    return Boolean(
+      this.snapshot?.path === snapshot.path &&
+      this.snapshot.tableDocument?.status === 'pending-promotion' &&
+      snapshot.tableDocument?.status === 'active' &&
+      snapshot.tableDocument.id === this.snapshot.tableDocument.id
+    );
   }
 
   private emit(): void {

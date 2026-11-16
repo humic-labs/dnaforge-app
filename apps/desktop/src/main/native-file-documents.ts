@@ -257,6 +257,39 @@ export function createNativeFileDocuments(options: {
       finishMigration?.();
     },
     resolveIdentity,
+    async retireReboundIdentity({ path, previousDocumentId, documentId }) {
+      const previousPath = identityPath(previousDocumentId);
+      let previous: unknown;
+      try {
+        previous = JSON.parse(await readFile(previousPath, 'utf8'));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+        throw error;
+      }
+      if (
+        !previous ||
+        typeof previous !== 'object' ||
+        !('path' in previous) ||
+        previous.path !== path ||
+        !('documentId' in previous) ||
+        previous.documentId !== previousDocumentId ||
+        !('dirty' in previous) ||
+        previous.dirty !== false
+      )
+        throw new Error('The prior pending table identity is not a clean matching native binding.');
+      const current = JSON.parse(
+        await readFile(recordPath(path), 'utf8')
+      ) as NativeFileDocumentRecord;
+      if (
+        current.documentId !== documentId ||
+        current.path !== path ||
+        current.dirty ||
+        !isForgePackageMetaPath(path, 'table.json')
+      )
+        throw new Error('The active native table binding was not durably recorded.');
+      await rm(previousPath);
+      await syncDirectory(dirname(previousPath));
+    },
     async listRetainedDirty() {
       return (await identityRecords()).filter(
         (record) =>

@@ -164,9 +164,34 @@ export function useNativeRichTableDocument(reference: TableDocumentReference | n
         onViewChange,
       }
     : {};
+  const currentResolved = useMemo(() => {
+    const snapshot = client?.snapshot;
+    if (
+      resolved?.owner.kind !== 'file' ||
+      !snapshot ||
+      snapshot.documentId !== resolved.owner.documentId ||
+      snapshot.tableDocument?.id !== resolved.tableId ||
+      resolved.reference.backing.kind !== 'rich-file'
+    )
+      return resolved;
+    return {
+      ...resolved,
+      owner: {
+        ...resolved.owner,
+        path: snapshot.path,
+        workspaceRoot: snapshot.workspaceRoot ?? resolved.owner.workspaceRoot,
+      },
+      reference: richTableReference(
+        resolved.reference.backing.projectId,
+        resolved.tableId,
+        resolved.reference.binding,
+        { fileDocumentId: snapshot.documentId, pathHint: snapshot.path }
+      ),
+    };
+  }, [resolved, client?.snapshot]);
   return {
     active,
-    resolved,
+    resolved: currentResolved,
     client,
     data: projection.data,
     title: projection.title,

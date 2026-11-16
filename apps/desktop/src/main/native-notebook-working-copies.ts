@@ -216,7 +216,7 @@ export function createNativeNotebookWorkingCopies(options: {
     return { documentId: id, path: currentPath, workspaceRoot: root, readOnly, assertCurrent };
   };
   const load = async (scope: NativeNotebookScope): Promise<NativeNotebookSource> => {
-    const reads = new Map<string, string>(),
+    const reads = new Map<string, Buffer>(),
       missing = new Set<string>();
     const safe = async (path: string) => {
       const member = await canonicalWorkspacePath({
@@ -231,9 +231,9 @@ export function createNativeNotebookWorkingCopies(options: {
       return member.candidate;
     };
     const read = async (path: string) => {
-      const value = await readFile(await safe(path), 'utf8');
-      reads.set(path, value);
-      return value;
+      const bytes = await readFile(await safe(path));
+      reads.set(path, bytes);
+      return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     };
     const legacy = scope.path.toLowerCase().endsWith('.wpnote.json');
     const metadataRaw = await read(legacy ? scope.path : notebookPackagePaths(scope.path).metaPath);
@@ -289,7 +289,7 @@ export function createNativeNotebookWorkingCopies(options: {
     if (stripWorkspaceScope(scope.documentId) !== stripWorkspaceScope(result.metadata.id))
       throw new Error('The notebook package belongs to another identity.');
     for (const [path, value] of reads)
-      if ((await readFile(await safe(path), 'utf8')) !== value)
+      if (!(await readFile(await safe(path))).equals(value))
         throw new Error('The notebook package changed while loading.');
     for (const path of missing) {
       try {
@@ -312,6 +312,12 @@ export function createNativeNotebookWorkingCopies(options: {
         ),
       ],
       fingerprint: contentFingerprint(result.markdown),
+      sourceFileHashes: Object.fromEntries(
+        [...reads].map(([path, bytes]) => [
+          relative(scope.path, path).replace(/\\/g, '/'),
+          createHash('sha256').update(bytes).digest('hex'),
+        ])
+      ),
       metadataRaw,
       preservedPreamble: result.parsed.preservedPreamble,
       preservedTitleProjection: result.parsed.preservedTitleProjection,
@@ -547,6 +553,16 @@ export function createNativeNotebookWorkingCopies(options: {
             'The notebook package changed outside this working copy.',
             false
           );
+        if (
+          source.sourceFileHashes &&
+          canonicalNotebookJson(current.sourceFileHashes) !==
+            canonicalNotebookJson(source.sourceFileHashes)
+        )
+          throw new NativeDocumentCommandError(
+            'NOTEBOOK_EXTERNAL_CONFLICT',
+            'The exact saved notebook source bytes changed outside this working copy.',
+            false
+          );
         if (current.publication?.status === 'conflict')
           throw new NativeDocumentCommandError(
             'NOTEBOOK_EXTERNAL_CONFLICT',
@@ -664,23 +680,7 @@ export function createNativeNotebookWorkingCopies(options: {
         }
         return {
           scope: nextScope,
-          source: {
-            sourceShape: 'v2-package' as const,
-            content: new NotebookDocumentModel(result.parsed.content, result.parsed.title).content,
-            title: result.parsed.title,
-            updatedAt: result.metadata.updatedAt,
-            sizeBytes: result.markdownBytes,
-            fingerprint: result.canonicalFingerprint,
-            metadataRaw: JSON.stringify(result.metadata),
-            preservedPreamble: result.parsed.preservedPreamble,
-            preservedTitleProjection: result.parsed.preservedTitleProjection,
-            publication: readNotebookPublicationInDb(options.db(), {
-              ...nextScope,
-              title: result.parsed.title,
-              content: result.parsed.content,
-              canonicalFingerprint: result.canonicalFingerprint,
-            }),
-          },
+          source: await load(nextScope),
           warnings,
         };
       });

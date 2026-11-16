@@ -5,6 +5,19 @@ import type {
 } from '../shared/notebook-conflict';
 import { randomUUID, createHash } from 'node:crypto';
 import type { JSONContent } from '@tiptap/core';
+import { closeHistory } from '@tiptap/pm/history';
+import { stripWorkspaceScope } from '../shared/workspace-scoped-identity';
+import {
+  notebookTableData,
+  tableDocumentKey,
+  tableDocumentReferenceSchema,
+  type TableDocumentReference,
+} from '../shared/table-document-reference';
+import type {
+  NativeNotebookTableTransitions,
+  NativeNotebookTableTransitionSource,
+  NativeNotebookTableSourceContext,
+} from './table-document-commands';
 import {
   NotebookDocumentModel,
   notebookDocumentModelSchema,
@@ -42,6 +55,7 @@ export interface NativeNotebookSource {
   content: JSONContent;
   title: string;
   fingerprint: string;
+  sourceFileHashes?: Readonly<Record<string, string>>;
   publication?: import('../shared/notebook-publication').NotebookPublicationState;
   updatedAt?: string;
   legacyBaselines?: string[];
@@ -127,6 +141,7 @@ interface NotebookCopy {
   tail: Promise<unknown>;
   recordTail: Promise<unknown>;
   recovery?: NativeNotebookRecord;
+  tableTransitionUnavailable?: boolean;
   saves: Map<number, Promise<NotebookDocumentSnapshot>>;
   saveReceipts: Map<
     string,
@@ -155,6 +170,321 @@ export class NativeNotebookWorkingCopyOwner {
   private closed = false;
   private pendingRequestBytes = 0;
   constructor(private readonly options: NativeNotebookOptions) {}
+  readonly tableTransitions: NativeNotebookTableTransitions = {
+    withSource: (input, transition) => this.withTableSource(input, transition),
+    inspectSource: (reference, context) => this.inspectTableSource(reference, context),
+  };
+  private tableReference(reference: TableDocumentReference) {
+    const parsed = tableDocumentReferenceSchema.parse(reference);
+    tableDocumentKey(parsed);
+    if (parsed.backing.kind !== 'notebook-inline' || parsed.binding.kind !== 'current')
+      throw refused('TABLE_SOURCE_UNSUPPORTED', 'Choose a current notebook-backed table.');
+    return parsed as TableDocumentReference & {
+      backing: Extract<TableDocumentReference['backing'], { kind: 'notebook-inline' }>;
+    };
+  }
+  private tableHashes(source: NativeNotebookSource): Readonly<Record<string, string>> {
+    const hashes = source.sourceFileHashes;
+    if (
+      !hashes ||
+      !Object.keys(hashes).length ||
+      Object.entries(hashes).some(
+        ([path, hash]) =>
+          !path ||
+          path.includes('\\') ||
+          path.startsWith('/') ||
+          path.includes('\0') ||
+          /^[a-z]:/i.test(path) ||
+          path.split('/').some((part) => !part || part === '.' || part === '..') ||
+          !/^[a-f0-9]{64}$/.test(hash)
+      )
+    )
+      throw refused(
+        'TABLE_SOURCE_HASHES_UNAVAILABLE',
+        'Exact saved notebook source hashes are required for extraction.'
+      );
+    return hashes;
+  }
+  private tablePlacement(copy: NotebookCopy, blockId: string) {
+    const matches: Array<{ position: number; block: JSONContent }> = [];
+    copy.model.state.doc.descendants((node, position) => {
+      if (node.type.name === 'embed' && node.attrs.refId === blockId)
+        matches.push({ position, block: node.toJSON() });
+    });
+    if (matches.length > 1)
+      throw refused('TABLE_SOURCE_AMBIGUOUS', 'The notebook table identity is ambiguous.');
+    return matches[0] ?? null;
+  }
+  private assertTableContext(
+    scope: NativeNotebookScope,
+    context?: NativeNotebookTableSourceContext
+  ) {
+    if (
+      context &&
+      (this.options.normalizePath(context.workspaceRoot) !==
+        this.options.normalizePath(scope.workspaceRoot) ||
+        this.options.normalizePath(context.sourcePath) !== this.options.normalizePath(scope.path))
+    )
+      throw refused(
+        'TABLE_SOURCE_CONTEXT_CHANGED',
+        'The verified notebook source location does not match its native owner.'
+      );
+  }
+  async inspectTableSource(
+    reference: TableDocumentReference,
+    context?: NativeNotebookTableSourceContext
+  ) {
+    const sourceReference = this.tableReference(reference);
+    if (this.closed) throw refused('NOTEBOOK_OWNER_CLOSED', 'The native notebook owner is closed.');
+    await this.options.beforeExecute?.(sourceReference.backing.notebookDocumentId, 'inspect');
+    const copy = await this.copy(sourceReference.backing.notebookDocumentId);
+    const run = copy.tail
+      .catch(() => {})
+      .then(async () => {
+        const scope = await this.resolveCurrentScope(copy, false);
+        this.assertTableContext(scope, context);
+        copy.scope = scope;
+        if (!this.dirty(copy) && !copy.recovery && !copy.saves.size) {
+          const actual = await this.options.load(scope);
+          scope.assertCurrent();
+          if (copy.tableTransitionUnavailable) this.tableHashes(actual);
+          if (
+            copy.tableTransitionUnavailable ||
+            actual.fingerprint !== copy.source.fingerprint ||
+            canonicalNotebookJson(actual.sourceFileHashes) !==
+              canonicalNotebookJson(copy.source.sourceFileHashes)
+          ) {
+            copy.source = actual;
+            copy.model = new NotebookDocumentModel(actual.content, actual.title);
+            copy.version++;
+            copy.persistedRevision = this.revision(copy);
+            copy.tableTransitionUnavailable = false;
+            await this.persist(copy);
+            this.publish(this.snapshot(copy));
+          }
+        }
+        const placement = this.tablePlacement(copy, sourceReference.backing.blockId);
+        const currentReference =
+          placement?.block.attrs?.type === 'table-reference'
+            ? tableDocumentReferenceSchema.parse(placement.block.attrs.data?.reference)
+            : undefined;
+        if (currentReference) tableDocumentKey(currentReference);
+        return {
+          workspaceRoot: scope.workspaceRoot,
+          sourcePath: scope.path,
+          revision: this.revision(copy),
+          sourceFingerprint: copy.source.fingerprint,
+          sourceFileHashes: structuredClone(this.tableHashes(copy.source)),
+          originalBlock: currentReference
+            ? null
+            : placement
+              ? structuredClone(placement.block)
+              : null,
+          ...(currentReference ? { currentReference } : {}),
+        };
+      });
+    copy.tail = run.then(
+      () => undefined,
+      () => undefined
+    );
+    return run;
+  }
+  async withTableSource<T>(
+    input: {
+      reference: TableDocumentReference;
+      expectedRevision: string;
+      context?: NativeNotebookTableSourceContext;
+    },
+    transition: (source: NativeNotebookTableTransitionSource) => Promise<T>
+  ): Promise<T> {
+    const reference = this.tableReference(input.reference);
+    if (this.closed) throw refused('NOTEBOOK_OWNER_CLOSED', 'The native notebook owner is closed.');
+    await this.options.beforeExecute?.(reference.backing.notebookDocumentId, 'extract-table');
+    const copy = await this.copy(reference.backing.notebookDocumentId);
+    const run = copy.tail
+      .catch(() => {})
+      .then(async () => {
+        let scope = await this.resolveCurrentScope(copy, true);
+        this.assertTableContext(scope, input.context);
+        copy.scope = scope;
+        this.assertUnprotected(scope.path);
+        if (scope.readOnly)
+          throw refused('NOTEBOOK_READ_ONLY', 'The notebook project is read-only.');
+        if (input.expectedRevision !== this.revision(copy))
+          throw refused(
+            'STALE_NOTEBOOK',
+            'Inspect the current native notebook revision before extraction.'
+          );
+        if (
+          copy.tableTransitionUnavailable ||
+          this.dirty(copy) ||
+          copy.saves.size ||
+          copy.recovery ||
+          copy.source.publication?.status === 'conflict' ||
+          copy.source.publication?.status === 'pending'
+        )
+          throw refused(
+            'TABLE_SOURCE_NOT_SAVED',
+            'Save and resolve the notebook before extracting a table.'
+          );
+        const hashes = structuredClone(this.tableHashes(copy.source));
+        const assertBaseline = async () => {
+          const actual = await this.options.load(scope);
+          scope.assertCurrent();
+          if (
+            actual.fingerprint !== copy.source.fingerprint ||
+            canonicalNotebookJson(this.tableHashes(actual)) !== canonicalNotebookJson(hashes)
+          )
+            throw refused(
+              'NOTEBOOK_EXTERNAL_CONFLICT',
+              'The exact saved notebook bytes changed before extraction.'
+            );
+        };
+        await assertBaseline();
+        const placement = this.tablePlacement(copy, reference.backing.blockId);
+        if (!placement || placement.block.attrs?.type !== 'table')
+          throw refused(
+            'TABLE_SOURCE_UNAVAILABLE',
+            'The notebook has no unique inline table with this identity.'
+          );
+        const data = notebookTableData(copy.model.content, reference.backing.blockId);
+        let active = true;
+        let publication:
+          | Promise<{
+              sourceFingerprint: string;
+              sourceFileHashes: Readonly<Record<string, string>>;
+              revision: string;
+            }>
+          | undefined;
+        const assertCurrent = () => {
+          if (!active || this.closed)
+            throw refused(
+              'TABLE_SOURCE_EXPIRED',
+              'The notebook extraction capability has expired.'
+            );
+          scope.assertCurrent();
+          this.assertUnprotected(scope.path);
+        };
+        const source: NativeNotebookTableTransitionSource = {
+          reference: structuredClone(reference),
+          workspaceRoot: scope.workspaceRoot,
+          sourcePath: scope.path,
+          notebookId: stripWorkspaceScope(scope.documentId),
+          blockId: reference.backing.blockId,
+          revision: this.revision(copy),
+          sourceFingerprint: copy.source.fingerprint,
+          sourceFileHashes: structuredClone(hashes),
+          originalBlock: structuredClone(placement.block),
+          tableData: structuredClone(data),
+          assertCurrent,
+          publishReference: (destination) => {
+            assertCurrent();
+            if (publication)
+              throw refused(
+                'TABLE_SOURCE_ALREADY_PUBLISHED',
+                'The selected placement can be published only once per transition.'
+              );
+            publication = (async () => {
+              const parsed = tableDocumentReferenceSchema.parse(destination);
+              tableDocumentKey(parsed);
+              if (parsed.backing.kind !== 'rich-file' || parsed.binding.kind !== 'current')
+                throw refused(
+                  'TABLE_DESTINATION_UNSUPPORTED',
+                  'Extraction requires a current rich table destination.'
+                );
+              scope = await this.resolveCurrentScope(copy, true);
+              this.assertTableContext(scope, input.context);
+              assertCurrent();
+              if (scope.readOnly)
+                throw refused('NOTEBOOK_READ_ONLY', 'The notebook project is read-only.');
+              await assertBaseline();
+              const attrs = {
+                ...placement.block.attrs,
+                type: 'table-reference',
+                version: 1,
+                data: { reference: parsed, presentation: 'embed' },
+              };
+              const transaction = closeHistory(copy.model.state.tr).setNodeMarkup(
+                placement.position,
+                undefined,
+                attrs
+              );
+              const candidate = transaction.doc.toJSON();
+              const prepared = await this.prepareResourceReferences(
+                scope,
+                candidate,
+                copy.model.content
+              );
+              await prepared.verify();
+              assertCurrent();
+              try {
+                const result = await this.options.publish(
+                  scope,
+                  copy.source,
+                  prepared.content,
+                  copy.model.title
+                );
+                copy.source = result.source;
+                if (result.scope) copy.scope = result.scope;
+                copy.warnings = result.warnings;
+                copy.model.apply(transaction);
+                if (
+                  canonicalNotebookJson(copy.model.content) !==
+                  canonicalNotebookJson(result.source.content)
+                )
+                  copy.model = new NotebookDocumentModel(
+                    result.source.content,
+                    result.source.title
+                  );
+                copy.version++;
+                copy.persistedRevision = this.revision(copy);
+                await this.persist(copy);
+                this.publish(this.snapshot(copy));
+                return {
+                  sourceFingerprint: copy.source.fingerprint,
+                  sourceFileHashes: structuredClone(this.tableHashes(copy.source)),
+                  revision: this.revision(copy),
+                };
+              } catch (error) {
+                copy.tableTransitionUnavailable = true;
+                try {
+                  const actual = await this.options.load(scope);
+                  this.tableHashes(actual);
+                  scope.assertCurrent();
+                  if (
+                    actual.fingerprint !== copy.source.fingerprint ||
+                    canonicalNotebookJson(actual.sourceFileHashes) !==
+                      canonicalNotebookJson(copy.source.sourceFileHashes)
+                  ) {
+                    copy.source = actual;
+                    copy.model = new NotebookDocumentModel(actual.content, actual.title);
+                    copy.version++;
+                    copy.persistedRevision = this.revision(copy);
+                    await this.persist(copy);
+                    this.publish(this.snapshot(copy));
+                  }
+                  copy.tableTransitionUnavailable = false;
+                } catch {}
+                this.publish(this.snapshot(copy));
+                throw error;
+              }
+            })();
+            return publication;
+          },
+        };
+        try {
+          return await transition(source);
+        } finally {
+          if (publication) await publication.catch(() => {});
+          active = false;
+        }
+      });
+    copy.tail = run.then(
+      () => undefined,
+      () => undefined
+    );
+    return run;
+  }
   async resolveResourceReference(
     input: ResolveNotebookResourceReferenceRequest
   ): Promise<ResolvedProjectResourceReference> {
@@ -265,11 +595,16 @@ export class NativeNotebookWorkingCopyOwner {
             if (!this.dirty(copy) && !copy.recovery && !copy.saves.size) {
               const source = await this.options.load(scope);
               scope.assertCurrent();
-              if (source.fingerprint !== copy.source.fingerprint) {
+              if (copy.tableTransitionUnavailable) this.tableHashes(source);
+              if (
+                copy.tableTransitionUnavailable ||
+                source.fingerprint !== copy.source.fingerprint
+              ) {
                 copy.source = source;
                 copy.model = new NotebookDocumentModel(source.content, source.title);
                 copy.version++;
                 copy.persistedRevision = this.revision(copy);
+                copy.tableTransitionUnavailable = false;
               }
             }
             const result =
@@ -290,6 +625,11 @@ export class NativeNotebookWorkingCopyOwner {
               ...(result !== undefined ? { result } : {}),
             };
           }
+          if (copy.tableTransitionUnavailable && !['reload', 'discard'].includes(operation.kind))
+            throw refused(
+              'TABLE_SOURCE_PUBLICATION_UNCERTAIN',
+              'The table cutover could not be re-inspected. Reload its actual saved source before changing this notebook.'
+            );
           if (scope.readOnly && !retaining)
             throw refused('NOTEBOOK_READ_ONLY', 'This notebook project is read-only.');
           this.assertUnprotected(scope.path);
@@ -393,9 +733,11 @@ export class NativeNotebookWorkingCopyOwner {
               throw refused('DIRTY_NOTEBOOK', 'Save or discard this notebook before reloading.');
             const source = await this.options.load(scope);
             scope.assertCurrent();
+            if (copy.tableTransitionUnavailable) this.tableHashes(source);
             copy.source = source;
             copy.model = new NotebookDocumentModel(source.content, source.title);
             copy.recovery = undefined;
+            copy.tableTransitionUnavailable = false;
             copy.version++;
             copy.persistedRevision = this.revision(copy);
           } else if (operation.kind === 'restore-recovery') {
@@ -892,7 +1234,10 @@ export class NativeNotebookWorkingCopyOwner {
       version: copy.version,
       ready: true,
       ...(copy.source.publication ? { publication: copy.source.publication } : {}),
-      readOnly: copy.scope.readOnly,
+      readOnly: copy.scope.readOnly || Boolean(copy.tableTransitionUnavailable),
+      ...(copy.tableTransitionUnavailable
+        ? { reason: 'The table cutover is awaiting a verified source reload.' }
+        : {}),
       dirty: this.dirty(copy),
       saving: copy.saves.size > 0,
       canUndo: copy.model.canUndo,

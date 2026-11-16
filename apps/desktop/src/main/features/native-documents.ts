@@ -127,14 +127,7 @@ export function createNativeDocuments(
     captureWorkspace: (root, mutating) =>
       mutating ? workspaces.capture(root) : workspaces.captureReadable(root),
     files: ordinaryFiles,
-    notebookTables: {
-      withSource: async () => {
-        throw new Error('TABLE_PROMOTION_UNAVAILABLE: Notebook table extraction is unavailable.');
-      },
-      inspectSource: async () => {
-        throw new Error('TABLE_PROMOTION_UNAVAILABLE: Notebook table extraction is unavailable.');
-      },
-    },
+    notebookTables: notebookDocuments.tableTransitions,
     reconcileTablePackage: async (location) => {
       const assertCurrent = workspaces.capture(location.workspaceRoot);
       const actual = await readTablePackageInMain(location);

@@ -65,6 +65,7 @@ export interface NativeFileDocumentRecord {
   headerRowValues?: string[];
   tableHistory?: TableDataMemory;
   richTableHistory?: { undo: TableData[]; redo: TableData[] };
+  pendingIdentityRetirement?: { previousDocumentId: string; documentId: string };
 }
 
 export interface NativeFileDocumentOwnerOptions {
@@ -83,6 +84,11 @@ export interface NativeFileDocumentOwnerOptions {
   loadRecord(path: string): Promise<NativeFileDocumentRecord | undefined>;
   resolveIdentity?(documentId: string): Promise<string | undefined>;
   identityForPath?(path: string): Promise<string | undefined>;
+  retireReboundIdentity?(input: {
+    path: string;
+    previousDocumentId: string;
+    documentId: string;
+  }): Promise<void>;
   listRetainedDirty?(): Promise<ReadonlyArray<{ documentId: string; path: string }>>;
   assertRecoveryClean?(path: string): Promise<void>;
   rootRelinkBlocker?(path: string): Promise<'unbound-file-document' | null>;
@@ -114,6 +120,7 @@ interface WorkingCopy {
   readOnly: boolean;
   reason?: string;
   recovery?: NativeFileDocumentRecord;
+  pendingIdentityRetirement?: { previousDocumentId: string; documentId: string };
   saves: Map<number, Promise<FileDocumentSnapshot>>;
   saveTargets: Map<number, string>;
   saveReceipts: Map<string, { promise: Promise<FileDocumentSnapshot>; settled: boolean }>;
@@ -258,6 +265,10 @@ export class NativeFileDocumentOwner {
     this.assertUnprotected(admission.path);
     await this.options.beforeExecute?.(admission.path, client);
     const document = await this.open(admission);
+    if ('documentId' in request.target && request.target.documentId !== document.documentId)
+      throw new Error(
+        'FILE_DOCUMENT_BINDING_CHANGED: This routing identity no longer owns the requested file.'
+      );
     if (request.operation.kind === 'await-save') {
       const receipt = document.saveReceipts.get(request.operation.saveCaptureId);
       if (!receipt)
@@ -515,7 +526,12 @@ export class NativeFileDocumentOwner {
         continue;
       const document = await pending;
       await document.tail;
-      if (this.dirty(document) || document.recovery || document.saves.size > 0)
+      if (
+        this.dirty(document) ||
+        document.recovery ||
+        document.saves.size > 0 ||
+        document.pendingIdentityRetirement
+      )
         throw new Error(
           'DIRTY_FILE_DRAFT: Save, discard or resolve this file working copy before moving or deleting it.'
         );
@@ -599,7 +615,12 @@ export class NativeFileDocumentOwner {
         for (const [path, pending] of this.documents) {
           const candidate = await pending;
           await candidate.tail;
-          if (!this.dirty(candidate) && !candidate.recovery && candidate.saves.size === 0) {
+          if (
+            !this.dirty(candidate) &&
+            !candidate.recovery &&
+            candidate.saves.size === 0 &&
+            !candidate.pendingIdentityRetirement
+          ) {
             this.documents.delete(path);
             break;
           }
@@ -615,12 +636,81 @@ export class NativeFileDocumentOwner {
         if (this.documents.get(admission.path) === document) this.documents.delete(admission.path);
       });
     }
-    return document;
+    const current = await document;
+    if (current.tablePackage?.status !== 'pending-promotion' && !current.pendingIdentityRetirement)
+      return current;
+    const refresh = current.tail
+      .catch(() => {})
+      .then(async () => {
+        const retire = async () => {
+          const pending = current.pendingIdentityRetirement;
+          if (!pending) return;
+          await this.options.retireReboundIdentity?.({ path: current.path, ...pending });
+          this.identities.delete(pending.previousDocumentId);
+          current.pendingIdentityRetirement = undefined;
+          try {
+            await this.persist(current);
+          } catch (error) {
+            current.pendingIdentityRetirement = pending;
+            throw error;
+          }
+        };
+        if (current.pendingIdentityRetirement) {
+          admission.assertCurrent();
+          await retire();
+          return current;
+        }
+        if (current.tablePackage?.status !== 'pending-promotion') return current;
+        if (this.dirty(current) || current.recovery || current.saves.size)
+          throw new Error('TABLE_ACTIVATION_BUSY: The pending table has a retained draft or save.');
+        admission.assertCurrent();
+        this.assertUnprotected(admission.path);
+        const identity =
+          (await this.options.identityForPath?.(admission.path)) ?? current.documentId;
+        const bound = this.identities.get(identity);
+        if (bound && bound !== admission.path)
+          throw new Error('AMBIGUOUS_FILE_DOCUMENT: The active table identity has another file.');
+        const fresh = await this.load(admission, identity, false);
+        if (fresh.tablePackage?.status === 'pending-promotion') return current;
+        if (
+          fresh.type !== 'table' ||
+          fresh.reason ||
+          fresh.recovery ||
+          fresh.tablePackage?.id !== current.tablePackage.id
+        )
+          throw new Error(
+            'TABLE_ACTIVATION_CHANGED: The active table does not match the verified pending owner.'
+          );
+        admission.assertCurrent();
+        const previousDocumentId = current.documentId;
+        const revision = current.revision + 1;
+        const tail = current.tail;
+        Object.assign(current, fresh, {
+          tail,
+          revision,
+          persistedRevision: revision,
+          pendingIdentityRetirement:
+            previousDocumentId !== fresh.documentId
+              ? { previousDocumentId, documentId: fresh.documentId }
+              : undefined,
+        });
+        this.identities.set(current.documentId, current.path);
+        await this.persist(current);
+        await retire();
+        this.publish(current);
+        return current;
+      });
+    current.tail = refresh.then(
+      () => undefined,
+      () => undefined
+    );
+    return refresh;
   }
 
   private async load(
     admission: NativeFileDocumentAdmission,
-    identity?: string
+    identity?: string,
+    retain = true
   ): Promise<WorkingCopy> {
     const richTable = isForgePackageMetaPath(admission.path, 'table.json');
     const maximumBytes =
@@ -682,6 +772,9 @@ export class NativeFileDocumentOwner {
       tablePackage,
       persistedTableSnapshotSha256: tablePackage?.snapshotSha256,
       richTableHistory: { undo: [], redo: [] },
+      ...(record?.pendingIdentityRetirement
+        ? { pendingIdentityRetirement: structuredClone(record.pendingIdentityRetirement) }
+        : {}),
       text: null,
       tableData: {},
       tableMemory: createTableDataMemory(),
@@ -702,6 +795,15 @@ export class NativeFileDocumentOwner {
       tail: Promise.resolve(),
       requests: new Map(),
     };
+    if (
+      document.pendingIdentityRetirement &&
+      (!richTable ||
+        document.pendingIdentityRetirement.documentId !== documentId ||
+        typeof document.pendingIdentityRetirement.previousDocumentId !== 'string' ||
+        !document.pendingIdentityRetirement.previousDocumentId ||
+        document.pendingIdentityRetirement.previousDocumentId === documentId)
+    )
+      throw new Error('The pending table identity retirement record is invalid.');
     if (type === 'text') document.text = this.textState(raw);
     if (type === 'table' && tablePackage) {
       document.tableData = structuredClone(tablePackage.snapshot.data);
@@ -736,8 +838,10 @@ export class NativeFileDocumentOwner {
       if (record.dirty) document.recovery = record;
       else if (record.baseline === hash(raw)) this.restoreRecord(document, record);
     }
-    this.identities.set(documentId, path);
-    if (!document.readOnly && !document.recovery) await this.persist(document);
+    if (retain) {
+      this.identities.set(documentId, path);
+      if (!document.readOnly && !document.recovery) await this.persist(document);
+    }
     return document;
   }
 
@@ -1125,6 +1229,9 @@ export class NativeFileDocumentOwner {
       persistedRevision: document.persistedRevision,
       content: this.content(document),
       dirty: this.dirty(document),
+      ...(document.pendingIdentityRetirement
+        ? { pendingIdentityRetirement: structuredClone(document.pendingIdentityRetirement) }
+        : {}),
       ...(document.text
         ? { textState: document.text.toJSON({ history: historyField }) }
         : {

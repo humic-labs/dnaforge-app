@@ -49,10 +49,12 @@ import {
   type ReadTablePackageResult,
 } from './table-package';
 import { createKeyedMutex } from './workspace-git/keyed-mutex';
+import { executeTablePromotion, resolvePromotedTableAlias } from './table-document-promotion';
 
 export interface NativeNotebookTableTransitionSource {
   reference: TableDocumentReference;
   workspaceRoot: string;
+  sourcePath: string;
   notebookId: string;
   blockId: string;
   revision: string;
@@ -70,16 +72,30 @@ export interface NativeNotebookTableTransitionSource {
 
 export interface NativeNotebookTableTransitions {
   withSource<T>(
-    input: { reference: TableDocumentReference; expectedRevision: string },
+    input: {
+      reference: TableDocumentReference;
+      expectedRevision: string;
+      context?: NativeNotebookTableSourceContext;
+    },
     transition: (source: NativeNotebookTableTransitionSource) => Promise<T>
   ): Promise<T>;
-  inspectSource(reference: TableDocumentReference): Promise<{
+  inspectSource(
+    reference: TableDocumentReference,
+    context?: NativeNotebookTableSourceContext
+  ): Promise<{
+    workspaceRoot: string;
+    sourcePath: string;
     revision: string;
     sourceFingerprint: string;
     sourceFileHashes: Readonly<Record<string, string>>;
     originalBlock: JSONContent | null;
     currentReference?: TableDocumentReference;
   }>;
+}
+
+export interface NativeNotebookTableSourceContext {
+  workspaceRoot: string;
+  sourcePath: string;
 }
 
 export interface NativeTableDocumentCommandsOptions {
@@ -280,10 +296,18 @@ export class NativeTableDocumentCommands {
       }
       case 'promote':
       case 'recover-promotion':
-        throw new Error(
-          'TABLE_PROMOTION_UNAVAILABLE: Recoverable notebook table extraction is not available.'
-        );
+        return executeTablePromotion(command, this.options, this.promotionOwners());
     }
+  }
+
+  private promotionOwners() {
+    return {
+      workspace: (path: string, mutating: boolean) => this.workspace(path, mutating),
+      destination: (authority: WorkspaceAuthority, path: string) =>
+        this.destination(authority, path),
+      resolve: (reference: TableDocumentReference, context?: string) =>
+        this.resolve(reference, context),
+    };
   }
 
   private identityDependencies() {
@@ -366,6 +390,11 @@ export class NativeTableDocumentCommands {
 
   private async locate(reference: TableDocumentReference, context?: string): Promise<LocatedTable> {
     tableDocumentKey(reference);
+    if (reference.backing.kind === 'notebook-inline')
+      return this.locate(
+        await resolvePromotedTableAlias(reference, context, this.options, this.promotionOwners()),
+        context
+      );
     if (reference.backing.kind !== 'rich-file')
       refuse('This command requires a portable rich-table reference.');
     const projectId = reference.backing.projectId;

@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -162,6 +162,51 @@ async function fixture() {
     },
     pause: (value?: () => Promise<void>) => {
       pause = value;
+    },
+  };
+}
+
+async function activationFixture() {
+  const f = await fixture();
+  let identity = 'pending-file-binding';
+  let retirementFails = true;
+  let retirements = 0;
+  f.options.identityForPath = async () => identity;
+  f.options.retireReboundIdentity = async () => {
+    retirements++;
+    if (retirementFails) throw new Error('injected pending identity retirement failure');
+  };
+  const original = await readTablePackageInMain(f);
+  const pendingHead = parseTablePackageHead(
+    JSON.stringify({ ...original.head, status: 'pending-promotion', promotionId: randomUUID() })
+  );
+  await publishTablePackageInMain(
+    { ...f, head: pendingHead, mode: 'replace', expectedContentHash: original.headContentHash },
+    { assertCurrent() {} }
+  );
+  const pending = await f.inspect();
+  expect(pending.readOnly).toBe(true);
+  identity = 'active-file-binding';
+  const staged = await readTablePackageInMain(f);
+  await publishTablePackageInMain(
+    {
+      ...f,
+      head: { ...pendingHead, status: 'active' },
+      mode: 'replace',
+      expectedContentHash: staged.headContentHash,
+    },
+    { assertCurrent() {} }
+  );
+  const active = await readTablePackageInMain(f);
+  return {
+    ...f,
+    pending,
+    active,
+    get retirements() {
+      return retirements;
+    },
+    allowRetirement() {
+      retirementFails = false;
     },
   };
 }
@@ -521,5 +566,38 @@ describe('rich table file working copy', () => {
       dirty: false,
     });
     expect(await readFile(path, 'utf8')).toBe(original);
+  });
+
+  it('retries pending identity retirement after activation instead of silently bypassing failed cleanup', async () => {
+    const f = await activationFixture();
+    await expect(f.inspect()).rejects.toThrow(/pending identity retirement failure/);
+    expect(f.retirements).toBe(1);
+    f.allowRetirement();
+    const active = await f.inspect();
+    expect(f.retirements).toBe(2);
+    expect(active).toMatchObject({
+      documentId: 'active-file-binding',
+      readOnly: false,
+      dirty: false,
+    });
+    expect((await readTablePackageInMain(f)).headText).toBe(f.active.headText);
+    await expect(
+      f.owner.execute({
+        target: { documentId: f.pending.documentId },
+        operation: { kind: 'inspect' },
+      })
+    ).rejects.toThrow();
+  });
+
+  it('refuses a retired routing identity while activation cleanup is still unavailable', async () => {
+    const f = await activationFixture();
+    await expect(f.inspect()).rejects.toThrow(/pending identity retirement failure/);
+    await expect(
+      f.owner.execute({
+        target: { documentId: f.pending.documentId },
+        operation: { kind: 'inspect' },
+      })
+    ).rejects.toThrow();
+    expect((await readTablePackageInMain(f)).headText).toBe(f.active.headText);
   });
 });

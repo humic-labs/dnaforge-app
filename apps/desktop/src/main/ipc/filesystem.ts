@@ -116,7 +116,7 @@ export function registerFilesystemHandlers(): void {
   });
   const fileDocumentSubscribers = new Map<
     number,
-    { sender: Electron.WebContents; paths: Set<string> }
+    { sender: Electron.WebContents; paths: Set<string>; ids: Map<string, string> }
   >();
   const dirtyDocumentSubscribers = new Map<number, Electron.WebContents>();
   nativeDocuments.fileDocuments.subscribe((snapshot) => {
@@ -129,8 +129,13 @@ export function registerFilesystemHandlers(): void {
         fileDocumentSubscribers.delete(id);
         continue;
       }
-      if (subscription.paths.has(snapshot.path))
+      if (subscription.paths.has(snapshot.path) || subscription.ids.has(snapshot.documentId)) {
+        const previousPath = subscription.ids.get(snapshot.documentId);
+        if (previousPath && previousPath !== snapshot.path) subscription.paths.delete(previousPath);
+        subscription.ids.set(snapshot.documentId, snapshot.path);
+        subscription.paths.add(snapshot.path);
         sendRendererIpc(subscription.sender, 'fs:fileDocumentChanged', snapshot);
+      }
     }
   });
   const pendingMutationWaits = new WeakMap<Electron.WebContents, Map<string, AbortController>>();
@@ -660,10 +665,11 @@ export function registerFilesystemHandlers(): void {
       const snapshot = await nativeDocuments.fileDocuments.execute(request, 'renderer');
       let subscription = fileDocumentSubscribers.get(event.sender.id);
       if (!subscription) {
-        subscription = { sender: event.sender, paths: new Set() };
+        subscription = { sender: event.sender, paths: new Set(), ids: new Map() };
         fileDocumentSubscribers.set(event.sender.id, subscription);
       }
       subscription.paths.add(snapshot.path);
+      subscription.ids.set(snapshot.documentId, snapshot.path);
       return snapshot;
     },
     tableDocument: async (_event, command) => {

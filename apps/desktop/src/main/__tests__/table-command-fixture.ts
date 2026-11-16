@@ -106,6 +106,8 @@ export async function tableCommandFixture() {
     },
     loadRecord: async (path) => records.get(path),
     storeRecord: async (record) => {
+      for (const [path, existing] of records)
+        if (existing.documentId === record.documentId && path !== record.path) records.delete(path);
       records.set(record.path, structuredClone(record));
     },
   });
