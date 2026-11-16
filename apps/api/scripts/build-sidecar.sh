@@ -102,6 +102,11 @@ echo "Installing dependencies..."
 GENOME_EXTRA_ENABLED=$("$PYTHON_BIN" -B -c \
     'import sys; from src.runtime_capabilities import genome_extra_enabled_for_target; print(str(genome_extra_enabled_for_target(sys.argv[1])).lower())' \
     "$TARGET_TRIPLE")
+if [[ "$GENOME_EXTRA_ENABLED" == "true" ]]; then
+    echo "Building native coverage runtime..."
+    node "$REPO_ROOT/apps/desktop/scripts/build-helpers.cjs" dna-coverage
+    export DNAFORGE_HELPERS_DIR="$REPO_ROOT/apps/desktop/resources/helpers"
+fi
 UV_SYNC_ARGS=(--python "$PYTHON_BIN" --locked --inexact --extra sidecar)
 if [[ "$GENOME_EXTRA_ENABLED" == "true" ]]; then
     UV_SYNC_ARGS+=(--extra genome)
