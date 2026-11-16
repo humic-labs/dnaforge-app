@@ -3,6 +3,7 @@ export { appViewsOutputSchema } from './workspace-edit-output-schemas';
 import { z } from 'zod';
 import { resultTool, toolFailure, toolSuccess } from '../../agent-bridge/public/tool-result';
 import { useCanvasStore } from '../../canvas/public/store';
+import { authorizedProjectTabs, projectAuthorizedCanvas, sameTabResource } from '../../canvas/public/project-authorized-canvas';
 import { useSequenceStore } from '../../sequence/public/store';
 import { getMountedCommandRegistry } from '../../../commands/mounted-command-registry';
 import { COMMAND_IDS } from '../../../commands/types';
@@ -123,7 +124,7 @@ export function createAppViewsTool(folders: readonly WorkspaceFolder[] = [], pro
       'Inspect and arrange DNAForge tabs/panels. inspect-tracks reads a sequence tab’s annotation catalog, sources, styles and revision; configure-tracks applies typed track changes through the human Tracks panel owner with expectedRevision. Inspect with tabId reads a saved Track View and its revision; list and open discover/reopen saved Track Views. Save, rename and duplicate use the human view save owner and require expectedRevision. New saves require an exact writable destinationProject when several projects are mounted; optional path is relative to that project. Scientific source and layout settings are preserved. Activate, move, split, merge, join, close and reopen control the canvas. navigate uses human shell commands. Dirty documents refuse close. App pane changes do not move the native desktop window.',
     inputSchema: appViewsSchema,
     execute: async ({ operation }) => {
-      const store = useCanvasStore.getState();
+      let store = useCanvasStore.getState();
       let attempted = false;
       const fail = (code: string, error: string) =>
         toolFailure({
@@ -133,6 +134,25 @@ export function createAppViewsTool(folders: readonly WorkspaceFolder[] = [], pro
           stateChanged: attempted ? 'unknown' : false,
           partialEffects: [],
         });
+      const restricted = projectScope?.kind === 'project-roots';
+      const canvas = await projectAuthorizedCanvas(store, folders, projectScope);
+      store = useCanvasStore.getState();
+      const targetId = 'tabId' in operation ? operation.tabId : undefined;
+      const expectedTab = targetId
+        ? Object.values(canvas.panels).flatMap((panel) => panel.tabs).find((tab) => tab.id === targetId)
+        : undefined;
+      const verifyTarget = () => {
+        if (!restricted || !targetId) return null;
+        if (!expectedTab)
+          return fail('OUTSIDE_WORKSPACE', 'This view is outside the caller project access.');
+        const current = Object.values(useCanvasStore.getState().panels)
+          .flatMap((panel) => panel.tabs).find((tab) => tab.id === targetId);
+        return current && sameTabResource(expectedTab, current)
+          ? null
+          : fail('STALE_CANVAS', 'This tab changed while checking project access. Inspect the canvas again.');
+      };
+      const changedTarget = verifyTarget();
+      if (changedTarget) return changedTarget;
       if (operation.kind === 'inspect-tracks' || operation.kind === 'configure-tracks') {
         try {
         const tab = Object.values(store.panels)
@@ -147,6 +167,8 @@ export function createAppViewsTool(folders: readonly WorkspaceFolder[] = [], pro
           const entity = await getCatalogEntity(tab.entityId);
           if (entity) ownerPath = await getWorkspaceRootById(entity.workspace_id);
         }
+        const changedTrackTarget = verifyTarget();
+        if (changedTrackTarget) return changedTrackTarget;
         if ((ownerPath && !folders.some((folder) => pathIsAtOrUnder(ownerPath!, folder.path))) ||
           (!ownerPath && projectScope?.kind === 'project-roots'))
           return fail('OUTSIDE_WORKSPACE', 'This sequence view is outside the caller project access.');
@@ -341,9 +363,9 @@ export function createAppViewsTool(folders: readonly WorkspaceFolder[] = [], pro
       }
       if (operation.kind === 'inspect')
         return toolSuccess({
-          focusedPanelId: store.focusedPanelId,
-          layout: store.layout,
-          panels: Object.values(store.panels).map((panel) => ({
+          focusedPanelId: canvas.focusedPanelId,
+          layout: canvas.layout,
+          panels: Object.values(canvas.panels).map((panel) => ({
             id: panel.id,
             activeTabId: panel.activeTabId,
             tabs: panel.tabs.map((tab) => ({
@@ -356,6 +378,31 @@ export function createAppViewsTool(folders: readonly WorkspaceFolder[] = [], pro
             })),
           })),
         });
+      if (restricted) {
+        const ownsPanel = (id: string) =>
+          store.panels[id]?.tabs.every((tab) =>
+            canvas.panels[id]?.tabs.some((allowed) => sameTabResource(allowed, tab))
+          ) ?? false;
+        if (
+          ('panelId' in operation && !ownsPanel(operation.panelId)) ||
+          (operation.kind === 'split' && !ownsPanel(operation.panelId)) ||
+          (operation.kind === 'merge' && (!ownsPanel(operation.sourcePanelId) || !ownsPanel(operation.targetPanelId))) ||
+          (operation.kind === 'join-all' && !Object.keys(store.panels).every(ownsPanel))
+        )
+          return fail('OUTSIDE_WORKSPACE', 'This panel is outside the caller project access.');
+        if (operation.kind === 'reopen-last-closed') {
+          const closed = store.recentlyClosed?.at(-1);
+          if (closed) {
+            const allowed = await authorizedProjectTabs([closed.tab], folders, projectScope);
+            store = useCanvasStore.getState();
+            const current = store.recentlyClosed?.at(-1);
+            if (!current || current.panelId !== closed.panelId || !sameTabResource(closed.tab, current.tab))
+              return fail('STALE_CANVAS', 'The closed tab changed while checking project access. Inspect the canvas again.');
+            if (allowed.length === 0)
+              return fail('OUTSIDE_WORKSPACE', 'This view is outside the caller project access.');
+          }
+        }
+      }
       if ('panelId' in operation && !store.panels[operation.panelId])
         return fail('PANEL_NOT_FOUND', 'Inspect the canvas for current panel IDs.');
       if ('tabId' in operation) {

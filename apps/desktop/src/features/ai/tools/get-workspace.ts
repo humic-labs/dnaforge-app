@@ -3,6 +3,7 @@ import { resultTool, toolSuccess } from '../../agent-bridge/public/tool-result';
 import { z } from 'zod';
 import nativeAuthoringContract from '../../../../../../packages/core/agent-tools/native-authoring-contract.json';
 import { useCanvasStore } from '../../canvas/public/store';
+import { projectAuthorizedCanvas } from '../../canvas/public/project-authorized-canvas';
 import { useWorkspaceStore, workspaceScopeFromState } from '../../../stores/workspaceStore';
 import type { WorkspaceFolder } from '../../../stores/workspaceStore';
 import type { AgentProjectScope } from '../../../shared/agent-project-scope';
@@ -43,18 +44,34 @@ export function createGetWorkspaceTool(grantedCapabilities?: readonly string[], 
     execute: async (_params: z.infer<typeof getWorkspaceSchema>) => {
       const canvasState = useCanvasStore.getState();
       const workspaceState = useWorkspaceStore.getState();
-      const projects = authorizedProjects ?? workspaceState.folders;
-      const restricted = projectScope?.kind === 'project-roots';
+      const grantedRoots = projectScope?.kind === 'project-roots'
+        ? new Set(projectScope.roots.map((root) => normalizePathForBoundary(root)))
+        : null;
+      const projects = (authorizedProjects ?? workspaceState.folders).filter(
+        (project) => !grantedRoots || grantedRoots.has(normalizePathForBoundary(project.path))
+      );
+      const restricted = grantedRoots !== null;
       const approvedRoots = new Set(projects.map((project) => normalizePathForBoundary(project.path)));
       const displayedFolders = restricted
         ? workspaceState.folders.filter((folder) => approvedRoots.has(normalizePathForBoundary(folder.path)))
         : workspaceState.folders;
       const workspaceFile = restricted ? null : workspaceState.activeWorkspaceFile;
+      const canvas = await projectAuthorizedCanvas(canvasState, projects, projectScope);
+      const panels = Object.values(canvas.panels).map((panel) => ({
+          id: panel.id,
+          tabs: panel.tabs.map((tab) => ({
+            id: tab.id,
+            type: tab.type,
+            entityId: tab.entityId,
+            label: tab.label,
+          })),
+          activeTabId: panel.activeTabId,
+      }));
       return toolSuccess({
         ...(grantedCapabilities ? { capabilities: [...grantedCapabilities] } : {}),
         workspaceId: workspaceScopeFromState({ activeWorkspaceFile: workspaceFile, folders: displayedFolders }),
         workspaceFile,
-        focusedPanelId: canvasState.focusedPanelId,
+        focusedPanelId: canvas.focusedPanelId,
         projects: projects
           .filter((folder) => !folder.pinned)
           .map((folder) => ({ name: folder.name, path: folder.path })),
@@ -66,16 +83,7 @@ export function createGetWorkspaceTool(grantedCapabilities?: readonly string[], 
           path: folder.path,
           ...(folder.pinned ? { pinned: true } : {}),
         })),
-        panels: Object.values(canvasState.panels).map((panel) => ({
-          id: panel.id,
-          tabs: panel.tabs.map((t) => ({
-            id: t.id,
-            type: t.type,
-            entityId: t.entityId,
-            label: t.label,
-          })),
-          activeTabId: panel.activeTabId,
-        })),
+        panels,
       });
     },
   });
