@@ -75,6 +75,7 @@ export function useEditorAutosave({
   const inFlightPromiseRef = useRef<Promise<boolean> | null>(null);
 
   const discardEpochRef = useRef(0);
+  const lifetimeRef = useRef({ active: true, generation: 0 });
   useEffect(
     () =>
       registerWorkspaceEditorBlocker(() => ({
@@ -95,6 +96,8 @@ export function useEditorAutosave({
       targetScope?: WorkspaceEditorScope,
       phase: 'autosave' | 'manual' = 'autosave'
     ): Promise<boolean> => {
+      const scope = targetScope ?? scopeRef.current;
+      if (!lifetimeRef.current.active || scope.entityId !== pageIdRef.current) return false;
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
@@ -106,10 +109,14 @@ export function useEditorAutosave({
       }
 
       const content = contentRef.current;
-      const scope = targetScope ?? scopeRef.current;
       const id = scope.entityId;
       if (!content) return false;
       const saveEpoch = discardEpochRef.current;
+      const generation = lifetimeRef.current.generation;
+      const isCurrent = () =>
+        lifetimeRef.current.active &&
+        lifetimeRef.current.generation === generation &&
+        id === pageIdRef.current;
 
       dirtyDuringSaveRef.current = false;
       setSaveStatus('saving');
@@ -121,6 +128,7 @@ export function useEditorAutosave({
           finishWrite = beginWorkspaceEditorWrite({ ...scope });
           await onSaveRef.current(content, id);
           if (saveEpoch !== discardEpochRef.current) return false;
+          if (!isCurrent()) return false;
 
           if (id === pageIdRef.current) {
             if (dirtyDuringSaveRef.current && !nativeOwner) {
@@ -153,6 +161,7 @@ export function useEditorAutosave({
             err,
             { notebookPhase: phase }
           );
+          if (!isCurrent()) return false;
           if (id === pageIdRef.current) {
             setSaveStatus('dirty');
           }
@@ -181,6 +190,7 @@ export function useEditorAutosave({
   );
 
   const markDirty = useCallback(() => {
+    if (!lifetimeRef.current.active) return;
     if (timerRef.current) {
       clearTimeout(timerRef.current);
     }
@@ -202,11 +212,14 @@ export function useEditorAutosave({
   const saveNow = useCallback(async () => {
     const scope = { ...scopeRef.current };
     const epoch = discardEpochRef.current;
+    const generation = lifetimeRef.current.generation;
     const pending = inFlightPromiseRef.current;
     if (pending) {
       const saved = await pending;
       if (
         epoch !== discardEpochRef.current ||
+        !lifetimeRef.current.active ||
+        generation !== lifetimeRef.current.generation ||
         scope.entityId !== scopeRef.current.entityId ||
         scope.path !== scopeRef.current.path
       )
@@ -238,9 +251,12 @@ export function useEditorAutosave({
   }, []);
 
   useEffect(() => {
+    lifetimeRef.current.active = true;
     const oldPageId = pageId;
     const oldScope = scopeRef.current;
     return () => {
+      lifetimeRef.current.active = false;
+      lifetimeRef.current.generation += 1;
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;

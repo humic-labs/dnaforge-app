@@ -4,6 +4,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useRef } from 'react';
 import { useEditorAutosave } from './useEditorAutosave';
 import type { JSONContent } from '@tiptap/core';
+import { NativeNotebookWorkingCopyOwner } from '../../../main/notebook-document-owner';
 import {
   assertWorkspaceEditorsSettled,
   freezeWorkspaceEditorWrites,
@@ -29,6 +30,7 @@ function setupHook(opts: {
   onSaved?: (pageId: string) => void;
   debounceMs?: number;
   workspaceRoot?: string;
+  nativeOwner?: boolean;
 }) {
   const onSave = opts.onSave ?? vi.fn(async () => {});
   const onDirtyTransition = opts.onDirtyTransition ?? vi.fn();
@@ -44,6 +46,7 @@ function setupHook(opts: {
         onSaved,
         debounceMs: opts.debounceMs ?? 1000,
         workspaceRoot: opts.workspaceRoot,
+        nativeOwner: opts.nativeOwner,
       });
       return { api, contentRef, onSave, onDirtyTransition, onSaved };
     },
@@ -52,6 +55,48 @@ function setupHook(opts: {
 }
 
 describe('useEditorAutosave', () => {
+  it.each(['unmount', 'page replacement'] as const)(
+    'does not retry a retired notebook after %s and native owner close',
+    async (lifetime) => {
+      const owner = new NativeNotebookWorkingCopyOwner({} as never);
+      const pending = Promise.withResolvers<void>();
+      const onSave = vi.fn(async () => {
+        await pending.promise;
+        await owner.execute({ documentId: 'page-1', operation: { kind: 'inspect-copy' } });
+      });
+      const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const view = setupHook({ initialContent: { type: 'doc' }, onSave, nativeOwner: true });
+      try {
+        act(() => view.result.current.api.markDirty());
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1000);
+        });
+        expect(onSave).toHaveBeenCalledTimes(1);
+        if (lifetime === 'unmount') view.unmount();
+        else view.rerender({ pageId: 'page-2' });
+        await owner.close();
+        await act(async () => {
+          pending.resolve();
+          await vi.advanceTimersByTimeAsync(0);
+        });
+        expect(report).toHaveBeenCalledExactlyOnceWith(
+          '[useEditorAutosave] save failed:',
+          { pageId: 'page-1', operation: 'autosave' },
+          expect.objectContaining({ code: 'NOTEBOOK_OWNER_CLOSED' })
+        );
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1500);
+        });
+        expect(onSave).toHaveBeenCalledTimes(1);
+      } finally {
+        act(() => view.result.current.api.discardPendingChanges());
+        vi.clearAllTimers();
+        view.unmount();
+        report.mockRestore();
+      }
+    }
+  );
+
   it('reports the original autosave failure and keeps notebook content dirty without claiming a save', async () => {
     const failure = Object.assign(new Error('EACCES: notebook write denied'), { code: 'EACCES' });
     const content = { type: 'doc', content: [{ type: 'text', text: 'Retained notebook edit' }] };
