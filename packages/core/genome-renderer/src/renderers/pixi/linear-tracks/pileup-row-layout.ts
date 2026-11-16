@@ -54,7 +54,6 @@ const ROW_ASSIGNMENT_BUDGET_CHECK_RECORDS = 4;
 const monotonicNow = (): number => performance.now();
 
 const placementKeyByRecord = new WeakMap<PileupRecord, string>();
-const interactionKeyByRecord = new WeakMap<PileupRecord, string>();
 
 export function pileupReadPlacementKey(record: PileupRecord): string {
   const cached = placementKeyByRecord.get(record);
@@ -77,14 +76,6 @@ export function pileupReadInteractionKey(
     record.flag ?? '',
     record.pair?.readNumber ?? '',
   ].join('\x00');
-}
-
-function immutableReadInteractionKey(record: PileupRecord): string {
-  const cached = interactionKeyByRecord.get(record);
-  if (cached !== undefined) return cached;
-  const key = pileupReadInteractionKey(record);
-  interactionKeyByRecord.set(record, key);
-  return key;
 }
 
 export class PileupReadHitIndex {
@@ -268,7 +259,7 @@ export class PersistentRowLayout implements PileupRowLayout {
       if (row < 0) job.hiddenReadCount++;
       else {
         job.readHitRecordIndicesByRow[row].push(idx);
-        job.readHitRecordIndexByIdentity.set(immutableReadInteractionKey(rec), idx);
+        job.readHitRecordIndexByIdentity.set(pileupReadInteractionKey(rec), idx);
         if (row + 1 > job.rowCount) job.rowCount = row + 1;
       }
     }
