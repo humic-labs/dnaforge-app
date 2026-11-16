@@ -3,6 +3,7 @@ import type {
   InventoryEquipmentCatalogEntry,
   InventoryEquipmentCatalogUpdatePreview,
   InventoryItemCodeResolution,
+  InventoryItemCode,
   InventoryItemCustody,
   InventoryLocationPathEntry,
   InventoryPhysicalItem,
@@ -14,11 +15,13 @@ import type {
   InventoryStorage,
   InventoryVessel,
 } from '@waypoint/domain-services';
+import type { InventoryRenderedLabel } from '@waypoint/domain-services/inventory-label-types';
 import type {
   InventoryCatalogUpdatePreviewRequest,
   InventoryExecuteRequest,
   InventoryHistoryRequest,
   InventoryOperationRequest,
+  InventoryPrepareLabelRequest,
   InventoryReadRequest,
   InventoryResolveItemCodeRequest,
   NativeInventoryExecution,
@@ -92,6 +95,19 @@ export interface InventoryItemCodeLookupSnapshot {
   readonly targets: readonly InventoryItemCodeTargetSnapshot[];
 }
 
+export interface InventoryLabelArtifact {
+  readonly schema: 'dnaforge.inventory-label-artifact.v1';
+  readonly projectId: string;
+  readonly inventoryId: string;
+  readonly sourceRevision: number;
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+  readonly binding: InventoryItemCode;
+  readonly target: InventoryItemCodeTargetSnapshot;
+  readonly rendered: InventoryRenderedLabel;
+  readonly svgSha256: string;
+}
+
 export interface InventoryClient {
   projects(): Promise<readonly InventoryProject[]>;
   catalog(input: InventoryCatalogQuery): Promise<readonly InventoryEquipmentCatalogEntry[]>;
@@ -99,6 +115,7 @@ export interface InventoryClient {
     input: InventoryCatalogUpdatePreviewRequest
   ): Promise<InventoryEquipmentCatalogUpdatePreview>;
   resolveItemCode(input: InventoryResolveItemCodeRequest): Promise<InventoryItemCodeLookupSnapshot>;
+  prepareLabel(input: InventoryPrepareLabelRequest): Promise<InventoryLabelArtifact>;
   materials(input: InventoryMaterialQuery): Promise<InventoryMaterialPage>;
   inspect(input: InventoryReadRequest): Promise<InventoryState | null>;
   availability(input: InventoryReadRequest): Promise<InventoryAvailabilitySnapshot | null>;
@@ -117,6 +134,7 @@ export function unavailableInventoryClient(): InventoryClient {
     catalog: unavailable,
     catalogUpdatePreview: unavailable,
     resolveItemCode: unavailable,
+    prepareLabel: unavailable,
     materials: unavailable,
     inspect: unavailable,
     availability: unavailable,
@@ -138,6 +156,7 @@ export type {
   InventoryExecuteRequest,
   InventoryHistoryRequest,
   InventoryOperationRequest,
+  InventoryPrepareLabelRequest,
   InventoryReadRequest,
   InventoryResolveItemCodeRequest,
   NativeInventoryExecution,

@@ -53,6 +53,7 @@ type OpenDialog = Exclude<
   | InventoryCustodyDialog
   | InventoryPhysicalDialogKind
   | InventoryItemCodeDialog
+  | { kind: 'item-label'; codeId: string }
   | { kind: 'none' }
 >;
 type Materials =

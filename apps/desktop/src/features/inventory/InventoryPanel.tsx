@@ -35,6 +35,7 @@ import { InventoryPhysicalDetails } from './InventoryPhysicalDetails';
 import { InventoryPhysicalWorkspace } from './InventoryPhysicalWorkspace';
 import { InventoryItemCodes } from './InventoryItemCodes';
 import { InventoryItemCodeForm } from './InventoryItemCodeForm';
+import { InventoryLabelForm } from './InventoryLabelForm';
 import { isInventoryItemCodeDialog } from './inventory-item-code-view';
 import { isInventoryPhysicalDialog } from './inventory-physical-view';
 import {
@@ -141,6 +142,15 @@ export function InventoryPanel() {
   const selectedLocation =
     state && selection.kind === 'location' ? state.storage[selection.id] : undefined;
   const editable = inventoryCanEdit(status);
+  const hasLabelSnapshot = (codeId: string) =>
+    Boolean(
+      data &&
+      controller.hasLabelSnapshot({
+        project: data.project.projectId,
+        inventoryId: data.project.defaultInventoryId,
+        codeId,
+      })
+    );
   const selectedStock = state && drawer.kind === 'stock' ? state.stocks[drawer.stockId] : undefined;
   const selectedVessel = state && selectedStock ? state.vessels[selectedStock.vesselId] : undefined;
   const selectedItem =
@@ -711,6 +721,7 @@ export function InventoryPanel() {
                     data={data}
                     item={{ kind: 'storage', id: selectedLocation.id }}
                     editable={editable}
+                    hasLabelSnapshot={hasLabelSnapshot}
                     onDialog={setDialog}
                   />
                 </>
@@ -1052,6 +1063,7 @@ export function InventoryPanel() {
                         data={data}
                         item={{ kind: 'vessel', id: selectedVessel.id }}
                         editable={editable}
+                        hasLabelSnapshot={hasLabelSnapshot}
                         onDialog={setDialog}
                       />
                       <dl className="space-y-3 text-sm">
@@ -1297,6 +1309,7 @@ export function InventoryPanel() {
                     data={data}
                     item={drawer.item}
                     editable={editable}
+                    hasLabelSnapshot={hasLabelSnapshot}
                     onDialog={setDialog}
                   />
                   {drawer.item.kind === 'vessel' && selectedItem.lifecycle === 'active' ? (
@@ -1343,7 +1356,16 @@ export function InventoryPanel() {
         </div>
       )}
       {dialog.kind !== 'none' && data ? (
-        isInventoryItemCodeDialog(dialog) ? (
+        dialog.kind === 'item-label' ? (
+          <InventoryLabelForm
+            key={`${data.project.projectId}:${data.project.defaultInventoryId}:${dialog.codeId}`}
+            codeId={dialog.codeId}
+            data={data}
+            status={status}
+            controller={controller}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : isInventoryItemCodeDialog(dialog) ? (
           <InventoryItemCodeForm
             key={`${data.project.projectId}:${dialog.kind}:${'item' in dialog ? dialog.item.id : 'expected' in dialog ? dialog.expected?.id : 'codeId' in dialog ? dialog.codeId : ''}`}
             dialog={dialog}

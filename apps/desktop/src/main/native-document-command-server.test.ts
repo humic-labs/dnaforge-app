@@ -7,7 +7,11 @@ import type { FileDocumentSnapshot } from '../shared/file-document';
 import type { ImportReviewAgentInput } from '../shared/import-review-command';
 import type { ImportReviewInspection } from '../shared/import-review';
 import type { SequenceDocumentSnapshot } from '../shared/sequence-document';
-import type { InventoryItemCodeLookupSnapshot } from '../shared/inventory-client';
+import type {
+  InventoryItemCodeLookupSnapshot,
+  InventoryLabelArtifact,
+} from '../shared/inventory-client';
+import type { NativeInventoryOwner } from './inventory-owner';
 import {
   createInventoryState,
   inventoryEquipmentCatalog,
@@ -125,6 +129,7 @@ async function fixture(
         targets: [],
       })
     ),
+    prepareLabel: vi.fn<NativeInventoryOwner['prepareLabel']>(),
     materials: vi.fn(() => ({ items: [], nextCursor: null })),
   };
   const server = await startNativeDocumentCommandServer({
@@ -364,6 +369,127 @@ it('preserves raw code queries under a current read-only grant and rejects unkno
   expect(f.inventory.resolveItemCode).toHaveBeenCalledTimes(1);
   expect(f.inventory.execute).not.toHaveBeenCalled();
 });
+
+it('prepares immutable label bytes under a current read grant and rejects caller-authored output options', async () => {
+  const authorizeInventoryAgent = vi.fn(async () => {});
+  const f = await fixture({ authorizeInventoryAgent });
+  const agent = { ...inventoryAgent, capabilities: ['read-workspace'] };
+  const artifact = {
+    schema: 'dnaforge.inventory-label-artifact.v1',
+    sourceRevision: 7,
+    binding: { id: 'code-1', namespace: 'lab', value: ' 001a^FNC1 ' },
+    rendered: { svg: '<svg>exact immutable bytes</svg>' },
+    svgSha256: `sha256:${'a'.repeat(64)}`,
+  } as unknown as InventoryLabelArtifact;
+  f.inventory.prepareLabel.mockResolvedValue(artifact);
+  const input = {
+    ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
+    command: 'inventory.prepare-label',
+    request: {
+      project: '/workspace',
+      inventoryId: 'inventory-1',
+      codeId: 'code-1',
+      mediaProfileId: 'qr-50x30-300dpi',
+    },
+    agent,
+  };
+  const response = await f.call(input);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    ok: true,
+    ownerInstanceId: 'native-1',
+    result: { kind: 'label-artifact', artifact },
+  });
+  expect(authorizeInventoryAgent).toHaveBeenCalledTimes(2);
+  expect(authorizeInventoryAgent).toHaveBeenLastCalledWith(agent, ['read-workspace']);
+  expect(f.inventory.prepareLabel).toHaveBeenCalledExactlyOnceWith(input.request, {
+    principal: { kind: 'agent', identityId: agent.identityId },
+  });
+  expect(f.inventory.inspect).toHaveBeenCalledExactlyOnceWith({
+    project: '/workspace',
+    inventoryId: 'inventory-1',
+  });
+  for (const extra of [
+    { value: 'replacement' },
+    { path: '/output.svg' },
+    { templateId: 'custom' },
+  ]) {
+    const malformed = await f.call({ ...input, request: { ...input.request, ...extra } });
+    expect(malformed.status).toBe(400);
+  }
+  const denied = await f.call({ ...input, agent: { ...agent, capabilities: [] } });
+  expect(await denied.json()).toMatchObject({
+    result: { ok: false, code: 'INSUFFICIENT_SCOPE', stateChanged: false },
+  });
+  f.inventory.prepareLabel.mockRejectedValueOnce(
+    new NativeDocumentCommandError('INVENTORY_ITEM_CODE_RETIRED', 'Retired binding.', false)
+  );
+  expect(await (await f.call(input)).json()).toMatchObject({
+    result: { ok: false, code: 'INVENTORY_ITEM_CODE_RETIRED', stateChanged: false },
+  });
+  expect(f.inventory.execute).not.toHaveBeenCalled();
+});
+
+it.each(['revoked', 'owner-changed', 'project-denied'] as const)(
+  'withholds label bytes after %s during asynchronous preparation',
+  async (change) => {
+    let calls = 0;
+    const authorizeInventoryAgent = vi.fn(async () => {
+      calls += 1;
+      if (calls === 2 && change === 'revoked')
+        throw new Error('INVENTORY_CAPABILITY_DENIED: Revoked while preparing.');
+    });
+    const f = await fixture({ authorizeInventoryAgent });
+    let complete: (() => void) | undefined;
+    f.inventory.prepareLabel.mockImplementationOnce(async () => {
+      await new Promise<void>((resolve) => (complete = resolve));
+      if (change === 'owner-changed') f.authority.ownerInstanceId = 'native-2';
+      return { rendered: { svg: 'must not escape' } } as InventoryLabelArtifact;
+    });
+    if (change === 'project-denied')
+      f.inventory.inspect.mockImplementationOnce(() => {
+        throw new NativeDocumentCommandError(
+          'PROJECT_ACCESS_DENIED',
+          'Project unavailable.',
+          false
+        );
+      });
+    const pending = f.call({
+      ownerInstanceId: 'native-1',
+      projectScope: { kind: 'app-following' },
+      command: 'inventory.prepare-label',
+      request: {
+        project: '/workspace',
+        inventoryId: 'inventory-1',
+        codeId: 'code-1',
+        mediaProfileId: 'qr-50x30-300dpi',
+      },
+      agent: { ...inventoryAgent, capabilities: ['read-workspace'] },
+    });
+    await vi.waitFor(() => expect(complete).toBeDefined());
+    complete!();
+    const response = await pending;
+    const body = await response.json();
+    expect(JSON.stringify(body)).not.toContain('must not escape');
+    if (change === 'owner-changed') {
+      expect(response.status).toBe(409);
+      expect(body).toMatchObject({
+        accepted: false,
+        error: { code: 'NATIVE_DOCUMENT_REQUEST_REFUSED' },
+      });
+    } else {
+      expect(body).toMatchObject({
+        result: {
+          ok: false,
+          code: change === 'revoked' ? 'INVENTORY_CAPABILITY_DENIED' : 'PROJECT_ACCESS_DENIED',
+          stateChanged: false,
+        },
+      });
+    }
+    expect(f.inventory.execute).not.toHaveBeenCalled();
+  }
+);
 
 it('refuses inventory authority rotated during asynchronous grant verification', async () => {
   let completeAuthorization: (() => void) | undefined;

@@ -20,6 +20,7 @@ import type {
 import type {
   InventoryAvailabilitySnapshot,
   InventoryItemCodeLookupSnapshot,
+  InventoryLabelArtifact,
 } from '../shared/inventory-client';
 
 vi.mock('electron', () => ({
@@ -30,6 +31,10 @@ vi.mock('electron', () => ({
 vi.mock('./config', () => ({ getApiUrl: () => 'http://synthetic-grants.invalid' }));
 
 import { openFileTestDb } from './__tests__/test-db';
+import {
+  runNativeLabelJourney,
+  verifyNativeLabelReopen,
+} from './__tests__/inventory-label-native-journey';
 import {
   runNativeItemCodeJourney,
   verifyNativeItemCodeReopen,
@@ -52,6 +57,7 @@ type InventoryNativeCommand =
   | 'inventory.catalog'
   | 'inventory.catalog-update-preview'
   | 'inventory.resolve-item-code'
+  | 'inventory.prepare-label'
   | 'inventory.materials';
 type Server = Awaited<ReturnType<typeof startNativeDocumentCommandServer>>;
 interface NativeResponse<T> {
@@ -256,6 +262,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       'inventory.catalog': 'entries',
       'inventory.catalog-update-preview': 'preview',
       'inventory.resolve-item-code': 'lookup',
+      'inventory.prepare-label': 'artifact',
       'inventory.materials': 'page',
     };
     expect(wrapped).toHaveProperty(keys[command]);
@@ -2101,6 +2108,39 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       loseAcknowledgement,
     });
     evidence.itemCodesBeforeRestart = itemCodeBeforeRestart;
+    const labelBeforeRestart = await runNativeLabelJourney({
+      scope,
+      projectId: projects[0].projectId,
+      owner,
+      success,
+      call,
+    });
+    evidence.labelsBeforeRestart = labelBeforeRestart;
+    const labelChangesBeforeRead = db.prepare('SELECT total_changes() AS count').get();
+    const grantedLabel = await success<InventoryLabelArtifact>(
+      'current read-only grant prepares the same exact SVG without inventory writes',
+      'inventory.prepare-label',
+      labelBeforeRestart.request,
+      { agent: { identityId: 'synthetic-read-only', capabilities: ['read-workspace'] } }
+    );
+    expect(grantedLabel.principal).toEqual({ kind: 'agent', identityId: 'synthetic-read-only' });
+    expect(grantedLabel.rendered).toEqual(labelBeforeRestart.artifact.rendered);
+    expect(grantedLabel.svgSha256).toEqual(labelBeforeRestart.artifact.svgSha256);
+    const foreignLabel = await call(
+      'deny label preparation outside captured scope before returning label bytes',
+      'inventory.prepare-label',
+      labelBeforeRestart.request,
+      { roots: [otherPath] }
+    );
+    expect(foreignLabel).toMatchObject({
+      status: 200,
+      body: { ok: true, result: { ok: false, code: 'PROJECT_ACCESS_DENIED', stateChanged: false } },
+    });
+    expect(JSON.stringify(foreignLabel.body)).not.toContain('<svg');
+    expect(db.prepare('SELECT total_changes() AS count').get()).toEqual(labelChangesBeforeRead);
+    expect(owner.inspect(labelBeforeRestart.scope)).toEqual(labelBeforeRestart.state);
+    expect(owner.history(labelBeforeRestart.scope)).toEqual(labelBeforeRestart.history);
+    evidence.labelsGrantedRead = { grantedLabel, foreignLabel, labelChangesBeforeRead };
     await server!.close();
     server = undefined;
     db.close();
@@ -2108,6 +2148,10 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     db = openFileTestDb(dbPath);
     await start();
     evidence.closedAndReopened = true;
+    evidence.labelsReopenedReadback = await verifyNativeLabelReopen(
+      { scope, projectId: projects[0].projectId, owner, success, call },
+      labelBeforeRestart
+    );
     evidence.itemCodesReopenedReadback = await verifyNativeItemCodeReopen(
       {
         scope,

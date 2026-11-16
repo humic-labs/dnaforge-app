@@ -439,6 +439,20 @@
   },
   "components": [
     {
+      "id": "inventory-label-ascii",
+      "kind": "font",
+      "name": "DNAForgeInventoryLabelAscii",
+      "version": "jetbrains-mono-5.3.0-ascii-v1",
+      "license": "OFL-1.1",
+      "licenseFiles": [
+        "apps/desktop/third-party/licenses/inventory-label-ascii-LICENSE.txt"
+      ],
+      "homepage": "https://github.com/JetBrains/JetBrainsMono",
+      "notes": "95 ASCII glyph paths derived from the unmodified JetBrains Mono 400 Latin WOFF distributed by @fontsource/jetbrains-mono 5.3.0. Source SHA256: 658b9ee07b0249cf910a8d6f3d812d46c962bae81d7379a0355b1db35c61586f. Generated with opentype.js 2.0.0 at 33 dots. The derivative path set is named DNAForgeInventoryLabelAscii and remains under OFL-1.1. Reproduce or check with packages/core/domain-services/scripts/generate-inventory-label-font.mjs.",
+      "ships": [],
+      "source": "https://registry.npmjs.org/@fontsource/jetbrains-mono/-/jetbrains-mono-5.3.0.tgz"
+    },
+    {
       "id": "dnaforge-sidecar",
       "kind": "program",
       "name": "DNAForge sidecar (waypoint-api)",

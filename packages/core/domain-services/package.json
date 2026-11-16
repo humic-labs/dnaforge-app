@@ -15,6 +15,16 @@
       "types": "./src/metadata-fields.ts",
       "import": "./src/metadata-fields.ts",
       "default": "./src/metadata-fields.ts"
+    },
+    "./inventory-label-types": {
+      "types": "./src/inventory-label-types.ts",
+      "import": "./src/inventory-label-types.ts",
+      "default": "./src/inventory-label-types.ts"
+    },
+    "./inventory-labels": {
+      "types": "./src/inventory-labels.ts",
+      "import": "./src/inventory-labels.ts",
+      "default": "./src/inventory-labels.ts"
     }
   },
   "scripts": {
@@ -25,10 +35,13 @@
   "license": "GPL-3.0-only",
   "dependencies": {
     "@waypoint/scientific-objects": "workspace:*",
-    "@waypoint/workspace-revisions": "workspace:*"
+    "@waypoint/workspace-revisions": "workspace:*",
+    "qrcode": "1.5.4"
   },
   "devDependencies": {
     "@types/node": "^20.19.0",
+    "@types/qrcode": "1.5.6",
+    "opentype.js": "2.0.0",
     "typescript": "~5.8.3",
     "vitest": "^4.0.18"
   }

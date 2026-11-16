@@ -34,6 +34,7 @@ export type InventoryDialog =
   | InventoryCustodyDialog
   | InventoryPhysicalDialogKind
   | InventoryItemCodeDialog
+  | { kind: 'item-label'; codeId: string }
   | { kind: 'none' }
   | { kind: 'container'; placement?: InventoryLocatedPlacement; typeVersionId?: string }
   | { kind: 'location'; parentId?: string; typeVersionId?: string }

@@ -1,0 +1,51 @@
+import { describe, expect, it } from 'vitest';
+import {
+  inventoryAgentSchema,
+  inventoryAgentOutputSchema,
+  inventoryAgentJsonSchema,
+} from './inventory';
+
+const operation = {
+  kind: 'prepare-label',
+  project: '/project',
+  inventoryId: 'inventory',
+  codeId: 'existing-code',
+  mediaProfileId: 'qr-50x30-300dpi',
+};
+
+describe('inventory label agent contract', () => {
+  it('admits only the bounded native preparation read without caller-authored identity or output', () => {
+    expect(inventoryAgentSchema.parse({ operation })).toEqual({ operation });
+    for (const extra of [
+      { value: 'replacement alias' },
+      { principal: { kind: 'agent', identityId: 'other' } },
+      { asOf: 0 },
+      { path: '/output.svg' },
+      { templateId: 'arbitrary' },
+      { mediaProfileId: 'printer-auto' },
+    ])
+      expect(
+        inventoryAgentSchema.safeParse({ operation: { ...operation, ...extra } }).success
+      ).toBe(false);
+    const schema = JSON.stringify(inventoryAgentJsonSchema());
+    expect(schema).toContain('prepare-label');
+    expect(schema).toContain('qr-80x50-300dpi');
+  });
+
+  it('retains exact SVG bytes in the typed artifact result and refuses an unstructured success', () => {
+    const output = {
+      ok: true,
+      kind: 'label-artifact',
+      artifact: {
+        sourceRevision: 2,
+        binding: { namespace: 'lab', value: ' 00a^FNC1 ' },
+        rendered: { svg: '<svg>exact bytes</svg>' },
+      },
+    };
+    expect(inventoryAgentOutputSchema.parse(output)).toEqual(output);
+    expect(inventoryAgentOutputSchema.safeParse({ ok: true, kind: 'label-artifact' }).success).toBe(
+      false
+    );
+    expect(inventoryAgentOutputSchema.safeParse({ ...output, ok: false }).success).toBe(false);
+  });
+});

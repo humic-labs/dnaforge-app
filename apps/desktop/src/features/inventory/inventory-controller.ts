@@ -17,7 +17,9 @@ import type {
   InventoryClient,
   InventoryProject,
   InventoryItemCodeLookupSnapshot,
+  InventoryPrepareLabelRequest,
 } from '../../shared/inventory-client';
+import { InventoryLabelSession, type InventoryLabelOutputPort } from './inventory-label-session';
 
 export interface InventoryData {
   project: InventoryProject;
@@ -166,6 +168,7 @@ export class InventoryController {
   private catalogGeneration = 0;
   private itemCodeGeneration = 0;
   private readonly catalogCache = new Map<string, readonly InventoryEquipmentCatalogEntry[]>();
+  private readonly labelSessions = new Map<string, InventoryLabelSession>();
   private opening: Promise<void> | undefined;
   private unsubscribe: (() => void) | undefined;
 
@@ -181,6 +184,27 @@ export class InventoryController {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   };
+
+  labelSession(
+    source: Omit<InventoryPrepareLabelRequest, 'mediaProfileId'>,
+    output: InventoryLabelOutputPort
+  ): InventoryLabelSession {
+    const key = JSON.stringify([source.project, source.inventoryId, source.codeId]);
+    let session = this.labelSessions.get(key);
+    if (!session) {
+      session = new InventoryLabelSession(source, this.client, output);
+      this.labelSessions.set(key, session);
+    }
+    return session;
+  }
+
+  hasLabelSnapshot(source: Omit<InventoryPrepareLabelRequest, 'mediaProfileId'>): boolean {
+    const key = JSON.stringify([source.project, source.inventoryId, source.codeId]);
+    const snapshot = this.labelSessions.get(key)?.getSnapshot();
+    return Boolean(
+      snapshot && (snapshot.preparation.kind === 'rendered' || 'artifact' in snapshot.output)
+    );
+  }
 
   private set(status: InventoryControllerState): void {
     let itemCodeLookup = this.snapshot.itemCodeLookup;
@@ -744,6 +768,8 @@ export class InventoryController {
     ++this.projectsGeneration;
     ++this.itemCodeGeneration;
     this.unsubscribe?.();
+    for (const session of this.labelSessions.values()) session.dispose();
+    this.labelSessions.clear();
     this.listeners.clear();
   }
 }

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
 import { runInventoryCompositionJourney } from './journeys/inventory-composition.mjs';
+import { runInventoryLabelJourney, runInventoryLabelReopen } from './journeys/inventory-labels.mjs';
 import {
   runInventoryItemCodeJourney,
   runInventoryItemCodeReopen,
@@ -53,6 +54,9 @@ assert.ok(
     'catalog-reopen',
     'item-codes',
     'item-code-reopen',
+    'labels',
+    'labels-preview',
+    'label-reopen',
   ].includes(stage),
   'Choose a mapped inventory journey stage.'
 );
@@ -92,6 +96,10 @@ const files = execFileSync(
     'packages/core/domain-services/src/metadata-fields.ts',
     'packages/core/domain-services/src/index.ts',
     'packages/core/domain-services/package.json',
+    'package.json',
+    'pnpm-lock.yaml',
+    'packages/core/domain-services/scripts',
+    'packages/core/domain-services/src/inventory-label-glyphs.ts',
     'packages/core/scientific-artifacts/src/shared/lims.ts',
     'packages/core/scientific-artifacts/src/shared/entity-schema.ts',
     'apps/desktop/src/shared/components/entity-metadata',
@@ -616,6 +624,28 @@ try {
     );
   }
 
+  if (stage === 'labels' || stage === 'labels-preview' || stage === 'label-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass the physical item-code journey fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    const run = stage === 'label-reopen' ? runInventoryLabelReopen : runInventoryLabelJourney;
+    receipt.expected = await run({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+      nativeDialogs: stage !== 'labels-preview',
+    });
+    writeFileSync(
+      path.join(out, 'label-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
   if (stage === 'item-codes' || stage === 'item-code-reopen') {
     assert.ok(args.includes('--fixture'), 'Pass the earlier inventory journey fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

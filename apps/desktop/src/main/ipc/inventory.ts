@@ -57,6 +57,19 @@ export function registerInventoryHandlers(options: {
       assertCaller(event);
       return currentOwner().resolveItemCode(request);
     },
+    prepareLabel: async (event, request) => {
+      assertCaller(event);
+      const owner = currentOwner();
+      const artifact = await owner.prepareLabel(request);
+      assertCaller(event);
+      if (currentOwner() !== owner)
+        throw new NativeDocumentCommandError(
+          'INVENTORY_OWNER_UNAVAILABLE',
+          'The desktop inventory owner changed.',
+          false
+        );
+      return artifact;
+    },
     materials: (event, request) => {
       assertCaller(event);
       return currentOwner().materials(request);

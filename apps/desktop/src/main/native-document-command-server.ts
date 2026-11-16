@@ -29,6 +29,7 @@ import {
   inventoryOperationRequestSchema,
   inventoryReadRequestSchema,
   inventoryResolveItemCodeRequestSchema,
+  inventoryPrepareLabelRequestSchema,
 } from '../shared/inventory-command';
 import type { createNativeInventoryOwner } from './inventory-owner';
 import { hasRequiredCapabilities } from '../shared/capability-policy';
@@ -162,6 +163,15 @@ const commandSchema = z.discriminatedUnion('command', [
     .object({
       ownerInstanceId: identity,
       projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.prepare-label'),
+      request: inventoryPrepareLabelRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
       command: z.literal('project-scope.inspect'),
     })
     .strict(),
@@ -276,6 +286,7 @@ export async function startNativeDocumentCommandServer(options: {
     | 'catalog'
     | 'catalogUpdatePreview'
     | 'resolveItemCode'
+    | 'prepareLabel'
   >;
   authorizeInventoryAgent?(agent: NativeAgentAuthority, required: readonly string[]): Promise<void>;
   getAuthority(): NativeCommandAuthority | null;
@@ -376,43 +387,47 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'inventory.catalog' ||
           body.command === 'inventory.catalog-update-preview' ||
           body.command === 'inventory.resolve-item-code' ||
+          body.command === 'inventory.prepare-label' ||
           body.command === 'inventory.materials'
         ) {
-          if (
-            options.inventory &&
-            body.command.startsWith('inventory.') &&
-            'agent' in body &&
-            body.agent
-          ) {
-            const required =
-              body.command === 'inventory.execute'
-                ? ['read-workspace', 'write-workspace']
-                : ['read-workspace'];
-            if (!hasRequiredCapabilities(body.agent.capabilities, required))
-              throw new NativeDocumentCommandError(
-                'INSUFFICIENT_SCOPE',
-                'The current grant does not permit this inventory operation.',
-                false
-              );
-            if (!options.authorizeInventoryAgent)
-              throw new NativeDocumentCommandError(
-                'INVENTORY_CAPABILITY_DENIED',
-                'Current inventory agent access could not be verified.',
-                false
-              );
-            try {
-              await options.authorizeInventoryAgent(body.agent, required);
-            } catch (error) {
-              const message = error instanceof Error ? error.message : String(error);
-              throw new NativeDocumentCommandError(
-                message.match(/^(INVENTORY_(?:CAPABILITY_DENIED|GRANTS_UNAVAILABLE)):/)?.[1] ??
+          const authorizeInventoryRequest = async () => {
+            if (
+              options.inventory &&
+              body.command.startsWith('inventory.') &&
+              'agent' in body &&
+              body.agent
+            ) {
+              const required =
+                body.command === 'inventory.execute'
+                  ? ['read-workspace', 'write-workspace']
+                  : ['read-workspace'];
+              if (!hasRequiredCapabilities(body.agent.capabilities, required))
+                throw new NativeDocumentCommandError(
+                  'INSUFFICIENT_SCOPE',
+                  'The current grant does not permit this inventory operation.',
+                  false
+                );
+              if (!options.authorizeInventoryAgent)
+                throw new NativeDocumentCommandError(
                   'INVENTORY_CAPABILITY_DENIED',
-                message,
-                false
-              );
+                  'Current inventory agent access could not be verified.',
+                  false
+                );
+              try {
+                await options.authorizeInventoryAgent(body.agent, required);
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                throw new NativeDocumentCommandError(
+                  message.match(/^(INVENTORY_(?:CAPABILITY_DENIED|GRANTS_UNAVAILABLE)):/)?.[1] ??
+                    'INVENTORY_CAPABILITY_DENIED',
+                  message,
+                  false
+                );
+              }
+              assertCurrent();
             }
-            assertCurrent();
-          }
+          };
+          await authorizeInventoryRequest();
           const run = (() => {
             if (options.inventory) {
               const receiver = options.inventory;
@@ -437,6 +452,16 @@ export async function startNativeDocumentCommandServer(options: {
                 return () => ({
                   kind: 'item-code-resolution',
                   lookup: receiver.resolveItemCode(request, invocation),
+                });
+              }
+              if (body.command === 'inventory.prepare-label') {
+                const request = body.request;
+                const invocation = body.agent
+                  ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
+                  : undefined;
+                return async () => ({
+                  kind: 'label-artifact',
+                  artifact: await receiver.prepareLabel(request, invocation),
                 });
               }
               if (body.command === 'inventory.materials') {
@@ -523,10 +548,19 @@ export async function startNativeDocumentCommandServer(options: {
             body.command === 'inventory.catalog' ||
             body.command === 'inventory.catalog-update-preview' ||
             body.command === 'inventory.resolve-item-code' ||
+            body.command === 'inventory.prepare-label' ||
             body.command === 'inventory.materials'
           )
             accepted = false;
           const result = await run();
+          if (body.command === 'inventory.prepare-label') {
+            await authorizeInventoryRequest();
+            assertCurrent();
+            options.inventory!.inspect({
+              project: body.request.project,
+              inventoryId: body.request.inventoryId,
+            });
+          }
           json(res, 200, { ok: true, ownerInstanceId: authority.ownerInstanceId, result });
           return;
         }

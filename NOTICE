@@ -8,3 +8,7 @@ Third-party code keeps its own license. Each such component carries its
 license next to its source, and packages/core/codex-app-server-contract is
 licensed under Apache-2.0. test-fixtures/PROVENANCE.md records the source
 and license of each test fixture.
+
+Inventory label glyph paths (DNAForgeInventoryLabelAscii) derive from JetBrains
+Mono and remain under OFL-1.1. See
+apps/desktop/third-party/licenses/inventory-label-ascii-LICENSE.txt.

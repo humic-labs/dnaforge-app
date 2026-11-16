@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -1182,6 +1183,185 @@ describe('durable native inventory commands', () => {
     expect(db.prepare('SELECT total_changes() AS n').get()).toEqual({
       n: (changes as { n: number }).n + 1,
     });
+  });
+
+  it('prepares the exact scoped label as a detached zero-write snapshot for humans and agents', async () => {
+    createFixture();
+    expect(
+      execute('label-code', 1, [
+        {
+          kind: 'attach-item-code',
+          id: 'label-code',
+          namespace: 'lab',
+          value: ' 00a^FNC1^029\\x00 ',
+          item: { kind: 'vessel', id: 'tube' },
+          reason: 'Existing exact alias.',
+        },
+        {
+          kind: 'report-item-missing',
+          item: { kind: 'vessel', id: 'tube' },
+          reason: 'Location is unknown.',
+        },
+      ])
+    ).toMatchObject({ status: 'committed', revision: 2 });
+    const state = owner.inspect(scope())!;
+    const history = owner.history(scope());
+    const rows = db.prepare('SELECT * FROM inventory_state').all();
+    const journal = db.prepare('SELECT * FROM inventory_journal').all();
+    const changes = db.prepare('SELECT total_changes() AS n').get();
+    const changed = vi.fn();
+    owner.subscribe(changed);
+    const request = { ...scope(), codeId: 'label-code', mediaProfileId: 'qr-80x50-300dpi' };
+    const human = await owner.prepareLabel(request);
+    const invocation = { principal: { kind: 'agent' as const, identityId: 'label-reader' } };
+    const agent = await owner.prepareLabel(request, invocation);
+    expect(human).toMatchObject({
+      schema: 'dnaforge.inventory-label-artifact.v1',
+      projectId: 'inventory-project',
+      inventoryId: scope().inventoryId,
+      sourceRevision: 2,
+      asOf: now,
+      principal: { kind: 'local-profile', profileKey },
+      binding: state.itemCodes['label-code'],
+      target: {
+        item: { kind: 'vessel', id: 'tube' },
+        record: state.vessels.tube,
+        custody: { state: { kind: 'missing' } },
+        currentLocationPath: null,
+        stocks: [{ stock: state.stocks.stock }],
+      },
+      rendered: {
+        template: 'dnaforge.inventory-label.qr.v1',
+        spec: {
+          scope: { projectId: 'inventory-project', inventoryId: scope().inventoryId },
+          sourceRevision: 2,
+          binding: {
+            id: 'label-code',
+            namespace: 'lab',
+            value: ' 00a^FNC1^029\\x00 ',
+            item: { kind: 'vessel', id: 'tube' },
+          },
+        },
+      },
+    });
+    expect(agent.principal).toEqual(invocation.principal);
+    expect(agent.rendered).toEqual(human.rendered);
+    expect(agent.svgSha256).toBe(
+      `sha256:${createHash('sha256').update(human.rendered.svg, 'utf8').digest('hex')}`
+    );
+    Object.assign(agent.target.record, { name: 'Caller draft' });
+    Object.assign(agent.binding, { value: 'Caller replacement' });
+    expect(owner.inspect(scope())).toEqual(state);
+    expect(owner.history(scope())).toEqual(history);
+    expect(db.prepare('SELECT * FROM inventory_state').all()).toEqual(rows);
+    expect(db.prepare('SELECT * FROM inventory_journal').all()).toEqual(journal);
+    expect(db.prepare('SELECT total_changes() AS n').get()).toEqual(changes);
+    expect(changed).not.toHaveBeenCalled();
+    const retained = structuredClone(human);
+    expect(
+      execute('retire-label-code', 2, [
+        { kind: 'retire-item-code', codeId: 'label-code', reason: 'No new labels.' },
+      ])
+    ).toMatchObject({ status: 'committed', revision: 3 });
+    await expect(owner.prepareLabel(request)).rejects.toThrow('INVENTORY_ITEM_CODE_RETIRED');
+    expect(human).toEqual(retained);
+  });
+
+  it('renders full-length binding identifiers and retains names outside the ASCII symbol template', async () => {
+    const codeId = 'c'.repeat(512);
+    expect(
+      execute('long-label-identity', 0, [
+        { kind: 'create-vessel', id: 'tube', name: '试管 α', placement: { kind: 'unplaced' } },
+        {
+          kind: 'attach-item-code',
+          id: codeId,
+          namespace: 'lab',
+          value: '001a',
+          item: { kind: 'vessel', id: 'tube' },
+          reason: 'Existing alias with a full binding identifier.',
+        },
+      ])
+    ).toMatchObject({ status: 'committed', revision: 1 });
+    const changes = db.prepare('SELECT total_changes() AS n').get();
+    const label = await owner.prepareLabel({
+      ...scope(),
+      codeId,
+      mediaProfileId: 'qr-50x30-300dpi',
+    });
+    expect(label.binding.id).toBe(codeId);
+    expect(label.rendered.spec.binding.id).toBe(codeId);
+    expect(label.target.record.name).toBe('试管 α');
+    expect(label.rendered.humanText.map((row) => row.text)).toEqual(['lab', '001a', 'vessel:tube']);
+    expect(db.prepare('SELECT total_changes() AS n').get()).toEqual(changes);
+  });
+
+  it('refuses unknown, retired, disposed and overflowing label requests without inventory effects', async () => {
+    createFixture();
+    expect(
+      execute('label-refusals', 1, [
+        { kind: 'create-vessel', id: 'empty', name: 'Empty', placement: { kind: 'unplaced' } },
+        {
+          kind: 'attach-item-code',
+          id: 'disposed-code',
+          namespace: 'lab',
+          value: 'EMPTY',
+          item: { kind: 'vessel', id: 'empty' },
+          reason: 'Existing code.',
+        },
+        { kind: 'dispose-vessel', id: 'empty', reason: 'Disposed empty tube.' },
+        {
+          kind: 'attach-item-code',
+          id: 'retired-code',
+          namespace: 'lab',
+          value: 'OLD',
+          item: { kind: 'vessel', id: 'tube' },
+          reason: 'Old code.',
+        },
+        { kind: 'retire-item-code', codeId: 'retired-code', reason: 'Retired code.' },
+        {
+          kind: 'attach-item-code',
+          id: 'long-code',
+          namespace: 'lab',
+          value: 'a'.repeat(512),
+          item: { kind: 'vessel', id: 'tube' },
+          reason: 'Existing long code.',
+        },
+      ])
+    ).toMatchObject({ status: 'committed', revision: 2 });
+    const state = owner.inspect(scope());
+    const history = owner.history(scope());
+    const changes = db.prepare('SELECT total_changes() AS n').get();
+    const changed = vi.fn();
+    owner.subscribe(changed);
+    const request = { ...scope(), mediaProfileId: 'qr-50x30-300dpi' };
+    for (const [codeId, code] of [
+      ['unknown', 'INVENTORY_ITEM_CODE_NOT_FOUND'],
+      ['retired-code', 'INVENTORY_ITEM_CODE_RETIRED'],
+      ['disposed-code', 'INVENTORY_LABEL_TARGET_DISPOSED'],
+      ['long-code', 'INVENTORY_LABEL_LAYOUT_OVERFLOW'],
+    ])
+      await expect(owner.prepareLabel({ ...request, codeId })).rejects.toThrow(code);
+    await expect(
+      owner.prepareLabel({ ...request, inventoryId: 'absent-inventory', codeId: 'unknown' })
+    ).rejects.toThrow('INVENTORY_ITEM_CODE_NOT_FOUND');
+    for (const invalid of [
+      { ...request, codeId: 'long-code', mediaProfileId: 'printer-auto' },
+      { ...request, codeId: 'long-code', templateId: 'anything' },
+      { ...request, codeId: 'long-code', value: 'replacement' },
+      { ...request, codeId: 'long-code', asOf: 0 },
+      { ...request, codeId: 'x'.repeat(513) },
+    ])
+      await expect(owner.prepareLabel(invalid)).rejects.toThrow();
+    await expect(
+      withAgentProjectScope({ kind: 'project-roots', roots: [] }, () =>
+        owner.prepareLabel({ ...request, codeId: 'retired-code' })
+      )
+    ).rejects.toThrow('PROJECT_ACCESS_DENIED');
+    expect(owner.inspect(scope())).toEqual(state);
+    expect(owner.history(scope())).toEqual(history);
+    expect(owner.inspect({ ...scope(), inventoryId: 'absent-inventory' })).toBeNull();
+    expect(db.prepare('SELECT total_changes() AS n').get()).toEqual(changes);
+    expect(changed).not.toHaveBeenCalled();
   });
 
   it('detects a changed journal payload and a projection divergent from accepted history', () => {

@@ -28,3 +28,6 @@
 
 - [Physical item codes](item-codes.md): scoped exact lookup, immutable bindings,
   retirement, ambiguity and separate expected-item checking.
+
+- [Existing-code labels](labels.md): bounded QR rendering, exact SVG export and
+  independent decoding of the actual saved artifact.

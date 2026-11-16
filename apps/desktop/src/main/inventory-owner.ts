@@ -14,6 +14,8 @@ import {
   type InventoryEquipmentCatalogEntry,
   type InventoryEquipmentCatalogUpdatePreview,
   type InventoryState,
+  type InventoryAvailability,
+  type InventoryPhysicalItem,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
@@ -24,6 +26,7 @@ import {
   inventoryOperationRequestSchema,
   inventoryReadRequestSchema,
   inventoryResolveItemCodeRequestSchema,
+  inventoryPrepareLabelRequestSchema,
   inventoryReceiptSchema,
   inventoryPrincipalSchema,
   inventoryReceiptContextSchema,
@@ -39,6 +42,8 @@ import type {
   InventoryMaterialPage,
   InventoryProject,
   InventoryItemCodeLookupSnapshot,
+  InventoryItemCodeTargetSnapshot,
+  InventoryLabelArtifact,
 } from '../shared/inventory-client';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import type { RegisteredProject, RegisteredProjectAuthority } from './registered-project-authority';
@@ -110,6 +115,27 @@ function stateFromRow(row: InventoryRow): InventoryState {
   } catch {
     return dataError();
   }
+}
+
+function itemCodeTargetSnapshot(
+  state: InventoryState,
+  item: InventoryPhysicalItem,
+  availability: InventoryAvailability
+): InventoryItemCodeTargetSnapshot {
+  const record = item.kind === 'storage' ? state.storage[item.id] : state.vessels[item.id];
+  const custody = availability.items[item.id];
+  const physical = availability.physical.items[item.id];
+  if (!record || !custody || !physical) return dataError();
+  return {
+    item,
+    record,
+    custody,
+    physical,
+    currentLocationPath: inventoryCurrentLocationPath(state, item),
+    stocks: Object.values(state.stocks)
+      .filter((stock) => inventoryItemContains(state, item, { kind: 'vessel', id: stock.vesselId }))
+      .map((stock) => ({ stock, availability: availability.stocks[stock.id] })),
+  };
 }
 
 function entryFromRow(row: JournalRow, project: string): NativeInventoryHistoryEntry {
@@ -245,24 +271,9 @@ export function createNativeInventoryOwner(options: {
         matches.map((match) => [`${match.item.kind}:${match.item.id}`, match.item] as const)
       );
       const availability = items.size ? inventoryAvailability(state, caller, asOf) : null;
-      const targets = [...items.values()].map((item) => {
-        const record = item.kind === 'storage' ? state.storage[item.id] : state.vessels[item.id];
-        const custody = availability?.items[item.id];
-        const physical = availability?.physical.items[item.id];
-        if (!record || !custody || !physical) return dataError();
-        return {
-          item,
-          record,
-          custody,
-          physical,
-          currentLocationPath: inventoryCurrentLocationPath(state, item),
-          stocks: Object.values(state.stocks)
-            .filter((stock) =>
-              inventoryItemContains(state, item, { kind: 'vessel', id: stock.vesselId })
-            )
-            .map((stock) => ({ stock, availability: availability!.stocks[stock.id] })),
-        };
-      });
+      const targets = [...items.values()].map((item) =>
+        itemCodeTargetSnapshot(state, item, availability!)
+      );
       return structuredClone({
         projectId: project.projectId,
         inventoryId: request.inventoryId,
@@ -271,6 +282,78 @@ export function createNativeInventoryOwner(options: {
         principal: caller,
         resolution,
         targets,
+      });
+    },
+
+    async prepareLabel(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<InventoryLabelArtifact> {
+      const request = inventoryPrepareLabelRequestSchema.parse(input);
+      read({ project: request.project, inventoryId: request.inventoryId });
+      const { renderInventoryItemLabel } =
+        await import('@waypoint/domain-services/inventory-labels');
+      const { project, row } = read({ project: request.project, inventoryId: request.inventoryId });
+      const state = row ? stateFromRow(row) : createInventoryState();
+      const binding = state.itemCodes[request.codeId];
+      if (!binding)
+        throw new NativeDocumentCommandError(
+          'INVENTORY_ITEM_CODE_NOT_FOUND',
+          'The requested item-code binding is unavailable.',
+          false
+        );
+      if (binding.lifecycle.kind !== 'active')
+        throw new NativeDocumentCommandError(
+          'INVENTORY_ITEM_CODE_RETIRED',
+          'This item-code binding is retired. An existing artifact remains a historical snapshot.',
+          false
+        );
+      const record =
+        binding.item.kind === 'storage'
+          ? state.storage[binding.item.id]
+          : state.vessels[binding.item.id];
+      if (!record) return dataError();
+      if (record.lifecycle !== 'active')
+        throw new NativeDocumentCommandError(
+          'INVENTORY_LABEL_TARGET_DISPOSED',
+          'The label target has been disposed.',
+          false
+        );
+      const asOf = observationTime(state);
+      const caller = principal(invocation);
+      const target = itemCodeTargetSnapshot(
+        state,
+        binding.item,
+        inventoryAvailability(state, caller, asOf)
+      );
+      const result = renderInventoryItemLabel({
+        scope: { projectId: project.projectId, inventoryId: request.inventoryId },
+        sourceRevision: state.revision,
+        binding: {
+          id: binding.id,
+          namespace: binding.namespace,
+          value: binding.value,
+          item: binding.item,
+        },
+        mediaProfileId: request.mediaProfileId,
+      });
+      if (result.kind === 'refused')
+        throw new NativeDocumentCommandError(
+          `INVENTORY_LABEL_${result.code}`,
+          result.message,
+          false
+        );
+      return structuredClone({
+        schema: 'dnaforge.inventory-label-artifact.v1',
+        projectId: project.projectId,
+        inventoryId: request.inventoryId,
+        sourceRevision: state.revision,
+        asOf,
+        principal: caller,
+        binding,
+        target,
+        rendered: result.artifact,
+        svgSha256: `sha256:${createHash('sha256').update(result.artifact.svg, 'utf8').digest('hex')}`,
       });
     },
 

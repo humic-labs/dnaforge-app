@@ -132,6 +132,9 @@ function fixture() {
         targets: [],
       };
     }),
+    prepareLabel: vi.fn(async () => {
+      throw new Error('Label rendering is not used by this controller fixture.');
+    }),
     inspect: vi.fn(async (request) =>
       request.project === other.projectId ? createInventoryState() : state
     ),

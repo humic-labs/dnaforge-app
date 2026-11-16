@@ -204,6 +204,44 @@ async def test_inventory_item_code_read_preserves_raw_query_and_rechecks_grant(
 
 
 @pytest.mark.asyncio
+async def test_inventory_label_preparation_is_read_only_and_preserves_artifact_bytes(native):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    artifact = {
+        "schema": "dnaforge.inventory-label-artifact.v1",
+        "binding": {"id": "code", "namespace": "lab", "value": " 001a^FNC1 "},
+        "sourceRevision": 7,
+        "rendered": {"svg": "<svg>exact immutable bytes</svg>"},
+        "svgSha256": "sha256:" + "a" * 64,
+    }
+    state["result"] = {"kind": "label-artifact", "artifact": artifact}
+    request = {
+        "project": "project",
+        "inventoryId": "inventory",
+        "codeId": "code",
+        "mediaProfileId": "qr-50x30-300dpi",
+    }
+    args = {"operation": {"kind": "prepare-label", **request}}
+    assert await execute_native_workflow("inventory", args, context) == {
+        "ok": True,
+        "result": {"kind": "label-artifact", "artifact": artifact, "ok": True},
+    }
+    assert state["calls"] == [
+        {
+            "command": "inventory.prepare-label",
+            "request": request,
+            "projectScope": {"kind": "app-following"},
+            "agent": {"identityId": "caller", "capabilities": ["read-workspace"]},
+        }
+    ]
+    state["revoked"] = True
+    with pytest.raises(ToolExecutionFailure) as revoked:
+        await execute_native_workflow("inventory", args, context)
+    assert revoked.value.code == "GRANT_REVOKED"
+    assert len(state["calls"]) == 1
+
+
+@pytest.mark.asyncio
 async def test_inventory_write_requires_current_grant_and_rejection_is_not_success(native):
     state, context = native
     request = {

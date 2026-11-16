@@ -34,6 +34,7 @@ let availability: ReturnType<typeof vi.fn>;
 let catalog: ReturnType<typeof vi.fn>;
 let catalogUpdatePreview: ReturnType<typeof vi.fn>;
 let resolveItemCode: ReturnType<typeof vi.fn>;
+let prepareLabel: ReturnType<typeof vi.fn>;
 const call = (input: unknown = request) =>
   (
     captured.handlers.execute as (
@@ -48,12 +49,14 @@ beforeEach(() => {
   catalog = vi.fn(() => []);
   catalogUpdatePreview = vi.fn(() => ({ revision: 0, canApply: true }));
   resolveItemCode = vi.fn(() => ({ revision: 0, resolution: { kind: 'not-found' } }));
+  prepareLabel = vi.fn(async () => ({ rendered: { svg: 'exact SVG bytes' } }));
   owner = {
     execute,
     availability,
     catalog,
     catalogUpdatePreview,
     resolveItemCode,
+    prepareLabel,
   } as unknown as NativeInventoryOwner;
   registerInventoryHandlers({ owner: () => owner, target: () => target });
 });
@@ -123,6 +126,34 @@ it('reads availability through the current native profile owner', () => {
   expect(() =>
     handler({ sender: { id: 9, isDestroyed: () => false } } as IpcMainInvokeEvent, input)
   ).toThrow('INVENTORY_DESKTOP_CALLER_UNAVAILABLE');
+});
+
+it('prepares label bytes through the current desktop owner and fences a late owner change', async () => {
+  const input = {
+    project: 'project',
+    inventoryId: 'inventory',
+    codeId: 'code',
+    mediaProfileId: 'qr-50x30-300dpi',
+  };
+  const handler = captured.handlers.prepareLabel as (
+    event: IpcMainInvokeEvent,
+    request: unknown
+  ) => Promise<unknown>;
+  await expect(handler(event, input)).resolves.toEqual({ rendered: { svg: 'exact SVG bytes' } });
+  expect(prepareLabel).toHaveBeenCalledExactlyOnceWith(input);
+  expect(execute).not.toHaveBeenCalled();
+  await expect(
+    handler({ sender: { id: 9, isDestroyed: () => false } } as IpcMainInvokeEvent, input)
+  ).rejects.toThrow('INVENTORY_DESKTOP_CALLER_UNAVAILABLE');
+  let complete: (() => void) | undefined;
+  prepareLabel.mockImplementationOnce(async () => {
+    await new Promise<void>((resolve) => (complete = resolve));
+    return { rendered: { svg: 'late bytes' } };
+  });
+  const pending = handler(event, input);
+  owner = null;
+  complete!();
+  await expect(pending).rejects.toThrow('INVENTORY_OWNER_UNAVAILABLE');
 });
 
 it('passes trusted human identity and a live caller check to the shared owner', () => {

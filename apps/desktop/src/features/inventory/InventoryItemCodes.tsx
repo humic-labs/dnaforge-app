@@ -7,12 +7,14 @@ export function InventoryItemCodes({
   data,
   item,
   editable,
+  hasLabelSnapshot,
   onDialog,
 }: {
   data: InventoryData;
   item: InventoryItem;
   editable: boolean;
-  onDialog(dialog: InventoryItemCodeDialog): void;
+  hasLabelSnapshot(codeId: string): boolean;
+  onDialog(dialog: InventoryItemCodeDialog | { kind: 'item-label'; codeId: string }): void;
 }) {
   const record =
     item.kind === 'storage' ? data.state.storage[item.id] : data.state.vessels[item.id];
@@ -68,13 +70,27 @@ export function InventoryItemCodes({
             {code.lifecycle.kind === 'retired' ? (
               <p>Retirement reason: {code.lifecycle.reason}</p>
             ) : (
-              <Button
-                disabled={!editable}
-                onClick={() => onDialog({ kind: 'item-code-retire', codeId: code.id })}
-              >
-                Retire code
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  disabled={record.lifecycle !== 'active'}
+                  onClick={() => onDialog({ kind: 'item-label', codeId: code.id })}
+                >
+                  Create label
+                </Button>
+                <Button
+                  disabled={!editable}
+                  onClick={() => onDialog({ kind: 'item-code-retire', codeId: code.id })}
+                >
+                  Retire code
+                </Button>
+              </div>
             )}
+            {(code.lifecycle.kind !== 'active' || record.lifecycle !== 'active') &&
+            hasLabelSnapshot(code.id) ? (
+              <Button onClick={() => onDialog({ kind: 'item-label', codeId: code.id })}>
+                View retained label
+              </Button>
+            ) : null}
           </article>
         ))
       ) : (

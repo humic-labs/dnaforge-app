@@ -371,8 +371,75 @@ compares full scope and tagged physical identity; a retired match remains
 historical. The UI fences old responses by input, scope and inventory revision
 and renders the returned snapshot rather than merging another revision's
 availability. Ordinary follow-up actions revalidate through the existing command
-owner. Generated symbols, immutable label artifacts, file export and physical
-hardware qualification remain separate work.
+owner. Generated labels and file output use a separate read/output boundary
+below. Physical hardware qualification remains separate work.
+
+## Existing-code labels and output
+
+`inventory.prepare-label` admits one active binding and active physical target,
+then invokes the lazy shared renderer on one native snapshot. Missing custody
+remains explicit; preparing a label never locates the item. Unknown or retired
+bindings, disposed targets, unsupported content and media overflow refuse
+without inventory writes, journal entries, events or clock changes. Native and
+agent routes recheck current authority after asynchronous module loading.
+
+The artifact retains full scope, source revision, trusted read context, binding
+and target snapshots, template/media/encoder/font identities, exact SVG and
+SHA256. The QR symbol contains the exact alias bytes. Namespace and complete
+tagged target are human-readable paths; the namespace and admitted inventory
+context are still required for lookup. No local project fallback becomes a
+globally portable identity. Item names are omitted from this bounded template.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Rendering: explicit preparation
+    Rendering --> Rendered: bounded SVG produced
+    Rendering --> Failed: invalid input or overflow
+    Rendered --> Draft: change media creates new specification
+```
+
+Rendered describes software output. It does not establish independent decoding,
+file output, printing, attachment or hardware readability. Two fixed media
+profiles retain four dots per module at 300 dpi and a four-module quiet zone.
+The adapter composes an upstream QR matrix and reproducibly generated licensed
+ASCII glyph paths; no runtime font fetch or parser is needed. Exact payloads
+never shrink, truncate or change symbology to fit. Old artifacts retain their
+bytes when current facts change. New preparation of a retired binding refuses.
+
+```mermaid
+stateDiagram-v2
+    [*] --> NotExported
+    NotExported --> Choosing: explicit export retained bytes
+    Choosing --> NotExported: cancel without previous output
+    Choosing --> Writing: destination selected
+    Writing --> Confirming: atomic file write returns
+    Writing --> OutputUnconfirmed: write effect unavailable
+    Confirming --> Exported: saved bytes exactly match artifact
+    Confirming --> Failed: observed mismatch
+    Confirming --> OutputUnconfirmed: readback unavailable
+    OutputUnconfirmed --> Confirming: explicit check saved file
+    OutputUnconfirmed --> Writing: explicit retry same retained bytes
+```
+
+The existing save dialog, atomic filesystem writer and admitted reader own file
+output. No arbitrary-path inventory mutation API is added. Canceling a new copy
+restores the previous output observation. A failed dialog or observed byte
+mismatch is explicit failure; a transported write error conservatively leaves
+output unconfirmed. Exact artifact/destination remain available for check or
+explicit retry. Forgetting an attempt leaves any existing file unchanged.
+
+In-memory sessions are keyed by full project/inventory/code scope. Closing the
+view detaches it without erasing a pending or unconfirmed copy. A late result
+stays with its original session and never becomes another item's output.
+Retired/disposed items can reopen retained artifacts; the view labels them as
+historical snapshots. These sessions are not a durable print or issuance
+journal. App restart retains inventory/code facts and saved files, not a
+fabricated successful-output receipt.
+
+Verification independently rasterizes the actual saved SVG, compares all decoded
+bytes, and rejects erased symbol geometry. It qualifies that software artifact,
+not any printer, scanner, media or cold-storage compatibility.
 
 ## Material identity and conservation
 
@@ -468,18 +535,19 @@ require a separate reconciliation protocol.
 All routes use the existing loopback endpoint, native credential, owner instance
 identity and registered project scope:
 
-| Command                            | Request and result                                                                                  |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `inventory.projects`               | List admitted projects and stable default inventory identities.                                     |
-| `inventory.materials`              | Search eligible scientific material in one admitted project.                                        |
-| `inventory.catalog`                | Read detached equipment definitions for an admitted project without inventory creation.             |
-| `inventory.catalog-update-preview` | Classify one built-in pack against an admitted inventory without publication or inventory creation. |
-| `inventory.resolve-item-code`      | Resolve exact scoped physical item codes and current target facts without mutation.                 |
-| `inventory.availability`           | Derive quantities, reservations, custody and physical compatibility from current facts.             |
-| `inventory.execute`                | Apply an expected-revision command batch; return a committed receipt or explicit rejection.         |
-| `inventory.inspect`                | Read current state for an admitted project and inventory.                                           |
-| `inventory.operation`              | Read one original committed operation receipt.                                                      |
-| `inventory.history`                | Read accepted operations with revision pagination.                                                  |
+| Command                            | Request and result                                                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `inventory.projects`               | List admitted projects and stable default inventory identities.                                               |
+| `inventory.materials`              | Search eligible scientific material in one admitted project.                                                  |
+| `inventory.catalog`                | Read detached equipment definitions for an admitted project without inventory creation.                       |
+| `inventory.catalog-update-preview` | Classify one built-in pack against an admitted inventory without publication or inventory creation.           |
+| `inventory.resolve-item-code`      | Resolve exact scoped physical item codes and current target facts without mutation.                           |
+| `inventory.prepare-label`          | Render an immutable existing-code QR SVG artifact from an admitted snapshot without file or inventory writes. |
+| `inventory.availability`           | Derive quantities, reservations, custody and physical compatibility from current facts.                       |
+| `inventory.execute`                | Apply an expected-revision command batch; return a committed receipt or explicit rejection.                   |
+| `inventory.inspect`                | Read current state for an admitted project and inventory.                                                     |
+| `inventory.operation`              | Read one original committed operation receipt.                                                                |
+| `inventory.history`                | Read accepted operations with revision pagination.                                                            |
 
 Agent requests recheck their exact current grant through the shared native
 authorizer before read/write dispatch. Forwarded capability claims alone do not

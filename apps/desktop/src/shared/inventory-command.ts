@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { INVENTORY_LABEL_MEDIA_PROFILE_IDS } from '@waypoint/domain-services/inventory-label-types';
 import {
   MAX_INVENTORY_BATCH_COMMANDS,
   parseInventoryCommandBatch,
@@ -33,6 +34,13 @@ export const inventoryCatalogUpdatePreviewRequestSchema = inventoryReadRequestSc
 export const inventoryResolveItemCodeRequestSchema = inventoryReadRequestSchema
   .extend({
     query: z.object({ namespace: z.string().nullable(), value: z.string() }).strict(),
+  })
+  .strict();
+
+export const inventoryPrepareLabelRequestSchema = inventoryReadRequestSchema
+  .extend({
+    codeId: z.string().min(1).max(512),
+    mediaProfileId: z.enum(INVENTORY_LABEL_MEDIA_PROFILE_IDS),
   })
   .strict();
 
@@ -88,6 +96,7 @@ export const inventoryReceiptSchema = z
 
 export type InventoryReadRequest = z.infer<typeof inventoryReadRequestSchema>;
 export type InventoryResolveItemCodeRequest = z.infer<typeof inventoryResolveItemCodeRequestSchema>;
+export type InventoryPrepareLabelRequest = z.infer<typeof inventoryPrepareLabelRequestSchema>;
 export type InventoryCatalogUpdatePreviewRequest = z.infer<
   typeof inventoryCatalogUpdatePreviewRequestSchema
 >;
