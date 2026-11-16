@@ -404,3 +404,142 @@ it('revalidates preview revision and exact identifiers through the ordinary redu
   expect(() => inventoryEquipmentCatalogMissingDefinitions(changed, entry)).toThrow('differs');
   expect(changed).toEqual(before);
 });
+
+it('adds source-scoped advertised ranges without changing previously published physical definitions', () => {
+  for (const entry of inventoryEquipmentCatalog()) {
+    const legacyDefinitions = entry.definitions.filter(
+      (row) => row.kind !== 'record-temperature-claim'
+    );
+    const state = apply(createInventoryState(), legacyDefinitions);
+    const before = structuredClone(state);
+    const missing = inventoryEquipmentCatalogMissingDefinitions(state, entry);
+    expect(missing).toHaveLength(1);
+    const claim = missing[0];
+    if (claim.kind !== 'record-temperature-claim') throw new Error('Expected advertised range.');
+    expect(claim.subject.kind).toBe('type-version');
+    expect(claim.assertion).toEqual({
+      kind: 'specified-setpoint-range',
+      range: { minimum: { value: '-86', unit: 'C' }, maximum: { value: '-50', unit: 'C' } },
+    });
+    expect(claim.observedAt).toBeNull();
+    expect(claim.source?.sha256).toMatch(/^[a-f0-9]{64}$/u);
+    expect(claim.source?.locator).toContain(
+      entry.model.manufacturer === 'Eppendorf' && entry.model.model === 'F740h'
+        ? 'Page 67'
+        : entry.model.manufacturer === 'Eppendorf'
+          ? 'Page 110'
+          : 'Page 3'
+    );
+    const added = apply(state, missing);
+    expect(added.typeVersions).toEqual(before.typeVersions);
+    expect(added.recipeVersions).toEqual(before.recipeVersions);
+    expect(added.fitEvidence).toEqual(before.fitEvidence);
+    expect(added.equipmentSetpoints).toEqual({});
+    expect(added.storageRequirements).toEqual({});
+    expect(Object.values(added.temperatureClaims)).toHaveLength(1);
+    expect(inventoryEquipmentCatalogMissingDefinitions(added, entry)).toEqual([]);
+  }
+});
+
+it('does not reactivate a withdrawn catalog range or overwrite a conflicting range', () => {
+  const entry = inventoryEquipmentCatalog()[0];
+  const installed = install(createInventoryState(), entry, 202);
+  const claim = entry.definitions.find((row) => row.kind === 'record-temperature-claim')!;
+  if (claim.kind !== 'record-temperature-claim') throw new Error('Expected advertised range.');
+  const state = apply(installed, [
+    {
+      kind: 'withdraw-temperature-claim',
+      claimId: claim.id,
+      reason: 'Local source scope has been withdrawn explicitly.',
+    },
+  ]);
+  const before = structuredClone(state);
+  expect(inventoryEquipmentCatalogMissingDefinitions(state, entry)).toEqual([]);
+  const preview = inventoryEquipmentCatalogUpdatePreview(state, entry);
+  expect(preview.definitions.find((row) => row.definition.id === claim.id)).toMatchObject({
+    status: 'identical',
+    installedReferences: [{ item: { kind: 'storage', id: 'catalog-instance-202:freezer' } }],
+  });
+  const conflict = {
+    ...entry,
+    definitions: [
+      {
+        ...claim,
+        assertion: {
+          kind: 'specified-setpoint-range' as const,
+          range: {
+            minimum: { value: '-90', unit: 'C' as const },
+            maximum: { value: '-60', unit: 'C' as const },
+          },
+        },
+      },
+    ],
+  };
+  expect(inventoryEquipmentCatalogUpdatePreview(state, conflict)).toMatchObject({
+    canApply: false,
+    conflictCount: 1,
+  });
+  expect(() => inventoryEquipmentCatalogMissingDefinitions(state, conflict)).toThrow('differs');
+  expect(state).toEqual(before);
+});
+
+it('compares normalized signed ranges without confusing source provenance with qualification', () => {
+  const entry = inventoryEquipmentCatalog()[0];
+  const installed = install(createInventoryState(), entry, 203);
+  const claim = entry.definitions.find((row) => row.kind === 'record-temperature-claim')!;
+  if (claim.kind !== 'record-temperature-claim') throw new Error('Expected advertised range.');
+  const equivalent = {
+    ...entry,
+    definitions: [
+      {
+        ...claim,
+        assertion: {
+          kind: 'specified-setpoint-range' as const,
+          range: {
+            minimum: { value: '-86.000', unit: 'C' as const },
+            maximum: { value: '-50.00', unit: 'C' as const },
+          },
+        },
+      },
+    ],
+  };
+  expect(inventoryEquipmentCatalogMissingDefinitions(installed, equivalent)).toEqual([]);
+  const installedClaim = {
+    ...entry,
+    definitions: [
+      {
+        ...claim,
+        subject: {
+          kind: 'installed' as const,
+          item: { kind: 'storage' as const, id: 'catalog-instance-203:freezer' },
+          configurationRevision: 1,
+        },
+      },
+    ],
+  };
+  expect(() => inventoryEquipmentCatalogUpdatePreview(installed, installedClaim)).toThrow(
+    'specified type setpoint range'
+  );
+  const qualification = {
+    ...entry,
+    definitions: [
+      {
+        ...claim,
+        subject: {
+          kind: 'installed' as const,
+          item: { kind: 'storage' as const, id: 'catalog-instance-203:freezer' },
+          configurationRevision: 1,
+        },
+        assertion: {
+          kind: 'qualified-envelope' as const,
+          range: claim.assertion.range,
+          atSetpoint: { value: '-80', unit: 'C' as const },
+          assumptions: 'A brochure cannot qualify an installed unit.',
+        },
+      },
+    ],
+  };
+  expect(() => inventoryEquipmentCatalogMissingDefinitions(installed, qualification)).toThrow(
+    'specified type setpoint range'
+  );
+});

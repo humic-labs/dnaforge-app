@@ -27,7 +27,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v9. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v11. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -38,7 +38,12 @@ original request and receipt bytes remain unchanged. v1–v7 published type and
 recipe versions gain explicit available selection state without changing their
 content, installed pins, revision or clock. v1–v8 snapshots gain an empty
 item-code map through state-only upcast; existing retired catalog selections
-remain intact.
+remain intact. v1–v9 snapshots gain empty temperature-claim, reported-setpoint
+and storage-requirement maps without changing historical request or receipt
+bytes, physical pins, recorded clock or inventory revision. v1–v10 snapshots
+gain an empty explicit thermal-relationship map. Legacy v10 qualification pins
+gain an unrecorded relationship value; they do not acquire new scope or
+applicability through migration.
 
 ## Independent states
 
@@ -441,6 +446,100 @@ Verification independently rasterizes the actual saved SVG, compares all decoded
 bytes, and rejects erased symbol geometry. It qualifies that software artifact,
 not any printer, scanner, media or cold-storage compatibility.
 
+## Storage-temperature knowledge
+
+Temperature has four independent owners: advertised possible setpoints,
+operator-reported target, an installed qualification envelope, and the actual
+stock or lot formulation's storage requirement. Signed exact decimal Celsius and
+inclusive ranges retain negative values without floating-point conversion.
+Unknown is distinct from zero; reversed ranges and temperatures below absolute
+zero are rejected.
+
+```mermaid
+stateDiagram-v2
+    state "Source claim" as Claim {
+        [*] --> Active: record scoped immutable claim
+        Active --> Withdrawn: explicit reason-bearing withdrawal
+    }
+    state "Reported setpoint" as Setpoint {
+        [*] --> Unknown
+        Unknown --> Known: explicit report
+        Known --> Known: replacement report
+        Known --> Unknown: explicit correction
+    }
+    state "Stock requirement" as Requirement {
+        [*] --> Inherit
+        Inherit --> Specified: record formulation requirement
+        Inherit --> Unknown: suppress inherited knowledge
+        Specified --> Unknown: explicit correction
+        Unknown --> Specified: record requirement
+        Specified --> Inherit: return to lot requirement
+        Unknown --> Inherit: return to lot requirement
+    }
+    state "Thermal relationship" as Relationship {
+        [*] --> InheritSurroundings
+        InheritSurroundings --> OwnControl: explicit relationship record
+        InheritSurroundings --> RelationshipUnknown: explicit uncertainty
+        OwnControl --> InheritSurroundings: explicit relationship record
+        OwnControl --> RelationshipUnknown: explicit uncertainty
+        RelationshipUnknown --> OwnControl: explicit relationship record
+        RelationshipUnknown --> InheritSurroundings: explicit relationship record
+    }
+```
+
+The five commands record or withdraw evidence, report a setpoint, record a
+stock/lot requirement, and record a thermal relationship through the existing
+atomic native owner. Each fact has an explicit observation timestamp or null,
+separate from trusted recorded time and actor. No read invents an observation
+time. A stock requirement may inherit its lot, specify a range, or override
+inherited knowledge with unknown. A lot cannot inherit. Scientific designs do
+not supply formulation requirements.
+
+Claims retain exact source scope and immutable content. Conflicting applicable
+equal-scope ranges remain conflicting; no source wins by being recorded last.
+Exact installed capability takes precedence over type capability with all claims
+retained. Built-in catalog ranges come from the cited model documents; they
+establish neither a current target nor installed qualification. Reapplying an
+identical withdrawn source does not reactivate it, and any conflicting
+identifier blocks the entire catalog update.
+
+Qualification pins the equipment's physical configuration and an inspectable
+snapshot of its physical subtree at a declared setpoint and assumptions.
+Descendant identity, internal placement, layout, geometry, physical revision and
+thermal relationships are included; metadata, stock quantity and reservations
+are excluded. Root external placement is excluded so moving an entire unchanged
+assembly preserves its internal pin. Rearrangement makes a retained claim
+inapplicable. Returning to the exact saved arrangement and target can make an
+active claim applicable again; this does not establish uninterrupted storage or
+erase intervening history. Withdrawal is the only terminal evidence lifecycle
+transition. New qualifications explicitly declare
+`scope: 'physical-and-thermal-arrangement'`. Legacy assertions without this
+marker retain unrecorded relationships in both state upcast and command replay.
+Migration never broadens what a historical qualification covered.
+
+`inventory.storage-conditions` is a read-only projection at one native revision.
+It returns three separate assessments: possible advertised capability, reported
+target, and qualified support. Capability asks whether some advertised setting
+can meet the requirement. Qualified support requires the entire applicable
+envelope inside the requirement, not overlap. Results retain supported,
+incompatible, unknown or conflicting states, reasons and source IDs.
+
+An explicit thermal relationship determines context through physical ancestry.
+Inherit traverses the parent; Self selects the item even without evidence;
+Unknown stops traversal. An absent setting inherits. Claims, withdrawal and
+setpoint reports never change the relationship, and names such as Freezer or Box
+do not declare control. Checked-out, in-transit or missing custody makes current
+context unknown instead of inheriting the former freezer. A whole-holder move
+recomputes descendant assessments without changing stock.
+
+Freshness requires an explicit null or nonnegative maximum age policy. No
+policy, unknown time and future observations remain distinct from fresh or
+stale. Comparisons describe recorded facts; stale evidence is visible and never
+becomes live telemetry through a read clock. Temperature results do not control
+equipment, observe sensors, establish overall suitability, quarantine stock,
+release holds or block custom storage. Environmental incidents have a separate
+owner.
+
 ## Material identity and conservation
 
 A scientific record identifies a material. A lot identifies one supplier batch
@@ -543,6 +642,7 @@ identity and registered project scope:
 | `inventory.catalog-update-preview` | Classify one built-in pack against an admitted inventory without publication or inventory creation.           |
 | `inventory.resolve-item-code`      | Resolve exact scoped physical item codes and current target facts without mutation.                           |
 | `inventory.prepare-label`          | Render an immutable existing-code QR SVG artifact from an admitted snapshot without file or inventory writes. |
+| `inventory.storage-conditions`     | Compare scoped temperature facts and formulation requirements at one revision without inventory writes.       |
 | `inventory.availability`           | Derive quantities, reservations, custody and physical compatibility from current facts.                       |
 | `inventory.execute`                | Apply an expected-revision command batch; return a committed receipt or explicit rejection.                   |
 | `inventory.inspect`                | Read current state for an admitted project and inventory.                                                     |

@@ -778,6 +778,7 @@ describe('durable native inventory commands', () => {
     ).run(otherPath);
     for (const operation of [
       () => owner.inspect({ ...scope(), project: 'Other' }),
+      () => owner.storageConditions({ ...scope(), project: 'Other', freshnessMaxAgeMs: null }),
       () =>
         owner.resolveItemCode({
           ...scope(),
@@ -812,6 +813,11 @@ describe('durable native inventory commands', () => {
     expect(() =>
       withAgentProjectScope({ kind: 'project-roots', roots: [otherPath] }, () =>
         owner.inspect(scope())
+      )
+    ).toThrow('PROJECT_ACCESS_DENIED');
+    expect(() =>
+      withAgentProjectScope({ kind: 'project-roots', roots: [otherPath] }, () =>
+        owner.storageConditions({ ...scope(), freshnessMaxAgeMs: null })
       )
     ).toThrow('PROJECT_ACCESS_DENIED');
     expect(() =>
@@ -917,6 +923,146 @@ describe('durable native inventory commands', () => {
     expect(changed).not.toHaveBeenCalled();
     Object.assign(preview.model, { region: 'Caller draft' });
     expect(owner.catalogUpdatePreview(request).model).toEqual(entry.model);
+  });
+
+  it('reads empty storage conditions without creating inventory, journal rows or events', () => {
+    const changed = vi.fn();
+    owner.subscribe(changed);
+    const request = { ...scope(), inventoryId: 'absent', freshnessMaxAgeMs: null };
+    const changes = db.prepare('SELECT total_changes() AS n').get();
+    expect(owner.storageConditions(request)).toEqual({
+      projectId: 'inventory-project',
+      inventoryId: 'absent',
+      revision: 0,
+      asOf: now,
+      principal: { kind: 'local-profile', profileKey },
+      freshnessMaxAgeMs: null,
+      equipment: {},
+      stocks: {},
+    });
+    expect(
+      owner.inspect({ project: request.project, inventoryId: request.inventoryId })
+    ).toBeNull();
+    expect(db.prepare('SELECT COUNT(*) AS n FROM inventory_state').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM inventory_journal').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT total_changes() AS n').get()).toEqual(changes);
+    expect(changed).not.toHaveBeenCalled();
+    const { freshnessMaxAgeMs: _policy, ...missingPolicy } = request;
+    for (const invalid of [
+      missingPolicy,
+      ...[-1, 0.5, Number.MAX_SAFE_INTEGER + 1, '100'].map((freshnessMaxAgeMs) => ({
+        ...request,
+        freshnessMaxAgeMs,
+      })),
+      { ...request, asOf: 0 },
+      { ...request, principal: { kind: 'agent', identityId: 'other' } },
+    ])
+      expect(() => owner.storageConditions(invalid)).toThrow();
+    expect(db.prepare('SELECT total_changes() AS n').get()).toEqual(changes);
+  });
+
+  it('projects saved temperature facts with trusted context, read-only scope and exact reopen parity', () => {
+    createFixture();
+    const reportedAt = now - 10_000;
+    const request = {
+      ...scope(),
+      operationId: 'temperature-facts',
+      expectedRevision: 1,
+      commands: [
+        {
+          kind: 'record-thermal-context',
+          item: { kind: 'storage', id: 'freezer' },
+          value: { kind: 'self' },
+          observedAt: null,
+          source: null,
+          reason: 'Explicit fixture temperature control boundary',
+        },
+        {
+          kind: 'move-vessel',
+          id: 'tube',
+          placement: { kind: 'located', storageId: 'box', slotId: 'A1' },
+        },
+        {
+          kind: 'record-equipment-setpoint',
+          item: { kind: 'storage', id: 'freezer' },
+          value: { kind: 'known', temperature: { value: '-80.00', unit: 'C' } },
+          observedAt: reportedAt,
+          source: null,
+          reason: 'Operator report',
+        },
+        {
+          kind: 'record-storage-requirement',
+          target: { kind: 'stock', id: 'stock' },
+          value: {
+            kind: 'specified',
+            range: {
+              minimum: { value: '-85', unit: 'C' },
+              maximum: { value: '-75', unit: 'C' },
+            },
+          },
+          observedAt: null,
+          source: null,
+          reason: 'Formulation requirement',
+        },
+      ],
+    };
+    const receipt = owner.execute(request);
+    expect(receipt).toMatchObject({ status: 'committed', revision: 2, recordedAt: now });
+    const scopeRead = { ...scope(), freshnessMaxAgeMs: 10_000 };
+    const conditions = owner.storageConditions(scopeRead);
+    expect(conditions).toMatchObject({
+      projectId: 'inventory-project',
+      inventoryId: 'inventory-fixture',
+      revision: 2,
+      asOf: now,
+      principal: { kind: 'local-profile', profileKey },
+      equipment: {
+        'storage:freezer': {
+          setpoint: {
+            observedAt: reportedAt,
+            at: now,
+            by: { kind: 'local-profile', profileKey },
+          },
+          setpointFreshness: { state: 'fresh', ageMs: 10_000 },
+        },
+      },
+      stocks: {
+        stock: {
+          requirement: { setting: { observedAt: null, at: now } },
+          environment: { kind: 'known', item: { kind: 'storage', id: 'freezer' } },
+          capability: { state: 'unknown' },
+          reportedTarget: { state: 'supported' },
+          qualifiedSupport: { state: 'unknown' },
+        },
+      },
+    });
+    const before = {
+      state: db.prepare('SELECT * FROM inventory_state').all(),
+      journal: db.prepare('SELECT * FROM inventory_journal').all(),
+    };
+    db.prepare("UPDATE workspaces SET access_mode='reference' WHERE id=41").run();
+    const changes = db.prepare('SELECT total_changes() AS n').get();
+    expect(owner.storageConditions(scopeRead)).toEqual(conditions);
+    expect(
+      owner.storageConditions(scopeRead, { principal: { kind: 'agent', identityId: 'read-agent' } })
+    ).toEqual({ ...conditions, principal: { kind: 'agent', identityId: 'read-agent' } });
+    Object.assign(conditions.stocks.stock.reportedTarget, { state: 'incompatible' });
+    expect(owner.storageConditions(scopeRead).stocks.stock.reportedTarget.state).toBe('supported');
+    expect(db.prepare('SELECT total_changes() AS n').get()).toEqual(changes);
+    expect(db.prepare('SELECT * FROM inventory_state').all()).toEqual(before.state);
+    expect(db.prepare('SELECT * FROM inventory_journal').all()).toEqual(before.journal);
+    const saved = owner.storageConditions(scopeRead);
+    db.close();
+    db = openFileTestDb(dbPath);
+    now -= 5_000;
+    startOwner();
+    expect(owner.storageConditions(scopeRead)).toEqual(saved);
+    expect(owner.replay(scope())).toEqual({ state: owner.inspect(scope()), acceptedOperations: 2 });
+    expect(owner.operation({ ...scope(), operationId: request.operationId })).toEqual(receipt);
+    expect(db.prepare('SELECT * FROM inventory_state').all()).toEqual(before.state);
+    expect(db.prepare('SELECT * FROM inventory_journal').all()).toEqual(before.journal);
+    now = Number.NaN;
+    expect(() => owner.storageConditions(scopeRead)).toThrow('INVENTORY_CLOCK_UNAVAILABLE');
   });
 
   it('previews current persisted catalog conflicts without changing saved state or history', () => {

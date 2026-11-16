@@ -6,6 +6,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
 import { runInventoryCompositionJourney } from './journeys/inventory-composition.mjs';
+import {
+  runInventoryConditionsJourney,
+  runInventoryConditionsReopen,
+  runInventoryThermalContextJourney,
+  runInventoryTemperatureCatalogRecovery,
+} from './journeys/inventory-conditions.mjs';
 import { runInventoryLabelJourney, runInventoryLabelReopen } from './journeys/inventory-labels.mjs';
 import {
   runInventoryItemCodeJourney,
@@ -57,6 +63,10 @@ assert.ok(
     'labels',
     'labels-preview',
     'label-reopen',
+    'conditions',
+    'conditions-reopen',
+    'thermal-context',
+    'conditions-catalog-recover',
   ].includes(stage),
   'Choose a mapped inventory journey stage.'
 );
@@ -624,6 +634,39 @@ try {
     );
   }
 
+  if (
+    stage === 'conditions' ||
+    stage === 'conditions-reopen' ||
+    stage === 'thermal-context' ||
+    stage === 'conditions-catalog-recover'
+  ) {
+    assert.ok(args.includes('--fixture'), 'Pass the current inventory journey fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    if (stage === 'conditions-catalog-recover') {
+      const preview = page.getByRole('dialog', { name: 'Catalog update preview', exact: true });
+      if (await preview.isVisible())
+        await preview.getByRole('button', { name: 'Cancel', exact: true }).click();
+      const setup = page.getByRole('dialog', { name: 'Inventory setup', exact: true });
+      if (await setup.isVisible())
+        await setup.getByRole('button', { name: 'Close', exact: true }).click();
+    }
+    await openInventory(fixture.project.name);
+    const run =
+      stage === 'conditions-catalog-recover'
+        ? runInventoryTemperatureCatalogRecovery
+        : stage === 'thermal-context'
+          ? runInventoryThermalContextJourney
+          : stage === 'conditions'
+            ? runInventoryConditionsJourney
+            : runInventoryConditionsReopen;
+    receipt.expected = await run({ page, expect, choose, inventoryRead, capture, fixture });
+    writeFileSync(
+      path.join(out, 'conditions-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
   if (stage === 'labels' || stage === 'labels-preview' || stage === 'label-reopen') {
     assert.ok(args.includes('--fixture'), 'Pass the physical item-code journey fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

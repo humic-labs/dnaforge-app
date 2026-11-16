@@ -214,6 +214,13 @@ export function InventorySourceFields({
           onChange={(event) => onChange({ ...value, documentRevision: event.target.value || null })}
         />
       </PhysicalField>
+      <PhysicalField label={`${prefix} SHA-256 (optional)`}>
+        <TextField
+          aria-label={`${prefix} SHA-256 (optional)`}
+          value={value.sha256 ?? ''}
+          onChange={(event) => onChange({ ...value, sha256: event.target.value || null })}
+        />
+      </PhysicalField>
     </fieldset>
   );
 }
@@ -233,6 +240,7 @@ export function InventorySourceDetails({ source }: { source: InventorySourceRefe
         {source.locator} · Read {source.readAt}
         {source.documentRevision ? ` · Revision ${source.documentRevision}` : ''}
       </p>
+      {source.sha256 ? <p className="break-all">SHA-256: {source.sha256}</p> : null}
     </div>
   );
 }

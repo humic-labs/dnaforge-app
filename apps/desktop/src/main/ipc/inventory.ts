@@ -57,6 +57,10 @@ export function registerInventoryHandlers(options: {
       assertCaller(event);
       return currentOwner().resolveItemCode(request);
     },
+    storageConditions: (event, request) => {
+      assertCaller(event);
+      return currentOwner().storageConditions(request);
+    },
     prepareLabel: async (event, request) => {
       assertCaller(event);
       const owner = currentOwner();

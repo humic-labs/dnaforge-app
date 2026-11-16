@@ -13,6 +13,7 @@ import type {
 } from './inventory-controller';
 import { InventoryPhysicalDialog } from './InventoryPhysicalDialog';
 import { InventorySourceDetails } from './InventoryPhysicalControls';
+import { inventoryTemperatureRangeLabel } from './inventory-temperature-view';
 import {
   inventoryCatalogStatusAt,
   InventoryCatalogVersionState,
@@ -24,12 +25,15 @@ function savedDefinition(data: InventoryData, definition: InventoryCatalogDefini
       ? data.state.typeVersions[definition.id]
       : definition.kind === 'define-equipment-recipe'
         ? data.state.recipeVersions[definition.id]
-        : data.state.fitEvidence[definition.id];
+        : definition.kind === 'record-temperature-claim'
+          ? data.state.temperatureClaims[definition.id]
+          : data.state.fitEvidence[definition.id];
   if (!saved)
     return (
       data.state.typeVersions[definition.id] ??
       data.state.recipeVersions[definition.id] ??
       data.state.fitEvidence[definition.id] ??
+      data.state.temperatureClaims[definition.id] ??
       null
     );
   return Object.fromEntries(
@@ -143,7 +147,11 @@ export function InventoryCatalogPreview({
                 className="space-y-2 rounded border border-border p-3"
               >
                 <h3 className="text-sm font-semibold">
-                  {'name' in definition ? definition.name : 'Fit evidence'}
+                  {'name' in definition
+                    ? definition.name
+                    : definition.kind === 'record-temperature-claim'
+                      ? 'Specified operating range'
+                      : 'Fit evidence'}
                 </h3>
                 <p className="text-xs font-medium">
                   {row.status === 'new'
@@ -153,6 +161,32 @@ export function InventoryCatalogPreview({
                       : 'Conflicting'}
                 </p>
                 <p className="break-all text-xs text-fg-muted">{definition.id}</p>
+                {definition.kind === 'record-temperature-claim' ? (
+                  <>
+                    <p className="text-sm">
+                      {inventoryTemperatureRangeLabel(definition.assertion.range)}
+                    </p>
+                    <p className="text-xs text-fg-muted">
+                      Advertised possible setpoints only. This does not establish the installed
+                      target, temperature relationship or qualification.
+                    </p>
+                    {definition.source ? (
+                      <InventorySourceDetails source={definition.source} />
+                    ) : null}
+                    {data.state.temperatureClaims[definition.id] ? (
+                      <p
+                        className="text-xs"
+                        data-temperature-claim-lifecycle={
+                          data.state.temperatureClaims[definition.id].lifecycle.kind
+                        }
+                      >
+                        {data.state.temperatureClaims[definition.id].lifecycle.kind === 'withdrawn'
+                          ? 'Withdrawn source evidence stays withdrawn when this pack is applied.'
+                          : 'Active source evidence'}
+                      </p>
+                    ) : null}
+                  </>
+                ) : null}
                 {row.status === 'new' ? (
                   <label className="flex items-center gap-2 text-sm">
                     <input

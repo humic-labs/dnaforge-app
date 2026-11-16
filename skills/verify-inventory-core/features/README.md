@@ -31,3 +31,6 @@
 
 - [Existing-code labels](labels.md): bounded QR rendering, exact SVG export and
   independent decoding of the actual saved artifact.
+
+- [Storage conditions](storage-conditions.md): exact temperature facts,
+  formulation requirements, source scope and independent assessments.

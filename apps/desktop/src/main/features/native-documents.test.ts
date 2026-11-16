@@ -51,6 +51,7 @@ const mocks = vi.hoisted(() => ({
     catalogUpdatePreview: vi.fn(),
     resolveItemCode: vi.fn(),
     prepareLabel: vi.fn(),
+    storageConditions: vi.fn(),
     materials: vi.fn(() => ({ items: [], nextCursor: null })),
     execute: vi.fn(),
     inspect: vi.fn(),

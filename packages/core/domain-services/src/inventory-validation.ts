@@ -1,5 +1,17 @@
 import { validateInventoryPhysicalState } from './inventory-configuration';
 import { validateInventoryItemCodes } from './inventory-item-codes';
+import { validateInventoryTemperatureState } from './inventory-storage-conditions';
+import {
+  normalizeInventoryTemperature,
+  normalizeInventoryTemperatureRange,
+} from './inventory-temperature';
+import {
+  INVENTORY_TEMPERATURE_DECIMAL_PATTERN,
+  type InventoryTemperatureClaim,
+  type InventoryEquipmentSetpoint,
+  type InventoryStorageRequirement,
+  type InventoryThermalContext,
+} from './inventory-temperature-types';
 import {
   parseMetadataFieldDefinitions,
   metadataFieldDefinitionsJsonSchema,
@@ -18,6 +30,8 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_TEMPERATURE_SCHEMA,
+  INVENTORY_ITEM_CODE_SCHEMA,
   INVENTORY_CATALOG_SCHEMA,
   INVENTORY_ITEM_CODE_NAMESPACE_PATTERN,
   INVENTORY_ITEM_CODE_VALUE_PATTERN,
@@ -856,7 +870,218 @@ const fitEvidenceRecord: Codec<InventoryFitEvidence> = fields('Fit evidence', {
   at: timestamp,
   by: principal,
 });
+const temperature = checked(
+  fields('Exact Celsius temperature', {
+    value: text('Signed temperature decimal', 128, true, INVENTORY_TEMPERATURE_DECIMAL_PATTERN),
+    unit: literal('C'),
+  }),
+  (value) => {
+    try {
+      normalizeInventoryTemperature(value);
+    } catch (error) {
+      invalid(error instanceof Error ? error.message : 'Invalid temperature.');
+    }
+  }
+);
+const temperatureRange = checked(
+  fields('Inclusive temperature range', {
+    minimum: temperature,
+    maximum: temperature,
+  }),
+  (value) => {
+    try {
+      normalizeInventoryTemperatureRange(value);
+    } catch (error) {
+      invalid(error instanceof Error ? error.message : 'Invalid temperature range.');
+    }
+  }
+);
+const temperatureKnowledge = union('Reported temperature knowledge', [
+  fields('Unknown reported target', { kind: literal('unknown') }),
+  fields('Known reported target', { kind: literal('known'), temperature }),
+]);
+const specifiedSetpointRange = fields('Specified setpoint range', {
+  kind: literal('specified-setpoint-range'),
+  range: temperatureRange,
+});
+const legacyQualifiedEnvelopeFields = {
+  kind: literal('qualified-envelope'),
+  range: temperatureRange,
+  atSetpoint: temperature,
+  assumptions: reason,
+};
+const legacyQualifiedEnvelope = fields(
+  'Legacy installed qualified envelope',
+  legacyQualifiedEnvelopeFields
+);
+const previousTemperatureAssertion = union('V10 temperature source assertion', [
+  specifiedSetpointRange,
+  legacyQualifiedEnvelope,
+]);
+const temperatureAssertion = union('Temperature source assertion', [
+  specifiedSetpointRange,
+  legacyQualifiedEnvelope,
+  fields('Physical and thermal arrangement qualified envelope', {
+    ...legacyQualifiedEnvelopeFields,
+    scope: literal('physical-and-thermal-arrangement'),
+  }),
+]);
+const temperatureClaimFacts = {
+  id,
+  subject: fitSubject,
+  assertion: temperatureAssertion,
+  observedAt: deadline,
+  source: nullable(sourceReference),
+  reason,
+};
+const setpointFacts = {
+  item: reservationItem,
+  value: temperatureKnowledge,
+  observedAt: deadline,
+  source: nullable(sourceReference),
+  reason,
+};
+const thermalContextFacts = {
+  item: reservationItem,
+  value: union('Thermal context relationship', [
+    fields('Inherit surrounding thermal context', { kind: literal('inherit') }),
+    fields('Use own thermal context', { kind: literal('self') }),
+    fields('Unknown thermal context relationship', { kind: literal('unknown') }),
+  ]),
+  observedAt: deadline,
+  source: nullable(sourceReference),
+  reason,
+};
+const thermalContextRecord: Codec<InventoryThermalContext> = fields('Recorded thermal context', {
+  ...thermalContextFacts,
+  at: timestamp,
+  by: principal,
+});
+const storageRequirementTarget = fields('Storage requirement target', {
+  kind: union('Storage requirement target kind', [literal('stock'), literal('lot')]),
+  id,
+});
+const storageRequirementValue = union('Storage requirement override', [
+  fields('Inherit lot requirement', { kind: literal('inherit') }),
+  fields('Unknown storage requirement', { kind: literal('unknown') }),
+  fields('Specified storage requirement', { kind: literal('specified'), range: temperatureRange }),
+]);
+const storageRequirementFacts = {
+  target: storageRequirementTarget,
+  value: storageRequirementValue,
+  observedAt: deadline,
+  source: nullable(sourceReference),
+  reason,
+};
+const temperatureInstallationFields = {
+  item: reservationItem,
+  configurationRevision: revision,
+  typeVersionId: nullable(id),
+  geometry,
+  orientation,
+  unavailablePositionIds: array(slot, MAX_INVENTORY_STORAGE_SLOTS, 0, true),
+  layout: nullable(layout),
+  limits: nullable(limits),
+  placement: union('Qualified relative placement', [root, located]),
+  lifecycle,
+};
+const thermalRelationship = union('Thermal relationship kind', [
+  literal('inherit'),
+  literal('self'),
+  literal('unknown'),
+]);
+const temperatureClaimFields = {
+  ...temperatureClaimFacts,
+  at: timestamp,
+  by: principal,
+  lifecycle: union('Temperature claim lifecycle', [
+    fields('Active temperature claim', { kind: literal('active') }),
+    fields('Withdrawn temperature claim', {
+      kind: literal('withdrawn'),
+      at: timestamp,
+      by: principal,
+      reason,
+    }),
+  ]),
+};
+const previousTemperatureClaimRecord = fields('V10 temperature claim', {
+  ...temperatureClaimFields,
+  assertion: previousTemperatureAssertion,
+  installation: nullable(
+    array(
+      fields('V10 qualified physical installation entry', temperatureInstallationFields),
+      Number.MAX_SAFE_INTEGER,
+      1
+    )
+  ),
+});
+const temperatureClaimRecord: Codec<InventoryTemperatureClaim> = fields('Temperature claim', {
+  ...temperatureClaimFields,
+  installation: nullable(
+    array(
+      fields('Qualified physical installation entry', {
+        ...temperatureInstallationFields,
+        thermalRelationship: nullable(thermalRelationship),
+      }),
+      Number.MAX_SAFE_INTEGER,
+      1
+    )
+  ),
+});
+const setpointRecord: Codec<InventoryEquipmentSetpoint> = fields('Reported equipment setpoint', {
+  ...setpointFacts,
+  at: timestamp,
+  by: principal,
+});
+const storageRequirementRecord: Codec<InventoryStorageRequirement> = fields(
+  'Recorded storage requirement',
+  {
+    ...storageRequirementFacts,
+    at: timestamp,
+    by: principal,
+  }
+);
+function temperatureFactMap<T>(codec: Codec<T>, value: unknown): Readonly<Record<string, T>> {
+  const rows = Object.entries(object(value, 'Temperature fact map'));
+  const result: Record<string, T> = Object.create(null);
+  for (const [key, input] of rows)
+    result[text('Temperature fact key', 1100, true).parse(key)] = codec.parse(input);
+  return result;
+}
 const commands = {
+  'record-thermal-context': fields('Record explicit thermal context command', {
+    kind: literal('record-thermal-context'),
+    ...thermalContextFacts,
+  }),
+  'record-temperature-claim': checked(
+    fields('Record scoped temperature claim command', {
+      kind: literal('record-temperature-claim'),
+      ...temperatureClaimFacts,
+    }),
+    (value) => {
+      if (value.assertion.kind === 'qualified-envelope' && value.subject.kind !== 'installed')
+        invalid('A qualification must identify an exact installed configuration.');
+    }
+  ),
+  'withdraw-temperature-claim': fields('Withdraw temperature claim command', {
+    kind: literal('withdraw-temperature-claim'),
+    claimId: id,
+    reason,
+  }),
+  'record-equipment-setpoint': fields('Record operator-reported equipment setpoint command', {
+    kind: literal('record-equipment-setpoint'),
+    ...setpointFacts,
+  }),
+  'record-storage-requirement': checked(
+    fields('Record formulation storage requirement command', {
+      kind: literal('record-storage-requirement'),
+      ...storageRequirementFacts,
+    }),
+    (value) => {
+      if (value.target.kind === 'lot' && value.value.kind === 'inherit')
+        invalid('Only a stock can inherit a lot storage requirement.');
+    }
+  ),
   'attach-item-code': fields('Attach physical item code command', {
     kind: literal('attach-item-code'),
     id,
@@ -1337,6 +1562,7 @@ function validateState(state: InventoryState): void {
     state.recipeVersions,
     state.fitEvidence,
     state.itemCodes,
+    state.temperatureClaims,
   ]) {
     for (const identifier of Object.keys(rows)) {
       if (allIds.has(identifier)) invalid('Inventory record identifiers must be distinct.');
@@ -1574,7 +1800,9 @@ function validateState(state: InventoryState): void {
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const catalog = current || row.schema === INVENTORY_CATALOG_SCHEMA;
+  const temperature = current || row.schema === INVENTORY_TEMPERATURE_SCHEMA;
+  const itemCodes = temperature || row.schema === INVENTORY_ITEM_CODE_SCHEMA;
+  const catalog = itemCodes || row.schema === INVENTORY_CATALOG_SCHEMA;
   const configuration = catalog || row.schema === INVENTORY_CONFIGURATION_SCHEMA;
   const custody = configuration || row.schema === INVENTORY_CUSTODY_SCHEMA;
   const reservation = custody || row.schema === INVENTORY_RESERVATION_SCHEMA;
@@ -1583,6 +1811,8 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_TEMPERATURE_SCHEMA),
+      literal(INVENTORY_ITEM_CODE_SCHEMA),
       literal(INVENTORY_CATALOG_SCHEMA),
       literal(INVENTORY_CONFIGURATION_SCHEMA),
       literal(INVENTORY_CUSTODY_SCHEMA),
@@ -1594,6 +1824,16 @@ export function parseInventoryState(value: unknown): InventoryState {
     ]),
     revision,
     ...(current
+      ? { thermalContexts: { schema: { type: 'object' }, parse: (input: unknown) => input } }
+      : {}),
+    ...(temperature
+      ? {
+          temperatureClaims: { schema: { type: 'object' }, parse: (input: unknown) => input },
+          equipmentSetpoints: { schema: { type: 'object' }, parse: (input: unknown) => input },
+          storageRequirements: { schema: { type: 'object' }, parse: (input: unknown) => input },
+        }
+      : {}),
+    ...(itemCodes
       ? { itemCodes: { schema: { type: 'object' }, parse: (input: unknown) => input } }
       : {}),
     ...(configuration
@@ -1664,7 +1904,27 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   const state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    itemCodes: current
+    thermalContexts: current
+      ? temperatureFactMap(thermalContextRecord, shape.thermalContexts)
+      : Object.create(null),
+    temperatureClaims: temperature
+      ? records(shape.temperatureClaims, (raw): InventoryTemperatureClaim => {
+          if (current) return temperatureClaimRecord.parse(raw);
+          const claim = previousTemperatureClaimRecord.parse(raw);
+          return {
+            ...claim,
+            installation:
+              claim.installation?.map((entry) => ({ ...entry, thermalRelationship: null })) ?? null,
+          };
+        })
+      : Object.create(null),
+    equipmentSetpoints: temperature
+      ? temperatureFactMap(setpointRecord, shape.equipmentSetpoints)
+      : Object.create(null),
+    storageRequirements: temperature
+      ? temperatureFactMap(storageRequirementRecord, shape.storageRequirements)
+      : Object.create(null),
+    itemCodes: itemCodes
       ? records(shape.itemCodes, (raw) => itemCodeRecord.parse(raw))
       : (Object.create(null) as Record<string, InventoryItemCode>),
     typeVersions: configuration
@@ -1745,6 +2005,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   validateState(state);
   try {
     validateInventoryItemCodes(state);
+    validateInventoryTemperatureState(state);
     validateInventoryPhysicalState(state);
   } catch (error) {
     invalid(error instanceof Error ? error.message : 'Invalid physical configuration.');

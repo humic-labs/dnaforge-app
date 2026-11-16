@@ -51,9 +51,14 @@ import {
   prepareInventoryFulfillment,
 } from './inventory-reservations';
 import { applyInventoryItemCodeCommand } from './inventory-item-codes';
+import { applyInventoryTemperatureCommand } from './inventory-storage-conditions';
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
 interface Draft {
+  thermalContexts: Record<string, InventoryState['thermalContexts'][string]>;
+  temperatureClaims: Record<string, InventoryState['temperatureClaims'][string]>;
+  equipmentSetpoints: Record<string, InventoryState['equipmentSetpoints'][string]>;
+  storageRequirements: Record<string, InventoryState['storageRequirements'][string]>;
   itemCodes: Record<string, InventoryState['itemCodes'][string]>;
   typeVersions: Record<string, InventoryState['typeVersions'][string]>;
   recipeVersions: Record<string, InventoryState['recipeVersions'][string]>;
@@ -136,6 +141,8 @@ function applyCommand(
   command: InventoryCommand,
   context?: InventoryExecutionContext
 ): Failure | null {
+  const temperature = applyInventoryTemperatureCommand(state, command, context);
+  if (temperature !== undefined) return temperature;
   const itemCode = applyInventoryItemCodeCommand(state, command, context);
   if (itemCode !== undefined) return itemCode;
   const configuration = applyInventoryConfigurationCommand(state, command, context, (inner) =>
@@ -348,6 +355,10 @@ export function applyInventoryCommandBatch(
   if (context && context.at < state.lastRecordedAt)
     return failure('CLOCK_REGRESSION', 'The trusted timestamp precedes the inventory clock floor.');
   const draft: Draft = {
+    thermalContexts: Object.assign(Object.create(null), state.thermalContexts),
+    temperatureClaims: Object.assign(Object.create(null), state.temperatureClaims),
+    equipmentSetpoints: Object.assign(Object.create(null), state.equipmentSetpoints),
+    storageRequirements: Object.assign(Object.create(null), state.storageRequirements),
     itemCodes: Object.assign(Object.create(null), state.itemCodes),
     typeVersions: Object.assign(Object.create(null), state.typeVersions),
     recipeVersions: Object.assign(Object.create(null), state.recipeVersions),

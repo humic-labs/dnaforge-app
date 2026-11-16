@@ -27,6 +27,10 @@ export const inventoryReadRequestSchema = z
   .object({ project: z.string().min(1).max(4096), inventoryId: identity })
   .strict();
 
+export const inventoryStorageConditionsRequestSchema = inventoryReadRequestSchema
+  .extend({ freshnessMaxAgeMs: revision.nullable() })
+  .strict();
+
 export const inventoryCatalogUpdatePreviewRequestSchema = inventoryReadRequestSchema
   .extend({ catalogEntryId: identity })
   .strict();
@@ -95,6 +99,9 @@ export const inventoryReceiptSchema = z
   .strict();
 
 export type InventoryReadRequest = z.infer<typeof inventoryReadRequestSchema>;
+export type InventoryStorageConditionsRequest = z.infer<
+  typeof inventoryStorageConditionsRequestSchema
+>;
 export type InventoryResolveItemCodeRequest = z.infer<typeof inventoryResolveItemCodeRequestSchema>;
 export type InventoryPrepareLabelRequest = z.infer<typeof inventoryPrepareLabelRequestSchema>;
 export type InventoryCatalogUpdatePreviewRequest = z.infer<

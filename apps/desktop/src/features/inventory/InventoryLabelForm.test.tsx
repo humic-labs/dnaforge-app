@@ -1,6 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
-import { applyInventoryCommandBatch, createInventoryState } from '@waypoint/domain-services';
+import {
+  applyInventoryCommandBatch,
+  createInventoryState,
+  inventoryStorageConditionsProjection,
+} from '@waypoint/domain-services';
 import { unavailableInventoryClient } from '../../shared/inventory-client';
 import { InventoryController, type InventoryData } from './inventory-controller';
 import { InventoryLabelForm } from './InventoryLabelForm';
@@ -43,6 +47,13 @@ it('uses the chosen media through the shared read client and exposes a native re
     state: result.state,
     history: [],
     availability: null,
+    storageConditions: {
+      ...inventoryStorageConditionsProjection(result.state, { asOf: 1, freshnessMaxAgeMs: null }),
+      projectId: 'project',
+      inventoryId: 'inventory',
+      revision: result.state.revision,
+      principal,
+    },
   };
   const prepareLabel = vi.fn(async () => {
     throw new Error('The exact text does not fit this label.');

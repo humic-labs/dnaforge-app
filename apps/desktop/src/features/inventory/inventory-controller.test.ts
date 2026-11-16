@@ -4,6 +4,7 @@ import {
   createInventoryState,
   inventoryAvailability,
   inventoryResolveItemCode,
+  inventoryStorageConditionsProjection,
   type InventoryCommand,
   type InventoryEquipmentCatalogUpdatePreview,
   type InventoryState,
@@ -134,6 +135,19 @@ function fixture() {
     }),
     prepareLabel: vi.fn(async () => {
       throw new Error('Label rendering is not used by this controller fixture.');
+    }),
+    storageConditions: vi.fn(async (request) => {
+      const current = request.project === other.projectId ? createInventoryState() : state;
+      return {
+        ...inventoryStorageConditionsProjection(current, {
+          asOf: 1,
+          freshnessMaxAgeMs: request.freshnessMaxAgeMs,
+        }),
+        projectId: request.project,
+        inventoryId: request.inventoryId,
+        revision: current.revision,
+        principal,
+      };
     }),
     inspect: vi.fn(async (request) =>
       request.project === other.projectId ? createInventoryState() : state
@@ -346,6 +360,102 @@ describe('inventory interaction controller', () => {
       data: { state: { revision: 1 }, availability: { revision: 1, principal } },
     });
     expect(f.client.inspect).toHaveBeenCalledTimes(2);
+    f.controller.dispose();
+  });
+
+  it('rereads temperature conditions with inventory instead of displaying a mixed revision', async () => {
+    const f = fixture();
+    const current = await f.client.storageConditions({
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      freshnessMaxAgeMs: null,
+    });
+    vi.mocked(f.client.storageConditions).mockResolvedValueOnce({ ...current, revision: 2 });
+    await f.controller.initialize();
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'ready',
+      data: { state: { revision: 1 }, storageConditions: { revision: 1, freshnessMaxAgeMs: null } },
+    });
+    expect(f.client.inspect).toHaveBeenCalledTimes(2);
+    expect(f.client.execute).not.toHaveBeenCalled();
+    f.controller.dispose();
+  });
+
+  it('refuses foreign-scope temperature projections even at the same revision', async () => {
+    const f = fixture();
+    const current = await f.client.storageConditions({
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      freshnessMaxAgeMs: null,
+    });
+    vi.mocked(f.client.storageConditions).mockResolvedValue({
+      ...current,
+      projectId: other.projectId,
+    });
+    await f.controller.initialize();
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'refused',
+      code: 'INVENTORY_READ_FAILED',
+    });
+    expect(f.client.inspect).toHaveBeenCalledTimes(3);
+    expect(f.client.execute).not.toHaveBeenCalled();
+    f.controller.dispose();
+  });
+
+  it('keeps an explicit freshness policy within its project and inventory scope', async () => {
+    const f = fixture();
+    vi.mocked(f.client.projects).mockResolvedValue([project, other]);
+    await f.controller.initialize();
+    await f.controller.selectProject(project.projectId);
+    expect(f.client.storageConditions).toHaveBeenLastCalledWith({
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      freshnessMaxAgeMs: null,
+    });
+    await f.controller.setStorageFreshnessPolicy(60000);
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'ready',
+      data: { storageConditions: { freshnessMaxAgeMs: 60000 } },
+    });
+    await f.controller.selectProject(other.projectId);
+    expect(f.client.storageConditions).toHaveBeenLastCalledWith({
+      project: other.projectId,
+      inventoryId: other.defaultInventoryId,
+      freshnessMaxAgeMs: null,
+    });
+    await f.controller.selectProject(project.projectId);
+    expect(f.client.storageConditions).toHaveBeenLastCalledWith({
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      freshnessMaxAgeMs: 60000,
+    });
+    expect(f.client.execute).not.toHaveBeenCalled();
+    f.controller.dispose();
+  });
+
+  it('fences a delayed temperature projection after the project changes', async () => {
+    const f = fixture();
+    vi.mocked(f.client.projects).mockResolvedValue([project, other]);
+    await f.controller.initialize();
+    const current = await f.client.storageConditions({
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      freshnessMaxAgeMs: null,
+    });
+    const delayed = deferred<typeof current>();
+    vi.mocked(f.client.storageConditions).mockReturnValueOnce(delayed.promise);
+    const selecting = f.controller.selectProject(project.projectId);
+    await Promise.resolve();
+    await f.controller.selectProject(other.projectId);
+    delayed.resolve(current);
+    await selecting;
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'ready',
+      data: {
+        project: { projectId: other.projectId },
+        storageConditions: { projectId: other.projectId, revision: 0 },
+      },
+    });
     f.controller.dispose();
   });
 

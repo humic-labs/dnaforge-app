@@ -49,3 +49,54 @@ describe('inventory label agent contract', () => {
     expect(inventoryAgentOutputSchema.safeParse({ ...output, ok: false }).success).toBe(false);
   });
 });
+
+describe('inventory storage conditions agent contract', () => {
+  const operation = {
+    kind: 'storage-conditions',
+    project: '/project',
+    inventoryId: 'inventory',
+    freshnessMaxAgeMs: null,
+  };
+
+  it('requires an explicit freshness policy and refuses a caller-authored clock or identity', () => {
+    for (const freshnessMaxAgeMs of [null, 0, Number.MAX_SAFE_INTEGER])
+      expect(
+        inventoryAgentSchema.parse({ operation: { ...operation, freshnessMaxAgeMs } })
+      ).toEqual({ operation: { ...operation, freshnessMaxAgeMs } });
+    const { freshnessMaxAgeMs: _policy, ...missingPolicy } = operation;
+    for (const invalid of [
+      missingPolicy,
+      ...[-1, 1.5, Number.MAX_SAFE_INTEGER + 1, '100'].map((freshnessMaxAgeMs) => ({
+        ...operation,
+        freshnessMaxAgeMs,
+      })),
+      { ...operation, asOf: 0 },
+      { ...operation, principal: { kind: 'agent', identityId: 'other' } },
+    ])
+      expect(inventoryAgentSchema.safeParse({ operation: invalid }).success).toBe(false);
+    expect(JSON.stringify(inventoryAgentJsonSchema())).toContain('storage-conditions');
+  });
+
+  it('retains the independently named assessments in a conditions result', () => {
+    const output = {
+      ok: true,
+      kind: 'storage-conditions',
+      conditions: {
+        revision: 7,
+        asOf: 100,
+        freshnessMaxAgeMs: null,
+        stocks: {
+          stock: {
+            capability: { state: 'supported', claimIds: ['source-claim'] },
+            reportedTarget: { state: 'incompatible', claimIds: [] },
+            qualifiedSupport: { state: 'unknown', claimIds: [] },
+          },
+        },
+      },
+    };
+    expect(inventoryAgentOutputSchema.parse(output)).toEqual(output);
+    expect(
+      inventoryAgentOutputSchema.safeParse({ ok: true, kind: 'storage-conditions' }).success
+    ).toBe(false);
+  });
+});

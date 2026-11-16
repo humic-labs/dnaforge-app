@@ -35,6 +35,7 @@ let catalog: ReturnType<typeof vi.fn>;
 let catalogUpdatePreview: ReturnType<typeof vi.fn>;
 let resolveItemCode: ReturnType<typeof vi.fn>;
 let prepareLabel: ReturnType<typeof vi.fn>;
+let storageConditions: ReturnType<typeof vi.fn>;
 const call = (input: unknown = request) =>
   (
     captured.handlers.execute as (
@@ -50,6 +51,7 @@ beforeEach(() => {
   catalogUpdatePreview = vi.fn(() => ({ revision: 0, canApply: true }));
   resolveItemCode = vi.fn(() => ({ revision: 0, resolution: { kind: 'not-found' } }));
   prepareLabel = vi.fn(async () => ({ rendered: { svg: 'exact SVG bytes' } }));
+  storageConditions = vi.fn(() => ({ revision: 0, equipment: {}, stocks: {} }));
   owner = {
     execute,
     availability,
@@ -57,6 +59,7 @@ beforeEach(() => {
     catalogUpdatePreview,
     resolveItemCode,
     prepareLabel,
+    storageConditions,
   } as unknown as NativeInventoryOwner;
   registerInventoryHandlers({ owner: () => owner, target: () => target });
 });
@@ -126,6 +129,22 @@ it('reads availability through the current native profile owner', () => {
   expect(() =>
     handler({ sender: { id: 9, isDestroyed: () => false } } as IpcMainInvokeEvent, input)
   ).toThrow('INVENTORY_DESKTOP_CALLER_UNAVAILABLE');
+});
+
+it('reads conditions through the current desktop caller without accepting a caller clock', () => {
+  const input = { project: 'project', inventoryId: 'inventory', freshnessMaxAgeMs: null };
+  const handler = captured.handlers.storageConditions as (
+    event: IpcMainInvokeEvent,
+    request: unknown
+  ) => unknown;
+  expect(handler(event, input)).toEqual({ revision: 0, equipment: {}, stocks: {} });
+  expect(storageConditions).toHaveBeenCalledExactlyOnceWith(input);
+  expect(execute).not.toHaveBeenCalled();
+  expect(() =>
+    handler({ sender: { id: 9, isDestroyed: () => false } } as IpcMainInvokeEvent, input)
+  ).toThrow('INVENTORY_DESKTOP_CALLER_UNAVAILABLE');
+  owner = null;
+  expect(() => handler(event, input)).toThrow('INVENTORY_OWNER_UNAVAILABLE');
 });
 
 it('prepares label bytes through the current desktop owner and fences a late owner change', async () => {

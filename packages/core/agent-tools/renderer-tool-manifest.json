@@ -46878,7 +46878,7 @@
     },
     {
       "name": "inventory",
-      "description": "Use prepare-label with an active exact codeId and mediaProfileId qr-50x30-300dpi or qr-80x50-300dpi to render an immutable existing-code QR SVG artifact. Its symbol contains the exact alias value only; namespace and explicit project/inventory context are required for lookup. The artifact retains full target and binding snapshots, source revision, exact SVG and SHA256. Rendered does not mean independently decoded, saved, printed, attached or physically scanned. Preparation is read-only, grants no access, and refuses retired bindings, disposed targets, unsupported text or layout overflow. Missing custody remains explicit and does not establish location. No file or printer is written. Resolve exact physical item codes with resolve-item-code in an explicit project and inventory. Pass query.namespace as an exact technical namespace or null for all namespaces and query.value as the unchanged code. Case, leading zeros and spaces matter. Invalid, not found, retired and ambiguous are distinct results; never prefer one ambiguous match or fall back to scientific material search. The lookup returns current target facts, custody and stock availability at one revision. Codes grant no access, and URL text is not navigation. Lookup never changes inventory. Use catalog-update-preview with an exact catalogEntryId and inventoryId to classify built-in definitions and inspect source scope and installed references without inventory writes. Any definition conflict blocks applying the entire pack. Apply selected new definitions through execute at the current revision; identical retired definitions remain retired. Inspect and change physical laboratory inventory through the same native owner as the Inventory view. Start with projects, then materials in the exact selected project. Inspect the returned defaultInventoryId before changing it. Read catalog for built-in physical type and equipment recipe definitions without installing them. Existing definition ID conflicts require explicit resolution; never overwrite. Execute only needed definitions plus explicit recipe instantiation as one atomic batch. Read availability at the matching revision for exact on-hand, held and unreserved quantities, item custody, reservation actions and blocking reasons. Execute an atomic typed command batch with the inspected expectedRevision and one stable operationId. Exact retries return the original receipt; changed requests require a new explicitly reviewed operation. A timeout leaves the outcome unknown: inspect the original operationId or retry that identical request. Publish immutable physical type and equipment recipe versions, then instantiate explicit pinned versions. Physical metadata is separate from scientific material identity. Allowed child types constrain placement logically; unknown fit remains unknown, and known geometric contradictions refuse placement. Read the physical projection for installed configuration, metadata issues and fit evidence. Reservations do not subtract on-hand quantity. Expiry requires an explicit recorded command. Checkout, transit and missing reports free the previous position and retain immutable last-known location facts. Planned destinations and last-known positions are not current locations. Return or locate requires an explicit valid destination; use stack-top for a stack. A plate or box governs effective custody of its contents, and permanent wells cannot depart independently. Missing or in-transit items block physical use and additions; reconciliation and quality observations remain distinct. Custody never changes quantity or silently releases reservations. Hold ownership, custody responsibility and execution time come from the native authority. Known zero quantity differs from unknown quantity. Scientific designs do not imply physical possession. Placement, quantity, quality, disposal and storage-layout rules are validated by the inventory owner. History retains accepted requests, trusted actors and durable owner context. Read operations need read-workspace; execute also needs write-workspace.",
+      "description": "Read storage-conditions in an explicit project and inventory with required freshnessMaxAgeMs null for no age policy or a nonnegative safe integer in milliseconds. This read returns separate specified capability, operator-reported target and installed qualified-support assessments at one native revision and asOf time. Reported setpoints are not sensor measurements, and a supported temperature assessment is not overall sample suitability. Record the thermal relationship independently with record-thermal-context: inherit uses surroundings, self declares own temperature control, and unknown blocks inheritance. Evidence, withdrawal and reports never change this relationship. New qualified-envelope assertions declare scope physical-and-thermal-arrangement; legacy qualifications with unrecorded thermal scope remain inapplicable. Unknowns, conflicts, source scope and freshness remain explicit. It never changes stock, quality, holds, custody or placement. Record temperature claims, setpoints and stock/lot requirements only through execute with explicit observation time (timestamp or null); trusted recorded time and actor come from the native owner. Use prepare-label with an active exact codeId and mediaProfileId qr-50x30-300dpi or qr-80x50-300dpi to render an immutable existing-code QR SVG artifact. Its symbol contains the exact alias value only; namespace and explicit project/inventory context are required for lookup. The artifact retains full target and binding snapshots, source revision, exact SVG and SHA256. Rendered does not mean independently decoded, saved, printed, attached or physically scanned. Preparation is read-only, grants no access, and refuses retired bindings, disposed targets, unsupported text or layout overflow. Missing custody remains explicit and does not establish location. No file or printer is written. Resolve exact physical item codes with resolve-item-code in an explicit project and inventory. Pass query.namespace as an exact technical namespace or null for all namespaces and query.value as the unchanged code. Case, leading zeros and spaces matter. Invalid, not found, retired and ambiguous are distinct results; never prefer one ambiguous match or fall back to scientific material search. The lookup returns current target facts, custody and stock availability at one revision. Codes grant no access, and URL text is not navigation. Lookup never changes inventory. Use catalog-update-preview with an exact catalogEntryId and inventoryId to classify built-in definitions and inspect source scope and installed references without inventory writes. Any definition conflict blocks applying the entire pack. Apply selected new definitions through execute at the current revision; identical retired definitions remain retired. Inspect and change physical laboratory inventory through the same native owner as the Inventory view. Start with projects, then materials in the exact selected project. Inspect the returned defaultInventoryId before changing it. Read catalog for built-in physical type and equipment recipe definitions without installing them. Existing definition ID conflicts require explicit resolution; never overwrite. Execute only needed definitions plus explicit recipe instantiation as one atomic batch. Read availability at the matching revision for exact on-hand, held and unreserved quantities, item custody, reservation actions and blocking reasons. Execute an atomic typed command batch with the inspected expectedRevision and one stable operationId. Exact retries return the original receipt; changed requests require a new explicitly reviewed operation. A timeout leaves the outcome unknown: inspect the original operationId or retry that identical request. Publish immutable physical type and equipment recipe versions, then instantiate explicit pinned versions. Physical metadata is separate from scientific material identity. Allowed child types constrain placement logically; unknown fit remains unknown, and known geometric contradictions refuse placement. Read the physical projection for installed configuration, metadata issues and fit evidence. Reservations do not subtract on-hand quantity. Expiry requires an explicit recorded command. Checkout, transit and missing reports free the previous position and retain immutable last-known location facts. Planned destinations and last-known positions are not current locations. Return or locate requires an explicit valid destination; use stack-top for a stack. A plate or box governs effective custody of its contents, and permanent wells cannot depart independently. Missing or in-transit items block physical use and additions; reconciliation and quality observations remain distinct. Custody never changes quantity or silently releases reservations. Hold ownership, custody responsibility and execution time come from the native authority. Known zero quantity differs from unknown quantity. Scientific designs do not imply physical possession. Placement, quantity, quality, disposal and storage-layout rules are validated by the inventory owner. History retains accepted requests, trusted actors and durable owner context. Read operations need read-workspace; execute also needs write-workspace.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -46942,6 +46942,22 @@
                   "kind": { "type": "string", "const": "prepare-label" }
                 },
                 "required": ["project", "inventoryId", "codeId", "mediaProfileId", "kind"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "freshnessMaxAgeMs": {
+                    "anyOf": [
+                      { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                      { "type": "null" }
+                    ]
+                  },
+                  "kind": { "type": "string", "const": "storage-conditions" }
+                },
+                "required": ["project", "inventoryId", "freshnessMaxAgeMs", "kind"],
                 "additionalProperties": false
               },
               {
@@ -47017,6 +47033,825 @@
                     "maxItems": 256,
                     "items": {
                       "oneOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "item", "value", "observedAt", "source", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "record-thermal-context" },
+                            "item": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "storage" },
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "vessel" },
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 1024,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "value": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "inherit" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "self" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "unknown" } }
+                                }
+                              ]
+                            },
+                            "observedAt": {
+                              "anyOf": [
+                                { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                                { "type": "null" }
+                              ]
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "url",
+                                    "title",
+                                    "locator",
+                                    "readAt",
+                                    "documentRevision",
+                                    "sha256"
+                                  ],
+                                  "properties": {
+                                    "url": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 4000,
+                                      "pattern": "^https?://"
+                                    },
+                                    "title": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    },
+                                    "locator": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 2000,
+                                      "pattern": "\\S"
+                                    },
+                                    "readAt": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 10,
+                                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                                    },
+                                    "documentRevision": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 512,
+                                          "pattern": "\\S"
+                                        },
+                                        { "type": "null" }
+                                      ]
+                                    },
+                                    "sha256": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 64,
+                                          "pattern": "^[a-f0-9]{64}$"
+                                        },
+                                        { "type": "null" }
+                                      ]
+                                    }
+                                  }
+                                },
+                                { "type": "null" }
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "kind",
+                            "id",
+                            "subject",
+                            "assertion",
+                            "observedAt",
+                            "source",
+                            "reason"
+                          ],
+                          "properties": {
+                            "kind": { "type": "string", "const": "record-temperature-claim" },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "subject": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "versionId"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "type-version" },
+                                    "versionId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "item", "configurationRevision"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "installed" },
+                                    "item": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "additionalProperties": false,
+                                          "required": ["kind", "id"],
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "storage" },
+                                            "id": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 512,
+                                              "pattern": "\\S"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "additionalProperties": false,
+                                          "required": ["kind", "id"],
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "vessel" },
+                                            "id": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 1024,
+                                              "pattern": "\\S"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    "configurationRevision": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "assertion": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "range"],
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "specified-setpoint-range"
+                                    },
+                                    "range": {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": ["minimum", "maximum"],
+                                      "properties": {
+                                        "minimum": {
+                                          "type": "object",
+                                          "additionalProperties": false,
+                                          "required": ["value", "unit"],
+                                          "properties": {
+                                            "value": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 128,
+                                              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$(?![\\s\\S])"
+                                            },
+                                            "unit": { "type": "string", "const": "C" }
+                                          }
+                                        },
+                                        "maximum": {
+                                          "type": "object",
+                                          "additionalProperties": false,
+                                          "required": ["value", "unit"],
+                                          "properties": {
+                                            "value": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 128,
+                                              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$(?![\\s\\S])"
+                                            },
+                                            "unit": { "type": "string", "const": "C" }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "range", "atSetpoint", "assumptions"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "qualified-envelope" },
+                                    "range": {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": ["minimum", "maximum"],
+                                      "properties": {
+                                        "minimum": {
+                                          "type": "object",
+                                          "additionalProperties": false,
+                                          "required": ["value", "unit"],
+                                          "properties": {
+                                            "value": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 128,
+                                              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$(?![\\s\\S])"
+                                            },
+                                            "unit": { "type": "string", "const": "C" }
+                                          }
+                                        },
+                                        "maximum": {
+                                          "type": "object",
+                                          "additionalProperties": false,
+                                          "required": ["value", "unit"],
+                                          "properties": {
+                                            "value": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 128,
+                                              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$(?![\\s\\S])"
+                                            },
+                                            "unit": { "type": "string", "const": "C" }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "atSetpoint": {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": ["value", "unit"],
+                                      "properties": {
+                                        "value": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 128,
+                                          "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$(?![\\s\\S])"
+                                        },
+                                        "unit": { "type": "string", "const": "C" }
+                                      }
+                                    },
+                                    "assumptions": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 2000,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "kind",
+                                    "range",
+                                    "atSetpoint",
+                                    "assumptions",
+                                    "scope"
+                                  ],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "qualified-envelope" },
+                                    "range": {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": ["minimum", "maximum"],
+                                      "properties": {
+                                        "minimum": {
+                                          "type": "object",
+                                          "additionalProperties": false,
+                                          "required": ["value", "unit"],
+                                          "properties": {
+                                            "value": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 128,
+                                              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$(?![\\s\\S])"
+                                            },
+                                            "unit": { "type": "string", "const": "C" }
+                                          }
+                                        },
+                                        "maximum": {
+                                          "type": "object",
+                                          "additionalProperties": false,
+                                          "required": ["value", "unit"],
+                                          "properties": {
+                                            "value": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 128,
+                                              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$(?![\\s\\S])"
+                                            },
+                                            "unit": { "type": "string", "const": "C" }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "atSetpoint": {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": ["value", "unit"],
+                                      "properties": {
+                                        "value": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 128,
+                                          "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$(?![\\s\\S])"
+                                        },
+                                        "unit": { "type": "string", "const": "C" }
+                                      }
+                                    },
+                                    "assumptions": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 2000,
+                                      "pattern": "\\S"
+                                    },
+                                    "scope": {
+                                      "type": "string",
+                                      "const": "physical-and-thermal-arrangement"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "observedAt": {
+                              "anyOf": [
+                                { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                                { "type": "null" }
+                              ]
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "url",
+                                    "title",
+                                    "locator",
+                                    "readAt",
+                                    "documentRevision",
+                                    "sha256"
+                                  ],
+                                  "properties": {
+                                    "url": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 4000,
+                                      "pattern": "^https?://"
+                                    },
+                                    "title": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    },
+                                    "locator": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 2000,
+                                      "pattern": "\\S"
+                                    },
+                                    "readAt": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 10,
+                                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                                    },
+                                    "documentRevision": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 512,
+                                          "pattern": "\\S"
+                                        },
+                                        { "type": "null" }
+                                      ]
+                                    },
+                                    "sha256": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 64,
+                                          "pattern": "^[a-f0-9]{64}$"
+                                        },
+                                        { "type": "null" }
+                                      ]
+                                    }
+                                  }
+                                },
+                                { "type": "null" }
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "claimId", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "withdraw-temperature-claim" },
+                            "claimId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "pattern": "\\S"
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "item", "value", "observedAt", "source", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "record-equipment-setpoint" },
+                            "item": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "storage" },
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "vessel" },
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 1024,
+                                      "pattern": "\\S"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "value": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "unknown" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "temperature"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "known" },
+                                    "temperature": {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": ["value", "unit"],
+                                      "properties": {
+                                        "value": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 128,
+                                          "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$(?![\\s\\S])"
+                                        },
+                                        "unit": { "type": "string", "const": "C" }
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "observedAt": {
+                              "anyOf": [
+                                { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                                { "type": "null" }
+                              ]
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "url",
+                                    "title",
+                                    "locator",
+                                    "readAt",
+                                    "documentRevision",
+                                    "sha256"
+                                  ],
+                                  "properties": {
+                                    "url": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 4000,
+                                      "pattern": "^https?://"
+                                    },
+                                    "title": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    },
+                                    "locator": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 2000,
+                                      "pattern": "\\S"
+                                    },
+                                    "readAt": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 10,
+                                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                                    },
+                                    "documentRevision": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 512,
+                                          "pattern": "\\S"
+                                        },
+                                        { "type": "null" }
+                                      ]
+                                    },
+                                    "sha256": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 64,
+                                          "pattern": "^[a-f0-9]{64}$"
+                                        },
+                                        { "type": "null" }
+                                      ]
+                                    }
+                                  }
+                                },
+                                { "type": "null" }
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["kind", "target", "value", "observedAt", "source", "reason"],
+                          "properties": {
+                            "kind": { "type": "string", "const": "record-storage-requirement" },
+                            "target": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["kind", "id"],
+                              "properties": {
+                                "kind": {
+                                  "oneOf": [
+                                    { "type": "string", "const": "stock" },
+                                    { "type": "string", "const": "lot" }
+                                  ]
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 512,
+                                  "pattern": "\\S"
+                                }
+                              }
+                            },
+                            "value": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "inherit" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind"],
+                                  "properties": { "kind": { "type": "string", "const": "unknown" } }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": ["kind", "range"],
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "specified" },
+                                    "range": {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "required": ["minimum", "maximum"],
+                                      "properties": {
+                                        "minimum": {
+                                          "type": "object",
+                                          "additionalProperties": false,
+                                          "required": ["value", "unit"],
+                                          "properties": {
+                                            "value": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 128,
+                                              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$(?![\\s\\S])"
+                                            },
+                                            "unit": { "type": "string", "const": "C" }
+                                          }
+                                        },
+                                        "maximum": {
+                                          "type": "object",
+                                          "additionalProperties": false,
+                                          "required": ["value", "unit"],
+                                          "properties": {
+                                            "value": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 128,
+                                              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$(?![\\s\\S])"
+                                            },
+                                            "unit": { "type": "string", "const": "C" }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "observedAt": {
+                              "anyOf": [
+                                { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                                { "type": "null" }
+                              ]
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "url",
+                                    "title",
+                                    "locator",
+                                    "readAt",
+                                    "documentRevision",
+                                    "sha256"
+                                  ],
+                                  "properties": {
+                                    "url": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 4000,
+                                      "pattern": "^https?://"
+                                    },
+                                    "title": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 512,
+                                      "pattern": "\\S"
+                                    },
+                                    "locator": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 2000,
+                                      "pattern": "\\S"
+                                    },
+                                    "readAt": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 10,
+                                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                                    },
+                                    "documentRevision": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 512,
+                                          "pattern": "\\S"
+                                        },
+                                        { "type": "null" }
+                                      ]
+                                    },
+                                    "sha256": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 64,
+                                          "pattern": "^[a-f0-9]{64}$"
+                                        },
+                                        { "type": "null" }
+                                      ]
+                                    }
+                                  }
+                                },
+                                { "type": "null" }
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000,
+                              "pattern": "\\S"
+                            }
+                          }
+                        },
                         {
                           "type": "object",
                           "additionalProperties": false,
@@ -52512,6 +53347,16 @@
                 "type": "object",
                 "properties": {
                   "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                  "kind": { "type": "string", "const": "storage-conditions" },
+                  "conditions": { "$ref": "#/properties/result/anyOf/0/properties/entries/items" }
+                },
+                "required": ["ok", "kind", "conditions"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
                   "kind": { "type": "string", "const": "projects" },
                   "projects": {
                     "type": "array",
@@ -52604,7 +53449,7 @@
                       "status": { "type": "string", "const": "committed" },
                       "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
                       "operationId": {
-                        "$ref": "#/properties/result/anyOf/8/properties/execution/properties/inventoryId"
+                        "$ref": "#/properties/result/anyOf/9/properties/execution/properties/inventoryId"
                       },
                       "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
                       "actor": { "type": "string", "minLength": 1, "maxLength": 1024 },
@@ -52649,7 +53494,7 @@
                             "properties": {
                               "kind": { "type": "string", "const": "local-profile" },
                               "profileKey": {
-                                "$ref": "#/properties/result/anyOf/8/properties/execution/properties/context/properties/principal/anyOf/0/properties/profileKey"
+                                "$ref": "#/properties/result/anyOf/9/properties/execution/properties/context/properties/principal/anyOf/0/properties/profileKey"
                               }
                             },
                             "required": ["kind", "profileKey"],
@@ -52682,7 +53527,7 @@
                   "kind": { "type": "string", "const": "operation" },
                   "receipt": {
                     "anyOf": [
-                      { "$ref": "#/properties/result/anyOf/8/properties/execution" },
+                      { "$ref": "#/properties/result/anyOf/9/properties/execution" },
                       { "type": "null" }
                     ]
                   }
@@ -52703,7 +53548,7 @@
                         "request": {
                           "$ref": "#/properties/result/anyOf/0/properties/entries/items"
                         },
-                        "receipt": { "$ref": "#/properties/result/anyOf/8/properties/execution" }
+                        "receipt": { "$ref": "#/properties/result/anyOf/9/properties/execution" }
                       },
                       "required": ["request", "receipt"],
                       "additionalProperties": false

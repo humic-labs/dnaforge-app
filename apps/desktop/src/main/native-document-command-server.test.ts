@@ -16,6 +16,7 @@ import {
   createInventoryState,
   inventoryEquipmentCatalog,
   inventoryEquipmentCatalogUpdatePreview,
+  inventoryStorageConditionsProjection,
 } from '@waypoint/domain-services';
 
 const servers: { close(): Promise<void> }[] = [];
@@ -130,6 +131,16 @@ async function fixture(
       })
     ),
     prepareLabel: vi.fn<NativeInventoryOwner['prepareLabel']>(),
+    storageConditions: vi.fn<NativeInventoryOwner['storageConditions']>(() => ({
+      ...inventoryStorageConditionsProjection(createInventoryState(), {
+        asOf: 1,
+        freshnessMaxAgeMs: null,
+      }),
+      projectId: 'project-1',
+      inventoryId: 'inventory-1',
+      revision: 0,
+      principal: { kind: 'local-profile', profileKey: 'a'.repeat(64) },
+    })),
     materials: vi.fn(() => ({ items: [], nextCursor: null })),
   };
   const server = await startNativeDocumentCommandServer({
@@ -249,6 +260,11 @@ it.each([
   ],
   ['inventory.materials', { project: '/workspace', query: '' }, ['read-workspace']],
   [
+    'inventory.storage-conditions',
+    { project: '/workspace', inventoryId: 'inventory-1', freshnessMaxAgeMs: null },
+    ['read-workspace'],
+  ],
+  [
     'inventory.resolve-item-code',
     {
       project: '/workspace',
@@ -285,6 +301,51 @@ it.each([
     expect(f.inventory.resolveItemCode).toHaveBeenCalledExactlyOnceWith(request, {
       principal: { kind: 'agent', identityId: 'agent-1' },
     });
+  if (command === 'inventory.storage-conditions')
+    expect(f.inventory.storageConditions).toHaveBeenCalledExactlyOnceWith(request, {
+      principal: { kind: 'agent', identityId: 'agent-1' },
+    });
+});
+
+it('routes conditions with a required explicit freshness policy and a current read-only grant', async () => {
+  const authorizeInventoryAgent = vi.fn(async () => {});
+  const f = await fixture({ authorizeInventoryAgent });
+  const agent = { ...inventoryAgent, capabilities: ['read-workspace'] };
+  const input = {
+    ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
+    command: 'inventory.storage-conditions',
+    request: { project: '/workspace', inventoryId: 'inventory-1', freshnessMaxAgeMs: null },
+    agent,
+  };
+  const response = await f.call(input);
+  expect(await response.json()).toMatchObject({
+    result: {
+      kind: 'storage-conditions',
+      conditions: { revision: 0, asOf: 1, freshnessMaxAgeMs: null, equipment: {}, stocks: {} },
+    },
+  });
+  expect(authorizeInventoryAgent).toHaveBeenCalledExactlyOnceWith(agent, ['read-workspace']);
+  expect(f.inventory.storageConditions).toHaveBeenCalledExactlyOnceWith(input.request, {
+    principal: { kind: 'agent', identityId: 'agent-1' },
+  });
+  const { freshnessMaxAgeMs: _policy, ...missingPolicy } = input.request;
+  for (const request of [
+    missingPolicy,
+    { ...input.request, freshnessMaxAgeMs: -1 },
+    { ...input.request, freshnessMaxAgeMs: 0.5 },
+    { ...input.request, freshnessMaxAgeMs: Number.MAX_SAFE_INTEGER + 1 },
+    { ...input.request, freshnessMaxAgeMs: '100' },
+    { ...input.request, asOf: 0 },
+    { ...input.request, principal: { kind: 'agent', identityId: 'other' } },
+  ])
+    expect((await f.call({ ...input, request })).status).toBe(400);
+  authorizeInventoryAgent.mockRejectedValueOnce(new Error('Grant was revoked.'));
+  expect(await (await f.call(input)).json()).toMatchObject({
+    result: { ok: false, code: 'INVENTORY_CAPABILITY_DENIED', stateChanged: false },
+  });
+  expect(f.inventory.storageConditions).toHaveBeenCalledTimes(1);
+  expect(f.inventory.execute).not.toHaveBeenCalled();
 });
 
 it('routes catalog previews with read-only grants and preserves known no-write refusals', async () => {

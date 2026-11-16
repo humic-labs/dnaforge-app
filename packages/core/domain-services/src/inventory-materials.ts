@@ -29,6 +29,7 @@ import {
 } from './inventory-volume';
 
 export interface InventoryMaterialDraft {
+  readonly temperatureClaims: InventoryState['temperatureClaims'];
   readonly itemCodes: InventoryState['itemCodes'];
   readonly typeVersions: InventoryState['typeVersions'];
   readonly recipeVersions: InventoryState['recipeVersions'];
@@ -108,6 +109,7 @@ function hasId(state: InventoryMaterialDraft, id: string): boolean {
     state.recipeVersions,
     state.fitEvidence,
     state.itemCodes,
+    state.temperatureClaims,
   ].some((rows) => Object.hasOwn(rows, id));
 }
 

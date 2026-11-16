@@ -8,88 +8,12 @@ import type {
 } from './inventory-controller';
 import type { InventoryItem } from './inventory-view';
 import { InventoryPhysicalDialog } from './InventoryPhysicalDialog';
+import { InventoryPhysicalSubjectFields } from './InventoryPhysicalSubjectFields';
 import {
   PhysicalField,
   InventorySourceFields,
   inventorySourceDraft,
 } from './InventoryPhysicalControls';
-
-function FitSubjectFields({
-  data,
-  label,
-  value,
-  onChange,
-  parent = false,
-}: {
-  data: InventoryData;
-  label: string;
-  value: InventoryFitSubject | null;
-  onChange(value: InventoryFitSubject | null): void;
-  parent?: boolean;
-}) {
-  const [scope, setScope] = useState<'installed' | 'type-version'>(value?.kind ?? 'installed');
-  const physical = data.availability?.physical;
-  const installed = Object.values(physical?.items ?? {}).filter(
-    (view) => !parent || view.item.kind === 'storage'
-  );
-  const types =
-    physical?.typeVersions.filter((type) => !parent || type.definition.kind === 'storage') ?? [];
-  return (
-    <div className="space-y-2">
-      <PhysicalField label={`${label} scope`}>
-        <Select
-          ariaLabel={`${label} scope`}
-          value={scope}
-          options={[
-            { value: 'installed', label: 'Installed item' },
-            { value: 'type-version', label: 'Type version' },
-          ]}
-          onValueChange={(next) => {
-            setScope(next as 'installed' | 'type-version');
-            onChange(null);
-          }}
-        />
-      </PhysicalField>
-      <PhysicalField label={label}>
-        <Select
-          ariaLabel={label}
-          value={value ? (value.kind === 'installed' ? value.item.id : value.versionId) : ''}
-          options={[
-            { value: '', label: `Choose ${label.toLowerCase()}` },
-            ...(scope === 'installed'
-              ? installed.map((view) => ({
-                  value: view.item.id,
-                  label:
-                    view.item.kind === 'storage'
-                      ? data.state.storage[view.item.id].name
-                      : data.state.vessels[view.item.id].name,
-                }))
-              : types.map((type) => ({
-                  value: type.id,
-                  label: `${type.name} · v${type.version}`,
-                }))),
-          ]}
-          onValueChange={(id) => {
-            const view = physical?.items[id];
-            onChange(
-              !id
-                ? null
-                : scope === 'type-version'
-                  ? { kind: 'type-version', versionId: id }
-                  : view
-                    ? {
-                        kind: 'installed',
-                        item: view.item,
-                        configurationRevision: view.configuration.revision,
-                      }
-                    : null
-            );
-          }}
-        />
-      </PhysicalField>
-    </div>
-  );
-}
 
 export function InventoryFitEvidenceForm({
   data,
@@ -193,7 +117,7 @@ export function InventoryFitEvidenceForm({
         Evidence applies to the selected item configurations or type versions and orientations. It
         does not change physical placement.
       </Notice>
-      <FitSubjectFields
+      <InventoryPhysicalSubjectFields
         data={data}
         label="Parent"
         value={parent}
@@ -203,7 +127,7 @@ export function InventoryFitEvidenceForm({
           setPositionId('__choose__');
         }}
       />
-      <FitSubjectFields
+      <InventoryPhysicalSubjectFields
         data={data}
         label="Child"
         value={child}

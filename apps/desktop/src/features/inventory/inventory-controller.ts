@@ -18,6 +18,7 @@ import type {
   InventoryProject,
   InventoryItemCodeLookupSnapshot,
   InventoryPrepareLabelRequest,
+  InventoryStorageConditionsSnapshot,
 } from '../../shared/inventory-client';
 import { InventoryLabelSession, type InventoryLabelOutputPort } from './inventory-label-session';
 
@@ -26,6 +27,7 @@ export interface InventoryData {
   state: InventoryState;
   history: readonly NativeInventoryHistoryEntry[];
   availability: InventoryAvailabilitySnapshot | null;
+  storageConditions: InventoryStorageConditionsSnapshot;
 }
 
 export interface InventoryAttempt {
@@ -169,6 +171,7 @@ export class InventoryController {
   private itemCodeGeneration = 0;
   private readonly catalogCache = new Map<string, readonly InventoryEquipmentCatalogEntry[]>();
   private readonly labelSessions = new Map<string, InventoryLabelSession>();
+  private readonly storageFreshnessPolicies = new Map<string, number | null>();
   private opening: Promise<void> | undefined;
   private unsubscribe: (() => void) | undefined;
 
@@ -327,28 +330,35 @@ export class InventoryController {
 
   private async read(project: InventoryProject): Promise<InventoryData> {
     const request = { project: project.projectId, inventoryId: project.defaultInventoryId };
+    const freshnessMaxAgeMs =
+      this.storageFreshnessPolicies.get(scopeKey(request.project, request.inventoryId)) ?? null;
     let data: InventoryData;
     for (let attempt = 0; ; attempt += 1) {
       const inspected = await this.client.inspect(request);
       const state = inspected ?? createInventoryState();
-      const [history, availability] = await Promise.all([
+      const [history, availability, storageConditions] = await Promise.all([
         this.client.history({
           ...request,
           afterRevision: Math.max(0, state.revision - 100),
           limit: 100,
         }),
         this.client.availability(request),
+        this.client.storageConditions({ ...request, freshnessMaxAgeMs }),
       ]);
       const observed =
         this.observedRevision.get(scopeKey(request.project, request.inventoryId)) ?? 0;
       if (
         (inspected && !availability) ||
         (availability && availability.revision !== state.revision) ||
+        storageConditions.revision !== state.revision ||
+        storageConditions.projectId !== request.project ||
+        storageConditions.inventoryId !== request.inventoryId ||
+        storageConditions.freshnessMaxAgeMs !== freshnessMaxAgeMs ||
         state.revision < observed
       ) {
         if (attempt < 2) continue;
         throw new Error(
-          'Inventory and availability changed while being read. Refresh to try again.'
+          'Inventory and its projections changed while being read. Refresh to try again.'
         );
       }
       data = {
@@ -358,9 +368,28 @@ export class InventoryController {
         state,
         history: history.filter((entry) => entry.receipt.revision <= state.revision),
         availability,
+        storageConditions,
       };
       return data;
     }
+  }
+
+  async setStorageFreshnessPolicy(freshnessMaxAgeMs: number | null): Promise<void> {
+    if (
+      freshnessMaxAgeMs !== null &&
+      (!Number.isSafeInteger(freshnessMaxAgeMs) || freshnessMaxAgeMs < 0)
+    )
+      throw new TypeError(
+        'Observation age policy must be null or a nonnegative whole number of milliseconds.'
+      );
+    const status = this.snapshot.status;
+    if (status.kind !== 'ready') return;
+    const project = status.data.project;
+    this.storageFreshnessPolicies.set(
+      scopeKey(project.projectId, project.defaultInventoryId),
+      freshnessMaxAgeMs
+    );
+    await this.refresh();
   }
 
   private ready(data: InventoryData): void {

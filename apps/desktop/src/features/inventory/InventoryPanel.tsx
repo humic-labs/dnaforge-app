@@ -36,6 +36,9 @@ import { InventoryPhysicalWorkspace } from './InventoryPhysicalWorkspace';
 import { InventoryItemCodes } from './InventoryItemCodes';
 import { InventoryItemCodeForm } from './InventoryItemCodeForm';
 import { InventoryLabelForm } from './InventoryLabelForm';
+import { InventoryStorageConditions } from './InventoryStorageConditions';
+import { InventoryTemperatureForm } from './InventoryTemperatureForm';
+import { isInventoryTemperatureDialog } from './inventory-temperature-view';
 import { isInventoryItemCodeDialog } from './inventory-item-code-view';
 import { isInventoryPhysicalDialog } from './inventory-physical-view';
 import {
@@ -717,6 +720,15 @@ export function InventoryPanel() {
                     editable={editable}
                     onDialog={setDialog}
                   />
+                  <InventoryStorageConditions
+                    key={`${data.project.projectId}:${selectedLocation.id}`}
+                    data={data}
+                    item={{ kind: 'storage', id: selectedLocation.id }}
+                    editable={editable}
+                    controller={controller}
+                    onDialog={setDialog}
+                    onOpenItem={openItem}
+                  />
                   <InventoryItemCodes
                     data={data}
                     item={{ kind: 'storage', id: selectedLocation.id }}
@@ -1059,6 +1071,16 @@ export function InventoryPanel() {
                         editable={editable}
                         onDialog={setDialog}
                       />
+                      <InventoryStorageConditions
+                        key={`${data.project.projectId}:${selectedStock.id}`}
+                        data={data}
+                        item={{ kind: 'vessel', id: selectedVessel.id }}
+                        stockId={selectedStock.id}
+                        editable={editable}
+                        controller={controller}
+                        onDialog={setDialog}
+                        onOpenItem={openItem}
+                      />
                       <InventoryItemCodes
                         data={data}
                         item={{ kind: 'vessel', id: selectedVessel.id }}
@@ -1305,6 +1327,15 @@ export function InventoryPanel() {
                     editable={editable}
                     onDialog={setDialog}
                   />
+                  <InventoryStorageConditions
+                    key={`${data.project.projectId}:${drawer.item.id}`}
+                    data={data}
+                    item={drawer.item}
+                    editable={editable}
+                    controller={controller}
+                    onDialog={setDialog}
+                    onOpenItem={openItem}
+                  />
                   <InventoryItemCodes
                     data={data}
                     item={drawer.item}
@@ -1356,7 +1387,16 @@ export function InventoryPanel() {
         </div>
       )}
       {dialog.kind !== 'none' && data ? (
-        dialog.kind === 'item-label' ? (
+        isInventoryTemperatureDialog(dialog) ? (
+          <InventoryTemperatureForm
+            key={`${data.project.projectId}:${dialog.kind}:${'item' in dialog ? dialog.item.id : 'target' in dialog ? `${dialog.target.kind}:${dialog.target.id}` : dialog.claimId}:${'assertion' in dialog ? dialog.assertion : ''}`}
+            dialog={dialog}
+            data={data}
+            status={status}
+            controller={controller}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : dialog.kind === 'item-label' ? (
           <InventoryLabelForm
             key={`${data.project.projectId}:${data.project.defaultInventoryId}:${dialog.codeId}`}
             codeId={dialog.codeId}

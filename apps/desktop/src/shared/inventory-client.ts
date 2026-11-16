@@ -10,6 +10,7 @@ import type {
   InventoryPhysicalItemProjection,
   InventoryPrincipal,
   InventoryState,
+  InventoryStorageConditionsProjection,
   InventoryStock,
   InventoryStockAvailability,
   InventoryStorage,
@@ -24,6 +25,7 @@ import type {
   InventoryPrepareLabelRequest,
   InventoryReadRequest,
   InventoryResolveItemCodeRequest,
+  InventoryStorageConditionsRequest,
   NativeInventoryExecution,
   NativeInventoryHistoryEntry,
   NativeInventoryReceipt,
@@ -73,6 +75,13 @@ export interface InventoryAvailabilitySnapshot extends InventoryAvailability {
   readonly principal: InventoryPrincipal;
 }
 
+export interface InventoryStorageConditionsSnapshot extends InventoryStorageConditionsProjection {
+  readonly projectId: string;
+  readonly inventoryId: string;
+  readonly revision: number;
+  readonly principal: InventoryPrincipal;
+}
+
 export interface InventoryItemCodeTargetSnapshot {
   readonly item: InventoryPhysicalItem;
   readonly record: InventoryStorage | InventoryVessel;
@@ -116,6 +125,9 @@ export interface InventoryClient {
   ): Promise<InventoryEquipmentCatalogUpdatePreview>;
   resolveItemCode(input: InventoryResolveItemCodeRequest): Promise<InventoryItemCodeLookupSnapshot>;
   prepareLabel(input: InventoryPrepareLabelRequest): Promise<InventoryLabelArtifact>;
+  storageConditions(
+    input: InventoryStorageConditionsRequest
+  ): Promise<InventoryStorageConditionsSnapshot>;
   materials(input: InventoryMaterialQuery): Promise<InventoryMaterialPage>;
   inspect(input: InventoryReadRequest): Promise<InventoryState | null>;
   availability(input: InventoryReadRequest): Promise<InventoryAvailabilitySnapshot | null>;
@@ -135,6 +147,7 @@ export function unavailableInventoryClient(): InventoryClient {
     catalogUpdatePreview: unavailable,
     resolveItemCode: unavailable,
     prepareLabel: unavailable,
+    storageConditions: unavailable,
     materials: unavailable,
     inspect: unavailable,
     availability: unavailable,
@@ -159,6 +172,7 @@ export type {
   InventoryPrepareLabelRequest,
   InventoryReadRequest,
   InventoryResolveItemCodeRequest,
+  InventoryStorageConditionsRequest,
   NativeInventoryExecution,
   NativeInventoryHistoryEntry,
   NativeInventoryReceipt,

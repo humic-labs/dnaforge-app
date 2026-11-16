@@ -9,6 +9,7 @@ import {
   inventoryCurrentLocationPath,
   inventoryItemContains,
   inventoryResolveItemCode,
+  inventoryStorageConditionsProjection,
   parseInventoryState,
   type InventoryPrincipal,
   type InventoryEquipmentCatalogEntry,
@@ -25,6 +26,7 @@ import {
   inventoryMaterialQuerySchema,
   inventoryOperationRequestSchema,
   inventoryReadRequestSchema,
+  inventoryStorageConditionsRequestSchema,
   inventoryResolveItemCodeRequestSchema,
   inventoryPrepareLabelRequestSchema,
   inventoryReceiptSchema,
@@ -44,6 +46,7 @@ import type {
   InventoryItemCodeLookupSnapshot,
   InventoryItemCodeTargetSnapshot,
   InventoryLabelArtifact,
+  InventoryStorageConditionsSnapshot,
 } from '../shared/inventory-client';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import type { RegisteredProject, RegisteredProjectAuthority } from './registered-project-authority';
@@ -249,6 +252,25 @@ export function createNativeInventoryOwner(options: {
         row ? stateFromRow(row) : createInventoryState(),
         entry
       );
+    },
+
+    storageConditions(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventoryStorageConditionsSnapshot {
+      const request = inventoryStorageConditionsRequestSchema.parse(input);
+      const { project, row } = read({ project: request.project, inventoryId: request.inventoryId });
+      const state = row ? stateFromRow(row) : createInventoryState();
+      return structuredClone({
+        ...inventoryStorageConditionsProjection(state, {
+          asOf: observationTime(state),
+          freshnessMaxAgeMs: request.freshnessMaxAgeMs,
+        }),
+        projectId: project.projectId,
+        inventoryId: request.inventoryId,
+        revision: state.revision,
+        principal: principal(invocation),
+      });
     },
 
     resolveItemCode(

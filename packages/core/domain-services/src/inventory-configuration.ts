@@ -72,6 +72,7 @@ export function inventoryRecordIdExists(
     | 'recipeVersions'
     | 'fitEvidence'
     | 'itemCodes'
+    | 'temperatureClaims'
   >,
   id: string
 ): boolean {
@@ -85,6 +86,7 @@ export function inventoryRecordIdExists(
     state.recipeVersions,
     state.fitEvidence,
     state.itemCodes,
+    state.temperatureClaims,
   ].some((rows) => Object.hasOwn(rows, id));
 }
 export function inventoryEffectiveGeometry(

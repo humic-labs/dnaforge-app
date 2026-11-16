@@ -6,13 +6,21 @@ import type {
   InventorySourceReference,
 } from './inventory-configuration-types';
 import type { InventoryPhysicalItem, InventoryState } from './inventory-types';
+import type { InventoryTemperatureCommand } from './inventory-temperature-types';
 import type { MetadataFieldDefinition } from './metadata-fields';
 import { parseInventoryCommand } from './inventory-validation';
 import { normalizeInventoryGeometry } from './inventory-geometry';
+import { normalizeInventoryTemperatureRange } from './inventory-temperature';
 
 export type InventoryCatalogDefinition = Extract<
-  InventoryConfigurationCommand,
-  { kind: 'define-physical-type' | 'define-equipment-recipe' | 'record-fit-evidence' }
+  InventoryConfigurationCommand | InventoryTemperatureCommand,
+  {
+    kind:
+      | 'define-physical-type'
+      | 'define-equipment-recipe'
+      | 'record-fit-evidence'
+      | 'record-temperature-claim';
+  }
 >;
 
 export interface InventoryEquipmentCatalogEntry {
@@ -69,6 +77,29 @@ const eppendorfSource = (locator: string): InventorySourceReference => ({
   readAt: '2026-11-14',
   documentRevision: 'AN.02011.020/EN6/ESE',
   sha256: 'bd1bcfb77da253ee9132aec0e036dc05410d208510e3189757337a92e7229c52',
+});
+const eppendorfTemperatureSource = (model: string): InventorySourceReference => ({
+  url:
+    model === 'F740h'
+      ? 'https://www.eppendorf.com/product-media/doc/en/227509/Freezers_Operating-manual_CryoCube-F740h.pdf'
+      : 'https://www.eppendorf.com/product-media/doc/en/230895/Freezers_Operating-manual_CryoCube-F740hi-hiw.pdf',
+  title:
+    model === 'F740h'
+      ? 'CryoCube F740h Operating Manual'
+      : 'CryoCube F740hi, F740hiw Operating Manual',
+  locator:
+    model === 'F740h'
+      ? 'Page 67, section 10.7.1, setting range −50 °C to −86 °C; version overview page 8.'
+      : 'Page 110, section 12.8.1, setting range −50 °C to −86 °C; version overview page 10.',
+  readAt: '2026-11-16',
+  documentRevision:
+    model === 'F740h'
+      ? 'Version 04, August 2020'
+      : 'Version 03, August 2020; software version 2.1.5.202',
+  sha256:
+    model === 'F740h'
+      ? '1394853034f52e1114517ad8857848d8ac7ac58656647d1eef59c489a8be39ae'
+      : '4d3725868e16d4ab1eaecf0f2cb917bc0b7b7c48a635e7c0206ee5fd12abeb9e',
 });
 
 const cabinetFields: readonly MetadataFieldDefinition[] = [
@@ -150,11 +181,36 @@ function supportedFit(
   };
 }
 
+function specifiedTemperature(
+  typeVersionId: string,
+  source: InventorySourceReference
+): Extract<InventoryCatalogDefinition, { kind: 'record-temperature-claim' }> {
+  return {
+    kind: 'record-temperature-claim',
+    id: `${typeVersionId}:specified-temperature:v1`,
+    subject: { kind: 'type-version', versionId: typeVersionId },
+    assertion: {
+      kind: 'specified-setpoint-range',
+      range: {
+        minimum: { value: '-86', unit: 'C' },
+        maximum: { value: '-50', unit: 'C' },
+      },
+    },
+    observedAt: null,
+    source,
+    reason:
+      'Manufacturer-specified possible setpoints for this model. No installed target, measured chamber temperature or local qualification is asserted.',
+  };
+}
+
 function thermoEntries(): InventoryEquipmentCatalogEntry[] {
   const rackSource = thermoSource(
     'Page 6, nominal box classes, rack dimensions and model-specific counts.'
   );
   const cabinetSource = thermoSource('Page 3, dimensions and handle/hinge width allowance.');
+  const temperatureSource = thermoSource(
+    'Page 3, TSX Series Upright Freezers heading: −50 °C to −86 °C, above the TSX40086/50086/60086/70086 model table.'
+  );
   const racks = [
     { sku: '920090', count: 25, label: '2-inch (source nominal label 5.08 cm)' },
     { sku: '920091', count: 15, label: '3-inch (source nominal label 7.62 cm)' },
@@ -229,7 +285,7 @@ function thermoEntries(): InventoryEquipmentCatalogEntry[] {
         name: recipe.name,
         model,
         description: recipe.description,
-        sources: recipe.sources,
+        sources: [...recipe.sources, temperatureSource],
         recipeVersionId: recipe.id,
         nominalBoxClass: rack.label,
         boxPositions,
@@ -240,6 +296,7 @@ function thermoEntries(): InventoryEquipmentCatalogEntry[] {
           ...slots.map((slot) =>
             supportedFit(`${id}:fit:${slot}:v1`, root.id, rack.type.id, slot, rackSource)
           ),
+          specifiedTemperature(root.id, temperatureSource),
         ],
       };
     });
@@ -254,6 +311,7 @@ function eppendorfEntries(): InventoryEquipmentCatalogEntry[] {
   return ['F740h', 'F740hi', 'F740hiw'].flatMap((modelName) =>
     [3, 5].flatMap((shelves) =>
       ['drawer', 'side-access'].map((access) => {
+        const temperatureSource = eppendorfTemperatureSource(modelName);
         const drawer = access === 'drawer';
         const stem = `catalog:eppendorf:${modelName.toLowerCase()}:${shelves}c`;
         const slots = positions(shelves, 6);
@@ -348,7 +406,7 @@ function eppendorfEntries(): InventoryEquipmentCatalogEntry[] {
           name: recipe.name,
           model,
           description: recipe.description,
-          sources: recipe.sources,
+          sources: [...recipe.sources, temperatureSource],
           recipeVersionId: recipe.id,
           nominalBoxClass: '53 mm (source nominal two-inch label)',
           boxPositions,
@@ -359,6 +417,7 @@ function eppendorfEntries(): InventoryEquipmentCatalogEntry[] {
             ...slots.map((slot) =>
               supportedFit(`${id}:fit:${slot}:v1`, root.id, selectedRack(slot).id, slot, rackSource)
             ),
+            specifiedTemperature(root.id, temperatureSource),
           ],
         };
       })
@@ -380,7 +439,7 @@ function canonical(value: unknown): string {
 
 type CatalogDefinitionState = Pick<
   InventoryState,
-  'typeVersions' | 'recipeVersions' | 'fitEvidence'
+  'typeVersions' | 'recipeVersions' | 'fitEvidence' | 'temperatureClaims'
 >;
 
 function normalizedCatalogDefinition(definition: InventoryCatalogDefinition) {
@@ -392,7 +451,15 @@ function normalizedCatalogDefinition(definition: InventoryCatalogDefinition) {
           geometry: normalizeInventoryGeometry(definition.definition.geometry),
         },
       }
-    : definition;
+    : definition.kind === 'record-temperature-claim'
+      ? {
+          ...definition,
+          assertion: {
+            ...definition.assertion,
+            range: normalizeInventoryTemperatureRange(definition.assertion.range),
+          },
+        }
+      : definition;
 }
 
 function compareCatalogDefinition(
@@ -403,22 +470,35 @@ function compareCatalogDefinition(
   if (
     parsed.kind !== 'define-physical-type' &&
     parsed.kind !== 'define-equipment-recipe' &&
-    parsed.kind !== 'record-fit-evidence'
+    parsed.kind !== 'record-fit-evidence' &&
+    parsed.kind !== 'record-temperature-claim'
   )
-    throw new TypeError('Catalog packs may contain only type, recipe and fit definitions.');
+    throw new TypeError('Catalog packs may contain only physical definitions and scoped evidence.');
+  if (
+    parsed.kind === 'record-temperature-claim' &&
+    (parsed.subject.kind !== 'type-version' || parsed.assertion.kind !== 'specified-setpoint-range')
+  )
+    throw new TypeError(
+      'Catalog temperature claims must describe a specified type setpoint range.'
+    );
   const rows =
     parsed.kind === 'define-physical-type'
       ? state.typeVersions
       : parsed.kind === 'define-equipment-recipe'
         ? state.recipeVersions
-        : state.fitEvidence;
+        : parsed.kind === 'record-fit-evidence'
+          ? state.fitEvidence
+          : state.temperatureClaims;
   const existing = rows[parsed.id];
   if (!existing)
     return {
       definition: parsed,
-      status: [state.typeVersions, state.recipeVersions, state.fitEvidence].some((rows) =>
-        Object.hasOwn(rows, parsed.id)
-      )
+      status: [
+        state.typeVersions,
+        state.recipeVersions,
+        state.fitEvidence,
+        state.temperatureClaims,
+      ].some((rows) => Object.hasOwn(rows, parsed.id))
         ? 'conflicting'
         : 'new',
     };
@@ -431,6 +511,13 @@ function compareCatalogDefinition(
     actual.definition = {
       ...definition,
       geometry: normalizeInventoryGeometry(definition.geometry),
+    };
+  }
+  if (parsed.kind === 'record-temperature-claim') {
+    const assertion = actual.assertion as typeof parsed.assertion;
+    actual.assertion = {
+      ...assertion,
+      range: normalizeInventoryTemperatureRange(assertion.range),
     };
   }
   return {
@@ -498,12 +585,17 @@ export function inventoryEquipmentCatalogUpdatePreview(
           ? reference.typeVersionId === parsed.id
           : parsed.kind === 'define-equipment-recipe'
             ? reference.recipeVersionId === parsed.id
-            : [parsed.parent, parsed.child].some(
-                (subject) =>
-                  subject.kind === 'installed' &&
-                  subject.item.kind === reference.item.kind &&
-                  subject.item.id === reference.item.id
-              )
+            : parsed.kind === 'record-temperature-claim'
+              ? parsed.subject.kind === 'type-version'
+                ? reference.typeVersionId === parsed.subject.versionId
+                : parsed.subject.item.kind === reference.item.kind &&
+                  parsed.subject.item.id === reference.item.id
+              : [parsed.parent, parsed.child].some(
+                  (subject) =>
+                    subject.kind === 'installed' &&
+                    subject.item.kind === reference.item.kind &&
+                    subject.item.id === reference.item.id
+                )
       ),
     };
   });

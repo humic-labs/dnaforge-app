@@ -9,6 +9,7 @@ import {
   inventoryCatalogUpdatePreviewRequestSchema,
   inventoryResolveItemCodeRequestSchema,
   inventoryPrepareLabelRequestSchema,
+  inventoryStorageConditionsRequestSchema,
   inventoryReceiptSchema,
 } from '../../../shared/inventory-command';
 import { jsonObjectSchema } from '../../../shared/json-value';
@@ -26,6 +27,9 @@ const plainInput = z.discriminatedUnion('kind', [
     .strict(),
   inventoryResolveItemCodeRequestSchema.extend({ kind: z.literal('resolve-item-code') }).strict(),
   inventoryPrepareLabelRequestSchema.extend({ kind: z.literal('prepare-label') }).strict(),
+  inventoryStorageConditionsRequestSchema
+    .extend({ kind: z.literal('storage-conditions') })
+    .strict(),
   z
     .object({
       kind: z.literal('materials'),
@@ -104,6 +108,7 @@ export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
     .strict(),
   z.object({ ...ok, kind: z.literal('item-code-resolution'), lookup: jsonObjectSchema }).strict(),
   z.object({ ...ok, kind: z.literal('label-artifact'), artifact: jsonObjectSchema }).strict(),
+  z.object({ ...ok, kind: z.literal('storage-conditions'), conditions: jsonObjectSchema }).strict(),
   z
     .object({
       ...ok,
@@ -148,6 +153,7 @@ export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
 ]);
 
 export const INVENTORY_DESCRIPTION =
+  'Read storage-conditions in an explicit project and inventory with required freshnessMaxAgeMs null for no age policy or a nonnegative safe integer in milliseconds. This read returns separate specified capability, operator-reported target and installed qualified-support assessments at one native revision and asOf time. Reported setpoints are not sensor measurements, and a supported temperature assessment is not overall sample suitability. Record the thermal relationship independently with record-thermal-context: inherit uses surroundings, self declares own temperature control, and unknown blocks inheritance. Evidence, withdrawal and reports never change this relationship. New qualified-envelope assertions declare scope physical-and-thermal-arrangement; legacy qualifications with unrecorded thermal scope remain inapplicable. Unknowns, conflicts, source scope and freshness remain explicit. It never changes stock, quality, holds, custody or placement. Record temperature claims, setpoints and stock/lot requirements only through execute with explicit observation time (timestamp or null); trusted recorded time and actor come from the native owner. ' +
   'Use prepare-label with an active exact codeId and mediaProfileId qr-50x30-300dpi or qr-80x50-300dpi to render an immutable existing-code QR SVG artifact. Its symbol contains the exact alias value only; namespace and explicit project/inventory context are required for lookup. The artifact retains full target and binding snapshots, source revision, exact SVG and SHA256. Rendered does not mean independently decoded, saved, printed, attached or physically scanned. Preparation is read-only, grants no access, and refuses retired bindings, disposed targets, unsupported text or layout overflow. Missing custody remains explicit and does not establish location. No file or printer is written. ' +
   'Resolve exact physical item codes with resolve-item-code in an explicit project and inventory. Pass query.namespace as an exact technical namespace or null for all namespaces and query.value as the unchanged code. Case, leading zeros and spaces matter. Invalid, not found, retired and ambiguous are distinct results; never prefer one ambiguous match or fall back to scientific material search. The lookup returns current target facts, custody and stock availability at one revision. Codes grant no access, and URL text is not navigation. Lookup never changes inventory. ' +
   'Use catalog-update-preview with an exact catalogEntryId and inventoryId to classify built-in definitions and inspect source scope and installed references without inventory writes. Any definition conflict blocks applying the entire pack. Apply selected new definitions through execute at the current revision; identical retired definitions remain retired. ' +

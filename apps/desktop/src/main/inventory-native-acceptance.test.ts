@@ -21,6 +21,7 @@ import type {
   InventoryAvailabilitySnapshot,
   InventoryItemCodeLookupSnapshot,
   InventoryLabelArtifact,
+  InventoryStorageConditionsSnapshot,
 } from '../shared/inventory-client';
 
 vi.mock('electron', () => ({
@@ -31,6 +32,10 @@ vi.mock('electron', () => ({
 vi.mock('./config', () => ({ getApiUrl: () => 'http://synthetic-grants.invalid' }));
 
 import { openFileTestDb } from './__tests__/test-db';
+import {
+  runNativeTemperatureJourney,
+  verifyNativeTemperatureReopen,
+} from './__tests__/inventory-temperature-native-journey';
 import {
   runNativeLabelJourney,
   verifyNativeLabelReopen,
@@ -58,6 +63,7 @@ type InventoryNativeCommand =
   | 'inventory.catalog-update-preview'
   | 'inventory.resolve-item-code'
   | 'inventory.prepare-label'
+  | 'inventory.storage-conditions'
   | 'inventory.materials';
 type Server = Awaited<ReturnType<typeof startNativeDocumentCommandServer>>;
 interface NativeResponse<T> {
@@ -263,6 +269,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       'inventory.catalog-update-preview': 'preview',
       'inventory.resolve-item-code': 'lookup',
       'inventory.prepare-label': 'artifact',
+      'inventory.storage-conditions': 'conditions',
       'inventory.materials': 'page',
     };
     expect(wrapped).toHaveProperty(keys[command]);
@@ -2141,6 +2148,53 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     expect(owner.inspect(labelBeforeRestart.scope)).toEqual(labelBeforeRestart.state);
     expect(owner.history(labelBeforeRestart.scope)).toEqual(labelBeforeRestart.history);
     evidence.labelsGrantedRead = { grantedLabel, foreignLabel, labelChangesBeforeRead };
+    const temperatureBeforeRestart = await runNativeTemperatureJourney({
+      scope,
+      projectId: projects[0].projectId,
+      owner,
+      success,
+      loseAcknowledgement,
+    });
+    evidence.temperatureBeforeRestart = temperatureBeforeRestart;
+    const temperatureReadRequest = { ...temperatureBeforeRestart.scope, freshnessMaxAgeMs: null };
+    const temperatureChangesBeforeRead = db.prepare('SELECT total_changes() AS count').get();
+    const grantedTemperature = await success<InventoryStorageConditionsSnapshot>(
+      'current read-only grant inspects temperature facts without writes',
+      'inventory.storage-conditions',
+      temperatureReadRequest,
+      { agent: { identityId: 'synthetic-read-only', capabilities: ['read-workspace'] } }
+    );
+    expect(grantedTemperature).toEqual({
+      ...temperatureBeforeRestart.conditions,
+      principal: { kind: 'agent', identityId: 'synthetic-read-only' },
+    });
+    const foreignTemperature = await call(
+      'deny temperature facts outside captured project scope',
+      'inventory.storage-conditions',
+      temperatureReadRequest,
+      { roots: [otherPath] }
+    );
+    expect(foreignTemperature).toMatchObject({
+      status: 200,
+      body: { ok: true, result: { ok: false, code: 'PROJECT_ACCESS_DENIED', stateChanged: false } },
+    });
+    expect(JSON.stringify(foreignTemperature.body)).not.toContain('temperature-stock');
+    const absentTemperature = await success<InventoryStorageConditionsSnapshot>(
+      'read absent temperature inventory without creating SQLite rows',
+      'inventory.storage-conditions',
+      { ...scope, inventoryId: 'absent-temperature-inventory', freshnessMaxAgeMs: 0 }
+    );
+    expect(absentTemperature).toMatchObject({ revision: 0, equipment: {}, stocks: {} });
+    expect(owner.inspect({ ...scope, inventoryId: 'absent-temperature-inventory' })).toBeNull();
+    expect(db.prepare('SELECT total_changes() AS count').get()).toEqual(
+      temperatureChangesBeforeRead
+    );
+    evidence.temperatureGrantedRead = {
+      grantedTemperature,
+      foreignTemperature,
+      absentTemperature,
+      temperatureChangesBeforeRead,
+    };
     await server!.close();
     server = undefined;
     db.close();
@@ -2148,6 +2202,10 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     db = openFileTestDb(dbPath);
     await start();
     evidence.closedAndReopened = true;
+    evidence.temperatureReopenedReadback = await verifyNativeTemperatureReopen(
+      { scope, projectId: projects[0].projectId, owner, success, loseAcknowledgement },
+      temperatureBeforeRestart
+    );
     evidence.labelsReopenedReadback = await verifyNativeLabelReopen(
       { scope, projectId: projects[0].projectId, owner, success, call },
       labelBeforeRestart

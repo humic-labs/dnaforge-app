@@ -242,6 +242,48 @@ async def test_inventory_label_preparation_is_read_only_and_preserves_artifact_b
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("freshness_max_age_ms", [None, 0, 60_000])
+async def test_inventory_conditions_read_preserves_explicit_policy_and_rechecks_grant(
+    native, freshness_max_age_ms
+):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    conditions = {
+        "projectId": "project",
+        "inventoryId": "inventory",
+        "revision": 2,
+        "asOf": 1_000,
+        "freshnessMaxAgeMs": freshness_max_age_ms,
+        "equipment": {},
+        "stocks": {},
+    }
+    state["result"] = {"kind": "storage-conditions", "conditions": conditions}
+    request = {
+        "project": "project",
+        "inventoryId": "inventory",
+        "freshnessMaxAgeMs": freshness_max_age_ms,
+    }
+    args = {"operation": {"kind": "storage-conditions", **request}}
+    assert await execute_native_workflow("inventory", args, context) == {
+        "ok": True,
+        "result": {"kind": "storage-conditions", "conditions": conditions, "ok": True},
+    }
+    assert state["calls"] == [
+        {
+            "command": "inventory.storage-conditions",
+            "request": request,
+            "projectScope": {"kind": "app-following"},
+            "agent": {"identityId": "caller", "capabilities": ["read-workspace"]},
+        }
+    ]
+    state["revoked"] = True
+    with pytest.raises(ToolExecutionFailure) as revoked:
+        await execute_native_workflow("inventory", args, context)
+    assert revoked.value.code == "GRANT_REVOKED"
+    assert len(state["calls"]) == 1
+
+
+@pytest.mark.asyncio
 async def test_inventory_write_requires_current_grant_and_rejection_is_not_success(native):
     state, context = native
     request = {

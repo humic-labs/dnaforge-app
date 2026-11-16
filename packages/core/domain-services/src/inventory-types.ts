@@ -8,6 +8,14 @@ import type {
 } from './inventory-configuration-types';
 export type * from './inventory-configuration-types';
 import type {
+  InventoryTemperatureClaim,
+  InventoryEquipmentSetpoint,
+  InventoryStorageRequirement,
+  InventoryTemperatureCommand,
+  InventoryThermalContext,
+} from './inventory-temperature-types';
+export type * from './inventory-temperature-types';
+import type {
   InventoryComposition,
   InventoryConcentration,
   InventoryConcentrationUnit,
@@ -21,7 +29,9 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v9' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v11' as const;
+export const INVENTORY_TEMPERATURE_SCHEMA = 'dnaforge.inventory.v10' as const;
+export const INVENTORY_ITEM_CODE_SCHEMA = 'dnaforge.inventory.v9' as const;
 export const INVENTORY_CATALOG_SCHEMA = 'dnaforge.inventory.v8' as const;
 export const INVENTORY_CONFIGURATION_SCHEMA = 'dnaforge.inventory.v7' as const;
 export const INVENTORY_CUSTODY_SCHEMA = 'dnaforge.inventory.v6' as const;
@@ -230,6 +240,10 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly thermalContexts: Readonly<Record<string, InventoryThermalContext>>;
+  readonly temperatureClaims: Readonly<Record<string, InventoryTemperatureClaim>>;
+  readonly equipmentSetpoints: Readonly<Record<string, InventoryEquipmentSetpoint>>;
+  readonly storageRequirements: Readonly<Record<string, InventoryStorageRequirement>>;
   readonly itemCodes: Readonly<Record<string, InventoryItemCode>>;
   readonly typeVersions: Readonly<Record<string, InventoryPhysicalTypeVersion>>;
   readonly recipeVersions: Readonly<Record<string, InventoryEquipmentRecipeVersion>>;
@@ -465,6 +479,7 @@ export type InventoryMaterialCommand =
   | (InventoryLegacyDiluteCommand & { readonly mixing: InventoryMixing });
 
 export type InventoryCommand =
+  | InventoryTemperatureCommand
   | InventoryItemCodeCommand
   | InventoryConfigurationCommand
   | InventoryCustodyCommand
@@ -660,6 +675,9 @@ export type InventoryErrorCode =
   | 'ITEM_CODE_ALREADY_ASSIGNED'
   | 'ITEM_CODE_CONFLICT'
   | 'ITEM_CODE_RETIRED'
+  | 'TEMPERATURE_CLAIM_NOT_FOUND'
+  | 'TEMPERATURE_CLAIM_WITHDRAWN'
+  | 'TEMPERATURE_SCOPE_CONFLICT'
   | 'POSITION_UNAVAILABLE';
 
 export type InventoryTransition =
@@ -674,6 +692,10 @@ export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
     revision: 0,
+    thermalContexts: Object.create(null) as Record<string, InventoryThermalContext>,
+    temperatureClaims: Object.create(null) as Record<string, InventoryTemperatureClaim>,
+    equipmentSetpoints: Object.create(null) as Record<string, InventoryEquipmentSetpoint>,
+    storageRequirements: Object.create(null) as Record<string, InventoryStorageRequirement>,
     itemCodes: Object.create(null) as Record<string, InventoryItemCode>,
     typeVersions: Object.create(null) as Record<string, InventoryPhysicalTypeVersion>,
     recipeVersions: Object.create(null) as Record<string, InventoryEquipmentRecipeVersion>,

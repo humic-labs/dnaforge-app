@@ -1,4 +1,16 @@
 export * from './inventory-types';
+export { INVENTORY_TEMPERATURE_DECIMAL_PATTERN } from './inventory-temperature-types';
+export {
+  normalizeInventoryTemperature,
+  normalizeInventoryTemperatureRange,
+  compareInventoryTemperatures,
+  inventoryTemperatureFreshness,
+} from './inventory-temperature';
+export {
+  inventoryStorageConditionsProjection,
+  inventoryTemperatureItemKey,
+  inventoryStorageRequirementKey,
+} from './inventory-storage-conditions';
 export {
   INVENTORY_CONCENTRATION_UNITS,
   normalizeInventoryConcentration,

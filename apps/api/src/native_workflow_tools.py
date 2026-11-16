@@ -181,6 +181,7 @@ async def execute_native_workflow(
             "catalog-update-preview",
             "resolve-item-code",
             "prepare-label",
+            "storage-conditions",
             "materials",
             "inspect",
             "availability",
