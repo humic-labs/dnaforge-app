@@ -28,7 +28,14 @@ refusals through the independent branch-delivery controls; never enqueue or
 merge an unqualified candidate to probe server behavior.
 
 An authorized real promotion needs passing source-bound qualification and
-the expected branch relationship before it can merge. After merging, read the
+the expected branch relationship before it can merge. From the clean checkout
+of that exact PR head, run:
+
+```sh
+node scripts/ci/deliver.mjs promote --pr NUMBER --expected-head FULL_HEAD_SHA --source FULL_UPSTREAM_SHA --out /absolute/evidence/promotion-merge.json
+```
+
+After merging, read the
 actual commit and tree from GitHub and compare them with the tested candidate.
 Record the immutable source selected for release separately from the latest
 development branch head.

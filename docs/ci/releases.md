@@ -81,17 +81,11 @@ infrastructure. Public source verification requires no signing credentials or
 private operational source. Hosted website and API deployment have their own
 staging and production path; desktop source promotion does not deploy them.
 
-## Experimental builds and urgent fixes
+## Experimental builds
 
 Experimental builds come from explicitly qualified `dev` snapshots. They use
 their own update channel and application data, and cannot silently migrate a
 production project beyond the stable application's supported format.
-
-An urgent production fix starts from the production source and proceeds
-through explicit staging and production qualification without importing later
-development features. Apply the fix to `dev` as well, or record why that
-development line is unaffected. A hotfix is not an exemption from qualification
-or production publication controls.
 
 Ordinary implementation delivery ends at `dev`. Promoting source and releasing
 to customers are separate operations with their own authority. Neither a green
