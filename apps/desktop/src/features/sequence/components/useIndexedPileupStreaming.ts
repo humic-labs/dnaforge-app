@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 
 import type { CoverageSignal, PileupRecord, PileupTrackData } from '@waypoint/genome-data';
 import {
@@ -381,6 +381,7 @@ export function useIndexedPileupStreaming({
   const tileEngineLastRangeRef = useRef<PendingTileEngineReplay | null>(null);
   const tileEnginePendingCommitRef = useRef<PendingTileEngineReplay | null>(null);
   const tileEngineCommitTimerRef = useRef<number | null>(null);
+  const flushPendingTileEngineCommitRef = useRef<() => void>(() => undefined);
   const tileEngineLastCommitMsRef = useRef<number | null>(null);
   const tileEngineLastCommitPlanKeyRef = useRef<string | null>(null);
   const streamPileupViaTileEngineRef = useRef<
@@ -1786,6 +1787,9 @@ export function useIndexedPileupStreaming({
     }
     commitTileEnginePending(pending);
   }, [commitTileEnginePending]);
+  useLayoutEffect(() => {
+    flushPendingTileEngineCommitRef.current = flushPendingTileEngineCommit;
+  }, [flushPendingTileEngineCommit]);
 
   const streamPileupViaTileEngine = useCallback(
     (range: PileupRange | null | undefined): boolean => {
@@ -1883,7 +1887,7 @@ export function useIndexedPileupStreaming({
 
         if (tileEngineCommitTimerRef.current == null) {
           tileEngineCommitTimerRef.current = window.setTimeout(
-            flushPendingTileEngineCommit,
+            () => flushPendingTileEngineCommitRef.current(),
             Math.max(0, TILE_ENGINE_CAMERA_COMMIT_MIN_MS - elapsed)
           );
         }

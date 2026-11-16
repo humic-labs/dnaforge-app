@@ -2423,6 +2423,102 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
     unmount();
   });
 
+  it('keeps a coalesced cached read commit on the current pane width until its frame is acknowledged', async () => {
+    vi.useFakeTimers();
+    let now = 0;
+    const performanceNowSpy = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    let range = { start: 60_000, end: 64_000 };
+    const renderer = fakeRenderer(() => range);
+    const frames: Array<() => void> = [];
+    const map = {
+      getLinearRenderer: () => renderer,
+      getViewportRange: () => range,
+      requestRender: vi.fn(),
+      subscribeToPresentedFrames: vi.fn((listener: () => void) => {
+        frames.push(listener);
+        return vi.fn();
+      }),
+    };
+    const webglRef = { current: map };
+    const assembly = rendererAssembly();
+    const dataset = pileupDataset({ bamPath: '/fixtures/resized-cached-reads.bam' });
+    const { result, rerender, unmount } = renderHook(
+      ({ width }: { width: number }) =>
+        useIndexedPileupStreaming({
+          webglRef,
+          rendererAssembly: assembly,
+          containerWidth: width,
+          activeStressDatasets: [dataset],
+        }),
+      { initialProps: { width: 622 } }
+    );
+    try {
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(driverMock.instances).toHaveLength(1);
+      const driver = driverMock.instances[0]!;
+      const feed: TileEngineFeed = {
+        records: [{ start: 60_010, end: 60_160, readId: 'retained-read', strand: '+', mapq: 60 }],
+        viewRange: range,
+        ownerPresentation: { kind: 'reads' },
+        readSource: { truncated: false, windowStartBp: 50_000, windowEndBp: 110_000 },
+        requiredReadBandReady: true,
+      };
+      act(() => driver.options.onFeed(feed));
+      act(() => frames.at(-1)?.());
+      expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]).toEqual({
+        phase: 'ready',
+        kind: 'reads',
+      });
+      const publications = renderer.setTrackData.mock.calls.length;
+      const reuse = (viewRange: { start: number; end: number }) => {
+        driver.options.onReadPresentationReuse?.({
+          feed: { ...feed, viewRange },
+          viewRange,
+          requiredReadBandReady: true,
+        });
+        return true;
+      };
+      driver.presentViewport.mockImplementation(reuse);
+      driver.setViewport.mockImplementation(reuse);
+
+      now = 10;
+      range = { start: 60_000, end: 86_612 };
+      act(() => {
+        expect(result.current.streamPileupViaTileEngine(range)).toBe(true);
+      });
+      now = 20;
+      rerender({ width: 884 });
+      expect(driver.setViewport).toHaveBeenCalledTimes(1);
+      now = 96;
+      act(() => vi.advanceTimersByTime(86));
+
+      expect.soft(driver.setViewport).toHaveBeenLastCalledWith(range, 1_768, 884);
+      const debug = (
+        window as unknown as {
+          __tileEngineDebug: () => Record<
+            string,
+            { alignedReadLifecycle: { planKey: string; currentPlanKey: string } }
+          >;
+        }
+      ).__tileEngineDebug()[dataset.trackId]!.alignedReadLifecycle;
+      expect.soft(debug.planKey).toBe(debug.currentPlanKey);
+      act(() => frames.at(-1)?.());
+      expect(result.current.trackLifecycle.getSnapshot()[dataset.trackId]).toEqual({
+        phase: 'ready',
+        kind: 'reads',
+      });
+      expect(renderer.setTrackData).toHaveBeenCalledTimes(publications);
+      expect(driverMock.instances).toHaveLength(1);
+      expect(driver.dispose).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+      performanceNowSpy.mockRestore();
+    }
+  });
+
   it('coalesces rapid camera commits to the latest tile-engine request plan', async () => {
     vi.useFakeTimers();
     let now = 0;
