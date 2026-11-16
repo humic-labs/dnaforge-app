@@ -34,7 +34,7 @@
     }
   },
   "externalChecks": {
-    "Electron E2E": { "appId": 15368 }
+    "Electron E2E": { "appId": 5792306 }
   },
   "desktop": { "shards": 8 },
   "native": { "journeys": ["workspace", "track", "genome", "canvas", "chat", "palettes"] },
