@@ -15,7 +15,7 @@ import {
   type InventorySourceIdentity,
   type InventoryStock,
 } from '@waypoint/domain-services';
-import { Button, Notice, Select, TextField } from '../../components/ui';
+import { Button, Notice, Select, TextField, TextArea } from '../../components/ui';
 import { platform } from '../../platform';
 import { safeFocus } from '../../shared/utils/safeFocus';
 import type { NativeInventoryHistoryEntry } from '../../shared/inventory-command';
@@ -27,6 +27,7 @@ import {
 } from './inventory-controller';
 import { InventoryMaterialForm, isInventoryMaterialDialog } from './InventoryMaterialForm';
 import { InventoryForm } from './InventoryForm';
+import { InventoryArchiveExportForm, InventoryArchiveImportForm } from './InventoryArchiveForms';
 import { InventoryCompositionForm } from './InventoryCompositionForm';
 import { InventoryReservationForm } from './InventoryReservationForm';
 import { InventoryCustodyForm } from './InventoryCustodyForm';
@@ -360,7 +361,8 @@ export function InventoryPanel() {
     data?.history.filter(
       (entry) =>
         !selectedStock ||
-        entry.request.commands
+        'kind' in entry.request ||
+        ('commands' in entry.request ? entry.request.commands : [])
           .flatMap((command) =>
             command.kind === 'fulfill-reservations' ? [command, command.withdrawal] : [command]
           )
@@ -409,11 +411,32 @@ export function InventoryPanel() {
               className="space-y-1.5 p-4 text-sm"
             >
               <p className="font-medium text-fg">
-                {entry.request.commands
-                  .map((command) => (state ? historyLabel(command, state) : ''))
-                  .join(' · ')}
+                {'kind' in entry.request
+                  ? 'Adopted inventory archive'
+                  : entry.request.commands
+                      .map((command) => (state ? historyLabel(command, state) : ''))
+                      .join(' · ')}
               </p>
-              {entry.request.commands
+              {'kind' in entry.request ? (
+                <details
+                  className="space-y-2 text-xs"
+                  data-testid="inventory-imported-source-evidence"
+                >
+                  <summary className="cursor-pointer text-accent">Retained source archive</summary>
+                  <p>
+                    Original source history remains in this archive. This operation records adoption
+                    in the destination.
+                  </p>
+                  <p className="break-all">Plan: {entry.request.expectedPlanDigest}</p>
+                  <TextArea
+                    readOnly
+                    aria-label="Retained imported archive"
+                    value={entry.request.sourceText}
+                    className="h-40 font-mono text-xs"
+                  />
+                </details>
+              ) : null}
+              {('commands' in entry.request ? entry.request.commands : [])
                 .flatMap((command) => {
                   const action =
                     command.kind === 'fulfill-reservations' ? command.withdrawal : command;
@@ -424,7 +447,7 @@ export function InventoryPanel() {
                     {reason}
                   </p>
                 ))}
-              {entry.request.commands.flatMap((command) => {
+              {('commands' in entry.request ? entry.request.commands : []).flatMap((command) => {
                 command = command.kind === 'fulfill-reservations' ? command.withdrawal : command;
                 const lotId =
                   command.kind === 'create-lot'
@@ -550,6 +573,15 @@ export function InventoryPanel() {
         <Button disabled={!data} onClick={() => setDialog({ kind: 'setup' })}>
           Inventory setup
         </Button>
+        <Button disabled={!data} onClick={() => setDialog({ kind: 'export-archive' })}>
+          Export inventory
+        </Button>
+        <Button
+          disabled={!data || status.kind === 'submitting' || status.kind === 'outcome-unknown'}
+          onClick={() => setDialog({ kind: 'import-archive' })}
+        >
+          Import archive
+        </Button>
         <Button disabled={!data} onClick={() => setDialog({ kind: 'item-code-lookup' })}>
           Scan or enter code
         </Button>
@@ -567,6 +599,22 @@ export function InventoryPanel() {
       {data?.project.pinned ? (
         <div className="px-5 pt-3">
           <Notice>This project is read only. You can inspect its inventory and history.</Notice>
+        </div>
+      ) : null}
+      {data?.state.origin.kind === 'archive-adoption' ? (
+        <div className="px-5 pt-3" data-testid="inventory-archive-origin">
+          <Notice>
+            This inventory was created from an archive of revision{' '}
+            {data.state.origin.source.revision}.
+            <details className="mt-2 text-xs">
+              <summary className="cursor-pointer">Source provenance</summary>
+              <p className="break-all">
+                {data.state.origin.source.projectId} / {data.state.origin.source.inventoryId}
+              </p>
+              <p className="break-all">{data.state.origin.source.archiveSha256}</p>
+              <p>Adopted {new Date(data.state.origin.at).toISOString()}</p>
+            </details>
+          </Notice>
         </div>
       ) : null}
       {!data ? (
@@ -1387,7 +1435,24 @@ export function InventoryPanel() {
         </div>
       )}
       {dialog.kind !== 'none' && data ? (
-        isInventoryTemperatureDialog(dialog) ? (
+        dialog.kind === 'export-archive' ? (
+          <InventoryArchiveExportForm
+            key={`${data.project.projectId}:export-archive`}
+            data={data}
+            controller={controller}
+            status={status}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : dialog.kind === 'import-archive' ? (
+          <InventoryArchiveImportForm
+            key={`${data.project.projectId}:import-archive`}
+            data={data}
+            controller={controller}
+            status={status}
+            client={platform().inventory}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : isInventoryTemperatureDialog(dialog) ? (
           <InventoryTemperatureForm
             key={`${data.project.projectId}:${dialog.kind}:${'item' in dialog ? dialog.item.id : 'target' in dialog ? `${dialog.target.kind}:${dialog.target.id}` : dialog.claimId}:${'assertion' in dialog ? dialog.assertion : ''}`}
             dialog={dialog}

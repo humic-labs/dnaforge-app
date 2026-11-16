@@ -1,3 +1,4 @@
+import { inventoryHasImportedAttribution } from './inventory-attribution';
 import { validateInventoryPhysicalState } from './inventory-configuration';
 import { validateInventoryItemCodes } from './inventory-item-codes';
 import { validateInventoryTemperatureState } from './inventory-storage-conditions';
@@ -30,6 +31,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_THERMAL_CONTEXT_SCHEMA,
   INVENTORY_TEMPERATURE_SCHEMA,
   INVENTORY_ITEM_CODE_SCHEMA,
   INVENTORY_CATALOG_SCHEMA,
@@ -46,6 +48,7 @@ import {
   INVENTORY_VOLUME_UNITS,
   MAX_INVENTORY_BATCH_COMMANDS,
   MAX_INVENTORY_STORAGE_SLOTS,
+  type InventoryAdoptionSource,
   type InventoryCommand,
   type InventoryItemCode,
   type InventoryItemCodeQuery,
@@ -274,6 +277,42 @@ const principal = union('Inventory acting principal', [
   authority,
   fields('Inventory agent principal', { kind: literal('agent'), identityId: id }),
 ]);
+const adoptionSource = fields('Inventory archive source', {
+  archiveSha256: text('Archive SHA-256', 71, true, '^sha256:[a-f0-9]{64}$'),
+  projectId: text('Archive project identifier', 4096, true),
+  inventoryId: text('Archive inventory identifier', 256, true),
+  revision: integer('Archive source revision', 1, Number.MAX_SAFE_INTEGER),
+});
+const recordedPrincipal = union('Inventory recorded attribution', [
+  principal,
+  fields('Imported inventory attribution', {
+    kind: literal('imported'),
+    source: adoptionSource,
+    principal,
+  }),
+]);
+const recordedAuthority = union('Inventory recorded authority', [
+  authority,
+  fields('Imported inventory authority', {
+    kind: literal('imported'),
+    source: adoptionSource,
+    authority,
+  }),
+]);
+const inventoryOrigin = union('Inventory origin', [
+  fields('Native inventory origin', { kind: literal('native') }),
+  fields('Archive-adopted inventory origin', {
+    kind: literal('archive-adoption'),
+    source: adoptionSource,
+    at: timestamp,
+    by: principal,
+  }),
+]);
+
+export function parseInventoryAdoptionSource(value: unknown): InventoryAdoptionSource {
+  return adoptionSource.parse(value);
+}
+
 const itemCodeNamespace = text(
   'Item code namespace',
   64,
@@ -291,11 +330,16 @@ const itemCodeRecord: Codec<InventoryItemCode> = fields('Physical item code', {
   value: itemCodeValue,
   item: reservationItem,
   assignedAt: timestamp,
-  assignedBy: principal,
+  assignedBy: recordedPrincipal,
   reason,
   lifecycle: union('Item code lifecycle', [
     fields('Active item code', { kind: literal('active') }),
-    fields('Retired item code', { kind: literal('retired'), at: timestamp, by: principal, reason }),
+    fields('Retired item code', {
+      kind: literal('retired'),
+      at: timestamp,
+      by: recordedPrincipal,
+      reason,
+    }),
   ]),
 });
 const executionContext: Codec<InventoryExecutionContext> = checked(
@@ -346,7 +390,7 @@ const custodyRecord: Codec<InventoryCustody> = union('Item custody', [
   fields('Checked-out item custody', {
     kind: literal('checked-out'),
     reason,
-    holder: principal,
+    holder: recordedPrincipal,
     at: timestamp,
     dueAt: deadline,
     lastKnown: locationObservation,
@@ -354,15 +398,15 @@ const custodyRecord: Codec<InventoryCustody> = union('Item custody', [
   fields('In-transit item custody', {
     kind: literal('in-transit'),
     reason,
-    holder: principal,
+    holder: recordedPrincipal,
     at: timestamp,
     destination: custodyDestination,
     lastKnown: locationObservation,
   }),
   fields('Missing item custody', {
     kind: literal('missing'),
-    holder: nullable(principal),
-    reportedBy: principal,
+    holder: nullable(recordedPrincipal),
+    reportedBy: recordedPrincipal,
     at: timestamp,
     reason,
     lastKnown: locationObservation,
@@ -806,7 +850,7 @@ const configurationRecord: Codec<InventoryPhysicalConfiguration> = fields(
         geometry,
         source: nullable(sourceReference),
         at: timestamp,
-        by: principal,
+        by: recordedPrincipal,
         reason,
       })
     ),
@@ -824,7 +868,7 @@ const catalogSelection = union('Catalog selection state', [
   fields('Retired catalog version', {
     kind: literal('retired'),
     at: timestamp,
-    by: principal,
+    by: recordedPrincipal,
     reason,
   }),
 ]);
@@ -838,7 +882,7 @@ const typeVersionFields = {
   sources: array(sourceReference, 256),
   definition: physicalDefinition,
   publishedAt: timestamp,
-  publishedBy: principal,
+  publishedBy: recordedPrincipal,
 };
 const previousTypeVersionRecord = fields('V7 physical type version', typeVersionFields);
 const typeVersionRecord: Codec<InventoryPhysicalTypeVersion> = fields('Physical type version', {
@@ -855,7 +899,7 @@ const recipeVersionFields = {
   components: array(recipeComponent, 10000, 1),
   sources: array(sourceReference, 256),
   publishedAt: timestamp,
-  publishedBy: principal,
+  publishedBy: recordedPrincipal,
 };
 const previousRecipeVersionRecord = fields('V7 equipment recipe version', recipeVersionFields);
 const recipeVersionRecord: Codec<InventoryEquipmentRecipeVersion> = fields(
@@ -868,7 +912,7 @@ const recipeVersionRecord: Codec<InventoryEquipmentRecipeVersion> = fields(
 const fitEvidenceRecord: Codec<InventoryFitEvidence> = fields('Fit evidence', {
   ...fitFacts,
   at: timestamp,
-  by: principal,
+  by: recordedPrincipal,
 });
 const temperature = checked(
   fields('Exact Celsius temperature', {
@@ -955,7 +999,7 @@ const thermalContextFacts = {
 const thermalContextRecord: Codec<InventoryThermalContext> = fields('Recorded thermal context', {
   ...thermalContextFacts,
   at: timestamp,
-  by: principal,
+  by: recordedPrincipal,
 });
 const storageRequirementTarget = fields('Storage requirement target', {
   kind: union('Storage requirement target kind', [literal('stock'), literal('lot')]),
@@ -993,13 +1037,13 @@ const thermalRelationship = union('Thermal relationship kind', [
 const temperatureClaimFields = {
   ...temperatureClaimFacts,
   at: timestamp,
-  by: principal,
+  by: recordedPrincipal,
   lifecycle: union('Temperature claim lifecycle', [
     fields('Active temperature claim', { kind: literal('active') }),
     fields('Withdrawn temperature claim', {
       kind: literal('withdrawn'),
       at: timestamp,
-      by: principal,
+      by: recordedPrincipal,
       reason,
     }),
   ]),
@@ -1031,14 +1075,14 @@ const temperatureClaimRecord: Codec<InventoryTemperatureClaim> = fields('Tempera
 const setpointRecord: Codec<InventoryEquipmentSetpoint> = fields('Reported equipment setpoint', {
   ...setpointFacts,
   at: timestamp,
-  by: principal,
+  by: recordedPrincipal,
 });
 const storageRequirementRecord: Codec<InventoryStorageRequirement> = fields(
   'Recorded storage requirement',
   {
     ...storageRequirementFacts,
     at: timestamp,
-    by: principal,
+    by: recordedPrincipal,
   }
 );
 function temperatureFactMap<T>(codec: Codec<T>, value: unknown): Readonly<Record<string, T>> {
@@ -1398,7 +1442,7 @@ const reservationVolume = checked(volume, (value) => {
 });
 const reservationFacts = {
   id,
-  holder: principal,
+  holder: recordedPrincipal,
   purpose: reason,
   createdAt: timestamp,
   deadline,
@@ -1410,7 +1454,7 @@ const reservationFacts = {
       kind: literal('cancelled'),
       at: timestamp,
       reason,
-      authority,
+      authority: recordedAuthority,
     }),
     fields('Expired reservation', { kind: literal('expired'), at: timestamp }),
   ]),
@@ -1800,7 +1844,8 @@ function validateState(state: InventoryState): void {
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const temperature = current || row.schema === INVENTORY_TEMPERATURE_SCHEMA;
+  const thermalContexts = current || row.schema === INVENTORY_THERMAL_CONTEXT_SCHEMA;
+  const temperature = thermalContexts || row.schema === INVENTORY_TEMPERATURE_SCHEMA;
   const itemCodes = temperature || row.schema === INVENTORY_ITEM_CODE_SCHEMA;
   const catalog = itemCodes || row.schema === INVENTORY_CATALOG_SCHEMA;
   const configuration = catalog || row.schema === INVENTORY_CONFIGURATION_SCHEMA;
@@ -1811,6 +1856,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_THERMAL_CONTEXT_SCHEMA),
       literal(INVENTORY_TEMPERATURE_SCHEMA),
       literal(INVENTORY_ITEM_CODE_SCHEMA),
       literal(INVENTORY_CATALOG_SCHEMA),
@@ -1823,7 +1869,8 @@ export function parseInventoryState(value: unknown): InventoryState {
       literal(LEGACY_INVENTORY_SCHEMA),
     ]),
     revision,
-    ...(current
+    ...(current ? { origin: inventoryOrigin } : {}),
+    ...(thermalContexts
       ? { thermalContexts: { schema: { type: 'object' }, parse: (input: unknown) => input } }
       : {}),
     ...(temperature
@@ -1904,12 +1951,13 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   const state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    thermalContexts: current
+    origin: current ? inventoryOrigin.parse(shape.origin) : { kind: 'native' },
+    thermalContexts: thermalContexts
       ? temperatureFactMap(thermalContextRecord, shape.thermalContexts)
       : Object.create(null),
     temperatureClaims: temperature
       ? records(shape.temperatureClaims, (raw): InventoryTemperatureClaim => {
-          if (current) return temperatureClaimRecord.parse(raw);
+          if (thermalContexts) return temperatureClaimRecord.parse(raw);
           const claim = previousTemperatureClaimRecord.parse(raw);
           return {
             ...claim,
@@ -2002,6 +2050,10 @@ export function parseInventoryState(value: unknown): InventoryState {
         })
       : (Object.create(null) as Record<string, InventoryLot>),
   };
+  if (!current && inventoryHasImportedAttribution(state))
+    invalid('Legacy inventory schemas cannot contain imported attribution.');
+  if (state.origin.kind === 'archive-adoption' && state.origin.at > state.lastRecordedAt)
+    invalid('Inventory adoption cannot exceed the recorded clock.');
   validateState(state);
   try {
     validateInventoryItemCodes(state);

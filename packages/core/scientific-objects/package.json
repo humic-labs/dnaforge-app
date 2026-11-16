@@ -10,6 +10,11 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./unique-json": {
+      "types": "./src/unique-json.ts",
+      "import": "./src/unique-json.ts",
+      "default": "./src/unique-json.ts"
     }
   },
   "scripts": {

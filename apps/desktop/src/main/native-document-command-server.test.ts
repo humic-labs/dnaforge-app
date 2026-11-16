@@ -109,6 +109,9 @@ async function fixture(
   };
   const getAuthority = vi.fn(() => authority);
   const inventory = {
+    exportSnapshot: vi.fn(),
+    previewImport: vi.fn(),
+    applyImport: vi.fn(),
     execute: vi.fn(),
     inspect: vi.fn(() => null),
     availability: vi.fn(() => null),
@@ -214,6 +217,68 @@ const inventoryAgent = {
   identityId: 'agent-1',
   capabilities: ['read-workspace', 'write-workspace'],
 };
+
+it('admits archive reads with current read authority and requires write authority for adoption', async () => {
+  const authorizeInventoryAgent = vi.fn(async () => {});
+  const f = await fixture({ authorizeInventoryAgent });
+  f.inventory.exportSnapshot.mockReturnValue({ sourceText: 'exact archive text' });
+  f.inventory.previewImport.mockReturnValue({ kind: 'ready', target: { revision: 0 } });
+  f.inventory.applyImport.mockReturnValue({ status: 'committed', revision: 1 });
+  const base = {
+    ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
+    agent: { ...inventoryAgent, capabilities: ['read-workspace'] },
+  };
+  const scope = { project: '/workspace', inventoryId: 'inventory-1' };
+  for (const [command, request, expected] of [
+    [
+      'inventory.export-snapshot',
+      { ...scope, format: 'native-v1' },
+      { kind: 'export-snapshot', artifact: { sourceText: 'exact archive text' } },
+    ],
+    [
+      'inventory.preview-import',
+      { ...scope, sourceText: 'exact archive text', options: { bindings: [] } },
+      { kind: 'import-preview', preview: { kind: 'ready' } },
+    ],
+  ] as const) {
+    expect(await (await f.call({ ...base, command, request })).json()).toMatchObject({
+      result: expected,
+    });
+  }
+  expect(authorizeInventoryAgent).toHaveBeenNthCalledWith(1, base.agent, ['read-workspace']);
+  const request = {
+    kind: 'adopt-archive',
+    ...scope,
+    operationId: 'adopt',
+    expectedRevision: 0,
+    sourceText: 'archive',
+    options: { bindings: [] },
+    expectedPlanDigest: `sha256:${'0'.repeat(64)}`,
+  };
+  expect(
+    await (await f.call({ ...base, command: 'inventory.apply-import', request })).json()
+  ).toMatchObject({ result: { ok: false, code: 'INSUFFICIENT_SCOPE', stateChanged: false } });
+  expect(f.inventory.applyImport).not.toHaveBeenCalled();
+  const input = { ...base, agent: inventoryAgent, command: 'inventory.apply-import', request };
+  expect(await (await f.call(input)).json()).toMatchObject({
+    result: { kind: 'execution', execution: { status: 'committed' } },
+  });
+  expect(authorizeInventoryAgent).toHaveBeenLastCalledWith(inventoryAgent, [
+    'read-workspace',
+    'write-workspace',
+  ]);
+  expect(f.inventory.applyImport).toHaveBeenCalledWith(request, expect.any(Function), {
+    actor: 'agent:agent-1',
+    principal: { kind: 'agent', identityId: 'agent-1' },
+  });
+  expect((await f.call({ ...input, request: { ...request, recordedAt: 0 } })).status).toBe(400);
+  authorizeInventoryAgent.mockRejectedValueOnce(new Error('Grant revoked.'));
+  expect(await (await f.call(input)).json()).toMatchObject({
+    result: { ok: false, code: 'INVENTORY_CAPABILITY_DENIED', stateChanged: false },
+  });
+  expect(f.inventory.applyImport).toHaveBeenCalledTimes(1);
+});
 
 it('requires current agent verification while retaining native inventory automation', async () => {
   const f = await fixture();

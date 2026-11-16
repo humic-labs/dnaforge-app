@@ -31,7 +31,11 @@ import {
   inventoryResolveItemCodeRequestSchema,
   inventoryPrepareLabelRequestSchema,
   inventoryStorageConditionsRequestSchema,
+  inventoryExportSnapshotRequestSchema,
+  inventoryPreviewImportRequestSchema,
+  inventoryApplyImportRequestSchema,
 } from '../shared/inventory-command';
+import { NATIVE_DOCUMENT_MAX_BODY_BYTES } from '../shared/native-document-transport';
 import type { createNativeInventoryOwner } from './inventory-owner';
 import { hasRequiredCapabilities } from '../shared/capability-policy';
 import type { NativeAgentAuthority } from './agent-grant-authority';
@@ -40,7 +44,6 @@ import {
   type RegisteredProjectAuthority,
 } from './registered-project-authority';
 
-const MAX_BODY_BYTES = 17 * 1024 * 1024;
 const identity = z.string().min(1).max(128);
 const agentAuthoritySchema = z
   .object({
@@ -70,6 +73,33 @@ const selection = target
   })
   .strict();
 const commandSchema = z.discriminatedUnion('command', [
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.export-snapshot'),
+      request: inventoryExportSnapshotRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-import'),
+      request: inventoryPreviewImportRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.apply-import'),
+      request: inventoryApplyImportRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
   z
     .object({
       ownerInstanceId: identity,
@@ -298,6 +328,9 @@ export async function startNativeDocumentCommandServer(options: {
     | 'resolveItemCode'
     | 'prepareLabel'
     | 'storageConditions'
+    | 'exportSnapshot'
+    | 'previewImport'
+    | 'applyImport'
   >;
   authorizeInventoryAgent?(agent: NativeAgentAuthority, required: readonly string[]): Promise<void>;
   getAuthority(): NativeCommandAuthority | null;
@@ -390,6 +423,9 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'import-review.execute' ||
           body.command === 'administration.execute' ||
           body.command === 'inventory.execute' ||
+          body.command === 'inventory.export-snapshot' ||
+          body.command === 'inventory.preview-import' ||
+          body.command === 'inventory.apply-import' ||
           body.command === 'inventory.inspect' ||
           body.command === 'inventory.availability' ||
           body.command === 'inventory.operation' ||
@@ -410,7 +446,7 @@ export async function startNativeDocumentCommandServer(options: {
               body.agent
             ) {
               const required =
-                body.command === 'inventory.execute'
+                body.command === 'inventory.execute' || body.command === 'inventory.apply-import'
                   ? ['read-workspace', 'write-workspace']
                   : ['read-workspace'];
               if (!hasRequiredCapabilities(body.agent.capabilities, required))
@@ -443,6 +479,37 @@ export async function startNativeDocumentCommandServer(options: {
           const run = (() => {
             if (options.inventory) {
               const receiver = options.inventory;
+              if (
+                body.command === 'inventory.export-snapshot' ||
+                body.command === 'inventory.preview-import'
+              ) {
+                const request = body.request;
+                const invocation = body.agent
+                  ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
+                  : undefined;
+                if (body.command === 'inventory.export-snapshot')
+                  return () => ({
+                    kind: 'export-snapshot',
+                    artifact: receiver.exportSnapshot(request, invocation),
+                  });
+                return () => ({
+                  kind: 'import-preview',
+                  preview: receiver.previewImport(request, invocation),
+                });
+              }
+              if (body.command === 'inventory.apply-import') {
+                const request = body.request;
+                const invocation = body.agent
+                  ? {
+                      actor: `agent:${body.agent.identityId}`,
+                      principal: { kind: 'agent' as const, identityId: body.agent.identityId },
+                    }
+                  : undefined;
+                return () => ({
+                  kind: 'execution',
+                  execution: receiver.applyImport(request, assertCurrent, invocation),
+                });
+              }
               if (body.command === 'inventory.projects')
                 return () => ({ kind: 'projects', projects: receiver.projects() });
               if (body.command === 'inventory.catalog') {
@@ -567,6 +634,8 @@ export async function startNativeDocumentCommandServer(options: {
             body.command !== 'inventory.history';
           if (
             body.command === 'inventory.projects' ||
+            body.command === 'inventory.export-snapshot' ||
+            body.command === 'inventory.preview-import' ||
             body.command === 'inventory.catalog' ||
             body.command === 'inventory.catalog-update-preview' ||
             body.command === 'inventory.resolve-item-code' ||
@@ -727,7 +796,7 @@ function readBody(req: IncomingMessage): Promise<unknown> {
     let chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => {
       size += chunk.byteLength;
-      if (size > MAX_BODY_BYTES) {
+      if (size > NATIVE_DOCUMENT_MAX_BODY_BYTES) {
         chunks = [];
         return;
       }
@@ -736,7 +805,7 @@ function readBody(req: IncomingMessage): Promise<unknown> {
     req.once('error', reject);
     req.once('aborted', () => reject(new Error('The native request was interrupted.')));
     req.once('end', () => {
-      if (size > MAX_BODY_BYTES) {
+      if (size > NATIVE_DOCUMENT_MAX_BODY_BYTES) {
         reject(new BodyLimitError());
         return;
       }

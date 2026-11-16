@@ -1,5 +1,5 @@
 import type {
-  InventoryExecutionContext,
+  InventoryRecordedPrincipal,
   InventoryPhysicalItem,
   InventorySourceReference,
   InventoryGeometry,
@@ -42,7 +42,7 @@ interface InventoryTemperatureRecordedFact {
   readonly source: InventorySourceReference | null;
   readonly reason: string;
   readonly at: number;
-  readonly by: InventoryExecutionContext['principal'];
+  readonly by: InventoryRecordedPrincipal;
 }
 export interface InventoryTemperatureClaim extends InventoryTemperatureRecordedFact {
   readonly id: string;
@@ -54,7 +54,7 @@ export interface InventoryTemperatureClaim extends InventoryTemperatureRecordedF
     | {
         readonly kind: 'withdrawn';
         readonly at: number;
-        readonly by: InventoryExecutionContext['principal'];
+        readonly by: InventoryRecordedPrincipal;
         readonly reason: string;
       };
 }

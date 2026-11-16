@@ -1,3 +1,4 @@
+import { inventoryPrincipalMatchesActor } from './inventory-attribution';
 import { inventoryReservationPlacementFailure } from './inventory-reservation-placement';
 import type {
   InventoryCommand,
@@ -44,12 +45,6 @@ const refuse = (code: InventoryErrorCode, message: string): Failure => ({
 const recordFor = (state: CustodyState, item: InventoryPhysicalItem) =>
   item.kind === 'storage' ? state.storage[item.id] : state.vessels[item.id];
 
-function samePrincipal(first: InventoryPrincipal, second: InventoryPrincipal | undefined): boolean {
-  return first.kind === 'agent'
-    ? second?.kind === 'agent' && first.identityId === second.identityId
-    : second?.kind === 'local-profile' && first.profileKey === second.profileKey;
-}
-
 export function inventoryEffectiveCustody(
   state: CustodyState,
   item: InventoryPhysicalItem
@@ -83,7 +78,7 @@ export function inventoryCustodyAccess(
     case 'available':
       return null;
     case 'checked-out':
-      return samePrincipal(effective.state.holder, principal)
+      return inventoryPrincipalMatchesActor(effective.state.holder, principal)
         ? null
         : refuse('ITEM_CHECKED_OUT', 'The item is checked out to another holder.');
     case 'in-transit':
@@ -100,7 +95,10 @@ function reservationConflicts(
 ): string[] {
   return Object.values(state.reservations)
     .filter((reservation) => {
-      if (reservation.lifecycle.kind !== 'active' || samePrincipal(reservation.holder, principal))
+      if (
+        reservation.lifecycle.kind !== 'active' ||
+        inventoryPrincipalMatchesActor(reservation.holder, principal)
+      )
         return false;
       if (reservation.kind === 'item')
         return (
@@ -126,7 +124,7 @@ export function inventoryItemCustody(
   const blockers: InventoryAvailabilityBlocker[] = [];
   const owner =
     custody.kind === 'checked-out' || custody.kind === 'in-transit'
-      ? samePrincipal(custody.holder, principal)
+      ? inventoryPrincipalMatchesActor(custody.holder, principal)
       : false;
   if (custody.kind === 'checked-out' && !owner)
     blockers.push({
@@ -273,7 +271,7 @@ export function applyInventoryCustodyCommand(
   const current = effective.state;
   const owner =
     current.kind === 'checked-out' || current.kind === 'in-transit'
-      ? samePrincipal(current.holder, context.principal)
+      ? inventoryPrincipalMatchesActor(current.holder, context.principal)
       : false;
   const recover =
     context.principal.kind === 'local-profile' &&

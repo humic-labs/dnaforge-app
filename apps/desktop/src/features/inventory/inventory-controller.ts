@@ -4,11 +4,14 @@ import {
   type InventoryEquipmentCatalogEntry,
   type InventoryItemCodeQuery,
   type InventoryState,
+  type InventoryResolvedImportOptions,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
+  inventoryAcceptedRequestSchema,
+  inventoryApplyImportRequestSchema,
   inventoryReceiptSchema,
-  type InventoryExecuteRequest,
+  type InventoryAcceptedRequest,
   type NativeInventoryHistoryEntry,
   type NativeInventoryReceipt,
 } from '../../shared/inventory-command';
@@ -21,6 +24,9 @@ import type {
   InventoryStorageConditionsSnapshot,
 } from '../../shared/inventory-client';
 import { InventoryLabelSession, type InventoryLabelOutputPort } from './inventory-label-session';
+import { InventoryArchiveSession } from './inventory-archive-session';
+import type { InventoryReadRequest } from '../../shared/inventory-command';
+import type { InventoryTextOutputPort } from './inventory-text-output';
 
 export interface InventoryData {
   project: InventoryProject;
@@ -31,7 +37,7 @@ export interface InventoryData {
 }
 
 export interface InventoryAttempt {
-  request: InventoryExecuteRequest;
+  request: InventoryAcceptedRequest;
   summary: string;
   receipt?: NativeInventoryReceipt;
 }
@@ -123,7 +129,7 @@ export function inventoryAttemptStorage(
           throw new Error('Saved inventory changes could not be read.');
         const receipt = Reflect.get(entry, 'receipt');
         return {
-          request: inventoryExecuteRequestSchema.parse(Reflect.get(entry, 'request')),
+          request: inventoryAcceptedRequestSchema.parse(Reflect.get(entry, 'request')),
           summary: Reflect.get(entry, 'summary') as string,
           ...(receipt ? { receipt: inventoryReceiptSchema.parse(receipt) } : {}),
         };
@@ -171,6 +177,7 @@ export class InventoryController {
   private itemCodeGeneration = 0;
   private readonly catalogCache = new Map<string, readonly InventoryEquipmentCatalogEntry[]>();
   private readonly labelSessions = new Map<string, InventoryLabelSession>();
+  private readonly archiveSessions = new Map<string, InventoryArchiveSession>();
   private readonly storageFreshnessPolicies = new Map<string, number | null>();
   private opening: Promise<void> | undefined;
   private unsubscribe: (() => void) | undefined;
@@ -182,6 +189,19 @@ export class InventoryController {
   ) {}
 
   getSnapshot = (): InventoryControllerSnapshot => this.snapshot;
+
+  archiveSession(
+    source: InventoryReadRequest,
+    output: InventoryTextOutputPort
+  ): InventoryArchiveSession {
+    const key = scopeKey(source.project, source.inventoryId);
+    let session = this.archiveSessions.get(key);
+    if (!session) {
+      session = new InventoryArchiveSession(source, this.client, output);
+      this.archiveSessions.set(key, session);
+    }
+    return session;
+  }
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
@@ -628,6 +648,55 @@ export class InventoryController {
       });
       return null;
     }
+    return this.begin(data, attempt);
+  }
+
+  async adoptArchive(
+    sourceText: string,
+    options: InventoryResolvedImportOptions,
+    expectedPlanDigest: string
+  ): Promise<NativeInventoryReceipt | null> {
+    const status = this.snapshot.status;
+    const data = inventoryData(status);
+    if (
+      !data ||
+      !inventoryCanEdit(status) ||
+      this.pending.has(scopeKey(data.project.projectId, data.project.defaultInventoryId))
+    )
+      return null;
+    let attempt: InventoryAttempt;
+    try {
+      attempt = {
+        request: inventoryApplyImportRequestSchema.parse({
+          kind: 'adopt-archive',
+          project: data.project.projectId,
+          inventoryId: data.project.defaultInventoryId,
+          operationId: this.operationId(),
+          expectedRevision: data.state.revision,
+          sourceText,
+          options,
+          expectedPlanDigest,
+        }),
+        summary: 'Adopt inventory archive',
+      };
+    } catch (cause) {
+      this.set({
+        kind: 'refused',
+        project: data.project,
+        data,
+        code: 'INVALID_INVENTORY_INPUT',
+        message:
+          cause instanceof Error ? cause.message : 'Check the archive preview before applying.',
+      });
+      return null;
+    }
+    return this.begin(data, attempt);
+  }
+
+  private async begin(
+    data: InventoryData,
+    attempt: InventoryAttempt
+  ): Promise<NativeInventoryReceipt | null> {
     try {
       this.save(attempt);
     } catch (error) {
@@ -679,7 +748,10 @@ export class InventoryController {
     const generation = this.generation;
     this.set({ kind: 'submitting', stage: 'sending', data, attempt });
     try {
-      const result = await this.client.execute(attempt.request);
+      const result =
+        'kind' in attempt.request
+          ? await this.client.applyImport(attempt.request)
+          : await this.client.execute(attempt.request);
       if (result.status === 'committed') return this.committed(data, attempt, result, generation);
       let recoveryError: string | undefined;
       try {
@@ -799,6 +871,8 @@ export class InventoryController {
     this.unsubscribe?.();
     for (const session of this.labelSessions.values()) session.dispose();
     this.labelSessions.clear();
+    for (const session of this.archiveSessions.values()) session.dispose();
+    this.archiveSessions.clear();
     this.listeners.clear();
   }
 }

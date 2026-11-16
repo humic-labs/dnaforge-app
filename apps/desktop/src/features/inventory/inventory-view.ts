@@ -18,7 +18,26 @@ import {
   type InventoryState,
   type InventoryStorage,
   type InventoryVessel,
+  type InventoryPrincipal,
+  type InventoryRecordedPrincipal,
 } from '@waypoint/domain-services';
+
+export function inventoryPrincipalLabel(
+  holder: InventoryRecordedPrincipal,
+  current?: InventoryPrincipal
+): string {
+  if (holder.kind === 'imported') {
+    const person =
+      holder.principal.kind === 'agent'
+        ? `agent ${holder.principal.identityId}`
+        : 'desktop profile';
+    return `Imported ${person} · ${holder.source.projectId} / ${holder.source.inventoryId}`;
+  }
+  if (holder.kind === 'agent') return `Agent ${holder.identityId}`;
+  return current?.kind === 'local-profile' && holder.profileKey === current.profileKey
+    ? 'This desktop profile'
+    : 'Another desktop profile';
+}
 
 export type InventorySelection =
   | { kind: 'all' }
@@ -29,6 +48,8 @@ export type InventorySelection =
 export type InventoryItem = { kind: 'storage' | 'vessel'; id: string };
 
 export type InventoryDialog =
+  | { kind: 'export-archive' }
+  | { kind: 'import-archive' }
   | InventoryMaterialDialog
   | InventoryCompositionDialog
   | InventoryReservationDialog

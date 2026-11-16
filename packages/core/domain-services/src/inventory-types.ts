@@ -29,7 +29,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v11' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v12' as const;
+export const INVENTORY_THERMAL_CONTEXT_SCHEMA = 'dnaforge.inventory.v11' as const;
 export const INVENTORY_TEMPERATURE_SCHEMA = 'dnaforge.inventory.v10' as const;
 export const INVENTORY_ITEM_CODE_SCHEMA = 'dnaforge.inventory.v9' as const;
 export const INVENTORY_CATALOG_SCHEMA = 'dnaforge.inventory.v8' as const;
@@ -109,7 +110,7 @@ export type InventoryCustody =
   | {
       readonly kind: 'checked-out';
       readonly reason: string;
-      readonly holder: InventoryPrincipal;
+      readonly holder: InventoryRecordedPrincipal;
       readonly at: number;
       readonly dueAt: number | null;
       readonly lastKnown: InventoryLocationObservation;
@@ -117,15 +118,15 @@ export type InventoryCustody =
   | {
       readonly kind: 'in-transit';
       readonly reason: string;
-      readonly holder: InventoryPrincipal;
+      readonly holder: InventoryRecordedPrincipal;
       readonly at: number;
       readonly destination: InventoryCustodyDestination;
       readonly lastKnown: InventoryLocationObservation;
     }
   | {
       readonly kind: 'missing';
-      readonly holder: InventoryPrincipal | null;
-      readonly reportedBy: InventoryPrincipal;
+      readonly holder: InventoryRecordedPrincipal | null;
+      readonly reportedBy: InventoryRecordedPrincipal;
       readonly at: number;
       readonly reason: string;
       readonly lastKnown: InventoryLocationObservation;
@@ -240,6 +241,7 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly origin: InventoryOrigin;
   readonly thermalContexts: Readonly<Record<string, InventoryThermalContext>>;
   readonly temperatureClaims: Readonly<Record<string, InventoryTemperatureClaim>>;
   readonly equipmentSetpoints: Readonly<Record<string, InventoryEquipmentSetpoint>>;
@@ -262,20 +264,49 @@ export type InventoryPrincipal =
   | { readonly kind: 'local-profile'; readonly profileKey: string }
   | { readonly kind: 'agent'; readonly identityId: string };
 
+export interface InventoryAdoptionSource {
+  readonly archiveSha256: string;
+  readonly projectId: string;
+  readonly inventoryId: string;
+  readonly revision: number;
+}
+export type InventoryRecordedPrincipal =
+  | InventoryPrincipal
+  | {
+      readonly kind: 'imported';
+      readonly source: InventoryAdoptionSource;
+      readonly principal: InventoryPrincipal;
+    };
+export type InventoryRecordedAuthority =
+  | InventoryAuthority
+  | {
+      readonly kind: 'imported';
+      readonly source: InventoryAdoptionSource;
+      readonly authority: InventoryAuthority;
+    };
+export type InventoryOrigin =
+  | { readonly kind: 'native' }
+  | {
+      readonly kind: 'archive-adoption';
+      readonly source: InventoryAdoptionSource;
+      readonly at: number;
+      readonly by: InventoryPrincipal;
+    };
+
 export interface InventoryItemCode {
   readonly id: string;
   readonly namespace: string;
   readonly value: string;
   readonly item: InventoryPhysicalItem;
   readonly assignedAt: number;
-  readonly assignedBy: InventoryPrincipal;
+  readonly assignedBy: InventoryRecordedPrincipal;
   readonly reason: string;
   readonly lifecycle:
     | { readonly kind: 'active' }
     | {
         readonly kind: 'retired';
         readonly at: number;
-        readonly by: InventoryPrincipal;
+        readonly by: InventoryRecordedPrincipal;
         readonly reason: string;
       };
 }
@@ -319,13 +350,13 @@ export type InventoryReservationLifecycle =
       readonly kind: 'cancelled';
       readonly at: number;
       readonly reason: string;
-      readonly authority: InventoryAuthority;
+      readonly authority: InventoryRecordedAuthority;
     }
   | { readonly kind: 'expired'; readonly at: number };
 
 interface InventoryReservationFacts {
   readonly id: string;
-  readonly holder: InventoryPrincipal;
+  readonly holder: InventoryRecordedPrincipal;
   readonly purpose: string;
   readonly createdAt: number;
   readonly deadline: number | null;
@@ -348,7 +379,7 @@ export type InventoryAvailabilityBlocker =
   | {
       readonly code: 'ITEM_CHECKED_OUT';
       readonly item: InventoryPhysicalItem;
-      readonly holder: InventoryPrincipal;
+      readonly holder: InventoryRecordedPrincipal;
     }
   | { readonly code: 'ITEM_IN_TRANSIT'; readonly item: InventoryPhysicalItem }
   | { readonly code: 'ITEM_MISSING'; readonly item: InventoryPhysicalItem }
@@ -678,6 +709,12 @@ export type InventoryErrorCode =
   | 'TEMPERATURE_CLAIM_NOT_FOUND'
   | 'TEMPERATURE_CLAIM_WITHDRAWN'
   | 'TEMPERATURE_SCOPE_CONFLICT'
+  | 'IMPORT_TARGET_PRESENT'
+  | 'IMPORT_SOURCE_CLOCK_FUTURE'
+  | 'IMPORT_BINDING_MISSING'
+  | 'IMPORT_BINDING_UNUSED'
+  | 'IMPORT_BINDING_COLLISION'
+  | 'IMPORT_SOURCE_INVALID'
   | 'POSITION_UNAVAILABLE';
 
 export type InventoryTransition =
@@ -691,6 +728,7 @@ export type InventoryTransition =
 export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
+    origin: { kind: 'native' },
     revision: 0,
     thermalContexts: Object.create(null) as Record<string, InventoryThermalContext>,
     temperatureClaims: Object.create(null) as Record<string, InventoryTemperatureClaim>,

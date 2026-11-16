@@ -36,6 +36,9 @@ let catalogUpdatePreview: ReturnType<typeof vi.fn>;
 let resolveItemCode: ReturnType<typeof vi.fn>;
 let prepareLabel: ReturnType<typeof vi.fn>;
 let storageConditions: ReturnType<typeof vi.fn>;
+let exportSnapshot: ReturnType<typeof vi.fn>;
+let previewImport: ReturnType<typeof vi.fn>;
+let applyImport: ReturnType<typeof vi.fn>;
 const call = (input: unknown = request) =>
   (
     captured.handlers.execute as (
@@ -52,6 +55,9 @@ beforeEach(() => {
   resolveItemCode = vi.fn(() => ({ revision: 0, resolution: { kind: 'not-found' } }));
   prepareLabel = vi.fn(async () => ({ rendered: { svg: 'exact SVG bytes' } }));
   storageConditions = vi.fn(() => ({ revision: 0, equipment: {}, stocks: {} }));
+  exportSnapshot = vi.fn(() => ({ sourceText: 'exact archive text' }));
+  previewImport = vi.fn(() => ({ kind: 'ready', target: { revision: 0 } }));
+  applyImport = vi.fn(() => ({ status: 'committed' }));
   owner = {
     execute,
     availability,
@@ -60,8 +66,71 @@ beforeEach(() => {
     resolveItemCode,
     prepareLabel,
     storageConditions,
+    exportSnapshot,
+    previewImport,
+    applyImport,
   } as unknown as NativeInventoryOwner;
   registerInventoryHandlers({ owner: () => owner, target: () => target });
+});
+
+it('keeps archive reads on the current caller without mutation dispatch', () => {
+  for (const [name, input, mock] of [
+    [
+      'exportSnapshot',
+      { project: 'project', inventoryId: 'inventory', format: 'native-v1' },
+      exportSnapshot,
+    ],
+    [
+      'previewImport',
+      {
+        project: 'project',
+        inventoryId: 'inventory',
+        sourceText: 'exact archive text',
+        options: { bindings: [] },
+      },
+      previewImport,
+    ],
+  ] as const) {
+    const handler = captured.handlers[name] as (
+      event: IpcMainInvokeEvent,
+      input: unknown
+    ) => unknown;
+    handler(event, input);
+    expect(mock).toHaveBeenCalledExactlyOnceWith(input);
+    expect(() =>
+      handler({ sender: { id: 9, isDestroyed: () => false } } as IpcMainInvokeEvent, input)
+    ).toThrow('INVENTORY_DESKTOP_CALLER_UNAVAILABLE');
+  }
+  expect(execute).not.toHaveBeenCalled();
+  expect(applyImport).not.toHaveBeenCalled();
+});
+
+it('routes adoption through the same current caller fence and preserves malformed operation identity', () => {
+  const input = {
+    kind: 'adopt-archive',
+    project: 'project',
+    inventoryId: 'inventory',
+    operationId: 'adopt',
+    expectedRevision: 0,
+    sourceText: 'archive',
+    options: { bindings: [] },
+    expectedPlanDigest: `sha256:${'0'.repeat(64)}`,
+  };
+  const handler = captured.handlers.applyImport as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => unknown;
+  expect(handler(event, input)).toEqual({ status: 'committed' });
+  expect(applyImport).toHaveBeenCalledWith(input, expect.any(Function), {
+    actor: 'human:desktop:7',
+  });
+  const assertCurrent = applyImport.mock.calls[0][1] as () => void;
+  owner = null;
+  expect(assertCurrent).toThrow('INVENTORY_OWNER_UNAVAILABLE');
+  expect(
+    handler(event, { ...input, principal: { kind: 'agent', identityId: 'forged' } })
+  ).toMatchObject({ status: 'rejected', operationId: 'adopt', code: 'INVALID_INVENTORY_INPUT' });
+  expect(applyImport).toHaveBeenCalledTimes(1);
 });
 
 it('reads the catalog through the current desktop owner and caller', () => {

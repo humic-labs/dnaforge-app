@@ -56,9 +56,10 @@ it.runIf(Boolean(sourcePath))(
         expect(JSON.parse(row.state_json).schema).toBe(inventory.storedSchema);
         const scope = { project: row.project_id, inventoryId: inventory.inventoryId };
         const state = owner.inspect(scope)!;
-        expect(state.schema).toBe('dnaforge.inventory.v11');
+        expect(state.schema).toBe('dnaforge.inventory.v12');
         expect(state.revision).toBe(inventory.revision);
-        expect(state.thermalContexts).toEqual({});
+        expect(state.thermalContexts).toEqual(JSON.parse(row.state_json).thermalContexts ?? {});
+        expect(state.origin).toEqual({ kind: 'native' });
         const history = owner.history({ ...scope, afterRevision: 0, limit: 1000 });
         expect(history.length).toBe(inventory.revision);
         const replay = owner.replay(scope);

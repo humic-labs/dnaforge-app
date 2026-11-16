@@ -34,3 +34,6 @@
 
 - [Storage conditions](storage-conditions.md): exact temperature facts,
   formulation requirements, source scope and independent assessments.
+
+- [Archives and adoption](portability.md): exact source evidence, zero-write
+  preview, explicit scientific bindings and durable import recovery.

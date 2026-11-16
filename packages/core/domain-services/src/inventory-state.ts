@@ -55,6 +55,7 @@ import { applyInventoryTemperatureCommand } from './inventory-storage-conditions
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
 interface Draft {
+  origin: InventoryState['origin'];
   thermalContexts: Record<string, InventoryState['thermalContexts'][string]>;
   temperatureClaims: Record<string, InventoryState['temperatureClaims'][string]>;
   equipmentSetpoints: Record<string, InventoryState['equipmentSetpoints'][string]>;
@@ -355,6 +356,7 @@ export function applyInventoryCommandBatch(
   if (context && context.at < state.lastRecordedAt)
     return failure('CLOCK_REGRESSION', 'The trusted timestamp precedes the inventory clock floor.');
   const draft: Draft = {
+    origin: state.origin,
     thermalContexts: Object.assign(Object.create(null), state.thermalContexts),
     temperatureClaims: Object.assign(Object.create(null), state.temperatureClaims),
     equipmentSetpoints: Object.assign(Object.create(null), state.equipmentSetpoints),

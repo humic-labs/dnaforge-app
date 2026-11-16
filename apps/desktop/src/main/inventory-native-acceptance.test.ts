@@ -13,6 +13,7 @@ import type {
 import { expect, it, vi } from 'vitest';
 import type {
   InventoryExecuteRequest,
+  InventoryAcceptedRequest,
   NativeInventoryExecution,
   NativeInventoryHistoryEntry,
   NativeInventoryReceipt,
@@ -22,6 +23,8 @@ import type {
   InventoryItemCodeLookupSnapshot,
   InventoryLabelArtifact,
   InventoryStorageConditionsSnapshot,
+  InventoryExportSnapshot,
+  InventoryImportPreviewSnapshot,
 } from '../shared/inventory-client';
 
 vi.mock('electron', () => ({
@@ -32,6 +35,10 @@ vi.mock('electron', () => ({
 vi.mock('./config', () => ({ getApiUrl: () => 'http://synthetic-grants.invalid' }));
 
 import { openFileTestDb } from './__tests__/test-db';
+import {
+  runNativeArchiveJourney,
+  verifyNativeArchiveReopen,
+} from './__tests__/inventory-archive-native-journey';
 import {
   runNativeTemperatureJourney,
   verifyNativeTemperatureReopen,
@@ -64,6 +71,9 @@ type InventoryNativeCommand =
   | 'inventory.resolve-item-code'
   | 'inventory.prepare-label'
   | 'inventory.storage-conditions'
+  | 'inventory.export-snapshot'
+  | 'inventory.preview-import'
+  | 'inventory.apply-import'
   | 'inventory.materials';
 type Server = Awaited<ReturnType<typeof startNativeDocumentCommandServer>>;
 interface NativeResponse<T> {
@@ -270,6 +280,9 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       'inventory.resolve-item-code': 'lookup',
       'inventory.prepare-label': 'artifact',
       'inventory.storage-conditions': 'conditions',
+      'inventory.export-snapshot': 'artifact',
+      'inventory.preview-import': 'preview',
+      'inventory.apply-import': 'execution',
       'inventory.materials': 'page',
     };
     expect(wrapped).toHaveProperty(keys[command]);
@@ -277,12 +290,12 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
   }
 
   async function loseAcknowledgement(
-    request: InventoryExecuteRequest,
+    request: InventoryAcceptedRequest,
     evidenceKey = 'lostAcknowledgement'
   ): Promise<NativeInventoryReceipt> {
     if (!server) throw new Error('Fixture server is closed.');
     const attempt: Record<string, unknown> = {
-      command: 'inventory.execute',
+      command: 'kind' in request ? 'inventory.apply-import' : 'inventory.execute',
       request,
       ownerInstanceId: authority.ownerInstanceId,
       projectScope,
@@ -304,7 +317,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       const body = JSON.stringify({
         ownerInstanceId: authority.ownerInstanceId,
         projectScope,
-        command: 'inventory.execute',
+        command: 'kind' in request ? 'inventory.apply-import' : 'inventory.execute',
         request,
       });
       await new Promise<void>((accept, reject) => {
@@ -2195,6 +2208,96 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       absentTemperature,
       temperatureChangesBeforeRead,
     };
+    const archiveBeforeRestart = await runNativeArchiveJourney({
+      scope,
+      projectId: projects[0].projectId,
+      owner,
+      success,
+      loseAcknowledgement,
+    });
+    evidence.archiveBeforeRestart = archiveBeforeRestart;
+    const archiveSqlBeforeReads = db.prepare('SELECT total_changes() AS count').get();
+    const readOnlyAgent = { identityId: 'synthetic-read-only', capabilities: ['read-workspace'] };
+    const grantedArchive = await success<InventoryExportSnapshot>(
+      'current read-only grant exports the same exact archive',
+      'inventory.export-snapshot',
+      { ...archiveBeforeRestart.source, format: 'native-v1' },
+      { agent: readOnlyAgent }
+    );
+    expect(grantedArchive.sourceText).toBe(archiveBeforeRestart.artifact.sourceText);
+    expect(grantedArchive.principal).toEqual({
+      kind: 'agent',
+      identityId: readOnlyAgent.identityId,
+    });
+    const grantedPreview = await success<InventoryImportPreviewSnapshot>(
+      'current read-only grant previews without creating destination',
+      'inventory.preview-import',
+      {
+        ...scope,
+        inventoryId: 'inventory-read-only-preview-absent',
+        sourceText: grantedArchive.sourceText,
+        options: {
+          bindings: [
+            { sourceMaterialId: 'synthetic-material', destinationMaterialId: 'synthetic-material' },
+          ],
+        },
+      },
+      { agent: readOnlyAgent }
+    );
+    expect(grantedPreview.kind).toBe('ready');
+    expect(
+      owner.inspect({ ...scope, inventoryId: 'inventory-read-only-preview-absent' })
+    ).toBeNull();
+    if (grantedPreview.kind !== 'ready') throw new Error('Expected admitted read-only preview.');
+    const deniedAdoption = await call(
+      'current read-only grant cannot adopt despite forged write capability claim',
+      'inventory.apply-import',
+      {
+        kind: 'adopt-archive',
+        ...scope,
+        inventoryId: 'inventory-read-only-preview-absent',
+        operationId: 'archive:read-only-denied',
+        expectedRevision: 0,
+        sourceText: grantedArchive.sourceText,
+        options: grantedPreview.options,
+        expectedPlanDigest: grantedPreview.planDigest,
+      },
+      {
+        agent: {
+          identityId: readOnlyAgent.identityId,
+          capabilities: ['read-workspace', 'write-workspace'],
+        },
+      }
+    );
+    expect(deniedAdoption).toMatchObject({
+      status: 200,
+      body: {
+        ok: true,
+        result: { ok: false, code: 'INVENTORY_CAPABILITY_DENIED', stateChanged: false },
+      },
+    });
+    expect(
+      owner.inspect({ ...scope, inventoryId: 'inventory-read-only-preview-absent' })
+    ).toBeNull();
+    const foreignArchive = await call(
+      'deny archive outside captured project roots before returning source bytes',
+      'inventory.export-snapshot',
+      { ...archiveBeforeRestart.source, format: 'native-v1' },
+      { roots: [otherPath] }
+    );
+    expect(foreignArchive).toMatchObject({
+      status: 200,
+      body: { ok: true, result: { ok: false, code: 'PROJECT_ACCESS_DENIED', stateChanged: false } },
+    });
+    expect(JSON.stringify(foreignArchive.body)).not.toContain('dnaforge.inventory-export.v1');
+    expect(db.prepare('SELECT total_changes() AS count').get()).toEqual(archiveSqlBeforeReads);
+    evidence.archiveGrantedReads = {
+      grantedArchive,
+      grantedPreview,
+      deniedAdoption,
+      foreignArchive,
+      archiveSqlBeforeReads,
+    };
     await server!.close();
     server = undefined;
     db.close();
@@ -2202,6 +2305,10 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     db = openFileTestDb(dbPath);
     await start();
     evidence.closedAndReopened = true;
+    evidence.archiveReopenedReadback = await verifyNativeArchiveReopen(
+      { scope, projectId: projects[0].projectId, owner, success, loseAcknowledgement },
+      archiveBeforeRestart
+    );
     evidence.temperatureReopenedReadback = await verifyNativeTemperatureReopen(
       { scope, projectId: projects[0].projectId, owner, success, loseAcknowledgement },
       temperatureBeforeRestart

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   applyInventoryCommandBatch,
+  adoptInventoryState,
   createInventoryState,
   inventoryAvailability,
   inventoryResolveItemCode,
@@ -17,7 +18,8 @@ import type {
   InventoryItemCodeLookupSnapshot,
 } from '../../shared/inventory-client';
 import type {
-  InventoryExecuteRequest,
+  InventoryAcceptedRequest,
+  InventoryApplyImportRequest,
   NativeInventoryHistoryEntry,
   NativeInventoryReceipt,
 } from '../../shared/inventory-command';
@@ -57,7 +59,7 @@ const useOne: InventoryCommand[] = [
   { kind: 'consume', stockId: 'stock', quantity: { value: '1', unit: 'uL' }, reason: 'Experiment' },
 ];
 
-function fixture() {
+function fixture(empty = false) {
   const initial = applyInventoryCommandBatch(createInventoryState(), {
     expectedRevision: 0,
     commands: [
@@ -73,7 +75,7 @@ function fixture() {
     ],
   });
   if (!initial.ok) throw new Error(initial.message);
-  let state = initial.state;
+  let state = empty ? createInventoryState() : initial.state;
   let saved: readonly InventoryAttempt[] = [];
   const entries: NativeInventoryHistoryEntry[] = [];
   const listeners = new Set<(event: InventoryChanged) => void>();
@@ -92,13 +94,34 @@ function fixture() {
         operationId,
       });
   };
-  const commit = (request: InventoryExecuteRequest): NativeInventoryReceipt => {
+  const commit = (request: InventoryAcceptedRequest): NativeInventoryReceipt => {
     const previous = entries.find((entry) => entry.receipt.operationId === request.operationId);
     if (previous) return previous.receipt;
-    const result = applyInventoryCommandBatch(state, {
-      expectedRevision: request.expectedRevision,
-      commands: request.commands,
-    });
+    const result =
+      'kind' in request
+        ? adoptInventoryState(
+            state.revision === 0 ? null : state,
+            initial.state,
+            {
+              source: {
+                archiveSha256: `sha256:${'a'.repeat(64)}`,
+                projectId: 'source-project',
+                inventoryId: 'source-inventory',
+                revision: initial.state.revision,
+              },
+              materialBindings: Object.fromEntries(
+                request.options.bindings.map((binding) => [
+                  binding.sourceMaterialId,
+                  binding.destinationMaterialId,
+                ])
+              ),
+            },
+            { at: 1, principal, authority: principal }
+          )
+        : applyInventoryCommandBatch(state, {
+            expectedRevision: request.expectedRevision,
+            commands: request.commands,
+          });
     if (!result.ok) throw new Error(result.message);
     state = result.state;
     const receipt: NativeInventoryReceipt = {
@@ -136,6 +159,13 @@ function fixture() {
     prepareLabel: vi.fn(async () => {
       throw new Error('Label rendering is not used by this controller fixture.');
     }),
+    exportSnapshot: vi.fn(async () => {
+      throw new Error('Archive capture is not used by this controller fixture.');
+    }),
+    previewImport: vi.fn(async () => {
+      throw new Error('Archive preview is not used by this controller fixture.');
+    }),
+    applyImport: vi.fn(async (request) => commit(request)),
     storageConditions: vi.fn(async (request) => {
       const current = request.project === other.projectId ? createInventoryState() : state;
       return {
@@ -732,6 +762,148 @@ describe('inventory interaction controller', () => {
         commands: useOne,
       },
     };
+    storage.write([attempt]);
+    expect(storage.read()).toEqual([attempt]);
+  });
+
+  it('recovers the original adopted receipt after a lost acknowledgement and controller restart', async () => {
+    const f = fixture(true);
+    await f.controller.initialize();
+    vi.mocked(f.client.applyImport).mockImplementationOnce(async (request) => {
+      f.commit(request);
+      throw new Error('Lost adoption response');
+    });
+    const sourceText = '{"retained":"original archive"}\r\n';
+    const options = {
+      bindings: [
+        {
+          sourceMaterialId: 'material',
+          destinationMaterialId: 'bound-material',
+          fingerprint: `sha256:${'b'.repeat(64)}` as const,
+        },
+      ],
+    };
+    await f.controller.adoptArchive(sourceText, options, `sha256:${'a'.repeat(64)}`);
+    expect(f.controller.getSnapshot().status).toMatchObject({ kind: 'outcome-unknown' });
+    const original = structuredClone(f.saved()[0]);
+    expect(original.request).toMatchObject({
+      kind: 'adopt-archive',
+      operationId: 'operation-1',
+      expectedRevision: 0,
+      sourceText,
+      options,
+    });
+    expect(f.entries).toHaveLength(1);
+    f.controller.dispose();
+    const reopened = new InventoryController(f.client, f.storage, () => {
+      throw new Error('Recovery must not allocate another operation');
+    });
+    await reopened.initialize();
+    expect(reopened.getSnapshot().status).toMatchObject({
+      kind: 'outcome-unknown',
+      attempt: original,
+    });
+    await reopened.checkPending();
+    expect(reopened.getSnapshot().status).toMatchObject({
+      kind: 'ready',
+      data: {
+        state: {
+          revision: 1,
+          origin: { kind: 'archive-adoption' },
+          stocks: { stock: { materialId: 'bound-material', quantity: { value: '2' } } },
+        },
+      },
+    });
+    expect(f.client.applyImport).toHaveBeenCalledOnce();
+    expect(f.client.execute).not.toHaveBeenCalled();
+    expect(f.saved()).toEqual([]);
+    expect(f.entries).toHaveLength(1);
+    reopened.dispose();
+  });
+
+  it('keeps an uncertain adoption request unchanged while new source intent is blocked', async () => {
+    const f = fixture(true);
+    await f.controller.initialize();
+    vi.mocked(f.client.applyImport).mockRejectedValueOnce(new Error('Transport outcome unknown'));
+    const sourceText = '{"source":"original"}\n';
+    const options = {
+      bindings: [
+        {
+          sourceMaterialId: 'material',
+          destinationMaterialId: 'bound-material',
+          fingerprint: `sha256:${'b'.repeat(64)}` as const,
+        },
+      ],
+    };
+    await f.controller.adoptArchive(sourceText, options, `sha256:${'a'.repeat(64)}`);
+    const original = structuredClone(f.saved()[0].request);
+    options.bindings[0].destinationMaterialId = 'changed-after-submit';
+    expect(
+      await f.controller.adoptArchive(
+        'different source',
+        { bindings: [] },
+        `sha256:${'c'.repeat(64)}`
+      )
+    ).toBeNull();
+    expect(f.client.applyImport).toHaveBeenCalledOnce();
+    await f.controller.retryPending();
+    expect(f.client.applyImport).toHaveBeenNthCalledWith(1, original);
+    expect(f.client.applyImport).toHaveBeenNthCalledWith(2, original);
+    expect(f.client.execute).not.toHaveBeenCalled();
+    expect(f.saved()).toEqual([]);
+    expect(f.entries).toHaveLength(1);
+    f.controller.dispose();
+  });
+
+  it('does not send an adoption when recovery storage cannot retain its exact intent', async () => {
+    const f = fixture(true);
+    await f.controller.initialize();
+    vi.mocked(f.storage.write).mockImplementationOnce(() => {
+      throw new Error('Quota unavailable');
+    });
+    await f.controller.adoptArchive(
+      '{"source":"unretained"}',
+      { bindings: [] },
+      `sha256:${'a'.repeat(64)}`
+    );
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'refused',
+      code: 'INVENTORY_RECOVERY_UNAVAILABLE',
+    });
+    expect(f.client.applyImport).not.toHaveBeenCalled();
+    expect(f.client.execute).not.toHaveBeenCalled();
+    expect(f.state().revision).toBe(0);
+    expect(f.saved()).toEqual([]);
+    f.controller.dispose();
+  });
+
+  it('round trips adopted intent with exact source text and resolved bindings through recovery storage', () => {
+    const values = new Map<string, string>();
+    const storage = inventoryAttemptStorage({
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => {
+        values.set(key, value);
+      },
+    });
+    const request: InventoryApplyImportRequest = {
+      kind: 'adopt-archive',
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      operationId: 'original-adoption',
+      expectedRevision: 0,
+      sourceText: '{"literal":" 00123 ","unknown":null}\r\n',
+      options: {
+        bindings: [
+          {
+            sourceMaterialId: 'material',
+            destinationMaterialId: 'bound-material',
+            fingerprint: `sha256:${'b'.repeat(64)}`,
+          },
+        ],
+      },
+      expectedPlanDigest: `sha256:${'a'.repeat(64)}`,
+    };
+    const attempt: InventoryAttempt = { summary: 'Adopt inventory archive', request };
     storage.write([attempt]);
     expect(storage.read()).toEqual([attempt]);
   });

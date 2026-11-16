@@ -5,11 +5,15 @@ import type {
   InventoryPrepareLabelRequest,
 } from '../../shared/inventory-client';
 
-export interface InventoryLabelOutputPort {
-  chooseDestination(defaultPath: string): Promise<string | null>;
-  write(path: string, content: string): Promise<void>;
-  read(path: string): Promise<string>;
-}
+import {
+  InventoryTextOutputSession,
+  inventoryTextOutputPending,
+  inventoryTextOutputLocked,
+  type InventoryTextOutput,
+  type InventoryTextOutputPort,
+} from './inventory-text-output';
+
+export type InventoryLabelOutputPort = InventoryTextOutputPort;
 
 export type InventoryLabelPreparation =
   | { kind: 'draft' }
@@ -17,17 +21,7 @@ export type InventoryLabelPreparation =
   | { kind: 'rendered'; artifact: InventoryLabelArtifact }
   | { kind: 'failed'; message: string };
 
-interface InventoryLabelOutputCopy {
-  artifact: InventoryLabelArtifact;
-  path: string;
-}
-
-export type InventoryLabelOutput =
-  | { kind: 'not-exported' }
-  | { kind: 'choosing'; artifact: InventoryLabelArtifact }
-  | ({ kind: 'writing' | 'confirming' | 'exported' } & InventoryLabelOutputCopy)
-  | { kind: 'failed'; artifact: InventoryLabelArtifact; path?: string; message: string }
-  | ({ kind: 'output-unconfirmed'; message: string } & InventoryLabelOutputCopy);
+export type InventoryLabelOutput = InventoryTextOutput<InventoryLabelArtifact>;
 
 export interface InventoryLabelSessionSnapshot {
   mediaProfileId: InventoryLabelMediaProfileId;
@@ -36,11 +30,11 @@ export interface InventoryLabelSessionSnapshot {
 }
 
 export function inventoryLabelOutputPending(output: InventoryLabelOutput): boolean {
-  return ['choosing', 'writing', 'confirming'].includes(output.kind);
+  return inventoryTextOutputPending(output);
 }
 
 export function inventoryLabelSpecificationLocked(output: InventoryLabelOutput): boolean {
-  return inventoryLabelOutputPending(output) || output.kind === 'output-unconfirmed';
+  return inventoryTextOutputLocked(output);
 }
 
 function message(cause: unknown): string {
@@ -56,12 +50,20 @@ export class InventoryLabelSession {
   private readonly listeners = new Set<() => void>();
   private generation = 0;
   private disposed = false;
+  private readonly fileOutput: InventoryTextOutputSession<InventoryLabelArtifact>;
 
   constructor(
     private readonly source: Omit<InventoryPrepareLabelRequest, 'mediaProfileId'>,
     private readonly client: Pick<InventoryClient, 'prepareLabel'>,
-    private readonly output: InventoryLabelOutputPort
-  ) {}
+    output: InventoryLabelOutputPort
+  ) {
+    this.fileOutput = new InventoryTextOutputSession(
+      output,
+      (artifact) => artifact.rendered.svg,
+      'The saved file differs from this label. It is not a confirmed export.',
+      (next) => this.set({ output: next })
+    );
+  }
 
   getSnapshot = (): InventoryLabelSessionSnapshot => this.snapshot;
 
@@ -83,6 +85,7 @@ export class InventoryLabelSession {
     )
       return;
     ++this.generation;
+    this.fileOutput.forget();
     this.set({
       mediaProfileId,
       preparation: { kind: 'draft' },
@@ -99,6 +102,7 @@ export class InventoryLabelSession {
       return;
     const generation = ++this.generation;
     const mediaProfileId = this.snapshot.mediaProfileId;
+    this.fileOutput.forget();
     this.set({ preparation: { kind: 'rendering' }, output: { kind: 'not-exported' } });
     try {
       const artifact = await this.client.prepareLabel({ ...this.source, mediaProfileId });
@@ -125,97 +129,25 @@ export class InventoryLabelSession {
       inventoryLabelSpecificationLocked(previous)
     )
       return;
-    const artifact = preparation.artifact;
-    this.set({ output: { kind: 'choosing', artifact } });
-    let path: string | null;
-    try {
-      path = await this.output.chooseDestination(
-        `inventory-label-${artifact.svgSha256.replace(/^sha256:/, '').slice(0, 16)}.svg`
-      );
-    } catch (cause) {
-      this.set({ output: { kind: 'failed', artifact, message: message(cause) } });
-      return;
-    }
-    if (path === null) {
-      this.set({ output: previous });
-      return;
-    }
-    await this.writeCopy({ artifact, path });
+    await this.fileOutput.export(
+      preparation.artifact,
+      `inventory-label-${preparation.artifact.svgSha256.replace(/^sha256:/, '').slice(0, 16)}.svg`
+    );
   }
 
-  private async writeCopy(copy: InventoryLabelOutputCopy): Promise<void> {
-    this.set({ output: { kind: 'writing', ...copy } });
-    try {
-      await this.output.write(copy.path, copy.artifact.rendered.svg);
-    } catch (cause) {
-      this.set({
-        output: {
-          kind: 'output-unconfirmed',
-          ...copy,
-          message: `The write could not be confirmed. ${message(cause)}`,
-        },
-      });
-      return;
-    }
-    await this.confirmCopy(copy);
+  checkOutput(): Promise<void> {
+    return this.fileOutput.check();
   }
-
-  private async confirmCopy(copy: InventoryLabelOutputCopy): Promise<void> {
-    this.set({ output: { kind: 'confirming', ...copy } });
-    try {
-      const saved = await this.output.read(copy.path);
-      this.set({
-        output:
-          saved === copy.artifact.rendered.svg
-            ? { kind: 'exported', ...copy }
-            : {
-                kind: 'failed',
-                ...copy,
-                message: 'The saved file differs from this label. It is not a confirmed export.',
-              },
-      });
-    } catch (cause) {
-      this.set({
-        output: {
-          kind: 'output-unconfirmed',
-          ...copy,
-          message: `The saved file could not be checked. ${message(cause)}`,
-        },
-      });
-    }
+  retryOutput(): Promise<void> {
+    return this.fileOutput.retry();
   }
-
-  async checkOutput(): Promise<void> {
-    const copy = this.snapshot.output;
-    if (
-      this.disposed ||
-      !['output-unconfirmed', 'failed', 'exported'].includes(copy.kind) ||
-      !('path' in copy) ||
-      copy.path === undefined
-    )
-      return;
-    await this.confirmCopy({ artifact: copy.artifact, path: copy.path });
-  }
-
-  async retryOutput(): Promise<void> {
-    const copy = this.snapshot.output;
-    if (
-      this.disposed ||
-      !['output-unconfirmed', 'failed'].includes(copy.kind) ||
-      !('path' in copy) ||
-      copy.path === undefined
-    )
-      return;
-    await this.writeCopy({ artifact: copy.artifact, path: copy.path });
-  }
-
   forgetOutput(): void {
-    if (this.disposed || inventoryLabelOutputPending(this.snapshot.output)) return;
-    this.set({ output: { kind: 'not-exported' } });
+    this.fileOutput.forget();
   }
 
   dispose(): void {
     this.disposed = true;
+    this.fileOutput.dispose();
     ++this.generation;
     this.listeners.clear();
   }

@@ -15,10 +15,15 @@ import type {
   InventoryStockAvailability,
   InventoryStorage,
   InventoryVessel,
+  InventoryArchiveArtifact,
+  InventoryImportPreview,
 } from '@waypoint/domain-services';
 import type { InventoryRenderedLabel } from '@waypoint/domain-services/inventory-label-types';
 import type {
   InventoryCatalogUpdatePreviewRequest,
+  InventoryExportSnapshotRequest,
+  InventoryPreviewImportRequest,
+  InventoryApplyImportRequest,
   InventoryExecuteRequest,
   InventoryHistoryRequest,
   InventoryOperationRequest,
@@ -117,7 +122,19 @@ export interface InventoryLabelArtifact {
   readonly svgSha256: string;
 }
 
+export interface InventoryExportSnapshot extends InventoryArchiveArtifact {
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+}
+export type InventoryImportPreviewSnapshot = InventoryImportPreview & {
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+};
+
 export interface InventoryClient {
+  exportSnapshot(input: InventoryExportSnapshotRequest): Promise<InventoryExportSnapshot>;
+  previewImport(input: InventoryPreviewImportRequest): Promise<InventoryImportPreviewSnapshot>;
+  applyImport(input: InventoryApplyImportRequest): Promise<NativeInventoryExecution>;
   projects(): Promise<readonly InventoryProject[]>;
   catalog(input: InventoryCatalogQuery): Promise<readonly InventoryEquipmentCatalogEntry[]>;
   catalogUpdatePreview(
@@ -141,7 +158,19 @@ export function unavailableInventoryClient(): InventoryClient {
   const unavailable = async (): Promise<never> => {
     throw new Error('INVENTORY_OWNER_UNAVAILABLE: Inventory requires the connected desktop owner.');
   };
+  const unavailableMutation = async (
+    request: Pick<InventoryExecuteRequest, 'inventoryId' | 'operationId'>
+  ): Promise<NativeInventoryExecution> => ({
+    status: 'rejected',
+    inventoryId: request.inventoryId,
+    operationId: request.operationId,
+    code: 'INVENTORY_OWNER_UNAVAILABLE',
+    message: 'Inventory requires the connected desktop owner.',
+  });
   return {
+    exportSnapshot: unavailable,
+    previewImport: unavailable,
+    applyImport: unavailableMutation,
     projects: unavailable,
     catalog: unavailable,
     catalogUpdatePreview: unavailable,
@@ -151,13 +180,7 @@ export function unavailableInventoryClient(): InventoryClient {
     materials: unavailable,
     inspect: unavailable,
     availability: unavailable,
-    execute: async (request) => ({
-      status: 'rejected',
-      inventoryId: request.inventoryId,
-      operationId: request.operationId,
-      code: 'INVENTORY_OWNER_UNAVAILABLE',
-      message: 'Inventory requires the connected desktop owner.',
-    }),
+    execute: unavailableMutation,
     operation: unavailable,
     history: unavailable,
     onChanged: () => () => {},
@@ -165,6 +188,10 @@ export function unavailableInventoryClient(): InventoryClient {
 }
 
 export type {
+  InventoryExportSnapshotRequest,
+  InventoryPreviewImportRequest,
+  InventoryApplyImportRequest,
+  InventoryAcceptedRequest,
   InventoryCatalogUpdatePreviewRequest,
   InventoryExecuteRequest,
   InventoryHistoryRequest,

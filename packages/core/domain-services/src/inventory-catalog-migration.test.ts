@@ -31,7 +31,7 @@ describe('frozen v7 catalog lifecycle migration', () => {
       bytes = JSON.stringify(input),
       state = parseInventoryState(input);
     expect(JSON.stringify(input)).toBe(bytes);
-    expect(state.schema).toBe('dnaforge.inventory.v11');
+    expect(state.schema).toBe('dnaforge.inventory.v12');
     expect(state.revision).toBe(1);
     expect(state.lastRecordedAt).toBe(10);
     expect(state.typeVersions['tube-v1'].selection).toEqual({ kind: 'available' });

@@ -9,6 +9,7 @@ import {
 const identity = z.string().min(1).max(256);
 const revision = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const profileKey = z.string().regex(/^[a-f0-9]{64}$/);
+const digest = z.string().regex(/^sha256:[a-f0-9]{64}$/);
 
 export const inventoryPrincipalSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('local-profile'), profileKey }).strict(),
@@ -25,6 +26,32 @@ export const inventoryReceiptContextSchema = z
 
 export const inventoryReadRequestSchema = z
   .object({ project: z.string().min(1).max(4096), inventoryId: identity })
+  .strict();
+
+export const inventoryImportBindingSchema = z
+  .object({ sourceMaterialId: identity, destinationMaterialId: identity })
+  .strict();
+export const inventoryResolvedImportBindingSchema = inventoryImportBindingSchema
+  .extend({ fingerprint: digest })
+  .strict();
+export const inventoryExportSnapshotRequestSchema = inventoryReadRequestSchema
+  .extend({ format: z.literal('native-v1') })
+  .strict();
+export const inventoryPreviewImportRequestSchema = inventoryReadRequestSchema
+  .extend({
+    sourceText: z.string().min(1),
+    options: z.object({ bindings: z.array(inventoryImportBindingSchema) }).strict(),
+  })
+  .strict();
+export const inventoryApplyImportRequestSchema = inventoryReadRequestSchema
+  .extend({
+    kind: z.literal('adopt-archive'),
+    operationId: identity,
+    expectedRevision: revision,
+    sourceText: z.string().min(1),
+    options: z.object({ bindings: z.array(inventoryResolvedImportBindingSchema) }).strict(),
+    expectedPlanDigest: digest,
+  })
   .strict();
 
 export const inventoryStorageConditionsRequestSchema = inventoryReadRequestSchema
@@ -63,6 +90,11 @@ export const inventoryExecuteRequestSchema = inventoryReadRequestSchema
     }),
   }));
 
+export const inventoryAcceptedRequestSchema = z.union([
+  inventoryExecuteRequestSchema,
+  inventoryApplyImportRequestSchema,
+]);
+
 export const inventoryOperationRequestSchema = inventoryReadRequestSchema
   .extend({ operationId: identity })
   .strict();
@@ -99,6 +131,10 @@ export const inventoryReceiptSchema = z
   .strict();
 
 export type InventoryReadRequest = z.infer<typeof inventoryReadRequestSchema>;
+export type InventoryExportSnapshotRequest = z.infer<typeof inventoryExportSnapshotRequestSchema>;
+export type InventoryPreviewImportRequest = z.infer<typeof inventoryPreviewImportRequestSchema>;
+export type InventoryApplyImportRequest = z.infer<typeof inventoryApplyImportRequestSchema>;
+export type InventoryAcceptedRequest = InventoryExecuteRequest | InventoryApplyImportRequest;
 export type InventoryStorageConditionsRequest = z.infer<
   typeof inventoryStorageConditionsRequestSchema
 >;
@@ -123,6 +159,6 @@ export interface NativeInventoryRejection {
 }
 export type NativeInventoryExecution = NativeInventoryReceipt | NativeInventoryRejection;
 export interface NativeInventoryHistoryEntry {
-  readonly request: InventoryExecuteRequest;
+  readonly request: InventoryAcceptedRequest;
   readonly receipt: NativeInventoryReceipt;
 }

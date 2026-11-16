@@ -5,6 +5,7 @@ import { handleGroup } from '../../shared/ipc-contract';
 import { inventoryContract } from '../../shared/ipc/inventory.contract';
 import {
   inventoryExecuteRequestSchema,
+  inventoryApplyImportRequestSchema,
   inventoryOperationRequestSchema,
   type NativeInventoryRejection,
 } from '../../shared/inventory-command';
@@ -40,7 +41,67 @@ export function registerInventoryHandlers(options: {
         false
       );
   };
+  const mutate = (
+    event: IpcMainInvokeEvent,
+    input: unknown,
+    kind: 'commands' | 'adoption'
+  ): ReturnType<NativeInventoryOwner['execute']> => {
+    const value = input as
+      | { project?: unknown; inventoryId?: unknown; operationId?: unknown }
+      | undefined;
+    const scope = inventoryOperationRequestSchema.parse({
+      project: value?.project,
+      inventoryId: value?.inventoryId,
+      operationId: value?.operationId,
+    });
+    const reject = (code: string, message: string): NativeInventoryRejection => ({
+      status: 'rejected',
+      inventoryId: scope.inventoryId,
+      operationId: scope.operationId,
+      code,
+      message,
+    });
+    let request;
+    try {
+      request =
+        kind === 'commands'
+          ? inventoryExecuteRequestSchema.parse(input)
+          : inventoryApplyImportRequestSchema.parse(input);
+    } catch (error) {
+      if (!(error instanceof ZodError || error instanceof InventoryValidationError)) throw error;
+      return reject('INVALID_INVENTORY_INPUT', error.message);
+    }
+    try {
+      const owner = currentOwner();
+      const assertCurrent = () => {
+        assertCaller(event);
+        if (options.owner() !== owner)
+          throw new NativeDocumentCommandError(
+            'INVENTORY_OWNER_UNAVAILABLE',
+            'The desktop inventory owner changed.',
+            false
+          );
+      };
+      assertCurrent();
+      return kind === 'commands'
+        ? owner.execute(request, assertCurrent, { actor: `human:desktop:${event.sender.id}` })
+        : owner.applyImport(request, assertCurrent, { actor: `human:desktop:${event.sender.id}` });
+    } catch (error) {
+      if (error instanceof NativeDocumentCommandError && error.stateChanged === false)
+        return reject(error.code, error.message);
+      throw error;
+    }
+  };
   return handleGroup(inventoryContract, {
+    exportSnapshot: (event, request) => {
+      assertCaller(event);
+      return currentOwner().exportSnapshot(request);
+    },
+    previewImport: (event, request) => {
+      assertCaller(event);
+      return currentOwner().previewImport(request);
+    },
+    applyImport: (event, request) => mutate(event, request, 'adoption'),
     projects: (event) => {
       assertCaller(event);
       return currentOwner().projects();
@@ -94,44 +155,6 @@ export function registerInventoryHandlers(options: {
       assertCaller(event);
       return currentOwner().history(request);
     },
-    execute: (event, input) => {
-      const scope = inventoryOperationRequestSchema.parse({
-        project: input?.project,
-        inventoryId: input?.inventoryId,
-        operationId: input?.operationId,
-      });
-      const reject = (code: string, message: string): NativeInventoryRejection => ({
-        status: 'rejected',
-        inventoryId: scope.inventoryId,
-        operationId: scope.operationId,
-        code,
-        message,
-      });
-      let request;
-      try {
-        request = inventoryExecuteRequestSchema.parse(input);
-      } catch (error) {
-        if (!(error instanceof ZodError || error instanceof InventoryValidationError)) throw error;
-        return reject('INVALID_INVENTORY_INPUT', error.message);
-      }
-      try {
-        const owner = currentOwner();
-        const assertCurrent = () => {
-          assertCaller(event);
-          if (options.owner() !== owner)
-            throw new NativeDocumentCommandError(
-              'INVENTORY_OWNER_UNAVAILABLE',
-              'The desktop inventory owner changed.',
-              false
-            );
-        };
-        assertCurrent();
-        return owner.execute(request, assertCurrent, { actor: `human:desktop:${event.sender.id}` });
-      } catch (error) {
-        if (error instanceof NativeDocumentCommandError && error.stateChanged === false)
-          return reject(error.code, error.message);
-        throw error;
-      }
-    },
+    execute: (event, input) => mutate(event, input, 'commands'),
   });
 }

@@ -100,3 +100,17 @@ describe('inventory storage conditions agent contract', () => {
     ).toBe(false);
   });
 });
+
+describe('inventory portability agent contract', () => {
+  const scope = { project: '/project', inventoryId: 'inventory' };
+  it('separates untrusted preview choices from resolved adoption bindings and refuses native authority fields', () => {
+    const preview = { kind: 'preview-import', ...scope, sourceText: 'archive', options: { bindings: [{ sourceMaterialId: 'source', destinationMaterialId: 'destination' }] } };
+    expect(inventoryAgentSchema.parse({ operation: preview })).toEqual({ operation: preview });
+    const operation = { kind: 'apply-import', ...scope, operationId: 'adopt', expectedRevision: 0, sourceText: 'archive', options: { bindings: [{ sourceMaterialId: 'source', destinationMaterialId: 'destination', fingerprint: `sha256:${'0'.repeat(64)}` }] }, expectedPlanDigest: `sha256:${'1'.repeat(64)}` };
+    expect(inventoryAgentSchema.parse({ operation })).toEqual({ operation });
+    for (const extra of [{ principal: { kind: 'agent', identityId: 'foreign' } }, { recordedAt: 0 }, { authority: { kind: 'local-profile', profileKey: '0'.repeat(64) } }])
+      expect(inventoryAgentSchema.safeParse({ operation: { ...operation, ...extra } }).success).toBe(false);
+    expect(inventoryAgentSchema.safeParse({ operation: { ...operation, options: preview.options } }).success).toBe(false);
+    expect(inventoryAgentSchema.safeParse({ operation: { ...preview, options: operation.options } }).success).toBe(false);
+  });
+});

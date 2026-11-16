@@ -1,4 +1,4 @@
-import type { InventoryCustodyDestination, InventoryPrincipal } from '@waypoint/domain-services';
+import type { InventoryCustodyDestination } from '@waypoint/domain-services';
 import { Button, Notice } from '../../components/ui';
 import type { InventoryData } from './inventory-controller';
 import type { InventoryCustodyDialog } from './InventoryCustodyForm';
@@ -6,20 +6,11 @@ import {
   inventoryBlockerLabel,
   inventoryCustodyLabel,
   inventoryLocationPathLabel,
+  inventoryPrincipalLabel,
   locationPath,
   vesselLocation,
   type InventoryItem,
 } from './inventory-view';
-
-function principalLabel(
-  holder: InventoryPrincipal,
-  current: InventoryPrincipal | undefined
-): string {
-  if (holder.kind === 'agent') return `Agent ${holder.identityId}`;
-  return current?.kind === 'local-profile' && holder.profileKey === current.profileKey
-    ? 'This desktop profile'
-    : 'Another desktop profile';
-}
 
 export function inventoryDestinationLabel(
   data: InventoryData,
@@ -115,7 +106,7 @@ export function InventoryCustodyPanel({
           <div>
             <dt className="text-fg-muted">Recorded holder</dt>
             <dd className="mt-1 break-words">
-              {principalLabel(view.state.holder, data.availability?.principal)}
+              {inventoryPrincipalLabel(view.state.holder, data.availability?.principal)}
             </dd>
           </div>
         ) : null}

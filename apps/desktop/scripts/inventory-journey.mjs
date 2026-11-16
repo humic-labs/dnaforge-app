@@ -7,6 +7,10 @@ import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
 import { runInventoryCompositionJourney } from './journeys/inventory-composition.mjs';
 import {
+  runInventoryPortabilityJourney,
+  runInventoryPortabilityReopen,
+} from './journeys/inventory-portability.mjs';
+import {
   runInventoryConditionsJourney,
   runInventoryConditionsReopen,
   runInventoryThermalContextJourney,
@@ -67,6 +71,8 @@ assert.ok(
     'conditions-reopen',
     'thermal-context',
     'conditions-catalog-recover',
+    'archive-preview',
+    'archive-reopen',
   ].includes(stage),
   'Choose a mapped inventory journey stage.'
 );
@@ -106,6 +112,9 @@ const files = execFileSync(
     'packages/core/domain-services/src/metadata-fields.ts',
     'packages/core/domain-services/src/index.ts',
     'packages/core/domain-services/package.json',
+    'packages/core/scientific-objects/package.json',
+    'packages/core/scientific-objects/src/unique-json.ts',
+    'apps/desktop/src/shared/native-document-transport.ts',
     'package.json',
     'pnpm-lock.yaml',
     'packages/core/domain-services/scripts',
@@ -634,6 +643,30 @@ try {
     );
   }
 
+  if (stage === 'archive-preview' || stage === 'archive-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass the current owned inventory fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    const run =
+      stage === 'archive-preview' ? runInventoryPortabilityJourney : runInventoryPortabilityReopen;
+    receipt.expected = await run({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+      projectRoot: root,
+      userDataPath: runtime.provenance.userDataPath,
+    });
+    writeFileSync(
+      path.join(out, 'archive-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
   if (
     stage === 'conditions' ||
     stage === 'conditions-reopen' ||

@@ -1,3 +1,4 @@
+import { inventoryPrincipalMatchesActor } from './inventory-attribution';
 import {
   inventoryPhysicalProjection,
   inventoryPhysicalPositionUnavailable,
@@ -55,13 +56,6 @@ const refuse = (code: InventoryErrorCode, message: string): Failure => ({
 });
 const zero = (): InventoryVolume => ({ value: '0', unit: 'uL' });
 
-function samePrincipal(first: InventoryPrincipal, second: InventoryPrincipal | undefined): boolean {
-  if (!second || first.kind !== second.kind) return false;
-  return first.kind === 'agent'
-    ? second.kind === 'agent' && first.identityId === second.identityId
-    : second.kind === 'local-profile' && first.profileKey === second.profileKey;
-}
-
 function due(reservation: InventoryReservation, at: number): boolean {
   return reservation.deadline !== null && at >= reservation.deadline;
 }
@@ -114,7 +108,7 @@ function stockAvailability(
   const held = addInventoryVolumes(quantities.map((reservation) => reservation.remaining));
   const mine = addInventoryVolumes(
     quantities
-      .filter((reservation) => samePrincipal(reservation.holder, principal))
+      .filter((reservation) => inventoryPrincipalMatchesActor(reservation.holder, principal))
       .map((reservation) => reservation.remaining)
   );
   const blockers: InventoryAvailabilityBlocker[] = [];
@@ -125,7 +119,8 @@ function stockAvailability(
   if (stock.quality !== 'usable') blockers.push({ code: 'STOCK_QUARANTINED' });
   if (vessel.lifecycle !== 'active') blockers.push({ code: 'VESSEL_DISPOSED' });
   const itemHolds = active.filter(
-    (reservation) => reservation.kind === 'item' && !samePrincipal(reservation.holder, principal)
+    (reservation) =>
+      reservation.kind === 'item' && !inventoryPrincipalMatchesActor(reservation.holder, principal)
   );
   if (itemHolds.length)
     blockers.push({
@@ -168,7 +163,7 @@ export function inventoryAvailability(
     Object.create(null);
   for (const reservation of Object.values(state.reservations)) {
     const active = reservation.lifecycle.kind === 'active';
-    const mine = samePrincipal(reservation.holder, principal);
+    const mine = inventoryPrincipalMatchesActor(reservation.holder, principal);
     const overdue = active && due(reservation, at);
     const related =
       reservation.kind === 'quantity'
@@ -217,7 +212,7 @@ function itemConflict(
   return Object.values(state.reservations).filter((reservation) => {
     if (
       reservation.lifecycle.kind !== 'active' ||
-      samePrincipal(reservation.holder, principal) ||
+      inventoryPrincipalMatchesActor(reservation.holder, principal) ||
       (!includeQuantity && reservation.kind !== 'item')
     )
       return false;
@@ -316,7 +311,7 @@ export function inventoryReservationGuard(
         (reservation) =>
           reservation.kind === 'item' &&
           reservation.lifecycle.kind === 'active' &&
-          !samePrincipal(reservation.holder, context?.principal) &&
+          !inventoryPrincipalMatchesActor(reservation.holder, context?.principal) &&
           inventoryItemContains(state, reservation.item, location)
       )
     )
@@ -451,7 +446,7 @@ export function applyInventoryReservationCommand(
       );
     if (
       command.kind === 'release-reservation' &&
-      !samePrincipal(reservation.holder, context.principal)
+      !inventoryPrincipalMatchesActor(reservation.holder, context.principal)
     )
       return refuse('RESERVATION_NOT_OWNED', 'Only the reservation holder can release it.');
     if (
@@ -521,7 +516,7 @@ export function prepareInventoryFulfillment(
       return refuse('RESERVATION_NOT_FOUND', 'A claimed reservation does not exist.');
     if (reservation.lifecycle.kind !== 'active')
       return refuse('RESERVATION_NOT_ACTIVE', 'Only active reservations can be fulfilled.');
-    if (!samePrincipal(reservation.holder, context.principal))
+    if (!inventoryPrincipalMatchesActor(reservation.holder, context.principal))
       return refuse('RESERVATION_NOT_OWNED', 'A claim must belong to the acting holder.');
     if (due(reservation, context.at))
       return refuse(

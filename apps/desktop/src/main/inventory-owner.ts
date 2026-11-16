@@ -17,9 +17,16 @@ import {
   type InventoryState,
   type InventoryAvailability,
   type InventoryPhysicalItem,
+  type InventoryTransition,
+  type InventoryImportBinding,
+  type InventoryImportBindingObservation,
+  type InventoryImportTarget,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
+  inventoryApplyImportRequestSchema,
+  inventoryExportSnapshotRequestSchema,
+  inventoryPreviewImportRequestSchema,
   inventoryCatalogQuerySchema,
   inventoryCatalogUpdatePreviewRequestSchema,
   inventoryHistoryRequestSchema,
@@ -32,7 +39,7 @@ import {
   inventoryReceiptSchema,
   inventoryPrincipalSchema,
   inventoryReceiptContextSchema,
-  type InventoryExecuteRequest,
+  type InventoryAcceptedRequest,
   type NativeInventoryExecution,
   type NativeInventoryHistoryEntry,
   type NativeInventoryReceipt,
@@ -47,6 +54,8 @@ import type {
   InventoryItemCodeTargetSnapshot,
   InventoryLabelArtifact,
   InventoryStorageConditionsSnapshot,
+  InventoryExportSnapshot,
+  InventoryImportPreviewSnapshot,
 } from '../shared/inventory-client';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import type { RegisteredProject, RegisteredProjectAuthority } from './registered-project-authority';
@@ -55,6 +64,19 @@ import { registrySourceEligibilitySql } from './registry-source-eligibility';
 import { assertAcceptingSharedProjectContentWritable } from './shared-project-write-access';
 import { assertCommittedDatabaseReadAllowed } from './workspace-sync-database-fence';
 import { NativeDocumentCommandError } from '../shared/native-document-error';
+import {
+  nativeInventoryRequestDigest,
+  parseNativeInventoryJournalEntry,
+  type NativeInventoryJournalRow,
+} from './inventory-journal';
+import {
+  nativeInventoryArchive,
+  nativeInventoryImportPreview,
+  nativeInventorySha256,
+  applyNativeInventoryAdoption,
+  replayNativeInventoryJournal,
+} from './inventory-archive';
+import { NATIVE_DOCUMENT_MAX_BODY_BYTES } from '../shared/native-document-transport';
 
 interface InventoryRow {
   inventory_id: string;
@@ -63,13 +85,7 @@ interface InventoryRow {
   state_json: string;
 }
 
-interface JournalRow {
-  inventory_id: string;
-  operation_id: string;
-  revision: number;
-  request_json: string;
-  receipt_json: string;
-}
+type JournalRow = NativeInventoryJournalRow;
 
 interface WorkspaceIdentity {
   id: number;
@@ -90,10 +106,6 @@ function parsedJson(value: string): unknown {
   } catch {
     return dataError();
   }
-}
-
-function requestDigest(request: InventoryExecuteRequest): string {
-  return `sha256:${createHash('sha256').update(canonicalNativeMutationRequest(request)).digest('hex')}`;
 }
 
 function materialProject(db: Database.Database, id: string, fieldsJson: string): number | null {
@@ -143,20 +155,10 @@ function itemCodeTargetSnapshot(
 
 function entryFromRow(row: JournalRow, project: string): NativeInventoryHistoryEntry {
   try {
-    const request = inventoryExecuteRequestSchema.parse(parsedJson(row.request_json));
-    const receipt = inventoryReceiptSchema.parse(parsedJson(row.receipt_json));
-    if (
-      request.project !== project ||
-      request.inventoryId !== row.inventory_id ||
-      request.operationId !== row.operation_id ||
-      request.expectedRevision + 1 !== row.revision ||
-      receipt.inventoryId !== row.inventory_id ||
-      receipt.operationId !== row.operation_id ||
-      receipt.revision !== row.revision ||
-      receipt.requestDigest !== requestDigest(request)
-    )
-      return dataError();
-    return { request, receipt };
+    return parseNativeInventoryJournalEntry(row, project, {
+      request: parsedJson(row.request_json),
+      receipt: parsedJson(row.receipt_json),
+    });
   } catch {
     return dataError();
   }
@@ -175,7 +177,7 @@ export function createNativeInventoryOwner(options: {
   });
   const principal = (invocation: NativeInventoryInvocation): InventoryPrincipal =>
     inventoryPrincipalSchema.parse(invocation.principal ?? authority);
-  const observationTime = (state: InventoryState): number => {
+  const nativeNow = (): number => {
     const now = (options.now ?? Date.now)();
     if (!Number.isSafeInteger(now) || now < 0)
       throw new NativeDocumentCommandError(
@@ -183,8 +185,10 @@ export function createNativeInventoryOwner(options: {
         'The native inventory clock is unavailable.',
         false
       );
-    return Math.max(now, state.lastRecordedAt);
+    return now;
   };
+  const observationTime = (state: InventoryState): number =>
+    Math.max(nativeNow(), state.lastRecordedAt);
   const listeners = new Set<(event: InventoryChanged) => void>();
   const resolveProject = (reference: string, mutating: boolean): RegisteredProject => {
     assertCommittedDatabaseReadAllowed(options.db());
@@ -218,7 +222,349 @@ export function createNativeInventoryOwner(options: {
     return { project, row, request };
   };
 
+  const importTarget = (
+    db: Database.Database,
+    project: RegisteredProject,
+    inventoryId: string,
+    row: InventoryRow | undefined
+  ): InventoryImportTarget => ({
+    projectId: project.projectId,
+    inventoryId,
+    present: Boolean(
+      row ||
+      db.prepare('SELECT 1 FROM inventory_journal WHERE inventory_id=? LIMIT 1').get(inventoryId)
+    ),
+    revision: row?.revision ?? 0,
+  });
+  const observeBindings = (
+    db: Database.Database,
+    project: RegisteredProject,
+    bindings: readonly InventoryImportBinding[]
+  ): readonly InventoryImportBindingObservation[] =>
+    bindings.map((binding) => {
+      const row = db
+        .prepare(
+          `SELECT * FROM lims_entity WHERE id=? AND tombstone=0 AND archived_at IS NULL
+       AND (${registrySourceEligibilitySql(db)})`
+        )
+        .get(binding.destinationMaterialId) as
+        | ({ id: string; fields: string } & Record<string, unknown>)
+        | undefined;
+      if (!row || materialProject(db, row.id, row.fields) !== project.id)
+        return {
+          ...binding,
+          kind: 'unavailable',
+          reason: 'Choose an active scientific record in the destination project.',
+        };
+      const files = db
+        .prepare('SELECT * FROM catalog_entity_files WHERE entity_id=? ORDER BY path')
+        .all(row.id);
+      const catalog = db.prepare('SELECT * FROM catalog_entities WHERE id=?').get(row.id) ?? null;
+      return {
+        ...binding,
+        kind: 'admitted',
+        fingerprint: nativeInventorySha256(
+          canonicalNativeMutationRequest({ projectId: project.projectId, row, files, catalog })
+        ),
+      };
+    });
+
+  const commit = (
+    parsed: InventoryAcceptedRequest,
+    assertCurrent: () => void,
+    invocation: NativeInventoryInvocation
+  ): NativeInventoryExecution => {
+    const project = resolveProject(parsed.project, true);
+    const assertProject = options.projectAuthority.capture(project.projectId, true);
+    const db = options.db();
+    const workspace = db
+      .prepare(
+        'SELECT id,path,repo_uuid,access_mode,archived_at,trashed_at FROM workspaces WHERE id = ?'
+      )
+      .get(project.id) as WorkspaceIdentity | undefined;
+    if (!workspace)
+      throw new NativeDocumentCommandError(
+        'PROJECT_ACCESS_DENIED',
+        'The inventory project is unavailable.',
+        false
+      );
+    const request: InventoryAcceptedRequest = { ...parsed, project: project.projectId };
+    const canonical = canonicalNativeMutationRequest(request);
+    assertCurrent();
+    assertProject();
+
+    const assertAcceptingProject = () => {
+      const acceptingWorkspace = db
+        .prepare(
+          'SELECT id,path,repo_uuid,access_mode,archived_at,trashed_at FROM workspaces WHERE id = ?'
+        )
+        .get(project.id) as WorkspaceIdentity | undefined;
+      if (
+        !acceptingWorkspace ||
+        canonicalNativeMutationRequest(acceptingWorkspace) !==
+          canonicalNativeMutationRequest(workspace) ||
+        acceptingWorkspace.access_mode !== 'writable' ||
+        acceptingWorkspace.archived_at !== null ||
+        acceptingWorkspace.trashed_at !== null
+      )
+        throw new Error('PROJECT_ACCESS_CHANGED: The inventory project authority changed.');
+      assertAcceptingSharedProjectContentWritable(db, project.path);
+    };
+
+    let committed = false;
+    const execution = db
+      .transaction((): NativeInventoryExecution => {
+        assertAcceptingProject();
+        assertCurrent();
+        const row = inventory(db, request.inventoryId, project.projectId);
+        const existing = db
+          .prepare('SELECT * FROM inventory_journal WHERE inventory_id = ? AND operation_id = ?')
+          .get(request.inventoryId, request.operationId) as JournalRow | undefined;
+        if (existing) {
+          const entry = entryFromRow(existing, project.projectId);
+          if (canonicalNativeMutationRequest(entry.request) !== canonical)
+            return {
+              status: 'rejected',
+              inventoryId: request.inventoryId,
+              operationId: request.operationId,
+              code: 'INVENTORY_OPERATION_CONFLICT',
+              message: 'This operation ID was already used with a different inventory request.',
+            };
+          return entry.receipt;
+        }
+        const previous = row ? stateFromRow(row) : createInventoryState();
+        const recordedAt = observationTime(previous);
+        const context = inventoryReceiptContextSchema.parse({
+          version: 1,
+          principal: principal(invocation),
+          authority,
+        });
+        let result: InventoryTransition;
+        if ('kind' in request && request.kind === 'adopt-archive') {
+          const reject = (code: string, message: string): NativeInventoryExecution => ({
+            status: 'rejected',
+            inventoryId: request.inventoryId,
+            operationId: request.operationId,
+            code,
+            message,
+            currentRevision: previous.revision,
+          });
+          if (request.expectedRevision !== previous.revision)
+            return reject('REVISION_CONFLICT', 'Inventory changed after the import was previewed.');
+          if (Buffer.byteLength(canonical, 'utf8') > NATIVE_DOCUMENT_MAX_BODY_BYTES)
+            return reject(
+              'INVENTORY_IMPORT_TOO_LARGE',
+              'The encoded import request exceeds the inline native transport limit.'
+            );
+          const preview = nativeInventoryImportPreview(
+            request.sourceText,
+            importTarget(db, project, request.inventoryId, row),
+            request.options,
+            observeBindings(db, project, request.options.bindings),
+            recordedAt
+          );
+          if (preview.kind === 'blocked')
+            return reject(
+              preview.issues[0]?.code ?? 'INVENTORY_IMPORT_BLOCKED',
+              preview.issues[0]?.message ?? 'The inventory import is blocked.'
+            );
+          if (preview.kind !== 'ready')
+            return reject(
+              'INVENTORY_IMPORT_NO_CHANGES',
+              'The archive contains no inventory to adopt.'
+            );
+          if (
+            preview.planDigest !== request.expectedPlanDigest ||
+            canonicalNativeMutationRequest(preview.options) !==
+              canonicalNativeMutationRequest(request.options)
+          )
+            return reject(
+              'INVENTORY_IMPORT_PLAN_CHANGED',
+              'The source, destination or scientific bindings changed. Preview the archive again.'
+            );
+          result = applyNativeInventoryAdoption(row ? previous : null, request, {
+            at: recordedAt,
+            principal: context.principal,
+            authority: context.authority,
+          });
+        } else {
+          const lotMaterials = new Map(
+            Object.values(previous.lots).map((lot) => [lot.id, lot.materialId])
+          );
+          for (const input of request.commands) {
+            const command = input.kind === 'fulfill-reservations' ? input.withdrawal : input;
+            if (command.kind === 'create-lot') lotMaterials.set(command.id, command.materialId);
+            if (command.kind === 'pool' || command.kind === 'dilute')
+              lotMaterials.set(command.lotId, command.materialId);
+            const materialId =
+              command.kind === 'receive-stock' ||
+              command.kind === 'create-lot' ||
+              command.kind === 'pool' ||
+              command.kind === 'dilute'
+                ? command.materialId
+                : command.kind === 'receive-lot-stock' || command.kind === 'associate-stock-lot'
+                  ? lotMaterials.get(command.lotId)
+                  : undefined;
+            const materialIds =
+              command.kind === 'record-composition' && command.composition.kind === 'homogeneous'
+                ? Object.keys(command.composition.analytes)
+                : materialId
+                  ? [materialId]
+                  : [];
+            for (const materialId of materialIds) {
+              const entity = db
+                .prepare(
+                  `SELECT id,fields FROM lims_entity
+           WHERE id = ? AND tombstone = 0 AND archived_at IS NULL
+           AND (${registrySourceEligibilitySql(db)})`
+                )
+                .get(materialId) as { id: string; fields: string } | undefined;
+              if (!entity || materialProject(db, entity.id, entity.fields) !== project.id)
+                return {
+                  status: 'rejected',
+                  inventoryId: request.inventoryId,
+                  operationId: request.operationId,
+                  code: 'INVENTORY_MATERIAL_UNAVAILABLE',
+                  message: 'Choose an active scientific record in this inventory project.',
+                  currentRevision: previous.revision,
+                };
+            }
+          }
+          result = applyInventoryCommandBatch(
+            previous,
+            {
+              expectedRevision: request.expectedRevision,
+              commands: request.commands,
+            },
+            { at: recordedAt, principal: context.principal, authority: context.authority }
+          );
+        }
+        if (!result.ok)
+          return {
+            status: 'rejected',
+            inventoryId: request.inventoryId,
+            operationId: request.operationId,
+            code: result.code,
+            message: result.message,
+            currentRevision: previous.revision,
+          };
+        const receipt: NativeInventoryReceipt = inventoryReceiptSchema.parse({
+          status: 'committed',
+          inventoryId: request.inventoryId,
+          operationId: request.operationId,
+          revision: result.state.revision,
+          actor: invocation.actor ?? options.actor(),
+          recordedAt,
+          context,
+          requestDigest: nativeInventoryRequestDigest(request),
+        });
+        assertCurrent();
+        db.prepare(
+          `INSERT INTO inventory_state (inventory_id,project_id,revision,state_json) VALUES(?,?,?,?)
+       ON CONFLICT(inventory_id) DO UPDATE SET revision=excluded.revision,state_json=excluded.state_json`
+        ).run(
+          request.inventoryId,
+          project.projectId,
+          result.state.revision,
+          JSON.stringify(result.state)
+        );
+        db.prepare(
+          `INSERT INTO inventory_journal
+       (inventory_id,operation_id,revision,request_json,receipt_json) VALUES(?,?,?,?,?)`
+        ).run(
+          request.inventoryId,
+          request.operationId,
+          result.state.revision,
+          canonical,
+          JSON.stringify(receipt)
+        );
+        assertCurrent();
+        assertAcceptingProject();
+        committed = true;
+        return receipt;
+      })
+      .immediate();
+    if (committed && execution.status === 'committed') {
+      const event: InventoryChanged = {
+        projectId: project.projectId,
+        inventoryId: request.inventoryId,
+        revision: execution.revision,
+        operationId: execution.operationId,
+      };
+      for (const listener of listeners) {
+        try {
+          listener(event);
+        } catch {}
+      }
+    }
+    return execution;
+  };
+
   return {
+    exportSnapshot(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventoryExportSnapshot {
+      const request = inventoryExportSnapshotRequestSchema.parse(input);
+      const project = resolveProject(request.project, false);
+      const assertProject = options.projectAuthority.capture(project.projectId, false);
+      const db = options.db();
+      assertProject();
+      const snapshot = db
+        .transaction(() => {
+          const row = inventory(db, request.inventoryId, project.projectId);
+          const history = db
+            .prepare('SELECT * FROM inventory_journal WHERE inventory_id=? ORDER BY revision ASC')
+            .all(request.inventoryId) as JournalRow[];
+          const artifact = nativeInventoryArchive({
+            projectId: project.projectId,
+            inventoryId: request.inventoryId,
+            state: row ? { revision: row.revision, json: row.state_json } : null,
+            history: history.map((entry) => ({
+              operationId: entry.operation_id,
+              revision: entry.revision,
+              requestJson: entry.request_json,
+              receiptJson: entry.receipt_json,
+            })),
+          });
+          return structuredClone({
+            ...artifact,
+            asOf: nativeNow(),
+            principal: principal(invocation),
+          });
+        })
+        .deferred();
+      assertProject();
+      return snapshot;
+    },
+
+    previewImport(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventoryImportPreviewSnapshot {
+      const request = inventoryPreviewImportRequestSchema.parse(input);
+      const project = resolveProject(request.project, false);
+      const assertProject = options.projectAuthority.capture(project.projectId, false);
+      const db = options.db();
+      assertProject();
+      const snapshot = db
+        .transaction(() => {
+          const row = inventory(db, request.inventoryId, project.projectId);
+          const asOf = nativeNow();
+          const preview = nativeInventoryImportPreview(
+            request.sourceText,
+            importTarget(db, project, request.inventoryId, row),
+            request.options,
+            observeBindings(db, project, request.options.bindings),
+            asOf
+          );
+          return structuredClone({ ...preview, asOf, principal: principal(invocation) });
+        })
+        .deferred();
+      assertProject();
+      return snapshot;
+    },
+
     projects(): readonly InventoryProject[] {
       assertCommittedDatabaseReadAllowed(options.db());
       return options.projectAuthority.list().map((project) => ({
@@ -446,181 +792,15 @@ export function createNativeInventoryOwner(options: {
       assertCurrent: () => void = () => {},
       invocation: NativeInventoryInvocation = {}
     ): NativeInventoryExecution {
-      const parsed = inventoryExecuteRequestSchema.parse(input);
-      const project = resolveProject(parsed.project, true);
-      const assertProject = options.projectAuthority.capture(project.projectId, true);
-      const db = options.db();
-      const workspace = db
-        .prepare(
-          'SELECT id,path,repo_uuid,access_mode,archived_at,trashed_at FROM workspaces WHERE id = ?'
-        )
-        .get(project.id) as WorkspaceIdentity | undefined;
-      if (!workspace)
-        throw new NativeDocumentCommandError(
-          'PROJECT_ACCESS_DENIED',
-          'The inventory project is unavailable.',
-          false
-        );
-      const request: InventoryExecuteRequest = { ...parsed, project: project.projectId };
-      const canonical = canonicalNativeMutationRequest(request);
-      assertCurrent();
-      assertProject();
+      return commit(inventoryExecuteRequestSchema.parse(input), assertCurrent, invocation);
+    },
 
-      const assertAcceptingProject = () => {
-        const acceptingWorkspace = db
-          .prepare(
-            'SELECT id,path,repo_uuid,access_mode,archived_at,trashed_at FROM workspaces WHERE id = ?'
-          )
-          .get(project.id) as WorkspaceIdentity | undefined;
-        if (
-          !acceptingWorkspace ||
-          canonicalNativeMutationRequest(acceptingWorkspace) !==
-            canonicalNativeMutationRequest(workspace) ||
-          acceptingWorkspace.access_mode !== 'writable' ||
-          acceptingWorkspace.archived_at !== null ||
-          acceptingWorkspace.trashed_at !== null
-        )
-          throw new Error('PROJECT_ACCESS_CHANGED: The inventory project authority changed.');
-        assertAcceptingSharedProjectContentWritable(db, project.path);
-      };
-
-      let committed = false;
-      const execution = db
-        .transaction((): NativeInventoryExecution => {
-          assertAcceptingProject();
-          assertCurrent();
-          const row = inventory(db, request.inventoryId, project.projectId);
-          const existing = db
-            .prepare('SELECT * FROM inventory_journal WHERE inventory_id = ? AND operation_id = ?')
-            .get(request.inventoryId, request.operationId) as JournalRow | undefined;
-          if (existing) {
-            const entry = entryFromRow(existing, project.projectId);
-            if (canonicalNativeMutationRequest(entry.request) !== canonical)
-              return {
-                status: 'rejected',
-                inventoryId: request.inventoryId,
-                operationId: request.operationId,
-                code: 'INVENTORY_OPERATION_CONFLICT',
-                message: 'This operation ID was already used with a different inventory request.',
-              };
-            return entry.receipt;
-          }
-          const previous = row ? stateFromRow(row) : createInventoryState();
-          const recordedAt = observationTime(previous);
-          const context = inventoryReceiptContextSchema.parse({
-            version: 1,
-            principal: principal(invocation),
-            authority,
-          });
-          const lotMaterials = new Map(
-            Object.values(previous.lots).map((lot) => [lot.id, lot.materialId])
-          );
-          for (const input of request.commands) {
-            const command = input.kind === 'fulfill-reservations' ? input.withdrawal : input;
-            if (command.kind === 'create-lot') lotMaterials.set(command.id, command.materialId);
-            if (command.kind === 'pool' || command.kind === 'dilute')
-              lotMaterials.set(command.lotId, command.materialId);
-            const materialId =
-              command.kind === 'receive-stock' ||
-              command.kind === 'create-lot' ||
-              command.kind === 'pool' ||
-              command.kind === 'dilute'
-                ? command.materialId
-                : command.kind === 'receive-lot-stock' || command.kind === 'associate-stock-lot'
-                  ? lotMaterials.get(command.lotId)
-                  : undefined;
-            const materialIds =
-              command.kind === 'record-composition' && command.composition.kind === 'homogeneous'
-                ? Object.keys(command.composition.analytes)
-                : materialId
-                  ? [materialId]
-                  : [];
-            for (const materialId of materialIds) {
-              const entity = db
-                .prepare(
-                  `SELECT id,fields FROM lims_entity
-               WHERE id = ? AND tombstone = 0 AND archived_at IS NULL
-               AND (${registrySourceEligibilitySql(db)})`
-                )
-                .get(materialId) as { id: string; fields: string } | undefined;
-              if (!entity || materialProject(db, entity.id, entity.fields) !== project.id)
-                return {
-                  status: 'rejected',
-                  inventoryId: request.inventoryId,
-                  operationId: request.operationId,
-                  code: 'INVENTORY_MATERIAL_UNAVAILABLE',
-                  message: 'Choose an active scientific record in this inventory project.',
-                  currentRevision: previous.revision,
-                };
-            }
-          }
-          const result = applyInventoryCommandBatch(
-            previous,
-            {
-              expectedRevision: request.expectedRevision,
-              commands: request.commands,
-            },
-            { at: recordedAt, principal: context.principal, authority: context.authority }
-          );
-          if (!result.ok)
-            return {
-              status: 'rejected',
-              inventoryId: request.inventoryId,
-              operationId: request.operationId,
-              code: result.code,
-              message: result.message,
-              currentRevision: previous.revision,
-            };
-          const receipt: NativeInventoryReceipt = inventoryReceiptSchema.parse({
-            status: 'committed',
-            inventoryId: request.inventoryId,
-            operationId: request.operationId,
-            revision: result.state.revision,
-            actor: invocation.actor ?? options.actor(),
-            recordedAt,
-            context,
-            requestDigest: requestDigest(request),
-          });
-          assertCurrent();
-          db.prepare(
-            `INSERT INTO inventory_state (inventory_id,project_id,revision,state_json) VALUES(?,?,?,?)
-           ON CONFLICT(inventory_id) DO UPDATE SET revision=excluded.revision,state_json=excluded.state_json`
-          ).run(
-            request.inventoryId,
-            project.projectId,
-            result.state.revision,
-            JSON.stringify(result.state)
-          );
-          db.prepare(
-            `INSERT INTO inventory_journal
-           (inventory_id,operation_id,revision,request_json,receipt_json) VALUES(?,?,?,?,?)`
-          ).run(
-            request.inventoryId,
-            request.operationId,
-            result.state.revision,
-            canonical,
-            JSON.stringify(receipt)
-          );
-          assertCurrent();
-          assertAcceptingProject();
-          committed = true;
-          return receipt;
-        })
-        .immediate();
-      if (committed && execution.status === 'committed') {
-        const event: InventoryChanged = {
-          projectId: project.projectId,
-          inventoryId: request.inventoryId,
-          revision: execution.revision,
-          operationId: execution.operationId,
-        };
-        for (const listener of listeners) {
-          try {
-            listener(event);
-          } catch {}
-        }
-      }
-      return execution;
+    applyImport(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): NativeInventoryExecution {
+      return commit(inventoryApplyImportRequestSchema.parse(input), assertCurrent, invocation);
     },
 
     inspect(input: unknown): InventoryState | null {
@@ -682,26 +862,9 @@ export function createNativeInventoryOwner(options: {
         .db()
         .prepare('SELECT * FROM inventory_journal WHERE inventory_id = ? ORDER BY revision ASC')
         .all(request.inventoryId) as JournalRow[];
-      let state = createInventoryState();
-      for (const saved of journal) {
-        const entry = entryFromRow(saved, project.projectId);
-        const result = applyInventoryCommandBatch(
-          state,
-          {
-            expectedRevision: entry.request.expectedRevision,
-            commands: entry.request.commands,
-          },
-          entry.receipt.context
-            ? {
-                at: entry.receipt.recordedAt,
-                principal: entry.receipt.context.principal,
-                authority: entry.receipt.context.authority,
-              }
-            : undefined
-        );
-        if (!result.ok) return dataError();
-        state = result.state;
-      }
+      const state = replayNativeInventoryJournal(
+        journal.map((saved) => entryFromRow(saved, project.projectId))
+      );
       if (
         canonicalNativeMutationRequest(state) !== canonicalNativeMutationRequest(stateFromRow(row))
       )

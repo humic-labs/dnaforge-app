@@ -1,4 +1,14 @@
 export * from './inventory-types';
+export * from './inventory-archive-types';
+export * from './inventory-archive';
+export {
+  adoptInventoryState,
+  inventoryScientificReferences,
+  inventoryScientificMaterialIds,
+  type InventoryScientificReference,
+  type InventoryAdoptionOptions,
+} from './inventory-adoption';
+export { inventoryPrincipalMatchesActor } from './inventory-attribution';
 export { INVENTORY_TEMPERATURE_DECIMAL_PATTERN } from './inventory-temperature-types';
 export {
   normalizeInventoryTemperature,
@@ -39,6 +49,7 @@ export {
   parseInventoryItemCodeQuery,
   parseInventoryCommandBatch,
   parseInventoryExecutionContext,
+  parseInventoryAdoptionSource,
   parseInventoryState,
   inventoryCommandJsonSchema,
 } from './inventory-validation';

@@ -1,7 +1,7 @@
 import type { MetadataFieldDefinition } from './metadata-fields';
 import type {
   InventoryCustodyDestination,
-  InventoryExecutionContext,
+  InventoryRecordedPrincipal,
   InventoryLayout,
   InventoryPhysicalItem,
   InventoryVesselLimits,
@@ -50,7 +50,7 @@ export type InventoryCatalogSelectionState =
   | {
       readonly kind: 'retired';
       readonly at: number;
-      readonly by: InventoryExecutionContext['principal'];
+      readonly by: InventoryRecordedPrincipal;
       readonly reason: string;
     };
 export type InventoryCatalogSelectionBlocker =
@@ -102,7 +102,7 @@ export interface InventoryPhysicalTypeVersion {
   readonly sources: readonly InventorySourceReference[];
   readonly definition: InventoryPhysicalDefinition;
   readonly publishedAt: number;
-  readonly publishedBy: InventoryExecutionContext['principal'];
+  readonly publishedBy: InventoryRecordedPrincipal;
   readonly selection: InventoryCatalogSelectionState;
 }
 export interface InventoryRecipeComponent {
@@ -129,7 +129,7 @@ export interface InventoryEquipmentRecipeVersion {
   readonly components: readonly InventoryRecipeComponent[];
   readonly sources: readonly InventorySourceReference[];
   readonly publishedAt: number;
-  readonly publishedBy: InventoryExecutionContext['principal'];
+  readonly publishedBy: InventoryRecordedPrincipal;
   readonly selection: InventoryCatalogSelectionState;
 }
 export interface InventoryPhysicalConfiguration {
@@ -140,7 +140,7 @@ export interface InventoryPhysicalConfiguration {
     readonly geometry: InventoryGeometry;
     readonly source: InventorySourceReference | null;
     readonly at: number;
-    readonly by: InventoryExecutionContext['principal'];
+    readonly by: InventoryRecordedPrincipal;
     readonly reason: string;
   } | null;
   readonly orientation: InventoryOrientation;
@@ -165,7 +165,7 @@ export interface InventoryFitEvidence {
   readonly source: InventorySourceReference | null;
   readonly reason: string;
   readonly at: number;
-  readonly by: InventoryExecutionContext['principal'];
+  readonly by: InventoryRecordedPrincipal;
 }
 export interface InventoryPlacementCompatibility {
   readonly logical: 'allowed' | 'incompatible';

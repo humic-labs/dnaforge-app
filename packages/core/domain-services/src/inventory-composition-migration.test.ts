@@ -53,7 +53,7 @@ describe('frozen inventory v3 composition migration', () => {
     const before = JSON.stringify(raw);
     const state = parseInventoryState(raw);
     expect(JSON.stringify(raw)).toBe(before);
-    expect(state.schema).toBe('dnaforge.inventory.v11');
+    expect(state.schema).toBe('dnaforge.inventory.v12');
     expect(state.revision).toBe(2);
     for (const stock of Object.values(state.stocks))
       expect(stock.composition).toEqual({ kind: 'unknown' });

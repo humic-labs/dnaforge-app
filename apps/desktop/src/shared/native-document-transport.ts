@@ -1,0 +1,1 @@
+export const NATIVE_DOCUMENT_MAX_BODY_BYTES = 17 * 1024 * 1024;

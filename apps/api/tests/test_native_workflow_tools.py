@@ -318,6 +318,52 @@ async def test_inventory_write_requires_current_grant_and_rejection_is_not_succe
     assert rejected.value.code == "REVISION_CONFLICT"
     assert rejected.value.details["stateChanged"] is False
     assert rejected.value.details["operationId"] == "consume-once"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["export-snapshot", "preview-import"])
+async def test_inventory_archive_reads_need_only_current_read_grant(native, kind):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    request = {"project": "project", "inventoryId": "inventory"}
+    if kind == "export-snapshot":
+        request["format"] = "native-v1"
+    else:
+        request.update({"sourceText": "exact archive", "options": {"bindings": []}})
+    await execute_native_workflow("inventory", {"operation": {"kind": kind, **request}}, context)
+    assert state["calls"][0]["command"] == f"inventory.{kind}"
+    assert state["calls"][0]["request"] == request
+    state["revoked"] = True
+    with pytest.raises(ToolExecutionFailure) as revoked:
+        await execute_native_workflow(
+            "inventory", {"operation": {"kind": kind, **request}}, context
+        )
+    assert revoked.value.code == "GRANT_REVOKED"
+    assert len(state["calls"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_inventory_adoption_preserves_accepted_request_tag_and_requires_write(native):
+    state, context = native
+    operation = {
+        "kind": "apply-import",
+        "project": "project",
+        "inventoryId": "inventory",
+        "operationId": "adopt",
+        "expectedRevision": 0,
+        "sourceText": "exact archive",
+        "options": {"bindings": []},
+        "expectedPlanDigest": "sha256:" + "0" * 64,
+    }
+    state["scope"] = ["read-workspace"]
+    with pytest.raises(ToolExecutionFailure) as denied:
+        await execute_native_workflow("inventory", {"operation": operation}, context)
+    assert denied.value.code == "INSUFFICIENT_SCOPE"
+    assert state["calls"] == []
+    state["scope"] = ["read-workspace", "write-workspace"]
+    await execute_native_workflow("inventory", {"operation": operation}, context)
+    assert state["calls"][0]["command"] == "inventory.apply-import"
+    assert state["calls"][0]["request"] == {**operation, "kind": "adopt-archive"}
     assert state["calls"][0]["agent"]["identityId"] == "caller"
 
 

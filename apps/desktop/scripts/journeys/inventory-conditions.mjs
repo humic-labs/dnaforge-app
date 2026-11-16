@@ -150,7 +150,8 @@ export async function runInventoryConditionsJourney(ctx) {
   assert.deepEqual(initial.history, fixture.history);
   assert.deepEqual(initial.state, {
     ...fixture.state,
-    schema: 'dnaforge.inventory.v11',
+    schema: 'dnaforge.inventory.v12',
+    origin: { kind: 'native' },
     temperatureClaims: {},
     equipmentSetpoints: {},
     storageRequirements: {},
@@ -343,7 +344,8 @@ export async function runInventoryThermalContextJourney(ctx) {
   );
   assert.deepEqual(initial.state, {
     ...fixture.state,
-    schema: 'dnaforge.inventory.v11',
+    schema: 'dnaforge.inventory.v12',
+    origin: { kind: 'native' },
     thermalContexts: {},
     temperatureClaims: expectedClaims,
   });

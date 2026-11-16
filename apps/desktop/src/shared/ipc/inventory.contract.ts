@@ -6,6 +6,11 @@ import type {
 } from '@waypoint/domain-services';
 import type {
   InventoryChanged,
+  InventoryExportSnapshotRequest,
+  InventoryPreviewImportRequest,
+  InventoryApplyImportRequest,
+  InventoryExportSnapshot,
+  InventoryImportPreviewSnapshot,
   InventoryCatalogQuery,
   InventoryCatalogUpdatePreviewRequest,
   InventoryAvailabilitySnapshot,
@@ -28,6 +33,9 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  exportSnapshot: invoke<[request: InventoryExportSnapshotRequest], InventoryExportSnapshot>(),
+  previewImport: invoke<[request: InventoryPreviewImportRequest], InventoryImportPreviewSnapshot>(),
+  applyImport: invoke<[request: InventoryApplyImportRequest], NativeInventoryExecution>(),
   projects: invoke<[], readonly InventoryProject[]>(),
   catalog: invoke<[request: InventoryCatalogQuery], readonly InventoryEquipmentCatalogEntry[]>(),
   catalogUpdatePreview: invoke<

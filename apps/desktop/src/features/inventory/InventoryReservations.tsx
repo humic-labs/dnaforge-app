@@ -2,7 +2,7 @@ import type { InventoryQuantity, InventoryVolume } from '@waypoint/domain-servic
 import { Button, Notice } from '../../components/ui';
 import type { InventoryData } from './inventory-controller';
 import type { InventoryItem } from './inventory-view';
-import { inventoryBlockerLabel } from './inventory-view';
+import { inventoryBlockerLabel, inventoryPrincipalLabel } from './inventory-view';
 
 export type InventoryReservationDialog =
   | { kind: 'reserve-quantity'; stockId: string }
@@ -29,6 +29,7 @@ export function inventoryAmountLabel(amount: InventoryQuantity | InventoryVolume
 
 export function inventoryReservationOwner(view: InventoryReservationView): string {
   const holder = view.reservation.holder;
+  if (holder.kind === 'imported') return inventoryPrincipalLabel(holder);
   return holder.kind === 'agent'
     ? `Agent ${holder.identityId}`
     : view.mine

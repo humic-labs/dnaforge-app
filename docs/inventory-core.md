@@ -27,7 +27,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v11. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v12. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -43,7 +43,10 @@ and storage-requirement maps without changing historical request or receipt
 bytes, physical pins, recorded clock or inventory revision. v1–v10 snapshots
 gain an empty explicit thermal-relationship map. Legacy v10 qualification pins
 gain an unrecorded relationship value; they do not acquire new scope or
-applicability through migration.
+applicability through migration. v1–v11 snapshots gain native inventory origin
+without changing recorded facts. v12 separates imported recorded attribution
+from principals that can execute commands. Native invocation and receipt
+contexts retain strict native actors.
 
 ## Independent states
 
@@ -540,6 +543,115 @@ equipment, observe sensors, establish overall suitability, quarantine stock,
 release holds or block custom storage. Environmental incidents have a separate
 owner.
 
+## Native archives and adoption
+
+Export captures one admitted SQLite snapshot with exact stored state, request
+and receipt strings, their hashes, complete accepted history and typed
+scientific dependencies. Capture does not create inventory or write a file. The
+deterministic archive excludes incidental capture time. Native source scope,
+history continuity, strict schemas, duplicate JSON keys, request/receipt
+digests, replay and canonical snapshot parity are checked before use.
+
+Preview is read-only. It binds the exact source text, absent destination,
+explicit scientific mappings and current scientific-record fingerprints into a
+deterministic plan. Source or binding edits invalidate the human preview. Apply
+recomputes admission and the plan inside the existing immediate inventory
+transaction. It creates one destination adoption operation, revision one and a
+native receipt. Source history remains archived evidence, not destination
+receives, checkouts or reservations. Ordinary accepted request shapes and retry
+digests remain unchanged; adoption uses a tagged accepted request in the same
+journal and receipt owner. Nested re-exports replay the retained source request
+with its saved descriptors and native receipt context.
+
+A recorded source holder is distinct from a person currently authorized to act.
+Imported holders and recorded actors retain source archive/scope and their
+original identity. They cannot gain destination authority by matching a local
+profile or agent ID. Re-adoption retains imported attribution flat. Explicit
+local cancellation and custody recovery remain ordinary reason-bearing commands.
+Source recorded clocks later than native acceptance refuse; imported values
+never advance the destination's trusted clock. Observation times remain source
+facts. Qualifications retain their original physical and thermal scope.
+
+Inventory origin is explicit and persists beyond history pagination. Native
+inventories start with native origin. Adopted inventories record source scope,
+source archive hash and revision, native adoption time and the actual importer.
+This descriptor does not duplicate source history. Original source bytes remain
+in the accepted adoption request. Only typed scientific references are mapped;
+metadata text, physical IDs, aliases, exact amounts, arrangement pins and
+unknowns retain their meaning. Non-injective scientific bindings require
+separate reconciliation and are refused by the first adoption mode.
+
+Human import state is editing, previewing, blocked, ready or stale before
+entering the existing durable command recovery machine. An uncertain apply
+retains the exact operation, bytes and resolved bindings. Recovery reads the
+original receipt or retries that identical request. A repeated archive under a
+new operation refuses against populated inventory. No preview stages a hidden
+file, row, journal, receipt or event. Existing transport limits are measured
+without silent chunking.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Editing
+  Editing --> ReadingSource: choose file
+  ReadingSource --> Editing: bounded UTF-8 read succeeds
+  ReadingSource --> PreviousDraft: destination selection cancelled
+  ReadingSource --> Failed: selection or read fails
+  Editing --> Previewing: pin source and bindings
+  Previewing --> Blocked: validation or binding issues
+  Previewing --> Ready: exact plan admitted
+  Previewing --> NoChange: source has no inventory
+  Previewing --> Failed: read fails
+  Blocked --> Editing: source or binding edited
+  Ready --> Editing: source or binding edited
+  NoChange --> Editing: source or binding edited
+  Ready --> Stale: target changes or acceptance refuses
+  Stale --> Previewing: preview retained source again
+  Ready --> CommandRecovery: apply exact plan and stable operation
+  CommandRecovery --> [*]: committed
+```
+
+Reading-source is a draft phase. Blocked, ready and no-change are immutable
+preview results; stale is derived from the observed target and command result.
+The file path is display information, never source identity. Applying delegates
+to the existing command recovery machine rather than adding an import journal.
+An uncertain command locks its retained draft; leaving the view does not cancel
+an already submitted operation.
+
+Archive file output and labels share retained text-output states: choosing,
+writing, confirming, exported, failed or output-unconfirmed. An acknowledgement
+is followed by exact saved-text readback. Cancellation retains the capture;
+uncertain output retains original bytes and destination for explicit check or
+retry. Archive file input and output confirmation use bounded bytes and fatal
+UTF-8 decoding, preserving source line endings. Text pasting is an explicit
+alternative source, and its received text is pinned exactly. Scientific
+documents keep their existing owner. Native archives do not declare spreadsheet
+or Benchling export compatibility.
+
+```mermaid
+stateDiagram-v2
+  [*] --> NotExported
+  NotExported --> Choosing: export captured artifact
+  Choosing --> PreviousOutput: cancelled
+  Choosing --> Failed: selection fails
+  Choosing --> Writing: explicit destination
+  Writing --> Confirming: acknowledgement
+  Writing --> OutputUnconfirmed: write outcome unknown
+  Confirming --> Exported: exact text matches
+  Confirming --> Failed: different text
+  Confirming --> OutputUnconfirmed: read unavailable
+  OutputUnconfirmed --> Confirming: check original destination
+  OutputUnconfirmed --> Writing: retry original bytes
+  Failed --> Writing: retry retained destination
+  Failed --> Confirming: check retained destination
+  OutputUnconfirmed --> NotExported: explicitly forget output
+  Exported --> Choosing: export same capture again
+```
+
+Capture and output are independent machines. A pending or unconfirmed output
+locks recapture so its bytes cannot change beneath a write or retry. Late output
+completion belongs to its original scoped session. Disposal prevents new work
+without pretending an in-flight file write was cancelled.
+
 ## Material identity and conservation
 
 A scientific record identifies a material. A lot identifies one supplier batch
@@ -643,6 +755,9 @@ identity and registered project scope:
 | `inventory.resolve-item-code`      | Resolve exact scoped physical item codes and current target facts without mutation.                           |
 | `inventory.prepare-label`          | Render an immutable existing-code QR SVG artifact from an admitted snapshot without file or inventory writes. |
 | `inventory.storage-conditions`     | Compare scoped temperature facts and formulation requirements at one revision without inventory writes.       |
+| `inventory.export-snapshot`        | Capture exact state and full accepted journal as a read-only native archive.                                  |
+| `inventory.preview-import`         | Validate pinned archive and scientific bindings without destination effects.                                  |
+| `inventory.apply-import`           | Adopt validated facts into absent inventory through the existing journal and native authority.                |
 | `inventory.availability`           | Derive quantities, reservations, custody and physical compatibility from current facts.                       |
 | `inventory.execute`                | Apply an expected-revision command batch; return a committed receipt or explicit rejection.                   |
 | `inventory.inspect`                | Read current state for an admitted project and inventory.                                                     |

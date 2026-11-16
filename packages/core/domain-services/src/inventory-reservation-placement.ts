@@ -1,3 +1,4 @@
+import { inventoryPrincipalMatchesActor } from './inventory-attribution';
 import type {
   InventoryPhysicalItem,
   InventoryPrincipal,
@@ -7,11 +8,6 @@ import type {
 import { inventoryItemContains } from './inventory-placement';
 
 type State = Pick<InventoryState, 'storage' | 'vessels' | 'stocks' | 'reservations'>;
-function sameHolder(first: InventoryPrincipal, second: InventoryPrincipal): boolean {
-  return first.kind === 'agent'
-    ? second.kind === 'agent' && first.identityId === second.identityId
-    : second.kind === 'local-profile' && first.profileKey === second.profileKey;
-}
 export function inventoryReservationPlacementFailure(
   state: State,
   moving: readonly InventoryPhysicalItem[],
@@ -28,7 +24,11 @@ export function inventoryReservationPlacementFailure(
       continue;
     if (
       active.some((reservation) => {
-        if (reservation.kind !== 'quantity' || sameHolder(reservation.holder, booking.holder))
+        if (
+          reservation.kind !== 'quantity' ||
+          (booking.holder.kind !== 'imported' &&
+            inventoryPrincipalMatchesActor(reservation.holder, booking.holder))
+        )
           return false;
         const stock = state.stocks[reservation.stockId];
         return (
@@ -56,7 +56,7 @@ export function inventoryReservationDestinationFailure(
     (reservation) =>
       reservation.kind === 'item' &&
       reservation.lifecycle.kind === 'active' &&
-      !sameHolder(reservation.holder, principal) &&
+      !inventoryPrincipalMatchesActor(reservation.holder, principal) &&
       inventoryItemContains(state, reservation.item, destination)
   );
   return conflicting
