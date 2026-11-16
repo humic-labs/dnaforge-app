@@ -2132,6 +2132,110 @@ describe('agent-sdk query transports', () => {
     );
   });
 
+  it.each([
+    {
+      acknowledgement: 'confirmed',
+      expected: { stopState: 'cancelled', text: 'The sequence has a partial result.' },
+    },
+    { acknowledgement: 'unconfirmed', expected: { stopState: 'stop_requested' } },
+  ] as const)(
+    'preserves the real Codex runner stop contract for $acknowledgement interruption',
+    async ({ acknowledgement, expected }) => {
+      const actual = await vi.importActual<typeof import('../local-codex-app-server')>(
+        '../local-codex-app-server'
+      );
+      mockRunLocalCodexAppServerTurn.mockImplementationOnce(actual.runLocalCodexAppServerTurn);
+      const abortController = new AbortController();
+      let notification: ((value: { method: string; params: unknown }) => void) | null = null;
+      let exited: (() => void) | null = null;
+      const interrupt = vi.fn(() => {
+        if (acknowledgement === 'confirmed') {
+          notification?.({
+            method: 'turn/completed',
+            params: {
+              threadId: 'thread-stop-contract',
+              turn: { id: 'turn-stop-contract', status: 'interrupted', error: null, items: [] },
+            },
+          });
+        } else {
+          exited?.();
+        }
+      });
+      const dispose = vi.fn();
+      mockLaunchLocalCodexAppServer.mockResolvedValueOnce({
+        protocol: { client: ['model/list'] },
+        supervisor: {
+          request: vi.fn(async (method) => {
+            if (method === 'model/list') {
+              return {
+                data: [
+                  {
+                    id: 'gpt-5.3-codex',
+                    displayName: 'GPT-5.3 Codex',
+                    isDefault: true,
+                    supportedReasoningEfforts: [{ reasoningEffort: 'high' }],
+                  },
+                ],
+                nextCursor: null,
+              };
+            }
+            if (method === 'thread/start') return { thread: { id: 'thread-stop-contract' } };
+            if (method === 'turn/start') {
+              queueMicrotask(() => {
+                notification?.({
+                  method: 'turn/started',
+                  params: { threadId: 'thread-stop-contract', turn: { id: 'turn-stop-contract' } },
+                });
+                notification?.({
+                  method: 'item/agentMessage/delta',
+                  params: {
+                    threadId: 'thread-stop-contract',
+                    turnId: 'turn-stop-contract',
+                    itemId: 'message-stop-contract',
+                    delta: 'The sequence has a partial result.',
+                  },
+                });
+                abortController.abort();
+              });
+              return { turn: { id: 'turn-stop-contract' } };
+            }
+            throw new Error(`Unexpected request ${method}`);
+          }),
+          setNotificationListener(listener: NonNullable<typeof notification>) {
+            notification = listener;
+          },
+          setServerRequestHandler: vi.fn(),
+          onExit(listener: () => void) {
+            exited = listener;
+          },
+          terminationReason: 'interrupted',
+          interrupt,
+        },
+        dispose,
+      });
+
+      const { queryCodex } = await import('../query');
+      const result = await queryCodex('Inspect the sequence.', {
+        purpose: 'chat',
+        cwd: '/workspace',
+        toolExposure: 'none',
+        requestUserInput: vi.fn(),
+        abortController,
+      });
+
+      expect(mockRunLocalCodexAppServerTurn).toHaveBeenCalledOnce();
+      expect(mockCodexRun).not.toHaveBeenCalled();
+      expect(interrupt).toHaveBeenCalledOnce();
+      expect(dispose).toHaveBeenCalledOnce();
+      expect(result).toMatchObject({
+        transport: 'codex-sdk',
+        ok: false,
+        ...expected,
+        providerConversationId: 'thread-stop-contract',
+      });
+    }
+  );
+
   it('returns a stopped result when Codex aborts the underlying child process', async () => {
     const abortController = new AbortController();
     mockCodexRun.mockImplementation(async () => {

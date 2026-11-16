@@ -760,6 +760,70 @@ describe('runLocalCodexAppServerTurn', () => {
     expect(interrupt).toHaveBeenCalledOnce();
   });
 
+  it('retains partial text and provider-confirmed cancellation after Stop is acknowledged', async () => {
+    let notification: ((value: { method: string; params: unknown }) => void) | null = null;
+    const controller = new AbortController();
+    const transport: LocalCodexAppServerTransport = {
+      request: vi.fn(async (method) => {
+        if (method === 'thread/start') return { thread: { id: 'thread-confirmed-stop' } };
+        if (method === 'turn/start') {
+          queueMicrotask(() => {
+            notification?.({
+              method: 'turn/started',
+              params: { threadId: 'thread-confirmed-stop', turn: { id: 'turn-confirmed-stop' } },
+            });
+            notification?.({
+              method: 'item/agentMessage/delta',
+              params: {
+                threadId: 'thread-confirmed-stop',
+                turnId: 'turn-confirmed-stop',
+                itemId: 'message-confirmed-stop',
+                delta: 'The sequence has a partial result.',
+              },
+            });
+            controller.abort();
+          });
+          return { turn: { id: 'turn-confirmed-stop' } };
+        }
+        throw new Error(`Unexpected request ${method}`);
+      }),
+      onNotification(listener) {
+        notification = listener;
+      },
+      onServerRequest: vi.fn(),
+      onExit: vi.fn(),
+      interrupt: vi.fn(() => {
+        notification?.({
+          method: 'turn/completed',
+          params: {
+            threadId: 'thread-confirmed-stop',
+            turn: { id: 'turn-confirmed-stop', status: 'interrupted', error: null, items: [] },
+          },
+        });
+      }),
+    };
+
+    const result = await runLocalCodexAppServerTurn({
+      transport,
+      message: 'Inspect the sequence.',
+      cwd: '/workspace',
+      conversationId: null,
+      config: {},
+      developerInstructions: 'Use DNAForge tools.',
+      requestUserInput: vi.fn(),
+      signal: controller.signal,
+    });
+
+    expect(transport.interrupt).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({
+      ok: false,
+      text: 'The sequence has a partial result.',
+      threadId: 'thread-confirmed-stop',
+      turnId: 'turn-confirmed-stop',
+      stopState: 'cancelled',
+    });
+  });
+
   it('grants the chat folder and every reachable project as writable on each turn', async () => {
     let notification: ((value: { method: string; params: unknown }) => void) | null = null;
     const transport: LocalCodexAppServerTransport = {
