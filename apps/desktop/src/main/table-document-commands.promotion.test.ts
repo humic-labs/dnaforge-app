@@ -71,8 +71,8 @@ function selected(content: JSONContent): JSONContent {
   return matches[0];
 }
 
-async function fixture() {
-  const f = await tableCommandFixture();
+async function fixture(options: { nativeIdentityPrefix?: string } = {}) {
+  const f = await tableCommandFixture(options);
   fixtures.push(f);
   const root = () => f.roots[0];
   const notebookPath = () => join(root(), 'Notebook');
@@ -299,6 +299,30 @@ async function completed(
 }
 
 describe('recoverable native table promotion', () => {
+  it('finishes recovery discovery when catalog and native file identifiers are independently scoped', async () => {
+    const t = await fixture({ nativeIdentityPrefix: 'native-file:' });
+    const { result } = await completed(
+      t,
+      await new NativeTableDocumentCommands(t.f.options).execute(await t.request())
+    );
+    if (result.kind !== 'promoted' || result.table.owner.kind !== 'file')
+      throw new Error('Expected an active native table');
+    const binding = t.f.db
+      .prepare("SELECT entity_id FROM catalog_entity_files WHERE path=? AND status='current'")
+      .get(result.table.owner.path) as { entity_id: string };
+    expect(binding.entity_id).not.toBe(result.table.owner.documentId);
+    const before = await readTablePackageInMain(t.destination());
+    const source = await t.load();
+    expect(
+      await new NativeTableDocumentCommands(t.f.options).execute({
+        kind: 'list-promotions',
+        workspaceRoot: t.root(),
+      })
+    ).toEqual({ kind: 'promotions', promotions: [] });
+    expect((await readTablePackageInMain(t.destination())).headText).toBe(before.headText);
+    expect((await t.load()).sourceFileHashes).toEqual(source.sourceFileHashes);
+  });
+
   it('makes no destination/source mutation when the durable intent cannot publish, then retries once with stable identity', async () => {
     const t = await fixture();
     const request = await t.request();

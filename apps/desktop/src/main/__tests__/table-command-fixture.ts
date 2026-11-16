@@ -17,7 +17,8 @@ import { registerCatalogEntityInDb } from '../catalog-entity-registration';
 import { bindCatalogEntityFileInDb } from '../catalog-file-binding';
 
 export const identityTestPaths = { home: '', userData: '' };
-export async function tableCommandFixture() {
+export async function tableCommandFixture(fixtureOptions: { nativeIdentityPrefix?: string } = {}) {
+  const nativeIdentityPrefix = fixtureOptions.nativeIdentityPrefix ?? '';
   const root = await realpath(await mkdtemp(join(tmpdir(), 'native-table-commands-')));
   const home = join(root, 'home');
   const userData = join(root, 'user-data');
@@ -80,7 +81,7 @@ export async function tableCommandFixture() {
       const bound = db
         .prepare("SELECT entity_id FROM catalog_entity_files WHERE path=? AND status='current'")
         .get(path) as { entity_id: string } | undefined;
-      return bound?.entity_id ?? `file:${createHash('sha256').update(path).digest('hex')}`;
+      return `${nativeIdentityPrefix}${bound?.entity_id ?? `file:${createHash('sha256').update(path).digest('hex')}`}`;
     },
     read: async (path) => readFile(path),
     verifyTablePackage: async (admission, content) => {
@@ -174,7 +175,7 @@ export async function tableCommandFixture() {
       const copy = await inspect(headPath);
       if (!copy.ready || copy.tableDocument?.id !== actual.head.id)
         throw new Error('The native owner did not verify this table');
-      if (copy.documentId !== entity.id)
+      if (copy.documentId !== `${nativeIdentityPrefix}${entity.id}`)
         throw new Error('The catalog and native owner disagree about this table binding');
       return {
         tableId: actual.head.id,

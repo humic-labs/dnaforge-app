@@ -715,14 +715,20 @@ export async function listTablePromotions(
           const bindings = options
             .db()
             .prepare(
-              "SELECT f.entity_id FROM catalog_entity_files f JOIN catalog_entities e ON e.id=f.entity_id JOIN workspaces w ON w.id=f.workspace_id WHERE f.path=? AND f.status='current' AND e.status='active' AND w.path=? AND w.archived_at IS NULL AND w.trashed_at IS NULL"
+              "SELECT f.entity_id,f.file_kind FROM catalog_entity_files f JOIN catalog_entities e ON e.id=f.entity_id JOIN workspaces w ON w.id=f.workspace_id WHERE f.path=? AND f.status='current' AND e.status='active' AND w.path=? AND w.archived_at IS NULL AND w.trashed_at IS NULL"
             )
-            .all(actual.headPath, authority.workspaceRoot) as Array<{ entity_id: string }>;
+            .all(actual.headPath, authority.workspaceRoot) as Array<{
+            entity_id: string;
+            file_kind: string;
+          }>;
           if (
             resolved.owner.kind === 'file' &&
             resolved.owner.path === actual.headPath &&
+            resolved.owner.workspaceRoot === authority.workspaceRoot &&
+            resolved.tableId === intent.tableId &&
+            tableDocumentKey(resolved.reference) === tableDocumentKey(reference) &&
             bindings.length === 1 &&
-            bindings[0].entity_id === resolved.owner.documentId
+            bindings[0].file_kind === 'dnaforge-table'
           )
             continue;
           recovery.reason = 'The saved table needs its native file registration to finish.';

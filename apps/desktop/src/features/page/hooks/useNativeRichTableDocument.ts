@@ -134,7 +134,8 @@ export function useNativeRichTableDocument(reference: TableDocumentReference | n
       owner &&
       snapshot?.ready &&
       snapshot.documentId === owner.documentId &&
-      snapshot.tableDocument?.id === resolved?.tableId &&
+      snapshot.tableDocument &&
+      snapshot.tableDocument.id === resolved?.tableId &&
       snapshot.tableDocument.status === 'active' &&
       client?.content
     );

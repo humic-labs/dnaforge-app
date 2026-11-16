@@ -103,6 +103,7 @@ export function InsertTableReferenceButton({
             <label className="flex flex-col gap-1 text-sm">
               Notebook
               <select
+                aria-label="Notebook"
                 className="rounded border border-border bg-bg px-2 py-1"
                 disabled={busy}
                 value={notebookId}
@@ -121,6 +122,7 @@ export function InsertTableReferenceButton({
             <label className="flex flex-col gap-1 text-sm">
               Reference
               <select
+                aria-label="Reference"
                 className="rounded border border-border bg-bg px-2 py-1"
                 disabled={busy || reference.binding.kind === 'saved-version'}
                 value={binding}
@@ -133,6 +135,7 @@ export function InsertTableReferenceButton({
             <label className="flex flex-col gap-1 text-sm">
               Display
               <select
+                aria-label="Display"
                 className="rounded border border-border bg-bg px-2 py-1"
                 disabled={busy}
                 value={presentation}

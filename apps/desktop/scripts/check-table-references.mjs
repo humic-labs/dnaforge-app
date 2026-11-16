@@ -208,6 +208,7 @@ try {
   await extractDialog.getByLabel('Table name', { exact: true }).fill('Extracted acceptance table');
   const extractionStartedAt = Date.now();
   await extractDialog.getByRole('button', { name: 'Save as table file', exact: true }).click();
+  await expect(extractDialog).toHaveCount(0);
   const references = (node) => [
     ...(node.type === 'embed' && node.attrs?.type === 'table-reference' ? [node.attrs.data] : []),
     ...(node.content ?? []).flatMap(references),
