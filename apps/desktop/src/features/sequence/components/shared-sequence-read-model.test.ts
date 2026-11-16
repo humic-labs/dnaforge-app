@@ -3,6 +3,25 @@ import type { Genome } from '@waypoint/genome-renderer';
 import type { TraceData } from '@waypoint/sequence-utils';
 import { buildSharedSequenceReadScene } from './shared-sequence-read-model';
 
+type PartialAlignmentLane = {
+  readonly id: string;
+  readonly kind: 'alignment';
+  readonly label: string;
+  readonly alignedReference: string;
+  readonly queryColumns: ReadonlyArray<string | null>;
+};
+
+type PartialAlignmentSceneInput = Omit<
+  Parameters<typeof buildSharedSequenceReadScene>[0],
+  'alignmentLanes'
+> & {
+  readonly alignmentLanes: ReadonlyArray<PartialAlignmentLane>;
+};
+
+const buildPartialAlignmentScene = buildSharedSequenceReadScene as unknown as (
+  input: PartialAlignmentSceneInput
+) => ReturnType<typeof buildSharedSequenceReadScene>;
+
 const trace: TraceData = {
   channels: {
     A: [0, 20, 0, 0, 0, 0],
@@ -231,5 +250,55 @@ describe('shared sequence/read scene', () => {
         { start: 4, end: 5 },
       ],
     });
+  });
+
+  it('keeps the full reference axis and annotations for an explicit partial lane without a query string', () => {
+    const partialLane: PartialAlignmentLane = {
+      id: 'alignment-query-partial',
+      kind: 'alignment',
+      label: 'partial',
+      alignedReference: 'ATGAAACCCGGGTAA',
+      queryColumns: [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        'C',
+        'C',
+        'T',
+        'G',
+        'G',
+        'G',
+        null,
+        null,
+        null,
+      ],
+    };
+    const scene = buildPartialAlignmentScene({
+      genome: {
+        ...genome(),
+        sequence: 'ATGAAACCCGGGTAA',
+        length: 15,
+        features: [{ ...genome().features![0], start: 12, end: 15 }],
+      },
+      documentId: 'partial-reference',
+      coordinateSpace: { mode: 'gapped', gappedSequence: 'ATGAAACCCGGGTAA' },
+      alignmentLanes: [partialLane],
+    });
+
+    expect(scene.genome).toMatchObject({
+      sourceIdentity: 'partial-reference',
+      sequence: 'ATGAAACCCGGGTAA',
+      length: 15,
+      features: [expect.objectContaining({ start: 12, end: 15 })],
+    });
+    expect(scene.axis.length).toBe(15);
+    expect(scene.axis.biologicalLength).toBe(15);
+    expect([0, 8, 14].map((position) => scene.axis.bioToColumn(position))).toEqual([0, 8, 14]);
+    expect([0, 8, 14].map((column) => scene.axis.columnToBio(column))).toEqual([0, 8, 14]);
+    expect(scene.lanes).toEqual([partialLane]);
+    expect(scene.lanes[0]).not.toHaveProperty('alignedQuery');
   });
 });
