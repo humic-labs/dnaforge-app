@@ -1393,7 +1393,12 @@ export function IndexedGenomeViewer({
       let preparedAny = false;
       let pendingOwnerCount = 0;
       do {
-        const result = renderer.preparePrepackedAnnotationFineViews(range.start, range.end);
+        const result = renderer.preparePrepackedAnnotationFineViews(
+          range.start,
+          range.end,
+          undefined,
+          deadlineMs
+        );
         preparedAny ||= result.preparedOwnerKey !== null;
         pendingOwnerCount = result.pendingOwnerCount;
       } while (pendingOwnerCount > 0 && performance.now() < deadlineMs);

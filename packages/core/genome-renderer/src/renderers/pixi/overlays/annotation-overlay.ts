@@ -936,13 +936,15 @@ export class IndexedAnnotationOverlay implements RetainedOverlayTrack {
   preparePrepackedAnnotationFineViews(
     viewportStartBp: number,
     viewportEndBp: number,
-    _themeMode: 'light' | 'dark'
+    _themeMode: 'light' | 'dark',
+    deadlineMs = Number.POSITIVE_INFINITY
   ): PrepackedAnnotationFinePreparationResult {
     return preparePrepackedAnnotationFineViewsFn(
       this.prepacked,
       viewportStartBp,
       viewportEndBp,
-      _themeMode
+      _themeMode,
+      deadlineMs
     );
   }
 
