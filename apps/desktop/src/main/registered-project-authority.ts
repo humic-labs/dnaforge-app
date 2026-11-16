@@ -35,29 +35,32 @@ export function createRegisteredProjectAuthority(options: {
   db(): Database.Database;
   managedRootDir?(): string;
 }) {
-  const list = (
-    scope: AgentProjectScope | undefined = requestScope.getStore()
-  ): RegisteredProject[] => {
-    const db = options.db();
-    assertCommittedDatabaseReadAllowed(db);
-    const rows = db
+  interface ProjectRecord {
+    id: number;
+    path: string;
+    name: string;
+    repo_uuid: string | null;
+    access_mode: 'writable' | 'reference';
+  }
+  const readRows = (db: Database.Database): ProjectRecord[] =>
+    db
       .prepare(
         'SELECT id,path,name,repo_uuid,access_mode FROM workspaces WHERE path IS NOT NULL AND archived_at IS NULL AND trashed_at IS NULL'
       )
-      .all() as Array<{
-      id: number;
-      path: string;
-      name: string;
-      repo_uuid: string | null;
-      access_mode: 'writable' | 'reference';
-    }>;
+      .all() as ProjectRecord[];
+  const admitRows = (
+    db: Database.Database,
+    rows: readonly ProjectRecord[],
+    selected: readonly ProjectRecord[],
+    scope: AgentProjectScope | undefined
+  ): RegisteredProject[] => {
     const developerRoots = developerImportSourceRootsInDb(db).map(workspaceMutationRootIdentity);
     const allowedRoots =
       scope?.kind === 'project-roots'
         ? new Set(scope.roots.map((root) => normalizePathForBoundary(root)))
         : null;
     const projects: RegisteredProject[] = [];
-    for (const row of rows) {
+    for (const row of selected) {
       try {
         if (
           row.repo_uuid &&
@@ -95,10 +98,33 @@ export function createRegisteredProjectAuthority(options: {
     }
     return projects;
   };
+  const list = (
+    scope: AgentProjectScope | undefined = requestScope.getStore()
+  ): RegisteredProject[] => {
+    const db = options.db();
+    assertCommittedDatabaseReadAllowed(db);
+    const rows = readRows(db);
+    return admitRows(db, rows, rows, scope);
+  };
   const resolve = (
     reference: string,
     scope: AgentProjectScope | undefined = requestScope.getStore()
   ): RegisteredProject | null => {
+    const db = options.db();
+    assertCommittedDatabaseReadAllowed(db);
+    const rows = readRows(db);
+    const exact = rows.filter((row) => workspaceScopeKey(row.repo_uuid, row.id) === reference);
+    const targetPath =
+      !exact.length && isAbsolute(reference) ? workspaceMutationRootIdentity(reference) : null;
+    const selected = exact.length
+      ? exact
+      : targetPath
+        ? rows.filter((row) => workspaceMutationRootIdentity(row.path) === targetPath)
+        : [];
+    if (exact.length || targetPath) {
+      const projects = admitRows(db, rows, selected, scope);
+      if (targetPath || projects.length) return projects.length === 1 ? projects[0] : null;
+    }
     const projects = list(scope);
     const exactIdentity = projects.filter((project) => project.projectId === reference);
     if (exactIdentity.length) return exactIdentity.length === 1 ? exactIdentity[0] : null;

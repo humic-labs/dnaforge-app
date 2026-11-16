@@ -20,8 +20,8 @@ export function useNativeNotebookTableDocument(reference: TableDocumentReference
   );
   useSyncExternalStore(
     client?.subscribe ?? noSubscribe,
-    () => client?.viewRevision ?? 'unavailable',
-    () => 'unavailable'
+    () => client?.viewRevision ?? 0,
+    () => 0
   );
   useEffect(() => {
     if (client) void client.initialize().catch(() => {});

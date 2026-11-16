@@ -243,7 +243,16 @@ export function createNotebookTableAliases(options: NotebookTableAliasesOptions)
           );
           return node;
         }
-        await resolve(reference, false);
+        try {
+          await resolve(reference, false);
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          conflicts.push(
+            `The referenced table is unavailable or awaiting recovery. Its saved reference is preserved. ${reason}`
+          );
+          observations.push({ blockId, reference: tableDocumentKey(reference), reason });
+          return node;
+        }
         observations.push({ blockId, reference: tableDocumentKey(reference) });
         return node;
       };

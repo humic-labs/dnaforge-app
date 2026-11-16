@@ -1,3 +1,5 @@
+import { tableDataForPersistence } from '../shared/table-document-data';
+import type { TableData } from '../shared/table-document-types';
 import { createHash, randomUUID } from 'node:crypto';
 import { constants, lstatSync } from 'node:fs';
 import { lstat, open, readdir } from 'node:fs/promises';
@@ -17,6 +19,7 @@ import type {
   TableDocumentCommand,
   TableDocumentCommandResult,
   TablePackageDestination,
+  TablePromotionRecovery,
 } from '../shared/table-document-command';
 import {
   TABLE_PACKAGE_SCHEMA,
@@ -100,6 +103,19 @@ const protectedNames = new Set(['.git', '.forge', '.dnaforge', '.waypoint', 'nod
 const withTransition = createKeyedMutex();
 const hash = (bytes: string | Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 const bytesForBlock = (block: unknown) => `${canonicalJson(block)}\n`;
+
+function logPromotion(
+  promotionId: string,
+  phase: string,
+  outcome = 'pending',
+  error?: unknown
+): void {
+  try {
+    if (error !== undefined)
+      console.error('[Table promotion]', { promotionId, phase, outcome }, error);
+    else console.info('[Table promotion]', { promotionId, phase, outcome });
+  } catch {}
+}
 
 function refuse(message: string): never {
   throw new Error(`TABLE_PROMOTION_CONFLICT: ${message}`);
@@ -519,7 +535,9 @@ async function resume(
     sourcePath: join(authority.workspaceRoot, memberPath(intent.source.packagePath)),
   };
   const reference = richTableReference(intent.projectId, intent.tableId);
+  logPromotion(intent.promotionId, 'inspecting-saved-source');
   let source = await options.notebookTables.inspectSource(intent.source.legacyReference, context);
+  logPromotion(intent.promotionId, 'inspecting-saved-source', 'complete');
   authority.assertCurrent();
   if (source.workspaceRoot !== context.workspaceRoot || source.sourcePath !== context.sourcePath)
     refuse('The source owner does not match the portable journal location.');
@@ -550,7 +568,9 @@ async function resume(
           refuse('An active destination cannot reacquire a writable inline source.');
         captured.assertCurrent();
         authority.assertCurrent();
+        logPromotion(intent.promotionId, 'recovering-source-reference');
         await captured.publishReference(reference);
+        logPromotion(intent.promotionId, 'recovering-source-reference', 'complete');
       }
     );
     source = await options.notebookTables.inspectSource(intent.source.legacyReference, context);
@@ -560,6 +580,7 @@ async function resume(
     )
       refuse('The native source did not acknowledge its durable reference.');
   }
+  logPromotion(intent.promotionId, 'activating-table');
   let actual = await withWorkspaceMutation(authority.workspaceRoot, async () => {
     const current = await stage(options, authority, owners, intent);
     if (current.head.status === 'active') return current;
@@ -578,6 +599,7 @@ async function resume(
       }
     );
   });
+  logPromotion(intent.promotionId, 'activating-table', 'complete');
   const archived = await (options.io?.readSnapshot ?? readTableSnapshotInMain)({
     workspaceRoot: authority.workspaceRoot,
     packageRoot: actual.packageRoot,
@@ -588,7 +610,9 @@ async function resume(
     refuse('The original immutable table snapshot was not retained.');
   const location = { workspaceRoot: authority.workspaceRoot, packageRoot: actual.packageRoot };
   authority.assertCurrent();
+  logPromotion(intent.promotionId, 'reconciling-table-owner');
   const receipt = await options.reconcileTablePackage(location);
+  logPromotion(intent.promotionId, 'reconciling-table-owner', 'complete');
   authority.assertCurrent();
   actual = await (options.io?.readPackage ?? readTablePackageInMain)(location);
   if (
@@ -600,7 +624,9 @@ async function resume(
     !hasAlias(actual.head, intent)
   )
     refuse('The active table and native catalog completion do not agree.');
+  logPromotion(intent.promotionId, 'resolving-active-table');
   const table = await owners.resolve(reference, authority.workspaceRoot);
+  logPromotion(intent.promotionId, 'resolving-active-table', 'complete');
   if (
     table.owner.kind !== 'file' ||
     table.owner.documentId !== receipt.fileDocumentId ||
@@ -608,6 +634,124 @@ async function resume(
   )
     refuse('The active table has no matching native file owner.');
   return { kind: 'promoted', promotionId: intent.promotionId, table };
+}
+
+export async function listTablePromotions(
+  workspaceRoot: string,
+  options: NativeTableDocumentCommandsOptions,
+  owners: TablePromotionOwners
+): Promise<TableDocumentCommandResult> {
+  const authority = await owners.workspace(workspaceRoot, false);
+  const directory = join(authority.workspaceRoot, '.forge', 'table-transitions');
+  physical(authority.workspaceRoot, directory, false, true);
+  if (!(await existing(directory))) return { kind: 'promotions', promotions: [] };
+  const project = await projectId(options, authority, owners, false);
+  const entries = await readdir(directory, { withFileTypes: true });
+  if (entries.length > 2000)
+    refuse('The project has too many table transition records to inspect safely.');
+  const promotions: TablePromotionRecovery[] = [];
+  for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+    const match = /^([a-f0-9-]{36})\.json$/i.exec(entry.name);
+    if (!match) continue;
+    if (!entry.isFile() || entry.isSymbolicLink())
+      refuse('A table transition record is not a physical file.');
+    const text = new TextDecoder('utf-8', { fatal: true }).decode(
+      await readBytes(authority.workspaceRoot, join(directory, entry.name), MAX_INTENT_BYTES)
+    );
+    const header: unknown = JSON.parse(text);
+    if (
+      header &&
+      typeof header === 'object' &&
+      'schema' in header &&
+      header.schema === 'dnaforge.table-transition.v1' &&
+      'kind' in header &&
+      (header.kind === 'create' || header.kind === 'copy')
+    )
+      continue;
+    const intent = await readIntent(authority.workspaceRoot, match[1]);
+    if (!intent || intent.projectId !== project)
+      refuse('A table transition belongs to another project.');
+    const reference = richTableReference(intent.projectId, intent.tableId);
+    const recovery: TablePromotionRecovery = {
+      promotionId: intent.promotionId,
+      tableId: intent.tableId,
+      sourceReference: intent.source.legacyReference,
+      sourcePath: intent.source.packagePath,
+      destinationPath: intent.destinationPath,
+      title: parseTablePackageHead(intent.pendingHeadText).snapshot.title,
+      state: 'pending',
+    };
+    try {
+      const source = await options.notebookTables.inspectSource(intent.source.legacyReference, {
+        workspaceRoot: authority.workspaceRoot,
+        sourcePath: join(authority.workspaceRoot, memberPath(intent.source.packagePath)),
+      });
+      authority.assertCurrent();
+      const tables = (await projectTablePackages(options, authority, owners)).filter(
+        (table) => table.head.id === intent.tableId
+      );
+      if (tables.length > 1) refuse('The promoted table identity has multiple package owners.');
+      const actual = tables[0];
+      if (
+        actual &&
+        (actual.head.promotionId !== intent.promotionId || !hasAlias(actual.head, intent))
+      )
+        refuse('The destination no longer belongs to the archived source transition.');
+      if (actual?.head.status === 'pending-promotion' && actual.headText !== intent.pendingHeadText)
+        refuse('The pending destination changed after extraction was prepared.');
+      if (source.currentReference) {
+        if (tableDocumentKey(source.currentReference) !== tableDocumentKey(reference))
+          refuse('The source placement points to another table.');
+        if (actual?.head.status === 'active') {
+          const archived = await (options.io?.readSnapshot ?? readTableSnapshotInMain)({
+            workspaceRoot: authority.workspaceRoot,
+            packageRoot: actual.packageRoot,
+            documentId: intent.tableId,
+            snapshotSha256: intent.snapshotSha256,
+          });
+          if (archived.snapshotText !== intent.snapshotText)
+            refuse('The original saved table version was not retained.');
+          const resolved = await owners.resolve(reference, authority.workspaceRoot);
+          const bindings = options
+            .db()
+            .prepare(
+              "SELECT f.entity_id FROM catalog_entity_files f JOIN catalog_entities e ON e.id=f.entity_id JOIN workspaces w ON w.id=f.workspace_id WHERE f.path=? AND f.status='current' AND e.status='active' AND w.path=? AND w.archived_at IS NULL AND w.trashed_at IS NULL"
+            )
+            .all(actual.headPath, authority.workspaceRoot) as Array<{ entity_id: string }>;
+          if (
+            resolved.owner.kind === 'file' &&
+            resolved.owner.path === actual.headPath &&
+            bindings.length === 1 &&
+            bindings[0].entity_id === resolved.owner.documentId
+          )
+            continue;
+          recovery.reason = 'The saved table needs its native file registration to finish.';
+        } else
+          recovery.reason = 'The notebook reference is saved. Finish activating its table file.';
+      } else {
+        if (
+          !source.originalBlock ||
+          canonicalJson(source.originalBlock) !== canonicalJson(intent.source.originalBlock) ||
+          source.sourceFingerprint !== intent.source.sourceFingerprint ||
+          canonicalJson(source.sourceFileHashes) !== canonicalJson(intent.source.sourceFileHashes)
+        )
+          refuse(
+            'The notebook changed after extraction was prepared. Both versions remain preserved.'
+          );
+        if (actual?.head.status === 'active')
+          refuse('An active table cannot reacquire an inline writer.');
+        recovery.reason = 'The original notebook table is preserved. Finish saving its table file.';
+      }
+    } catch (error) {
+      recovery.state = 'blocked';
+      recovery.reason = (error instanceof Error ? error.message : String(error)).slice(0, 2000);
+    }
+    authority.assertCurrent();
+    promotions.push(recovery);
+    if (promotions.length > 100) refuse('More than one hundred table extractions need recovery.');
+  }
+  authority.assertCurrent();
+  return { kind: 'promotions', promotions };
 }
 
 export async function executeTablePromotion(
@@ -619,7 +763,11 @@ export async function executeTablePromotion(
     command.kind === 'promote' ? command.destination.workspaceRoot : command.workspaceRoot;
   const authority = await owners.workspace(root, true);
   const promotionId = command.kind === 'promote' ? command.requestId : command.promotionId;
+  let phase = 'waiting-transition';
+  logPromotion(promotionId, phase);
   return withTransition(`${authority.workspaceRoot}:${promotionId}`, async () => {
+    phase = 'reading-intent';
+    logPromotion(promotionId, phase);
     let intent = await readIntent(authority.workspaceRoot, promotionId);
     if (command.kind === 'recover-promotion') {
       if (!intent) refuse('The requested durable promotion intent is missing.');
@@ -642,6 +790,8 @@ export async function executeTablePromotion(
       (await readdir(destination.packageRoot)).length
     )
       refuse('Table extraction requires a new empty destination.');
+    phase = 'capturing-source';
+    logPromotion(promotionId, phase);
     await options.notebookTables.withSource(
       { reference: command.source, expectedRevision: command.expectedRevision },
       async (source) => {
@@ -654,17 +804,27 @@ export async function executeTablePromotion(
           sourcePath.startsWith(`${destinationPath}/`)
         )
           refuse('The source and destination table packages overlap.');
+        phase = 'archiving-source';
+        logPromotion(promotionId, phase);
         const originalFiles = await archiveSource(authority.workspaceRoot, source);
         const saved = await withWorkspaceMutation(authority.workspaceRoot, async () => {
           const id = await projectId(options, authority, owners, true);
           const tableId = randomUUID();
+          const data = tableDataForPersistence(source.tableData);
+          const originalBlock = {
+            ...source.originalBlock,
+            attrs: {
+              ...source.originalBlock.attrs,
+              data: tableDataForPersistence(source.originalBlock.attrs?.data as TableData),
+            },
+          };
           const snapshot: TableSnapshot = {
             schema: TABLE_SNAPSHOT_SCHEMA,
             documentId: tableId,
-            title: source.tableData.name ?? 'Table',
-            data: source.tableData,
+            title: data.name ?? 'Table',
+            data,
           };
-          const originalBlockSha256 = hash(bytesForBlock(source.originalBlock));
+          const originalBlockSha256 = hash(bytesForBlock(originalBlock));
           const snapshotSha256 = await tableSnapshotSha256(snapshot);
           const candidate: PromotionIntent = {
             schema: 'dnaforge.table-transition.v1',
@@ -684,7 +844,7 @@ export async function executeTablePromotion(
               packagePath: sourcePath,
               blockId: source.blockId,
               legacyReference: source.reference,
-              originalBlock: structuredClone(source.originalBlock),
+              originalBlock: structuredClone(originalBlock),
               originalBlockSha256,
               sourceFingerprint: source.sourceFingerprint,
               sourceFileHashes: structuredClone(source.sourceFileHashes),
@@ -707,15 +867,25 @@ export async function executeTablePromotion(
           return writeIntent(options, authority, candidate);
         });
         intent = saved;
+        phase = 'staging-table';
+        logPromotion(promotionId, phase);
         await withWorkspaceMutation(authority.workspaceRoot, () =>
           stage(options, authority, owners, saved)
         );
         source.assertCurrent();
         authority.assertCurrent();
+        phase = 'publishing-source-reference';
+        logPromotion(promotionId, phase);
         await source.publishReference(richTableReference(saved.projectId, saved.tableId));
+        logPromotion(promotionId, phase, 'complete');
       }
     );
     if (!intent) refuse('The durable extraction intent was not acknowledged.');
+    phase = 'finishing-transition';
+    logPromotion(promotionId, phase);
     return resume(options, authority, owners, intent);
+  }).catch((error) => {
+    logPromotion(promotionId, phase, 'failed', error);
+    throw error;
   });
 }

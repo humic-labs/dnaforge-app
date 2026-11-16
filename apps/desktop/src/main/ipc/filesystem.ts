@@ -673,7 +673,11 @@ export function registerFilesystemHandlers(): void {
       return snapshot;
     },
     tableDocument: async (_event, command) => {
-      if (command.kind !== 'resolve' && command.kind !== 'open')
+      if (
+        command.kind !== 'resolve' &&
+        command.kind !== 'open' &&
+        command.kind !== 'list-promotions'
+      )
         await nativeDocuments.flushFileDocumentClients();
       return nativeDocuments.tableDocuments.execute(command);
     },

@@ -14,6 +14,7 @@ const title = z.string().max(1000);
 export const tableDocumentCommandSchema = z
   .discriminatedUnion('kind', [
     z.object({ kind: z.literal('open'), location: destinationSchema }).strict(),
+    z.object({ kind: z.literal('list-promotions'), workspaceRoot: path }).strict(),
     z
       .object({
         kind: z.literal('create'),
@@ -101,7 +102,19 @@ export interface ResolvedTableDocument {
   readOnly: boolean;
 }
 
+export interface TablePromotionRecovery {
+  promotionId: string;
+  tableId: string;
+  sourceReference: TableDocumentReference;
+  sourcePath: string;
+  destinationPath: string;
+  title: string;
+  state: 'pending' | 'blocked';
+  reason?: string;
+}
+
 export type TableDocumentCommandResult =
+  | { kind: 'promotions'; promotions: TablePromotionRecovery[] }
   | { kind: 'resolved'; table: ResolvedTableDocument }
   | { kind: 'created'; table: ResolvedTableDocument }
   | { kind: 'pinned'; reference: TableDocumentReference }

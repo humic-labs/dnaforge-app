@@ -619,4 +619,105 @@ describe('recoverable native table promotion', () => {
     await expect(access(join(otherRoot, '.forge', 'project.json'))).rejects.toThrow();
     await expect(access(join(otherRoot, '.git'))).rejects.toThrow();
   });
+
+  it('discovers interrupted extraction after service restart without exposing its archive and omits it after completion', async () => {
+    const t = await fixture();
+    const request = await t.request();
+    t.failSourcePublication(new Error('interrupted source publication'));
+    await incomplete(new NativeTableDocumentCommands(t.f.options), request);
+    const staged = await pending(t);
+    const before = await t.load();
+    const list = await new NativeTableDocumentCommands(t.f.options).execute({
+      kind: 'list-promotions',
+      workspaceRoot: t.root(),
+    });
+    expect(list.kind).toBe('promotions');
+    if (list.kind !== 'promotions')
+      throw new Error('Expected bounded discoverable extraction recovery');
+    expect(list.promotions).toHaveLength(1);
+    expect(list.promotions[0]).toMatchObject({
+      promotionId: request.requestId,
+      tableId: staged.head.id,
+      sourceReference,
+      sourcePath: 'Notebook',
+      destinationPath: 'Extracted table',
+      state: 'pending',
+    });
+    expect(JSON.stringify(list)).not.toMatch(
+      /originalBlock|originalFiles|base64|sourceFileHashes|original-before-promotion/
+    );
+    expect((await t.load()).sourceFileHashes).toEqual(before.sourceFileHashes);
+    expect((await readTablePackageInMain(t.destination())).headText).toBe(staged.headText);
+    t.failSourcePublication();
+    await t.restartNotebook();
+    await completed(t, await t.recover(staged.head.promotionId!));
+    const finished = await new NativeTableDocumentCommands(t.f.options).execute({
+      kind: 'list-promotions',
+      workspaceRoot: t.root(),
+    });
+    expect(finished).toEqual({ kind: 'promotions', promotions: [] });
+  });
+
+  it('extracts a natively edited and saved table while preserving optional cell metadata and saved JSON semantics', async () => {
+    const t = await fixture();
+    const before = await t.inspectSource();
+    const changed = await t.notebook.execute({
+      documentId,
+      expectedRevision: before.revision,
+      operation: {
+        kind: 'table',
+        tableId: blockId,
+        command: {
+          kind: 'set-cell',
+          row: 0,
+          column: 1,
+          value: 'edited through native table owner',
+        },
+      },
+    });
+    const view = new NotebookDocumentModel(changed.copy.content, changed.title);
+    let position = -1;
+    view.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'embed' && node.attrs.refId === blockId) position = pos;
+    });
+    expect(position).toBeGreaterThanOrEqual(0);
+    const node = view.state.doc.nodeAt(position)!;
+    const transaction = view.state.tr.setNodeMarkup(position, undefined, {
+      ...node.attrs,
+      data: { ...node.attrs.data, _fresh: undefined },
+    });
+    const clearedFresh = await t.notebook.execute({
+      documentId,
+      expectedRevision: changed.revision,
+      operation: {
+        kind: 'apply-steps',
+        baseFingerprint: contentFingerprint(canonicalNotebookJson(changed.copy.content)),
+        steps: transaction.steps.map((step) => step.toJSON()),
+        separateHistory: true,
+      },
+    });
+    const saved = await t.notebook.execute({
+      documentId,
+      expectedRevision: clearedFresh.revision,
+      operation: { kind: 'save' },
+    });
+    const savedData = JSON.parse(JSON.stringify(selected(saved.copy.content).attrs!.data));
+    const request = await t.request();
+    const result = await completed(
+      t,
+      await new NativeTableDocumentCommands(t.f.options).execute(request)
+    );
+    expect(result.actual.head.snapshot.data).toEqual(savedData);
+    expect(result.actual.head.snapshot.data.cells?.[0]?.[1]?.value).toBe(
+      'edited through native table owner'
+    );
+    expect(result.actual.head.snapshot.data.cells?.[0]?.[0]?.format).toEqual({ bold: true });
+    const intent = JSON.parse(
+      await readFile(
+        join(t.root(), '.forge', 'table-transitions', `${request.requestId}.json`),
+        'utf8'
+      )
+    );
+    expect(intent.source.originalBlock.attrs.data).toEqual(savedData);
+  });
 });

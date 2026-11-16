@@ -77,6 +77,10 @@ export interface NativeNotebookRecord {
   publication?: import('../shared/notebook-publication').NotebookPublicationState;
 }
 export interface NativeNotebookOptions {
+  resolveTableSource?(
+    reference: TableDocumentReference,
+    context: NativeNotebookTableSourceContext
+  ): Promise<TableDocumentReference>;
   resolveResourceReference?(
     scope: NativeNotebookScope,
     reference: ResolveNotebookResourceReferenceRequest['reference']
@@ -147,7 +151,7 @@ interface NotebookCopy {
   recovery?: NativeNotebookRecord;
   tableTransitionUnavailable?: boolean;
   tableAliasConflict?: string;
-  tableAliasBaseline?: JSONContent;
+  tableAliasBaseline?: { source: NativeNotebookSource; content: JSONContent };
   saves: Map<number, Promise<NotebookDocumentSnapshot>>;
   saveReceipts: Map<
     string,
@@ -188,6 +192,24 @@ export class NativeNotebookWorkingCopyOwner {
     return parsed as TableDocumentReference & {
       backing: Extract<TableDocumentReference['backing'], { kind: 'notebook-inline' }>;
     };
+  }
+  private async tableSourceRoute(
+    reference: TableDocumentReference,
+    context?: NativeNotebookTableSourceContext
+  ) {
+    const original = this.tableReference(reference);
+    if (!context || !this.options.resolveTableSource) return original;
+    const current = this.tableReference(await this.options.resolveTableSource(original, context));
+    if (
+      current.backing.blockId !== original.backing.blockId ||
+      stripWorkspaceScope(current.backing.notebookDocumentId) !==
+        stripWorkspaceScope(original.backing.notebookDocumentId)
+    )
+      throw refused(
+        'TABLE_SOURCE_CONTEXT_CHANGED',
+        'The current notebook source does not match the archived portable table identity.'
+      );
+    return current;
   }
   private tableHashes(source: NativeNotebookSource): Readonly<Record<string, string>> {
     const hashes = source.sourceFileHashes;
@@ -242,8 +264,9 @@ export class NativeNotebookWorkingCopyOwner {
   ) {
     const sourceReference = this.tableReference(reference);
     if (this.closed) throw refused('NOTEBOOK_OWNER_CLOSED', 'The native notebook owner is closed.');
-    await this.options.beforeExecute?.(sourceReference.backing.notebookDocumentId, 'inspect');
-    const copy = await this.copy(sourceReference.backing.notebookDocumentId);
+    const route = await this.tableSourceRoute(sourceReference, context);
+    await this.options.beforeExecute?.(route.backing.notebookDocumentId, 'inspect');
+    const copy = await this.copy(route.backing.notebookDocumentId);
     const run = copy.tail
       .catch(() => {})
       .then(async () => {
@@ -305,8 +328,9 @@ export class NativeNotebookWorkingCopyOwner {
   ): Promise<T> {
     const reference = this.tableReference(input.reference);
     if (this.closed) throw refused('NOTEBOOK_OWNER_CLOSED', 'The native notebook owner is closed.');
-    await this.options.beforeExecute?.(reference.backing.notebookDocumentId, 'extract-table');
-    const copy = await this.copy(reference.backing.notebookDocumentId);
+    const route = await this.tableSourceRoute(reference, input.context);
+    await this.options.beforeExecute?.(route.backing.notebookDocumentId, 'extract-table');
+    const copy = await this.copy(route.backing.notebookDocumentId);
     const run = copy.tail
       .catch(() => {})
       .then(async () => {
@@ -520,9 +544,10 @@ export class NativeNotebookWorkingCopyOwner {
   private async refreshTableAliases(copy: NotebookCopy): Promise<void> {
     const prepare = this.options.prepareTableAliases;
     if (!prepare) return;
-    const baseline = await prepare(copy.scope, copy.source.content);
+    const source = copy.source;
+    const baseline = await prepare(copy.scope, source.content);
     const current =
-      canonicalNotebookJson(copy.model.content) === canonicalNotebookJson(copy.source.content)
+      canonicalNotebookJson(copy.model.content) === canonicalNotebookJson(source.content)
         ? baseline
         : await prepare(copy.scope, copy.model.content);
     const recovery = copy.recovery ? await prepare(copy.scope, copy.recovery.content) : undefined;
@@ -530,7 +555,7 @@ export class NativeNotebookWorkingCopyOwner {
     if (current !== baseline) await current.verify();
     await recovery?.verify();
     copy.scope.assertCurrent();
-    copy.tableAliasBaseline = baseline.content;
+    copy.tableAliasBaseline = { source, content: baseline.content };
     copy.tableAliasConflict = baseline.conflict ?? current.conflict ?? recovery?.conflict;
     if (
       !current.conflict &&
@@ -1184,10 +1209,12 @@ export class NativeNotebookWorkingCopyOwner {
     return `${this.generation}:${copy.version}:${copy.scope.documentId}`;
   }
   private dirty(copy: NotebookCopy): boolean {
+    const baseline = copy.tableAliasBaseline;
     return (
       canonicalNotebookJson(copy.model.content) !==
-        canonicalNotebookJson(copy.tableAliasBaseline ?? copy.source.content) ||
-      copy.model.title !== copy.source.title
+        canonicalNotebookJson(
+          baseline?.source === copy.source ? baseline.content : copy.source.content
+        ) || copy.model.title !== copy.source.title
     );
   }
   private snapshot(copy: NotebookCopy, offset = 0, limit = 0): NotebookDocumentSnapshot {

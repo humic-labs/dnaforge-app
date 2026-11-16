@@ -23,6 +23,8 @@ import type { TableData } from './types';
 import { TelemetryBlockedSurface } from '../../../../components/TelemetryBlockedSurface';
 import type { TableOperationObservation } from '../../../../shared/table-notebook-observation';
 import { tableOperationObservation } from './utils/operation-observation';
+import { PromoteTableButton } from './components/PromoteTableButton';
+import { TablePromotionRecoveryButton } from './components/TablePromotionRecoveryButton';
 
 function isConfigured(data: TableData): boolean {
   return (
@@ -339,6 +341,19 @@ function ConfiguredTable({
         onKeyDown={handleKeyDown}
         onMouseDown={handleTableMouseDown}
       >
+        {tableReference && (
+          <div className="space-y-2 px-3 py-2">
+            <TablePromotionRecoveryButton
+              reference={tableReference}
+              workspaceRoot={referenceWorkspaceRoot}
+            />
+            {hasWriter && (
+              <div className="flex justify-end">
+                <PromoteTableButton reference={tableReference} title={name} />
+              </div>
+            )}
+          </div>
+        )}
         {}
         {isOpenInPanel && (
           <div

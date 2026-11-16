@@ -308,7 +308,11 @@ export async function startNativeDocumentCommandServer(options: {
             failure(res, 503, 'NATIVE_DOCUMENT_OWNER_UNAVAILABLE', false);
             return;
           }
-          if (body.request.kind !== 'resolve' && body.request.kind !== 'open')
+          if (
+            body.request.kind !== 'resolve' &&
+            body.request.kind !== 'open' &&
+            body.request.kind !== 'list-promotions'
+          )
             await options.flushFileClients?.();
           assertCurrent();
           accepted = true;

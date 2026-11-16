@@ -8,6 +8,7 @@ import { parseTablePackageHead } from '../../../shared/table-package';
 import {
   richTableReference,
   tableDocumentKey,
+  tableDocumentReferenceFromKey,
   type TableDocumentReference,
 } from '../../../shared/table-document-reference';
 import type { ResolvedTableDocument } from '../../../shared/table-document-command';
@@ -19,7 +20,11 @@ export function useNativeRichTableDocument(reference: TableDocumentReference | n
   const filePath = !reference && isForgePackageMetaPath(path, 'table.json') ? path : null;
   const workspaceRoot = filePath ? findWorkspaceRootForPath(folders, filePath) : null;
   const active = isElectron() && Boolean(filePath || reference?.backing.kind === 'rich-file');
-  const key = reference?.backing.kind === 'rich-file' ? tableDocumentKey(reference) : filePath;
+  const referenceKey = reference?.backing.kind === 'rich-file' ? tableDocumentKey(reference) : null;
+  const stableReference = useMemo(
+    () => (referenceKey ? tableDocumentReferenceFromKey(referenceKey) : null),
+    [referenceKey]
+  );
   const [resolved, setResolved] = useState<ResolvedTableDocument | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -27,11 +32,14 @@ export function useNativeRichTableDocument(reference: TableDocumentReference | n
     let current = true;
     setResolved(null);
     setFailure(null);
-    if (!active) return;
+    if (!active) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const request =
-      reference?.backing.kind === 'rich-file'
-        ? platform().fs.tableDocument({ kind: 'resolve', reference })
+      stableReference?.backing.kind === 'rich-file'
+        ? platform().fs.tableDocument({ kind: 'resolve', reference: stableReference })
         : workspaceRoot && filePath
           ? platform().fs.tableDocument({
               kind: 'open',
@@ -71,7 +79,7 @@ export function useNativeRichTableDocument(reference: TableDocumentReference | n
     return () => {
       current = false;
     };
-  }, [active, key, reference, workspaceRoot, filePath]);
+  }, [active, stableReference, workspaceRoot, filePath]);
   const client = useMemo(
     () => (resolved?.owner.kind === 'file' ? getFileDocumentClient(resolved.owner.path) : null),
     [resolved]

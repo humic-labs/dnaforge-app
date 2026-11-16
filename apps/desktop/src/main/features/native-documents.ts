@@ -101,6 +101,7 @@ export function createNativeDocuments(
   const notebookDocuments = createNativeNotebookWorkingCopies({
     db: getDb,
     tableDocuments: () => tableDocuments,
+    workspaceAccess: (root) => workspaces.access(root),
     relocateEntityFile: (input) => fileRelocations.relocateEntityFile(input),
     workspaceRoots: () => workspaces.readableRoots(),
     writableWorkspaceRoots: () => workspaces.roots(),

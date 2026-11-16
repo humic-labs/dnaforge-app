@@ -901,7 +901,15 @@ export function FileBrowser({
                 throw new Error('Open the current table before making an independent copy.');
               const source = await platform().fs.fileDocument({
                 target: { documentId: opened.table.owner.documentId },
-                operation: { kind: 'inspect' },
+                operation: {
+                  kind: 'inspect',
+                  offset: 0,
+                  limit: 2000,
+                  rowOffset: 0,
+                  rowLimit: 20,
+                  columnOffset: 0,
+                  columnLimit: 20,
+                },
               });
               const name = basename(sourcePath);
               const parent = sourcePath.slice(0, -(name.length + 1));

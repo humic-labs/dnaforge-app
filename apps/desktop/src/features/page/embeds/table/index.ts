@@ -1,4 +1,5 @@
 import './definition';
+import './reference-definition';
 
 export { tableEmbed } from './definition';
 export { TableRenderer } from './Renderer';

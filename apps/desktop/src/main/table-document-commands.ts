@@ -49,7 +49,11 @@ import {
   type ReadTablePackageResult,
 } from './table-package';
 import { createKeyedMutex } from './workspace-git/keyed-mutex';
-import { executeTablePromotion, resolvePromotedTableAlias } from './table-document-promotion';
+import {
+  executeTablePromotion,
+  listTablePromotions,
+  resolvePromotedTableAlias,
+} from './table-document-promotion';
 
 export interface NativeNotebookTableTransitionSource {
   reference: TableDocumentReference;
@@ -294,6 +298,8 @@ export class NativeTableDocumentCommands {
           }),
         };
       }
+      case 'list-promotions':
+        return listTablePromotions(command.workspaceRoot, this.options, this.promotionOwners());
       case 'promote':
       case 'recover-promotion':
         return executeTablePromotion(command, this.options, this.promotionOwners());

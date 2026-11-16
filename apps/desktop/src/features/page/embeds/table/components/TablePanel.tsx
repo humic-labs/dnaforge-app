@@ -12,7 +12,7 @@ import { useNativeNotebookTable } from '../../../hooks/useNativeNotebookTable';
 import { useNativeRichTableDocument } from '../../../hooks/useNativeRichTableDocument';
 ('use client');
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useTableStore } from '../store/tableStore';
 import { useCanvasStore } from '../../../../canvas/public/store';
 import { TableGrid } from './TableGrid';
@@ -25,17 +25,31 @@ import {
 } from '../../../../../components/TelemetryBlockedSurface';
 import { usePageStore } from '../../../store';
 import type { TableOperationObservation } from '../../../../../shared/table-notebook-observation';
+import { useCommandHandler } from '../../../../../commands/useCommandHandler';
+import { useCommandScope } from '../../../../../commands/useCommandScope';
+import { COMMAND_IDS, COMMAND_SCOPES } from '../../../../../commands/types';
+import { InsertTableReferenceButton } from './InsertTableReferenceButton';
+import { PromoteTableButton } from './PromoteTableButton';
+import { TablePromotionRecoveryButton } from './TablePromotionRecoveryButton';
 
 interface TablePanelProps {
   tableId: string;
   tableDocument?: TableDocumentReference;
   canvasTabId?: string;
+  embedded?: boolean;
 }
 
-export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelProps) {
+export function TablePanel({
+  tableId,
+  tableDocument,
+  canvasTabId,
+  embedded = false,
+}: TablePanelProps) {
+  const root = useRef<HTMLDivElement>(null);
+  const [recoveredReference, setRecoveredReference] = useState<TableDocumentReference | null>(null);
   const legacyTable = useTableStore((state) => state.expandedTables[tableId]);
   const resolved = useMemo(() => {
-    const source = tableDocument ?? tableDocumentReferenceFromKey(tableId);
+    const source = recoveredReference ?? tableDocument ?? tableDocumentReferenceFromKey(tableId);
     if (!source) return { reference: null, error: null };
     const parsed = tableDocumentReferenceSchema.safeParse(source);
     if (!parsed.success)
@@ -55,7 +69,7 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
         error: failure instanceof Error ? failure.message : String(failure),
       };
     }
-  }, [tableDocument, tableId]);
+  }, [tableDocument, tableId, recoveredReference]);
   const native = useNativeNotebookTableDocument(resolved.reference);
   const rich = useNativeRichTableDocument(resolved.reference, tableId);
   const notebook =
@@ -143,6 +157,21 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
     rich.writable,
     rich.resolved?.tableId,
   ]);
+  const embeddedScope = useCommandScope(COMMAND_SCOPES.embedGrid, { enabled: embedded });
+  useCommandHandler(
+    COMMAND_IDS.fileSave,
+    () => {
+      if (!embedded || !rich.writable || !root.current?.contains(document.activeElement))
+        return false;
+      void saveNative();
+      return true;
+    },
+    {
+      scope: COMMAND_SCOPES.embedGrid,
+      active: embedded,
+      enabled: () => Boolean(rich.writable && root.current?.contains(document.activeElement)),
+    }
+  );
   useDocumentLifecycle(
     native.client &&
       notebook &&
@@ -343,6 +372,32 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
   );
 
   const unavailable = resolved.error ?? (nativeData ? null : nativeError);
+  const recovery = resolved.reference ? (
+    <TablePromotionRecoveryButton
+      reference={resolved.reference}
+      workspaceRoot={
+        rich.resolved?.owner.kind === 'file'
+          ? rich.resolved.owner.workspaceRoot
+          : native.client?.snapshot?.workspaceRoot
+      }
+      onRecovered={(reference) => {
+        if (canvasTabId) {
+          for (const [panelId, panel] of Object.entries(panels)) {
+            if (panel.tabs.some((tab) => tab.id === canvasTabId)) {
+              retargetTab(
+                panelId,
+                canvasTabId,
+                { type: 'table', entityId: tableDocumentKey(reference) },
+                { tableDocument: reference }
+              );
+              return;
+            }
+          }
+        }
+        setRecoveredReference(reference);
+      }}
+    />
+  ) : null;
   if (!table || unavailable) {
     return (
       <div className="h-full flex items-center justify-center p-4 text-fg-muted">
@@ -356,6 +411,7 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
                 ? 'Opening the saved table.'
                 : 'The table may have been removed or is no longer available.')}
           </div>
+          <div className="mt-3">{recovery}</div>
         </div>
       </div>
     );
@@ -365,6 +421,8 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
 
   return (
     <div
+      ref={root}
+      {...(embedded ? embeddedScope.eventHandlers : {})}
       {...TELEMETRY_BLOCKED_ATTRIBUTES}
       data-ph-mask="true"
       className={`${TELEMETRY_BLOCKED_CLASS} h-full flex flex-col bg-bg`}
@@ -397,6 +455,31 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
           )}
         </div>
         <div className="flex items-center gap-2 text-xs text-fg-muted">
+          {!embedded && rich.resolved && rich.data && (
+            <InsertTableReferenceButton
+              reference={rich.resolved.reference}
+              client={rich.client}
+              title={rich.data.name ?? rich.title ?? 'Table'}
+            />
+          )}
+          {!embedded && notebook && resolved.reference && nativeWritable && (
+            <PromoteTableButton
+              reference={resolved.reference}
+              title={displayName}
+              onPromoted={(reference) => {
+                if (canvasTabId && tabInfo)
+                  retargetTab(
+                    tabInfo.panelId,
+                    canvasTabId,
+                    {
+                      type: 'table',
+                      entityId: tableDocumentKey(reference),
+                    },
+                    { tableDocument: reference, label: displayName }
+                  );
+              }}
+            />
+          )}
           {hasFilters && visibleRowIndices.length !== rows ? (
             <span>
               {visibleRowIndices.length}/{rows} rows
@@ -419,11 +502,17 @@ export function TablePanel({ tableId, tableDocument, canvasTabId }: TablePanelPr
               onClick={() => void saveNative()}
               className="rounded border border-border px-2 py-1 disabled:opacity-50"
             >
-              {(rich.active ? rich.client?.saving : native.client?.saving) ? 'Saving…' : 'Save'}
+              {(rich.active ? rich.client?.saving : native.client?.saving)
+                ? 'Saving…'
+                : embedded
+                  ? 'Save table'
+                  : 'Save'}
             </button>
           )}
         </div>
       </div>
+
+      {recovery && <div className="px-4 py-2">{recovery}</div>}
 
       {!hasWriter && (
         <p role="status" className="px-4 py-2 text-xs text-fg-muted">

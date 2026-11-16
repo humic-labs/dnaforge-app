@@ -1,6 +1,7 @@
 import type { TableData } from './table-document-types';
 
 const tableFields = [
+  '_fresh',
   'id',
   'name',
   'rows',

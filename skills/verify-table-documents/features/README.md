@@ -5,5 +5,12 @@
 - [Native table file](table-file.md). Create a table from Files, edit and Save
   it, close its tab and reopen the same verified document.
 
-Standalone extraction and pinned notebook placements require their own
-source-bound acceptance before they can be reported as implemented.
+- [References and saved versions](table-references.md). Extract a notebook
+  table, share live embeds and links, pin a saved version, and retain identity
+  after a move and restart.
+- [Interrupted extraction recovery](migration-recovery.md). Cause an owned write
+  denial, preserve the original source, restart and finish through a visible
+  control.
+
+Each workflow requires a passing receipt for the exact source before it can be
+claimed complete.
