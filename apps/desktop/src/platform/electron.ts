@@ -337,6 +337,23 @@ async function materializeAssemblyAnnotationResourcePayload(
   deps: AnnotationSceneWireMaterializationDeps
 ): Promise<Uint8Array> {
   const resource = wire.resource;
+  if (shouldEnableTestBridge(import.meta.env)) {
+    const observedAtMs = (deps.now ?? Date.now)();
+    console.log(
+      '[annotation-resource-lifecycle]',
+      JSON.stringify({
+        phase: 'received',
+        fingerprint: wire.fingerprint,
+        byteCount: wire.byteCount,
+        observedAtMs,
+        expiresAtMs: resource.expiresAtMs,
+        expired: observedAtMs >= resource.expiresAtMs,
+        byteCountMatches: resource.byteCount === wire.byteCount,
+        payloadSha256Matches: resource.payloadSha256 === expectedPayloadSha256,
+        urlMatches: isExactAnnotationSceneResourceUrl(resource.url),
+      })
+    );
+  }
   if (
     resource.byteCount !== wire.byteCount ||
     resource.payloadSha256 !== expectedPayloadSha256 ||

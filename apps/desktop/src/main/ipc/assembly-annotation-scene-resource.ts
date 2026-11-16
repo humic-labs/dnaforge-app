@@ -120,7 +120,8 @@ export class AssemblyAnnotationSceneResourceTicketRegistry {
     }
     if (!token) throw new Error('Unable to allocate annotation scene resource capability');
 
-    const expiresAtMs = this.now() + this.ttlMs;
+    const issuedAtMs = this.now();
+    const expiresAtMs = issuedAtMs + this.ttlMs;
     const lease: AssemblyAnnotationSceneResourceLease = Object.freeze({
       ...input,
       token,
@@ -132,6 +133,20 @@ export class AssemblyAnnotationSceneResourceTicketRegistry {
     const owned = this.ownerTokens.get(input.ownerId) ?? new Set<string>();
     owned.add(token);
     this.ownerTokens.set(input.ownerId, owned);
+    if (process.env.WAYPOINT_HOSTED_REFERENCE_E2E === '1') {
+      console.log(
+        '[annotation-resource-lifecycle]',
+        JSON.stringify({
+          phase: 'issued',
+          fingerprint: input.fingerprint,
+          byteCount: input.byteCount,
+          ownerId: input.ownerId,
+          issuedAtMs,
+          expiresAtMs,
+          pendingResourceCount: this.entries.size,
+        })
+      );
+    }
     return Object.freeze({
       url: resourceUrl(token),
       expiresAtMs,
@@ -146,7 +161,23 @@ export class AssemblyAnnotationSceneResourceTicketRegistry {
     const entry = this.entries.get(token);
     if (!entry) return null;
     this.release(token);
-    return this.now() < entry.lease.expiresAtMs ? entry.lease : null;
+    const consumedAtMs = this.now();
+    if (process.env.WAYPOINT_HOSTED_REFERENCE_E2E === '1') {
+      console.log(
+        '[annotation-resource-lifecycle]',
+        JSON.stringify({
+          phase: 'consumed',
+          fingerprint: entry.lease.fingerprint,
+          byteCount: entry.lease.byteCount,
+          ownerId: entry.lease.ownerId,
+          consumedAtMs,
+          expiresAtMs: entry.lease.expiresAtMs,
+          expired: consumedAtMs >= entry.lease.expiresAtMs,
+          pendingResourceCount: this.entries.size,
+        })
+      );
+    }
+    return consumedAtMs < entry.lease.expiresAtMs ? entry.lease : null;
   }
 
   releaseOwner(ownerId: number): void {
