@@ -30,54 +30,87 @@ export function useNativeRichTableDocument(reference: TableDocumentReference | n
   const [loading, setLoading] = useState(false);
   useEffect(() => {
     let current = true;
+    let generation = 0;
+    let available = false;
+    let activationKey: string | null = null;
+    let unsubscribe: (() => void) | undefined;
     setResolved(null);
     setFailure(null);
     if (!active) {
       setLoading(false);
       return;
     }
-    setLoading(true);
-    const request =
-      stableReference?.backing.kind === 'rich-file'
-        ? platform().fs.tableDocument({ kind: 'resolve', reference: stableReference })
-        : workspaceRoot && filePath
-          ? platform().fs.tableDocument({
-              kind: 'open',
-              location: {
-                workspaceRoot,
-                packageRoot: filePath.replace(/[\\/]\.forge[\\/]table\.json$/i, ''),
-              },
-            })
-          : Promise.reject(new Error('Open this table from its registered project.'));
-    void request
-      .then((result) => {
-        if (result.kind !== 'resolved')
-          throw new Error('The native table owner did not resolve this table.');
-        if (current) {
-          const table = result.table;
-          setResolved(
-            table.owner.kind === 'file' && table.reference.backing.kind === 'rich-file'
-              ? {
-                  ...table,
-                  reference: richTableReference(
-                    table.reference.backing.projectId,
-                    table.tableId,
-                    table.reference.binding,
-                    { fileDocumentId: table.owner.documentId, pathHint: table.owner.path }
-                  ),
-                }
-              : table
-          );
-        }
-      })
-      .catch((error) => {
-        if (current) setFailure(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
-        if (current) setLoading(false);
+    const fs = platform().fs;
+    const resolve = () => {
+      const requestedGeneration = ++generation;
+      const isCurrent = () => current && requestedGeneration === generation;
+      setFailure(null);
+      setLoading(true);
+      const request =
+        stableReference?.backing.kind === 'rich-file'
+          ? fs.tableDocument({ kind: 'resolve', reference: stableReference })
+          : workspaceRoot && filePath
+            ? fs.tableDocument({
+                kind: 'open',
+                location: {
+                  workspaceRoot,
+                  packageRoot: filePath.replace(/[\\/]\.forge[\\/]table\.json$/i, ''),
+                },
+              })
+            : Promise.reject(new Error('Open this table from its registered project.'));
+      void request
+        .then((result) => {
+          if (result.kind !== 'resolved')
+            throw new Error('The native table owner did not resolve this table.');
+          if (isCurrent()) {
+            available = true;
+            unsubscribe?.();
+            const table = result.table;
+            setResolved(
+              table.owner.kind === 'file' && table.reference.backing.kind === 'rich-file'
+                ? {
+                    ...table,
+                    reference: richTableReference(
+                      table.reference.backing.projectId,
+                      table.tableId,
+                      table.reference.binding,
+                      { fileDocumentId: table.owner.documentId, pathHint: table.owner.path }
+                    ),
+                  }
+                : table
+            );
+          }
+        })
+        .catch((error) => {
+          if (isCurrent()) setFailure(error instanceof Error ? error.message : String(error));
+        })
+        .finally(() => {
+          if (isCurrent()) setLoading(false);
+        });
+    };
+    if (stableReference?.binding.kind !== 'saved-version')
+      unsubscribe = fs.subscribeFileDocuments((snapshot) => {
+        if (!current || available || !snapshot.ready || snapshot.tableDocument?.status !== 'active')
+          return;
+        const matches =
+          stableReference?.backing.kind === 'rich-file'
+            ? snapshot.tableDocument.id === stableReference.backing.tableId
+            : snapshot.path === filePath && snapshot.workspaceRoot === workspaceRoot;
+        if (!matches) return;
+        const key = JSON.stringify([
+          snapshot.documentId,
+          snapshot.revision,
+          snapshot.path,
+          snapshot.tableDocument.snapshotSha256,
+        ]);
+        if (activationKey === key) return;
+        activationKey = key;
+        resolve();
       });
+    resolve();
     return () => {
       current = false;
+      unsubscribe?.();
     };
   }, [active, stableReference, workspaceRoot, filePath]);
   const client = useMemo(

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import {
   richTableReference,
@@ -11,8 +11,22 @@ import {
   type TableSnapshot,
 } from '../../../shared/table-package';
 
-const io = vi.hoisted(() => ({ resolve: vi.fn(), client: null as any }));
-vi.mock('../../../platform', () => ({ platform: () => ({ fs: { tableDocument: io.resolve } }) }));
+const io = vi.hoisted(() => ({
+  resolve: vi.fn(),
+  client: null as any,
+  listeners: new Set<(snapshot: any) => void>(),
+}));
+vi.mock('../../../platform', () => ({
+  platform: () => ({
+    fs: {
+      tableDocument: io.resolve,
+      subscribeFileDocuments: (listener: (snapshot: any) => void) => {
+        io.listeners.add(listener);
+        return () => io.listeners.delete(listener);
+      },
+    },
+  }),
+}));
 vi.mock('../../../utils/environment', () => ({ isElectron: () => true }));
 vi.mock('../../../stores/workspaceStore', () => ({
   useWorkspaceStore: (select: (state: any) => unknown) => select({ folders: [] }),
@@ -44,6 +58,7 @@ const content = serializeTablePackageHead({
 
 beforeEach(() => {
   io.resolve.mockReset();
+  io.listeners.clear();
   io.client = {
     content,
     error: null,
@@ -122,5 +137,59 @@ it('resolves a changed saved-version binding while keeping that new view read-on
   expect(result.current.loading).toBe(false);
   expect(result.current.writable).toBe(false);
   expect(result.current.client).toBe(null);
+  expect(io.resolve).toHaveBeenCalledTimes(2);
+});
+
+it('recovers the same mounted reference after native activation without a remount or user click', async () => {
+  io.resolve.mockRejectedValueOnce(
+    new Error(
+      'TABLE_DOCUMENT_UNAVAILABLE: The table is awaiting a recoverable ownership transition.'
+    )
+  );
+  const { result } = renderHook(() =>
+    useNativeRichTableDocument(richTableReference(projectId, tableId), '')
+  );
+  await waitFor(() => expect(result.current.error).toContain('ownership transition'));
+  await act(async () => {
+    for (const listener of io.listeners)
+      listener({
+        ...io.client.snapshot,
+        tableDocument: { ...io.client.snapshot.tableDocument, id: 'unrelated-table' },
+      });
+  });
+  expect(io.resolve).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    for (const listener of io.listeners) listener(io.client.snapshot);
+  });
+  await waitFor(() => expect(result.current.writable).toBe(true));
+  expect(result.current.data?.cells?.[0]?.[0]?.value).toBe('retained data');
+  expect(io.resolve).toHaveBeenCalledTimes(2);
+  await act(async () => {
+    for (const listener of io.listeners) listener(io.client.snapshot);
+  });
+  expect(io.resolve).toHaveBeenCalledTimes(2);
+});
+
+it('ignores an old pending rejection when activation arrived before that request finished', async () => {
+  let rejectPending!: (error: Error) => void;
+  io.resolve.mockImplementationOnce(
+    () =>
+      new Promise((_resolve, reject) => {
+        rejectPending = reject;
+      })
+  );
+  const { result } = renderHook(() =>
+    useNativeRichTableDocument(richTableReference(projectId, tableId), '')
+  );
+  await waitFor(() => expect(io.resolve).toHaveBeenCalledTimes(1));
+  await act(async () => {
+    for (const listener of io.listeners) listener(io.client.snapshot);
+  });
+  await waitFor(() => expect(result.current.writable).toBe(true));
+  await act(async () => {
+    rejectPending(new Error('The old pending ownership lookup failed.'));
+  });
+  expect(result.current.writable).toBe(true);
+  expect(result.current.error).toBe(null);
   expect(io.resolve).toHaveBeenCalledTimes(2);
 });

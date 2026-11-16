@@ -42,6 +42,11 @@ For standalone files, run
 It drives Files creation, editing, keyboard Save, close and reopen, then
 verifies the actual head and immutable snapshot bytes.
 
+Reference, restart and interrupted-extraction assertions allow up to 60 seconds
+for native filesystem work; visible actions retain a 15-second limit. Preserve
+initial save and extraction timing in the receipt. Passing data checks do not
+establish a save-latency improvement.
+
 See [the feature map](features/README.md).
 
 ## Evidence

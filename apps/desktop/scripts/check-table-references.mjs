@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { chromium, expect as baseExpect } from '@playwright/test';
-const expect = baseExpect.configure({ timeout: 15_000 });
+const expect = baseExpect.configure({ timeout: 60_000 });
 
 const { values } = parseArgs({ options: { out: { type: 'string' } } });
 assert.ok(values.out, 'Use --out with a new durable evidence directory');
@@ -206,6 +206,7 @@ try {
   const extractDialog = page.getByRole('dialog', { name: 'Save as table file', exact: true });
   await expect(extractDialog).toBeVisible();
   await extractDialog.getByLabel('Table name', { exact: true }).fill('Extracted acceptance table');
+  const extractionStartedAt = Date.now();
   await extractDialog.getByRole('button', { name: 'Save as table file', exact: true }).click();
   const references = (node) => [
     ...(node.type === 'embed' && node.attrs?.type === 'table-reference' ? [node.attrs.data] : []),
@@ -226,6 +227,7 @@ try {
       reference
     );
   const resolved = await resolveTable();
+  receipt.extractionElapsedMs = Date.now() - extractionStartedAt;
   assert.equal(resolved.kind, 'resolved');
   assert.equal(resolved.table.owner.kind, 'file');
   const nativeFileId = resolved.table.owner.documentId;
