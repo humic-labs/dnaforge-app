@@ -60,6 +60,7 @@ function rawReceipt(f, command) {
     sourceSha: command === 'bind-baseline' ? f.manifest.baseSha : f.manifest.sourceSha,
     sourceTree: command === 'bind-baseline' ? f.baseTree : f.manifest.sourceTree,
     controlSha: f.manifest.controlSha,
+    workflowSha: f.manifest.controlSha,
     runId: f.manifest.runId,
     runAttempt: String(f.manifest.attempt),
     status: 'passed',
@@ -115,6 +116,12 @@ for (const command of ['bind-native', 'bind-baseline']) {
       },
     ],
     [
+      'workflow revision',
+      (receipt) => {
+        receipt.workflowSha = '4'.repeat(40);
+      },
+    ],
+    [
       'workflow run',
       (receipt) => {
         receipt.runId = '123457';
@@ -142,6 +149,12 @@ for (const command of ['bind-native', 'bind-baseline']) {
       'missing control revision',
       (receipt) => {
         delete receipt.controlSha;
+      },
+    ],
+    [
+      'missing workflow revision',
+      (receipt) => {
+        delete receipt.workflowSha;
       },
     ],
     [
