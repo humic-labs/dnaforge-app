@@ -15,7 +15,7 @@ export interface UseEditorAutosaveOptions {
 
   contentRef: React.MutableRefObject<JSONContent | null>;
 
-  onSave: (content: JSONContent, pageId: string) => Promise<void>;
+  onSave: (content: JSONContent, pageId: string) => Promise<void | boolean>;
 
   onDirtyTransition?: (pageId: string) => void;
 
@@ -126,9 +126,18 @@ export function useEditorAutosave({
         let finishWrite: (() => void) | undefined;
         try {
           finishWrite = beginWorkspaceEditorWrite({ ...scope });
-          await onSaveRef.current(content, id);
+          const saved = await onSaveRef.current(content, id);
           if (saveEpoch !== discardEpochRef.current) return false;
           if (!isCurrent()) return false;
+          if (saved === false) {
+            dirtyDuringSaveRef.current = true;
+            setSaveStatus('dirty');
+            if (!timerRef.current)
+              timerRef.current = setTimeout(() => {
+                void performSave();
+              }, debounceMs);
+            return false;
+          }
 
           if (id === pageIdRef.current) {
             if (dirtyDuringSaveRef.current && !nativeOwner) {
@@ -186,7 +195,7 @@ export function useEditorAutosave({
         if (inFlightPromiseRef.current === savePromise) inFlightPromiseRef.current = null;
       }
     },
-    [contentRef, nativeOwner]
+    [contentRef, nativeOwner, debounceMs]
   );
 
   const markDirty = useCallback(() => {

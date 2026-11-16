@@ -25,7 +25,7 @@ afterEach(() => {
 function setupHook(opts: {
   initialContent?: JSONContent | null;
   initialPageId?: string;
-  onSave?: (content: JSONContent, pageId: string) => Promise<void>;
+  onSave?: (content: JSONContent, pageId: string) => Promise<void | boolean>;
   onDirtyTransition?: (pageId: string) => void;
   onSaved?: (pageId: string) => void;
   debounceMs?: number;
@@ -55,6 +55,32 @@ function setupHook(opts: {
 }
 
 describe('useEditorAutosave', () => {
+  it('keeps an explicitly pending native save dirty and retries without reporting a failure', async () => {
+    const onSave = vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true);
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const view = setupHook({ initialContent: { type: 'doc' }, onSave, nativeOwner: true });
+    try {
+      await act(async () => {
+        view.result.current.api.markDirty();
+        expect(await view.result.current.api.saveNow()).toBe(false);
+      });
+      expect(view.result.current.api.saveStatus).toBe('dirty');
+      expect(view.result.current.onSaved).not.toHaveBeenCalled();
+      expect(report).not.toHaveBeenCalled();
+      expect(captureSaveFailure).not.toHaveBeenCalled();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(onSave).toHaveBeenCalledTimes(2);
+      expect(view.result.current.api.saveStatus).toBe('clean');
+      expect(view.result.current.onSaved).toHaveBeenCalledExactlyOnceWith('page-1');
+    } finally {
+      act(() => view.result.current.api.discardPendingChanges());
+      view.unmount();
+      report.mockRestore();
+    }
+  });
+
   it.each(['unmount', 'page replacement'] as const)(
     'does not retry a retired notebook after %s and native owner close',
     async (lifetime) => {

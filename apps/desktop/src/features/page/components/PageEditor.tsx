@@ -340,13 +340,10 @@ function PageEditorInner({
           if (nativeNotebookRef.current) {
             const client = nativeNotebookRef.current;
             await client.flush();
-            if (!(await client.save()))
-              throw (
-                client.lastCommandError ??
-                new Error('The native notebook owner did not confirm the save.')
-              );
+            const saved = await client.save();
+            if (!saved && client.lastCommandError) throw client.lastCommandError;
             recordOwnSave(client.snapshot?.canonicalFingerprint);
-            return;
+            return saved;
           }
           const committedFingerprint = await savePage(targetPageId, content, {
             expectedCanonicalFingerprint: expectedCanonicalFingerprint(),
