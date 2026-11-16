@@ -23,6 +23,7 @@ import type {
 import { NATIVE_DOCUMENT_MAX_BODY_BYTES } from '../shared/native-document-transport';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import { applyNativeInventoryTable } from './inventory-table';
+import { applyNativeInventoryStocktake } from './inventory-stocktake';
 import {
   parseNativeInventoryJournalEntry,
   replayNativeInventoryEntries,
@@ -142,6 +143,7 @@ export function replayNativeInventoryJournal(
   return replayNativeInventoryEntries(
     entries,
     (target, request, context) => applyNativeInventoryAdoption(target, request, context, depth),
-    applyNativeInventoryTable
+    applyNativeInventoryTable,
+    applyNativeInventoryStocktake
   );
 }

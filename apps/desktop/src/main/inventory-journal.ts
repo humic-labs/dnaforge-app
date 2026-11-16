@@ -12,6 +12,7 @@ import {
   type InventoryAcceptedRequest,
   type InventoryApplyImportRequest,
   type InventoryApplyTableRequest,
+  type InventoryApplyStocktakeRequest,
   type NativeInventoryHistoryEntry,
 } from '../shared/inventory-command';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
@@ -60,6 +61,11 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryApplyTableRequest,
     context: InventoryExecutionContext
+  ) => InventoryTransition,
+  stocktake: (
+    target: InventoryState | null,
+    request: InventoryApplyStocktakeRequest,
+    context: InventoryExecutionContext
   ) => InventoryTransition
 ): InventoryState {
   let state = createInventoryState();
@@ -85,6 +91,10 @@ export function replayNativeInventoryEntries(
           'INVENTORY_DATA_INVALID: A table import requires its native receipt context.'
         );
       result = table(state.revision === 0 ? null : state, request, context);
+    } else if ('kind' in request && request.kind === 'apply-stocktake') {
+      if (!context)
+        throw new Error('INVENTORY_DATA_INVALID: A stocktake requires its native receipt context.');
+      result = stocktake(state.revision === 0 ? null : state, request, context);
     } else {
       result = applyInventoryCommandBatch(
         state,

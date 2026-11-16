@@ -5,13 +5,17 @@ import {
   type InventoryItemCodeQuery,
   type InventoryState,
   type InventoryResolvedImportOptions,
+  type InventoryArchiveSha256,
+  type InventoryTableSha256,
   type InventoryResolvedTableOptions,
+  type InventoryStocktakeChoices,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
   inventoryAcceptedRequestSchema,
   inventoryApplyImportRequestSchema,
   inventoryApplyTableRequestSchema,
+  inventoryApplyStocktakeRequestSchema,
   inventoryReceiptSchema,
   type InventoryAcceptedRequest,
   type NativeInventoryHistoryEntry,
@@ -656,20 +660,11 @@ export class InventoryController {
   async adoptArchive(
     sourceText: string,
     options: InventoryResolvedImportOptions,
-    expectedPlanDigest: string
+    expectedPlanDigest: InventoryArchiveSha256
   ): Promise<NativeInventoryReceipt | null> {
-    const status = this.snapshot.status;
-    const data = inventoryData(status);
-    if (
-      !data ||
-      !inventoryCanEdit(status) ||
-      this.pending.has(scopeKey(data.project.projectId, data.project.defaultInventoryId))
-    )
-      return null;
-    let attempt: InventoryAttempt;
-    try {
-      attempt = {
-        request: inventoryApplyImportRequestSchema.parse({
+    return this.sourceAttempt(
+      (data) =>
+        inventoryApplyImportRequestSchema.parse({
           kind: 'adopt-archive',
           project: data.project.projectId,
           inventoryId: data.project.defaultInventoryId,
@@ -679,26 +674,59 @@ export class InventoryController {
           options,
           expectedPlanDigest,
         }),
-        summary: 'Adopt inventory archive',
-      };
-    } catch (cause) {
-      this.set({
-        kind: 'refused',
-        project: data.project,
-        data,
-        code: 'INVALID_INVENTORY_INPUT',
-        message:
-          cause instanceof Error ? cause.message : 'Check the archive preview before applying.',
-      });
-      return null;
-    }
-    return this.begin(data, attempt);
+      'Adopt inventory archive',
+      'Check the archive preview before applying.'
+    );
   }
 
   async receiveTable(
     sourceText: string,
     options: InventoryResolvedTableOptions,
-    expectedPlanDigest: string
+    expectedPlanDigest: InventoryTableSha256
+  ): Promise<NativeInventoryReceipt | null> {
+    return this.sourceAttempt(
+      (data) =>
+        inventoryApplyTableRequestSchema.parse({
+          kind: 'receive-table',
+          project: data.project.projectId,
+          inventoryId: data.project.defaultInventoryId,
+          operationId: this.operationId(),
+          expectedRevision: data.state.revision,
+          sourceText,
+          options,
+          expectedPlanDigest,
+        }),
+      'Receive inventory table',
+      'Preview the table before receiving stock.'
+    );
+  }
+
+  async applyStocktake(
+    sourceText: string,
+    options: InventoryStocktakeChoices,
+    expectedPlanDigest: InventoryTableSha256
+  ): Promise<NativeInventoryReceipt | null> {
+    return this.sourceAttempt(
+      (data) =>
+        inventoryApplyStocktakeRequestSchema.parse({
+          kind: 'apply-stocktake',
+          project: data.project.projectId,
+          inventoryId: data.project.defaultInventoryId,
+          operationId: this.operationId(),
+          expectedRevision: data.state.revision,
+          sourceText,
+          options,
+          expectedPlanDigest,
+        }),
+      'Record stocktake observations',
+      'Preview the stocktake before recording observations.'
+    );
+  }
+
+  private async sourceAttempt(
+    request: (data: InventoryData) => InventoryAcceptedRequest,
+    summary: string,
+    fallbackMessage: string
   ): Promise<NativeInventoryReceipt | null> {
     const status = this.snapshot.status;
     const data = inventoryData(status);
@@ -710,27 +738,14 @@ export class InventoryController {
       return null;
     let attempt: InventoryAttempt;
     try {
-      attempt = {
-        request: inventoryApplyTableRequestSchema.parse({
-          kind: 'receive-table',
-          project: data.project.projectId,
-          inventoryId: data.project.defaultInventoryId,
-          operationId: this.operationId(),
-          expectedRevision: data.state.revision,
-          sourceText,
-          options,
-          expectedPlanDigest,
-        }),
-        summary: 'Receive inventory table',
-      };
+      attempt = { request: request(data), summary };
     } catch (cause) {
       this.set({
         kind: 'refused',
         project: data.project,
         data,
         code: 'INVALID_INVENTORY_INPUT',
-        message:
-          cause instanceof Error ? cause.message : 'Preview the table before receiving stock.',
+        message: cause instanceof Error ? cause.message : fallbackMessage,
       });
       return null;
     }
@@ -796,7 +811,9 @@ export class InventoryController {
         'kind' in attempt.request
           ? attempt.request.kind === 'adopt-archive'
             ? await this.client.applyImport(attempt.request)
-            : await this.client.applyTable(attempt.request)
+            : attempt.request.kind === 'receive-table'
+              ? await this.client.applyTable(attempt.request)
+              : await this.client.applyStocktake(attempt.request)
           : await this.client.execute(attempt.request);
       if (result.status === 'committed') return this.committed(data, attempt, result, generation);
       let recoveryError: string | undefined;

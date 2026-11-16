@@ -27,7 +27,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v13. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v14. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -48,7 +48,9 @@ without changing recorded facts. v12 separates imported recorded attribution
 from principals that can execute commands. Native invocation and receipt
 contexts retain strict native actors. v1–v12 snapshots gain an empty lifetime
 table-binding map. v12 imported origins and recorded actors retain their exact
-attribution during this upcast. Reading never writes the upgraded snapshot.
+attribution during this upcast. v1–v13 snapshots gain an empty observation map;
+existing table bindings, origins and imported attribution remain intact. Reading
+never writes the upgraded snapshot.
 
 ## Independent states
 
@@ -717,6 +719,59 @@ receipt context. It does not consult the live scientific registry. Generated
 commands count toward the existing batch bound; oversized proposals refuse
 without hidden partial batches. Raw source and explicit skips remain in the
 accepted request when a nonempty proposal commits.
+
+## Stocktake observation contract
+
+A stocktake observation records a claim about a particular stock or physical
+item. Its subject, measured fact, source time and reason are immutable. Native
+recording time and actor come from the owner. Quantity observations target
+stock; missing/found observations target an explicitly selected physical item.
+Measuring a permanent well does not find its plate. A missing source row is not
+a missing-stock observation.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Draft
+  Draft --> Unresolved: subject or row decision absent
+  Unresolved --> Ready: explicit resolutions
+  Ready --> Recorded: atomic native commit
+  Ready --> Skipped: explicit reason without observation
+  Recorded --> Recorded: identical source identity and facts
+  Recorded --> Conflict: same identity with different facts
+```
+
+Application is independent from recording. Record-only is a real observation
+write, never a dummy move or quantity reconciliation. A recorded observation may
+be applied later with an explicit reason. Application uses the existing quantity
+or custody transition and records its actual native actor and time. Its applied
+state changes only if that transition succeeds in the same atomic batch.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Unapplied: observation recorded
+  Unapplied --> Applied: explicit valid correction commits
+  Unapplied --> Unapplied: correction refused
+  Applied --> Applied: same observation imported again
+```
+
+Quantity reconciliation may record an amount below active holds. It preserves
+those holds and exposes an allocation shortfall. It never releases holds or
+changes custody. Missing/found corrections preserve quantity and use explicit
+destinations, existing responsibility rules and aggregate custody constraints.
+An independently applied permanent-well custody correction refuses.
+
+Stable observation identity is the exact source namespace and observation ID.
+Repeated measurements require a new ID. Reimporting an applied observation does
+not restore stock consumed afterward. Archive adoption preserves physical
+references and observation identity; recorded people remain imported
+attribution. A revision of an external receive register is separate from both a
+new measurement and approval to change current physical facts.
+
+The stocktake adapter pins source text, format, choices and target
+scope/revision in its read-only preview. Recording and applying use the existing
+command, transaction, receipt and outcome-unknown recovery machines. Neither
+adds a second journal or hidden file. Source edits, unresolved decisions,
+changed observation facts or stale targets cannot partially apply a proposal.
 
 ## Material identity and conservation
 

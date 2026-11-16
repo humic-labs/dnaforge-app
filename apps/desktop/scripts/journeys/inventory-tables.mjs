@@ -62,7 +62,8 @@ export async function runInventoryTableJourney(ctx) {
   const initial = await inventoryRead(scope);
   assert.deepEqual(initial.state, {
     ...input.state,
-    schema: 'dnaforge.inventory.v13',
+    schema: 'dnaforge.inventory.v14',
+    observations: input.state.observations ?? {},
     tableBindings: input.state.tableBindings ?? {},
   });
   assert.deepEqual(initial.history, input.history);

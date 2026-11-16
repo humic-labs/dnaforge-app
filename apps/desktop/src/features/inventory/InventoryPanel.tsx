@@ -29,6 +29,7 @@ import { InventoryMaterialForm, isInventoryMaterialDialog } from './InventoryMat
 import { InventoryForm } from './InventoryForm';
 import { InventoryArchiveExportForm, InventoryArchiveImportForm } from './InventoryArchiveForms';
 import { InventoryTableForm } from './InventoryTableForm';
+import { InventoryStocktakeForm } from './InventoryStocktakeForm';
 import { InventoryCompositionForm } from './InventoryCompositionForm';
 import { InventoryReservationForm } from './InventoryReservationForm';
 import { InventoryCustodyForm } from './InventoryCustodyForm';
@@ -415,7 +416,9 @@ export function InventoryPanel() {
                 {'kind' in entry.request
                   ? entry.request.kind === 'adopt-archive'
                     ? 'Adopted inventory archive'
-                    : 'Received inventory table'
+                    : entry.request.kind === 'receive-table'
+                      ? 'Received inventory table'
+                      : 'Recorded stocktake observations'
                   : entry.request.commands
                       .map((command) => (state ? historyLabel(command, state) : ''))
                       .join(' · ')}
@@ -428,12 +431,16 @@ export function InventoryPanel() {
                   <summary className="cursor-pointer text-accent">
                     {entry.request.kind === 'adopt-archive'
                       ? 'Retained source archive'
-                      : 'Retained source table'}
+                      : entry.request.kind === 'receive-table'
+                        ? 'Retained source table'
+                        : 'Retained stocktake source'}
                   </summary>
                   <p>
                     {entry.request.kind === 'adopt-archive'
                       ? 'Original source history remains in this archive. This operation records adoption in the destination.'
-                      : 'Original table text and explicit choices are retained with this atomic receiving operation.'}
+                      : entry.request.kind === 'receive-table'
+                        ? 'Original table text and explicit choices are retained with this atomic receiving operation.'
+                        : 'Original stocktake text and explicit record or correction choices are retained with this operation.'}
                   </p>
                   <p className="break-all">Plan: {entry.request.expectedPlanDigest}</p>
                   <TextArea
@@ -441,15 +448,21 @@ export function InventoryPanel() {
                     aria-label={
                       entry.request.kind === 'adopt-archive'
                         ? 'Retained imported archive'
-                        : 'Retained receive table'
+                        : entry.request.kind === 'receive-table'
+                          ? 'Retained receive table'
+                          : 'Retained stocktake source'
                     }
                     value={entry.request.sourceText}
                     className="h-40 font-mono text-xs"
                   />
-                  {entry.request.kind === 'receive-table' ? (
+                  {entry.request.kind !== 'adopt-archive' ? (
                     <TextArea
                       readOnly
-                      aria-label="Retained table receiving choices"
+                      aria-label={
+                        entry.request.kind === 'receive-table'
+                          ? 'Retained table receiving choices'
+                          : 'Retained stocktake choices'
+                      }
                       value={JSON.stringify(entry.request.options, null, 2)}
                       className="h-40 font-mono text-xs"
                     />
@@ -607,6 +620,12 @@ export function InventoryPanel() {
           onClick={() => setDialog({ kind: 'receive-table' })}
         >
           Import table
+        </Button>
+        <Button
+          disabled={!data || status.kind === 'submitting' || status.kind === 'outcome-unknown'}
+          onClick={() => setDialog({ kind: 'stocktake' })}
+        >
+          Stocktake
         </Button>
         <Button disabled={!data} onClick={() => setDialog({ kind: 'item-code-lookup' })}>
           Scan or enter code
@@ -1481,6 +1500,15 @@ export function InventoryPanel() {
         ) : dialog.kind === 'receive-table' ? (
           <InventoryTableForm
             key={`${data.project.projectId}:receive-table`}
+            data={data}
+            controller={controller}
+            status={status}
+            client={platform().inventory}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : dialog.kind === 'stocktake' ? (
+          <InventoryStocktakeForm
+            key={`${data.project.projectId}:stocktake`}
             data={data}
             controller={controller}
             status={status}

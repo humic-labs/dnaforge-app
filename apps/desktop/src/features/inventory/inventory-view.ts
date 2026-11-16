@@ -51,6 +51,7 @@ export type InventoryDialog =
   | { kind: 'export-archive' }
   | { kind: 'import-archive' }
   | { kind: 'receive-table' }
+  | { kind: 'stocktake' }
   | InventoryMaterialDialog
   | InventoryCompositionDialog
   | InventoryReservationDialog
@@ -219,6 +220,10 @@ export function destinationPositions(
 
 export function historyLabel(command: InventoryCommand, state: InventoryState): string {
   switch (command.kind) {
+    case 'record-inventory-observation':
+      return `Recorded observation ${command.observationId}`;
+    case 'apply-inventory-observation':
+      return 'Applied an inventory observation';
     case 'record-temperature-claim':
       return command.assertion.kind === 'qualified-envelope'
         ? 'Recorded installed temperature qualification'

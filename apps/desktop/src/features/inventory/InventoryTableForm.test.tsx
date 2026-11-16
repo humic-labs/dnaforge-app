@@ -407,3 +407,34 @@ it('offers the lifetime-bound existing vessel even after receiving, use and disp
   );
   expect(f.receive).not.toHaveBeenCalled();
 });
+
+it('retains parsed source rows so an invalid skip reason can be corrected', async () => {
+  const f = fixture();
+  render(<InventoryTableForm {...f.props} />);
+  await preview();
+  fireEvent.click(screen.getByLabelText('Skip table source 0007'));
+  f.client.previewTable.mockResolvedValueOnce({
+    ...blocked(),
+    rows: [],
+    materialKeys: [],
+    locationKeys: [],
+    vesselKeys: [],
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Preview table', exact: true }));
+  await waitFor(() =>
+    expect(screen.getByTestId('inventory-table-import')).toHaveAttribute(
+      'data-preview-state',
+      'blocked'
+    )
+  );
+  expect(screen.getByLabelText('Skip reason for table source 0007')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Receive table stocks', exact: true })).toBeDisabled();
+  fireEvent.change(screen.getByLabelText('Skip reason for table source 0007'), {
+    target: { value: 'Not a current source row' },
+  });
+  expect(screen.getByTestId('inventory-table-import')).toHaveAttribute(
+    'data-preview-state',
+    'editing'
+  );
+  f.controller.dispose();
+});

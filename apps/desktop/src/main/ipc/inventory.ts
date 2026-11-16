@@ -7,6 +7,7 @@ import {
   inventoryExecuteRequestSchema,
   inventoryApplyImportRequestSchema,
   inventoryApplyTableRequestSchema,
+  inventoryApplyStocktakeRequestSchema,
   inventoryOperationRequestSchema,
   type NativeInventoryRejection,
 } from '../../shared/inventory-command';
@@ -45,7 +46,7 @@ export function registerInventoryHandlers(options: {
   const mutate = (
     event: IpcMainInvokeEvent,
     input: unknown,
-    kind: 'commands' | 'adoption' | 'table'
+    kind: 'commands' | 'adoption' | 'table' | 'stocktake'
   ): ReturnType<NativeInventoryOwner['execute']> => {
     const value = input as
       | { project?: unknown; inventoryId?: unknown; operationId?: unknown }
@@ -69,7 +70,9 @@ export function registerInventoryHandlers(options: {
           ? inventoryExecuteRequestSchema.parse(input)
           : kind === 'adoption'
             ? inventoryApplyImportRequestSchema.parse(input)
-            : inventoryApplyTableRequestSchema.parse(input);
+            : kind === 'table'
+              ? inventoryApplyTableRequestSchema.parse(input)
+              : inventoryApplyStocktakeRequestSchema.parse(input);
     } catch (error) {
       if (!(error instanceof ZodError || error instanceof InventoryValidationError)) throw error;
       return reject('INVALID_INVENTORY_INPUT', error.message);
@@ -90,7 +93,13 @@ export function registerInventoryHandlers(options: {
         ? owner.execute(request, assertCurrent, { actor: `human:desktop:${event.sender.id}` })
         : kind === 'adoption'
           ? owner.applyImport(request, assertCurrent, { actor: `human:desktop:${event.sender.id}` })
-          : owner.applyTable(request, assertCurrent, { actor: `human:desktop:${event.sender.id}` });
+          : kind === 'table'
+            ? owner.applyTable(request, assertCurrent, {
+                actor: `human:desktop:${event.sender.id}`,
+              })
+            : owner.applyStocktake(request, assertCurrent, {
+                actor: `human:desktop:${event.sender.id}`,
+              });
     } catch (error) {
       if (error instanceof NativeDocumentCommandError && error.stateChanged === false)
         return reject(error.code, error.message);
@@ -98,6 +107,11 @@ export function registerInventoryHandlers(options: {
     }
   };
   return handleGroup(inventoryContract, {
+    previewStocktake: (event, request) => {
+      assertCaller(event);
+      return currentOwner().previewStocktake(request);
+    },
+    applyStocktake: (event, request) => mutate(event, request, 'stocktake'),
     exportSnapshot: (event, request) => {
       assertCaller(event);
       return currentOwner().exportSnapshot(request);

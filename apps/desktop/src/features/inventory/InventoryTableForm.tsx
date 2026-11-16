@@ -247,7 +247,20 @@ export function InventoryTableForm({
       setDraft({
         ...before,
         phase: 'previewed',
-        inspection: result,
+        inspection:
+          result.rows.length || !before.inspection.rows.length
+            ? result
+            : {
+                ...before.inspection,
+                rows: before.inspection.rows.map((row) => ({
+                  ...row,
+                  kind: 'blocked' as const,
+                  stockId: null,
+                  vesselId: null,
+                  reason: null,
+                  issues: [],
+                })),
+              },
         preview: result,
       });
     } catch (cause) {

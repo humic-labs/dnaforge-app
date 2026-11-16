@@ -40,3 +40,6 @@
 
 - [Receive tables](receive-tables.md): stable source rows, explicit destination
   decisions, atomic stock receiving and duplicate prevention.
+
+- [Stocktake observations](stocktake.md): recorded measurements, independent
+  correction decisions, missing/found custody and preserved holds.

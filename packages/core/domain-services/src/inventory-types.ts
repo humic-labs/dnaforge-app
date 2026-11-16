@@ -1,3 +1,8 @@
+import type {
+  InventoryObservation,
+  InventoryObservationCommand,
+} from './inventory-observation-types';
+export type * from './inventory-observation-types';
 import type { InventoryTableBinding } from './inventory-table-types';
 import type {
   InventoryPhysicalConfiguration,
@@ -30,7 +35,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v13' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v14' as const;
+export const INVENTORY_RECEIVE_TABLE_SCHEMA = 'dnaforge.inventory.v13' as const;
 export const INVENTORY_ADOPTION_SCHEMA = 'dnaforge.inventory.v12' as const;
 export const INVENTORY_THERMAL_CONTEXT_SCHEMA = 'dnaforge.inventory.v11' as const;
 export const INVENTORY_TEMPERATURE_SCHEMA = 'dnaforge.inventory.v10' as const;
@@ -243,6 +249,7 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly observations: Readonly<Record<string, InventoryObservation>>;
   readonly tableBindings: Readonly<Record<string, InventoryTableBinding>>;
   readonly origin: InventoryOrigin;
   readonly thermalContexts: Readonly<Record<string, InventoryThermalContext>>;
@@ -513,6 +520,7 @@ export type InventoryMaterialCommand =
   | (InventoryLegacyDiluteCommand & { readonly mixing: InventoryMixing });
 
 export type InventoryCommand =
+  | InventoryObservationCommand
   | InventoryTemperatureCommand
   | InventoryItemCodeCommand
   | InventoryConfigurationCommand
@@ -718,6 +726,10 @@ export type InventoryErrorCode =
   | 'IMPORT_BINDING_UNUSED'
   | 'IMPORT_BINDING_COLLISION'
   | 'IMPORT_SOURCE_INVALID'
+  | 'OBSERVATION_NOT_FOUND'
+  | 'OBSERVATION_ALREADY_EXISTS'
+  | 'OBSERVATION_ALREADY_APPLIED'
+  | 'OBSERVATION_TIME_FUTURE'
   | 'POSITION_UNAVAILABLE';
 
 export type InventoryTransition =
@@ -731,6 +743,7 @@ export type InventoryTransition =
 export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
+    observations: Object.create(null) as Record<string, InventoryObservation>,
     origin: { kind: 'native' },
     tableBindings: Object.create(null) as Record<string, InventoryTableBinding>,
     revision: 0,

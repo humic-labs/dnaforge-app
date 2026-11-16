@@ -31,6 +31,8 @@ import {
   inventoryPreviewImportRequestSchema,
   inventoryPreviewTableRequestSchema,
   inventoryApplyTableRequestSchema,
+  inventoryPreviewStocktakeRequestSchema,
+  inventoryApplyStocktakeRequestSchema,
   inventoryCatalogQuerySchema,
   inventoryCatalogUpdatePreviewRequestSchema,
   inventoryHistoryRequestSchema,
@@ -61,6 +63,7 @@ import type {
   InventoryExportSnapshot,
   InventoryImportPreviewSnapshot,
   InventoryTablePreviewSnapshot,
+  InventoryStocktakePreviewSnapshot,
 } from '../shared/inventory-client';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import type { RegisteredProject, RegisteredProjectAuthority } from './registered-project-authority';
@@ -83,6 +86,10 @@ import {
 } from './inventory-archive';
 import { NATIVE_DOCUMENT_MAX_BODY_BYTES } from '../shared/native-document-transport';
 import { applyNativeInventoryTable, nativeInventoryTablePreview } from './inventory-table';
+import {
+  applyNativeInventoryStocktake,
+  nativeInventoryStocktakePreview,
+} from './inventory-stocktake';
 
 interface InventoryRow {
   inventory_id: string;
@@ -452,6 +459,49 @@ export function createNativeInventoryOwner(options: {
               'The source, destination or scientific bindings changed. Preview the table again.'
             );
           result = applyNativeInventoryTable(row ? previous : null, request, executionContext);
+        } else if ('kind' in request && request.kind === 'apply-stocktake') {
+          if (request.expectedRevision !== previous.revision)
+            return reject(
+              'REVISION_CONFLICT',
+              'Inventory changed after the stocktake was previewed.'
+            );
+          if (Buffer.byteLength(canonical, 'utf8') > NATIVE_DOCUMENT_MAX_BODY_BYTES)
+            return reject(
+              'INVENTORY_STOCKTAKE_TOO_LARGE',
+              'The encoded stocktake request exceeds the inline native transport limit.'
+            );
+          const executionContext = {
+            at: recordedAt,
+            principal: context.principal,
+            authority: context.authority,
+          };
+          const preview = nativeInventoryStocktakePreview(
+            row ? previous : null,
+            importTarget(db, project, request.inventoryId, row),
+            request.sourceText,
+            request.options,
+            executionContext
+          );
+          if (preview.kind === 'blocked')
+            return reject(
+              preview.issues[0]?.code ?? 'INVENTORY_STOCKTAKE_BLOCKED',
+              preview.issues[0]?.message ?? 'The stocktake is blocked.'
+            );
+          if (preview.kind !== 'ready')
+            return reject(
+              'INVENTORY_STOCKTAKE_NO_CHANGES',
+              'This stocktake has no observations or corrections to commit.'
+            );
+          if (
+            preview.planDigest !== request.expectedPlanDigest ||
+            canonicalNativeMutationRequest(preview.options) !==
+              canonicalNativeMutationRequest(request.options)
+          )
+            return reject(
+              'INVENTORY_STOCKTAKE_PLAN_CHANGED',
+              'The source, subjects, decisions or target changed. Preview the stocktake again.'
+            );
+          result = applyNativeInventoryStocktake(row ? previous : null, request, executionContext);
         } else {
           const lotMaterials = new Map(
             Object.values(previous.lots).map((lot) => [lot.id, lot.materialId])
@@ -651,6 +701,35 @@ export function createNativeInventoryOwner(options: {
             request.sourceText,
             request.options,
             observeTableBindings(db, project, request.options.materials),
+            { at: asOf, principal: caller, authority }
+          );
+          return structuredClone({ ...preview, asOf, principal: caller });
+        })
+        .deferred();
+      assertProject();
+      return snapshot;
+    },
+
+    previewStocktake(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventoryStocktakePreviewSnapshot {
+      const request = inventoryPreviewStocktakeRequestSchema.parse(input);
+      const project = resolveProject(request.project, false);
+      const assertProject = options.projectAuthority.capture(project.projectId, false);
+      const db = options.db();
+      assertProject();
+      const snapshot = db
+        .transaction(() => {
+          const row = inventory(db, request.inventoryId, project.projectId);
+          const state = row ? stateFromRow(row) : null;
+          const asOf = observationTime(state ?? createInventoryState());
+          const caller = principal(invocation);
+          const preview = nativeInventoryStocktakePreview(
+            state,
+            importTarget(db, project, request.inventoryId, row),
+            request.sourceText,
+            request.options,
             { at: asOf, principal: caller, authority }
           );
           return structuredClone({ ...preview, asOf, principal: caller });
@@ -904,6 +983,14 @@ export function createNativeInventoryOwner(options: {
       invocation: NativeInventoryInvocation = {}
     ): NativeInventoryExecution {
       return commit(inventoryApplyTableRequestSchema.parse(input), assertCurrent, invocation);
+    },
+
+    applyStocktake(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): NativeInventoryExecution {
+      return commit(inventoryApplyStocktakeRequestSchema.parse(input), assertCurrent, invocation);
     },
 
     inspect(input: unknown): InventoryState | null {

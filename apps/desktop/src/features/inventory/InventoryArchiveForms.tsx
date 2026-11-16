@@ -189,6 +189,7 @@ const recordLabels: Readonly<Record<string, string>> = {
   storageRequirements: 'Storage requirements',
   thermalContexts: 'Thermal relationships',
   tableBindings: 'Imported table rows',
+  observations: 'Stocktake observations',
 };
 
 export function InventoryArchiveImportForm({

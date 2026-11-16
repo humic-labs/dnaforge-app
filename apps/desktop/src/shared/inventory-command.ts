@@ -4,12 +4,20 @@ import {
   MAX_INVENTORY_BATCH_COMMANDS,
   parseInventoryCommandBatch,
   type InventoryCommandBatch,
+  type InventoryTableChoices,
+  type InventoryResolvedTableOptions,
+  type InventoryStocktakeChoices,
+  type InventoryImportOptions,
+  type InventoryResolvedImportOptions,
 } from '@waypoint/domain-services';
 
 const identity = z.string().min(1).max(256);
 const revision = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const profileKey = z.string().regex(/^[a-f0-9]{64}$/);
-const digest = z.string().regex(/^sha256:[a-f0-9]{64}$/);
+const digest = z
+  .string()
+  .regex(/^sha256:[a-f0-9]{64}$/)
+  .transform((value) => value as `sha256:${string}`);
 
 export const inventoryPrincipalSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('local-profile'), profileKey }).strict(),
@@ -103,6 +111,73 @@ export const inventoryApplyTableRequestSchema = inventoryReadRequestSchema
   })
   .strict();
 
+export const inventoryStocktakeOptionsSchema = z
+  .object({
+    namespace: identity,
+    delimiter: z.enum([',', '\t']),
+    subjects: z.array(
+      z
+        .object({
+          key: identity,
+          subject: z.discriminatedUnion('kind', [
+            z.object({ kind: z.literal('stock'), stockId: identity }).strict(),
+            z
+              .object({
+                kind: z.literal('item'),
+                item: z
+                  .object({ kind: z.enum(['storage', 'vessel']), id: z.string().min(1).max(1024) })
+                  .strict(),
+              })
+              .strict(),
+          ]),
+        })
+        .strict()
+    ),
+    locations: z.array(
+      z
+        .object({
+          key: identity,
+          target: z.discriminatedUnion('kind', [
+            z.object({ kind: z.literal('root') }).strict(),
+            z.object({ kind: z.literal('unplaced') }).strict(),
+            z.object({ kind: z.literal('storage'), storageId: identity }).strict(),
+            z.object({ kind: z.literal('stack-top'), stackId: identity }).strict(),
+          ]),
+        })
+        .strict()
+    ),
+    decisions: z.array(
+      z
+        .object({
+          observationId: identity,
+          choice: z.discriminatedUnion('kind', [
+            z.object({ kind: z.literal('record-only') }).strict(),
+            z.object({ kind: z.literal('apply'), reason: z.string().min(1).max(4096) }).strict(),
+            z.object({ kind: z.literal('skip'), reason: z.string().min(1).max(4096) }).strict(),
+          ]),
+        })
+        .strict()
+    ),
+  })
+  .strict();
+export const inventoryPreviewStocktakeRequestSchema = inventoryReadRequestSchema
+  .extend({
+    format: z.literal('stocktake-v1'),
+    sourceText: z.string().min(1),
+    options: inventoryStocktakeOptionsSchema,
+  })
+  .strict();
+export const inventoryApplyStocktakeRequestSchema = inventoryReadRequestSchema
+  .extend({
+    kind: z.literal('apply-stocktake'),
+    operationId: identity,
+    expectedRevision: revision,
+    sourceText: z.string().min(1),
+    options: inventoryStocktakeOptionsSchema,
+    expectedPlanDigest: digest,
+  })
+  .strict();
+
 export const inventoryStorageConditionsRequestSchema = inventoryReadRequestSchema
   .extend({ freshnessMaxAgeMs: revision.nullable() })
   .strict();
@@ -143,6 +218,7 @@ export const inventoryAcceptedRequestSchema = z.union([
   inventoryExecuteRequestSchema,
   inventoryApplyImportRequestSchema,
   inventoryApplyTableRequestSchema,
+  inventoryApplyStocktakeRequestSchema,
 ]);
 
 export const inventoryOperationRequestSchema = inventoryReadRequestSchema
@@ -182,14 +258,49 @@ export const inventoryReceiptSchema = z
 
 export type InventoryReadRequest = z.infer<typeof inventoryReadRequestSchema>;
 export type InventoryExportSnapshotRequest = z.infer<typeof inventoryExportSnapshotRequestSchema>;
-export type InventoryPreviewImportRequest = z.infer<typeof inventoryPreviewImportRequestSchema>;
-export type InventoryApplyImportRequest = z.infer<typeof inventoryApplyImportRequestSchema>;
-export type InventoryPreviewTableRequest = z.infer<typeof inventoryPreviewTableRequestSchema>;
-export type InventoryApplyTableRequest = z.infer<typeof inventoryApplyTableRequestSchema>;
+export type InventoryPreviewImportRequest = InventoryReadRequest & {
+  readonly sourceText: string;
+  readonly options: InventoryImportOptions;
+};
+export type InventoryApplyImportRequest = InventoryReadRequest & {
+  readonly kind: 'adopt-archive';
+  readonly operationId: string;
+  readonly expectedRevision: number;
+  readonly sourceText: string;
+  readonly options: InventoryResolvedImportOptions;
+  readonly expectedPlanDigest: string;
+};
+export type InventoryPreviewTableRequest = InventoryReadRequest & {
+  readonly format: 'receive-v1';
+  readonly sourceText: string;
+  readonly options: InventoryTableChoices;
+};
+export type InventoryApplyTableRequest = InventoryReadRequest & {
+  readonly kind: 'receive-table';
+  readonly operationId: string;
+  readonly expectedRevision: number;
+  readonly sourceText: string;
+  readonly options: InventoryResolvedTableOptions;
+  readonly expectedPlanDigest: `sha256:${string}`;
+};
+export type InventoryPreviewStocktakeRequest = InventoryReadRequest & {
+  readonly format: 'stocktake-v1';
+  readonly sourceText: string;
+  readonly options: InventoryStocktakeChoices;
+};
+export type InventoryApplyStocktakeRequest = InventoryReadRequest & {
+  readonly kind: 'apply-stocktake';
+  readonly operationId: string;
+  readonly expectedRevision: number;
+  readonly sourceText: string;
+  readonly options: InventoryStocktakeChoices;
+  readonly expectedPlanDigest: `sha256:${string}`;
+};
 export type InventoryAcceptedRequest =
   | InventoryExecuteRequest
   | InventoryApplyImportRequest
-  | InventoryApplyTableRequest;
+  | InventoryApplyTableRequest
+  | InventoryApplyStocktakeRequest;
 export type InventoryStorageConditionsRequest = z.infer<
   typeof inventoryStorageConditionsRequestSchema
 >;

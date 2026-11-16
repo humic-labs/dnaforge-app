@@ -18,6 +18,7 @@ import type {
   InventoryArchiveArtifact,
   InventoryImportPreview,
   InventoryTablePreview,
+  InventoryStocktakePreview,
 } from '@waypoint/domain-services';
 import type { InventoryRenderedLabel } from '@waypoint/domain-services/inventory-label-types';
 import type {
@@ -27,6 +28,8 @@ import type {
   InventoryApplyImportRequest,
   InventoryPreviewTableRequest,
   InventoryApplyTableRequest,
+  InventoryPreviewStocktakeRequest,
+  InventoryApplyStocktakeRequest,
   InventoryExecuteRequest,
   InventoryHistoryRequest,
   InventoryOperationRequest,
@@ -138,7 +141,16 @@ export type InventoryTablePreviewSnapshot = InventoryTablePreview & {
   readonly principal: InventoryPrincipal;
 };
 
+export type InventoryStocktakePreviewSnapshot = InventoryStocktakePreview & {
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+};
+
 export interface InventoryClient {
+  previewStocktake(
+    input: InventoryPreviewStocktakeRequest
+  ): Promise<InventoryStocktakePreviewSnapshot>;
+  applyStocktake(input: InventoryApplyStocktakeRequest): Promise<NativeInventoryExecution>;
   exportSnapshot(input: InventoryExportSnapshotRequest): Promise<InventoryExportSnapshot>;
   previewImport(input: InventoryPreviewImportRequest): Promise<InventoryImportPreviewSnapshot>;
   applyImport(input: InventoryApplyImportRequest): Promise<NativeInventoryExecution>;
@@ -181,6 +193,8 @@ export function unavailableInventoryClient(): InventoryClient {
     previewImport: unavailable,
     applyImport: unavailableMutation,
     previewTable: unavailable,
+    previewStocktake: unavailable,
+    applyStocktake: unavailableMutation,
     applyTable: unavailableMutation,
     projects: unavailable,
     catalog: unavailable,
@@ -204,6 +218,8 @@ export type {
   InventoryApplyImportRequest,
   InventoryPreviewTableRequest,
   InventoryApplyTableRequest,
+  InventoryPreviewStocktakeRequest,
+  InventoryApplyStocktakeRequest,
   InventoryAcceptedRequest,
   InventoryCatalogUpdatePreviewRequest,
   InventoryExecuteRequest,

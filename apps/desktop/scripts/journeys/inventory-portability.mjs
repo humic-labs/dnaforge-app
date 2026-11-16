@@ -137,7 +137,8 @@ export async function runInventoryPortabilityJourney(ctx) {
   const initial = await inventoryRead(fixture.scope);
   assert.deepEqual(initial.state, {
     ...fixture.state,
-    schema: 'dnaforge.inventory.v13',
+    schema: 'dnaforge.inventory.v14',
+    observations: fixture.state.observations ?? {},
     tableBindings: fixture.state.tableBindings ?? {},
     origin: { kind: 'native' },
   });
@@ -495,7 +496,8 @@ export async function runInventoryPortabilityReopen(ctx) {
   const observed = await inventoryRead(fixture.scope);
   assert.deepEqual(observed.state, {
     ...fixture.state,
-    schema: 'dnaforge.inventory.v13',
+    schema: 'dnaforge.inventory.v14',
+    observations: fixture.state.observations ?? {},
     tableBindings: fixture.state.tableBindings ?? {},
   });
   assert.deepEqual(observed.history, fixture.history);
@@ -503,7 +505,8 @@ export async function runInventoryPortabilityReopen(ctx) {
     ...fixture.initialSource,
     state: {
       ...fixture.initialSource.state,
-      schema: 'dnaforge.inventory.v13',
+      schema: 'dnaforge.inventory.v14',
+      observations: fixture.initialSource.state.observations ?? {},
       tableBindings: fixture.initialSource.state.tableBindings ?? {},
     },
   });

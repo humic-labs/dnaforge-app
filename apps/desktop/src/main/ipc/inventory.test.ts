@@ -41,6 +41,8 @@ let previewImport: ReturnType<typeof vi.fn>;
 let applyImport: ReturnType<typeof vi.fn>;
 let previewTable: ReturnType<typeof vi.fn>;
 let applyTable: ReturnType<typeof vi.fn>;
+let previewStocktake: ReturnType<typeof vi.fn>;
+let applyStocktake: ReturnType<typeof vi.fn>;
 const call = (input: unknown = request) =>
   (
     captured.handlers.execute as (
@@ -62,6 +64,8 @@ beforeEach(() => {
   applyImport = vi.fn(() => ({ status: 'committed' }));
   previewTable = vi.fn(() => ({ kind: 'ready', target: { revision: 0 } }));
   applyTable = vi.fn(() => ({ status: 'committed' }));
+  previewStocktake = vi.fn(() => ({ kind: 'ready', target: { revision: 0 } }));
+  applyStocktake = vi.fn(() => ({ status: 'committed' }));
   owner = {
     execute,
     availability,
@@ -75,8 +79,68 @@ beforeEach(() => {
     applyImport,
     previewTable,
     applyTable,
+    previewStocktake,
+    applyStocktake,
   } as unknown as NativeInventoryOwner;
   registerInventoryHandlers({ owner: () => owner, target: () => target });
+});
+
+it('keeps stocktake preview read-only and stocktake application under the same current-caller fence', () => {
+  const options = {
+    namespace: 'source',
+    delimiter: ',',
+    subjects: [],
+    locations: [],
+    decisions: [],
+  };
+  const preview = {
+    project: 'project',
+    inventoryId: 'inventory',
+    format: 'stocktake-v1',
+    sourceText: 'exact source\r\n',
+    options,
+  };
+  const read = captured.handlers.previewStocktake as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => unknown;
+  expect(read(event, preview)).toMatchObject({ kind: 'ready' });
+  expect(previewStocktake).toHaveBeenCalledExactlyOnceWith(preview);
+  expect(applyStocktake).not.toHaveBeenCalled();
+  const input = {
+    kind: 'apply-stocktake',
+    project: 'project',
+    inventoryId: 'inventory',
+    operationId: 'stocktake-once',
+    expectedRevision: 0,
+    sourceText: preview.sourceText,
+    options,
+    expectedPlanDigest: `sha256:${'0'.repeat(64)}`,
+  };
+  const apply = captured.handlers.applyStocktake as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => NativeInventoryExecution;
+  expect(apply(event, input)).toMatchObject({ status: 'committed' });
+  expect(applyStocktake).toHaveBeenCalledWith(input, expect.any(Function), {
+    actor: 'human:desktop:7',
+  });
+  expect(apply(event, { ...input, recordedAt: 0 })).toMatchObject({
+    status: 'rejected',
+    operationId: 'stocktake-once',
+    code: 'INVALID_INVENTORY_INPUT',
+  });
+  expect(applyStocktake).toHaveBeenCalledTimes(1);
+  expect(
+    apply({ sender: { id: 9, isDestroyed: () => false } } as IpcMainInvokeEvent, input)
+  ).toMatchObject({
+    status: 'rejected',
+    operationId: 'stocktake-once',
+    code: 'INVENTORY_DESKTOP_CALLER_UNAVAILABLE',
+  });
+  expect(applyStocktake).toHaveBeenCalledTimes(1);
+  expect(execute).not.toHaveBeenCalled();
+  expect(applyImport).not.toHaveBeenCalled();
 });
 
 it('keeps table preview read-only and table application under the same current-caller fence', () => {

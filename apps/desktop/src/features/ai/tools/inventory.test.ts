@@ -130,3 +130,20 @@ describe('inventory receive table agent contract', () => {
     expect(inventoryAgentOutputSchema.safeParse({ ok: true, kind: 'table-preview' }).success).toBe(false);
   });
 });
+
+
+describe('inventory stocktake agent contract', () => {
+  const options = { namespace: 'observations', delimiter: ',', subjects: [{ key: 'sample', subject: { kind: 'stock', stockId: 'stock' } }], locations: [], decisions: [{ observationId: '001', choice: { kind: 'record-only' } }] };
+  const preview = { kind: 'preview-stocktake', project: '/project', inventoryId: 'inventory', format: 'stocktake-v1', sourceText: 'exact observations\r\n', options };
+  it('retains explicit decisions and excludes authored recording authority', () => {
+    expect(inventoryAgentSchema.parse({ operation: preview })).toEqual({ operation: preview });
+    const { format: _format, ...fields } = preview;
+    const operation = { ...fields, kind: 'apply-stocktake', operationId: 'observe-once', expectedRevision: 0, expectedPlanDigest: `sha256:${'1'.repeat(64)}` };
+    expect(inventoryAgentSchema.parse({ operation })).toEqual({ operation });
+    for (const extra of [{ recordedAt: 0 }, { principal: { kind: 'agent', identityId: 'other' } }, { authority: { kind: 'local-profile', profileKey: '0'.repeat(64) } }])
+      expect(inventoryAgentSchema.safeParse({ operation: { ...operation, ...extra } }).success).toBe(false);
+    expect(inventoryAgentSchema.safeParse({ operation: { ...operation, options: { ...options, decisions: [{ observationId: '001', choice: { kind: 'apply' } }] } } }).success).toBe(false);
+    expect(inventoryAgentOutputSchema.parse({ ok: true, kind: 'stocktake-preview', preview: { kind: 'blocked', rows: [] } })).toMatchObject({ kind: 'stocktake-preview' });
+    expect(inventoryAgentOutputSchema.safeParse({ ok: true, kind: 'stocktake-preview' }).success).toBe(false);
+  });
+});

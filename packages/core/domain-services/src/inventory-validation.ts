@@ -1,3 +1,8 @@
+import { inventoryObservationKey } from './inventory-observation-identity';
+import type {
+  InventoryObservation,
+  InventoryObservationInput,
+} from './inventory-observation-types';
 import { inventoryTableBindingKey } from './inventory-table-binding';
 import type { InventoryTableBinding } from './inventory-table-types';
 import { inventoryHasImportedAttribution } from './inventory-attribution';
@@ -33,6 +38,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_RECEIVE_TABLE_SCHEMA,
   INVENTORY_ADOPTION_SCHEMA,
   INVENTORY_THERMAL_CONTEXT_SCHEMA,
   INVENTORY_TEMPERATURE_SCHEMA,
@@ -1095,7 +1101,73 @@ function temperatureFactMap<T>(codec: Codec<T>, value: unknown): Readonly<Record
     result[text('Temperature fact key', 1100, true).parse(key)] = codec.parse(input);
   return result;
 }
+const observationSubject = union('Observation subject', [
+  fields('Observed stock', { kind: literal('stock'), stockId: id }),
+  fields('Observed physical item', { kind: literal('item'), item: reservationItem }),
+]);
+const observationFact = (quantityCodec: Codec<InventoryQuantity>) =>
+  union('Observation fact', [
+    fields('Quantity observation', { kind: literal('quantity'), quantity: quantityCodec }),
+    fields('Missing observation', { kind: literal('presence'), value: literal('missing') }),
+    fields('Found observation', {
+      kind: literal('presence'),
+      value: literal('found'),
+      destination: custodyDestination,
+    }),
+  ]);
+const observationFacts = {
+  namespace: text('Observation namespace', 256),
+  observationId: text('Observation identity', 256),
+  subject: observationSubject,
+  observedAt: nullable(timestamp),
+  fact: observationFact(quantity),
+  reason,
+};
+const validateObservationSubject = (value: InventoryObservationInput) => {
+  if ((value.subject.kind === 'stock') !== (value.fact.kind === 'quantity'))
+    invalid('Stock observations measure quantity; item observations record presence.');
+};
+const observationRecord: Codec<InventoryObservation> = checked(
+  fields('Recorded inventory observation', {
+    ...observationFacts,
+    fact: observationFact(storedQuantity),
+    at: timestamp,
+    by: recordedPrincipal,
+    application: union('Observation application', [
+      fields('Unapplied observation', { kind: literal('unapplied') }),
+      fields('Applied observation', {
+        kind: literal('applied'),
+        reason,
+        at: timestamp,
+        by: recordedPrincipal,
+      }),
+    ]),
+  }),
+  validateObservationSubject
+);
+function observations(value: unknown): Record<string, InventoryObservation> {
+  const result = Object.create(null) as Record<string, InventoryObservation>;
+  for (const [key, raw] of Object.entries(object(value, 'Inventory observations'))) {
+    const observation = observationRecord.parse(raw);
+    if (key !== inventoryObservationKey(observation.namespace, observation.observationId))
+      invalid('An observation key must match its exact namespace and identity.');
+    result[key] = observation;
+  }
+  return result;
+}
 const commands = {
+  'record-inventory-observation': checked(
+    fields('Record inventory observation command', {
+      kind: literal('record-inventory-observation'),
+      ...observationFacts,
+    }),
+    validateObservationSubject
+  ),
+  'apply-inventory-observation': fields('Apply recorded inventory observation command', {
+    kind: literal('apply-inventory-observation'),
+    observationKey: text('Observation key', 71, false, '^sha256:[a-f0-9]{64}$'),
+    reason,
+  }),
   'record-thermal-context': fields('Record explicit thermal context command', {
     kind: literal('record-thermal-context'),
     ...thermalContextFacts,
@@ -1876,7 +1948,8 @@ function tableBindings(value: unknown): Record<string, InventoryTableBinding> {
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const archiveAttribution = current || row.schema === INVENTORY_ADOPTION_SCHEMA;
+  const tableSources = current || row.schema === INVENTORY_RECEIVE_TABLE_SCHEMA;
+  const archiveAttribution = tableSources || row.schema === INVENTORY_ADOPTION_SCHEMA;
   const thermalContexts = archiveAttribution || row.schema === INVENTORY_THERMAL_CONTEXT_SCHEMA;
   const temperature = thermalContexts || row.schema === INVENTORY_TEMPERATURE_SCHEMA;
   const itemCodes = temperature || row.schema === INVENTORY_ITEM_CODE_SCHEMA;
@@ -1889,6 +1962,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_RECEIVE_TABLE_SCHEMA),
       literal(INVENTORY_ADOPTION_SCHEMA),
       literal(INVENTORY_THERMAL_CONTEXT_SCHEMA),
       literal(INVENTORY_TEMPERATURE_SCHEMA),
@@ -1905,6 +1979,9 @@ export function parseInventoryState(value: unknown): InventoryState {
     revision,
     ...(archiveAttribution ? { origin: inventoryOrigin } : {}),
     ...(current
+      ? { observations: { schema: { type: 'object' }, parse: (input: unknown) => input } }
+      : {}),
+    ...(tableSources
       ? { tableBindings: { schema: { type: 'object' }, parse: (input: unknown) => input } }
       : {}),
     ...(thermalContexts
@@ -1989,7 +2066,8 @@ export function parseInventoryState(value: unknown): InventoryState {
   const state: InventoryState = {
     schema: INVENTORY_SCHEMA,
     origin: archiveAttribution ? inventoryOrigin.parse(shape.origin) : { kind: 'native' },
-    tableBindings: current ? tableBindings(shape.tableBindings) : Object.create(null),
+    observations: current ? observations(shape.observations) : Object.create(null),
+    tableBindings: tableSources ? tableBindings(shape.tableBindings) : Object.create(null),
     thermalContexts: thermalContexts
       ? temperatureFactMap(thermalContextRecord, shape.thermalContexts)
       : Object.create(null),
@@ -2092,6 +2170,36 @@ export function parseInventoryState(value: unknown): InventoryState {
     invalid('Legacy inventory schemas cannot contain imported attribution.');
   if (state.origin.kind === 'archive-adoption' && state.origin.at > state.lastRecordedAt)
     invalid('Inventory adoption cannot exceed the recorded clock.');
+  for (const observation of Object.values(state.observations)) {
+    if (
+      observation.at > state.lastRecordedAt ||
+      (observation.observedAt !== null && observation.observedAt > observation.at)
+    )
+      invalid('Observation times must be inside their recorded lifetime.');
+    if (
+      observation.application.kind === 'applied' &&
+      (observation.application.at < observation.at ||
+        observation.application.at > state.lastRecordedAt)
+    )
+      invalid('Observation application must be inside its recorded lifetime.');
+    const subject = observation.subject;
+    if (
+      subject.kind === 'stock'
+        ? !Object.hasOwn(state.stocks, subject.stockId)
+        : !Object.hasOwn(
+            subject.item.kind === 'storage' ? state.storage : state.vessels,
+            subject.item.id
+          )
+    )
+      invalid('An observation requires an existing inventory subject.');
+    if (observation.fact.kind === 'presence' && observation.fact.value === 'found') {
+      const destination = observation.fact.destination;
+      if (destination.kind === 'located' && !Object.hasOwn(state.storage, destination.storageId))
+        invalid('An observed destination must reference existing storage.');
+      if (destination.kind === 'stack-top' && !Object.hasOwn(state.storage, destination.stackId))
+        invalid('An observed stack must reference existing storage.');
+    }
+  }
   for (const binding of Object.values(state.tableBindings)) {
     const stock = Object.hasOwn(state.stocks, binding.stockId)
       ? state.stocks[binding.stockId]

@@ -36,6 +36,8 @@ import {
   inventoryApplyImportRequestSchema,
   inventoryPreviewTableRequestSchema,
   inventoryApplyTableRequestSchema,
+  inventoryPreviewStocktakeRequestSchema,
+  inventoryApplyStocktakeRequestSchema,
 } from '../shared/inventory-command';
 import { NATIVE_DOCUMENT_MAX_BODY_BYTES } from '../shared/native-document-transport';
 import type { createNativeInventoryOwner } from './inventory-owner';
@@ -75,6 +77,24 @@ const selection = target
   })
   .strict();
 const commandSchema = z.discriminatedUnion('command', [
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-stocktake'),
+      request: inventoryPreviewStocktakeRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.apply-stocktake'),
+      request: inventoryApplyStocktakeRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
   z
     .object({
       ownerInstanceId: identity,
@@ -353,6 +373,8 @@ export async function startNativeDocumentCommandServer(options: {
     | 'applyImport'
     | 'previewTable'
     | 'applyTable'
+    | 'previewStocktake'
+    | 'applyStocktake'
   >;
   authorizeInventoryAgent?(agent: NativeAgentAuthority, required: readonly string[]): Promise<void>;
   getAuthority(): NativeCommandAuthority | null;
@@ -450,6 +472,8 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'inventory.apply-import' ||
           body.command === 'inventory.preview-table' ||
           body.command === 'inventory.apply-table' ||
+          body.command === 'inventory.preview-stocktake' ||
+          body.command === 'inventory.apply-stocktake' ||
           body.command === 'inventory.inspect' ||
           body.command === 'inventory.availability' ||
           body.command === 'inventory.operation' ||
@@ -472,7 +496,8 @@ export async function startNativeDocumentCommandServer(options: {
               const required =
                 body.command === 'inventory.execute' ||
                 body.command === 'inventory.apply-import' ||
-                body.command === 'inventory.apply-table'
+                body.command === 'inventory.apply-table' ||
+                body.command === 'inventory.apply-stocktake'
                   ? ['read-workspace', 'write-workspace']
                   : ['read-workspace'];
               if (!hasRequiredCapabilities(body.agent.capabilities, required))
@@ -505,6 +530,29 @@ export async function startNativeDocumentCommandServer(options: {
           const run = (() => {
             if (options.inventory) {
               const receiver = options.inventory;
+              if (body.command === 'inventory.preview-stocktake') {
+                const request = body.request;
+                const invocation = body.agent
+                  ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
+                  : undefined;
+                return () => ({
+                  kind: 'stocktake-preview',
+                  preview: receiver.previewStocktake(request, invocation),
+                });
+              }
+              if (body.command === 'inventory.apply-stocktake') {
+                const request = body.request;
+                const invocation = body.agent
+                  ? {
+                      actor: `agent:${body.agent.identityId}`,
+                      principal: { kind: 'agent' as const, identityId: body.agent.identityId },
+                    }
+                  : undefined;
+                return () => ({
+                  kind: 'execution',
+                  execution: receiver.applyStocktake(request, assertCurrent, invocation),
+                });
+              }
               if (body.command === 'inventory.preview-table') {
                 const request = body.request;
                 const invocation = body.agent
@@ -686,6 +734,7 @@ export async function startNativeDocumentCommandServer(options: {
             body.command === 'inventory.export-snapshot' ||
             body.command === 'inventory.preview-import' ||
             body.command === 'inventory.preview-table' ||
+            body.command === 'inventory.preview-stocktake' ||
             body.command === 'inventory.catalog' ||
             body.command === 'inventory.catalog-update-preview' ||
             body.command === 'inventory.resolve-item-code' ||

@@ -1,3 +1,7 @@
+import {
+  runInventoryStocktakeJourney,
+  runInventoryStocktakeReopen,
+} from './journeys/inventory-stocktake.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -76,6 +80,8 @@ assert.ok(
     'archive-reopen',
     'table-receive',
     'table-reopen',
+    'stocktake',
+    'stocktake-reopen',
   ].includes(stage),
   'Choose a mapped inventory journey stage.'
 );
@@ -649,6 +655,27 @@ try {
     );
   }
 
+  if (stage === 'stocktake' || stage === 'stocktake-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass the current owned inventory fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    const run = stage === 'stocktake' ? runInventoryStocktakeJourney : runInventoryStocktakeReopen;
+    receipt.expected = await run({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+    });
+    writeFileSync(
+      path.join(out, 'stocktake-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
   if (stage === 'table-receive' || stage === 'table-reopen') {
     assert.ok(args.includes('--fixture'), 'Pass the current owned inventory fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

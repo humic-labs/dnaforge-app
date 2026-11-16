@@ -22,6 +22,10 @@ function* recordedPrincipals(state: InventoryState): Generator<InventoryRecorded
       if (row.custody.kind === 'missing') yield row.custody.reportedBy;
     }
   }
+  for (const observation of Object.values(state.observations)) {
+    yield observation.by;
+    if (observation.application.kind === 'applied') yield observation.application.by;
+  }
   for (const reservation of Object.values(state.reservations)) yield reservation.holder;
   for (const code of Object.values(state.itemCodes)) {
     yield code.assignedBy;

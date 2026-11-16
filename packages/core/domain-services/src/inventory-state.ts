@@ -1,3 +1,4 @@
+import { applyInventoryObservationCommand } from './inventory-observations';
 import {
   applyInventoryConfigurationCommand,
   inventoryRecordIdExists,
@@ -55,6 +56,7 @@ import { applyInventoryTemperatureCommand } from './inventory-storage-conditions
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
 interface Draft {
+  observations: Record<string, InventoryState['observations'][string]>;
   origin: InventoryState['origin'];
   tableBindings: InventoryState['tableBindings'];
   thermalContexts: Record<string, InventoryState['thermalContexts'][string]>;
@@ -143,6 +145,10 @@ function applyCommand(
   command: InventoryCommand,
   context?: InventoryExecutionContext
 ): Failure | null {
+  const observation = applyInventoryObservationCommand(state, command, context, (inner) =>
+    applyCommand(state, inner, context)
+  );
+  if (observation !== undefined) return observation;
   const temperature = applyInventoryTemperatureCommand(state, command, context);
   if (temperature !== undefined) return temperature;
   const itemCode = applyInventoryItemCodeCommand(state, command, context);
@@ -358,6 +364,7 @@ export function applyInventoryCommandBatch(
     return failure('CLOCK_REGRESSION', 'The trusted timestamp precedes the inventory clock floor.');
   const draft: Draft = {
     origin: state.origin,
+    observations: Object.assign(Object.create(null), state.observations),
     tableBindings: state.tableBindings,
     thermalContexts: Object.assign(Object.create(null), state.thermalContexts),
     temperatureClaims: Object.assign(Object.create(null), state.temperatureClaims),

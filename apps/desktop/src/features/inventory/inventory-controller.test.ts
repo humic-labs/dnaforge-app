@@ -3,6 +3,8 @@ import {
   applyInventoryCommandBatch,
   adoptInventoryState,
   applyInventoryTable,
+  applyInventoryStocktake,
+  inventoryStocktakePreview,
   inventoryTablePreview,
   createInventoryState,
   inventoryAvailability,
@@ -121,21 +123,37 @@ function fixture(empty = false) {
               },
               { at: 1, principal, authority: principal }
             )
-          : applyInventoryTable(
-              state.revision === 0 ? null : state,
-              {
-                ...request,
-                target: {
-                  projectId: request.project,
-                  inventoryId: request.inventoryId,
-                  present: state.revision !== 0,
-                  revision: request.expectedRevision,
+          : request.kind === 'receive-table'
+            ? applyInventoryTable(
+                state.revision === 0 ? null : state,
+                {
+                  ...request,
+                  target: {
+                    projectId: request.project,
+                    inventoryId: request.inventoryId,
+                    present: state.revision !== 0,
+                    revision: request.expectedRevision,
+                  },
+                  expectedPlanDigest: request.expectedPlanDigest as `sha256:${string}`,
                 },
-                expectedPlanDigest: request.expectedPlanDigest as `sha256:${string}`,
-              },
-              { at: 1, principal, authority: principal },
-              17 * 1024 * 1024
-            )
+                { at: 1, principal, authority: principal },
+                17 * 1024 * 1024
+              )
+            : applyInventoryStocktake(
+                state.revision === 0 ? null : state,
+                {
+                  ...request,
+                  target: {
+                    projectId: request.project,
+                    inventoryId: request.inventoryId,
+                    present: state.revision !== 0,
+                    revision: request.expectedRevision,
+                  },
+                  expectedPlanDigest: request.expectedPlanDigest as `sha256:${string}`,
+                },
+                { at: 1, principal, authority: principal },
+                17 * 1024 * 1024
+              )
         : applyInventoryCommandBatch(state, {
             expectedRevision: request.expectedRevision,
             commands: request.commands,
@@ -188,6 +206,10 @@ function fixture(empty = false) {
       throw new Error('Table preview is not used by this controller fixture.');
     }),
     applyTable: vi.fn(async (request) => commit(request)),
+    previewStocktake: vi.fn(async () => {
+      throw new Error('Stocktake preview is not used by this controller fixture.');
+    }),
+    applyStocktake: vi.fn(async (request) => commit(request)),
     storageConditions: vi.fn(async (request) => {
       const current = request.project === other.projectId ? createInventoryState() : state;
       return {
@@ -1039,6 +1061,104 @@ describe('inventory interaction controller', () => {
     });
     expect(f.client.applyTable).not.toHaveBeenCalled();
     expect(f.state().revision).toBe(0);
+    f.controller.dispose();
+  });
+});
+
+describe('stocktake recovery', () => {
+  function stocktakePlan(state: InventoryState) {
+    const sourceText =
+      'observation_id,subject_key,observed_at,quantity_kind,quantity,unit,presence,location_key,slot,reason\n0001,sample,unknown,known,1,uL,not-observed,,,Measured remaining volume\n';
+    const plan = inventoryStocktakePreview(state, {
+      target: {
+        projectId: project.projectId,
+        inventoryId: project.defaultInventoryId,
+        present: true,
+        revision: state.revision,
+      },
+      sourceText,
+      options: {
+        namespace: 'stocktake-register',
+        delimiter: ',',
+        subjects: [{ key: 'sample', subject: { kind: 'stock', stockId: 'stock' } }],
+        locations: [],
+        decisions: [
+          { observationId: '0001', choice: { kind: 'apply', reason: 'Apply measured quantity' } },
+        ],
+      },
+      asOf: 1,
+      principal,
+      authority: principal,
+      maxBytes: 17 * 1024 * 1024,
+    });
+    if (plan.kind !== 'ready') throw new Error(JSON.stringify(plan.issues));
+    return { sourceText, plan };
+  }
+  it('recovers the original stocktake receipt after a lost response and controller restart', async () => {
+    const f = fixture();
+    await f.controller.initialize();
+    const { sourceText, plan } = stocktakePlan(f.state());
+    vi.mocked(f.client.applyStocktake).mockImplementationOnce(async (request) => {
+      f.commit(request);
+      throw new Error('Lost stocktake response');
+    });
+    await f.controller.applyStocktake(sourceText, plan.options, plan.planDigest);
+    expect(f.controller.getSnapshot().status.kind).toBe('outcome-unknown');
+    const original = structuredClone(f.saved()[0]);
+    expect(original.request).toMatchObject({
+      kind: 'apply-stocktake',
+      sourceText,
+      options: plan.options,
+    });
+    f.controller.dispose();
+    const reopened = new InventoryController(f.client, f.storage, () => {
+      throw new Error('Recovery cannot allocate another operation');
+    });
+    await reopened.initialize();
+    await reopened.checkPending();
+    expect(reopened.getSnapshot().status.kind).toBe('ready');
+    expect(f.saved()).toEqual([]);
+    expect(f.entries).toHaveLength(1);
+    expect(f.state().stocks.stock.quantity).toEqual({ kind: 'known', value: '1', unit: 'uL' });
+    expect(Object.values(f.state().observations)).toMatchObject([
+      { namespace: 'stocktake-register', observationId: '0001', application: { kind: 'applied' } },
+    ]);
+    expect(f.client.applyStocktake).toHaveBeenCalledOnce();
+    expect(f.client.execute).not.toHaveBeenCalled();
+    expect(f.client.applyTable).not.toHaveBeenCalled();
+    reopened.dispose();
+  });
+  it('retries exact retained stocktake bytes and choices without accepting replacement intent', async () => {
+    const f = fixture();
+    await f.controller.initialize();
+    const { sourceText, plan } = stocktakePlan(f.state());
+    const options = structuredClone(plan.options);
+    vi.mocked(f.client.applyStocktake).mockRejectedValueOnce(new Error('Unknown outcome'));
+    await f.controller.applyStocktake(sourceText, options, plan.planDigest);
+    const original = structuredClone(f.saved()[0].request);
+    (options as { namespace: string }).namespace = 'edited-after-submit';
+    expect(await f.controller.applyStocktake('replacement', options, plan.planDigest)).toBeNull();
+    await f.controller.retryPending();
+    expect(f.client.applyStocktake).toHaveBeenNthCalledWith(1, original);
+    expect(f.client.applyStocktake).toHaveBeenNthCalledWith(2, original);
+    expect(f.entries).toHaveLength(1);
+    expect(f.saved()).toEqual([]);
+    f.controller.dispose();
+  });
+  it('does not send a stocktake whose recovery intent cannot be retained', async () => {
+    const f = fixture();
+    await f.controller.initialize();
+    const { sourceText, plan } = stocktakePlan(f.state());
+    vi.mocked(f.storage.write).mockImplementationOnce(() => {
+      throw new Error('Quota unavailable');
+    });
+    await f.controller.applyStocktake(sourceText, plan.options, plan.planDigest);
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'refused',
+      code: 'INVENTORY_RECOVERY_UNAVAILABLE',
+    });
+    expect(f.client.applyStocktake).not.toHaveBeenCalled();
+    expect(f.state().observations).toEqual({});
     f.controller.dispose();
   });
 });

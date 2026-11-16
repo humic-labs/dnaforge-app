@@ -1,3 +1,7 @@
+export * from './inventory-stocktake';
+export * from './inventory-observation-types';
+export * from './inventory-observation-identity';
+export * from './inventory-stocktake-types';
 export * from './inventory-table-types';
 export * from './inventory-table-binding';
 export * from './inventory-table';
