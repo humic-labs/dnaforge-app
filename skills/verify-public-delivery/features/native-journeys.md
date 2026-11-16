@@ -46,8 +46,9 @@ comparison is required.
 Doctor runs inside the command. It refuses an already-running app, rejects a
 different source commit or modified tracked source, checks the actual native
 runtime's checkout and disposable profile, and waits for renderer readiness and
-the owned sidecar's health endpoint. Generated helper build provenance is
-recorded build output and may differ from Git.
+the owned sidecar's health endpoint. Only the three current-host helper binaries
+and generated helper build provenance are permitted build outputs; their hashes
+are retained in the receipt. Other untracked source fails qualification.
 
 Require command exit zero and `native-journeys.json` with `status: passed`, the
 requested `journey`, exact `sourceSha` and `sourceTree`, and the control commit.

@@ -19,6 +19,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
+import { helperExecutableName } from '../../apps/desktop/scripts/lib/verify-package-helpers.cjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const GUARD = 'apps/desktop/scripts/dev-single-instance-guard.cjs';
@@ -78,9 +79,18 @@ export function sourceIdentity(root, expectedSha) {
   const sourceSha = git(root, 'rev-parse', 'HEAD');
   assert.match(expectedSha, /^[a-f0-9]{40}$/u, 'An exact source SHA is required');
   assert.equal(sourceSha, expectedSha, 'The checkout changed from the requested source');
-  assert.equal(
-    git(root, 'ls-files', '--others', '--exclude-standard'),
-    '',
+  const helperOutputs = new Set(
+    ['dna-indexer', 'dna-coverage', 'dna-process-guardian'].map(
+      (helper) =>
+        `apps/desktop/resources/helpers/${helperExecutableName(helper, process.platform, process.arch)}`
+    )
+  );
+  const untracked = git(root, 'ls-files', '--others', '--exclude-standard', '-z')
+    .split('\0')
+    .filter(Boolean);
+  assert.deepEqual(
+    untracked.filter((file) => !helperOutputs.has(file)),
+    [],
     'Untracked source is outside the requested commit'
   );
   const changed = git(root, 'diff', '--name-only', 'HEAD').split('\n').filter(Boolean);
@@ -94,10 +104,10 @@ export function sourceIdentity(root, expectedSha) {
   return {
     sourceSha,
     sourceTree: git(root, 'rev-parse', 'HEAD^{tree}'),
-    generatedOutputs: changed.map((file) => ({
+    generatedOutputs: [...changed, ...untracked].sort().map((file) => ({
       file,
       sha256: createHash('sha256')
-        .update(readFileSync(join(root, file)))
+        .update(readFileSync(evidenceFile(root, file)))
         .digest('hex'),
     })),
   };

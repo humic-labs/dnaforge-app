@@ -20,6 +20,7 @@ import {
   validateJourneyReceipt,
 } from './native-journeys.mjs';
 import { automationUserDataPath } from '../../apps/desktop/src/main/automation-profile.cjs';
+import { helperExecutableName } from '../../apps/desktop/scripts/lib/verify-package-helpers.cjs';
 
 function fixture(t) {
   const directory = realpathSync(mkdtempSync(join(tmpdir(), 'dnaforge-native-control-')));
@@ -126,6 +127,28 @@ test('the candidate identity fails after a source edit and after checkout change
   );
   const sha = git('rev-parse', 'HEAD');
   assert.equal(sourceIdentity(directory, sha).sourceTree, git('rev-parse', 'HEAD^{tree}'));
+  const helperDirectory = join(directory, 'apps/desktop/resources/helpers');
+  mkdirSync(helperDirectory, { recursive: true });
+  const helperNames = ['dna-indexer', 'dna-coverage', 'dna-process-guardian'].map((name) =>
+    helperExecutableName(name, process.platform, process.arch)
+  );
+  for (const name of helperNames) writeFileSync(join(helperDirectory, name), `generated ${name}`);
+  const generated = sourceIdentity(directory, sha).generatedOutputs;
+  assert.deepEqual(
+    generated.map(({ file }) => file),
+    helperNames.map((name) => `apps/desktop/resources/helpers/${name}`).sort()
+  );
+  for (const output of generated) assert.match(output.sha256, /^[a-f0-9]{64}$/u);
+  const foreignHelper = join(helperDirectory, 'dna-indexer-not-the-current-host');
+  writeFileSync(foreignHelper, 'unexpected build output');
+  assert.throws(() => sourceIdentity(directory, sha), /Untracked source/);
+  rmSync(foreignHelper);
+  const linkedHelper = join(helperDirectory, helperNames[0]);
+  rmSync(linkedHelper);
+  symlinkSync(join(directory, 'source.txt'), linkedHelper);
+  assert.throws(() => sourceIdentity(directory, sha), /original file/);
+  rmSync(linkedHelper);
+  writeFileSync(linkedHelper, 'generated helper');
   writeFileSync(join(directory, 'untracked.txt'), 'untracked source\n');
   assert.throws(() => sourceIdentity(directory, sha), /Untracked source/);
   rmSync(join(directory, 'untracked.txt'));
