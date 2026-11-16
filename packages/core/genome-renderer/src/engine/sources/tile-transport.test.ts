@@ -49,6 +49,105 @@ describe('httpTileTransport', () => {
     expect(headers[SIDECAR_SESSION_HEADER]).toBe('sess-abc');
   });
 
+  it.each([null, 'identity', 'IDENTITY'])(
+    'retains uncompressed JSON body bytes for encoding %s',
+    async (encoding) => {
+      const body = { reads: [{ readId: 'résumé' }] };
+      const serialized = JSON.stringify(body);
+      const byteSize = new TextEncoder().encode(serialized).byteLength;
+      const headers = new Headers({ 'Content-Length': String(byteSize) });
+      if (encoding !== null) headers.set('Content-Encoding', encoding);
+      const transport = httpTileTransport({
+        baseUrl: 'http://h',
+        fetchImpl: vi.fn(async () => new Response(serialized, { headers })) as typeof fetch,
+      });
+
+      const response = await transport(req, new AbortController().signal);
+
+      expect(response).toEqual({ ok: true, status: 200, body, bodyByteSize: byteSize });
+    }
+  );
+
+  it.each(['gzip', 'br', 'deflate', 'identity, gzip'])(
+    'does not count compressed Content-Length as decoded bytes for %s',
+    async (encoding) => {
+      const transport = httpTileTransport({
+        baseUrl: 'http://h',
+        fetchImpl: vi.fn(
+          async () =>
+            new Response('{"reads":[]}', {
+              headers: { 'Content-Length': '4', 'Content-Encoding': encoding },
+            })
+        ) as typeof fetch,
+      });
+
+      const response = await transport(req, new AbortController().signal);
+
+      expect(response).toEqual({ ok: true, status: 200, body: { reads: [] } });
+    }
+  );
+
+  it.each([null, '', '0', '-1', '1.5', 'NaN', 'Infinity', '1e3', ' 123 ', '9007199254740992'])(
+    'does not retain invalid JSON body byte count %s',
+    async (length) => {
+      const transport = httpTileTransport({
+        baseUrl: 'http://h',
+        fetchImpl: vi.fn(async () => ({
+          ok: true,
+          status: 200,
+          headers: { get: (key: string) => (key === 'Content-Length' ? length : null) },
+          json: async () => ({ reads: [] }),
+        })) as unknown as typeof fetch,
+      });
+
+      const response = await transport(req, new AbortController().signal);
+
+      expect(response).toEqual({ ok: true, status: 200, body: { reads: [] } });
+    }
+  );
+
+  it.each([null, 'identity'])(
+    'requires observable encoding for a cross-origin response with encoding %s',
+    async (encoding) => {
+      const transport = httpTileTransport({
+        baseUrl: 'http://h',
+        fetchImpl: vi.fn(async () => ({
+          ok: true,
+          status: 200,
+          type: 'cors',
+          headers: {
+            get: (key: string) => (key === 'Content-Length' ? '12' : encoding),
+          },
+          json: async () => ({ reads: [] }),
+        })) as unknown as typeof fetch,
+      });
+
+      const response = await transport(req, new AbortController().signal);
+
+      expect(response).toEqual({
+        ok: true,
+        status: 200,
+        body: { reads: [] },
+        ...(encoding === 'identity' ? { bodyByteSize: 12 } : {}),
+      });
+    }
+  );
+
+  it('does not retain body bytes when JSON decoding fails', async () => {
+    const transport = httpTileTransport({
+      baseUrl: 'http://h',
+      fetchImpl: vi.fn(
+        async () => new Response('not-json', { headers: { 'Content-Length': '8' } })
+      ) as typeof fetch,
+    });
+
+    expect(await transport(req, new AbortController().signal)).toEqual({
+      ok: true,
+      status: 200,
+      body: null,
+    });
+  });
+
   it('a 404 RESOLVES with ok:false (transport does not throw on HTTP error)', async () => {
     const fetchImpl = vi.fn(async () => jsonResponse(404, { detail: 'index-missing' }));
     const transport = httpTileTransport({

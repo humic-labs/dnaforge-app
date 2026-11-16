@@ -1985,8 +1985,20 @@ describe('IndexedGenomeViewer cold-start deferred load  perf regression)', () =>
     const renderRequestsBeforePreparation = webglState.requestRender.mock.calls.length;
     act(() => work?.(Number.POSITIVE_INFINITY));
 
-    expect(prepareFineViews).toHaveBeenNthCalledWith(1, 1_000_000, 1_524_288);
-    expect(prepareFineViews).toHaveBeenNthCalledWith(2, 1_000_000, 1_524_288);
+    expect(prepareFineViews).toHaveBeenNthCalledWith(
+      1,
+      1_000_000,
+      1_524_288,
+      undefined,
+      Number.POSITIVE_INFINITY
+    );
+    expect(prepareFineViews).toHaveBeenNthCalledWith(
+      2,
+      1_000_000,
+      1_524_288,
+      undefined,
+      Number.POSITIVE_INFINITY
+    );
     expect(webglState.requestRender.mock.calls.length).toBe(renderRequestsBeforePreparation + 1);
   });
 

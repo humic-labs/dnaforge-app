@@ -1,10 +1,16 @@
-import { describe, expect, it } from 'vitest';
-import type { AnnotationResidentPagePublication } from '../../../types';
+import { describe, expect, it, vi } from 'vitest';
+import type { AnnotationResidentPagePublication, Feature } from '../../../types';
+import {
+  buildPrepackedAnnotationInteractionIndexV2,
+  type PrepackedAnnotationInteractionFeatureInputV2,
+} from '../overview/prepacked-annotation-interaction-index-v2';
 import {
   ingestAnnotationResidentPages,
+  prepackedPolicyFeatureIndexForResidentFeature,
   residentAnnotationPolicyProjectionKey,
   selectResidentAnnotationFeaturesForViewport,
   type ResidentPageLifecycleHost,
+  type ResidentPageFeatureResident,
 } from './indexed-annotation-resident-pages';
 
 function publication(
@@ -86,6 +92,128 @@ function lifecycleHost(
 }
 
 describe('indexed annotation resident pages', () => {
+  const policyFeature = (
+    overrides: Partial<PrepackedAnnotationInteractionFeatureInputV2> = {}
+  ): PrepackedAnnotationInteractionFeatureInputV2 => ({
+    rendererId: 1,
+    startBp: 100,
+    endBp: 300,
+    lane: 0,
+    direction: 'forward',
+    displayName: 'compiled display name',
+    type: 'mRNA',
+    transcriptId: 'NM_TARGET.1',
+    sourceId: 'compiled-source',
+    canonicalIdentity: 'compiled-target',
+    ...overrides,
+  });
+  const residentFeature = (overrides: Partial<Feature> = {}): Feature => ({
+    id: 999,
+    type: 'mRNA',
+    start: 100,
+    end: 300,
+    direction: 'forward',
+    displayName: 'resident display name',
+    transcriptId: 'NM_TARGET.1',
+    color: 0,
+    lane: 0,
+    ...overrides,
+  });
+  const resident = (
+    features: PrepackedAnnotationInteractionFeatureInputV2[]
+  ): ResidentPageFeatureResident => ({
+    ownerKey: 'compiled-owner',
+    input: {
+      interactionIndex: buildPrepackedAnnotationInteractionIndexV2(
+        features,
+        features.map((_, featureIndex) => ({ featureIndex }))
+      ),
+    },
+  });
+
+  it.each([31, 255])(
+    'resolves a cold resident identity without decoding %i irrelevant overlapping features',
+    (overlapCount) => {
+      const features = Array.from({ length: overlapCount }, (_, index) =>
+        policyFeature({
+          rendererId: index + 10,
+          startBp: index % 2 === 0 ? 0 : 100,
+          endBp: index % 2 === 0 ? 1_000 : 300,
+          direction: index % 2 === 0 ? 'forward' : 'reverse',
+          transcriptId: `NM_OTHER_${index}.1`,
+          sourceId: `other-source-${index}`,
+          canonicalIdentity: `compiled-other-${index}`,
+        })
+      );
+      features.push(policyFeature());
+      const owner = resident(features);
+      const host = lifecycleHost({ genomeLength: 2_000 });
+      const feature = residentFeature();
+      const decode = vi.spyOn(TextDecoder.prototype, 'decode');
+      try {
+        expect(
+          prepackedPolicyFeatureIndexForResidentFeature(host, owner, feature, 'resident-target')
+        ).toBe(overlapCount);
+        expect
+          .soft(decode.mock.calls.length)
+          .toBeLessThanOrEqual(Math.ceil(Math.log2(features.length + 1)) + 2);
+        decode.mockClear();
+        expect(
+          prepackedPolicyFeatureIndexForResidentFeature(host, owner, feature, 'resident-target')
+        ).toBe(overlapCount);
+        expect(decode).not.toHaveBeenCalled();
+      } finally {
+        decode.mockRestore();
+      }
+    }
+  );
+
+  it('keeps ambiguous resident identity tuples unresolved and caches the rejection', () => {
+    const owner = resident([
+      policyFeature(),
+      policyFeature({
+        rendererId: 2,
+        sourceId: 'another-source',
+        canonicalIdentity: 'another-canonical-target',
+      }),
+    ]);
+    const host = lifecycleHost({ genomeLength: 2_000 });
+    const feature = residentFeature();
+    expect(
+      prepackedPolicyFeatureIndexForResidentFeature(host, owner, feature, 'resident-target')
+    ).toBeNull();
+    const decode = vi.spyOn(TextDecoder.prototype, 'decode');
+    try {
+      expect(
+        prepackedPolicyFeatureIndexForResidentFeature(host, owner, feature, 'resident-target')
+      ).toBeNull();
+      expect(decode).not.toHaveBeenCalled();
+    } finally {
+      decode.mockRestore();
+    }
+  });
+
+  it('uses the display name only when a resident has no transcript identity', () => {
+    const owner = resident([policyFeature({ transcriptId: null })]);
+    const host = lifecycleHost({ genomeLength: 2_000 });
+    expect(
+      prepackedPolicyFeatureIndexForResidentFeature(
+        host,
+        owner,
+        residentFeature({ transcriptId: undefined, displayName: 'compiled display name' }),
+        'resident-name-match'
+      )
+    ).toBe(0);
+    expect(
+      prepackedPolicyFeatureIndexForResidentFeature(
+        host,
+        owner,
+        residentFeature({ transcriptId: undefined }),
+        'resident-name-miss'
+      )
+    ).toBeNull();
+  });
+
   it('builds a source-page projection key until a runtime policy is set', () => {
     const host = lifecycleHost({
       prepackedAnnotationSceneResidentForTrack(trackId) {

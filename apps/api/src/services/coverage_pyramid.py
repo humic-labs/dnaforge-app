@@ -38,7 +38,7 @@ from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator, Literal, Optional, TypedDict
+from typing import Callable, Iterator, Literal, Optional, TypedDict
 
 try:
     import fcntl
@@ -629,6 +629,7 @@ def genome_wide_depth_scale(
     resolved_index: Optional[str] = None,
     resolved_reference: Optional[str] = None,
     percentile: float = 98.0,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> Optional[dict]:
     """Genome-wide coverage-depth scale reference  Ask 1).
 
@@ -641,6 +642,8 @@ def genome_wide_depth_scale(
     percentile of 8bp-bin maxes — negligibly higher than per-base and, crucially, the
     SAME everywhere, which is the whole point.
     """
+    if check_cancelled is not None:
+        check_cancelled()
     cache_path = _depth_scale_cache_path(
         resolved, resolved_index, resolved_reference, percentile
     )
@@ -661,6 +664,8 @@ def genome_wide_depth_scale(
     lengths = cached_reference_lengths(resolved) or {}
     hist: Optional[np.ndarray] = None
     for chrom in chroms:
+        if check_cancelled is not None:
+            check_cancelled()
         path = _base_layer_cache_path(
             resolved, chrom, resolved_index, resolved_reference
         )
@@ -690,6 +695,8 @@ def genome_wide_depth_scale(
                 h = np.pad(h, (0, n - len(h)))
             hist = hist + h
 
+    if check_cancelled is not None:
+        check_cancelled()
     if hist is None or int(hist.sum()) == 0:
         return None
     total = int(hist.sum())
@@ -702,6 +709,8 @@ def genome_wide_depth_scale(
         "maxDepth": int(len(hist) - 1),
         "totalBins": total,
     }
+    if check_cancelled is not None:
+        check_cancelled()
     if cache_path is not None:
         try:
             cache_path.write_text(json.dumps(result))
@@ -717,6 +726,7 @@ def genome_wide_depth_percentiles(
     chroms: list[str],
     resolved_index: Optional[str] = None,
     resolved_reference: Optional[str] = None,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> Optional[dict]:
     """Genome-wide coverage-depth percentiles  histogram A/B).
 
@@ -730,6 +740,8 @@ def genome_wide_depth_percentiles(
     already 8bp-binned, so these are percentiles of 8bp-bin maxes — negligibly
     higher than per-base and, crucially, the SAME everywhere, which is the point.
     """
+    if check_cancelled is not None:
+        check_cancelled()
     cache_path = _depth_percentiles_cache_path(
         resolved, resolved_index, resolved_reference
     )
@@ -750,6 +762,8 @@ def genome_wide_depth_percentiles(
     lengths = cached_reference_lengths(resolved) or {}
     hist: Optional[np.ndarray] = None
     for chrom in chroms:
+        if check_cancelled is not None:
+            check_cancelled()
         path = _base_layer_cache_path(
             resolved, chrom, resolved_index, resolved_reference
         )
@@ -779,6 +793,8 @@ def genome_wide_depth_percentiles(
                 h = np.pad(h, (0, n - len(h)))
             hist = hist + h
 
+    if check_cancelled is not None:
+        check_cancelled()
     if hist is None or int(hist.sum()) == 0:
         return None
     total = int(hist.sum())
@@ -794,6 +810,8 @@ def genome_wide_depth_percentiles(
         "p99": _q(99.0),
         "max": int(len(hist) - 1),
     }
+    if check_cancelled is not None:
+        check_cancelled()
     if cache_path is not None:
         try:
             cache_path.write_text(json.dumps(result))
@@ -1023,6 +1041,7 @@ def _local_coverage_tile(
     bin_size_bp: Optional[int] = None,
     index_path: Optional[str],
     reference_fasta: Optional[str],
+    check_cancelled: Callable[[], None] | None = None,
 ) -> CoverageTile:
     """Bounded local PEAK coverage for an interactive tile span.
 
@@ -1031,6 +1050,8 @@ def _local_coverage_tile(
     requested output bins, so it never allocates either a full chromosome layer or
     a full tile-span per-base array.
     """
+    if check_cancelled is not None:
+        check_cancelled()
     resolved = _resolve_bam_path(bam_path)
     if not _is_remote_bam(resolved) and not Path(resolved).is_file():
         raise BamNotFoundError(f"BAM not found: {bam_path}")
@@ -1050,7 +1071,7 @@ def _local_coverage_tile(
         and not _is_remote_bam(resolved)
         and not (resolved_index is not None and _is_remote_bam(resolved_index))
     ):
-        return _coverage_tile_from_rust(
+        result = _coverage_tile_from_rust(
             bam_path=resolved,
             chrom=chrom,
             start=start,
@@ -1061,6 +1082,10 @@ def _local_coverage_tile(
             reference_fasta=resolved_reference,
         )
 
+        if check_cancelled is not None:
+            check_cancelled()
+        return result
+
     bin_size = actual_bin
     out = np.zeros(actual_bins, dtype=np.float32)
 
@@ -1069,10 +1094,14 @@ def _local_coverage_tile(
             raise BamNotFoundError(f"chrom {chrom} not in {bam_path}")
         win_start = start
         while win_start < end:
+            if check_cancelled is not None:
+                check_cancelled()
             win_end = min(win_start + WINDOW_BP, end)
             wlen = win_end - win_start
             delta = np.zeros(wlen + 1, dtype=np.int32)
-            for r in bam.fetch(chrom, win_start, win_end):
+            for index, r in enumerate(bam.fetch(chrom, win_start, win_end)):
+                if index % 1024 == 0 and check_cancelled is not None:
+                    check_cancelled()
                 if (
                     r.is_unmapped
                     or r.is_secondary
@@ -1098,6 +1127,8 @@ def _local_coverage_tile(
             win_start = win_end
             del delta, per_base
 
+    if check_cancelled is not None:
+        check_cancelled()
     bin_values = [float(v) for v in out]
     return {
         "chrom": chrom,
@@ -1142,7 +1173,10 @@ def _coverage_tile_from_base_layer(
     bin_size_bp: Optional[int] = None,
     base: np.ndarray,
     chrom_len: int,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> CoverageTile:
+    if check_cancelled is not None:
+        check_cancelled()
     base_len = int(len(base))
     if base_len <= 0:
         raise CoveragePyramidMissingError(
@@ -1164,6 +1198,8 @@ def _coverage_tile_from_base_layer(
 
     out = np.zeros(actual_bins, dtype=np.float32)
     for i in range(actual_bins):
+        if i % 64 == 0 and check_cancelled is not None:
+            check_cancelled()
         lo_bp = start + i * bin_size
         hi_bp = min(lo_bp + bin_size, end)
         if hi_bp <= lo_bp:
@@ -1175,6 +1211,8 @@ def _coverage_tile_from_base_layer(
 
         out[i] = float(base[b_lo : b_hi + 1].mean())
 
+    if check_cancelled is not None:
+        check_cancelled()
     bin_values = [float(v) for v in out]
     return {
         "chrom": chrom,
@@ -1198,7 +1236,10 @@ def _coverage_tile_from_cached_base_layer(
     end: int,
     bins: int,
     bin_size_bp: Optional[int] = None,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> CoverageTile:
+    if check_cancelled is not None:
+        check_cancelled()
     cache_path = _base_layer_cache_path(
         resolved, chrom, resolved_index, resolved_reference
     )
@@ -1222,6 +1263,7 @@ def _coverage_tile_from_cached_base_layer(
         bin_size_bp=bin_size_bp,
         base=base,
         chrom_len=chrom_len,
+        **({"check_cancelled": check_cancelled} if check_cancelled is not None else {}),
     )
 
 
@@ -1596,6 +1638,7 @@ def coverage_tile(
     reference_fasta: Optional[str] = None,
     no_cache: bool = False,
     chrom_len: Optional[int] = None,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> CoverageTile:
     """A coarse coverage tile of ``bins`` values over ``[start, end)``.
 
@@ -1604,6 +1647,8 @@ def coverage_tile(
     base layer's resolution); a coarse whole-chrom tile (bins=1024) is always a
     downsample of the base layer.
     """
+    if check_cancelled is not None:
+        check_cancelled()
     if end <= start:
         raise ValueError("end must be greater than start")
     if bins <= 0:
@@ -1633,6 +1678,7 @@ def coverage_tile(
                     resolved_reference=resolved_reference,
                     chrom=chrom,
                     chrom_len=chrom_len,
+                    **({"check_cancelled": check_cancelled} if check_cancelled is not None else {}),
                     start=start,
                     end=end,
                     bins=bins,
@@ -1655,6 +1701,7 @@ def coverage_tile(
             bins=bins,
             index_path=index_path,
             reference_fasta=reference_fasta,
+            **({"check_cancelled": check_cancelled} if check_cancelled is not None else {}),
         )
 
     base, chrom_len = _load_or_build_base_layer(
@@ -1671,6 +1718,7 @@ def coverage_tile(
         bins=bins,
         base=base,
         chrom_len=chrom_len,
+        **({"check_cancelled": check_cancelled} if check_cancelled is not None else {}),
     )
 
 
@@ -1682,6 +1730,7 @@ def coverage_assembly_tile(
     bin_size_bp: Optional[int] = None,
     index_path: Optional[str] = None,
     reference_fasta: Optional[str] = None,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> CoverageAssemblyTile:
     """One coverage tile over a global assembly tile.
 
@@ -1690,6 +1739,8 @@ def coverage_assembly_tile(
     response avoids the 24-request first-paint queue while preserving the same
     exact persisted-pyramid data contract as ``coverage_tile``.
     """
+    if check_cancelled is not None:
+        check_cancelled()
     if bins <= 0:
         raise ValueError("bins must be positive")
     if bin_size_bp is not None and bin_size_bp <= 0:
@@ -1717,6 +1768,8 @@ def coverage_assembly_tile(
     out_segments: list[CoverageAssemblySegmentTile] = []
     max_depth = 0.0
     for segment in segments:
+        if check_cancelled is not None:
+            check_cancelled()
         chrom = segment["chrom"]
         if chrom not in chrom_lengths:
             raise BamNotFoundError(f"chrom {chrom} not in {bam_path}")
@@ -1752,6 +1805,7 @@ def coverage_assembly_tile(
                     end=end,
                     bins=segment_bins,
                     bin_size_bp=bin_size_bp,
+                    **({"check_cancelled": check_cancelled} if check_cancelled is not None else {}),
                 )
             except CoveragePyramidMissingError:
                 if end - start > LOCAL_TILE_COVERAGE_MAX_BP:
@@ -1763,6 +1817,7 @@ def coverage_assembly_tile(
                     end,
                     bins=segment_bins,
                     bin_size_bp=bin_size_bp,
+                    **({"check_cancelled": check_cancelled} if check_cancelled is not None else {}),
                     index_path=index_path,
                     reference_fasta=reference_fasta,
                 )
@@ -1776,6 +1831,8 @@ def coverage_assembly_tile(
             }
         )
 
+    if check_cancelled is not None:
+        check_cancelled()
     return {
         "segments": out_segments,
         "maxDepth": max_depth,

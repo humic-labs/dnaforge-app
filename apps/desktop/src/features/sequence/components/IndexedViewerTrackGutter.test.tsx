@@ -878,6 +878,61 @@ describe('IndexedViewerTrackGutter', () => {
     vi.useRealTimers();
   });
 
+  it('does not report a presentation update failure after changing the coverage cutoff', () => {
+    renderGutter();
+    fireEvent.click(screen.getByLabelText('Open settings for Tumor BAM'));
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Use automatic coverage cutoff for Tumor BAM' })
+    );
+
+    expect(
+      useLaneContractStore
+        .getState()
+        .lanesForOwner(ASSEMBLY_ID)
+        .find((lane) => lane.dataset.trackId === 'bam-a')?.dataset.coverageCutoffDepth
+    ).toBe(0);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it.each(['missing', 'invalid'] as const)(
+    'shows a refused %s presentation update and clears it after the next successful edit',
+    (status) => {
+      const update = vi
+        .spyOn(useLaneContractStore.getState(), 'updateLanePresentation')
+        .mockReturnValueOnce({ status, message: 'Presentation update refused.' });
+      try {
+        renderGutter();
+        fireEvent.click(screen.getByLabelText('Open settings for Tumor BAM'));
+        const automatic = screen.getByRole('button', {
+          name: 'Use automatic coverage cutoff for Tumor BAM',
+        });
+
+        fireEvent.click(automatic);
+
+        expect(screen.getByRole('alert')).toBeVisible();
+        expect(
+          useLaneContractStore
+            .getState()
+            .lanesForOwner(ASSEMBLY_ID)
+            .find((lane) => lane.dataset.trackId === 'bam-a')?.dataset.coverageCutoffDepth
+        ).toBe(75);
+
+        fireEvent.click(automatic);
+
+        expect(
+          useLaneContractStore
+            .getState()
+            .lanesForOwner(ASSEMBLY_ID)
+            .find((lane) => lane.dataset.trackId === 'bam-a')?.dataset.coverageCutoffDepth
+        ).toBe(0);
+        expect(screen.queryByRole('alert')).toBeNull();
+      } finally {
+        update.mockRestore();
+      }
+    }
+  );
+
   it('offers the established track swatches and applies a preset without replacing read data', () => {
     const before = useLaneContractStore
       .getState()

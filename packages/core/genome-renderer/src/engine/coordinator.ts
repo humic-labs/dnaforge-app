@@ -27,6 +27,7 @@ export interface CoordinatorOptions {
   onTileReady?: (key: TileKey) => void;
   onTileError?: (key: TileKey, reason: string, retryable: boolean) => void;
   canFetchSource?: (sourceId: string) => boolean;
+  levelForSource?: (source: TileSource, view: Viewport, level: number) => number;
 }
 
 export class TileCoordinator {
@@ -37,6 +38,7 @@ export class TileCoordinator {
   private readonly onTileReady?: (key: TileKey) => void;
   private readonly onTileError?: (key: TileKey, reason: string, retryable: boolean) => void;
   private readonly canFetchSource?: (sourceId: string) => boolean;
+  private readonly levelForSource?: CoordinatorOptions['levelForSource'];
 
   private currentEpoch = 0;
   private lastLevel: number | null = null;
@@ -51,6 +53,7 @@ export class TileCoordinator {
     this.onTileReady = opts.onTileReady;
     this.onTileError = opts.onTileError;
     this.canFetchSource = opts.canFetchSource;
+    this.levelForSource = opts.levelForSource;
   }
 
   get epoch(): number {
@@ -84,7 +87,14 @@ export class TileCoordinator {
 
     for (const source of this.sources) {
       if (this.canFetchSource?.(source.id) === false) continue;
-      for (const plan of fetchPlansForSource(source, view, L, this.maxLevel, panDeltaBp)) {
+      const sourceLevel = this.levelForSource?.(source, view, L) ?? L;
+      for (const plan of fetchPlansForSource(
+        source,
+        view,
+        sourceLevel,
+        this.maxLevel,
+        panDeltaBp
+      )) {
         const { level, view: fetchView, marginTiles, purpose } = plan;
         if (!levelInRange(source, level)) continue;
         for (const t of visibleTiles(fetchView, level, this.assembly, marginTiles)) {
@@ -109,8 +119,8 @@ export class TileCoordinator {
                 priority,
                 source.id.startsWith('aln:') &&
                   source.prefetch?.sameLevelMarginTiles === 1 &&
-                  level === L &&
-                  L <= maxReadAlignmentLevel()
+                  level === sourceLevel &&
+                  sourceLevel <= maxReadAlignmentLevel()
               );
               continue;
             }

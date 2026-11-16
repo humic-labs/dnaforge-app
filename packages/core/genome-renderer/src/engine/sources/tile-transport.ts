@@ -40,6 +40,7 @@ export interface TileTransportResponse {
   readonly ok: boolean;
   readonly status: number;
   readonly body: unknown;
+  readonly bodyByteSize?: number;
 }
 
 export type TileTransport = (
@@ -75,11 +76,28 @@ export function httpTileTransport(opts: HttpTileTransportOptions): TileTransport
       signal,
     });
     let body: unknown = null;
+    let bodyByteSize: number | undefined;
     try {
       body = await res.json();
+      const length = res.headers?.get('Content-Length');
+      const encoding = res.headers?.get('Content-Encoding');
+      if (
+        typeof length === 'string' &&
+        /^[0-9]+$/.test(length) &&
+        (encoding?.toLowerCase() === 'identity' ||
+          (!encoding && (res.type === 'basic' || res.type === 'default')))
+      ) {
+        const parsedLength = Number(length);
+        if (Number.isSafeInteger(parsedLength) && parsedLength > 0) bodyByteSize = parsedLength;
+      }
     } catch {
       body = null;
     }
-    return { ok: res.ok, status: res.status, body };
+    return {
+      ok: res.ok,
+      status: res.status,
+      body,
+      ...(bodyByteSize === undefined ? {} : { bodyByteSize }),
+    };
   };
 }
