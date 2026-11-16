@@ -4,7 +4,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { chromium, expect } from '@playwright/test';
+import { chromium, expect as baseExpect } from '@playwright/test';
+const expect = baseExpect.configure({ timeout: 60_000 });
 
 const { values } = parseArgs({ options: { out: { type: 'string' } } });
 assert.ok(values.out, 'Use --out with a new durable evidence directory');
@@ -50,7 +51,7 @@ try {
       timeout: 15_000,
     }
   );
-  assert.match(status, /^ELECTRON_DEV_(?:HEALTHY|ATTACHED)$/mu);
+  assert.match(status, /^ELECTRON_DEV_(?:HEALTHY|ATTACHED|STARTING)$/mu);
   const renderer = status.match(/Desktop renderer:\s*(http:\/\/[^\s]+)/u)?.[1];
   const cdp = status.match(/DevTools\/CDP:\s*(http:\/\/127\.0\.0\.1:\d+)/u)?.[1];
   assert.ok(renderer && cdp, 'The guard must identify this checkout renderer');
@@ -62,6 +63,11 @@ try {
   assert.ok(page, 'No page belongs to this checkout');
   receipt.runtime = await page.evaluate(() => window.electronAPI.runtime.getProvenance());
   assert.equal(receipt.runtime.projectRoot, root);
+  receipt.startup = await page.evaluate(() => window.electronAPI.startup.getState());
+  assert.equal(receipt.startup.pageLoaded, true);
+  assert.equal(receipt.startup.shellReady, true);
+  assert.ok(typeof receipt.startup.loadId === 'string' && receipt.startup.loadId.length);
+  receipt.launcherStatus = status.split('\n')[0];
   mkdirSync(join(out, 'frames'), { recursive: true });
   recording = await page.context().newCDPSession(page);
   recording.on('Page.screencastFrame', (event) => {

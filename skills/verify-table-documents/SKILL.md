@@ -22,12 +22,11 @@ do not start or stop another checkout's app or services.
 
 Run `pnpm --dir apps/desktop dev:status`. Require the renderer and CDP addresses
 to belong to this checkout. The journey independently checks runtime provenance
-before creating its own project under the requested evidence directory.
-Reference and recovery drivers additionally require the native startup
-acknowledgement `pageLoaded: true`, `shellReady: true` and a nonempty load ID. A
-launcher `STARTING` result alone neither qualifies readiness nor blocks a
-verified native acknowledgement; its short diagnostic probe can time out under
-load.
+before creating its own project under the requested evidence directory. All
+table drivers additionally require the native startup acknowledgement
+`pageLoaded: true`, `shellReady: true` and a nonempty load ID. A launcher
+`STARTING` result alone neither qualifies readiness nor blocks a verified native
+acknowledgement; its short diagnostic probe can time out under load.
 
 ## Drive
 
@@ -42,10 +41,10 @@ For standalone files, run
 It drives Files creation, editing, keyboard Save, close and reopen, then
 verifies the actual head and immutable snapshot bytes.
 
-Reference, restart and interrupted-extraction assertions allow up to 60 seconds
-for native filesystem work; visible actions retain a 15-second limit. Preserve
-initial save and extraction timing in the receipt. Passing data checks do not
-establish a save-latency improvement.
+Table workflow assertions allow up to 60 seconds for native filesystem work;
+visible actions retain a 15-second limit. Preserve initial save and extraction
+timing in the receipt. Passing data checks do not establish a save-latency
+improvement.
 
 See [the feature map](features/README.md).
 
