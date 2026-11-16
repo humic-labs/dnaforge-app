@@ -197,11 +197,20 @@ function mapAttribution(state: InventoryState, source: InventoryAdoptionSource):
       custody: custody(row.custody),
       configuration: configuration(row.configuration),
     })),
-    vessels: mapRecords(state.vessels, (row) =>
-      row.kind === 'fixed-well'
-        ? { ...row, configuration: configuration(row.configuration) }
-        : { ...row, custody: custody(row.custody), configuration: configuration(row.configuration) }
-    ),
+    vessels: mapRecords(state.vessels, (row) => {
+      const contentsKnowledge =
+        row.contentsKnowledge.kind === 'recorded'
+          ? row.contentsKnowledge
+          : { ...row.contentsKnowledge, by: principal(row.contentsKnowledge.by) };
+      return row.kind === 'fixed-well'
+        ? { ...row, contentsKnowledge, configuration: configuration(row.configuration) }
+        : {
+            ...row,
+            contentsKnowledge,
+            custody: custody(row.custody),
+            configuration: configuration(row.configuration),
+          };
+    }),
     reservations: mapRecords(state.reservations, (row) => ({
       ...row,
       holder: principal(row.holder),

@@ -1,3 +1,4 @@
+import type { InventoryContentsDialog } from './InventoryContentsForm';
 import type { InventoryMaterialDialog } from './InventoryMaterialForm';
 import type { InventoryCompositionDialog } from './InventoryCompositionForm';
 import type { InventoryReservationDialog } from './InventoryReservations';
@@ -6,6 +7,8 @@ import type { InventoryPhysicalDialogKind } from './inventory-physical-view';
 import type { InventoryItemCodeDialog } from './inventory-item-code-view';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
+  inventoryVesselStockAdmission,
+  inventoryVesselContentsProjection,
   inventoryStoragePositions,
   inventoryWellId,
   type InventoryCommand,
@@ -47,6 +50,7 @@ import {
 
 type OpenDialog = Exclude<
   InventoryDialog,
+  | InventoryContentsDialog
   | InventoryMaterialDialog
   | InventoryCompositionDialog
   | InventoryReservationDialog
@@ -90,6 +94,7 @@ export function InventoryForm({
   const overlay = usePresentationOverlay('modal');
   const events = usePresentationListener(overlay.scope);
   const state = data.state;
+  const contentsByVessel = useMemo(() => inventoryVesselContentsProjection(state), [state]);
   const stock = 'stockId' in dialog ? state.stocks[dialog.stockId] : undefined;
   const moving =
     dialog.kind === 'move'
@@ -121,6 +126,9 @@ export function InventoryForm({
   );
   const [unit, setUnit] = useState<InventoryVolumeUnit>('uL');
   const [reason, setReason] = useState('');
+  const [contentsKnowledge, setContentsKnowledge] = useState<
+    'recorded' | 'unobserved' | 'unidentified'
+  >('recorded');
   const [typeVersionId, setTypeVersionId] = useState(
     'typeVersionId' in dialog ? (dialog.typeVersionId ?? '') : ''
   );
@@ -143,6 +151,11 @@ export function InventoryForm({
   const selectedStorage = state.storage[storageId];
   const fixedWell = dialog.kind === 'receive' && selectedStorage?.layout.kind === 'fixed-well';
   const selectedContainer = state.vessels[containerId];
+  const receiveBlocked =
+    dialog.kind === 'receive' &&
+    Boolean(
+      selectedContainer && 'ok' in inventoryVesselStockAdmission(state, selectedContainer.id)
+    );
   const busy = status.kind === 'submitting';
   const title =
     dialog.kind === 'location'
@@ -201,7 +214,7 @@ export function InventoryForm({
         const vesselId = inventoryWellId(selectedStorage.id, id);
         return (
           state.vessels[vesselId]?.lifecycle === 'active' &&
-          !Object.values(state.stocks).some((item) => item.vesselId === vesselId)
+          contentsByVessel[vesselId]?.kind === 'declared-empty'
         );
       });
     return destinationPositions(state, selectedStorage, moving?.id);
@@ -217,7 +230,7 @@ export function InventoryForm({
     (item) =>
       item.kind === 'movable' &&
       item.lifecycle === 'active' &&
-      !Object.values(state.stocks).some((stock) => stock.vesselId === item.id)
+      contentsByVessel[item.id]?.kind === 'declared-empty'
   );
 
   function destination(): InventoryLocatedPlacement | null {
@@ -232,15 +245,18 @@ export function InventoryForm({
       if ((dialog.kind === 'location' || dialog.kind === 'container') && typeBlocked)
         throw new Error('This type version is unavailable for new items.');
       const commands: InventoryCommand[] = [];
+      let createdVesselId: string | null = null;
       if (physicalType && (dialog.kind === 'location' || dialog.kind === 'container')) {
         if (invalidFields.size)
           throw new Error('Correct the invalid additional fields before saving.');
         if (!name.trim()) throw new Error('Enter an item name.');
         const target = destination();
+        const id = crypto.randomUUID();
+        if (dialog.kind === 'container') createdVesselId = id;
         commands.push({
           kind: 'instantiate-physical-type',
           typeVersionId,
-          id: crypto.randomUUID(),
+          id,
           name: name.trim(),
           destination:
             selectedStorage?.layout.kind === 'stack'
@@ -286,6 +302,7 @@ export function InventoryForm({
       } else if (dialog.kind === 'container') {
         if (!name.trim()) throw new Error('Enter a container name.');
         const id = crypto.randomUUID();
+        createdVesselId = id;
         const target = destination();
         commands.push({
           kind: 'create-vessel',
@@ -303,6 +320,10 @@ export function InventoryForm({
             item: { kind: 'vessel', id },
           });
       } else if (dialog.kind === 'receive') {
+        if (receiveBlocked)
+          throw new Error(
+            'Identify the existing contents or explicitly declare this container empty before receiving.'
+          );
         if (!materialId) throw new Error('Choose a material from this project.');
         let vesselId = containerId;
         if (!vesselId && fixedWell) {
@@ -386,6 +407,15 @@ export function InventoryForm({
             ? { kind: 'dispose-plate', id: dialog.item.id, reason: reason.trim() }
             : { kind: 'dispose-vessel', id: dialog.item.id, reason: reason.trim() }
         );
+      }
+      if (createdVesselId && contentsKnowledge !== 'recorded') {
+        if (!reason.trim()) throw new Error('Enter a reason for this contents declaration.');
+        commands.push({
+          kind: 'record-vessel-contents',
+          vesselId: createdVesselId,
+          knowledge: contentsKnowledge,
+          reason: reason.trim(),
+        });
       }
       if (await controller.submit(commands, title)) onClose();
     } catch (error) {
@@ -552,15 +582,31 @@ export function InventoryForm({
                 </Field>
               ) : null}
               {dialog.kind === 'container' ? (
-                <Field label="Container name">
-                  <TextField
-                    autoFocus
-                    aria-label="Container name"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    required
-                  />
-                </Field>
+                <>
+                  <Field label="Initial contents">
+                    <Select
+                      ariaLabel="Initial contents"
+                      value={contentsKnowledge}
+                      options={[
+                        { value: 'recorded', label: 'Declared empty' },
+                        { value: 'unobserved', label: 'Contents have not been observed' },
+                        { value: 'unidentified', label: 'Material is present but unidentified' },
+                      ]}
+                      onValueChange={(value) =>
+                        setContentsKnowledge(value as typeof contentsKnowledge)
+                      }
+                    />
+                  </Field>
+                  <Field label="Container name">
+                    <TextField
+                      autoFocus
+                      aria-label="Container name"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      required
+                    />
+                  </Field>
+                </>
               ) : null}
               {dialog.kind === 'location' ? (
                 <>
@@ -740,6 +786,12 @@ export function InventoryForm({
                       />
                     </Field>
                   ) : null}
+                  {receiveBlocked ? (
+                    <Notice tone="warning">
+                      This container is not declared empty. Open its contents details to identify
+                      existing material or explicitly declare it empty.
+                    </Notice>
+                  ) : null}
                   {selectedContainer ? (
                     <Notice>
                       Receive into {selectedContainer.name} at{' '}
@@ -807,7 +859,8 @@ export function InventoryForm({
                 </Notice>
               ) : null}
               {['use', 'reconcile', 'quality', 'dispose'].includes(dialog.kind) ||
-              Boolean(physicalType) ? (
+              Boolean(physicalType) ||
+              (dialog.kind === 'container' && contentsKnowledge !== 'recorded') ? (
                 <Field label="Reason">
                   <TextArea
                     aria-label="Reason"
@@ -828,6 +881,7 @@ export function InventoryForm({
                 variant={dialog.kind === 'dispose' ? 'danger' : 'primary'}
                 disabled={
                   !canSubmit ||
+                  receiveBlocked ||
                   typeBlocked ||
                   invalidFields.size > 0 ||
                   Boolean(selectedStorage && !containerId && available.length === 0)

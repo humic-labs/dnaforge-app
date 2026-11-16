@@ -16,6 +16,8 @@ export function inventoryPrincipalMatchesActor(
 
 function* recordedPrincipals(state: InventoryState): Generator<InventoryRecordedPrincipal> {
   for (const row of [...Object.values(state.storage), ...Object.values(state.vessels)]) {
+    if ('contentsKnowledge' in row && row.contentsKnowledge.kind !== 'recorded')
+      yield row.contentsKnowledge.by;
     if (row.configuration.geometryOverride) yield row.configuration.geometryOverride.by;
     if ('custody' in row && row.custody.kind !== 'available') {
       if (row.custody.holder) yield row.custody.holder;

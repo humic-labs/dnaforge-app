@@ -642,15 +642,24 @@ describe('inventory archive adoption authority', () => {
       })
     ).toThrow();
     const {
+      vesselBindings: _vessels,
       hierarchyBindings: _hierarchy,
       origin: _origin,
       tableBindings: _tableBindings,
       observations: _observations,
       ...oldShape
     } = adopted(source);
-    expect(() => parseInventoryState({ ...oldShape, schema: 'dnaforge.inventory.v11' })).toThrow(
-      'Legacy inventory schemas cannot contain imported attribution'
-    );
+    expect(() =>
+      parseInventoryState({
+        ...oldShape,
+        schema: 'dnaforge.inventory.v11',
+        vessels: Object.fromEntries(
+          Object.entries(oldShape.vessels).map(
+            ([id, { contentsKnowledge: _knowledge, ...vessel }]) => [id, vessel]
+          )
+        ),
+      })
+    ).toThrow('Legacy inventory schemas cannot contain imported attribution');
   });
 });
 
@@ -721,7 +730,8 @@ it('upcasts a frozen v11 snapshot to explicit native origin without changing sto
   const state = parseInventoryState(before);
   expect(state).toEqual({
     ...before,
-    schema: 'dnaforge.inventory.v16',
+    schema: 'dnaforge.inventory.v17',
+    vesselBindings: {},
     hierarchyBindings: {},
     observations: {},
     origin: { kind: 'native' },

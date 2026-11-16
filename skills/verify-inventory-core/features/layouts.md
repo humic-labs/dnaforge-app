@@ -12,7 +12,8 @@
 
 Open Inventory, select a project and choose **Add location**. The **Position
 layout** control selects the actual layout model. Select a plate in the tree,
-then a well to receive stock. **Move location** moves the plate; **Dispose
+then a well to inspect its contents status. Choose **Receive stock** in the well
+drawer when it is declared empty. **Move location** moves the plate; **Dispose
 plate** disposes the whole plate and every well. Select a stack to inspect its
 occupied order.
 

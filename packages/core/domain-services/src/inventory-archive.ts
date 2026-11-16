@@ -399,6 +399,7 @@ const RECORD_KINDS: readonly InventoryImportRecordGroup['kind'][] = [
   'tableBindings',
   'observations',
   'hierarchyBindings',
+  'vesselBindings',
 ];
 
 function previewFacts(archive: InventoryValidatedArchive, input: InventoryImportPreviewInput) {

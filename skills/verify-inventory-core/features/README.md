@@ -56,3 +56,6 @@
 
 - [Benchling API captures](benchling-captures.md): versioned offline source
   evidence, explicit completeness and exact numeric interpretation.
+
+- [Container contents knowledge](contents-knowledge.md): declared empty,
+  unobserved and unidentified containers, separate from stock quantity.

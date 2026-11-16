@@ -4,6 +4,12 @@ import type {
 } from './inventory-observation-types';
 export type * from './inventory-observation-types';
 import type { InventoryHierarchyBinding } from './inventory-hierarchy-types';
+import type { InventoryVesselBinding } from './inventory-vessel-binding-types';
+import type {
+  InventoryContentsCommand,
+  InventoryContentsKnowledge,
+  InventoryVesselContents,
+} from './inventory-contents-types';
 import type { InventoryTableBinding } from './inventory-table-types';
 import type {
   InventoryPhysicalConfiguration,
@@ -36,7 +42,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v16' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v17' as const;
+export const INVENTORY_HIERARCHY_SCHEMA = 'dnaforge.inventory.v16' as const;
 export const INVENTORY_SOURCE_REVISION_SCHEMA = 'dnaforge.inventory.v15' as const;
 export const INVENTORY_STOCKTAKE_SCHEMA = 'dnaforge.inventory.v14' as const;
 export const INVENTORY_RECEIVE_TABLE_SCHEMA = 'dnaforge.inventory.v13' as const;
@@ -192,6 +199,7 @@ export interface InventoryVesselLimits {
 }
 
 interface InventoryVesselFacts {
+  readonly contentsKnowledge: InventoryContentsKnowledge;
   readonly configuration: InventoryPhysicalConfiguration;
   readonly limits: InventoryVesselLimits;
   readonly id: string;
@@ -252,6 +260,7 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly vesselBindings: Readonly<Record<string, InventoryVesselBinding>>;
   readonly hierarchyBindings: Readonly<Record<string, InventoryHierarchyBinding>>;
   readonly observations: Readonly<Record<string, InventoryObservation>>;
   readonly tableBindings: Readonly<Record<string, InventoryTableBinding>>;
@@ -429,6 +438,7 @@ export interface InventoryReservationAvailability {
 }
 
 export interface InventoryAvailability {
+  readonly vesselContents: Readonly<Record<string, InventoryVesselContents>>;
   readonly physical: InventoryPhysicalProjection;
   readonly items: Readonly<Record<string, InventoryItemCustody>>;
   readonly stocks: Readonly<Record<string, InventoryStockAvailability>>;
@@ -524,6 +534,7 @@ export type InventoryMaterialCommand =
   | (InventoryLegacyDiluteCommand & { readonly mixing: InventoryMixing });
 
 export type InventoryCommand =
+  | InventoryContentsCommand
   | InventoryObservationCommand
   | InventoryTemperatureCommand
   | InventoryItemCodeCommand
@@ -681,6 +692,8 @@ export type InventoryErrorCode =
   | 'SLOT_OCCUPIED'
   | 'CONTAINMENT_CYCLE'
   | 'VESSEL_DISPOSED'
+  | 'VESSEL_CONTENTS_UNRESOLVED'
+  | 'VESSEL_CONTENTS_RECORDED'
   | 'STORAGE_DISPOSED'
   | 'FIXED_WELL_IMMUTABLE'
   | 'INCOMPATIBLE_LAYOUT'
@@ -747,6 +760,7 @@ export type InventoryTransition =
 export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
+    vesselBindings: Object.create(null) as Record<string, InventoryVesselBinding>,
     hierarchyBindings: Object.create(null) as Record<string, InventoryHierarchyBinding>,
     observations: Object.create(null) as Record<string, InventoryObservation>,
     origin: { kind: 'native' },

@@ -190,6 +190,7 @@ const recordLabels: Readonly<Record<string, string>> = {
   thermalContexts: 'Thermal relationships',
   tableBindings: 'Imported table rows',
   hierarchyBindings: 'Imported hierarchy rows',
+  vesselBindings: 'Imported vessel identities',
   observations: 'Stocktake observations',
 };
 

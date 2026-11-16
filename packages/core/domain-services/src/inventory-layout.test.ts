@@ -452,6 +452,13 @@ it('exports the same strict command variants used by the parser as machine-reada
     additionalProperties: boolean;
   }[];
   expect(variants.map((variant) => variant.properties.kind.const)).toEqual([
+    'record-inventory-observation',
+    'apply-inventory-observation',
+    'record-thermal-context',
+    'record-temperature-claim',
+    'withdraw-temperature-claim',
+    'record-equipment-setpoint',
+    'record-storage-requirement',
     'attach-item-code',
     'retire-item-code',
     'retire-catalog-version',
@@ -471,6 +478,10 @@ it('exports the same strict command variants used by the parser as machine-reada
     'create-layout-storage',
     'create-vessel',
     'receive-stock',
+    'record-vessel-contents',
+    'record-vessels-contents',
+    'declare-vessel-empty',
+    'identify-vessel-stock',
     'move-storage',
     'move-vessel',
     'consume',

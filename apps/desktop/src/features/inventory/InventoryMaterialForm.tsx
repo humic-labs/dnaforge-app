@@ -1,5 +1,9 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import type { InventoryCommand, InventoryQuantity } from '@waypoint/domain-services';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  inventoryVesselContentsProjection,
+  type InventoryCommand,
+  type InventoryQuantity,
+} from '@waypoint/domain-services';
 import { Button, Notice, Select, TextArea, TextField } from '../../components/ui';
 import {
   PresentationScopeContext,
@@ -58,6 +62,7 @@ export function InventoryMaterialForm({
   const overlay = usePresentationOverlay('modal');
   const events = usePresentationListener(overlay.scope);
   const state = data.state;
+  const contentsByVessel = useMemo(() => inventoryVesselContentsProjection(state), [state]);
   const source = 'stockId' in dialog ? state.stocks[dialog.stockId] : undefined;
   const title =
     dialog.kind === 'attribute'
@@ -106,9 +111,7 @@ export function InventoryMaterialForm({
     !data.project.pinned &&
     (status.kind === 'ready' || (status.kind === 'refused' && !status.recoveryError));
   const emptyVessels = Object.values(state.vessels).filter(
-    (item) =>
-      item.lifecycle === 'active' &&
-      !Object.values(state.stocks).some((stock) => stock.vesselId === item.id)
+    (item) => item.lifecycle === 'active' && contentsByVessel[item.id]?.kind === 'declared-empty'
   );
   const candidates = Object.values(state.stocks).filter(
     (stock) => stock.id !== source?.id && state.vessels[stock.vesselId].lifecycle === 'active'

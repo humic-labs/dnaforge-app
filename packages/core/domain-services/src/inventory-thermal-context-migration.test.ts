@@ -22,7 +22,7 @@ describe('frozen v10 explicit thermal-context migration', () => {
     const input = JSON.parse(V10_SNAPSHOT),
       original = JSON.stringify(input),
       state = parseInventoryState(input);
-    expect(state.schema).toBe('dnaforge.inventory.v16');
+    expect(state.schema).toBe('dnaforge.inventory.v17');
     expect(state.thermalContexts).toEqual({});
     expect(state.revision).toBe(2);
     expect(state.lastRecordedAt).toBe(11);
@@ -34,12 +34,19 @@ describe('frozen v10 explicit thermal-context migration', () => {
       'recipeVersions',
       'fitEvidence',
       'storage',
-      'vessels',
       'stocks',
       'lots',
       'reservations',
     ] as const)
       expect(state[key]).toEqual(input[key]);
+    expect(state.vessels).toEqual(
+      Object.fromEntries(
+        Object.entries(input.vessels as Record<string, object>).map(([id, vessel]) => [
+          id,
+          { ...vessel, contentsKnowledge: { kind: 'recorded' } },
+        ])
+      )
+    );
     expect(state.temperatureClaims.specified).toEqual(input.temperatureClaims.specified);
     expect(state.temperatureClaims.qualified.installation).toEqual(
       input.temperatureClaims.qualified.installation.map((entry: object) => ({

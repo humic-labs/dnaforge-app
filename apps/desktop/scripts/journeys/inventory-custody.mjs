@@ -165,6 +165,10 @@ export async function runInventoryCustodyJourney(context) {
   assert.equal(wells.length, 6);
   await selectLocation(page, names.plate);
   await page.getByTestId('inventory-positions').locator('[data-position-id="A1"]').click();
+  await page
+    .getByTestId('inventory-detail-drawer')
+    .getByRole('button', { name: 'Receive stock', exact: true })
+    .click();
   dialog = page.getByRole('dialog', { name: 'Receive stock', exact: true });
   await dialog.getByLabel('Find material', { exact: true }).fill(materialId);
   await choose(dialog, 'Material', materialName);

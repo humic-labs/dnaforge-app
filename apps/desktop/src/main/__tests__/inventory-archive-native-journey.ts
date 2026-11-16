@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto';
 import { expect } from 'vitest';
-import type { InventoryCommand, InventoryPrincipal } from '@waypoint/domain-services';
+import {
+  INVENTORY_SCHEMA,
+  type InventoryCommand,
+  type InventoryPrincipal,
+} from '@waypoint/domain-services';
 import type { createNativeInventoryOwner } from '../inventory-owner';
 import type {
   InventoryAcceptedRequest,
@@ -149,7 +153,7 @@ export async function runNativeArchiveJourney(ctx: ArchiveContext) {
     projectId: ctx.projectId,
     inventoryId: source.inventoryId,
     revision: 1,
-    storedSchema: 'dnaforge.inventory.v16',
+    storedSchema: INVENTORY_SCHEMA,
   });
   expect(hash(artifact.sourceText)).toBe(artifact.sourceSha256);
   const document = JSON.parse(artifact.sourceText);

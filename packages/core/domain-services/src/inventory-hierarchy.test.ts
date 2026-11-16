@@ -583,11 +583,20 @@ describe('canonical hierarchy import', () => {
   });
   it('upcasts v15 without rewriting input and validates hierarchy binding keys and references', () => {
     const state = apply(null, [field('root')]);
-    const { hierarchyBindings: _hierarchy, ...rest } = state;
-    const raw = { ...rest, schema: 'dnaforge.inventory.v15' };
+    const { vesselBindings: _vessels, hierarchyBindings: _hierarchy, ...rest } = state;
+    const raw = {
+      ...rest,
+      schema: 'dnaforge.inventory.v15',
+      vessels: Object.fromEntries(
+        Object.entries(rest.vessels).map(([id, { contentsKnowledge: _knowledge, ...vessel }]) => [
+          id,
+          vessel,
+        ])
+      ),
+    };
     const bytes = JSON.stringify(raw);
     const upgraded = parseInventoryState(raw);
-    expect(upgraded.schema).toBe('dnaforge.inventory.v16');
+    expect(upgraded.schema).toBe('dnaforge.inventory.v17');
     expect(upgraded.hierarchyBindings).toEqual({});
     expect(upgraded.tableBindings).toEqual(state.tableBindings);
     expect(upgraded.observations).toEqual(state.observations);

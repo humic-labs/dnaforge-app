@@ -13,6 +13,66 @@ const operation = {
   mediaProfileId: 'qr-50x30-300dpi',
 };
 
+describe('inventory contents knowledge agent contract', () => {
+  const execute = {
+    kind: 'execute',
+    project: '/project',
+    inventoryId: 'inventory',
+    operationId: 'contents',
+    expectedRevision: 0,
+  };
+  const commands = [
+    {
+      kind: 'record-vessel-contents',
+      vesselId: 'tube',
+      knowledge: 'unobserved',
+      reason: 'Not inspected',
+    },
+    {
+      kind: 'record-vessels-contents',
+      vesselIds: ['well-a1', 'well-a2'],
+      knowledge: 'unobserved',
+      reason: 'Partial captured plate',
+    },
+    { kind: 'declare-vessel-empty', vesselId: 'tube', reason: 'Observed empty' },
+    {
+      kind: 'identify-vessel-stock',
+      id: 'stock',
+      vesselId: 'tube',
+      materialId: 'material',
+      quantity: { kind: 'unknown' },
+      quality: 'quarantined',
+      reason: 'Identified existing material',
+    },
+  ];
+
+  it('uses the existing execute contract for all explicit knowledge commands', () => {
+    const input = { operation: { ...execute, commands } };
+    expect(inventoryAgentSchema.parse(input)).toEqual(input);
+    const schema = JSON.stringify(inventoryAgentJsonSchema());
+    for (const command of commands) expect(schema).toContain(command.kind);
+  });
+
+  it('refuses caller-authored observation authority and ambiguous bulk identities', () => {
+    for (const extra of [
+      { at: 1 },
+      { by: { kind: 'agent', identityId: 'forged' } },
+      { principal: { kind: 'agent', identityId: 'forged' } },
+    ])
+      expect(() =>
+        inventoryAgentSchema.parse({
+          operation: { ...execute, commands: [{ ...commands[0], ...extra }] },
+        })
+      ).toThrow();
+    for (const vesselIds of [[], ['tube', 'tube']])
+      expect(() =>
+        inventoryAgentSchema.parse({
+          operation: { ...execute, commands: [{ ...commands[1], vesselIds }] },
+        })
+      ).toThrow();
+  });
+});
+
 describe('inventory label agent contract', () => {
   it('admits only the bounded native preparation read without caller-authored identity or output', () => {
     expect(inventoryAgentSchema.parse({ operation })).toEqual({ operation });

@@ -1,3 +1,4 @@
+import type { InventoryContentsDialog } from './InventoryContentsForm';
 import type { InventoryMaterialDialog } from './InventoryMaterialForm';
 import type { InventoryCompositionDialog } from './InventoryCompositionForm';
 import type { InventoryReservationDialog } from './InventoryReservations';
@@ -34,7 +35,8 @@ export function inventoryPrincipalLabel(
     return `Imported ${person} · ${holder.source.projectId} / ${holder.source.inventoryId}`;
   }
   if (holder.kind === 'agent') return `Agent ${holder.identityId}`;
-  return current?.kind === 'local-profile' && holder.profileKey === current.profileKey
+  if (current?.kind !== 'local-profile') return 'Desktop profile';
+  return holder.profileKey === current.profileKey
     ? 'This desktop profile'
     : 'Another desktop profile';
 }
@@ -56,6 +58,7 @@ export type InventoryDialog =
   | { kind: 'import-hierarchy' }
   | { kind: 'receive-mapped-table' }
   | { kind: 'inspect-benchling-capture' }
+  | InventoryContentsDialog
   | InventoryMaterialDialog
   | InventoryCompositionDialog
   | InventoryReservationDialog
@@ -224,6 +227,16 @@ export function destinationPositions(
 
 export function historyLabel(command: InventoryCommand, state: InventoryState): string {
   switch (command.kind) {
+    case 'record-vessel-contents':
+      return command.knowledge === 'unobserved'
+        ? 'Recorded unobserved contents'
+        : 'Recorded unidentified material';
+    case 'record-vessels-contents':
+      return 'Recorded container contents status';
+    case 'declare-vessel-empty':
+      return 'Declared container empty';
+    case 'identify-vessel-stock':
+      return `Identified existing contents in ${state.vessels[command.vesselId]?.name ?? 'container'}`;
     case 'record-inventory-observation':
       return `Recorded observation ${command.observationId}`;
     case 'apply-inventory-observation':

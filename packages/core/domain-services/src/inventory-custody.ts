@@ -449,8 +449,14 @@ export function inventoryCustodyGuard(
       access.push({ kind: 'vessel', id: command.vesselId });
       break;
     case 'receive-stock':
+    case 'identify-vessel-stock':
+    case 'record-vessel-contents':
+    case 'declare-vessel-empty':
     case 'receive-lot-stock':
       access.push({ kind: 'vessel', id: command.vesselId });
+      break;
+    case 'record-vessels-contents':
+      access.push(...command.vesselIds.map((id) => ({ kind: 'vessel' as const, id })));
       break;
     case 'move-storage':
       moving.push({ kind: 'storage', id: command.id });

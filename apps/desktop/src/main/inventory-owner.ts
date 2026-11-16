@@ -737,6 +737,7 @@ export function createNativeInventoryOwner(options: {
               lotMaterials.set(command.lotId, command.materialId);
             const materialId =
               command.kind === 'receive-stock' ||
+              command.kind === 'identify-vessel-stock' ||
               command.kind === 'create-lot' ||
               command.kind === 'pool' ||
               command.kind === 'dilute'

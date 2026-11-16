@@ -53,9 +53,11 @@ import {
 } from './inventory-reservations';
 import { applyInventoryItemCodeCommand } from './inventory-item-codes';
 import { applyInventoryTemperatureCommand } from './inventory-storage-conditions';
+import { applyInventoryContentsCommand, inventoryVesselStockAdmission } from './inventory-contents';
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
 interface Draft {
+  vesselBindings: InventoryState['vesselBindings'];
   hierarchyBindings: InventoryState['hierarchyBindings'];
   observations: Record<string, InventoryState['observations'][string]>;
   origin: InventoryState['origin'];
@@ -120,6 +122,7 @@ function createStorage(
       if (hasId(state, id))
         return failure('ID_ALREADY_EXISTS', 'A permanent well identifier already exists.');
       state.vessels[id] = {
+        contentsKnowledge: { kind: 'recorded' },
         kind: 'fixed-well',
         limits: unknownInventoryVesselLimits(),
         id,
@@ -172,6 +175,8 @@ function applyCommand(
   if (physical) return physical;
   const reserved = inventoryReservationGuard(state, command, context);
   if (reserved) return reserved;
+  const contents = applyInventoryContentsCommand(state, command, context);
+  if (contents !== undefined) return contents;
   const material = applyInventoryMaterialCommand(state, command);
   if (material !== undefined) return material;
   switch (command.kind) {
@@ -189,6 +194,7 @@ function applyCommand(
       );
       if (invalid) return invalid;
       state.vessels[command.id] = {
+        contentsKnowledge: { kind: 'recorded' },
         kind: 'movable',
         custody: { kind: 'available' },
         limits: unknownInventoryVesselLimits(),
@@ -200,15 +206,21 @@ function applyCommand(
       };
       return null;
     }
-    case 'receive-stock': {
+    case 'receive-stock':
+    case 'identify-vessel-stock': {
+      if (command.kind === 'identify-vessel-stock' && !context)
+        return failure(
+          'CONTEXT_REQUIRED',
+          'Identifying existing contents requires a trusted actor and clock.'
+        );
       if (hasId(state, command.id))
         return failure('ID_ALREADY_EXISTS', 'That inventory identifier already exists.');
-      const vessel = state.vessels[command.vesselId];
-      if (!vessel) return failure('VESSEL_NOT_FOUND', 'The receiving vessel does not exist.');
-      if (vessel.lifecycle === 'disposed')
-        return failure('VESSEL_DISPOSED', 'Stock cannot be received into a disposed vessel.');
-      if (Object.values(state.stocks).some((stock) => stock.vesselId === vessel.id))
-        return failure('STOCK_ALREADY_PRESENT', 'This version supports one stock per vessel.');
+      const vessel = inventoryVesselStockAdmission(
+        state,
+        command.vesselId,
+        command.kind === 'identify-vessel-stock' ? 'identify' : 'receive'
+      );
+      if ('ok' in vessel) return vessel;
       const quantity = normalizeInventoryQuantity(command.quantity);
       const capacity = inventoryCapacityFailure(vessel, quantity);
       if (capacity) return capacity;
@@ -221,6 +233,8 @@ function applyCommand(
         quality: command.quality,
         composition: { kind: 'unknown' },
       };
+      if (command.kind === 'identify-vessel-stock')
+        state.vessels[vessel.id] = { ...vessel, contentsKnowledge: { kind: 'recorded' } };
       return null;
     }
     case 'move-storage':
@@ -364,6 +378,7 @@ export function applyInventoryCommandBatch(
   if (context && context.at < state.lastRecordedAt)
     return failure('CLOCK_REGRESSION', 'The trusted timestamp precedes the inventory clock floor.');
   const draft: Draft = {
+    vesselBindings: state.vesselBindings,
     hierarchyBindings: state.hierarchyBindings,
     origin: state.origin,
     observations: Object.assign(Object.create(null), state.observations),

@@ -1,4 +1,6 @@
 import type { InventoryHierarchyBinding } from './inventory-hierarchy-types';
+import type { InventoryVesselBinding } from './inventory-vessel-binding-types';
+import type { InventoryContentsKnowledge } from './inventory-contents-types';
 import { inventoryObservationKey } from './inventory-observation-identity';
 import type {
   InventoryObservation,
@@ -44,6 +46,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_HIERARCHY_SCHEMA,
   INVENTORY_SOURCE_REVISION_SCHEMA,
   INVENTORY_STOCKTAKE_SCHEMA,
   INVENTORY_RECEIVE_TABLE_SCHEMA,
@@ -1296,6 +1299,38 @@ const commands = {
     quantity,
     quality,
   }),
+  'record-vessel-contents': fields('Record unresolved vessel contents command', {
+    kind: literal('record-vessel-contents'),
+    vesselId,
+    knowledge: union('Unresolved contents knowledge', [
+      literal('unobserved'),
+      literal('unidentified'),
+    ]),
+    reason,
+  }),
+  'record-vessels-contents': fields('Record unresolved vessel contents batch command', {
+    kind: literal('record-vessels-contents'),
+    vesselIds: array(vesselId, MAX_INVENTORY_STORAGE_SLOTS, 1, true),
+    knowledge: union('Unresolved contents knowledge', [
+      literal('unobserved'),
+      literal('unidentified'),
+    ]),
+    reason,
+  }),
+  'declare-vessel-empty': fields('Declare vessel empty command', {
+    kind: literal('declare-vessel-empty'),
+    vesselId,
+    reason,
+  }),
+  'identify-vessel-stock': fields('Identify existing vessel contents command', {
+    kind: literal('identify-vessel-stock'),
+    id,
+    vesselId,
+    materialId: id,
+    quantity,
+    quality,
+    reason,
+  }),
   'move-storage': fields('Move storage command', {
     kind: literal('move-storage'),
     id,
@@ -1623,7 +1658,7 @@ const custodyVesselRecord = union('Vessel record', [
   }),
 ]);
 
-const vesselRecord = union('Vessel record', [
+const configuredVesselRecord = union('Vessel record', [
   fields('Movable vessel record', {
     kind: literal('movable'),
     id,
@@ -1644,6 +1679,34 @@ const vesselRecord = union('Vessel record', [
     configuration: configurationRecord,
   }),
 ]);
+
+const contentsKnowledgeRecord: Codec<InventoryContentsKnowledge> = union(
+  'Vessel contents knowledge',
+  [
+    fields('Recorded vessel contents declaration', { kind: literal('recorded') }),
+    fields('Unobserved vessel contents', {
+      kind: literal('unobserved'),
+      reason,
+      at: timestamp,
+      by: recordedPrincipal,
+    }),
+    fields('Unidentified vessel contents', {
+      kind: literal('unidentified'),
+      reason,
+      at: timestamp,
+      by: recordedPrincipal,
+    }),
+  ]
+);
+const vesselRecord: Pick<Codec<InventoryVessel>, 'parse'> = {
+  parse(input) {
+    const { contentsKnowledge, ...facts } = object(input, 'Vessel record');
+    return {
+      ...configuredVesselRecord.parse(facts),
+      contentsKnowledge: contentsKnowledgeRecord.parse(contentsKnowledge),
+    };
+  },
+};
 
 const legacyStorage = fields('Legacy storage record', {
   id,
@@ -1678,6 +1741,36 @@ function validateState(state: InventoryState): void {
       new Set(inventoryStoragePositions(storage)),
     ])
   );
+  for (const binding of Object.values(state.vesselBindings)) {
+    const vessel = Object.hasOwn(state.vessels, binding.vesselId)
+      ? state.vessels[binding.vesselId]
+      : null;
+    if (!vessel || vessel.kind !== binding.origin.kind)
+      invalid('A vessel binding must reference an existing vessel of its original kind.');
+    if (binding.origin.kind === 'movable') {
+      const placement = binding.origin.placement;
+      if (placement.kind === 'located') {
+        const storage = Object.hasOwn(state.storage, placement.storageId)
+          ? state.storage[placement.storageId]
+          : null;
+        if (!storage || !positionsById.get(storage.id)!.has(placement.slotId))
+          invalid('An original movable vessel destination requires an existing storage position.');
+        if (storage.layout.kind === 'fixed-well')
+          invalid('A movable vessel source cannot originate in a permanent-well position.');
+      }
+    } else {
+      const storage = Object.hasOwn(state.storage, binding.origin.storageId)
+        ? state.storage[binding.origin.storageId]
+        : null;
+      if (
+        !storage ||
+        storage.layout.kind !== 'fixed-well' ||
+        !positionsById.get(storage.id)!.has(binding.origin.position) ||
+        binding.vesselId !== inventoryWellId(storage.id, binding.origin.position)
+      )
+        invalid('A permanent vessel source must identify its original plate and exact position.');
+    }
+  }
   const allIds = new Set<string>();
   for (const rows of [
     state.storage,
@@ -1793,6 +1886,11 @@ function validateState(state: InventoryState): void {
     }
   }
   for (const vessel of Object.values(state.vessels)) {
+    if (
+      vessel.contentsKnowledge.kind !== 'recorded' &&
+      vessel.contentsKnowledge.at > state.lastRecordedAt
+    )
+      invalid('Contents knowledge cannot exceed the recorded inventory clock.');
     const { capacity, deadVolume } = vessel.limits;
     if (
       capacity.kind === 'known' &&
@@ -1871,6 +1969,8 @@ function validateState(state: InventoryState): void {
   for (const stock of Object.values(state.stocks)) {
     if (!Object.hasOwn(state.vessels, stock.vesselId))
       invalid('Every stock must reference an existing vessel.');
+    if (state.vessels[stock.vesselId].contentsKnowledge.kind !== 'recorded')
+      invalid('An identified stock requires recorded vessel contents knowledge.');
     if (stockVessels.has(stock.vesselId)) invalid('This version supports one stock per vessel.');
     stockVessels.add(stock.vesselId);
     validateSource(stock);
@@ -2034,10 +2134,43 @@ function hierarchyBindings(value: unknown): Record<string, InventoryHierarchyBin
   return result;
 }
 
+const vesselBindingRecord: Codec<InventoryVesselBinding> = fields('Vessel source binding', {
+  namespace: text('Vessel source namespace', 256),
+  sourceId: text('Vessel source identity', 256),
+  rowSha256: tableRowHash,
+  vesselId,
+  origin: union('Original vessel source destination', [
+    fields('Movable vessel source origin', {
+      kind: literal('movable'),
+      placement: vesselPlacement,
+    }),
+    fields('Permanent well source origin', {
+      kind: literal('fixed-well'),
+      storageId: id,
+      position: slot,
+    }),
+  ]),
+});
+function vesselBindings(value: unknown): Record<string, InventoryVesselBinding> {
+  const result = Object.create(null) as Record<string, InventoryVesselBinding>;
+  const physicalIds = new Set<string>();
+  for (const [key, raw] of Object.entries(object(value, 'Vessel source bindings'))) {
+    const binding = vesselBindingRecord.parse(raw);
+    if (key !== inventoryTableBindingKey(binding.namespace, binding.sourceId))
+      invalid('A vessel binding key must match its exact source namespace and identity.');
+    if (physicalIds.has(binding.vesselId))
+      invalid('Each vessel source must bind a distinct vessel record.');
+    physicalIds.add(binding.vesselId);
+    result[key] = binding;
+  }
+  return result;
+}
+
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const sourceRevisions = current || row.schema === INVENTORY_SOURCE_REVISION_SCHEMA;
+  const hierarchySources = current || row.schema === INVENTORY_HIERARCHY_SCHEMA;
+  const sourceRevisions = hierarchySources || row.schema === INVENTORY_SOURCE_REVISION_SCHEMA;
   const observationRecords = sourceRevisions || row.schema === INVENTORY_STOCKTAKE_SCHEMA;
   const tableSources = observationRecords || row.schema === INVENTORY_RECEIVE_TABLE_SCHEMA;
   const archiveAttribution = tableSources || row.schema === INVENTORY_ADOPTION_SCHEMA;
@@ -2053,6 +2186,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_HIERARCHY_SCHEMA),
       literal(INVENTORY_SOURCE_REVISION_SCHEMA),
       literal(INVENTORY_STOCKTAKE_SCHEMA),
       literal(INVENTORY_RECEIVE_TABLE_SCHEMA),
@@ -2071,6 +2205,9 @@ export function parseInventoryState(value: unknown): InventoryState {
     ]),
     revision,
     ...(current
+      ? { vesselBindings: { schema: { type: 'object' }, parse: (input: unknown) => input } }
+      : {}),
+    ...(hierarchySources
       ? { hierarchyBindings: { schema: { type: 'object' }, parse: (input: unknown) => input } }
       : {}),
     ...(archiveAttribution ? { origin: inventoryOrigin } : {}),
@@ -2137,10 +2274,13 @@ export function parseInventoryState(value: unknown): InventoryState {
     };
   });
   const vessels = records(shape.vessels, (raw): InventoryVessel => {
-    if (configuration) return vesselRecord.parse(raw);
+    if (current) return vesselRecord.parse(raw);
+    if (configuration)
+      return { ...configuredVesselRecord.parse(raw), contentsKnowledge: { kind: 'recorded' } };
     if (custody)
       return {
         ...custodyVesselRecord.parse(raw),
+        contentsKnowledge: { kind: 'recorded' },
         configuration: emptyInventoryPhysicalConfiguration(),
       };
     const vessel = material
@@ -2154,14 +2294,22 @@ export function parseInventoryState(value: unknown): InventoryState {
     return vessel.kind === 'movable'
       ? {
           ...vessel,
+          contentsKnowledge: { kind: 'recorded' },
           custody: { kind: 'available' },
           configuration: emptyInventoryPhysicalConfiguration(),
         }
-      : { ...vessel, configuration: emptyInventoryPhysicalConfiguration() };
+      : {
+          ...vessel,
+          contentsKnowledge: { kind: 'recorded' },
+          configuration: emptyInventoryPhysicalConfiguration(),
+        };
   });
   const state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    hierarchyBindings: current ? hierarchyBindings(shape.hierarchyBindings) : Object.create(null),
+    vesselBindings: current ? vesselBindings(shape.vesselBindings) : Object.create(null),
+    hierarchyBindings: hierarchySources
+      ? hierarchyBindings(shape.hierarchyBindings)
+      : Object.create(null),
     origin: archiveAttribution ? inventoryOrigin.parse(shape.origin) : { kind: 'native' },
     observations: observationRecords ? observations(shape.observations) : Object.create(null),
     tableBindings: tableSources

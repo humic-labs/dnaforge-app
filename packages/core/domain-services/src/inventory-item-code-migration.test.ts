@@ -23,7 +23,7 @@ describe('frozen v8 item-code migration', () => {
       before = JSON.stringify(input),
       state = parseInventoryState(input);
     expect(JSON.stringify(input)).toBe(before);
-    expect(state.schema).toBe('dnaforge.inventory.v16');
+    expect(state.schema).toBe('dnaforge.inventory.v17');
     expect(state.itemCodes).toEqual({});
     expect(state.revision).toBe(1);
     expect(state.lastRecordedAt).toBe(10);
@@ -31,12 +31,19 @@ describe('frozen v8 item-code migration', () => {
       'typeVersions',
       'recipeVersions',
       'storage',
-      'vessels',
       'stocks',
       'reservations',
       'fitEvidence',
     ] as const)
       expect(state[key]).toEqual(input[key]);
+    expect(state.vessels).toEqual(
+      Object.fromEntries(
+        Object.entries(input.vessels as Record<string, object>).map(([id, vessel]) => [
+          id,
+          { ...vessel, contentsKnowledge: { kind: 'recorded' } },
+        ])
+      )
+    );
     expect(inventoryResolveItemCode(state, { namespace: null, value: 'tube' })).toEqual({
       kind: 'not-found',
     });

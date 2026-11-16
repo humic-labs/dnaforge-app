@@ -31,13 +31,21 @@ describe('frozen v7 catalog lifecycle migration', () => {
       bytes = JSON.stringify(input),
       state = parseInventoryState(input);
     expect(JSON.stringify(input)).toBe(bytes);
-    expect(state.schema).toBe('dnaforge.inventory.v16');
+    expect(state.schema).toBe('dnaforge.inventory.v17');
     expect(state.revision).toBe(1);
     expect(state.lastRecordedAt).toBe(10);
     expect(state.typeVersions['tube-v1'].selection).toEqual({ kind: 'available' });
     expect(state.recipeVersions['recipe-v1'].selection).toEqual({ kind: 'available' });
-    for (const key of ['storage', 'vessels', 'stocks', 'reservations', 'fitEvidence'] as const)
+    for (const key of ['storage', 'stocks', 'reservations', 'fitEvidence'] as const)
       expect(state[key]).toEqual(input[key]);
+    expect(state.vessels).toEqual(
+      Object.fromEntries(
+        Object.entries(input.vessels as Record<string, object>).map(([id, vessel]) => [
+          id,
+          { ...vessel, contentsKnowledge: { kind: 'recorded' } },
+        ])
+      )
+    );
     expect(parseInventoryState(JSON.parse(JSON.stringify(state)))).toEqual(state);
   });
 

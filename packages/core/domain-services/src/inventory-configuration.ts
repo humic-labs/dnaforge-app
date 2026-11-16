@@ -1058,11 +1058,16 @@ export function inventoryConfigurationAccess(
   );
   if (
     command.kind === 'receive-stock' ||
+    command.kind === 'identify-vessel-stock' ||
+    command.kind === 'record-vessel-contents' ||
+    command.kind === 'declare-vessel-empty' ||
     command.kind === 'receive-lot-stock' ||
     command.kind === 'pool' ||
     command.kind === 'dilute'
   )
     items.push({ kind: 'vessel', id: command.vesselId });
+  if (command.kind === 'record-vessels-contents')
+    items.push(...command.vesselIds.map((id) => ({ kind: 'vessel' as const, id })));
   if (command.kind === 'transfer') {
     if (command.destination.kind === 'new-stock')
       items.push({ kind: 'vessel', id: command.destination.vesselId });

@@ -56,7 +56,7 @@ it.runIf(Boolean(sourcePath))(
         expect(JSON.parse(row.state_json).schema).toBe(inventory.storedSchema);
         const scope = { project: row.project_id, inventoryId: inventory.inventoryId };
         const state = owner.inspect(scope)!;
-        expect(state.schema).toBe('dnaforge.inventory.v16');
+        expect(state.schema).toBe('dnaforge.inventory.v17');
         expect(state.tableBindings).toEqual(
           Object.fromEntries(
             Object.entries(JSON.parse(row.state_json).tableBindings ?? {}).map(([key, value]) => [
@@ -69,6 +69,11 @@ it.runIf(Boolean(sourcePath))(
           )
         );
         expect(state.observations).toEqual(JSON.parse(row.state_json).observations ?? {});
+        expect(state.vesselBindings).toEqual(JSON.parse(row.state_json).vesselBindings ?? {});
+        for (const [id, vessel] of Object.entries(state.vessels))
+          expect(vessel.contentsKnowledge).toEqual(
+            JSON.parse(row.state_json).vessels[id].contentsKnowledge ?? { kind: 'recorded' }
+          );
         expect(state.hierarchyBindings).toEqual(JSON.parse(row.state_json).hierarchyBindings ?? {});
         expect(state.revision).toBe(inventory.revision);
         expect(state.thermalContexts).toEqual(JSON.parse(row.state_json).thermalContexts ?? {});

@@ -952,9 +952,9 @@ containers need lifetime physical identity independent of stock existence.
 
 Physical source correlation and content admission have separate lifetimes.
 Storage already has hierarchy bindings and stock has receive-table bindings.
-Capture application also needs a vessel binding that can refer to an empty
-movable container or a permanent plate well. This is a planned addition;
-read-only capture inspection does not change the current inventory schema.
+Canonical v17 also has vessel bindings that can refer to an empty movable
+container or a permanent plate well. Foreign capture application owns their
+commitment; read-only capture inspection never creates a binding.
 
 ```mermaid
 stateDiagram-v2
@@ -994,6 +994,43 @@ one native transaction, rather than chaining independently committed hierarchy,
 vessel and stock imports.
 
 ## Material identity and conservation
+
+A vessel's contents knowledge is separate from its quantity and source identity.
+A missing stock record cannot mean both an explicitly empty vessel and a vessel
+whose contents have not been inventoried. An unidentified tube can still be
+moved, labeled, checked out or reported missing.
+
+```mermaid
+stateDiagram-v2
+  [*] --> DeclaredEmpty: create a new empty vessel
+  [*] --> Unobserved: contents have not been checked
+  [*] --> Unidentified: material is present without admitted identity
+  DeclaredEmpty --> Identified: receive linked stock
+  DeclaredEmpty --> Unobserved: record unresolved contents with reason
+  DeclaredEmpty --> Unidentified: record unidentified contents with reason
+  Unobserved --> Unidentified: record material present with reason
+  Unidentified --> Unobserved: correct knowledge with reason
+  Unobserved --> DeclaredEmpty: explicitly declare empty with reason
+  Unidentified --> DeclaredEmpty: explicitly declare empty with reason
+  Unobserved --> Identified: identify existing contents
+  Unidentified --> Identified: identify existing contents
+  Identified --> Identified: use or reconcile, including known zero
+```
+
+The v17 knowledge value is recorded, unobserved or unidentified. The shared
+domain projection combines recorded knowledge with actual stock records to
+distinguish declared-empty from identified. A known zero stock stays identified;
+unknown quantity also stays identified. Legacy and ordinary vessel creation
+retain their recorded declaration without inventing an observation time or actor
+during upcast.
+
+Unobserved and unidentified vessels cannot accept ordinary receiving or any
+operation requiring an empty destination. Identifying their existing contents
+has its own explicit command, using the same scientific admission, capacity,
+custody and configuration rules as receiving. It does not invent a physical
+receipt. Recording unresolved knowledge requires a reason and trusted actor and
+time, and cannot erase an existing stock, including a known zero stock. There is
+no identified-to-empty shortcut in this boundary.
 
 A scientific record identifies a material. A lot identifies one supplier batch
 or internal preparation. Stocks reference a lot or an explicit unattributed

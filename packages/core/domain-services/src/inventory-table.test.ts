@@ -149,7 +149,7 @@ describe('strict canonical receive tables', () => {
     expect(preview.kind).toBe('ready');
     expect(preview.sourceSha256).toBe(inventoryTableSha256(sourceText));
     const state = receive(null, sourceText);
-    expect(state.schema).toBe('dnaforge.inventory.v16');
+    expect(state.schema).toBe('dnaforge.inventory.v17');
     expect(state.revision).toBe(1);
     expect(Object.values(state.stocks).map((stock) => stock.quantity)).toEqual([
       { kind: 'known', value: '0', unit: 'uL' },
@@ -529,12 +529,22 @@ describe('strict canonical receive tables', () => {
     );
     if (!adopted.ok) throw new Error(adopted.message);
     const {
+      vesselBindings: _vessels,
       hierarchyBindings: _hierarchy,
       tableBindings: _bindings,
       observations: _observations,
       ...v12
     } = adopted.state;
-    const old = { ...v12, schema: 'dnaforge.inventory.v12' };
+    const old = {
+      ...v12,
+      schema: 'dnaforge.inventory.v12',
+      vessels: Object.fromEntries(
+        Object.entries(v12.vessels).map(([id, { contentsKnowledge: _knowledge, ...vessel }]) => [
+          id,
+          vessel,
+        ])
+      ),
+    };
     const before = JSON.stringify(old),
       upcast = parseInventoryState(old);
     expect(JSON.stringify(old)).toBe(before);
@@ -544,7 +554,7 @@ describe('strict canonical receive tables', () => {
     );
     expect(upcast.itemCodes['source-code'].assignedBy.kind).toBe('imported');
     expect(upcast.tableBindings).toEqual({});
-    expect(upcast.schema).toBe('dnaforge.inventory.v16');
+    expect(upcast.schema).toBe('dnaforge.inventory.v17');
     const binding = Object.values(source.tableBindings)[0];
     expect(() => parseInventoryState({ ...source, tableBindings: { forged: binding } })).toThrow(
       'exact source namespace'

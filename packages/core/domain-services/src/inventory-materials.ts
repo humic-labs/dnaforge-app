@@ -27,6 +27,7 @@ import {
   normalizeInventoryVolume,
   subtractInventoryVolume,
 } from './inventory-volume';
+import { inventoryVesselStockAdmission } from './inventory-contents';
 
 export interface InventoryMaterialDraft {
   readonly temperatureClaims: InventoryState['temperatureClaims'];
@@ -129,13 +130,7 @@ function identity(stock: InventoryStock): InventorySourceIdentity {
 }
 
 function emptyVessel(state: InventoryMaterialDraft, id: string): InventoryVessel | Refusal {
-  const vessel = state.vessels[id];
-  if (!vessel) return refuse('VESSEL_NOT_FOUND', 'The destination container does not exist.');
-  if (vessel.lifecycle !== 'active')
-    return refuse('VESSEL_DISPOSED', 'The destination container has been disposed.');
-  if (Object.values(state.stocks).some((stock) => stock.vesselId === id))
-    return refuse('STOCK_ALREADY_PRESENT', 'The destination must be an empty container.');
-  return vessel;
+  return inventoryVesselStockAdmission(state, id);
 }
 
 function contribution(

@@ -1,3 +1,5 @@
+import { inventoryVesselContents } from '@waypoint/domain-services';
+import { inventoryContentsLabel } from './inventory-contents-view';
 import { Button, Notice } from '../../components/ui';
 import type { InventoryItemCodeLookupSnapshot } from '../../shared/inventory-client';
 import { inventoryExpectedItemCode } from './inventory-item-code-view';
@@ -72,6 +74,16 @@ export function InventoryItemCodeResult({
             candidate.item.kind === match.item.kind && candidate.item.id === match.item.id
         );
         const custody = target?.custody;
+        const contents =
+          target && 'limits' in target.record
+            ? inventoryVesselContents(
+                {
+                  vessels: { [target.record.id]: target.record },
+                  stocks: Object.fromEntries(target.stocks.map(({ stock }) => [stock.id, stock])),
+                },
+                target.record.id
+              )
+            : null;
         const current = !target
           ? 'Unavailable'
           : target.record.lifecycle === 'disposed'
@@ -166,7 +178,11 @@ export function InventoryItemCodeResult({
                     </div>
                   ))
                 ) : (
-                  <p>No stock is recorded in this item.</p>
+                  <p>
+                    {contents
+                      ? inventoryContentsLabel(contents)
+                      : 'No stock is recorded in this item.'}
+                  </p>
                 )}
                 <Button onClick={() => onInspect(match.item)}>Inspect item</Button>
               </>

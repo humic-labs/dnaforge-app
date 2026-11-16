@@ -1,4 +1,9 @@
 import {
+  runInventoryContentsJourney,
+  runInventoryContentsResume,
+  runInventoryContentsReopen,
+} from './journeys/inventory-contents.mjs';
+import {
   runInventoryMappedJourney,
   runInventoryMappedResume,
   runInventoryMappedReopen,
@@ -105,6 +110,9 @@ assert.ok(
     'mapped-table',
     'mapped-resume',
     'mapped-reopen',
+    'contents',
+    'contents-reopen',
+    'contents-resume',
     'benchling-capture',
     'benchling-capture-reopen',
   ].includes(stage),
@@ -680,6 +688,24 @@ try {
     );
   }
 
+  if (stage === 'contents' || stage === 'contents-reopen' || stage === 'contents-resume') {
+    assert.ok(args.includes('--fixture'), 'Pass the current owned inventory fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    receipt.expected = await (
+      stage === 'contents'
+        ? runInventoryContentsJourney
+        : stage === 'contents-resume'
+          ? runInventoryContentsResume
+          : runInventoryContentsReopen
+    )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+    writeFileSync(
+      path.join(out, 'contents-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
   if (stage === 'benchling-capture' || stage === 'benchling-capture-reopen') {
     assert.ok(args.includes('--fixture'), 'Pass the current owned inventory fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
@@ -1056,6 +1082,10 @@ try {
     );
     await capture('01-permanent-six-well-plate', readback);
     await page.getByTestId('inventory-positions').locator('[data-position-id="A1"]').click();
+    await page
+      .getByTestId('inventory-detail-drawer')
+      .getByRole('button', { name: 'Receive stock', exact: true })
+      .click();
     let dialog = page.getByRole('dialog', { name: 'Receive stock', exact: true });
     await dialog.getByLabel('Find material', { exact: true }).fill(materialId);
     await choose(dialog, 'Material', new RegExp(material.name));

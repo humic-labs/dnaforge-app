@@ -8,6 +8,7 @@ import {
 } from 'react';
 import {
   inventoryStackItems,
+  inventoryVesselContentsProjection,
   inventoryStoragePositions,
   type InventoryComposition,
   type InventoryContribution,
@@ -26,6 +27,9 @@ import {
   inventoryCanEdit,
 } from './inventory-controller';
 import { InventoryMaterialForm, isInventoryMaterialDialog } from './InventoryMaterialForm';
+import { InventoryContentsForm } from './InventoryContentsForm';
+import { InventoryContentsPanel } from './InventoryContentsPanel';
+import { inventoryContentsLabel } from './inventory-contents-view';
 import { InventoryForm } from './InventoryForm';
 import { InventoryArchiveExportForm, InventoryArchiveImportForm } from './InventoryArchiveForms';
 import { InventoryTableForm } from './InventoryTableForm';
@@ -215,6 +219,10 @@ export function InventoryPanel() {
   const names = useRef(materialNames);
   names.current = materialNames;
   const state = data?.state;
+  const contentsByVessel = useMemo(
+    () => (state ? inventoryVesselContentsProjection(state) : {}),
+    [state]
+  );
   const selectedLocation =
     state && selection.kind === 'location' ? state.storage[selection.id] : undefined;
   const editable = inventoryCanEdit(status);
@@ -263,7 +271,7 @@ export function InventoryPanel() {
         );
       })
     : [];
-  const emptyContainers = state
+  const unstockedContainers = state
     ? Object.values(state.vessels).filter(
         (vessel) =>
           vessel.kind === 'movable' &&
@@ -351,7 +359,8 @@ export function InventoryPanel() {
 
   useEffect(() => {
     if (!state || drawer.kind !== 'item' || drawer.item.kind !== 'vessel') return;
-    const stock = Object.values(state.stocks).find((stock) => stock.vesselId === drawer.item.id);
+    const vesselId = drawer.item.id;
+    const stock = Object.values(state.stocks).find((stock) => stock.vesselId === vesselId);
     if (stock) setDrawer({ kind: 'stock', stockId: stock.id, tab: 'details' });
   }, [state, drawer]);
 
@@ -954,7 +963,7 @@ export function InventoryPanel() {
                           (stock
                             ? (materialNames[stock.materialId] ?? 'Loading material…')
                             : vessel?.kind === 'fixed-well'
-                              ? 'Empty well'
+                              ? inventoryContentsLabel(contentsByVessel[vessel.id])
                               : (vessel?.name ?? (unavailableReason ? 'Unavailable' : 'Empty')));
                         return (
                           <button
@@ -967,6 +976,7 @@ export function InventoryPanel() {
                             disabled={
                               !occupiedLocation &&
                               !stock &&
+                              !vessel &&
                               (!editable || Boolean(unavailableReason))
                             }
                             className={`min-h-16 rounded-md border p-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${stock ? (stock.quality === 'quarantined' ? 'border-warning/40 bg-warning/5' : 'border-accent/30 bg-accent-subtle') : occupiedLocation ? 'border-border bg-bg-subtle' : 'border-dashed border-border hover:bg-bg-subtle'}`}
@@ -975,8 +985,7 @@ export function InventoryPanel() {
                                 choose({ kind: 'location', id: occupiedLocation.id });
                               else if (stock)
                                 setDrawer({ kind: 'stock', stockId: stock.id, tab: 'details' });
-                              else if (vessel?.kind === 'movable')
-                                openItem({ kind: 'vessel', id: vessel.id });
+                              else if (vessel) openItem({ kind: 'vessel', id: vessel.id });
                               else
                                 setDialog({
                                   kind: 'receive',
@@ -994,6 +1003,11 @@ export function InventoryPanel() {
                           >
                             <span className="block font-semibold">{position}</span>
                             <span className="mt-1 block truncate text-fg-muted">{label}</span>
+                            {vessel && !stock && vessel.kind === 'movable' ? (
+                              <span className="mt-1 block text-fg-muted">
+                                {inventoryContentsLabel(contentsByVessel[vessel.id])}
+                              </span>
+                            ) : null}
                             {unavailableReason ? (
                               <span className="mt-1 block truncate text-xs text-fg-muted">
                                 {unavailableReason}
@@ -1118,8 +1132,8 @@ export function InventoryPanel() {
                 <p className="mt-2 max-w-md text-sm leading-6 text-fg-muted">
                   {search
                     ? 'Try another material, container, or location name.'
-                    : emptyContainers.length
-                      ? 'Empty containers are listed below. Receive stock when material is physically added.'
+                    : unstockedContainers.length
+                      ? 'Containers without recorded stock are listed below. Check their contents declaration before receiving or identifying material.'
                       : selection.kind === 'disposed'
                         ? 'Disposed containers remain in history and appear here.'
                         : 'Receive physical stock from a scientific record, then place it in a location.'}
@@ -1133,18 +1147,20 @@ export function InventoryPanel() {
                 ) : null}
               </div>
             )}
-            {emptyContainers.length ? (
+            {unstockedContainers.length ? (
               <section data-testid="inventory-empty-containers" className="space-y-3 px-5 pb-5">
-                <h3 className="text-sm font-semibold">Empty containers</h3>
+                <h3 className="text-sm font-semibold">Containers without recorded stock</h3>
                 <div className="divide-y divide-border rounded border border-border">
-                  {emptyContainers.slice(0, shown).map((vessel) => (
+                  {unstockedContainers.slice(0, shown).map((vessel) => (
                     <button
                       key={vessel.id}
                       data-vessel-id={vessel.id}
                       className="flex w-full flex-wrap justify-between gap-2 px-3 py-3 text-left text-sm hover:bg-bg-subtle"
                       onClick={() => openItem({ kind: 'vessel', id: vessel.id })}
                     >
-                      <span className="font-medium">{vessel.name}</span>
+                      <span className="font-medium">
+                        {vessel.name} · {inventoryContentsLabel(contentsByVessel[vessel.id])}
+                      </span>
                       <span className="text-xs text-fg-muted">
                         {vesselLocation(state!, vessel, data.availability?.items[vessel.id])} ·{' '}
                         {inventoryCustodyLabel(data.availability?.items[vessel.id])}
@@ -1185,6 +1201,14 @@ export function InventoryPanel() {
               </div>
               {drawer.kind === 'stock' && selectedStock && selectedVessel ? (
                 <>
+                  <div className="border-b border-border p-4">
+                    <InventoryContentsPanel
+                      data={data}
+                      vesselId={selectedVessel.id}
+                      editable={editable}
+                      onDialog={setDialog}
+                    />
+                  </div>
                   <div
                     role="tablist"
                     aria-label="Stock information"
@@ -1480,7 +1504,14 @@ export function InventoryPanel() {
                     onDialog={setDialog}
                     onOpenItem={openItem}
                   />
-                  <Notice>No stock is recorded in this container.</Notice>
+                  {drawer.item.kind === 'vessel' ? (
+                    <InventoryContentsPanel
+                      data={data}
+                      vesselId={drawer.item.id}
+                      editable={editable}
+                      onDialog={setDialog}
+                    />
+                  ) : null}
                   <InventoryPhysicalDetails
                     data={data}
                     item={drawer.item}
@@ -1506,29 +1537,42 @@ export function InventoryPanel() {
                   {drawer.item.kind === 'vessel' && selectedItem.lifecycle === 'active' ? (
                     <div className="flex flex-wrap gap-2">
                       <Button
-                        disabled={!editable}
+                        disabled={
+                          !editable || contentsByVessel[drawer.item.id]?.kind !== 'declared-empty'
+                        }
                         onClick={() => setDialog({ kind: 'receive', vesselId: drawer.item.id })}
                       >
                         Receive stock
                       </Button>
-                      <Button
-                        disabled={!editable}
-                        onClick={() => setDialog({ kind: 'reserve-item', item: drawer.item })}
-                      >
-                        Reserve item
-                      </Button>
-                      <Button
-                        disabled={!editable}
-                        onClick={() => setDialog({ kind: 'move', item: drawer.item })}
-                      >
-                        Move
-                      </Button>
-                      <Button
-                        disabled={!editable}
-                        onClick={() => setDialog({ kind: 'dispose', item: drawer.item })}
-                      >
-                        Dispose container
-                      </Button>
+                      {data.state.vessels[drawer.item.id]?.kind === 'movable' ? (
+                        <>
+                          <Button
+                            disabled={!editable}
+                            onClick={() => setDialog({ kind: 'reserve-item', item: drawer.item })}
+                          >
+                            Reserve item
+                          </Button>
+                          <Button
+                            disabled={
+                              !editable ||
+                              ('kind' in selectedItem && selectedItem.kind === 'fixed-well')
+                            }
+                            onClick={() => setDialog({ kind: 'move', item: drawer.item })}
+                          >
+                            Move
+                          </Button>
+                          <Button
+                            disabled={!editable}
+                            onClick={() => setDialog({ kind: 'dispose', item: drawer.item })}
+                          >
+                            Dispose container
+                          </Button>
+                        </>
+                      ) : (
+                        <p className="text-xs text-fg-muted">
+                          This well moves with its plate and cannot be disposed independently.
+                        </p>
+                      )}
                     </div>
                   ) : null}
                 </div>
@@ -1660,6 +1704,16 @@ export function InventoryPanel() {
             status={status}
             catalog={catalog}
             onDialog={setDialog}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : dialog.kind === 'contents' ? (
+          <InventoryContentsForm
+            key={`${data.project.projectId}:${data.project.defaultInventoryId}:${dialog.vesselId}:${dialog.action}`}
+            dialog={dialog}
+            data={data}
+            controller={controller}
+            status={status}
+            client={platform().inventory}
             onClose={() => setDialog({ kind: 'none' })}
           />
         ) : dialog.kind === 'custody' ? (

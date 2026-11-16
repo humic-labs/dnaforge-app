@@ -5,6 +5,7 @@ import {
 } from './inventory-configuration';
 import { inventoryReservationPlacementFailure } from './inventory-reservation-placement';
 import { inventoryCommandWithdrawals } from './inventory-materials';
+import { inventoryVesselContentsProjection } from './inventory-contents';
 import { inventoryCustodyAccess, inventoryItemCustody } from './inventory-custody';
 import { inventoryItemContains } from './inventory-placement';
 export { inventoryItemContains } from './inventory-placement';
@@ -200,7 +201,13 @@ export function inventoryAvailability(
     ...Object.keys(state.vessels).map((id) => ({ kind: 'vessel' as const, id })),
   ])
     items[item.id] = inventoryItemCustody(state, item, principal, at);
-  return { stocks, reservations, items, physical: inventoryPhysicalProjection(state) };
+  return {
+    stocks,
+    reservations,
+    items,
+    physical: inventoryPhysicalProjection(state),
+    vesselContents: inventoryVesselContentsProjection(state),
+  };
 }
 
 function itemConflict(
@@ -289,10 +296,16 @@ export function inventoryReservationGuard(
       locations = locationTarget(command.placement);
       break;
     case 'receive-stock':
+    case 'identify-vessel-stock':
+    case 'record-vessel-contents':
+    case 'declare-vessel-empty':
     case 'receive-lot-stock':
     case 'pool':
     case 'dilute':
       items = [{ kind: 'vessel', id: command.vesselId }];
+      break;
+    case 'record-vessels-contents':
+      items = command.vesselIds.map((id) => ({ kind: 'vessel' as const, id }));
       break;
     case 'transfer': {
       const destination =

@@ -13,7 +13,9 @@
 Open Inventory. Add container creates a physical vessel without stock. Select a
 stock, empty container or storage location to inspect its custody. Check out,
 Return, Start transfer, Record arrival, Report missing and Record location are
-separate actions. A permanent well acts through its plate.
+separate actions. Selecting a permanent well opens its contents and custody
+drawer; receive into a declared-empty well from that drawer. A permanent well
+acts through its plate for movement and custody.
 
 ## Driving it with Playwright and Electron
 
