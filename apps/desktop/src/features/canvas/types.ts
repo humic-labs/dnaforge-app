@@ -1,3 +1,4 @@
+import type { TableDocumentReference } from '../../shared/table-document-reference';
 import type {
   IndexedGenomeInitialAnnotationMapperPolicy,
   IndexedGenomeTabState,
@@ -141,6 +142,8 @@ export interface Tab {
   quickLookSource?: QuickLookPackageReceipt;
 
   sequenceDocument?: SequenceDocumentRef;
+
+  tableDocument?: TableDocumentReference;
 
   assemblyEditDesignId?: string;
   isDirty?: boolean;

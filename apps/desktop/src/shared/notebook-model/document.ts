@@ -195,7 +195,7 @@ export class NotebookDocumentModel {
       filters: Record<number, string>;
     }
   ): void {
-    let found = false,
+    let matches = 0,
       canonicalId = tableId;
     this.state.doc.descendants((node) => {
       if (
@@ -203,11 +203,11 @@ export class NotebookDocumentModel {
         node.attrs.type === 'table' &&
         (node.attrs.refId === tableId || node.attrs.data?.id === tableId)
       ) {
-        found = true;
-        canonicalId = node.attrs.data?.id ?? node.attrs.refId;
+        matches += 1;
+        canonicalId = node.attrs.refId;
       }
     });
-    if (!found) throw new Error('This notebook has no table with that identity.');
+    if (matches !== 1) throw new Error('This notebook has no unique table with that identity.');
     let memory = this.tables.get(canonicalId);
     if (!memory) {
       memory = createTableDataMemory();
@@ -232,7 +232,7 @@ export class NotebookDocumentModel {
       return this.execute({ kind: operation.command.kind });
     const { position, data } = matches[0];
     let current = data;
-    const canonicalId = data.id ?? (this.state.doc.nodeAt(position)!.attrs.refId as string);
+    const canonicalId = this.state.doc.nodeAt(position)!.attrs.refId as string;
     let memory = this.tables.get(canonicalId);
     if (!memory) {
       memory = createTableDataMemory(data);

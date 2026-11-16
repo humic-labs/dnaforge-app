@@ -1,3 +1,4 @@
+import { tableDocumentReferenceFromKey } from '../../shared/table-document-reference';
 import { classifyTabSession } from './tab-document-session';
 import { documentLifecycle } from '../../shared/document-lifecycle';
 import { TAB_DOCUMENT_LIFECYCLES } from '../../shared/tab-kind';
@@ -29,6 +30,12 @@ export function saveTargetForTab(tab: Tab): SaveDocumentTarget {
   )
     return { kind: 'tab', tabId: tab.id };
   if (tab.type === 'page') return { kind: 'page', pageId: tab.entityId };
+  const table =
+    tab.type === 'table'
+      ? (tab.tableDocument ?? tableDocumentReferenceFromKey(tab.entityId))
+      : null;
+  if (table?.backing.kind === 'notebook-inline' && table.binding.kind === 'current')
+    return { kind: 'page', pageId: table.backing.notebookDocumentId };
   if (tab.type === 'sequence') {
     if (session.kind === 'sequence' && session.editor === 'indexed')
       return { kind: 'tab', tabId: tab.id };
