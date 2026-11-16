@@ -287,6 +287,42 @@ describe('SequenceMetadataDrawer', () => {
     }
   );
 
+  it('shows archived project ownership after native package resolution becomes unavailable', async () => {
+    vi.mocked(listProjectEditFolders).mockResolvedValue([
+      { path: '/workspace', name: 'Project', lifecycle: 'active' },
+    ]);
+    render(
+      <SequenceMetadataDrawer
+        documentRef={ref}
+        {...sequenceFacts}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Edit Description' })).toBeEnabled()
+    );
+    const originalSequence = JSON.stringify(mocks.sequence);
+    mocks.resolve.mockRejectedValue(
+      new Error('Scientific request does not match its active owning workspace.')
+    );
+    vi.mocked(listProjectEditFolders).mockResolvedValue([
+      { path: '/workspace', name: 'Project', lifecycle: 'archived' },
+    ]);
+    await act(async () => {
+      useWorkspaceStore.setState({
+        folders: [{ path: '/workspace', name: 'Archived project', addedAt: 0 }],
+      });
+    });
+    expect(await screen.findByTestId('sequence-metadata-read-only')).toHaveTextContent('archive');
+    expect(screen.getByTestId('sequence-metadata-name')).toHaveTextContent('Sequence name');
+    expect(screen.getByTestId('sequence-metadata-size')).toHaveTextContent('42');
+    expect(screen.queryByRole('button', { name: 'Edit Description' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sequence-metadata-rename-button')).not.toBeInTheDocument();
+    expect(JSON.stringify(mocks.sequence)).toBe(originalSequence);
+    expect(mocks.updateMetadata).not.toHaveBeenCalled();
+  });
+
   it('keeps a package readable when its owning project is unavailable', async () => {
     useWorkspaceStore.setState({ folders: [] });
     render(
