@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from tests.sidecar_test_client import AuthenticatedSidecarTestClient as TestClient
 
 
@@ -181,7 +183,10 @@ def test_coverage_assembly_tile_route_batches_all_segments(monkeypatch):
         bin_size_bp: int,
         index_path: str | None,
         reference_fasta: str | None,
+        check_cancelled: Callable[[], None],
     ):
+        assert callable(check_cancelled)
+        check_cancelled()
         assert bam_path == "/fixtures/HG002.bam"
         assert index_path == "/fixtures/HG002.bam.bai"
         assert reference_fasta is None
