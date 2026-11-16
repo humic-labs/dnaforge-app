@@ -11,7 +11,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
+  group: ci-${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   plan:
@@ -329,7 +329,7 @@ jobs:
         run: node .ci-control/scripts/ci/native-journeys.mjs --root "$GITHUB_WORKSPACE" --source "${{ github.sha }}" --journey "${{ matrix.journey }}" --out "$RUNNER_TEMP/native/after"
       - name: Bind both results to this candidate
         run: |-
-          node .ci-control/scripts/ci/qualification.mjs bind-baseline --manifest "$RUNNER_TEMP/candidate/manifest.json" --receipt "$RUNNER_TEMP/native/before/native-journeys.json" --out "$RUNNER_TEMP/native-summary/before.json"
+          node .ci-control/scripts/ci/qualification.mjs bind-baseline --root "$GITHUB_WORKSPACE" --manifest "$RUNNER_TEMP/candidate/manifest.json" --receipt "$RUNNER_TEMP/native/before/native-journeys.json" --out "$RUNNER_TEMP/native-summary/before.json"
           node .ci-control/scripts/ci/qualification.mjs bind-native --root "$GITHUB_WORKSPACE" --manifest "$RUNNER_TEMP/candidate/manifest.json" --receipt "$RUNNER_TEMP/native/after/native-journeys.json" --out "$RUNNER_TEMP/native-summary/after.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

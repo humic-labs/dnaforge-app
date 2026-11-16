@@ -213,6 +213,7 @@ async function main(args) {
       sourceTree: git(root, 'rev-parse', 'HEAD^{tree}'),
       baseSha,
       controlSha: process.env.GITHUB_WORKFLOW_SHA,
+      controlRef: process.env.GITHUB_WORKFLOW_REF,
       runId: process.env.GITHUB_RUN_ID,
       attempt: Number(process.env.GITHUB_RUN_ATTEMPT),
       desktopShards: Array.from({ length: policy.desktop.shards }, (_, i) => i + 1),
@@ -220,6 +221,15 @@ async function main(args) {
       changed,
     };
     assert.match(manifest.controlSha, /^[a-f0-9]{40}$/u);
+    assert.equal(
+      git(controlRoot, 'rev-parse', 'HEAD'),
+      manifest.controlSha,
+      'Control checkout differs from the workflow revision'
+    );
+    assert.ok(
+      typeof manifest.controlRef === 'string' && manifest.controlRef.length > 0,
+      'Missing workflow reference'
+    );
     assert.match(manifest.runId, /^\d+$/u);
     assert.ok(manifest.attempt > 0);
     write(opt.out, manifest);
@@ -275,6 +285,7 @@ async function main(args) {
   if (['bind-native', 'bind-baseline'].includes(command)) {
     const receipt = read(opt.receipt);
     assert.equal(receipt.controlSha, manifest.controlSha, 'Native control revision mismatch');
+    assert.equal(receipt.workflowSha, manifest.controlSha, 'Native workflow revision mismatch');
     assert.equal(receipt.runId, manifest.runId, 'Native run mismatch');
     assert.equal(Number(receipt.runAttempt), manifest.attempt, 'Native run attempt mismatch');
   }
@@ -293,7 +304,11 @@ async function main(args) {
   if (command === 'bind-baseline') {
     const receipt = read(opt.receipt);
     assert.equal(receipt.sourceSha, manifest.baseSha, 'Baseline is not the candidate base');
-    assert.match(receipt.sourceTree, /^[a-f0-9]{40}$/u);
+    assert.equal(
+      receipt.sourceTree,
+      git(root, 'rev-parse', `${manifest.baseSha}^{tree}`),
+      'Baseline tree differs from its commit'
+    );
     assert.ok(['passed', 'failed'].includes(receipt.status), 'Baseline did not settle');
     return write(opt.out, {
       ...receipt,
