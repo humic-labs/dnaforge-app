@@ -1,35 +1,57 @@
 {
-  "version": 1,
+  "version": 2,
   "repository": {
     "id": 1454956566,
     "name": "humic-labs/dnaforge-app",
-    "target": "main"
+    "defaultBranch": "dev"
   },
   "authority": {
-    "workflow": ".github/workflows/ci.yml",
     "claWorkflow": ".github/workflows/cla.yml",
-    "ref": "refs/heads/main",
+    "ref": "refs/heads/dev",
     "appId": 15368
   },
-  "requiredChecks": [
-    "Every commit agrees to the CLA",
-    "Desktop build, typecheck and tests",
-    "Rust helpers and Python sidecar tests",
-    "Native workflow acceptance",
-    "Merge qualification"
-  ],
+  "branches": {
+    "dev": {
+      "role": "development",
+      "upstream": null,
+      "workflow": ".github/workflows/pr-preflight.yml",
+      "requiredChecks": ["Every commit agrees to the CLA", "PR Preflight"],
+      "queue": true
+    },
+    "staging": {
+      "role": "promotion",
+      "upstream": "dev",
+      "workflow": ".github/workflows/ci.yml",
+      "requiredChecks": ["Every commit agrees to the CLA", "Promotion qualification", "Electron E2E"],
+      "queue": false
+    },
+    "prod": {
+      "role": "promotion",
+      "upstream": "staging",
+      "workflow": ".github/workflows/ci.yml",
+      "requiredChecks": ["Every commit agrees to the CLA", "Promotion qualification", "Electron E2E"],
+      "queue": false
+    }
+  },
+  "externalChecks": {
+    "Electron E2E": { "appId": 15368 }
+  },
   "desktop": { "shards": 8 },
   "native": { "journeys": ["workspace", "track", "genome", "canvas", "chat", "palettes"] },
   "delivery": {
     "default": "prepare",
-    "holdLabels": ["do-not-merge", "merge-hold", "hold"]
+    "holdLabels": ["do-not-merge", "merge-hold", "hold"],
+    "pollIntervalMs": 20000,
+    "maxWaitMs": 3600000,
+    "maxRequests": 1200
   },
   "queue": {
-    "mergeMethod": "MERGE",
+    "mergeMethod": "SQUASH",
     "groupingStrategy": "ALLGREEN",
-    "maxEntriesToBuild": 3,
+    "maxEntriesToBuild": 5,
     "minEntriesToMerge": 1,
-    "maxEntriesToMerge": 1,
-    "checkResponseTimeoutMinutes": 120
-  }
+    "maxEntriesToMerge": 3,
+    "checkResponseTimeoutMinutes": 180
+  },
+  "release": { "sourceBranch": "prod", "channel": "stable" }
 }
