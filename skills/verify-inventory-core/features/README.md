@@ -37,3 +37,6 @@
 
 - [Archives and adoption](portability.md): exact source evidence, zero-write
   preview, explicit scientific bindings and durable import recovery.
+
+- [Receive tables](receive-tables.md): stable source rows, explicit destination
+  decisions, atomic stock receiving and duplicate prevention.

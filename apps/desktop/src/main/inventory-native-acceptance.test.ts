@@ -36,6 +36,10 @@ vi.mock('./config', () => ({ getApiUrl: () => 'http://synthetic-grants.invalid' 
 
 import { openFileTestDb } from './__tests__/test-db';
 import {
+  runNativeTableJourney,
+  verifyNativeTableReopen,
+} from './__tests__/inventory-table-native-journey';
+import {
   runNativeArchiveJourney,
   verifyNativeArchiveReopen,
 } from './__tests__/inventory-archive-native-journey';
@@ -74,6 +78,8 @@ type InventoryNativeCommand =
   | 'inventory.export-snapshot'
   | 'inventory.preview-import'
   | 'inventory.apply-import'
+  | 'inventory.preview-table'
+  | 'inventory.apply-table'
   | 'inventory.materials';
 type Server = Awaited<ReturnType<typeof startNativeDocumentCommandServer>>;
 interface NativeResponse<T> {
@@ -283,6 +289,8 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       'inventory.export-snapshot': 'artifact',
       'inventory.preview-import': 'preview',
       'inventory.apply-import': 'execution',
+      'inventory.preview-table': 'preview',
+      'inventory.apply-table': 'execution',
       'inventory.materials': 'page',
     };
     expect(wrapped).toHaveProperty(keys[command]);
@@ -295,7 +303,12 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
   ): Promise<NativeInventoryReceipt> {
     if (!server) throw new Error('Fixture server is closed.');
     const attempt: Record<string, unknown> = {
-      command: 'kind' in request ? 'inventory.apply-import' : 'inventory.execute',
+      command:
+        'kind' in request
+          ? request.kind === 'receive-table'
+            ? 'inventory.apply-table'
+            : 'inventory.apply-import'
+          : 'inventory.execute',
       request,
       ownerInstanceId: authority.ownerInstanceId,
       projectScope,
@@ -317,7 +330,12 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       const body = JSON.stringify({
         ownerInstanceId: authority.ownerInstanceId,
         projectScope,
-        command: 'kind' in request ? 'inventory.apply-import' : 'inventory.execute',
+        command:
+          'kind' in request
+            ? request.kind === 'receive-table'
+              ? 'inventory.apply-table'
+              : 'inventory.apply-import'
+            : 'inventory.execute',
         request,
       });
       await new Promise<void>((accept, reject) => {
@@ -2298,6 +2316,14 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       foreignArchive,
       archiveSqlBeforeReads,
     };
+    const tableBeforeRestart = await runNativeTableJourney({
+      scope,
+      projectId: projects[0].projectId,
+      owner,
+      success,
+      loseAcknowledgement,
+    });
+    evidence.tableBeforeRestart = tableBeforeRestart;
     await server!.close();
     server = undefined;
     db.close();
@@ -2305,6 +2331,10 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     db = openFileTestDb(dbPath);
     await start();
     evidence.closedAndReopened = true;
+    evidence.tableReopenedReadback = await verifyNativeTableReopen(
+      { scope, projectId: projects[0].projectId, owner, success, loseAcknowledgement },
+      tableBeforeRestart
+    );
     evidence.archiveReopenedReadback = await verifyNativeArchiveReopen(
       { scope, projectId: projects[0].projectId, owner, success, loseAcknowledgement },
       archiveBeforeRestart

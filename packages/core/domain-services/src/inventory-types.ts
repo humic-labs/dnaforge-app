@@ -1,3 +1,4 @@
+import type { InventoryTableBinding } from './inventory-table-types';
 import type {
   InventoryPhysicalConfiguration,
   InventoryPhysicalTypeVersion,
@@ -29,7 +30,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v12' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v13' as const;
+export const INVENTORY_ADOPTION_SCHEMA = 'dnaforge.inventory.v12' as const;
 export const INVENTORY_THERMAL_CONTEXT_SCHEMA = 'dnaforge.inventory.v11' as const;
 export const INVENTORY_TEMPERATURE_SCHEMA = 'dnaforge.inventory.v10' as const;
 export const INVENTORY_ITEM_CODE_SCHEMA = 'dnaforge.inventory.v9' as const;
@@ -241,6 +243,7 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly tableBindings: Readonly<Record<string, InventoryTableBinding>>;
   readonly origin: InventoryOrigin;
   readonly thermalContexts: Readonly<Record<string, InventoryThermalContext>>;
   readonly temperatureClaims: Readonly<Record<string, InventoryTemperatureClaim>>;
@@ -729,6 +732,7 @@ export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
     origin: { kind: 'native' },
+    tableBindings: Object.create(null) as Record<string, InventoryTableBinding>,
     revision: 0,
     thermalContexts: Object.create(null) as Record<string, InventoryThermalContext>,
     temperatureClaims: Object.create(null) as Record<string, InventoryTemperatureClaim>,

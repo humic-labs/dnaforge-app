@@ -15,6 +15,11 @@
       "types": "./src/unique-json.ts",
       "import": "./src/unique-json.ts",
       "default": "./src/unique-json.ts"
+    },
+    "./delimited-rows": {
+      "types": "./src/delimited-rows.ts",
+      "import": "./src/delimited-rows.ts",
+      "default": "./src/delimited-rows.ts"
     }
   },
   "scripts": {

@@ -22,6 +22,7 @@ import type {
 } from '../shared/inventory-command';
 import { NATIVE_DOCUMENT_MAX_BODY_BYTES } from '../shared/native-document-transport';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
+import { applyNativeInventoryTable } from './inventory-table';
 import {
   parseNativeInventoryJournalEntry,
   replayNativeInventoryEntries,
@@ -138,7 +139,9 @@ export function replayNativeInventoryJournal(
   entries: readonly NativeInventoryHistoryEntry[],
   depth = 0
 ): InventoryState {
-  return replayNativeInventoryEntries(entries, (target, request, context) =>
-    applyNativeInventoryAdoption(target, request, context, depth)
+  return replayNativeInventoryEntries(
+    entries,
+    (target, request, context) => applyNativeInventoryAdoption(target, request, context, depth),
+    applyNativeInventoryTable
   );
 }

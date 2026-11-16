@@ -50,6 +50,7 @@ export type InventoryItem = { kind: 'storage' | 'vessel'; id: string };
 export type InventoryDialog =
   | { kind: 'export-archive' }
   | { kind: 'import-archive' }
+  | { kind: 'receive-table' }
   | InventoryMaterialDialog
   | InventoryCompositionDialog
   | InventoryReservationDialog

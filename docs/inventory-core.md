@@ -27,7 +27,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v12. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v13. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -46,7 +46,9 @@ gain an unrecorded relationship value; they do not acquire new scope or
 applicability through migration. v1–v11 snapshots gain native inventory origin
 without changing recorded facts. v12 separates imported recorded attribution
 from principals that can execute commands. Native invocation and receipt
-contexts retain strict native actors.
+contexts retain strict native actors. v1–v12 snapshots gain an empty lifetime
+table-binding map. v12 imported origins and recorded actors retain their exact
+attribution during this upcast. Reading never writes the upgraded snapshot.
 
 ## Independent states
 
@@ -651,6 +653,70 @@ Capture and output are independent machines. A pending or unconfirmed output
 locks recapture so its bytes cannot change beneath a write or retry. Late output
 completion belongs to its original scoped session. Disposal prevents new work
 without pretending an in-flight file write was cancelled.
+
+## Canonical receive tables
+
+A receive table proposes changes to a selected inventory. It does not replace
+the inventory like archive adoption. The declared CSV/TSV columns have strict
+meanings; unknown columns, inferred headers, padded rows and silent truncation
+are refused. Scientific keys, location keys and existing-vessel keys require
+explicit resolutions. Unknown quantity, known zero and unplaced are separate
+choices. Existing vessels and permanent wells keep their names and locations.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Editing
+  Editing --> ReadingSource: choose bounded UTF-8 file
+  ReadingSource --> Editing: retain exact source text
+  Editing --> Previewing: pin source and explicit choices
+  Previewing --> Blocked: unresolved rows or invalid proposal
+  Previewing --> Ready: complete atomic proposal
+  Previewing --> NoChange: all rows unchanged or explicitly skipped
+  Blocked --> Editing: change source or choices
+  Ready --> Editing: change source or choices
+  NoChange --> Editing: change source or choices
+  Ready --> Stale: target revision or acceptance changes
+  Stale --> Previewing: regenerate proposal
+  Ready --> CommandRecovery: persist operation before sending
+  CommandRecovery --> Committed: original native receipt
+  CommandRecovery --> OutcomeUnknown: acknowledgement unavailable
+  OutcomeUnknown --> CommandRecovery: identical retry or receipt recovery
+```
+
+Lifetime correlation is the exact pair of source namespace and source row ID. A
+content hash identifies one file, not an imported physical item. A row number
+identifies presentation order, not an imported physical item. Neither can serve
+as a duplicate-prevention key. Source correlation records retain the normalized
+row hash, stock, vessel, scientific identity and original destination decision.
+They do not mirror current stock quantity, quality, custody or placement.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Unbound
+  Unbound --> Proposed: explicit create or empty-vessel decision
+  Proposed --> Bound: one atomic native commit
+  Bound --> Unchanged: same source facts and original decision
+  Bound --> NeedsReconciliation: source facts or decision differ
+  Unbound --> Skipped: explicit reason
+  Bound --> Skipped: explicit reason without inventory change
+```
+
+Resolve an existing lifetime binding before deriving new destination IDs. This
+preserves identity after archive adoption, which retains physical IDs across
+project scopes. Unchanged rows do not replenish consumed stock or move a vessel
+back to an old location. Changed rows require a separate explicit reconciliation
+workflow. Skipping does not delete or mark stock missing. All-skipped or
+unchanged proposals create no receipt.
+
+A ready plan binds exact source text, format, delimiter, namespace, resolutions,
+current scientific fingerprints and destination scope/revision. Native apply
+recomputes it inside the accepting transaction, then runs the existing atomic
+commands and appends their lifetime bindings in one revision. Ordinary commands
+cannot forge these bindings. Replay uses saved decisions and the original native
+receipt context. It does not consult the live scientific registry. Generated
+commands count toward the existing batch bound; oversized proposals refuse
+without hidden partial batches. Raw source and explicit skips remain in the
+accepted request when a nonempty proposal commits.
 
 ## Material identity and conservation
 

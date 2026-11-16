@@ -46878,12 +46878,228 @@
     },
     {
       "name": "inventory",
-      "description": "Export a lossless native inventory archive with export-snapshot and format native-v1. It captures one admitted state and complete accepted history without changing inventory or writing a file. Preview an exact sourceText using preview-import and options.bindings [{sourceMaterialId,destinationMaterialId}]. Preview is read-only; it reports source-linked refusals, exact scientific bindings, responsibilities and proposed identities. Only a ready preview supplies complete resolved options with fingerprints and a planDigest. Apply into an absent inventory with apply-import, the identical sourceText, those resolved options, expectedPlanDigest, expectedRevision and one stable operationId. Reuse the original operation or exact request after an uncertain result before creating a new intent. Adoption creates destination records under the current native receipt; imported source history remains evidence. Imported holders never gain current authority by matching an agent ID; source clocks cannot advance native acceptance. No populated-target merging, automatic scientific identity matching, silent chunking or spreadsheet/Benchling compatibility is implied. Read storage-conditions in an explicit project and inventory with required freshnessMaxAgeMs null for no age policy or a nonnegative safe integer in milliseconds. This read returns separate specified capability, operator-reported target and installed qualified-support assessments at one native revision and asOf time. Reported setpoints are not sensor measurements, and a supported temperature assessment is not overall sample suitability. Record the thermal relationship independently with record-thermal-context: inherit uses surroundings, self declares own temperature control, and unknown blocks inheritance. Evidence, withdrawal and reports never change this relationship. New qualified-envelope assertions declare scope physical-and-thermal-arrangement; legacy qualifications with unrecorded thermal scope remain inapplicable. Unknowns, conflicts, source scope and freshness remain explicit. It never changes stock, quality, holds, custody or placement. Record temperature claims, setpoints and stock/lot requirements only through execute with explicit observation time (timestamp or null); trusted recorded time and actor come from the native owner. Use prepare-label with an active exact codeId and mediaProfileId qr-50x30-300dpi or qr-80x50-300dpi to render an immutable existing-code QR SVG artifact. Its symbol contains the exact alias value only; namespace and explicit project/inventory context are required for lookup. The artifact retains full target and binding snapshots, source revision, exact SVG and SHA256. Rendered does not mean independently decoded, saved, printed, attached or physically scanned. Preparation is read-only, grants no access, and refuses retired bindings, disposed targets, unsupported text or layout overflow. Missing custody remains explicit and does not establish location. No file or printer is written. Resolve exact physical item codes with resolve-item-code in an explicit project and inventory. Pass query.namespace as an exact technical namespace or null for all namespaces and query.value as the unchanged code. Case, leading zeros and spaces matter. Invalid, not found, retired and ambiguous are distinct results; never prefer one ambiguous match or fall back to scientific material search. The lookup returns current target facts, custody and stock availability at one revision. Codes grant no access, and URL text is not navigation. Lookup never changes inventory. Use catalog-update-preview with an exact catalogEntryId and inventoryId to classify built-in definitions and inspect source scope and installed references without inventory writes. Any definition conflict blocks applying the entire pack. Apply selected new definitions through execute at the current revision; identical retired definitions remain retired. Inspect and change physical laboratory inventory through the same native owner as the Inventory view. Start with projects, then materials in the exact selected project. Inspect the returned defaultInventoryId before changing it. Read catalog for built-in physical type and equipment recipe definitions without installing them. Existing definition ID conflicts require explicit resolution; never overwrite. Execute only needed definitions plus explicit recipe instantiation as one atomic batch. Read availability at the matching revision for exact on-hand, held and unreserved quantities, item custody, reservation actions and blocking reasons. Execute an atomic typed command batch with the inspected expectedRevision and one stable operationId. Exact retries return the original receipt; changed requests require a new explicitly reviewed operation. A timeout leaves the outcome unknown: inspect the original operationId or retry that identical request. Publish immutable physical type and equipment recipe versions, then instantiate explicit pinned versions. Physical metadata is separate from scientific material identity. Allowed child types constrain placement logically; unknown fit remains unknown, and known geometric contradictions refuse placement. Read the physical projection for installed configuration, metadata issues and fit evidence. Reservations do not subtract on-hand quantity. Expiry requires an explicit recorded command. Checkout, transit and missing reports free the previous position and retain immutable last-known location facts. Planned destinations and last-known positions are not current locations. Return or locate requires an explicit valid destination; use stack-top for a stack. A plate or box governs effective custody of its contents, and permanent wells cannot depart independently. Missing or in-transit items block physical use and additions; reconciliation and quality observations remain distinct. Custody never changes quantity or silently releases reservations. Hold ownership, custody responsibility and execution time come from the native authority. Known zero quantity differs from unknown quantity. Scientific designs do not imply physical possession. Placement, quantity, quality, disposal and storage-layout rules are validated by the inventory owner. History retains accepted requests, trusted actors and durable owner context. Read operations need read-workspace; execute also needs write-workspace.",
+      "description": "Preview a strict canonical receive table with preview-table, format receive-v1 and exact sourceText. Supply a stable source namespace, explicit comma or tab delimiter, material/location/existing-vessel bindings and reason-bearing skipped source IDs. The required columns are source_id,name,material_key,quantity_kind,quantity,unit,quality,vessel_kind,vessel_key,location_key,slot. Every column must appear exactly once; no inferred headers, values, units, scientific identities, unplaced choice or silent extra columns. A new vessel requires a name and explicit location key; an existing empty vessel or permanent well requires its bound vessel key and blank name/location/slot fields. Known zero differs from explicit unknown quantity. Preview reports every source row, proposed commands and blocking issues without writes. Stable namespace plus exact source_id prevents duplicates when rows reorder or the file changes. Unchanged imported rows remain unchanged even after later consumption or movement; changed source facts or resolutions require reconciliation and refuse. Apply only a ready preview with apply-table, its exact sourceText, resolved options/fingerprints, expectedPlanDigest, expectedRevision and one stable operationId. All generated commands and source bindings commit atomically under the existing 256-command limit; never split silently. An uncertain result must recover or retry that exact operation. This format does not imply Benchling header compatibility or stocktake correction support. Export a lossless native inventory archive with export-snapshot and format native-v1. It captures one admitted state and complete accepted history without changing inventory or writing a file. Preview an exact sourceText using preview-import and options.bindings [{sourceMaterialId,destinationMaterialId}]. Preview is read-only; it reports source-linked refusals, exact scientific bindings, responsibilities and proposed identities. Only a ready preview supplies complete resolved options with fingerprints and a planDigest. Apply into an absent inventory with apply-import, the identical sourceText, those resolved options, expectedPlanDigest, expectedRevision and one stable operationId. Reuse the original operation or exact request after an uncertain result before creating a new intent. Adoption creates destination records under the current native receipt; imported source history remains evidence. Imported holders never gain current authority by matching an agent ID; source clocks cannot advance native acceptance. No populated-target merging, automatic scientific identity matching, silent chunking or spreadsheet/Benchling compatibility is implied. Read storage-conditions in an explicit project and inventory with required freshnessMaxAgeMs null for no age policy or a nonnegative safe integer in milliseconds. This read returns separate specified capability, operator-reported target and installed qualified-support assessments at one native revision and asOf time. Reported setpoints are not sensor measurements, and a supported temperature assessment is not overall sample suitability. Record the thermal relationship independently with record-thermal-context: inherit uses surroundings, self declares own temperature control, and unknown blocks inheritance. Evidence, withdrawal and reports never change this relationship. New qualified-envelope assertions declare scope physical-and-thermal-arrangement; legacy qualifications with unrecorded thermal scope remain inapplicable. Unknowns, conflicts, source scope and freshness remain explicit. It never changes stock, quality, holds, custody or placement. Record temperature claims, setpoints and stock/lot requirements only through execute with explicit observation time (timestamp or null); trusted recorded time and actor come from the native owner. Use prepare-label with an active exact codeId and mediaProfileId qr-50x30-300dpi or qr-80x50-300dpi to render an immutable existing-code QR SVG artifact. Its symbol contains the exact alias value only; namespace and explicit project/inventory context are required for lookup. The artifact retains full target and binding snapshots, source revision, exact SVG and SHA256. Rendered does not mean independently decoded, saved, printed, attached or physically scanned. Preparation is read-only, grants no access, and refuses retired bindings, disposed targets, unsupported text or layout overflow. Missing custody remains explicit and does not establish location. No file or printer is written. Resolve exact physical item codes with resolve-item-code in an explicit project and inventory. Pass query.namespace as an exact technical namespace or null for all namespaces and query.value as the unchanged code. Case, leading zeros and spaces matter. Invalid, not found, retired and ambiguous are distinct results; never prefer one ambiguous match or fall back to scientific material search. The lookup returns current target facts, custody and stock availability at one revision. Codes grant no access, and URL text is not navigation. Lookup never changes inventory. Use catalog-update-preview with an exact catalogEntryId and inventoryId to classify built-in definitions and inspect source scope and installed references without inventory writes. Any definition conflict blocks applying the entire pack. Apply selected new definitions through execute at the current revision; identical retired definitions remain retired. Inspect and change physical laboratory inventory through the same native owner as the Inventory view. Start with projects, then materials in the exact selected project. Inspect the returned defaultInventoryId before changing it. Read catalog for built-in physical type and equipment recipe definitions without installing them. Existing definition ID conflicts require explicit resolution; never overwrite. Execute only needed definitions plus explicit recipe instantiation as one atomic batch. Read availability at the matching revision for exact on-hand, held and unreserved quantities, item custody, reservation actions and blocking reasons. Execute an atomic typed command batch with the inspected expectedRevision and one stable operationId. Exact retries return the original receipt; changed requests require a new explicitly reviewed operation. A timeout leaves the outcome unknown: inspect the original operationId or retry that identical request. Publish immutable physical type and equipment recipe versions, then instantiate explicit pinned versions. Physical metadata is separate from scientific material identity. Allowed child types constrain placement logically; unknown fit remains unknown, and known geometric contradictions refuse placement. Read the physical projection for installed configuration, metadata issues and fit evidence. Reservations do not subtract on-hand quantity. Expiry requires an explicit recorded command. Checkout, transit and missing reports free the previous position and retain immutable last-known location facts. Planned destinations and last-known positions are not current locations. Return or locate requires an explicit valid destination; use stack-top for a stack. A plate or box governs effective custody of its contents, and permanent wells cannot depart independently. Missing or in-transit items block physical use and additions; reconciliation and quality observations remain distinct. Custody never changes quantity or silently releases reservations. Hold ownership, custody responsibility and execution time come from the native authority. Known zero quantity differs from unknown quantity. Scientific designs do not imply physical possession. Placement, quantity, quality, disposal and storage-layout rules are validated by the inventory owner. History retains accepted requests, trusted actors and durable owner context. Read operations need read-workspace; execute also needs write-workspace.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "operation": {
             "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "format": { "type": "string", "const": "receive-v1" },
+                  "sourceText": { "type": "string", "minLength": 1 },
+                  "options": {
+                    "type": "object",
+                    "properties": {
+                      "namespace": { "type": "string", "minLength": 1, "maxLength": 256 },
+                      "delimiter": { "type": "string", "enum": [",", "\t"] },
+                      "locations": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": { "type": "string", "minLength": 1, "maxLength": 256 },
+                            "target": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "unplaced" }
+                                  },
+                                  "required": ["kind"],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "storage" },
+                                    "storageId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 256
+                                    }
+                                  },
+                                  "required": ["kind", "storageId"],
+                                  "additionalProperties": false
+                                }
+                              ]
+                            }
+                          },
+                          "required": ["key", "target"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "vessels": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": { "type": "string", "minLength": 1, "maxLength": 256 },
+                            "vesselId": { "type": "string", "minLength": 1, "maxLength": 256 }
+                          },
+                          "required": ["key", "vesselId"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "skips": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "sourceId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                            "reason": { "type": "string", "minLength": 1, "maxLength": 4096 }
+                          },
+                          "required": ["sourceId", "reason"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "materials": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": { "type": "string", "minLength": 1, "maxLength": 256 },
+                            "materialId": { "type": "string", "minLength": 1, "maxLength": 256 }
+                          },
+                          "required": ["key", "materialId"],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "namespace",
+                      "delimiter",
+                      "locations",
+                      "vessels",
+                      "skips",
+                      "materials"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "kind": { "type": "string", "const": "preview-table" }
+                },
+                "required": ["project", "inventoryId", "format", "sourceText", "options", "kind"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "kind": { "type": "string", "const": "apply-table" },
+                  "operationId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "sourceText": { "type": "string", "minLength": 1 },
+                  "options": {
+                    "type": "object",
+                    "properties": {
+                      "namespace": { "type": "string", "minLength": 1, "maxLength": 256 },
+                      "delimiter": { "type": "string", "enum": [",", "\t"] },
+                      "locations": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": { "type": "string", "minLength": 1, "maxLength": 256 },
+                            "target": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "unplaced" }
+                                  },
+                                  "required": ["kind"],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": { "type": "string", "const": "storage" },
+                                    "storageId": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 256
+                                    }
+                                  },
+                                  "required": ["kind", "storageId"],
+                                  "additionalProperties": false
+                                }
+                              ]
+                            }
+                          },
+                          "required": ["key", "target"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "vessels": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": { "type": "string", "minLength": 1, "maxLength": 256 },
+                            "vesselId": { "type": "string", "minLength": 1, "maxLength": 256 }
+                          },
+                          "required": ["key", "vesselId"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "skips": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "sourceId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                            "reason": { "type": "string", "minLength": 1, "maxLength": 4096 }
+                          },
+                          "required": ["sourceId", "reason"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "materials": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": { "type": "string", "minLength": 1, "maxLength": 256 },
+                            "materialId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                            "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+                          },
+                          "required": ["key", "materialId", "fingerprint"],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "namespace",
+                      "delimiter",
+                      "locations",
+                      "vessels",
+                      "skips",
+                      "materials"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "expectedPlanDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+                },
+                "required": [
+                  "project",
+                  "inventoryId",
+                  "kind",
+                  "operationId",
+                  "expectedRevision",
+                  "sourceText",
+                  "options",
+                  "expectedPlanDigest"
+                ],
+                "additionalProperties": false
+              },
               {
                 "type": "object",
                 "properties": {
@@ -53386,8 +53602,8 @@
                 "type": "object",
                 "properties": {
                   "ok": { "type": "boolean", "const": true },
-                  "kind": { "type": "string", "const": "export-snapshot" },
-                  "artifact": {
+                  "kind": { "type": "string", "const": "table-preview" },
+                  "preview": {
                     "type": "object",
                     "additionalProperties": {
                       "anyOf": [
@@ -53398,18 +53614,28 @@
                         {
                           "type": "array",
                           "items": {
-                            "$ref": "#/properties/result/anyOf/0/properties/artifact/additionalProperties"
+                            "$ref": "#/properties/result/anyOf/0/properties/preview/additionalProperties"
                           }
                         },
                         {
                           "type": "object",
                           "additionalProperties": {
-                            "$ref": "#/properties/result/anyOf/0/properties/artifact/additionalProperties"
+                            "$ref": "#/properties/result/anyOf/0/properties/preview/additionalProperties"
                           }
                         }
                       ]
                     }
                   }
+                },
+                "required": ["ok", "kind", "preview"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                  "kind": { "type": "string", "const": "export-snapshot" },
+                  "artifact": { "$ref": "#/properties/result/anyOf/0/properties/preview" }
                 },
                 "required": ["ok", "kind", "artifact"],
                 "additionalProperties": false
@@ -53419,7 +53645,7 @@
                 "properties": {
                   "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
                   "kind": { "type": "string", "const": "import-preview" },
-                  "preview": { "$ref": "#/properties/result/anyOf/0/properties/artifact" }
+                  "preview": { "$ref": "#/properties/result/anyOf/0/properties/preview" }
                 },
                 "required": ["ok", "kind", "preview"],
                 "additionalProperties": false
@@ -53431,7 +53657,7 @@
                   "kind": { "type": "string", "const": "catalog" },
                   "entries": {
                     "type": "array",
-                    "items": { "$ref": "#/properties/result/anyOf/0/properties/artifact" }
+                    "items": { "$ref": "#/properties/result/anyOf/0/properties/preview" }
                   }
                 },
                 "required": ["ok", "kind", "entries"],
@@ -53442,7 +53668,7 @@
                 "properties": {
                   "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
                   "kind": { "type": "string", "const": "catalog-update-preview" },
-                  "preview": { "$ref": "#/properties/result/anyOf/0/properties/artifact" }
+                  "preview": { "$ref": "#/properties/result/anyOf/0/properties/preview" }
                 },
                 "required": ["ok", "kind", "preview"],
                 "additionalProperties": false
@@ -53452,7 +53678,7 @@
                 "properties": {
                   "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
                   "kind": { "type": "string", "const": "item-code-resolution" },
-                  "lookup": { "$ref": "#/properties/result/anyOf/0/properties/artifact" }
+                  "lookup": { "$ref": "#/properties/result/anyOf/0/properties/preview" }
                 },
                 "required": ["ok", "kind", "lookup"],
                 "additionalProperties": false
@@ -53462,7 +53688,7 @@
                 "properties": {
                   "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
                   "kind": { "type": "string", "const": "label-artifact" },
-                  "artifact": { "$ref": "#/properties/result/anyOf/0/properties/artifact" }
+                  "artifact": { "$ref": "#/properties/result/anyOf/0/properties/preview" }
                 },
                 "required": ["ok", "kind", "artifact"],
                 "additionalProperties": false
@@ -53472,7 +53698,7 @@
                 "properties": {
                   "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
                   "kind": { "type": "string", "const": "storage-conditions" },
-                  "conditions": { "$ref": "#/properties/result/anyOf/0/properties/artifact" }
+                  "conditions": { "$ref": "#/properties/result/anyOf/0/properties/preview" }
                 },
                 "required": ["ok", "kind", "conditions"],
                 "additionalProperties": false
@@ -53539,7 +53765,7 @@
                   "kind": { "type": "string", "const": "inspection" },
                   "state": {
                     "anyOf": [
-                      { "$ref": "#/properties/result/anyOf/0/properties/artifact" },
+                      { "$ref": "#/properties/result/anyOf/0/properties/preview" },
                       { "type": "null" }
                     ]
                   }
@@ -53554,7 +53780,7 @@
                   "kind": { "type": "string", "const": "availability" },
                   "availability": {
                     "anyOf": [
-                      { "$ref": "#/properties/result/anyOf/0/properties/artifact" },
+                      { "$ref": "#/properties/result/anyOf/0/properties/preview" },
                       { "type": "null" }
                     ]
                   }
@@ -53573,7 +53799,7 @@
                       "status": { "type": "string", "const": "committed" },
                       "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
                       "operationId": {
-                        "$ref": "#/properties/result/anyOf/11/properties/execution/properties/inventoryId"
+                        "$ref": "#/properties/result/anyOf/12/properties/execution/properties/inventoryId"
                       },
                       "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
                       "actor": { "type": "string", "minLength": 1, "maxLength": 1024 },
@@ -53618,7 +53844,7 @@
                             "properties": {
                               "kind": { "type": "string", "const": "local-profile" },
                               "profileKey": {
-                                "$ref": "#/properties/result/anyOf/11/properties/execution/properties/context/properties/principal/anyOf/0/properties/profileKey"
+                                "$ref": "#/properties/result/anyOf/12/properties/execution/properties/context/properties/principal/anyOf/0/properties/profileKey"
                               }
                             },
                             "required": ["kind", "profileKey"],
@@ -53651,7 +53877,7 @@
                   "kind": { "type": "string", "const": "operation" },
                   "receipt": {
                     "anyOf": [
-                      { "$ref": "#/properties/result/anyOf/11/properties/execution" },
+                      { "$ref": "#/properties/result/anyOf/12/properties/execution" },
                       { "type": "null" }
                     ]
                   }
@@ -53669,8 +53895,8 @@
                     "items": {
                       "type": "object",
                       "properties": {
-                        "request": { "$ref": "#/properties/result/anyOf/0/properties/artifact" },
-                        "receipt": { "$ref": "#/properties/result/anyOf/11/properties/execution" }
+                        "request": { "$ref": "#/properties/result/anyOf/0/properties/preview" },
+                        "receipt": { "$ref": "#/properties/result/anyOf/12/properties/execution" }
                       },
                       "required": ["request", "receipt"],
                       "additionalProperties": false

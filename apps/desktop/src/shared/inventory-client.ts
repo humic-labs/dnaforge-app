@@ -17,6 +17,7 @@ import type {
   InventoryVessel,
   InventoryArchiveArtifact,
   InventoryImportPreview,
+  InventoryTablePreview,
 } from '@waypoint/domain-services';
 import type { InventoryRenderedLabel } from '@waypoint/domain-services/inventory-label-types';
 import type {
@@ -24,6 +25,8 @@ import type {
   InventoryExportSnapshotRequest,
   InventoryPreviewImportRequest,
   InventoryApplyImportRequest,
+  InventoryPreviewTableRequest,
+  InventoryApplyTableRequest,
   InventoryExecuteRequest,
   InventoryHistoryRequest,
   InventoryOperationRequest,
@@ -130,11 +133,17 @@ export type InventoryImportPreviewSnapshot = InventoryImportPreview & {
   readonly asOf: number;
   readonly principal: InventoryPrincipal;
 };
+export type InventoryTablePreviewSnapshot = InventoryTablePreview & {
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+};
 
 export interface InventoryClient {
   exportSnapshot(input: InventoryExportSnapshotRequest): Promise<InventoryExportSnapshot>;
   previewImport(input: InventoryPreviewImportRequest): Promise<InventoryImportPreviewSnapshot>;
   applyImport(input: InventoryApplyImportRequest): Promise<NativeInventoryExecution>;
+  previewTable(input: InventoryPreviewTableRequest): Promise<InventoryTablePreviewSnapshot>;
+  applyTable(input: InventoryApplyTableRequest): Promise<NativeInventoryExecution>;
   projects(): Promise<readonly InventoryProject[]>;
   catalog(input: InventoryCatalogQuery): Promise<readonly InventoryEquipmentCatalogEntry[]>;
   catalogUpdatePreview(
@@ -171,6 +180,8 @@ export function unavailableInventoryClient(): InventoryClient {
     exportSnapshot: unavailable,
     previewImport: unavailable,
     applyImport: unavailableMutation,
+    previewTable: unavailable,
+    applyTable: unavailableMutation,
     projects: unavailable,
     catalog: unavailable,
     catalogUpdatePreview: unavailable,
@@ -191,6 +202,8 @@ export type {
   InventoryExportSnapshotRequest,
   InventoryPreviewImportRequest,
   InventoryApplyImportRequest,
+  InventoryPreviewTableRequest,
+  InventoryApplyTableRequest,
   InventoryAcceptedRequest,
   InventoryCatalogUpdatePreviewRequest,
   InventoryExecuteRequest,

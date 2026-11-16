@@ -54,6 +54,55 @@ export const inventoryApplyImportRequestSchema = inventoryReadRequestSchema
   })
   .strict();
 
+const tableMaterial = z.object({ key: identity, materialId: identity }).strict();
+const tableResolvedMaterial = tableMaterial.extend({ fingerprint: digest }).strict();
+const tableOptions = {
+  namespace: identity,
+  delimiter: z.enum([',', '\t']),
+  locations: z.array(
+    z
+      .object({
+        key: identity,
+        target: z.discriminatedUnion('kind', [
+          z.object({ kind: z.literal('unplaced') }).strict(),
+          z.object({ kind: z.literal('storage'), storageId: identity }).strict(),
+        ]),
+      })
+      .strict()
+  ),
+  vessels: z.array(z.object({ key: identity, vesselId: identity }).strict()),
+  skips: z.array(z.object({ sourceId: identity, reason: z.string().min(1).max(4096) }).strict()),
+};
+export const inventoryTableOptionsSchema = z
+  .object({
+    ...tableOptions,
+    materials: z.array(tableMaterial),
+  })
+  .strict();
+export const inventoryResolvedTableOptionsSchema = z
+  .object({
+    ...tableOptions,
+    materials: z.array(tableResolvedMaterial),
+  })
+  .strict();
+export const inventoryPreviewTableRequestSchema = inventoryReadRequestSchema
+  .extend({
+    format: z.literal('receive-v1'),
+    sourceText: z.string().min(1),
+    options: inventoryTableOptionsSchema,
+  })
+  .strict();
+export const inventoryApplyTableRequestSchema = inventoryReadRequestSchema
+  .extend({
+    kind: z.literal('receive-table'),
+    operationId: identity,
+    expectedRevision: revision,
+    sourceText: z.string().min(1),
+    options: inventoryResolvedTableOptionsSchema,
+    expectedPlanDigest: digest,
+  })
+  .strict();
+
 export const inventoryStorageConditionsRequestSchema = inventoryReadRequestSchema
   .extend({ freshnessMaxAgeMs: revision.nullable() })
   .strict();
@@ -93,6 +142,7 @@ export const inventoryExecuteRequestSchema = inventoryReadRequestSchema
 export const inventoryAcceptedRequestSchema = z.union([
   inventoryExecuteRequestSchema,
   inventoryApplyImportRequestSchema,
+  inventoryApplyTableRequestSchema,
 ]);
 
 export const inventoryOperationRequestSchema = inventoryReadRequestSchema
@@ -134,7 +184,12 @@ export type InventoryReadRequest = z.infer<typeof inventoryReadRequestSchema>;
 export type InventoryExportSnapshotRequest = z.infer<typeof inventoryExportSnapshotRequestSchema>;
 export type InventoryPreviewImportRequest = z.infer<typeof inventoryPreviewImportRequestSchema>;
 export type InventoryApplyImportRequest = z.infer<typeof inventoryApplyImportRequestSchema>;
-export type InventoryAcceptedRequest = InventoryExecuteRequest | InventoryApplyImportRequest;
+export type InventoryPreviewTableRequest = z.infer<typeof inventoryPreviewTableRequestSchema>;
+export type InventoryApplyTableRequest = z.infer<typeof inventoryApplyTableRequestSchema>;
+export type InventoryAcceptedRequest =
+  | InventoryExecuteRequest
+  | InventoryApplyImportRequest
+  | InventoryApplyTableRequest;
 export type InventoryStorageConditionsRequest = z.infer<
   typeof inventoryStorageConditionsRequestSchema
 >;

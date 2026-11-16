@@ -23,7 +23,7 @@ describe('frozen v8 item-code migration', () => {
       before = JSON.stringify(input),
       state = parseInventoryState(input);
     expect(JSON.stringify(input)).toBe(before);
-    expect(state.schema).toBe('dnaforge.inventory.v12');
+    expect(state.schema).toBe('dnaforge.inventory.v13');
     expect(state.itemCodes).toEqual({});
     expect(state.revision).toBe(1);
     expect(state.lastRecordedAt).toBe(10);

@@ -396,6 +396,7 @@ const RECORD_KINDS: readonly InventoryImportRecordGroup['kind'][] = [
   'equipmentSetpoints',
   'storageRequirements',
   'thermalContexts',
+  'tableBindings',
 ];
 
 function previewFacts(archive: InventoryValidatedArchive, input: InventoryImportPreviewInput) {

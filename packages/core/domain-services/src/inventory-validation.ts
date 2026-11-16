@@ -1,3 +1,5 @@
+import { inventoryTableBindingKey } from './inventory-table-binding';
+import type { InventoryTableBinding } from './inventory-table-types';
 import { inventoryHasImportedAttribution } from './inventory-attribution';
 import { validateInventoryPhysicalState } from './inventory-configuration';
 import { validateInventoryItemCodes } from './inventory-item-codes';
@@ -31,6 +33,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_ADOPTION_SCHEMA,
   INVENTORY_THERMAL_CONTEXT_SCHEMA,
   INVENTORY_TEMPERATURE_SCHEMA,
   INVENTORY_ITEM_CODE_SCHEMA,
@@ -1841,10 +1844,40 @@ function validateState(state: InventoryState): void {
   }
 }
 
+const tableBindingRecord: Codec<InventoryTableBinding> = fields('Table source binding', {
+  namespace: text('Table source namespace', 256),
+  sourceId: text('Table source identity', 256),
+  rowSha256: text('Table row hash', 71, false, '^sha256:[a-f0-9]{64}$') as Codec<
+    InventoryTableBinding['rowSha256']
+  >,
+  stockId: id,
+  vesselId,
+  materialId: id,
+  destination: union('Original table destination', [
+    fields('Original new vessel destination', {
+      kind: literal('new-vessel'),
+      placement: vesselPlacement,
+    }),
+    fields('Original existing vessel destination', { kind: literal('existing-vessel') }),
+  ]),
+});
+
+function tableBindings(value: unknown): Record<string, InventoryTableBinding> {
+  const result = Object.create(null) as Record<string, InventoryTableBinding>;
+  for (const [key, raw] of Object.entries(object(value, 'Table source bindings'))) {
+    const binding = tableBindingRecord.parse(raw);
+    if (key !== inventoryTableBindingKey(binding.namespace, binding.sourceId))
+      invalid('A table binding key must match its exact source namespace and identity.');
+    result[key] = binding;
+  }
+  return result;
+}
+
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const thermalContexts = current || row.schema === INVENTORY_THERMAL_CONTEXT_SCHEMA;
+  const archiveAttribution = current || row.schema === INVENTORY_ADOPTION_SCHEMA;
+  const thermalContexts = archiveAttribution || row.schema === INVENTORY_THERMAL_CONTEXT_SCHEMA;
   const temperature = thermalContexts || row.schema === INVENTORY_TEMPERATURE_SCHEMA;
   const itemCodes = temperature || row.schema === INVENTORY_ITEM_CODE_SCHEMA;
   const catalog = itemCodes || row.schema === INVENTORY_CATALOG_SCHEMA;
@@ -1856,6 +1889,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_ADOPTION_SCHEMA),
       literal(INVENTORY_THERMAL_CONTEXT_SCHEMA),
       literal(INVENTORY_TEMPERATURE_SCHEMA),
       literal(INVENTORY_ITEM_CODE_SCHEMA),
@@ -1869,7 +1903,10 @@ export function parseInventoryState(value: unknown): InventoryState {
       literal(LEGACY_INVENTORY_SCHEMA),
     ]),
     revision,
-    ...(current ? { origin: inventoryOrigin } : {}),
+    ...(archiveAttribution ? { origin: inventoryOrigin } : {}),
+    ...(current
+      ? { tableBindings: { schema: { type: 'object' }, parse: (input: unknown) => input } }
+      : {}),
     ...(thermalContexts
       ? { thermalContexts: { schema: { type: 'object' }, parse: (input: unknown) => input } }
       : {}),
@@ -1951,7 +1988,8 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   const state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    origin: current ? inventoryOrigin.parse(shape.origin) : { kind: 'native' },
+    origin: archiveAttribution ? inventoryOrigin.parse(shape.origin) : { kind: 'native' },
+    tableBindings: current ? tableBindings(shape.tableBindings) : Object.create(null),
     thermalContexts: thermalContexts
       ? temperatureFactMap(thermalContextRecord, shape.thermalContexts)
       : Object.create(null),
@@ -2050,10 +2088,23 @@ export function parseInventoryState(value: unknown): InventoryState {
         })
       : (Object.create(null) as Record<string, InventoryLot>),
   };
-  if (!current && inventoryHasImportedAttribution(state))
+  if (!archiveAttribution && inventoryHasImportedAttribution(state))
     invalid('Legacy inventory schemas cannot contain imported attribution.');
   if (state.origin.kind === 'archive-adoption' && state.origin.at > state.lastRecordedAt)
     invalid('Inventory adoption cannot exceed the recorded clock.');
+  for (const binding of Object.values(state.tableBindings)) {
+    const stock = Object.hasOwn(state.stocks, binding.stockId)
+      ? state.stocks[binding.stockId]
+      : null;
+    if (!stock || stock.vesselId !== binding.vesselId || stock.materialId !== binding.materialId)
+      invalid('A table binding must reference its existing stock, vessel and scientific material.');
+    if (
+      binding.destination.kind === 'new-vessel' &&
+      binding.destination.placement.kind === 'located' &&
+      !Object.hasOwn(state.storage, binding.destination.placement.storageId)
+    )
+      invalid('An original table destination must reference existing storage.');
+  }
   validateState(state);
   try {
     validateInventoryItemCodes(state);

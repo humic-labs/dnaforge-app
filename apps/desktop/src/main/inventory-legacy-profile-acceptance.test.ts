@@ -56,10 +56,11 @@ it.runIf(Boolean(sourcePath))(
         expect(JSON.parse(row.state_json).schema).toBe(inventory.storedSchema);
         const scope = { project: row.project_id, inventoryId: inventory.inventoryId };
         const state = owner.inspect(scope)!;
-        expect(state.schema).toBe('dnaforge.inventory.v12');
+        expect(state.schema).toBe('dnaforge.inventory.v13');
+        expect(state.tableBindings).toEqual(JSON.parse(row.state_json).tableBindings ?? {});
         expect(state.revision).toBe(inventory.revision);
         expect(state.thermalContexts).toEqual(JSON.parse(row.state_json).thermalContexts ?? {});
-        expect(state.origin).toEqual({ kind: 'native' });
+        expect(state.origin).toEqual(JSON.parse(row.state_json).origin ?? { kind: 'native' });
         const history = owner.history({ ...scope, afterRevision: 0, limit: 1000 });
         expect(history.length).toBe(inventory.revision);
         const replay = owner.replay(scope);
@@ -68,7 +69,13 @@ it.runIf(Boolean(sourcePath))(
           expect(owner.operation({ ...scope, operationId: entry.request.operationId })).toEqual(
             entry.receipt
           );
-          expect(owner.execute(entry.request)).toEqual(entry.receipt);
+          expect(
+            'kind' in entry.request
+              ? entry.request.kind === 'adopt-archive'
+                ? owner.applyImport(entry.request)
+                : owner.applyTable(entry.request)
+              : owner.execute(entry.request)
+          ).toEqual(entry.receipt);
         }
         expect(raw()).toEqual(before);
         expect(db.prepare('SELECT total_changes() AS count').get()).toEqual(changes);

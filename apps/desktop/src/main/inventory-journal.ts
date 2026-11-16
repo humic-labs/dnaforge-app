@@ -11,6 +11,7 @@ import {
   inventoryReceiptSchema,
   type InventoryAcceptedRequest,
   type InventoryApplyImportRequest,
+  type InventoryApplyTableRequest,
   type NativeInventoryHistoryEntry,
 } from '../shared/inventory-command';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
@@ -54,6 +55,11 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryApplyImportRequest,
     context: InventoryExecutionContext
+  ) => InventoryTransition,
+  table: (
+    target: InventoryState | null,
+    request: InventoryApplyTableRequest,
+    context: InventoryExecutionContext
   ) => InventoryTransition
 ): InventoryState {
   let state = createInventoryState();
@@ -73,6 +79,12 @@ export function replayNativeInventoryEntries(
       if (!context)
         throw new Error('INVENTORY_DATA_INVALID: An adoption requires its native receipt context.');
       result = adoption(state.revision === 0 ? null : state, request, context);
+    } else if ('kind' in request && request.kind === 'receive-table') {
+      if (!context)
+        throw new Error(
+          'INVENTORY_DATA_INVALID: A table import requires its native receipt context.'
+        );
+      result = table(state.revision === 0 ? null : state, request, context);
     } else {
       result = applyInventoryCommandBatch(
         state,

@@ -21,12 +21,16 @@ import {
   type InventoryImportBinding,
   type InventoryImportBindingObservation,
   type InventoryImportTarget,
+  type InventoryTableChoices,
+  type InventoryTableBindingObservation,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
   inventoryApplyImportRequestSchema,
   inventoryExportSnapshotRequestSchema,
   inventoryPreviewImportRequestSchema,
+  inventoryPreviewTableRequestSchema,
+  inventoryApplyTableRequestSchema,
   inventoryCatalogQuerySchema,
   inventoryCatalogUpdatePreviewRequestSchema,
   inventoryHistoryRequestSchema,
@@ -56,6 +60,7 @@ import type {
   InventoryStorageConditionsSnapshot,
   InventoryExportSnapshot,
   InventoryImportPreviewSnapshot,
+  InventoryTablePreviewSnapshot,
 } from '../shared/inventory-client';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import type { RegisteredProject, RegisteredProjectAuthority } from './registered-project-authority';
@@ -77,6 +82,7 @@ import {
   replayNativeInventoryJournal,
 } from './inventory-archive';
 import { NATIVE_DOCUMENT_MAX_BODY_BYTES } from '../shared/native-document-transport';
+import { applyNativeInventoryTable, nativeInventoryTablePreview } from './inventory-table';
 
 interface InventoryRow {
   inventory_id: string;
@@ -268,6 +274,27 @@ export function createNativeInventoryOwner(options: {
         ),
       };
     });
+  const observeTableBindings = (
+    db: Database.Database,
+    project: RegisteredProject,
+    materials: InventoryTableChoices['materials']
+  ): readonly InventoryTableBindingObservation[] =>
+    observeBindings(
+      db,
+      project,
+      materials.map((material) => ({
+        sourceMaterialId: material.key,
+        destinationMaterialId: material.materialId,
+      }))
+    ).map(
+      (binding): InventoryTableBindingObservation => ({
+        key: binding.sourceMaterialId,
+        materialId: binding.destinationMaterialId,
+        ...(binding.kind === 'admitted'
+          ? { kind: 'admitted', fingerprint: binding.fingerprint }
+          : { kind: 'unavailable', reason: binding.reason }),
+      })
+    );
 
   const commit = (
     parsed: InventoryAcceptedRequest,
@@ -339,16 +366,16 @@ export function createNativeInventoryOwner(options: {
           principal: principal(invocation),
           authority,
         });
+        const reject = (code: string, message: string): NativeInventoryExecution => ({
+          status: 'rejected',
+          inventoryId: request.inventoryId,
+          operationId: request.operationId,
+          code,
+          message,
+          currentRevision: previous.revision,
+        });
         let result: InventoryTransition;
         if ('kind' in request && request.kind === 'adopt-archive') {
-          const reject = (code: string, message: string): NativeInventoryExecution => ({
-            status: 'rejected',
-            inventoryId: request.inventoryId,
-            operationId: request.operationId,
-            code,
-            message,
-            currentRevision: previous.revision,
-          });
           if (request.expectedRevision !== previous.revision)
             return reject('REVISION_CONFLICT', 'Inventory changed after the import was previewed.');
           if (Buffer.byteLength(canonical, 'utf8') > NATIVE_DOCUMENT_MAX_BODY_BYTES)
@@ -387,6 +414,44 @@ export function createNativeInventoryOwner(options: {
             principal: context.principal,
             authority: context.authority,
           });
+        } else if ('kind' in request && request.kind === 'receive-table') {
+          if (request.expectedRevision !== previous.revision)
+            return reject('REVISION_CONFLICT', 'Inventory changed after the table was previewed.');
+          if (Buffer.byteLength(canonical, 'utf8') > NATIVE_DOCUMENT_MAX_BODY_BYTES)
+            return reject(
+              'INVENTORY_TABLE_TOO_LARGE',
+              'The encoded table request exceeds the inline native transport limit.'
+            );
+          const executionContext = {
+            at: recordedAt,
+            principal: context.principal,
+            authority: context.authority,
+          };
+          const preview = nativeInventoryTablePreview(
+            row ? previous : null,
+            importTarget(db, project, request.inventoryId, row),
+            request.sourceText,
+            request.options,
+            observeTableBindings(db, project, request.options.materials),
+            executionContext
+          );
+          if (preview.kind === 'blocked')
+            return reject(
+              preview.issues[0]?.code ?? 'INVENTORY_TABLE_BLOCKED',
+              preview.issues[0]?.message ?? 'The receive table is blocked.'
+            );
+          if (preview.kind !== 'ready')
+            return reject('INVENTORY_TABLE_NO_CHANGES', 'This table has no new stock to receive.');
+          if (
+            preview.planDigest !== request.expectedPlanDigest ||
+            canonicalNativeMutationRequest(preview.options) !==
+              canonicalNativeMutationRequest(request.options)
+          )
+            return reject(
+              'INVENTORY_TABLE_PLAN_CHANGED',
+              'The source, destination or scientific bindings changed. Preview the table again.'
+            );
+          result = applyNativeInventoryTable(row ? previous : null, request, executionContext);
         } else {
           const lotMaterials = new Map(
             Object.values(previous.lots).map((lot) => [lot.id, lot.materialId])
@@ -559,6 +624,36 @@ export function createNativeInventoryOwner(options: {
             asOf
           );
           return structuredClone({ ...preview, asOf, principal: principal(invocation) });
+        })
+        .deferred();
+      assertProject();
+      return snapshot;
+    },
+
+    previewTable(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventoryTablePreviewSnapshot {
+      const request = inventoryPreviewTableRequestSchema.parse(input);
+      const project = resolveProject(request.project, false);
+      const assertProject = options.projectAuthority.capture(project.projectId, false);
+      const db = options.db();
+      assertProject();
+      const snapshot = db
+        .transaction(() => {
+          const row = inventory(db, request.inventoryId, project.projectId);
+          const state = row ? stateFromRow(row) : null;
+          const asOf = observationTime(state ?? createInventoryState());
+          const caller = principal(invocation);
+          const preview = nativeInventoryTablePreview(
+            state,
+            importTarget(db, project, request.inventoryId, row),
+            request.sourceText,
+            request.options,
+            observeTableBindings(db, project, request.options.materials),
+            { at: asOf, principal: caller, authority }
+          );
+          return structuredClone({ ...preview, asOf, principal: caller });
         })
         .deferred();
       assertProject();
@@ -801,6 +896,14 @@ export function createNativeInventoryOwner(options: {
       invocation: NativeInventoryInvocation = {}
     ): NativeInventoryExecution {
       return commit(inventoryApplyImportRequestSchema.parse(input), assertCurrent, invocation);
+    },
+
+    applyTable(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): NativeInventoryExecution {
+      return commit(inventoryApplyTableRequestSchema.parse(input), assertCurrent, invocation);
     },
 
     inspect(input: unknown): InventoryState | null {

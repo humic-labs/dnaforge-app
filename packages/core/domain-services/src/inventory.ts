@@ -1,3 +1,6 @@
+export * from './inventory-table-types';
+export * from './inventory-table-binding';
+export * from './inventory-table';
 export * from './inventory-types';
 export * from './inventory-archive-types';
 export * from './inventory-archive';

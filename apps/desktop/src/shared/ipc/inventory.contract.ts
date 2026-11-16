@@ -11,6 +11,9 @@ import type {
   InventoryApplyImportRequest,
   InventoryExportSnapshot,
   InventoryImportPreviewSnapshot,
+  InventoryPreviewTableRequest,
+  InventoryApplyTableRequest,
+  InventoryTablePreviewSnapshot,
   InventoryCatalogQuery,
   InventoryCatalogUpdatePreviewRequest,
   InventoryAvailabilitySnapshot,
@@ -36,6 +39,8 @@ export const inventoryContract = defineGroup('inventory', {
   exportSnapshot: invoke<[request: InventoryExportSnapshotRequest], InventoryExportSnapshot>(),
   previewImport: invoke<[request: InventoryPreviewImportRequest], InventoryImportPreviewSnapshot>(),
   applyImport: invoke<[request: InventoryApplyImportRequest], NativeInventoryExecution>(),
+  previewTable: invoke<[request: InventoryPreviewTableRequest], InventoryTablePreviewSnapshot>(),
+  applyTable: invoke<[request: InventoryApplyTableRequest], NativeInventoryExecution>(),
   projects: invoke<[], readonly InventoryProject[]>(),
   catalog: invoke<[request: InventoryCatalogQuery], readonly InventoryEquipmentCatalogEntry[]>(),
   catalogUpdatePreview: invoke<

@@ -133,7 +133,8 @@ export interface InventoryImportRecordGroup {
     | 'temperatureClaims'
     | 'equipmentSetpoints'
     | 'storageRequirements'
-    | 'thermalContexts';
+    | 'thermalContexts'
+    | 'tableBindings';
   readonly ids: readonly string[];
 }
 

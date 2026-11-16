@@ -107,6 +107,10 @@ function mapOrigin(
 function mapScientificReferences(state: InventoryState, resolve: ResolveMaterial): InventoryState {
   return {
     ...state,
+    tableBindings: mapRecords(state.tableBindings, (binding, id) => ({
+      ...binding,
+      materialId: resolve(binding.materialId, `/tableBindings/${pointerKey(id)}/materialId`),
+    })),
     stocks: mapRecords(state.stocks, (stock, id) =>
       mapIdentity(stock, `/stocks/${pointerKey(id)}`, resolve)
     ),

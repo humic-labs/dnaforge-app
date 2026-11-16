@@ -188,6 +188,7 @@ const recordLabels: Readonly<Record<string, string>> = {
   equipmentSetpoints: 'Reported setpoints',
   storageRequirements: 'Storage requirements',
   thermalContexts: 'Thermal relationships',
+  tableBindings: 'Imported table rows',
 };
 
 export function InventoryArchiveImportForm({
@@ -198,7 +199,10 @@ export function InventoryArchiveImportForm({
   client,
 }: ArchiveFormProps & { client: InventoryClient }) {
   const pending =
-    'attempt' in status && status.attempt && 'kind' in status.attempt.request
+    'attempt' in status &&
+    status.attempt &&
+    'kind' in status.attempt.request &&
+    status.attempt.request.kind === 'adopt-archive'
       ? status.attempt.request
       : null;
   const [draft, setDraft] = useState<ImportDraft>(() => ({

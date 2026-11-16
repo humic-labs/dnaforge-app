@@ -5,6 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
+import { runInventoryTableJourney, runInventoryTableReopen } from './journeys/inventory-tables.mjs';
 import { runInventoryCompositionJourney } from './journeys/inventory-composition.mjs';
 import {
   runInventoryPortabilityJourney,
@@ -73,6 +74,8 @@ assert.ok(
     'conditions-catalog-recover',
     'archive-preview',
     'archive-reopen',
+    'table-receive',
+    'table-reopen',
   ].includes(stage),
   'Choose a mapped inventory journey stage.'
 );
@@ -114,6 +117,9 @@ const files = execFileSync(
     'packages/core/domain-services/package.json',
     'packages/core/scientific-objects/package.json',
     'packages/core/scientific-objects/src/unique-json.ts',
+    'packages/core/scientific-objects/src/delimited-rows.ts',
+    'apps/desktop/src/shared/delimited-rows.ts',
+    'apps/desktop/src/shared/delimitedRows.ts',
     'apps/desktop/src/shared/native-document-transport.ts',
     'package.json',
     'pnpm-lock.yaml',
@@ -643,6 +649,27 @@ try {
     );
   }
 
+  if (stage === 'table-receive' || stage === 'table-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass the current owned inventory fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    const run = stage === 'table-receive' ? runInventoryTableJourney : runInventoryTableReopen;
+    receipt.expected = await run({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+    });
+    writeFileSync(
+      path.join(out, 'table-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
   if (stage === 'archive-preview' || stage === 'archive-reopen') {
     assert.ok(args.includes('--fixture'), 'Pass the current owned inventory fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

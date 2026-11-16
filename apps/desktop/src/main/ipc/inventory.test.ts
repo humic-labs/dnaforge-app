@@ -39,6 +39,8 @@ let storageConditions: ReturnType<typeof vi.fn>;
 let exportSnapshot: ReturnType<typeof vi.fn>;
 let previewImport: ReturnType<typeof vi.fn>;
 let applyImport: ReturnType<typeof vi.fn>;
+let previewTable: ReturnType<typeof vi.fn>;
+let applyTable: ReturnType<typeof vi.fn>;
 const call = (input: unknown = request) =>
   (
     captured.handlers.execute as (
@@ -58,6 +60,8 @@ beforeEach(() => {
   exportSnapshot = vi.fn(() => ({ sourceText: 'exact archive text' }));
   previewImport = vi.fn(() => ({ kind: 'ready', target: { revision: 0 } }));
   applyImport = vi.fn(() => ({ status: 'committed' }));
+  previewTable = vi.fn(() => ({ kind: 'ready', target: { revision: 0 } }));
+  applyTable = vi.fn(() => ({ status: 'committed' }));
   owner = {
     execute,
     availability,
@@ -69,8 +73,69 @@ beforeEach(() => {
     exportSnapshot,
     previewImport,
     applyImport,
+    previewTable,
+    applyTable,
   } as unknown as NativeInventoryOwner;
   registerInventoryHandlers({ owner: () => owner, target: () => target });
+});
+
+it('keeps table preview read-only and table application under the same current-caller fence', () => {
+  const options = {
+    namespace: 'source',
+    delimiter: ',',
+    materials: [],
+    locations: [],
+    vessels: [],
+    skips: [],
+  };
+  const preview = {
+    project: 'project',
+    inventoryId: 'inventory',
+    format: 'receive-v1',
+    sourceText: 'exact source\r\n',
+    options,
+  };
+  const read = captured.handlers.previewTable as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => unknown;
+  expect(read(event, preview)).toMatchObject({ kind: 'ready' });
+  expect(previewTable).toHaveBeenCalledExactlyOnceWith(preview);
+  expect(applyTable).not.toHaveBeenCalled();
+  const input = {
+    kind: 'receive-table',
+    project: 'project',
+    inventoryId: 'inventory',
+    operationId: 'table-once',
+    expectedRevision: 0,
+    sourceText: preview.sourceText,
+    options,
+    expectedPlanDigest: `sha256:${'0'.repeat(64)}`,
+  };
+  const apply = captured.handlers.applyTable as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => NativeInventoryExecution;
+  expect(apply(event, input)).toMatchObject({ status: 'committed' });
+  expect(applyTable).toHaveBeenCalledWith(input, expect.any(Function), {
+    actor: 'human:desktop:7',
+  });
+  expect(apply(event, { ...input, recordedAt: 0 })).toMatchObject({
+    status: 'rejected',
+    operationId: 'table-once',
+    code: 'INVALID_INVENTORY_INPUT',
+  });
+  expect(applyTable).toHaveBeenCalledTimes(1);
+  expect(
+    apply({ sender: { id: 9, isDestroyed: () => false } } as IpcMainInvokeEvent, input)
+  ).toMatchObject({
+    status: 'rejected',
+    operationId: 'table-once',
+    code: 'INVENTORY_DESKTOP_CALLER_UNAVAILABLE',
+  });
+  expect(applyTable).toHaveBeenCalledTimes(1);
+  expect(execute).not.toHaveBeenCalled();
+  expect(applyImport).not.toHaveBeenCalled();
 });
 
 it('keeps archive reads on the current caller without mutation dispatch', () => {

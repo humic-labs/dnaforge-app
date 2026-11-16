@@ -5,11 +5,13 @@ import {
   type InventoryItemCodeQuery,
   type InventoryState,
   type InventoryResolvedImportOptions,
+  type InventoryResolvedTableOptions,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
   inventoryAcceptedRequestSchema,
   inventoryApplyImportRequestSchema,
+  inventoryApplyTableRequestSchema,
   inventoryReceiptSchema,
   type InventoryAcceptedRequest,
   type NativeInventoryHistoryEntry,
@@ -693,6 +695,48 @@ export class InventoryController {
     return this.begin(data, attempt);
   }
 
+  async receiveTable(
+    sourceText: string,
+    options: InventoryResolvedTableOptions,
+    expectedPlanDigest: string
+  ): Promise<NativeInventoryReceipt | null> {
+    const status = this.snapshot.status;
+    const data = inventoryData(status);
+    if (
+      !data ||
+      !inventoryCanEdit(status) ||
+      this.pending.has(scopeKey(data.project.projectId, data.project.defaultInventoryId))
+    )
+      return null;
+    let attempt: InventoryAttempt;
+    try {
+      attempt = {
+        request: inventoryApplyTableRequestSchema.parse({
+          kind: 'receive-table',
+          project: data.project.projectId,
+          inventoryId: data.project.defaultInventoryId,
+          operationId: this.operationId(),
+          expectedRevision: data.state.revision,
+          sourceText,
+          options,
+          expectedPlanDigest,
+        }),
+        summary: 'Receive inventory table',
+      };
+    } catch (cause) {
+      this.set({
+        kind: 'refused',
+        project: data.project,
+        data,
+        code: 'INVALID_INVENTORY_INPUT',
+        message:
+          cause instanceof Error ? cause.message : 'Preview the table before receiving stock.',
+      });
+      return null;
+    }
+    return this.begin(data, attempt);
+  }
+
   private async begin(
     data: InventoryData,
     attempt: InventoryAttempt
@@ -750,7 +794,9 @@ export class InventoryController {
     try {
       const result =
         'kind' in attempt.request
-          ? await this.client.applyImport(attempt.request)
+          ? attempt.request.kind === 'adopt-archive'
+            ? await this.client.applyImport(attempt.request)
+            : await this.client.applyTable(attempt.request)
           : await this.client.execute(attempt.request);
       if (result.status === 'committed') return this.committed(data, attempt, result, generation);
       let recoveryError: string | undefined;

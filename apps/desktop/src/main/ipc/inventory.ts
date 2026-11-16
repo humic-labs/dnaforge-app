@@ -6,6 +6,7 @@ import { inventoryContract } from '../../shared/ipc/inventory.contract';
 import {
   inventoryExecuteRequestSchema,
   inventoryApplyImportRequestSchema,
+  inventoryApplyTableRequestSchema,
   inventoryOperationRequestSchema,
   type NativeInventoryRejection,
 } from '../../shared/inventory-command';
@@ -44,7 +45,7 @@ export function registerInventoryHandlers(options: {
   const mutate = (
     event: IpcMainInvokeEvent,
     input: unknown,
-    kind: 'commands' | 'adoption'
+    kind: 'commands' | 'adoption' | 'table'
   ): ReturnType<NativeInventoryOwner['execute']> => {
     const value = input as
       | { project?: unknown; inventoryId?: unknown; operationId?: unknown }
@@ -66,7 +67,9 @@ export function registerInventoryHandlers(options: {
       request =
         kind === 'commands'
           ? inventoryExecuteRequestSchema.parse(input)
-          : inventoryApplyImportRequestSchema.parse(input);
+          : kind === 'adoption'
+            ? inventoryApplyImportRequestSchema.parse(input)
+            : inventoryApplyTableRequestSchema.parse(input);
     } catch (error) {
       if (!(error instanceof ZodError || error instanceof InventoryValidationError)) throw error;
       return reject('INVALID_INVENTORY_INPUT', error.message);
@@ -85,7 +88,9 @@ export function registerInventoryHandlers(options: {
       assertCurrent();
       return kind === 'commands'
         ? owner.execute(request, assertCurrent, { actor: `human:desktop:${event.sender.id}` })
-        : owner.applyImport(request, assertCurrent, { actor: `human:desktop:${event.sender.id}` });
+        : kind === 'adoption'
+          ? owner.applyImport(request, assertCurrent, { actor: `human:desktop:${event.sender.id}` })
+          : owner.applyTable(request, assertCurrent, { actor: `human:desktop:${event.sender.id}` });
     } catch (error) {
       if (error instanceof NativeDocumentCommandError && error.stateChanged === false)
         return reject(error.code, error.message);
@@ -102,6 +107,11 @@ export function registerInventoryHandlers(options: {
       return currentOwner().previewImport(request);
     },
     applyImport: (event, request) => mutate(event, request, 'adoption'),
+    previewTable: (event, request) => {
+      assertCaller(event);
+      return currentOwner().previewTable(request);
+    },
+    applyTable: (event, request) => mutate(event, request, 'table'),
     projects: (event) => {
       assertCaller(event);
       return currentOwner().projects();

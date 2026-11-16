@@ -28,6 +28,7 @@ import {
 import { InventoryMaterialForm, isInventoryMaterialDialog } from './InventoryMaterialForm';
 import { InventoryForm } from './InventoryForm';
 import { InventoryArchiveExportForm, InventoryArchiveImportForm } from './InventoryArchiveForms';
+import { InventoryTableForm } from './InventoryTableForm';
 import { InventoryCompositionForm } from './InventoryCompositionForm';
 import { InventoryReservationForm } from './InventoryReservationForm';
 import { InventoryCustodyForm } from './InventoryCustodyForm';
@@ -412,7 +413,9 @@ export function InventoryPanel() {
             >
               <p className="font-medium text-fg">
                 {'kind' in entry.request
-                  ? 'Adopted inventory archive'
+                  ? entry.request.kind === 'adopt-archive'
+                    ? 'Adopted inventory archive'
+                    : 'Received inventory table'
                   : entry.request.commands
                       .map((command) => (state ? historyLabel(command, state) : ''))
                       .join(' · ')}
@@ -422,18 +425,35 @@ export function InventoryPanel() {
                   className="space-y-2 text-xs"
                   data-testid="inventory-imported-source-evidence"
                 >
-                  <summary className="cursor-pointer text-accent">Retained source archive</summary>
+                  <summary className="cursor-pointer text-accent">
+                    {entry.request.kind === 'adopt-archive'
+                      ? 'Retained source archive'
+                      : 'Retained source table'}
+                  </summary>
                   <p>
-                    Original source history remains in this archive. This operation records adoption
-                    in the destination.
+                    {entry.request.kind === 'adopt-archive'
+                      ? 'Original source history remains in this archive. This operation records adoption in the destination.'
+                      : 'Original table text and explicit choices are retained with this atomic receiving operation.'}
                   </p>
                   <p className="break-all">Plan: {entry.request.expectedPlanDigest}</p>
                   <TextArea
                     readOnly
-                    aria-label="Retained imported archive"
+                    aria-label={
+                      entry.request.kind === 'adopt-archive'
+                        ? 'Retained imported archive'
+                        : 'Retained receive table'
+                    }
                     value={entry.request.sourceText}
                     className="h-40 font-mono text-xs"
                   />
+                  {entry.request.kind === 'receive-table' ? (
+                    <TextArea
+                      readOnly
+                      aria-label="Retained table receiving choices"
+                      value={JSON.stringify(entry.request.options, null, 2)}
+                      className="h-40 font-mono text-xs"
+                    />
+                  ) : null}
                 </details>
               ) : null}
               {('commands' in entry.request ? entry.request.commands : [])
@@ -581,6 +601,12 @@ export function InventoryPanel() {
           onClick={() => setDialog({ kind: 'import-archive' })}
         >
           Import archive
+        </Button>
+        <Button
+          disabled={!data || status.kind === 'submitting' || status.kind === 'outcome-unknown'}
+          onClick={() => setDialog({ kind: 'receive-table' })}
+        >
+          Import table
         </Button>
         <Button disabled={!data} onClick={() => setDialog({ kind: 'item-code-lookup' })}>
           Scan or enter code
@@ -1446,6 +1472,15 @@ export function InventoryPanel() {
         ) : dialog.kind === 'import-archive' ? (
           <InventoryArchiveImportForm
             key={`${data.project.projectId}:import-archive`}
+            data={data}
+            controller={controller}
+            status={status}
+            client={platform().inventory}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : dialog.kind === 'receive-table' ? (
+          <InventoryTableForm
+            key={`${data.project.projectId}:receive-table`}
             data={data}
             controller={controller}
             status={status}

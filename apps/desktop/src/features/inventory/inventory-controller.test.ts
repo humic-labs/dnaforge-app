@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   applyInventoryCommandBatch,
   adoptInventoryState,
+  applyInventoryTable,
+  inventoryTablePreview,
   createInventoryState,
   inventoryAvailability,
   inventoryResolveItemCode,
@@ -99,25 +101,41 @@ function fixture(empty = false) {
     if (previous) return previous.receipt;
     const result =
       'kind' in request
-        ? adoptInventoryState(
-            state.revision === 0 ? null : state,
-            initial.state,
-            {
-              source: {
-                archiveSha256: `sha256:${'a'.repeat(64)}`,
-                projectId: 'source-project',
-                inventoryId: 'source-inventory',
-                revision: initial.state.revision,
+        ? request.kind === 'adopt-archive'
+          ? adoptInventoryState(
+              state.revision === 0 ? null : state,
+              initial.state,
+              {
+                source: {
+                  archiveSha256: `sha256:${'a'.repeat(64)}`,
+                  projectId: 'source-project',
+                  inventoryId: 'source-inventory',
+                  revision: initial.state.revision,
+                },
+                materialBindings: Object.fromEntries(
+                  request.options.bindings.map((binding) => [
+                    binding.sourceMaterialId,
+                    binding.destinationMaterialId,
+                  ])
+                ),
               },
-              materialBindings: Object.fromEntries(
-                request.options.bindings.map((binding) => [
-                  binding.sourceMaterialId,
-                  binding.destinationMaterialId,
-                ])
-              ),
-            },
-            { at: 1, principal, authority: principal }
-          )
+              { at: 1, principal, authority: principal }
+            )
+          : applyInventoryTable(
+              state.revision === 0 ? null : state,
+              {
+                ...request,
+                target: {
+                  projectId: request.project,
+                  inventoryId: request.inventoryId,
+                  present: state.revision !== 0,
+                  revision: request.expectedRevision,
+                },
+                expectedPlanDigest: request.expectedPlanDigest as `sha256:${string}`,
+              },
+              { at: 1, principal, authority: principal },
+              17 * 1024 * 1024
+            )
         : applyInventoryCommandBatch(state, {
             expectedRevision: request.expectedRevision,
             commands: request.commands,
@@ -166,6 +184,10 @@ function fixture(empty = false) {
       throw new Error('Archive preview is not used by this controller fixture.');
     }),
     applyImport: vi.fn(async (request) => commit(request)),
+    previewTable: vi.fn(async () => {
+      throw new Error('Table preview is not used by this controller fixture.');
+    }),
+    applyTable: vi.fn(async (request) => commit(request)),
     storageConditions: vi.fn(async (request) => {
       const current = request.project === other.projectId ? createInventoryState() : state;
       return {
@@ -906,5 +928,117 @@ describe('inventory interaction controller', () => {
     const attempt: InventoryAttempt = { summary: 'Adopt inventory archive', request };
     storage.write([attempt]);
     expect(storage.read()).toEqual([attempt]);
+  });
+
+  function tablePlan() {
+    const sourceText =
+      'source_id,name,material_key,quantity_kind,quantity,unit,quality,vessel_kind,vessel_key,location_key,slot\r\n0007,Table tube,sample,known,80,uL,usable,new,,bench,\r\n';
+    const plan = inventoryTablePreview(null, {
+      target: {
+        projectId: project.projectId,
+        inventoryId: project.defaultInventoryId,
+        present: false,
+        revision: 0,
+      },
+      sourceText,
+      options: {
+        namespace: 'source-register',
+        delimiter: ',',
+        materials: [{ key: 'sample', materialId: 'material' }],
+        locations: [{ key: 'bench', target: { kind: 'unplaced' } }],
+        vessels: [],
+        skips: [],
+      },
+      bindings: [
+        {
+          key: 'sample',
+          materialId: 'material',
+          kind: 'admitted',
+          fingerprint: `sha256:${'b'.repeat(64)}`,
+        },
+      ],
+      asOf: 1,
+      principal,
+      authority: principal,
+      maxBytes: 17 * 1024 * 1024,
+    });
+    if (plan.kind !== 'ready') throw new Error(JSON.stringify(plan.issues));
+    return { sourceText, plan };
+  }
+
+  it('recovers one received table operation after lost acknowledgement and controller restart', async () => {
+    const f = fixture(true);
+    await f.controller.initialize();
+    const { sourceText, plan } = tablePlan();
+    vi.mocked(f.client.applyTable).mockImplementationOnce(async (request) => {
+      f.commit(request);
+      throw new Error('Lost table response');
+    });
+    await f.controller.receiveTable(sourceText, plan.options, plan.planDigest);
+    expect(f.controller.getSnapshot().status.kind).toBe('outcome-unknown');
+    expect(f.entries).toHaveLength(1);
+    const original = structuredClone(f.saved()[0]);
+    expect(original.request).toMatchObject({
+      kind: 'receive-table',
+      sourceText,
+      options: plan.options,
+    });
+    f.controller.dispose();
+    const reopened = new InventoryController(f.client, f.storage, () => {
+      throw new Error('Recovery must not allocate a new operation');
+    });
+    await reopened.initialize();
+    await reopened.checkPending();
+    expect(reopened.getSnapshot().status.kind).toBe('ready');
+    expect(f.saved()).toEqual([]);
+    expect(f.entries).toHaveLength(1);
+    expect(Object.values(f.state().stocks)).toMatchObject([
+      { quantity: { kind: 'known', value: '80', unit: 'uL' } },
+    ]);
+    expect(Object.values(f.state().tableBindings)).toMatchObject([
+      { namespace: 'source-register', sourceId: '0007' },
+    ]);
+    expect(f.client.applyTable).toHaveBeenCalledOnce();
+    expect(f.client.execute).not.toHaveBeenCalled();
+    expect(f.client.applyImport).not.toHaveBeenCalled();
+    reopened.dispose();
+  });
+
+  it('retries retained table bytes and choices while blocking replacement intent', async () => {
+    const f = fixture(true);
+    await f.controller.initialize();
+    const { sourceText, plan } = tablePlan();
+    const options = {
+      ...plan.options,
+      materials: plan.options.materials.map((item) => ({ ...item })),
+    };
+    vi.mocked(f.client.applyTable).mockRejectedValueOnce(new Error('Unknown outcome'));
+    await f.controller.receiveTable(sourceText, options, plan.planDigest);
+    const original = structuredClone(f.saved()[0].request);
+    options.materials[0].materialId = 'changed-after-submit';
+    expect(await f.controller.receiveTable('replacement', options, plan.planDigest)).toBeNull();
+    await f.controller.retryPending();
+    expect(f.client.applyTable).toHaveBeenNthCalledWith(1, original);
+    expect(f.client.applyTable).toHaveBeenNthCalledWith(2, original);
+    expect(f.entries).toHaveLength(1);
+    expect(f.saved()).toEqual([]);
+    f.controller.dispose();
+  });
+
+  it('never sends table stock when exact recovery intent cannot be retained', async () => {
+    const f = fixture(true);
+    await f.controller.initialize();
+    const { sourceText, plan } = tablePlan();
+    vi.mocked(f.storage.write).mockImplementationOnce(() => {
+      throw new Error('Quota unavailable');
+    });
+    await f.controller.receiveTable(sourceText, plan.options, plan.planDigest);
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'refused',
+      code: 'INVENTORY_RECOVERY_UNAVAILABLE',
+    });
+    expect(f.client.applyTable).not.toHaveBeenCalled();
+    expect(f.state().revision).toBe(0);
+    f.controller.dispose();
   });
 });

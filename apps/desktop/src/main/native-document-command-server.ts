@@ -34,6 +34,8 @@ import {
   inventoryExportSnapshotRequestSchema,
   inventoryPreviewImportRequestSchema,
   inventoryApplyImportRequestSchema,
+  inventoryPreviewTableRequestSchema,
+  inventoryApplyTableRequestSchema,
 } from '../shared/inventory-command';
 import { NATIVE_DOCUMENT_MAX_BODY_BYTES } from '../shared/native-document-transport';
 import type { createNativeInventoryOwner } from './inventory-owner';
@@ -73,6 +75,24 @@ const selection = target
   })
   .strict();
 const commandSchema = z.discriminatedUnion('command', [
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-table'),
+      request: inventoryPreviewTableRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.apply-table'),
+      request: inventoryApplyTableRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
   z
     .object({
       ownerInstanceId: identity,
@@ -331,6 +351,8 @@ export async function startNativeDocumentCommandServer(options: {
     | 'exportSnapshot'
     | 'previewImport'
     | 'applyImport'
+    | 'previewTable'
+    | 'applyTable'
   >;
   authorizeInventoryAgent?(agent: NativeAgentAuthority, required: readonly string[]): Promise<void>;
   getAuthority(): NativeCommandAuthority | null;
@@ -426,6 +448,8 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'inventory.export-snapshot' ||
           body.command === 'inventory.preview-import' ||
           body.command === 'inventory.apply-import' ||
+          body.command === 'inventory.preview-table' ||
+          body.command === 'inventory.apply-table' ||
           body.command === 'inventory.inspect' ||
           body.command === 'inventory.availability' ||
           body.command === 'inventory.operation' ||
@@ -446,7 +470,9 @@ export async function startNativeDocumentCommandServer(options: {
               body.agent
             ) {
               const required =
-                body.command === 'inventory.execute' || body.command === 'inventory.apply-import'
+                body.command === 'inventory.execute' ||
+                body.command === 'inventory.apply-import' ||
+                body.command === 'inventory.apply-table'
                   ? ['read-workspace', 'write-workspace']
                   : ['read-workspace'];
               if (!hasRequiredCapabilities(body.agent.capabilities, required))
@@ -479,6 +505,29 @@ export async function startNativeDocumentCommandServer(options: {
           const run = (() => {
             if (options.inventory) {
               const receiver = options.inventory;
+              if (body.command === 'inventory.preview-table') {
+                const request = body.request;
+                const invocation = body.agent
+                  ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
+                  : undefined;
+                return () => ({
+                  kind: 'table-preview',
+                  preview: receiver.previewTable(request, invocation),
+                });
+              }
+              if (body.command === 'inventory.apply-table') {
+                const request = body.request;
+                const invocation = body.agent
+                  ? {
+                      actor: `agent:${body.agent.identityId}`,
+                      principal: { kind: 'agent' as const, identityId: body.agent.identityId },
+                    }
+                  : undefined;
+                return () => ({
+                  kind: 'execution',
+                  execution: receiver.applyTable(request, assertCurrent, invocation),
+                });
+              }
               if (
                 body.command === 'inventory.export-snapshot' ||
                 body.command === 'inventory.preview-import'
@@ -636,6 +685,7 @@ export async function startNativeDocumentCommandServer(options: {
             body.command === 'inventory.projects' ||
             body.command === 'inventory.export-snapshot' ||
             body.command === 'inventory.preview-import' ||
+            body.command === 'inventory.preview-table' ||
             body.command === 'inventory.catalog' ||
             body.command === 'inventory.catalog-update-preview' ||
             body.command === 'inventory.resolve-item-code' ||
