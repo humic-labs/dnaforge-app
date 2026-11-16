@@ -15,3 +15,14 @@ snapshot.
 
 Keep required checks. Do not add rules requiring approving or code-owner
 reviews. Verify the actual merged result before reporting delivery.
+
+Use [the public merge policy](docs/ci/merge-policy.md) for delivery authority,
+complete-feature readiness and qualification. Keep incomplete or held work in a
+draft PR. Use `node scripts/ci/deliver.mjs inspect --pr NUMBER` for the current
+read-only decision; a green check alone grants no merge authority.
+
+Before changing a delivery or application workflow, reuse or extend its
+verification skill and feature map. The delivery surface is documented in
+`skills/verify-public-delivery/SKILL.md`. Preserve real source-bound evidence
+outside the checkout; do not substitute a skill file or a passing unit test for
+executed workflow acceptance.

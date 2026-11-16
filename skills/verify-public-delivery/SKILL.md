@@ -1,6 +1,9 @@
 ---
 name: verify-public-delivery
-description: Verify public DNAForge merge admission through its real delivery CLI and GitHub records, including draft holds, exact source, required workflows and retained CI evidence.
+description:
+  Verify public DNAForge merge admission through its real delivery CLI and
+  GitHub records, including draft holds, exact source, required workflows and
+  retained CI evidence.
 ---
 
 # Verify public delivery
@@ -8,25 +11,29 @@ description: Verify public DNAForge merge admission through its real delivery CL
 ## Launch
 
 Use a checkout of `humic-labs/dnaforge-app` and Node from `.nvmrc`. The CLI is
-`node scripts/ci/deliver.mjs`; it starts no server and needs no dependency install.
-GitHub inspection uses authenticated `gh api` calls. Read
-[the admission feature](features/admission.md) before driving it.
+`node scripts/ci/deliver.mjs`; it starts no server and needs no dependency
+install. GitHub inspection uses authenticated `gh api` calls. Read
+[the feature map](features/README.md) and the affected feature before driving
+it.
 
 ## Doctor
 
 Record `git rev-parse --show-toplevel`, `git branch --show-current`,
-`git rev-parse HEAD` and `git status --porcelain`. Confirm the intended checkout.
-Run `gh api repos/humic-labs/dnaforge-app --jq '{id,full_name,default_branch}'`.
-The repository ID must match `.ci/merge-policy.json`. Do not print credentials.
+`git rev-parse HEAD` and `git status --porcelain`. Confirm the intended
+checkout. Run
+`gh api repos/humic-labs/dnaforge-app --jq '{id,full_name,default_branch}'`. The
+repository ID must match `.ci/merge-policy.json`. Do not print credentials.
 
 ## Drive
 
-Run `node scripts/ci/deliver.mjs inspect --pr NUMBER --out /absolute/evidence/inspect.json`
-against the actual task PR. `inspect` and `prepare` only read GitHub. They do not
-mark a draft ready, enable auto-merge, enqueue a PR or alter rules. Exit 0 means
-qualified, 1 means rejected, and 2 means pending or unavailable evidence.
+Run
+`node scripts/ci/deliver.mjs inspect --pr NUMBER --out /absolute/evidence/inspect.json`
+against the actual task PR. `inspect` and `prepare` only read GitHub. They do
+not mark a draft ready, enable auto-merge, enqueue a PR or alter rules. Exit 0
+means qualified, 1 means rejected, and 2 means pending or unavailable evidence.
 
-Run `node scripts/ci/deliver.mjs propose-rules --out /absolute/evidence/rules.json`
+Run
+`node scripts/ci/deliver.mjs propose-rules --out /absolute/evidence/rules.json`
 to produce reviewable configuration. This command does not activate it. A
 configuration file is not evidence of live enforcement.
 

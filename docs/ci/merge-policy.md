@@ -9,9 +9,9 @@ check list. Private `dev` policy does not control public `main`.
 
 Prepare the complete requested outcome on a task branch. Keep previews,
 unfinished integration and explicit holds as draft PRs. An implementation
-request, a green check or a completed subtask does not remove a stated hold.
-The default delivery command only inspects. Queue admission requires explicit
-merge authority for the complete feature and its exact current head.
+request, a green check or a completed subtask does not remove a stated hold. The
+default delivery command only inspects. Queue admission requires explicit merge
+authority for the complete feature and its exact current head.
 
 The existing desktop, package and Python suites remain required. Rust helper
 tests and source startup accompany them. Desktop tests run in the declared
@@ -26,18 +26,22 @@ counted as executed tests or removed from the inventory.
 The final qualification binds the repository, tested commit and tree, base,
 trusted control revision, workflow run and attempt, worker roster and coverage.
 Tests run against the combined candidate, not a different convenient checkout.
-Original failure logs and native evidence remain attached to that run.
+Original failure logs and native evidence remain attached to that run. Before
+reports describe the base separately; a failing base does not disqualify a
+passing fix. A setup failure is not evidence that the product defect was
+reproduced.
 
 ## Authority
 
-Main requires a pull request and an ALLGREEN merge queue. No approving review,
-code-owner approval or last-push approval is required. Force pushes and branch
-deletion remain blocked. Required checks bind to their expected publisher.
+The required configuration for main is a pull request and an ALLGREEN merge
+queue. No approving review, code-owner approval or last-push approval is
+required. Force pushes and branch deletion remain blocked. Required checks bind
+to their expected publisher.
 
 Publisher binding alone cannot stop a candidate from replacing its own workflow.
 An organization ruleset must require the existing CI workflow from protected
-public `main`. Its trusted final job evaluates required results independently
-of the candidate's workflow edits. The job reads reports as data and does not
+public `main`. Its trusted final job evaluates required results independently of
+the candidate's workflow edits. The job reads reports as data and does not
 execute downloaded candidate code. Public contributions need no private source,
 issue tracker, signing credential or hosted release infrastructure.
 
@@ -55,8 +59,8 @@ node scripts/ci/deliver.mjs propose-rules --out /absolute/evidence/proposed-rule
 Both commands preserve GitHub state. The proposal includes exact repository and
 organization payloads but never applies them. Establish supported workflow
 execution before enabling the rules. Retain existing protection throughout
-activation and read back the effective rules. Missing organization capability
-is an incomplete activation, not a reason to substitute context-name checks.
+activation and read back the effective rules. Missing organization capability is
+an incomplete activation, not a reason to substitute context-name checks.
 
 When the complete change is explicitly authorized and qualified:
 
@@ -73,8 +77,8 @@ owner. Admission is not a verified merge.
 
 Each `main` commit retains its own CI run. Later pushes do not cancel earlier
 post-merge runs. The owner reads the actual merged commit and tree and the
-normal post-merge result. A regression remains owned until repaired, or until
-a certain culprit that blocks other work is deliberately reverted.
+normal post-merge result. A regression remains owned until repaired, or until a
+certain culprit that blocks other work is deliberately reverted.
 
 Full platform, packaging, installation and update qualification remains a
 release responsibility. Native journey acceptance is not exhaustive release

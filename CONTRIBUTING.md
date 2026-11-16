@@ -47,6 +47,11 @@ Required checks must pass before a maintainer merges the change. Local test
 results help assess a contribution; they do not replace those checks. Workflow
 permission is separate from an approving pull-request review.
 
+Keep work in draft until the complete feature and its acceptance are ready. The
+[public merge policy](docs/ci/merge-policy.md) defines qualification and the
+separate authority to merge. Maintainers use the same public commands and tests;
+contributors need no private tracker or release credentials.
+
 For another contribution, fetch `upstream` again and start a new branch from
 `upstream/main`. Keep unrelated changes in separate pull requests.
 

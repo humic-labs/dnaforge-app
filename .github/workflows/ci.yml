@@ -1,101 +1,230 @@
 name: CI
-
 on:
-  pull_request:
+  pull_request: {}
+  merge_group:
+    types:
+      - checks_requested
   push:
-    branches: [main]
-
+    branches:
+      - main
+  workflow_dispatch: {}
 permissions:
   contents: read
-
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
+  group: ci-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  desktop:
-    name: Desktop build, typecheck and tests
+  plan:
+    name: Qualification plan
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 5
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+      native: ${{ steps.plan.outputs.native }}
+      journeys: ${{ steps.plan.outputs.journeys }}
+      base: ${{ steps.plan.outputs.base }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683         
+      - &a1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - &a3
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci-control
+          persist-credentials: false
+      - &a2
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - id: plan
+        name: Bind selection to source and trusted control
+        env:
+          BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
+        run: node .ci-control/scripts/ci/qualification.mjs plan --root "$GITHUB_WORKSPACE" --base "${BASE_SHA:-$(git rev-parse HEAD^1)}" --out "$RUNNER_TEMP/candidate/manifest.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: candidate
+          path: ${{ runner.temp }}/candidate/manifest.json
+          if-no-files-found: error
+          retention-days: 30
+  controls:
+    name: Delivery control regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - *a1
+      - *a2
+      - run: node --test scripts/ci/*.test.mjs .github/scripts/*.test.mjs
+  desktop-build:
+    name: Desktop build and typecheck
+    needs:
+      - plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-
       - name: Setup pnpm
         uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda
-
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020     
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version-file: '.nvmrc'
-          cache: 'pnpm'
-
+          node-version-file: .nvmrc
+          cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
       - name: Build the desktop app
         run: pnpm --dir apps/desktop build
-
       - name: Typecheck the desktop app
         env:
           NODE_OPTIONS: --max-old-space-size=4096
         run: pnpm --dir apps/desktop typecheck
-
-      - name: Build the Rust helpers the desktop app runs
+      - &a7
+        name: Build the Rust helpers the desktop app runs
         run: |
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends musl-tools
           rustup target add x86_64-unknown-linux-musl
           pnpm --dir apps/desktop helpers:build
-
-      - name: Run the desktop unit tests
-        run: pnpm --dir apps/desktop test
-
-      - name: Run the package unit tests
-        if: success() || failure()
-        run: pnpm -r --filter "./packages/**" run --if-present test
-
+  desktop-discovery:
+    name: Desktop full-suite inventory
+    needs:
+      - plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - *a1
+      - *a3
+      - &a4
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda
+      - *a2
+      - &a5
+        name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - &a6
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: candidate
+          path: ${{ runner.temp }}/candidate
+      - name: Discover every full-suite file
+        run: node .ci-control/scripts/ci/qualification.mjs inventory --root "$GITHUB_WORKSPACE" --manifest "$RUNNER_TEMP/candidate/manifest.json" --out "$RUNNER_TEMP/inventory/inventory.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: desktop-inventory
+          path: ${{ runner.temp }}/inventory/inventory.json
+          if-no-files-found: error
+          retention-days: 30
+  desktop-tests:
+    name: Desktop unit shard ${{ matrix.shard }}
+    needs:
+      - plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - *a1
+      - *a3
+      - *a4
+      - *a2
+      - *a5
+      - *a6
+      - *a7
+      - name: Run full-suite partition without retries
+        run: node .ci-control/scripts/ci/qualification.mjs desktop --root "$GITHUB_WORKSPACE" --manifest "$RUNNER_TEMP/candidate/manifest.json" --shard "${{ matrix.shard }}" --out "$RUNNER_TEMP/shard/report.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: desktop-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/shard
+          if-no-files-found: error
+          retention-days: 30
+  package-tests:
+    name: Package unit tests
+    needs:
+      - plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - *a1
+      - *a4
+      - *a2
+      - *a5
+      - run: pnpm -r --filter "./packages/**" run --if-present test
+  desktop:
+    name: Desktop build, typecheck and tests
+    needs:
+      - plan
+      - desktop-build
+      - desktop-discovery
+      - desktop-tests
+      - package-tests
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - *a3
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .ci-control/.nvmrc
+      - *a6
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: desktop-*
+          path: ${{ runner.temp }}/reports
+      - name: Require the complete source-bound result
+        env:
+          QUALIFICATION_NEEDS: ${{ toJSON(needs) }}
+        run: node .ci-control/scripts/ci/qualification.mjs assess --kind desktop --manifest "$RUNNER_TEMP/candidate/manifest.json" --reports "$RUNNER_TEMP/reports" --out "$RUNNER_TEMP/result/desktop.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: summary-desktop
+          path: ${{ runner.temp }}/result/*.json
+          if-no-files-found: error
+          retention-days: 30
   sidecar:
     name: Rust helpers and Python sidecar tests
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683         
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065         
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version-file: '.python-version'
-
-      - uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39         
+          python-version-file: .python-version
+      - uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39
         with:
-          version: '0.13.5'
+          version: 0.13.5
           enable-cache: false
-
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version-file: '.nvmrc'
-
+          node-version-file: .nvmrc
       - name: Install the security-patched Python the sidecar pins
         run: node scripts/ci-setup-secure-python.mjs --version "$(cat apps/api/.python-version)" --arch "$RUNNER_ARCH"
-
       - name: Build the Rust helpers
         run: |
           set -euo pipefail
           cargo build --release --bin dna-indexer --bin dna-coverage
           echo "DNA_INDEXER_PATH=$PWD/target/release/dna-indexer" >> "$GITHUB_ENV"
           echo "DNA_COVERAGE_PATH=$PWD/target/release/dna-coverage" >> "$GITHUB_ENV"
-
+      - name: Run Rust workspace tests
+        run: cargo test --workspace --locked
       - name: Install the sidecar's dependencies
         working-directory: apps/api
         run: uv sync --frozen --extra dev --python "$VIRTUAL_ENV/bin/python"
-
       - name: Run the sidecar tests
         working-directory: apps/api
         run: uv run --frozen pytest -q
-
   run-from-source:
     name: Run the app from source on macOS
     runs-on: macos-latest
@@ -104,45 +233,198 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-
       - name: Setup pnpm
         uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda
-
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version-file: '.nvmrc'
-          cache: 'pnpm'
-
+          node-version-file: .nvmrc
+          cache: pnpm
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version-file: '.python-version'
-
+          python-version-file: .python-version
       - uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39
         with:
-          version: '0.13.5'
+          version: 0.13.5
           enable-cache: false
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
       - name: Install the security-patched Python the sidecar pins
         run: node scripts/ci-setup-secure-python.mjs --version "$(cat apps/api/.python-version)" --arch "$RUNNER_ARCH"
-
       - name: Install the sidecar's dependencies
         working-directory: apps/api
         run: uv sync --frozen --extra dev --python "$VIRTUAL_ENV/bin/python"
-
       - name: Build the Rust helpers the desktop app runs
         run: pnpm --dir apps/desktop helpers:build
-
       - name: Run the app from source and wait until it is up
         run: |
           set -euo pipefail
           cp apps/desktop/.env.local.example apps/desktop/.env.local
           pnpm --dir apps/desktop run check:run-from-source
-
       - name: Set up and start the app with the one-command script
         run: |
           set -euo pipefail
           rm apps/desktop/.env.local
           node start.mjs --yes --check
+  native-journeys:
+    name: Native journey ${{ matrix.journey }}
+    needs:
+      - plan
+    if: needs.plan.outputs.native == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        journey: ${{ fromJSON(needs.plan.outputs.journeys) }}
+    steps:
+      - *a1
+      - *a3
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.plan.outputs.base }}
+          path: .ci-baseline
+          persist-credentials: false
+      - *a4
+      - *a2
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version-file: .python-version
+      - uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39
+        with:
+          version: 0.13.5
+          enable-cache: false
+      - *a5
+      - name: Install trusted driver dependencies
+        working-directory: .ci-control
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Install baseline dependencies
+        working-directory: .ci-baseline
+        run: pnpm install --frozen-lockfile
+      - name: Install capture tool
+        run: command -v ffmpeg || brew install ffmpeg
+      - name: Build native helpers
+        run: |-
+          pnpm --dir apps/desktop helpers:build
+          pnpm --dir .ci-baseline/apps/desktop helpers:build
+      - name: Install pinned Python
+        run: node .ci-control/scripts/ci-setup-secure-python.mjs --version "$(cat apps/api/.python-version)" --arch "$RUNNER_ARCH"
+      - name: Install isolated sidecar dependencies
+        run: |-
+          (cd apps/api && uv sync --frozen --extra dev --python "$VIRTUAL_ENV/bin/python")
+          (cd .ci-baseline/apps/api && uv sync --frozen --extra dev --python "$VIRTUAL_ENV/bin/python")
+      - name: Rebuild both desktop native ABIs
+        run: |-
+          EXPLICIT_REBUILD=1 REQUIRE_ELECTRON_ABI_VERIFY=1 node apps/desktop/scripts/rebuild-native.cjs
+          EXPLICIT_REBUILD=1 REQUIRE_ELECTRON_ABI_VERIFY=1 node .ci-baseline/apps/desktop/scripts/rebuild-native.cjs
+      - *a6
+      - name: Separate owned control checkouts from product files
+        run: |-
+          printf "\n.ci-control/\n.ci-baseline/\n" >> .git/info/exclude
+          mkdir -p "$RUNNER_TEMP/native"
+      - name: Drive the original base with the same trusted journey
+        id: before
+        continue-on-error: true
+        run: node .ci-control/scripts/ci/native-journeys.mjs --root "$GITHUB_WORKSPACE/.ci-baseline" --source "${{ needs.plan.outputs.base }}" --journey "${{ matrix.journey }}" --out "$RUNNER_TEMP/native/before"
+      - name: Drive the candidate with the trusted journey
+        run: node .ci-control/scripts/ci/native-journeys.mjs --root "$GITHUB_WORKSPACE" --source "${{ github.sha }}" --journey "${{ matrix.journey }}" --out "$RUNNER_TEMP/native/after"
+      - name: Bind both results to this candidate
+        run: |-
+          node .ci-control/scripts/ci/qualification.mjs bind-baseline --manifest "$RUNNER_TEMP/candidate/manifest.json" --receipt "$RUNNER_TEMP/native/before/native-journeys.json" --out "$RUNNER_TEMP/native-summary/before.json"
+          node .ci-control/scripts/ci/qualification.mjs bind-native --root "$GITHUB_WORKSPACE" --manifest "$RUNNER_TEMP/candidate/manifest.json" --receipt "$RUNNER_TEMP/native/after/native-journeys.json" --out "$RUNNER_TEMP/native-summary/after.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: native-result-${{ matrix.journey }}
+          path: ${{ runner.temp }}/native-summary/*.json
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: native-originals-${{ matrix.journey }}
+          path: ${{ runner.temp }}/native
+          if-no-files-found: error
+          retention-days: 30
+  native:
+    name: Native workflow acceptance
+    needs:
+      - plan
+      - native-journeys
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - *a3
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .ci-control/.nvmrc
+      - *a6
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: native-result-*
+          path: ${{ runner.temp }}/reports
+      - name: Require the complete source-bound result
+        env:
+          QUALIFICATION_NEEDS: ${{ toJSON(needs) }}
+        run: node .ci-control/scripts/ci/qualification.mjs assess --kind native --manifest "$RUNNER_TEMP/candidate/manifest.json" --reports "$RUNNER_TEMP/reports" --out "$RUNNER_TEMP/result/native.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: summary-native
+          path: ${{ runner.temp }}/result/*.json
+          if-no-files-found: error
+          retention-days: 30
+  qualification:
+    name: Merge qualification
+    needs:
+      - plan
+      - desktop
+      - sidecar
+      - run-from-source
+      - native
+      - controls
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - *a3
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .ci-control/.nvmrc
+      - *a6
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: summary-*
+          path: ${{ runner.temp }}/reports
+      - name: Require the complete source-bound result
+        env:
+          QUALIFICATION_NEEDS: ${{ toJSON(needs) }}
+        run: node .ci-control/scripts/ci/qualification.mjs assess --kind all --manifest "$RUNNER_TEMP/candidate/manifest.json" --reports "$RUNNER_TEMP/reports" --out "$RUNNER_TEMP/result/qualification.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: qualification-${{ github.sha }}
+          path: ${{ runner.temp }}/result/*.json
+          if-no-files-found: error
+          retention-days: 30
+  main-result:
+    name: Retain main failure ownership
+    needs:
+      - qualification
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+      issues: write
+    steps:
+      - *a3
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .ci-control/.nvmrc
+      - name: Record an owned failure once
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .ci-control/scripts/ci/report-main-result.mjs --publish

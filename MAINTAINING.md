@@ -14,23 +14,15 @@ exported snapshot or force-push it.
 
 ## Landing a change
 
-1. Read the complete diff, including workflow, dependency and install-script
-   changes. For an external fork, do this before permitting its workflows to
-   run. Workflow permission allows the proposed code to execute on a runner.
-2. Update the branch against current `main` using the signed-off merge in
-   `CONTRIBUTING.md`, then wait for its current checks. Resolve conflicts on the
-   contribution branch. If `main` advances, check the combined change again
-   before merging.
-3. Require the contributor-agreement, desktop build/typecheck/tests and
-   Rust/Python checks to pass on the current contribution. Inspect other failed
-   checks too, including the macOS source-start workflow. A previous head's
-   result does not qualify a changed contribution.
-4. Merge through GitHub, verify the merged commit and observe the normal
-   post-merge CI result. Keep follow-up fixes owned until they land. Do not use
-   an administrator bypass to skip required checks.
+The [public merge policy](docs/ci/merge-policy.md) owns candidate readiness,
+test coverage, delivery authority and the protected merge route. Read it before
+requesting admission. Its activation status is established by the live rules,
+not by this document.
 
-An approving pull-request review is not a merge requirement. Outside
-contributors do not receive write or merge access by submitting a contribution.
+For an external fork, inspect workflow, dependency and install-script changes
+before permitting execution. That permission allows the proposed code to run on
+a runner; it does not authorize merging. Contributors do not receive write or
+merge access by submitting a contribution.
 
 ## Releases
 
