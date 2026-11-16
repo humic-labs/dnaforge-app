@@ -2,7 +2,7 @@
 
 Read `README.md`, `CONTRIBUTING.md` and `MAINTAINING.md` before changing code.
 This repository is the source of truth for product development. Use a feature
-branch and open a pull request against `main`.
+branch and open a pull request against `dev`.
 
 Run focused checks for the behavior you change. Existing CI owns the complete
 builds and test suites. Preserve other contributors' work and keep unrelated
@@ -18,8 +18,12 @@ reviews. Verify the actual merged result before reporting delivery.
 
 Use [the public merge policy](docs/ci/merge-policy.md) for delivery authority,
 complete-feature readiness and qualification. Keep incomplete or held work in a
-draft PR. Use `node scripts/ci/deliver.mjs inspect --pr NUMBER` for the current
-read-only decision; a green check alone grants no merge authority.
+draft PR. An ordinary implementation assignment authorizes delivery to `dev`
+through `node scripts/ci/deliver.mjs --deliver`. The command readies the complete
+change, waits for current checks, enters the queue and verifies its merge.
+Respect explicit draft-only or no-merge requests. Use `inspect --pr NUMBER` for
+a read-only decision. Staging and production promotion belong to the release
+owner unless assigned explicitly; a source merge does not publish a release.
 
 Before changing a delivery or application workflow, reuse or extend its
 verification skill and feature map. The delivery surface is documented in

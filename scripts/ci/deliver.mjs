@@ -54,7 +54,7 @@ export function readQualificationArtifact(run, api = githubApi) {
 
 function identity(pr) {
   return JSON.stringify({ state: pr.state, head: pr.head?.sha, base: pr.base?.sha, target: pr.base?.ref,
-    repository: pr.base?.repo?.id, draft: pr.draft,
+    repository: pr.base?.repo?.id, headRepository: pr.head?.repo?.id, draft: pr.draft,
     labels: pr.labels?.map((label) => label.name).sort(), autoMerge: pr.auto_merge });
 }
 

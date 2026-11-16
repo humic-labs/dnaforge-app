@@ -2,14 +2,14 @@
 
 ## Source ownership
 
-Product changes belong in this repository and land on `main` through pull
+Product changes belong in this repository and land on `dev` through pull
 requests. Use short-lived branches. Maintainer branches and community forks
 follow the same required checks.
 
 When bringing over work started elsewhere, apply the product patch to a branch
-based on current `main`. Preserve contributor attribution and sign-offs. Keep
+based on current `dev`. Preserve contributor attribution and sign-offs. Keep
 private credentials, operational records and private Git history out of the
-patch. Preserve changes already accepted here; never replace `main` with an
+patch. Preserve changes already accepted here; never replace `dev` with an
 exported snapshot or force-push it.
 
 ## Landing a change
@@ -26,9 +26,11 @@ merge access by submitting a contribution.
 
 ## Releases
 
-Create immutable version tags from accepted public commits. Build and qualify
-each release from its exact tagged source, and identify that tag in the release
-notes. Correct a release with a new version rather than moving an existing tag.
+Promote an exact selected source from `dev` to `staging`, then from `staging` to
+`prod`. Development builds come from `dev`; Stable releases come from `prod`.
+Source promotion and installer publication are separate operations. Follow the
+[release policy](docs/ci/releases.md) for immutable tags, staged installer
+qualification and production rollout.
 
 Official signing and deployment use maintainer-controlled infrastructure.
 Contributors do not need its credentials for development, tests or pull

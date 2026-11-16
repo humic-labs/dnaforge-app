@@ -187,6 +187,40 @@ test('watcher request limits fail closed before admission', async () => {
   assert.equal(harness.writes.length, 0);
 });
 
+test('inspection refuses a retarget to another branch at the same base commit', () => {
+  const harness = apiFixture();
+  let reads = 0;
+  const api = (path, options) => {
+    const result = harness.api(path, options);
+    if (path === `${route}/pulls/99` && ++reads === 2) result.base.ref = 'staging';
+    return result;
+  };
+  const receipt = enqueueQualifiedPullRequest(99, { ...harness, ...local, api });
+  assert.equal(receipt.decision.state, 'pending');
+  assert(receipt.decision.reasons.some((reason) => reason.includes('changed during inspection')));
+  assert.equal(harness.writes.length, 0);
+});
+
+test('promotion reads the distinct selected source ancestry and refuses an unrelated same-tree head', () => {
+  const harness = apiFixture('staging');
+  const sourceSha = '6'.repeat(40);
+  const comparison = `${route}/compare/${sourceSha}...${head}`;
+  let observed = false;
+  const api = (path, options) => {
+    if (path === comparison) {
+      observed = true;
+      return { status: 'diverged' };
+    }
+    return harness.api(path, options);
+  };
+  const receipt = promoteQualifiedPullRequest(99, { ...harness, ...local, api, sourceSha });
+  assert.equal(observed, true);
+  assert.equal(receipt.observation.promotion.headTree, receipt.observation.promotion.sourceTree);
+  assert.equal(receipt.decision.state, 'rejected');
+  assert(receipt.decision.reasons.includes('Promotion PR does not preserve selected source ancestry'));
+  assert.equal(harness.writes.length, 0);
+});
+
 for (const target of ['staging', 'prod']) {
   test(`${target} promotion uses a merge commit and verifies its selected tree without publishing`, () => {
     const harness = apiFixture(target);

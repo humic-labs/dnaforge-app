@@ -1,90 +1,118 @@
-# Public merge qualification
+# Public delivery policy
 
-`.ci/merge-policy.json` is the executable policy for public `main`.
-`scripts/ci/merge-policy.mjs` selects required work and assesses live admission.
-Contributor and agent instructions point here instead of maintaining another
-check list. Private `dev` policy does not control public `main`.
+`.ci/merge-policy.json` is the executable authority for public branch roles,
+required checks, check publishers and delivery limits. `scripts/ci/merge-policy.mjs`
+assesses that policy against GitHub. Contributor and agent instructions point
+here instead of maintaining another list of checks.
 
-## Before admission
+```text
+feature PR ── fast checks + merge queue ──> dev
+                                           │ broad CI after each merge
+                                           │ selected source + broad qualification
+                                           ▼
+                                        staging
+                                           │ selected source + broad qualification
+                                           ▼
+                                          prod ──> Stable release process
+```
 
-Prepare the complete requested outcome on a task branch. Keep previews,
-unfinished integration and explicit holds as draft PRs. An implementation
-request, a green check or a completed subtask does not remove a stated hold. The
-default delivery command only inspects. Queue admission requires explicit merge
-authority for the complete feature and its exact current head.
+## Development
 
-The existing desktop, package and Python suites remain required. Rust helper
-tests and source startup accompany them. Desktop tests run in the declared
-number of shards without reducing the discovered inventory. Every code change
-also runs the native journeys declared in the policy. Documentation-only paths
-have an explicit selection result that omits native journeys; an unknown path
-selects all of them. A failed, cancelled or unexpectedly skipped required job,
-missing report, empty test selection or stale receipt cannot qualify a change.
-Existing skipped test cases remain visible in the reports; they are not silently
-counted as executed tests or removed from the inventory.
+Ordinary implementation assignments include delivery to `dev`. Finish the
+requested change and its focused acceptance before requesting delivery. Keep
+incomplete work in draft. Respect explicit draft-only, no-merge and hold
+instructions even when checks pass. Maintainers use the same public development
+commands as contributors; private trackers and release credentials are not
+prerequisites.
 
-The final qualification binds the repository, tested commit and tree, base,
-trusted control revision, workflow run and attempt, worker roster and coverage.
-Tests run against the combined candidate, not a different convenient checkout.
-Original failure logs and native evidence remain attached to that run. Before
-reports describe the base separately; a failing base does not disqualify a
-passing fix. A setup failure is not evidence that the product defect was
-reproduced.
+Development admission requires the CLA and PR Preflight checks named in the
+policy. Draft preflight checks changed-source syntax. Ready pull requests and
+queue candidates also run affected type checks and affected desktop unit tests.
+Unknown dependency impact selects conservatively. Empty, missing, cancelled or
+unexpectedly skipped required results cannot pass. The development merge queue
+combines changes and validates the combined candidate before landing it.
 
-## Authority
+Broad desktop, package, Python, Rust and native-journey work runs after each
+`dev` merge and on promotion candidates. Post-merge runs remain attached to their
+own commits; newer pushes do not cancel them. The owner repairs a regression or
+reverts its identified cause when it blocks other work. Broad CI is promotion
+evidence, not an extra development admission gate.
 
-The required configuration for main is a pull request and an ALLGREEN merge
-queue. No approving review, code-owner approval or last-push approval is
-required. Force pushes and branch deletion remain blocked. Required checks bind
-to their expected publisher.
+## Promotion
 
-Publisher binding alone cannot stop a candidate from replacing its own workflow.
-An organization ruleset must require the existing CI and CLA workflows from
-protected public `main`. The trusted final CI job evaluates required results
-independently of the candidate's workflow edits. The job reads reports as data
-and does not execute downloaded candidate code. Public contributions need no
-private source, issue tracker, signing credential or hosted release
-infrastructure.
+A release owner selects an immutable upstream commit for `staging` or `prod`.
+The policy declares each target's upstream. The selected source must belong to
+that upstream. The pull request must preserve its ancestry and file tree, and
+the qualified combined result must have exactly that tree. Promotion merges
+preserve history; they do not use the development squash queue.
 
-The CLI verifies the effective queue, PR rule, required contexts, publisher and
-trusted workflow before it can request admission. The actual required-workflow
-rule is a separate requirement from a file describing the desired rule.
+Promotion requires the checks named for that target, including the full
+`Electron E2E` matrix published by the trusted producer. The public native
+journeys supplement that matrix. A successful subset cannot stand in for the
+full result. The actual check must belong to the exact candidate commit and
+expected GitHub app. Missing, stale, failed, cancelled or skipped evidence
+refuses promotion.
+
+The broad qualification artifact binds the repository, combined candidate
+commit and tree, target base, protected control revision, workflow run and
+attempt, worker roster and coverage. Original reports and failures remain
+attached to that run. Before reports describe the base separately; a failing
+base does not disqualify a passing fix. Setup failures do not demonstrate a
+product defect.
+
+A merge into `prod` changes accepted source. It does not publish installers or
+update feeds. The [release policy](releases.md) owns staged artifact
+qualification and production rollout.
+
+## Protection and control
+
+Every active target requires a pull request, its policy checks bound to their
+expected publisher, and force-push and deletion protection. No approving review,
+code-owner approval, last-push approval or review receipt is required. Reviews
+remain advisory. Development uses the declared ALLGREEN queue; promotion uses a
+history-preserving merge with current target checks.
+
+Check names alone are insufficient evidence. The CLI verifies the public
+repository, exact head, current workflow run and attempt, check suite, job
+result and publisher. Preflight uses the candidate's protected base revision for
+its control code. Broad qualification pins protected `dev` control code
+separately from the tested source and actual workflow revision. The final
+verdict reads candidate reports as data. External Electron qualification is
+assessed as its own actual check, without pretending it is a public CI job.
 
 ## Commands
 
 ```sh
 node scripts/ci/deliver.mjs prepare --pr NUMBER --out /absolute/evidence/preparation.json
 node scripts/ci/deliver.mjs propose-rules --out /absolute/evidence/proposed-rules.json
+node scripts/ci/deliver.mjs --deliver --pr NUMBER --out /absolute/evidence/delivery.json
+node scripts/ci/deliver.mjs promote --pr NUMBER --source FULL_UPSTREAM_SHA --out /absolute/evidence/promotion.json
 ```
 
-Both commands preserve GitHub state. The proposal includes exact repository and
-organization payloads but never applies them. Establish supported workflow
-execution before enabling the rules. Retain existing protection throughout
-activation and read back the effective rules. Missing organization capability is
-an incomplete activation, not a reason to substitute context-name checks.
+`inspect` and `prepare` only read GitHub. `propose-rules` produces the repository
+payloads without applying them. A configuration file does not prove that rules
+are active.
 
-When the complete change is explicitly authorized and qualified:
+`--deliver` requires the clean local checkout of the exact PR head. It readies a
+completed draft, waits for the resulting ready preflight, requests exact-head
+queue admission once, and observes the actual merge on `dev`. Existing hold
+labels refuse delivery. There is no recurring authorization flag. It never
+jumps the queue, changes its selected head or automatically re-enqueues a
+removed entry. A bounded timeout leaves an existing queue entry unchanged. The
+owner reads that state, resolves the failure and resumes deliberately.
 
-```sh
-node scripts/ci/deliver.mjs enqueue --pr NUMBER --expected-head FULL_SHA --authorize-merge --out /absolute/evidence/admission.json
-```
+`enqueue --pr NUMBER --expected-head FULL_SHA` performs admission only, for an
+already-ready qualified development PR. It does not observe completion.
+`promote` requires an explicitly selected source and verifies the actual merged
+tree and target after GitHub confirms the history-preserving merge.
 
-The command requires a clean checkout of that head. It sends one exact-head
-queue request. It never changes a draft to ready, enables auto-merge, bypasses
-rules, jumps the queue or substitutes a newer head. A refusal returns to the
-owner. Admission is not a verified merge.
+## Activation and maintenance
 
-## After merge and release
-
-Each `main` commit retains its own CI run. Later pushes do not cancel earlier
-post-merge runs. The owner reads the actual merged commit and tree and the
-normal post-merge result. A regression remains owned until repaired, or until a
-certain culprit that blocks other work is deliberately reverted.
-
-Full platform, packaging, installation and update qualification remains a
-release responsibility. Native journey acceptance is not exhaustive release
-qualification. Stable releases bind the exact public source they build; private
-control-code revisions remain separate.
+Create and validate branch workflows before switching the default branch or
+activating their checks. Retain legacy `main` and its protections during the
+migration. Existing `main` work follows the migration owner's existing route
+until retargeted; `main` is not an alternate delivery bypass. Read back live
+rules, default branch and workflow behavior before claiming activation.
 
 Measure suite duration and flaky failures from real runs. Improve sharding and
 setup reuse without deleting coverage or retrying until green. Policy changes
@@ -92,4 +120,4 @@ name the observed failure and the condition for removing a temporary mechanism.
 Keep activation within the maintainer's established process-change cadence.
 
 Use [verify-public-delivery](../../skills/verify-public-delivery/SKILL.md) for
-the reproducible live CLI and GitHub acceptance path.
+the reproducible CLI and live GitHub acceptance path.
