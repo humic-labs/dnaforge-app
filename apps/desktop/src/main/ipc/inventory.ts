@@ -9,6 +9,7 @@ import {
   inventoryApplyTableRequestSchema,
   inventoryApplyStocktakeRequestSchema,
   inventoryApplyHierarchyRequestSchema,
+  inventoryApplyMappedTableRequestSchema,
   inventoryAcknowledgeSourceRequestSchema,
   inventoryOperationRequestSchema,
   type NativeInventoryRejection,
@@ -48,7 +49,14 @@ export function registerInventoryHandlers(options: {
   const mutate = (
     event: IpcMainInvokeEvent,
     input: unknown,
-    kind: 'commands' | 'adoption' | 'table' | 'stocktake' | 'hierarchy' | 'source-revision'
+    kind:
+      | 'commands'
+      | 'adoption'
+      | 'table'
+      | 'stocktake'
+      | 'hierarchy'
+      | 'mapped-table'
+      | 'source-revision'
   ): ReturnType<NativeInventoryOwner['execute']> => {
     const value = input as
       | { project?: unknown; inventoryId?: unknown; operationId?: unknown }
@@ -78,7 +86,9 @@ export function registerInventoryHandlers(options: {
                 ? inventoryApplyStocktakeRequestSchema.parse(input)
                 : kind === 'hierarchy'
                   ? inventoryApplyHierarchyRequestSchema.parse(input)
-                  : inventoryAcknowledgeSourceRequestSchema.parse(input);
+                  : kind === 'mapped-table'
+                    ? inventoryApplyMappedTableRequestSchema.parse(input)
+                    : inventoryAcknowledgeSourceRequestSchema.parse(input);
     } catch (error) {
       if (!(error instanceof ZodError || error instanceof InventoryValidationError)) throw error;
       return reject('INVALID_INVENTORY_INPUT', error.message);
@@ -111,9 +121,13 @@ export function registerInventoryHandlers(options: {
                 ? owner.applyHierarchy(request, assertCurrent, {
                     actor: `human:desktop:${event.sender.id}`,
                   })
-                : owner.acknowledgeSource(request, assertCurrent, {
-                    actor: `human:desktop:${event.sender.id}`,
-                  });
+                : kind === 'mapped-table'
+                  ? owner.applyMappedTable(request, assertCurrent, {
+                      actor: `human:desktop:${event.sender.id}`,
+                    })
+                  : owner.acknowledgeSource(request, assertCurrent, {
+                      actor: `human:desktop:${event.sender.id}`,
+                    });
     } catch (error) {
       if (error instanceof NativeDocumentCommandError && error.stateChanged === false)
         return reject(error.code, error.message);
@@ -121,6 +135,11 @@ export function registerInventoryHandlers(options: {
     }
   };
   return handleGroup(inventoryContract, {
+    previewMappedTable: (event, request) => {
+      assertCaller(event);
+      return currentOwner().previewMappedTable(request);
+    },
+    applyMappedTable: (event, request) => mutate(event, request, 'mapped-table'),
     previewHierarchy: (event, request) => {
       assertCaller(event);
       return currentOwner().previewHierarchy(request);

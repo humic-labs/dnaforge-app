@@ -1,3 +1,6 @@
+export * from './inventory-mapped-table-types';
+export * from './inventory-mapped-source';
+export * from './inventory-mapped-table';
 export * from './inventory-hierarchy-types';
 export * from './inventory-hierarchy';
 export * from './inventory-source-revision';

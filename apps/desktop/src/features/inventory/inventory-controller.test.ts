@@ -7,6 +7,8 @@ import {
   inventoryStocktakePreview,
   applyInventorySourceRevision,
   applyInventoryHierarchy,
+  applyInventoryMappedTable,
+  inventoryMappedTablePreview,
   inventoryHierarchyPreview,
   inventorySourceRevisionPreview,
   inventoryTablePreview,
@@ -175,20 +177,35 @@ function fixture(empty = false) {
                     { at: 1, principal, authority: principal },
                     17 * 1024 * 1024
                   )
-                : applyInventoryHierarchy(
-                    state.revision === 0 ? null : state,
-                    {
-                      ...request,
-                      target: {
-                        projectId: request.project,
-                        inventoryId: request.inventoryId,
-                        present: state.revision !== 0,
-                        revision: request.expectedRevision,
+                : request.kind === 'import-hierarchy'
+                  ? applyInventoryHierarchy(
+                      state.revision === 0 ? null : state,
+                      {
+                        ...request,
+                        target: {
+                          projectId: request.project,
+                          inventoryId: request.inventoryId,
+                          present: state.revision !== 0,
+                          revision: request.expectedRevision,
+                        },
                       },
-                    },
-                    { at: 1, principal, authority: principal },
-                    17 * 1024 * 1024
-                  )
+                      { at: 1, principal, authority: principal },
+                      17 * 1024 * 1024
+                    )
+                  : applyInventoryMappedTable(
+                      state.revision === 0 ? null : state,
+                      {
+                        ...request,
+                        target: {
+                          projectId: request.project,
+                          inventoryId: request.inventoryId,
+                          present: state.revision !== 0,
+                          revision: request.expectedRevision,
+                        },
+                      },
+                      { at: 1, principal, authority: principal },
+                      17 * 1024 * 1024
+                    )
         : applyInventoryCommandBatch(state, {
             expectedRevision: request.expectedRevision,
             commands: request.commands,
@@ -253,6 +270,10 @@ function fixture(empty = false) {
       throw new Error('Hierarchy preview is not used by this controller fixture.');
     }),
     applyHierarchy: vi.fn(async (request) => commit(request)),
+    previewMappedTable: vi.fn(async () => {
+      throw new Error('Mapped preview is not used by this controller fixture.');
+    }),
+    applyMappedTable: vi.fn(async (request) => commit(request)),
     storageConditions: vi.fn(async (request) => {
       const current = request.project === other.projectId ? createInventoryState() : state;
       return {
@@ -1468,6 +1489,141 @@ describe('hierarchy import recovery', () => {
     });
     expect(f.client.applyHierarchy).not.toHaveBeenCalled();
     expect(Object.values(f.state().hierarchyBindings)).toEqual([]);
+    f.controller.dispose();
+  });
+});
+
+describe('mapped spreadsheet recovery', () => {
+  function mappedPlan(f: ReturnType<typeof fixture>) {
+    const created = f.commit({
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      operationId: 'mapped-plate-setup',
+      expectedRevision: f.state().revision,
+      commands: [
+        {
+          kind: 'create-layout-storage',
+          id: 'mapped-plate',
+          name: 'Mapped plate',
+          layout: { kind: 'fixed-well', rows: 1, columns: 2 },
+          placement: { kind: 'root' },
+        },
+      ],
+    });
+    expect(created.status).toBe('committed');
+    const sourceText = 'Primer ID,Plate,Well,Notes\r\n001,Plate-7,A01,Original source evidence\r\n';
+    const state = f.state();
+    const plan = inventoryMappedTablePreview(state, {
+      target: {
+        projectId: project.projectId,
+        inventoryId: project.defaultInventoryId,
+        present: true,
+        revision: state.revision,
+      },
+      sourceText,
+      options: {
+        namespace: 'mapped-source',
+        delimiter: ',',
+        columns: { sourceId: 'Primer ID', plate: 'Plate', well: 'Well' },
+        materials: [{ sourceId: '001', materialId: 'material' }],
+        plates: [
+          {
+            sourcePlate: 'Plate-7',
+            storageId: 'mapped-plate',
+            positions: [{ sourceWell: 'A01', position: 'A1' }],
+          },
+        ],
+        quantity: { kind: 'unknown', reason: 'No source volume measurement' },
+        qualities: [{ sourceId: '001', quality: 'usable', reason: 'Explicit physical condition' }],
+        evidenceOnlyColumns: [{ column: 'Notes', reason: 'Retain original evidence' }],
+        skips: [],
+      },
+      bindings: [
+        {
+          sourceId: '001',
+          materialId: 'material',
+          kind: 'admitted',
+          fingerprint: `sha256:${'a'.repeat(64)}`,
+        },
+      ],
+      asOf: 1,
+      principal,
+      authority: principal,
+      maxBytes: 17 * 1024 * 1024,
+    });
+    if (plan.kind !== 'ready') throw new Error(JSON.stringify(plan.issues));
+    return { sourceText, plan };
+  }
+  it('recovers the original mapped receipt without repeating stock creation', async () => {
+    const f = fixture();
+    const { sourceText, plan } = mappedPlan(f);
+    await f.controller.initialize();
+    vi.mocked(f.client.applyMappedTable).mockImplementationOnce(async (request) => {
+      f.commit(request);
+      throw new Error('Lost mapped response');
+    });
+    await f.controller.receiveMappedTable(sourceText, plan.options, plan.planDigest);
+    expect(f.controller.getSnapshot().status.kind).toBe('outcome-unknown');
+    const original = structuredClone(f.saved()[0].request);
+    expect(original).toMatchObject({
+      kind: 'receive-mapped-table',
+      sourceText,
+      options: plan.options,
+      expectedPlanDigest: plan.planDigest,
+    });
+    f.controller.dispose();
+    const reopened = new InventoryController(
+      f.client,
+      f.storage,
+      () => 'must-not-replace-original'
+    );
+    await reopened.initialize();
+    await reopened.checkPending();
+    expect(reopened.getSnapshot().status.kind).toBe('ready');
+    expect(f.saved()).toEqual([]);
+    expect(f.client.applyMappedTable).toHaveBeenCalledOnce();
+    expect(f.client.applyMappedTable).toHaveBeenCalledWith(original);
+    expect(Object.values(f.state().tableBindings)).toHaveLength(1);
+    expect(f.client.applyTable).not.toHaveBeenCalled();
+    reopened.dispose();
+  });
+  it('retries identical original bytes and resolved decisions after the draft changes', async () => {
+    const f = fixture();
+    const { sourceText, plan } = mappedPlan(f);
+    await f.controller.initialize();
+    const options = structuredClone(plan.options);
+    vi.mocked(f.client.applyMappedTable).mockRejectedValueOnce(new Error('Unknown mapped outcome'));
+    await f.controller.receiveMappedTable(sourceText, options, plan.planDigest);
+    const original = structuredClone(f.saved()[0].request);
+    (options as { namespace: string }).namespace = 'edited-after-submit';
+    expect(
+      await f.controller.receiveMappedTable('replacement', options, plan.planDigest)
+    ).toBeNull();
+    await f.controller.retryPending();
+    expect(f.client.applyMappedTable).toHaveBeenNthCalledWith(1, original);
+    expect(f.client.applyMappedTable).toHaveBeenNthCalledWith(2, original);
+    expect(f.saved()).toEqual([]);
+    expect(
+      f.entries.filter(
+        (entry) => 'kind' in entry.request && entry.request.kind === 'receive-mapped-table'
+      )
+    ).toHaveLength(1);
+    f.controller.dispose();
+  });
+  it('sends no mapped stock request when the original intent cannot be retained', async () => {
+    const f = fixture();
+    const { sourceText, plan } = mappedPlan(f);
+    await f.controller.initialize();
+    vi.mocked(f.storage.write).mockImplementationOnce(() => {
+      throw new Error('Storage unavailable');
+    });
+    await f.controller.receiveMappedTable(sourceText, plan.options, plan.planDigest);
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'refused',
+      code: 'INVENTORY_RECOVERY_UNAVAILABLE',
+    });
+    expect(f.client.applyMappedTable).not.toHaveBeenCalled();
+    expect(Object.values(f.state().tableBindings)).toEqual([]);
     f.controller.dispose();
   });
 });

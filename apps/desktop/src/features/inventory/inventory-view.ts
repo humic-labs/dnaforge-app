@@ -54,6 +54,7 @@ export type InventoryDialog =
   | { kind: 'stocktake' }
   | { kind: 'source-revision' }
   | { kind: 'import-hierarchy' }
+  | { kind: 'receive-mapped-table' }
   | InventoryMaterialDialog
   | InventoryCompositionDialog
   | InventoryReservationDialog

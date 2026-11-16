@@ -1,5 +1,6 @@
 import {
   inventoryReceiveTableRowSha256,
+  normalizeInventoryMappedTable,
   parseInventoryArchive,
   parseInventoryReceiveTableSource,
   type InventoryReceiveTableFields,
@@ -57,6 +58,14 @@ export function findNativeInventorySourcePreimages(
       if (!('kind' in request)) continue;
       if (request.kind === 'receive-table' && request.options.namespace === namespace)
         table(request.sourceText, request.options.delimiter);
+      if (request.kind === 'receive-mapped-table' && request.options.namespace === namespace) {
+        const normalized = normalizeInventoryMappedTable(
+          request.sourceText,
+          request.options,
+          NATIVE_DOCUMENT_MAX_BODY_BYTES
+        );
+        if (normalized.kind === 'normalized') table(normalized.normalizedSourceText, ',');
+      }
       if (
         request.kind === 'acknowledge-table-source' &&
         request.options.table.namespace === namespace

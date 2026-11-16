@@ -8,6 +8,8 @@ import {
   type InventoryResolvedTableOptions,
   type InventoryStocktakeChoices,
   type InventoryHierarchyChoices,
+  type InventoryMappedTableChoices,
+  type InventoryResolvedMappedTableOptions,
   type InventoryImportOptions,
   type InventoryResolvedImportOptions,
   INVENTORY_RECEIVE_TABLE_COLUMNS,
@@ -183,6 +185,86 @@ export const inventoryApplyStocktakeRequestSchema = inventoryReadRequestSchema
   })
   .strict();
 
+const mappedMaterial = z.object({ sourceId: identity, materialId: identity }).strict();
+const mappedOptions = {
+  namespace: z.string().max(256),
+  delimiter: z.enum([',', '\t']),
+  columns: z
+    .object({
+      sourceId: z.string().max(256),
+      plate: z.string().max(256),
+      well: z.string().max(256),
+    })
+    .strict(),
+  plates: z.array(
+    z
+      .object({
+        sourcePlate: identity,
+        storageId: identity,
+        positions: z.array(
+          z.object({ sourceWell: identity, position: z.string().min(1).max(512) }).strict()
+        ),
+      })
+      .strict()
+  ),
+  quantity: z.object({ kind: z.literal('unknown'), reason: z.string().max(4096) }).strict(),
+  qualities: z.array(
+    z
+      .object({
+        sourceId: identity,
+        quality: z.enum(['usable', 'quarantined']),
+        reason: z.string().max(4096),
+      })
+      .strict()
+  ),
+  evidenceOnlyColumns: z.array(
+    z.object({ column: identity, reason: z.string().max(4096) }).strict()
+  ),
+  skips: z.array(z.object({ sourceId: identity, reason: z.string().max(4096) }).strict()),
+};
+export const inventoryMappedTableOptionsSchema = z
+  .object({ ...mappedOptions, materials: z.array(mappedMaterial) })
+  .strict();
+export const inventoryResolvedMappedTableOptionsSchema = z
+  .object({
+    ...mappedOptions,
+    namespace: identity,
+    columns: z.object({ sourceId: identity, plate: identity, well: identity }).strict(),
+    materials: z.array(mappedMaterial.extend({ fingerprint: digest }).strict()),
+    quantity: mappedOptions.quantity.extend({ reason: z.string().min(1).max(4096) }).strict(),
+    qualities: z.array(
+      z
+        .object({
+          sourceId: identity,
+          quality: z.enum(['usable', 'quarantined']),
+          reason: z.string().min(1).max(4096),
+        })
+        .strict()
+    ),
+    evidenceOnlyColumns: z.array(
+      z.object({ column: identity, reason: z.string().min(1).max(4096) }).strict()
+    ),
+    skips: z.array(z.object({ sourceId: identity, reason: z.string().min(1).max(4096) }).strict()),
+  })
+  .strict();
+export const inventoryPreviewMappedTableRequestSchema = inventoryReadRequestSchema
+  .extend({
+    format: z.literal('mapped-plate-v1'),
+    sourceText: z.string().min(1),
+    options: inventoryMappedTableOptionsSchema,
+  })
+  .strict();
+export const inventoryApplyMappedTableRequestSchema = inventoryReadRequestSchema
+  .extend({
+    kind: z.literal('receive-mapped-table'),
+    operationId: identity,
+    expectedRevision: revision,
+    sourceText: z.string().min(1),
+    options: inventoryResolvedMappedTableOptionsSchema,
+    expectedPlanDigest: digest,
+  })
+  .strict();
+
 export const inventoryHierarchyOptionsSchema = z
   .object({
     namespace: identity,
@@ -309,6 +391,7 @@ export const inventoryAcceptedRequestSchema = z.union([
   inventoryApplyStocktakeRequestSchema,
   inventoryAcknowledgeSourceRequestSchema,
   inventoryApplyHierarchyRequestSchema,
+  inventoryApplyMappedTableRequestSchema,
 ]);
 
 export const inventoryOperationRequestSchema = inventoryReadRequestSchema
@@ -373,6 +456,19 @@ export type InventoryApplyTableRequest = InventoryReadRequest & {
   readonly options: InventoryResolvedTableOptions;
   readonly expectedPlanDigest: `sha256:${string}`;
 };
+export type InventoryPreviewMappedTableRequest = InventoryReadRequest & {
+  readonly format: 'mapped-plate-v1';
+  readonly sourceText: string;
+  readonly options: InventoryMappedTableChoices;
+};
+export type InventoryApplyMappedTableRequest = InventoryReadRequest & {
+  readonly kind: 'receive-mapped-table';
+  readonly operationId: string;
+  readonly expectedRevision: number;
+  readonly sourceText: string;
+  readonly options: InventoryResolvedMappedTableOptions;
+  readonly expectedPlanDigest: `sha256:${string}`;
+};
 export type InventoryPreviewHierarchyRequest = InventoryReadRequest & {
   readonly format: 'hierarchy-v1';
   readonly sourceText: string;
@@ -418,7 +514,8 @@ export type InventoryAcceptedRequest =
   | InventoryApplyTableRequest
   | InventoryApplyStocktakeRequest
   | InventoryAcknowledgeSourceRequest
-  | InventoryApplyHierarchyRequest;
+  | InventoryApplyHierarchyRequest
+  | InventoryApplyMappedTableRequest;
 export type InventoryStorageConditionsRequest = z.infer<
   typeof inventoryStorageConditionsRequestSchema
 >;

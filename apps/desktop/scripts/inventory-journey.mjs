@@ -1,4 +1,9 @@
 import {
+  runInventoryMappedJourney,
+  runInventoryMappedResume,
+  runInventoryMappedReopen,
+} from './journeys/inventory-mapped-tables.mjs';
+import {
   runInventoryHierarchyJourney,
   runInventoryHierarchyReopen,
   runInventoryHierarchyResume,
@@ -96,6 +101,9 @@ assert.ok(
     'hierarchy',
     'hierarchy-reopen',
     'hierarchy-resume',
+    'mapped-table',
+    'mapped-resume',
+    'mapped-reopen',
   ].includes(stage),
   'Choose a mapped inventory journey stage.'
 );
@@ -669,6 +677,33 @@ try {
     );
   }
 
+  if (stage === 'mapped-table' || stage === 'mapped-resume' || stage === 'mapped-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass the current owned inventory fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    const run =
+      stage === 'mapped-table'
+        ? runInventoryMappedJourney
+        : stage === 'mapped-resume'
+          ? runInventoryMappedResume
+          : runInventoryMappedReopen;
+    receipt.expected = await run({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+      projectRoot: root,
+    });
+    writeFileSync(
+      path.join(out, 'mapped-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
   if (stage === 'hierarchy' || stage === 'hierarchy-reopen' || stage === 'hierarchy-resume') {
     assert.ok(args.includes('--fixture'), 'Pass the current owned inventory fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

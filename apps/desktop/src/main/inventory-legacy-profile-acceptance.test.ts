@@ -91,7 +91,9 @@ it.runIf(Boolean(sourcePath))(
                     ? owner.applyStocktake(entry.request)
                     : entry.request.kind === 'acknowledge-table-source'
                       ? owner.acknowledgeSource(entry.request)
-                      : owner.applyHierarchy(entry.request)
+                      : entry.request.kind === 'import-hierarchy'
+                        ? owner.applyHierarchy(entry.request)
+                        : owner.applyMappedTable(entry.request)
               : owner.execute(entry.request)
           ).toEqual(entry.receipt);
         }

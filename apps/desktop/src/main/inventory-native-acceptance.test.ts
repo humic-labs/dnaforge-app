@@ -36,6 +36,10 @@ vi.mock('./config', () => ({ getApiUrl: () => 'http://synthetic-grants.invalid' 
 
 import { openFileTestDb } from './__tests__/test-db';
 import {
+  runNativeMappedJourney,
+  verifyNativeMappedReopen,
+} from './__tests__/inventory-mapped-native-journey';
+import {
   runNativeHierarchyJourney,
   verifyNativeHierarchyReopen,
 } from './__tests__/inventory-hierarchy-native-journey';
@@ -98,6 +102,8 @@ type InventoryNativeCommand =
   | 'inventory.acknowledge-source'
   | 'inventory.preview-hierarchy'
   | 'inventory.apply-hierarchy'
+  | 'inventory.preview-mapped-table'
+  | 'inventory.apply-mapped-table'
   | 'inventory.materials';
 type Server = Awaited<ReturnType<typeof startNativeDocumentCommandServer>>;
 interface NativeResponse<T> {
@@ -315,6 +321,8 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       'inventory.acknowledge-source': 'execution',
       'inventory.preview-hierarchy': 'preview',
       'inventory.apply-hierarchy': 'execution',
+      'inventory.preview-mapped-table': 'preview',
+      'inventory.apply-mapped-table': 'execution',
       'inventory.materials': 'page',
     };
     expect(wrapped).toHaveProperty(keys[command]);
@@ -335,6 +343,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
               'apply-stocktake': 'inventory.apply-stocktake',
               'acknowledge-table-source': 'inventory.acknowledge-source',
               'import-hierarchy': 'inventory.apply-hierarchy',
+              'receive-mapped-table': 'inventory.apply-mapped-table',
             } as const
           )[request.kind]
         : 'inventory.execute';
@@ -2374,6 +2383,14 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       loseAcknowledgement,
     });
     evidence.hierarchyBeforeRestart = hierarchyBeforeRestart;
+    const mappedBeforeRestart = await runNativeMappedJourney({
+      scope,
+      projectId: projects[0].projectId,
+      owner,
+      success,
+      loseAcknowledgement,
+    });
+    evidence.mappedBeforeRestart = mappedBeforeRestart;
     await server!.close();
     server = undefined;
     db.close();
@@ -2381,6 +2398,10 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     db = openFileTestDb(dbPath);
     await start();
     evidence.closedAndReopened = true;
+    evidence.mappedReopenedReadback = await verifyNativeMappedReopen(
+      { scope, projectId: projects[0].projectId, owner, success, loseAcknowledgement },
+      mappedBeforeRestart
+    );
     evidence.hierarchyReopenedReadback = await verifyNativeHierarchyReopen(
       { scope, projectId: projects[0].projectId, owner, success, loseAcknowledgement },
       hierarchyBeforeRestart

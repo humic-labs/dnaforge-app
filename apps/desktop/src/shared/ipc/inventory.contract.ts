@@ -18,6 +18,9 @@ import type {
   InventoryApplyStocktakeRequest,
   InventoryStocktakePreviewSnapshot,
   InventoryHierarchyPreviewSnapshot,
+  InventoryPreviewMappedTableRequest,
+  InventoryApplyMappedTableRequest,
+  InventoryMappedTablePreviewSnapshot,
   InventoryPreviewHierarchyRequest,
   InventoryApplyHierarchyRequest,
   InventoryPreviewSourceRevisionRequest,
@@ -45,6 +48,11 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  previewMappedTable: invoke<
+    [request: InventoryPreviewMappedTableRequest],
+    InventoryMappedTablePreviewSnapshot
+  >(),
+  applyMappedTable: invoke<[request: InventoryApplyMappedTableRequest], NativeInventoryExecution>(),
   previewHierarchy: invoke<
     [request: InventoryPreviewHierarchyRequest],
     InventoryHierarchyPreviewSnapshot

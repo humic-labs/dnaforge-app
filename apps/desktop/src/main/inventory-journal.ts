@@ -14,6 +14,7 @@ import {
   type InventoryApplyTableRequest,
   type InventoryApplyStocktakeRequest,
   type InventoryApplyHierarchyRequest,
+  type InventoryApplyMappedTableRequest,
   type InventoryAcknowledgeSourceRequest,
   type NativeInventoryHistoryEntry,
 } from '../shared/inventory-command';
@@ -78,6 +79,11 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryAcknowledgeSourceRequest,
     context: InventoryExecutionContext
+  ) => InventoryTransition,
+  mappedTable: (
+    target: InventoryState | null,
+    request: InventoryApplyMappedTableRequest,
+    context: InventoryExecutionContext
   ) => InventoryTransition
 ): InventoryState {
   let state = createInventoryState();
@@ -113,6 +119,12 @@ export function replayNativeInventoryEntries(
           'INVENTORY_DATA_INVALID: A hierarchy import requires its native receipt context.'
         );
       result = hierarchy(state.revision === 0 ? null : state, request, context);
+    } else if ('kind' in request && request.kind === 'receive-mapped-table') {
+      if (!context)
+        throw new Error(
+          'INVENTORY_DATA_INVALID: A mapped table import requires its native receipt context.'
+        );
+      result = mappedTable(state.revision === 0 ? null : state, request, context);
     } else if ('kind' in request && request.kind === 'acknowledge-table-source') {
       if (!context)
         throw new Error(

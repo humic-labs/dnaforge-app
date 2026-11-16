@@ -11,6 +11,7 @@ import {
   type InventoryStocktakeChoices,
   type InventoryResolvedSourceRevisionOptions,
   type InventoryHierarchyChoices,
+  type InventoryResolvedMappedTableOptions,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
@@ -20,6 +21,7 @@ import {
   inventoryApplyStocktakeRequestSchema,
   inventoryAcknowledgeSourceRequestSchema,
   inventoryApplyHierarchyRequestSchema,
+  inventoryApplyMappedTableRequestSchema,
   inventoryReceiptSchema,
   type InventoryAcceptedRequest,
   type NativeInventoryHistoryEntry,
@@ -772,6 +774,28 @@ export class InventoryController {
     );
   }
 
+  async receiveMappedTable(
+    sourceText: string,
+    options: InventoryResolvedMappedTableOptions,
+    expectedPlanDigest: InventoryTableSha256
+  ): Promise<NativeInventoryReceipt | null> {
+    return this.sourceAttempt(
+      (data) =>
+        inventoryApplyMappedTableRequestSchema.parse({
+          kind: 'receive-mapped-table',
+          project: data.project.projectId,
+          inventoryId: data.project.defaultInventoryId,
+          operationId: this.operationId(),
+          expectedRevision: data.state.revision,
+          sourceText,
+          options,
+          expectedPlanDigest,
+        }),
+      'Receive mapped spreadsheet',
+      'Preview the mapped spreadsheet before receiving stock.'
+    );
+  }
+
   private async sourceAttempt(
     request: (data: InventoryData) => InventoryAcceptedRequest,
     summary: string,
@@ -862,6 +886,8 @@ export class InventoryController {
         return this.client.acknowledgeSource(request);
       case 'import-hierarchy':
         return this.client.applyHierarchy(request);
+      case 'receive-mapped-table':
+        return this.client.applyMappedTable(request);
     }
   }
 

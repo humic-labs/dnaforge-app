@@ -383,3 +383,71 @@ describe('inventory hierarchy agent contract', () => {
     ).toBe(false);
   });
 });
+
+describe('inventory mapped table agent contract', () => {
+  const options = {
+    namespace: 'source',
+    delimiter: ',',
+    columns: { sourceId: 'ID', plate: 'Plate', well: 'Well' },
+    materials: [],
+    plates: [],
+    quantity: { kind: 'unknown', reason: 'No source measurements' },
+    qualities: [],
+    evidenceOnlyColumns: [],
+    skips: [],
+  };
+  const preview = {
+    kind: 'preview-mapped-table',
+    project: 'project',
+    inventoryId: 'inventory',
+    format: 'mapped-plate-v1',
+    sourceText: 'exact mapped table\r\n',
+    options,
+  };
+  it('retains explicit layouts and parent choices while excluding authored authority', () => {
+    expect(inventoryAgentSchema.parse({ operation: preview })).toEqual({ operation: preview });
+    const { format: _format, ...fields } = preview;
+    const operation = {
+      ...fields,
+      kind: 'apply-mapped-table',
+      operationId: 'mapped-once',
+      expectedRevision: 0,
+      expectedPlanDigest: `sha256:${'1'.repeat(64)}`,
+    };
+    expect(inventoryAgentSchema.parse({ operation })).toEqual({ operation });
+    for (const extra of [
+      { recordedAt: 0 },
+      { principal: { kind: 'agent', identityId: 'other' } },
+      { authority: { kind: 'local-profile', profileKey: '0'.repeat(64) } },
+    ])
+      expect(
+        inventoryAgentSchema.safeParse({ operation: { ...operation, ...extra } }).success
+      ).toBe(false);
+    expect(
+      inventoryAgentSchema.parse({
+        operation: {
+          ...preview,
+          options: { ...options, skips: [{ sourceId: 'skip', reason: '' }] },
+        },
+      })
+    ).toBeDefined();
+    expect(
+      inventoryAgentSchema.safeParse({
+        operation: {
+          ...operation,
+          options: { ...options, skips: [{ sourceId: 'skip', reason: '' }] },
+        },
+      }).success
+    ).toBe(false);
+    expect(
+      inventoryAgentOutputSchema.parse({
+        ok: true,
+        kind: 'mapped-table-preview',
+        preview: { kind: 'blocked', rows: [] },
+      })
+    ).toMatchObject({ kind: 'mapped-table-preview' });
+    expect(
+      inventoryAgentOutputSchema.safeParse({ ok: true, kind: 'mapped-table-preview' }).success
+    ).toBe(false);
+  });
+});

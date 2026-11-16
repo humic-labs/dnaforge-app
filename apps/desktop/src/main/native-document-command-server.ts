@@ -39,6 +39,8 @@ import {
   inventoryPreviewStocktakeRequestSchema,
   inventoryApplyStocktakeRequestSchema,
   inventoryPreviewHierarchyRequestSchema,
+  inventoryPreviewMappedTableRequestSchema,
+  inventoryApplyMappedTableRequestSchema,
   inventoryApplyHierarchyRequestSchema,
   inventoryPreviewSourceRevisionRequestSchema,
   inventoryAcknowledgeSourceRequestSchema,
@@ -96,6 +98,24 @@ const commandSchema = z.discriminatedUnion('command', [
       projectScope: agentProjectScopeSchema,
       command: z.literal('inventory.acknowledge-source'),
       request: inventoryAcknowledgeSourceRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-mapped-table'),
+      request: inventoryPreviewMappedTableRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.apply-mapped-table'),
+      request: inventoryApplyMappedTableRequestSchema,
       agent: agentAuthoritySchema.optional(),
     })
     .strict(),
@@ -515,8 +535,10 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'inventory.preview-table' ||
           body.command === 'inventory.apply-table' ||
           body.command === 'inventory.preview-hierarchy' ||
+          body.command === 'inventory.preview-mapped-table' ||
           body.command === 'inventory.preview-stocktake' ||
           body.command === 'inventory.apply-hierarchy' ||
+          body.command === 'inventory.apply-mapped-table' ||
           body.command === 'inventory.apply-stocktake' ||
           body.command === 'inventory.preview-source-revision' ||
           body.command === 'inventory.acknowledge-source' ||
@@ -544,6 +566,7 @@ export async function startNativeDocumentCommandServer(options: {
                 body.command === 'inventory.apply-import' ||
                 body.command === 'inventory.apply-table' ||
                 body.command === 'inventory.apply-hierarchy' ||
+                body.command === 'inventory.apply-mapped-table' ||
                 body.command === 'inventory.apply-stocktake' ||
                 body.command === 'inventory.acknowledge-source'
                   ? ['read-workspace', 'write-workspace']
@@ -599,6 +622,29 @@ export async function startNativeDocumentCommandServer(options: {
                 return () => ({
                   kind: 'execution',
                   execution: receiver.acknowledgeSource(request, assertCurrent, invocation),
+                });
+              }
+              if (body.command === 'inventory.preview-mapped-table') {
+                const request = body.request;
+                const invocation = body.agent
+                  ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
+                  : undefined;
+                return () => ({
+                  kind: 'mapped-table-preview',
+                  preview: receiver.previewMappedTable(request, invocation),
+                });
+              }
+              if (body.command === 'inventory.apply-mapped-table') {
+                const request = body.request;
+                const invocation = body.agent
+                  ? {
+                      actor: `agent:${body.agent.identityId}`,
+                      principal: { kind: 'agent' as const, identityId: body.agent.identityId },
+                    }
+                  : undefined;
+                return () => ({
+                  kind: 'execution',
+                  execution: receiver.applyMappedTable(request, assertCurrent, invocation),
                 });
               }
               if (body.command === 'inventory.preview-hierarchy') {
@@ -829,6 +875,7 @@ export async function startNativeDocumentCommandServer(options: {
             body.command === 'inventory.preview-import' ||
             body.command === 'inventory.preview-table' ||
             body.command === 'inventory.preview-hierarchy' ||
+            body.command === 'inventory.preview-mapped-table' ||
             body.command === 'inventory.preview-stocktake' ||
             body.command === 'inventory.preview-source-revision' ||
             body.command === 'inventory.catalog' ||

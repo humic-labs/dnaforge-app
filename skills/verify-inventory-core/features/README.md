@@ -49,3 +49,7 @@
 
 - [Hierarchy tables](hierarchy-tables.md): explicit storage layouts and parent
   references, stable physical identities and atomic tree import.
+
+- [Mapped plate spreadsheets](mapped-plate-tables.md): preserved original
+  source, explicit column/plate/well decisions and existing scientific
+  identities.

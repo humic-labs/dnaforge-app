@@ -855,6 +855,53 @@ the importer uses ordinary push commands and current stack constraints. A late
 contradiction refuses the whole proposal. No hierarchy-only journal, migration
 coordinator or hidden batch splitting is introduced.
 
+## Mapped plate spreadsheet contract
+
+A plate spreadsheet adapter preserves the entire raw source while making its
+physical interpretation explicit. Scientific primer publication and hierarchy
+creation use their existing owners. Physical receiving binds current admitted
+scientific identities and existing permanent wells; it does not create either
+implicitly.
+
+```mermaid
+stateDiagram-v2
+  [*] --> SourceDraft
+  SourceDraft --> ColumnResolution: exact source and delimiter selected
+  ColumnResolution --> RowResolution: every source column has a disposition
+  RowResolution --> Blocked: missing material, plate, well or quality decisions
+  RowResolution --> Ready: complete normalized receive plan
+  Ready --> Stale: target or scientific bindings change
+  Stale --> RowResolution: regenerate interpretation
+  Ready --> CommandRecovery: persist raw source and exact choices
+  CommandRecovery --> Committed: one atomic stock operation
+  CommandRecovery --> OutcomeUnknown: response unavailable
+  OutcomeUnknown --> CommandRecovery: original receipt or identical retry
+```
+
+The first format maps source identity, plate and well columns. Every remaining
+column requires an evidence-only disposition with a reason. Well-label
+translation is an explicit source-to-position map; leading zeros are never
+stripped automatically. Quantities are explicitly unknown with a reason when the
+register has no measurements. Each row's usable/quarantined choice is explicit;
+external QC labels do not establish that choice. Source plate and box labels do
+not establish dimensions, hierarchy or hardware.
+
+A deterministic normalizer produces the existing receive-v1 physical rows and
+choices. The outer plan pins exact original source, normalizer version, column
+dispositions, explicit decisions, resolved scientific fingerprints, target
+scope/revision and inner receive-plan digest. Native acceptance regenerates both
+plans inside the existing transaction. Saved choices and native receipt context
+drive replay, with no live registry lookup. No new inventory state map or
+scientific import coordinator is needed.
+
+Existing table bindings correlate physical stock. Reordering or changed CSV
+quoting does not duplicate it. Changed normalized interpretation requires
+existing source reconciliation. Changes only to evidence-only fields may produce
+no physical changes; such a preview saves no new source or receipt. Do not imply
+the revised evidence file was retained. Original raw source and all decisions
+remain in committed mapped requests. Source baseline discovery normalizes those
+retained requests, never reconstructs source fields from current stock.
+
 ## Material identity and conservation
 
 A scientific record identifies a material. A lot identifies one supplier batch

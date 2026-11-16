@@ -32,6 +32,7 @@ import { InventoryTableForm } from './InventoryTableForm';
 import { InventoryStocktakeForm } from './InventoryStocktakeForm';
 import { InventorySourceRevisionForm } from './InventorySourceRevisionForm';
 import { InventoryHierarchyForm } from './InventoryHierarchyForm';
+import { InventoryMappedTableForm } from './InventoryMappedTableForm';
 import { InventoryCompositionForm } from './InventoryCompositionForm';
 import { InventoryReservationForm } from './InventoryReservationForm';
 import { InventoryCustodyForm } from './InventoryCustodyForm';
@@ -86,6 +87,72 @@ type Drawer =
   | { kind: 'reservations' }
   | { kind: 'item'; item: InventoryItem }
   | { kind: 'stock'; stockId: string; tab: 'details' | 'history' | 'reservations' };
+
+type InventorySourceKind = Extract<
+  NativeInventoryHistoryEntry['request'],
+  { kind: string }
+>['kind'];
+const sourceHistoryCopy: Readonly<
+  Record<
+    InventorySourceKind,
+    {
+      title: string;
+      summary: string;
+      sourceLabel: string;
+      choicesLabel: string;
+      description: string;
+    }
+  >
+> = {
+  'adopt-archive': {
+    title: 'Adopted inventory archive',
+    summary: 'Retained source archive',
+    sourceLabel: 'Retained imported archive',
+    choicesLabel: '',
+    description:
+      'Original source history remains in this archive. This operation records adoption in the destination.',
+  },
+  'receive-table': {
+    title: 'Received inventory table',
+    summary: 'Retained source table',
+    sourceLabel: 'Retained receive table',
+    choicesLabel: 'Retained table receiving choices',
+    description:
+      'Original table text and explicit choices are retained with this atomic receiving operation.',
+  },
+  'apply-stocktake': {
+    title: 'Recorded stocktake observations',
+    summary: 'Retained stocktake source',
+    sourceLabel: 'Retained stocktake source',
+    choicesLabel: 'Retained stocktake choices',
+    description:
+      'Original stocktake text and explicit record or correction choices are retained with this operation.',
+  },
+  'acknowledge-table-source': {
+    title: 'Acknowledged source revision',
+    summary: 'Retained revised source',
+    sourceLabel: 'Retained revised source',
+    choicesLabel: 'Retained source revision choices',
+    description:
+      'The revised source, verified previous source fields and acknowledgement reasons are retained. This operation changes no physical inventory facts.',
+  },
+  'import-hierarchy': {
+    title: 'Imported inventory hierarchy',
+    summary: 'Retained hierarchy source',
+    sourceLabel: 'Retained hierarchy source',
+    choicesLabel: 'Retained hierarchy choices',
+    description:
+      'Original hierarchy text and explicit layout, parent and skip choices are retained with this atomic import.',
+  },
+  'receive-mapped-table': {
+    title: 'Received mapped spreadsheet',
+    summary: 'Retained original spreadsheet',
+    sourceLabel: 'Retained original spreadsheet',
+    choicesLabel: 'Retained mapped spreadsheet choices',
+    description:
+      'The complete original spreadsheet, evidence-only columns and explicit scientific, plate, position, quantity and quality decisions are retained with this atomic receiving operation.',
+  },
+};
 
 function quantityLabel(stock: InventoryStock): string {
   return stock.quantity.kind === 'unknown'
@@ -416,15 +483,7 @@ export function InventoryPanel() {
             >
               <p className="font-medium text-fg">
                 {'kind' in entry.request
-                  ? entry.request.kind === 'adopt-archive'
-                    ? 'Adopted inventory archive'
-                    : entry.request.kind === 'receive-table'
-                      ? 'Received inventory table'
-                      : entry.request.kind === 'apply-stocktake'
-                        ? 'Recorded stocktake observations'
-                        : entry.request.kind === 'acknowledge-table-source'
-                          ? 'Acknowledged source revision'
-                          : 'Imported inventory hierarchy'
+                  ? sourceHistoryCopy[entry.request.kind].title
                   : entry.request.commands
                       .map((command) => (state ? historyLabel(command, state) : ''))
                       .join(' · ')}
@@ -435,56 +494,20 @@ export function InventoryPanel() {
                   data-testid="inventory-imported-source-evidence"
                 >
                   <summary className="cursor-pointer text-accent">
-                    {entry.request.kind === 'adopt-archive'
-                      ? 'Retained source archive'
-                      : entry.request.kind === 'receive-table'
-                        ? 'Retained source table'
-                        : entry.request.kind === 'apply-stocktake'
-                          ? 'Retained stocktake source'
-                          : entry.request.kind === 'acknowledge-table-source'
-                            ? 'Retained revised source'
-                            : 'Retained hierarchy source'}
+                    {sourceHistoryCopy[entry.request.kind].summary}
                   </summary>
-                  <p>
-                    {entry.request.kind === 'adopt-archive'
-                      ? 'Original source history remains in this archive. This operation records adoption in the destination.'
-                      : entry.request.kind === 'receive-table'
-                        ? 'Original table text and explicit choices are retained with this atomic receiving operation.'
-                        : entry.request.kind === 'apply-stocktake'
-                          ? 'Original stocktake text and explicit record or correction choices are retained with this operation.'
-                          : entry.request.kind === 'acknowledge-table-source'
-                            ? 'The revised source, verified previous source fields and acknowledgement reasons are retained. This operation changes no physical inventory facts.'
-                            : 'Original hierarchy text and explicit layout, parent and skip choices are retained with this atomic import.'}
-                  </p>
+                  <p>{sourceHistoryCopy[entry.request.kind].description}</p>
                   <p className="break-all">Plan: {entry.request.expectedPlanDigest}</p>
                   <TextArea
                     readOnly
-                    aria-label={
-                      entry.request.kind === 'adopt-archive'
-                        ? 'Retained imported archive'
-                        : entry.request.kind === 'receive-table'
-                          ? 'Retained receive table'
-                          : entry.request.kind === 'apply-stocktake'
-                            ? 'Retained stocktake source'
-                            : entry.request.kind === 'acknowledge-table-source'
-                              ? 'Retained revised source'
-                              : 'Retained hierarchy source'
-                    }
+                    aria-label={sourceHistoryCopy[entry.request.kind].sourceLabel}
                     value={entry.request.sourceText}
                     className="h-40 font-mono text-xs"
                   />
                   {entry.request.kind !== 'adopt-archive' ? (
                     <TextArea
                       readOnly
-                      aria-label={
-                        entry.request.kind === 'receive-table'
-                          ? 'Retained table receiving choices'
-                          : entry.request.kind === 'apply-stocktake'
-                            ? 'Retained stocktake choices'
-                            : entry.request.kind === 'acknowledge-table-source'
-                              ? 'Retained source revision choices'
-                              : 'Retained hierarchy choices'
-                      }
+                      aria-label={sourceHistoryCopy[entry.request.kind].choicesLabel}
                       value={JSON.stringify(entry.request.options, null, 2)}
                       className="h-40 font-mono text-xs"
                     />
@@ -654,6 +677,12 @@ export function InventoryPanel() {
           onClick={() => setDialog({ kind: 'source-revision' })}
         >
           Source revisions
+        </Button>
+        <Button
+          disabled={!data || status.kind === 'submitting' || status.kind === 'outcome-unknown'}
+          onClick={() => setDialog({ kind: 'receive-mapped-table' })}
+        >
+          Map spreadsheet
         </Button>
         <Button disabled={!data} onClick={() => setDialog({ kind: 'item-code-lookup' })}>
           Scan or enter code
@@ -1561,6 +1590,15 @@ export function InventoryPanel() {
         ) : dialog.kind === 'import-hierarchy' ? (
           <InventoryHierarchyForm
             key={`${data.project.projectId}:import-hierarchy`}
+            data={data}
+            controller={controller}
+            status={status}
+            client={platform().inventory}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : dialog.kind === 'receive-mapped-table' ? (
+          <InventoryMappedTableForm
+            key={`${data.project.projectId}:receive-mapped-table`}
             data={data}
             controller={controller}
             status={status}

@@ -42,6 +42,8 @@ let applyImport: ReturnType<typeof vi.fn>;
 let previewTable: ReturnType<typeof vi.fn>;
 let applyTable: ReturnType<typeof vi.fn>;
 let previewStocktake: ReturnType<typeof vi.fn>;
+let previewMappedTable: ReturnType<typeof vi.fn>;
+let applyMappedTable: ReturnType<typeof vi.fn>;
 let previewHierarchy: ReturnType<typeof vi.fn>;
 let applyHierarchy: ReturnType<typeof vi.fn>;
 let applyStocktake: ReturnType<typeof vi.fn>;
@@ -68,6 +70,8 @@ beforeEach(() => {
   applyImport = vi.fn(() => ({ status: 'committed' }));
   previewTable = vi.fn(() => ({ kind: 'ready', target: { revision: 0 } }));
   applyTable = vi.fn(() => ({ status: 'committed' }));
+  previewMappedTable = vi.fn(() => ({ kind: 'ready', target: { revision: 0 } }));
+  applyMappedTable = vi.fn(() => ({ status: 'committed' }));
   previewHierarchy = vi.fn(() => ({ kind: 'ready', target: { revision: 0 } }));
   applyHierarchy = vi.fn(() => ({ status: 'committed' }));
   previewStocktake = vi.fn(() => ({ kind: 'ready', target: { revision: 0 } }));
@@ -89,6 +93,8 @@ beforeEach(() => {
     applyTable,
     previewStocktake,
     previewHierarchy,
+    previewMappedTable,
+    applyMappedTable,
     applyHierarchy,
     applyStocktake,
     previewSourceRevision,
@@ -155,6 +161,68 @@ it('keeps source revision preview read-only and source acknowledgement under the
     code: 'INVENTORY_DESKTOP_CALLER_UNAVAILABLE',
   });
   expect(acknowledgeSource).toHaveBeenCalledTimes(1);
+  expect(execute).not.toHaveBeenCalled();
+  expect(applyImport).not.toHaveBeenCalled();
+});
+
+it('keeps mapped table preview read-only and mapped table application under the same current-caller fence', () => {
+  const options = {
+    namespace: 'source',
+    delimiter: ',',
+    columns: { sourceId: 'ID', plate: 'Plate', well: 'Well' },
+    materials: [],
+    plates: [],
+    quantity: { kind: 'unknown', reason: 'No source measurements' },
+    qualities: [],
+    evidenceOnlyColumns: [],
+    skips: [],
+  };
+  const preview = {
+    project: 'project',
+    inventoryId: 'inventory',
+    format: 'mapped-plate-v1',
+    sourceText: 'exact source\r\n',
+    options,
+  };
+  const read = captured.handlers.previewMappedTable as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => unknown;
+  expect(read(event, preview)).toMatchObject({ kind: 'ready' });
+  expect(previewMappedTable).toHaveBeenCalledExactlyOnceWith(preview);
+  expect(applyMappedTable).not.toHaveBeenCalled();
+  const input = {
+    kind: 'receive-mapped-table',
+    project: 'project',
+    inventoryId: 'inventory',
+    operationId: 'mapped-once',
+    expectedRevision: 0,
+    sourceText: preview.sourceText,
+    options,
+    expectedPlanDigest: `sha256:${'0'.repeat(64)}`,
+  };
+  const apply = captured.handlers.applyMappedTable as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => NativeInventoryExecution;
+  expect(apply(event, input)).toMatchObject({ status: 'committed' });
+  expect(applyMappedTable).toHaveBeenCalledWith(input, expect.any(Function), {
+    actor: 'human:desktop:7',
+  });
+  expect(apply(event, { ...input, recordedAt: 0 })).toMatchObject({
+    status: 'rejected',
+    operationId: 'mapped-once',
+    code: 'INVALID_INVENTORY_INPUT',
+  });
+  expect(applyMappedTable).toHaveBeenCalledTimes(1);
+  expect(
+    apply({ sender: { id: 9, isDestroyed: () => false } } as IpcMainInvokeEvent, input)
+  ).toMatchObject({
+    status: 'rejected',
+    operationId: 'mapped-once',
+    code: 'INVENTORY_DESKTOP_CALLER_UNAVAILABLE',
+  });
+  expect(applyMappedTable).toHaveBeenCalledTimes(1);
   expect(execute).not.toHaveBeenCalled();
   expect(applyImport).not.toHaveBeenCalled();
 });

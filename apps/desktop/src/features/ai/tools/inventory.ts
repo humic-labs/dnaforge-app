@@ -19,6 +19,8 @@ import {
   inventoryPreviewStocktakeRequestSchema,
   inventoryApplyStocktakeRequestSchema,
   inventoryPreviewHierarchyRequestSchema,
+  inventoryPreviewMappedTableRequestSchema,
+  inventoryApplyMappedTableRequestSchema,
   inventoryApplyHierarchyRequestSchema,
   inventoryPreviewSourceRevisionRequestSchema,
   inventoryAcknowledgeSourceRequestSchema,
@@ -31,6 +33,10 @@ const identity = z.string().min(1).max(256);
 const revision = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const scope = { project, inventoryId: identity };
 const plainInput = z.discriminatedUnion('kind', [
+  inventoryPreviewMappedTableRequestSchema
+    .extend({ kind: z.literal('preview-mapped-table') })
+    .strict(),
+  inventoryApplyMappedTableRequestSchema.extend({ kind: z.literal('apply-mapped-table') }).strict(),
   inventoryPreviewHierarchyRequestSchema.extend({ kind: z.literal('preview-hierarchy') }).strict(),
   inventoryApplyHierarchyRequestSchema.extend({ kind: z.literal('apply-hierarchy') }).strict(),
   inventoryPreviewSourceRevisionRequestSchema
@@ -128,6 +134,7 @@ const material = z
   .object({ id: z.string(), name: z.string(), kind: z.string(), registryId: z.string().nullable() })
   .strict();
 export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
+  z.object({ ...ok, kind: z.literal('mapped-table-preview'), preview: jsonObjectSchema }).strict(),
   z
     .object({ ...ok, kind: z.literal('source-revision-preview'), preview: jsonObjectSchema })
     .strict(),
@@ -187,6 +194,7 @@ export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
 ]);
 
 export const INVENTORY_DESCRIPTION =
+  'Use preview-mapped-table and apply-mapped-table with mapped-plate-v1 to receive original CSV/TSV plate spreadsheets into existing permanent wells. Preserve the complete raw source and declare every column as source identity, plate, well or reason-bearing evidence only. Bind scientific materials explicitly in the admitted project, map source plate and well labels to existing plate IDs and exact positions, declare unknown quantity with a reason and choose quality per row explicitly. Never strip leading zeros, infer plate dimensions, treat QC labels as quality or interpret box labels as freezers. Preview has no effects; apply accepts only the exact original bytes, resolved fingerprints, choices and ready digest through the existing journal. Stable physical row bindings prevent duplicates; evidence-only edits may yield no physical changes and save no revised source or receipt. Scientific publication and hierarchy creation remain separate visible stages. ' +
   'Compare revised external receive records with preview-source-revision, format receive-v1 and exact sourceText. Supply existing table namespace and explicit same-identity material/location/vessel resolutions plus acknowledgements with sourceId, expectedPreviousRowSha256 and reason. The read-only comparison separates verified previous source fields, revised source fields and actual inventory; missing previous evidence blocks. Acknowledge only a ready plan with acknowledge-source, saved resolved options/preimages, plan digest, expected revision and stable operation ID. This appends source history without receiving, replenishing, renaming, moving, changing quality, custody or holds, or applying measurements. Original bindings remain immutable; scientific rebinding, vessel replacement, vessel-kind changes and unbound rows refuse. Unchanged receive reimports compare the latest accepted source baseline and preserve later use or movement. Original source fields come from retained accepted requests, including archives, never inferred from current stock. A lost acknowledgement requires the original receipt or identical retry. ' +
   'Import explicit hierarchy-v1 CSV/TSV with preview-hierarchy and apply-hierarchy. Required columns are source_id,name,layout_kind,positions,rows,columns,capacity,parent_kind,parent_key,slot. Supply a stable namespace, explicit delimiter, existing-parent mappings and reason-bearing skips. Named positions use a strict JSON array; grids, tube boxes and fixed-well plates require explicit dimensions; stacks require capacity. Parents are explicit root, local source IDs or mapped existing storage. Stack ordinals define order independently of row order. Preview resolves parent graphs and validates the complete existing-command batch without writes. Cycles, missing parents, occupied positions, noncontiguous stacks and oversized atomic batches refuse. Existing source bindings prevent duplication and never reverse later movement or disposal. Changed source facts require separate reconciliation. Apply only the exact ready plan, source, options, revision and stable operation ID; recover uncertain outcomes using the original receipt or identical retry. No equipment specifications, plate dimensions, temperature control, stock or fit qualification are inferred from names. Receive stock in a separate explicit stage. ' +
   'Preview explicit stocktake observations with preview-stocktake, format stocktake-v1 and exact sourceText. Supply a stable observation namespace, explicit delimiter, subject and destination bindings and one explicit decision per observation: record-only, apply with reason, or skip with reason. Required columns are observation_id,subject_key,observed_at,quantity_kind,quantity,unit,presence,location_key,slot,reason. Stock subjects support known or unknown quantity; item subjects support missing or found presence. Unobserved dimensions use not-observed; found requires an explicit destination. Source time is unknown or exact UTC ISO with milliseconds, separate from trusted native recording time. Record-only creates immutable observation facts without changing quantity or custody; a later explicit apply uses the recorded fact once. Quantity measurement preserves holds and custody, including allocation shortfalls. Missing/found corrections preserve quantity and use existing physical custody rules; never infer a plate from a permanent well or missing stock from an omitted row. Reusing an observation identity with changed facts refuses. Reimporting an applied observation never repeats its correction after later use. Apply only a ready preview through apply-stocktake with exact source, options, plan digest, revision and stable operation ID; uncertain outcomes use original receipt recovery or identical retry. Observations and corrections commit through the existing atomic journal and command limit. Changed receive registers are not physical measurements. ' +
