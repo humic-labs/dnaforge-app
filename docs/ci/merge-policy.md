@@ -1,9 +1,9 @@
 # Public delivery policy
 
 `.ci/merge-policy.json` is the executable authority for public branch roles,
-required checks, check publishers and delivery limits. `scripts/ci/merge-policy.mjs`
-assesses that policy against GitHub. Contributor and agent instructions point
-here instead of maintaining another list of checks.
+required checks, check publishers and delivery limits.
+`scripts/ci/merge-policy.mjs` assesses that policy against GitHub. Contributor
+and agent instructions point here instead of maintaining another list of checks.
 
 ```text
 feature PR ── fast checks + merge queue ──> dev
@@ -33,10 +33,10 @@ unexpectedly skipped required results cannot pass. The development merge queue
 combines changes and validates the combined candidate before landing it.
 
 Broad desktop, package, Python, Rust and native-journey work runs after each
-`dev` merge and on promotion candidates. Post-merge runs remain attached to their
-own commits; newer pushes do not cancel them. The owner repairs a regression or
-reverts its identified cause when it blocks other work. Broad CI is promotion
-evidence, not an extra development admission gate.
+`dev` merge and on promotion candidates. Post-merge runs remain attached to
+their own commits; newer pushes do not cancel them. The owner repairs a
+regression or reverts its identified cause when it blocks other work. Broad CI
+is promotion evidence, not an extra development admission gate.
 
 ## Promotion
 
@@ -53,12 +53,16 @@ full result. The actual check must belong to the exact candidate commit and
 expected GitHub app. Missing, stale, failed, cancelled or skipped evidence
 refuses promotion.
 
-The broad qualification artifact binds the repository, combined candidate
-commit and tree, target base, protected control revision, workflow run and
-attempt, worker roster and coverage. Original reports and failures remain
-attached to that run. Before reports describe the base separately; a failing
-base does not disqualify a passing fix. Setup failures do not demonstrate a
-product defect.
+The Electron check includes a digest-bound receipt for the current PR head,
+target base, tested merge commit and tree. It identifies the private controller,
+workflow run and attempt, complete roster and original evidence digests. A head
+check from an earlier target base cannot qualify a new combined candidate.
+
+The broad qualification artifact binds the repository, combined candidate commit
+and tree, target base, protected control revision, workflow run and attempt,
+worker roster and coverage. Original reports and failures remain attached to
+that run. Before reports describe the base separately; a failing base does not
+disqualify a passing fix. Setup failures do not demonstrate a product defect.
 
 A merge into `prod` changes accepted source. It does not publish installers or
 update feeds. The [release policy](releases.md) owns staged artifact
@@ -89,17 +93,17 @@ node scripts/ci/deliver.mjs --deliver --pr NUMBER --out /absolute/evidence/deliv
 node scripts/ci/deliver.mjs promote --pr NUMBER --source FULL_UPSTREAM_SHA --out /absolute/evidence/promotion.json
 ```
 
-`inspect` and `prepare` only read GitHub. `propose-rules` produces the repository
-payloads without applying them. A configuration file does not prove that rules
-are active.
+`inspect` and `prepare` only read GitHub. `propose-rules` produces the
+repository payloads without applying them. A configuration file does not prove
+that rules are active.
 
 `--deliver` requires the clean local checkout of the exact PR head. It readies a
 completed draft, waits for the resulting ready preflight, requests exact-head
 queue admission once, and observes the actual merge on `dev`. Existing hold
-labels refuse delivery. There is no recurring authorization flag. It never
-jumps the queue, changes its selected head or automatically re-enqueues a
-removed entry. A bounded timeout leaves an existing queue entry unchanged. The
-owner reads that state, resolves the failure and resumes deliberately.
+labels refuse delivery. There is no recurring authorization flag. It never jumps
+the queue, changes its selected head or automatically re-enqueues a removed
+entry. A bounded timeout leaves an existing queue entry unchanged. The owner
+reads that state, resolves the failure and resumes deliberately.
 
 `enqueue --pr NUMBER --expected-head FULL_SHA` performs admission only, for an
 already-ready qualified development PR. It does not observe completion.

@@ -17,28 +17,33 @@ commit before any mutation.
 
 ## Driving it with the delivery CLI and GitHub
 
-Run `node scripts/ci/deliver.mjs inspect --pr NUMBER --out /absolute/evidence/promotion.json`.
-Read the candidate, source tree, upstream relationship and every required
-check. Missing or unavailable full Electron qualification is incomplete even
-when the smaller public native-journey suite passes.
+Run
+`node scripts/ci/deliver.mjs inspect --pr NUMBER --out /absolute/evidence/promotion.json`.
+Read the candidate, source tree, upstream relationship and every required check.
+Missing or unavailable full Electron qualification is incomplete even when the
+smaller public native-journey suite passes.
+
+Read the Electron check's JSON receipt and compare its head, target base, tested
+merge and tree with the actual PR and broad qualification artifact. Verify its
+digest in `external_id`, policy App ID and run-attempt link. Preserve the
+receipt with the public evidence. Private logs and credentials stay private.
 
 Use an owned draft PR to prove read-only refusal. Retain its before and after
 head, base, draft state and merge state. Exercise stale-head and wrong-target
 refusals through the independent branch-delivery controls; never enqueue or
 merge an unqualified candidate to probe server behavior.
 
-An authorized real promotion needs passing source-bound qualification and
-the expected branch relationship before it can merge. From the clean checkout
-of that exact PR head, run:
+An authorized real promotion needs passing source-bound qualification and the
+expected branch relationship before it can merge. From the clean checkout of
+that exact PR head, run:
 
 ```sh
 node scripts/ci/deliver.mjs promote --pr NUMBER --expected-head FULL_HEAD_SHA --source FULL_UPSTREAM_SHA --out /absolute/evidence/promotion-merge.json
 ```
 
-After merging, read the
-actual commit and tree from GitHub and compare them with the tested candidate.
-Record the immutable source selected for release separately from the latest
-development branch head.
+After merging, read the actual commit and tree from GitHub and compare them with
+the tested candidate. Record the immutable source selected for release
+separately from the latest development branch head.
 
 ## Gotchas
 

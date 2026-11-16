@@ -22,7 +22,9 @@ test('rules declare separate dev and promotion policies without approvals or byp
     for (const key of ['require_code_owner_review', 'require_last_push_approval', 'require_extra_approval_for_unattributed_changes']) assert.equal(pr[key], false);
     const checks = item.body.rules.find((rule) => rule.type === 'required_status_checks').parameters;
     assert.deepEqual(checks.required_status_checks.map((check) => check.context), branchPolicy(item.target).requiredChecks);
-    assert(checks.required_status_checks.every((check) => check.integration_id === 15368));
+    for (const check of checks.required_status_checks)
+      assert.equal(check.integration_id,
+        policy.externalChecks[check.context]?.appId ?? policy.authority.appId);
     assert.equal(item.body.rules.some((rule) => rule.type === 'merge_queue'), item.target === 'dev');
   }
 });

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { branchPolicy, policy, proposedRules, selectRequiredWork } from './merge-policy.mjs';
 
 export function qualifiedFixture(target = 'staging') {
@@ -28,5 +29,23 @@ export function qualifiedFixture(target = 'staging') {
     promotion: { sourceSha: head, sourceTree: tree, headTree: tree, upstreamSha: head, ancestry: 'identical' },
     ancestry: { base: 'identical', control: 'identical' },
   };
+  const external = checks.find((check) => check.name === 'Electron E2E');
+  if (external) {
+    const receipt = {
+      schema: 'dnaforge.public-electron-qualification.v1',
+      repository: policy.repository.name, repositoryId: policy.repository.id,
+      pullRequest: candidate.number, target, headSha: head, baseSha: base,
+      mergeSha: source, treeSha: tree,
+      controller: { commit: 'c'.repeat(40), tree: 'd'.repeat(40) },
+      run: { id: 700, attempt: 1, workflow: '.github/workflows/e2e-electron.yml' },
+      rosterSha256: 'a'.repeat(64), evidenceSha256: 'b'.repeat(64), status: 'passed',
+      counts: { passed: 20, skipped: 0, flaky: 0, failedAttempts: 0, reports: 2 },
+    };
+    const text = JSON.stringify(receipt);
+    external.app.id = policy.externalChecks['Electron E2E'].appId;
+    external.output = { text };
+    external.external_id = `${receipt.schema}:${createHash('sha256').update(text).digest('hex')}`;
+    external.details_url = 'https://github.com/humic-labs/dnaforge/actions/runs/700/attempts/1';
+  }
   return { candidate, observation };
 }
