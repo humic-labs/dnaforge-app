@@ -117,28 +117,33 @@ export function prepareStartupProfile(
     process.env,
     input.applicationDirectory
   );
-  if (automationPath) {
-    if (input.treatExplicitUserDataAsShared)
-      throw new Error('Automation cannot use the shared application profile.');
+  if (automationPath && input.treatExplicitUserDataAsShared)
+    throw new Error('Automation cannot use the shared application profile.');
+  const scenarioRequested =
+    input.scenarioMutationRequested ?? isScenarioMutationRequested(input.argv, process.env);
+  const scenarioPath = prepareDisposableScenarioProfile({
+    explicitUserDataPath:
+      automationPath ?? (hasExplicitUserDataDir(input.argv) ? input.defaultUserData : undefined),
+    treatExplicitUserDataAsShared: input.treatExplicitUserDataAsShared,
+    allowUnmarkedElectronBootFiles:
+      input.isDev && Boolean(input.desktopDevPort) && !input.argv.includes('--e2e'),
+    requested: scenarioRequested,
+  });
+  if (automationPath && scenarioRequested && scenarioPath !== automationPath)
+    throw new Error('The automation profile was not admitted as a disposable scenario.');
+  if (scenarioPath) {
     return {
-      kind: 'automation-isolated',
-      userDataPath: automationPath,
+      kind: 'scenario-disposable',
+      userDataPath: scenarioPath,
       migrationAllowed: true,
       migrateLegacyUserData: false,
       cloneSharedDatabase: false,
     };
   }
-  const scenarioPath = prepareDisposableScenarioProfile({
-    ...input,
-    allowUnmarkedElectronBootFiles:
-      input.isDev && Boolean(input.desktopDevPort) && !input.argv.includes('--e2e'),
-    requested:
-      input.scenarioMutationRequested ?? isScenarioMutationRequested(input.argv, process.env),
-  });
-  if (scenarioPath) {
+  if (automationPath) {
     return {
-      kind: 'scenario-disposable',
-      userDataPath: scenarioPath,
+      kind: 'automation-isolated',
+      userDataPath: automationPath,
       migrationAllowed: true,
       migrateLegacyUserData: false,
       cloneSharedDatabase: false,

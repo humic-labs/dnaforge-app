@@ -71,6 +71,10 @@ missing original capture fails the command.
 - Every journey gets a fresh private automation profile. Only workspace
   restoration restarts that same profile within its journey. The existing
   launcher's ownership checks stop the app; no process-name kill is used.
+- An explicit scenario request goes through the existing disposable-profile
+  owner using that validated automation path. Ordinary automation gains no
+  scenario authority. Shared profiles and unmarked profiles containing user data
+  are refused; approved profiles can reopen their own persisted data.
 - Profiles, fixture data, receipts and original media remain after the owned app
   stops. Upload the complete output directory even on failure. Do not replace
   failed captures with a later passing run.
