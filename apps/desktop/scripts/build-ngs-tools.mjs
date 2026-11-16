@@ -61,12 +61,6 @@ const recipe = {
   nativeBinaryVerifierSha256: digest(
     readFileSync(fileURLToPath(new URL('./lib/native-binary.cjs', import.meta.url)))
   ),
-  workflowSha256: digest(
-    readFileSync(path.join(repository, '.github/workflows/ngs-tools-build.yml'))
-  ),
-  nativeProofSha256: digest(
-    readFileSync(path.join(repository, 'scripts/verify-owned-ngs-tools.py'))
-  ),
   sourceLockSha256: digest(lockBytes),
   compiler: capture(compiler, ['--version']),
   sdk: capture('/usr/bin/xcrun', ['--sdk', 'macosx', '--show-sdk-build-version']),
