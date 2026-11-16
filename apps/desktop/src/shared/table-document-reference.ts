@@ -18,7 +18,15 @@ export const tableDocumentReferenceSchema = z
             blockId: identity,
           })
           .strict(),
-        z.object({ kind: z.literal('rich-file'), fileDocumentId: identity }).strict(),
+        z
+          .object({
+            kind: z.literal('rich-file'),
+            projectId: z.string().uuid(),
+            tableId: z.string().uuid(),
+            fileDocumentId: identity.optional(),
+            pathHint: z.string().min(1).max(4096).optional(),
+          })
+          .strict(),
         z
           .object({
             kind: z.literal('delimited-file'),
@@ -60,6 +68,22 @@ export function notebookTableReference(
   });
 }
 
+export function richTableReference(
+  projectId: string,
+  tableId: string,
+  binding: TableDocumentReference['binding'] = { kind: 'current' },
+  hints?: { fileDocumentId?: string; pathHint?: string }
+): TableDocumentReference {
+  const reference = tableDocumentReferenceSchema.parse({
+    version: 1,
+    documentId: tableId,
+    backing: { ...hints, kind: 'rich-file', projectId, tableId },
+    binding,
+  });
+  tableDocumentKey(reference);
+  return reference;
+}
+
 export function tableDocumentKey(reference: TableDocumentReference): string {
   const value = tableDocumentReferenceSchema.parse(reference);
   if (
@@ -68,12 +92,41 @@ export function tableDocumentKey(reference: TableDocumentReference): string {
       notebookTableReference(value.backing.notebookDocumentId, value.backing.blockId).documentId
   )
     throw new Error('The table reference does not match its notebook and block identity.');
+  if (value.backing.kind === 'rich-file') {
+    if (value.documentId !== value.backing.tableId)
+      throw new Error('The table reference does not match its portable table identity.');
+    if (
+      value.binding.kind === 'saved-version' &&
+      (!/^[a-f0-9]{64}$/.test(value.binding.savedVersionId) ||
+        value.binding.sha256 !== `sha256:${value.binding.savedVersionId}`)
+    )
+      throw new Error('The saved table reference does not match its immutable snapshot digest.');
+    const current = `rich-table:${value.backing.projectId}:${value.backing.tableId}`;
+    return value.binding.kind === 'current'
+      ? current
+      : `${current}:saved-version:${value.binding.savedVersionId}`;
+  }
   return value.binding.kind === 'current'
     ? value.documentId
     : `${value.documentId}:saved-version:${encodeURIComponent(value.binding.savedVersionId)}`;
 }
 
 export function tableDocumentReferenceFromKey(key: string): TableDocumentReference | null {
+  const rich = /^rich-table:([^:]+):([^:]+)(?::saved-version:([a-f0-9]{64}))?$/.exec(key);
+  if (rich) {
+    try {
+      const reference = richTableReference(
+        rich[1],
+        rich[2],
+        rich[3]
+          ? { kind: 'saved-version', savedVersionId: rich[3], sha256: `sha256:${rich[3]}` }
+          : { kind: 'current' }
+      );
+      return tableDocumentKey(reference) === key ? reference : null;
+    } catch {
+      return null;
+    }
+  }
   const match = /^notebook-table:([^:]+):([^:]+)$/.exec(key);
   if (!match) return null;
   try {

@@ -2,11 +2,58 @@ import { describe, expect, it } from 'vitest';
 import {
   notebookTableData,
   notebookTableReference,
+  richTableReference,
   tableDocumentKey,
   tableDocumentReferenceFromKey,
 } from './table-document-reference';
 
 describe('table document identity', () => {
+  it('keeps portable table identity independent of profile and path hints', () => {
+    const project = 'e03fc253-14f2-4d66-985d-558358a0c223';
+    const table = '8b42f5f1-635e-4cda-a07b-8fc2531fc97e';
+    const first = richTableReference(
+      project,
+      table,
+      { kind: 'current' },
+      { fileDocumentId: 'old-profile-file', pathHint: 'old/Samples' }
+    );
+    const moved = richTableReference(
+      project,
+      table,
+      { kind: 'current' },
+      { fileDocumentId: 'new-profile-file', pathHint: 'renamed/Samples' }
+    );
+    const bare = richTableReference(project, table);
+    expect(tableDocumentKey(first)).toBe(tableDocumentKey(moved));
+    expect(tableDocumentReferenceFromKey(tableDocumentKey(first))).toEqual(bare);
+    expect(tableDocumentKey(bare)).not.toBe(
+      tableDocumentKey(richTableReference('923e35de-7ecb-4613-9f85-530f271353c8', table))
+    );
+  });
+
+  it('keeps a pinned saved version distinct and rejects mismatched digest or table ownership', () => {
+    const project = 'e03fc253-14f2-4d66-985d-558358a0c223';
+    const table = '8b42f5f1-635e-4cda-a07b-8fc2531fc97e';
+    const digest = 'a'.repeat(64);
+    const pin = richTableReference(project, table, {
+      kind: 'saved-version',
+      savedVersionId: digest,
+      sha256: `sha256:${digest}`,
+    });
+    expect(tableDocumentReferenceFromKey(tableDocumentKey(pin))).toEqual(pin);
+    expect(tableDocumentKey(pin)).not.toBe(tableDocumentKey(richTableReference(project, table)));
+    expect(() =>
+      richTableReference(project, table, {
+        kind: 'saved-version',
+        savedVersionId: digest,
+        sha256: `sha256:${'b'.repeat(64)}`,
+      })
+    ).toThrow();
+    expect(() =>
+      tableDocumentKey({ ...pin, documentId: '923e35de-7ecb-4613-9f85-530f271353c8' })
+    ).toThrow();
+  });
+
   it('keeps equal legacy block identities in separate notebooks distinct', () => {
     const first = notebookTableReference('project-one/notebook', 'copied-block');
     const second = notebookTableReference('project-two/notebook', 'copied-block');
