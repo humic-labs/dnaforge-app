@@ -3,5 +3,6 @@
   "queue": "DNA-4652",
   "incident": "#50",
   "removeWhen": "Retire bootstrap diagnostics when the normal trusted public queue proves held/stale/missing-result rejection and retains both successive merged-head runs. Remove skip allowances as their tests become runnable; do not add another delivery authority.",
-  "workflowRunLines": 35
+  "workflowRunLines": 35,
+  "requiredChecks": 2
 }

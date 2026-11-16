@@ -39,11 +39,12 @@ required. Force pushes and branch deletion remain blocked. Required checks bind
 to their expected publisher.
 
 Publisher binding alone cannot stop a candidate from replacing its own workflow.
-An organization ruleset must require the existing CI workflow from protected
-public `main`. Its trusted final job evaluates required results independently of
-the candidate's workflow edits. The job reads reports as data and does not
-execute downloaded candidate code. Public contributions need no private source,
-issue tracker, signing credential or hosted release infrastructure.
+An organization ruleset must require the existing CI and CLA workflows from
+protected public `main`. The trusted final CI job evaluates required results
+independently of the candidate's workflow edits. The job reads reports as data
+and does not execute downloaded candidate code. Public contributions need no
+private source, issue tracker, signing credential or hosted release
+infrastructure.
 
 The CLI verifies the effective queue, PR rule, required contexts, publisher and
 trusted workflow before it can request admission. The actual required-workflow
