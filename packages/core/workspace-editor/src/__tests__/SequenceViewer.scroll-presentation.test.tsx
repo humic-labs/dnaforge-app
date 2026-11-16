@@ -1,8 +1,9 @@
 /** @vitest-environment jsdom */
 import { act, cleanup, render, waitFor } from '@testing-library/react';
+import { createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SequenceViewer } from '../SequenceViewer';
-import type { SequenceScrollPresentation } from '../types';
+import type { SequenceScrollPresentation, WorkspaceEditorHandle } from '../types';
 import {
   installRecordingCanvas,
   uninstallRecordingCanvas,
@@ -110,6 +111,50 @@ function request(position: number): SequenceScrollPresentation {
 }
 
 describe('SequenceViewer owned visible scroll presentation', () => {
+  it('centers the final linear row after live pane growth before the resize observer runs', async () => {
+    const ref = createRef<WorkspaceEditorHandle>();
+    const view = render(<SequenceViewer ref={ref} sequence={sequence} />);
+    const container = view.getByTestId('sequence-scroll-container');
+    const headroom = view.getByTestId('sequence-scroll-end-headroom');
+    const canvasContent = container.firstElementChild!.firstElementChild as HTMLElement;
+    await waitFor(() => expect(Number(headroom.dataset.headroomPx)).toBeGreaterThan(0));
+    let height = 600;
+    let scrollTop = 0;
+    Object.defineProperties(container, {
+      clientHeight: { configurable: true, get: () => height },
+      scrollHeight: {
+        configurable: true,
+        get: () =>
+          Math.max(
+            height,
+            parseFloat(canvasContent.style.height) + (parseFloat(headroom.style.height) || 0)
+          ),
+      },
+      scrollTop: {
+        configurable: true,
+        get: () => scrollTop,
+        set: (value: number) => {
+          scrollTop = Math.max(0, Math.min(value, container.scrollHeight - height));
+        },
+      },
+    });
+    const centerError = () =>
+      Math.abs(
+        container.scrollTop +
+          height / 2 -
+          (Number(headroom.dataset.lastRowTopY) + Number(headroom.dataset.lastRowHeightPx) / 2)
+      );
+    act(() => ref.current!.scrollToBiologicalPosition(sequence.length));
+    expect(centerError()).toBeLessThanOrEqual(2);
+    let immediateError = Number.POSITIVE_INFINITY;
+    act(() => {
+      height += 29;
+      ref.current!.scrollToBiologicalPosition(sequence.length);
+      immediateError = centerError();
+    });
+    expect(immediateError).toBeLessThanOrEqual(2);
+  });
+
   it('keeps applied completion separate from held paint and delivers the current frame once', async () => {
     const target = request(2000);
     const applied = vi.fn();

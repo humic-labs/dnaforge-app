@@ -1373,6 +1373,7 @@ function WorkspaceEditorInner(
   const [screenTrackTick, setScreenTrackTick] = useState(0);
   const [viewportOriginOffset, setViewportOriginOffset] = useState(0);
   const [scrollEndAnchorHeadroom, setScrollEndAnchorHeadroom] = useState(0);
+  const liveScrollEndHeadroomRef = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(
     () => () => {
       if (presentationFrameRafRef.current !== null)
@@ -2318,6 +2319,9 @@ function WorkspaceEditorInner(
   ]);
 
   const scrollEnd = linearScrollEndGeometry(layout, renderViewport.height);
+  useLayoutEffect(() => {
+    if (liveScrollEndHeadroomRef.current) liveScrollEndHeadroomRef.current.style.height = '0px';
+  }, [layout.totalHeight, renderViewport.height, scrollEnd.headroom, scrollEndAnchorHeadroom]);
 
   const newZoomController = useZoomController({
     browserWheelGestureOwnership,
@@ -3287,6 +3291,12 @@ function WorkspaceEditorInner(
           };
         }
         const currentScrollBefore = container.scrollTop;
+        if (!layout.isCircular && liveScrollEndHeadroomRef.current) {
+          const liveHeadroom = linearScrollEndGeometry(layout, container.clientHeight).headroom;
+          liveScrollEndHeadroomRef.current.style.height = `${Math.ceil(
+            Math.max(0, liveHeadroom - scrollEnd.headroom - scrollEndAnchorHeadroom)
+          )}px`;
+        }
         let targetScroll = Math.max(0, targetY - container.clientHeight / 2);
 
         if (
@@ -3450,6 +3460,8 @@ function WorkspaceEditorInner(
       layout,
       remap.bioToColMap,
       requestCircularScrollReanchor,
+      scrollEnd.headroom,
+      scrollEndAnchorHeadroom,
     ]
   );
 
@@ -3759,6 +3771,8 @@ function WorkspaceEditorInner(
         {!effectiveSequence?.circular && renderViewport.height > 0 && (
           <div
             data-testid="sequence-scroll-end-headroom"
+            ref={liveScrollEndHeadroomRef}
+            style={{ height: 0 }}
             aria-hidden
             data-headroom-px={scrollEnd.headroom}
             data-last-row-height-px={scrollEnd.lastRowHeight}
