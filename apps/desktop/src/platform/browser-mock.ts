@@ -3204,6 +3204,9 @@ ORIGIN
     registerScenarioFiles: async () => {
       throw new Error('Registering scenario files requires Electron.');
     },
+    materializeMocloScenarioKit: async () => {
+      throw new Error('Materializing MoClo scenario kits requires Electron.');
+    },
   },
   analytics: {
     getRuntimeConfig: async () => null,

@@ -1528,6 +1528,9 @@ export interface PlatformBridge {
     registerScenarioFiles(
       request: import('../shared/internal-fixtures').RegisterScenarioFixtureFilesRequest
     ): Promise<{ manifestPath: string }>;
+    materializeMocloScenarioKit(
+      request: import('../shared/internal-fixtures').MaterializeMocloScenarioKitRequest
+    ): Promise<import('../shared/internal-fixtures').MaterializedMocloScenarioKit>;
   };
   analytics: {
     getRuntimeConfig(): Promise<AnalyticsRuntimeConfig | null>;

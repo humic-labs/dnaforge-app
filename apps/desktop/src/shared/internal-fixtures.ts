@@ -76,6 +76,34 @@ export interface RegisterScenarioFixtureFilesRequest {
   files: ScenarioFixtureFile[];
 }
 
+export const MOCLO_SCENARIO_PRESETS = {
+  'cidar-moclo-red-fluorescent-tu': 'cidar',
+  'cidar-moclo-mixed-route-red-fluorescent-tu': 'cidar',
+  'ytk-moclo-factory-expression-cassette': 'ytk',
+} as const;
+
+export type MocloScenarioPresetId = keyof typeof MOCLO_SCENARIO_PRESETS;
+
+export function isMocloScenarioPresetId(value: unknown): value is MocloScenarioPresetId {
+  return typeof value === 'string' && Object.hasOwn(MOCLO_SCENARIO_PRESETS, value);
+}
+
+export interface MaterializeMocloScenarioKitRequest {
+  workspaceRoot: string;
+  presetId: MocloScenarioPresetId;
+  reuseExisting?: true;
+}
+
+export interface MaterializedMocloScenarioKit {
+  files: string[];
+  packages: Array<{
+    sourcePackageId: string;
+    packageId: string;
+    relativeRoot: string;
+    productRelativePath: string;
+  }>;
+}
+
 export interface InternalAssemblyFixtureMaterializeRequest {
   preset: InternalAssemblyFixturePreset;
   forceRecompute?: boolean;

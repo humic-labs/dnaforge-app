@@ -3,6 +3,7 @@ import type { HostedAiBridge } from '../../shared/hosted-ai-bridge';
 import { useCanvasStore } from '../../features/canvas/store';
 import type { Tab } from '../../features/canvas/types';
 import type { ScenarioFixtureFile } from '../../shared/internal-fixtures';
+import { isMocloScenarioPresetId } from '../../shared/internal-fixtures';
 import { useDesignStore } from '../../features/design/store';
 import { normalizeAssemblySlots } from '../../features/design/assembly-slots';
 import { useRichSequenceClipboardStore } from '../../features/sequence-clipboard/store';
@@ -1855,8 +1856,36 @@ async function materializeScenarioFilesForRuntime(
       : `${scenarioRoot}/${scenarioRelativePath(sourcePath)}`;
     return { project, targetPath, sourceIsDocument };
   };
+  const nativeMaterializedFiles = new Set<string>();
+  const mocloPresetId = scenario.dev?.scenarioId;
+  if (isMocloScenarioPresetId(mocloPresetId)) {
+    if (workspace.folders.length !== 1 || workspace.folders[0].pinned)
+      throw new Error('Bundled MoClo scenarios require one writable project.');
+    const folder = workspace.folders[0];
+    const root = pathMap.get(folder.path)!;
+    const copied = await bridge.internalFixtures.materializeMocloScenarioKit({
+      workspaceRoot: root,
+      presetId: mocloPresetId,
+      ...(reusedRoots.has(root) ? { reuseExisting: true as const } : {}),
+    });
+    for (const relativePath of copied.files) {
+      const sourcePath = `${stripTrailingSlash(folder.path)}/${relativePath}`;
+      if (!(sourcePath in scenario.files))
+        throw new Error(`The bundled MoClo scenario file is missing: ${sourcePath}`);
+      nativeMaterializedFiles.add(sourcePath);
+      pathMap.set(sourcePath, `${root}/${relativePath}`);
+    }
+    for (const item of copied.packages) {
+      managedDocuments.set(item.sourcePackageId, {
+        kind: 'managed-sequence',
+        packageId: item.packageId,
+        packageRoot: `${root}/${item.relativeRoot}`,
+      });
+    }
+  }
   const directories = new Set(referenceRoots.keys());
   for (const sourcePath of Object.keys(scenario.files)) {
+    if (nativeMaterializedFiles.has(sourcePath)) continue;
     const { targetPath } = destinationFor(sourcePath);
     directories.add(targetPath.slice(0, targetPath.lastIndexOf('/')));
   }
@@ -1882,6 +1911,7 @@ async function materializeScenarioFilesForRuntime(
   const { getCatalogEntity } = await import('../../db/workspace-catalog');
   const copiedPackages = new Map<string, string>();
   for (const [sourcePath, content] of Object.entries(scenario.files)) {
+    if (nativeMaterializedFiles.has(sourcePath)) continue;
     const packageRoot = sequencePackageRootForMetaPath(sourcePath);
     if (!packageRoot) continue;
     const owner = workspace.folders
@@ -1917,6 +1947,7 @@ async function materializeScenarioFilesForRuntime(
     const root = pathMap.get(folder.path)!;
     const files: ScenarioFixtureFile[] = [];
     for (const [sourcePath, content] of Object.entries(scenario.files)) {
+      if (nativeMaterializedFiles.has(sourcePath)) continue;
       if (!sourcePath.startsWith(`${stripTrailingSlash(folder.path)}/`)) continue;
       if (
         workspace.folders.some(
@@ -1960,6 +1991,7 @@ async function materializeScenarioFilesForRuntime(
   }
 
   for (const [sourcePath, sourceContent] of Object.entries(scenario.files)) {
+    if (nativeMaterializedFiles.has(sourcePath)) continue;
     if (auxiliaryPaths.has(sourcePath)) continue;
     const content = copiedPackages.get(sourcePath) ?? sourceContent;
     const { project, targetPath, sourceIsDocument } = destinationFor(sourcePath);
