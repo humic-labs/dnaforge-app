@@ -5,6 +5,7 @@ import {
 import { platform } from '../../platform';
 import { findWorkspaceRootForPath } from '../../db/workspace-catalog';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
+import { isDeveloperImportSourcePath } from '../../shared/developer-import-sources';
 import {
   SequencePackageFormatError,
   parseSequencePackageDocument,
@@ -12,35 +13,45 @@ import {
   resolveSequenceProductFile,
 } from '../../db/sequence-package';
 
-export async function resolveSequencePackageProductPath(packageRoot: string): Promise<string> {
+export async function resolveSequencePackageProductPath(
+  packageRoot: string,
+  options: { readonly readOnly?: boolean } = {}
+): Promise<string> {
   const paths = sequencePackagePaths(packageRoot);
   const fs = platform().fs;
+  const readRecordedFile = async () => {
+    const metaPath = await locateSequencePackageMetaPath(packageRoot, (path) => fs.exists(path));
+    return metaPath
+      ? parseSequencePackageDocument(await fs.readTextFile(metaPath)).product.file
+      : undefined;
+  };
 
   let recordedFile: string | undefined;
   try {
-    recordedFile = (
-      await loadSequencePackageDocument(
-        packageRoot,
-        {
-          exists: fs.exists,
-          readTextFile: fs.readTextFile,
-          writeTextFile: fs.writeTextFile,
-          writeWorkspaceTextFileAtomic: fs.writeWorkspaceTextFileAtomic,
-          mkdir: fs.mkdir,
-          move: fs.move,
-          readFile: fs.readFile,
-          rename: fs.rename,
-        },
-        findWorkspaceRootForPath(useWorkspaceStore.getState().folders, packageRoot) ?? packageRoot
-      )
-    ).product.file;
+    recordedFile =
+      options.readOnly || isDeveloperImportSourcePath(packageRoot)
+        ? await readRecordedFile()
+        : (
+            await loadSequencePackageDocument(
+              packageRoot,
+              {
+                exists: fs.exists,
+                readTextFile: fs.readTextFile,
+                writeTextFile: fs.writeTextFile,
+                writeWorkspaceTextFileAtomic: fs.writeWorkspaceTextFileAtomic,
+                mkdir: fs.mkdir,
+                move: fs.move,
+                readFile: fs.readFile,
+                rename: fs.rename,
+              },
+              findWorkspaceRootForPath(useWorkspaceStore.getState().folders, packageRoot) ??
+                packageRoot
+            )
+          ).product.file;
   } catch (err) {
     if (err instanceof SequencePackageFormatError) throw err;
     try {
-      const metaPath = await locateSequencePackageMetaPath(packageRoot, (path) => fs.exists(path));
-      if (metaPath) {
-        recordedFile = parseSequencePackageDocument(await fs.readTextFile(metaPath)).product.file;
-      }
+      recordedFile = await readRecordedFile();
     } catch {
       recordedFile = undefined;
     }

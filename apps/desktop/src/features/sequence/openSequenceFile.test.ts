@@ -4,6 +4,12 @@ import { useOversizedDialogStore } from './oversized-dialog-store';
 import { HARD_CAP_BYTES, SOFT_WARN_BYTES } from '../../shared/oversized-guard';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import type { DocumentTarget } from '../document-opening/public/types';
+import {
+  buildSequencePackageDocument,
+  serializeSequencePackageDocument,
+} from '../../db/sequence-package';
+import { setRememberedDeveloperImportSourceRootsForRenderer } from '../../shared/developer-import-sources';
+import { managedSequenceRepository } from './managed-sequence-repository';
 
 const {
   mockStat,
@@ -15,6 +21,10 @@ const {
   mockBeginWorkspaceMutation,
   mockEndWorkspaceMutation,
   mockCanonicalPath,
+  sourceFs,
+  mockReadNamespace,
+  mockPrepareQuickLookPackage,
+  mockCurrentSequenceFile,
 } = vi.hoisted(() => ({
   mockStat: vi.fn(),
   mockReveal: vi.fn(),
@@ -25,6 +35,14 @@ const {
   mockBeginWorkspaceMutation: vi.fn(),
   mockEndWorkspaceMutation: vi.fn(),
   mockCanonicalPath: vi.fn(),
+  sourceFs: {
+    files: new Map<string, string>(),
+    dirs: new Map<string, Array<{ name: string; isDirectory: boolean }>>(),
+    supportsPackages: false,
+  },
+  mockReadNamespace: vi.fn(),
+  mockPrepareQuickLookPackage: vi.fn(),
+  mockCurrentSequenceFile: vi.fn(),
 }));
 
 vi.mock('../workspace-loader/project-edit-folders', async (importOriginal) => ({
@@ -39,8 +57,28 @@ vi.mock('../../platform', () => ({
       canonicalPath: mockCanonicalPath,
       beginWorkspaceMutation: mockBeginWorkspaceMutation,
       endWorkspaceMutation: mockEndWorkspaceMutation,
+      ...(sourceFs.supportsPackages
+        ? { exists: async (path: string) => sourceFs.files.has(path) || sourceFs.dirs.has(path) }
+        : {}),
+      readTextFile: async (path: string) => {
+        const value = sourceFs.files.get(path);
+        if (value === undefined) throw new Error(`ENOENT: ${path}`);
+        return value;
+      },
+      readDir: async (path: string) =>
+        (sourceFs.dirs.get(path) ?? []).map((entry) => ({ ...entry, isFile: !entry.isDirectory })),
+      writeWorkspaceTextFileAtomic: async ({
+        path,
+        content,
+      }: {
+        path: string;
+        content: string;
+      }) => {
+        sourceFs.files.set(path, content);
+      },
     },
     shell: { revealItemInDir: mockReveal },
+    fileAssociations: { prepareQuickLookPackage: mockPrepareQuickLookPackage },
   }),
 }));
 
@@ -49,7 +87,8 @@ vi.mock('../../shared/developer-import-sources', async (importOriginal) => {
   return {
     ...actual,
     isDeveloperImportSourcePath: (path: string) =>
-      actual.isDeveloperImportSourcePath(path, ['/developer/wp-assets']),
+      actual.isDeveloperImportSourcePath(path, ['/developer/wp-assets']) ||
+      actual.isDeveloperImportSourcePath(path),
   };
 });
 
@@ -66,6 +105,11 @@ vi.mock('../../db/workspace-catalog', () => ({
   },
   registerWorkspaceFile: mockRegisterWorkspaceFile,
   getCatalogEntityForFilePath: mockGetCatalogEntityForFilePath,
+  getCurrentSequenceFileForDocumentId: mockCurrentSequenceFile,
+}));
+
+vi.mock('../../services/read-scientific-namespace', () => ({
+  readScientificNamespace: mockReadNamespace,
 }));
 
 vi.mock('../document-opening/filesystem-target', () => ({
@@ -85,6 +129,8 @@ vi.mock('../../lib/analytics', () => ({
 import {
   openSequenceFile,
   openSequenceFileResult,
+  openSequencePackageResult,
+  openManagedSequenceDocumentResult,
   __resetInflightForTests,
 } from './openSequenceFile';
 import {
@@ -133,6 +179,13 @@ describe('openSequenceFile  Layer A)', () => {
     mockRegisterWorkspaceFile.mockResolvedValue({ id: 'catalog-entity-1' });
     mockGetCatalogEntityForFilePath.mockReset();
     mockGetCatalogEntityForFilePath.mockResolvedValue(null);
+    sourceFs.files.clear();
+    sourceFs.dirs.clear();
+    sourceFs.supportsPackages = false;
+    mockReadNamespace.mockReset().mockResolvedValue(null);
+    mockPrepareQuickLookPackage.mockReset().mockResolvedValue(false);
+    mockCurrentSequenceFile.mockReset().mockResolvedValue(null);
+    setRememberedDeveloperImportSourceRootsForRenderer([]);
     useWorkspaceStore.setState({
       folders: [],
       activeWorkspaceFile: null,
@@ -141,6 +194,191 @@ describe('openSequenceFile  Layer A)', () => {
       isLoading: false,
       error: null,
     });
+  });
+
+  function seedPackage(root: string, id = 'shared-package-id') {
+    sourceFs.supportsPackages = true;
+    const productPath = `${root}/source.gb`;
+    const marker = serializeSequencePackageDocument(
+      buildSequencePackageDocument({ id, name: 'Source package', product: { file: 'source.gb' } })
+    );
+    sourceFs.files.set(`${root}/.forge/plasmid.json`, marker);
+    sourceFs.files.set(
+      productPath,
+      'LOCUS       Source 4 bp DNA\r\nORIGIN\r\n        1 acgt\r\n//\r\n'
+    );
+    sourceFs.dirs.set(root, [
+      { name: '.forge', isDirectory: true },
+      { name: 'source.gb', isDirectory: false },
+    ]);
+    return productPath;
+  }
+
+  for (const policy of ['configured', 'remembered'] as const) {
+    it.each([
+      'member',
+      'package',
+      'package-alias',
+      'managed-reference',
+      'managed-reference-alias',
+    ] as const)(
+      `previews a ${policy} developer package through %s without entering managed owners`,
+      async (entrypoint) => {
+        setMockSize(100);
+        const sourceRoot = policy === 'configured' ? '/developer/wp-assets' : '/remembered/source';
+        if (policy === 'remembered')
+          setRememberedDeveloperImportSourceRootsForRenderer([sourceRoot]);
+        useWorkspaceStore.setState({
+          folders: [{ path: sourceRoot, name: 'Source', addedAt: 1, pinned: true }],
+        });
+        const packageRoot = `${sourceRoot}/Source package`;
+        const productPath = seedPackage(packageRoot);
+        if (entrypoint === 'package-alias' || entrypoint === 'managed-reference-alias')
+          mockCanonicalPath.mockImplementation(async (path: string) =>
+            path === '/alias/Source package' ? packageRoot : path
+          );
+        const before = [...sourceFs.files];
+        const find = vi.spyOn(managedSequenceRepository, 'findByMemberPath');
+        const open = vi.spyOn(managedSequenceRepository, 'openPackage');
+        const resolve = vi.spyOn(managedSequenceRepository, 'resolve');
+        try {
+          const result =
+            entrypoint === 'member'
+              ? await openSequenceFileResult({ filePath: productPath, label: 'Source package' })
+              : entrypoint === 'package' || entrypoint === 'package-alias'
+                ? await openSequencePackageResult(
+                    entrypoint === 'package-alias' ? '/alias/Source package' : packageRoot,
+                    { label: 'Source package' }
+                  )
+                : await openManagedSequenceDocumentResult(
+                    {
+                      kind: 'managed-sequence',
+                      packageId: 'shared-package-id',
+                      packageRoot:
+                        entrypoint === 'managed-reference-alias'
+                          ? '/alias/Source package'
+                          : packageRoot,
+                    },
+                    { label: 'Source package' }
+                  );
+          expect.soft(result.status).toBe('presented');
+          const tab = Object.values(useCanvasStore.getState().panels).flatMap(
+            (panel) => panel.tabs
+          )[0];
+          expect.soft(tab).toMatchObject({
+            readOnly: true,
+            sequenceDocument: { kind: 'import-source-sequence', sourcePath: productPath },
+          });
+          expect.soft(tab.entityId).not.toBe('shared-package-id');
+          expect.soft(find).not.toHaveBeenCalled();
+          expect.soft(open).not.toHaveBeenCalled();
+          expect.soft(resolve).not.toHaveBeenCalled();
+          expect.soft(mockReadNamespace).not.toHaveBeenCalled();
+          expect.soft(mockPrepareQuickLookPackage).not.toHaveBeenCalled();
+          expect.soft(mockRegisterWorkspaceFile).not.toHaveBeenCalled();
+          expect.soft(mockGetCatalogEntityForFilePath).not.toHaveBeenCalled();
+          expect([...sourceFs.files]).toEqual(before);
+        } finally {
+          find.mockRestore();
+          open.mockRestore();
+          resolve.mockRestore();
+        }
+      }
+    );
+  }
+
+  it.each(['/retired/Old copy', '/alias/Source package', '/developer/wp-assets/Source package'])(
+    'keeps a relocated managed binding authoritative over its old hint: %s',
+    async (hint) => {
+      setMockSize(100);
+      const managedRoot = '/managed/project/Current copy';
+      seedPackage(managedRoot);
+      seedPackage('/developer/wp-assets/Source package');
+      mockCurrentSequenceFile.mockResolvedValue({
+        path: managedRoot,
+        file_kind: 'waypoint-sequence',
+      });
+      mockCanonicalPath.mockImplementation(async (path: string) => {
+        if (path === '/retired/Old copy') throw new Error('ENOENT: retired path');
+        return path === '/alias/Source package' ? '/developer/wp-assets/Source package' : path;
+      });
+      useWorkspaceStore.setState({
+        folders: [{ path: '/managed/project', name: 'Managed project', addedAt: 1 }],
+      });
+
+      await openManagedSequenceDocumentResult(
+        { kind: 'managed-sequence', packageId: 'shared-package-id', packageRoot: hint },
+        { label: 'Managed copy' }
+      );
+      const tabs = Object.values(useCanvasStore.getState().panels).flatMap((panel) => panel.tabs);
+      expect(tabs).toHaveLength(1);
+      expect(tabs[0]).toMatchObject({
+        readOnly: false,
+        sequenceDocument: {
+          kind: 'managed-sequence',
+          packageId: 'shared-package-id',
+          packageRoot: managedRoot,
+        },
+      });
+      expect(mockReadNamespace).toHaveBeenCalledWith('/managed/project');
+      expect(mockPrepareQuickLookPackage).toHaveBeenCalledWith({ packageRoot: managedRoot });
+    }
+  );
+
+  it('keeps source-path preview identities distinct from a managed copy with the same package ID', async () => {
+    setMockSize(100);
+    const firstRoot = '/developer/wp-assets/First source';
+    const secondRoot = '/developer/wp-assets/Second source';
+    const managedRoot = '/managed/project/Copy';
+    const firstPath = seedPackage(firstRoot);
+    const secondPath = seedPackage(secondRoot);
+    seedPackage(managedRoot);
+    const before = [...sourceFs.files];
+    useWorkspaceStore.setState({
+      folders: [
+        { path: '/developer/wp-assets', name: 'Sources', addedAt: 1, pinned: true },
+        { path: '/managed/project', name: 'Managed project', addedAt: 2 },
+      ],
+    });
+
+    await openSequenceFileResult({ filePath: firstPath, label: 'First source' });
+    await openSequencePackageResult(secondRoot, { label: 'Second source' });
+    const previews = Object.values(useCanvasStore.getState().panels).flatMap((panel) => panel.tabs);
+    expect(previews).toHaveLength(2);
+    expect(previews.map((tab) => tab.sequenceDocument)).toEqual([
+      expect.objectContaining({ kind: 'import-source-sequence', sourcePath: firstPath }),
+      expect.objectContaining({ kind: 'import-source-sequence', sourcePath: secondPath }),
+    ]);
+    expect(new Set(previews.map((tab) => tab.entityId)).size).toBe(2);
+    expect(previews.every((tab) => tab.entityId !== 'shared-package-id' && tab.readOnly)).toBe(
+      true
+    );
+    expect(mockReadNamespace).not.toHaveBeenCalled();
+    expect(mockPrepareQuickLookPackage).not.toHaveBeenCalled();
+
+    await openSequencePackageResult(managedRoot, { label: 'Managed copy' });
+    const all = Object.values(useCanvasStore.getState().panels).flatMap((panel) => panel.tabs);
+    expect(all).toHaveLength(3);
+    expect(all.find((tab) => tab.entityId === 'shared-package-id')).toMatchObject({
+      sequenceDocument: {
+        kind: 'managed-sequence',
+        packageId: 'shared-package-id',
+        packageRoot: managedRoot,
+      },
+      readOnly: false,
+    });
+    expect(mockReadNamespace).toHaveBeenCalledWith('/managed/project');
+    expect(mockPrepareQuickLookPackage).toHaveBeenCalledWith({ packageRoot: managedRoot });
+    await openSequenceFileResult({ filePath: firstPath, label: 'First source again' });
+    const reopened = Object.values(useCanvasStore.getState().panels).flatMap((panel) => panel.tabs);
+    expect(reopened).toHaveLength(3);
+    expect(
+      reopened.find((tab) => tab.entityId === previews[0].entityId)?.sequenceDocument
+    ).toMatchObject({ kind: 'import-source-sequence', sourcePath: firstPath });
+    expect(
+      reopened.find((tab) => tab.entityId === previews[1].entityId)?.sequenceDocument
+    ).toMatchObject({ kind: 'import-source-sequence', sourcePath: secondPath });
+    expect([...sourceFs.files]).toEqual(before);
   });
 
   afterEach(() => {

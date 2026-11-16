@@ -1,10 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { webcrypto } from 'node:crypto';
 import { resolveSequencePackageProductPath } from './sequence-package-product';
 import { resolveSequencePackageRootForProductPath } from './public/sequence-package-product';
+import * as sequencePackageIo from '../../db/sequence-package-io';
+import { setRememberedDeveloperImportSourceRootsForRenderer } from '../../shared/developer-import-sources';
 
 const fsState = vi.hoisted(() => ({
   files: new Map<string, string>(),
   dirs: new Map<string, Array<{ name: string; isDirectory: boolean }>>(),
+  writeAtomic: vi.fn(),
 }));
 
 vi.mock('../../platform', () => ({
@@ -25,9 +29,25 @@ vi.mock('../../platform', () => ({
           isFile: !entry.isDirectory,
         }));
       }),
+      writeWorkspaceTextFileAtomic: fsState.writeAtomic,
     },
   }),
 }));
+
+vi.mock('../../shared/developer-import-sources', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../shared/developer-import-sources')>();
+  return {
+    ...actual,
+    isDeveloperImportSourcePath: (path: string) =>
+      actual.isDeveloperImportSourcePath(path, ['/developer/wp-assets']) ||
+      actual.isDeveloperImportSourcePath(path),
+  };
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 const ROOT = '/ws/pMyConstruct';
 
@@ -46,6 +66,54 @@ describe('resolveSequencePackageProductPath', () => {
   beforeEach(() => {
     fsState.files.clear();
     fsState.dirs.clear();
+    fsState.writeAtomic
+      .mockReset()
+      .mockImplementation(async ({ path, content }: { path: string; content: string }) => {
+        fsState.files.set(path, content);
+      });
+    setRememberedDeveloperImportSourceRootsForRenderer([]);
+    vi.stubGlobal('crypto', webcrypto);
+  });
+
+  it.each(['configured', 'remembered'] as const)(
+    'resolves a %s developer source without migrating its legacy package bytes',
+    async (policy) => {
+      const root =
+        policy === 'configured'
+          ? '/developer/wp-assets/Legacy source'
+          : '/remembered/source/Legacy source';
+      if (policy === 'remembered')
+        setRememberedDeveloperImportSourceRootsForRenderer(['/remembered/source']);
+      fsState.files.set(`${root}/.forge/plasmid.json`, meta('source.gb'));
+      fsState.files.set(
+        `${root}/source.gb`,
+        'LOCUS       Immutable 4 bp DNA\r\nORIGIN\r\n        1 acgt\r\n//\r\n'
+      );
+      fsState.dirs.set(root, [
+        { name: 'source.gb', isDirectory: false },
+        { name: '.forge', isDirectory: true },
+      ]);
+      const before = [...fsState.files];
+      const load = vi.spyOn(sequencePackageIo, 'loadSequencePackageDocument');
+
+      await expect(resolveSequencePackageProductPath(root)).resolves.toBe(`${root}/source.gb`);
+      expect.soft(load).not.toHaveBeenCalled();
+      expect.soft(fsState.writeAtomic).not.toHaveBeenCalled();
+      expect([...fsState.files]).toEqual(before);
+    }
+  );
+
+  it('retains migration through the managed package loader for an ordinary project', async () => {
+    fsState.files.set(`${ROOT}/.forge/plasmid.json`, meta('source.gb'));
+    fsState.dirs.set(ROOT, [{ name: 'source.gb', isDirectory: false }]);
+    const load = vi.spyOn(sequencePackageIo, 'loadSequencePackageDocument');
+    await expect(resolveSequencePackageProductPath(ROOT)).resolves.toBe(`${ROOT}/source.gb`);
+    expect(load).toHaveBeenCalled();
+    expect(fsState.writeAtomic).toHaveBeenCalledOnce();
+    expect(JSON.parse(fsState.files.get(`${ROOT}/.forge/plasmid.json`)!)).toHaveProperty(
+      'formatVersion',
+      9
+    );
   });
 
   it('opens the file the record names', () => {
