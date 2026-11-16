@@ -149,7 +149,7 @@ export async function runNativeArchiveJourney(ctx: ArchiveContext) {
     projectId: ctx.projectId,
     inventoryId: source.inventoryId,
     revision: 1,
-    storedSchema: 'dnaforge.inventory.v14',
+    storedSchema: 'dnaforge.inventory.v15',
   });
   expect(hash(artifact.sourceText)).toBe(artifact.sourceSha256);
   const document = JSON.parse(artifact.sourceText);

@@ -1,3 +1,6 @@
+export * from './inventory-source-revision';
+export * from './inventory-source-revision-types';
+export * from './inventory-receive-source';
 export * from './inventory-stocktake';
 export * from './inventory-observation-types';
 export * from './inventory-observation-identity';

@@ -5,6 +5,8 @@ import {
   applyInventoryTable,
   applyInventoryStocktake,
   inventoryStocktakePreview,
+  applyInventorySourceRevision,
+  inventorySourceRevisionPreview,
   inventoryTablePreview,
   createInventoryState,
   inventoryAvailability,
@@ -12,6 +14,7 @@ import {
   inventoryStorageConditionsProjection,
   type InventoryCommand,
   type InventoryEquipmentCatalogUpdatePreview,
+  type InventoryReceiveTableFields,
   type InventoryState,
 } from '@waypoint/domain-services';
 import type {
@@ -139,21 +142,36 @@ function fixture(empty = false) {
                 { at: 1, principal, authority: principal },
                 17 * 1024 * 1024
               )
-            : applyInventoryStocktake(
-                state.revision === 0 ? null : state,
-                {
-                  ...request,
-                  target: {
-                    projectId: request.project,
-                    inventoryId: request.inventoryId,
-                    present: state.revision !== 0,
-                    revision: request.expectedRevision,
+            : request.kind === 'apply-stocktake'
+              ? applyInventoryStocktake(
+                  state.revision === 0 ? null : state,
+                  {
+                    ...request,
+                    target: {
+                      projectId: request.project,
+                      inventoryId: request.inventoryId,
+                      present: state.revision !== 0,
+                      revision: request.expectedRevision,
+                    },
+                    expectedPlanDigest: request.expectedPlanDigest as `sha256:${string}`,
                   },
-                  expectedPlanDigest: request.expectedPlanDigest as `sha256:${string}`,
-                },
-                { at: 1, principal, authority: principal },
-                17 * 1024 * 1024
-              )
+                  { at: 1, principal, authority: principal },
+                  17 * 1024 * 1024
+                )
+              : applyInventorySourceRevision(
+                  state.revision === 0 ? null : state,
+                  {
+                    ...request,
+                    target: {
+                      projectId: request.project,
+                      inventoryId: request.inventoryId,
+                      present: state.revision !== 0,
+                      revision: request.expectedRevision,
+                    },
+                  },
+                  { at: 1, principal, authority: principal },
+                  17 * 1024 * 1024
+                )
         : applyInventoryCommandBatch(state, {
             expectedRevision: request.expectedRevision,
             commands: request.commands,
@@ -210,6 +228,10 @@ function fixture(empty = false) {
       throw new Error('Stocktake preview is not used by this controller fixture.');
     }),
     applyStocktake: vi.fn(async (request) => commit(request)),
+    previewSourceRevision: vi.fn(async () => {
+      throw new Error('Source revision comparison is not used by this controller fixture.');
+    }),
+    acknowledgeSource: vi.fn(async (request) => commit(request)),
     storageConditions: vi.fn(async (request) => {
       const current = request.project === other.projectId ? createInventoryState() : state;
       return {
@@ -1159,6 +1181,176 @@ describe('stocktake recovery', () => {
     });
     expect(f.client.applyStocktake).not.toHaveBeenCalled();
     expect(f.state().observations).toEqual({});
+    f.controller.dispose();
+  });
+});
+
+describe('source revision recovery', () => {
+  function sourcePlan(f: ReturnType<typeof fixture>) {
+    const columns =
+      'source_id,name,material_key,quantity_kind,quantity,unit,quality,vessel_kind,vessel_key,location_key,slot';
+    const fields: InventoryReceiveTableFields = {
+      source_id: '0007',
+      name: 'External tube',
+      material_key: 'sample',
+      quantity_kind: 'known',
+      quantity: '80',
+      unit: 'uL',
+      quality: 'usable',
+      vessel_kind: 'new',
+      vessel_key: '',
+      location_key: 'bench',
+      slot: '',
+    };
+    const tableText = columns + '\n0007,External tube,sample,known,80,uL,usable,new,,bench,\n';
+    const table = {
+      namespace: 'source-register',
+      delimiter: ',' as const,
+      materials: [{ key: 'sample', materialId: 'material' }],
+      locations: [{ key: 'bench', target: { kind: 'unplaced' as const } }],
+      vessels: [],
+      skips: [],
+    };
+    const tableTarget = {
+      projectId: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      present: true,
+      revision: f.state().revision,
+    };
+    const receive = inventoryTablePreview(f.state(), {
+      target: tableTarget,
+      sourceText: tableText,
+      options: table,
+      bindings: [
+        { ...table.materials[0], kind: 'admitted', fingerprint: `sha256:${'a'.repeat(64)}` },
+      ],
+      asOf: 1,
+      principal,
+      authority: principal,
+      maxBytes: 17 * 1024 * 1024,
+    });
+    if (receive.kind !== 'ready') throw new Error('Expected source receiving plan.');
+    f.commit({
+      kind: 'receive-table',
+      project: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      operationId: 'source-receive',
+      expectedRevision: tableTarget.revision,
+      sourceText: tableText,
+      options: receive.options,
+      expectedPlanDigest: receive.planDigest,
+    });
+    const binding = Object.values(f.state().tableBindings)[0];
+    const sourceText = tableText
+      .replace('External tube', 'Revised external label')
+      .replace(',80,uL,usable,', ',90,uL,quarantined,')
+      .replaceAll('\n', '\r\n');
+    const plan = inventorySourceRevisionPreview(f.state(), {
+      target: { ...tableTarget, revision: f.state().revision },
+      sourceText,
+      options: {
+        table,
+        acknowledgements: [
+          {
+            sourceId: '0007',
+            expectedPreviousRowSha256: binding.rowSha256,
+            reason: 'Accept revised external register without changing stock',
+          },
+        ],
+      },
+      preimages: [{ sourceId: '0007', fields }],
+      asOf: 1,
+      principal,
+      authority: principal,
+      maxBytes: 17 * 1024 * 1024,
+    });
+    if (plan.kind !== 'ready') throw new Error('Expected source revision plan.');
+    return { sourceText, plan, binding };
+  }
+
+  it('recovers the original acknowledgement receipt without repeating or changing physical stock', async () => {
+    const f = fixture();
+    const { sourceText, plan, binding } = sourcePlan(f);
+    const before = structuredClone(f.state());
+    await f.controller.initialize();
+    vi.mocked(f.client.acknowledgeSource).mockImplementationOnce(async (request) => {
+      f.commit(request);
+      throw new Error('Lost acknowledgement response');
+    });
+    await f.controller.acknowledgeSourceRevision(sourceText, plan.options, plan.planDigest);
+    expect(f.controller.getSnapshot().status.kind).toBe('outcome-unknown');
+    expect(f.saved()[0].request).toMatchObject({
+      kind: 'acknowledge-table-source',
+      sourceText,
+      options: plan.options,
+    });
+    const original = structuredClone(f.saved()[0].request);
+    f.controller.dispose();
+    const reopened = new InventoryController(
+      f.client,
+      f.storage,
+      () => 'must-not-replace-original'
+    );
+    await reopened.initialize();
+    await reopened.checkPending();
+    expect(reopened.getSnapshot().status.kind).toBe('ready');
+    expect(f.saved()).toEqual([]);
+    expect(f.state().stocks).toEqual(before.stocks);
+    expect(f.state().vessels).toEqual(before.vessels);
+    expect(f.state().reservations).toEqual(before.reservations);
+    expect(f.state().observations).toEqual(before.observations);
+    expect(
+      f.state().tableBindings[Object.keys(before.tableBindings)[0]].sourceRevisions
+    ).toHaveLength(1);
+    expect(f.state().stocks[binding.stockId].quantity).toEqual({
+      kind: 'known',
+      value: '80',
+      unit: 'uL',
+    });
+    expect(f.client.acknowledgeSource).toHaveBeenCalledOnce();
+    expect(f.client.acknowledgeSource).toHaveBeenCalledWith(original);
+    expect(f.client.applyStocktake).not.toHaveBeenCalled();
+    reopened.dispose();
+  });
+
+  it('retries the same retained source, preimage and expected baseline instead of replacement intent', async () => {
+    const f = fixture();
+    const { sourceText, plan } = sourcePlan(f);
+    await f.controller.initialize();
+    const options = structuredClone(plan.options);
+    vi.mocked(f.client.acknowledgeSource).mockRejectedValueOnce(new Error('Unknown outcome'));
+    await f.controller.acknowledgeSourceRevision(sourceText, options, plan.planDigest);
+    const original = structuredClone(f.saved()[0].request);
+    (options as { table: { namespace: string } }).table.namespace = 'edited-after-submit';
+    expect(
+      await f.controller.acknowledgeSourceRevision('replacement', options, plan.planDigest)
+    ).toBeNull();
+    await f.controller.retryPending();
+    expect(f.client.acknowledgeSource).toHaveBeenNthCalledWith(1, original);
+    expect(f.client.acknowledgeSource).toHaveBeenNthCalledWith(2, original);
+    expect(f.saved()).toEqual([]);
+    expect(
+      f.entries.filter(
+        (entry) => 'kind' in entry.request && entry.request.kind === 'acknowledge-table-source'
+      )
+    ).toHaveLength(1);
+    f.controller.dispose();
+  });
+
+  it('does not acknowledge a source revision when its retry intent cannot be saved', async () => {
+    const f = fixture();
+    const { sourceText, plan } = sourcePlan(f);
+    await f.controller.initialize();
+    vi.mocked(f.storage.write).mockImplementationOnce(() => {
+      throw new Error('Quota unavailable');
+    });
+    await f.controller.acknowledgeSourceRevision(sourceText, plan.options, plan.planDigest);
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'refused',
+      code: 'INVENTORY_RECOVERY_UNAVAILABLE',
+    });
+    expect(f.client.acknowledgeSource).not.toHaveBeenCalled();
+    expect(Object.values(f.state().tableBindings)[0].sourceRevisions).toEqual([]);
     f.controller.dispose();
   });
 });

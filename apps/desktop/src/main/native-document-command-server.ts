@@ -38,6 +38,8 @@ import {
   inventoryApplyTableRequestSchema,
   inventoryPreviewStocktakeRequestSchema,
   inventoryApplyStocktakeRequestSchema,
+  inventoryPreviewSourceRevisionRequestSchema,
+  inventoryAcknowledgeSourceRequestSchema,
 } from '../shared/inventory-command';
 import { NATIVE_DOCUMENT_MAX_BODY_BYTES } from '../shared/native-document-transport';
 import type { createNativeInventoryOwner } from './inventory-owner';
@@ -77,6 +79,24 @@ const selection = target
   })
   .strict();
 const commandSchema = z.discriminatedUnion('command', [
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-source-revision'),
+      request: inventoryPreviewSourceRevisionRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.acknowledge-source'),
+      request: inventoryAcknowledgeSourceRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
   z
     .object({
       ownerInstanceId: identity,
@@ -474,6 +494,8 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'inventory.apply-table' ||
           body.command === 'inventory.preview-stocktake' ||
           body.command === 'inventory.apply-stocktake' ||
+          body.command === 'inventory.preview-source-revision' ||
+          body.command === 'inventory.acknowledge-source' ||
           body.command === 'inventory.inspect' ||
           body.command === 'inventory.availability' ||
           body.command === 'inventory.operation' ||
@@ -497,7 +519,8 @@ export async function startNativeDocumentCommandServer(options: {
                 body.command === 'inventory.execute' ||
                 body.command === 'inventory.apply-import' ||
                 body.command === 'inventory.apply-table' ||
-                body.command === 'inventory.apply-stocktake'
+                body.command === 'inventory.apply-stocktake' ||
+                body.command === 'inventory.acknowledge-source'
                   ? ['read-workspace', 'write-workspace']
                   : ['read-workspace'];
               if (!hasRequiredCapabilities(body.agent.capabilities, required))
@@ -530,6 +553,29 @@ export async function startNativeDocumentCommandServer(options: {
           const run = (() => {
             if (options.inventory) {
               const receiver = options.inventory;
+              if (body.command === 'inventory.preview-source-revision') {
+                const request = body.request;
+                const invocation = body.agent
+                  ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
+                  : undefined;
+                return () => ({
+                  kind: 'source-revision-preview',
+                  preview: receiver.previewSourceRevision(request, invocation),
+                });
+              }
+              if (body.command === 'inventory.acknowledge-source') {
+                const request = body.request;
+                const invocation = body.agent
+                  ? {
+                      actor: `agent:${body.agent.identityId}`,
+                      principal: { kind: 'agent' as const, identityId: body.agent.identityId },
+                    }
+                  : undefined;
+                return () => ({
+                  kind: 'execution',
+                  execution: receiver.acknowledgeSource(request, assertCurrent, invocation),
+                });
+              }
               if (body.command === 'inventory.preview-stocktake') {
                 const request = body.request;
                 const invocation = body.agent
@@ -735,6 +781,7 @@ export async function startNativeDocumentCommandServer(options: {
             body.command === 'inventory.preview-import' ||
             body.command === 'inventory.preview-table' ||
             body.command === 'inventory.preview-stocktake' ||
+            body.command === 'inventory.preview-source-revision' ||
             body.command === 'inventory.catalog' ||
             body.command === 'inventory.catalog-update-preview' ||
             body.command === 'inventory.resolve-item-code' ||

@@ -116,6 +116,8 @@ async function fixture(
     applyTable: vi.fn(),
     previewStocktake: vi.fn(),
     applyStocktake: vi.fn(),
+    previewSourceRevision: vi.fn(),
+    acknowledgeSource: vi.fn(),
     execute: vi.fn(),
     inspect: vi.fn(() => null),
     availability: vi.fn(() => null),
@@ -221,6 +223,83 @@ const inventoryAgent = {
   identityId: 'agent-1',
   capabilities: ['read-workspace', 'write-workspace'],
 };
+
+it('uses current read authority for source revision preview and current write authority for source acknowledgement', async () => {
+  const authorizeInventoryAgent = vi.fn(async () => {});
+  const f = await fixture({ authorizeInventoryAgent });
+  f.inventory.previewSourceRevision.mockReturnValue({ kind: 'ready', target: { revision: 0 } });
+  f.inventory.acknowledgeSource.mockReturnValue({ status: 'committed', revision: 1 });
+  const base = {
+    ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
+    agent: { ...inventoryAgent, capabilities: ['read-workspace'] },
+  };
+  const scope = { project: '/workspace', inventoryId: 'inventory-1' };
+  const options = {
+    table: {
+      namespace: 'source',
+      delimiter: ',',
+      materials: [],
+      locations: [],
+      vessels: [],
+      skips: [],
+    },
+    acknowledgements: [],
+  };
+  const preview = { ...scope, format: 'receive-v1', sourceText: 'exact source\r\n', options };
+  expect(
+    await (
+      await f.call({ ...base, command: 'inventory.preview-source-revision', request: preview })
+    ).json()
+  ).toMatchObject({ result: { kind: 'source-revision-preview', preview: { kind: 'ready' } } });
+  expect(f.inventory.previewSourceRevision).toHaveBeenCalledWith(preview, {
+    principal: { kind: 'agent', identityId: 'agent-1' },
+  });
+  expect(authorizeInventoryAgent).toHaveBeenCalledWith(base.agent, ['read-workspace']);
+  const request = {
+    kind: 'acknowledge-table-source',
+    ...scope,
+    operationId: 'source-once',
+    expectedRevision: 0,
+    sourceText: preview.sourceText,
+    options: { ...options, preimages: [] },
+    expectedPlanDigest: `sha256:${'0'.repeat(64)}`,
+  };
+  expect(
+    await (await f.call({ ...base, command: 'inventory.acknowledge-source', request })).json()
+  ).toMatchObject({ result: { ok: false, code: 'INSUFFICIENT_SCOPE', stateChanged: false } });
+  expect(f.inventory.acknowledgeSource).not.toHaveBeenCalled();
+  const input = {
+    ...base,
+    agent: inventoryAgent,
+    command: 'inventory.acknowledge-source',
+    request,
+  };
+  expect(await (await f.call(input)).json()).toMatchObject({
+    result: { kind: 'execution', execution: { status: 'committed' } },
+  });
+  expect(f.inventory.acknowledgeSource).toHaveBeenCalledWith(request, expect.any(Function), {
+    actor: 'agent:agent-1',
+    principal: { kind: 'agent', identityId: 'agent-1' },
+  });
+  expect(authorizeInventoryAgent).toHaveBeenLastCalledWith(inventoryAgent, [
+    'read-workspace',
+    'write-workspace',
+  ]);
+  expect(
+    (
+      await f.call({
+        ...input,
+        request: { ...request, principal: { kind: 'agent', identityId: 'other' } },
+      })
+    ).status
+  ).toBe(400);
+  authorizeInventoryAgent.mockRejectedValueOnce(new Error('Grant revoked.'));
+  expect(await (await f.call(input)).json()).toMatchObject({
+    result: { ok: false, code: 'INVENTORY_CAPABILITY_DENIED', stateChanged: false },
+  });
+  expect(f.inventory.acknowledgeSource).toHaveBeenCalledTimes(1);
+});
 
 it('uses current read authority for stocktake preview and current write authority for atomic stocktake acceptance', async () => {
   const authorizeInventoryAgent = vi.fn(async () => {});

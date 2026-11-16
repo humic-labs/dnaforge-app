@@ -1,5 +1,9 @@
 import { defineBlob } from '@waypoint/workspace-revisions';
-import type { InventoryTableSha256, InventoryTableTarget } from './inventory-table-types';
+import type {
+  InventoryTableBinding,
+  InventoryTableSha256,
+  InventoryTableTarget,
+} from './inventory-table-types';
 
 export function inventoryTableSha256(text: string): InventoryTableSha256 {
   return defineBlob(new TextEncoder().encode(text)).hash;
@@ -43,4 +47,10 @@ export function inventoryTableRecordIds(
     ])
   ).slice(7);
   return { stockId: `table-stock:${hash}`, vesselId: `table-vessel:${hash}` };
+}
+
+export function inventoryTableSourceBaseline(
+  binding: InventoryTableBinding
+): Pick<InventoryTableBinding, 'rowSha256' | 'destination'> {
+  return binding.sourceRevisions.at(-1) ?? binding;
 }

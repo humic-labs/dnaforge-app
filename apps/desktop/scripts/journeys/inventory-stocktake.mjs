@@ -1,3 +1,4 @@
+import { inventoryFixtureMetadataDefaults } from './inventory-fixture-metadata.mjs';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -108,8 +109,7 @@ export async function runInventoryStocktakeJourney(ctx) {
   const initial = await read();
   assert.deepEqual(initial.state, {
     ...input.state,
-    schema: 'dnaforge.inventory.v14',
-    observations: input.state.observations ?? {},
+    ...inventoryFixtureMetadataDefaults(input.state),
   });
   assert.deepEqual(initial.history, input.history);
   const baseline = input.stocktakePreparation?.baseline ?? initial;
@@ -410,7 +410,10 @@ export async function runInventoryStocktakeJourney(ctx) {
 export async function runInventoryStocktakeReopen(ctx) {
   const { page, expect, fixture, inventoryRead, capture } = ctx;
   const current = await inventoryRead(fixture.scope);
-  assert.deepEqual(current.state, fixture.state);
+  assert.deepEqual(current.state, {
+    ...fixture.state,
+    ...inventoryFixtureMetadataDefaults(fixture.state),
+  });
   assert.deepEqual(current.history, fixture.history);
   assert.equal(current.state.stocks[fixture.active.stockId].quantity.value, '63');
   assert.deepEqual(current.state.reservations[fixture.hold.id], fixture.hold);

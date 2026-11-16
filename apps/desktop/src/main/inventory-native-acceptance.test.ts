@@ -36,6 +36,10 @@ vi.mock('./config', () => ({ getApiUrl: () => 'http://synthetic-grants.invalid' 
 
 import { openFileTestDb } from './__tests__/test-db';
 import {
+  runNativeSourceJourney,
+  verifyNativeSourceReopen,
+} from './__tests__/inventory-source-native-journey';
+import {
   runNativeStocktakeJourney,
   verifyNativeStocktakeReopen,
 } from './__tests__/inventory-stocktake-native-journey';
@@ -86,6 +90,8 @@ type InventoryNativeCommand =
   | 'inventory.apply-table'
   | 'inventory.preview-stocktake'
   | 'inventory.apply-stocktake'
+  | 'inventory.preview-source-revision'
+  | 'inventory.acknowledge-source'
   | 'inventory.materials';
 type Server = Awaited<ReturnType<typeof startNativeDocumentCommandServer>>;
 interface NativeResponse<T> {
@@ -299,6 +305,8 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       'inventory.apply-table': 'execution',
       'inventory.preview-stocktake': 'preview',
       'inventory.apply-stocktake': 'execution',
+      'inventory.preview-source-revision': 'preview',
+      'inventory.acknowledge-source': 'execution',
       'inventory.materials': 'page',
     };
     expect(wrapped).toHaveProperty(keys[command]);
@@ -317,6 +325,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
               'adopt-archive': 'inventory.apply-import',
               'receive-table': 'inventory.apply-table',
               'apply-stocktake': 'inventory.apply-stocktake',
+              'acknowledge-table-source': 'inventory.acknowledge-source',
             } as const
           )[request.kind]
         : 'inventory.execute';
@@ -2340,6 +2349,14 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       loseAcknowledgement,
     });
     evidence.stocktakeBeforeRestart = stocktakeBeforeRestart;
+    const sourceBeforeRestart = await runNativeSourceJourney({
+      scope,
+      projectId: projects[0].projectId,
+      owner,
+      success,
+      loseAcknowledgement,
+    });
+    evidence.sourceRevisionBeforeRestart = sourceBeforeRestart;
     await server!.close();
     server = undefined;
     db.close();
@@ -2347,6 +2364,10 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
     db = openFileTestDb(dbPath);
     await start();
     evidence.closedAndReopened = true;
+    evidence.sourceRevisionReopenedReadback = await verifyNativeSourceReopen(
+      { scope, projectId: projects[0].projectId, owner, success, loseAcknowledgement },
+      sourceBeforeRestart
+    );
     evidence.stocktakeReopenedReadback = await verifyNativeStocktakeReopen(
       { scope, projectId: projects[0].projectId, owner, success, loseAcknowledgement },
       stocktakeBeforeRestart

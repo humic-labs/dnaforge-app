@@ -1,4 +1,8 @@
 import {
+  runInventorySourceRevisionJourney,
+  runInventorySourceRevisionReopen,
+} from './journeys/inventory-source-revisions.mjs';
+import {
   runInventoryStocktakeJourney,
   runInventoryStocktakeReopen,
 } from './journeys/inventory-stocktake.mjs';
@@ -82,6 +86,8 @@ assert.ok(
     'table-reopen',
     'stocktake',
     'stocktake-reopen',
+    'source-revision',
+    'source-revision-reopen',
   ].includes(stage),
   'Choose a mapped inventory journey stage.'
 );
@@ -655,6 +661,30 @@ try {
     );
   }
 
+  if (stage === 'source-revision' || stage === 'source-revision-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass the current owned inventory fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    const run =
+      stage === 'source-revision'
+        ? runInventorySourceRevisionJourney
+        : runInventorySourceRevisionReopen;
+    receipt.expected = await run({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+    });
+    writeFileSync(
+      path.join(out, 'source-revision-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
   if (stage === 'stocktake' || stage === 'stocktake-reopen') {
     assert.ok(args.includes('--fixture'), 'Pass the current owned inventory fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

@@ -11,6 +11,7 @@ import {
   inventoryResolveItemCode,
   inventoryStorageConditionsProjection,
   parseInventoryState,
+  parseInventoryReceiveTableSource,
   type InventoryPrincipal,
   type InventoryEquipmentCatalogEntry,
   type InventoryEquipmentCatalogUpdatePreview,
@@ -33,6 +34,8 @@ import {
   inventoryApplyTableRequestSchema,
   inventoryPreviewStocktakeRequestSchema,
   inventoryApplyStocktakeRequestSchema,
+  inventoryPreviewSourceRevisionRequestSchema,
+  inventoryAcknowledgeSourceRequestSchema,
   inventoryCatalogQuerySchema,
   inventoryCatalogUpdatePreviewRequestSchema,
   inventoryHistoryRequestSchema,
@@ -64,6 +67,7 @@ import type {
   InventoryImportPreviewSnapshot,
   InventoryTablePreviewSnapshot,
   InventoryStocktakePreviewSnapshot,
+  InventorySourceRevisionPreviewSnapshot,
 } from '../shared/inventory-client';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import type { RegisteredProject, RegisteredProjectAuthority } from './registered-project-authority';
@@ -90,6 +94,11 @@ import {
   applyNativeInventoryStocktake,
   nativeInventoryStocktakePreview,
 } from './inventory-stocktake';
+import {
+  applyNativeInventorySourceRevision,
+  nativeInventorySourceRevisionPreview,
+} from './inventory-source-revision';
+import { findNativeInventorySourcePreimages } from './inventory-source-preimages';
 
 interface InventoryRow {
   inventory_id: string;
@@ -249,6 +258,45 @@ export function createNativeInventoryOwner(options: {
     ),
     revision: row?.revision ?? 0,
   });
+  const sourcePreimages = (
+    db: Database.Database,
+    project: RegisteredProject,
+    inventoryId: string,
+    state: InventoryState | null,
+    table: InventoryTableChoices,
+    sourceText: string
+  ) => {
+    const rows = db
+      .prepare('SELECT * FROM inventory_journal WHERE inventory_id=? ORDER BY revision ASC')
+      .all(inventoryId) as JournalRow[];
+    const entries = rows.map((row) => entryFromRow(row, project.projectId));
+    if (
+      entries.length !== (state?.revision ?? 0) ||
+      entries.some(
+        (entry, index) =>
+          entry.request.expectedRevision !== index || entry.receipt.revision !== index + 1
+      )
+    )
+      return dataError();
+    const skipped = new Set(table.skips.map((row) => row.sourceId));
+    const source = parseInventoryReceiveTableSource(
+      sourceText,
+      table.delimiter,
+      NATIVE_DOCUMENT_MAX_BODY_BYTES
+    );
+    const sourceIds = new Set(
+      source.rows
+        .filter(
+          (row) =>
+            row.sourceId !== null &&
+            row.fields !== null &&
+            row.issues.length === 0 &&
+            !skipped.has(row.sourceId)
+        )
+        .map((row) => row.sourceId!)
+    );
+    return findNativeInventorySourcePreimages(state, entries, table.namespace, sourceIds);
+  };
   const observeBindings = (
     db: Database.Database,
     project: RegisteredProject,
@@ -502,6 +550,61 @@ export function createNativeInventoryOwner(options: {
               'The source, subjects, decisions or target changed. Preview the stocktake again.'
             );
           result = applyNativeInventoryStocktake(row ? previous : null, request, executionContext);
+        } else if ('kind' in request && request.kind === 'acknowledge-table-source') {
+          if (request.expectedRevision !== previous.revision)
+            return reject(
+              'REVISION_CONFLICT',
+              'Inventory changed after the source revision was previewed.'
+            );
+          if (Buffer.byteLength(canonical, 'utf8') > NATIVE_DOCUMENT_MAX_BODY_BYTES)
+            return reject(
+              'INVENTORY_SOURCE_REVISION_TOO_LARGE',
+              'The encoded source acknowledgement exceeds the inline native transport limit.'
+            );
+          const executionContext = {
+            at: recordedAt,
+            principal: context.principal,
+            authority: context.authority,
+          };
+          const preview = nativeInventorySourceRevisionPreview(
+            row ? previous : null,
+            importTarget(db, project, request.inventoryId, row),
+            request.sourceText,
+            request.options,
+            sourcePreimages(
+              db,
+              project,
+              request.inventoryId,
+              row ? previous : null,
+              request.options.table,
+              request.sourceText
+            ),
+            executionContext
+          );
+          if (preview.kind === 'blocked' || preview.kind === 'needs-acknowledgement')
+            return reject(
+              preview.issues[0]?.code ?? 'INVENTORY_SOURCE_REVISION_BLOCKED',
+              preview.issues[0]?.message ?? 'The source revision requires explicit acknowledgement.'
+            );
+          if (preview.kind !== 'ready')
+            return reject(
+              'INVENTORY_SOURCE_REVISION_NO_CHANGES',
+              'This source has no revisions to acknowledge.'
+            );
+          if (
+            preview.planDigest !== request.expectedPlanDigest ||
+            canonicalNativeMutationRequest(preview.options) !==
+              canonicalNativeMutationRequest(request.options)
+          )
+            return reject(
+              'INVENTORY_SOURCE_REVISION_PLAN_CHANGED',
+              'The source, previous evidence, decisions or target changed. Preview the source revision again.'
+            );
+          result = applyNativeInventorySourceRevision(
+            row ? previous : null,
+            request,
+            executionContext
+          );
         } else {
           const lotMaterials = new Map(
             Object.values(previous.lots).map((lot) => [lot.id, lot.materialId])
@@ -616,6 +719,43 @@ export function createNativeInventoryOwner(options: {
   };
 
   return {
+    previewSourceRevision(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventorySourceRevisionPreviewSnapshot {
+      const request = inventoryPreviewSourceRevisionRequestSchema.parse(input);
+      const project = resolveProject(request.project, false);
+      const assertProject = options.projectAuthority.capture(project.projectId, false);
+      const db = options.db();
+      assertProject();
+      const snapshot = db
+        .transaction(() => {
+          const row = inventory(db, request.inventoryId, project.projectId);
+          const state = row ? stateFromRow(row) : null;
+          const asOf = observationTime(state ?? createInventoryState());
+          const caller = principal(invocation);
+          const preview = nativeInventorySourceRevisionPreview(
+            state,
+            importTarget(db, project, request.inventoryId, row),
+            request.sourceText,
+            request.options,
+            sourcePreimages(
+              db,
+              project,
+              request.inventoryId,
+              state,
+              request.options.table,
+              request.sourceText
+            ),
+            { at: asOf, principal: caller, authority }
+          );
+          return structuredClone({ ...preview, asOf, principal: caller });
+        })
+        .deferred();
+      assertProject();
+      return snapshot;
+    },
+
     exportSnapshot(
       input: unknown,
       invocation: NativeInventoryInvocation = {}
@@ -991,6 +1131,18 @@ export function createNativeInventoryOwner(options: {
       invocation: NativeInventoryInvocation = {}
     ): NativeInventoryExecution {
       return commit(inventoryApplyStocktakeRequestSchema.parse(input), assertCurrent, invocation);
+    },
+
+    acknowledgeSource(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): NativeInventoryExecution {
+      return commit(
+        inventoryAcknowledgeSourceRequestSchema.parse(input),
+        assertCurrent,
+        invocation
+      );
     },
 
     inspect(input: unknown): InventoryState | null {

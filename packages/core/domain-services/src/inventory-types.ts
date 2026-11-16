@@ -35,7 +35,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v14' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v15' as const;
+export const INVENTORY_STOCKTAKE_SCHEMA = 'dnaforge.inventory.v14' as const;
 export const INVENTORY_RECEIVE_TABLE_SCHEMA = 'dnaforge.inventory.v13' as const;
 export const INVENTORY_ADOPTION_SCHEMA = 'dnaforge.inventory.v12' as const;
 export const INVENTORY_THERMAL_CONTEXT_SCHEMA = 'dnaforge.inventory.v11' as const;

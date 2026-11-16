@@ -1,3 +1,4 @@
+import { inventoryFixtureMetadataDefaults } from './inventory-fixture-metadata.mjs';
 import assert from 'node:assert/strict';
 
 const button = (scope, name) => scope.getByRole('button', { name, exact: true });
@@ -150,9 +151,7 @@ export async function runInventoryConditionsJourney(ctx) {
   assert.deepEqual(initial.history, fixture.history);
   assert.deepEqual(initial.state, {
     ...fixture.state,
-    schema: 'dnaforge.inventory.v14',
-    observations: {},
-    tableBindings: {},
+    ...inventoryFixtureMetadataDefaults(fixture.state),
     origin: { kind: 'native' },
     temperatureClaims: {},
     equipmentSetpoints: {},
@@ -346,9 +345,7 @@ export async function runInventoryThermalContextJourney(ctx) {
   );
   assert.deepEqual(initial.state, {
     ...fixture.state,
-    schema: 'dnaforge.inventory.v14',
-    observations: {},
-    tableBindings: {},
+    ...inventoryFixtureMetadataDefaults(fixture.state),
     origin: { kind: 'native' },
     thermalContexts: {},
     temperatureClaims: expectedClaims,

@@ -83,7 +83,13 @@ def _required(name: str, args: dict[str, Any]) -> list[str]:
         if kind != "inspect":
             required.append("write-workspace")
     elif name == "inventory":
-        if kind in {"execute", "apply-import", "apply-table", "apply-stocktake"}:
+        if kind in {
+            "execute",
+            "apply-import",
+            "apply-table",
+            "apply-stocktake",
+            "acknowledge-source",
+        }:
             required.append("write-workspace")
     elif name == "notebook_document":
         command = operation.get("command")
@@ -188,6 +194,8 @@ async def execute_native_workflow(
             "preview-table",
             "apply-table",
             "preview-stocktake",
+            "preview-source-revision",
+            "acknowledge-source",
             "apply-stocktake",
             "materials",
             "inspect",
@@ -209,6 +217,8 @@ async def execute_native_workflow(
             request["kind"] = "receive-table"
         elif operation["kind"] == "apply-stocktake":
             request["kind"] = "apply-stocktake"
+        elif operation["kind"] == "acknowledge-source":
+            request["kind"] = "acknowledge-table-source"
         native_command = f"inventory.{operation['kind']}"
     if name == "notebook_document":
         request.setdefault("requestId", context.job_id)

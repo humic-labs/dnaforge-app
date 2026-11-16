@@ -27,7 +27,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v14. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v15. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -49,8 +49,10 @@ from principals that can execute commands. Native invocation and receipt
 contexts retain strict native actors. v1–v12 snapshots gain an empty lifetime
 table-binding map. v12 imported origins and recorded actors retain their exact
 attribution during this upcast. v1–v13 snapshots gain an empty observation map;
-existing table bindings, origins and imported attribution remain intact. Reading
-never writes the upgraded snapshot.
+existing table bindings, origins and imported attribution remain intact. v1–v14
+source bindings gain an empty accepted-source revision list. Legacy receive-v1
+plan hashes retain their original binding representation. Reading never writes
+the upgraded snapshot.
 
 ## Independent states
 
@@ -772,6 +774,49 @@ scope/revision in its read-only preview. Recording and applying use the existing
 command, transaction, receipt and outcome-unknown recovery machines. Neither
 adds a second journal or hidden file. Source edits, unresolved decisions,
 changed observation facts or stale targets cannot partially apply a proposal.
+
+## External source revision contract
+
+An accepted receive row binds a stable external identity to physical stock. A
+later external edit is neither another receipt of stock nor a measurement.
+Acknowledging it changes the accepted source baseline only. Quantity, vessel
+name, quality, placement, custody, holds and stocktake observations remain
+unchanged.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Compared
+  Compared --> Unchanged: matches effective source baseline
+  Compared --> NeedsAcknowledgement: changed source with same bound identities
+  Compared --> Blocked: identity changes or source evidence unavailable
+  NeedsAcknowledgement --> Proposed: expected baseline hash and explicit reason
+  Proposed --> AcceptedRevision: one native atomic metadata transition
+  Proposed --> Stale: target or baseline changes
+  Stale --> Compared: regenerate source comparison
+```
+
+The original row hash and original destination remain immutable. Accepted source
+revisions append a previous-hash link, new fields and hash, source destination,
+reason and native actor/time. The effective baseline is the latest revision,
+otherwise the original binding. An accepted rollback appends another revision.
+Current inventory never substitutes for unavailable previous source fields.
+
+Show previous source, revised source and actual inventory separately. Previous
+fields come from a verified retained accepted request, including nested archive
+evidence, or a saved source revision. Recompute their row hash before use.
+Source material aliases may change only while resolving to the same scientific
+identity; existing-vessel aliases still identify the same vessel. The first
+protocol refuses scientific rebinding, vessel replacement, vessel-kind changes
+and unbound rows. A changed source destination does not run placement checks or
+move stock.
+
+Acknowledgement has a dedicated accepted request through the existing journal,
+receipt and recovery path. Saved verified preimages make replay independent of
+live sources. Preserve legacy receive-v1 request shapes and plan digests when
+adding empty revision history to canonical state. Reimport compares the
+effective baseline before deriving physical IDs and never reverses later use or
+movement. Archive adoption retains the source chain and fields, maps only typed
+scientific identity, and keeps acknowledgement actors as imported attribution.
 
 ## Material identity and conservation
 

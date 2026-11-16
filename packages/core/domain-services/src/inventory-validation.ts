@@ -3,6 +3,11 @@ import type {
   InventoryObservation,
   InventoryObservationInput,
 } from './inventory-observation-types';
+import {
+  inventoryReceiveTableFieldIssues,
+  inventoryReceiveTableRowSha256,
+} from './inventory-receive-source';
+import type { InventoryTableSourceRevision } from './inventory-source-revision-types';
 import { inventoryTableBindingKey } from './inventory-table-binding';
 import type { InventoryTableBinding } from './inventory-table-types';
 import { inventoryHasImportedAttribution } from './inventory-attribution';
@@ -38,6 +43,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_STOCKTAKE_SCHEMA,
   INVENTORY_RECEIVE_TABLE_SCHEMA,
   INVENTORY_ADOPTION_SCHEMA,
   INVENTORY_THERMAL_CONTEXT_SCHEMA,
@@ -1916,30 +1922,86 @@ function validateState(state: InventoryState): void {
   }
 }
 
-const tableBindingRecord: Codec<InventoryTableBinding> = fields('Table source binding', {
+const tableDestination = union('Table source destination', [
+  fields('New vessel source destination', {
+    kind: literal('new-vessel'),
+    placement: vesselPlacement,
+  }),
+  fields('Existing vessel source destination', { kind: literal('existing-vessel') }),
+]);
+const tableRowHash = text('Table row hash', 71, false, '^sha256:[a-f0-9]{64}$') as Codec<
+  InventoryTableBinding['rowSha256']
+>;
+const sourceFields: Codec<InventoryTableSourceRevision['fields']> = {
+  schema: { type: 'object' },
+  parse(input) {
+    const issues = inventoryReceiveTableFieldIssues(input);
+    if (issues.length) return invalid(issues[0].message);
+    return { ...(input as InventoryTableSourceRevision['fields']) };
+  },
+};
+const tableSourceRevision: Codec<InventoryTableSourceRevision> = fields(
+  'Accepted table source revision',
+  {
+    previousRowSha256: tableRowHash,
+    rowSha256: tableRowHash,
+    fields: sourceFields,
+    destination: tableDestination,
+    reason,
+    at: timestamp,
+    by: recordedPrincipal,
+  }
+);
+const tableBindingProperties = {
   namespace: text('Table source namespace', 256),
   sourceId: text('Table source identity', 256),
-  rowSha256: text('Table row hash', 71, false, '^sha256:[a-f0-9]{64}$') as Codec<
-    InventoryTableBinding['rowSha256']
-  >,
+  rowSha256: tableRowHash,
   stockId: id,
   vesselId,
   materialId: id,
-  destination: union('Original table destination', [
-    fields('Original new vessel destination', {
-      kind: literal('new-vessel'),
-      placement: vesselPlacement,
-    }),
-    fields('Original existing vessel destination', { kind: literal('existing-vessel') }),
-  ]),
+  destination: tableDestination,
+};
+const previousTableBindingRecord = fields('Previous table source binding', tableBindingProperties);
+const tableBindingRecord: Codec<InventoryTableBinding> = fields('Table source binding', {
+  ...tableBindingProperties,
+  sourceRevisions: array(tableSourceRevision, Number.MAX_SAFE_INTEGER),
 });
 
-function tableBindings(value: unknown): Record<string, InventoryTableBinding> {
+function tableBindings(
+  value: unknown,
+  sourceRevisions: boolean
+): Record<string, InventoryTableBinding> {
   const result = Object.create(null) as Record<string, InventoryTableBinding>;
   for (const [key, raw] of Object.entries(object(value, 'Table source bindings'))) {
-    const binding = tableBindingRecord.parse(raw);
+    const binding = sourceRevisions
+      ? tableBindingRecord.parse(raw)
+      : { ...previousTableBindingRecord.parse(raw), sourceRevisions: [] };
     if (key !== inventoryTableBindingKey(binding.namespace, binding.sourceId))
       invalid('A table binding key must match its exact source namespace and identity.');
+    let previousHash = binding.rowSha256;
+    for (const revision of binding.sourceRevisions) {
+      if (
+        revision.previousRowSha256 !== previousHash ||
+        revision.rowSha256 !== inventoryReceiveTableRowSha256(revision.fields) ||
+        revision.fields.source_id !== binding.sourceId
+      )
+        invalid(
+          'A source revision must preserve source identity and its verified previous-hash chain.'
+        );
+      if (
+        revision.destination.kind !== binding.destination.kind ||
+        (revision.fields.vessel_kind === 'new') !== (revision.destination.kind === 'new-vessel')
+      )
+        invalid('A source revision cannot change its bound vessel kind.');
+      if (
+        revision.destination.kind === 'new-vessel' &&
+        ((revision.destination.placement.kind === 'unplaced' && revision.fields.slot !== '') ||
+          (revision.destination.placement.kind === 'located' &&
+            revision.fields.slot !== revision.destination.placement.slotId))
+      )
+        invalid('An accepted source slot must match its saved destination decision.');
+      previousHash = revision.rowSha256;
+    }
     result[key] = binding;
   }
   return result;
@@ -1948,7 +2010,8 @@ function tableBindings(value: unknown): Record<string, InventoryTableBinding> {
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const tableSources = current || row.schema === INVENTORY_RECEIVE_TABLE_SCHEMA;
+  const observationRecords = current || row.schema === INVENTORY_STOCKTAKE_SCHEMA;
+  const tableSources = observationRecords || row.schema === INVENTORY_RECEIVE_TABLE_SCHEMA;
   const archiveAttribution = tableSources || row.schema === INVENTORY_ADOPTION_SCHEMA;
   const thermalContexts = archiveAttribution || row.schema === INVENTORY_THERMAL_CONTEXT_SCHEMA;
   const temperature = thermalContexts || row.schema === INVENTORY_TEMPERATURE_SCHEMA;
@@ -1962,6 +2025,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_STOCKTAKE_SCHEMA),
       literal(INVENTORY_RECEIVE_TABLE_SCHEMA),
       literal(INVENTORY_ADOPTION_SCHEMA),
       literal(INVENTORY_THERMAL_CONTEXT_SCHEMA),
@@ -1978,7 +2042,7 @@ export function parseInventoryState(value: unknown): InventoryState {
     ]),
     revision,
     ...(archiveAttribution ? { origin: inventoryOrigin } : {}),
-    ...(current
+    ...(observationRecords
       ? { observations: { schema: { type: 'object' }, parse: (input: unknown) => input } }
       : {}),
     ...(tableSources
@@ -2066,8 +2130,8 @@ export function parseInventoryState(value: unknown): InventoryState {
   const state: InventoryState = {
     schema: INVENTORY_SCHEMA,
     origin: archiveAttribution ? inventoryOrigin.parse(shape.origin) : { kind: 'native' },
-    observations: current ? observations(shape.observations) : Object.create(null),
-    tableBindings: tableSources ? tableBindings(shape.tableBindings) : Object.create(null),
+    observations: observationRecords ? observations(shape.observations) : Object.create(null),
+    tableBindings: tableSources ? tableBindings(shape.tableBindings, current) : Object.create(null),
     thermalContexts: thermalContexts
       ? temperatureFactMap(thermalContextRecord, shape.thermalContexts)
       : Object.create(null),
@@ -2201,6 +2265,19 @@ export function parseInventoryState(value: unknown): InventoryState {
     }
   }
   for (const binding of Object.values(state.tableBindings)) {
+    let previousAt = 0;
+    for (const revision of binding.sourceRevisions) {
+      if (revision.at < previousAt || revision.at > state.lastRecordedAt)
+        invalid('Source revision times must preserve their recorded lifetime.');
+      previousAt = revision.at;
+      if (
+        revision.destination.kind === 'new-vessel' &&
+        revision.destination.placement.kind === 'located' &&
+        !Object.hasOwn(state.storage, revision.destination.placement.storageId)
+      )
+        invalid('An accepted source destination must reference existing storage.');
+    }
+
     const stock = Object.hasOwn(state.stocks, binding.stockId)
       ? state.stocks[binding.stockId]
       : null;

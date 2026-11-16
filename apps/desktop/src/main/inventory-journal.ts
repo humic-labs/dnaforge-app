@@ -13,6 +13,7 @@ import {
   type InventoryApplyImportRequest,
   type InventoryApplyTableRequest,
   type InventoryApplyStocktakeRequest,
+  type InventoryAcknowledgeSourceRequest,
   type NativeInventoryHistoryEntry,
 } from '../shared/inventory-command';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
@@ -66,6 +67,11 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryApplyStocktakeRequest,
     context: InventoryExecutionContext
+  ) => InventoryTransition,
+  sourceRevision: (
+    target: InventoryState | null,
+    request: InventoryAcknowledgeSourceRequest,
+    context: InventoryExecutionContext
   ) => InventoryTransition
 ): InventoryState {
   let state = createInventoryState();
@@ -95,6 +101,12 @@ export function replayNativeInventoryEntries(
       if (!context)
         throw new Error('INVENTORY_DATA_INVALID: A stocktake requires its native receipt context.');
       result = stocktake(state.revision === 0 ? null : state, request, context);
+    } else if ('kind' in request && request.kind === 'acknowledge-table-source') {
+      if (!context)
+        throw new Error(
+          'INVENTORY_DATA_INVALID: A source acknowledgement requires its native receipt context.'
+        );
+      result = sourceRevision(state.revision === 0 ? null : state, request, context);
     } else {
       result = applyInventoryCommandBatch(
         state,

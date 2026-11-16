@@ -9,6 +9,10 @@ import {
   type InventoryStocktakeChoices,
   type InventoryImportOptions,
   type InventoryResolvedImportOptions,
+  INVENTORY_RECEIVE_TABLE_COLUMNS,
+  type InventoryReceiveTableColumn,
+  type InventorySourceRevisionChoices,
+  type InventoryResolvedSourceRevisionOptions,
 } from '@waypoint/domain-services';
 
 const identity = z.string().min(1).max(256);
@@ -178,6 +182,57 @@ export const inventoryApplyStocktakeRequestSchema = inventoryReadRequestSchema
   })
   .strict();
 
+const sourceRevisionAcknowledgement = z
+  .object({
+    sourceId: identity,
+    expectedPreviousRowSha256: digest,
+    reason: z.string().max(4096),
+  })
+  .strict();
+const sourceRevisionPreimage = z
+  .object({
+    sourceId: identity,
+    fields: z
+      .object(
+        Object.fromEntries(
+          INVENTORY_RECEIVE_TABLE_COLUMNS.map((column) => [column, z.string()])
+        ) as Record<InventoryReceiveTableColumn, z.ZodString>
+      )
+      .strict(),
+  })
+  .strict();
+export const inventorySourceRevisionOptionsSchema = z
+  .object({
+    table: inventoryTableOptionsSchema,
+    acknowledgements: z.array(sourceRevisionAcknowledgement),
+  })
+  .strict();
+export const inventoryResolvedSourceRevisionOptionsSchema = inventorySourceRevisionOptionsSchema
+  .extend({
+    acknowledgements: z.array(
+      sourceRevisionAcknowledgement.extend({ reason: z.string().min(1).max(4096) }).strict()
+    ),
+    preimages: z.array(sourceRevisionPreimage),
+  })
+  .strict();
+export const inventoryPreviewSourceRevisionRequestSchema = inventoryReadRequestSchema
+  .extend({
+    format: z.literal('receive-v1'),
+    sourceText: z.string().min(1),
+    options: inventorySourceRevisionOptionsSchema,
+  })
+  .strict();
+export const inventoryAcknowledgeSourceRequestSchema = inventoryReadRequestSchema
+  .extend({
+    kind: z.literal('acknowledge-table-source'),
+    operationId: identity,
+    expectedRevision: revision,
+    sourceText: z.string().min(1),
+    options: inventoryResolvedSourceRevisionOptionsSchema,
+    expectedPlanDigest: digest,
+  })
+  .strict();
+
 export const inventoryStorageConditionsRequestSchema = inventoryReadRequestSchema
   .extend({ freshnessMaxAgeMs: revision.nullable() })
   .strict();
@@ -219,6 +274,7 @@ export const inventoryAcceptedRequestSchema = z.union([
   inventoryApplyImportRequestSchema,
   inventoryApplyTableRequestSchema,
   inventoryApplyStocktakeRequestSchema,
+  inventoryAcknowledgeSourceRequestSchema,
 ]);
 
 export const inventoryOperationRequestSchema = inventoryReadRequestSchema
@@ -296,11 +352,25 @@ export type InventoryApplyStocktakeRequest = InventoryReadRequest & {
   readonly options: InventoryStocktakeChoices;
   readonly expectedPlanDigest: `sha256:${string}`;
 };
+export type InventoryPreviewSourceRevisionRequest = InventoryReadRequest & {
+  readonly format: 'receive-v1';
+  readonly sourceText: string;
+  readonly options: InventorySourceRevisionChoices;
+};
+export type InventoryAcknowledgeSourceRequest = InventoryReadRequest & {
+  readonly kind: 'acknowledge-table-source';
+  readonly operationId: string;
+  readonly expectedRevision: number;
+  readonly sourceText: string;
+  readonly options: InventoryResolvedSourceRevisionOptions;
+  readonly expectedPlanDigest: `sha256:${string}`;
+};
 export type InventoryAcceptedRequest =
   | InventoryExecuteRequest
   | InventoryApplyImportRequest
   | InventoryApplyTableRequest
-  | InventoryApplyStocktakeRequest;
+  | InventoryApplyStocktakeRequest
+  | InventoryAcknowledgeSourceRequest;
 export type InventoryStorageConditionsRequest = z.infer<
   typeof inventoryStorageConditionsRequestSchema
 >;

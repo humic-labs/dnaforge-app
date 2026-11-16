@@ -1,4 +1,7 @@
-import { parseDelimitedRows } from '@waypoint/scientific-objects/delimited-rows';
+import {
+  parseInventoryReceiveTableSource,
+  inventoryReceiveTableRowSha256,
+} from './inventory-receive-source';
 import { inventoryRecordIdExists } from './inventory-configuration';
 import { applyInventoryCommandBatch } from './inventory-state';
 import { parseInventoryExecutionContext, parseInventoryState } from './inventory-validation';
@@ -19,10 +22,9 @@ import {
   inventoryTableCanonicalJson,
   inventoryTableRecordIds,
   inventoryTableSha256,
+  inventoryTableSourceBaseline,
 } from './inventory-table-binding';
 import {
-  INVENTORY_RECEIVE_TABLE_COLUMNS,
-  type InventoryReceiveTableFields,
   type InventoryResolvedTableOptions,
   type InventoryTableApplication,
   type InventoryTableBinding,
@@ -60,7 +62,9 @@ function exactObject(value: unknown, keys: readonly string[]): value is Record<s
   );
 }
 
-function validateChoices(options: InventoryTableChoices): readonly InventoryTableIssue[] {
+export function inventoryTableChoiceIssues(
+  options: InventoryTableChoices
+): readonly InventoryTableIssue[] {
   const issues: InventoryTableIssue[] = [];
   if (
     !exactObject(options, ['namespace', 'delimiter', 'materials', 'locations', 'vessels', 'skips'])
@@ -250,7 +254,7 @@ export function inventoryTablePreview(
         'The exact table requires valid UTF-8 text.'
       )
     );
-  issues.push(...validateChoices(input.options));
+  issues.push(...inventoryTableChoiceIssues(input.options));
   let previous: InventoryState;
   let context: InventoryExecutionContext;
   try {
@@ -284,30 +288,16 @@ export function inventoryTablePreview(
     return blocked();
   }
   if (issues.length) return blocked();
-  const parsed = parseDelimitedRows(
-    sourceText.startsWith('\uFEFF') ? sourceText.slice(1) : sourceText,
-    input.options.delimiter
+  const parsed = parseInventoryReceiveTableSource(
+    sourceText,
+    input.options.delimiter,
+    input.maxBytes
   );
-  if (!parsed.ok) {
-    issues.push(issue('TABLE_PARSE_INVALID', '/sourceText', parsed.error));
+  if (parsed.issues.length) {
+    issues.push(...parsed.issues);
     return blocked();
   }
-  const [headers, ...records] = parsed.rows;
-  if (
-    !headers ||
-    headers.length !== INVENTORY_RECEIVE_TABLE_COLUMNS.length ||
-    new Set(headers).size !== headers.length ||
-    INVENTORY_RECEIVE_TABLE_COLUMNS.some((key) => !headers.includes(key))
-  ) {
-    issues.push(
-      issue(
-        'TABLE_HEADERS_INVALID',
-        '/sourceText',
-        `Use every canonical column exactly once and no other columns: ${INVENTORY_RECEIVE_TABLE_COLUMNS.join(', ')}.`
-      )
-    );
-    return blocked();
-  }
+  const records = parsed.rows;
   const materialChoices = new Map(input.options.materials.map((value) => [value.key, value]));
   const locationChoices = new Map(input.options.locations.map((value) => [value.key, value]));
   const vesselChoices = new Map(input.options.vessels.map((value) => [value.key, value]));
@@ -332,40 +322,11 @@ export function inventoryTablePreview(
   }
   const ids = new Set<string>();
   for (const [index, record] of records.entries()) {
-    const rowIssues: InventoryTableIssue[] = [];
+    const rowIssues: InventoryTableIssue[] = [...record.issues];
     const pointer = `/rows/${index + 2}`;
-    const fields =
-      record.length === headers.length
-        ? (Object.fromEntries(
-            headers.map((key, cell) => [key, record[cell]])
-          ) as unknown as InventoryReceiveTableFields)
-        : null;
-    const sourceId = fields?.source_id ?? null;
-    if (!fields)
-      rowIssues.push(
-        issue(
-          'TABLE_ROW_WIDTH_INVALID',
-          pointer,
-          'Every row must contain exactly the declared number of fields.'
-        )
-      );
-    if (!exactKey(sourceId))
-      rowIssues.push(
-        issue(
-          'TABLE_SOURCE_ID_INVALID',
-          `${pointer}/source_id`,
-          'Every row needs an exact stable source identity.'
-        )
-      );
-    else if (ids.has(sourceId))
-      rowIssues.push(
-        issue(
-          'TABLE_SOURCE_ID_DUPLICATE',
-          `${pointer}/source_id`,
-          `Source identity ${JSON.stringify(sourceId)} repeats in this file.`
-        )
-      );
-    else ids.add(sourceId);
+    const fields = record.fields;
+    const sourceId = record.sourceId;
+    if (exactKey(sourceId)) ids.add(sourceId);
     const skip = sourceId === null ? undefined : skips.get(sourceId);
     if (skip !== undefined && rowIssues.length === 0) {
       rows.push({
@@ -500,17 +461,16 @@ export function inventoryTablePreview(
     const existing = Object.hasOwn(previous.tableBindings, bindingKey)
       ? previous.tableBindings[bindingKey]
       : undefined;
-    const rowSha256 = inventoryTableSha256(
-      inventoryTableCanonicalJson({ format: 'dnaforge.inventory-receive-row.v1', fields })
-    );
+    const rowSha256 = inventoryReceiveTableRowSha256(fields);
     let stockId: string | null = existing?.stockId ?? null;
     let vesselId: string | null = existing?.vesselId ?? selectedVesselId;
     let kind: InventoryTableRowPreview['kind'] = 'blocked';
     if (existing && destination && material) {
+      const baseline = inventoryTableSourceBaseline(existing);
       if (
-        existing.rowSha256 !== rowSha256 ||
+        baseline.rowSha256 !== rowSha256 ||
         existing.materialId !== material.materialId ||
-        inventoryTableCanonicalJson(existing.destination) !==
+        inventoryTableCanonicalJson(baseline.destination) !==
           inventoryTableCanonicalJson(destination) ||
         (destination.kind === 'existing-vessel' && existing.vesselId !== selectedVesselId)
       )
@@ -555,6 +515,7 @@ export function inventoryTablePreview(
           quality: fields.quality as 'usable' | 'quarantined',
         });
         additions[bindingKey] = {
+          sourceRevisions: [],
           namespace: input.options.namespace,
           sourceId: fields.source_id,
           rowSha256,
@@ -666,7 +627,9 @@ export function inventoryTablePreview(
       target: input.target,
       options,
       commands,
-      bindingAdditions: additions,
+      bindingAdditions: Object.fromEntries(
+        Object.entries(additions).map(([key, { sourceRevisions, ...binding }]) => [key, binding])
+      ),
     })
   );
   return {

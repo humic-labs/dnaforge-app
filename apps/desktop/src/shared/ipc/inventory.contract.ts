@@ -17,6 +17,9 @@ import type {
   InventoryPreviewStocktakeRequest,
   InventoryApplyStocktakeRequest,
   InventoryStocktakePreviewSnapshot,
+  InventoryPreviewSourceRevisionRequest,
+  InventoryAcknowledgeSourceRequest,
+  InventorySourceRevisionPreviewSnapshot,
   InventoryCatalogQuery,
   InventoryCatalogUpdatePreviewRequest,
   InventoryAvailabilitySnapshot,
@@ -39,6 +42,14 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  previewSourceRevision: invoke<
+    [request: InventoryPreviewSourceRevisionRequest],
+    InventorySourceRevisionPreviewSnapshot
+  >(),
+  acknowledgeSource: invoke<
+    [request: InventoryAcknowledgeSourceRequest],
+    NativeInventoryExecution
+  >(),
   previewStocktake: invoke<
     [request: InventoryPreviewStocktakeRequest],
     InventoryStocktakePreviewSnapshot

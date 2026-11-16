@@ -22,7 +22,7 @@ describe('frozen v9 temperature migration', () => {
       bytes = JSON.stringify(input),
       state = parseInventoryState(input);
     expect(JSON.stringify(input)).toBe(bytes);
-    expect(state.schema).toBe('dnaforge.inventory.v14');
+    expect(state.schema).toBe('dnaforge.inventory.v15');
     expect(state.revision).toBe(1);
     expect(state.lastRecordedAt).toBe(10);
     for (const key of ['temperatureClaims', 'equipmentSetpoints', 'storageRequirements'] as const)

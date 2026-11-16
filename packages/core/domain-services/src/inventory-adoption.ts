@@ -177,6 +177,13 @@ function mapAttribution(state: InventoryState, source: InventoryAdoptionSource):
     value.kind === 'available' ? value : { ...value, by: principal(value.by) };
   return {
     ...state,
+    tableBindings: mapRecords(state.tableBindings, (binding) => ({
+      ...binding,
+      sourceRevisions: binding.sourceRevisions.map((revision) => ({
+        ...revision,
+        by: principal(revision.by),
+      })),
+    })),
     observations: mapRecords(state.observations, (row) => ({
       ...row,
       by: principal(row.by),

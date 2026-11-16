@@ -368,7 +368,9 @@ async def test_inventory_adoption_preserves_accepted_request_tag_and_requires_wr
 
 
 @pytest.mark.asyncio
-async def test_inventory_stocktake_preserves_observations_and_requires_write_for_application(native):
+async def test_inventory_stocktake_preserves_observations_and_requires_write_for_application(
+    native,
+):
     state, context = native
     options = {
         "namespace": "source",
@@ -730,3 +732,51 @@ def test_share_capability_inputs_and_outputs_do_not_enter_retained_audit():
         "revision": "current",
         "state": "completed",
     }
+
+
+@pytest.mark.asyncio
+async def test_inventory_source_revision_requires_write_and_preserves_verified_source_evidence(
+    native,
+):
+    state, context = native
+    options = {
+        "table": {
+            "namespace": "source",
+            "delimiter": ",",
+            "materials": [],
+            "locations": [],
+            "vessels": [],
+            "skips": [],
+        },
+        "acknowledgements": [],
+    }
+    operation = {
+        "kind": "preview-source-revision",
+        "project": "project",
+        "inventoryId": "inventory",
+        "format": "receive-v1",
+        "sourceText": "exact source\r\n",
+        "options": options,
+    }
+    state["scope"] = ["read-workspace"]
+    await execute_native_workflow("inventory", {"operation": operation}, context)
+    assert state["calls"][0]["command"] == "inventory.preview-source-revision"
+    assert state["calls"][0]["request"]["sourceText"] == operation["sourceText"]
+    apply = {key: value for key, value in operation.items() if key != "format"}
+    apply.update(
+        {
+            "kind": "acknowledge-source",
+            "operationId": "source-once",
+            "expectedRevision": 0,
+            "options": {**options, "preimages": []},
+            "expectedPlanDigest": "sha256:" + "0" * 64,
+        }
+    )
+    with pytest.raises(ToolExecutionFailure) as denied:
+        await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert denied.value.code == "INSUFFICIENT_SCOPE"
+    assert len(state["calls"]) == 1
+    state["scope"] = ["read-workspace", "write-workspace"]
+    await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert state["calls"][1]["command"] == "inventory.acknowledge-source"
+    assert state["calls"][1]["request"] == {**apply, "kind": "acknowledge-table-source"}

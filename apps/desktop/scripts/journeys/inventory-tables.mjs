@@ -1,3 +1,4 @@
+import { inventoryFixtureMetadataDefaults } from './inventory-fixture-metadata.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
@@ -16,7 +17,7 @@ async function open(ctx, project) {
   await ctx.expect(ctx.page.getByTestId('inventory-panel')).toHaveAttribute('data-state', 'ready');
 }
 
-async function tableDraft(ctx, fixture, sourceText) {
+export async function previewInventoryReceiveTable(ctx, fixture, sourceText) {
   const { page, expect, choose } = ctx;
   await button(page.getByTestId('inventory-panel').locator('header'), 'Import table').click();
   const form = dialog(page, 'Receive inventory table');
@@ -62,9 +63,7 @@ export async function runInventoryTableJourney(ctx) {
   const initial = await inventoryRead(scope);
   assert.deepEqual(initial.state, {
     ...input.state,
-    schema: 'dnaforge.inventory.v14',
-    observations: input.state.observations ?? {},
-    tableBindings: input.state.tableBindings ?? {},
+    ...inventoryFixtureMetadataDefaults(input.state),
   });
   assert.deepEqual(initial.history, input.history);
   await capture('01-before-canonical-table-receiving', initial);
@@ -148,7 +147,7 @@ export async function runInventoryTableJourney(ctx) {
   assert.deepEqual(await inventoryRead(scope), prepared);
   await capture('02-unresolved-table-has-zero-inventory-effects', prepared);
   await button(form, 'Cancel').click();
-  form = await tableDraft(ctx, fixture, sourceText);
+  form = await previewInventoryReceiveTable(ctx, fixture, sourceText);
   await expect(form.getByTestId('inventory-table-import')).toHaveAttribute(
     'data-preview-state',
     'ready'
@@ -221,7 +220,7 @@ export async function runInventoryTableJourney(ctx) {
   });
   assert.deepEqual(afterUse.state.tableBindings, received.state.tableBindings);
   const reordered = columns + '\n' + [...rows].reverse().join('\n') + '\n';
-  form = await tableDraft(ctx, fixture, reordered);
+  form = await previewInventoryReceiveTable(ctx, fixture, reordered);
   await expect(form.getByTestId('inventory-table-import')).toHaveAttribute(
     'data-preview-state',
     'no-change'
@@ -232,7 +231,7 @@ export async function runInventoryTableJourney(ctx) {
   assert.deepEqual(await inventoryRead(scope), afterUse);
   await capture('05-reordered-source-keeps-consumed-stock-without-duplicates', afterUse);
   await button(form, 'Cancel').click();
-  form = await tableDraft(ctx, fixture, sourceText.replace(',80,uL,', ',90,uL,'));
+  form = await previewInventoryReceiveTable(ctx, fixture, sourceText.replace(',80,uL,', ',90,uL,'));
   await expect(form.getByTestId('inventory-table-import')).toHaveAttribute(
     'data-preview-state',
     'blocked'
@@ -283,7 +282,10 @@ export async function runInventoryTableReopen(ctx) {
   const { fixture, inventoryRead, capture, expect, page } = ctx;
   await open(ctx, fixture.project);
   const actual = await inventoryRead(fixture.scope);
-  assert.deepEqual(actual.state, fixture.state);
+  assert.deepEqual(actual.state, {
+    ...fixture.state,
+    ...inventoryFixtureMetadataDefaults(fixture.state),
+  });
   assert.deepEqual(actual.history, fixture.history);
   const artifact = await page.evaluate(
     (input) => window.electronAPI.inventory.exportSnapshot({ ...input, format: 'native-v1' }),
@@ -291,7 +293,7 @@ export async function runInventoryTableReopen(ctx) {
   );
   assert.equal(artifact.sourceText, fixture.artifact.sourceText);
   await capture('08-reopened-exact-table-state-history-and-archive-bytes', actual);
-  const form = await tableDraft(ctx, fixture, fixture.reordered);
+  const form = await previewInventoryReceiveTable(ctx, fixture, fixture.reordered);
   await expect(form.getByTestId('inventory-table-import')).toHaveAttribute(
     'data-preview-state',
     'no-change'

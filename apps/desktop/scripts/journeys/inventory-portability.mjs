@@ -1,3 +1,4 @@
+import { inventoryFixtureMetadataDefaults } from './inventory-fixture-metadata.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -137,9 +138,7 @@ export async function runInventoryPortabilityJourney(ctx) {
   const initial = await inventoryRead(fixture.scope);
   assert.deepEqual(initial.state, {
     ...fixture.state,
-    schema: 'dnaforge.inventory.v14',
-    observations: fixture.state.observations ?? {},
-    tableBindings: fixture.state.tableBindings ?? {},
+    ...inventoryFixtureMetadataDefaults(fixture.state),
     origin: { kind: 'native' },
   });
   assert.deepEqual(initial.history, fixture.history);
@@ -496,18 +495,14 @@ export async function runInventoryPortabilityReopen(ctx) {
   const observed = await inventoryRead(fixture.scope);
   assert.deepEqual(observed.state, {
     ...fixture.state,
-    schema: 'dnaforge.inventory.v14',
-    observations: fixture.state.observations ?? {},
-    tableBindings: fixture.state.tableBindings ?? {},
+    ...inventoryFixtureMetadataDefaults(fixture.state),
   });
   assert.deepEqual(observed.history, fixture.history);
   assert.deepEqual(await inventoryRead(fixture.sourceFixture.scope), {
     ...fixture.initialSource,
     state: {
       ...fixture.initialSource.state,
-      schema: 'dnaforge.inventory.v14',
-      observations: fixture.initialSource.state.observations ?? {},
-      tableBindings: fixture.initialSource.state.tableBindings ?? {},
+      ...inventoryFixtureMetadataDefaults(fixture.initialSource.state),
     },
   });
   assert.deepEqual(

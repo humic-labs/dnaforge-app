@@ -43,3 +43,6 @@
 
 - [Stocktake observations](stocktake.md): recorded measurements, independent
   correction decisions, missing/found custody and preserved holds.
+
+- [Source revisions](source-revisions.md): append-only acceptance of revised
+  external records, separate from current physical inventory.

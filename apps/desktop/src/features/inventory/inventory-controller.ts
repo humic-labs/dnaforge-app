@@ -9,6 +9,7 @@ import {
   type InventoryTableSha256,
   type InventoryResolvedTableOptions,
   type InventoryStocktakeChoices,
+  type InventoryResolvedSourceRevisionOptions,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
@@ -16,6 +17,7 @@ import {
   inventoryApplyImportRequestSchema,
   inventoryApplyTableRequestSchema,
   inventoryApplyStocktakeRequestSchema,
+  inventoryAcknowledgeSourceRequestSchema,
   inventoryReceiptSchema,
   type InventoryAcceptedRequest,
   type NativeInventoryHistoryEntry,
@@ -723,6 +725,28 @@ export class InventoryController {
     );
   }
 
+  async acknowledgeSourceRevision(
+    sourceText: string,
+    options: InventoryResolvedSourceRevisionOptions,
+    expectedPlanDigest: InventoryTableSha256
+  ): Promise<NativeInventoryReceipt | null> {
+    return this.sourceAttempt(
+      (data) =>
+        inventoryAcknowledgeSourceRequestSchema.parse({
+          kind: 'acknowledge-table-source',
+          project: data.project.projectId,
+          inventoryId: data.project.defaultInventoryId,
+          operationId: this.operationId(),
+          expectedRevision: data.state.revision,
+          sourceText,
+          options,
+          expectedPlanDigest,
+        }),
+      'Acknowledge source revision',
+      'Compare the revised source before acknowledging it.'
+    );
+  }
+
   private async sourceAttempt(
     request: (data: InventoryData) => InventoryAcceptedRequest,
     summary: string,
@@ -813,7 +837,9 @@ export class InventoryController {
             ? await this.client.applyImport(attempt.request)
             : attempt.request.kind === 'receive-table'
               ? await this.client.applyTable(attempt.request)
-              : await this.client.applyStocktake(attempt.request)
+              : attempt.request.kind === 'apply-stocktake'
+                ? await this.client.applyStocktake(attempt.request)
+                : await this.client.acknowledgeSource(attempt.request)
           : await this.client.execute(attempt.request);
       if (result.status === 'committed') return this.committed(data, attempt, result, generation);
       let recoveryError: string | undefined;

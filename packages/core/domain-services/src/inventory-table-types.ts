@@ -1,3 +1,4 @@
+import type { InventoryTableSourceRevision } from './inventory-source-revision-types';
 import type {
   InventoryAuthority,
   InventoryCommand,
@@ -9,6 +10,7 @@ import type {
 
 export type InventoryTableSha256 = `sha256:${string}`;
 export interface InventoryTableBinding {
+  readonly sourceRevisions: readonly InventoryTableSourceRevision[];
   readonly namespace: string;
   readonly sourceId: string;
   readonly rowSha256: InventoryTableSha256;

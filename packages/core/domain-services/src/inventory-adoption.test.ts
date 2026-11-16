@@ -720,7 +720,7 @@ it('upcasts a frozen v11 snapshot to explicit native origin without changing sto
   const state = parseInventoryState(before);
   expect(state).toEqual({
     ...before,
-    schema: 'dnaforge.inventory.v14',
+    schema: 'dnaforge.inventory.v15',
     observations: {},
     origin: { kind: 'native' },
     tableBindings: {},
