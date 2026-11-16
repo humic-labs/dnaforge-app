@@ -682,7 +682,7 @@ describe('inventory observations and stocktake plans', () => {
   });
   it('upcasts v13 state without changing source bytes or imported attribution and validates observation keys', () => {
     const state = fixture();
-    const { observations: _observations, ...v13 } = state;
+    const { hierarchyBindings: _hierarchy, observations: _observations, ...v13 } = state;
     const legacy = { ...v13, schema: 'dnaforge.inventory.v13' };
     const bytes = JSON.stringify(legacy);
     const upcast = parseInventoryState(legacy);

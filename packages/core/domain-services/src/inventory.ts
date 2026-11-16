@@ -1,3 +1,5 @@
+export * from './inventory-hierarchy-types';
+export * from './inventory-hierarchy';
 export * from './inventory-source-revision';
 export * from './inventory-source-revision-types';
 export * from './inventory-receive-source';

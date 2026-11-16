@@ -46,3 +46,6 @@
 
 - [Source revisions](source-revisions.md): append-only acceptance of revised
   external records, separate from current physical inventory.
+
+- [Hierarchy tables](hierarchy-tables.md): explicit storage layouts and parent
+  references, stable physical identities and atomic tree import.

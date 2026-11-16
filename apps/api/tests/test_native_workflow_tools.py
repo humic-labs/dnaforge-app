@@ -368,6 +368,48 @@ async def test_inventory_adoption_preserves_accepted_request_tag_and_requires_wr
 
 
 @pytest.mark.asyncio
+async def test_inventory_hierarchy_preserves_layout_source_and_requires_write_for_application(
+    native,
+):
+    state, context = native
+    options = {
+        "namespace": "source",
+        "delimiter": ",",
+        "parents": [],
+        "skips": [],
+    }
+    operation = {
+        "kind": "preview-hierarchy",
+        "project": "project",
+        "inventoryId": "inventory",
+        "format": "hierarchy-v1",
+        "sourceText": "exact source\r\n",
+        "options": options,
+    }
+    state["scope"] = ["read-workspace"]
+    await execute_native_workflow("inventory", {"operation": operation}, context)
+    assert state["calls"][0]["command"] == "inventory.preview-hierarchy"
+    assert state["calls"][0]["request"]["sourceText"] == "exact source\r\n"
+    apply = {key: value for key, value in operation.items() if key != "format"}
+    apply.update(
+        {
+            "kind": "apply-hierarchy",
+            "operationId": "observe-once",
+            "expectedRevision": 0,
+            "expectedPlanDigest": "sha256:" + "0" * 64,
+        }
+    )
+    with pytest.raises(ToolExecutionFailure) as denied:
+        await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert denied.value.code == "INSUFFICIENT_SCOPE"
+    assert len(state["calls"]) == 1
+    state["scope"] = ["read-workspace", "write-workspace"]
+    await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert state["calls"][1]["command"] == "inventory.apply-hierarchy"
+    assert state["calls"][1]["request"] == {**apply, "kind": "import-hierarchy"}
+
+
+@pytest.mark.asyncio
 async def test_inventory_stocktake_preserves_observations_and_requires_write_for_application(
     native,
 ):

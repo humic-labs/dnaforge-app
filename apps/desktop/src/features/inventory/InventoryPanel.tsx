@@ -31,6 +31,7 @@ import { InventoryArchiveExportForm, InventoryArchiveImportForm } from './Invent
 import { InventoryTableForm } from './InventoryTableForm';
 import { InventoryStocktakeForm } from './InventoryStocktakeForm';
 import { InventorySourceRevisionForm } from './InventorySourceRevisionForm';
+import { InventoryHierarchyForm } from './InventoryHierarchyForm';
 import { InventoryCompositionForm } from './InventoryCompositionForm';
 import { InventoryReservationForm } from './InventoryReservationForm';
 import { InventoryCustodyForm } from './InventoryCustodyForm';
@@ -421,7 +422,9 @@ export function InventoryPanel() {
                       ? 'Received inventory table'
                       : entry.request.kind === 'apply-stocktake'
                         ? 'Recorded stocktake observations'
-                        : 'Acknowledged source revision'
+                        : entry.request.kind === 'acknowledge-table-source'
+                          ? 'Acknowledged source revision'
+                          : 'Imported inventory hierarchy'
                   : entry.request.commands
                       .map((command) => (state ? historyLabel(command, state) : ''))
                       .join(' · ')}
@@ -438,7 +441,9 @@ export function InventoryPanel() {
                         ? 'Retained source table'
                         : entry.request.kind === 'apply-stocktake'
                           ? 'Retained stocktake source'
-                          : 'Retained revised source'}
+                          : entry.request.kind === 'acknowledge-table-source'
+                            ? 'Retained revised source'
+                            : 'Retained hierarchy source'}
                   </summary>
                   <p>
                     {entry.request.kind === 'adopt-archive'
@@ -447,7 +452,9 @@ export function InventoryPanel() {
                         ? 'Original table text and explicit choices are retained with this atomic receiving operation.'
                         : entry.request.kind === 'apply-stocktake'
                           ? 'Original stocktake text and explicit record or correction choices are retained with this operation.'
-                          : 'The revised source, verified previous source fields and acknowledgement reasons are retained. This operation changes no physical inventory facts.'}
+                          : entry.request.kind === 'acknowledge-table-source'
+                            ? 'The revised source, verified previous source fields and acknowledgement reasons are retained. This operation changes no physical inventory facts.'
+                            : 'Original hierarchy text and explicit layout, parent and skip choices are retained with this atomic import.'}
                   </p>
                   <p className="break-all">Plan: {entry.request.expectedPlanDigest}</p>
                   <TextArea
@@ -459,7 +466,9 @@ export function InventoryPanel() {
                           ? 'Retained receive table'
                           : entry.request.kind === 'apply-stocktake'
                             ? 'Retained stocktake source'
-                            : 'Retained revised source'
+                            : entry.request.kind === 'acknowledge-table-source'
+                              ? 'Retained revised source'
+                              : 'Retained hierarchy source'
                     }
                     value={entry.request.sourceText}
                     className="h-40 font-mono text-xs"
@@ -472,7 +481,9 @@ export function InventoryPanel() {
                           ? 'Retained table receiving choices'
                           : entry.request.kind === 'apply-stocktake'
                             ? 'Retained stocktake choices'
-                            : 'Retained source revision choices'
+                            : entry.request.kind === 'acknowledge-table-source'
+                              ? 'Retained source revision choices'
+                              : 'Retained hierarchy choices'
                       }
                       value={JSON.stringify(entry.request.options, null, 2)}
                       className="h-40 font-mono text-xs"
@@ -646,6 +657,12 @@ export function InventoryPanel() {
         </Button>
         <Button disabled={!data} onClick={() => setDialog({ kind: 'item-code-lookup' })}>
           Scan or enter code
+        </Button>
+        <Button
+          disabled={!data || status.kind === 'submitting' || status.kind === 'outcome-unknown'}
+          onClick={() => setDialog({ kind: 'import-hierarchy' })}
+        >
+          Import locations
         </Button>
       </header>
       {projectsError ? (
@@ -1535,6 +1552,15 @@ export function InventoryPanel() {
         ) : dialog.kind === 'source-revision' ? (
           <InventorySourceRevisionForm
             key={`${data.project.projectId}:source-revision`}
+            data={data}
+            controller={controller}
+            status={status}
+            client={platform().inventory}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : dialog.kind === 'import-hierarchy' ? (
+          <InventoryHierarchyForm
+            key={`${data.project.projectId}:import-hierarchy`}
             data={data}
             controller={controller}
             status={status}

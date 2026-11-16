@@ -19,6 +19,7 @@ import type {
   InventoryImportPreview,
   InventoryTablePreview,
   InventoryStocktakePreview,
+  InventoryHierarchyPreview,
   InventorySourceRevisionPreview,
 } from '@waypoint/domain-services';
 import type { InventoryRenderedLabel } from '@waypoint/domain-services/inventory-label-types';
@@ -30,6 +31,8 @@ import type {
   InventoryPreviewTableRequest,
   InventoryApplyTableRequest,
   InventoryPreviewStocktakeRequest,
+  InventoryPreviewHierarchyRequest,
+  InventoryApplyHierarchyRequest,
   InventoryApplyStocktakeRequest,
   InventoryPreviewSourceRevisionRequest,
   InventoryAcknowledgeSourceRequest,
@@ -154,7 +157,16 @@ export type InventorySourceRevisionPreviewSnapshot = InventorySourceRevisionPrev
   readonly principal: InventoryPrincipal;
 };
 
+export type InventoryHierarchyPreviewSnapshot = InventoryHierarchyPreview & {
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+};
+
 export interface InventoryClient {
+  previewHierarchy(
+    input: InventoryPreviewHierarchyRequest
+  ): Promise<InventoryHierarchyPreviewSnapshot>;
+  applyHierarchy(input: InventoryApplyHierarchyRequest): Promise<NativeInventoryExecution>;
   previewSourceRevision(
     input: InventoryPreviewSourceRevisionRequest
   ): Promise<InventorySourceRevisionPreviewSnapshot>;
@@ -208,6 +220,8 @@ export function unavailableInventoryClient(): InventoryClient {
     previewSourceRevision: unavailable,
     acknowledgeSource: unavailableMutation,
     previewStocktake: unavailable,
+    previewHierarchy: unavailable,
+    applyHierarchy: unavailableMutation,
     applyStocktake: unavailableMutation,
     applyTable: unavailableMutation,
     projects: unavailable,
@@ -233,6 +247,8 @@ export type {
   InventoryPreviewTableRequest,
   InventoryApplyTableRequest,
   InventoryPreviewStocktakeRequest,
+  InventoryPreviewHierarchyRequest,
+  InventoryApplyHierarchyRequest,
   InventoryApplyStocktakeRequest,
   InventoryPreviewSourceRevisionRequest,
   InventoryAcknowledgeSourceRequest,

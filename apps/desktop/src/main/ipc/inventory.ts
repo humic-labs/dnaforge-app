@@ -8,6 +8,7 @@ import {
   inventoryApplyImportRequestSchema,
   inventoryApplyTableRequestSchema,
   inventoryApplyStocktakeRequestSchema,
+  inventoryApplyHierarchyRequestSchema,
   inventoryAcknowledgeSourceRequestSchema,
   inventoryOperationRequestSchema,
   type NativeInventoryRejection,
@@ -47,7 +48,7 @@ export function registerInventoryHandlers(options: {
   const mutate = (
     event: IpcMainInvokeEvent,
     input: unknown,
-    kind: 'commands' | 'adoption' | 'table' | 'stocktake' | 'source-revision'
+    kind: 'commands' | 'adoption' | 'table' | 'stocktake' | 'hierarchy' | 'source-revision'
   ): ReturnType<NativeInventoryOwner['execute']> => {
     const value = input as
       | { project?: unknown; inventoryId?: unknown; operationId?: unknown }
@@ -75,7 +76,9 @@ export function registerInventoryHandlers(options: {
               ? inventoryApplyTableRequestSchema.parse(input)
               : kind === 'stocktake'
                 ? inventoryApplyStocktakeRequestSchema.parse(input)
-                : inventoryAcknowledgeSourceRequestSchema.parse(input);
+                : kind === 'hierarchy'
+                  ? inventoryApplyHierarchyRequestSchema.parse(input)
+                  : inventoryAcknowledgeSourceRequestSchema.parse(input);
     } catch (error) {
       if (!(error instanceof ZodError || error instanceof InventoryValidationError)) throw error;
       return reject('INVALID_INVENTORY_INPUT', error.message);
@@ -104,9 +107,13 @@ export function registerInventoryHandlers(options: {
               ? owner.applyStocktake(request, assertCurrent, {
                   actor: `human:desktop:${event.sender.id}`,
                 })
-              : owner.acknowledgeSource(request, assertCurrent, {
-                  actor: `human:desktop:${event.sender.id}`,
-                });
+              : kind === 'hierarchy'
+                ? owner.applyHierarchy(request, assertCurrent, {
+                    actor: `human:desktop:${event.sender.id}`,
+                  })
+                : owner.acknowledgeSource(request, assertCurrent, {
+                    actor: `human:desktop:${event.sender.id}`,
+                  });
     } catch (error) {
       if (error instanceof NativeDocumentCommandError && error.stateChanged === false)
         return reject(error.code, error.message);
@@ -114,6 +121,11 @@ export function registerInventoryHandlers(options: {
     }
   };
   return handleGroup(inventoryContract, {
+    previewHierarchy: (event, request) => {
+      assertCaller(event);
+      return currentOwner().previewHierarchy(request);
+    },
+    applyHierarchy: (event, request) => mutate(event, request, 'hierarchy'),
     previewSourceRevision: (event, request) => {
       assertCaller(event);
       return currentOwner().previewSourceRevision(request);

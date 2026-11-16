@@ -42,6 +42,8 @@ let applyImport: ReturnType<typeof vi.fn>;
 let previewTable: ReturnType<typeof vi.fn>;
 let applyTable: ReturnType<typeof vi.fn>;
 let previewStocktake: ReturnType<typeof vi.fn>;
+let previewHierarchy: ReturnType<typeof vi.fn>;
+let applyHierarchy: ReturnType<typeof vi.fn>;
 let applyStocktake: ReturnType<typeof vi.fn>;
 let previewSourceRevision: ReturnType<typeof vi.fn>;
 let acknowledgeSource: ReturnType<typeof vi.fn>;
@@ -66,6 +68,8 @@ beforeEach(() => {
   applyImport = vi.fn(() => ({ status: 'committed' }));
   previewTable = vi.fn(() => ({ kind: 'ready', target: { revision: 0 } }));
   applyTable = vi.fn(() => ({ status: 'committed' }));
+  previewHierarchy = vi.fn(() => ({ kind: 'ready', target: { revision: 0 } }));
+  applyHierarchy = vi.fn(() => ({ status: 'committed' }));
   previewStocktake = vi.fn(() => ({ kind: 'ready', target: { revision: 0 } }));
   applyStocktake = vi.fn(() => ({ status: 'committed' }));
   previewSourceRevision = vi.fn(() => ({ kind: 'ready', target: { revision: 0 } }));
@@ -84,6 +88,8 @@ beforeEach(() => {
     previewTable,
     applyTable,
     previewStocktake,
+    previewHierarchy,
+    applyHierarchy,
     applyStocktake,
     previewSourceRevision,
     acknowledgeSource,
@@ -149,6 +155,63 @@ it('keeps source revision preview read-only and source acknowledgement under the
     code: 'INVENTORY_DESKTOP_CALLER_UNAVAILABLE',
   });
   expect(acknowledgeSource).toHaveBeenCalledTimes(1);
+  expect(execute).not.toHaveBeenCalled();
+  expect(applyImport).not.toHaveBeenCalled();
+});
+
+it('keeps hierarchy preview read-only and hierarchy application under the same current-caller fence', () => {
+  const options = {
+    namespace: 'source',
+    delimiter: ',',
+    parents: [],
+    skips: [],
+  };
+  const preview = {
+    project: 'project',
+    inventoryId: 'inventory',
+    format: 'hierarchy-v1',
+    sourceText: 'exact source\r\n',
+    options,
+  };
+  const read = captured.handlers.previewHierarchy as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => unknown;
+  expect(read(event, preview)).toMatchObject({ kind: 'ready' });
+  expect(previewHierarchy).toHaveBeenCalledExactlyOnceWith(preview);
+  expect(applyHierarchy).not.toHaveBeenCalled();
+  const input = {
+    kind: 'import-hierarchy',
+    project: 'project',
+    inventoryId: 'inventory',
+    operationId: 'hierarchy-once',
+    expectedRevision: 0,
+    sourceText: preview.sourceText,
+    options,
+    expectedPlanDigest: `sha256:${'0'.repeat(64)}`,
+  };
+  const apply = captured.handlers.applyHierarchy as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => NativeInventoryExecution;
+  expect(apply(event, input)).toMatchObject({ status: 'committed' });
+  expect(applyHierarchy).toHaveBeenCalledWith(input, expect.any(Function), {
+    actor: 'human:desktop:7',
+  });
+  expect(apply(event, { ...input, recordedAt: 0 })).toMatchObject({
+    status: 'rejected',
+    operationId: 'hierarchy-once',
+    code: 'INVALID_INVENTORY_INPUT',
+  });
+  expect(applyHierarchy).toHaveBeenCalledTimes(1);
+  expect(
+    apply({ sender: { id: 9, isDestroyed: () => false } } as IpcMainInvokeEvent, input)
+  ).toMatchObject({
+    status: 'rejected',
+    operationId: 'hierarchy-once',
+    code: 'INVENTORY_DESKTOP_CALLER_UNAVAILABLE',
+  });
+  expect(applyHierarchy).toHaveBeenCalledTimes(1);
   expect(execute).not.toHaveBeenCalled();
   expect(applyImport).not.toHaveBeenCalled();
 });

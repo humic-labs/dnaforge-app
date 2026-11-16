@@ -23,6 +23,7 @@ import type {
 import { NATIVE_DOCUMENT_MAX_BODY_BYTES } from '../shared/native-document-transport';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import { applyNativeInventoryTable } from './inventory-table';
+import { applyNativeInventoryHierarchy } from './inventory-hierarchy';
 import { applyNativeInventoryStocktake } from './inventory-stocktake';
 import { applyNativeInventorySourceRevision } from './inventory-source-revision';
 import {
@@ -146,6 +147,7 @@ export function replayNativeInventoryJournal(
     (target, request, context) => applyNativeInventoryAdoption(target, request, context, depth),
     applyNativeInventoryTable,
     applyNativeInventoryStocktake,
+    applyNativeInventoryHierarchy,
     applyNativeInventorySourceRevision
   );
 }

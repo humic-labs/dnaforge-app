@@ -638,11 +638,12 @@ describe('accepted receive-source revisions', () => {
     const state = fixture();
     const raw = JSON.parse(JSON.stringify(state));
     raw.schema = 'dnaforge.inventory.v14';
+    delete raw.hierarchyBindings;
     for (const binding of Object.values(raw.tableBindings) as Record<string, unknown>[])
       delete binding.sourceRevisions;
     const before = JSON.stringify(raw);
     const upcast = parseInventoryState(raw);
-    expect(upcast.schema).toBe('dnaforge.inventory.v15');
+    expect(upcast.schema).toBe('dnaforge.inventory.v16');
     expect(upcast.tableBindings[key].sourceRevisions).toEqual([]);
     expect(upcast.observations).toEqual(state.observations);
     expect(JSON.stringify(raw)).toBe(before);

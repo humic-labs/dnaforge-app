@@ -34,6 +34,8 @@ import {
   inventoryApplyTableRequestSchema,
   inventoryPreviewStocktakeRequestSchema,
   inventoryApplyStocktakeRequestSchema,
+  inventoryApplyHierarchyRequestSchema,
+  inventoryPreviewHierarchyRequestSchema,
   inventoryPreviewSourceRevisionRequestSchema,
   inventoryAcknowledgeSourceRequestSchema,
   inventoryCatalogQuerySchema,
@@ -67,6 +69,7 @@ import type {
   InventoryImportPreviewSnapshot,
   InventoryTablePreviewSnapshot,
   InventoryStocktakePreviewSnapshot,
+  InventoryHierarchyPreviewSnapshot,
   InventorySourceRevisionPreviewSnapshot,
 } from '../shared/inventory-client';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
@@ -98,6 +101,10 @@ import {
   applyNativeInventorySourceRevision,
   nativeInventorySourceRevisionPreview,
 } from './inventory-source-revision';
+import {
+  applyNativeInventoryHierarchy,
+  nativeInventoryHierarchyPreview,
+} from './inventory-hierarchy';
 import { findNativeInventorySourcePreimages } from './inventory-source-preimages';
 
 interface InventoryRow {
@@ -507,6 +514,49 @@ export function createNativeInventoryOwner(options: {
               'The source, destination or scientific bindings changed. Preview the table again.'
             );
           result = applyNativeInventoryTable(row ? previous : null, request, executionContext);
+        } else if ('kind' in request && request.kind === 'import-hierarchy') {
+          if (request.expectedRevision !== previous.revision)
+            return reject(
+              'REVISION_CONFLICT',
+              'Inventory changed after the hierarchy was previewed.'
+            );
+          if (Buffer.byteLength(canonical, 'utf8') > NATIVE_DOCUMENT_MAX_BODY_BYTES)
+            return reject(
+              'INVENTORY_HIERARCHY_TOO_LARGE',
+              'The encoded hierarchy request exceeds the inline native transport limit.'
+            );
+          const executionContext = {
+            at: recordedAt,
+            principal: context.principal,
+            authority: context.authority,
+          };
+          const preview = nativeInventoryHierarchyPreview(
+            row ? previous : null,
+            importTarget(db, project, request.inventoryId, row),
+            request.sourceText,
+            request.options,
+            executionContext
+          );
+          if (preview.kind === 'blocked')
+            return reject(
+              preview.issues[0]?.code ?? 'INVENTORY_HIERARCHY_BLOCKED',
+              preview.issues[0]?.message ?? 'The hierarchy is blocked.'
+            );
+          if (preview.kind !== 'ready')
+            return reject(
+              'INVENTORY_HIERARCHY_NO_CHANGES',
+              'This hierarchy has no storage layouts to commit.'
+            );
+          if (
+            preview.planDigest !== request.expectedPlanDigest ||
+            canonicalNativeMutationRequest(preview.options) !==
+              canonicalNativeMutationRequest(request.options)
+          )
+            return reject(
+              'INVENTORY_HIERARCHY_PLAN_CHANGED',
+              'The source, subjects, decisions or target changed. Preview the hierarchy again.'
+            );
+          result = applyNativeInventoryHierarchy(row ? previous : null, request, executionContext);
         } else if ('kind' in request && request.kind === 'apply-stocktake') {
           if (request.expectedRevision !== previous.revision)
             return reject(
@@ -850,6 +900,35 @@ export function createNativeInventoryOwner(options: {
       return snapshot;
     },
 
+    previewHierarchy(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventoryHierarchyPreviewSnapshot {
+      const request = inventoryPreviewHierarchyRequestSchema.parse(input);
+      const project = resolveProject(request.project, false);
+      const assertProject = options.projectAuthority.capture(project.projectId, false);
+      const db = options.db();
+      assertProject();
+      const snapshot = db
+        .transaction(() => {
+          const row = inventory(db, request.inventoryId, project.projectId);
+          const state = row ? stateFromRow(row) : null;
+          const asOf = observationTime(state ?? createInventoryState());
+          const caller = principal(invocation);
+          const preview = nativeInventoryHierarchyPreview(
+            state,
+            importTarget(db, project, request.inventoryId, row),
+            request.sourceText,
+            request.options,
+            { at: asOf, principal: caller, authority }
+          );
+          return structuredClone({ ...preview, asOf, principal: caller });
+        })
+        .deferred();
+      assertProject();
+      return snapshot;
+    },
+
     previewStocktake(
       input: unknown,
       invocation: NativeInventoryInvocation = {}
@@ -1123,6 +1202,14 @@ export function createNativeInventoryOwner(options: {
       invocation: NativeInventoryInvocation = {}
     ): NativeInventoryExecution {
       return commit(inventoryApplyTableRequestSchema.parse(input), assertCurrent, invocation);
+    },
+
+    applyHierarchy(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): NativeInventoryExecution {
+      return commit(inventoryApplyHierarchyRequestSchema.parse(input), assertCurrent, invocation);
     },
 
     applyStocktake(

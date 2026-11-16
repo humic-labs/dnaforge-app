@@ -27,7 +27,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v15. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v16. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -51,8 +51,9 @@ table-binding map. v12 imported origins and recorded actors retain their exact
 attribution during this upcast. v1–v13 snapshots gain an empty observation map;
 existing table bindings, origins and imported attribution remain intact. v1–v14
 source bindings gain an empty accepted-source revision list. Legacy receive-v1
-plan hashes retain their original binding representation. Reading never writes
-the upgraded snapshot.
+plan hashes retain their original binding representation. v1–v15 snapshots gain
+an empty hierarchy-binding map without changing source revisions or imported
+attribution. Reading never writes the upgraded snapshot.
 
 ## Independent states
 
@@ -817,6 +818,42 @@ adding empty revision history to canonical state. Reimport compares the
 effective baseline before deriving physical IDs and never reverses later use or
 movement. Archive adoption retains the source chain and fields, maps only typed
 scientific identity, and keeps acknowledgement actors as imported attribution.
+
+## Hierarchy table contract
+
+A hierarchy table creates explicit storage layouts and parent relationships.
+Freezers, shelves, boxes, permanent-well plates and plate stacks use the
+existing storage owner. Names do not imply hardware specifications, dimensions,
+temperature control or qualified fit. Scientific stock receiving remains a
+separate visible atomic stage.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Parsed
+  Parsed --> Blocked: invalid rows or ambiguous parent references
+  Parsed --> Resolved: explicit layouts and source/existing parents
+  Resolved --> Blocked: cycle, occupancy, stack or batch contradiction
+  Resolved --> Ready: topologically ordered existing commands
+  Ready --> Stale: target changes
+  Stale --> Parsed: regenerate proposal
+  Ready --> CommandRecovery: persist stable operation before sending
+  CommandRecovery --> Committed: all locations and bindings accepted
+  CommandRecovery --> OutcomeUnknown: response unavailable
+  OutcomeUnknown --> CommandRecovery: identical retry or original receipt
+```
+
+Lifetime hierarchy bindings use the exact namespace and source ID, with a source
+row hash, physical storage ID and original destination. Resolve existing
+bindings before generating IDs. Reimport never moves a container back or
+recreates it after later use, movement or disposal. Changed source facts require
+separate reconciliation. Source parent references are explicit; skipped unbound
+parents cannot become invented roots.
+
+Topological ordering creates parents before children. Permanent wells belong to
+the plate owner. A stack ordinal is explicit source data, not input row order;
+the importer uses ordinary push commands and current stack constraints. A late
+contradiction refuses the whole proposal. No hierarchy-only journal, migration
+coordinator or hidden batch splitting is introduced.
 
 ## Material identity and conservation
 

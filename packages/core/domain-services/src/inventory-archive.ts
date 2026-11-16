@@ -398,6 +398,7 @@ const RECORD_KINDS: readonly InventoryImportRecordGroup['kind'][] = [
   'thermalContexts',
   'tableBindings',
   'observations',
+  'hierarchyBindings',
 ];
 
 function previewFacts(archive: InventoryValidatedArchive, input: InventoryImportPreviewInput) {

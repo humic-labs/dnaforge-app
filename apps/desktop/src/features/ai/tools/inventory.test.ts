@@ -320,3 +320,66 @@ describe('inventory source revision agent contract', () => {
     expect(JSON.stringify(inventoryAgentJsonSchema())).toContain('acknowledge-source');
   });
 });
+
+describe('inventory hierarchy agent contract', () => {
+  const options = {
+    namespace: 'stable-source',
+    delimiter: ',',
+    parents: [{ key: 'rack', storageId: 'rack' }],
+    skips: [],
+  };
+  const preview = {
+    kind: 'preview-hierarchy',
+    project: 'project',
+    inventoryId: 'inventory',
+    format: 'hierarchy-v1',
+    sourceText: 'exact hierarchy\r\n',
+    options,
+  };
+  it('retains explicit layouts and parent choices while excluding authored authority', () => {
+    expect(inventoryAgentSchema.parse({ operation: preview })).toEqual({ operation: preview });
+    const { format: _format, ...fields } = preview;
+    const operation = {
+      ...fields,
+      kind: 'apply-hierarchy',
+      operationId: 'hierarchy-once',
+      expectedRevision: 0,
+      expectedPlanDigest: `sha256:${'1'.repeat(64)}`,
+    };
+    expect(inventoryAgentSchema.parse({ operation })).toEqual({ operation });
+    for (const extra of [
+      { recordedAt: 0 },
+      { principal: { kind: 'agent', identityId: 'other' } },
+      { authority: { kind: 'local-profile', profileKey: '0'.repeat(64) } },
+    ])
+      expect(
+        inventoryAgentSchema.safeParse({ operation: { ...operation, ...extra } }).success
+      ).toBe(false);
+    expect(
+      inventoryAgentSchema.parse({
+        operation: {
+          ...preview,
+          options: { ...options, skips: [{ sourceId: 'skip', reason: '' }] },
+        },
+      })
+    ).toBeDefined();
+    expect(
+      inventoryAgentSchema.safeParse({
+        operation: {
+          ...operation,
+          options: { ...options, skips: [{ sourceId: 'skip', reason: '' }] },
+        },
+      }).success
+    ).toBe(false);
+    expect(
+      inventoryAgentOutputSchema.parse({
+        ok: true,
+        kind: 'hierarchy-preview',
+        preview: { kind: 'blocked', rows: [] },
+      })
+    ).toMatchObject({ kind: 'hierarchy-preview' });
+    expect(
+      inventoryAgentOutputSchema.safeParse({ ok: true, kind: 'hierarchy-preview' }).success
+    ).toBe(false);
+  });
+});

@@ -56,6 +56,7 @@ import { applyInventoryTemperatureCommand } from './inventory-storage-conditions
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
 interface Draft {
+  hierarchyBindings: InventoryState['hierarchyBindings'];
   observations: Record<string, InventoryState['observations'][string]>;
   origin: InventoryState['origin'];
   tableBindings: InventoryState['tableBindings'];
@@ -363,6 +364,7 @@ export function applyInventoryCommandBatch(
   if (context && context.at < state.lastRecordedAt)
     return failure('CLOCK_REGRESSION', 'The trusted timestamp precedes the inventory clock floor.');
   const draft: Draft = {
+    hierarchyBindings: state.hierarchyBindings,
     origin: state.origin,
     observations: Object.assign(Object.create(null), state.observations),
     tableBindings: state.tableBindings,

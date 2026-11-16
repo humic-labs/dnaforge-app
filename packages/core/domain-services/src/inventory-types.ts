@@ -3,6 +3,7 @@ import type {
   InventoryObservationCommand,
 } from './inventory-observation-types';
 export type * from './inventory-observation-types';
+import type { InventoryHierarchyBinding } from './inventory-hierarchy-types';
 import type { InventoryTableBinding } from './inventory-table-types';
 import type {
   InventoryPhysicalConfiguration,
@@ -35,7 +36,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v15' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v16' as const;
+export const INVENTORY_SOURCE_REVISION_SCHEMA = 'dnaforge.inventory.v15' as const;
 export const INVENTORY_STOCKTAKE_SCHEMA = 'dnaforge.inventory.v14' as const;
 export const INVENTORY_RECEIVE_TABLE_SCHEMA = 'dnaforge.inventory.v13' as const;
 export const INVENTORY_ADOPTION_SCHEMA = 'dnaforge.inventory.v12' as const;
@@ -250,6 +252,7 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly hierarchyBindings: Readonly<Record<string, InventoryHierarchyBinding>>;
   readonly observations: Readonly<Record<string, InventoryObservation>>;
   readonly tableBindings: Readonly<Record<string, InventoryTableBinding>>;
   readonly origin: InventoryOrigin;
@@ -744,6 +747,7 @@ export type InventoryTransition =
 export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
+    hierarchyBindings: Object.create(null) as Record<string, InventoryHierarchyBinding>,
     observations: Object.create(null) as Record<string, InventoryObservation>,
     origin: { kind: 'native' },
     tableBindings: Object.create(null) as Record<string, InventoryTableBinding>,

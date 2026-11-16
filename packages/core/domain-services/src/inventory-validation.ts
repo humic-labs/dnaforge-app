@@ -1,3 +1,4 @@
+import type { InventoryHierarchyBinding } from './inventory-hierarchy-types';
 import { inventoryObservationKey } from './inventory-observation-identity';
 import type {
   InventoryObservation,
@@ -43,6 +44,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_SOURCE_REVISION_SCHEMA,
   INVENTORY_STOCKTAKE_SCHEMA,
   INVENTORY_RECEIVE_TABLE_SCHEMA,
   INVENTORY_ADOPTION_SCHEMA,
@@ -2007,10 +2009,36 @@ function tableBindings(
   return result;
 }
 
+const hierarchyBindingRecord: Codec<InventoryHierarchyBinding> = fields(
+  'Hierarchy source binding',
+  {
+    namespace: text('Hierarchy source namespace', 256),
+    sourceId: text('Hierarchy source identity', 256),
+    rowSha256: tableRowHash,
+    storageId: id,
+    destination: storagePlacement,
+  }
+);
+function hierarchyBindings(value: unknown): Record<string, InventoryHierarchyBinding> {
+  const result = Object.create(null) as Record<string, InventoryHierarchyBinding>;
+  const physicalIds = new Set<string>();
+  for (const [key, raw] of Object.entries(object(value, 'Hierarchy source bindings'))) {
+    const binding = hierarchyBindingRecord.parse(raw);
+    if (key !== inventoryTableBindingKey(binding.namespace, binding.sourceId))
+      invalid('A hierarchy binding key must match its exact source namespace and identity.');
+    if (physicalIds.has(binding.storageId))
+      invalid('Each hierarchy source must bind a distinct storage record.');
+    physicalIds.add(binding.storageId);
+    result[key] = binding;
+  }
+  return result;
+}
+
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const observationRecords = current || row.schema === INVENTORY_STOCKTAKE_SCHEMA;
+  const sourceRevisions = current || row.schema === INVENTORY_SOURCE_REVISION_SCHEMA;
+  const observationRecords = sourceRevisions || row.schema === INVENTORY_STOCKTAKE_SCHEMA;
   const tableSources = observationRecords || row.schema === INVENTORY_RECEIVE_TABLE_SCHEMA;
   const archiveAttribution = tableSources || row.schema === INVENTORY_ADOPTION_SCHEMA;
   const thermalContexts = archiveAttribution || row.schema === INVENTORY_THERMAL_CONTEXT_SCHEMA;
@@ -2025,6 +2053,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_SOURCE_REVISION_SCHEMA),
       literal(INVENTORY_STOCKTAKE_SCHEMA),
       literal(INVENTORY_RECEIVE_TABLE_SCHEMA),
       literal(INVENTORY_ADOPTION_SCHEMA),
@@ -2041,6 +2070,9 @@ export function parseInventoryState(value: unknown): InventoryState {
       literal(LEGACY_INVENTORY_SCHEMA),
     ]),
     revision,
+    ...(current
+      ? { hierarchyBindings: { schema: { type: 'object' }, parse: (input: unknown) => input } }
+      : {}),
     ...(archiveAttribution ? { origin: inventoryOrigin } : {}),
     ...(observationRecords
       ? { observations: { schema: { type: 'object' }, parse: (input: unknown) => input } }
@@ -2129,9 +2161,12 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   const state: InventoryState = {
     schema: INVENTORY_SCHEMA,
+    hierarchyBindings: current ? hierarchyBindings(shape.hierarchyBindings) : Object.create(null),
     origin: archiveAttribution ? inventoryOrigin.parse(shape.origin) : { kind: 'native' },
     observations: observationRecords ? observations(shape.observations) : Object.create(null),
-    tableBindings: tableSources ? tableBindings(shape.tableBindings, current) : Object.create(null),
+    tableBindings: tableSources
+      ? tableBindings(shape.tableBindings, sourceRevisions)
+      : Object.create(null),
     thermalContexts: thermalContexts
       ? temperatureFactMap(thermalContextRecord, shape.thermalContexts)
       : Object.create(null),
@@ -2263,6 +2298,15 @@ export function parseInventoryState(value: unknown): InventoryState {
       if (destination.kind === 'stack-top' && !Object.hasOwn(state.storage, destination.stackId))
         invalid('An observed stack must reference existing storage.');
     }
+  }
+  for (const binding of Object.values(state.hierarchyBindings)) {
+    if (!Object.hasOwn(state.storage, binding.storageId))
+      invalid('A hierarchy binding must reference existing storage.');
+    if (
+      binding.destination.kind === 'located' &&
+      !Object.hasOwn(state.storage, binding.destination.storageId)
+    )
+      invalid('An original hierarchy destination must reference existing storage.');
   }
   for (const binding of Object.values(state.tableBindings)) {
     let previousAt = 0;

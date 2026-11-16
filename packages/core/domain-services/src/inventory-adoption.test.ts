@@ -642,6 +642,7 @@ describe('inventory archive adoption authority', () => {
       })
     ).toThrow();
     const {
+      hierarchyBindings: _hierarchy,
       origin: _origin,
       tableBindings: _tableBindings,
       observations: _observations,
@@ -720,7 +721,8 @@ it('upcasts a frozen v11 snapshot to explicit native origin without changing sto
   const state = parseInventoryState(before);
   expect(state).toEqual({
     ...before,
-    schema: 'dnaforge.inventory.v15',
+    schema: 'dnaforge.inventory.v16',
+    hierarchyBindings: {},
     observations: {},
     origin: { kind: 'native' },
     tableBindings: {},

@@ -38,6 +38,8 @@ import {
   inventoryApplyTableRequestSchema,
   inventoryPreviewStocktakeRequestSchema,
   inventoryApplyStocktakeRequestSchema,
+  inventoryPreviewHierarchyRequestSchema,
+  inventoryApplyHierarchyRequestSchema,
   inventoryPreviewSourceRevisionRequestSchema,
   inventoryAcknowledgeSourceRequestSchema,
 } from '../shared/inventory-command';
@@ -94,6 +96,24 @@ const commandSchema = z.discriminatedUnion('command', [
       projectScope: agentProjectScopeSchema,
       command: z.literal('inventory.acknowledge-source'),
       request: inventoryAcknowledgeSourceRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-hierarchy'),
+      request: inventoryPreviewHierarchyRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.apply-hierarchy'),
+      request: inventoryApplyHierarchyRequestSchema,
       agent: agentAuthoritySchema.optional(),
     })
     .strict(),
@@ -395,6 +415,8 @@ export async function startNativeDocumentCommandServer(options: {
     | 'applyTable'
     | 'previewStocktake'
     | 'applyStocktake'
+    | 'previewHierarchy'
+    | 'applyHierarchy'
   >;
   authorizeInventoryAgent?(agent: NativeAgentAuthority, required: readonly string[]): Promise<void>;
   getAuthority(): NativeCommandAuthority | null;
@@ -492,7 +514,9 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'inventory.apply-import' ||
           body.command === 'inventory.preview-table' ||
           body.command === 'inventory.apply-table' ||
+          body.command === 'inventory.preview-hierarchy' ||
           body.command === 'inventory.preview-stocktake' ||
+          body.command === 'inventory.apply-hierarchy' ||
           body.command === 'inventory.apply-stocktake' ||
           body.command === 'inventory.preview-source-revision' ||
           body.command === 'inventory.acknowledge-source' ||
@@ -519,6 +543,7 @@ export async function startNativeDocumentCommandServer(options: {
                 body.command === 'inventory.execute' ||
                 body.command === 'inventory.apply-import' ||
                 body.command === 'inventory.apply-table' ||
+                body.command === 'inventory.apply-hierarchy' ||
                 body.command === 'inventory.apply-stocktake' ||
                 body.command === 'inventory.acknowledge-source'
                   ? ['read-workspace', 'write-workspace']
@@ -574,6 +599,29 @@ export async function startNativeDocumentCommandServer(options: {
                 return () => ({
                   kind: 'execution',
                   execution: receiver.acknowledgeSource(request, assertCurrent, invocation),
+                });
+              }
+              if (body.command === 'inventory.preview-hierarchy') {
+                const request = body.request;
+                const invocation = body.agent
+                  ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
+                  : undefined;
+                return () => ({
+                  kind: 'hierarchy-preview',
+                  preview: receiver.previewHierarchy(request, invocation),
+                });
+              }
+              if (body.command === 'inventory.apply-hierarchy') {
+                const request = body.request;
+                const invocation = body.agent
+                  ? {
+                      actor: `agent:${body.agent.identityId}`,
+                      principal: { kind: 'agent' as const, identityId: body.agent.identityId },
+                    }
+                  : undefined;
+                return () => ({
+                  kind: 'execution',
+                  execution: receiver.applyHierarchy(request, assertCurrent, invocation),
                 });
               }
               if (body.command === 'inventory.preview-stocktake') {
@@ -780,6 +828,7 @@ export async function startNativeDocumentCommandServer(options: {
             body.command === 'inventory.export-snapshot' ||
             body.command === 'inventory.preview-import' ||
             body.command === 'inventory.preview-table' ||
+            body.command === 'inventory.preview-hierarchy' ||
             body.command === 'inventory.preview-stocktake' ||
             body.command === 'inventory.preview-source-revision' ||
             body.command === 'inventory.catalog' ||

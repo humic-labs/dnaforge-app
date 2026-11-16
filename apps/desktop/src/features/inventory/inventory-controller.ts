@@ -10,6 +10,7 @@ import {
   type InventoryResolvedTableOptions,
   type InventoryStocktakeChoices,
   type InventoryResolvedSourceRevisionOptions,
+  type InventoryHierarchyChoices,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
@@ -18,10 +19,12 @@ import {
   inventoryApplyTableRequestSchema,
   inventoryApplyStocktakeRequestSchema,
   inventoryAcknowledgeSourceRequestSchema,
+  inventoryApplyHierarchyRequestSchema,
   inventoryReceiptSchema,
   type InventoryAcceptedRequest,
   type NativeInventoryHistoryEntry,
   type NativeInventoryReceipt,
+  type NativeInventoryExecution,
 } from '../../shared/inventory-command';
 import type {
   InventoryAvailabilitySnapshot,
@@ -747,6 +750,28 @@ export class InventoryController {
     );
   }
 
+  async importHierarchy(
+    sourceText: string,
+    options: InventoryHierarchyChoices,
+    expectedPlanDigest: InventoryTableSha256
+  ): Promise<NativeInventoryReceipt | null> {
+    return this.sourceAttempt(
+      (data) =>
+        inventoryApplyHierarchyRequestSchema.parse({
+          kind: 'import-hierarchy',
+          project: data.project.projectId,
+          inventoryId: data.project.defaultInventoryId,
+          operationId: this.operationId(),
+          expectedRevision: data.state.revision,
+          sourceText,
+          options,
+          expectedPlanDigest,
+        }),
+      'Import inventory hierarchy',
+      'Preview the hierarchy before importing locations.'
+    );
+  }
+
   private async sourceAttempt(
     request: (data: InventoryData) => InventoryAcceptedRequest,
     summary: string,
@@ -824,6 +849,22 @@ export class InventoryController {
     return receipt;
   }
 
+  private executeRequest(request: InventoryAcceptedRequest): Promise<NativeInventoryExecution> {
+    if (!('kind' in request)) return this.client.execute(request);
+    switch (request.kind) {
+      case 'adopt-archive':
+        return this.client.applyImport(request);
+      case 'receive-table':
+        return this.client.applyTable(request);
+      case 'apply-stocktake':
+        return this.client.applyStocktake(request);
+      case 'acknowledge-table-source':
+        return this.client.acknowledgeSource(request);
+      case 'import-hierarchy':
+        return this.client.applyHierarchy(request);
+    }
+  }
+
   private async execute(
     data: InventoryData,
     attempt: InventoryAttempt
@@ -831,16 +872,7 @@ export class InventoryController {
     const generation = this.generation;
     this.set({ kind: 'submitting', stage: 'sending', data, attempt });
     try {
-      const result =
-        'kind' in attempt.request
-          ? attempt.request.kind === 'adopt-archive'
-            ? await this.client.applyImport(attempt.request)
-            : attempt.request.kind === 'receive-table'
-              ? await this.client.applyTable(attempt.request)
-              : attempt.request.kind === 'apply-stocktake'
-                ? await this.client.applyStocktake(attempt.request)
-                : await this.client.acknowledgeSource(attempt.request)
-          : await this.client.execute(attempt.request);
+      const result = await this.executeRequest(attempt.request);
       if (result.status === 'committed') return this.committed(data, attempt, result, generation);
       let recoveryError: string | undefined;
       try {

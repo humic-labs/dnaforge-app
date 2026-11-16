@@ -6,6 +6,8 @@ import {
   applyInventoryStocktake,
   inventoryStocktakePreview,
   applyInventorySourceRevision,
+  applyInventoryHierarchy,
+  inventoryHierarchyPreview,
   inventorySourceRevisionPreview,
   inventoryTablePreview,
   createInventoryState,
@@ -158,20 +160,35 @@ function fixture(empty = false) {
                   { at: 1, principal, authority: principal },
                   17 * 1024 * 1024
                 )
-              : applyInventorySourceRevision(
-                  state.revision === 0 ? null : state,
-                  {
-                    ...request,
-                    target: {
-                      projectId: request.project,
-                      inventoryId: request.inventoryId,
-                      present: state.revision !== 0,
-                      revision: request.expectedRevision,
+              : request.kind === 'acknowledge-table-source'
+                ? applyInventorySourceRevision(
+                    state.revision === 0 ? null : state,
+                    {
+                      ...request,
+                      target: {
+                        projectId: request.project,
+                        inventoryId: request.inventoryId,
+                        present: state.revision !== 0,
+                        revision: request.expectedRevision,
+                      },
                     },
-                  },
-                  { at: 1, principal, authority: principal },
-                  17 * 1024 * 1024
-                )
+                    { at: 1, principal, authority: principal },
+                    17 * 1024 * 1024
+                  )
+                : applyInventoryHierarchy(
+                    state.revision === 0 ? null : state,
+                    {
+                      ...request,
+                      target: {
+                        projectId: request.project,
+                        inventoryId: request.inventoryId,
+                        present: state.revision !== 0,
+                        revision: request.expectedRevision,
+                      },
+                    },
+                    { at: 1, principal, authority: principal },
+                    17 * 1024 * 1024
+                  )
         : applyInventoryCommandBatch(state, {
             expectedRevision: request.expectedRevision,
             commands: request.commands,
@@ -232,6 +249,10 @@ function fixture(empty = false) {
       throw new Error('Source revision comparison is not used by this controller fixture.');
     }),
     acknowledgeSource: vi.fn(async (request) => commit(request)),
+    previewHierarchy: vi.fn(async () => {
+      throw new Error('Hierarchy preview is not used by this controller fixture.');
+    }),
+    applyHierarchy: vi.fn(async (request) => commit(request)),
     storageConditions: vi.fn(async (request) => {
       const current = request.project === other.projectId ? createInventoryState() : state;
       return {
@@ -1351,6 +1372,102 @@ describe('source revision recovery', () => {
     });
     expect(f.client.acknowledgeSource).not.toHaveBeenCalled();
     expect(Object.values(f.state().tableBindings)[0].sourceRevisions).toEqual([]);
+    f.controller.dispose();
+  });
+});
+
+describe('hierarchy import recovery', () => {
+  function hierarchyPlan(f: ReturnType<typeof fixture>) {
+    const sourceText =
+      'source_id,name,layout_kind,positions,rows,columns,capacity,parent_kind,parent_key,slot\r\nplate,Imported plate,fixed-well,,2,3,,root,,\r\n';
+    const state = f.state();
+    const plan = inventoryHierarchyPreview(state, {
+      target: {
+        projectId: project.projectId,
+        inventoryId: project.defaultInventoryId,
+        present: true,
+        revision: state.revision,
+      },
+      sourceText,
+      options: { namespace: 'source-hierarchy', delimiter: ',', parents: [], skips: [] },
+      asOf: 1,
+      principal,
+      authority: principal,
+      maxBytes: 17 * 1024 * 1024,
+    });
+    if (plan.kind !== 'ready') throw new Error('Expected hierarchy plan.');
+    return { sourceText, plan };
+  }
+
+  it('recovers the original hierarchy receipt without recreating locations or wells', async () => {
+    const f = fixture();
+    const { sourceText, plan } = hierarchyPlan(f);
+    await f.controller.initialize();
+    vi.mocked(f.client.applyHierarchy).mockImplementationOnce(async (request) => {
+      f.commit(request);
+      throw new Error('Lost hierarchy response');
+    });
+    await f.controller.importHierarchy(sourceText, plan.options, plan.planDigest);
+    expect(f.controller.getSnapshot().status.kind).toBe('outcome-unknown');
+    const original = structuredClone(f.saved()[0].request);
+    expect(original).toMatchObject({
+      kind: 'import-hierarchy',
+      sourceText,
+      options: plan.options,
+      expectedPlanDigest: plan.planDigest,
+    });
+    f.controller.dispose();
+    const reopened = new InventoryController(
+      f.client,
+      f.storage,
+      () => 'must-not-replace-original'
+    );
+    await reopened.initialize();
+    await reopened.checkPending();
+    expect(reopened.getSnapshot().status.kind).toBe('ready');
+    expect(f.saved()).toEqual([]);
+    expect(f.client.applyHierarchy).toHaveBeenCalledOnce();
+    expect(f.client.applyHierarchy).toHaveBeenCalledWith(original);
+    expect(Object.values(f.state().hierarchyBindings)).toHaveLength(1);
+    expect(Object.values(f.state().vessels).filter((v) => v.kind === 'fixed-well')).toHaveLength(6);
+    expect(f.client.acknowledgeSource).not.toHaveBeenCalled();
+    reopened.dispose();
+  });
+
+  it('retries the same hierarchy bytes and parent decisions instead of edited intent', async () => {
+    const f = fixture();
+    const { sourceText, plan } = hierarchyPlan(f);
+    await f.controller.initialize();
+    const options = structuredClone(plan.options);
+    vi.mocked(f.client.applyHierarchy).mockRejectedValueOnce(new Error('Unknown outcome'));
+    await f.controller.importHierarchy(sourceText, options, plan.planDigest);
+    const original = structuredClone(f.saved()[0].request);
+    (options as { namespace: string }).namespace = 'edited-after-submit';
+    expect(await f.controller.importHierarchy('replacement', options, plan.planDigest)).toBeNull();
+    await f.controller.retryPending();
+    expect(f.client.applyHierarchy).toHaveBeenNthCalledWith(1, original);
+    expect(f.client.applyHierarchy).toHaveBeenNthCalledWith(2, original);
+    expect(f.saved()).toEqual([]);
+    expect(
+      f.entries.filter((e) => 'kind' in e.request && e.request.kind === 'import-hierarchy')
+    ).toHaveLength(1);
+    f.controller.dispose();
+  });
+
+  it('does not import a hierarchy when original retry intent cannot be stored', async () => {
+    const f = fixture();
+    const { sourceText, plan } = hierarchyPlan(f);
+    await f.controller.initialize();
+    vi.mocked(f.storage.write).mockImplementationOnce(() => {
+      throw new Error('Quota unavailable');
+    });
+    await f.controller.importHierarchy(sourceText, plan.options, plan.planDigest);
+    expect(f.controller.getSnapshot().status).toMatchObject({
+      kind: 'refused',
+      code: 'INVENTORY_RECOVERY_UNAVAILABLE',
+    });
+    expect(f.client.applyHierarchy).not.toHaveBeenCalled();
+    expect(Object.values(f.state().hierarchyBindings)).toEqual([]);
     f.controller.dispose();
   });
 });

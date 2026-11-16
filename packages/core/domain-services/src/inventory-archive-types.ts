@@ -135,7 +135,8 @@ export interface InventoryImportRecordGroup {
     | 'storageRequirements'
     | 'thermalContexts'
     | 'tableBindings'
-    | 'observations';
+    | 'observations'
+    | 'hierarchyBindings';
   readonly ids: readonly string[];
 }
 

@@ -88,6 +88,7 @@ def _required(name: str, args: dict[str, Any]) -> list[str]:
             "apply-import",
             "apply-table",
             "apply-stocktake",
+            "apply-hierarchy",
             "acknowledge-source",
         }:
             required.append("write-workspace")
@@ -194,9 +195,11 @@ async def execute_native_workflow(
             "preview-table",
             "apply-table",
             "preview-stocktake",
+            "preview-hierarchy",
             "preview-source-revision",
             "acknowledge-source",
             "apply-stocktake",
+            "apply-hierarchy",
             "materials",
             "inspect",
             "availability",
@@ -215,6 +218,8 @@ async def execute_native_workflow(
             request["kind"] = "adopt-archive"
         elif operation["kind"] == "apply-table":
             request["kind"] = "receive-table"
+        elif operation["kind"] == "apply-hierarchy":
+            request["kind"] = "import-hierarchy"
         elif operation["kind"] == "apply-stocktake":
             request["kind"] = "apply-stocktake"
         elif operation["kind"] == "acknowledge-source":

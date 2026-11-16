@@ -22,7 +22,7 @@ describe('frozen v10 explicit thermal-context migration', () => {
     const input = JSON.parse(V10_SNAPSHOT),
       original = JSON.stringify(input),
       state = parseInventoryState(input);
-    expect(state.schema).toBe('dnaforge.inventory.v15');
+    expect(state.schema).toBe('dnaforge.inventory.v16');
     expect(state.thermalContexts).toEqual({});
     expect(state.revision).toBe(2);
     expect(state.lastRecordedAt).toBe(11);

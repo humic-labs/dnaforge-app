@@ -7,6 +7,7 @@ import {
   type InventoryTableChoices,
   type InventoryResolvedTableOptions,
   type InventoryStocktakeChoices,
+  type InventoryHierarchyChoices,
   type InventoryImportOptions,
   type InventoryResolvedImportOptions,
   INVENTORY_RECEIVE_TABLE_COLUMNS,
@@ -182,6 +183,38 @@ export const inventoryApplyStocktakeRequestSchema = inventoryReadRequestSchema
   })
   .strict();
 
+export const inventoryHierarchyOptionsSchema = z
+  .object({
+    namespace: identity,
+    delimiter: z.enum([',', '\t']),
+    parents: z.array(z.object({ key: identity, storageId: identity }).strict()),
+    skips: z.array(z.object({ sourceId: identity, reason: z.string().max(4096) }).strict()),
+  })
+  .strict();
+export const inventoryPreviewHierarchyRequestSchema = inventoryReadRequestSchema
+  .extend({
+    format: z.literal('hierarchy-v1'),
+    sourceText: z.string().min(1),
+    options: inventoryHierarchyOptionsSchema,
+  })
+  .strict();
+export const inventoryApplyHierarchyRequestSchema = inventoryReadRequestSchema
+  .extend({
+    kind: z.literal('import-hierarchy'),
+    operationId: identity,
+    expectedRevision: revision,
+    sourceText: z.string().min(1),
+    options: inventoryHierarchyOptionsSchema
+      .extend({
+        skips: z.array(
+          z.object({ sourceId: identity, reason: z.string().min(1).max(4096) }).strict()
+        ),
+      })
+      .strict(),
+    expectedPlanDigest: digest,
+  })
+  .strict();
+
 const sourceRevisionAcknowledgement = z
   .object({
     sourceId: identity,
@@ -275,6 +308,7 @@ export const inventoryAcceptedRequestSchema = z.union([
   inventoryApplyTableRequestSchema,
   inventoryApplyStocktakeRequestSchema,
   inventoryAcknowledgeSourceRequestSchema,
+  inventoryApplyHierarchyRequestSchema,
 ]);
 
 export const inventoryOperationRequestSchema = inventoryReadRequestSchema
@@ -339,6 +373,19 @@ export type InventoryApplyTableRequest = InventoryReadRequest & {
   readonly options: InventoryResolvedTableOptions;
   readonly expectedPlanDigest: `sha256:${string}`;
 };
+export type InventoryPreviewHierarchyRequest = InventoryReadRequest & {
+  readonly format: 'hierarchy-v1';
+  readonly sourceText: string;
+  readonly options: InventoryHierarchyChoices;
+};
+export type InventoryApplyHierarchyRequest = InventoryReadRequest & {
+  readonly kind: 'import-hierarchy';
+  readonly operationId: string;
+  readonly expectedRevision: number;
+  readonly sourceText: string;
+  readonly options: InventoryHierarchyChoices;
+  readonly expectedPlanDigest: `sha256:${string}`;
+};
 export type InventoryPreviewStocktakeRequest = InventoryReadRequest & {
   readonly format: 'stocktake-v1';
   readonly sourceText: string;
@@ -370,7 +417,8 @@ export type InventoryAcceptedRequest =
   | InventoryApplyImportRequest
   | InventoryApplyTableRequest
   | InventoryApplyStocktakeRequest
-  | InventoryAcknowledgeSourceRequest;
+  | InventoryAcknowledgeSourceRequest
+  | InventoryApplyHierarchyRequest;
 export type InventoryStorageConditionsRequest = z.infer<
   typeof inventoryStorageConditionsRequestSchema
 >;

@@ -115,6 +115,8 @@ async function fixture(
     previewTable: vi.fn(),
     applyTable: vi.fn(),
     previewStocktake: vi.fn(),
+    previewHierarchy: vi.fn(),
+    applyHierarchy: vi.fn(),
     applyStocktake: vi.fn(),
     previewSourceRevision: vi.fn(),
     acknowledgeSource: vi.fn(),
@@ -299,6 +301,73 @@ it('uses current read authority for source revision preview and current write au
     result: { ok: false, code: 'INVENTORY_CAPABILITY_DENIED', stateChanged: false },
   });
   expect(f.inventory.acknowledgeSource).toHaveBeenCalledTimes(1);
+});
+
+it('uses current read authority for hierarchy preview and current write authority for atomic hierarchy acceptance', async () => {
+  const authorizeInventoryAgent = vi.fn(async () => {});
+  const f = await fixture({ authorizeInventoryAgent });
+  f.inventory.previewHierarchy.mockReturnValue({ kind: 'ready', target: { revision: 0 } });
+  f.inventory.applyHierarchy.mockReturnValue({ status: 'committed', revision: 1 });
+  const base = {
+    ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
+    agent: { ...inventoryAgent, capabilities: ['read-workspace'] },
+  };
+  const scope = { project: '/workspace', inventoryId: 'inventory-1' };
+  const options = {
+    namespace: 'source',
+    delimiter: ',',
+    parents: [],
+    skips: [],
+  };
+  const preview = { ...scope, format: 'hierarchy-v1', sourceText: 'exact source\r\n', options };
+  expect(
+    await (
+      await f.call({ ...base, command: 'inventory.preview-hierarchy', request: preview })
+    ).json()
+  ).toMatchObject({ result: { kind: 'hierarchy-preview', preview: { kind: 'ready' } } });
+  expect(f.inventory.previewHierarchy).toHaveBeenCalledWith(preview, {
+    principal: { kind: 'agent', identityId: 'agent-1' },
+  });
+  expect(authorizeInventoryAgent).toHaveBeenCalledWith(base.agent, ['read-workspace']);
+  const request = {
+    kind: 'import-hierarchy',
+    ...scope,
+    operationId: 'hierarchy-once',
+    expectedRevision: 0,
+    sourceText: preview.sourceText,
+    options,
+    expectedPlanDigest: `sha256:${'0'.repeat(64)}`,
+  };
+  expect(
+    await (await f.call({ ...base, command: 'inventory.apply-hierarchy', request })).json()
+  ).toMatchObject({ result: { ok: false, code: 'INSUFFICIENT_SCOPE', stateChanged: false } });
+  expect(f.inventory.applyHierarchy).not.toHaveBeenCalled();
+  const input = { ...base, agent: inventoryAgent, command: 'inventory.apply-hierarchy', request };
+  expect(await (await f.call(input)).json()).toMatchObject({
+    result: { kind: 'execution', execution: { status: 'committed' } },
+  });
+  expect(f.inventory.applyHierarchy).toHaveBeenCalledWith(request, expect.any(Function), {
+    actor: 'agent:agent-1',
+    principal: { kind: 'agent', identityId: 'agent-1' },
+  });
+  expect(authorizeInventoryAgent).toHaveBeenLastCalledWith(inventoryAgent, [
+    'read-workspace',
+    'write-workspace',
+  ]);
+  expect(
+    (
+      await f.call({
+        ...input,
+        request: { ...request, principal: { kind: 'agent', identityId: 'other' } },
+      })
+    ).status
+  ).toBe(400);
+  authorizeInventoryAgent.mockRejectedValueOnce(new Error('Grant revoked.'));
+  expect(await (await f.call(input)).json()).toMatchObject({
+    result: { ok: false, code: 'INVENTORY_CAPABILITY_DENIED', stateChanged: false },
+  });
+  expect(f.inventory.applyHierarchy).toHaveBeenCalledTimes(1);
 });
 
 it('uses current read authority for stocktake preview and current write authority for atomic stocktake acceptance', async () => {

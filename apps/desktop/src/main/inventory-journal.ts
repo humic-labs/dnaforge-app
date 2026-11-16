@@ -13,6 +13,7 @@ import {
   type InventoryApplyImportRequest,
   type InventoryApplyTableRequest,
   type InventoryApplyStocktakeRequest,
+  type InventoryApplyHierarchyRequest,
   type InventoryAcknowledgeSourceRequest,
   type NativeInventoryHistoryEntry,
 } from '../shared/inventory-command';
@@ -68,6 +69,11 @@ export function replayNativeInventoryEntries(
     request: InventoryApplyStocktakeRequest,
     context: InventoryExecutionContext
   ) => InventoryTransition,
+  hierarchy: (
+    target: InventoryState | null,
+    request: InventoryApplyHierarchyRequest,
+    context: InventoryExecutionContext
+  ) => InventoryTransition,
   sourceRevision: (
     target: InventoryState | null,
     request: InventoryAcknowledgeSourceRequest,
@@ -101,6 +107,12 @@ export function replayNativeInventoryEntries(
       if (!context)
         throw new Error('INVENTORY_DATA_INVALID: A stocktake requires its native receipt context.');
       result = stocktake(state.revision === 0 ? null : state, request, context);
+    } else if ('kind' in request && request.kind === 'import-hierarchy') {
+      if (!context)
+        throw new Error(
+          'INVENTORY_DATA_INVALID: A hierarchy import requires its native receipt context.'
+        );
+      result = hierarchy(state.revision === 0 ? null : state, request, context);
     } else if ('kind' in request && request.kind === 'acknowledge-table-source') {
       if (!context)
         throw new Error(

@@ -53,6 +53,7 @@ export type InventoryDialog =
   | { kind: 'receive-table' }
   | { kind: 'stocktake' }
   | { kind: 'source-revision' }
+  | { kind: 'import-hierarchy' }
   | InventoryMaterialDialog
   | InventoryCompositionDialog
   | InventoryReservationDialog
