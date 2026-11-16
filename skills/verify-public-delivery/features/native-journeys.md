@@ -71,6 +71,8 @@ missing original capture fails the command.
 - Every journey gets a fresh private automation profile. Only workspace
   restoration restarts that same profile within its journey. The existing
   launcher's ownership checks stop the app; no process-name kill is used.
+  A child that exits during ownership inspection is already stopped. Live
+  processes with unknown or foreign ownership remain untouched and fail cleanup.
 - An explicit scenario request goes through the existing disposable-profile
   owner using that validated automation path. Ordinary automation gains no
   scenario authority. Shared profiles and unmarked profiles containing user data

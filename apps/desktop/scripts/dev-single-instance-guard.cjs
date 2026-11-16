@@ -1332,6 +1332,7 @@ async function stopWorktreeStack(state) {
     for (const pid of pids.filter(pidIsAlive)) {
       const cwd = processCwd(pid);
       if (!cwd || !(cwd === REPO_ROOT || cwd.startsWith(REPO_ROOT + path.sep))) {
+        if (!pidIsAlive(pid)) continue;
         throw new Error(`Refusing to stop PID ${pid}: ownership of ${APP_DIR} is unverified`);
       }
     }
