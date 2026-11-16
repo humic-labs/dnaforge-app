@@ -2,7 +2,8 @@
 
 Run
 `node apps/desktop/scripts/check-table-files.mjs --out ABSOLUTE_EVIDENCE_DIRECTORY`
-against the isolated task-owned native desktop app after its doctor is healthy.
+against the isolated task-owned native desktop app after verifying its native
+startup acknowledgement and runtime identity.
 
 Use the visible Files folder context menu, New, Table, Create and naming row.
 Edit a cell in the new tab, use the system Save keyboard shortcut, close that

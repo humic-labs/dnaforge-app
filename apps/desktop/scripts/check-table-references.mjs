@@ -51,7 +51,7 @@ try {
       timeout: 15_000,
     }
   );
-  assert.match(status, /^ELECTRON_DEV_(?:HEALTHY|ATTACHED)$/mu);
+  assert.match(status, /^ELECTRON_DEV_(?:HEALTHY|ATTACHED|STARTING)$/mu);
   const renderer = status.match(/Desktop renderer:\s*(http:\/\/[^\s]+)/u)?.[1];
   const cdp = status.match(/DevTools\/CDP:\s*(http:\/\/127\.0\.0\.1:\d+)/u)?.[1];
   assert.ok(renderer && cdp, 'The guard must identify this checkout renderer');
@@ -64,6 +64,11 @@ try {
   page.setDefaultTimeout(15_000);
   receipt.runtime = await page.evaluate(() => window.electronAPI.runtime.getProvenance());
   assert.equal(receipt.runtime.projectRoot, root);
+  receipt.startup = await page.evaluate(() => window.electronAPI.startup.getState());
+  assert.equal(receipt.startup.pageLoaded, true);
+  assert.equal(receipt.startup.shellReady, true);
+  assert.ok(typeof receipt.startup.loadId === 'string' && receipt.startup.loadId.length);
+  receipt.launcherStatus = status.split('\n')[0];
   mkdirSync(join(out, 'frames'), { recursive: true });
   recording = await page.context().newCDPSession(page);
   recording.on('Page.screencastFrame', (event) => {
@@ -186,7 +191,17 @@ try {
   );
   receipt.targetId = targetId;
   await activate('page', pageId);
-  await notebook.hover();
+  const staleRecovery = page.locator('[data-toast-definition="unsaved-draft-recovery-available"]');
+  receipt.dismissedExistingRecoveryNotices = [];
+  const noticeCount = await staleRecovery.count();
+  assert.ok(noticeCount <= 20, 'Unexpected number of existing recovery notices');
+  for (let remaining = noticeCount; remaining > 0; remaining -= 1) {
+    const notice = staleRecovery.last();
+    receipt.dismissedExistingRecoveryNotices.push(await notice.innerText());
+    await notice.getByRole('button', { name: 'Dismiss notification', exact: true }).click();
+    await expect(staleRecovery).toHaveCount(remaining - 1);
+  }
+  await notebook.hover({ position: { x: 16, y: 16 } });
   await notebook.getByRole('button', { name: 'Save as table file…', exact: true }).click();
   const extractDialog = page.getByRole('dialog', { name: 'Save as table file', exact: true });
   await expect(extractDialog).toBeVisible();

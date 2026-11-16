@@ -23,6 +23,11 @@ do not start or stop another checkout's app or services.
 Run `pnpm --dir apps/desktop dev:status`. Require the renderer and CDP addresses
 to belong to this checkout. The journey independently checks runtime provenance
 before creating its own project under the requested evidence directory.
+Reference and recovery drivers additionally require the native startup
+acknowledgement `pageLoaded: true`, `shellReady: true` and a nonempty load ID. A
+launcher `STARTING` result alone neither qualifies readiness nor blocks a
+verified native acknowledgement; its short diagnostic probe can time out under
+load.
 
 ## Drive
 
