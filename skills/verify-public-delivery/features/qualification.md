@@ -8,6 +8,8 @@
   revision, workflow run and attempt.
 - Failed collection, missing reports, empty selections, missing shards and
   unexpected skips cannot produce a passing verdict.
+- Every unit shard receives the desktop output built from the same candidate
+  in the same workflow run. Bundle tests fail when that output is absent.
 - Existing unit-test skips have an explicit per-file allowance. They remain
   reported as skipped and do not count as native acceptance.
 - Native qualification requires the complete selected journey roster. Missing,

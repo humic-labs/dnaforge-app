@@ -291,7 +291,11 @@ async function main(args) {
           `--outputFile.json=${resultFile}`,
         ],
         path.join(root, 'apps/desktop'),
-        { DNAFORGE_FULL_ASSEMBLY_CATALOG_TESTS: '1', NODE_OPTIONS: '--max-old-space-size=4096' }
+        {
+          DNAFORGE_FULL_ASSEMBLY_CATALOG_TESTS: '1',
+          DNAFORGE_REQUIRE_MAIN_BUNDLE: '1',
+          NODE_OPTIONS: '--max-old-space-size=4096',
+        }
       );
     } catch (error) {
       failure = error;

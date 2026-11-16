@@ -85,6 +85,12 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build the desktop app
         run: pnpm --dir apps/desktop build
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: app-bundle
+          path: apps/desktop/out
+          if-no-files-found: error
+          retention-days: 1
       - name: Typecheck the desktop app
         env:
           NODE_OPTIONS: --max-old-space-size=4096
@@ -135,6 +141,7 @@ jobs:
     name: Desktop unit shard ${{ matrix.shard }}
     needs:
       - plan
+      - desktop-build
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -149,6 +156,10 @@ jobs:
       - *a5
       - *a6
       - *a7
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: app-bundle
+          path: apps/desktop/out
       - name: Run full-suite partition without retries
         run: node .ci-control/scripts/ci/qualification.mjs desktop --root "$GITHUB_WORKSPACE" --manifest "$RUNNER_TEMP/candidate/manifest.json" --shard "${{ matrix.shard }}" --out "$RUNNER_TEMP/shard/report.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

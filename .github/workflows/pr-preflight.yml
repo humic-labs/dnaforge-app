@@ -132,7 +132,7 @@ jobs:
       - plan
     if: needs.plan.outputs.draft == 'false' && needs.plan.outputs.desktop == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - *a1
       - *a3
@@ -141,6 +141,14 @@ jobs:
       - *a6
       - *a5
       - run: node .ci-control/scripts/ci/qualification.mjs inventory --root "$GITHUB_WORKSPACE" --manifest "$RUNNER_TEMP/candidate/manifest.json" --out "$RUNNER_TEMP/inventory/report.json"
+      - name: Build the app required by selected bundle tests
+        run: pnpm --dir apps/desktop build
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: preflight-app-bundle
+          path: apps/desktop/out
+          if-no-files-found: error
+          retention-days: 1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -152,6 +160,7 @@ jobs:
     name: Affected desktop shard ${{ matrix.shard }}
     needs:
       - plan
+      - desktop-discovery
     if: needs.plan.outputs.draft == 'false' && needs.plan.outputs.desktop == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -166,6 +175,10 @@ jobs:
       - *a2
       - *a6
       - *a5
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: preflight-app-bundle
+          path: apps/desktop/out
       - name: Build the native helpers used by desktop tests
         run: |-
           set -euo pipefail

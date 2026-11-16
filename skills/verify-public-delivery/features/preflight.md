@@ -9,6 +9,9 @@
 - Unknown inputs select every typecheck project and the desktop suite. The first
   implementation conservatively retains every desktop shard for affected desktop
   changes; actual CI timing is required before calling this fast.
+- Selected desktop jobs build the candidate once and share that run's output
+  with every shard. Bundle tests require it and cannot silently skip a missing
+  build. Documentation and sidecar-only selections do not build the desktop.
 - A documentation or sidecar-only change records its explicit desktop exclusion.
   An empty inventory, absent selected report or stale source cannot pass.
 - Selection and the verdict run from the exact protected development base.
