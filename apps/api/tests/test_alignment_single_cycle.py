@@ -11,7 +11,9 @@ from src.tools import alignment
 
 REFERENCE = "AACCGGTTAACG"
 QUERY = "AACCGGATAACG"
-REPEATED_OUTPUT = f">reference\n{REFERENCE * 2}\n>query\n{QUERY[:3]}{'-' * 6}{QUERY[3:6]}{'-' * 6}{QUERY[6:]}\n"
+REPEATED_OUTPUT = (
+    f">reference\n{REFERENCE * 2}\n>query\n{QUERY[:3]}{'-' * 6}{QUERY[3:6]}{'-' * 6}{QUERY[6:]}\n"
+)
 SINGLE_OUTPUT = f">reference\n{REFERENCE}\n>query\n{QUERY}\n"
 
 
@@ -47,10 +49,62 @@ async def test_circular_alignment_preserves_one_reference_and_all_query_bases(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("failure", ["canceled", "timeout"])
-async def test_single_cycle_recomputation_keeps_cancellation_and_deadline(
-    monkeypatch, failure
+async def test_partial_circular_alignment_keeps_structural_mutations_in_local_coordinates(
+    monkeypatch,
 ):
+    reference = "ATGAAACCCGGGTAA"
+    query = "GGCTAAATGA"
+    mafft_output = f">reference\n{reference * 2}\n>query\n{'-' * 9}{query}{'-' * 11}\n"
+    inputs = []
+    structural_inputs = []
+    analyze_structure = alignment.analyze_alignment_structure
+
+    async def run(args, **_kwargs):
+        inputs.append(Path(args[-1]).read_text())
+        return mafft_output, ""
+
+    def record_structural_input(aligned_reference, aligned_query, mutations, **kwargs):
+        structural_inputs.append(
+            (aligned_reference, aligned_query, [dict(mutation) for mutation in mutations])
+        )
+        return analyze_structure(aligned_reference, aligned_query, mutations, **kwargs)
+
+    monkeypatch.setattr(alignment, "run_mafft", run)
+    monkeypatch.setattr(alignment, "analyze_alignment_structure", record_structural_input)
+    result = await alignment._execute_pairwise_alignment(
+        alignment.PairwiseAlignmentRequest(
+            query=query, reference=reference, is_circular=True, use_cache=False
+        )
+    )
+
+    assert inputs == [f">reference\n{reference * 2}\n>query\n{query}\n"]
+    assert result.aligned_reference == "GGGTAAATGA"
+    assert result.aligned_query == query
+    assert result.circular_offset == 9
+    assert [(mutation.type, mutation.position) for mutation in result.mutations] == [
+        ("substitution", 12)
+    ]
+    assert structural_inputs == [
+        (
+            "GGGTAAATGA",
+            query,
+            [
+                {
+                    "type": "substitution",
+                    "position": 3,
+                    "column": 2,
+                    "length": 1,
+                    "ref_base": "G",
+                    "query_base": "C",
+                }
+            ],
+        )
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["canceled", "timeout"])
+async def test_single_cycle_recomputation_keeps_cancellation_and_deadline(monkeypatch, failure):
     calls = []
     cancel = threading.Event()
     deadline = time.monotonic() + 10
