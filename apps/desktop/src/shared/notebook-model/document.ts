@@ -42,6 +42,22 @@ export class NotebookDocumentModel {
       plugins: [history()],
     });
   }
+  fork(): NotebookDocumentModel {
+    const candidate = new NotebookDocumentModel(this.content, this.title);
+    candidate.state = this.state;
+    candidate.cachedContent = this.cachedContent;
+    candidate.titleUndo = structuredClone(this.titleUndo);
+    candidate.titleRedo = structuredClone(this.titleRedo);
+    for (const [id, memory] of this.tables) candidate.tables.set(id, structuredClone(memory));
+    return candidate;
+  }
+  canonicalize(content: JSONContent): void {
+    if (canonicalNotebookJson(content) === canonicalNotebookJson(this.content)) return;
+    const transaction = this.state.tr.setMeta('addToHistory', false);
+    this.canonicalizeTransaction(transaction, content);
+    transaction.doc.check();
+    this.apply(transaction, true);
+  }
   get content(): JSONContent {
     return (this.cachedContent ??= this.state.doc.toJSON());
   }

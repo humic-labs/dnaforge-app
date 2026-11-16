@@ -1,3 +1,5 @@
+import { createNotebookTableAliases } from './notebook-table-aliases';
+import type { NativeTableDocumentCommands } from './table-document-commands';
 import { createNotebookConflictRecovery } from './notebook-conflict-recovery';
 import { createNotebookResourceReferences } from './notebook-resource-references';
 import type { RegisteredProjectAuthority } from './registered-project-authority';
@@ -76,8 +78,10 @@ export function createNativeNotebookWorkingCopies(options: {
   captureWorkspace(root: string, mutating: boolean): () => void;
   relocateEntityFile(input: RelocateEntityFileInput): Promise<RelocateEntityFileResult>;
   registeredProjects?: RegisteredProjectAuthority;
+  tableDocuments?: () => Pick<NativeTableDocumentCommands, 'execute'>;
 }): NativeNotebookWorkingCopyOwner {
   const resourceReferences = createNotebookResourceReferences(options);
+  const tableAliases = createNotebookTableAliases(options);
   const legacyFingerprint = (content: unknown) => {
     const text = JSON.stringify(content);
     let hash = 0x811c9dc5;
@@ -478,6 +482,7 @@ export function createNativeNotebookWorkingCopies(options: {
   const owner: NativeNotebookWorkingCopyOwner = new NativeNotebookWorkingCopyOwner({
     resolveResourceReference: resourceReferences.resolve,
     prepareResourceReferences: resourceReferences.prepare,
+    prepareTableAliases: tableAliases.prepare,
     inspectConflict: (scope) => conflictRecovery.inspect(scope),
     resolveConflict: (scope, request) => conflictRecovery.resolve(scope, request),
     beginLegacyMigration() {

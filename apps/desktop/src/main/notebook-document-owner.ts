@@ -86,6 +86,10 @@ export interface NativeNotebookOptions {
     content: JSONContent,
     previousContent: JSONContent
   ): Promise<{ content: JSONContent; verify(): Promise<void> }>;
+  prepareTableAliases?(
+    scope: NativeNotebookScope,
+    content: JSONContent
+  ): Promise<{ content: JSONContent; conflict?: string; verify(): Promise<void> }>;
   inspectConflict?(scope: NativeNotebookScope): Promise<NotebookConflictComparison>;
   resolveConflict?(
     scope: NativeNotebookScope,
@@ -142,6 +146,8 @@ interface NotebookCopy {
   recordTail: Promise<unknown>;
   recovery?: NativeNotebookRecord;
   tableTransitionUnavailable?: boolean;
+  tableAliasConflict?: string;
+  tableAliasBaseline?: JSONContent;
   saves: Map<number, Promise<NotebookDocumentSnapshot>>;
   saveReceipts: Map<
     string,
@@ -307,6 +313,8 @@ export class NativeNotebookWorkingCopyOwner {
         let scope = await this.resolveCurrentScope(copy, true);
         this.assertTableContext(scope, input.context);
         copy.scope = scope;
+        await this.refreshTableAliases(copy);
+        if (copy.tableAliasConflict) throw refused('TABLE_ALIAS_CONFLICT', copy.tableAliasConflict);
         this.assertUnprotected(scope.path);
         if (scope.readOnly)
           throw refused('NOTEBOOK_READ_ONLY', 'The notebook project is read-only.');
@@ -509,6 +517,46 @@ export class NativeNotebookWorkingCopyOwner {
       return this.options.prepareResourceReferences(scope, content, previousContent);
     return { content, verify: async () => scope.assertCurrent() };
   }
+  private async refreshTableAliases(copy: NotebookCopy): Promise<void> {
+    const prepare = this.options.prepareTableAliases;
+    if (!prepare) return;
+    const baseline = await prepare(copy.scope, copy.source.content);
+    const current =
+      canonicalNotebookJson(copy.model.content) === canonicalNotebookJson(copy.source.content)
+        ? baseline
+        : await prepare(copy.scope, copy.model.content);
+    const recovery = copy.recovery ? await prepare(copy.scope, copy.recovery.content) : undefined;
+    await baseline.verify();
+    if (current !== baseline) await current.verify();
+    await recovery?.verify();
+    copy.scope.assertCurrent();
+    copy.tableAliasBaseline = baseline.content;
+    copy.tableAliasConflict = baseline.conflict ?? current.conflict ?? recovery?.conflict;
+    if (
+      !current.conflict &&
+      canonicalNotebookJson(current.content) !== canonicalNotebookJson(copy.model.content)
+    ) {
+      copy.model.canonicalize(current.content);
+      copy.version++;
+      if (!this.dirty(copy)) copy.persistedRevision = this.revision(copy);
+    }
+  }
+  private async prepareTableModel(
+    copy: NotebookCopy,
+    candidate: NotebookDocumentModel
+  ): Promise<void> {
+    const references = await this.prepareResourceReferences(
+      copy.scope,
+      candidate.content,
+      copy.model.content
+    );
+    await references.verify();
+    const aliases = await this.options.prepareTableAliases?.(copy.scope, references.content);
+    await aliases?.verify();
+    if (aliases?.conflict) throw refused('TABLE_ALIAS_CONFLICT', aliases.conflict);
+    copy.scope.assertCurrent();
+    candidate.canonicalize(aliases?.content ?? references.content);
+  }
   async locate(id: string): Promise<{ path: string; workspaceRoot: string }> {
     const scope = await this.options.resolve(id, false);
     scope.assertCurrent();
@@ -607,6 +655,7 @@ export class NativeNotebookWorkingCopyOwner {
                 copy.tableTransitionUnavailable = false;
               }
             }
+            await this.refreshTableAliases(copy);
             const result =
               operation.kind === 'schema'
                 ? {
@@ -625,6 +674,9 @@ export class NativeNotebookWorkingCopyOwner {
               ...(result !== undefined ? { result } : {}),
             };
           }
+          await this.refreshTableAliases(copy);
+          if (copy.tableAliasConflict && !retaining)
+            throw refused('TABLE_ALIAS_CONFLICT', copy.tableAliasConflict);
           if (copy.tableTransitionUnavailable && !['reload', 'discard'].includes(operation.kind))
             throw refused(
               'TABLE_SOURCE_PUBLICATION_UNCERTAIN',
@@ -797,7 +849,7 @@ export class NativeNotebookWorkingCopyOwner {
                 'STALE_NOTEBOOK_TRANSACTION',
                 'This view edited another notebook revision. Its unsent content remains preserved.'
               );
-            const candidate = new NotebookDocumentModel(copy.model.content, copy.model.title);
+            const candidate = copy.model.fork();
             candidate.applySteps(
               operation.steps,
               operation.selection,
@@ -805,41 +857,14 @@ export class NativeNotebookWorkingCopyOwner {
               operation.time,
               operation.addToHistory
             );
-            const prepared = await this.prepareResourceReferences(
-              scope,
-              candidate.content,
-              copy.model.content
-            );
-            await prepared.verify();
-            scope.assertCurrent();
-            copy.model.applySteps(
-              operation.steps,
-              operation.selection,
-              operation.separateHistory,
-              operation.time,
-              operation.addToHistory,
-              prepared.content
-            );
+            await this.prepareTableModel(copy, candidate);
+            copy.model = candidate;
             copy.version++;
           } else if (operation.kind === 'splice-blocks') {
-            const candidate = new NotebookDocumentModel(copy.model.content, copy.model.title);
+            const candidate = copy.model.fork();
             candidate.execute(operation);
-            const prepared = await this.prepareResourceReferences(
-              scope,
-              candidate.content,
-              copy.model.content
-            );
-            await prepared.verify();
-            scope.assertCurrent();
-            copy.model.splice(
-              operation.index,
-              operation.deleteCount,
-              prepared.content.content!.slice(
-                operation.index,
-                operation.index + operation.blocks.length
-              ),
-              prepared.content
-            );
+            await this.prepareTableModel(copy, candidate);
+            copy.model = candidate;
             copy.version++;
             result = { changed: true };
           } else if (operation.kind === 'insert' || operation.kind === 'insert-reference') {
@@ -853,22 +878,12 @@ export class NativeNotebookWorkingCopyOwner {
             await prepared.verify();
             scope.assertCurrent();
             this.assertUnprotected(scope.path);
-            const candidate = new NotebookDocumentModel(copy.model.content, copy.model.title);
+            const candidate = copy.model.fork();
             candidate.splice(operation.index, 0, [prepared.block]);
-            const references = await this.prepareResourceReferences(
-              scope,
-              candidate.content,
-              copy.model.content
-            );
-            await references.verify();
+            await this.prepareTableModel(copy, candidate);
             await prepared.verify();
             scope.assertCurrent();
-            copy.model.splice(
-              operation.index,
-              0,
-              [references.content.content![operation.index]],
-              references.content
-            );
+            copy.model = candidate;
             copy.version++;
             result = { changed: true };
           } else if (['create', 'list', 'search'].includes(operation.kind))
@@ -877,7 +892,8 @@ export class NativeNotebookWorkingCopyOwner {
               'Use the notebook catalog command for this operation.'
             );
           else {
-            result = copy.model.execute(
+            const candidate = copy.model.fork();
+            result = candidate.execute(
               operation as Exclude<
                 NotebookDocumentOperation,
                 {
@@ -894,8 +910,11 @@ export class NativeNotebookWorkingCopyOwner {
                 }
               >
             );
+            await this.prepareTableModel(copy, candidate);
+            copy.model = candidate;
             copy.version++;
           }
+          await this.refreshTableAliases(copy);
           await this.persist(copy);
           scope.assertCurrent();
           const snapshot = { ...this.snapshot(copy), ...(result !== undefined ? { result } : {}) };
@@ -1142,6 +1161,7 @@ export class NativeNotebookWorkingCopyOwner {
       };
       copy.persistedRevision = this.revision(copy);
       if (record?.dirty) copy.recovery = record;
+      await this.refreshTableAliases(copy);
       return copy;
     })();
     this.copies.set(id, pending);
@@ -1165,7 +1185,8 @@ export class NativeNotebookWorkingCopyOwner {
   }
   private dirty(copy: NotebookCopy): boolean {
     return (
-      canonicalNotebookJson(copy.model.content) !== canonicalNotebookJson(copy.source.content) ||
+      canonicalNotebookJson(copy.model.content) !==
+        canonicalNotebookJson(copy.tableAliasBaseline ?? copy.source.content) ||
       copy.model.title !== copy.source.title
     );
   }
@@ -1234,10 +1255,15 @@ export class NativeNotebookWorkingCopyOwner {
       version: copy.version,
       ready: true,
       ...(copy.source.publication ? { publication: copy.source.publication } : {}),
-      readOnly: copy.scope.readOnly || Boolean(copy.tableTransitionUnavailable),
-      ...(copy.tableTransitionUnavailable
-        ? { reason: 'The table cutover is awaiting a verified source reload.' }
-        : {}),
+      readOnly:
+        copy.scope.readOnly ||
+        Boolean(copy.tableTransitionUnavailable) ||
+        Boolean(copy.tableAliasConflict),
+      ...(copy.tableAliasConflict
+        ? { reason: copy.tableAliasConflict }
+        : copy.tableTransitionUnavailable
+          ? { reason: 'The table cutover is awaiting a verified source reload.' }
+          : {}),
       dirty: this.dirty(copy),
       saving: copy.saves.size > 0,
       canUndo: copy.model.canUndo,
@@ -1307,6 +1333,14 @@ export class NativeNotebookWorkingCopyOwner {
         throw refused('NOTEBOOK_BINDING_CHANGED', 'The notebook moved before this save began.');
       const references = await this.prepareResourceReferences(scope, content, copy.source.content);
       await references.verify();
+      const aliases = await this.options.prepareTableAliases?.(scope, references.content);
+      await aliases?.verify();
+      if (aliases?.conflict) throw refused('TABLE_ALIAS_CONFLICT', aliases.conflict);
+      if (aliases && canonicalNotebookJson(aliases.content) !== canonicalNotebookJson(content))
+        throw refused(
+          'TABLE_ALIAS_CHANGED',
+          'Inspect the canonical table placement before saving.'
+        );
       scope.assertCurrent();
       const result = await this.options.publish(scope, copy.source, content, title);
       published = true;

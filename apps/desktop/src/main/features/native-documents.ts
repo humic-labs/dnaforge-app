@@ -100,6 +100,7 @@ export function createNativeDocuments(
   });
   const notebookDocuments = createNativeNotebookWorkingCopies({
     db: getDb,
+    tableDocuments: () => tableDocuments,
     relocateEntityFile: (input) => fileRelocations.relocateEntityFile(input),
     workspaceRoots: () => workspaces.readableRoots(),
     writableWorkspaceRoots: () => workspaces.roots(),
@@ -146,7 +147,15 @@ export function createNativeDocuments(
       });
       const copy = await ordinaryFiles.execute({
         target: { path: actual.headPath, workspaceRoot: location.workspaceRoot },
-        operation: { kind: 'inspect' },
+        operation: {
+          kind: 'inspect',
+          offset: 0,
+          limit: 2000,
+          rowOffset: 0,
+          rowLimit: 20,
+          columnOffset: 0,
+          columnLimit: 20,
+        },
       });
       assertCurrent();
       if (!copy.ready || copy.tableDocument?.id !== actual.head.id)
