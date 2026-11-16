@@ -14,6 +14,7 @@ function withCoordinatorHeap(nodeOptions = '') {
 }
 
 export async function runDesktopTests(args, { spawnImpl = spawnSync } = {}) {
+  const vitest = fileURLToPath(new URL('./vitest.mjs', import.meta.resolve('vitest/package.json')));
   let fullCatalog = false;
   const focused = args.some((arg) => !arg.startsWith('-') && /(?:\.test\.|src\/)/u.test(arg));
   if (!focused) {
@@ -36,10 +37,9 @@ export async function runDesktopTests(args, { spawnImpl = spawnSync } = {}) {
       throw new Error('Assembly test base must be an exact 40-character SHA');
     }
     const listed = spawnImpl(
-      'pnpm',
+      process.execPath,
       [
-        'exec',
-        'vitest',
+        vitest,
         'list',
         '--filesOnly',
         ...(catalogBase === undefined ? [] : [`--changed=${catalogBase}`]),
@@ -65,7 +65,7 @@ export async function runDesktopTests(args, { spawnImpl = spawnSync } = {}) {
     }
     fullCatalog = selected.length > 0;
   }
-  const result = spawnImpl('pnpm', ['exec', 'vitest', 'run', ...args], {
+  const result = spawnImpl(process.execPath, [vitest, 'run', ...args], {
     cwd: desktopRoot,
     env: {
       ...process.env,
@@ -74,6 +74,7 @@ export async function runDesktopTests(args, { spawnImpl = spawnSync } = {}) {
     },
     stdio: 'inherit',
   });
+  if (result.error) throw result.error;
   return result.status ?? 1;
 }
 

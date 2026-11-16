@@ -17,6 +17,7 @@ const {
 const { configureBackgroundElectronLaunch } = require('./background-electron-launch.cjs');
 const { prepareDevelopmentApplication } = require('./dev-app-runtime.cjs');
 const { inspectNativeBuild } = require('./dev-native-build-cache.cjs');
+const { recordWindowsStack, stopWindowsStack } = require('./dev-windows-stack.cjs');
 
 const APP_DIR = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(APP_DIR, '../..');
@@ -1011,15 +1012,16 @@ async function recoverOwnedRenderer(state, launchTarget) {
           lastRendererError = { reason: error.message, elapsedMs: Date.now() - startedAt };
           return null;
         });
-        if (observed) lastRenderer = {
-          loadId: observed.startup?.loadId,
-          pageLoaded: observed.startup?.pageLoaded,
-          shellReady: observed.startup?.shellReady,
-          nativePid: observed.runtime?.pid,
-          sidecarPid: observed.runtime?.sidecarPid,
-          sourceCommit: observed.build?.sourceCommit,
-          sourceFingerprint: observed.build?.sourceFingerprint,
-        };
+        if (observed)
+          lastRenderer = {
+            loadId: observed.startup?.loadId,
+            pageLoaded: observed.startup?.pageLoaded,
+            shellReady: observed.startup?.shellReady,
+            nativePid: observed.runtime?.pid,
+            sidecarPid: observed.runtime?.sidecarPid,
+            sourceCommit: observed.build?.sourceCommit,
+            sourceFingerprint: observed.build?.sourceFingerprint,
+          };
         if (
           observed?.startup?.pageLoaded === true &&
           observed.startup.shellReady === true &&
@@ -1232,7 +1234,7 @@ async function startRawDev(launchTarget) {
   }
 
   ensureBundledGitRuntime({ timeoutMs: remaining() });
-  ensureWindowsGitReadGuardian();
+  const windowsGuardian = ensureWindowsGitReadGuardian();
   remaining();
   runStartPreflight(launchTarget);
   await runHostedStagingReadinessPreflight(launchTarget);
@@ -1264,21 +1266,37 @@ async function startRawDev(launchTarget) {
     console.log(`Gateway authority: ${launchTarget.gatewayOrigin}`);
   }
   remaining();
+  const devArguments = electronViteDevArguments(childEnv, {
+    reuseNativeBuild: nativeBuild.reusable,
+  });
   const child = spawn(
-    'pnpm',
-    electronViteDevArguments(childEnv, { reuseNativeBuild: nativeBuild.reusable }),
+    windowsGuardian ?? 'pnpm',
+    windowsGuardian
+      ? [
+          '--owner-pid',
+          String(process.pid),
+          '--',
+          process.execPath,
+          path.join(
+            path.dirname(require.resolve('electron-vite/package.json')),
+            'bin/electron-vite.js'
+          ),
+          ...devArguments.slice(2),
+        ]
+      : devArguments,
     {
       cwd: APP_DIR,
       env: childEnv,
       stdio: 'inherit',
 
-      shell: process.platform === 'win32',
+      shell: false,
     }
   );
   activeLaunch.childPid = child.pid;
   child.on('error', (error) => {
     child.startError = error.message;
   });
+  if (windowsGuardian) recordWindowsStack(APP_DIR, windowsGuardian, child.pid);
   const outcome = await waitForDevReady({
     child,
     startedAt,
@@ -1319,6 +1337,21 @@ async function terminatePids(pids, force, graceMs = 5000) {
   return waitForPidsToExit(live, 2000);
 }
 
+async function waitForStoppedPorts(sweep, pidsAt = () => [], timeoutMs = 10000) {
+  const deadline = Date.now() + timeoutMs;
+  let bound;
+  do {
+    bound = [];
+    for (const entry of sweep) {
+      if (pidsAt(entry[1]).length > 0 || (await tcpPortAcceptsConnections(entry[1])))
+        bound.push(entry);
+    }
+    if (bound.length === 0) return bound;
+    await sleep(100);
+  } while (Date.now() < deadline);
+  return bound;
+}
+
 async function stopWorktreeStack(state) {
   const apiPort = portFromEnv('API_PORT');
   const sweep = [
@@ -1327,6 +1360,19 @@ async function stopWorktreeStack(state) {
     ['debug/CDP', state.debugPort],
     ['sidecar/API', apiPort],
   ].filter(([, port]) => Number.isInteger(port));
+  if (process.platform === 'win32') {
+    console.log('ELECTRON_DEV_STOPPING');
+    stopWindowsStack(APP_DIR, path.join(APP_DIR, 'resources/helpers', WINDOWS_GIT_READ_GUARDIAN));
+    const bound = await waitForStoppedPorts(sweep);
+    if (bound.length === 0) {
+      fs.rmSync(path.join(APP_DIR, '.cache/windows-dev-stack.json'), { force: true });
+      console.log('ELECTRON_DEV_STOPPED');
+      return true;
+    }
+    throw new Error(
+      `Worktree teardown incomplete: ${bound.map(([name, port]) => `${name}:${port}`).join(', ')}`
+    );
+  }
   const pidsAt = (port) => (port === apiPort ? sidecarAllPids(port) : listenerPids(port));
   const assertOwned = (pids) => {
     for (const pid of pids.filter(pidIsAlive)) {
@@ -1346,11 +1392,7 @@ async function stopWorktreeStack(state) {
     assertOwned(pids);
     if (!(await terminatePids(pids, true))) throw new Error(`Owned port ${port} did not stop`);
   }
-  const bound = [];
-  for (const entry of sweep) {
-    if (pidsAt(entry[1]).length > 0 || (await tcpPortAcceptsConnections(entry[1])))
-      bound.push(entry);
-  }
+  const bound = await waitForStoppedPorts(sweep, pidsAt);
   if (bound.length)
     throw new Error(
       `Worktree teardown incomplete: ${bound.map(([name, port]) => `${name}:${port}`).join(', ')}`
@@ -1617,5 +1659,6 @@ module.exports = {
   runStartPreflight,
   readStartupAcknowledgement,
   waitForDevReady,
+  waitForStoppedPorts,
   stopWorktreeStack,
 };

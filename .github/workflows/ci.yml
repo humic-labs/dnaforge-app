@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches: [main]
@@ -146,3 +147,97 @@ jobs:
           set -euo pipefail
           rm apps/desktop/.env.local
           node start.mjs --yes --check
+
+      - name: Edit, save, reload source and run a focused test
+        run: node apps/desktop/scripts/check-contributor-journey.mjs .evidence/contributor-macOS
+
+      - name: Preserve contributor journey evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: contributor-macOS
+          path: |
+            .evidence/contributor-macOS
+            !.evidence/contributor-macOS/profile/**
+          include-hidden-files: true
+          if-no-files-found: warn
+
+  source-development:
+    name: Source development on ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Linux
+            os: ubuntu-latest
+          - platform: Windows
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+
+      - uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39
+        with:
+          version: '0.13.5'
+          enable-cache: false
+
+      - name: Install the security-patched Python the sidecar pins
+        run: node scripts/ci-setup-secure-python.mjs --version "$(cat apps/api/.python-version)" --arch "$RUNNER_ARCH"
+
+      - name: Install Linux build and desktop prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo -n apt-get update
+          sudo -n apt-get install -y musl-tools xvfb libgtk-3-0 libnss3 libasound2t64
+
+      - name: Set up and start the app from a fresh clone on Linux
+        if: runner.os == 'Linux'
+        run: |
+          node start.mjs --yes --setup-only
+          node node_modules/electron/install.js
+          sudo -n chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo -n chmod 4755 node_modules/electron/dist/chrome-sandbox
+          xvfb-run -a node start.mjs --yes --check
+
+      - name: Set up and start the app from a fresh clone on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: node start.mjs --yes --check
+
+      - name: Run the documented focused desktop test
+        run: |
+          node --test apps/desktop/scripts/dev-windows-stack.test.cjs apps/desktop/scripts/dev-stack-stop.test.cjs
+          pnpm --dir apps/desktop test -- src/shared/native-entity-reference.test.ts
+
+      - name: Edit, save, reload source and run a focused test on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node apps/desktop/scripts/check-contributor-journey.mjs .evidence/contributor-Linux
+
+      - name: Edit, save, reload source and run a focused test on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: node apps/desktop/scripts/check-contributor-journey.mjs .evidence/contributor-Windows
+
+      - name: Preserve contributor journey evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: contributor-${{ matrix.platform }}
+          path: |
+            .evidence/contributor-${{ matrix.platform }}
+            !.evidence/contributor-${{ matrix.platform }}/profile/**
+          include-hidden-files: true
+          if-no-files-found: warn

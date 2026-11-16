@@ -6,15 +6,18 @@ structure viewer and a lab notebook. Projects are folders on your own disk. It
 is an Electron app (`apps/desktop`) with a Python sidecar (`apps/api`) and Rust
 helper programs (`tools/`).
 
-This repository is the source of truth for product development. Contributions
-target `main`; see [CONTRIBUTING.md](CONTRIBUTING.md) for local checks and pull
-requests, and [MAINTAINING.md](MAINTAINING.md) for the maintainer landing and
-release process.
+This repository is the source of truth for the desktop app, local compute and
+portable shared libraries. Contributions target `main`; see
+[CONTRIBUTING.md](CONTRIBUTING.md) for local checks and pull requests, and
+[MAINTAINING.md](MAINTAINING.md) for the maintainer landing and release process.
+
+For a guided first contribution, follow the [local development exercise](HACKATHON.md).
 
 ## Requirements
 
-`node start.mjs` (see "Run from source" below) needs only the first two of these
-and helps you install the rest.
+Install Git, Node.js and the native build tools for your operating system before
+running `node start.mjs`. The script helps install uv and Rust where supported,
+then installs the project dependencies.
 
 - A Git clone of this repository. The build reads the commit it is built from
   with `git rev-parse HEAD`, so a ZIP download of the source does not build. On
@@ -27,10 +30,28 @@ and helps you install the rest.
   `rustup target add x86_64-unknown-linux-musl` and your distribution's
   `musl-tools` package.
 
+Native build tools are also needed for the Rust helpers and Node native modules:
+
+- macOS: Xcode Command Line Tools, including the C/C++ compiler and linker.
+- Windows: [Rust's MSVC prerequisites](https://rust-lang.github.io/rustup/installation/windows-msvc.html),
+  including Visual Studio's **Desktop development with C++** workload and a
+  Windows SDK, plus Rust from [rustup.rs](https://rustup.rs). Use PowerShell for
+  the commands below. The startup script does not install this toolchain.
+- Linux: a C/C++ compiler, `make`, and the musl tools. Debian/Ubuntu call these
+  packages `build-essential` and `musl-tools`. A graphical desktop and Electron's
+  GTK, NSS and audio libraries are needed to open the application.
+
+The first setup downloads dependencies and compiles native helpers. Install the
+platform toolchain before starting the development server.
+
 ## Build and test from source
 
-These commands are checked on Linux in a fresh clone of this repository. macOS
-and Windows use the same commands; packaging an installer is not documented yet.
+The following block uses a macOS or Linux shell. On Windows, use PowerShell
+and set the typecheck memory limit with `$env:NODE_OPTIONS="--max-old-space-size=4096"`
+before running `pnpm --dir apps/desktop typecheck`. For the Cargo command, use
+`cargo build --release --bin dna-indexer --bin dna-process-guardian` on Windows;
+the coverage helper is unsupported there. The other commands in this block
+also work in PowerShell. Packaging an installer is not documented yet.
 
 ```bash
 corepack enable
@@ -70,7 +91,23 @@ On Windows the command does not install Rust: install it from
 [rustup.rs](https://rustup.rs) first. On Linux it asks you to install your
 distribution's `musl-tools` package if that is missing.
 
-These are the steps it runs, if you prefer to run them yourself:
+On Linux distributions that restrict unprivileged user namespaces, including
+Ubuntu 24.04, Electron also needs its sandbox helper configured. After setup,
+run this once from the repository root, then start the app normally:
+
+```bash
+node start.mjs --setup-only
+node node_modules/electron/install.js
+sudo chown root:root node_modules/electron/dist/chrome-sandbox
+sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+node start.mjs
+```
+
+Repeat the sandbox setup after reinstalling Electron. Keep sandboxing enabled;
+these commands configure Electron's sandbox rather than disabling it.
+
+These are the manual steps for macOS and Linux, if you prefer to run them
+yourself:
 
 ```bash
 corepack enable
@@ -80,6 +117,11 @@ pnpm --dir apps/desktop helpers:build
 cp apps/desktop/.env.local.example apps/desktop/.env.local
 pnpm --dir apps/desktop dev
 ```
+
+In PowerShell, replace `(cd apps/api && uv sync --frozen --extra dev)` with
+`Push-Location apps/api; uv sync --frozen --extra dev; Pop-Location`, and use
+`Copy-Item apps/desktop/.env.local.example apps/desktop/.env.local` to copy the
+settings file. `node start.mjs` handles these steps for every platform.
 
 The app starts its Python sidecar from `apps/api/.venv`, and it refuses to start
 without the Rust helpers that `helpers:build` produces. The first start compiles
@@ -121,6 +163,13 @@ This repository builds the community distribution
   Linux. `apps/api/src/annotation/setup.py` and
   `apps/api/src/annotation/tools.py` list the files it expects. This repository
   has no command that installs them.
+
+On Windows, the source environment omits `pysam`, which does not support native
+Windows. Python genomics operations that require pysam/htslib are unavailable
+there; use macOS or Linux for Python genomics development that requires it.
+Windows builds the Rust indexer and process guardian. The HTSlib-based Rust
+coverage helper is also unsupported on native Windows, so BAM/CRAM coverage
+development requires macOS or Linux.
 
 ## What the app sends
 

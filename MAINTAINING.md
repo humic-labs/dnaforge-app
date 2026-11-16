@@ -2,9 +2,10 @@
 
 ## Source ownership
 
-Product changes belong in this repository and land on `main` through pull
-requests. Use short-lived branches. Maintainer branches and community forks
-follow the same required checks.
+Changes to the desktop app, local compute and portable shared libraries belong
+in this repository and land on `main` through pull requests. The hosted website
+and hosted services remain in private repositories. Use short-lived branches.
+Maintainer branches and community forks follow the same required checks.
 
 When bringing over work started elsewhere, apply the product patch to a branch
 based on current `main`. Preserve contributor attribution and sign-offs. Keep

@@ -47,6 +47,7 @@ async function failureFixture(t, mode) {
   const appDir = join(root, 'apps/desktop');
   for (const file of [
     'dev-single-instance-guard.cjs',
+    'dev-windows-stack.cjs',
     'background-electron-launch.cjs',
     'background-window-policy.cjs',
     'dev-launch-profile.cjs',
