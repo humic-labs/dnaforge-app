@@ -171,7 +171,7 @@ try {
     const diagnosticEvents = [];
     const diagnosticErrors = [];
     let diagnosticSession;
-    let actionTracing = false;
+    let actionTracingContext;
     const instrumentation =
       process.env.PILEUP_PERFORMANCE_DIAGNOSTICS === '1' || process.env.RUNNER_DEBUG === '1'
         ? {
@@ -200,10 +200,9 @@ try {
           JSON.stringify(instrumentation, null, 2)
         );
         try {
-          await page
-            .context()
-            .tracing.start({ screenshots: false, snapshots: false, sources: false });
-          actionTracing = true;
+          const context = page.context();
+          await context.tracing.start({ screenshots: false, snapshots: false, sources: false });
+          actionTracingContext = context;
           diagnosticSession = await page.context().newCDPSession(page);
           diagnosticSession.on(
             'Network.requestWillBeSent',
@@ -292,10 +291,9 @@ try {
         failure = 'The dense saved-pileup performance journey did not pass.';
     } finally {
       if (instrumentation) {
-        if (actionTracing)
-          await page
-            .context()
-            .tracing.stop({ path: path.join(evidenceDirectory, 'playwright-actions.trace.zip') })
+        if (actionTracingContext)
+          await actionTracingContext.tracing
+            .stop({ path: path.join(evidenceDirectory, 'playwright-actions.trace.zip') })
             .catch((error) => {
               diagnosticErrors.push({ method: 'action-trace-stop', error: String(error) });
             });
