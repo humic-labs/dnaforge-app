@@ -31,6 +31,7 @@ const receipt = {
 };
 let browser;
 let cdp;
+let page;
 try {
   const status = execFileSync(
     process.execPath,
@@ -42,7 +43,7 @@ try {
   const endpoint = status.match(/DevTools\/CDP:\s*(http:\/\/127\.0\.0\.1:\d+)/u)?.[1];
   assert.ok(renderer && endpoint);
   browser = await chromium.connectOverCDP(endpoint);
-  const page = browser
+  page = browser
     .contexts()
     .flatMap((c) => c.pages())
     .find((p) => new URL(p.url()).origin === new URL(renderer).origin);
@@ -52,6 +53,48 @@ try {
   page.on('console', (message) => {
     if (message.type() === 'error' || message.type() === 'warning')
       receipt.consoleErrors.push({ type: message.type(), text: message.text() });
+  });
+  await page.evaluate(async () => {
+    const { platform } = await import('/src/platform/index.ts');
+    const bridge = platform();
+    const calls = [];
+    const pending = new Map();
+    let nextId = 0;
+    for (const group of ['workspace', 'fs']) {
+      const owner = bridge[group];
+      for (const [method, original] of Object.entries(owner)) {
+        if (typeof original !== 'function' || method.startsWith('subscribe')) continue;
+        owner[method] = function (...args) {
+          const call = { id: ++nextId, method: `${group}.${method}`, startedAt: Date.now() };
+          pending.set(call.id, call);
+          const finish = (status) => {
+            pending.delete(call.id);
+            calls.push({ ...call, status, finishedAt: Date.now() });
+            if (calls.length > 512) calls.shift();
+          };
+          try {
+            const result = Reflect.apply(original, this, args);
+            if (result && typeof result.then === 'function')
+              return result.then(
+                (value) => {
+                  finish('fulfilled');
+                  return value;
+                },
+                (error) => {
+                  finish('rejected');
+                  throw error;
+                }
+              );
+            finish('returned');
+            return result;
+          } catch (error) {
+            finish('threw');
+            throw error;
+          }
+        };
+      }
+    }
+    window.__workspaceJourneyCalls = () => ({ completed: calls, pending: [...pending.values()] });
   });
   cdp = await page.context().newCDPSession(page);
   cdp.on('Page.screencastFrame', (frame) => {
@@ -196,6 +239,10 @@ try {
   receipt.error = error.stack ?? String(error);
   process.exitCode = 1;
 } finally {
+  if (page)
+    receipt.commands = await page
+      .evaluate(() => window.__workspaceJourneyCalls?.())
+      .catch((error) => ({ captureError: String(error) }));
   if (cdp) await cdp.send('Page.stopScreencast').catch(() => {});
   try {
     finalizeJourneyRecording(stage, receipt);
