@@ -1,17 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   parseSheetSyncSnapshot,
-  readSheetSyncSnapshot,
-  writeSheetSyncSnapshot,
+  createSheetSyncPersistence,
   type SheetSyncConnection,
   type SheetSyncSnapshot,
-} from './sheet-sync-connection';
+} from '../../shared/registry-artifacts/sheet-sync/persistence';
 const fs = vi.hoisted(() => ({
   exists: vi.fn(),
   readTextFile: vi.fn(),
   writeWorkspaceTextFileAtomic: vi.fn(),
 }));
 vi.mock('../../platform', () => ({ platform: () => ({ fs }) }));
+const { readSheetSyncSnapshot, writeSheetSyncSnapshot } = createSheetSyncPersistence({
+  ...fs,
+  readDir: vi.fn(),
+});
 const files = new Map<string, string>();
 beforeEach(() => {
   vi.clearAllMocks();

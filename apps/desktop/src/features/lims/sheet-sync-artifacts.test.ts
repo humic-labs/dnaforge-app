@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildPrimerArtifact, serializePrimerArtifact } from '../primers/public/primer-artifact';
 import {
-  createSheetSyncArtifact,
+  createSheetSyncArtifacts,
   sheetSyncEntityRecord,
-  updateSheetSyncPrimer,
-} from './sheet-sync-artifacts';
+} from '../../shared/registry-artifacts/sheet-sync/artifacts';
+import { resolveWorkspaceId } from '../../db/workspace-catalog';
+import { withRendererWorkspaceMutation } from '../../services/workspace-mutation-transaction';
+import { recordProtein } from '../proteins/record-proteins';
+import { recordEntityArtifact } from './record-entity-artifact';
+import { LOCAL_TM_CALCULATOR } from '../../shared/primer-thermodynamics/tm-service';
+import { calculatePrimerTmWithCalculator } from '../../shared/primer-tm-contract';
 import type { SheetSyncConnection, SheetSyncSnapshot } from './sheet-sync-connection';
 import type { SheetSyncCheckpoint } from './sheet-sync';
 const mocks = vi.hoisted(() => ({
@@ -39,6 +44,26 @@ vi.mock('../primers/record-primers', () => ({ recordPrimers: mocks.recordPrimers
 vi.mock('../proteins/record-proteins', () => ({ recordProtein: vi.fn() }));
 vi.mock('./record-entity-artifact', () => ({ recordEntityArtifact: vi.fn() }));
 vi.mock('./operations', () => ({ queryLimsEntities: mocks.query }));
+const { createSheetSyncArtifact, updateSheetSyncPrimer } = createSheetSyncArtifacts({
+  fs: {
+    exists: mocks.exists,
+    readTextFile: mocks.readTextFile,
+    writeWorkspaceTextFileAtomic: vi.fn(),
+    readDir: vi.fn(),
+  },
+  resolveWorkspaceId,
+  withRendererWorkspaceMutation,
+  recordPrimers: mocks.recordPrimers,
+  readPrimerArtifactAtPath: mocks.readPrimer,
+  reconcilePrimerArtifact: mocks.reconcilePrimer,
+  updatePrimerArtifactContent: mocks.updatePrimer,
+  recordProtein,
+  recordEntityArtifact,
+  queryLimsEntities: mocks.query,
+  reconcileWorkspaceAfterFilesChanged: mocks.reconcileWorkspace,
+  resolvePrimerSchema: async () => (await artifact()).entity.schema,
+  calculatePrimerTm: (sequence) => calculatePrimerTmWithCalculator(LOCAL_TM_CALCULATOR, sequence),
+});
 const bases = 'GTAAAACGACGGCCAGT';
 const sequence = {
   mode: 'inline',

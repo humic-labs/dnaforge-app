@@ -1,12 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   parseSheetSyncConnection,
-  writeSheetSyncConnection,
+  createSheetSyncPersistence,
   type SheetSyncConnection,
-} from './sheet-sync-connection';
+} from '../../shared/registry-artifacts/sheet-sync/persistence';
 import { sha256Hex } from '../primers/public/primer-artifact';
 const fs = vi.hoisted(() => ({ writeWorkspaceTextFileAtomic: vi.fn(async () => undefined) }));
 vi.mock('../../platform', () => ({ platform: () => ({ fs }) }));
+const { writeSheetSyncConnection } = createSheetSyncPersistence({
+  ...fs,
+  exists: vi.fn(),
+  readTextFile: vi.fn(),
+  readDir: vi.fn(),
+});
 function connection(): SheetSyncConnection {
   const record = { kind: 'strain', name: 'K12', fields: { notes: 'Stable' } };
   return {
