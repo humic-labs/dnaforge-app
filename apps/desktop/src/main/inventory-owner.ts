@@ -4,6 +4,7 @@ import {
   applyInventoryCommandBatch,
   createInventoryState,
   inventoryAvailability,
+  inventoryStockroomProjection,
   inventoryEquipmentCatalog,
   inventoryEquipmentCatalogUpdatePreview,
   inventoryCurrentLocationPath,
@@ -74,6 +75,7 @@ import type {
   InventoryArrivalPreviewSnapshot,
   InventoryChanged,
   InventoryAvailabilitySnapshot,
+  InventoryStockroomSnapshot,
   InventoryMaterial,
   InventoryMaterialPage,
   InventoryProject,
@@ -479,7 +481,7 @@ export function createNativeInventoryOwner(options: {
         const previous = row ? stateFromRow(row) : createInventoryState();
         const recordedAt = observationTime(previous);
         const context = inventoryReceiptContextSchema.parse({
-          version: 4,
+          version: 5,
           principal: principal(invocation),
           authority,
         });
@@ -492,6 +494,7 @@ export function createNativeInventoryOwner(options: {
           currentRevision: previous.revision,
         });
         let result: InventoryTransition;
+        let assertStockroomMaterials = () => {};
         if ('kind' in request && request.kind === 'receive-arrival') {
           if (request.expectedRevision !== previous.revision)
             return reject(
@@ -860,6 +863,8 @@ export function createNativeInventoryOwner(options: {
             if (command.kind === 'pool' || command.kind === 'dilute')
               lotMaterials.set(command.lotId, command.materialId);
             const materialId =
+              command.kind === 'record-expected-delivery' ||
+              command.kind === 'record-reorder-rule' ||
               command.kind === 'receive-stock' ||
               command.kind === 'identify-vessel-stock' ||
               command.kind === 'create-lot' ||
@@ -894,6 +899,40 @@ export function createNativeInventoryOwner(options: {
                 };
             }
           }
+          const stockroomMaterials = [
+            ...new Set(
+              request.commands.flatMap((command) =>
+                command.kind === 'record-expected-delivery' ||
+                command.kind === 'record-reorder-rule'
+                  ? [command.materialId]
+                  : []
+              )
+            ),
+          ].sort();
+          if (stockroomMaterials.length) {
+            const bindings = stockroomMaterials.map((materialId) => ({
+              sourceMaterialId: materialId,
+              destinationMaterialId: materialId,
+            }));
+            const admitted = observeBindings(db, project, bindings);
+            if (admitted.some((binding) => binding.kind !== 'admitted'))
+              return reject(
+                'INVENTORY_MATERIAL_UNAVAILABLE',
+                'Choose an active scientific record in this inventory project.'
+              );
+            const fingerprint = canonicalNativeMutationRequest(admitted);
+            assertStockroomMaterials = () => {
+              if (
+                canonicalNativeMutationRequest(observeBindings(db, project, bindings)) !==
+                fingerprint
+              )
+                throw new NativeDocumentCommandError(
+                  'INVENTORY_MATERIAL_CHANGED',
+                  'The scientific material changed before the stockroom operation committed.',
+                  false
+                );
+            };
+          }
           result = applyInventoryCommandBatch(
             previous,
             {
@@ -923,6 +962,7 @@ export function createNativeInventoryOwner(options: {
           requestDigest: nativeInventoryRequestDigest(request),
         });
         assertCurrent();
+        assertStockroomMaterials();
         db.prepare(
           `INSERT INTO inventory_state (inventory_id,project_id,revision,state_json) VALUES(?,?,?,?)
        ON CONFLICT(inventory_id) DO UPDATE SET revision=excluded.revision,state_json=excluded.state_json`
@@ -944,6 +984,7 @@ export function createNativeInventoryOwner(options: {
         );
         assertCurrent();
         assertAcceptingProject();
+        assertStockroomMaterials();
         committed = true;
         return receipt;
       })
@@ -965,6 +1006,35 @@ export function createNativeInventoryOwner(options: {
   };
 
   return {
+    stockroom(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventoryStockroomSnapshot | null {
+      const request = inventoryReadRequestSchema.parse(input);
+      const project = resolveProject(request.project, false);
+      const assertProject = options.projectAuthority.capture(project.projectId, false);
+      const db = options.db();
+      assertProject();
+      const snapshot = db
+        .transaction(() => {
+          const row = inventory(db, request.inventoryId, project.projectId);
+          if (!row) return null;
+          const state = stateFromRow(row);
+          const asOf = observationTime(state);
+          const caller = principal(invocation);
+          return structuredClone({
+            ...inventoryStockroomProjection(state, caller, asOf),
+            projectId: project.projectId,
+            inventoryId: request.inventoryId,
+            revision: state.revision,
+            asOf,
+            principal: caller,
+          });
+        })
+        .deferred();
+      assertProject();
+      return snapshot;
+    },
     previewArrival(
       input: unknown,
       invocation: NativeInventoryInvocation = {}

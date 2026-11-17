@@ -43,6 +43,14 @@ function* recordedPrincipals(state: InventoryState): Generator<InventoryRecorded
     if (version.selection.kind === 'retired') yield version.selection.by;
   }
   for (const evidence of Object.values(state.fitEvidence)) yield evidence.by;
+  for (const row of [
+    ...Object.values(state.expectedDeliveries),
+    ...Object.values(state.arrivalAllocations),
+    ...Object.values(state.reorderRules),
+  ]) {
+    yield row.by;
+    if (row.lifecycle.kind !== 'open' && row.lifecycle.kind !== 'active') yield row.lifecycle.by;
+  }
   for (const arrival of Object.values(state.arrivals)) yield arrival.by;
   for (const fact of [
     ...Object.values(state.openingObservations),

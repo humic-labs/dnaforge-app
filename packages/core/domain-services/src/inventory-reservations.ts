@@ -11,7 +11,7 @@ import {
 import { inventoryVesselContentsProjection } from './inventory-contents';
 import { inventoryStockEligibility, inventoryLotUseGuard } from './inventory-lot-controls';
 import { inventoryValidityUseGuard } from './inventory-validity';
-import { inventoryRecordIdExists } from './inventory-identity';
+import { inventoryRecordIdExists, type InventoryIdentityState } from './inventory-identity';
 import { inventoryCustodyAccess, inventoryItemCustody } from './inventory-custody';
 import { inventoryItemContains } from './inventory-placement';
 export { inventoryItemContains } from './inventory-placement';
@@ -39,24 +39,7 @@ import {
   type InventoryCanonicalAmount,
 } from './inventory-amount';
 
-type ReservationState = Pick<
-  InventoryState,
-  | 'stocks'
-  | 'vessels'
-  | 'storage'
-  | 'lots'
-  | 'lotRecalls'
-  | 'reservations'
-  | 'lastRecordedAt'
-  | 'typeVersions'
-  | 'recipeVersions'
-  | 'fitEvidence'
-  | 'itemCodes'
-  | 'temperatureClaims'
-  | 'openingObservations'
-  | 'validityFacts'
-  | 'arrivals'
->;
+type ReservationState = InventoryIdentityState & Pick<InventoryState, 'lastRecordedAt'>;
 export interface InventoryReservationDraft extends Omit<ReservationState, 'reservations'> {
   readonly reservations: Record<string, InventoryReservation>;
 }
@@ -123,12 +106,18 @@ function remainder(
       : zero(available.unit);
 }
 
-function stockAvailability(
+export function inventoryStockAvailabilityFacts(
   state: ReservationState,
   stockId: string,
   principal: InventoryPrincipal | undefined,
   at: number
-): InventoryStockAvailability {
+): {
+  readonly availability: InventoryStockAvailability;
+  readonly operational: {
+    readonly reserve: InventoryStockActionAdmission;
+    readonly withdraw: InventoryStockActionAdmission;
+  };
+} {
   const stock = state.stocks[stockId];
   const vessel = state.vessels[stock.vesselId];
   const item = { kind: 'vessel' as const, id: stock.vesselId };
@@ -153,7 +142,7 @@ function stockAvailability(
   if (inventoryPhysicalPositionUnavailable(state, item))
     blockers.push({ code: 'POSITION_UNAVAILABLE', item });
   blockers.push(...inventoryItemCustody(state, item, principal, at).blockers);
-  if (stock.quantity.kind === 'unknown') blockers.push({ code: 'QUANTITY_UNKNOWN' });
+  const quantityIndex = blockers.length;
   const eligibility = inventoryStockEligibility(state, stockId, at)!;
   blockers.push(...eligibility.blockers);
   if (vessel.lifecycle !== 'active') blockers.push({ code: 'VESSEL_DISPOSED' });
@@ -177,26 +166,49 @@ function stockAvailability(
       blockers.push({ code: 'ALLOCATION_SHORTFALL' });
     unreserved = { kind: 'known', ...remainder(usable, held) };
   }
-  const action = (kind: 'reserve' | 'withdraw'): InventoryStockActionAdmission => {
+  const action = (
+    kind: 'reserve' | 'withdraw',
+    quantityKnowledge: boolean
+  ): InventoryStockActionAdmission => {
     const validity = eligibility.validity[kind];
-    const all = [...blockers, ...(validity.kind === 'blocked' ? validity.blockers : [])];
+    const quantityBlockers: InventoryAvailabilityBlocker[] =
+      quantityKnowledge && stock.quantity.kind === 'unknown' ? [{ code: 'QUANTITY_UNKNOWN' }] : [];
+    const all = [
+      ...blockers.slice(0, quantityIndex),
+      ...quantityBlockers,
+      ...blockers.slice(quantityIndex),
+      ...(validity.kind === 'blocked' ? validity.blockers : []),
+    ];
     return all.length
       ? { kind: 'blocked', blockers: [all[0], ...all.slice(1)] }
       : { kind: 'allowed' };
   };
-  const withdraw = action('withdraw');
+  const withdraw = action('withdraw', true);
+  const operational = { reserve: action('reserve', false), withdraw: action('withdraw', false) };
   return {
-    validity: eligibility.validity,
-    actions: { reserve: action('reserve'), withdraw },
-    stockId,
-    onHand: { ...stock.quantity },
-    held,
-    unreserved,
-    mine,
-    deadVolume: { ...vessel.limits.deadVolume },
-    blockers: withdraw.kind === 'blocked' ? withdraw.blockers : [],
-    reservationIds: related.map((reservation) => reservation.id),
+    operational,
+    availability: {
+      validity: eligibility.validity,
+      actions: { reserve: action('reserve', true), withdraw },
+      stockId,
+      onHand: { ...stock.quantity },
+      held,
+      unreserved,
+      mine,
+      deadVolume: { ...vessel.limits.deadVolume },
+      blockers: withdraw.kind === 'blocked' ? withdraw.blockers : [],
+      reservationIds: related.map((reservation) => reservation.id),
+    },
   };
+}
+
+function stockAvailability(
+  state: ReservationState,
+  stockId: string,
+  principal: InventoryPrincipal | undefined,
+  at: number
+): InventoryStockAvailability {
+  return inventoryStockAvailabilityFacts(state, stockId, principal, at).availability;
 }
 
 export function inventoryAvailability(
@@ -210,7 +222,7 @@ export function inventoryAvailability(
     );
   const stocks: Record<string, InventoryStockAvailability> = Object.create(null);
   for (const id of Object.keys(state.stocks))
-    stocks[id] = stockAvailability(state, id, principal, at);
+    stocks[id] = inventoryStockAvailabilityFacts(state, id, principal, at).availability;
   const reservations: Record<string, InventoryAvailability['reservations'][string]> =
     Object.create(null);
   for (const reservation of Object.values(state.reservations)) {

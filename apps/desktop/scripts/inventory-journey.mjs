@@ -1,4 +1,9 @@
 import {
+  runInventoryStockroomJourney,
+  runInventoryStockroomResume,
+  runInventoryStockroomReopen,
+} from './journeys/inventory-stockroom.mjs';
+import {
   runInventoryArrivalJourney,
   runInventoryArrivalResume,
   runInventoryArrivalReopen,
@@ -148,6 +153,9 @@ assert.ok(
     'amounts-resume',
     'amounts-reopen',
     'refresh-fixture',
+    'stockroom',
+    'stockroom-resume',
+    'stockroom-reopen',
     'arrival',
     'arrival-resume',
     'arrival-reopen',
@@ -750,6 +758,29 @@ try {
     );
   }
 
+  if (['stockroom', 'stockroom-resume', 'stockroom-reopen'].includes(stage)) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the exact native22 arrival fixture or stockroom checkpoint.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    if (stage === 'stockroom-resume') {
+      const existing = page.getByTestId('inventory-physical-dialog');
+      for (let attempt = 0; attempt < 3 && (await existing.count()); attempt++)
+        await page.keyboard.press('Escape');
+      await expect(existing).toBeHidden();
+    }
+    await openInventory(fixture.project.name);
+    receipt.expected = await (
+      stage === 'stockroom'
+        ? runInventoryStockroomJourney
+        : stage === 'stockroom-resume'
+          ? runInventoryStockroomResume
+          : runInventoryStockroomReopen
+    )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
   if (stage === 'arrival' || stage === 'arrival-resume' || stage === 'arrival-reopen') {
     assert.ok(args.includes('--fixture'), 'Pass an exact native21 inventory fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

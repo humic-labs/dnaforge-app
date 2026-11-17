@@ -36,7 +36,7 @@ import {
 } from './inventory-amount';
 import { inventoryVesselStockAdmission } from './inventory-contents';
 import { inventoryLotConstraints, mergeInventoryLotConstraints } from './inventory-lot-controls';
-import { inventoryRecordIdExists } from './inventory-identity';
+import { inventoryRecordIdExists, type InventoryIdentityState } from './inventory-identity';
 import {
   bindInventoryInheritedValidity,
   emptyInventoryLotValidity,
@@ -46,21 +46,13 @@ import {
 } from './inventory-validity';
 import type { InventoryInheritedValidity } from './inventory-validity-types';
 
-export interface InventoryMaterialDraft {
-  readonly arrivals: InventoryState['arrivals'];
-  readonly temperatureClaims: InventoryState['temperatureClaims'];
-  readonly itemCodes: InventoryState['itemCodes'];
-  readonly typeVersions: InventoryState['typeVersions'];
-  readonly recipeVersions: InventoryState['recipeVersions'];
-  readonly fitEvidence: InventoryState['fitEvidence'];
+export interface InventoryMaterialDraft extends Omit<
+  InventoryIdentityState,
+  'stocks' | 'lots' | 'vessels'
+> {
   readonly stocks: Record<string, InventoryStock>;
   readonly lots: Record<string, InventoryLot>;
-  readonly lotRecalls: InventoryState['lotRecalls'];
-  readonly openingObservations: InventoryState['openingObservations'];
-  readonly validityFacts: InventoryState['validityFacts'];
   readonly vessels: Record<string, InventoryVessel>;
-  readonly storage: InventoryState['storage'];
-  readonly reservations: Readonly<Record<string, InventoryReservation>>;
 }
 
 type Refusal = { readonly ok: false; readonly code: InventoryErrorCode; readonly message: string };

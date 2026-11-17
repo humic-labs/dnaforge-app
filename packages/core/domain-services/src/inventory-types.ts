@@ -1,3 +1,10 @@
+import type {
+  InventoryExpectedDelivery,
+  InventoryArrivalAllocation,
+  InventoryReorderRule,
+  InventoryStockroomCommand,
+} from './inventory-stockroom-types';
+export type * from './inventory-stockroom-types';
 import type { InventoryArrival } from './inventory-arrival-types';
 export type * from './inventory-arrival-types';
 import type {
@@ -69,7 +76,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v21' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v22' as const;
+export const INVENTORY_ARRIVAL_SCHEMA = 'dnaforge.inventory.v21' as const;
 export const INVENTORY_VALIDITY_SCHEMA = 'dnaforge.inventory.v20' as const;
 export const INVENTORY_LOT_CONTROLS_SCHEMA = 'dnaforge.inventory.v19' as const;
 export const INVENTORY_AMOUNTS_SCHEMA = 'dnaforge.inventory.v18' as const;
@@ -306,6 +314,9 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly expectedDeliveries: Readonly<Record<string, InventoryExpectedDelivery>>;
+  readonly arrivalAllocations: Readonly<Record<string, InventoryArrivalAllocation>>;
+  readonly reorderRules: Readonly<Record<string, InventoryReorderRule>>;
   readonly arrivals: Readonly<Record<string, InventoryArrival>>;
   readonly openingObservations: Readonly<Record<string, InventoryOpeningObservation>>;
   readonly validityFacts: Readonly<Record<string, InventoryValidityFact>>;
@@ -602,6 +613,7 @@ export type InventoryMaterialCommand =
   | (InventoryLegacyDiluteCommand & { readonly mixing: InventoryMixing });
 
 export type InventoryCommand =
+  | InventoryStockroomCommand
   | InventoryOpeningCommand
   | InventoryValidityCommand
   | InventoryLotControlCommand
@@ -850,7 +862,21 @@ export type InventoryErrorCode =
   | 'OPENING_TIME_CONFLICT'
   | 'VALIDITY_FACT_NOT_FOUND'
   | 'VALIDITY_STALE_HEAD'
-  | 'INVALID_VALIDITY_RULE';
+  | 'INVALID_VALIDITY_RULE'
+  | 'EXPECTED_DELIVERY_NOT_FOUND'
+  | 'EXPECTED_DELIVERY_CLOSED'
+  | 'EXPECTED_DELIVERY_NOT_CLOSED'
+  | 'EXPECTED_DELIVERY_NO_REMAINDER'
+  | 'ARRIVAL_NOT_FOUND'
+  | 'ARRIVAL_COMPONENT_NOT_FOUND'
+  | 'ARRIVAL_COMPONENT_NOT_ALLOCATABLE'
+  | 'ALLOCATION_MATERIAL_MISMATCH'
+  | 'ALLOCATION_EXCEEDS_RECEIPT'
+  | 'ALLOCATION_EXCEEDS_EXPECTATION'
+  | 'ARRIVAL_ALLOCATION_NOT_FOUND'
+  | 'ARRIVAL_ALLOCATION_NOT_ACTIVE'
+  | 'REORDER_RULE_NOT_FOUND'
+  | 'REORDER_RULE_NOT_ACTIVE';
 
 export type InventoryTransition =
   | { readonly ok: true; readonly state: InventoryState }
@@ -863,6 +889,9 @@ export type InventoryTransition =
 export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
+    expectedDeliveries: Object.create(null) as Record<string, InventoryExpectedDelivery>,
+    arrivalAllocations: Object.create(null) as Record<string, InventoryArrivalAllocation>,
+    reorderRules: Object.create(null) as Record<string, InventoryReorderRule>,
     arrivals: Object.create(null) as Record<string, InventoryArrival>,
     openingObservations: Object.create(null) as Record<string, InventoryOpeningObservation>,
     validityFacts: Object.create(null) as Record<string, InventoryValidityFact>,

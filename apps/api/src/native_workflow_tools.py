@@ -213,6 +213,7 @@ async def execute_native_workflow(
             "preview-arrival",
             "apply-arrival",
             "arrival-document",
+            "stockroom",
             "availability",
             "execute",
             "operation",

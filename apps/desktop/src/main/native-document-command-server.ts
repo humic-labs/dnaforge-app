@@ -93,6 +93,15 @@ const commandSchema = z.discriminatedUnion('command', [
     .object({
       ownerInstanceId: identity,
       projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.stockroom'),
+      request: inventoryReadRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
       command: z.literal('inventory.preview-arrival'),
       request: inventoryPreviewArrivalRequestSchema,
       agent: agentAuthoritySchema.optional(),
@@ -477,6 +486,7 @@ export async function startNativeDocumentCommandServer(options: {
   inventory?: Pick<
     ReturnType<typeof createNativeInventoryOwner>,
     | 'execute'
+    | 'stockroom'
     | 'previewArrival'
     | 'applyArrival'
     | 'arrivalDocument'
@@ -598,6 +608,7 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'project-history.execute' ||
           body.command === 'import-review.execute' ||
           body.command === 'administration.execute' ||
+          body.command === 'inventory.stockroom' ||
           body.command === 'inventory.preview-arrival' ||
           body.command === 'inventory.apply-arrival' ||
           body.command === 'inventory.arrival-document' ||
@@ -679,6 +690,15 @@ export async function startNativeDocumentCommandServer(options: {
           const run = (() => {
             if (options.inventory) {
               const receiver = options.inventory;
+              if (body.command === 'inventory.stockroom') {
+                const invocation = body.agent
+                  ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
+                  : undefined;
+                return () => ({
+                  kind: 'stockroom',
+                  stockroom: receiver.stockroom(body.request, invocation),
+                });
+              }
               if (body.command === 'inventory.preview-arrival') {
                 const invocation = body.agent
                   ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
@@ -1004,6 +1024,7 @@ export async function startNativeDocumentCommandServer(options: {
             await options.flushFileClients?.();
           assertCurrent();
           accepted =
+            body.command !== 'inventory.stockroom' &&
             body.command !== 'inventory.inspect' &&
             body.command !== 'inventory.availability' &&
             body.command !== 'inventory.operation' &&

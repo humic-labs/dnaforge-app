@@ -1,3 +1,4 @@
+import { applyInventoryStockroomCommand } from './inventory-stockroom';
 import {
   applyInventoryValidityCommand,
   inventoryValidityUseGuard,
@@ -63,6 +64,9 @@ import { applyInventoryContentsCommand, inventoryVesselStockAdmission } from './
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
 interface Draft {
+  expectedDeliveries: Record<string, InventoryState['expectedDeliveries'][string]>;
+  arrivalAllocations: Record<string, InventoryState['arrivalAllocations'][string]>;
+  reorderRules: Record<string, InventoryState['reorderRules'][string]>;
   arrivals: InventoryState['arrivals'];
   openingObservations: Record<string, InventoryState['openingObservations'][string]>;
   validityFacts: Record<string, InventoryState['validityFacts'][string]>;
@@ -173,6 +177,8 @@ function applyCommand(
   if (configuration !== undefined) return configuration;
   const custody = applyInventoryCustodyCommand(state, command, context);
   if (custody !== undefined) return custody;
+  const stockroom = applyInventoryStockroomCommand(state, command, context);
+  if (stockroom !== undefined) return stockroom;
   const validity = applyInventoryValidityCommand(state, command, context);
   if (validity !== undefined) return validity;
   const lotControl = applyInventoryLotControlCommand(state, command, context);
@@ -405,6 +411,9 @@ export function applyInventoryCommandBatch(
     return failure('CLOCK_REGRESSION', 'The trusted timestamp precedes the inventory clock floor.');
   const draft: Draft = {
     vesselBindings: state.vesselBindings,
+    expectedDeliveries: Object.assign(Object.create(null), state.expectedDeliveries),
+    arrivalAllocations: Object.assign(Object.create(null), state.arrivalAllocations),
+    reorderRules: Object.assign(Object.create(null), state.reorderRules),
     arrivals: state.arrivals,
     openingObservations: Object.assign(Object.create(null), state.openingObservations),
     validityFacts: Object.assign(Object.create(null), state.validityFacts),

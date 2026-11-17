@@ -52,6 +52,9 @@ function source(): InventoryState {
 }
 function legacy(state: InventoryState): unknown {
   const {
+    expectedDeliveries: _expected,
+    arrivalAllocations: _allocations,
+    reorderRules: _rules,
     arrivals: _arrivals,
     lotRecalls: _recalls,
     openingObservations: _openingObservations,

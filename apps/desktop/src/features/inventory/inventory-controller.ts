@@ -35,6 +35,7 @@ import {
 } from '../../shared/inventory-command';
 import type {
   InventoryAvailabilitySnapshot,
+  InventoryStockroomSnapshot,
   InventoryClient,
   InventoryProject,
   InventoryItemCodeLookupSnapshot,
@@ -51,6 +52,7 @@ export interface InventoryData {
   state: InventoryState;
   history: readonly NativeInventoryHistoryEntry[];
   availability: InventoryAvailabilitySnapshot | null;
+  stockroom?: InventoryStockroomSnapshot | null;
   storageConditions: InventoryStorageConditionsSnapshot;
 }
 
@@ -389,7 +391,7 @@ export class InventoryController {
     for (let attempt = 0; ; attempt += 1) {
       const inspected = await this.client.inspect(request);
       const state = inspected ?? createInventoryState();
-      const [history, availability, storageConditions] = await Promise.all([
+      const [history, availability, storageConditions, stockroom] = await Promise.all([
         this.client.history({
           ...request,
           afterRevision: Math.max(0, state.revision - 100),
@@ -397,11 +399,16 @@ export class InventoryController {
         }),
         this.client.availability(request),
         this.client.storageConditions({ ...request, freshnessMaxAgeMs }),
+        this.client.stockroom(request),
       ]);
       const observed =
         this.observedRevision.get(scopeKey(request.project, request.inventoryId)) ?? 0;
       if (
-        (inspected && !availability) ||
+        (inspected && (!availability || !stockroom)) ||
+        (stockroom &&
+          (stockroom.revision !== state.revision ||
+            stockroom.projectId !== request.project ||
+            stockroom.inventoryId !== request.inventoryId)) ||
         (availability &&
           (availability.revision !== state.revision ||
             availability.projectId !== request.project ||
@@ -424,6 +431,7 @@ export class InventoryController {
         state,
         history: history.filter((entry) => entry.receipt.revision <= state.revision),
         availability,
+        stockroom,
         storageConditions,
       };
       return data;

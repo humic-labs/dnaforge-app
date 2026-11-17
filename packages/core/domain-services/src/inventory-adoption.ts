@@ -107,6 +107,20 @@ function mapOrigin(
 function mapScientificReferences(state: InventoryState, resolve: ResolveMaterial): InventoryState {
   return {
     ...state,
+    expectedDeliveries: mapRecords(state.expectedDeliveries, (row, id) => ({
+      ...row,
+      expectation: {
+        ...row.expectation,
+        materialId: resolve(
+          row.expectation.materialId,
+          `/expectedDeliveries/${pointerKey(id)}/expectation/materialId`
+        ),
+      },
+    })),
+    reorderRules: mapRecords(state.reorderRules, (row, id) => ({
+      ...row,
+      materialId: resolve(row.materialId, `/reorderRules/${pointerKey(id)}/materialId`),
+    })),
     arrivals: mapRecords(state.arrivals, (arrival, id) => ({
       ...arrival,
       components: arrival.components.map((component, index) => ({
@@ -193,6 +207,30 @@ function mapAttribution(state: InventoryState, source: InventoryAdoptionSource):
     value.kind === 'available' ? value : { ...value, by: principal(value.by) };
   return {
     ...state,
+    expectedDeliveries: mapRecords(state.expectedDeliveries, (row) => ({
+      ...row,
+      by: principal(row.by),
+      lifecycle:
+        row.lifecycle.kind === 'open'
+          ? row.lifecycle
+          : { ...row.lifecycle, by: principal(row.lifecycle.by) },
+    })),
+    arrivalAllocations: mapRecords(state.arrivalAllocations, (row) => ({
+      ...row,
+      by: principal(row.by),
+      lifecycle:
+        row.lifecycle.kind === 'active'
+          ? row.lifecycle
+          : { ...row.lifecycle, by: principal(row.lifecycle.by) },
+    })),
+    reorderRules: mapRecords(state.reorderRules, (row) => ({
+      ...row,
+      by: principal(row.by),
+      lifecycle:
+        row.lifecycle.kind === 'active'
+          ? row.lifecycle
+          : { ...row.lifecycle, by: principal(row.lifecycle.by) },
+    })),
     arrivals: mapRecords(state.arrivals, (row) => ({ ...row, by: principal(row.by) })),
     openingObservations: mapRecords(state.openingObservations, (row) => ({
       ...row,

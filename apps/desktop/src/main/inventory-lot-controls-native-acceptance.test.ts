@@ -414,7 +414,7 @@ it('guards managed lot ancestry and independent recalls through real HTTP, adopt
     expect(receivedReceipt).toMatchObject({
       status: 'committed',
       revision: 1,
-      context: { version: 4 },
+      context: { version: 5 },
     });
     expect(owner.inspect(scope)!.lots['lot-a'].controls).toMatchObject({
       kind: 'managed',

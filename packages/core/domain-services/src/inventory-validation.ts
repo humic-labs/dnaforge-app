@@ -1,3 +1,9 @@
+import { validateInventoryStockroomState } from './inventory-stockroom-validation';
+import type {
+  InventoryExpectedDelivery,
+  InventoryArrivalAllocation,
+  InventoryReorderRule,
+} from './inventory-stockroom-types';
 import { validateInventoryArrivalState } from './inventory-arrival-record-validation';
 import type { InventoryArrival } from './inventory-arrival-types';
 import { inventoryIdentityMaps } from './inventory-identity';
@@ -75,6 +81,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_ARRIVAL_SCHEMA,
   INVENTORY_VALIDITY_SCHEMA,
   INVENTORY_LOT_CONTROLS_SCHEMA,
   INVENTORY_AMOUNTS_SCHEMA,
@@ -1204,6 +1211,71 @@ const arrivalRecord: Codec<InventoryArrival> = fields('Immutable arrival record'
   at: timestamp,
   by: recordedPrincipal,
 });
+const stockroomRecorded = { id, at: timestamp, by: recordedPrincipal, reason };
+const expectedDeliveryRecord: Codec<InventoryExpectedDelivery> = fields(
+  'Expected delivery statement',
+  {
+    ...stockroomRecorded,
+    name,
+    supplier: nullable(name),
+    externalReference: nullable(sourceReference),
+    expectation: fields('Expected material amount', { materialId: id, quantity: storedAmount }),
+    lifecycle: union('Expectation remainder lifecycle', [
+      fields('Open expectation', { kind: literal('open') }),
+      fields('Closed unmatched remainder', {
+        kind: literal('remainder-closed'),
+        remainingAtClose: storedAmount,
+        at: timestamp,
+        by: recordedPrincipal,
+        reason,
+      }),
+    ]),
+  }
+);
+const arrivalAllocationRecord: Codec<InventoryArrivalAllocation> = fields(
+  'Original arrival amount allocation',
+  {
+    ...stockroomRecorded,
+    lineId: id,
+    arrivalId: id,
+    componentKey: arrivalKey,
+    quantity: storedAmount,
+    lifecycle: union('Arrival allocation lifecycle', [
+      fields('Active original receipt allocation', { kind: literal('active') }),
+      fields('Withdrawn receipt allocation', {
+        kind: literal('withdrawn'),
+        at: timestamp,
+        by: recordedPrincipal,
+        reason,
+      }),
+    ]),
+  }
+);
+const reorderValidityBasis = union('Reorder validity coverage', [
+  literal('current-recorded-rules'),
+  literal('confirmed-current-validity'),
+]);
+const reorderActionBasis = union('Reorder action policy', [
+  literal('reserve'),
+  literal('withdraw'),
+]);
+const reorderRuleRecord: Codec<InventoryReorderRule> = fields('Reorder threshold rule', {
+  ...stockroomRecorded,
+  name,
+  materialId: id,
+  threshold: storedAmount,
+  validityBasis: reorderValidityBasis,
+  actionBasis: reorderActionBasis,
+  lifecycle: union('Reorder rule lifecycle', [
+    fields('Active reorder rule', { kind: literal('active') }),
+    fields('Retired reorder rule', {
+      kind: literal('retired'),
+      at: timestamp,
+      by: recordedPrincipal,
+      reason,
+    }),
+  ]),
+});
 const openingInputFields = { id, stockId: id, source: nullable(sourceReference), reason };
 const openingRecordedFields = { ...openingInputFields, at: timestamp, by: recordedPrincipal };
 const openingObservationRecord: Codec<InventoryOpeningObservation> = union('Opening fact', [
@@ -1722,6 +1794,55 @@ const commands = {
   'restore-catalog-version': fields('Restore catalog version command', {
     kind: literal('restore-catalog-version'),
     target: catalogTarget,
+    reason,
+  }),
+  'record-expected-delivery': fields('Record expected delivery command', {
+    kind: literal('record-expected-delivery'),
+    id,
+    name,
+    supplier: nullable(name),
+    externalReference: nullable(sourceReference),
+    materialId: id,
+    quantity: amount,
+    reason,
+  }),
+  'allocate-arrival': fields('Allocate original arrival amount command', {
+    kind: literal('allocate-arrival'),
+    id,
+    lineId: id,
+    arrivalId: id,
+    componentKey: arrivalKey,
+    quantity: amount,
+    reason,
+  }),
+  'withdraw-arrival-allocation': fields('Withdraw arrival matching command', {
+    kind: literal('withdraw-arrival-allocation'),
+    allocationId: id,
+    reason,
+  }),
+  'close-expected-delivery-remainder': fields('Close unmatched expectation command', {
+    kind: literal('close-expected-delivery-remainder'),
+    lineId: id,
+    reason,
+  }),
+  'reopen-expected-delivery': fields('Reopen expected delivery command', {
+    kind: literal('reopen-expected-delivery'),
+    lineId: id,
+    reason,
+  }),
+  'record-reorder-rule': fields('Record reorder rule command', {
+    kind: literal('record-reorder-rule'),
+    id,
+    name,
+    materialId: id,
+    threshold: amount,
+    validityBasis: reorderValidityBasis,
+    actionBasis: reorderActionBasis,
+    reason,
+  }),
+  'retire-reorder-rule': fields('Retire reorder rule command', {
+    kind: literal('retire-reorder-rule'),
+    ruleId: id,
     reason,
   }),
   'record-stock-opening': fields('Record stock opening command', {
@@ -2793,7 +2914,8 @@ function vesselBindings(value: unknown): Record<string, InventoryVesselBinding> 
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const validityRecords = current || row.schema === INVENTORY_VALIDITY_SCHEMA;
+  const arrivalRecords = current || row.schema === INVENTORY_ARRIVAL_SCHEMA;
+  const validityRecords = arrivalRecords || row.schema === INVENTORY_VALIDITY_SCHEMA;
   const controlled = validityRecords || row.schema === INVENTORY_LOT_CONTROLS_SCHEMA;
   const amounts = controlled || row.schema === INVENTORY_AMOUNTS_SCHEMA;
   const contents = amounts || row.schema === INVENTORY_CONTENTS_SCHEMA;
@@ -2814,6 +2936,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_ARRIVAL_SCHEMA),
       literal(INVENTORY_VALIDITY_SCHEMA),
       literal(INVENTORY_LOT_CONTROLS_SCHEMA),
       literal(INVENTORY_AMOUNTS_SCHEMA),
@@ -2837,6 +2960,13 @@ export function parseInventoryState(value: unknown): InventoryState {
     ]),
     revision,
     ...(current
+      ? {
+          expectedDeliveries: { schema: { type: 'object' }, parse: (input: unknown) => input },
+          arrivalAllocations: { schema: { type: 'object' }, parse: (input: unknown) => input },
+          reorderRules: { schema: { type: 'object' }, parse: (input: unknown) => input },
+        }
+      : {}),
+    ...(arrivalRecords
       ? { arrivals: { schema: { type: 'object' }, parse: (input: unknown) => input } }
       : {}),
     ...(validityRecords
@@ -2950,7 +3080,16 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   let state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    arrivals: current
+    expectedDeliveries: current
+      ? records(shape.expectedDeliveries, (raw) => expectedDeliveryRecord.parse(raw))
+      : Object.create(null),
+    arrivalAllocations: current
+      ? records(shape.arrivalAllocations, (raw) => arrivalAllocationRecord.parse(raw))
+      : Object.create(null),
+    reorderRules: current
+      ? records(shape.reorderRules, (raw) => reorderRuleRecord.parse(raw))
+      : Object.create(null),
+    arrivals: arrivalRecords
       ? records(shape.arrivals, (raw) => arrivalRecord.parse(raw))
       : Object.create(null),
     openingObservations: validityRecords
@@ -3211,6 +3350,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   }
   validateState(state);
   try {
+    validateInventoryStockroomState(state);
     validateInventoryArrivalState(state);
     validateInventoryValidityState(state);
     validateInventoryItemCodes(state);

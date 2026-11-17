@@ -10,6 +10,7 @@ import type {
   InventoryArrivalDocumentRequest,
   InventoryArrivalPreviewSnapshot,
   InventoryArrivalDocumentRead,
+  InventoryStockroomSnapshot,
   InventoryChanged,
   InventoryInspectBenchlingCaptureRequest,
   InventoryBenchlingCaptureSnapshot,
@@ -58,6 +59,7 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  stockroom: invoke<[request: InventoryReadRequest], InventoryStockroomSnapshot | null>(),
   previewArrival: invoke<
     [request: InventoryPreviewArrivalRequest],
     InventoryArrivalPreviewSnapshot

@@ -1,3 +1,4 @@
+import type { InventoryStockroomDialog } from './InventoryStockroomForm';
 import type { InventoryArrivalDialog } from './InventoryArrivalForm';
 import type { InventoryContentsDialog } from './InventoryContentsForm';
 import type { InventoryData } from './inventory-controller';
@@ -96,6 +97,7 @@ export type InventorySelection =
 export type InventoryItem = { kind: 'storage' | 'vessel'; id: string };
 
 export type InventoryDialog =
+  | InventoryStockroomDialog
   | InventoryArrivalDialog
   | { kind: 'export-archive' }
   | { kind: 'import-archive' }
@@ -361,6 +363,20 @@ export function historyLabel(command: InventoryCommand, state: InventoryState): 
       return `Fulfilled reservation · ${historyLabel(command.withdrawal, state)}`;
     case 'create-lot':
       return `Added batch ${command.name}`;
+    case 'record-expected-delivery':
+      return `Recorded expected delivery ${command.name}`;
+    case 'allocate-arrival':
+      return `Matched original received amount ${command.quantity.value} ${command.quantity.unit}`;
+    case 'withdraw-arrival-allocation':
+      return 'Withdrew original receipt matching';
+    case 'close-expected-delivery-remainder':
+      return 'Closed unreceived expected remainder';
+    case 'reopen-expected-delivery':
+      return 'Reopened expected delivery matching';
+    case 'record-reorder-rule':
+      return `Recorded reorder rule ${command.name}`;
+    case 'retire-reorder-rule':
+      return 'Retired reorder rule';
     case 'record-stock-opening':
       return `Recorded ${command.value} observation for ${state.vessels[state.stocks[command.stockId]?.vesselId]?.name ?? command.stockId}`;
     case 'correct-stock-opening':

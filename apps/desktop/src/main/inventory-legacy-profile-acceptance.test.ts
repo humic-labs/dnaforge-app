@@ -124,6 +124,13 @@ it.runIf(Boolean(sourcePath))(
         );
         expect(state.validityFacts).toEqual(JSON.parse(row.state_json).validityFacts ?? {});
         expect(state.arrivals).toEqual(JSON.parse(row.state_json).arrivals ?? {});
+        expect(state.expectedDeliveries).toEqual(
+          JSON.parse(row.state_json).expectedDeliveries ?? {}
+        );
+        expect(state.arrivalAllocations).toEqual(
+          JSON.parse(row.state_json).arrivalAllocations ?? {}
+        );
+        expect(state.reorderRules).toEqual(JSON.parse(row.state_json).reorderRules ?? {});
         for (const lot of Object.values(state.lots)) {
           const original = JSON.parse(row.state_json).lots[lot.id];
           expect(lot.controls).toEqual(original.controls ?? { kind: 'legacy-untracked' });

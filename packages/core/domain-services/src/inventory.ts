@@ -1,3 +1,5 @@
+export * from './inventory-stockroom-types';
+export * from './inventory-stockroom';
 export * from './inventory-arrival-types';
 export * from './inventory-arrivals';
 export * from './inventory-mapped-table-types';

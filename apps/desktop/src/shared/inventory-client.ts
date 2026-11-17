@@ -1,5 +1,6 @@
 import type {
   InventoryAvailability,
+  InventoryStockroomProjection,
   InventoryArrivalPreview,
   InventoryArrivalDocumentRead,
   InventoryEquipmentCatalogEntry,
@@ -98,6 +99,14 @@ export interface InventoryChanged {
   readonly inventoryId: string;
   readonly revision: number;
   readonly operationId: string;
+}
+
+export interface InventoryStockroomSnapshot extends InventoryStockroomProjection {
+  readonly projectId: string;
+  readonly inventoryId: string;
+  readonly revision: number;
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
 }
 
 export interface InventoryAvailabilitySnapshot extends InventoryAvailability {
@@ -200,6 +209,7 @@ export type InventoryArrivalPreviewSnapshot = InventoryArrivalPreview & {
 export type { InventoryArrivalDocumentRead };
 
 export interface InventoryClient {
+  stockroom(input: InventoryReadRequest): Promise<InventoryStockroomSnapshot | null>;
   previewArrival(input: InventoryPreviewArrivalRequest): Promise<InventoryArrivalPreviewSnapshot>;
   applyArrival(input: InventoryApplyArrivalRequest): Promise<NativeInventoryExecution>;
   arrivalDocument(input: InventoryArrivalDocumentRequest): Promise<InventoryArrivalDocumentRead>;
@@ -266,6 +276,7 @@ export function unavailableInventoryClient(): InventoryClient {
     message: 'Inventory requires the connected desktop owner.',
   });
   return {
+    stockroom: unavailable,
     previewArrival: unavailable,
     applyArrival: unavailableMutation,
     arrivalDocument: unavailable,

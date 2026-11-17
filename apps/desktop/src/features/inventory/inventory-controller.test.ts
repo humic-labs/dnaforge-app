@@ -26,6 +26,7 @@ import {
 import type {
   InventoryChanged,
   InventoryAvailabilitySnapshot,
+  InventoryStockroomSnapshot,
   InventoryClient,
   InventoryProject,
   InventoryItemCodeLookupSnapshot,
@@ -314,6 +315,16 @@ function fixture(empty = false) {
     inspect: vi.fn(async (request) =>
       request.project === other.projectId ? createInventoryState() : state
     ),
+    stockroom: vi.fn(async (request) => ({
+      expectedDeliveries: {},
+      arrivalComponents: [],
+      reorderRules: {},
+      projectId: request.project,
+      inventoryId: request.inventoryId,
+      revision: request.project === other.projectId ? 0 : state.revision,
+      asOf: 1,
+      principal,
+    })),
     availability: vi.fn(async (request) => {
       const current = request.project === other.projectId ? createInventoryState() : state;
       return {
@@ -579,6 +590,30 @@ describe('inventory interaction controller', () => {
           ? { ...current!, projectId: undefined, inventoryId: undefined }
           : { ...current!, [field]: 'different-scope' };
       vi.mocked(f.client.availability).mockResolvedValue(invalid as InventoryAvailabilitySnapshot);
+      await f.controller.initialize();
+      expect(f.controller.getSnapshot().status).toMatchObject({
+        kind: 'refused',
+        code: 'INVENTORY_READ_FAILED',
+      });
+      expect(f.client.inspect).toHaveBeenCalledTimes(3);
+      expect(f.client.execute).not.toHaveBeenCalled();
+      f.controller.dispose();
+    }
+  );
+
+  it.each(['projectId', 'inventoryId', 'missing-scope'] as const)(
+    'refuses stockroom with %s scope mismatch at the same revision',
+    async (field) => {
+      const f = fixture();
+      const current = await f.client.stockroom({
+        project: project.projectId,
+        inventoryId: project.defaultInventoryId,
+      });
+      const invalid =
+        field === 'missing-scope'
+          ? { ...current!, projectId: undefined, inventoryId: undefined }
+          : { ...current!, [field]: 'different-scope' };
+      vi.mocked(f.client.stockroom).mockResolvedValue(invalid as InventoryStockroomSnapshot);
       await f.controller.initialize();
       expect(f.controller.getSnapshot().status).toMatchObject({
         kind: 'refused',

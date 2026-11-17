@@ -1,3 +1,4 @@
+import { InventoryStockroomForm } from './InventoryStockroomForm';
 import { InventoryArrivalForm } from './InventoryArrivalForm';
 import {
   useEffect,
@@ -681,6 +682,9 @@ export function InventoryPanel() {
         </Button>
         <Button disabled={!editable} onClick={() => setDialog({ kind: 'lot' })}>
           Add lot
+        </Button>
+        <Button disabled={!data} onClick={() => setDialog({ kind: 'stockroom' })}>
+          Stockroom
         </Button>
         <Button disabled={!data} onClick={() => setDialog({ kind: 'receive-delivery' })}>
           Receive delivery
@@ -1684,6 +1688,15 @@ export function InventoryPanel() {
             data={data}
             controller={controller}
             status={status}
+            client={platform().inventory}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : dialog.kind === 'stockroom' ? (
+          <InventoryStockroomForm
+            key={data.project.projectId + ':' + data.project.defaultInventoryId}
+            data={data}
+            status={status}
+            controller={controller}
             client={platform().inventory}
             onClose={() => setDialog({ kind: 'none' })}
           />

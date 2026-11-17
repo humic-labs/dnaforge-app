@@ -24,14 +24,29 @@ export function useInventoryValidityRefresh(
     const boundaries = Object.values(snapshot.stocks).flatMap((stock) =>
       typeof stock.validity?.nextBoundaryAt === 'number' ? [stock.validity.nextBoundaryAt] : []
     );
-    if (!boundaries.length) return;
-    const boundary = boundaries.reduce((first, next) => Math.min(first, next));
-    const delay = Math.max(1, Math.min(2147483647, boundary - snapshot.asOf));
+    const stockroom = data?.stockroom;
+    const reportBoundaries =
+      stockroom &&
+      stockroom.projectId === data.project.projectId &&
+      stockroom.inventoryId === data.project.defaultInventoryId &&
+      stockroom.revision === data.state.revision
+        ? Object.values(stockroom.reorderRules).flatMap((result) =>
+            result.kind === 'ready' && result.assessment.nextBoundaryAt !== null
+              ? [result.assessment.nextBoundaryAt - stockroom.asOf]
+              : []
+          )
+        : [];
+    const delays = [...boundaries.map((boundary) => boundary - snapshot.asOf), ...reportBoundaries];
+    if (!delays.length) return;
+    const delay = Math.max(
+      1,
+      delays.reduce((first, next) => Math.min(first, next), 2147483647)
+    );
     const timer = setTimeout(() => {
       void controller.refresh();
     }, delay);
     return () => clearTimeout(timer);
-  }, [data?.availability, data?.state.revision, controller]);
+  }, [data?.availability, data?.stockroom, data?.state.revision, controller]);
 }
 
 export function InventoryValidityPanel({

@@ -74,3 +74,7 @@
 
 - [Actual delivery receiving](arrivals.md): explicit component dispositions,
   retained original text, atomic admission and duplicate no-refill behavior.
+
+- [Expected deliveries and reorder reporting](stockroom.md): original receipt
+  allocation, explicit matching corrections and native policy-based free-stock
+  projections.

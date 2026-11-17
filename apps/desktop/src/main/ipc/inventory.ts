@@ -151,6 +151,10 @@ export function registerInventoryHandlers(options: {
     }
   };
   return handleGroup(inventoryContract, {
+    stockroom: (event, request) => {
+      assertCaller(event);
+      return currentOwner().stockroom(request);
+    },
     previewArrival: (event, request) => {
       assertCaller(event);
       return currentOwner().previewArrival(request);

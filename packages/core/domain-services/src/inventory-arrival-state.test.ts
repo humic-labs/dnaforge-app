@@ -139,13 +139,29 @@ describe('immutable arrival state', () => {
 
   it('upcasts v20 without inventing old arrival facts or rewriting any existing state field', () => {
     const { state } = received(),
-      { arrivals: _arrivals, ...rest } = state;
+      {
+        expectedDeliveries: _expected,
+        arrivalAllocations: _allocations,
+        reorderRules: _rules,
+        arrivals: _arrivals,
+        ...rest
+      } = state;
     const previous = { ...rest, schema: 'dnaforge.inventory.v20' },
       before = JSON.stringify(previous);
     const parsed = parseInventoryState(previous),
-      { arrivals, schema: _schema, ...unchanged } = parsed;
+      {
+        expectedDeliveries,
+        arrivalAllocations,
+        reorderRules,
+        arrivals,
+        schema: _schema,
+        ...unchanged
+      } = parsed;
     const { schema: _oldSchema, ...oldFields } = previous;
     expect(arrivals).toEqual({});
+    expect(expectedDeliveries).toEqual({});
+    expect(arrivalAllocations).toEqual({});
+    expect(reorderRules).toEqual({});
     expect(unchanged).toEqual(oldFields);
     expect(JSON.stringify(previous)).toBe(before);
   });

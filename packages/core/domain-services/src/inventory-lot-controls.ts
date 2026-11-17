@@ -12,7 +12,7 @@ import type {
   InventoryStockEligibility,
 } from './inventory-lot-controls-types';
 import { inventoryStockValidity, inventoryUseStockIds } from './inventory-validity';
-import { inventoryRecordIdExists } from './inventory-identity';
+import { inventoryRecordIdExists, type InventoryIdentityState } from './inventory-identity';
 
 type Failure = { readonly ok: false; readonly code: InventoryErrorCode; readonly message: string };
 const refuse = (code: InventoryErrorCode, message: string): Failure => ({
@@ -180,22 +180,10 @@ export function inventoryLotUseGuard(
   return null;
 }
 
-type IdentityState = Pick<
-  InventoryState,
-  | 'storage'
-  | 'vessels'
-  | 'stocks'
-  | 'reservations'
-  | 'typeVersions'
-  | 'recipeVersions'
-  | 'fitEvidence'
-  | 'itemCodes'
-  | 'temperatureClaims'
-  | 'openingObservations'
-  | 'validityFacts'
-  | 'arrivals'
->;
-export interface InventoryLotControlDraft extends IdentityState {
+export interface InventoryLotControlDraft extends Omit<
+  InventoryIdentityState,
+  'lots' | 'lotRecalls'
+> {
   readonly lots: Record<string, InventoryLot>;
   readonly lotRecalls: Record<string, InventoryLotRecall>;
 }

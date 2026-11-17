@@ -62,7 +62,7 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryApplyImportRequest,
     context: InventoryExecutionContext,
-    receiptContextVersion: 1 | 2 | 3 | 4 | undefined
+    receiptContextVersion: 1 | 2 | 3 | 4 | 5 | undefined
   ) => InventoryTransition,
   table: (
     target: InventoryState | null,
@@ -141,6 +141,22 @@ export function replayNativeInventoryEntries(
       )
     )
       throw new Error('INVENTORY_DATA_INVALID: Opening and validity require V3 receipt semantics.');
+    if (
+      contextVersion < 5 &&
+      !('kind' in request) &&
+      request.commands.some((command) =>
+        [
+          'record-expected-delivery',
+          'allocate-arrival',
+          'withdraw-arrival-allocation',
+          'close-expected-delivery-remainder',
+          'reopen-expected-delivery',
+          'record-reorder-rule',
+          'retire-reorder-rule',
+        ].includes(command.kind)
+      )
+    )
+      throw new Error('INVENTORY_DATA_INVALID: Stockroom commands require V5 receipt semantics.');
     if (request.expectedRevision !== state.revision)
       throw new Error('INVENTORY_DATA_INVALID: The saved inventory journal is not contiguous.');
     let result: InventoryTransition;
@@ -231,6 +247,15 @@ export function replayNativeInventoryEntries(
     if (contextVersion < 4 && Object.keys(result.state.arrivals).length > 0)
       throw new Error(
         'INVENTORY_DATA_INVALID: Actual arrivals cannot enter through pre-V4 receipt semantics.'
+      );
+    if (
+      contextVersion < 5 &&
+      (Object.keys(result.state.expectedDeliveries).length > 0 ||
+        Object.keys(result.state.arrivalAllocations).length > 0 ||
+        Object.keys(result.state.reorderRules).length > 0)
+    )
+      throw new Error(
+        'INVENTORY_DATA_INVALID: Stockroom facts cannot enter through pre-V5 receipt semantics.'
       );
     state = cumulativeLotSemantics
       ? result.state

@@ -28,7 +28,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v21. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v22. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -415,6 +415,82 @@ Receipt context version 4 admits arrivals and preserves the prior monotonic
 context rules; older contexts cannot contain new arrivals or too-new source
 archives. Orders and receipt allocations are separate; expected orders never
 manufacture physical stock, and later consumption cannot undo an actual receipt.
+
+## Expectations, receipt matching and reorder reporting
+
+Expected deliveries are reasoned statements, not physical stock or submitted
+supplier orders. `record-expected-delivery` records an explicit material and
+positive exact amount. `allocate-arrival` matches a known originally received
+component amount to that expectation. All active allocations across every line
+share the original received limit, and each line has its own expected limit.
+Package labels, unresolved contents and current remaining amounts cannot stand
+in for original receipt quantities. Over-delivery stays physically received in
+full; unmatched excess remains explicit.
+
+```mermaid
+stateDiagram-v2
+    Open --> RemainderClosed: reasoned cancellation of positive unmatched remainder
+    RemainderClosed --> Open: explicit reopen before matching corrections
+```
+
+```mermaid
+stateDiagram-v2
+    NoneReceived --> PartlyReceived: allocate original arrival
+    NoneReceived --> FullyReceived: allocate complete expected amount
+    PartlyReceived --> FullyReceived: allocate remainder
+    FullyReceived --> PartlyReceived: withdraw incorrect allocation
+    PartlyReceived --> NoneReceived: withdraw all allocations
+```
+
+Line lifecycle and received progress are independent. Progress is derived from
+active allocation facts; use, transfer, disposal, quarantine, recall and expiry
+cannot change what was received. `withdraw-arrival-allocation` retains its
+reasoned correction. Closing snapshots the positive unmatched remainder;
+closed-line matching changes require `reopen-expected-delivery`. Neither action
+changes stock. Replacement expectations remain separate statements with reasons.
+
+Reorder rules declare exact material, amount dimension and threshold plus two
+explicit policies: `actionBasis` reserve or withdraw, and `validityBasis`
+current-recorded-rules or confirmed-current-validity. Suitable-for-reservation
+stock differs from ready-to-withdraw stock: sealed material can satisfy the
+former when its opening-dependent rule permits it. Confirmed validity requires
+managed coverage and the selected native validity admission; compatibility
+coverage is visibly not proof of current/unexpired material. Rule replacement
+can retire and record in one batch.
+
+```mermaid
+stateDiagram-v2
+    Configured --> Adequate: known eligible free lower bound reaches threshold
+    Configured --> NeedsMeasurement: below threshold with eligible unknown amounts
+    Configured --> Low: below threshold with no relevant eligible unknown amount
+    Low --> Low: record another expected delivery
+    Low --> Adequate: actual eligible receipt or explicit accounting change
+```
+
+The native `stockroom` read returns expectation progress, original component
+allocation remainders and reorder reports at one declared project, inventory,
+revision, principal and native observation time. Operational eligibility is
+factored inside the existing availability owner before quantity knowledge, so an
+eligible unknown amount is retained as unknown rather than silently excluded.
+Holds reduce free quantities, including the caller's holds. Matching commercial
+receipts does not subtract physical quantity again.
+
+Known eligible free subtotal is a nonnegative lower bound. Reaching the
+threshold proves adequate even with additional unknown amounts. Otherwise,
+relevant unknowns require measurement; with none, it is low under the selected
+policy. Other dimensions, excluded stock and untracked coverage remain explicit.
+Unrepresentable sums cannot produce false exact/low claims; a proven adequate
+lower bound is marked at-least, otherwise the report is unavailable. Future
+boundaries cause a new native read, never a persisted low-stock flag or renderer
+business clock. No expected amount enters stock totals and no report submits
+orders, messages or payments.
+
+v1–v21 state gains empty expectation, allocation and reorder maps without
+inventing historical statements or changing existing arrivals, validity and
+controls. Receipt context version 5 admits the seven commands and preserves
+older transition semantics, original requests, receipts and hashes. Current
+scientific admission applies to material-bearing statements and rules; archive
+adoption maps their explicit material references and imported actors.
 
 ## Physical custody and observations
 

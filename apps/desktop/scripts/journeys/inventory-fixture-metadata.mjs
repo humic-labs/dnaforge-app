@@ -1,5 +1,5 @@
 export function inventoryFixtureMetadataDefaults(state) {
-  if (state.schema !== 'dnaforge.inventory.v21')
+  if (state.schema !== 'dnaforge.inventory.v22')
     throw new Error(
       'Capture an exact current native fixture with refresh-fixture before resuming this journey.'
     );
@@ -16,6 +16,9 @@ export function inventoryFixtureMetadataDefaults(state) {
     openingObservations,
     validityFacts,
     arrivals,
+    expectedDeliveries,
+    arrivalAllocations,
+    reorderRules,
   } = state;
   return {
     schema,
@@ -30,5 +33,8 @@ export function inventoryFixtureMetadataDefaults(state) {
     openingObservations,
     validityFacts,
     arrivals,
+    expectedDeliveries,
+    arrivalAllocations,
+    reorderRules,
   };
 }

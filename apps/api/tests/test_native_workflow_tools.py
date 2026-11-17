@@ -80,6 +80,7 @@ async def test_search_runs_without_a_renderer_or_any_write_capability(native):
 @pytest.mark.parametrize(
     "operation, result_kind, result_field",
     [
+        ("stockroom", "stockroom", "stockroom"),
         ("inspect", "inspection", "state"),
         ("availability", "availability", "availability"),
     ],
