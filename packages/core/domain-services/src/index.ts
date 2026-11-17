@@ -15,3 +15,5 @@ export {
   normalizeInventoryBenchlingCaptureStocks,
 } from './inventory-benchling-application';
 export type * from './inventory-benchling-application-types';
+
+export * from './inventory-amount';

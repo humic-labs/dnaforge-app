@@ -65,3 +65,17 @@ incompatible transfer with unchanged state and history.
   establish physical fit or pipetting feasibility.
 - This slice records exact volumes. Concentration and mixture calculations
   remain separate acceptance work.
+
+## Exact amount arithmetic
+
+The portable arithmetic boundary distinguishes volume, mass, amount of substance
+and whole-item counts. Run `inventory-amount.test.ts` from the domain-services
+package. Require exact same-dimension conversion, refusal of cross-dimension
+arithmetic even at zero, whole counts beyond JavaScript's safe integer range,
+explicit units for empty sums, bounded input/output and unchanged legacy volume
+results. Activity labels without a shared assay definition are unsupported.
+
+Arithmetic support alone does not establish stockroom receiving support. The
+current stock, reservation and mixing contracts remain volume-specific until
+those business contracts and their real workflows are explicitly generalized.
+Package counts never supply a content measurement by inference.

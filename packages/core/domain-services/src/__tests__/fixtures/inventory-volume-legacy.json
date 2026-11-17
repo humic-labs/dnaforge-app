@@ -1,0 +1,4761 @@
+{
+  "schema": "dnaforge.inventory-volume-regressions.v1",
+  "cases": [
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "0",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "1000000",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "1000",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "1.23456789",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "1234567.89",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "9007199254740993000000",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "0",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "1000",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "1",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "1.23456789",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "1234.56789",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "9007199254740993000",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "1",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "1.23456789",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "1.23456789",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "0",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0.000001",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "1.23456789",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0.00123456789",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "9007199254740.993",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 0
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "non-positive"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0",
+          "unit": "uL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "non-positive"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 0
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 0
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "nL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0.0009999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "non-positive"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 0
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 0
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.001",
+          "unit": "uL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0.0009999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "non-positive"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0.999",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0.999",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 0
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "uL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0.9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "non-positive"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "1229.999",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "1229.999",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "1229",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 0
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1.23",
+          "unit": "mL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "non-positive"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "999999.999",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "999999.999",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "999999",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "998770",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 0
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1",
+          "unit": "L"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "non-positive"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "9007199254740992.999",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "9007199254740992.999",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "9007199254740992",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "9007199254739763",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "9007199253740993",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 0
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "non-positive"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 0
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "non-positive"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999998",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999998769",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999998999999",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999990992800745259006",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 0
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "0",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "non-positive"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "1",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "1.23",
+          "unit": "mL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "1",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "L"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": -1
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "insufficient"
+        }
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": 0
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        },
+        {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "nL"
+        }
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "kind": "remaining",
+          "quantity": {
+            "value": "0",
+            "unit": "uL"
+          }
+        }
+      }
+    },
+    {
+      "operation": "addInventoryVolumes",
+      "args": [
+        []
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "addInventoryVolumes",
+      "args": [
+        [
+          {
+            "value": "0",
+            "unit": "uL"
+          },
+          {
+            "value": "1",
+            "unit": "nL"
+          },
+          {
+            "value": "0.001",
+            "unit": "uL"
+          },
+          {
+            "value": "1",
+            "unit": "uL"
+          },
+          {
+            "value": "1.23",
+            "unit": "mL"
+          },
+          {
+            "value": "1",
+            "unit": "L"
+          }
+        ]
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "1001231.002",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "addInventoryVolumes",
+      "args": [
+        [
+          {
+            "value": "1",
+            "unit": "L"
+          },
+          {
+            "value": "1.23",
+            "unit": "mL"
+          },
+          {
+            "value": "1",
+            "unit": "uL"
+          },
+          {
+            "value": "0.001",
+            "unit": "uL"
+          },
+          {
+            "value": "1",
+            "unit": "nL"
+          },
+          {
+            "value": "0",
+            "unit": "uL"
+          }
+        ]
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "1001231.002",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "addInventoryVolumes",
+      "args": [
+        [
+          {
+            "value": "0.1",
+            "unit": "uL"
+          },
+          {
+            "value": "0.2",
+            "unit": "uL"
+          }
+        ]
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0.3",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "addInventoryVolumes",
+      "args": [
+        [
+          {
+            "value": "0",
+            "unit": "uL"
+          }
+        ]
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "addInventoryVolumes",
+      "args": [
+        [
+          {
+            "value": "1",
+            "unit": "nL"
+          }
+        ]
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "addInventoryVolumes",
+      "args": [
+        [
+          {
+            "value": "0.001",
+            "unit": "uL"
+          }
+        ]
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0.001",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "addInventoryVolumes",
+      "args": [
+        [
+          {
+            "value": "1",
+            "unit": "uL"
+          }
+        ]
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "1",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "addInventoryVolumes",
+      "args": [
+        [
+          {
+            "value": "1.23",
+            "unit": "mL"
+          }
+        ]
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "1230",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "addInventoryVolumes",
+      "args": [
+        [
+          {
+            "value": "1",
+            "unit": "L"
+          }
+        ]
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "1000000",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "addInventoryVolumes",
+      "args": [
+        [
+          {
+            "value": "9007199254740993",
+            "unit": "uL"
+          }
+        ]
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "9007199254740993",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "addInventoryVolumes",
+      "args": [
+        [
+          {
+            "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+            "unit": "L"
+          }
+        ]
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "addInventoryVolumes",
+      "args": [
+        [
+          {
+            "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+            "unit": "uL"
+          }
+        ]
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "addInventoryVolumes",
+      "args": [
+        [
+          {
+            "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+            "unit": "nL"
+          }
+        ]
+      ],
+      "result": {
+        "kind": "returned",
+        "value": {
+          "value": "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+          "unit": "uL"
+        }
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "-1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "-1",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "-1",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "1e3",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "1e3",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "1e3",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "01",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "01",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "01",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": 1,
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": 1,
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": 1,
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": null,
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": null,
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": null,
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "normalizeInventoryVolume",
+      "args": [
+        {
+          "value": "999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "compareInventoryVolumes",
+      "args": [
+        {
+          "value": "999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    },
+    {
+      "operation": "subtractInventoryVolume",
+      "args": [
+        {
+          "value": "999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "unit": "uL"
+        },
+        {
+          "value": "1",
+          "unit": "uL"
+        }
+      ],
+      "result": {
+        "kind": "threw",
+        "name": "TypeError"
+      }
+    }
+  ]
+}
