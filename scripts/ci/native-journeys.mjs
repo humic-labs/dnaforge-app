@@ -22,6 +22,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { helperExecutableName } from '../../apps/desktop/scripts/lib/verify-package-helpers.cjs';
+import { NATIVE_JOURNEY_COMMAND_TIMEOUT_MS } from '../../apps/desktop/scripts/lib/native-journey-readiness.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const GUARD = 'apps/desktop/scripts/dev-single-instance-guard.cjs';
@@ -262,7 +263,7 @@ export function journeyEnvironment(environment, ports, context, journey) {
   return result;
 }
 
-async function runCommand(root, env, args, logfile, timeoutMs = 600_000) {
+async function runCommand(root, env, args, logfile, timeoutMs = NATIVE_JOURNEY_COMMAND_TIMEOUT_MS) {
   const output = openSync(logfile, 'wx');
   try {
     await new Promise((done, reject) => {

@@ -6,6 +6,10 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { chromium } from 'playwright';
 import { expect } from '@playwright/test';
+import {
+  NATIVE_JOURNEY_COMMAND_TIMEOUT_MS,
+  waitForInitialWorkspaceIndexing,
+} from './lib/native-journey-readiness.mjs';
 import { finalizeJourneyRecording } from './lib/native-journey-recording.mjs';
 
 const { values } = parseArgs({
@@ -32,6 +36,20 @@ const receipt = {
 let browser;
 let cdp;
 let page;
+function interruptJourney(reason) {
+  receipt.status = 'failed';
+  receipt.error = receipt.error ? `${receipt.error}\n${reason}` : reason;
+  receipt.finishedAt = new Date().toISOString();
+  writeFileSync(join(stage, 'receipt.json'), JSON.stringify(receipt, null, 2));
+  console.error(receipt.error);
+  process.exit(1);
+}
+const deadline = setTimeout(
+  () => interruptJourney('Workspace journey exceeded its execution deadline'),
+  NATIVE_JOURNEY_COMMAND_TIMEOUT_MS
+);
+const onTermination = () => interruptJourney('Workspace journey received SIGTERM');
+process.once('SIGTERM', onTermination);
 try {
   const status = execFileSync(
     process.execPath,
@@ -230,44 +248,34 @@ try {
     receipt.setup.indexing = {
       before: { at: new Date().toISOString(), folders: initialFolders },
     };
-    let indexingTimer;
     try {
-      await Promise.race([
-        (async () => {
-          await page.evaluate(
-            async (paths) => {
-              const wait = window.__test?.waitForWorkspaceReconcileIdle;
-              if (typeof wait !== 'function')
-                throw new Error('Workspace reconciliation readiness observation is unavailable');
-              await Promise.all(paths.map((path) => wait(path)));
-            },
-            initialFolders.map((folder) => folder.path)
-          );
-          receipt.setup.indexing.after = {
-            at: new Date().toISOString(),
-            folders: (await observe()).folders,
-            visibleErrors: await page
-              .locator('[data-testid="project-index-error"]:visible')
-              .allTextContents(),
-          };
-          assert.deepEqual(
-            receipt.setup.indexing.after.visibleErrors,
-            [],
-            'Initial project records must load before workspace transitions'
-          );
-        })(),
-        new Promise((_, reject) => {
-          indexingTimer = setTimeout(
-            () => reject(new Error('Initial project reconciliation did not settle within 60000ms')),
-            60000
-          );
-        }),
-      ]);
+      await waitForInitialWorkspaceIndexing(
+        page,
+        initialFolders.map((folder) => folder.path)
+      );
+      receipt.setup.indexing.after = {
+        at: new Date().toISOString(),
+        folders: (await observe()).folders,
+        visibleErrors: await page
+          .locator('[data-testid="project-index-error"]:visible')
+          .allTextContents(),
+        mountErrors: receipt.consoleErrors.filter((entry) =>
+          entry.text.startsWith('[App] Failed to reconcile workspace on mount:')
+        ),
+      };
+      assert.deepEqual(
+        receipt.setup.indexing.after.visibleErrors,
+        [],
+        'Initial project records must load before workspace transitions'
+      );
+      assert.deepEqual(
+        receipt.setup.indexing.after.mountErrors,
+        [],
+        'Initial project indexing failed'
+      );
     } catch (error) {
       receipt.setup.indexing.failedAt = new Date().toISOString();
       throw error;
-    } finally {
-      clearTimeout(indexingTimer);
     }
     await page.keyboard.press('Escape');
     const suffix = Date.now();
@@ -322,5 +330,7 @@ try {
     await browser?.close();
   }
 }
+clearTimeout(deadline);
+process.off('SIGTERM', onTermination);
 console.log(`WORKSPACE_SESSION_${receipt.status.toUpperCase()} ${join(stage, 'receipt.json')}`);
 if (receipt.error) console.error(receipt.error);

@@ -93,15 +93,16 @@ This proves encoding only; the unchanged full journey must still pass in CI.
 - Workspace transitions require the runner's fresh scenario profile. Setup waits
   for successful sample import, the visible Samples project and no pending
   imports, then observes the existing reconciliation-idle signal for each
-  initial project within a separate 60-second setup deadline. It records the
-  project identities and wait times, and refuses a visible project-index error
-  before changing the project collection. It archives setup projects once and
-  verifies exactly one project remains before testing removal refusal. The
-  archive assertion retains its five-second deadline. Only the restoration phase
-  reuses that profile. Archiving awaits the required confirmation button. The
-  receipt retains the requested project and the observed folder, database and
-  preference state so a failed removal can be distinguished from a delayed or
-  refused operation.
+  initial project. A native command has ten minutes to finish, including in a
+  standalone workspace run. The driver records the project identities and wait
+  times and rejects mount failures or visible indexing errors before changing
+  the project collection. It archives setup projects once and verifies exactly
+  one project remains before testing removal refusal. The archive assertion
+  retains its five-second deadline. Only the restoration phase reuses that
+  profile. Archiving awaits the required confirmation button. The receipt
+  retains the requested project and the observed folder, database and preference
+  state so a failed removal can be distinguished from a delayed or refused
+  operation.
 - Canvas, chat and palette reloads use `reloadNativePage` from
   `apps/desktop/scripts/lib/native-journey-readiness.mjs`. Navigation and native
   readiness share one deadline; a new load identity, page readiness and shell

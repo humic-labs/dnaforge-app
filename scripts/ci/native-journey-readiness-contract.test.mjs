@@ -184,3 +184,35 @@ test('failure to read the native startup authority cannot launch a speculative r
     false
   );
 });
+
+test('the workspace fixture waits for every initial root through a slow seed reconciliation', async (t) => {
+  assert.equal(typeof subject?.waitForInitialWorkspaceIndexing, 'function');
+  assert.equal(subject.NATIVE_JOURNEY_COMMAND_TIMEOUT_MS, 600_000);
+  const roots = ['/sample-project', '/empty-project'];
+  const pending = new Map(roots.map((root) => [root, Promise.withResolvers()]));
+  const previousWindow = globalThis.window;
+  globalThis.window = { __test: { waitForWorkspaceReconcileIdle: (root) => pending.get(root).promise } };
+  t.after(() => { globalThis.window = previousWindow; });
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'] });
+  let ready = false;
+  const page = { evaluate: (observe, args) => observe(args) };
+  const waiting = subject.waitForInitialWorkspaceIndexing(page, roots).then(() => { ready = true; });
+  pending.get(roots[1]).resolve();
+  t.mock.timers.tick(60_001);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(ready, false);
+  pending.get(roots[0]).resolve();
+  await waiting;
+  assert.equal(ready, true);
+});
+
+test('the workspace fixture surfaces a missing or failing reconciliation observer', async (t) => {
+  assert.equal(typeof subject?.waitForInitialWorkspaceIndexing, 'function');
+  const previousWindow = globalThis.window;
+  t.after(() => { globalThis.window = previousWindow; });
+  const page = { evaluate: (observe, args) => observe(args) };
+  globalThis.window = { __test: {} };
+  await assert.rejects(() => subject.waitForInitialWorkspaceIndexing(page, ['/sample-project']));
+  globalThis.window.__test.waitForWorkspaceReconcileIdle = async () => { throw new Error('failed to index project'); };
+  await assert.rejects(() => subject.waitForInitialWorkspaceIndexing(page, ['/sample-project']), /failed to index project/);
+});

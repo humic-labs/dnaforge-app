@@ -1,5 +1,17 @@
 import assert from 'node:assert/strict';
 
+export const NATIVE_JOURNEY_COMMAND_TIMEOUT_MS = 600_000;
+
+export async function waitForInitialWorkspaceIndexing(page, paths) {
+  assert.ok(paths.length > 0, 'Workspace setup requires an initial project');
+  await page.evaluate(async (roots) => {
+    const wait = window.__test?.waitForWorkspaceReconcileIdle;
+    if (typeof wait !== 'function')
+      throw new Error('Workspace reconciliation readiness observation is unavailable');
+    await Promise.all(roots.map((root) => wait(root)));
+  }, paths);
+}
+
 export async function reloadNativePage(page, { timeoutMs = 60000, observe = () => {} } = {}) {
   assert.ok(Number.isFinite(timeoutMs) && timeoutMs > 0, 'Reload needs a finite deadline');
   const deadline = Date.now() + timeoutMs;
