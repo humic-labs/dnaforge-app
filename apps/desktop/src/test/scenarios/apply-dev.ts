@@ -607,10 +607,6 @@ async function applyPresetTrackViewCompositionIfAny(
       import('../../platform'),
       import('../../features/sequence/public/indexed-track-admission'),
     ]);
-    const projectRoot = await platform().path.projectRoot();
-    if (!projectRoot) {
-      throw new Error(`Dev preset ${preset.id} cannot resolve its checked-in track fixtures.`);
-    }
     const localSources = preset.trackViewLocalSources;
     dependencies = {
       admit: async (input) => {
@@ -623,17 +619,16 @@ async function applyPresetTrackViewCompositionIfAny(
             `Dev preset ${preset.id} has no local source for ${input.request.source.url}.`
           );
         }
-        const path = resolveProjectFixturePath(projectRoot, localSource.relativePath);
-        const stat = await platform().fs.stat(path);
+        const retained = await platform().internalFixtures.retainTrack({
+          relativePath: localSource.relativePath,
+        });
+        const stat = await platform().fs.stat(retained.path);
         if (!stat.isFile || stat.size !== localSource.sizeBytes) {
           throw new Error(
             `Dev preset ${preset.id} requires the complete ${localSource.sizeBytes}-byte ` +
               `BigWig at ${localSource.relativePath}; found ${stat.size} bytes.`
           );
         }
-        const retained = await platform().internalFixtures.retainTrack({
-          relativePath: localSource.relativePath,
-        });
         return admitIndexedBigWigRequest({
           request: {
             ...input.request,
@@ -807,19 +802,6 @@ function assemblyGlobalViewport(
     offset += chromosome.length;
   }
   throw new Error(`Saved Track View viewport names unknown chromosome ${chrom}.`);
-}
-
-function resolveProjectFixturePath(projectRoot: string, relativePath: string): string {
-  const normalized = relativePath.replace(/\\/g, '/');
-  const segments = normalized.split('/');
-  if (
-    normalized.startsWith('/') ||
-    /^[a-z]:\//i.test(normalized) ||
-    segments.some((segment) => segment === '' || segment === '.' || segment === '..')
-  ) {
-    throw new Error(`Dev track fixture path must be a safe project-relative path: ${relativePath}`);
-  }
-  return `${projectRoot.replace(/[\\/]+$/, '')}/${normalized}`;
 }
 
 export async function rebindScenarioWorkspaceAfterRendererSettles(): Promise<void> {
