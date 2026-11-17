@@ -1,6 +1,6 @@
 import { isRecoveredComputeResultDirectory } from '../../shared/compute-result-path';
 import { randomUUID } from 'node:crypto';
-import { lstat, readdir, unlink } from 'node:fs/promises';
+import { readdir, unlink } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import {
   buildDefaultMolecularDocument,
@@ -22,6 +22,7 @@ import {
   type MolecularMigrationOptions,
   type MolecularMigrationResult,
 } from './molecular-migration-journal';
+import { hasDocumentPackageMarker } from './migration-paths';
 
 export type CoordinatePackageResult =
   | { converted: true; productPath: string }
@@ -56,7 +57,7 @@ async function materializeCoordinatePackageWithJournal(
   const format = packagedCoordinateFormat(fileName);
   if (!format) return null;
   for (let directory = dirname(resolve(coordinatePath)); ; directory = dirname(directory)) {
-    if (await packageDirectory(directory))
+    if (await hasDocumentPackageMarker(directory))
       throw new Error(`MOLECULAR_MIGRATION_PACKAGE_MEMBER: ${coordinatePath}`);
     if (dirname(directory) === directory) break;
   }
@@ -84,31 +85,12 @@ async function materializeCoordinatePackageWithJournal(
 const SKIPPED_ROOT_DIRECTORIES = new Set(['Structures', 'compute', 'node_modules']);
 const MAX_TREE_ENTRIES = 50_000;
 const MAX_TREE_DEPTH = 40;
-const PACKAGE_MARKERS = [
-  'plasmid.json',
-  'sequence.json',
-  'notebook.json',
-  'protocol.json',
-  'protocol-run.json',
-];
 
 function molecularViewNames(stem: string): string[] {
   return Array.from(
     { length: 1000 },
     (_, n) => `${n === 0 ? stem : `${stem} ${n + 1}`}${MOLECULAR_DOCUMENT_SUFFIX}`
   );
-}
-
-async function packageDirectory(path: string): Promise<boolean> {
-  for (const name of PACKAGE_MARKERS) {
-    try {
-      await lstat(join(path, '.forge', name));
-      return true;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    }
-  }
-  return false;
 }
 
 async function molecularMigrationCandidates(
@@ -126,7 +108,8 @@ async function molecularMigrationCandidates(
         member === '' || (!isAbsolute(member) && member !== '..' && !member.startsWith(`..${sep}`))
       );
     });
-    if (depth > MAX_TREE_DEPTH || protectedDirectory || (await packageDirectory(directory))) return;
+    if (depth > MAX_TREE_DEPTH || protectedDirectory || (await hasDocumentPackageMarker(directory)))
+      return;
     try {
       for (const source of await pendingMolecularMigrationSources(directory, kind))
         candidates.add(source);

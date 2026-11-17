@@ -217,6 +217,19 @@ export async function collectMolecularMigrationGitContent(
           [manifestPath]: hash(manifestBytes),
           [completionPath]: hash(completionBytes),
         };
+        const restoredPath = join(attempt, 'restored.json');
+        if (await optionalStat(restoredPath)) {
+          const restoredBytes = (await readRegular(restoredPath)).bytes;
+          if (
+            restoredBytes.toString('utf8') !==
+            JSON.stringify({
+              schema: 'dnaforge.molecular-migration-restored.v1',
+              sourceSha256: manifest.source.sha256,
+            })
+          )
+            throw new Error(`MOLECULAR_MIGRATION_RESTORATION_CHANGED: ${restoredPath}`);
+          pins[restoredPath] = hash(restoredBytes);
+        }
         for (const [name, sha256] of [
           ['original', manifest.source.sha256],
           ['product', manifest.product.sha256],
@@ -443,6 +456,14 @@ async function migrateMolecularFileWithinCleanSource(
     }
     const attempt = join(root, manifest.attempt);
     const manifestPath = join(attempt, 'manifest.json');
+    const restoredPath = join(attempt, 'restored.json');
+    const restoredBytes = JSON.stringify({
+      schema: 'dnaforge.molecular-migration-restored.v1',
+      sourceSha256: manifest.source.sha256,
+    });
+    const restored = await optionalStat(restoredPath);
+    if (restored && !(await readRegular(restoredPath)).bytes.equals(Buffer.from(restoredBytes)))
+      throw new Error(`MOLECULAR_MIGRATION_RESTORATION_CHANGED: ${restoredPath}`);
     if (!(await lstat(attempt)).isDirectory())
       throw new Error(`MOLECULAR_MIGRATION_DIRECTORY_CHANGED: ${attempt}`);
     const productPath = join(parent, manifest.productName);
@@ -466,10 +487,15 @@ async function migrateMolecularFileWithinCleanSource(
         throw new Error(`MOLECULAR_MIGRATION_COMPLETION_CHANGED: ${attempt}`);
       if (await optionalStat(retainedPath)) {
         await assertSource(retainedPath, manifest.source, true);
-        if (await optionalStat(sourcePath))
-          throw new Error(`MOLECULAR_MIGRATION_SOURCE_REAPPEARED: ${sourcePath}`);
+        if (await optionalStat(sourcePath)) {
+          if (!restored) throw new Error(`MOLECULAR_MIGRATION_SOURCE_REAPPEARED: ${sourcePath}`);
+          await assertSource(sourcePath, manifest.source, true);
+          assertAuthority();
+          await unlink(retainedPath);
+          await syncDirectory(attempt);
+        }
       } else {
-        await assertSource(sourcePath, manifest.source);
+        await assertSource(sourcePath, manifest.source, !!restored);
       }
       assertAuthority();
       if (!(await optionalStat(productPath))) {
@@ -482,7 +508,7 @@ async function migrateMolecularFileWithinCleanSource(
       }
       await assertFile(productPath, manifest.product);
       if (!(await optionalStat(retainedPath))) {
-        await assertSource(sourcePath, manifest.source);
+        await assertSource(sourcePath, manifest.source, !!restored);
         assertAuthority();
         await rename(sourcePath, retainedPath);
         await Promise.all([syncDirectory(parent), syncDirectory(attempt)]);
@@ -502,7 +528,47 @@ async function migrateMolecularFileWithinCleanSource(
       await assertSource(retiringPath, manifest.source, true);
       await assertFile(productPath, manifest.product);
       assertAuthority();
-      await options.removeSource(retiringPath);
+      try {
+        await options.removeSource(retiringPath);
+      } catch (error) {
+        await assertSource(retainedPath, manifest.source, true);
+        assertAuthority();
+        if (!(await optionalStat(restoredPath))) await durable(restoredPath, restoredBytes);
+        if (!(await readRegular(restoredPath)).bytes.equals(Buffer.from(restoredBytes)))
+          throw new Error(`MOLECULAR_MIGRATION_RESTORATION_CHANGED: ${restoredPath}`);
+        try {
+          assertAuthority();
+          await link(retainedPath, sourcePath);
+        } catch (restoreError) {
+          if ((restoreError as NodeJS.ErrnoException).code !== 'EEXIST') throw restoreError;
+        }
+        await assertSource(sourcePath, manifest.source, true);
+        await syncDirectory(parent);
+        await assertFile(productPath, manifest.product);
+        const rollback = await mkdtemp(join(attempt, 'rollback-'));
+        const claimed = join(rollback, 'product');
+        try {
+          assertAuthority();
+          await rename(productPath, claimed);
+          await Promise.all([syncDirectory(parent), syncDirectory(rollback)]);
+          await assertFile(claimed, manifest.product);
+          assertAuthority();
+          await unlink(claimed);
+          await syncDirectory(rollback);
+        } catch (rollbackError) {
+          if (await optionalStat(claimed)) {
+            await link(claimed, productPath).catch(() => undefined);
+            await syncDirectory(parent);
+          }
+          throw new AggregateError(
+            [error, rollbackError],
+            'Molecular migration rollback remains pending.'
+          );
+        } finally {
+          await rmdir(rollback).catch(() => undefined);
+        }
+        throw error;
+      }
       if (await optionalStat(retiringPath))
         throw new Error(`MOLECULAR_MIGRATION_RETIREMENT_INCOMPLETE: ${retiringPath}`);
       await assertSource(retainedPath, manifest.source, true);
@@ -526,6 +592,7 @@ async function migrateMolecularFileWithinCleanSource(
         join(attempt, 'original'),
         stagedProduct,
         retainedPath,
+        ...((await optionalStat(restoredPath)) ? [restoredPath] : []),
       ]) {
         const file = await readRegular(path);
         expectedContentSha256[path] = hash(file.bytes);

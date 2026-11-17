@@ -39,6 +39,7 @@ import {
   collectRetainedComputeSourcePaths,
   isRetainedComputeSourceCandidate,
 } from './compute-retained-source-discovery';
+import { isSequenceMigrationRecoveryPath } from '../../shared/sequence-migration-path';
 
 export type {
   ManagedCatalogHeadIndex,
@@ -340,8 +341,11 @@ export async function collectManagedCatalogHeadIndex(
     : new Set<string>();
   const selected: ManagedHeadEntry[] = [];
   let visibleFileCount = 0;
+  let scannedFileCount = 0;
 
   for (const entry of entries) {
+    if (isSequenceMigrationRecoveryPath(entry.relPath)) continue;
+    scannedFileCount++;
     if (isVisibleManagedHeadFile(entry.relPath)) visibleFileCount++;
     if (
       isRetainedComputeSourceCandidate(
@@ -362,7 +366,7 @@ export async function collectManagedCatalogHeadIndex(
   return {
     headCommit,
     files: await hydrateManagedHeadFiles(repoPath, selected),
-    scannedFileCount: entries.length,
+    scannedFileCount,
     visibleFileCount,
     healedFileCount,
     migrationIssues,
