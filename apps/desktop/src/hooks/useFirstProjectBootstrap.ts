@@ -13,6 +13,7 @@ import {
 } from '../shared/first-project';
 import { refreshPrimerRecoveryInventory } from '../features/primers/public/primer-recovery-report';
 import { reportPrimerRecoveryInventory } from '../services/workspace-reconcile-report';
+import { saveLegacyPrimerLibraryAsFiles } from '../services/primer-library-file-recovery';
 import {
   beginProjectLifecycle,
   bindProjectLifecycle,
@@ -51,7 +52,12 @@ export function useFirstProjectBootstrap({
       return;
     primerRecoveryInventoryStarted.current = true;
     void refreshPrimerRecoveryInventory()
-      .then(reportPrimerRecoveryInventory)
+      .then(async (inventory) => {
+        reportPrimerRecoveryInventory(inventory);
+        if (inventory.entries.some((entry) => entry.status === 'legacy-library')) {
+          await saveLegacyPrimerLibraryAsFiles(reportPrimerRecoveryInventory);
+        }
+      })
       .catch((error: unknown) => {
         console.warn('[PrimerRecovery] Could not refresh the recovery inventory:', error);
       });

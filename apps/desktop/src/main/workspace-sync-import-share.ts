@@ -214,6 +214,13 @@ async function importShareIntoManagedWorkspaceUnobserved(
 
     await initManagedRepo(stagingRepoPath);
     const conversion = await convertTreeToPlasmidPackages(stagingRepoPath);
+    if (conversion.failures.length > 0) {
+      throw new Error(
+        `Shared project conversion failed: ${conversion.failures
+          .map((failure) => `${failure.path}: ${failure.message}`)
+          .join('; ')}`
+      );
+    }
     await commitAllIfDirty(stagingRepoPath, 'Import Deep Share private fork', {
       forceInclude: conversion.requiredGitFiles,
     });

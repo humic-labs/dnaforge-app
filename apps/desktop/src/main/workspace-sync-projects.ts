@@ -1446,10 +1446,10 @@ async function materializeSyncedWorkspace(
         : input.downloadManifestFile
     );
     if (conversion.failures.length > 0) {
-      console.warn(
-        `[workspace-sync] Restored workspace "${workspaceUuid}" with ` +
-          `${conversion.failures.length} package conversion failure(s).`,
-        conversion.failures
+      throw new Error(
+        `Remote workspace package conversion failed: ${conversion.failures
+          .map((failure) => `${failure.path}: ${failure.message}`)
+          .join('; ')}`
       );
     }
     const registryProjection: FreshRestoreRegistryProjection =
