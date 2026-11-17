@@ -5,6 +5,7 @@ import {
   canonicalPredictionProtein,
   submittedProteins,
 } from '../../shared/compute-protein-sequence';
+import { isWorkspaceSyncDatabaseBusyError } from '../../shared/workspace-sync-errors';
 
 import type Database from 'better-sqlite3';
 
@@ -215,6 +216,7 @@ export class ComputeJobRegistry {
   private readonly recoveringResults = new Set<string>();
   private readonly requestedRecoveryRetries = new Set<string>();
   private readonly recoveryTails = new Map<string, Promise<void>>();
+  private readonly recoveryRetryTimers = new Map<string, { cancel: () => void }>();
 
   constructor(deps: ComputeJobsDeps) {
     this.deps = {
@@ -607,6 +609,8 @@ export class ComputeJobRegistry {
     )
       return;
     const db = this.deps.db();
+    this.recoveryRetryTimers.get(job.id)?.cancel();
+    this.recoveryRetryTimers.delete(job.id);
     const assertCurrent = () => {
       if (this.stopped || this.deps.db() !== db) throw new Error('COMPUTE_MIGRATION_OWNER_CHANGED');
     };
@@ -636,6 +640,23 @@ export class ComputeJobRegistry {
         db.prepare(
           "UPDATE compute_jobs SET last_error=? WHERE id=? AND state='imported' AND workspace_root=? AND provider_job_ref=?"
         ).run(`Automatic result conversion remains pending: ${reason}`, job.id, root, job.remoteId);
+        if (isWorkspaceSyncDatabaseBusyError(error) && !this.recoveryRetryTimers.has(job.id)) {
+          this.recoveryRetryTimers.set(
+            job.id,
+            this.deps.schedule(() => {
+              this.recoveryRetryTimers.delete(job.id);
+              if (this.stopped || this.deps.db() !== db) return;
+              const current = this.get(job.id);
+              if (
+                current?.state === 'imported' &&
+                current.workspaceRoot === root &&
+                current.provider === job.provider &&
+                current.remoteId === job.remoteId
+              )
+                this.recoverImportedResult(current);
+            }, POLL_BASE_MS)
+          );
+        }
       })
       .finally(() => {
         this.recoveringResults.delete(job.id);
@@ -656,6 +677,8 @@ export class ComputeJobRegistry {
     this.stopped = true;
     this.timer?.cancel();
     this.timer = null;
+    for (const timer of this.recoveryRetryTimers.values()) timer.cancel();
+    this.recoveryRetryTimers.clear();
   }
 
   private kick(): void {
