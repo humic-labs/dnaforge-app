@@ -221,6 +221,21 @@ describe('CV2 real Panel/store/command authority', () => {
     expect(active('main')).toBe(left[0]);
   });
 
+  it('respects a window capture listener that cancels tab navigation after the pane mounts', () => {
+    render(<Scene />);
+    const focused = screen.getByRole('tab', { name: /Left C/ });
+    const consume = (event: KeyboardEvent) => event.preventDefault();
+    window.addEventListener('keydown', consume, { capture: true, once: true });
+    try {
+      press(focused);
+      expect(active('main')).toBe(left[2]);
+      press(focused);
+      expect(active('main')).toBe(left[0]);
+    } finally {
+      window.removeEventListener('keydown', consume, true);
+    }
+  });
+
   it('leaves explicitly owned and already-consumed events with their targets', async () => {
     const widget = vi.fn();
     render(
