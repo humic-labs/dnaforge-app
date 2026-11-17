@@ -18,6 +18,12 @@ export const STABILITY_SEQUENCE_DETAIL_FRACTION = 0.4;
 
 export const MAX_INDEXED_LINEAR_SEQUENCE_PIXELS_PER_BP = 7.336778568509653;
 
+export function linearSequenceMaxPixelsPerBp(requested?: number): number {
+  return requested !== undefined && Number.isFinite(requested) && requested > 0
+    ? requested
+    : MAX_INDEXED_LINEAR_SEQUENCE_PIXELS_PER_BP;
+}
+
 export function sequenceFontSizeForPixelsPerBp(pixelsPerBp: number): number {
   return indexedSequenceFontSize(pixelsPerBp);
 }
