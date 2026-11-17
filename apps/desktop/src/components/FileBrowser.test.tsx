@@ -208,6 +208,7 @@ vi.mock('../stores/workspaceStore', () => ({
 }));
 
 vi.mock('../utils/environment', () => ({
+  isElectron: vi.fn(() => true),
   isBrowserOnly: vi.fn(() => false),
   isHostedBrowserRuntime: vi.fn(() => false),
 }));

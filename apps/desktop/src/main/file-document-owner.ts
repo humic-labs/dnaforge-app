@@ -1,3 +1,13 @@
+import { tableDataForPersistence } from '../shared/table-document-data';
+import { isForgePackageMetaPath } from '../shared/forge-package-path';
+import { canonicalJson } from '../shared/canonical-json';
+import { executeTableModelCommand } from '../shared/notebook-model/table/table-model-commands';
+import {
+  parseTablePackageHead,
+  serializeTablePackageHead,
+  tablePackageHeadWithData,
+  type TablePackageHead,
+} from '../shared/table-package';
 import {
   legacyFileDraftSchema,
   legacyFileDraftFingerprint,
@@ -54,6 +64,8 @@ export interface NativeFileDocumentRecord {
   firstRowAsHeader?: boolean;
   headerRowValues?: string[];
   tableHistory?: TableDataMemory;
+  richTableHistory?: { undo: TableData[]; redo: TableData[] };
+  pendingIdentityRetirement?: { previousDocumentId: string; documentId: string };
 }
 
 export interface NativeFileDocumentOwnerOptions {
@@ -67,10 +79,16 @@ export interface NativeFileDocumentOwnerOptions {
     mutating: boolean
   ): Promise<NativeFileDocumentAdmission>;
   read(path: string, maximumBytes: number): Promise<Uint8Array>;
+  verifyTablePackage?(admission: NativeFileDocumentAdmission, content: string): Promise<void>;
   write(input: TextFileAtomicWriteInput, admission: NativeFileDocumentAdmission): Promise<void>;
   loadRecord(path: string): Promise<NativeFileDocumentRecord | undefined>;
   resolveIdentity?(documentId: string): Promise<string | undefined>;
   identityForPath?(path: string): Promise<string | undefined>;
+  retireReboundIdentity?(input: {
+    path: string;
+    previousDocumentId: string;
+    documentId: string;
+  }): Promise<void>;
   listRetainedDirty?(): Promise<ReadonlyArray<{ documentId: string; path: string }>>;
   assertRecoveryClean?(path: string): Promise<void>;
   rootRelinkBlocker?(path: string): Promise<'unbound-file-document' | null>;
@@ -88,7 +106,10 @@ interface WorkingCopy {
   workspaceRoot: string;
   revision: number;
   persistedRevision: number;
-  type: 'text' | 'csv' | 'tsv' | 'unsupported';
+  type: 'text' | 'csv' | 'tsv' | 'table' | 'unsupported';
+  tablePackage?: TablePackageHead;
+  persistedTableSnapshotSha256?: string;
+  richTableHistory: { undo: TableData[]; redo: TableData[] };
   text: EditorState | null;
   tableData: TableData;
   tableMemory: TableDataMemory;
@@ -99,6 +120,7 @@ interface WorkingCopy {
   readOnly: boolean;
   reason?: string;
   recovery?: NativeFileDocumentRecord;
+  pendingIdentityRetirement?: { previousDocumentId: string; documentId: string };
   saves: Map<number, Promise<FileDocumentSnapshot>>;
   saveTargets: Map<number, string>;
   saveReceipts: Map<string, { promise: Promise<FileDocumentSnapshot>; settled: boolean }>;
@@ -174,11 +196,13 @@ export class NativeFileDocumentOwner {
         ...retained,
         target: { documentId: retained.documentId },
         workspaceRoot: admission.workspaceRoot,
-        kind: /\.csv$/i.test(retained.path)
-          ? 'csv'
-          : /\.tsv$/i.test(retained.path)
-            ? 'tsv'
-            : 'text',
+        kind: isForgePackageMetaPath(retained.path, 'table.json')
+          ? 'table'
+          : /\.csv$/i.test(retained.path)
+            ? 'csv'
+            : /\.tsv$/i.test(retained.path)
+              ? 'tsv'
+              : 'text',
         readOnly: admission.readOnly,
         dirty: true,
         saving: false,
@@ -241,6 +265,10 @@ export class NativeFileDocumentOwner {
     this.assertUnprotected(admission.path);
     await this.options.beforeExecute?.(admission.path, client);
     const document = await this.open(admission);
+    if ('documentId' in request.target && request.target.documentId !== document.documentId)
+      throw new Error(
+        'FILE_DOCUMENT_BINDING_CHANGED: This routing identity no longer owns the requested file.'
+      );
     if (request.operation.kind === 'await-save') {
       const receipt = document.saveReceipts.get(request.operation.saveCaptureId);
       if (!receipt)
@@ -269,7 +297,10 @@ export class NativeFileDocumentOwner {
     > => {
       admission.assertCurrent();
       this.assertUnprotected(admission.path);
-      document.readOnly = admission.readOnly || Boolean(document.reason);
+      document.readOnly =
+        admission.readOnly ||
+        Boolean(document.reason) ||
+        document.tablePackage?.status === 'pending-promotion';
       if (reading)
         return this.snapshot(
           document,
@@ -495,7 +526,12 @@ export class NativeFileDocumentOwner {
         continue;
       const document = await pending;
       await document.tail;
-      if (this.dirty(document) || document.recovery || document.saves.size > 0)
+      if (
+        this.dirty(document) ||
+        document.recovery ||
+        document.saves.size > 0 ||
+        document.pendingIdentityRetirement
+      )
         throw new Error(
           'DIRTY_FILE_DRAFT: Save, discard or resolve this file working copy before moving or deleting it.'
         );
@@ -579,7 +615,12 @@ export class NativeFileDocumentOwner {
         for (const [path, pending] of this.documents) {
           const candidate = await pending;
           await candidate.tail;
-          if (!this.dirty(candidate) && !candidate.recovery && candidate.saves.size === 0) {
+          if (
+            !this.dirty(candidate) &&
+            !candidate.recovery &&
+            candidate.saves.size === 0 &&
+            !candidate.pendingIdentityRetirement
+          ) {
             this.documents.delete(path);
             break;
           }
@@ -595,14 +636,85 @@ export class NativeFileDocumentOwner {
         if (this.documents.get(admission.path) === document) this.documents.delete(admission.path);
       });
     }
-    return document;
+    const current = await document;
+    if (current.tablePackage?.status !== 'pending-promotion' && !current.pendingIdentityRetirement)
+      return current;
+    const refresh = current.tail
+      .catch(() => {})
+      .then(async () => {
+        const retire = async () => {
+          const pending = current.pendingIdentityRetirement;
+          if (!pending) return;
+          await this.options.retireReboundIdentity?.({ path: current.path, ...pending });
+          this.identities.delete(pending.previousDocumentId);
+          current.pendingIdentityRetirement = undefined;
+          try {
+            await this.persist(current);
+          } catch (error) {
+            current.pendingIdentityRetirement = pending;
+            throw error;
+          }
+        };
+        if (current.pendingIdentityRetirement) {
+          admission.assertCurrent();
+          await retire();
+          return current;
+        }
+        if (current.tablePackage?.status !== 'pending-promotion') return current;
+        if (this.dirty(current) || current.recovery || current.saves.size)
+          throw new Error('TABLE_ACTIVATION_BUSY: The pending table has a retained draft or save.');
+        admission.assertCurrent();
+        this.assertUnprotected(admission.path);
+        const identity =
+          (await this.options.identityForPath?.(admission.path)) ?? current.documentId;
+        const bound = this.identities.get(identity);
+        if (bound && bound !== admission.path)
+          throw new Error('AMBIGUOUS_FILE_DOCUMENT: The active table identity has another file.');
+        const fresh = await this.load(admission, identity, false);
+        if (fresh.tablePackage?.status === 'pending-promotion') return current;
+        if (
+          fresh.type !== 'table' ||
+          fresh.reason ||
+          fresh.recovery ||
+          fresh.tablePackage?.id !== current.tablePackage.id
+        )
+          throw new Error(
+            'TABLE_ACTIVATION_CHANGED: The active table does not match the verified pending owner.'
+          );
+        admission.assertCurrent();
+        const previousDocumentId = current.documentId;
+        const revision = current.revision + 1;
+        const tail = current.tail;
+        Object.assign(current, fresh, {
+          tail,
+          revision,
+          persistedRevision: revision,
+          pendingIdentityRetirement:
+            previousDocumentId !== fresh.documentId
+              ? { previousDocumentId, documentId: fresh.documentId }
+              : undefined,
+        });
+        this.identities.set(current.documentId, current.path);
+        await this.persist(current);
+        await retire();
+        this.publish(current);
+        return current;
+      });
+    current.tail = refresh.then(
+      () => undefined,
+      () => undefined
+    );
+    return refresh;
   }
 
   private async load(
     admission: NativeFileDocumentAdmission,
-    identity?: string
+    identity?: string,
+    retain = true
   ): Promise<WorkingCopy> {
-    const maximumBytes = /\.(csv|tsv)$/i.test(admission.path) ? MAX_TABLE_BYTES : MAX_TEXT_BYTES;
+    const richTable = isForgePackageMetaPath(admission.path, 'table.json');
+    const maximumBytes =
+      richTable || /\.(csv|tsv)$/i.test(admission.path) ? MAX_TABLE_BYTES : MAX_TEXT_BYTES;
     const bytes = await this.options.read(admission.path, maximumBytes + 1);
     admission.assertCurrent();
     const record = await this.options.loadRecord(admission.path);
@@ -629,13 +741,27 @@ export class NativeFileDocumentOwner {
         decodeReason = 'The file is not valid UTF-8 text.';
       }
     }
+    let tablePackage: TablePackageHead | undefined;
+    if (richTable && !decodeReason) {
+      try {
+        if (!this.options.verifyTablePackage)
+          throw new Error('The native table package verifier is unavailable.');
+        tablePackage = parseTablePackageHead(raw);
+        await this.options.verifyTablePackage(admission, raw);
+        admission.assertCurrent();
+      } catch (error) {
+        decodeReason = error instanceof Error ? error.message : String(error);
+      }
+    }
     const type = decodeReason
       ? 'unsupported'
-      : /\.csv$/i.test(path)
-        ? 'csv'
-        : /\.tsv$/i.test(path)
-          ? 'tsv'
-          : 'text';
+      : richTable
+        ? 'table'
+        : /\.csv$/i.test(path)
+          ? 'csv'
+          : /\.tsv$/i.test(path)
+            ? 'tsv'
+            : 'text';
     const document: WorkingCopy = {
       documentId,
       path,
@@ -643,6 +769,12 @@ export class NativeFileDocumentOwner {
       revision: record?.revision ? record.revision + (record.baseline === hash(raw) ? 0 : 1) : 1,
       persistedRevision: record?.persistedRevision ?? 1,
       type,
+      tablePackage,
+      persistedTableSnapshotSha256: tablePackage?.snapshotSha256,
+      richTableHistory: { undo: [], redo: [] },
+      ...(record?.pendingIdentityRetirement
+        ? { pendingIdentityRetirement: structuredClone(record.pendingIdentityRetirement) }
+        : {}),
       text: null,
       tableData: {},
       tableMemory: createTableDataMemory(),
@@ -650,15 +782,34 @@ export class NativeFileDocumentOwner {
       headerRowValues: [],
       persistedContent: raw,
       diskContent: raw,
-      readOnly: admission.readOnly || Boolean(decodeReason),
-      reason: decodeReason,
+      readOnly:
+        admission.readOnly || Boolean(decodeReason) || tablePackage?.status === 'pending-promotion',
+      reason:
+        decodeReason ??
+        (tablePackage?.status === 'pending-promotion'
+          ? 'The table promotion is pending recovery.'
+          : undefined),
       saves: new Map(),
       saveTargets: new Map(),
       saveReceipts: new Map(),
       tail: Promise.resolve(),
       requests: new Map(),
     };
+    if (
+      document.pendingIdentityRetirement &&
+      (!richTable ||
+        document.pendingIdentityRetirement.documentId !== documentId ||
+        typeof document.pendingIdentityRetirement.previousDocumentId !== 'string' ||
+        !document.pendingIdentityRetirement.previousDocumentId ||
+        document.pendingIdentityRetirement.previousDocumentId === documentId)
+    )
+      throw new Error('The pending table identity retirement record is invalid.');
     if (type === 'text') document.text = this.textState(raw);
+    if (type === 'table' && tablePackage) {
+      document.tableData = structuredClone(tablePackage.snapshot.data);
+      document.tableMemory = createTableDataMemory(document.tableData);
+      document.persistedContent = this.content(document);
+    }
     if (type === 'csv' || type === 'tsv') {
       const parsed = parseTabularPreview(raw, {
         delimiter: type === 'tsv' ? '\t' : ',',
@@ -687,8 +838,10 @@ export class NativeFileDocumentOwner {
       if (record.dirty) document.recovery = record;
       else if (record.baseline === hash(raw)) this.restoreRecord(document, record);
     }
-    this.identities.set(documentId, path);
-    if (!document.readOnly && !document.recovery) await this.persist(document);
+    if (retain) {
+      this.identities.set(documentId, path);
+      if (!document.readOnly && !document.recovery) await this.persist(document);
+    }
     return document;
   }
 
@@ -708,6 +861,10 @@ export class NativeFileDocumentOwner {
 
   private content(document: WorkingCopy): string {
     if (document.text) return document.text.sliceDoc();
+    if (document.type === 'table' && document.tablePackage)
+      return serializeTablePackageHead(
+        tablePackageHeadWithData(document.tablePackage, tableDataForPersistence(document.tableData))
+      );
     if (document.type !== 'csv' && document.type !== 'tsv') return document.diskContent;
     const rows = (document.tableData.cells ?? []).map((row) => row.map((cell) => cell.value));
     if (document.firstRowAsHeader) rows.unshift(document.headerRowValues);
@@ -745,7 +902,15 @@ export class NativeFileDocumentOwner {
     } else if (operation.kind === 'discard') {
       const target = [...document.saveTargets.values()].at(-1) ?? document.persistedContent;
       if (document.text) document.text = this.textState(target);
-      else {
+      else if (document.type === 'table') {
+        const head = parseTablePackageHead(target);
+        if (head.id !== document.tablePackage?.id)
+          throw new Error('The retained table belongs to a different document.');
+        document.tablePackage = head;
+        document.tableData = structuredClone(head.snapshot.data);
+        document.tableMemory = createTableDataMemory(document.tableData);
+        document.richTableHistory = { undo: [], redo: [] };
+      } else {
         const parsed = parseTabularPreview(target, {
           delimiter: document.type === 'tsv' ? '\t' : ',',
           maxRows: MAX_TABLE_ROWS,
@@ -762,6 +927,8 @@ export class NativeFileDocumentOwner {
         document.tableMemory = createTableDataMemory(document.tableData);
       }
       document.recovery = undefined;
+    } else if (document.type === 'table') {
+      this.changeRichTable(document, operation);
     } else if (document.text) {
       if (operation.kind === 'undo' || operation.kind === 'redo') {
         (operation.kind === 'undo' ? undo : redo)({
@@ -900,6 +1067,64 @@ export class NativeFileDocumentOwner {
     if (this.content(document) !== before || operation.kind === 'discard') document.revision += 1;
   }
 
+  private changeRichTable(document: WorkingCopy, operation: FileDocumentClientOperation): void {
+    const before = structuredClone(document.tableData);
+    const view = { sort: document.tableMemory.sort, filters: document.tableMemory.filters };
+    const restoreMemory = () => {
+      document.tableMemory = createTableDataMemory(document.tableData);
+      document.tableMemory.sort = view.sort;
+      document.tableMemory.filters = view.filters;
+    };
+    if (operation.kind === 'table-view') {
+      document.tableMemory.sort = operation.sort;
+      document.tableMemory.filters = { ...operation.filters };
+      return;
+    }
+    const direction =
+      operation.kind === 'undo' || operation.kind === 'redo'
+        ? operation.kind
+        : operation.kind === 'table' &&
+            (operation.command.kind === 'undo' || operation.command.kind === 'redo')
+          ? operation.command.kind
+          : null;
+    if (direction) {
+      const from =
+        direction === 'undo' ? document.richTableHistory.undo : document.richTableHistory.redo;
+      const to =
+        direction === 'undo' ? document.richTableHistory.redo : document.richTableHistory.undo;
+      const next = from.at(-1);
+      if (!next) return;
+      tablePackageHeadWithData(document.tablePackage!, next);
+      from.pop();
+      to.push(before);
+      document.tableData = structuredClone(next);
+      restoreMemory();
+      return;
+    }
+    try {
+      if (operation.kind === 'replace-table') {
+        const data = tableDataForPersistence(operation.data);
+        tablePackageHeadWithData(document.tablePackage!, data);
+        document.tableData = structuredClone(data);
+      } else if (operation.kind === 'table') {
+        executeTableModelCommand(this.model(document), operation.command);
+      } else {
+        throw new Error('This rich table uses table commands, not raw text edits.');
+      }
+      document.tableData = tableDataForPersistence(document.tableData);
+      tablePackageHeadWithData(document.tablePackage!, document.tableData);
+    } catch (error) {
+      document.tableData = before;
+      restoreMemory();
+      throw error;
+    }
+    if (canonicalJson(document.tableData) !== canonicalJson(before)) {
+      document.richTableHistory.undo.push(before);
+      if (document.richTableHistory.undo.length > 50) document.richTableHistory.undo.shift();
+      document.richTableHistory.redo = [];
+    }
+  }
+
   private save(
     document: WorkingCopy,
     admission: NativeFileDocumentAdmission
@@ -937,6 +1162,10 @@ export class NativeFileDocumentOwner {
       }
       document.persistedContent = content;
       document.diskContent = content;
+      if (document.type === 'table') {
+        document.tablePackage = parseTablePackageHead(content);
+        document.persistedTableSnapshotSha256 = document.tablePackage.snapshotSha256;
+      }
       document.persistedRevision = revision;
       document.recovery = undefined;
       await this.persist(document);
@@ -971,6 +1200,15 @@ export class NativeFileDocumentOwner {
         document.text = this.textState(record.content);
       }
     } else if (record.tableData) {
+      if (document.type === 'table') {
+        const head = parseTablePackageHead(record.content);
+        if (head.id !== document.tablePackage?.id)
+          throw new Error('The retained table belongs to a different document.');
+        document.tablePackage = head;
+        document.richTableHistory = record.richTableHistory
+          ? structuredClone(record.richTableHistory)
+          : { undo: [], redo: [] };
+      }
       document.tableData = structuredClone(record.tableData);
       document.firstRowAsHeader = Boolean(record.firstRowAsHeader);
       document.headerRowValues = [...(record.headerRowValues ?? [])];
@@ -991,14 +1229,23 @@ export class NativeFileDocumentOwner {
       persistedRevision: document.persistedRevision,
       content: this.content(document),
       dirty: this.dirty(document),
+      ...(document.pendingIdentityRetirement
+        ? { pendingIdentityRetirement: structuredClone(document.pendingIdentityRetirement) }
+        : {}),
       ...(document.text
         ? { textState: document.text.toJSON({ history: historyField }) }
         : {
-            tableData: {
-              ...structuredClone(document.tableData),
-              sort: document.tableMemory.sort ?? undefined,
-              filters: { ...document.tableMemory.filters },
-            },
+            tableData:
+              document.type === 'table'
+                ? structuredClone(document.tableData)
+                : {
+                    ...structuredClone(document.tableData),
+                    sort: document.tableMemory.sort ?? undefined,
+                    filters: { ...document.tableMemory.filters },
+                  },
+            ...(document.type === 'table'
+              ? { richTableHistory: structuredClone(document.richTableHistory) }
+              : {}),
             firstRowAsHeader: document.firstRowAsHeader,
             headerRowValues: [...document.headerRowValues],
             tableHistory: {
@@ -1083,8 +1330,16 @@ export class NativeFileDocumentOwner {
       readOnly: document.readOnly,
       dirty: this.dirty(document),
       saving: document.saves.size > 0,
-      canUndo: document.text ? undoDepth(document.text) > 0 : Boolean(table?.canUndo),
-      canRedo: document.text ? redoDepth(document.text) > 0 : Boolean(table?.canRedo),
+      canUndo: document.text
+        ? undoDepth(document.text) > 0
+        : document.type === 'table'
+          ? document.richTableHistory.undo.length > 0
+          : Boolean(table?.canUndo),
+      canRedo: document.text
+        ? redoDepth(document.text) > 0
+        : document.type === 'table'
+          ? document.richTableHistory.redo.length > 0
+          : Boolean(table?.canRedo),
       capabilities: document.readOnly
         ? [
             'inspect',
@@ -1113,11 +1368,27 @@ export class NativeFileDocumentOwner {
       ...(table && document.type !== 'unsupported'
         ? {
             table: tableInspection,
-            tableData: {
-              ...structuredClone(document.tableData),
-              sort: document.tableMemory.sort ?? undefined,
-              filters: { ...document.tableMemory.filters },
-            },
+            tableData:
+              document.type === 'table'
+                ? structuredClone(document.tableData)
+                : {
+                    ...structuredClone(document.tableData),
+                    sort: document.tableMemory.sort ?? undefined,
+                    filters: { ...document.tableMemory.filters },
+                  },
+            ...(document.type === 'table' && document.tablePackage
+              ? {
+                  tableDocument: {
+                    id: document.tablePackage.id,
+                    snapshotSha256: tablePackageHeadWithData(
+                      document.tablePackage,
+                      tableDataForPersistence(document.tableData)
+                    ).snapshotSha256,
+                    persistedSnapshotSha256: document.persistedTableSnapshotSha256!,
+                    status: document.tablePackage.status,
+                  },
+                }
+              : {}),
             firstRowAsHeader: document.firstRowAsHeader,
             headerRowValues: [...document.headerRowValues],
           }

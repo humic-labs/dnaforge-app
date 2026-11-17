@@ -32,6 +32,7 @@ const ENTITY_LABELS: Record<CreateDestinationRequest['entityType'], string> = {
   assemblies: 'assembly',
   notebook: 'notebook entry',
   assembly: 'assembly',
+  table: 'table',
   'dna-sequences': 'DNA sequence',
   'dna-oligos': 'DNA oligo',
   'rna-oligos': 'RNA oligo',

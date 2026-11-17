@@ -717,7 +717,14 @@ function PanelContentInternal({
             />
           );
         }
-        return <TablePanel key={tab.entityId} tableId={tab.entityId} />;
+        return (
+          <TablePanel
+            key={tab.entityId}
+            tableId={tab.entityId}
+            tableDocument={tab.tableDocument}
+            canvasTabId={tab.id}
+          />
+        );
 
       case 'design':
         return (

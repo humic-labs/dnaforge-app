@@ -98,6 +98,7 @@ import { withRecoveredSequencePackageMutationInMain } from '../sequence-package-
 import { publishSequenceAlignmentHistoryInMain } from '../sequence-package-evidence-publication';
 import type { PublishSequenceAlignmentHistoryRequest } from '../../shared/sequence-package-evidence';
 import { fsContract } from '../../shared/ipc/fs.contract';
+import type { FileDocumentSnapshot } from '../../shared/file-document';
 
 export function registerFilesystemHandlers(): void {
   const sequenceDocumentSubscribers = new Map<
@@ -116,8 +117,17 @@ export function registerFilesystemHandlers(): void {
   });
   const fileDocumentSubscribers = new Map<
     number,
-    { sender: Electron.WebContents; paths: Set<string> }
+    { sender: Electron.WebContents; paths: Set<string>; ids: Map<string, string> }
   >();
+  const enrollFileDocument = (sender: Electron.WebContents, snapshot: FileDocumentSnapshot) => {
+    let subscription = fileDocumentSubscribers.get(sender.id);
+    if (!subscription) {
+      subscription = { sender, paths: new Set(), ids: new Map() };
+      fileDocumentSubscribers.set(sender.id, subscription);
+    }
+    subscription.paths.add(snapshot.path);
+    subscription.ids.set(snapshot.documentId, snapshot.path);
+  };
   const dirtyDocumentSubscribers = new Map<number, Electron.WebContents>();
   nativeDocuments.fileDocuments.subscribe((snapshot) => {
     for (const [id, sender] of dirtyDocumentSubscribers) {
@@ -129,8 +139,13 @@ export function registerFilesystemHandlers(): void {
         fileDocumentSubscribers.delete(id);
         continue;
       }
-      if (subscription.paths.has(snapshot.path))
+      if (subscription.paths.has(snapshot.path) || subscription.ids.has(snapshot.documentId)) {
+        const previousPath = subscription.ids.get(snapshot.documentId);
+        if (previousPath && previousPath !== snapshot.path) subscription.paths.delete(previousPath);
+        subscription.ids.set(snapshot.documentId, snapshot.path);
+        subscription.paths.add(snapshot.path);
         sendRendererIpc(subscription.sender, 'fs:fileDocumentChanged', snapshot);
+      }
     }
   });
   const pendingMutationWaits = new WeakMap<Electron.WebContents, Map<string, AbortController>>();
@@ -658,13 +673,58 @@ export function registerFilesystemHandlers(): void {
     settleDirtyDocuments: (_event, request) => nativeDocuments.settleDirtyDocuments(request),
     fileDocument: async (event, request) => {
       const snapshot = await nativeDocuments.fileDocuments.execute(request, 'renderer');
-      let subscription = fileDocumentSubscribers.get(event.sender.id);
-      if (!subscription) {
-        subscription = { sender: event.sender, paths: new Set() };
-        fileDocumentSubscribers.set(event.sender.id, subscription);
-      }
-      subscription.paths.add(snapshot.path);
+      enrollFileDocument(event.sender, snapshot);
       return snapshot;
+    },
+    tableDocument: async (event, command) => {
+      if (
+        command.kind !== 'resolve' &&
+        command.kind !== 'open' &&
+        command.kind !== 'list-promotions'
+      )
+        await nativeDocuments.flushFileDocumentClients();
+      const result = await nativeDocuments.tableDocuments.execute(command);
+      if (result.kind === 'promoted' && result.table.owner.kind === 'file') {
+        try {
+          if (!event.sender.isDestroyed()) {
+            const snapshot = await nativeDocuments.fileDocuments.execute(
+              {
+                target: { documentId: result.table.owner.documentId },
+                operation: {
+                  kind: 'inspect',
+                  offset: 0,
+                  limit: 2000,
+                  rowOffset: 0,
+                  rowLimit: 20,
+                  columnOffset: 0,
+                  columnLimit: 20,
+                },
+              },
+              'renderer'
+            );
+            if (
+              !snapshot.ready ||
+              snapshot.documentId !== result.table.owner.documentId ||
+              snapshot.tableDocument?.id !== result.table.tableId ||
+              snapshot.tableDocument.status !== 'active'
+            )
+              throw new Error('The completed table activation has no verified native snapshot.');
+            if (!event.sender.isDestroyed()) {
+              enrollFileDocument(event.sender, snapshot);
+              sendRendererIpc(event.sender, 'fs:fileDocumentChanged', snapshot);
+            }
+          }
+        } catch (error) {
+          try {
+            console.error(
+              '[filesystem] Completed table activation could not be delivered:',
+              { tableId: result.table.tableId, promotionId: result.promotionId },
+              error
+            );
+          } catch {}
+        }
+      }
+      return result;
     },
     canonicalPath: async (_event, path: string) => {
       const { getDb } = await import('./database');
