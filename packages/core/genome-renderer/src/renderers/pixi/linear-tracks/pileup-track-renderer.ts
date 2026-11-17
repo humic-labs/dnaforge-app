@@ -2422,12 +2422,16 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     const sourceWindowEndBp = data?.readSource?.windowEndBp ?? null;
     const sourceGenerationKey = data?.readSource?.sourceGenerationKey ?? '';
     const presentationOwnerKey = data?.readSource?.presentationOwnerKey ?? sourceGenerationKey;
+    const readAuthorityChanged =
+      state.incomingReadInput !== null &&
+      state.incomingReadInput.tileEngineAuthority !== tileEngineAuthority;
     if (
-      (tileEngineAuthority || data?.readSource?.presentationOwnerKey !== undefined) &&
-      (presentationOwnerKey !== state.readPresentationOwnerKey ||
-        sourceGenerationKey !== state.readSourceGenerationKey ||
-        ((state.rows !== null || state.rowsMeshRecordsRef !== null) &&
-          sourceGenerationKey !== state.rowsMeshSourceGenerationKey))
+      readAuthorityChanged ||
+      ((tileEngineAuthority || data?.readSource?.presentationOwnerKey !== undefined) &&
+        (presentationOwnerKey !== state.readPresentationOwnerKey ||
+          sourceGenerationKey !== state.readSourceGenerationKey ||
+          ((state.rows !== null || state.rowsMeshRecordsRef !== null) &&
+            sourceGenerationKey !== state.rowsMeshSourceGenerationKey)))
     ) {
       this.clearExactReadRecords(state);
       state.layout.reset();
@@ -2941,14 +2945,16 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         const finishStartedAt = nowMs();
         assignmentJob.assignment = assignmentJob.layout.finishAssignment(assignmentJob.job);
         work.finishAssignmentMs = nowMs() - finishStartedAt;
-        if (input.exactRowsMayRender) {
-          assignmentJob.heightJob = beginReadRowHeightFieldJob(
-            records,
-            assignmentJob.assignment.rows,
-            assignmentJob.job.recordStats.startBp,
-            assignmentJob.job.recordStats.endBp
-          );
-        }
+      }
+      if (state.incomingReadInput?.tileEngineCoverageOwnsDensity) {
+        assignmentJob.heightJob = null;
+      } else if (input.exactRowsMayRender && assignmentJob.heightJob === null) {
+        assignmentJob.heightJob = beginReadRowHeightFieldJob(
+          records,
+          assignmentJob.assignment.rows,
+          assignmentJob.job.recordStats.startBp,
+          assignmentJob.job.recordStats.endBp
+        );
       }
       const heightBudgetMs = remainingReadRowsWorkMs(allowance);
       if (assignmentJob.heightJob !== null && heightBudgetMs > 0) {
