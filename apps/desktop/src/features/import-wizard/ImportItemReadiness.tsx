@@ -18,6 +18,7 @@ const BLOCK_COPY: Record<SequenceImportBlockCode, UserMessageKey> = {
   non_dna_content: 'import.notDna',
   lossless_conversion_blocked: 'import.losslessBlocked',
   source_too_large: 'import.tooLarge',
+  automatic_split_required: 'import.automaticSplitRequired',
   record_name_conflict: 'import.recordNames',
 };
 
@@ -37,6 +38,8 @@ const RECOVERY_GUIDANCE: Record<SequenceImportBlockCode, string> = {
     'Use the original application to export a GenBank copy that preserves the sequence and its additional data, then select that copy.',
   source_too_large:
     'Export the DNA records as separate, smaller GenBank files in the original application, then import those files.',
+  automatic_split_required:
+    'Use Add → DNA sequences → Import to review the records before importing them as separate sequences.',
   record_name_conflict:
     'Give the records distinct names in the original application, then export and select the file again.',
 };

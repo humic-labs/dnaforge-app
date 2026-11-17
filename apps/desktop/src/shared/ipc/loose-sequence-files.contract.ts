@@ -4,6 +4,7 @@ import { defineGroup, invoke, type ClientOf } from './contract';
 export interface ConvertLooseSequenceFileRequest {
   readonly workspaceRoot: string;
   readonly sourcePath: string;
+  readonly automatic?: boolean;
   readonly confirmedDnaSourceSha256?: string;
   readonly confirmedNucleicAcid?: NucleicAcid;
   readonly confirmedRecoverySourceSha256?: string;
@@ -13,6 +14,7 @@ export interface ConvertLooseSequenceFileResponse {
   readonly converted: boolean;
   readonly packageRoots: readonly string[];
   readonly reason: string | null;
+  readonly disposition?: 'source-only' | 'owned' | 'blocked';
 }
 
 export interface InspectLooseSequenceFileRequest {

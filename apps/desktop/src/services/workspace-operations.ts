@@ -153,6 +153,8 @@ export function reconcileWorkspaceAfterFilesChanged(
 
     strict?: boolean;
 
+    healManagedHead?: boolean;
+
     notifyGitStatus?: boolean;
   }
 ): Promise<WorkspaceReconcileOperationResult> {
@@ -162,7 +164,7 @@ export function reconcileWorkspaceAfterFilesChanged(
     assertCurrent: input.assertCurrent,
     strict: input.strict ?? false,
     catalogSource: 'head',
-    healManagedHead: true,
+    healManagedHead: input.healManagedHead ?? true,
     displayDelivery: 'optional',
     filesChanged: {
       revealPath: input.revealPath ?? null,

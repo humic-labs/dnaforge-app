@@ -32,6 +32,10 @@ import {
   withKnownWorkspacePathMutation,
   workspaceMutationRootIdentity,
 } from './workspace-sync-mutation-lease';
+import { MANAGED_DNA_FILE_EXTENSIONS } from '@waypoint/sequence-utils/sequence-file-types';
+import { packagedCoordinateFormat } from '../shared/default-molecular-view';
+import { MOLECULAR_DOCUMENT_SUFFIX } from '../shared/molecular-document';
+import { isRecoveredComputeResultDirectory } from '../shared/compute-result-path';
 
 const safeRelative = z.string().refine(isSafeWorkspaceRelativePath);
 const receiptSchema = z.object({
@@ -46,6 +50,16 @@ const receiptSchema = z.object({
 type Receipt = z.infer<typeof receiptSchema>;
 const MAX_BYTES = 8 * 1024 * 1024;
 const sha = (value: string | Uint8Array) => createHash('sha256').update(value).digest('hex');
+function isMigrationCandidate(path: string): boolean {
+  const name = basename(path).toLowerCase();
+  return (
+    MANAGED_DNA_FILE_EXTENSIONS.includes(extname(name).slice(1)) ||
+    packagedCoordinateFormat(name) !== null ||
+    name.endsWith('.wpnote.json') ||
+    (name.endsWith(MOLECULAR_DOCUMENT_SUFFIX) &&
+      packagedCoordinateFormat(name.slice(0, -MOLECULAR_DOCUMENT_SUFFIX.length)) !== null)
+  );
+}
 const exists = (path: string) =>
   access(path).then(
     () => true,
@@ -62,6 +76,7 @@ interface ImportOptions {
   withCleanPaths<T>(paths: readonly string[], operation: () => Promise<T>): Promise<T>;
   onAdopted?(result: MarkdownNotebookAdoption): void;
   onIssue?(issue: MarkdownNotebookAdoptionIssue): void;
+  onMigrationCandidatesChanged?(root: string): boolean | void;
   settleMs?: number;
 }
 
@@ -71,6 +86,7 @@ export class MarkdownNotebookImporter {
   private readonly scans = new Map<string, Promise<void>>();
   private readonly failures = new Map<string, string>();
   private readonly archiveObservations = new Map<string, { signature: string; hash: string }>();
+  private readonly migrationObservations = new Map<string, string>();
   private timer: ReturnType<typeof setInterval> | undefined;
   private closed = false;
   constructor(private readonly options: ImportOptions) {}
@@ -100,13 +116,19 @@ export class MarkdownNotebookImporter {
       if (!roots.has(root)) {
         watcher.close();
         this.watchers.delete(root);
+        this.migrationObservations.delete(root);
       }
     }
     for (const root of roots) {
       if (!this.watchers.has(root)) {
         try {
           const watcher = watch(root, { recursive: true, persistent: false }, (_kind, name) => {
-            if (!name || /\.(md|markdown)$/i.test(String(name))) this.requestScan(root);
+            if (
+              !name ||
+              /\.(md|markdown)$/i.test(String(name)) ||
+              isMigrationCandidate(String(name))
+            )
+              this.requestScan(root);
           });
           watcher.on('error', (error) =>
             console.warn('[MarkdownNotebook] Watch failed:', root, error)
@@ -139,8 +161,16 @@ export class MarkdownNotebookImporter {
   }
 
   async scan(root: string): Promise<void> {
+    root = workspaceMutationRootIdentity(root);
+    const writable = () =>
+      this.options.roots().some((path) => workspaceMutationRootIdentity(path) === root);
+    if (!writable()) {
+      this.migrationObservations.delete(root);
+      return;
+    }
     if (this.isDeveloperImportSource(root) || (await this.packageAt(root))) return;
     const paths: string[] = [];
+    const migrationCandidates: string[] = [];
     let visited = 0;
     const walk = async (directory: string, depth: number): Promise<void> => {
       if (depth > 40 || visited > 10000 || this.closed) return;
@@ -149,12 +179,45 @@ export class MarkdownNotebookImporter {
         if (++visited > 10000) return;
         if (entry.name.startsWith('.') || ['node_modules', '__pycache__'].includes(entry.name))
           continue;
+        if (
+          depth === 0 &&
+          (entry.name === 'compute' || isRecoveredComputeResultDirectory(entry.name))
+        )
+          continue;
         const path = join(directory, entry.name);
         if (entry.isDirectory()) await walk(path, depth + 1);
-        else if (entry.isFile() && isAdoptableMarkdownPath(relative(root, path))) paths.push(path);
+        else if (entry.isFile() || entry.isSymbolicLink()) {
+          if (entry.isFile() && isAdoptableMarkdownPath(relative(root, path))) paths.push(path);
+          if (this.options.onMigrationCandidatesChanged && isMigrationCandidate(entry.name)) {
+            try {
+              const file = await stat(path, { bigint: true });
+              if (Date.now() - Number(file.mtimeMs) >= (this.options.settleMs ?? 750))
+                migrationCandidates.push(
+                  [
+                    relative(root, path),
+                    file.dev,
+                    file.ino,
+                    file.size,
+                    file.mtimeNs,
+                    file.ctimeNs,
+                  ].join(':')
+                );
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+            }
+          }
+        }
       }
     };
     await walk(root, 0);
+    if (this.options.onMigrationCandidatesChanged && writable()) {
+      assertKnownWorkspaceContentWritable(this.options.db(), root);
+      const signature = migrationCandidates.sort().join('\n');
+      if (signature !== this.migrationObservations.get(root)) {
+        if (!signature || this.options.onMigrationCandidatesChanged(root) !== false)
+          this.migrationObservations.set(root, signature);
+      }
+    }
     const receipts = join(root, '.forge', 'markdown-imports');
     if (await exists(receipts)) {
       for (const entry of await readdir(receipts, { withFileTypes: true })) {
@@ -189,6 +252,7 @@ export class MarkdownNotebookImporter {
     if (this.timer) clearInterval(this.timer);
     for (const watcher of this.watchers.values()) watcher.close();
     this.watchers.clear();
+    this.migrationObservations.clear();
     await Promise.allSettled([...this.scans.values(), ...this.tails.values()]);
   }
 
@@ -198,7 +262,13 @@ export class MarkdownNotebookImporter {
   }
 
   private async packageAt(path: string): Promise<string | null> {
-    for (const name of ['notebook.json', 'plasmid.json', 'protocol.json', 'protocol-run.json']) {
+    for (const name of [
+      'notebook.json',
+      'plasmid.json',
+      'sequence.json',
+      'protocol.json',
+      'protocol-run.json',
+    ]) {
       if (await exists(join(path, '.forge', name))) return name;
     }
     return null;
