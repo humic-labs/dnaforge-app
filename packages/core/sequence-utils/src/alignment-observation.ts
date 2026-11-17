@@ -68,7 +68,8 @@ function scanAlignment(
     return { kind: 'invalid', reason: 'Alignment must traverse at most one reference copy.' };
   }
   const first = alignedQuery.search(/[^-]/);
-  const last = alignedQuery.replace(/-+$/, '').length - 1;
+  let last = alignedQuery.length - 1;
+  while (last >= 0 && alignedQuery[last] === '-') last--;
   const referencePositions: Array<number | null> = [];
   const insertionBoundaries: Array<number | null> = [];
   const observedColumns: boolean[] = [];
