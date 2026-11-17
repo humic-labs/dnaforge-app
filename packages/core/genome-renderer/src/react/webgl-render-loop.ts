@@ -253,6 +253,16 @@ export function startWebGLRenderLoop(params: {
         rendererHasPendingFrameWork = params.renderer.render(params.stateRef.current) === true;
       });
       rendererFrameWorkPending = rendererHasPendingFrameWork;
+      if (
+        (
+          params.renderer as { isCurrentPresentationComplete?: () => boolean }
+        ).isCurrentPresentationComplete?.() === false
+      ) {
+        renderDemandPending = true;
+        rendererFrameWorkPending = true;
+        lastRenderedSignature = null;
+        return;
+      }
       phase = 'pixi';
       ptime('frame.pixi', () => params.app.render());
       phase = 'gpu-submit';
@@ -357,6 +367,16 @@ export function startWebGLRenderLoop(params: {
         rendererHasPendingFrameWork = params.renderer.render(params.stateRef.current) === true;
       });
       rendererFrameWorkPending = rendererHasPendingFrameWork;
+      if (
+        (
+          params.renderer as { isCurrentPresentationComplete?: () => boolean }
+        ).isCurrentPresentationComplete?.() === false
+      ) {
+        renderDemandPending = true;
+        rendererFrameWorkPending = true;
+        lastRenderedSignature = null;
+        return;
+      }
       phase = 'pixi';
       ptime('frame.pixi', () => params.app.render());
       phase = 'gpu-submit';

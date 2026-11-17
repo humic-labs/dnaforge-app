@@ -199,7 +199,7 @@ function budgetDensityAtlasLevels({
   return { minBinBp: budgetedMinBinBp, levelBinBps, estimatedBinCount };
 }
 
-function estimateDensityAtlasBinCount(
+export function estimateDensityAtlasBinCount(
   options: Omit<AnnotationDensityAtlasOptions, 'pixelsPerBp' | 'binBp'>,
   levelBinBps: readonly number[],
   stopAfter: number

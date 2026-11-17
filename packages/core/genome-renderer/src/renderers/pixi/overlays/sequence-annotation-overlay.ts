@@ -122,6 +122,8 @@ import {
   type AnnotationOverviewCacheContext,
   type OverviewAggregationCache,
   type OverviewBin,
+  type RetainedOverviewBodyRead,
+  type RetainedOverviewPreparationReceipt,
 } from './annotation-overview-cache';
 import {
   SequenceRetainedLinearPresenter,
@@ -280,7 +282,10 @@ export class SequenceAnnotationOverlay implements RetainedOverlayTrack {
   private annotationSearchFocusResolvedCanonicalIdentity: string | null = null;
   private annotationSearchFocusPresentationLane: number | null = null;
 
-  private readonly overviewCache = new AnnotationOverviewCacheManager();
+  private readonly overviewCache = new AnnotationOverviewCacheManager({
+    maxResidentRetainedLevels: 12,
+  });
+  private retainedPreparationRefusal: string | null = null;
   private readonly retainedLinear = new SequenceRetainedLinearPresenter({
     container: this.container,
     features: () => this.features,
@@ -1486,10 +1491,6 @@ export class SequenceAnnotationOverlay implements RetainedOverlayTrack {
       return this.updateRetainedLinearCamera(camera);
     }
 
-    this.resetAllPresentersToHidden();
-    this.retainedLinear.retainedLinearFeatureLayer?.hide();
-    this.retainedLinear.retainedLinearTranscriptLayer?.hide();
-
     const style = retainedOverviewAnnotationStyle();
     const plan = planRetainedAnnotationRender({
       enabled: retainedOverviewAnnotationsEnabled(),
@@ -1518,8 +1519,8 @@ export class SequenceAnnotationOverlay implements RetainedOverlayTrack {
     this.retainedLinear.lastOverviewLodFullShapeBlend = fullShapeBlend;
 
     const retainedCacheStart = performance.now();
-    const retainedCache = ptime('annotation.retained-overview-cache', () =>
-      this.overviewCache.getRetainedOverviewBodyCache(
+    const retainedRead = ptime('annotation.retained-overview-cache', () =>
+      this.overviewCache.readRetainedOverviewBodyCache(
         {
           pixelsPerBp: Math.min(camera.path.pixelsPerBp, OVERVIEW_LOD_COMPRESSED_PIXELS_PER_BP),
         },
@@ -1527,9 +1528,13 @@ export class SequenceAnnotationOverlay implements RetainedOverlayTrack {
       )
     );
     this.retainedLinear.lastOverviewCacheMs = performance.now() - retainedCacheStart;
-    if (!retainedCache) {
+    if (retainedRead.kind !== 'ready') {
       return this.retainedLinear.retainedOverviewFallback('budget-exceeded');
     }
+    const retainedCache = retainedRead.cache;
+    this.resetAllPresentersToHidden();
+    this.retainedLinear.retainedLinearFeatureLayer?.hide();
+    this.retainedLinear.retainedLinearTranscriptLayer?.hide();
     const retainedAtlasDiagnostics = this.overviewCache.retainedDensityAtlasDiagnostics();
     this.retainedLinear.lastOverviewDensityAtlasBinBp = retainedCache.binBp;
     this.retainedLinear.lastOverviewDensityAtlasSampleScreenPx =
@@ -1842,18 +1847,34 @@ export class SequenceAnnotationOverlay implements RetainedOverlayTrack {
     this.annotationSearchFocusPresentationLane = null;
   }
 
-  private overviewCacheContext(): AnnotationOverviewCacheContext {
+  private overviewCacheContext(layout = this._layout): AnnotationOverviewCacheContext {
+    const genomeLength = this.genomeLength;
+    const contract = layout
+      ? resolveAnnotationTrackContract({
+          layout,
+          maxAnnotationLane: this.maxAnnotationLane,
+          maxCdsLane: this.maxCdsLane,
+        })
+      : null;
     return {
       features: this.features,
-      genomeLength: this.genomeLength,
-      layout: this._layout,
+      genomeLength,
+      layout,
       maxAnnotationLane: this.maxAnnotationLane,
       maxCdsLane: this.maxCdsLane,
       minAggregateFeaturePixels: MIN_NARROW_FEATURE_PX,
       getEndBp: (feature) =>
-        feature.end > feature.start ? feature.end : feature.end + this.genomeLength,
-      getOffset: (feature) => this.featureOffset(feature),
-      getHalfHeight: () => this.scaledBarHeight() / 2,
+        feature.end > feature.start ? feature.end : feature.end + genomeLength,
+      getOffset: (feature) => {
+        if (!contract) return -14;
+        const laneIndex =
+          feature.type === 'CDS' ? (feature.cdsLane ?? feature.lane ?? 0) : feature.lane;
+        const envelope = getAnnotationLaneEnvelope(contract, feature.type, laneIndex);
+        if (!envelope)
+          throw new Error(`Annotation lane contract missing ${feature.type} lane ${laneIndex}`);
+        return envelope.centerOffset;
+      },
+      getHalfHeight: () => ANNOTATION_BAR_HEIGHT / 2,
       getColor,
       getAlpha: (feature, featureScoped) =>
         featureScoped && isOutlineOnlyFeature(feature) ? 0.35 : 0.85,
@@ -1862,6 +1883,57 @@ export class SequenceAnnotationOverlay implements RetainedOverlayTrack {
           ? isSplicedFeature(feature)
           : isOutlineOnlyFeature(feature) || isSplicedFeature(feature) || isTranscript(feature),
     };
+  }
+
+  private retainedPreparationKey(read: RetainedOverviewBodyRead): string | null {
+    return read.kind === 'unprepared'
+      ? `${read.request.generation}|${read.request.contextKey}`
+      : null;
+  }
+
+  canPresentRetainedOverview(layout: UnifiedLayout, pixelsPerBp: number): boolean {
+    if (!this.enabled || !this.presentationVisible) return true;
+    const plan = planRetainedAnnotationRender({
+      enabled: retainedOverviewAnnotationsEnabled(),
+      style: retainedOverviewAnnotationStyle(),
+      hasLayout: true,
+      genomeLength: this.genomeLength,
+      featureCount: this.features.length,
+      isArcMode: true,
+      pixelsPerBp,
+    });
+    if (plan.kind === 'fallback') return true;
+    const read = this.overviewCache.readRetainedOverviewBodyCache(
+      { pixelsPerBp: Math.min(pixelsPerBp, OVERVIEW_LOD_COMPRESSED_PIXELS_PER_BP) },
+      this.overviewCacheContext(layout)
+    );
+    return (
+      read.kind !== 'unprepared' ||
+      this.retainedPreparationKey(read) === this.retainedPreparationRefusal
+    );
+  }
+
+  async prepareRetainedOverviewForLayout(
+    layout: UnifiedLayout,
+    pixelsPerBpMin: number,
+    pixelsPerBpMax = OVERVIEW_LOD_COMPRESSED_PIXELS_PER_BP
+  ): Promise<RetainedOverviewPreparationReceipt> {
+    const context = this.overviewCacheContext(layout);
+    const read = this.overviewCache.readRetainedOverviewBodyCache(
+      { pixelsPerBp: pixelsPerBpMax },
+      context
+    );
+    const receipt = await this.overviewCache.prepareRetainedOverview({
+      presentationKey: 'stadium-annotations',
+      contexts: [
+        { context, pixelsPerBpMin: Math.min(pixelsPerBpMin, pixelsPerBpMax), pixelsPerBpMax },
+      ],
+    });
+    if (receipt.kind === 'unprepared' && receipt.reason !== 'stale-generation') {
+      this.retainedPreparationRefusal = this.retainedPreparationKey(read);
+    }
+    this.frameRequester?.();
+    return receipt;
   }
 
   render(path: PathMapper, state: RenderState, _yOffset: number, _height: number): void {
@@ -3811,6 +3883,8 @@ export class SequenceAnnotationOverlay implements RetainedOverlayTrack {
   }
 
   destroy(): void {
+    this.frameRequester = null;
+    this.overviewCache.invalidate();
     this.releaseRetiredGpuResourcesAfterPresent(true);
     this.graphics.destroy();
     this.retainedTranscriptDecorationGraphics.destroy();
