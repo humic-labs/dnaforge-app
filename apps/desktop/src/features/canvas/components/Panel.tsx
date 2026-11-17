@@ -478,8 +478,15 @@ function PanelBody({ panel, isFocused }: PanelProps) {
       }
     };
 
-    presentationEvents.add(window, 'keydown', handler, true);
-    return () => presentationEvents.remove(window, 'keydown', handler, true);
+    const handleWindowKey = (event: KeyboardEvent) => {
+      if (event.eventPhase === Event.AT_TARGET) handler(event);
+    };
+    presentationEvents.add(document, 'keydown', handler, true);
+    presentationEvents.add(window, 'keydown', handleWindowKey);
+    return () => {
+      presentationEvents.remove(document, 'keydown', handler, true);
+      presentationEvents.remove(window, 'keydown', handleWindowKey);
+    };
   }, [dispatchCommand, isFocused, panel.id, presentationEvents]);
 
   useEffect(() => {
