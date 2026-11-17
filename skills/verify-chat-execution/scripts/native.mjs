@@ -8,6 +8,7 @@ import { parseArgs } from 'node:util';
 import { chromium } from 'playwright';
 import { expect } from '@playwright/test';
 import { finalizeJourneyRecording } from '../../../apps/desktop/scripts/lib/native-journey-recording.mjs';
+import { reloadNativePage } from '../../../apps/desktop/scripts/lib/native-journey-readiness.mjs';
 const { values } = parseArgs({ options: { out: { type: 'string' } } });
 assert.ok(values.out, 'Provide --out /absolute/external/evidence');
 const root = resolve(
@@ -48,7 +49,8 @@ try {
   for(const [key,value] of [['ai_provider','anthropic'],['ai_model','claude-sonnet-4-6'],['ai_assistant_route',JSON.stringify({kind:'provider',provider:'anthropic',model:'claude-sonnet-4-6'})]])
    await window.electronAPI.db.execute('INSERT OR REPLACE INTO settings (key,value,updated_at) VALUES (?,?,?)',[key,value,Date.now()]);
  });
- await page.reload();
+ receipt.startupObservations = [];
+ await reloadNativePage(page, { observe: observation => receipt.startupObservations.push(observation) });
  page.on('pageerror',error=>receipt.errors.push(error.message));
  cdp=await page.context().newCDPSession(page);
  cdp.on('Page.screencastFrame',frame=>{

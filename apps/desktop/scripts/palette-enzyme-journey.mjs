@@ -63,10 +63,11 @@ page.on('response', (response) => {
     errors.push(`${response.status()} ${response.url()}`);
 });
 const observations = [];
+const startupObservations = [];
 const reload = (name) =>
   reloadNativePage(page, {
     observe: ({ phase, startup }) =>
-      observations.push({ name: `${name}-${phase}`, value: startup }),
+      startupObservations.push({ name: `${name}-${phase}`, value: startup }),
   });
 const capture = async (name, value) => {
   await page.screenshot({ path: path.join(out, `${name}.png`) });
@@ -239,6 +240,7 @@ try {
         root,
         commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
         observations,
+        startupObservations,
         errors,
       },
       null,

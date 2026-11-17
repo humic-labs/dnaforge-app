@@ -1358,14 +1358,33 @@ async function stopWorktreeStack(state) {
     if (!(await terminatePids(pids, true))) throw new Error(`Owned port ${port} did not stop`);
   }
   const bound = [];
-  for (const entry of sweep) {
-    if (pidsAt(entry[1]).length > 0 || (await tcpPortAcceptsConnections(entry[1])))
-      bound.push(entry);
+  for (const [name, port] of sweep) {
+    const pids = pidsAt(port);
+    const acceptsConnections = pids.length > 0 ? null : await tcpPortAcceptsConnections(port);
+    if (pids.length > 0 || acceptsConnections) bound.push({ name, port, pids, acceptsConnections });
   }
-  if (bound.length)
+  if (bound.length) {
+    const ports = [];
+    for (const observation of bound) {
+      const { name, port } = observation;
+      ports.push({
+        name,
+        port,
+        initial: observation,
+        processes: pidsAt(port).map((pid) => ({
+          pid,
+          alive: pidIsAlive(pid),
+          cwd: processCwd(pid) ?? null,
+          previouslyVerified: verified.has(pid),
+        })),
+        acceptsConnections: await tcpPortAcceptsConnections(port),
+      });
+    }
+    console.error(`ELECTRON_DEV_TEARDOWN_INCOMPLETE ${JSON.stringify({ ports })}`);
     throw new Error(
-      `Worktree teardown incomplete: ${bound.map(([name, port]) => `${name}:${port}`).join(', ')}`
+      `Worktree teardown incomplete: ${bound.map(({ name, port }) => `${name}:${port}`).join(', ')}`
     );
+  }
   console.log('ELECTRON_DEV_STOPPED');
   console.log(
     `Freed ports (incl. sidecar — no orphan): ${sweep.map(([, port]) => port).join(', ')}`
