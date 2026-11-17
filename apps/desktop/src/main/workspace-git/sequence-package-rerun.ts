@@ -10,7 +10,16 @@ function sha256(content: string): string {
 
 export async function publishRerunSequenceRevision(
   workspaceRoot: string,
-  input: { packageRoot: string; productContent: string }
+  input: {
+    packageRoot: string;
+    productContent: string;
+    expected?: {
+      packageRoot: string;
+      packageId: string;
+      markerSha256: string;
+      productSha256: string;
+    };
+  }
 ): Promise<void> {
   const markerContent = await readFile(sequencePackagePaths(input.packageRoot).metaPath, 'utf8');
   const current = parseSequencePackageDocument(markerContent);
@@ -18,6 +27,14 @@ export async function publishRerunSequenceRevision(
     productFile: current.product.file,
   }).productPath;
   const currentProduct = await readFile(productPath, 'utf8');
+  if (
+    input.expected &&
+    (input.packageRoot !== input.expected.packageRoot ||
+      current.id !== input.expected.packageId ||
+      sha256(markerContent) !== `sha256:${input.expected.markerSha256}` ||
+      sha256(currentProduct) !== `sha256:${input.expected.productSha256}`)
+  )
+    throw new Error('The previously migrated sequence changed before its arrival could be saved.');
   if (currentProduct === input.productContent) return;
   const sequence = parseSequenceFileAsDocument(input.productContent, productPath).sequence;
   const operation = randomUUID();

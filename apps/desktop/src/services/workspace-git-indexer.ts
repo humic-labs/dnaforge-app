@@ -167,13 +167,15 @@ export async function indexWorkspaceHeadIntoCatalog(
   const preserveRelPaths = knownBeforeHeadRead
     .map((file) => pathRelativeToBoundary(file.path, repoPath))
     .filter((path): path is string => path !== null && path !== '');
-  const { files, scannedFileCount, visibleFileCount, healedFileCount } = await readHead(
-    repoPath,
-    preserveRelPaths
-  );
+  const { files, scannedFileCount, visibleFileCount, healedFileCount, migrationIssues } =
+    await readHead(repoPath, preserveRelPaths);
   result.scanned = scannedFileCount;
   result.visibleFileCount = visibleFileCount;
   result.healedFileCount = healedFileCount ?? 0;
+  result.migrationIssues = migrationIssues ?? [];
+  result.errors.push(
+    ...result.migrationIssues.map(({ path, reason }) => ({ path, message: reason }))
+  );
   signal?.throwIfAborted();
   await cooperateWithRendererInteraction(scanWorkUnits, { signal });
   const notebookPackageRoots = await collectNotebookPackageRoots(files, cooperate);
