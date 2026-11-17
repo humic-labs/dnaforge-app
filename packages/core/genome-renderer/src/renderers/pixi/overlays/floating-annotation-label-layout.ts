@@ -1150,6 +1150,17 @@ const repairSlotsByOptions = new WeakMap<
 >();
 const MAX_REPAIR_ATTEMPTS_PER_FRAME = 512;
 
+const REPAIR_SLOT_ORDER = FLOATING_LABEL_TANGENT_STEPS.flatMap((tangentStep) =>
+  Array.from({ length: REPAIR_OUTWARD_ROW_COUNT }, (_, outwardRow) => ({ outwardRow, tangentStep }))
+).sort(
+  (left, right) =>
+    Math.abs(left.tangentStep) +
+      left.outwardRow -
+      (Math.abs(right.tangentStep) + right.outwardRow) ||
+    left.outwardRow - right.outwardRow ||
+    left.tangentStep - right.tangentStep
+);
+
 function repairSlots(
   candidate: FloatingAnnotationLabelCandidate
 ): readonly FloatingAnnotationLabelSlot[] {
@@ -1159,23 +1170,13 @@ function repairSlots(
   for (const option of candidate.placementOptions) {
     clearanceByStep.set(option.tangentStep, option.outwardClearance);
   }
-  const slots: FloatingAnnotationLabelSlot[] = [];
-  for (const tangentStep of FLOATING_LABEL_TANGENT_STEPS) {
-    const outwardClearance = clearanceByStep.get(tangentStep) ?? 0;
-    for (let outwardRow = 0; outwardRow < REPAIR_OUTWARD_ROW_COUNT; outwardRow += 1) {
-      slots.push({ outwardRow, tangentStep, outwardClearance });
-    }
-  }
-  const sorted = slots.sort(
-    (left, right) =>
-      Math.abs(left.tangentStep) +
-        left.outwardRow -
-        (Math.abs(right.tangentStep) + right.outwardRow) ||
-      left.outwardRow - right.outwardRow ||
-      left.tangentStep - right.tangentStep
-  );
-  repairSlotsByOptions.set(candidate.placementOptions, sorted);
-  return sorted;
+  const slots = REPAIR_SLOT_ORDER.map(({ outwardRow, tangentStep }) => ({
+    outwardRow,
+    tangentStep,
+    outwardClearance: clearanceByStep.get(tangentStep) ?? 0,
+  }));
+  repairSlotsByOptions.set(candidate.placementOptions, slots);
+  return slots;
 }
 
 interface SlotAttempt {
