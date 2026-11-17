@@ -3,6 +3,13 @@ export interface ColorSwatchPalette {
   readonly colors: readonly string[];
 }
 
+export const SCIENTIFIC_COLOR_PALETTES = {
+  ocean: { name: 'Ocean', colors: ['#163b65', '#20a7a0', '#e2e8a3'] },
+  viridis: { name: 'Viridis', colors: ['#440154', '#21918c', '#fde725'] },
+  cividis: { name: 'Cividis', colors: ['#00224e', '#7d7c78', '#fee838'] },
+  balance: { name: 'Blue–red', colors: ['#2166ac', '#f7f7f7', '#b2182b'] },
+} as const;
+
 export const ANNOTATION_COLOR_PALETTES: readonly ColorSwatchPalette[] = [
   {
     name: 'Classic',

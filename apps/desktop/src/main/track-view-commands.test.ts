@@ -1,5 +1,7 @@
 import type { TrackViewCommand } from '@waypoint/domain-services';
 import { describe, expect, it, vi } from 'vitest';
+import { sequenceDataLayerIndexedTargetId } from '../shared/sequence-data-layer-indexed-target';
+import { trackViewCommandResultSchema } from '../shared/track-view-commands';
 import { TrackViewCommands } from './track-view-commands';
 import type { PreparedReferenceAssemblyEntryV1 } from '../shared/reference-assets-ipc';
 import {
@@ -20,7 +22,7 @@ const reference = {
   ],
 } as PreparedReferenceAssemblyEntryV1;
 
-function fixture() {
+function fixture(references: readonly PreparedReferenceAssemblyEntryV1[] = [reference]) {
   const files = new Map<string, SavedTrackView>();
   const save = vi.fn(async (input: SaveTrackViewRequest): Promise<SavedTrackView> => {
     const document = validateTrackViewDocument(input.document);
@@ -46,7 +48,7 @@ function fixture() {
       if (project !== '/project') throw new Error('PROJECT_NOT_FOUND');
       return project;
     },
-    references: async () => [reference],
+    references: async () => references,
     reference: async (id) => {
       if (id !== reference.id) throw new Error('REFERENCE_NOT_FOUND');
       return reference;
@@ -69,6 +71,55 @@ const request = {
 };
 
 describe('native Track View commands without a reference tab', () => {
+  it('discovers canonical data-layer targets only from supported prepared native members', async () => {
+    const referenceIdentity = {
+      sequenceIdentity: 'a'.repeat(64),
+      annotationIdentity: 'b'.repeat(64),
+    };
+    const manifest = { fastaPath: '/owned/reference.fa', faiPath: '/owned/reference.fa.fai' };
+    const prepared = {
+      ...reference,
+      referenceIdentity,
+      members: [
+        { chrom: 'chr1', lengthBp: 1000, manifest },
+        { chrom: 'chr2', lengthBp: 2000 },
+        { chrom: 'large', lengthBp: 6_000_001, manifest },
+      ],
+    };
+    const stub = { ...reference, id: 'hosted-stub' };
+    const { commands, admit, save } = fixture([
+      prepared,
+      stub,
+      { ...reference, id: 'unprepared', referenceIdentity },
+    ]);
+    const result = await commands.run({ operation: 'references' });
+    const expected = [
+      {
+        chrom: 'chr1',
+        targetDocumentId: sequenceDataLayerIndexedTargetId({
+          referenceId: prepared.id,
+          chrom: 'chr1',
+          ...referenceIdentity,
+        }),
+      },
+    ];
+    expect(result).toMatchObject({
+      operation: 'references',
+      references: [
+        { sequenceDataLayerTargets: expected },
+        { id: 'hosted-stub' },
+        { id: 'unprepared' },
+      ],
+    });
+    if (result.operation !== 'references') throw new Error('Unexpected reference result.');
+    expect(result.references[1]).not.toHaveProperty('sequenceDataLayerTargets');
+    expect(result.references[2]).not.toHaveProperty('sequenceDataLayerTargets');
+    expect(trackViewCommandResultSchema.parse(result)).toEqual(result);
+    expect(JSON.stringify(result)).not.toContain('/owned/');
+    expect(admit).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it('creates a durable view with assembly-relative coordinates and inspectable identity', async () => {
     const { commands, save } = fixture();
     const result = await commands.run(request);

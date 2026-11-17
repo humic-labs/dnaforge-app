@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { TrackViewCommand, TrackViewCommandResult } from '@waypoint/domain-services';
+import { parseSequenceDataLayerIndexedTargetId } from './sequence-data-layer-indexed-target';
 import { HEX_COLOR_PATTERN } from './published-schema-patterns';
 
 const text = z
@@ -111,6 +112,26 @@ export const trackViewCommandResultSchema = z.discriminatedUnion('operation', [
           name: z.string(),
           organism: z.string(),
           chromosomes: z.array(z.object({ chrom: text, length: z.number() })),
+          sequenceDataLayerTargets: z
+            .array(
+              z
+                .object({
+                  chrom: text,
+                  targetDocumentId: z.string().max(512),
+                })
+                .strict()
+                .refine((target) => {
+                  try {
+                    return (
+                      parseSequenceDataLayerIndexedTargetId(target.targetDocumentId)?.chrom ===
+                      target.chrom
+                    );
+                  } catch {
+                    return false;
+                  }
+                }, 'Use an exact indexed reference target for this chromosome.')
+            )
+            .optional(),
         })
       ),
     })

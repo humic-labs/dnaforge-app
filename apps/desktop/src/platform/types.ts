@@ -918,6 +918,15 @@ export interface PlatformBridge {
     ): Promise<import('@waypoint/domain-services').TrackViewCommandResult>;
   };
   molecularDocuments: MolecularDocumentsBridge;
+  comparisonSources: ClientOf<
+    typeof import('../shared/ipc/comparison-sources.contract').comparisonSourcesContract
+  >;
+  contactSources: ClientOf<
+    typeof import('../shared/ipc/contact-sources.contract').contactSourcesContract
+  >;
+  sequenceDataLayers: ClientOf<
+    typeof import('../shared/ipc/sequence-data-layers.contract').sequenceDataLayersContract
+  >;
   trackStore: TrackStoreBridge;
   referenceAssets: ReferenceAssetsBridge;
   workspace: OriginalProjectPort & {

@@ -1,3 +1,6 @@
+import type { SavedSequenceDataLayers } from './saved-sequence-data-layers';
+import type { ComparisonProjectionViewState } from './comparison-source';
+import type { ContactProjectionViewState } from './contact-source';
 import type {
   ReferenceContentIdentity,
   ReferenceVersionIdentity,
@@ -1311,6 +1314,9 @@ export function sameAssemblyReferenceAssetGenerationV1(
 }
 
 export interface IndexedGenomeTabState {
+  sequenceDataLayers?: SavedSequenceDataLayers;
+  contactProjection?: ContactProjectionViewState;
+  comparisonProjection?: ComparisonProjectionViewState;
   sourcePath: string;
   workspaceRoot?: string;
   sourceSizeBytes?: number;

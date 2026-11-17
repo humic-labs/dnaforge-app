@@ -288,6 +288,7 @@ export {
   LEGACY_SUBTLE_GAUSSIAN_SIGMA_BINS,
   MAX_QUANTITATIVE_SMOOTHING_SIGMA_BINS,
   QUANTITATIVE_SMOOTHING_SIGMA_STEP_BINS,
+  QUANTITATIVE_COLOR_PALETTE_IDS,
   QUANTITATIVE_SOURCE_SUMMARY_ALGORITHM_V1,
   QUANTITATIVE_SOURCE_SUMMARY_V1,
   assertQuantitativeTransformCompatible,
@@ -298,6 +299,8 @@ export {
   transformQuantitativeValue,
 } from './quantitative-track-presentation';
 export type {
+  QuantitativeGraph,
+  QuantitativeColorPalette,
   QuantitativeScaleMode,
   QuantitativeScaleTransform,
   QuantitativeSmoothing,
@@ -468,3 +471,17 @@ export type {
   TextIntervalQueryRegion,
   TextIntervalRegionQueryResult,
 } from './text-interval-query';
+export { resolveGenomicMarkup } from './genomic-markup';
+export type {
+  GenomicMarkupReference,
+  GenomicMarkupObservation,
+  GenomicMarkupSample,
+  GenomicMarkupDataset,
+  GenomicMarkupSourceWindow,
+  GenomicMarkupStyle,
+  ResolvedGenomicMarkupObservation,
+  ResolvedGenomicMarkup,
+} from './genomic-markup';
+export * from './genomic-layer-operation';
+export * from './sequence-data-layer';
+export * from './genome-comparison';

@@ -1,6 +1,8 @@
+import { SCIENTIFIC_COLOR_PALETTES } from '@waypoint/sequence-utils';
 import {
   normalizeQuantitativeTrackPresentation,
   resolveQuantitativeDisplayRange,
+  type QuantitativeColorPalette,
   type QuantitativeScaleMode,
   type QuantitativeScaleTransform,
   type QuantitativeSourceSummaryV1,
@@ -133,6 +135,41 @@ export function QuantitativeTrackAxis({
           />
         ))}
       </div>
+    </div>
+  );
+}
+
+export function QuantitativeColorLegend({
+  trackId,
+  label,
+  range,
+  palette = 'viridis',
+}: {
+  trackId: string;
+  label: string;
+  range: QuantitativeAxisRange;
+  palette?: QuantitativeColorPalette;
+}) {
+  const colors = SCIENTIFIC_COLOR_PALETTES[palette].colors;
+  return (
+    <div
+      data-testid={`quantitative-color-scale-${trackId}`}
+      data-scale-transform={range.transform}
+      role="img"
+      aria-label={`Color scale for ${label}: ${formatQuantitativeAxisValue(range.min)} to ${formatQuantitativeAxisValue(range.max)}`}
+      className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-10 select-none text-[9px] leading-none text-fg-muted"
+    >
+      <div
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-1.5 border border-bg/40"
+        style={{ background: `linear-gradient(to top, ${colors.join(', ')})` }}
+      />
+      <span aria-hidden className="absolute left-2 top-0 rounded bg-bg/90 px-0.5">
+        {formatQuantitativeAxisValue(range.max)}
+      </span>
+      <span aria-hidden className="absolute bottom-0 left-2 rounded bg-bg/90 px-0.5">
+        {formatQuantitativeAxisValue(range.min)}
+      </span>
     </div>
   );
 }

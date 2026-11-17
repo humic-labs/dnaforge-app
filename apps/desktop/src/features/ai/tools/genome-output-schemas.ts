@@ -1,3 +1,4 @@
+import { QUANTITATIVE_COLOR_PALETTE_IDS } from '@waypoint/genome-data';
 import { z } from 'zod';
 import { entityNavigationTargetSchema } from '../../../shared/entity-navigation';
 import { molecularDocumentReferenceSchema } from '../../../shared/molecular-document-reference';
@@ -28,7 +29,8 @@ export const indexedTrackOutputSchema = z.object({
   quantitative: z
     .object({
       version: z.literal(1),
-      graph: z.literal('bar'),
+      graph: z.enum(['bar', 'band', 'points']),
+    palette: z.enum(QUANTITATIVE_COLOR_PALETTE_IDS).optional(),
       showRange: z.boolean(),
       smoothingSigmaBins: z.number().optional(),
       smoothing: z.enum(['none', 'gaussian-subtle']).optional(),

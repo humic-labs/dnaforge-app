@@ -44,6 +44,11 @@ import {
 import { resultSdkRendererTool, defineRendererToolCatalog } from './types';
 import { createTrackViewsTool } from '../../ai/public/tools/track-views';
 import {
+  createSequenceDataLayersTool,
+  sequenceDataLayersToolSchema,
+  sequenceDataLayersOutputSchema,
+} from '../../ai/public/tools/sequence-data-layers';
+import {
   trackViewToolRequestSchema,
   trackViewCommandResultSchema,
 } from '../../../shared/track-view-commands';
@@ -53,6 +58,28 @@ import {
 } from './helpers';
 
 export const genomesTools = defineRendererToolCatalog({
+  sequence_data_layers: {
+    name: 'sequence_data_layers',
+    description:
+      'Inspect exact sequence revisions, map user CSV measurements by explicit coordinates or stable annotation IDs, and save reusable data layers. Reports unmatched and ambiguous rows. Dataset snapshots and mappings survive reopening and are independent of the viewer.',
+    shape: 'app-action',
+    required_capabilities: ['read-workspace', 'read-sequences'],
+    conditional_required_capabilities: ['create-entity', 'write-workspace'],
+    audit_required: true,
+    effects: ['read-only', 'mutating'],
+    requiresWorkspace: true,
+    conditionallyRequiresWorkspace: false,
+    exposure: { kind: 'shared' },
+    inputSchema: sequenceDataLayersToolSchema,
+    outputSchema: sequenceDataLayersOutputSchema,
+    execution: resultSdkRendererTool((context) => createSequenceDataLayersTool(context.folders)),
+    resolveInputAuthorization: (input) => ({
+      additionalRequiredCapabilities:
+        (input as { operation?: string })?.operation === 'create'
+          ? ['create-entity', 'write-workspace']
+          : [],
+    }),
+  },
   track_views: {
     name: 'track_views',
     description:
