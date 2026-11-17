@@ -4,6 +4,7 @@ import { assertComparisonProjectionReference } from '../../features/sequence/com
 import { NATIVE_COMPARISON_FIXTURE } from './native-comparison-fixture';
 import { materializeNativeProjectionSource } from './native-projection-source-fixture';
 import { comparisonSourceProjectionId } from '../../shared/comparison-source';
+import { buildGenomeComparisonLayout } from '@waypoint/genome-data';
 
 export async function applyNativeComparisonProjection(tabId: string): Promise<void> {
   const materialized = await materializeNativeProjectionSource({
@@ -59,6 +60,18 @@ export async function applyNativeComparisonProjection(tabId: string): Promise<vo
     querySource: { referenceId: query.id, ...query.referenceIdentity },
   };
   const loaded = await bridge.comparisonSources.read({ project: materialized.project, source });
+  const layout = buildGenomeComparisonLayout(loaded.comparison.blocks);
+  const firstGap = layout.entries.flatMap((entry) =>
+    entry.kind === 'block'
+      ? entry.block.segments
+          .filter(
+            (segment) =>
+              segment.targetStart === segment.targetEnd || segment.queryStart === segment.queryEnd
+          )
+          .map((segment) => entry.columnStart + segment.columnStart)
+      : []
+  )[0];
+  const startColumn = Math.max(0, (firstGap ?? 60) - 60);
   assertComparisonProjectionReference(source, current.assembly.chromosomes);
   useCanvasStore.getState().updateTab(panel[0], tabId, {
     label: loaded.label,
@@ -71,8 +84,8 @@ export async function applyNativeComparisonProjection(tabId: string): Promise<vo
         source,
         camera: {
           projectionId: comparisonSourceProjectionId(source),
-          startColumn: 15_980,
-          endColumn: 16_100,
+          startColumn,
+          endColumn: Math.min(layout.columnLength, startColumn + 120),
         },
       },
     },

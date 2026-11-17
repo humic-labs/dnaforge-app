@@ -120,20 +120,39 @@ export function useIndexedSequenceDataLayers(tab: Tab, genome: IndexedGenomeTabS
     pinnedRevisions,
     enabled,
   });
+  const snapshot = useMemo(() => {
+    if (!selection) return { status: 'inactive' } as const;
+    if (!enabled || !documentId || layers.loadedLayers === null)
+      return { status: 'opening' } as const;
+    try {
+      return {
+        status: 'ready',
+        value: captureSavedSequenceDataLayers(
+          documentId,
+          selection,
+          layers.loadedLayers,
+          pinnedRevisions
+        ),
+      } as const;
+    } catch (error) {
+      return {
+        status: 'unavailable',
+        message: error instanceof Error ? error.message : String(error),
+      } as const;
+    }
+  }, [documentId, enabled, layers.loadedLayers, pinnedRevisions, selection]);
   const capture = () => {
-    if (!selection || !documentId) return undefined;
-    return captureSavedSequenceDataLayers(
-      documentId,
-      selection,
-      layers.loadedLayers,
-      pinnedRevisions
+    if (snapshot.status === 'inactive') return undefined;
+    if (snapshot.status === 'ready') return snapshot.value;
+    throw new Error(
+      snapshot.status === 'opening' ? 'The data layer sources are still opening.' : snapshot.message
     );
   };
   return {
     ...layers,
     annotationColorsByIdentity: undefined,
     missingColor: undefined,
-    ready: !selection || (enabled && layers.loadedLayers !== null),
+    ready: snapshot.status === 'inactive' || snapshot.status === 'ready',
     capture,
     trackControls: {
       ...layers.trackControls,
@@ -141,6 +160,7 @@ export function useIndexedSequenceDataLayers(tab: Tab, genome: IndexedGenomeTabS
       errors: [
         ...layers.trackControls.errors,
         ...(native?.key === key && native.kind === 'error' ? [native.message] : []),
+        ...(snapshot.status === 'unavailable' ? [snapshot.message] : []),
       ],
     },
   };
