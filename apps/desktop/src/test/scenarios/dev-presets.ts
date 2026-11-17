@@ -1356,6 +1356,17 @@ export const DEV_SCENARIO_PRESET_GROUPS: readonly DevScenarioPresetGroup[] = [
         noAutoReplay: true,
       },
       {
+        id: 'native-13-gyrase',
+        label: 'Gyrase cleavage · three treatments',
+        description:
+          'Three published trusted-site call sets on the exact author W3110-Mu reference. Point heights preserve normalized cleavage signal; unreported treatment calls remain absent.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath:
+          'test-fixtures/genome-view-prototypes/native-references/reference-author-w3110-Mu',
+        nativeDataLayerExample: '13-gyrase',
+        noAutoReplay: true,
+      },
+      {
         id: 'indexed-mg1655-reference',
         label: 'Indexed MG1655 reference',
         description:

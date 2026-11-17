@@ -38,6 +38,7 @@ export type NativeDataLayerExample =
   | '05-ribosome-profiling'
   | '08-tss-coverage'
   | '09-termseq'
+  | '13-gyrase'
   | '14-supercoiling';
 
 type Dataset = (typeof manifest.datasets)[number];
@@ -345,6 +346,29 @@ export async function applyNativeDataLayerExample(
           .trim()
           .split('\n')
           .map((row) => Number(row.split('\t')[1])),
+        dataset.reference.length
+      );
+    } else if (id === '13-gyrase') {
+      const maximum = Math.max(...numericValues(csv, ['n3e']));
+      for (const [condition, label] of [
+        ['cfx', 'Gyrase cleavage · ciprofloxacin 10 µM'],
+        ['oxo', 'Gyrase cleavage · oxolinic acid'],
+        ['micro', 'Gyrase cleavage · microcin B17'],
+      ] as const) {
+        await addCsvLayer({
+          project: project.rootPath,
+          view,
+          dataset: datasetById(`13-gyrase-${condition}`),
+          label,
+          geometry: 'points',
+          palette: 'cividis',
+          domain: [0, maximum],
+        });
+      }
+      focusIndexed(
+        view,
+        'Gyrase cleavage · author W3110-Mu reference',
+        numericValues(csv, ['start0']),
         dataset.reference.length
       );
     } else if (dataset.mapping?.kind === 'positions') {

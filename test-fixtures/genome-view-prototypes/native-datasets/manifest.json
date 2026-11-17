@@ -524,6 +524,110 @@
         "rep3"
       ],
       "unresolvedPolicy": "reject"
+    },
+    {
+      "sourceId": "13-gyrase",
+      "metadata": "indexed-signals/13-gyrase/metadata.json",
+      "referenceFile": "../native-references/reference-author-w3110-Mu/NC_007779.1_w3110_Mu.fa.gz",
+      "reference": {
+        "id": "NC_007779.1_w3110_Mu",
+        "length": 4647454,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "ba713e15666235347ead27ae524086b2cef1e159c5fb32336ce3608e2b9baf9a",
+        "citation": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE117186"
+      },
+      "unit": "author-normalized cleavage signal (N3E)",
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start0",
+        "endColumn": "end0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "valueColumns": [
+        "n3e"
+      ],
+      "unresolvedPolicy": "reject",
+      "id": "13-gyrase",
+      "file": "indexed-signals/13-gyrase/data.csv",
+      "rows": 1216
+    },
+    {
+      "sourceId": "13-gyrase",
+      "metadata": "indexed-signals/13-gyrase/metadata.json",
+      "referenceFile": "../native-references/reference-author-w3110-Mu/NC_007779.1_w3110_Mu.fa.gz",
+      "reference": {
+        "id": "NC_007779.1_w3110_Mu",
+        "length": 4647454,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "ba713e15666235347ead27ae524086b2cef1e159c5fb32336ce3608e2b9baf9a",
+        "citation": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE117186"
+      },
+      "unit": "author-normalized cleavage signal (N3E)",
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start0",
+        "endColumn": "end0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "valueColumns": [
+        "n3e"
+      ],
+      "unresolvedPolicy": "reject",
+      "id": "13-gyrase-cfx",
+      "file": "indexed-signals/13-gyrase/cfx.csv",
+      "rows": 609
+    },
+    {
+      "sourceId": "13-gyrase",
+      "metadata": "indexed-signals/13-gyrase/metadata.json",
+      "referenceFile": "../native-references/reference-author-w3110-Mu/NC_007779.1_w3110_Mu.fa.gz",
+      "reference": {
+        "id": "NC_007779.1_w3110_Mu",
+        "length": 4647454,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "ba713e15666235347ead27ae524086b2cef1e159c5fb32336ce3608e2b9baf9a",
+        "citation": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE117186"
+      },
+      "unit": "author-normalized cleavage signal (N3E)",
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start0",
+        "endColumn": "end0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "valueColumns": [
+        "n3e"
+      ],
+      "unresolvedPolicy": "reject",
+      "id": "13-gyrase-oxo",
+      "file": "indexed-signals/13-gyrase/oxo.csv",
+      "rows": 527
+    },
+    {
+      "sourceId": "13-gyrase",
+      "metadata": "indexed-signals/13-gyrase/metadata.json",
+      "referenceFile": "../native-references/reference-author-w3110-Mu/NC_007779.1_w3110_Mu.fa.gz",
+      "reference": {
+        "id": "NC_007779.1_w3110_Mu",
+        "length": 4647454,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "ba713e15666235347ead27ae524086b2cef1e159c5fb32336ce3608e2b9baf9a",
+        "citation": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE117186"
+      },
+      "unit": "author-normalized cleavage signal (N3E)",
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start0",
+        "endColumn": "end0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "valueColumns": [
+        "n3e"
+      ],
+      "unresolvedPolicy": "reject",
+      "id": "13-gyrase-micro",
+      "file": "indexed-signals/13-gyrase/micro.csv",
+      "rows": 80
     }
   ],
   "sourceSnapshots": {
@@ -1089,6 +1193,41 @@
       "file": "indexed-signals/09-termseq/source-records.json",
       "sha256": "07b5dd02aee1dd6b463cb105682624716c8d7a43f84df1d535c19e4db2642864",
       "bytes": 228020
+    },
+    {
+      "file": "indexed-signals/13-gyrase/cfx.csv",
+      "sha256": "1949cd2f57e66cb0c4cd22bd6185af42c4a394ac00ca27f26bd760150ad15d3f",
+      "bytes": 89599
+    },
+    {
+      "file": "indexed-signals/13-gyrase/data.csv",
+      "sha256": "1fe7b90f9f4169460340e66bf29fedda75274266560f6c03aab2fae063648b93",
+      "bytes": 169928
+    },
+    {
+      "file": "indexed-signals/13-gyrase/metadata.json",
+      "sha256": "0793bf60d99d45b98753ccb97238a53de9834c3885015a47c9ccd3b6050cf8d6",
+      "bytes": 13457
+    },
+    {
+      "file": "indexed-signals/13-gyrase/micro.csv",
+      "sha256": "30d21fe792fbbbb4a87cdb4929e195cd3c9ff8eb06f33dfa4679aae3b5e82ae7",
+      "bytes": 10918
+    },
+    {
+      "file": "indexed-signals/13-gyrase/oxo.csv",
+      "sha256": "90bde497b8cec89e725e9f8786505001ba58c9744b0dbd2063d66f65b7e714e3",
+      "bytes": 69899
+    },
+    {
+      "file": "indexed-signals/13-gyrase/snapshot.json",
+      "sha256": "5c182a0707ce7a3478bc43b6ea61f7e4d7ccb9e7b46debc2aaeaba9828c9fdfc",
+      "bytes": 305466
+    },
+    {
+      "file": "indexed-signals/13-gyrase/source-records.json",
+      "sha256": "aab518938f2e74f70bcd04f3e39d5b36d3b5c25d9c7723dde28fdf79364de9b4",
+      "bytes": 693417
     }
   ]
 }

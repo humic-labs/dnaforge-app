@@ -76,7 +76,14 @@ source identities and relevant renderer errors. Use video for zoom, pan and
 close/reopen continuity. A source control test or diagnostic count alone does
 not qualify the painted app behavior.
 
-The comparison app path currently displays alignment coordinates and gaps; query
-nucleotide letters and annotations are not loaded. The native source descriptors
-retain project ownership and hashes; copying a saved view to a different
-computer without its managed source is not qualified.
+With prepared target and query sources bound, zoom across a real gap until both
+genomes show nucleotide letters and annotations. Require bounded source windows
+whose bases match each exact reference, no whole-genome strings, and no query
+bases inside a query-only gap. Pan to load new windows, then save, close and
+reopen. Require both source identities and the saved camera to survive. Opening
+the Files sidebar can reduce the scale below the existing base-letter threshold;
+close it before checking letters at the same camera. Canvas resize can normalize
+floating-point coordinates within machine precision.
+
+The native source descriptors retain project ownership and hashes; copying a
+saved view to a different computer without its managed source is not qualified.
