@@ -62,7 +62,7 @@ export function assertSourceAnnotationAliasesV1(
       indices.has(entry.featureIndex) ||
       !Array.isArray(entry.aliases) ||
       entry.aliases.some(
-        (alias) => typeof alias !== 'string' || !alias || /[\r\n\0]/.test(alias)
+        (alias: unknown) => typeof alias !== 'string' || !alias || /[\r\n\0]/.test(alias)
       ) ||
       new Set(entry.aliases).size !== entry.aliases.length
     )

@@ -184,7 +184,10 @@ describe('compiled broad surface RGBA8 compiler', () => {
     };
     const typescript = await compile('typescript');
     const wasm = await compile('wasm');
-    expect(wasm.map((cell) => cell.pixels)).toEqual(typescript.map((cell) => cell.pixels));
+    expect(wasm).toHaveLength(typescript.length);
+    for (let index = 0; index < typescript.length; index++) {
+      expect(equalBytes(wasm[index].pixels, typescript[index].pixels)).toBe(true);
+    }
     for (const mode of ['canonical', 'expanded'] as const) {
       const cell = findCell(typescript, mode, 0, 0, 0);
       const first = Array.from(

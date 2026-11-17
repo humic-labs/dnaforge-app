@@ -323,6 +323,7 @@ export function presentPrepackedAnnotationScene<TResident extends PrepackedPrese
     host.setStatus('fine-view-pending');
     return 'pending';
   }
+  const annotationDataColors = camera.state.sequencePresentation?.annotationDataColors;
   for (const { resident, submissions } of submissionsByResident) {
     const laneStart = host.laneStart(
       resident.metadata.trackType,
@@ -340,7 +341,7 @@ export function presentPrepackedAnnotationScene<TResident extends PrepackedPrese
       annotationTrackBase! - laneStart * laneRowCssHeightPx,
       camera.state.themeMode ?? 'light',
       camera.state.annotationRolePalette,
-      camera.state.sequencePresentation?.annotationDataColors
+      ...(annotationDataColors ? ([annotationDataColors] as const) : [])
     );
     resident.visiblePartitionCount = submissions.length;
     resident.visibleInstanceCount = submissions.reduce(
