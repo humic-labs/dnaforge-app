@@ -1,0 +1,66 @@
+{
+  "schema": "dnaforge.exact-reference-source-bundle.v1",
+  "accession": "REL606",
+  "organism": "Escherichia coli B REL606",
+  "reportedBaseAccession": "NC_012967.1",
+  "referenceIdentity": "Exact author-deposited REL606.gff3 from Dryad 10.5061/dryad.6226d, byte-identical Zenodo mirror; embedded sequence and author feature annotations.",
+  "topology": "circular",
+  "length": 4629812,
+  "normalizedSequenceSha256": "1416d1f031651da4e440638305422af58bb7a45e9218eb52a364f1c19ecee478",
+  "referenceAliasOrSubstitutionUsed": false,
+  "authoritativeSources": [
+    {
+      "sha256": "b0cea51211d23665397058f00a747bceb05778e3e9c2844570a493a3e1115dad",
+      "md5": "5ef7011a543ed79972fd5913e7a24403",
+      "url": "https://zenodo.org/records/5004468/files/REL606.gff3?download=1",
+      "dryadFileId": 69986,
+      "depositedFile": "REL606.gff3"
+    }
+  ],
+  "transformation": {
+    "fasta": "Extract embedded ##FASTA sequence without changing bases; preserve author sequence ID REL606.",
+    "annotation": "Remove embedded FASTA, preserve every nine-column author feature row and attribute, and sort by sequence/start/end for tabix.",
+    "featureRows": 8894,
+    "featureTypes": {
+      "region": 1,
+      "source": 1,
+      "CDS": 4217,
+      "gene": 4397,
+      "repeat_region": 50,
+      "fCDS": 111,
+      "rRNA": 22,
+      "tRNA": 85,
+      "misc_feature": 10
+    }
+  },
+  "nativeIndexedManifestRelativePaths": {
+    "fastaPath": "REL606.fa.gz",
+    "faiPath": "REL606.fa.gz.fai",
+    "gffPath": "REL606.gff3.gz",
+    "tbiPath": "REL606.gff3.gz.tbi",
+    "chrom": "REL606",
+    "length": 4629812
+  },
+  "gziFile": "REL606.fa.gz.gzi",
+  "fileSha256": {
+    "REL606.fa.gz": "b2ebccf4201c3cbc88b5a5c6c549ab10db51db53d7a262b9dd24af29d9c26b58",
+    "REL606.fa.gz.fai": "144df6b6c1eb11ca7527ab6a2fe1ab3c9027017da214f069d0c4172827922741",
+    "REL606.fa.gz.gzi": "e053fba3afa1c0cf518c04bbce193fbe0d929ba07cf89e491b39f8ad00aa2e5a",
+    "REL606.gff3.gz": "3591557625e7392f87eede3e54703d4c396647b7c96ceda21dc65849e626666b",
+    "REL606.gff3.gz.tbi": "03da0ba4b71af915a54f046fdfc6d124937ce2a109fef119d61c95864ca08a04"
+  },
+  "unbundledDerivedArtifacts": [
+    {
+      "name": "REL606.authoritative.fasta",
+      "sha256": "740a91aca950db5f76d0a6fa9fbe35f3f51a12817006502657477bba9e5ec46c",
+      "derivation": "Extract embedded ##FASTA sequence without changing bases; preserve author sequence ID REL606.",
+      "availability": "Uncompressed preparation derivative is not bundled. The exact source is the deposited REL606.gff3 named in authoritativeSources."
+    },
+    {
+      "name": "REL606.annotations.gff3",
+      "sha256": "1b0998758c121daa9eaa6c3b2dc269f06f68533da62abed3ecd98e389ed871df",
+      "derivation": "Remove embedded FASTA, preserve every nine-column author feature row and attribute, and sort by sequence/start/end for tabix.",
+      "availability": "Uncompressed preparation derivative is not bundled. The exact source is the deposited REL606.gff3 named in authoritativeSources."
+    }
+  ]
+}

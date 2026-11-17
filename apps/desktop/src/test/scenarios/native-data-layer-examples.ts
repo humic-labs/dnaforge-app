@@ -34,12 +34,15 @@ export type NativeDataLayerExample =
   | '01-tradis'
   | '02-chemical-genetics'
   | '06-proteome'
+  | '07-rna-decay'
   | '17-conservation'
   | '05-ribosome-profiling'
   | '08-tss-coverage'
   | '09-termseq'
+  | '11-hns-fis'
   | '13-gyrase'
-  | '14-supercoiling';
+  | '14-supercoiling'
+  | '19-evolution';
 
 type Dataset = (typeof manifest.datasets)[number];
 type OpenView = { panelId: string; tabId: string; documentId: string };
@@ -302,46 +305,61 @@ export async function applyNativeDataLayerExample(
         numericValues(csv, ['start0']),
         dataset.reference.length
       );
-    } else if (id === 'regulondb') {
+    } else if (id === 'regulondb' || id === '11-hns-fis') {
       await inspectTarget(project.rootPath, view, dataset);
       const checkout = await platform().path.projectRoot();
       if (!checkout) throw new Error('The binding-site example requires its development checkout.');
-      const imported = await platform().workspace.importFile({
-        targetRoot: project.rootPath,
-        sourcePath: `${checkout}/test-fixtures/genome-view-prototypes/native-datasets/${dataset.file}`,
-      });
-      const hash = await platform().fs.contentHash({
-        workspaceRoot: project.rootPath,
-        workspaceRelativePath: imported.relPath,
-      });
-      if (
-        hash !== `sha256:${manifest.artifacts.find((entry) => entry.file === dataset.file)!.sha256}`
-      )
-        throw new Error('The imported binding sites differ from their registered source.');
+      const sources =
+        id === 'regulondb'
+          ? [{ dataset, label: 'RegulonDB binding sites' }]
+          : [
+              { dataset: datasetById('11-hns-fis-fis-me'), label: 'Fis · mid-exponential binding' },
+              {
+                dataset: datasetById('11-hns-fis-hns-me'),
+                label: 'H-NS · mid-exponential binding',
+              },
+            ];
       const genome = findView(view.tabId).tab.indexedGenome!;
+      const requests = [];
+      for (const source of sources) {
+        const imported = await platform().workspace.importFile({
+          targetRoot: project.rootPath,
+          sourcePath: `${checkout}/test-fixtures/genome-view-prototypes/native-datasets/${source.dataset.file}`,
+        });
+        const hash = await platform().fs.contentHash({
+          workspaceRoot: project.rootPath,
+          workspaceRelativePath: imported.relPath,
+        });
+        if (
+          hash !==
+          `sha256:${manifest.artifacts.find((entry) => entry.file === source.dataset.file)!.sha256}`
+        )
+          throw new Error('The imported binding sites differ from their registered source.');
+        requests.push(
+          directTrackAdmissionRequest({
+            assemblyId: assemblyIdFromIndexedGenome(genome),
+            input: { kind: 'path', path: `${project.rootPath}/${imported.relPath}` },
+            formatId: 'bed',
+            scientificKind: 'interval',
+            label: source.label,
+            ingress: 'session',
+            sessionId: `native-${id}`,
+          })
+        );
+      }
       const results = await importGenomeSources({
         laneOwnerId: view.tabId,
         assemblyId: assemblyIdFromIndexedGenome(genome),
         assemblyDisplayName: dataset.reference.id,
         assemblyReferences: assemblyReferencesFromIndexedGenome(genome),
         localAuthorityContext: 'workspace-grounded',
-        requests: [
-          directTrackAdmissionRequest({
-            assemblyId: assemblyIdFromIndexedGenome(genome),
-            input: { kind: 'path', path: `${project.rootPath}/${imported.relPath}` },
-            formatId: 'bed',
-            scientificKind: 'interval',
-            label: 'RegulonDB binding sites',
-            ingress: 'session',
-            sessionId: 'native-regulatory-sites',
-          }),
-        ],
+        requests,
       });
       const failed = results.find((result) => result.status === 'failed');
       if (failed?.status === 'failed') throw new Error(failed.message);
       focusIndexed(
         view,
-        'RegulonDB binding sites',
+        id === 'regulondb' ? 'RegulonDB binding sites' : 'Fis and H-NS binding intervals',
         csv
           .trim()
           .split('\n')
@@ -384,13 +402,20 @@ export async function applyNativeDataLayerExample(
             ? 'Strand-specific RNA coverage'
             : id === '09-termseq'
               ? 'RNA 3′-end read counts'
-              : 'Psoralen crosslinking signal';
+              : id === '19-evolution'
+                ? 'Published SNP clone counts'
+                : 'Psoralen crosslinking signal';
       await addCsvLayer({
         project: project.rootPath,
         view,
         dataset,
         label,
-        geometry: id === '14-supercoiling' ? 'matrix' : id === '09-termseq' ? 'points' : 'bars',
+        geometry:
+          id === '14-supercoiling'
+            ? 'matrix'
+            : id === '09-termseq' || id === '19-evolution'
+              ? 'points'
+              : 'bars',
         palette: id === '14-supercoiling' ? 'balance' : 'cividis',
         domain: id === '14-supercoiling' ? [-maximum, maximum] : [Math.min(0, ...values), maximum],
       });
@@ -421,6 +446,7 @@ export async function applyNativeDataLayerExample(
         '01-tradis': 'BW25113 gene insertion indices',
         '02-chemical-genetics': 'Mutant growth scores',
         '06-proteome': 'BW25113 protein copies per cell',
+        '07-rna-decay': 'Single-gene transcript lifetimes',
         '17-conservation': 'Published gene states · matched subset',
       };
       const label = labels[id as keyof typeof labels];

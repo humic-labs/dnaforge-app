@@ -1321,6 +1321,11 @@ export const DEV_SCENARIO_PRESET_GROUPS: readonly DevScenarioPresetGroup[] = [
       ...(
         [
           [
+            '07-rna-decay',
+            'RNA decay · matched single-gene transcripts',
+            'Published lifetime means in two phases for 631 exact single-gene transcript matches on NC_000913.2. The remaining 198 source transcripts are retained without inferred TU boundaries.',
+          ],
+          [
             '05-ribosome-profiling',
             'Ribosome profiling · exact source genome',
             'Two conditions on NC_000913.2. Empty source bins remain missing; density is the reported read contribution divided by bin width.',
@@ -1329,6 +1334,11 @@ export const DEV_SCENARIO_PRESET_GROUPS: readonly DevScenarioPresetGroup[] = [
             '08-tss-coverage',
             'RNA starts · coverage and TSS points',
             'Strand coverage and published expression step heights on exact NC_000913.2, with independently verified TSS sequence anchors.',
+          ],
+          [
+            '11-hns-fis',
+            'Nucleoid binding · Fis and H-NS intervals',
+            '195 published mid-exponential binding intervals with NC_000913.2 coordinate compatibility checked against primary signal bounds and validation primers. No binding strength is invented.',
           ],
           [
             '14-supercoiling',
@@ -1364,6 +1374,17 @@ export const DEV_SCENARIO_PRESET_GROUPS: readonly DevScenarioPresetGroup[] = [
         referenceSourcePath:
           'test-fixtures/genome-view-prototypes/native-references/reference-author-w3110-Mu',
         nativeDataLayerExample: '13-gyrase',
+        noAutoReplay: true,
+      },
+      {
+        id: 'native-19-evolution',
+        label: 'Evolution · published SNP clone counts',
+        description:
+          '14,572 unique SNPs on the exact deposited REL606 reference. Heights count sequenced clones carrying each reported SNP; complex mutations remain excluded with their source records.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath:
+          'test-fixtures/genome-view-prototypes/native-references/reference-author-REL606',
+        nativeDataLayerExample: '19-evolution',
         noAutoReplay: true,
       },
       {

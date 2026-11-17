@@ -1,0 +1,148 @@
+{
+  "schema": "dnaforge.sequence-data-layer-fixture.v1",
+  "dataset": {
+    "number": 19,
+    "id": "19-evolution-snps",
+    "title": "LTEE published SNP presence across 264 sequenced clones",
+    "study": "Tenaillon et al. 2016",
+    "sourceReference": "Exact author REL606.gff3 from Dryad 10.5061/dryad.6226d"
+  },
+  "sourceFiles": [
+    {
+      "name": "REL606.gff3",
+      "url": "https://zenodo.org/api/records/5004468/files/REL606.gff3/content",
+      "bytes": 5621877,
+      "md5": "5ef7011a543ed79972fd5913e7a24403",
+      "sha256": "b0cea51211d23665397058f00a747bceb05778e3e9c2844570a493a3e1115dad"
+    },
+    {
+      "name": "oli.LTEE.final_masked.no_IS_adjacent.tab",
+      "url": "https://zenodo.org/api/records/5004468/files/oli.LTEE.final_masked.no_IS_adjacent.tab/content",
+      "bytes": 13763296,
+      "md5": "d0ee676428c2cfa07fd08a0ec3148079",
+      "sha256": "26613553b65b46374d8b96f1238b63f79f47fd148169032a03040853b672e84a"
+    },
+    {
+      "name": "README.txt",
+      "url": "https://zenodo.org/api/records/5004468/files/README.txt/content",
+      "bytes": 93604,
+      "md5": "128b929155e5b659aa29d60e50a752d5",
+      "sha256": "de63d939930ba2c1c67d603cc454f16bf7b3db9f13270a3591971b0ec59b62ec"
+    },
+    {
+      "name": "ComputeMutationThroughTimeDryad.pl",
+      "url": "https://zenodo.org/api/records/5004468/files/ComputeMutationThroughTimeDryad.pl/content",
+      "bytes": 29788,
+      "md5": "864c0966a9fe99e399eae70a7c63314e",
+      "sha256": "7599612469054884823ac41e1206de004a2f6166a5d196a4dc5f2d4002546b58"
+    },
+    {
+      "name": "CmdfileLTEE.txt",
+      "url": "https://zenodo.org/api/records/5004468/files/CmdfileLTEE.txt/content",
+      "bytes": 435,
+      "md5": "81099828d4c5646e494516edb7b022b2",
+      "sha256": "c7f51a1fb74e10e8d927186fb934fdcc61d250d0e9c9430e4eba4ea221ffcdfa"
+    },
+    {
+      "name": "LTEE_Mutator_info.txt",
+      "url": "https://zenodo.org/api/records/5004468/files/LTEE_Mutator_info.txt/content",
+      "bytes": 11287,
+      "md5": "dda70dcc8000bea3b605866bae35bfec",
+      "sha256": "7f1ef389fdbc82ba4e966b76f4ac3ce7d8638168c4b44cfdb790777d0fc531e1"
+    }
+  ],
+  "targetReference": {
+    "accession": "REL606",
+    "directory": "reference-author-REL606",
+    "length": 4629812,
+    "normalizedSequenceSha256": "1416d1f031651da4e440638305422af58bb7a45e9218eb52a364f1c19ecee478",
+    "normalizedSequenceFingerprint": "sha256:1416d1f031651da4e440638305422af58bb7a45e9218eb52a364f1c19ecee478",
+    "fastaFile": "REL606.fa.gz",
+    "fastaSha256": "b2ebccf4201c3cbc88b5a5c6c549ab10db51db53d7a262b9dd24af29d9c26b58",
+    "gffFile": "REL606.gff3.gz",
+    "gffSha256": "3591557625e7392f87eede3e54703d4c396647b7c96ceda21dc65849e626666b",
+    "referenceSubstitutionApplied": false
+  },
+  "mapping": {
+    "kind": "positions",
+    "startColumn": "start0",
+    "endColumn": "end0",
+    "coordinateSystem": "zero-based-half-open"
+  },
+  "coordinateSystem": "zero-based-half-open",
+  "valueColumns": [
+    "presentCloneCount"
+  ],
+  "unit": "sequenced clones carrying this reported SNP",
+  "aggregation": "none",
+  "unresolvedPolicy": "reject",
+  "files": {
+    "csv": "data.csv",
+    "snapshot": "snapshot.json",
+    "sourceRecords": "source-records.json",
+    "clones": "clones.json",
+    "snpEvents": "snp-events.jsonl",
+    "excludedComplexEvents": "excluded-complex-events.jsonl",
+    "legacySummary": "legacy-summary-snapshot.json"
+  },
+  "counts": {
+    "uniqueMutationIds": 17242,
+    "uniqueSnpIds": 14572,
+    "snpClonePresences": 52655,
+    "uniqueComplexIds": 2670,
+    "complexCloneRows": 8619,
+    "clones": 264,
+    "populations": 12,
+    "membershipListsEqualRows": true,
+    "duplicateCloneEventRows": 0,
+    "conflictingMutationSignatures": 0,
+    "allSnpReferenceAllelesMatch": true,
+    "all264LegacyCloneCountsReproduced": true,
+    "all132LegacyMeansReproduced": true
+  },
+  "coordinateEvidence": {
+    "authorScript": "ComputeMutationThroughTimeDryad.pl lines166-172 prepends one placeholder to the embedded reference, then reported positions index that sequence; lines426-448 parse REF->ALT and complement ALT only when evaluating a reverse-strand gene codon.",
+    "directReferenceCheck": "All 14,572 unique SNP reference alleles match exact embedded REL606 at reportedPosition-1. Neighbor offsets -2,-1,+1,+2 match only 3,273,3,946,3,811,3,294 respectively.",
+    "pointConversion": "start0 = reportedPosition1 - 1; end0 = reportedPosition1; referenceAllele and alternateAllele remain on the forward reference strand.",
+    "referenceFingerprint": "1416d1f031651da4e440638305422af58bb7a45e9218eb52a364f1c19ecee478"
+  },
+  "matrixSemantics": {
+    "rows": "Unique source-defined SNP IDs. Distinct alleles at the same genomic position remain distinct rows.",
+    "one": "The author lists that clone as carrying this SNP.",
+    "zero": "This SNP is not listed for this clone within the deposited filtered mutation call set. This is not proof of coverage or a reference call at every genomic base.",
+    "scope": "These definitions describe the unbundled clone-presence and matrix derivatives. The bundled data.csv carries presentCloneCount per unique author SNP ID."
+  },
+  "limits": [
+    "SNP-only native packet. 8,619 complex-event clone rows covering 2,670 author IDs are preserved separately; the compact table does not provide complete inserted/replacement alleles or qualified interval semantics.",
+    "The deposited mutation table excludes masked regions and regions near insertion-sequence elements. Its absence entries describe that filtered call set.",
+    "Carrier count spans sequenced clones and sampling times. It is not population allele frequency, mutation rate or a count of independent mutational origins.",
+    "The existing 132 means summarize the same 264 clone substitution counts. They are preserved separately and are not assigned genomic coordinates.",
+    "No generic RefSeq reference substitution, liftover, new mutation calling, coordinate guessing or cross-clone averaging is applied."
+  ],
+  "fileSha256": {
+    "clones.json": "543cb7ca7080c37467c620762cef51efe6c7b42f0162d71327dad029abb62467",
+    "data.csv": "5662d59c097bd97718d6e49f7a0794d479d5ffd1f3d8e06e2f89b369e38232d1",
+    "excluded-complex-events.jsonl": "60a1f0063d3baa36bb9a636bacf5de4dd62106e935ecb98bed5ac379878db891",
+    "legacy-summary-snapshot.json": "9f49d13f57fb140a912f4ff4ed4b95c5305946c5b69de690753d367951b227cf",
+    "snapshot.json": "63de196575c4eedcaa1293e97619d52d6e689d34126dbb400c11b69a923c8776",
+    "snp-events.jsonl": "1ffdce1307c7b9bb8773fc330129bcccb08a32ac75ef4fb5d9f09a5a83309006",
+    "source-records.json": "cdb2daa96da92fcf323cac7e760dec20f8fae375c5c3029eaef2a6cb0a982f4d"
+  },
+  "unbundledDerivedArtifacts": [
+    {
+      "name": "presence-matrix.csv",
+      "sha256": "400b18365fd76969bf90ce943f9093d3652b8d3b22e3f6e73930cbb1275868cc",
+      "bytes": 8149179,
+      "derivedFrom": "https://zenodo.org/api/records/5004468/files/oli.LTEE.final_masked.no_IS_adjacent.tab/content",
+      "availability": "Derived from the deposited mutation table during source validation. This representation is not bundled; the deposited original remains available at derivedFrom."
+    },
+    {
+      "name": "clone-presence.csv",
+      "sha256": "0a023eef1e6e3a69b891c17b9d5bd279244a34eeda9ea9365dc9af9c137f038b",
+      "bytes": 5377678,
+      "derivedFrom": "https://zenodo.org/api/records/5004468/files/oli.LTEE.final_masked.no_IS_adjacent.tab/content",
+      "availability": "Derived from the deposited mutation table during source validation. This representation is not bundled; the deposited original remains available at derivedFrom."
+    }
+  ],
+  "representation": "Bundled data.csv contains one point per unique author SNP ID and the number of sequenced clones carrying that SNP. Per-clone and264-column matrix CSV derivatives are not bundled."
+}

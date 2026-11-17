@@ -628,6 +628,113 @@
       "id": "13-gyrase-micro",
       "file": "indexed-signals/13-gyrase/micro.csv",
       "rows": 80
+    },
+    {
+      "id": "07-rna-decay",
+      "sourceId": "07-rna-decay",
+      "file": "gene-properties/07-rna-decay/data.csv",
+      "metadata": "gene-properties/07-rna-decay/metadata.json",
+      "referenceFile": "../native-references/NC_000913.2/NC_000913.2.fa.gz",
+      "reference": {
+        "id": "NC_000913.2",
+        "length": 4639675,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+        "citation": "https://www.ncbi.nlm.nih.gov/nuccore/NC_000913.2"
+      },
+      "rows": 631,
+      "unit": "minutes (RNA exponential lifetime tau)",
+      "mapping": {
+        "kind": "annotation",
+        "identifierColumn": "gene_feature_id",
+        "identifierField": "ID"
+      },
+      "valueColumns": [
+        "exponential_lifetime_min",
+        "stationary_lifetime_min"
+      ],
+      "unresolvedPolicy": "reject",
+      "selectionStatement": "631 exact single-gene transcript properties; original829 transcripts and198 exclusions remain in the source packet."
+    },
+    {
+      "id": "11-hns-fis",
+      "sourceId": "11-hns-fis",
+      "file": "indexed-signals/11-hns-fis/data.bed",
+      "metadata": "indexed-signals/11-hns-fis/metadata.json",
+      "referenceFile": "../native-references/NC_000913.2/NC_000913.2.fa.gz",
+      "reference": {
+        "id": "NC_000913.2",
+        "length": 4639675,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+        "citation": "https://www.ncbi.nlm.nih.gov/nuccore/NC_000913.2"
+      },
+      "format": "BED4",
+      "rows": 195,
+      "measuredBindingStrength": false,
+      "unit": "published binding intervals; no score or strand supplied"
+    },
+    {
+      "id": "11-hns-fis-fis-me",
+      "sourceId": "11-hns-fis",
+      "file": "indexed-signals/11-hns-fis/fis-me.bed",
+      "metadata": "indexed-signals/11-hns-fis/metadata.json",
+      "referenceFile": "../native-references/NC_000913.2/NC_000913.2.fa.gz",
+      "reference": {
+        "id": "NC_000913.2",
+        "length": 4639675,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+        "citation": "https://www.ncbi.nlm.nih.gov/nuccore/NC_000913.2"
+      },
+      "format": "BED4",
+      "rows": 157,
+      "measuredBindingStrength": false,
+      "unit": "published binding intervals; no score or strand supplied"
+    },
+    {
+      "id": "11-hns-fis-hns-me",
+      "sourceId": "11-hns-fis",
+      "file": "indexed-signals/11-hns-fis/hns-me.bed",
+      "metadata": "indexed-signals/11-hns-fis/metadata.json",
+      "referenceFile": "../native-references/NC_000913.2/NC_000913.2.fa.gz",
+      "reference": {
+        "id": "NC_000913.2",
+        "length": 4639675,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+        "citation": "https://www.ncbi.nlm.nih.gov/nuccore/NC_000913.2"
+      },
+      "format": "BED4",
+      "rows": 38,
+      "measuredBindingStrength": false,
+      "unit": "published binding intervals; no score or strand supplied"
+    },
+    {
+      "id": "19-evolution",
+      "sourceId": "19-evolution",
+      "file": "indexed-signals/19-evolution/data.csv",
+      "metadata": "indexed-signals/19-evolution/metadata.json",
+      "referenceFile": "../native-references/reference-author-REL606/REL606.fa.gz",
+      "reference": {
+        "id": "REL606",
+        "length": 4629812,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "1416d1f031651da4e440638305422af58bb7a45e9218eb52a364f1c19ecee478",
+        "citation": "https://doi.org/10.5061/dryad.6226d"
+      },
+      "rows": 14572,
+      "unit": "sequenced clones carrying this reported SNP",
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start0",
+        "endColumn": "end0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "valueColumns": [
+        "presentCloneCount"
+      ],
+      "unresolvedPolicy": "reject"
     }
   ],
   "sourceSnapshots": {
@@ -895,6 +1002,187 @@
         "sha256": "21bdedc310e80060f417d6806bef79bfe099169e441080abb2c702d707a6450f",
         "bytes": 1983,
         "citation": "https://doi.org/10.1093/nar/gky274"
+      }
+    ],
+    "07-rna-decay": [
+      {
+        "file": "raw/genes/msb0011-0781-sd6.csv",
+        "url": "https://pmc-oa-opendata.s3.amazonaws.com/PMC4332155.1/msb0011-0781-sd6.csv",
+        "sha256": "257cd0ac2d681ad352e9b9dd4b86a9c5bfa51ca2a6b9159359ba2dce540764bb",
+        "bytes": 206607,
+        "citation": "https://doi.org/10.15252/msb.20145794",
+        "tableRole": "exp_bins",
+        "headers": [
+          "Operon",
+          "Length (nt)",
+          "ID",
+          "Bin #",
+          "Posi",
+          "Posi_err",
+          "Lifetime",
+          "Lifetime_err",
+          "Chisq"
+        ],
+        "fullSourceRows": 3220
+      },
+      {
+        "file": "raw/genes/msb0011-0781-sd7.csv",
+        "url": "https://pmc-oa-opendata.s3.amazonaws.com/PMC4332155.1/msb0011-0781-sd7.csv",
+        "sha256": "2d97b1a73fcec0a9e9045418cf562922eb04c8907263e2c12e688eef5affa83d",
+        "bytes": 312134,
+        "citation": "https://doi.org/10.15252/msb.20145794",
+        "tableRole": "stationary_bins",
+        "headers": [
+          "Operon",
+          "Length (nt)",
+          "ID",
+          "Bin #",
+          "Posi",
+          "Posi_err",
+          "Lifetime",
+          "Lifetime_err",
+          "Chisq"
+        ],
+        "fullSourceRows": 5015
+      },
+      {
+        "file": "raw/genes/msb0011-0781-sd9.csv",
+        "url": "https://pmc-oa-opendata.s3.amazonaws.com/PMC4332155.1/msb0011-0781-sd9.csv",
+        "sha256": "1686dd7ac205d5cdc06a8d5f4e44dbc7d407853e266b23e37a97350a44e5bede",
+        "bytes": 30427,
+        "citation": "https://doi.org/10.15252/msb.20145794",
+        "tableRole": "exp",
+        "headers": [
+          "RNA",
+          "ID",
+          "Length",
+          "total fragments",
+          "Avg lifetime",
+          "StdDev"
+        ],
+        "fullSourceRows": 847
+      },
+      {
+        "file": "raw/genes/msb0011-0781-sd12.csv",
+        "url": "https://pmc-oa-opendata.s3.amazonaws.com/PMC4332155.1/msb0011-0781-sd12.csv",
+        "sha256": "bd3f943a4118acf91f4f98286fe295a28bf3d290370c0f9d1644e808ef36bb44",
+        "bytes": 45444,
+        "citation": "https://doi.org/10.15252/msb.20145794",
+        "tableRole": "stationary",
+        "headers": [
+          "RNA",
+          "ID",
+          "Length",
+          "total fragments",
+          "Avg lifetime",
+          "StdDev"
+        ],
+        "fullSourceRows": 1259
+      },
+      {
+        "file": "raw/genes/msb0011-0781-sd11.csv",
+        "url": "https://pmc-oa-opendata.s3.amazonaws.com/PMC4332155.1/msb0011-0781-sd11.csv",
+        "sha256": "596d24e7c1d96311e9d30085089647d89b0166c720587cce7fa8e060e8708dc6",
+        "bytes": 11178,
+        "citation": "https://doi.org/10.15252/msb.20145794",
+        "tableRole": "elongation",
+        "headers": [
+          "Operon",
+          "Length (nt)",
+          "ID",
+          "Elongation Rate (nt/s)",
+          "Elongation Rate err",
+          "Chisq"
+        ],
+        "fullSourceRows": 263
+      }
+    ],
+    "11-hns-fis": [
+      {
+        "url": "https://www.ebi.ac.uk/biostudies/files/S-EPMC3064808/supp_gkq934_Fis_EE_bindingregions.txt",
+        "file": "raw/regulation/Kahramanoglou_Fis_EE.txt",
+        "sha256": "a65491ce359d3e258ab510aa62b60e3ddbfae3e7bc859745214ac8c9d69049dc",
+        "bytes": 19363,
+        "citation": "https://doi.org/10.1093/nar/gkq934"
+      },
+      {
+        "url": "https://www.ebi.ac.uk/biostudies/files/S-EPMC3064808/supp_gkq934_Fis_ME_bindingregions.txt",
+        "file": "raw/regulation/Kahramanoglou_Fis_ME.txt",
+        "sha256": "ac7eb8fa3ac2604004f93fa0123f44aca40e859ca32aa419c179d06b64926f81",
+        "bytes": 22745,
+        "citation": "https://doi.org/10.1093/nar/gkq934"
+      },
+      {
+        "url": "https://www.ebi.ac.uk/biostudies/files/S-EPMC3064808/supp_gkq934_H-NS_EE_bindingregions.txt",
+        "file": "raw/regulation/Kahramanoglou_H-NS_EE.txt",
+        "sha256": "379861d29424ce541569ed42eeabd5afbd357c5c0c954be06763cdacff3b9584",
+        "bytes": 6974,
+        "citation": "https://doi.org/10.1093/nar/gkq934"
+      },
+      {
+        "url": "https://www.ebi.ac.uk/biostudies/files/S-EPMC3064808/supp_gkq934_H-NS_ME_bindingregions.txt",
+        "file": "raw/regulation/Kahramanoglou_H-NS_ME.txt",
+        "sha256": "0e16cf580b38ac7eacdc8165202b58cc49976013cd5cd30f16544bec971cb3d0",
+        "bytes": 7188,
+        "citation": "https://doi.org/10.1093/nar/gkq934"
+      },
+      {
+        "url": "https://www.ebi.ac.uk/biostudies/files/S-EPMC3064808/supp_gkq934_H-NS_TS_bindingregions.txt",
+        "file": "raw/regulation/Kahramanoglou_H-NS_TS.txt",
+        "sha256": "8e5789f4bdbd2d9dea3358f88c141d26849632eced71f1098390b7b4e22ff14c",
+        "bytes": 8616,
+        "citation": "https://doi.org/10.1093/nar/gkq934"
+      },
+      {
+        "url": "https://www.ebi.ac.uk/biostudies/files/S-EPMC3064808/supp_gkq934_H-NS_S_bindingregions.txt",
+        "file": "raw/regulation/Kahramanoglou_H-NS_S.txt",
+        "sha256": "05e93deacabb386c30fbc59edaff2154c14696e7fc5b82dff154fd9b5f434172",
+        "bytes": 8454,
+        "citation": "https://doi.org/10.1093/nar/gkq934"
+      }
+    ],
+    "19-evolution": [
+      {
+        "name": "REL606.gff3",
+        "url": "https://zenodo.org/api/records/5004468/files/REL606.gff3/content",
+        "bytes": 5621877,
+        "md5": "5ef7011a543ed79972fd5913e7a24403",
+        "sha256": "b0cea51211d23665397058f00a747bceb05778e3e9c2844570a493a3e1115dad"
+      },
+      {
+        "name": "oli.LTEE.final_masked.no_IS_adjacent.tab",
+        "url": "https://zenodo.org/api/records/5004468/files/oli.LTEE.final_masked.no_IS_adjacent.tab/content",
+        "bytes": 13763296,
+        "md5": "d0ee676428c2cfa07fd08a0ec3148079",
+        "sha256": "26613553b65b46374d8b96f1238b63f79f47fd148169032a03040853b672e84a"
+      },
+      {
+        "name": "README.txt",
+        "url": "https://zenodo.org/api/records/5004468/files/README.txt/content",
+        "bytes": 93604,
+        "md5": "128b929155e5b659aa29d60e50a752d5",
+        "sha256": "de63d939930ba2c1c67d603cc454f16bf7b3db9f13270a3591971b0ec59b62ec"
+      },
+      {
+        "name": "ComputeMutationThroughTimeDryad.pl",
+        "url": "https://zenodo.org/api/records/5004468/files/ComputeMutationThroughTimeDryad.pl/content",
+        "bytes": 29788,
+        "md5": "864c0966a9fe99e399eae70a7c63314e",
+        "sha256": "7599612469054884823ac41e1206de004a2f6166a5d196a4dc5f2d4002546b58"
+      },
+      {
+        "name": "CmdfileLTEE.txt",
+        "url": "https://zenodo.org/api/records/5004468/files/CmdfileLTEE.txt/content",
+        "bytes": 435,
+        "md5": "81099828d4c5646e494516edb7b022b2",
+        "sha256": "c7f51a1fb74e10e8d927186fb934fdcc61d250d0e9c9430e4eba4ea221ffcdfa"
+      },
+      {
+        "name": "LTEE_Mutator_info.txt",
+        "url": "https://zenodo.org/api/records/5004468/files/LTEE_Mutator_info.txt/content",
+        "bytes": 11287,
+        "md5": "dda70dcc8000bea3b605866bae35bfec",
+        "sha256": "7f1ef389fdbc82ba4e966b76f4ac3ce7d8638168c4b44cfdb790777d0fc531e1"
       }
     ]
   },
@@ -1228,6 +1516,141 @@
       "file": "indexed-signals/13-gyrase/source-records.json",
       "sha256": "aab518938f2e74f70bcd04f3e39d5b36d3b5c25d9c7723dde28fdf79364de9b4",
       "bytes": 693417
+    },
+    {
+      "file": "gene-properties/07-rna-decay/crosswalk.json",
+      "sha256": "589d97c38bd01468ec5332d18a9176c19d75c390913bc9267f2b38c613595fb7",
+      "bytes": 703804
+    },
+    {
+      "file": "gene-properties/07-rna-decay/data.csv",
+      "sha256": "b3388d933fdc358c1171b74b240c36147590dbfbabeb511a700823c1bdc9fbbe",
+      "bytes": 52960
+    },
+    {
+      "file": "gene-properties/07-rna-decay/metadata.json",
+      "sha256": "9a76dd9c6f59aad1ad32b024c52d17acebf7f2e4c4990e5a96568856700ab416",
+      "bytes": 10066
+    },
+    {
+      "file": "gene-properties/07-rna-decay/snapshot.json",
+      "sha256": "bdded0ddafdcae8158c49ffb25190743e23e93d1fe3c797c61fff6974ad40631",
+      "bytes": 256678
+    },
+    {
+      "file": "gene-properties/07-rna-decay/source-records.json",
+      "sha256": "b0f9343eb23314bf3c6d3cd555628d465b1b46e25cd771c0ea632547a58eacaf",
+      "bytes": 2456065
+    },
+    {
+      "file": "indexed-signals/11-hns-fis/coordinate-evidence.json",
+      "sha256": "ead4010c5649e61435c00b3089408f1cd878673e419002229721bef0b7b3e3d3",
+      "bytes": 21076
+    },
+    {
+      "file": "indexed-signals/11-hns-fis/data.bed",
+      "sha256": "de76b10633700f5f27f12f113353a680ab5d13e21125e179f67b00bfd9670085",
+      "bytes": 9027
+    },
+    {
+      "file": "indexed-signals/11-hns-fis/data.csv",
+      "sha256": "a9f02ced7109c85e704a0b97fd592f1f07a2bbe2c16aace5bda8dc5b634dfa57",
+      "bytes": 20219
+    },
+    {
+      "file": "indexed-signals/11-hns-fis/fis-me.bed",
+      "sha256": "21287b623cd3232e06bcb55746bd00a1b2eaa9482337b8c8886b53a99492afdd",
+      "bytes": 7243
+    },
+    {
+      "file": "indexed-signals/11-hns-fis/hns-me.bed",
+      "sha256": "671d7a3e17fa3945f2a7dc2677bb33eb709ec318547f3b47f62c653fe2c132aa",
+      "bytes": 1784
+    },
+    {
+      "file": "indexed-signals/11-hns-fis/metadata.json",
+      "sha256": "56fae80ae7c89f2875343b7c4a5c0e81b3a648bb3c17765598e734bddd1b05ac",
+      "bytes": 8758
+    },
+    {
+      "file": "indexed-signals/11-hns-fis/snapshot.json",
+      "sha256": "9032219c91cf590abf3d266bab9f61ecd0a31d211aa1a4cc13d399eaae88b179",
+      "bytes": 193317
+    },
+    {
+      "file": "indexed-signals/11-hns-fis/source-records.json",
+      "sha256": "dffe82b17bd5dd0a03aff7869cd1de9be771e4e89d4b3c55f385d40136483d53",
+      "bytes": 355331
+    },
+    {
+      "file": "indexed-signals/19-evolution/clones.json",
+      "sha256": "543cb7ca7080c37467c620762cef51efe6c7b42f0162d71327dad029abb62467",
+      "bytes": 38565
+    },
+    {
+      "file": "indexed-signals/19-evolution/data.csv",
+      "sha256": "5662d59c097bd97718d6e49f7a0794d479d5ffd1f3d8e06e2f89b369e38232d1",
+      "bytes": 690268
+    },
+    {
+      "file": "indexed-signals/19-evolution/excluded-complex-events.jsonl",
+      "sha256": "60a1f0063d3baa36bb9a636bacf5de4dd62106e935ecb98bed5ac379878db891",
+      "bytes": 718666
+    },
+    {
+      "file": "indexed-signals/19-evolution/legacy-summary-snapshot.json",
+      "sha256": "9f49d13f57fb140a912f4ff4ed4b95c5305946c5b69de690753d367951b227cf",
+      "bytes": 99538
+    },
+    {
+      "file": "indexed-signals/19-evolution/metadata.json",
+      "sha256": "6b54dc0c8db210a0a8c1370c4c4b065a7b86e2df07216592b10b6c4e4c54b003",
+      "bytes": 7843
+    },
+    {
+      "file": "indexed-signals/19-evolution/snapshot.json",
+      "sha256": "63de196575c4eedcaa1293e97619d52d6e689d34126dbb400c11b69a923c8776",
+      "bytes": 9116454
+    },
+    {
+      "file": "indexed-signals/19-evolution/snp-events.jsonl",
+      "sha256": "1ffdce1307c7b9bb8773fc330129bcccb08a32ac75ef4fb5d9f09a5a83309006",
+      "bytes": 6568512
+    },
+    {
+      "file": "indexed-signals/19-evolution/source-records.json",
+      "sha256": "cdb2daa96da92fcf323cac7e760dec20f8fae375c5c3029eaef2a6cb0a982f4d",
+      "bytes": 1616
+    },
+    {
+      "file": "../native-references/reference-author-REL606/REL606.fa.gz",
+      "sha256": "b2ebccf4201c3cbc88b5a5c6c549ab10db51db53d7a262b9dd24af29d9c26b58",
+      "bytes": 1310054
+    },
+    {
+      "file": "../native-references/reference-author-REL606/REL606.fa.gz.fai",
+      "sha256": "144df6b6c1eb11ca7527ab6a2fe1ab3c9027017da214f069d0c4172827922741",
+      "bytes": 23
+    },
+    {
+      "file": "../native-references/reference-author-REL606/REL606.fa.gz.gzi",
+      "sha256": "e053fba3afa1c0cf518c04bbce193fbe0d929ba07cf89e491b39f8ad00aa2e5a",
+      "bytes": 1160
+    },
+    {
+      "file": "../native-references/reference-author-REL606/REL606.gff3.gz",
+      "sha256": "3591557625e7392f87eede3e54703d4c396647b7c96ceda21dc65849e626666b",
+      "bytes": 148347
+    },
+    {
+      "file": "../native-references/reference-author-REL606/REL606.gff3.gz.tbi",
+      "sha256": "03da0ba4b71af915a54f046fdfc6d124937ce2a109fef119d61c95864ca08a04",
+      "bytes": 138
+    },
+    {
+      "file": "../native-references/reference-author-REL606/metadata.json",
+      "sha256": "845faecf2d3f8746ec785ea0a9cba10381cfb709fba861b51a76d6d4112851c5",
+      "bytes": 3006
     }
   ]
 }
