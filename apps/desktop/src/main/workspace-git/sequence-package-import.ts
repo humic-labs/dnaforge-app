@@ -743,7 +743,7 @@ export async function materializeImportedSequencePackages(
     throw new Error(
       'The sequence identity already belongs to an accepted entity. Its source was preserved.'
     );
-  const materialize = async () => {
+  const materialize = async (): Promise<MaterializeImportedSequenceResult> => {
     if (options.prepareAutomaticMigration) {
       const preview = await previewImportedSequencePackages(importedFilePath, {
         ...options,
