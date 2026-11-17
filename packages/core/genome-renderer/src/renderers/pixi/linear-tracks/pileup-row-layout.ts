@@ -101,6 +101,19 @@ export class PileupReadHitIndex {
     return record && bp >= record.start && bp < record.end ? recordIndex : null;
   }
 
+  overlapsRange(records: ReadonlyArray<PileupRecord>, start: number, end: number): boolean {
+    return this.recordIndicesByRow.some((indices) => {
+      let lo = 0;
+      let hi = indices.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (records[indices[mid]].end <= start) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo < indices.length && records[indices[lo]].start < end;
+    });
+  }
+
   recordIndexFor(
     read: Pick<PileupRecord, 'readId' | 'chrom' | 'start' | 'flag' | 'pair'>
   ): number | null {
