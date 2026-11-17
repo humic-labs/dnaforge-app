@@ -47,8 +47,20 @@ timestamped frames, actions and errors. A tool result alone does not prove the
 viewer painted it. Calling the real tool with fixed requests does not qualify a
 live language model's interpretation of a natural request.
 
-Mapping annotation identifiers to an extracted locus and admitting native tracks
-against an indexed reference have different target owners. Indexed admission of
-the ordinary saved .dnalayer artifact remains unqualified. Circular signal
+For an indexed view, use a prepared local reference with exact sequence and
+annotation identities. Obtain its target ID from track_views references. Inspect
+that target, bind the retained CSV version and require full-reference annotation
+coordinates. The current native adapter supports contigs up to 6 million bases,
+a prepared annotation file up to 32 MiB and at most 100,000 source features.
+It must refuse changed identities before reading, without installing a reference.
+
+Use the existing indexed gutter eye and gear to select samples, change geometry
+and palette, or recolor annotations. Click a signal mark and require its exact
+genomic interval. Save the native Track view, close it and reopen it from the
+reference library. Require the same retained layer revision, sample and style.
+A changed retained artifact revision must stay unavailable and must not paint.
+
+Ordinary documents and indexed references have distinct target owners and
+share the saved dataset, mapping and drawing contracts. Circular signal
 geometry, arbitrary alignment lifting and cross-machine recovery are separate
 acceptance paths.

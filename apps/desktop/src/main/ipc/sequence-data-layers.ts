@@ -3,6 +3,9 @@ import { handleGroup } from '../../shared/ipc-contract';
 import { sequenceDataLayersContract } from '../../shared/ipc/sequence-data-layers.contract';
 import { resolveExplicitProjectRoot } from '../../shared/project-root-selection';
 import { sequenceDataLayerTargetFromBytes } from '../sequence-data-layer-target';
+import { indexedSequenceDataLayerTarget } from '../indexed-sequence-data-layer-target';
+import { withLocalTrackViewReference } from '../features/reference-assets';
+import { parseSequenceDataLayerIndexedTargetId } from '../../shared/sequence-data-layer-indexed-target';
 import { SequenceDataLayerCommands } from '../sequence-data-layer-commands';
 import { createNativeSequenceDocumentResolver } from '../native-sequence-document-resolver';
 import { assertKnownWorkspaceContentWritable } from '../workspace-content-write-access';
@@ -42,6 +45,11 @@ export function registerSequenceDataLayerIpcHandlers(): void {
       assertWorkspaceWriteAllowed(getDb(), [path]);
     },
     resolveTarget: async (documentId, root) => {
+      const indexed = parseSequenceDataLayerIndexedTargetId(documentId);
+      if (indexed)
+        return indexedSequenceDataLayerTarget(documentId, indexed, {
+          withReference: withLocalTrackViewReference,
+        });
       const document = await resolveDocument({
         operationId: randomUUID(),
         targetDocumentId: documentId,

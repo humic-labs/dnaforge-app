@@ -1,3 +1,4 @@
+import type { SequenceDataLayerProjectionProps } from './sequence-data-layer-props';
 import type { ComparisonProjectionProps } from './comparison-projection-props';
 import type { ContactProjectionProps } from './contact-projection-props';
 import {
@@ -85,6 +86,10 @@ const GENOME_DRAWING_MIN_WIDTH = 160;
 export function IndexedGenomeTabRuntime({
   tabId,
   allowAutomaticSignalReadPileupViews = true,
+  dataLayerTracks,
+  dataLayerControls,
+  annotationColorsByIdentity,
+  missingAnnotationColor,
   comparisonProjection,
   comparisonCamera,
   onComparisonCameraChange,
@@ -152,7 +157,7 @@ export function IndexedGenomeTabRuntime({
   toolRail,
   drawerSlot,
   onViewerWidthChange,
-}: {
+}: SequenceDataLayerProjectionProps & {
   tabId: string;
   allowAutomaticSignalReadPileupViews?: boolean;
   comparisonProjection?: ComparisonProjectionProps['comparisonProjection'];
@@ -272,6 +277,10 @@ export function IndexedGenomeTabRuntime({
           <IndexedGenomeTabViewerSurface
             tabId={tabId}
             allowAutomaticSignalReadPileupViews={allowAutomaticSignalReadPileupViews}
+            dataLayerTracks={dataLayerTracks}
+            dataLayerControls={dataLayerControls}
+            annotationColorsByIdentity={annotationColorsByIdentity}
+            missingAnnotationColor={missingAnnotationColor}
             comparisonProjection={comparisonProjection}
             comparisonCamera={comparisonCamera}
             onComparisonCameraChange={onComparisonCameraChange}
@@ -385,6 +394,10 @@ function IndexedGenomeTabRangeStatus({
 function IndexedGenomeTabViewerSurface({
   tabId,
   allowAutomaticSignalReadPileupViews = true,
+  dataLayerTracks,
+  dataLayerControls,
+  annotationColorsByIdentity,
+  missingAnnotationColor,
   comparisonProjection,
   comparisonCamera,
   onComparisonCameraChange,
@@ -442,7 +455,7 @@ function IndexedGenomeTabViewerSurface({
   viewerLoadError,
   onAddVariantTrackRequest,
   onOpenMutationNavigator,
-}: {
+}: SequenceDataLayerProjectionProps & {
   tabId: string;
   allowAutomaticSignalReadPileupViews?: boolean;
   comparisonProjection?: ComparisonProjectionProps['comparisonProjection'];
@@ -514,6 +527,10 @@ function IndexedGenomeTabViewerSurface({
         <IndexedGenomeViewer
           laneOwnerId={tabId}
           allowAutomaticSignalReadPileupViews={allowAutomaticSignalReadPileupViews}
+          dataLayerTracks={dataLayerTracks}
+          dataLayerControls={dataLayerControls}
+          annotationColorsByIdentity={annotationColorsByIdentity}
+          missingAnnotationColor={missingAnnotationColor}
           comparisonProjection={comparisonProjection}
           comparisonCamera={comparisonCamera}
           onComparisonCameraChange={onComparisonCameraChange}

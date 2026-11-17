@@ -92,6 +92,11 @@ import {
   IndexedQuantitativeTrackAxes,
   isQuantitativeDataset,
 } from './IndexedQuantitativeTrackAxes';
+import type { SequenceDataLayerPresentation } from '../../../shared/sequence-data-layer';
+import type {
+  SequenceDataLayerTrackControls,
+  SequenceDataLayerTrackRow,
+} from '../data-layers/useSequenceDataLayers';
 import type { LaneLimit } from './indexed-genome-legacy-adapter';
 import type { TranscriptDisplayMode } from './isoform-collapse';
 import { ReferenceTrackControls } from './ReferenceTrackControls';
@@ -124,6 +129,7 @@ import {
   createSignalReadPileupViewState,
 } from '../experimental-hybrid-pileup';
 
+const DATA_LAYER_BUCKET = 'sequence-data-layers';
 const EMPTY_LANES: ReadonlyArray<Lane> = [];
 const TRACK_TYPE_REGISTRY = defaultBuiltinRegistry();
 
@@ -191,6 +197,7 @@ export function remoteEndpointDisplayLabel(
   return endpoint?.displayName.trim() || locator.target.trim() || 'Remote source';
 }
 interface IndexedViewerTrackGutterProps {
+  dataLayerControls?: SequenceDataLayerTrackControls;
   laneOwnerId: string;
   assemblyId: string;
   assemblyDisplayName?: string;
@@ -230,6 +237,7 @@ interface IndexedViewerTrackGutterProps {
 }
 
 export function IndexedViewerTrackGutter({
+  dataLayerControls,
   laneOwnerId,
   assemblyId,
   assemblyDisplayName = assemblyId,
@@ -486,14 +494,31 @@ export function IndexedViewerTrackGutter({
         referenceLabel: assemblyDisplayName,
         cytobandVisible,
         annotationVisibleCount: visibleTypes.size,
-        dataLanes: dataLanes.map((lane) => ({
-          dataset: lane.dataset,
-          visible: lane.visible,
-          bucket: lane.bucket,
-          reorderable: lane.bucket === laneOwnerId,
-        })),
+        dataLanes: [
+          ...dataLanes.map((lane) => ({
+            dataset: lane.dataset,
+            visible: lane.visible,
+            bucket: lane.bucket,
+            reorderable: lane.bucket === laneOwnerId,
+          })),
+          ...(dataLayerControls?.rows.map((layer) => ({
+            dataset: { trackId: `sequence-data-${layer.id}`, label: layer.label },
+            visible: layer.visible,
+            bucket: DATA_LAYER_BUCKET,
+            removable: false,
+            reorderable: false,
+          })) ?? []),
+        ],
       }),
-    [assemblyDisplayName, bands, cytobandVisible, dataLanes, laneOwnerId, visibleTypes.size]
+    [
+      assemblyDisplayName,
+      bands,
+      cytobandVisible,
+      dataLanes,
+      dataLayerControls,
+      laneOwnerId,
+      visibleTypes.size,
+    ]
   );
   const trackStackEndReservePx = useMemo(
     () =>
@@ -518,7 +543,12 @@ export function IndexedViewerTrackGutter({
 
   const handleToggleVisible = useCallback(
     (row: GutterRow) => {
-      if (row.kind === 'reference') {
+      if (row.bucket === DATA_LAYER_BUCKET) {
+        const layer = dataLayerControls?.rows.find(
+          (entry) => row.trackId === `sequence-data-${entry.id}`
+        );
+        if (layer) dataLayerControls?.onVisibilityChange(layer.id, !layer.visible);
+      } else if (row.kind === 'reference') {
         onToggleAnnotationLane();
       } else if (row.kind === 'cytoband') {
         setCytobandVisible(!row.visible);
@@ -526,7 +556,7 @@ export function IndexedViewerTrackGutter({
         setLaneVisible(row.bucket, row.trackId, !row.visible);
       }
     },
-    [onToggleAnnotationLane, setCytobandVisible, setLaneVisible]
+    [dataLayerControls, onToggleAnnotationLane, setCytobandVisible, setLaneVisible]
   );
 
   const handleRemove = useCallback(
@@ -656,6 +686,24 @@ export function IndexedViewerTrackGutter({
 
   const renderDataControls = useCallback(
     (row: GutterRow, settingsExpanded: boolean) => {
+      if (row.bucket === DATA_LAYER_BUCKET) {
+        const layer = dataLayerControls?.rows.find(
+          (entry) => row.trackId === `sequence-data-${entry.id}`
+        );
+        if (!layer || !dataLayerControls) return null;
+        return (
+          <>
+            {settingsExpanded ? (
+              <DataLayerTrackSettings row={layer} controls={dataLayerControls} />
+            ) : null}
+            {layer.unavailable ? (
+              <div role="status" className="text-[10px] text-fg-muted">
+                {layer.unavailable}
+              </div>
+            ) : null}
+          </>
+        );
+      }
       const lane = dataLanes.find(
         (candidate) => candidate.bucket === row.bucket && candidate.dataset.trackId === row.trackId
       );
@@ -850,6 +898,7 @@ export function IndexedViewerTrackGutter({
       bamImport,
       bamImport.repairTrack,
       bamImport.recentRemoteEndpoints,
+      dataLayerControls,
       dataLanes,
       laneOwnerId,
       assemblyReferences,
@@ -1587,6 +1636,164 @@ function SelectSetting<T extends string>({
   );
 }
 
+function SignalGeometryControl({
+  label,
+  geometry,
+  onChange,
+}: {
+  label: string;
+  geometry: SequenceDataLayerPresentation['style']['geometry'];
+  onChange: (geometry: SequenceDataLayerPresentation['style']['geometry']) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="font-medium">Draw as</span>
+      <div
+        role="group"
+        aria-label={`Drawing style for ${label}`}
+        className="flex overflow-hidden rounded-md border border-border"
+      >
+        {(['bars', 'band', 'points'] as const).map((value) => {
+          const name = value === 'bars' ? 'Bars' : value === 'band' ? 'Heatmap' : 'Points';
+          return (
+            <button
+              key={value}
+              type="button"
+              aria-label={`${name} for ${label}`}
+              title={name}
+              aria-pressed={geometry === value}
+              onClick={() => onChange(value)}
+              className="flex h-7 w-9 items-center justify-center border-l border-border text-fg-muted outline-none first:border-l-0 hover:bg-bg-muted aria-pressed:bg-fg/10 aria-pressed:text-fg focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-fg-subtle"
+            >
+              <svg aria-hidden viewBox="0 0 20 16" className="h-4 w-5" fill="currentColor">
+                {value === 'bars' ? (
+                  <path d="M2 9h3v5H2zm6-6h3v11H8zm6 3h3v8h-3z" />
+                ) : value === 'band' ? (
+                  <>
+                    <path opacity=".3" d="M1 3h5v10H1z" />
+                    <path opacity=".6" d="M7 3h5v10H7z" />
+                    <path d="M13 3h6v10h-6z" />
+                  </>
+                ) : (
+                  <>
+                    <circle cx="4" cy="11" r="2" />
+                    <circle cx="10" cy="4" r="2" />
+                    <circle cx="16" cy="8" r="2" />
+                  </>
+                )}
+              </svg>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ScientificPaletteControl({
+  label,
+  selected,
+  onChange,
+}: {
+  label: string;
+  selected?: string;
+  onChange: (palette: keyof typeof SCIENTIFIC_COLOR_PALETTES) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="font-medium">Palette</span>
+      <div className="flex gap-1.5">
+        {(Object.keys(SCIENTIFIC_COLOR_PALETTES) as (keyof typeof SCIENTIFIC_COLOR_PALETTES)[]).map(
+          (key) => {
+            const palette = SCIENTIFIC_COLOR_PALETTES[key];
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-label={`${palette.name} palette for ${label}`}
+                title={palette.name}
+                aria-pressed={selected === key}
+                onClick={() => onChange(key)}
+                className="h-5 w-7 rounded border border-border outline-none ring-offset-1 ring-offset-bg aria-pressed:ring-1 aria-pressed:ring-fg focus-visible:ring-1 focus-visible:ring-fg"
+                style={{ background: `linear-gradient(to right, ${palette.colors.join(', ')})` }}
+              />
+            );
+          }
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DataLayerTrackSettings({
+  row,
+  controls,
+}: {
+  row: SequenceDataLayerTrackRow;
+  controls: SequenceDataLayerTrackControls;
+}) {
+  const { presentation } = row;
+  const selectedPalette = Object.entries(SCIENTIFIC_COLOR_PALETTES).find(
+    ([, palette]) =>
+      JSON.stringify(palette.colors) === JSON.stringify(presentation.style.colorScale.colors)
+  )?.[0];
+  const update = (next: SequenceDataLayerPresentation) =>
+    controls.onPresentationChange(row.id, next);
+  return (
+    <div className="flex min-w-0 flex-col gap-2.5 text-[10px] text-fg-muted">
+      <SelectSetting
+        label="Sample"
+        value={presentation.sampleId}
+        ariaLabel={`Sample for ${row.label}`}
+        testId={`data-layer-sample-${row.id}`}
+        options={row.samples.map((sample) => ({ value: sample.id, label: sample.label }))}
+        onChange={(sampleId) => update({ ...presentation, sampleId })}
+      />
+      <SignalGeometryControl
+        label={row.label}
+        geometry={presentation.style.geometry}
+        onChange={(geometry) =>
+          update({ ...presentation, style: { ...presentation.style, geometry } })
+        }
+      />
+      <ScientificPaletteControl
+        label={row.label}
+        selected={selectedPalette}
+        onChange={(palette) =>
+          update({
+            ...presentation,
+            style: {
+              ...presentation.style,
+              colorScale: {
+                ...presentation.style.colorScale,
+                colors: [...SCIENTIFIC_COLOR_PALETTES[palette].colors],
+              },
+            },
+          })
+        }
+      />
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={presentation.annotationColors}
+          aria-label={`Color annotations from ${row.label}`}
+          onChange={(event) => update({ ...presentation, annotationColors: event.target.checked })}
+        />
+        Annotation colors
+      </label>
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={presentation.signalVisible}
+          aria-label={`Show signal for ${row.label}`}
+          onChange={(event) => update({ ...presentation, signalVisible: event.target.checked })}
+        />
+        Signal
+      </label>
+    </div>
+  );
+}
+
 function QuantitativeTrackSettings({
   lane,
   onCommit,
@@ -1641,70 +1848,19 @@ function QuantitativeTrackSettings({
   return (
     <fieldset className="flex min-w-0 flex-col gap-2 border-t border-border/60 pt-2.5">
       <legend className="mb-0.5 font-semibold text-fg">Signal</legend>
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-medium">Draw as</span>
-        <div
-          role="group"
-          aria-label={`Drawing style for ${dataset.label}`}
-          className="flex overflow-hidden rounded-md border border-border"
-        >
-          {(['bar', 'band', 'points'] as const).map((graph) => {
-            const name = graph === 'bar' ? 'Bars' : graph === 'band' ? 'Heatmap' : 'Points';
-            return (
-              <button
-                key={graph}
-                type="button"
-                aria-label={`${name} for ${dataset.label}`}
-                title={name}
-                aria-pressed={presentation.graph === graph}
-                onClick={() => update({ ...presentation, graph })}
-                className="flex h-7 w-9 items-center justify-center border-l border-border text-fg-muted outline-none first:border-l-0 hover:bg-bg-muted aria-pressed:bg-fg/10 aria-pressed:text-fg focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-fg-subtle"
-              >
-                <svg aria-hidden viewBox="0 0 20 16" className="h-4 w-5" fill="currentColor">
-                  {graph === 'bar' ? (
-                    <path d="M2 9h3v5H2zm6-6h3v11H8zm6 3h3v8h-3z" />
-                  ) : graph === 'band' ? (
-                    <>
-                      <path opacity=".3" d="M1 3h5v10H1z" />
-                      <path opacity=".6" d="M7 3h5v10H7z" />
-                      <path d="M13 3h6v10h-6z" />
-                    </>
-                  ) : (
-                    <>
-                      <circle cx="4" cy="11" r="2" />
-                      <circle cx="10" cy="4" r="2" />
-                      <circle cx="16" cy="8" r="2" />
-                    </>
-                  )}
-                </svg>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <SignalGeometryControl
+        label={dataset.label}
+        geometry={presentation.graph === 'bar' ? 'bars' : presentation.graph}
+        onChange={(geometry) =>
+          update({ ...presentation, graph: geometry === 'bars' ? 'bar' : geometry })
+        }
+      />
       {presentation.graph === 'band' ? (
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-medium">Palette</span>
-          <div className="flex gap-1.5">
-            {Object.entries(SCIENTIFIC_COLOR_PALETTES).map(([key, palette]) => (
-              <button
-                key={key}
-                type="button"
-                aria-label={`${palette.name} palette for ${dataset.label}`}
-                title={palette.name}
-                aria-pressed={(presentation.palette ?? 'viridis') === key}
-                onClick={() =>
-                  update({
-                    ...presentation,
-                    palette: key as NonNullable<QuantitativeTrackPresentationV1['palette']>,
-                  })
-                }
-                className="h-5 w-7 rounded border border-border outline-none ring-offset-1 ring-offset-bg aria-pressed:ring-1 aria-pressed:ring-fg focus-visible:ring-1 focus-visible:ring-fg"
-                style={{ background: `linear-gradient(to right, ${palette.colors.join(', ')})` }}
-              />
-            ))}
-          </div>
-        </div>
+        <ScientificPaletteControl
+          label={dataset.label}
+          selected={presentation.palette ?? 'viridis'}
+          onChange={(palette) => update({ ...presentation, palette })}
+        />
       ) : null}
       <SelectSetting
         label="Range"

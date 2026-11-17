@@ -30,6 +30,23 @@ export async function trackViewRecoveryDocument(
     }
   }
 
+  if (document.sequenceDataLayers) {
+    for (const source of document.sequenceDataLayers.layers) {
+      const layer = await platform().sequenceDataLayers.run({
+        operation: 'inspect',
+        project: document.sequenceDataLayers.project,
+        id: source.id,
+      });
+      if (
+        layer.status !== 'published' ||
+        layer.revision !== source.revision ||
+        layer.document.target.documentId !== document.sequenceDataLayers.targetDocumentId ||
+        layer.availability.status !== 'current'
+      )
+        throw new Error('A saved data layer version is unavailable. Nothing was saved or opened.');
+    }
+  }
+
   if (document.contactProjection) {
     await platform().contactSources.read({
       project: document.contactProjection.project,
@@ -101,6 +118,7 @@ export function managedRestoredTracks(
     | 'signalReadPileupViews'
     | 'primerBindings'
     | 'userAnnotations'
+    | 'sequenceDataLayers'
     | 'contactProjection'
     | 'comparisonProjection'
   > {
@@ -172,6 +190,7 @@ export function managedRestoredTracks(
         },
       ];
     }),
+    sequenceDataLayers: document.sequenceDataLayers,
     contactProjection: document.contactProjection,
     comparisonProjection: document.comparisonProjection,
     primerBindings: document.primerBindings,

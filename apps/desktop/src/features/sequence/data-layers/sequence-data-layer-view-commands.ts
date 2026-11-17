@@ -1,3 +1,5 @@
+import { sequenceDataLayerIndexedTargetId } from '../../../shared/sequence-data-layer-indexed-target';
+import { sequenceDataLayerSelectionFromSaved } from '../../../shared/saved-sequence-data-layers';
 import { useCanvasStore } from '../../canvas/public/store';
 import type { SequenceDataLayerViewSelection, Tab } from '../../canvas/public/types';
 import { visibleSequenceDataLayerIds } from './sequence-data-layer-selection';
@@ -16,7 +18,23 @@ export interface SequenceDataLayerViewTarget {
   readonly selection: SequenceDataLayerViewSelection | null;
 }
 
+function layerTargetDocumentId(tab: Tab): string | undefined {
+  if (!tab.indexedGenome) return tab.entityId;
+  const genome = tab.indexedGenome;
+  return genome.assembly && genome.assemblyReferenceIdentity
+    ? sequenceDataLayerIndexedTargetId({
+        referenceId: genome.assembly.assemblyId,
+        chrom: genome.chrom,
+        ...genome.assemblyReferenceIdentity,
+      })
+    : undefined;
+}
+
 function currentSelection(tab: Tab): SequenceDataLayerViewSelection | null {
+  if (tab.indexedGenome)
+    return Object.hasOwn(tab.viewState ?? {}, 'sequenceDataLayerSelection')
+      ? (tab.viewState?.sequenceDataLayerSelection ?? null)
+      : (sequenceDataLayerSelectionFromSaved(tab.indexedGenome.sequenceDataLayers) ?? null);
   return (
     resolveSeededViewState({
       tab: tabViewStateToModelPatch(tab.viewState),
@@ -28,7 +46,7 @@ function currentSelection(tab: Tab): SequenceDataLayerViewSelection | null {
 export function captureSequenceDataLayerViews(documentId: string): SequenceDataLayerViewTarget[] {
   return Object.values(useCanvasStore.getState().panels).flatMap((panel) =>
     panel.tabs
-      .filter((tab) => tab.type === 'sequence' && tab.entityId === documentId && !tab.indexedGenome)
+      .filter((tab) => tab.type === 'sequence' && layerTargetDocumentId(tab) === documentId)
       .map((tab) => ({ tabId: tab.id, documentId, selection: currentSelection(tab) }))
   );
 }
@@ -42,7 +60,7 @@ export function selectSequenceDataLayerView(
   for (const panel of Object.values(useCanvasStore.getState().panels)) {
     const tab = panel.tabs.find((entry) => entry.id === target.tabId);
     if (!tab) continue;
-    if (tab.type !== 'sequence' || tab.entityId !== target.documentId || tab.indexedGenome)
+    if (tab.type !== 'sequence' || layerTargetDocumentId(tab) !== target.documentId)
       return 'changed';
     if (JSON.stringify(currentSelection(tab)) !== JSON.stringify(target.selection))
       return 'changed';

@@ -1,3 +1,4 @@
+import { sequenceDataLayerIndexedTargetId } from '../../../shared/sequence-data-layer-indexed-target';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useCanvasStore } from '../../canvas/public/store';
 import {
@@ -167,5 +168,54 @@ describe('sequence data layer view attachment', () => {
       selectSequenceDataLayerView(captured, { project: '/project', layerId: 'unvalidated-id' })
     ).toBe('invalid');
     expect(captureSequenceDataLayerViews('old-sequence')[0].selection).toBeNull();
+  });
+});
+
+describe('indexed layer view attachment', () => {
+  it('routes a prepared reference version through the existing indexed tab and fences later changes', () => {
+    const identity = { sequenceIdentity: 'c'.repeat(64), annotationIdentity: 'd'.repeat(64) };
+    const genome = {
+      sourcePath: '/prepared/source.gff3.gz',
+      sourceExt: '.gff3.gz',
+      chrom: 'chr',
+      assembly: { assemblyId: 'local-example', displayName: 'Example', chromosomes: [] },
+      assemblyReferenceIdentity: identity,
+    };
+    const panel = useCanvasStore.getState().panels.main;
+    useCanvasStore.setState({
+      panels: {
+        main: {
+          ...panel,
+          tabs: [
+            {
+              ...panel.tabs[0],
+              entityId: 'saved-view',
+              sequenceDocument: { kind: 'indexed-sequence', documentId: 'saved-view' },
+              indexedGenome: genome,
+            },
+          ],
+        },
+      },
+    });
+    const id = sequenceDataLayerIndexedTargetId({
+      referenceId: 'local-example',
+      chrom: 'chr',
+      ...identity,
+    });
+    const [captured] = captureSequenceDataLayerViews(id);
+    expect(captured.tabId).toBe('ordinary');
+    expect(selectSequenceDataLayerView(captured, { project: '/project', layerId: first })).toBe(
+      'updated'
+    );
+    expect(captureSequenceDataLayerViews(id)[0].selection?.layerId).toBe(first);
+    useCanvasStore.getState().updateTab('main', 'ordinary', {
+      indexedGenome: {
+        ...genome,
+        assemblyReferenceIdentity: { ...identity, annotationIdentity: 'e'.repeat(64) },
+      },
+    });
+    expect(selectSequenceDataLayerView(captured, { project: '/project', layerId: second })).toBe(
+      'changed'
+    );
   });
 });

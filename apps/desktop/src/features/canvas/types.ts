@@ -24,7 +24,7 @@ export interface ArtifactDocumentContext {
 }
 
 import type { SavedTrackView } from '../../shared/track-view';
-import type { SequenceDataLayerPresentation } from '../../shared/sequence-data-layer';
+import type { SequenceDataLayerViewSelection } from '../../shared/sequence-data-layer';
 
 import type { TabType } from '../../shared/tab-kind';
 export type MetadataEditorTabType = Extract<TabType, 'sequence' | 'primer'>;
@@ -36,12 +36,7 @@ export {
   type TabType,
 } from '../../shared/tab-kind';
 
-export interface SequenceDataLayerViewSelection {
-  project: string;
-  layerId: string | null;
-  visibleLayerIds?: readonly string[];
-  presentationByLayerId?: Readonly<Record<string, SequenceDataLayerPresentation>>;
-}
+export type { SequenceDataLayerViewSelection } from '../../shared/sequence-data-layer';
 
 export interface TabViewState {
   metadataEditRequestId?: string;

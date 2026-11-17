@@ -1,3 +1,4 @@
+import type { SequenceDataLayerTrackControls } from '../data-layers/useSequenceDataLayers';
 import type { ComparisonProjectionProps } from './comparison-projection-props';
 import type { ContactProjectionProps } from './contact-projection-props';
 import type {
@@ -132,6 +133,7 @@ export function IndexedGenomeViewerSurface({
   contactCamera,
   contactUnit,
   onContactCameraChange,
+  dataLayerControls,
   annotationColorsByIdentity,
   missingAnnotationColor,
   compiledBroadOwnsAssembly,
@@ -246,6 +248,7 @@ export function IndexedGenomeViewerSurface({
   sequenceOverlays,
   annotationOwnerPending,
 }: {
+  dataLayerControls?: SequenceDataLayerTrackControls;
   compiledBroadOwnsAssembly: boolean;
   comparisonProjection?: ComparisonProjectionProps['comparisonProjection'];
   comparisonCamera?: ComparisonProjectionProps['comparisonCamera'];
@@ -494,6 +497,7 @@ export function IndexedGenomeViewerSurface({
         ))}
         <div className="flex min-h-0 flex-1" data-testid="indexed-genome-visible-viewer">
           <IndexedViewerTrackGutter
+            dataLayerControls={dataLayerControls}
             laneOwnerId={laneOwnerId}
             assemblyId={laneAssemblyId}
             assemblyDisplayName={assemblyDisplayName(

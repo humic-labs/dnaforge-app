@@ -94,18 +94,25 @@ function reference(value: GenomeComparisonReference): void {
 export function parseGenomeComparisonCigar(cigar: string): readonly GenomeComparisonCigarOperation[] {
   if (!cigar) throw new Error('A base-aligned comparison needs a CIGAR.');
   const operations: GenomeComparisonCigarOperation[] = [];
-  const expression = /([1-9][0-9]*)([M=XID])/uy;
   let cursor = 0;
   while (cursor < cigar.length) {
-    expression.lastIndex = cursor;
-    const match = expression.exec(cigar);
-    if (!match) throw new Error('Unsupported or malformed comparison CIGAR.');
-    const length = integer(match[1], 'CIGAR length');
-    operations.push({ code: match[2] as GenomeComparisonCigarCode, length });
+    const start = cursor;
+    const first = cigar.charCodeAt(cursor);
+    if (first < 49 || first > 57) throw new Error('Unsupported or malformed comparison CIGAR.');
+    cursor++;
+    while (cursor < cigar.length) {
+      const digit = cigar.charCodeAt(cursor);
+      if (digit < 48 || digit > 57) break;
+      cursor++;
+    }
+    const code = cigar[cursor];
+    if (code === undefined || !'M=XID'.includes(code))
+      throw new Error('Unsupported or malformed comparison CIGAR.');
+    const length = integer(cigar.slice(start, cursor), 'CIGAR length');
+    operations.push({ code: code as GenomeComparisonCigarCode, length });
     if (operations.length > MAX_CIGAR_OPERATIONS) throw new Error('Comparison CIGAR is too large.');
-    cursor += match[0].length;
+    cursor++;
   }
-  if (cursor !== cigar.length) throw new Error('Unsupported or malformed comparison CIGAR.');
   return operations;
 }
 

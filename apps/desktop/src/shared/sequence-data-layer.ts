@@ -168,6 +168,13 @@ export type SequenceDataLayerCreateRequest = Extract<
   { operation: 'create' }
 >;
 export type SequenceDataLayerPresentation = z.infer<typeof sequenceDataLayerPresentationSchema>;
+export interface SequenceDataLayerViewSelection {
+  project: string;
+  layerId: string | null;
+  visibleLayerIds?: readonly string[];
+  presentationByLayerId?: Readonly<Record<string, SequenceDataLayerPresentation>>;
+}
+
 export interface SequenceDataLayerTargetSnapshot extends SequenceDataLayerTarget {
   readonly annotations?: readonly SequenceDataLayerAnnotation[];
 }

@@ -16,6 +16,10 @@ import {
   TRACK_VIEW_SUFFIX,
   type SavedTrackView,
 } from '../shared/track-view';
+import {
+  MAX_INDEXED_SEQUENCE_DATA_LAYER_CONTIG_BASES,
+  sequenceDataLayerIndexedTargetId,
+} from '../shared/sequence-data-layer-indexed-target';
 import { trackViewCommandSchema } from '../shared/track-view-commands';
 import type { PreparedReferenceAssemblyEntryV1 } from '../shared/reference-assets-ipc';
 import type { TrackViewLibrary } from './track-view-library';
@@ -57,6 +61,29 @@ function chromosomes(reference: PreparedReferenceAssemblyEntryV1) {
   });
 }
 
+function sequenceDataLayerTargets(reference: PreparedReferenceAssemblyEntryV1) {
+  if (!reference.referenceIdentity) return {};
+  const targets = reference.members.flatMap((member) =>
+    member.manifest &&
+    Number.isSafeInteger(member.lengthBp) &&
+    member.lengthBp! > 0 &&
+    member.lengthBp! <= MAX_INDEXED_SEQUENCE_DATA_LAYER_CONTIG_BASES &&
+    reference.members.filter((entry) => entry.chrom === member.chrom).length === 1
+      ? [
+          {
+            chrom: member.chrom,
+            targetDocumentId: sequenceDataLayerIndexedTargetId({
+              referenceId: reference.id,
+              chrom: member.chrom,
+              ...reference.referenceIdentity!,
+            }),
+          },
+        ]
+      : []
+  );
+  return targets.length ? { sequenceDataLayerTargets: targets } : {};
+}
+
 function summary(saved: SavedTrackView, operation: 'create' | 'inspect'): TrackViewCommandResult {
   return {
     ok: true,
@@ -96,6 +123,7 @@ export class TrackViewCommands {
           name: entry.name,
           organism: entry.organism,
           chromosomes: chromosomes(entry),
+          ...sequenceDataLayerTargets(entry),
         })),
       };
     const root = await this.dependencies.resolveProject(request.project);

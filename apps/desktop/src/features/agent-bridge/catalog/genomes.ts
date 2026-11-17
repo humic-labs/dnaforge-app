@@ -68,6 +68,7 @@ export const genomesTools = defineRendererToolCatalog({
     audit_required: true,
     effects: ['read-only', 'mutating'],
     requiresWorkspace: true,
+    conditionallyRequiresWorkspace: false,
     exposure: { kind: 'shared' },
     inputSchema: sequenceDataLayersToolSchema,
     outputSchema: sequenceDataLayersOutputSchema,

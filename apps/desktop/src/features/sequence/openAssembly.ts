@@ -52,6 +52,7 @@ export interface OpenAssemblyOptions {
 }
 
 export interface OpenAssemblyViewRestore {
+  readonly sequenceDataLayers?: IndexedGenomeTabState['sequenceDataLayers'];
   readonly contactProjection?: IndexedGenomeTabState['contactProjection'];
   readonly comparisonProjection?: IndexedGenomeTabState['comparisonProjection'];
   readonly bamTracks?: IndexedGenomeTabState['bamTracks'];
@@ -224,6 +225,7 @@ function buildOpenAssemblyIndexedGenomeFields(args: {
     ...(args.restoreView
       ? {
           scope: { ...args.restoreView.scope },
+          sequenceDataLayers: args.restoreView.sequenceDataLayers,
           contactProjection: args.restoreView.contactProjection,
           comparisonProjection: args.restoreView.comparisonProjection,
           dataTracks: args.restoreView.dataTracks.map((track) => ({ ...track })),

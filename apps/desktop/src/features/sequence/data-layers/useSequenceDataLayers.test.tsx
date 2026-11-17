@@ -14,6 +14,7 @@ import {
   sequenceDataLayerProject,
   sequenceDataLayerRenderAvailability,
   useSequenceDataLayers,
+  useSavedSequenceDataLayers,
 } from './useSequenceDataLayers';
 
 const native = vi.hoisted(() => vi.fn());
@@ -484,5 +485,112 @@ describe('data layer identity and project boundaries', () => {
     expect(sequenceDataLayerRenderAvailability(layer, 'another-document', fingerprints)).toContain(
       'another sequence'
     );
+  });
+});
+
+describe('saved layers with native target pins', () => {
+  it('keeps an unused layer input stable across native camera renders', () => {
+    const initialProps = {
+      documentId: DOCUMENT,
+      project: '/project',
+      fingerprints: null,
+      enabled: false,
+      onSelectionChange: vi.fn(),
+    };
+    const { result, rerender } = renderHook((props) => useSavedSequenceDataLayers(props), {
+      initialProps,
+    });
+    const tracks = result.current.tracks;
+    rerender({ ...initialProps });
+    expect(result.current.tracks).toBe(tracks);
+    expect(native).not.toHaveBeenCalled();
+  });
+
+  it('refuses a saved-view artifact whose exact retained revision changed', async () => {
+    const { result } = renderHook(() =>
+      useSavedSequenceDataLayers({
+        documentId: DOCUMENT,
+        project: '/project',
+        fingerprints: {
+          sequenceFingerprint: layer.document.target.sequenceFingerprint,
+          annotationFingerprint: layer.document.target.annotationFingerprint!,
+        },
+        pinnedRevisions: { [ID]: 'original-saved-view-revision' },
+        selection: { project: '/project', layerId: ID, visibleLayerIds: [ID] },
+        onSelectionChange: vi.fn(),
+      })
+    );
+    await waitFor(() => expect(result.current.loadedLayers).toHaveLength(1));
+    expect(result.current.trackControls.rows[0].unavailable).toContain(
+      'dataset revision has changed'
+    );
+    expect(result.current.tracks).toHaveLength(0);
+    expect(result.current.annotationColorsByIdentity).toBeUndefined();
+  });
+
+  it('projects exact native pins without loading or hashing a complete renderer sequence', async () => {
+    vi.stubGlobal('crypto', {});
+    const fingerprints = {
+      sequenceFingerprint: layer.document.target.sequenceFingerprint,
+      annotationFingerprint: layer.document.target.annotationFingerprint!,
+    };
+    const initialProps = {
+      documentId: DOCUMENT,
+      project: '/project',
+      fingerprints,
+      onSelectionChange: vi.fn(),
+    };
+    const { result, rerender } = renderHook((props) => useSavedSequenceDataLayers(props), {
+      initialProps,
+    });
+    expect(result.current.loadedLayers).toBeNull();
+    await waitFor(() => expect(result.current.tracks).toHaveLength(1));
+    expect(native).toHaveBeenCalledWith({
+      operation: 'list',
+      project: '/project',
+      targetDocumentId: DOCUMENT,
+    });
+    expect(result.current.loadedLayers).toEqual([layer]);
+    expect(result.current.annotationColorsByIdentity?.get('locusA')).toBe('#808080');
+    const tracks = result.current.tracks;
+    rerender({ ...initialProps, fingerprints: { ...fingerprints } });
+    expect(result.current.tracks).toBe(tracks);
+    expect(native).toHaveBeenCalledTimes(1);
+    rerender({
+      ...initialProps,
+      fingerprints: { ...fingerprints, sequenceFingerprint: `sha256:${'f'.repeat(64)}` },
+    });
+    expect(result.current.tracks).toHaveLength(0);
+    expect(result.current.loadedLayers).toBeNull();
+    await waitFor(() => expect(native).toHaveBeenCalledTimes(2));
+    expect(result.current.tracks).toHaveLength(0);
+    expect(result.current.trackControls.rows[0].unavailable).toContain('sequence has changed');
+  });
+
+  it('ignores an old native list while waiting for new authoritative pins', async () => {
+    const first = deferred<unknown>();
+    native.mockReturnValueOnce(first.promise);
+    const fingerprints = {
+      sequenceFingerprint: layer.document.target.sequenceFingerprint,
+      annotationFingerprint: layer.document.target.annotationFingerprint!,
+    };
+    const initialProps: Parameters<typeof useSavedSequenceDataLayers>[0] = {
+      documentId: DOCUMENT,
+      project: '/project',
+      fingerprints,
+      onSelectionChange: vi.fn(),
+    };
+    const { result, rerender } = renderHook((props) => useSavedSequenceDataLayers(props), {
+      initialProps,
+    });
+    await waitFor(() => expect(native).toHaveBeenCalledTimes(1));
+    rerender({ ...initialProps, fingerprints: null });
+    await act(async () => {
+      first.resolve({ status: 'listed', layers: [layer], errors: [] });
+    });
+    expect(result.current.loadedLayers).toBeNull();
+    expect(result.current.tracks).toHaveLength(0);
+    expect(result.current.annotationColorsByIdentity).toBeUndefined();
+    expect(native).toHaveBeenCalledTimes(1);
   });
 });

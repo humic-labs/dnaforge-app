@@ -126,15 +126,14 @@ export class PixiGenomicSignalTrackRenderer implements PixiLinearTrackRenderer<R
     };
   }
   private hit(args: TrackHoverArgs): Hit | undefined {
-    return this.states
-      .get(args.container)
-      ?.hits.findLast(
-        (h) =>
-          args.localX >= h.x &&
-          args.localX <= h.x + h.width &&
-          args.localY >= h.y &&
-          args.localY <= h.y + h.height
-      );
+    const hits = this.states.get(args.container)?.hits;
+    if (!hits) return undefined;
+    for (let index = hits.length - 1; index >= 0; index--) {
+      const hit = hits[index];
+      if (args.localX >= hit.x && args.localX <= hit.x + hit.width &&
+          args.localY >= hit.y && args.localY <= hit.y + hit.height) return hit;
+    }
+    return undefined;
   }
   hitTest(args: TrackHoverArgs): TrackHitResult | null {
     const hit = this.hit(args);

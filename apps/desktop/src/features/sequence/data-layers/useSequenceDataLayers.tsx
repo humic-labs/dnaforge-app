@@ -22,10 +22,13 @@ import { useCanvasStore } from '../../canvas/public/store';
 import type { SequenceDataLayerViewSelection, Tab } from '../../canvas/public/types';
 import { visibleSequenceDataLayerIds } from './sequence-data-layer-selection';
 
-type Fingerprints = { sequenceFingerprint: string; annotationFingerprint: string };
+export type SequenceDataLayerTargetFingerprints = {
+  sequenceFingerprint: string;
+  annotationFingerprint: string;
+};
 type FingerprintState =
   | { kind: 'checking' }
-  | { kind: 'ready'; capture: object; value: Fingerprints }
+  | { kind: 'ready'; capture: object; value: SequenceDataLayerTargetFingerprints }
   | { kind: 'error'; message: string };
 type Resource =
   | { kind: 'loading'; key: string }
@@ -57,6 +60,7 @@ export interface SequenceDataLayerTrackControls {
 }
 
 const EMPTY_TRACKS: readonly SupplementalLinearTrack[] = [];
+const EMPTY_LAYERS: readonly PublishedSequenceDataLayer[] = [];
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 export function sequenceDataLayerProject(
@@ -80,11 +84,14 @@ export function sequenceDataLayerProject(
 export function sequenceDataLayerRenderAvailability(
   layer: PublishedSequenceDataLayer,
   documentId: string,
-  fingerprints: Fingerprints | null
+  fingerprints: SequenceDataLayerTargetFingerprints | null,
+  expectedRevision?: string
 ): string | null {
   if (!fingerprints) return 'Checking the displayed sequence.';
   if (layer.document.target.documentId !== documentId)
     return 'This layer belongs to another sequence.';
+  if (expectedRevision !== undefined && layer.revision !== expectedRevision)
+    return 'The saved dataset revision has changed. Restore its original artifact or choose this version explicitly.';
   if (layer.availability.status !== 'current')
     return `Saved layer unavailable: ${layer.availability.reason}.`;
   if (layer.document.target.sequenceFingerprint !== fingerprints.sequenceFingerprint)
@@ -99,7 +106,7 @@ export function sequenceDataLayerRenderAvailability(
 
 export async function fingerprintSequenceDataLayerTarget(
   sequence: AnnotatedSequence
-): Promise<Fingerprints> {
+): Promise<SequenceDataLayerTargetFingerprints> {
   const bytes = new TextEncoder().encode(sequence.sequence.toUpperCase());
   const [digest, annotationFingerprint] = await Promise.all([
     globalThis.crypto.subtle.digest('SHA-256', bytes),
@@ -156,11 +163,6 @@ export function useSequenceDataLayers({
     fingerprintState.kind === 'ready' && fingerprintState.capture === capture
       ? fingerprintState.value
       : null;
-  const resourceKey = `${project}\0${documentId ?? ''}\0${fingerprints?.sequenceFingerprint ?? ''}\0${fingerprints?.annotationFingerprint ?? ''}`;
-  const [resource, setResource] = useState<Resource>({ kind: 'loading', key: '' });
-  const [refresh, setRefresh] = useState(0);
-  const renderer = useMemo(() => new PixiGenomicSignalTrackRenderer(), []);
-
   useEffect(() => {
     if (!enabled) return;
     let current = true;
@@ -177,6 +179,56 @@ export function useSequenceDataLayers({
       current = false;
     };
   }, [capture, enabled]);
+
+  const layers = useSavedSequenceDataLayers({
+    documentId,
+    project,
+    fingerprints,
+    selection,
+    onSelectionChange,
+    signalsSupported,
+    enabled,
+  });
+  return {
+    ...layers,
+    ownerTabId: tab?.id,
+    trackControls: {
+      ...layers.trackControls,
+      errors: [
+        ...(enabled && fingerprintState.kind === 'error' ? [fingerprintState.message] : []),
+        ...layers.trackControls.errors,
+      ],
+    },
+  };
+}
+
+export function useSavedSequenceDataLayers({
+  documentId,
+  project,
+  fingerprints: targetFingerprints,
+  pinnedRevisions,
+  selection,
+  onSelectionChange,
+  signalsSupported = true,
+  enabled = true,
+}: {
+  documentId?: string;
+  project: string;
+  fingerprints: SequenceDataLayerTargetFingerprints | null;
+  pinnedRevisions?: Readonly<Record<string, string>>;
+  selection?: SequenceDataLayerViewSelection;
+  onSelectionChange: (selection: SequenceDataLayerViewSelection | null) => void;
+  signalsSupported?: boolean;
+  enabled?: boolean;
+}) {
+  const fingerprints = useMemo(
+    () => (targetFingerprints ? { ...targetFingerprints } : null),
+    [targetFingerprints?.sequenceFingerprint, targetFingerprints?.annotationFingerprint]
+  );
+  const resourceKey = `${project}\0${documentId ?? ''}\0${fingerprints?.sequenceFingerprint ?? ''}\0${fingerprints?.annotationFingerprint ?? ''}`;
+  const [resource, setResource] = useState<Resource>({ kind: 'loading', key: '' });
+  const [refresh, setRefresh] = useState(0);
+  const renderer = useMemo(() => new PixiGenomicSignalTrackRenderer(), []);
 
   useEffect(() => {
     const update = () => setRefresh((value) => value + 1);
@@ -211,7 +263,7 @@ export function useSequenceDataLayers({
 
   const loaded =
     enabled && resource.kind === 'loaded' && resource.key === resourceKey ? resource : null;
-  const layers = loaded?.layers ?? [];
+  const layers = loaded?.layers ?? EMPTY_LAYERS;
   const currentSelection = selection?.project === project ? selection : undefined;
   const presentations = currentSelection?.presentationByLayerId;
   const visibleLayerIds = useMemo(
@@ -247,7 +299,16 @@ export function useSequenceDataLayers({
     if (!enabled || !documentId) return [];
     return visibleLayerIds.flatMap((id) => {
       const layer = layers.find((candidate) => candidate.document.id === id);
-      if (!layer || sequenceDataLayerRenderAvailability(layer, documentId, fingerprints)) return [];
+      if (
+        !layer ||
+        sequenceDataLayerRenderAvailability(
+          layer,
+          documentId,
+          fingerprints,
+          pinnedRevisions?.[layer.document.id]
+        )
+      )
+        return [];
       const document = layer.document;
       const presentation = validatedPresentations.get(id) ?? document.presentation;
       return [
@@ -270,10 +331,18 @@ export function useSequenceDataLayers({
         },
       ];
     });
-  }, [visibleLayerIds, layers, validatedPresentations, fingerprints, documentId, enabled]);
+  }, [
+    visibleLayerIds,
+    layers,
+    validatedPresentations,
+    fingerprints,
+    pinnedRevisions,
+    documentId,
+    enabled,
+  ]);
   const tracks = useMemo<readonly SupplementalLinearTrack[]>(
     () =>
-      signalsSupported
+      signalsSupported && resolvedLayers.length > 0
         ? resolvedLayers.flatMap(({ layer, presentation, resolved }, index) =>
             presentation.signalVisible
               ? [
@@ -354,11 +423,15 @@ export function useSequenceDataLayers({
       samples: layer.document.dataset.samples.map(({ id, label }) => ({ id, label })),
       presentation: presentationFor(layer),
       unavailable: documentId
-        ? sequenceDataLayerRenderAvailability(layer, documentId, fingerprints)
+        ? sequenceDataLayerRenderAvailability(
+            layer,
+            documentId,
+            fingerprints,
+            pinnedRevisions?.[layer.document.id]
+          )
         : null,
     })),
     errors: [
-      ...(enabled && fingerprintState.kind === 'error' ? [fingerprintState.message] : []),
       ...(enabled && resource.kind === 'error' && resource.key === resourceKey
         ? [resource.message]
         : []),
@@ -368,7 +441,7 @@ export function useSequenceDataLayers({
     onPresentationChange,
   };
   return {
-    ownerTabId: tab?.id,
+    loadedLayers: loaded?.layers ?? null,
     trackControls,
     tracks,
     annotationColorsByIdentity: annotationBindings.colors,

@@ -1,3 +1,4 @@
+import type { SequenceDataLayerProjectionProps } from './sequence-data-layer-props';
 import { comparisonTargetViewport } from '../comparison-projection-navigation';
 import type { ComparisonProjectionProps } from './comparison-projection-props';
 import type { ContactProjectionProps } from './contact-projection-props';
@@ -374,7 +375,8 @@ function liveRendererMatchesPrepackedPresentation(
 
 const EMPTY_TRACK_LANES: ReadonlyArray<Lane> = [];
 
-interface IndexedGenomeViewerProps extends ContactProjectionProps, ComparisonProjectionProps {
+interface IndexedGenomeViewerProps
+  extends ContactProjectionProps, ComparisonProjectionProps, SequenceDataLayerProjectionProps {
   laneOwnerId?: string;
   allowAutomaticSignalReadPileupViews?: boolean;
   onAddVariantTrackRequest?: (request: TrackAdmissionRequestV1) => Promise<void>;
@@ -684,6 +686,10 @@ interface SequenceWindowState {
 export function IndexedGenomeViewer({
   laneOwnerId = '__standalone-indexed-genome-viewer__',
   allowAutomaticSignalReadPileupViews = true,
+  dataLayerTracks,
+  dataLayerControls,
+  annotationColorsByIdentity,
+  missingAnnotationColor,
   comparisonProjection,
   comparisonCamera,
   onComparisonCameraChange,
@@ -1784,6 +1790,7 @@ export function IndexedGenomeViewer({
     reconnectRemoteTrack: bamImport.reconnectRemoteTrack,
   });
   useIndexedLaneContractTracks({
+    supplementalTracks: dataLayerTracks,
     onTrackSelection: onSelectionChange,
     webglRef,
     rendererReadyEpoch,
@@ -3523,6 +3530,9 @@ export function IndexedGenomeViewer({
 
   return (
     <IndexedGenomeViewerSurface
+      dataLayerControls={dataLayerControls}
+      annotationColorsByIdentity={annotationColorsByIdentity}
+      missingAnnotationColor={missingAnnotationColor}
       compiledBroadOwnsAssembly={compiledBroadOwnsAssembly}
       state={state}
       comparisonProjection={comparisonProjection}
@@ -3549,7 +3559,9 @@ export function IndexedGenomeViewer({
       length={length}
       height={height}
       hasDataTracks={
-        activeStressDatasets.length > 0 || Boolean(contactProjection || comparisonProjection)
+        activeStressDatasets.length > 0 ||
+        (dataLayerTracks?.length ?? 0) > 0 ||
+        Boolean(contactProjection || comparisonProjection)
       }
       hasQuantitativeTracks={allTrackLanes.some((lane) => isQuantitativeDataset(lane.dataset))}
       hasPileupTracks={allTrackLanes.some((lane) => lane.visible && lane.dataset.kind === 'pileup')}

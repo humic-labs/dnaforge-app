@@ -77,6 +77,9 @@ export function mergeIndexedGenomePersistState(
       persisted?.assemblySearchReadiness ??
       prev?.assemblySearchReadiness,
     scope: next.scope ?? persisted?.scope ?? prev?.scope,
+    sequenceDataLayers: Object.hasOwn(next, 'sequenceDataLayers')
+      ? next.sequenceDataLayers
+      : (persisted?.sequenceDataLayers ?? prev?.sequenceDataLayers),
     contactProjection: Object.hasOwn(next, 'contactProjection')
       ? next.contactProjection
       : (persisted?.contactProjection ?? prev?.contactProjection),

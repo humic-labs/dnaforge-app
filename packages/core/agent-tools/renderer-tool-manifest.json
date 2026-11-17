@@ -23739,6 +23739,20 @@
                             "required": ["chrom", "length"],
                             "additionalProperties": false
                           }
+                        },
+                        "sequenceDataLayerTargets": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "chrom": {
+                                "$ref": "#/properties/result/anyOf/0/properties/references/items/properties/id"
+                              },
+                              "targetDocumentId": { "type": "string", "maxLength": 512 }
+                            },
+                            "required": ["chrom", "targetDocumentId"],
+                            "additionalProperties": false
+                          }
                         }
                       },
                       "required": ["id", "name", "organism", "chromosomes"],

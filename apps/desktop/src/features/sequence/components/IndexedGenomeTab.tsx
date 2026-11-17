@@ -1,3 +1,4 @@
+import { useIndexedSequenceDataLayers } from '../data-layers/useIndexedSequenceDataLayers';
 import { useComparisonProjectionSource } from './useComparisonProjectionSource';
 import type { ComparisonCamera } from '@waypoint/genome-renderer';
 import { useContactProjectionSource } from './useContactProjectionSource';
@@ -2723,6 +2724,8 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
   const nativeProjectionLoading =
     contactResource.status === 'loading' || comparisonResource.status === 'loading';
 
+  const indexedLayers = useIndexedSequenceDataLayers(tab, indexedState);
+
   const trackViewSession = useTrackViewSessionSource(tab, {
     referenceName: assembly?.displayName ?? tab.label,
     readyForDirtyCheck:
@@ -2733,6 +2736,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
       dataTrackRestore.status === 'ready' &&
       !nativeProjectionError &&
       !nativeProjectionLoading &&
+      indexedLayers.ready &&
       (!portableViewRestoreCommand || committedViewRestoreId === portableViewRestoreCommand.id),
     capturePortableReference: async () => {
       const current = indexedStateRef.current;
@@ -2748,8 +2752,10 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
       const savedViewport = normalizeIndexedViewportForPersistence(viewport, length);
       if (!savedViewport) throw new Error('The displayed view has no valid viewport.');
       const liveLanes = useLaneContractStore.getState().lanesForOwner(tab.id);
+      const sequenceDataLayers = indexedLayers.capture();
       return {
         reference: trackViewReference(current),
+        ...(sequenceDataLayers ? { sequenceDataLayers } : {}),
         viewport: savedViewport,
         ...(current.contactProjection ? { contactProjection: current.contactProjection } : {}),
         ...(current.comparisonProjection
@@ -2827,6 +2833,11 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         savingPortableView={savingPortableView}
         onSavePortableView={() => void savePortableView()}
         dataRestoreIssues={[
+          ...indexedLayers.trackControls.errors.map((message) => ({
+            trackId: 'saved-data-layer',
+            label: 'Data layer',
+            message,
+          })),
           ...dataTrackRestore.issues,
           ...bamTrackRestore.issues.filter((issue) => issue.kind === 'remote-signal'),
         ]}
@@ -2838,6 +2849,10 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         }
       />
       <IndexedGenomeTabRuntime
+        dataLayerTracks={indexedLayers.tracks}
+        dataLayerControls={indexedLayers.trackControls}
+        annotationColorsByIdentity={indexedLayers.annotationColorsByIdentity}
+        missingAnnotationColor={indexedLayers.missingColor}
         tabId={tab.id}
         allowAutomaticSignalReadPileupViews={!tab.trackView && !portableViewRestoreCommand}
         comparisonProjection={comparisonProjection}

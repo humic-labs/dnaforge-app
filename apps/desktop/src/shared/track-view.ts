@@ -1,3 +1,5 @@
+import { parseSequenceDataLayerIndexedTargetId } from './sequence-data-layer-indexed-target';
+import { savedSequenceDataLayersSchema } from './saved-sequence-data-layers';
 import { QUANTITATIVE_COLOR_PALETTE_IDS } from '@waypoint/genome-data';
 import { comparisonProjectionViewStateSchema } from './comparison-source';
 import { contactProjectionViewStateSchema } from './contact-source';
@@ -335,6 +337,7 @@ const documentSchema = z
       .strict(),
     viewport: z.object({ start0: integer, end0: positive }).strict(),
     contactProjection: contactProjectionViewStateSchema.optional(),
+    sequenceDataLayers: savedSequenceDataLayersSchema.optional(),
     comparisonProjection: comparisonProjectionViewStateSchema.optional(),
     scope: z.discriminatedUnion('kind', [
       z.object({ kind: z.literal('all') }).strict(),
@@ -489,6 +492,24 @@ const documentSchema = z
     const chromosomeLengths = new Map(
       doc.reference.chromosomes.map((chromosome) => [chromosome.chrom, chromosome.length])
     );
+    if (doc.sequenceDataLayers) {
+      try {
+        const target = parseSequenceDataLayerIndexedTargetId(
+          doc.sequenceDataLayers.targetDocumentId
+        );
+        if (
+          !target ||
+          target.referenceId !== doc.reference.assemblyId ||
+          !chromosomeLengths.has(target.chrom) ||
+          (doc.reference.sequenceIdentity !== undefined &&
+            (target.sequenceIdentity !== doc.reference.sequenceIdentity ||
+              target.annotationIdentity !== doc.reference.annotationIdentity))
+        )
+          fail('The saved data layers do not match this reference version.');
+      } catch {
+        fail('The saved data layers need an exact indexed reference target.');
+      }
+    }
     if (doc.contactProjection && doc.comparisonProjection)
       fail('A saved view can use only one native coordinate projection at a time.');
     if (doc.comparisonProjection) {
