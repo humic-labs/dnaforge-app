@@ -1537,6 +1537,9 @@ export interface PlatformBridge {
     materializeMocloScenarioKit(
       request: import('../shared/internal-fixtures').MaterializeMocloScenarioKitRequest
     ): Promise<import('../shared/internal-fixtures').MaterializedMocloScenarioKit>;
+    seedMissingAuthorityArchive(
+      request: import('../shared/internal-fixtures').SeedMissingAuthorityArchiveRequest
+    ): Promise<import('../shared/internal-fixtures').SeedMissingAuthorityArchiveResult>;
   };
   analytics: {
     getRuntimeConfig(): Promise<AnalyticsRuntimeConfig | null>;

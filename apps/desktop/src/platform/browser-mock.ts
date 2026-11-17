@@ -3213,6 +3213,9 @@ ORIGIN
     materializeMocloScenarioKit: async () => {
       throw new Error('Materializing MoClo scenario kits requires Electron.');
     },
+    seedMissingAuthorityArchive: async () => {
+      throw new Error('Seeding startup repair fixtures requires Electron.');
+    },
   },
   analytics: {
     getRuntimeConfig: async () => null,
