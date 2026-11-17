@@ -20,8 +20,39 @@ import {
 
 const entityConflictToasts = new Map<string, string>();
 const primerRecoveryToasts = new Map<string, string>();
+const entityMigrationToasts = new Map<string, string>();
 let originalProjectToast: string | undefined;
 let legacyLibraryToast: string | undefined;
+
+export function reportEntityMigrationIssues(
+  rootPath: string,
+  result: Pick<WorkspaceReconcileResult, 'migrationIssues'>
+): void {
+  const store = useToastStore.getState();
+  const previousId = entityMigrationToasts.get(rootPath);
+  const issues = result.migrationIssues ?? [];
+  if (issues.length === 0) {
+    if (previousId) store.removeToast(previousId);
+    entityMigrationToasts.delete(rootPath);
+    return;
+  }
+  const first = issues[0];
+  const target = first.path.startsWith(rootPath + '/')
+    ? first.path.slice(rootPath.length + 1)
+    : first.path;
+  const message = userMessageWithValues('project.entityMigrationSummary', {
+    count: userMessageValue(issues.length),
+    target: userMessageValue(target),
+    detail: userMessageValue(first.reason),
+  });
+  const previous = store.toasts.find(({ id }) => id === previousId);
+  if (previous?.phase !== 'exiting' && previous?.message === message) return;
+  if (previousId) store.removeToast(previousId);
+  entityMigrationToasts.set(
+    rootPath,
+    store.addToast(message, { definition: 'entity-migration-needs-attention' })
+  );
+}
 
 function reportOriginalProjectResolution(
   resolution: OriginalDefaultProjectResolution | undefined,

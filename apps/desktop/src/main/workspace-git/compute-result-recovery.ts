@@ -18,6 +18,7 @@ import {
   retainComputeSource,
 } from './compute-result-retention';
 import { materializeCoordinatePackage } from './coordinate-package-import';
+import { settleCompletedMolecularMigrationLinks } from './molecular-migration-journal';
 import {
   isConstructSequenceFile,
   materializeImportedSequencePackages,
@@ -186,6 +187,10 @@ export async function recoverComputeResult(
             throw new Error(`COMPUTE_RECOVERY_CONVERSION_REFUSED: ${result.skippedReason}`);
         }
       }
+      await settleCompletedMolecularMigrationLinks(outputRoot, {
+        scope: 'unpublished-compute-staging',
+        assertCurrent,
+      });
       const output = await inventoryComputeSource(outputRoot);
       for (const item of output.entries)
         if (item.kind === 'file') await flushFile(join(outputRoot, item.relativePath));

@@ -36,6 +36,7 @@ import {
 import type {
   WorkspaceArtifactDiscoveryResult,
   WorkspaceCatalogCandidate,
+  WorkspaceEntityMigrationResult,
 } from '../shared/workspace-git-types';
 import { reconcileNativeScientificPackage } from './native-scientific-package-reconcile';
 import { withRendererWorkspaceMutation } from './workspace-mutation-transaction';
@@ -43,6 +44,7 @@ import { reconcileSequencePackageCatalogEntity } from './sequence-package-catalo
 import { getTabTypeForFile } from '../utils/fileTypes';
 import type { ManagedSequenceDocumentRef } from '../shared/managed-sequence-document';
 import { reconcileAcceptedScientificProjections } from './reconcile-scientific-projections';
+import { reportEntityMigrationIssues } from './workspace-reconcile-report';
 
 export type WorkspaceCatalogSource = 'head' | 'working-tree';
 
@@ -160,6 +162,7 @@ async function reconcileWorkspaceRootWithinMutation(
     };
   }
   let result: WorkspaceReconcileResult;
+  let fileMigration: WorkspaceEntityMigrationResult | undefined;
   if (managedRepo && options.catalogSource !== 'working-tree') {
     result = await indexWorkspaceHeadIntoCatalog(
       rootPath,
@@ -184,6 +187,27 @@ async function reconcileWorkspaceRootWithinMutation(
     );
     result.entityArtifactDiscoveryComplete = true;
   } else {
+    const migrate = platform().workspace.migrateLegacyProjectFiles;
+    if (options.healManagedHead !== false && !nativeManifestError && migrate) {
+      try {
+        fileMigration = await migrate({
+          repoPath: rootPath,
+          mutationToken: options.mutationToken,
+        });
+      } catch (error) {
+        fileMigration = {
+          healedFileCount: 0,
+          migrationIssues: [
+            {
+              path: rootPath,
+              kind: 'failed',
+              reason: error instanceof Error ? error.message : String(error),
+            },
+          ],
+        };
+      }
+      signal?.throwIfAborted();
+    }
     const knownFiles = await getCatalogFilesUnderPath(rootPath);
     signal?.throwIfAborted();
     const discoverArtifacts = platform().workspace.discoverArtifacts;
@@ -244,6 +268,15 @@ async function reconcileWorkspaceRootWithinMutation(
       }
     }
   }
+  if (fileMigration) {
+    result.healedFileCount = (result.healedFileCount ?? 0) + fileMigration.healedFileCount;
+    result.migrationIssues = [...(result.migrationIssues ?? []), ...fileMigration.migrationIssues];
+    result.errors.push(
+      ...fileMigration.migrationIssues
+        .filter((issue) => issue.kind === 'failed')
+        .map((issue) => ({ path: issue.path, message: issue.reason }))
+    );
+  }
   if (nativeManifestError) result.errors.unshift(nativeManifestError);
   if (nativeManifest.present) {
     try {
@@ -278,6 +311,7 @@ async function reconcileWorkspaceRootWithinMutation(
   result.primerArtifactsReconciled = primerResult.reconciled;
   result.primerArtifactErrors = primerResult.errors;
   result.errors.push(...primerResult.errors);
+  reportEntityMigrationIssues(rootPath, result);
   if (options.strict && result.errors.length > 0) {
     throw new Error(
       `Workspace reconciliation failed for ${result.errors.length} item(s): ${result.errors
@@ -638,22 +672,25 @@ async function reconcileWorkspaceRootByFsWalk(
       seen.add(entryPath);
       const fs = platform().fs;
       try {
-        await loadSequencePackageDocument(entryPath, {
-          exists: fs.exists,
-          readTextFile: fs.readTextFile,
-          writeTextFile: fs.writeTextFile,
-          writeWorkspaceTextFileAtomic: fs.writeWorkspaceTextFileAtomic,
-          mkdir: fs.mkdir,
-          move: fs.move,
-          readFile: fs.readFile,
-          rename: fs.rename,
-        });
-      } catch (err) {
-        console.warn(
-          '[reconcile] could not migrate sequence package',
+        await loadSequencePackageDocument(
           entryPath,
-          err instanceof Error ? err.message : err
+          {
+            exists: fs.exists,
+            readTextFile: fs.readTextFile,
+            writeTextFile: fs.writeTextFile,
+            writeWorkspaceTextFileAtomic: fs.writeWorkspaceTextFileAtomic,
+            mkdir: fs.mkdir,
+            move: fs.move,
+            readFile: fs.readFile,
+            rename: fs.rename,
+          },
+          rootPath
         );
+      } catch (err) {
+        result.errors.push({
+          path: sequencePackageMetaPath,
+          message: err instanceof Error ? err.message : String(err),
+        });
       }
       try {
         await reconcileSequencePackageCatalogEntity({

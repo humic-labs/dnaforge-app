@@ -9,6 +9,8 @@ import { defineBlob } from '@waypoint/workspace-revisions';
 const harness = vi.hoisted(() => ({
   db: null as Database.Database | null,
   handlers: new Map<string, (...args: any[]) => Promise<any>>(),
+  barriers: [] as string[],
+  beforeFlush: null as (() => void) | null,
 }));
 
 vi.mock('electron', () => ({
@@ -37,8 +39,16 @@ vi.mock('./path-allowlist', () => ({
 }));
 vi.mock('../features/native-documents', () => ({
   nativeDocuments: {
+    flushDirtyDocumentClients: async () => {
+      harness.beforeFlush?.();
+      harness.barriers.push('renderer-flushed');
+    },
     fileDocuments: {
-      withCleanPaths: async (_paths: string[], operation: () => unknown) => operation(),
+      withCleanPaths: async (_paths: string[], operation: () => unknown) => {
+        harness.barriers.push('native-clean');
+        expect(harness.barriers[0]).toBe('renderer-flushed');
+        return operation();
+      },
       assertClean: async () => undefined,
     },
   },
@@ -61,6 +71,8 @@ const cleanup: (() => void)[] = [];
 afterEach(() => {
   harness.db = null;
   harness.handlers.clear();
+  harness.barriers.length = 0;
+  harness.beforeFlush = null;
   for (const run of cleanup.splice(0).reverse()) run();
 });
 
@@ -193,6 +205,21 @@ async function enrolledProject() {
 }
 
 describe('automatic migration through the native catalog IPC handler', () => {
+  it('indexes an existing readonly project without healing or changing any loose source', async () => {
+    const f = await enrolledProject();
+    f.db.prepare("UPDATE workspaces SET access_mode='reference' WHERE path=?").run(f.root);
+    writeFileSync(join(f.root, 'Readonly.gb'), genbank('Readonly'));
+    const result = await f.index();
+    expect(result.headCommit).toMatch(/^[a-f0-9]{40}$/u);
+    expect(result.files.map((file: { relPath: string }) => file.relPath)).toContain(
+      'Accepted/Accepted.gb'
+    );
+    expect(result.healedFileCount).toBe(0);
+    expect(readFileSync(join(f.root, 'Readonly.gb'), 'utf8')).toBe(genbank('Readonly'));
+    expect(existsSync(join(f.root, 'Readonly/Readonly.gb'))).toBe(false);
+    expect(f.store.read().head).toBe(f.before.acceptedHead);
+  });
+
   it.each(['sequence', 'coordinates'] as const)(
     'packages new unowned %s in an enrolled project without accepting or committing other changes',
     async (kind) => {
@@ -203,7 +230,14 @@ describe('automatic migration through the native catalog IPC handler', () => {
           ? genbank('New')
           : 'HEADER    NEW PROTEIN\nATOM      1  CA  ALA A   1\nEND\n';
       writeFileSync(join(f.root, sourcePath), source);
+      harness.beforeFlush = () =>
+        expect(readFileSync(join(f.root, sourcePath), 'utf8')).toBe(source);
       const result = await f.index();
+      expect
+        .soft(harness.barriers[0], 'renderer drafts flush before native clean admission')
+        .toBe('renderer-flushed');
+      expect.soft(harness.barriers).toContain('native-clean');
+      harness.beforeFlush = null;
       const target = kind === 'sequence' ? 'New/New.gb' : 'New.dnaforge-molecular.json';
 
       expect

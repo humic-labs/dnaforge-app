@@ -11,14 +11,19 @@ import type {
   ManagedCatalogHeadIndex,
   ManagedHeadFile,
   ManagedHeadIndex,
+  ManagedFileMigrationIssue,
 } from '../../shared/workspace-git-types';
-import { convertTreeToPlasmidPackages } from './convert-tree-to-packages';
+import {
+  convertTreeToPlasmidPackages,
+  declaredNativeMigrationPaths,
+} from './convert-tree-to-packages';
 import {
   convertTreeToMolecularPackages,
   renameExtensionNamedMolecularViews,
 } from './coordinate-package-import';
 import {
   commitAllIfDirty,
+  commitOwnedPathsIfDirty,
   hasActiveQuickLookPromotion,
   resolveHeadCommit,
   withManagedWorkspaceMutationLock,
@@ -26,6 +31,9 @@ import {
 import { benchlingProjectionLayoutPolicy } from './benchling-projection-layout';
 import { STERILE_GIT_READ_RUNTIME } from '../ipc/git-read-executor';
 import { GIT_READ_CONFIG_ARGS } from '../ipc/git-read-policy';
+import type { MigrationPathOptions } from './migration-paths';
+import { MOLECULAR_MIGRATION_DIRECTORY } from './molecular-migration-journal';
+import { preflightLegacySequencePackages } from './sequence-package-preflight';
 
 export type {
   ManagedCatalogHeadIndex,
@@ -35,10 +43,11 @@ export type {
 
 type ManagedHeadEntry = Readonly<{ relPath: string; oid: string }>;
 
-interface HeadIndexOptions {
+interface HeadIndexOptions extends MigrationPathOptions {
   healWorkingTree?: boolean;
   packageIdForPath?: (path: string) => string | undefined;
   removeCoordinateSource?: (path: string) => Promise<unknown>;
+  ownedMigrationCommit?: boolean;
 }
 
 async function trashCoordinateSource(repoPath: string, path: string): Promise<void> {
@@ -47,17 +56,135 @@ async function trashCoordinateSource(repoPath: string, path: string): Promise<vo
     await shell.trashItem(path);
   } catch (error) {
     const filepath = path.slice(repoPath.replace(/[\\/]+$/, '').length + 1).replace(/\\/g, '/');
-    if ((await git.status({ fs, dir: repoPath, filepath })) !== 'unmodified') throw error;
+    if (
+      !filepath.split('/').includes(MOLECULAR_MIGRATION_DIRECTORY) &&
+      (await git.status({ fs, dir: repoPath, filepath })) !== 'unmodified'
+    )
+      throw error;
     await fs.promises.unlink(path);
   }
+}
+
+export async function collectWorkspaceEntityMigrations(
+  repoPath: string,
+  options: HeadIndexOptions = {}
+) {
+  let healedFileCount = 0;
+  let requiredGitFiles: string[] = [];
+  const migrationIssues: ManagedFileMigrationIssue[] = [];
+  const expectedContentSha256: Record<string, string | null> = {};
+  const result = () => ({
+    healedFileCount,
+    requiredGitFiles,
+    migrationIssues,
+    expectedContentSha256,
+  });
+  if (options.healWorkingTree === false || hasActiveQuickLookPromotion(repoPath)) return result();
+  const policy = await benchlingProjectionLayoutPolicy(repoPath);
+  if (policy === 'locked') throw new Error('The project is locked for migration.');
+  if (policy !== 'ordinary') return result();
+  const migration = {
+    protectedPaths: [
+      ...(options.protectedPaths ?? []),
+      ...(await declaredNativeMigrationPaths(repoPath)),
+    ],
+    protectedEntityIds: options.protectedEntityIds,
+    assertCurrent: options.assertCurrent,
+    withCleanPaths: options.withCleanPaths,
+  };
+  try {
+    const upgraded = await preflightLegacySequencePackages(repoPath, options);
+    healedFileCount += upgraded.upgraded;
+    Object.assign(expectedContentSha256, upgraded.expectedContentSha256);
+    migrationIssues.push(
+      ...upgraded.failures.map(({ path, message }) => ({
+        path,
+        reason: message,
+        kind: 'failed' as const,
+      }))
+    );
+  } catch (error) {
+    migrationIssues.push({
+      path: repoPath,
+      reason: error instanceof Error ? error.message : String(error),
+      kind: 'failed',
+    });
+  }
+  try {
+    const conversion = await convertTreeToPlasmidPackages(repoPath, {
+      ...migration,
+      packageIdForPath: options.packageIdForPath,
+    });
+    requiredGitFiles = conversion.requiredGitFiles;
+    healedFileCount += conversion.converted;
+    Object.assign(expectedContentSha256, conversion.expectedContentSha256);
+    migrationIssues.push(
+      ...conversion.skippedDetails.map(({ path, reason }) => ({
+        path,
+        reason,
+        kind: 'refused' as const,
+      })),
+      ...conversion.failures.map(({ path, message }) => ({
+        path,
+        reason: message,
+        kind: 'failed' as const,
+      }))
+    );
+  } catch (err) {
+    migrationIssues.push({
+      path: repoPath,
+      reason: err instanceof Error ? err.message : String(err),
+      kind: 'failed',
+    });
+  }
+  try {
+    const molecular = await convertTreeToMolecularPackages(repoPath, {
+      ...migration,
+      removeSource:
+        options.removeCoordinateSource ?? ((path) => trashCoordinateSource(repoPath, path)),
+    });
+    healedFileCount += molecular.converted;
+    Object.assign(expectedContentSha256, molecular.expectedContentSha256);
+    migrationIssues.push(
+      ...molecular.skipped.map(({ path, reason }) => ({ path, reason, kind: 'refused' as const }))
+    );
+  } catch (err) {
+    migrationIssues.push({
+      path: repoPath,
+      reason: err instanceof Error ? err.message : String(err),
+      kind: 'failed',
+    });
+  }
+  try {
+    const names = await renameExtensionNamedMolecularViews(repoPath, migration);
+    healedFileCount += names.renamed;
+    Object.assign(expectedContentSha256, names.expectedContentSha256);
+    migrationIssues.push(
+      ...names.skipped.map(({ path, reason }) => ({ path, reason, kind: 'refused' as const }))
+    );
+  } catch (err) {
+    migrationIssues.push({
+      path: repoPath,
+      reason: err instanceof Error ? err.message : String(err),
+      kind: 'failed',
+    });
+  }
+  options.assertCurrent?.();
+  return result();
 }
 
 async function collectManagedHeadEntries(
   repoPath: string,
   options: HeadIndexOptions = {}
-): Promise<{ headCommit: string | null; entries: ManagedHeadEntry[]; healedFileCount: number }> {
+): Promise<{
+  headCommit: string | null;
+  entries: ManagedHeadEntry[];
+  healedFileCount: number;
+  migrationIssues: ManagedFileMigrationIssue[];
+}> {
   return withManagedWorkspaceMutationLock(repoPath, async () => {
     let healedFileCount = 0;
+    const migrationIssues: ManagedFileMigrationIssue[] = [];
     const projectionLayoutPolicy = await benchlingProjectionLayoutPolicy(repoPath);
     if (projectionLayoutPolicy === 'locked') {
       throw new Error(
@@ -66,71 +193,38 @@ async function collectManagedHeadEntries(
     }
     if (options.healWorkingTree !== false && !hasActiveQuickLookPromotion(repoPath)) {
       let requiredGitFiles: string[] = [];
-      if (projectionLayoutPolicy === 'ordinary') {
-        try {
-          const conversion = await convertTreeToPlasmidPackages(repoPath, {
-            packageIdForPath: options.packageIdForPath,
-          });
-          requiredGitFiles = conversion.requiredGitFiles;
-          healedFileCount = conversion.converted;
-          const refused = [
-            ...conversion.skippedDetails
-              .filter(({ repeated }) => !repeated)
-              .map(({ path, reason }) => ({ path, reason })),
-            ...conversion.failures.map(({ path, message }) => ({ path, reason: message })),
-          ];
-          if (refused.length > 0) {
-            console.warn(
-              `[collectManagedHeadIndex] ${refused.length} sequence file(s) left outside the package format:`,
-              refused
-            );
-          }
-        } catch (err) {
-          console.warn(
-            '[collectManagedHeadIndex] sequence package heal failed; indexing the tree as-is:',
-            err instanceof Error ? err.message : err
-          );
-        }
-        try {
-          const molecular = await convertTreeToMolecularPackages(repoPath, {
-            removeSource:
-              options.removeCoordinateSource ?? ((path) => trashCoordinateSource(repoPath, path)),
-          });
-          healedFileCount += molecular.converted;
-          if (molecular.skipped.length > 0)
-            console.warn(
-              `[collectManagedHeadIndex] ${molecular.skipped.length} coordinate file(s) left outside the package format:`,
-              molecular.skipped
-            );
-        } catch (err) {
-          console.warn(
-            '[collectManagedHeadIndex] coordinate package heal failed; indexing the tree as-is:',
-            err instanceof Error ? err.message : err
-          );
-        }
-        try {
-          const names = await renameExtensionNamedMolecularViews(repoPath);
-          healedFileCount += names.renamed;
-          if (names.skipped.length > 0)
-            console.warn(
-              `[collectManagedHeadIndex] ${names.skipped.length} molecular view(s) kept their extension-bearing names:`,
-              names.skipped
-            );
-        } catch (err) {
-          console.warn(
-            '[collectManagedHeadIndex] molecular view rename failed; indexing the tree as-is:',
-            err instanceof Error ? err.message : err
-          );
-        }
-      }
+      const expectedHead = await resolveHeadCommit(repoPath);
+      const expectedContentSha256: Record<string, string | null> = {};
+      if (options.ownedMigrationCommit && !expectedHead)
+        throw new Error(
+          'The accepted project needs a Git history before its files can be migrated.'
+        );
+      const migration = await collectWorkspaceEntityMigrations(repoPath, options);
+      requiredGitFiles = migration.requiredGitFiles;
+      healedFileCount = migration.healedFileCount;
+      migrationIssues.push(...migration.migrationIssues);
+      Object.assign(expectedContentSha256, migration.expectedContentSha256);
 
-      await commitAllIfDirty(repoPath, 'reconcile: capture working changes', {
-        forceInclude: requiredGitFiles,
-      });
+      options.assertCurrent?.();
+      if (options.ownedMigrationCommit) {
+        const paths = Object.keys(expectedContentSha256);
+        if (paths.length > 0) {
+          await commitOwnedPathsIfDirty(repoPath, 'reconcile: migrate unowned entities', {
+            paths,
+            forceInclude: paths,
+            expectedHead,
+            expectedContentSha256,
+          });
+        }
+      } else {
+        await commitAllIfDirty(repoPath, 'reconcile: capture working changes', {
+          forceInclude: requiredGitFiles,
+        });
+      }
     }
 
     const headCommit = await resolveHeadCommit(repoPath);
-    if (!headCommit) return { headCommit: null, entries: [], healedFileCount };
+    if (!headCommit) return { headCommit: null, entries: [], healedFileCount, migrationIssues };
 
     const entries: ManagedHeadEntry[] = [];
     await git.walk({
@@ -144,7 +238,7 @@ async function collectManagedHeadEntries(
         return undefined;
       },
     });
-    return { headCommit, entries, healedFileCount };
+    return { headCommit, entries, healedFileCount, migrationIssues };
   });
 }
 
@@ -209,9 +303,15 @@ async function committedBlobSizes(
   );
 }
 
-export async function collectManagedHeadIndex(repoPath: string): Promise<ManagedHeadIndex> {
-  const { headCommit, entries } = await collectManagedHeadEntries(repoPath);
-  return { headCommit, files: await hydrateManagedHeadFiles(repoPath, entries) };
+export async function collectManagedHeadIndex(
+  repoPath: string,
+  options: HeadIndexOptions = {}
+): Promise<ManagedHeadIndex> {
+  const { headCommit, entries, migrationIssues } = await collectManagedHeadEntries(
+    repoPath,
+    options
+  );
+  return { headCommit, files: await hydrateManagedHeadFiles(repoPath, entries), migrationIssues };
 }
 
 export async function collectManagedCatalogHeadIndex(
@@ -219,7 +319,7 @@ export async function collectManagedCatalogHeadIndex(
   preserveRelPaths: readonly string[],
   options: HeadIndexOptions = {}
 ): Promise<ManagedCatalogHeadIndex> {
-  const { headCommit, entries, healedFileCount } = await collectManagedHeadEntries(
+  const { headCommit, entries, healedFileCount, migrationIssues } = await collectManagedHeadEntries(
     repoPath,
     options
   );
@@ -240,5 +340,6 @@ export async function collectManagedCatalogHeadIndex(
     scannedFileCount: entries.length,
     visibleFileCount,
     healedFileCount,
+    migrationIssues,
   };
 }

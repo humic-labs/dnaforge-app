@@ -1,8 +1,11 @@
+import type { ManagedFileMigrationIssue } from '../shared/workspace-git-types';
+
 export interface WorkspaceReconcileResult {
   scanned: number;
 
   visibleFileCount?: number;
   healedFileCount?: number;
+  migrationIssues?: ManagedFileMigrationIssue[];
   registered: number;
   repaired: number;
   missing: number;

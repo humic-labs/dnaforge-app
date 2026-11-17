@@ -1,7 +1,7 @@
 import { isRecoveredComputeResultDirectory } from '../../shared/compute-result-path';
 import { randomUUID } from 'node:crypto';
-import { readdir, readFile, unlink, writeFile } from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { lstat, readdir, unlink } from 'node:fs/promises';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import {
   buildDefaultMolecularDocument,
   coordinateFileStem,
@@ -13,6 +13,15 @@ import {
   parseMolecularDocument,
   serializeMolecularDocument,
 } from '../../shared/molecular-document';
+import {
+  migrateMolecularFile,
+  collectMolecularMigrationGitContent,
+  molecularMigrationPathProtected,
+  pendingMolecularMigrationSources,
+  type MolecularMigrationKind,
+  type MolecularMigrationOptions,
+  type MolecularMigrationResult,
+} from './molecular-migration-journal';
 
 export type CoordinatePackageResult =
   | { converted: true; productPath: string }
@@ -20,74 +29,125 @@ export type CoordinatePackageResult =
 
 export async function materializeCoordinatePackage(
   coordinatePath: string,
-  options: { removeSource: (path: string) => Promise<unknown>; now?: () => number }
+  options: MolecularMigrationOptions & {
+    removeSource: (path: string) => Promise<unknown>;
+    now?: () => number;
+  }
 ): Promise<CoordinatePackageResult> {
-  const fileName = basename(coordinatePath);
-  const format = packagedCoordinateFormat(fileName);
-  if (!format) return { converted: false };
-  const stem = coordinateFileStem(fileName);
-  let content: string;
   try {
-    content = serializeMolecularDocument(
-      await buildDefaultMolecularDocument({
-        name: stem,
-        format,
-        text:
-          format === 'bcif'
-            ? binaryCoordinateText(await readFile(coordinatePath))
-            : await readFile(coordinatePath, 'utf8'),
-        createdAt: (options.now ?? Date.now)(),
-        documentId: randomUUID(),
-        referenceId: randomUUID(),
-      })
-    );
+    const result = await materializeCoordinatePackageWithJournal(coordinatePath, options);
+    return result ? { converted: true, productPath: result.productPath } : { converted: false };
   } catch (error) {
     return {
       converted: false,
       skippedReason: error instanceof Error ? error.message : String(error),
     };
   }
-  const directory = dirname(coordinatePath);
-  for (let n = 1; n <= 1000; n += 1) {
-    const productPath = join(
-      directory,
-      `${n === 1 ? stem : `${stem} ${n}`}${MOLECULAR_DOCUMENT_SUFFIX}`
-    );
-    try {
-      await writeFile(productPath, content, { flag: 'wx' });
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException)?.code === 'EEXIST') continue;
-      throw error;
-    }
-    try {
-      await options.removeSource(coordinatePath);
-    } catch (error) {
-      await unlink(productPath).catch(() => {});
-      return {
-        converted: false,
-        skippedReason: `The coordinate file could not be removed after packaging: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      };
-    }
-    return { converted: true, productPath };
+}
+
+async function materializeCoordinatePackageWithJournal(
+  coordinatePath: string,
+  options: MolecularMigrationOptions & {
+    removeSource: (path: string) => Promise<unknown>;
+    now?: () => number;
   }
-  throw new Error(`No free molecular view name beside ${coordinatePath}.`);
+): Promise<MolecularMigrationResult | null> {
+  const fileName = basename(coordinatePath);
+  const format = packagedCoordinateFormat(fileName);
+  if (!format) return null;
+  for (let directory = dirname(resolve(coordinatePath)); ; directory = dirname(directory)) {
+    if (await packageDirectory(directory))
+      throw new Error(`MOLECULAR_MIGRATION_PACKAGE_MEMBER: ${coordinatePath}`);
+    if (dirname(directory) === directory) break;
+  }
+  const stem = coordinateFileStem(fileName);
+  return migrateMolecularFile(
+    coordinatePath,
+    'coordinate',
+    async (bytes) => ({
+      content: serializeMolecularDocument(
+        await buildDefaultMolecularDocument({
+          name: stem,
+          format,
+          text: format === 'bcif' ? binaryCoordinateText(bytes) : bytes.toString('utf8'),
+          createdAt: (options.now ?? Date.now)(),
+          documentId: randomUUID(),
+          referenceId: randomUUID(),
+        })
+      ),
+      productNames: molecularViewNames(stem),
+    }),
+    options
+  );
 }
 
 const SKIPPED_ROOT_DIRECTORIES = new Set(['Structures', 'compute', 'node_modules']);
 const MAX_TREE_ENTRIES = 50_000;
+const MAX_TREE_DEPTH = 40;
+const PACKAGE_MARKERS = [
+  'plasmid.json',
+  'sequence.json',
+  'notebook.json',
+  'protocol.json',
+  'protocol-run.json',
+];
 
-export async function convertTreeToMolecularPackages(
+function molecularViewNames(stem: string): string[] {
+  return Array.from(
+    { length: 1000 },
+    (_, n) => `${n === 0 ? stem : `${stem} ${n + 1}`}${MOLECULAR_DOCUMENT_SUFFIX}`
+  );
+}
+
+async function packageDirectory(path: string): Promise<boolean> {
+  for (const name of PACKAGE_MARKERS) {
+    try {
+      await lstat(join(path, '.forge', name));
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  }
+  return false;
+}
+
+async function molecularMigrationCandidates(
   repoPath: string,
-  options: { removeSource: (path: string) => Promise<unknown> }
-): Promise<{ converted: number; skipped: Array<{ path: string; reason: string }> }> {
-  const candidates: string[] = [];
+  kind: MolecularMigrationKind,
+  options: MolecularMigrationOptions,
+  result: MolecularTreeMigrationResult
+): Promise<string[]> {
+  const candidates = new Set<string>();
   let visited = 0;
   const walk = async (directory: string, depth: number): Promise<void> => {
+    const protectedDirectory = options.protectedPaths?.some((path) => {
+      const member = relative(resolve(path), resolve(directory));
+      return (
+        member === '' || (!isAbsolute(member) && member !== '..' && !member.startsWith(`..${sep}`))
+      );
+    });
+    if (depth > MAX_TREE_DEPTH || protectedDirectory || (await packageDirectory(directory))) return;
+    try {
+      for (const source of await pendingMolecularMigrationSources(directory, kind))
+        candidates.add(source);
+      const completed = await collectMolecularMigrationGitContent(directory, kind, options);
+      recordMutation(repoPath, result, completed.expectedContentSha256);
+      result.skipped.push(...completed.skipped);
+    } catch (error) {
+      result.skipped.push({
+        path: directory,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       if (++visited > MAX_TREE_ENTRIES) return;
-      if (entry.name.startsWith('.')) continue;
+      if (
+        entry.name.startsWith('.') ||
+        entry.name === 'node_modules' ||
+        entry.name === 'test-fixtures' ||
+        entry.name === '__pycache__'
+      )
+        continue;
       const path = join(directory, entry.name);
       if (entry.isDirectory()) {
         if (
@@ -97,24 +157,62 @@ export async function convertTreeToMolecularPackages(
         )
           continue;
         await walk(path, depth + 1);
-      } else if (entry.isFile() && packagedCoordinateFormat(entry.name)) {
-        candidates.push(path);
+      } else if (
+        entry.isFile() &&
+        !molecularMigrationPathProtected(path, options.protectedPaths) &&
+        (kind === 'coordinate'
+          ? packagedCoordinateFormat(entry.name)
+          : extensionFreeMolecularViewPath(entry.name))
+      ) {
+        candidates.add(path);
       }
     }
   };
   await walk(repoPath, 0);
-  let converted = 0;
-  const skipped: Array<{ path: string; reason: string }> = [];
+  return [...candidates];
+}
+
+interface MolecularTreeMigrationResult {
+  skipped: Array<{ path: string; reason: string }>;
+  mutatedGitFiles: string[];
+  expectedContentSha256: Record<string, string | null>;
+}
+
+function recordMutation(
+  repoPath: string,
+  result: MolecularTreeMigrationResult,
+  expectedContentSha256: Record<string, string | null>
+): void {
+  for (const [path, sha256] of Object.entries(expectedContentSha256)) {
+    const member = relative(repoPath, path).split(sep).join('/');
+    result.expectedContentSha256[member] = sha256;
+  }
+  result.mutatedGitFiles = Object.keys(result.expectedContentSha256);
+}
+
+export async function convertTreeToMolecularPackages(
+  repoPath: string,
+  options: MolecularMigrationOptions & { removeSource: (path: string) => Promise<unknown> }
+): Promise<MolecularTreeMigrationResult & { converted: number }> {
+  const result = {
+    converted: 0,
+    skipped: [],
+    mutatedGitFiles: [],
+    expectedContentSha256: {},
+  } as MolecularTreeMigrationResult & { converted: number };
+  const candidates = await molecularMigrationCandidates(repoPath, 'coordinate', options, result);
   for (const path of candidates) {
     try {
-      const result = await materializeCoordinatePackage(path, options);
-      if (result.converted) converted += 1;
-      else if (result.skippedReason) skipped.push({ path, reason: result.skippedReason });
+      const migration = await materializeCoordinatePackageWithJournal(path, options);
+      if (migration) {
+        result.converted += 1;
+        recordMutation(repoPath, result, migration.expectedContentSha256);
+      }
     } catch (error) {
-      skipped.push({ path, reason: error instanceof Error ? error.message : String(error) });
+      result.skipped.push({ path, reason: error instanceof Error ? error.message : String(error) });
     }
   }
-  return { converted, skipped };
+  return result;
 }
 
 const EXTENSION_NAMED_VIEW = /\.(pdb|ent|cif|mmcif|bcif)(\.dnaforge-molecular\.json)$/i;
@@ -124,54 +222,45 @@ export function extensionFreeMolecularViewPath(path: string): string | null {
 }
 
 export async function renameExtensionNamedMolecularViews(
-  repoPath: string
-): Promise<{ renamed: number; skipped: Array<{ path: string; reason: string }> }> {
-  const candidates: string[] = [];
-  let visited = 0;
-  const walk = async (directory: string, depth: number): Promise<void> => {
-    for (const entry of await readdir(directory, { withFileTypes: true })) {
-      if (++visited > MAX_TREE_ENTRIES) return;
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
-      const path = join(directory, entry.name);
-      if (entry.isDirectory()) {
-        if (
-          depth === 0 &&
-          (entry.name === 'compute' || isRecoveredComputeResultDirectory(entry.name))
-        )
-          continue;
-        await walk(path, depth + 1);
-      } else if (entry.isFile() && extensionFreeMolecularViewPath(entry.name))
-        candidates.push(path);
-    }
-  };
-  await walk(repoPath, 0);
-  let renamed = 0;
-  const skipped: Array<{ path: string; reason: string }> = [];
+  repoPath: string,
+  options: MolecularMigrationOptions = {}
+): Promise<MolecularTreeMigrationResult & { renamed: number }> {
+  const result = {
+    renamed: 0,
+    skipped: [],
+    mutatedGitFiles: [],
+    expectedContentSha256: {},
+  } as MolecularTreeMigrationResult & { renamed: number };
+  const candidates = await molecularMigrationCandidates(
+    repoPath,
+    'extension-name',
+    options,
+    result
+  );
   for (const path of candidates) {
     try {
-      const document = parseMolecularDocument(await readFile(path, 'utf8'));
-      const name = coordinateFileStem(document.name).trim() || document.name;
-      const content = serializeMolecularDocument({ ...document, name });
-      const base = extensionFreeMolecularViewPath(path)!.slice(
-        0,
-        -MOLECULAR_DOCUMENT_SUFFIX.length
+      const migration = await migrateMolecularFile(
+        path,
+        'extension-name',
+        async (bytes) => {
+          const document = parseMolecularDocument(bytes.toString('utf8'));
+          const name = coordinateFileStem(document.name).trim() || document.name;
+          const stem = basename(extensionFreeMolecularViewPath(path)!).slice(
+            0,
+            -MOLECULAR_DOCUMENT_SUFFIX.length
+          );
+          return {
+            content: serializeMolecularDocument({ ...document, name }),
+            productNames: molecularViewNames(stem),
+          };
+        },
+        { ...options, removeSource: unlink }
       );
-      let written: string | null = null;
-      for (let n = 1; n <= 1000 && !written; n += 1) {
-        const candidate = `${n === 1 ? base : `${base} ${n}`}${MOLECULAR_DOCUMENT_SUFFIX}`;
-        try {
-          await writeFile(candidate, content, { flag: 'wx' });
-          written = candidate;
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException)?.code !== 'EEXIST') throw error;
-        }
-      }
-      if (!written) throw new Error('No free molecular view name.');
-      await unlink(path);
-      renamed += 1;
+      result.renamed += 1;
+      recordMutation(repoPath, result, migration.expectedContentSha256);
     } catch (error) {
-      skipped.push({ path, reason: error instanceof Error ? error.message : String(error) });
+      result.skipped.push({ path, reason: error instanceof Error ? error.message : String(error) });
     }
   }
-  return { renamed, skipped };
+  return result;
 }

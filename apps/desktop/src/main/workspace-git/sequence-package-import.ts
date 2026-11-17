@@ -38,6 +38,11 @@ import type {
 import { BoundedFileReadLimitError, readFileBoundedFromHandle } from '../ipc/bounded-file-read';
 import { claimRegularFileNoClobber, publishFileContentNoClobber } from './exclusive-file-claim';
 import { prepareSequenceRecovery } from '../../db/sequence-fasta-recovery';
+import {
+  assertMigrationPathsAvailable,
+  migrationPathsIntersect,
+  type MigrationPathOptions,
+} from './migration-paths';
 import { writeWorkspaceTextFileAtomicInMain } from '../primer-artifact-files';
 import {
   allocatePackageSources,
@@ -79,6 +84,7 @@ export interface MaterializeImportedSequenceResult {
   converted: boolean;
   untouchedPath?: string;
   skippedReason?: string;
+  sourceOnly?: true;
 }
 
 export function isConstructSequenceFile(fileName: string): boolean {
@@ -122,7 +128,8 @@ async function materializeRecordPackages(
   destinationDirectory = dirname(importedFilePath),
   packageCollisionPolicy: SequencePackageCollisionPolicy = 'keep-both',
   recordLocus = false,
-  packageId?: string
+  packageId?: string,
+  migration: MaterializeOptions = {}
 ): Promise<MaterializeRecordPackagesResult> {
   const allocation = allocatePackageSources(sources);
   if (allocation.kind === 'blocked') throw new Error(allocation.reason);
@@ -196,7 +203,10 @@ async function materializeRecordPackages(
           },
           recordLocus,
           source.original,
-          allocation.sources.length === 1 ? packageId : undefined
+          allocation.sources.length === 1 ? packageId : undefined,
+          migration,
+          sha256Bytes(Buffer.from(source.content, 'utf8')),
+          allocation.sources.length
         );
         created.push({ package: createdPackage, ownership });
       }
@@ -274,7 +284,14 @@ export class SequencePackageTargetChangedError extends Error {
   }
 }
 
-export interface MaterializeOptions {
+export interface MaterializeOptions extends MigrationPathOptions {
+  onPackagePlanned?: (plan: {
+    packageRoot: string;
+    packageId: string;
+    productFile: string;
+    productSha256: string;
+    packageCount: number;
+  }) => Promise<void>;
   maxConvertibleBytes?: number;
   expectedSourceSha256?: string;
   confirmedDnaSourceSha256?: string;
@@ -301,6 +318,7 @@ async function rerunPackageRoot(
   const packageRoot = join(parentDir, stem);
   const metaPath = sequencePackageMetaPaths(packageRoot).find((path) => existsSync(path));
   if (!metaPath) return null;
+  assertMigrationPathsAvailable([packageRoot], options);
   try {
     const document = parseSequencePackageDocument(await fs.readFile(metaPath, 'utf8'));
     return document.product.file === productFile ? packageRoot : null;
@@ -316,6 +334,15 @@ async function updateRerunPackage(
   productContent: string,
   options: MaterializeOptions
 ): Promise<MaterializeImportedSequenceResult> {
+  assertMigrationPathsAvailable([packageRoot], options);
+  if (options.withCleanPaths) {
+    return options.withCleanPaths([packageRoot], () =>
+      updateRerunPackage(importedFilePath, expectedBytes, packageRoot, productContent, {
+        ...options,
+        withCleanPaths: undefined,
+      })
+    );
+  }
   const fileName = basename(importedFilePath);
   const stem = fileName.slice(0, fileName.length - extname(fileName).length);
   const recoveryRoot = await fs.mkdtemp(
@@ -516,7 +543,7 @@ export async function previewImportedSequencePackages(
   sourcePath: string,
   options: Pick<
     MaterializeOptions,
-    'maxConvertibleBytes' | 'confirmedDnaSourceSha256' | 'confirmedNucleicAcid'
+    'maxConvertibleBytes' | 'confirmedDnaSourceSha256' | 'confirmedNucleicAcid' | 'automatic'
   > = {}
 ): Promise<SequenceImportPreviewResult> {
   const fileName = basename(sourcePath);
@@ -587,6 +614,17 @@ export async function previewImportedSequencePackages(
         packages: [{ name: stem, recordIndex: 0, recordCount: 1 }],
       };
     }
+    const automaticRefusal = options.automatic
+      ? describeAutomaticSplitRefusal(fileName, split.records)
+      : null;
+    if (automaticRefusal)
+      return {
+        kind: 'blocked',
+        sourcePath,
+        reason: automaticRefusal,
+        reasonCode: 'automatic_split_required',
+        sourceSha256,
+      };
     const packages = previewPackagesForSources(split.records);
     if (!packages) {
       return {
@@ -638,6 +676,17 @@ export async function previewImportedSequencePackages(
       ...(prepared.canConvertToRna ? { canConvertToRna: true } : {}),
     };
   }
+  const automaticRefusal = options.automatic
+    ? describeAutomaticSplitRefusal(fileName, prepared.sources)
+    : null;
+  if (automaticRefusal)
+    return {
+      kind: 'blocked',
+      sourcePath,
+      reason: automaticRefusal,
+      reasonCode: 'automatic_split_required',
+      sourceSha256: sha256Bytes(sourceBytes),
+    };
   const packages = previewPackagesForSources(prepared.sources);
   if (!packages) {
     return {
@@ -661,6 +710,25 @@ export async function materializeImportedSequencePackages(
   importedFilePath: string,
   ops: PackageImportFileOps = DEFAULT_FILE_OPS,
   options: MaterializeOptions = {}
+): Promise<MaterializeImportedSequenceResult> {
+  const sourcePaths = [
+    importedFilePath,
+    ...PAIRED_SIDECAR_SUFFIXES.map((suffix) => importedFilePath + suffix),
+  ];
+  assertMigrationPathsAvailable(sourcePaths, options);
+  if (options.packageId && options.protectedEntityIds?.has(options.packageId))
+    throw new Error(
+      'The sequence identity already belongs to an accepted entity. Its source was preserved.'
+    );
+  const materialize = () =>
+    materializeImportedSequencePackagesUnlocked(importedFilePath, ops, options);
+  return options.withCleanPaths ? options.withCleanPaths(sourcePaths, materialize) : materialize();
+}
+
+async function materializeImportedSequencePackagesUnlocked(
+  importedFilePath: string,
+  ops: PackageImportFileOps,
+  options: MaterializeOptions
 ): Promise<MaterializeImportedSequenceResult> {
   const physicalFileName = basename(importedFilePath);
   const fileName = options.logicalFileName ?? physicalFileName;
@@ -715,6 +783,7 @@ export async function materializeImportedSequencePackages(
         converted: false,
         untouchedPath: importedFilePath,
         skippedReason: `"${fileName}" contains no GenBank records. It was left as-is.`,
+        sourceOnly: true,
       };
     }
     if (recordLayout === 'multiple') {
@@ -728,6 +797,7 @@ export async function materializeImportedSequencePackages(
           skippedReason:
             `"${fileName}" contains multiple GenBank records and is too large to split safely ` +
             `(${Math.round(size / 1_000_000)} MB). It was imported as-is.`,
+          sourceOnly: true,
         };
       }
       const sourceContent = await fs.readFile(importedFilePath, 'utf8');
@@ -752,6 +822,7 @@ export async function materializeImportedSequencePackages(
           converted: false,
           untouchedPath: importedFilePath,
           skippedReason: automaticRefusal,
+          sourceOnly: true,
         };
       }
       const materialized = await materializeRecordPackages(
@@ -763,7 +834,8 @@ export async function materializeImportedSequencePackages(
         parentDir,
         options.packageCollisionPolicy,
         true,
-        options.packageId
+        options.packageId,
+        options
       );
       if (materialized.kind === 'changed') {
         return {
@@ -848,7 +920,9 @@ export async function materializeImportedSequencePackages(
       undefined,
       true,
       undefined,
-      options.packageId
+      options.packageId,
+      options,
+      options.expectedSourceSha256
     );
     await relocatePairedSidecars({
       sourceDir: sourceParentDir,
@@ -869,6 +943,7 @@ export async function materializeImportedSequencePackages(
         skippedReason:
           `"${fileName}" is too large to convert safely (${Math.round(size / 1_000_000)} MB). ` +
           `It was imported as-is.`,
+        sourceOnly: true,
       };
     }
   } catch {}
@@ -899,6 +974,7 @@ export async function materializeImportedSequencePackages(
       converted: false,
       untouchedPath: importedFilePath,
       skippedReason: prepared.reason,
+      sourceOnly: true,
     };
   }
   const automaticRefusal = options.automatic
@@ -910,6 +986,7 @@ export async function materializeImportedSequencePackages(
       converted: false,
       untouchedPath: importedFilePath,
       skippedReason: automaticRefusal,
+      sourceOnly: true,
     };
   }
   if (prepared.sources.length === 1) {
@@ -931,7 +1008,8 @@ export async function materializeImportedSequencePackages(
     parentDir,
     options.packageCollisionPolicy,
     false,
-    options.packageId
+    options.packageId,
+    options
   );
   if (materialized.kind === 'changed') {
     return {
@@ -1817,12 +1895,34 @@ async function createPackage(
   onCreated?: (ownership: CreatedPackageOwnership) => void,
   recordLocus = false,
   initialEvidence?: { name: string; bytes: Uint8Array },
-  packageId?: string
+  packageId?: string,
+  migration: MaterializeOptions = {},
+  plannedProductSha256?: string,
+  packageCount = 1
 ): Promise<ImportedSequencePackage> {
   let packageRoot = join(parentDir, stem);
   for (let n = 1; ; n += 1) {
     try {
-      await fs.mkdir(packageRoot, { recursive: false });
+      const occupied = await fs.lstat(packageRoot).then(
+        () => true,
+        (error: NodeJS.ErrnoException) => {
+          if (error.code === 'ENOENT') return false;
+          throw error;
+        }
+      );
+      if (
+        occupied ||
+        migration.protectedPaths?.some((path) => migrationPathsIntersect(packageRoot, path))
+      )
+        throw Object.assign(new Error('The package destination is already owned.'), {
+          code: 'EEXIST',
+        });
+      const create = async () => {
+        assertMigrationPathsAvailable([packageRoot], migration);
+        await fs.mkdir(packageRoot, { recursive: false });
+      };
+      if (migration.withCleanPaths) await migration.withCleanPaths([packageRoot], create);
+      else await create();
       break;
     } catch (err) {
       if ((err as NodeJS.ErrnoException)?.code !== 'EEXIST') throw err;
@@ -1833,10 +1933,22 @@ async function createPackage(
   }
 
   const paths = sequencePackagePaths(packageRoot, { productFile: productFileName });
+  const createdPackageId = packageId ?? randomUUID();
   let productIdentity: PackageMemberIdentity | undefined;
   let metaIdentity: PackageMemberIdentity | undefined;
   let evidence: CreatedPackageOwnership['evidence'];
   try {
+    if (migration.onPackagePlanned) {
+      if (!plannedProductSha256)
+        throw new Error('Sequence migration is missing its expected product content.');
+      await migration.onPackagePlanned({
+        packageRoot,
+        packageId: createdPackageId,
+        productFile: productFileName,
+        productSha256: plannedProductSha256,
+        packageCount,
+      });
+    }
     await fs.mkdir(paths.metaDir, { recursive: true });
     await placeProduct(paths.productPath);
     const placedProduct = await fs.lstat(paths.productPath);
@@ -1844,6 +1956,7 @@ async function createPackage(
     const productInspection = await inspectGenBankSource(paths.productPath, {
       followClaimedSymlink: true,
     });
+    migration.assertCurrent?.();
     if (initialEvidence) {
       const relativePath = sequenceManagedMemberPath(basename(initialEvidence.name));
       const evidencePath = fromPackageRelative(relativePath, packageRoot);
@@ -1857,7 +1970,7 @@ async function createPackage(
       paths.metaPath,
       serializeSequencePackageDocument(
         buildSequencePackageDocument({
-          id: packageId ?? randomUUID(),
+          id: createdPackageId,
           name: basename(packageRoot),
           ...(initialEvidence
             ? {

@@ -21,19 +21,23 @@ import {
 } from '../../db/sequence-package';
 import { NOTEBOOK_PACKAGE_META_NAME } from '../../db/notebook-package';
 import {
+  collectSequenceMigrationGitContent,
+  prepareSequenceMigration,
+} from './sequence-migration-journal';
+import { PAIRED_SIDECAR_SUFFIXES } from '../../db/workspace-content-manifest';
+import {
+  assertMigrationPathsAvailable,
+  captureMigrationGitContent,
+  migrationPathsIntersect,
+  type MigrationPathOptions,
+} from './migration-paths';
+import {
   NATIVE_WORKSPACE_MANIFEST_PATH,
   NATIVE_WORKSPACE_MANIFEST_V2_SCHEMA,
   parseNativeWorkspaceManifest,
 } from '../../shared/native-workspace-manifest';
 
-const EXCLUDED_DIRS = new Set([
-  '.git',
-  'node_modules',
-  '.svn',
-  '.hg',
-  '__pycache__',
-  'test-fixtures',
-]);
+const EXCLUDED_DIRS = new Set(['.git', 'node_modules', '.svn', '.hg', '__pycache__']);
 
 const MAX_DEPTH = 40;
 const MAX_REMEMBERED_REFUSALS = 10_000;
@@ -66,9 +70,10 @@ export interface ConvertTreeResult {
   failures: Array<{ path: string; message: string }>;
   requiredGitFiles: string[];
   mutatedGitFiles: string[];
+  expectedContentSha256: Record<string, string | null>;
 }
 
-export interface ConvertTreeOptions {
+export interface ConvertTreeOptions extends MigrationPathOptions {
   onProgress?: (done: number, total: number) => void;
   packageIdForPath?: (path: string) => string | undefined;
 }
@@ -85,9 +90,23 @@ export async function convertTreeToPlasmidPackages(
     failures: [],
     requiredGitFiles: [],
     mutatedGitFiles: [],
+    expectedContentSha256: {},
   };
 
-  const candidates = await collectConstructFiles(rootDir, result.failures);
+  options = {
+    ...options,
+    protectedPaths: [
+      ...(options.protectedPaths ?? []),
+      ...(await declaredNativeMigrationPaths(rootDir)),
+    ],
+  };
+  const settled = await collectSequenceMigrationGitContent(rootDir, options);
+  Object.assign(result.expectedContentSha256, settled.expectedContentSha256);
+  result.converted += settled.recovered;
+  result.failures.push(...settled.failures);
+  const discovery = await collectConstructFiles(rootDir, result.failures, options);
+  const candidates = discovery.files.filter((path) => !settled.pendingSources.includes(path));
+  const migration = { ...options, protectedPaths: discovery.protectedPaths };
   const total = candidates.length;
   let done = 0;
 
@@ -102,22 +121,82 @@ export async function convertTreeToPlasmidPackages(
       continue;
     }
     rememberedRefusals.delete(path);
+    let receipt: Awaited<ReturnType<typeof prepareSequenceMigration>> | undefined;
     try {
+      const preview = await previewImportedSequencePackages(path, { automatic: true });
+      if (preview.kind === 'blocked') {
+        if (preview.reasonCode === 'read_failure') {
+          result.failures.push({ path, message: preview.reason });
+        } else {
+          result.skipped += 1;
+          result.skippedDetails.push({ path, reason: preview.reason });
+          rememberRefusal(path, identity, preview.reason);
+        }
+        done += 1;
+        options.onProgress?.(done, total);
+        continue;
+      }
+      const sidecars = (
+        await Promise.all(
+          PAIRED_SIDECAR_SUFFIXES.map(async (suffix) => {
+            const sidecar = path + suffix;
+            return await fs.lstat(sidecar).then(
+              () => sidecar,
+              (error: NodeJS.ErrnoException) => {
+                if (error.code === 'ENOENT') return null;
+                throw error;
+              }
+            );
+          })
+        )
+      ).filter((path): path is string => path !== null);
+      receipt = await prepareSequenceMigration(rootDir, path, migration);
+      if (receipt.expectedSourceSha256 !== preview.sourceSha256) {
+        await receipt.cancel();
+        throw new Error('The sequence changed after its automatic conversion was inspected.');
+      }
       const materialized = await materializeImportedSequencePackages(path, undefined, {
+        ...migration,
+        expectedSourceSha256: receipt.expectedSourceSha256,
+        onPackagePlanned: receipt.onPackagePlanned,
         automatic: true,
         packageId: options.packageIdForPath?.(path),
-        updateExistingPackage: (input) => publishRerunSequenceRevision(rootDir, input),
       });
       if (materialized.converted) {
         result.converted += 1;
         result.packages += materialized.packages.length;
+        const ownedFiles: string[] = [];
         for (const pkg of materialized.packages) {
           const packageFiles = await collectPlasmidPackageGitFiles(pkg.packageRoot);
-          for (const packageFile of packageFiles) {
-            result.mutatedGitFiles.push(relative(rootDir, packageFile).split(sep).join('/'));
-          }
+          ownedFiles.push(...packageFiles);
         }
+        const content = await captureMigrationGitContent(rootDir, ownedFiles);
+        content.expectedContentSha256[relative(rootDir, path).split(sep).join('/')] = null;
+        for (const sidecar of sidecars) {
+          const remaining = await fs.lstat(sidecar).then(
+            () => true,
+            (error: NodeJS.ErrnoException) => {
+              if (error.code === 'ENOENT') return false;
+              throw error;
+            }
+          );
+          if (remaining)
+            result.failures.push({
+              path: sidecar,
+              message:
+                'The sequence was converted, but its attachment could not be moved. The original attachment was preserved.',
+            });
+          else
+            content.expectedContentSha256[relative(rootDir, sidecar).split(sep).join('/')] = null;
+        }
+        Object.assign(result.expectedContentSha256, content.expectedContentSha256);
+        Object.assign(
+          result.expectedContentSha256,
+          await receipt.finish(materialized.packages.map((pkg) => pkg.packageRoot))
+        );
+        result.mutatedGitFiles.push(...Object.keys(content.expectedContentSha256));
       } else {
+        await receipt.cancel();
         result.skipped += 1;
         if (materialized.skippedReason) {
           result.skippedDetails.push({ path, reason: materialized.skippedReason });
@@ -125,6 +204,7 @@ export async function convertTreeToPlasmidPackages(
         }
       }
     } catch (err) {
+      await receipt?.cancelIfUnchanged().catch(() => undefined);
       result.failures.push({
         path,
         message: err instanceof Error ? err.message : String(err),
@@ -135,7 +215,7 @@ export async function convertTreeToPlasmidPackages(
   }
 
   result.requiredGitFiles = await collectPlasmidPackageGitFiles(rootDir);
-  result.mutatedGitFiles = [...new Set(result.mutatedGitFiles)].sort();
+  result.mutatedGitFiles = Object.keys(result.expectedContentSha256).sort();
   return result;
 }
 
@@ -143,6 +223,9 @@ export interface ConvertLooseSequenceFileResult {
   converted: boolean;
   packageRoots: string[];
   reason: string | null;
+  disposition?: 'source-only' | 'owned' | 'blocked';
+  mutatedGitFiles?: string[];
+  expectedContentSha256?: Record<string, string | null>;
 }
 
 async function containedWorkspaceFile(rootDir: string, sourcePath: string): Promise<string> {
@@ -200,16 +283,55 @@ export async function convertLooseSequenceFile(
   rootDir: string,
   requestedPath: string,
   options: {
+    automatic?: boolean;
     confirmedDnaSourceSha256?: string;
     confirmedNucleicAcid?: NucleicAcid;
     confirmedRecoverySourceSha256?: string;
     packageIdForPath?: (path: string) => string | undefined;
-  } = {}
+  } & MigrationPathOptions = {}
 ): Promise<ConvertLooseSequenceFileResult> {
   const sourcePath = await containedWorkspaceFile(rootDir, requestedPath);
   if (!isConstructSequenceFile(sourcePath)) {
-    return { converted: false, packageRoots: [], reason: 'This is not a DNA sequence file type.' };
+    return {
+      converted: false,
+      packageRoots: [],
+      reason: 'This is not a DNA sequence file type.',
+      disposition: 'source-only',
+    };
   }
+  const protectedPaths = options.automatic
+    ? [...(options.protectedPaths ?? []), ...(await declaredNativeMigrationPaths(rootDir))]
+    : options.protectedPaths;
+  if (options.automatic) {
+    for (let directory = dirname(sourcePath); ; directory = dirname(directory)) {
+      if (await isPackageRoot(directory, await fs.readdir(directory, { withFileTypes: true })))
+        return {
+          converted: false,
+          packageRoots: [],
+          reason: 'This file belongs to an existing package and was left unchanged.',
+          disposition: 'owned',
+        };
+      if (directory === rootDir || dirname(directory) === directory) break;
+    }
+  }
+  if (
+    options.automatic &&
+    protectedPaths?.some((path) => migrationPathsIntersect(sourcePath, path))
+  )
+    return {
+      converted: false,
+      packageRoots: [],
+      reason: 'This file already belongs to an entity and was left unchanged.',
+      disposition: 'owned',
+    };
+  assertMigrationPathsAvailable([sourcePath], { ...options, protectedPaths });
+  if (
+    options.automatic &&
+    (options.confirmedDnaSourceSha256 ||
+      options.confirmedRecoverySourceSha256 ||
+      options.confirmedNucleicAcid)
+  )
+    throw new Error('Automatic conversion cannot declare or repair sequence content.');
   if (options.confirmedRecoverySourceSha256 !== undefined) {
     const recovered = await recoverImportedSequencePackages(
       sourcePath,
@@ -221,7 +343,36 @@ export async function convertLooseSequenceFile(
       reason: null,
     };
   }
+  const automaticPreview = options.automatic
+    ? await previewImportedSequencePackages(sourcePath, { automatic: true })
+    : undefined;
+  if (automaticPreview?.kind === 'blocked')
+    return {
+      converted: false,
+      packageRoots: [],
+      reason: automaticPreview.reason,
+      disposition: automaticPreview.reasonCode === 'read_failure' ? 'blocked' : 'source-only',
+    };
+  const receipt = options.automatic
+    ? await prepareSequenceMigration(rootDir, sourcePath, { ...options, protectedPaths })
+    : undefined;
+  if (
+    receipt &&
+    automaticPreview?.kind === 'ready' &&
+    receipt.expectedSourceSha256 !== automaticPreview.sourceSha256
+  ) {
+    await receipt.cancel();
+    throw new Error('The sequence changed after its automatic conversion was inspected.');
+  }
   const materialized = await materializeImportedSequencePackages(sourcePath, undefined, {
+    ...options,
+    protectedPaths,
+    ...(receipt
+      ? {
+          expectedSourceSha256: receipt.expectedSourceSha256,
+          onPackagePlanned: receipt.onPackagePlanned,
+        }
+      : {}),
     ...(options.confirmedDnaSourceSha256
       ? {
           confirmedDnaSourceSha256: options.confirmedDnaSourceSha256,
@@ -229,10 +380,59 @@ export async function convertLooseSequenceFile(
         }
       : {}),
     packageId: options.packageIdForPath?.(sourcePath),
-    updateExistingPackage: (input) => publishRerunSequenceRevision(rootDir, input),
+    ...(options.automatic
+      ? {}
+      : {
+          updateExistingPackage: (input: { packageRoot: string; productContent: string }) =>
+            publishRerunSequenceRevision(rootDir, input),
+        }),
+  }).catch(async (error) => {
+    await receipt?.cancelIfUnchanged().catch(() => undefined);
+    throw error;
   });
+  const content = materialized.converted
+    ? await captureMigrationGitContent(
+        rootDir,
+        (
+          await Promise.all(
+            materialized.packages.map((pkg) => collectPlasmidPackageGitFiles(pkg.packageRoot))
+          )
+        ).flat()
+      )
+    : undefined;
+  if (content) {
+    content.expectedContentSha256[relative(rootDir, sourcePath).split(sep).join('/')] = null;
+    for (const suffix of PAIRED_SIDECAR_SUFFIXES) {
+      const sidecar = sourcePath + suffix;
+      if (
+        !(await fs.lstat(sidecar).then(
+          () => true,
+          (error: NodeJS.ErrnoException) => {
+            if (error.code === 'ENOENT') return false;
+            throw error;
+          }
+        ))
+      )
+        content.expectedContentSha256[relative(rootDir, sidecar).split(sep).join('/')] = null;
+    }
+    if (receipt)
+      Object.assign(
+        content.expectedContentSha256,
+        await receipt.finish(materialized.packages.map((pkg) => pkg.packageRoot))
+      );
+    content.mutatedGitFiles = Object.keys(content.expectedContentSha256).sort();
+  }
+  if (receipt && !materialized.converted) await receipt.cancel();
   return {
+    ...content,
     converted: materialized.converted,
+    disposition: materialized.converted
+      ? undefined
+      : materialized.sourceOnly
+        ? 'source-only'
+        : materialized.packages.length > 0
+          ? 'owned'
+          : 'blocked',
     packageRoots: materialized.packages.map((pkg) => pkg.packageRoot),
     reason: materialized.converted
       ? null
@@ -283,6 +483,7 @@ export async function collectPlasmidPackageGitFiles(rootDir: string): Promise<st
 
     for (const entry of entries) {
       if (!entry.isDirectory() || EXCLUDED_DIRS.has(entry.name)) continue;
+      if (depth === 0 && entry.name === 'test-fixtures') continue;
       await walk(join(dirPath, entry.name), depth + 1);
     }
   }
@@ -293,32 +494,31 @@ export async function collectPlasmidPackageGitFiles(rootDir: string): Promise<st
 
 async function collectConstructFiles(
   rootDir: string,
-  failures: Array<{ path: string; message: string }>
-): Promise<string[]> {
+  failures: Array<{ path: string; message: string }>,
+  options: MigrationPathOptions
+): Promise<{ files: string[]; protectedPaths: string[] }> {
   const found: string[] = [];
-  const manifestText = await fs
-    .readFile(join(rootDir, NATIVE_WORKSPACE_MANIFEST_PATH), 'utf8')
-    .catch((error: NodeJS.ErrnoException) => {
-      if (error.code === 'ENOENT') return null;
-      throw error;
-    });
-  const manifest = manifestText === null ? null : parseNativeWorkspaceManifest(manifestText);
-  const nativeFiles = new Set<string>();
-  const nativePackages = new Set<string>();
-  if (manifest?.schema === NATIVE_WORKSPACE_MANIFEST_V2_SCHEMA) {
-    for (const entity of manifest.entities) {
-      if (entity.placement.kind === 'file')
-        nativeFiles.add(join(rootDir, entity.placement.relativePath));
-      if (entity.placement.kind === 'package')
-        nativePackages.add(join(rootDir, entity.placement.rootRelativePath));
-    }
-  }
+  const protectedPaths = [
+    ...(options.protectedPaths ?? []),
+    ...(await declaredNativeMigrationPaths(rootDir)),
+  ];
+  const protectedFile = (path: string) =>
+    protectedPaths.some((protectedPath) => migrationPathsIntersect(path, protectedPath));
 
   async function recoverInterruptedConversion(recoveryRoot: string): Promise<void> {
     try {
-      const recovery = await recoverHeldConversionSource(recoveryRoot);
+      const sourcePaths = (await fs.readdir(recoveryRoot)).map((name) =>
+        join(dirname(recoveryRoot), name)
+      );
+      const recover = () => {
+        assertMigrationPathsAvailable(sourcePaths, { ...options, protectedPaths });
+        return recoverHeldConversionSource(recoveryRoot);
+      };
+      const recovery = options.withCleanPaths
+        ? await options.withCleanPaths([recoveryRoot, ...sourcePaths], recover)
+        : await recover();
       if (recovery.kind === 'restored') {
-        if (isConstructSequenceFile(basename(recovery.path)) && !nativeFiles.has(recovery.path))
+        if (isConstructSequenceFile(basename(recovery.path)) && !protectedFile(recovery.path))
           found.push(recovery.path);
       } else if (recovery.kind === 'stranded') {
         failures.push({ path: recovery.path, message: recovery.reason });
@@ -347,7 +547,11 @@ async function collectConstructFiles(
       return;
     }
 
-    if (nativePackages.has(dirPath) || (await isPackageRoot(dirPath, entries))) return;
+    if (
+      protectedPaths.some((path) => dirPath === path || dirPath.startsWith(path + sep)) ||
+      (await isPackageRoot(dirPath, entries))
+    )
+      return;
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
@@ -357,7 +561,9 @@ async function collectConstructFiles(
         }
         if (
           depth === 0 &&
-          (entry.name === 'compute' || isRecoveredComputeResultDirectory(entry.name))
+          (entry.name === 'compute' ||
+            entry.name === 'test-fixtures' ||
+            isRecoveredComputeResultDirectory(entry.name))
         )
           continue;
         if (EXCLUDED_DIRS.has(entry.name) || entry.name.startsWith('.')) continue;
@@ -366,29 +572,51 @@ async function collectConstructFiles(
       }
       if (!entry.isFile() && !entry.isSymbolicLink()) continue;
       const path = join(dirPath, entry.name);
-      if (isConstructSequenceFile(entry.name) && !nativeFiles.has(path)) found.push(path);
+      if (isConstructSequenceFile(entry.name) && !protectedFile(path)) found.push(path);
     }
   }
 
   await walk(rootDir, 0);
-  return found;
+  return { files: found, protectedPaths };
+}
+
+export async function declaredNativeMigrationPaths(rootDir: string): Promise<string[]> {
+  const manifestText = await fs
+    .readFile(join(rootDir, NATIVE_WORKSPACE_MANIFEST_PATH), 'utf8')
+    .catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    });
+  const manifest = manifestText === null ? null : parseNativeWorkspaceManifest(manifestText);
+  const nativeFiles = new Set<string>();
+  const nativePackages = new Set<string>();
+  if (manifest?.schema === NATIVE_WORKSPACE_MANIFEST_V2_SCHEMA) {
+    for (const entity of manifest.entities) {
+      if (entity.placement.kind === 'file')
+        nativeFiles.add(join(rootDir, entity.placement.relativePath));
+      if (entity.placement.kind === 'package')
+        nativePackages.add(join(rootDir, entity.placement.rootRelativePath));
+    }
+  }
+  return [...nativeFiles, ...nativePackages];
 }
 
 async function isPackageRoot(
   dirPath: string,
   entries: readonly { name: string; isDirectory(): boolean }[]
 ): Promise<boolean> {
-  if (!entries.some((entry) => entry.isDirectory() && entry.name === FORGE_PACKAGE_MARKER_DIR)) {
+  if (!entries.some((entry) => entry.isDirectory() && entry.name === FORGE_PACKAGE_MARKER_DIR))
     return false;
-  }
   try {
     const markers = await fs.readdir(join(dirPath, FORGE_PACKAGE_MARKER_DIR));
     const names = new Set(markers.map((name) => name.toLowerCase()));
     return (
       SEQUENCE_PACKAGE_META_ALIASES.some((name) => names.has(name.toLowerCase())) ||
-      names.has(NOTEBOOK_PACKAGE_META_NAME)
+      names.has(NOTEBOOK_PACKAGE_META_NAME) ||
+      names.has('protocol.json') ||
+      names.has('protocol-run.json')
     );
   } catch {
-    return false;
+    return true;
   }
 }

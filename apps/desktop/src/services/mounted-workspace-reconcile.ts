@@ -4,6 +4,8 @@ import { isDeveloperImportSourcePath } from '../shared/developer-import-sources'
 import { isWorkspaceSyncDatabaseBusyError } from '../shared/workspace-sync-errors';
 import { gitCommitPaths, gitStatus } from '../features/workspace/public/git';
 import { isWorkspaceMutationBusyError } from './workspace-mutation-transaction';
+import { platform } from '../platform';
+import { reportEntityMigrationIssues } from './workspace-reconcile-report';
 import type { ManagedSequenceDocumentRef } from '../shared/managed-sequence-document';
 import {
   reconcileWorkspaceRoot,
@@ -76,7 +78,7 @@ export async function reconcileMountedWorkspaceRoot(
   for (;;) {
     options.signal?.throwIfAborted();
     try {
-      return await withManagedWorkspaceReconcileMutation(
+      let completed = await withManagedWorkspaceReconcileMutation(
         rootPath,
         async (mutationToken, managedRepo) => {
           const accepted = await reconcileAcceptedScientificProjections(rootPath, mutationToken);
@@ -142,6 +144,69 @@ export async function reconcileMountedWorkspaceRoot(
         },
         options
       );
+      const migrate = platform().notebook?.migrateLegacyProjectFiles;
+      if (migrate && options.healManagedHead !== false && !options.mutationToken) {
+        const owners = await platform().db.select<
+          Array<{
+            access_mode?: string;
+            archived_at?: number | null;
+            trashed_at?: number | null;
+            access_role?: string | null;
+          }>
+        >(
+          'SELECT w.access_mode,w.archived_at,w.trashed_at,b.access_role FROM workspaces w LEFT JOIN workspace_sync_bindings b ON b.workspace_id=w.id WHERE w.path=?',
+          [rootPath]
+        );
+        const owner = owners.length === 1 ? owners[0] : undefined;
+        if (
+          owner &&
+          owner.access_mode !== 'reference' &&
+          owner.access_role !== 'viewer' &&
+          owner.archived_at == null &&
+          owner.trashed_at == null
+        ) {
+          options.signal?.throwIfAborted();
+          const migration = await migrate({ workspaceRoot: rootPath });
+          if (migration.migrated > 0 || migration.gitChanged) {
+            const refreshed = await reconcileMountedWorkspaceRoot(rootPath, {
+              ...options,
+              catalogSource: 'working-tree',
+              healManagedHead: false,
+            });
+            refreshed.result.healedFileCount =
+              (completed.result.healedFileCount ?? 0) + migration.migrated;
+            refreshed.result.migrationIssues = [
+              ...(completed.result.migrationIssues ?? []),
+              ...(refreshed.result.migrationIssues ?? []),
+            ];
+            refreshed.result.errors.unshift(...completed.result.errors);
+            completed = refreshed;
+          }
+          if (migration.issues.length > 0) {
+            const issues = migration.issues.map(({ path, reason }) => ({
+              path,
+              reason,
+              kind: 'failed' as const,
+            }));
+            completed.result.migrationIssues = [
+              ...(completed.result.migrationIssues ?? []),
+              ...issues,
+            ];
+            completed.result.errors.push(
+              ...issues.map(({ path, reason }) => ({ path, message: reason }))
+            );
+            reportEntityMigrationIssues(rootPath, completed.result);
+            if (options.strict)
+              throw new Error(
+                `Notebook migration remains incomplete: ${issues
+                  .slice(0, 3)
+                  .map(({ path, reason }) => `${path}: ${reason}`)
+                  .join('; ')}`
+              );
+          }
+        }
+      }
+      return completed;
     } catch (error) {
       if (!isWorkspaceSyncDatabaseBusyError(error) && !isWorkspaceMutationBusyError(error)) {
         throw error;

@@ -1,6 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { access, cp, mkdir, mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
+import {
+  access,
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 
@@ -18,6 +29,7 @@ import { notebookPackagePaths, parseNotebookPackageDocument } from '../db/notebo
 import { readCanonicalNotebookPackage } from '../db/notebook-package-migration';
 import { NotebookDocumentModel } from '../shared/notebook-model/document';
 import { canonicalNotebookJson } from '../db/notebook-markdown-codec';
+import { contentFingerprint } from '../shared/content-fingerprint';
 
 let directory: string, root: string, db: Database.Database;
 vi.mock('./ipc/database', () => ({ getDb: () => db }));
@@ -162,5 +174,64 @@ describe('native notebook automatic legacy migration', () => {
     expect(await readFile(fixture.sourcePath, 'utf8')).toBe(fixture.original);
     await expect(access(fixture.path + '.legacy')).rejects.toMatchObject({ code: 'ENOENT' });
     await native.close();
+  });
+
+  it('preserves an earlier archive while automatically converting the current flat notebook', async () => {
+    const fixture = await seed('flat');
+    const archive = fixture.path + '.legacy';
+    const older = 'An earlier retained version must never be replaced.\n';
+    await writeFile(archive, older);
+    const native = owner();
+    const opened = await native.execute({
+      documentId: fixture.id,
+      operation: { kind: 'inspect-copy' },
+    });
+
+    expect(opened.path).not.toBe(fixture.path);
+    expect(opened.documentId).toBe(fixture.id);
+    expect(await readFile(archive, 'utf8')).toBe(older);
+    const retained: string[] = [];
+    const collect = async (directory: string): Promise<void> => {
+      for (const entry of await readdir(directory, { withFileTypes: true })) {
+        const path = join(directory, entry.name);
+        if (entry.isDirectory()) await collect(path);
+        else if (entry.isFile()) retained.push(await readFile(path, 'utf8'));
+      }
+    };
+    await collect(root);
+    expect(retained).toContain(fixture.original);
+    await native.close();
+  });
+
+  it('resumes a cutover interrupted after source retirement and preserves an earlier native draft', async () => {
+    const fixture = await seed('flat');
+    db.exec("CREATE TRIGGER interrupt_notebook_rebinding BEFORE INSERT ON catalog_entity_files BEGIN SELECT RAISE(ABORT, 'Interrupted notebook rebinding'); END");
+    const native = owner();
+    await expect(native.execute({ documentId: fixture.id, operation: { kind: 'inspect-copy' } })).rejects.toThrow('Interrupted notebook rebinding');
+    await native.close();
+    await expect(access(fixture.path)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await readFile(fixture.path + '.legacy', 'utf8')).toBe(fixture.original);
+    db.exec('DROP TRIGGER interrupt_notebook_rebinding');
+    const draft = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Unsaved work from before interruption.' }] }] };
+    const records = join(directory, 'profile', 'notebook-working-copies');
+    await mkdir(records, { recursive: true });
+    await writeFile(join(records, createHash('sha256').update(fixture.id).digest('hex') + '.json'), JSON.stringify({
+      version: 1,
+      documentId: fixture.id,
+      path: fixture.path,
+      baselineFingerprint: contentFingerprint(fixture.original),
+      baselineContent: fixture.document.content,
+      content: draft,
+      title: fixture.document.title,
+      dirty: true,
+    }));
+    const restarted = owner();
+    const reopened = await restarted.execute({ documentId: fixture.id, operation: { kind: 'inspect-copy' } });
+    expect(reopened.documentId).toBe(fixture.id);
+    expect(reopened.path).not.toBe(fixture.path);
+    expect(reopened.recovery?.content).toEqual(draft);
+    expect(await readFile(fixture.path + '.legacy', 'utf8')).toBe(fixture.original);
+    expect(db.prepare("SELECT COUNT(*) AS count FROM catalog_entities WHERE type='notebook'").get()).toEqual({ count: 1 });
+    await restarted.close();
   });
 });

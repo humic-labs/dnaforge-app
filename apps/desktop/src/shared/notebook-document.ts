@@ -271,3 +271,10 @@ export interface NotebookDocumentSnapshot {
   saveCaptureId?: string;
   requestReceipt?: { requestId: string; appliedRevision: string; replayed: boolean };
 }
+export interface NotebookLegacyProjectMigrationResult {
+  migrated: number;
+  issues: Array<{ path: string; reason: string }>;
+  gitChanged?: boolean;
+  mutatedGitFiles: string[];
+  expectedContentSha256: Record<string, string | null>;
+}

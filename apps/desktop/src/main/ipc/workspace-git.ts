@@ -10,6 +10,11 @@ import { looseSequenceFilesContract } from '../../shared/ipc/loose-sequence-file
 import { app } from 'electron';
 import { resolveAppCreatedSampleWorkspaceSource } from '../sample-workspaces/factory';
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import {
+  MANAGED_WORKSPACE_MARKER,
+  BENCHLING_MIGRATION_WORKSPACE_MARKER,
+} from '../../shared/workspace-git-types';
 import { basename, dirname, join } from 'node:path';
 import { assertSafePath, withSafeWritablePath, withSafeWritablePaths } from './path-allowlist';
 import { resolveSelectedLocalFilePath } from '../local-indexed-track-authority';
@@ -37,12 +42,18 @@ import {
 import {
   collectManagedCatalogHeadIndex,
   collectManagedHeadIndex,
+  collectWorkspaceEntityMigrations,
 } from '../workspace-git/head-index';
 import {
   convertLooseSequenceFile,
   inspectLooseSequenceFile,
 } from '../workspace-git/convert-tree-to-packages';
-import { withManagedWorkspaceMutationLock } from '../workspace-git';
+import {
+  withManagedWorkspaceMutationLock,
+  resolveHeadCommit,
+  commitOwnedPathsIfDirty,
+  hasActiveQuickLookPromotion,
+} from '../workspace-git';
 import { previewImportDedup } from '../workspace-git/import-dedup-preview';
 import { previewImportedSequencePackages } from '../workspace-git/sequence-package-import';
 import {
@@ -76,7 +87,10 @@ import {
   withDeclaredWorkspaceMutation,
   workspaceMutationRootIdentity,
 } from '../workspace-sync-mutation-lease';
-import { acceptedScientificResourceIds } from '../scientific-strain-authority';
+import {
+  captureSequenceMigrationAdmission,
+  canAutomaticallyMigrateWorkspace,
+} from '../workspace-git/sequence-migration-admission';
 import { withDeclaredRendererWorkspaceMutation } from './workspace-mutation-authority';
 import { validateManagedCatalogHeadIndexRequest } from '../../shared/managed-catalog-head-request';
 import {
@@ -127,6 +141,15 @@ async function resolveSequenceImportSource(sourcePath: string): Promise<string> 
   }
 }
 
+function createCleanMigrationPaths() {
+  let flushed: Promise<void> | undefined;
+  return async <T>(paths: readonly string[], operation: () => Promise<T>): Promise<T> => {
+    flushed ??= nativeDocuments.flushDirtyDocumentClients();
+    await flushed;
+    return nativeDocuments.fileDocuments.withCleanPaths(paths, operation);
+  };
+}
+
 export function registerWorkspaceGitHandlers(): void {
   handleGroup(looseSequenceFilesContract, {
     inspect: async (_event, request) => {
@@ -149,19 +172,92 @@ export function registerWorkspaceGitHandlers(): void {
             workspaceRoot,
             [workspaceRoot, sourcePath],
             () =>
-              withManagedWorkspaceMutationLock(workspaceRoot, () =>
-                convertLooseSequenceFile(workspaceRoot, sourcePath, {
+              withManagedWorkspaceMutationLock(workspaceRoot, async () => {
+                const db = getDb();
+                const admission = captureSequenceMigrationAdmission(db, workspaceRoot, {
+                  requireWritable: true,
+                });
+                if (request.automatic && admission.workspaceId === null)
+                  throw new Error('Automatic conversion requires an active owning project.');
+                const managed = [
+                  MANAGED_WORKSPACE_MARKER,
+                  BENCHLING_MIGRATION_WORKSPACE_MARKER,
+                ].some((marker) => existsSync(join(workspaceRoot, marker)));
+                const expectedHead =
+                  request.automatic && managed ? await resolveHeadCommit(workspaceRoot) : null;
+                if (request.automatic && hasActiveQuickLookPromotion(workspaceRoot))
+                  return {
+                    converted: false,
+                    packageRoots: [],
+                    reason: 'This project is not ready to convert the file. It was left unchanged.',
+                    disposition: 'blocked' as const,
+                  };
+                const result = await convertLooseSequenceFile(workspaceRoot, sourcePath, {
+                  ...(request.automatic ? admission : {}),
+                  automatic: request.automatic,
                   confirmedDnaSourceSha256: request.confirmedDnaSourceSha256,
                   confirmedNucleicAcid: request.confirmedNucleicAcid,
                   confirmedRecoverySourceSha256: request.confirmedRecoverySourceSha256,
-                  packageIdForPath: (path) => catalogSequenceIdForPath(getDb(), path),
-                })
-              )
+                  packageIdForPath: (path) => catalogSequenceIdForPath(db, path),
+                  withCleanPaths: createCleanMigrationPaths(),
+                });
+                if (request.automatic && result.converted && expectedHead) {
+                  admission.assertCurrent();
+                  const paths = result.mutatedGitFiles ?? [];
+                  await commitOwnedPathsIfDirty(
+                    workspaceRoot,
+                    'reconcile: migrate opened sequence',
+                    {
+                      expectedHead,
+                      paths,
+                      forceInclude: paths,
+                      expectedContentSha256: result.expectedContentSha256,
+                    }
+                  );
+                }
+                return {
+                  converted: result.converted,
+                  packageRoots: result.packageRoots,
+                  reason: result.reason,
+                  disposition: result.disposition,
+                };
+              })
           );
         }
       ),
   });
   handleGroup(workspaceContract, {
+    migrateLegacyProjectFiles: async (event, request) =>
+      withSafeWritablePath(
+        request.repoPath,
+        (repoPath) =>
+          withDeclaredRendererWorkspaceMutation({
+            db: getDb(),
+            ownerId: event.sender.id,
+            workspaceRoot: repoPath,
+            mutationPaths: [repoPath],
+            mutationToken: request.mutationToken,
+            operation: () =>
+              withManagedWorkspaceMutationLock(repoPath, async () => {
+                const db = getDb();
+                const admission = captureSequenceMigrationAdmission(db, repoPath, {
+                  requireWritable: true,
+                });
+                if (admission.workspaceId === null)
+                  throw new Error('Automatic migration requires an active owning project.');
+                const migrated = await collectWorkspaceEntityMigrations(repoPath, {
+                  ...admission,
+                  packageIdForPath: (path) => catalogSequenceIdForPath(db, path),
+                  withCleanPaths: createCleanMigrationPaths(),
+                });
+                return {
+                  healedFileCount: migrated.healedFileCount,
+                  migrationIssues: migrated.migrationIssues,
+                };
+              }),
+          }),
+        { requireAbsolute: true }
+      ),
     rootStatus: async () => listWorkspaceRootStatus(getDb()),
     relinkRoot: async (_event, request) => {
       await assertSafePath(request.selectedPath);
@@ -360,9 +456,20 @@ export function registerWorkspaceGitHandlers(): void {
       withSafeWritablePath(
         request.repoPath,
         (repoPath) =>
-          withDeclaredWorkspaceMutation(getDb(), repoPath, [repoPath], () =>
-            collectManagedHeadIndex(repoPath)
-          ),
+          withDeclaredWorkspaceMutation(getDb(), repoPath, [repoPath], () => {
+            const db = getDb();
+            const healWorkingTree = canAutomaticallyMigrateWorkspace(db, repoPath);
+            const admission = captureSequenceMigrationAdmission(db, repoPath, {
+              requireWritable: healWorkingTree,
+            });
+            return collectManagedHeadIndex(repoPath, {
+              ...admission,
+              healWorkingTree,
+              ownedMigrationCommit: admission.enrolled,
+              packageIdForPath: (path) => catalogSequenceIdForPath(db, path),
+              withCleanPaths: createCleanMigrationPaths(),
+            });
+          }),
         { requireAbsolute: true }
       ),
     indexManagedCatalogHead: async (event, request: ManagedCatalogHeadIndexRequest) => {
@@ -378,21 +485,18 @@ export function registerWorkspaceGitHandlers(): void {
             mutationToken: request.mutationToken,
             operation: () => {
               const db = getDb();
-              const root = workspaceMutationRootIdentity(repoPath);
-              const workspaces = db
-                .prepare(
-                  'SELECT id,path FROM workspaces WHERE archived_at IS NULL AND trashed_at IS NULL'
-                )
-                .all() as { id: number; path: string }[];
-              const enrolled = workspaces.some(
-                (workspace) =>
-                  workspaceMutationRootIdentity(workspace.path) === root &&
-                  acceptedScientificResourceIds(db, workspace.id).size > 0
-              );
+              const healWorkingTree =
+                request.healWorkingTree !== false && canAutomaticallyMigrateWorkspace(db, repoPath);
+              const admission = captureSequenceMigrationAdmission(db, repoPath, {
+                requireWritable: healWorkingTree,
+              });
 
               return collectManagedCatalogHeadIndex(repoPath, request.preserveRelPaths, {
-                healWorkingTree: enrolled ? false : request.healWorkingTree,
+                ...admission,
+                healWorkingTree,
+                ownedMigrationCommit: admission.enrolled,
                 packageIdForPath: (path) => catalogSequenceIdForPath(db, path),
+                withCleanPaths: createCleanMigrationPaths(),
               });
             },
           });

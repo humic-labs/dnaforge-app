@@ -114,6 +114,12 @@ export function createNativeDocuments(
     ],
   });
   const markdownImporter = new MarkdownNotebookImporter({
+    onMigrationCandidatesChanged: (workspaceRoot) => {
+      const target = notebookTarget?.();
+      if (!target || target.isDestroyed()) return false;
+      sendRendererIpc(target, 'workspace:migrationCandidatesChanged', { workspaceRoot });
+      return true;
+    },
     readableRoots: () => workspaces.observedReadableRoots(),
     onIssue: (issue) => {
       const target = notebookTarget?.();
@@ -142,6 +148,7 @@ export function createNativeDocuments(
       return profileDirectory;
     },
   });
+  const legacyDraftMigrationListeners = new Set<() => void>();
   let publishHistory: ((root: string) => void) | undefined;
   const workspaceCommands = createNativeWorkspaceCommands({
     db: getDb,
@@ -304,7 +311,17 @@ export function createNativeDocuments(
       registerNotebookOwnerHandlers(
         notebookDocuments,
         () => notebookTarget?.() ?? null,
-        markdownImporter
+        markdownImporter,
+        flushFileDocumentClients,
+        () => {
+          for (const listener of legacyDraftMigrationListeners) {
+            try {
+              listener();
+            } catch (error) {
+              console.warn('[Native notebook recovery] Draft completion listener failed:', error);
+            }
+          }
+        }
       );
       notebookHandlersRegistered = true;
     }
@@ -429,6 +446,12 @@ export function createNativeDocuments(
 
   return {
     workspaces,
+    onLegacyDraftMigrationCompleted(listener: () => void) {
+      legacyDraftMigrationListeners.add(listener);
+      return () => {
+        legacyDraftMigrationListeners.delete(listener);
+      };
+    },
     sequenceDocuments,
     notebookDocuments,
     fileDocuments,

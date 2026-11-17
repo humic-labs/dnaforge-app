@@ -19,6 +19,7 @@ const {
   mockInspectLoose,
   mockConvertLoose,
   mockOpenPackage,
+  mockReconcileAfterFilesChanged,
 } = vi.hoisted(() => ({
   mockStat: vi.fn(),
   mockReveal: vi.fn(),
@@ -33,6 +34,7 @@ const {
   mockInspectLoose: vi.fn(),
   mockConvertLoose: vi.fn(),
   mockOpenPackage: vi.fn(),
+  mockReconcileAfterFilesChanged: vi.fn(),
 }));
 
 vi.mock('../workspace-loader/project-edit-folders', async (importOriginal) => ({
@@ -59,6 +61,10 @@ vi.mock('./managed-sequence-repository', () => ({
     findByMemberPath: async () => null,
     openPackage: mockOpenPackage,
   },
+}));
+
+vi.mock('../../services/workspace-operations', () => ({
+  reconcileWorkspaceAfterFilesChanged: mockReconcileAfterFilesChanged,
 }));
 
 vi.mock('../../shared/developer-import-sources', async (importOriginal) => {
@@ -145,6 +151,7 @@ describe('openSequenceFile  Layer A)', () => {
     mockInspectLoose.mockReset().mockResolvedValue({ state: 'not-sequence', reason: null });
     mockConvertLoose.mockReset();
     mockOpenPackage.mockReset();
+    mockReconcileAfterFilesChanged.mockReset().mockResolvedValue(undefined);
     mockReveal.mockReset();
     mockRegisterWorkspaceFile.mockReset();
     mockTrackRendererEvent.mockReset();
@@ -196,6 +203,12 @@ describe('openSequenceFile  Layer A)', () => {
       automatic: true,
     });
     expect(opened.status).toBe('presented');
+    expect(mockReconcileAfterFilesChanged).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceRoot: root, strict: true, healManagedHead: false })
+    );
+    expect(mockReconcileAfterFilesChanged.mock.invocationCallOrder[0]).toBeLessThan(
+      mockOpenPackage.mock.invocationCallOrder[0]
+    );
     const tabs = Object.values(useCanvasStore.getState().panels).flatMap((panel) => panel.tabs);
     expect(tabs).toHaveLength(1);
     expect(tabs[0].sequenceDocument).toEqual(ref);
@@ -203,6 +216,50 @@ describe('openSequenceFile  Layer A)', () => {
     expect(mockRegisterWorkspaceFile).not.toHaveBeenCalledWith(
       expect.objectContaining({ path: source })
     );
+  });
+
+  it('does not present an editable loose source after an automatic conversion is blocked', async () => {
+    const root = '/projects/migration';
+    const source = `${root}/incoming.gb`;
+    setMockSize(100);
+    mockExists.mockResolvedValue(true);
+    mockListProjectFolders.mockResolvedValue([
+      { path: root, name: 'Migration', pinned: false, lifecycle: 'active' },
+    ]);
+    useWorkspaceStore.setState({ folders: [{ path: root, name: 'Migration', addedAt: 1 }] });
+    mockInspectLoose.mockResolvedValue({ state: 'convertible', reason: null });
+    mockConvertLoose.mockResolvedValue({
+      converted: false,
+      packageRoots: [],
+      reason: 'The source changed during conversion.',
+    });
+
+    await expect(openSequenceFileResult({ filePath: source, label: 'Incoming' })).resolves.toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining('source changed'),
+    });
+    expect(mockRegisterWorkspaceFile).not.toHaveBeenCalled();
+    expect(totalTabCount()).toBe(0);
+  });
+
+  it('preserves access to a draft-protected loose source without granting new editing authority', async () => {
+    const root = '/projects/migration';
+    const source = `${root}/incoming.gb`;
+    setMockSize(100);
+    mockExists.mockResolvedValue(true);
+    mockListProjectFolders.mockResolvedValue([
+      { path: root, name: 'Migration', pinned: false, lifecycle: 'active' },
+    ]);
+    useWorkspaceStore.setState({ folders: [{ path: root, name: 'Migration', addedAt: 1 }] });
+    mockInspectLoose.mockResolvedValue({ state: 'convertible', reason: null });
+    mockConvertLoose.mockRejectedValue(new Error('DIRTY_SEQUENCE_DRAFT: A retained draft protects this source.'));
+
+    const opened = await openSequenceFileResult({ filePath: source, label: 'Incoming' });
+
+    expect(opened.status).toBe('presented');
+    const tabs = Object.values(useCanvasStore.getState().panels).flatMap((panel) => panel.tabs);
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0].readOnly).toBe(true);
   });
 
   it('keeps an explicitly read-only project source out of automatic conversion', async () => {
