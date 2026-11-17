@@ -6,7 +6,7 @@ import type {
   InventoryState,
   InventoryTransition,
 } from './inventory-types';
-import { inventoryRecordIdExists } from './inventory-configuration';
+import { inventoryRecordIdExists } from './inventory-identity';
 import { InventoryValidationError, parseInventoryItemCodeQuery } from './inventory-validation';
 
 type Failure = Extract<InventoryTransition, { ok: false }>;

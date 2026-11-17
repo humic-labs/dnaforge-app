@@ -128,7 +128,7 @@ describe('managed lot assessment and independent recalls', () => {
   it('records physical receipt while unassessed and blocks all use admissions with the same reasons', () => {
     const state = fixture();
     expect(state.stocks['stock-a'].quantity).toEqual({ kind: 'known', ...volume('100') });
-    expect(inventoryStockEligibility(state, 'stock-a')).toMatchObject({
+    expect(inventoryStockEligibility(state, 'stock-a', context.at)).toMatchObject({
       coverage: 'managed',
       lotConstraints: { knowledge: 'recorded', lotIds: ['lot-a'] },
       blockers: [{ code: 'LOT_NOT_RELEASED', lotId: 'lot-a', assessment: 'unassessed' }],
@@ -211,7 +211,7 @@ describe('managed lot assessment and independent recalls', () => {
       recall('second'),
       assess('released')
     );
-    expect(inventoryStockEligibility(state, 'stock-a')?.blockers).toEqual([
+    expect(inventoryStockEligibility(state, 'stock-a', context.at)?.blockers).toEqual([
       { code: 'STOCK_QUARANTINED' },
       { code: 'LOT_RECALLED', lotId: 'lot-a', recallIds: ['first', 'second'] },
     ]);
@@ -398,14 +398,14 @@ describe('stable cumulative lot constraints', () => {
     expect(state.stocks.aliquot.source).toEqual({ kind: 'lot', lotId: 'lot-b' });
     expect(state.stocks.aliquot.lotConstraints.lotIds).toEqual(['lot-a', 'lot-b']);
     for (const id of ['stock-a', 'aliquot', 'preparation', 'pooled', 'diluted']) {
-      expect(inventoryStockEligibility(state, id)?.blockers).toContainEqual({
+      expect(inventoryStockEligibility(state, id, context.at)?.blockers).toContainEqual({
         code: 'LOT_RECALLED',
         lotId: 'lot-a',
         recallIds: ['recall-a'],
       });
       refused(state, 'LOT_RECALLED', use(id));
     }
-    expect(inventoryStockEligibility(state, 'stock-b')?.blockers).toEqual([]);
+    expect(inventoryStockEligibility(state, 'stock-b', context.at)?.blockers).toEqual([]);
     state = apply(state, {
       kind: 'reconcile',
       stockId: 'aliquot',
@@ -447,7 +447,7 @@ describe('stable cumulative lot constraints', () => {
     expect(state.lots.before.lotConstraints.lotIds).toEqual(['before', 'lot-a']);
     state = apply(state, recall('later-recall', 'lot-b'));
     refused(state, 'LOT_RECALLED', use());
-    expect(inventoryStockEligibility(state, 'sibling')?.blockers).toEqual([]);
+    expect(inventoryStockEligibility(state, 'sibling', context.at)?.blockers).toEqual([]);
     expect(state.stocks.later.quantity).toEqual({ kind: 'known', ...volume('0') });
   });
 
@@ -544,12 +544,20 @@ describe('legacy projection and archive authority', () => {
     raw.schema = 'dnaforge.inventory.v18';
     raw.revision = replay.revision;
     delete raw.lotRecalls;
+    delete raw.openingObservations;
+    delete raw.validityFacts;
     for (const lot of Object.values(raw.lots as Record<string, Record<string, unknown>>)) {
       delete lot.controls;
       delete lot.lotConstraints;
+      delete lot.validity;
+      delete lot.inheritedValidity;
     }
-    for (const stock of Object.values(raw.stocks as Record<string, Record<string, unknown>>))
+    for (const stock of Object.values(raw.stocks as Record<string, Record<string, unknown>>)) {
       delete stock.lotConstraints;
+      delete stock.opening;
+      delete stock.validity;
+      delete stock.inheritedValidity;
+    }
     expect(parseInventoryState(raw)).toEqual(replay);
     expect(replay.stocks.stock.lotConstraints).toEqual({
       knowledge: 'legacy-partial',
@@ -575,7 +583,7 @@ describe('legacy projection and archive authority', () => {
     );
     if (!adopted.ok) throw new Error(`${adopted.code}: ${adopted.message}`);
     let state = adopted.state;
-    expect(inventoryStockEligibility(state, 'stock-a')?.blockers).toEqual([
+    expect(inventoryStockEligibility(state, 'stock-a', context.at)?.blockers).toEqual([
       { code: 'LOT_ASSESSMENT_IMPORTED', lotId: 'lot-a' },
       { code: 'LOT_RECALLED', lotId: 'lot-a', recallIds: ['recall-a'] },
     ]);
@@ -586,7 +594,7 @@ describe('legacy projection and archive authority', () => {
       recallId: 'recall-a',
       reason: 'Explicit local recall withdrawal',
     });
-    expect(inventoryStockEligibility(state, 'stock-a')?.blockers).toEqual([]);
+    expect(inventoryStockEligibility(state, 'stock-a', context.at)?.blockers).toEqual([]);
     expect(state.lotRecalls['recall-a'].by.kind).toBe('imported');
   });
 });

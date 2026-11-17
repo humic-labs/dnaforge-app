@@ -5,6 +5,7 @@ import { emptyInventoryPhysicalConfiguration } from './inventory-geometry';
 import { inventoryTableBindingKey, inventoryTableSha256 } from './inventory-table-binding';
 import { inventoryObservationKey } from './inventory-observation-identity';
 import { normalizeInventoryQuantity } from './inventory-quantity';
+import { emptyInventoryStockValidity } from './inventory-validity';
 
 const principal = { kind: 'local-profile' as const, profileKey: 'a'.repeat(64) };
 function fixture(
@@ -22,9 +23,11 @@ function fixture(
     limits: { capacity: { kind: 'unknown' as const }, deadVolume: { kind: 'unknown' as const } },
     configuration: emptyInventoryPhysicalConfiguration(),
   });
-  const { lotRecalls, ...legacyBase } = createInventoryState();
+  const { lotRecalls, openingObservations, validityFacts, ...legacyBase } = createInventoryState();
   const state = {
-    ...(schema === INVENTORY_SCHEMA ? { ...legacyBase, lotRecalls } : legacyBase),
+    ...(schema === INVENTORY_SCHEMA
+      ? { ...legacyBase, lotRecalls, openingObservations, validityFacts }
+      : legacyBase),
     schema,
     lastRecordedAt: 100,
     revision: 1,
@@ -43,7 +46,10 @@ function fixture(
     stocks: {
       stock: {
         ...(schema === INVENTORY_SCHEMA
-          ? { lotConstraints: { knowledge: 'recorded' as const, lotIds: [] } }
+          ? {
+              ...emptyInventoryStockValidity(),
+              lotConstraints: { knowledge: 'recorded' as const, lotIds: [] },
+            }
           : {}),
         id: 'stock',
         vesselId: 'tube',

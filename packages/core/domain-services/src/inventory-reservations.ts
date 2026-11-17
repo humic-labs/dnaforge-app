@@ -10,6 +10,8 @@ import {
 } from './inventory-materials';
 import { inventoryVesselContentsProjection } from './inventory-contents';
 import { inventoryStockEligibility, inventoryLotUseGuard } from './inventory-lot-controls';
+import { inventoryValidityUseGuard } from './inventory-validity';
+import { inventoryRecordIdExists } from './inventory-identity';
 import { inventoryCustodyAccess, inventoryItemCustody } from './inventory-custody';
 import { inventoryItemContains } from './inventory-placement';
 export { inventoryItemContains } from './inventory-placement';
@@ -26,6 +28,7 @@ import type {
   InventoryReservationCommand,
   InventoryState,
   InventoryStockAvailability,
+  InventoryStockActionAdmission,
 } from './inventory-types';
 import {
   addInventoryAmounts,
@@ -50,6 +53,8 @@ type ReservationState = Pick<
   | 'fitEvidence'
   | 'itemCodes'
   | 'temperatureClaims'
+  | 'openingObservations'
+  | 'validityFacts'
 >;
 export interface InventoryReservationDraft extends Omit<ReservationState, 'reservations'> {
   readonly reservations: Record<string, InventoryReservation>;
@@ -120,7 +125,8 @@ function remainder(
 function stockAvailability(
   state: ReservationState,
   stockId: string,
-  principal: InventoryPrincipal | undefined
+  principal: InventoryPrincipal | undefined,
+  at: number
 ): InventoryStockAvailability {
   const stock = state.stocks[stockId];
   const vessel = state.vessels[stock.vesselId];
@@ -145,9 +151,10 @@ function stockAvailability(
   const blockers: InventoryAvailabilityBlocker[] = [];
   if (inventoryPhysicalPositionUnavailable(state, item))
     blockers.push({ code: 'POSITION_UNAVAILABLE', item });
-  blockers.push(...inventoryItemCustody(state, item, principal, state.lastRecordedAt).blockers);
+  blockers.push(...inventoryItemCustody(state, item, principal, at).blockers);
   if (stock.quantity.kind === 'unknown') blockers.push({ code: 'QUANTITY_UNKNOWN' });
-  blockers.push(...inventoryStockEligibility(state, stockId)!.blockers);
+  const eligibility = inventoryStockEligibility(state, stockId, at)!;
+  blockers.push(...eligibility.blockers);
   if (vessel.lifecycle !== 'active') blockers.push({ code: 'VESSEL_DISPOSED' });
   const itemHolds = active.filter(
     (reservation) =>
@@ -169,14 +176,24 @@ function stockAvailability(
       blockers.push({ code: 'ALLOCATION_SHORTFALL' });
     unreserved = { kind: 'known', ...remainder(usable, held) };
   }
+  const action = (kind: 'reserve' | 'withdraw'): InventoryStockActionAdmission => {
+    const validity = eligibility.validity[kind];
+    const all = [...blockers, ...(validity.kind === 'blocked' ? validity.blockers : [])];
+    return all.length
+      ? { kind: 'blocked', blockers: [all[0], ...all.slice(1)] }
+      : { kind: 'allowed' };
+  };
+  const withdraw = action('withdraw');
   return {
+    validity: eligibility.validity,
+    actions: { reserve: action('reserve'), withdraw },
     stockId,
     onHand: { ...stock.quantity },
     held,
     unreserved,
     mine,
     deadVolume: { ...vessel.limits.deadVolume },
-    blockers,
+    blockers: withdraw.kind === 'blocked' ? withdraw.blockers : [],
     reservationIds: related.map((reservation) => reservation.id),
   };
 }
@@ -191,7 +208,8 @@ export function inventoryAvailability(
       'Availability time must be a safe timestamp at or after the recorded clock floor.'
     );
   const stocks: Record<string, InventoryStockAvailability> = Object.create(null);
-  for (const id of Object.keys(state.stocks)) stocks[id] = stockAvailability(state, id, principal);
+  for (const id of Object.keys(state.stocks))
+    stocks[id] = stockAvailability(state, id, principal, at);
   const reservations: Record<string, InventoryAvailability['reservations'][string]> =
     Object.create(null);
   for (const reservation of Object.values(state.reservations)) {
@@ -283,7 +301,12 @@ export function inventoryReservationGuard(
         'QUANTITY_DIMENSION_MISMATCH',
         'A withdrawal must use the stock’s declared measurement dimension.'
       );
-    const facts = stockAvailability(state, input.stockId, context?.principal);
+    const facts = stockAvailability(
+      state,
+      input.stockId,
+      context?.principal,
+      context?.at ?? state.lastRecordedAt
+    );
     if (facts.blockers.some((blocker) => blocker.code === 'ALLOCATION_SHORTFALL'))
       return refuse(
         'ALLOCATION_SHORTFALL',
@@ -394,23 +417,11 @@ export function applyInventoryReservationCommand(
       'Reservation commands require a trusted actor and clock context.'
     );
   if (command.kind === 'reserve-quantity' || command.kind === 'reserve-item') {
+    const validity = inventoryValidityUseGuard(state, command, context);
+    if (validity) return validity;
     const eligibility = inventoryLotUseGuard(state, command);
     if (eligibility) return eligibility;
-    if (
-      [
-        state.reservations,
-        state.storage,
-        state.vessels,
-        state.stocks,
-        state.lots,
-        state.lotRecalls,
-        state.typeVersions,
-        state.recipeVersions,
-        state.fitEvidence,
-        state.itemCodes,
-        state.temperatureClaims,
-      ].some((rows) => Object.hasOwn(rows, command.id))
-    )
+    if (inventoryRecordIdExists(state, command.id))
       return refuse('ID_ALREADY_EXISTS', 'That inventory identifier already exists.');
     if (command.deadline !== null && command.deadline <= context.at)
       return refuse(
@@ -437,8 +448,11 @@ export function applyInventoryReservationCommand(
         );
       if (!positive(quantity))
         return refuse('INVALID_QUANTITY', 'A quantity reservation requires a positive amount.');
-      const available = stockAvailability(state, stock.id, context.principal);
-      const blocker = available.blockers[0];
+      const available = stockAvailability(state, stock.id, context.principal, context.at);
+      const blocker =
+        available.actions.reserve.kind === 'blocked'
+          ? available.actions.reserve.blockers[0]
+          : undefined;
       if (blocker)
         return refuse(blocker.code, 'The stock is blocked from a new quantity reservation.');
       if (available.unreserved.kind !== 'known')
@@ -547,6 +561,8 @@ export function prepareInventoryFulfillment(
     );
   const eligibility = inventoryLotUseGuard(state, command.withdrawal);
   if (eligibility) return eligibility;
+  const validity = inventoryValidityUseGuard(state, command.withdrawal, context);
+  if (validity) return validity;
   if (new Set(command.claims.map((claim) => claim.reservationId)).size !== command.claims.length)
     return refuse(
       'INVALID_RESERVATION_CLAIM',
@@ -572,7 +588,7 @@ export function prepareInventoryFulfillment(
   for (const stockId of debits.keys()) {
     if (
       state.stocks[stockId] &&
-      stockAvailability(state, stockId, context.principal).blockers.some(
+      stockAvailability(state, stockId, context.principal, context.at).blockers.some(
         (blocker) => blocker.code === 'ALLOCATION_SHORTFALL'
       )
     )

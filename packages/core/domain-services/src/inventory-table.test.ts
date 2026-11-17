@@ -535,20 +535,39 @@ describe('strict canonical receive tables', () => {
       tableBindings: _bindings,
       observations: _observations,
       lotRecalls: _recalls,
+      openingObservations: _openingObservations,
+      validityFacts: _validityFacts,
       ...v12
     } = adopted.state;
     const old = {
       ...v12,
       schema: 'dnaforge.inventory.v12',
       stocks: Object.fromEntries(
-        Object.entries(v12.stocks).map(([id, { lotConstraints: _constraints, ...stock }]) => [
-          id,
-          stock,
-        ])
+        Object.entries(v12.stocks).map(
+          ([
+            id,
+            {
+              lotConstraints: _constraints,
+              opening: _opening,
+              validity: _validity,
+              inheritedValidity: _inheritedValidity,
+              ...stock
+            },
+          ]) => [id, stock]
+        )
       ),
       lots: Object.fromEntries(
         Object.entries(v12.lots).map(
-          ([id, { lotConstraints: _constraints, controls: _controls, ...lot }]) => [id, lot]
+          ([
+            id,
+            {
+              lotConstraints: _constraints,
+              controls: _controls,
+              validity: _validity,
+              inheritedValidity: _inheritedValidity,
+              ...lot
+            },
+          ]) => [id, lot]
         )
       ),
       vessels: Object.fromEntries(

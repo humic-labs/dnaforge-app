@@ -1,3 +1,15 @@
+import { inventoryIdentityMaps } from './inventory-identity';
+import { emptyInventoryStockValidity, emptyInventoryLotValidity } from './inventory-validity';
+import { validateInventoryValidityState } from './inventory-validity-validation';
+import type {
+  InventoryOpeningState,
+  InventoryOpeningObservation,
+  InventoryValidityFact,
+  InventoryValidityManagement,
+  InventoryInheritedValidity,
+  InventoryValidityOwner,
+  InventoryValidityRule,
+} from './inventory-validity-types';
 import { projectLegacyInventoryLotConstraints } from './inventory-lot-controls';
 import type {
   InventoryLotConstraints,
@@ -61,6 +73,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_LOT_CONTROLS_SCHEMA,
   INVENTORY_AMOUNTS_SCHEMA,
   INVENTORY_HIERARCHY_SCHEMA,
   INVENTORY_CONTENTS_SCHEMA,
@@ -184,6 +197,12 @@ function literal<const T extends string>(value: T): Codec<T> {
   };
 }
 
+const nullValue: Codec<null> = {
+  schema: { type: 'null' },
+  parse(value) {
+    return value === null ? null : invalid('Expected an explicit null value.');
+  },
+};
 function text(label: string, maxLength = 512, trim = false, pattern = '\\S'): Codec<string> {
   return {
     schema: { type: 'string', minLength: 1, maxLength, pattern },
@@ -694,6 +713,47 @@ const lotOrigin = union('Lot origin', [
     diluent: contribution,
   }),
 ]);
+const sortedIds = checked(array(id, Number.MAX_SAFE_INTEGER, 1), (value) => {
+  if (value.some((key, index) => index > 0 && key <= value[index - 1]))
+    invalid('Fact root identifiers must be sorted and distinct.');
+});
+const openingState: Codec<InventoryOpeningState> = union('Stock opening knowledge', [
+  fields('Unobserved opening without fact', {
+    kind: literal('unobserved'),
+    observationId: nullValue,
+  }),
+  fields('Corrected unobserved opening', { kind: literal('unobserved'), observationId: id }),
+  fields('Observed sealed stock', { kind: literal('sealed-observed'), observationId: id }),
+  fields('Observed opened stock', { kind: literal('opened-observed'), observationId: id }),
+]);
+const validityManagement: Codec<InventoryValidityManagement> = union('Validity management', [
+  fields('Untracked validity', { kind: literal('legacy-untracked') }),
+  fields('Managed validity', { kind: literal('managed'), rootIds: sortedIds }),
+]);
+const inheritedValidity = checked(
+  array(
+    fields('Inherited validity family', { rootId: id, openingNoLaterThan: deadline }),
+    Number.MAX_SAFE_INTEGER
+  ),
+  (value) => {
+    if (value.some((ref, index) => index > 0 && ref.rootId <= value[index - 1].rootId))
+      invalid('Inherited validity roots must be sorted and distinct.');
+  }
+);
+const validityOwner: Codec<InventoryValidityOwner> = union('Validity decision owner', [
+  fields('Stock validity owner', { kind: literal('stock'), stockId: id }),
+  fields('Lot validity owner', { kind: literal('lot'), lotId: id }),
+]);
+const validityRule: Codec<InventoryValidityRule> = union('Validity interpretation', [
+  fields('Unresolved expiry interpretation', { kind: literal('unresolved') }),
+  fields('No required expiry policy', { kind: literal('not-required') }),
+  fields('Explicit expiry instant', { kind: literal('absolute'), deadlineAt: timestamp }),
+  fields('Explicit elapsed limit after opening', {
+    kind: literal('after-opening'),
+    openingStockId: id,
+    elapsedMs: integer('Elapsed duration', 1, Number.MAX_SAFE_INTEGER),
+  }),
+]);
 const lotConstraints: Codec<InventoryLotConstraints> = checked(
   fields('Lot constraint owners', {
     knowledge: union('Lot constraint knowledge', [literal('recorded'), literal('legacy-partial')]),
@@ -727,7 +787,7 @@ const compositionLotRecord = fields('Previous composed lot record', {
   name,
   origin: lotOrigin,
 });
-const lotRecord = fields('Lot record', {
+const controlledLotRecord = fields('Previous controlled lot record', {
   id,
   materialId: id,
   name,
@@ -739,6 +799,16 @@ const previousSourceIdentity = fields('Previous source identity', previousSource
 const previousContribution = fields('Previous material contribution', {
   ...previousSourceIdentityFields,
   quantity: volume,
+});
+const lotRecord = fields('Lot record', {
+  id,
+  materialId: id,
+  name,
+  origin: lotOrigin,
+  controls: lotControls,
+  lotConstraints,
+  validity: validityManagement,
+  inheritedValidity,
 });
 const previousLotRecord = fields('Previous lot record', {
   id,
@@ -936,6 +1006,70 @@ const sourceReference = fields('Source reference', {
   readAt: text('Source read date', 10, true, '^\\d{4}-\\d{2}-\\d{2}$'),
   documentRevision: nullable(text('Source document revision')),
   sha256: nullable(text('Source hash', 64, true, '^[a-f0-9]{64}$')),
+});
+const openingInputFields = { id, stockId: id, source: nullable(sourceReference), reason };
+const openingRecordedFields = { ...openingInputFields, at: timestamp, by: recordedPrincipal };
+const openingObservationRecord: Codec<InventoryOpeningObservation> = union('Opening fact', [
+  fields('Initial opening observation', {
+    ...openingRecordedFields,
+    kind: literal('initial'),
+    value: union('Initial opening value', [literal('sealed'), literal('opened')]),
+    observedAt: deadline,
+    supersedesId: nullValue,
+  }),
+  fields('First opening observation', {
+    ...openingRecordedFields,
+    kind: literal('opening'),
+    value: literal('opened'),
+    observedAt: deadline,
+    supersedesId: id,
+  }),
+  fields('Corrected first opening', {
+    ...openingRecordedFields,
+    kind: literal('correction'),
+    value: literal('opened'),
+    observedAt: deadline,
+    supersedesId: id,
+  }),
+  fields('Correction admitting unknown opening', {
+    ...openingRecordedFields,
+    kind: literal('correction'),
+    value: literal('unobserved'),
+    observedAt: nullValue,
+    supersedesId: id,
+  }),
+]);
+const validityDecisionFields = {
+  rule: validityRule,
+  sourceText: {
+    schema: { type: 'string', minLength: 0, maxLength: 65_536 },
+    parse(value: unknown) {
+      if (typeof value !== 'string' || value.length > 65_536 || value.includes('\0'))
+        return invalid(
+          'Expiry source text must be at most 65,536 characters without null characters.'
+        );
+      return value;
+    },
+  },
+  sourcePrecision: union('Printed source precision', [
+    literal('unknown'),
+    literal('year'),
+    literal('month'),
+    literal('date'),
+    literal('instant'),
+    literal('elapsed-duration'),
+  ]),
+  source: nullable(sourceReference),
+  reason,
+};
+const validityFactRecord: Codec<InventoryValidityFact> = fields('Validity interpretation fact', {
+  ...validityDecisionFields,
+  id,
+  rootId: id,
+  supersedesId: nullable(id),
+  owner: validityOwner,
+  at: timestamp,
+  by: recordedPrincipal,
 });
 const lotRecallRecord: Codec<InventoryLotRecall> = fields('Lot recall', {
   id,
@@ -1393,6 +1527,40 @@ const commands = {
     target: catalogTarget,
     reason,
   }),
+  'record-stock-opening': fields('Record stock opening command', {
+    ...openingInputFields,
+    kind: literal('record-stock-opening'),
+    value: union('Recorded opening value', [literal('sealed'), literal('opened')]),
+    observedAt: deadline,
+  }),
+  'correct-stock-opening': union('Correct stock opening command', [
+    fields('Correct first opening command', {
+      ...openingInputFields,
+      kind: literal('correct-stock-opening'),
+      supersedesId: id,
+      value: literal('opened'),
+      observedAt: deadline,
+    }),
+    fields('Admit opening knowledge unknown command', {
+      ...openingInputFields,
+      kind: literal('correct-stock-opening'),
+      supersedesId: id,
+      value: literal('unobserved'),
+      observedAt: nullValue,
+    }),
+  ]),
+  'record-validity-decision': fields('Record validity interpretation command', {
+    ...validityDecisionFields,
+    kind: literal('record-validity-decision'),
+    id,
+    owner: validityOwner,
+  }),
+  'correct-validity-decision': fields('Correct validity interpretation command', {
+    ...validityDecisionFields,
+    kind: literal('correct-validity-decision'),
+    id,
+    supersedesId: id,
+  }),
   'manage-lot': fields('Manage lot command', { kind: literal('manage-lot'), lotId: id, reason }),
   'assess-lot': fields('Assess lot command', {
     kind: literal('assess-lot'),
@@ -1740,11 +1908,20 @@ const amountStockRecord = fields('Previous amount stock record', {
   quantity: storedQuantity,
   composition: storedComposition,
 });
+const controlledStockRecord = fields('Previous controlled stock record', {
+  ...materialStockFields,
+  quantity: storedQuantity,
+  composition: storedComposition,
+  lotConstraints,
+});
 const stockRecord = fields('Stock record', {
   ...materialStockFields,
   quantity: storedQuantity,
   composition: storedComposition,
   lotConstraints,
+  opening: openingState,
+  validity: validityManagement,
+  inheritedValidity,
 });
 const reservationVolume = checked(volume, (value) => {
   const normalized = normalizeInventoryVolume(value);
@@ -1969,19 +2146,7 @@ function validateState(state: InventoryState): void {
     }
   }
   const allIds = new Set<string>();
-  for (const rows of [
-    state.storage,
-    state.vessels,
-    state.stocks,
-    state.lots,
-    state.reservations,
-    state.typeVersions,
-    state.recipeVersions,
-    state.fitEvidence,
-    state.itemCodes,
-    state.temperatureClaims,
-    state.lotRecalls,
-  ]) {
+  for (const rows of inventoryIdentityMaps(state)) {
     for (const identifier of Object.keys(rows)) {
       if (allIds.has(identifier)) invalid('Inventory record identifiers must be distinct.');
       allIds.add(identifier);
@@ -2431,7 +2596,8 @@ function vesselBindings(value: unknown): Record<string, InventoryVesselBinding> 
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const amounts = current || row.schema === INVENTORY_AMOUNTS_SCHEMA;
+  const controlled = current || row.schema === INVENTORY_LOT_CONTROLS_SCHEMA;
+  const amounts = controlled || row.schema === INVENTORY_AMOUNTS_SCHEMA;
   const contents = amounts || row.schema === INVENTORY_CONTENTS_SCHEMA;
   const hierarchySources = contents || row.schema === INVENTORY_HIERARCHY_SCHEMA;
   const sourceRevisions = hierarchySources || row.schema === INVENTORY_SOURCE_REVISION_SCHEMA;
@@ -2450,6 +2616,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_LOT_CONTROLS_SCHEMA),
       literal(INVENTORY_AMOUNTS_SCHEMA),
       literal(INVENTORY_CONTENTS_SCHEMA),
       literal(INVENTORY_HIERARCHY_SCHEMA),
@@ -2471,6 +2638,12 @@ export function parseInventoryState(value: unknown): InventoryState {
     ]),
     revision,
     ...(current
+      ? {
+          openingObservations: { schema: { type: 'object' }, parse: (input: unknown) => input },
+          validityFacts: { schema: { type: 'object' }, parse: (input: unknown) => input },
+        }
+      : {}),
+    ...(controlled
       ? { lotRecalls: { schema: { type: 'object' }, parse: (input: unknown) => input } }
       : {}),
     ...(contents
@@ -2575,7 +2748,13 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   let state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    lotRecalls: current
+    openingObservations: current
+      ? records(shape.openingObservations, (raw) => openingObservationRecord.parse(raw))
+      : Object.create(null),
+    validityFacts: current
+      ? records(shape.validityFacts, (raw) => validityFactRecord.parse(raw))
+      : Object.create(null),
+    lotRecalls: controlled
       ? records(shape.lotRecalls, (raw) => lotRecallRecord.parse(raw))
       : Object.create(null),
     vesselBindings: contents ? vesselBindings(shape.vesselBindings) : Object.create(null),
@@ -2655,13 +2834,21 @@ export function parseInventoryState(value: unknown): InventoryState {
     vessels,
     stocks: records(shape.stocks, (raw): InventoryStock => {
       if (current) return stockRecord.parse(raw);
+      if (controlled)
+        return { ...controlledStockRecord.parse(raw), ...emptyInventoryStockValidity() };
       const constraints: InventoryLotConstraints = { knowledge: 'legacy-partial', lotIds: [] };
-      if (amounts) return { ...amountStockRecord.parse(raw), lotConstraints: constraints };
+      if (amounts)
+        return {
+          ...amountStockRecord.parse(raw),
+          ...emptyInventoryStockValidity(),
+          lotConstraints: constraints,
+        };
       if (composition) {
         const stock = previousCompositionStockRecord.parse(raw);
         return {
           ...stock,
           quantity: normalizeInventoryQuantity(stock.quantity),
+          ...emptyInventoryStockValidity(),
           lotConstraints: constraints,
         };
       }
@@ -2671,6 +2858,7 @@ export function parseInventoryState(value: unknown): InventoryState {
           ...stock,
           quantity: normalizeInventoryQuantity(stock.quantity),
           composition: { kind: 'unknown' },
+          ...emptyInventoryStockValidity(),
           lotConstraints: constraints,
         };
       }
@@ -2680,13 +2868,19 @@ export function parseInventoryState(value: unknown): InventoryState {
         source: { kind: 'unattributed', rootStockId: stock.id },
         quantity: normalizeInventoryQuantity(stock.quantity),
         composition: { kind: 'unknown' },
+        ...emptyInventoryStockValidity(),
         lotConstraints: constraints,
       };
     }),
     lots: material
       ? records(shape.lots, (raw): InventoryLot => {
           if (current) return lotRecord.parse(raw);
-          const legacy = ((): Omit<InventoryLot, 'controls' | 'lotConstraints'> => {
+          if (controlled)
+            return { ...controlledLotRecord.parse(raw), ...emptyInventoryLotValidity() };
+          const legacy = ((): Omit<
+            InventoryLot,
+            'controls' | 'lotConstraints' | 'validity' | 'inheritedValidity'
+          > => {
             if (composition) return compositionLotRecord.parse(raw);
             const lot = previousLotRecord.parse(raw);
             const { origin } = lot;
@@ -2720,13 +2914,14 @@ export function parseInventoryState(value: unknown): InventoryState {
           })();
           return {
             ...legacy,
+            ...emptyInventoryLotValidity(),
             controls: { kind: 'legacy-untracked' },
             lotConstraints: { knowledge: 'legacy-partial', lotIds: [] },
           };
         })
       : (Object.create(null) as Record<string, InventoryLot>),
   };
-  if (!current) {
+  if (!controlled) {
     try {
       state = projectLegacyInventoryLotConstraints(state);
     } catch (error) {
@@ -2811,6 +3006,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   }
   validateState(state);
   try {
+    validateInventoryValidityState(state);
     validateInventoryItemCodes(state);
     validateInventoryTemperatureState(state);
     validateInventoryPhysicalState(state);

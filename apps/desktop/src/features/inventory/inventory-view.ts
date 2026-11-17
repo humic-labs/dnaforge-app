@@ -1,4 +1,6 @@
 import type { InventoryContentsDialog } from './InventoryContentsForm';
+import type { InventoryData } from './inventory-controller';
+import type { InventoryValidityDialog } from './InventoryValidityForms';
 import type { InventoryLotControlsDialog } from './InventoryLotControlsForm';
 import type { InventoryMaterialDialog } from './InventoryMaterialForm';
 import type { InventoryCompositionDialog } from './InventoryCompositionForm';
@@ -27,7 +29,24 @@ import {
   type InventoryAmount,
   type InventoryAmountUnit,
   type InventoryQuantityInput,
+  type InventoryStockActionAdmission,
 } from '@waypoint/domain-services';
+
+export function inventoryStockAction(
+  data: InventoryData,
+  stockId: string,
+  action: 'reserve' | 'withdraw'
+): InventoryStockActionAdmission | undefined {
+  const snapshot = data.availability;
+  if (
+    !snapshot ||
+    snapshot.revision !== data.state.revision ||
+    snapshot.projectId !== data.project.projectId ||
+    snapshot.inventoryId !== data.project.defaultInventoryId
+  )
+    return undefined;
+  return snapshot.stocks[stockId]?.actions?.[action];
+}
 
 export function inventoryAmountUnitLabel(unit: InventoryAmountUnit): string {
   return unit.replace(/^u/u, 'µ');
@@ -86,6 +105,7 @@ export type InventoryDialog =
   | { kind: 'inspect-benchling-capture' }
   | InventoryContentsDialog
   | InventoryLotControlsDialog
+  | InventoryValidityDialog
   | InventoryMaterialDialog
   | InventoryCompositionDialog
   | InventoryReservationDialog
@@ -162,6 +182,12 @@ export function inventoryBlockerLabel(
 ): string {
   const lot = 'lotId' in blocker ? (state?.lots[blocker.lotId]?.name ?? blocker.lotId) : '';
   const labels: Record<InventoryAvailabilityBlocker['code'], string> = {
+    VALIDITY_UNRESOLVED: 'A validity rule or opening status is unresolved',
+    MATERIAL_EXPIRED: `Material expired at ${'deadlineAt' in blocker ? new Date(blocker.deadlineAt).toISOString() : ''}`,
+    OPENING_REQUIRED: 'Record first opening before withdrawing this stock',
+    OPENING_TIME_UNKNOWN: 'First-opening time is unknown',
+    VALIDITY_CHRONOLOGY_CONFLICT: 'Opening conflicts with an earlier recorded material derivation',
+    VALIDITY_ASSESSMENT_IMPORTED: 'A validity rule requires a local decision',
     LOT_NOT_RELEASED: `Lot ${lot} is ${'assessment' in blocker && blocker.assessment === 'unassessed' ? 'unassessed' : 'assessment' in blocker ? blocker.assessment : 'not released'}`,
     LOT_ASSESSMENT_IMPORTED: `Lot ${lot} requires a local release decision`,
     LOT_RECALLED: `Lot ${lot} has an active recall`,
@@ -333,6 +359,14 @@ export function historyLabel(command: InventoryCommand, state: InventoryState): 
       return `Fulfilled reservation · ${historyLabel(command.withdrawal, state)}`;
     case 'create-lot':
       return `Added batch ${command.name}`;
+    case 'record-stock-opening':
+      return `Recorded ${command.value} observation for ${state.vessels[state.stocks[command.stockId]?.vesselId]?.name ?? command.stockId}`;
+    case 'correct-stock-opening':
+      return `Corrected opening observation ${command.supersedesId}: ${command.value}`;
+    case 'record-validity-decision':
+      return `Recorded validity decision: ${command.rule.kind}`;
+    case 'correct-validity-decision':
+      return `Corrected validity family head ${command.supersedesId}: ${command.rule.kind}`;
     case 'manage-lot':
       return `Started managing lot ${state.lots[command.lotId]?.name ?? command.lotId}`;
     case 'assess-lot':

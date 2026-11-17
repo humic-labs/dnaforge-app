@@ -61,7 +61,7 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryApplyImportRequest,
     context: InventoryExecutionContext,
-    receiptContextVersion: 1 | 2 | undefined
+    receiptContextVersion: 1 | 2 | 3 | undefined
   ) => InventoryTransition,
   table: (
     target: InventoryState | null,
@@ -95,14 +95,15 @@ export function replayNativeInventoryEntries(
   ) => InventoryTransition
 ): InventoryState {
   let state = createInventoryState();
-  let currentSemanticsSeen = false;
+  let highestContextVersion = 1;
   for (const entry of entries) {
-    const currentSemantics = entry.receipt.context?.version === 2;
-    if (!currentSemantics && currentSemanticsSeen)
+    const contextVersion = entry.receipt.context?.version ?? 1;
+    const cumulativeLotSemantics = contextVersion >= 2;
+    if (contextVersion < highestContextVersion)
       throw new Error(
         'INVENTORY_DATA_INVALID: Inventory receipt semantics cannot return to the legacy version.'
       );
-    if (currentSemantics) currentSemanticsSeen = true;
+    highestContextVersion = contextVersion;
     const context = entry.receipt.context
       ? {
           at: entry.receipt.recordedAt,
@@ -112,7 +113,7 @@ export function replayNativeInventoryEntries(
       : undefined;
     const request = entry.request;
     if (
-      !currentSemantics &&
+      !cumulativeLotSemantics &&
       !('kind' in request) &&
       request.commands.some((command) =>
         ['manage-lot', 'assess-lot', 'record-lot-recall', 'withdraw-lot-recall'].includes(
@@ -121,6 +122,19 @@ export function replayNativeInventoryEntries(
       )
     )
       throw new Error('INVENTORY_DATA_INVALID: Lot controls require current receipt semantics.');
+    if (
+      contextVersion < 3 &&
+      !('kind' in request) &&
+      request.commands.some((command) =>
+        [
+          'record-stock-opening',
+          'correct-stock-opening',
+          'record-validity-decision',
+          'correct-validity-decision',
+        ].includes(command.kind)
+      )
+    )
+      throw new Error('INVENTORY_DATA_INVALID: Opening and validity require V3 receipt semantics.');
     if (request.expectedRevision !== state.revision)
       throw new Error('INVENTORY_DATA_INVALID: The saved inventory journal is not contiguous.');
     let result: InventoryTransition;
@@ -177,14 +191,34 @@ export function replayNativeInventoryEntries(
     if (!result.ok)
       throw new Error('INVENTORY_DATA_INVALID: The saved inventory journal could not be replayed.');
     if (
-      !currentSemantics &&
+      !cumulativeLotSemantics &&
       (Object.values(result.state.lots).some((lot) => lot.controls.kind === 'managed') ||
         Object.keys(result.state.lotRecalls).length > 0)
     )
       throw new Error(
         'INVENTORY_DATA_INVALID: Lot controls cannot enter through legacy receipt semantics.'
       );
-    state = currentSemantics ? result.state : projectLegacyInventoryLotConstraints(result.state);
+    if (
+      contextVersion < 3 &&
+      (Object.keys(result.state.openingObservations).length > 0 ||
+        Object.keys(result.state.validityFacts).length > 0 ||
+        Object.values(result.state.stocks).some(
+          (stock) =>
+            stock.opening.kind !== 'unobserved' ||
+            stock.opening.observationId !== null ||
+            stock.validity.kind !== 'legacy-untracked' ||
+            stock.inheritedValidity.length > 0
+        ) ||
+        Object.values(result.state.lots).some(
+          (lot) => lot.validity.kind !== 'legacy-untracked' || lot.inheritedValidity.length > 0
+        ))
+    )
+      throw new Error(
+        'INVENTORY_DATA_INVALID: Opening and validity cannot enter through pre-V3 receipt semantics.'
+      );
+    state = cumulativeLotSemantics
+      ? result.state
+      : projectLegacyInventoryLotConstraints(result.state);
   }
   return state;
 }

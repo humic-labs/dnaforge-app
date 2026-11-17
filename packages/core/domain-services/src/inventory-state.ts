@@ -1,3 +1,8 @@
+import {
+  applyInventoryValidityCommand,
+  inventoryValidityUseGuard,
+  emptyInventoryStockValidity,
+} from './inventory-validity';
 import { applyInventoryLotControlCommand, inventoryLotUseGuard } from './inventory-lot-controls';
 import { applyInventoryObservationCommand } from './inventory-observations';
 import {
@@ -58,6 +63,8 @@ import { applyInventoryContentsCommand, inventoryVesselStockAdmission } from './
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
 interface Draft {
+  openingObservations: Record<string, InventoryState['openingObservations'][string]>;
+  validityFacts: Record<string, InventoryState['validityFacts'][string]>;
   lotRecalls: Record<string, InventoryState['lotRecalls'][string]>;
   vesselBindings: InventoryState['vesselBindings'];
   hierarchyBindings: InventoryState['hierarchyBindings'];
@@ -165,10 +172,14 @@ function applyCommand(
   if (configuration !== undefined) return configuration;
   const custody = applyInventoryCustodyCommand(state, command, context);
   if (custody !== undefined) return custody;
+  const validity = applyInventoryValidityCommand(state, command, context);
+  if (validity !== undefined) return validity;
   const lotControl = applyInventoryLotControlCommand(state, command, context);
   if (lotControl !== undefined) return lotControl;
   const lotFailure = inventoryLotUseGuard(state, command);
   if (lotFailure) return lotFailure;
+  const validityFailure = inventoryValidityUseGuard(state, command, context);
+  if (validityFailure) return validityFailure;
   const reservation = applyInventoryReservationCommand(state, command, context);
   if (reservation !== undefined) return reservation;
   if (command.kind === 'fulfill-reservations') {
@@ -183,7 +194,7 @@ function applyCommand(
   if (reserved) return reserved;
   const contents = applyInventoryContentsCommand(state, command, context);
   if (contents !== undefined) return contents;
-  const material = applyInventoryMaterialCommand(state, command);
+  const material = applyInventoryMaterialCommand(state, command, context);
   if (material !== undefined) return material;
   switch (command.kind) {
     case 'create-storage':
@@ -232,6 +243,7 @@ function applyCommand(
       if (capacity) return capacity;
       state.stocks[command.id] = {
         id: command.id,
+        ...emptyInventoryStockValidity(),
         lotConstraints: { knowledge: 'recorded', lotIds: [] },
         source: { kind: 'unattributed', rootStockId: command.id },
         vesselId: command.vesselId,
@@ -392,6 +404,8 @@ export function applyInventoryCommandBatch(
     return failure('CLOCK_REGRESSION', 'The trusted timestamp precedes the inventory clock floor.');
   const draft: Draft = {
     vesselBindings: state.vesselBindings,
+    openingObservations: Object.assign(Object.create(null), state.openingObservations),
+    validityFacts: Object.assign(Object.create(null), state.validityFacts),
     lotRecalls: Object.assign(Object.create(null), state.lotRecalls),
     hierarchyBindings: state.hierarchyBindings,
     origin: state.origin,

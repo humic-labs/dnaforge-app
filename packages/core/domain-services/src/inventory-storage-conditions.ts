@@ -17,7 +17,8 @@ import type {
   InventoryTemperatureInstallationEntry,
   InventoryThermalContext,
 } from './inventory-types';
-import { inventoryRecordIdExists, inventoryEffectiveGeometry } from './inventory-configuration';
+import { inventoryRecordIdExists } from './inventory-identity';
+import { inventoryEffectiveGeometry } from './inventory-configuration';
 import { inventoryEffectiveCustody } from './inventory-custody';
 import {
   compareInventoryTemperatures,

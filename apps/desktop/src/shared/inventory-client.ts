@@ -96,6 +96,8 @@ export interface InventoryChanged {
 }
 
 export interface InventoryAvailabilitySnapshot extends InventoryAvailability {
+  readonly projectId: string;
+  readonly inventoryId: string;
   readonly revision: number;
   readonly asOf: number;
   readonly principal: InventoryPrincipal;

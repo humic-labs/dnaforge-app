@@ -124,7 +124,7 @@ describe('durable native inventory commands', () => {
     expect(first).toMatchObject({
       recordedAt: now,
       context: {
-        version: 2,
+        version: 3,
         principal: { kind: 'local-profile', profileKey },
         authority: { kind: 'local-profile', profileKey },
       },
@@ -132,6 +132,8 @@ describe('durable native inventory commands', () => {
     expect(owner.inspect(scope())?.lastRecordedAt).toBe(now);
     const before = owner.inspect(scope());
     expect(owner.availability(scope())).toMatchObject({
+      projectId: 'inventory-project',
+      inventoryId: scope().inventoryId,
       revision: 1,
       asOf: now,
       principal: { kind: 'local-profile', profileKey },

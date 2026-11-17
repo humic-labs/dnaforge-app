@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import {
   normalizeInventoryAmount,
-  inventoryStockEligibility,
   type InventoryAmountUnit,
   type InventoryCommand,
 } from '@waypoint/domain-services';
@@ -23,7 +22,12 @@ import {
   inventoryReservationOwner,
   type InventoryReservationDialog,
 } from './InventoryReservations';
-import { inventoryAmountUnitLabel, inventoryAmountUnitOptions } from './inventory-view';
+import {
+  inventoryAmountUnitLabel,
+  inventoryAmountUnitOptions,
+  inventoryStockAction,
+  inventoryBlockerLabel,
+} from './inventory-view';
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -63,13 +67,14 @@ export function InventoryReservationForm({
   const [validation, setValidation] = useState<string | null>(null);
   const busy = status.kind === 'submitting';
   const unknownWithdrawal = Boolean(stock && stock.quantity.kind === 'unknown');
-  const lotWithdrawalBlocked = Boolean(
-    stock &&
-    inventoryStockEligibility(data.state, stock.id)?.blockers.some(
-      (blocker) => blocker.code !== 'STOCK_QUARANTINED'
-    )
-  );
-  const editable = inventoryCanEdit(status) && !unknownWithdrawal && !lotWithdrawalBlocked;
+  const admission = stock
+    ? inventoryStockAction(
+        data,
+        stock.id,
+        dialog.kind === 'reserve-quantity' ? 'reserve' : 'withdraw'
+      )
+    : undefined;
+  const editable = inventoryCanEdit(status) && (!stock || admission?.kind === 'allowed');
   const action =
     dialog.kind === 'reservation-action'
       ? data.availability?.reservations[dialog.reservationId]
@@ -227,10 +232,14 @@ export function InventoryReservationForm({
                       Record a measured quantity before allocating or using this stock.
                     </Notice>
                   ) : null}
-                  {lotWithdrawalBlocked ? (
+                  {admission?.kind === 'blocked'
+                    ? admission.blockers.map((blocker, index) => (
+                        <Notice key={index}>{inventoryBlockerLabel(blocker, data.state)}</Notice>
+                      ))
+                    : null}
+                  {!admission ? (
                     <Notice>
-                      Lot assessment or recall prevents allocating or using this stock. Inspect its
-                      lot controls.
+                      Refresh native availability before allocating or using this stock.
                     </Notice>
                   ) : null}
                 </>

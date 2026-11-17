@@ -1,5 +1,6 @@
 import type { InventorySourceReference } from './inventory-configuration-types';
 import type { InventoryQuality, InventoryRecordedPrincipal } from './inventory-types';
+import type { InventoryStockValidity } from './inventory-validity-types';
 
 export interface InventoryLotConstraints {
   readonly knowledge: 'recorded' | 'legacy-partial';
@@ -69,6 +70,7 @@ export type InventoryLotEligibilityBlocker =
     };
 
 export interface InventoryStockEligibility {
+  readonly validity: InventoryStockValidity;
   readonly stockId: string;
   readonly stockQuality: InventoryQuality;
   readonly lotConstraints: InventoryLotConstraints;

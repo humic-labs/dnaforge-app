@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyInventoryCommandBatch } from './inventory-state';
 import {
   createInventoryState,
+  INVENTORY_SCHEMA,
   type InventoryCommand,
   type InventoryState,
 } from './inventory-types';
@@ -50,19 +51,41 @@ function source(): InventoryState {
   ]);
 }
 function legacy(state: InventoryState): unknown {
-  const { lotRecalls: _recalls, ...rest } = state;
+  const {
+    lotRecalls: _recalls,
+    openingObservations: _openingObservations,
+    validityFacts: _validityFacts,
+    ...rest
+  } = state;
   return {
     ...rest,
     schema: 'dnaforge.inventory.v18',
     stocks: Object.fromEntries(
-      Object.entries(state.stocks).map(([id, { lotConstraints: _constraints, ...stock }]) => [
-        id,
-        stock,
-      ])
+      Object.entries(state.stocks).map(
+        ([
+          id,
+          {
+            lotConstraints: _constraints,
+            opening: _opening,
+            validity: _validity,
+            inheritedValidity: _inheritedValidity,
+            ...stock
+          },
+        ]) => [id, stock]
+      )
     ),
     lots: Object.fromEntries(
       Object.entries(state.lots).map(
-        ([id, { controls: _controls, lotConstraints: _constraints, ...lot }]) => [id, lot]
+        ([
+          id,
+          {
+            controls: _controls,
+            lotConstraints: _constraints,
+            validity: _validity,
+            inheritedValidity: _inheritedValidity,
+            ...lot
+          },
+        ]) => [id, lot]
       )
     ),
   };
@@ -75,7 +98,7 @@ describe('lot control state compatibility', () => {
     const old = legacy(state);
     const original = JSON.stringify(old);
     const parsed = parseInventoryState(old);
-    expect(parsed.schema).toBe('dnaforge.inventory.v19');
+    expect(parsed.schema).toBe(INVENTORY_SCHEMA);
     expect(parsed.stocks.stock.lotConstraints).toEqual({
       knowledge: 'legacy-partial',
       lotIds: ['b'],

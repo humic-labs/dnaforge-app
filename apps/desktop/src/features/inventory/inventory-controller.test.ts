@@ -318,6 +318,8 @@ function fixture(empty = false) {
       const current = request.project === other.projectId ? createInventoryState() : state;
       return {
         ...inventoryAvailability(current, principal, 1),
+        projectId: request.project === other.projectId ? other.projectId : project.projectId,
+        inventoryId: request.inventoryId,
         revision: current.revision,
         asOf: 1,
         principal,
@@ -563,6 +565,30 @@ describe('inventory interaction controller', () => {
     expect(f.client.execute).not.toHaveBeenCalled();
     f.controller.dispose();
   });
+
+  it.each(['projectId', 'inventoryId', 'missing-scope'] as const)(
+    'refuses availability with %s scope mismatch at the same revision',
+    async (field) => {
+      const f = fixture();
+      const current = await f.client.availability({
+        project: project.projectId,
+        inventoryId: project.defaultInventoryId,
+      });
+      const invalid =
+        field === 'missing-scope'
+          ? { ...current!, projectId: undefined, inventoryId: undefined }
+          : { ...current!, [field]: 'different-scope' };
+      vi.mocked(f.client.availability).mockResolvedValue(invalid as InventoryAvailabilitySnapshot);
+      await f.controller.initialize();
+      expect(f.controller.getSnapshot().status).toMatchObject({
+        kind: 'refused',
+        code: 'INVENTORY_READ_FAILED',
+      });
+      expect(f.client.inspect).toHaveBeenCalledTimes(3);
+      expect(f.client.execute).not.toHaveBeenCalled();
+      f.controller.dispose();
+    }
+  );
 
   it('keeps an explicit freshness policy within its project and inventory scope', async () => {
     const f = fixture();

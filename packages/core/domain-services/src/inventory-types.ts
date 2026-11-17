@@ -1,4 +1,16 @@
 import type {
+  InventoryOpeningState,
+  InventoryOpeningObservation,
+  InventoryValidityFact,
+  InventoryValidityManagement,
+  InventoryInheritedValidity,
+  InventoryOpeningCommand,
+  InventoryValidityCommand,
+  InventoryValidityBlocker,
+  InventoryStockValidity,
+} from './inventory-validity-types';
+export type * from './inventory-validity-types';
+import type {
   InventoryLotConstraints,
   InventoryLotControls,
   InventoryLotRecall,
@@ -55,7 +67,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v19' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v20' as const;
+export const INVENTORY_LOT_CONTROLS_SCHEMA = 'dnaforge.inventory.v19' as const;
 export const INVENTORY_AMOUNTS_SCHEMA = 'dnaforge.inventory.v18' as const;
 export const INVENTORY_CONTENTS_SCHEMA = 'dnaforge.inventory.v17' as const;
 export const INVENTORY_HIERARCHY_SCHEMA = 'dnaforge.inventory.v16' as const;
@@ -265,6 +278,8 @@ export type InventoryLotOrigin =
     };
 
 export interface InventoryLot {
+  readonly validity: InventoryValidityManagement;
+  readonly inheritedValidity: readonly InventoryInheritedValidity[];
   readonly controls: InventoryLotControls;
   readonly lotConstraints: InventoryLotConstraints;
   readonly id: string;
@@ -274,6 +289,9 @@ export interface InventoryLot {
 }
 
 export interface InventoryStock {
+  readonly opening: InventoryOpeningState;
+  readonly validity: InventoryValidityManagement;
+  readonly inheritedValidity: readonly InventoryInheritedValidity[];
   readonly lotConstraints: InventoryLotConstraints;
   readonly id: string;
   readonly vesselId: string;
@@ -285,6 +303,8 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly openingObservations: Readonly<Record<string, InventoryOpeningObservation>>;
+  readonly validityFacts: Readonly<Record<string, InventoryValidityFact>>;
   readonly lotRecalls: Readonly<Record<string, InventoryLotRecall>>;
   readonly vesselBindings: Readonly<Record<string, InventoryVesselBinding>>;
   readonly hierarchyBindings: Readonly<Record<string, InventoryHierarchyBinding>>;
@@ -424,6 +444,7 @@ export type InventoryReservation = InventoryReservationFacts &
   );
 
 export type InventoryAvailabilityBlocker =
+  | InventoryValidityBlocker
   | InventoryLotEligibilityBlocker
   | { readonly code: 'POSITION_UNAVAILABLE'; readonly item: InventoryPhysicalItem }
   | {
@@ -440,7 +461,19 @@ export type InventoryAvailabilityBlocker =
   | { readonly code: 'EXPIRY_PENDING' }
   | { readonly code: 'ITEM_RESERVED'; readonly reservationIds: readonly string[] };
 
+export type InventoryStockActionAdmission =
+  | { readonly kind: 'allowed' }
+  | {
+      readonly kind: 'blocked';
+      readonly blockers: readonly [InventoryAvailabilityBlocker, ...InventoryAvailabilityBlocker[]];
+    };
+
 export interface InventoryStockAvailability {
+  readonly validity: InventoryStockValidity;
+  readonly actions: {
+    readonly reserve: InventoryStockActionAdmission;
+    readonly withdraw: InventoryStockActionAdmission;
+  };
   readonly stockId: string;
   readonly onHand: InventoryQuantity;
   readonly held: InventoryCanonicalAmount;
@@ -565,6 +598,8 @@ export type InventoryMaterialCommand =
   | (InventoryLegacyDiluteCommand & { readonly mixing: InventoryMixing });
 
 export type InventoryCommand =
+  | InventoryOpeningCommand
+  | InventoryValidityCommand
   | InventoryLotControlCommand
   | InventoryContentsCommand
   | InventoryObservationCommand
@@ -596,7 +631,13 @@ export type InventoryCommand =
     }
   | ({ readonly kind: 'receive-stock'; readonly quantity: InventoryQuantityInput } & Omit<
       InventoryStock,
-      'source' | 'composition' | 'quantity' | 'lotConstraints'
+      | 'source'
+      | 'composition'
+      | 'quantity'
+      | 'lotConstraints'
+      | 'opening'
+      | 'validity'
+      | 'inheritedValidity'
     >)
   | {
       readonly kind: 'move-storage';
@@ -792,7 +833,20 @@ export type InventoryErrorCode =
   | 'LOT_ASSESSMENT_IMPORTED'
   | 'LOT_RECALLED'
   | 'LOT_RECALL_NOT_FOUND'
-  | 'LOT_RECALL_NOT_ACTIVE';
+  | 'LOT_RECALL_NOT_ACTIVE'
+  | 'VALIDITY_UNRESOLVED'
+  | 'MATERIAL_EXPIRED'
+  | 'OPENING_REQUIRED'
+  | 'OPENING_TIME_UNKNOWN'
+  | 'VALIDITY_CHRONOLOGY_CONFLICT'
+  | 'VALIDITY_ASSESSMENT_IMPORTED'
+  | 'OPENING_ALREADY_RECORDED'
+  | 'OPENING_NOT_FOUND'
+  | 'OPENING_STALE_HEAD'
+  | 'OPENING_TIME_CONFLICT'
+  | 'VALIDITY_FACT_NOT_FOUND'
+  | 'VALIDITY_STALE_HEAD'
+  | 'INVALID_VALIDITY_RULE';
 
 export type InventoryTransition =
   | { readonly ok: true; readonly state: InventoryState }
@@ -805,6 +859,8 @@ export type InventoryTransition =
 export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
+    openingObservations: Object.create(null) as Record<string, InventoryOpeningObservation>,
+    validityFacts: Object.create(null) as Record<string, InventoryValidityFact>,
     lotRecalls: Object.create(null) as Record<string, InventoryLotRecall>,
     vesselBindings: Object.create(null) as Record<string, InventoryVesselBinding>,
     hierarchyBindings: Object.create(null) as Record<string, InventoryHierarchyBinding>,

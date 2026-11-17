@@ -143,7 +143,11 @@ export function InventoryStockLotControls({
   stockId: string;
   onInspect(lotId: string): void;
 }) {
-  const eligibility = inventoryStockEligibility(data.state, stockId);
+  const eligibility = inventoryStockEligibility(
+    data.state,
+    stockId,
+    data.availability?.asOf ?? data.storageConditions.asOf
+  );
   if (!eligibility) return null;
   const coverage = {
     unattributed: 'Unattributed stock',

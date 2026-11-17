@@ -1,4 +1,11 @@
 import {
+  runInventoryOpeningJourney,
+  runInventoryOpeningResume,
+  runInventoryOpeningReopen,
+  runInventoryOpeningTimer,
+  runInventoryOpeningTimerReopen,
+} from './journeys/inventory-opening-validity.mjs';
+import {
   runInventoryLotJourney,
   runInventoryLotResume,
   runInventoryLotReopen,
@@ -136,6 +143,11 @@ assert.ok(
     'lots',
     'lots-resume',
     'lots-reopen',
+    'opening',
+    'opening-resume',
+    'opening-timer',
+    'opening-timer-reopen',
+    'opening-reopen',
     'benchling-apply',
     'benchling-apply-reopen',
     'benchling-apply-resume',
@@ -724,6 +736,34 @@ try {
     );
   }
 
+  if (stage === 'opening' || stage === 'opening-resume' || stage === 'opening-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass an exact native v20 fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    receipt.expected = await (
+      stage === 'opening'
+        ? runInventoryOpeningJourney
+        : stage === 'opening-resume'
+          ? runInventoryOpeningResume
+          : runInventoryOpeningReopen
+    )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+    writeFileSync(
+      path.join(out, 'opening-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
+  if (stage === 'opening-timer' || stage === 'opening-timer-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass the exact completed opening or timer fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    receipt.expected = await (
+      stage === 'opening-timer' ? runInventoryOpeningTimer : runInventoryOpeningTimerReopen
+    )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
   if (stage === 'lots' || stage === 'lots-resume' || stage === 'lots-reopen') {
     assert.ok(args.includes('--fixture'), 'Pass an exact current native v19 inventory fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

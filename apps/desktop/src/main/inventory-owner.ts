@@ -471,7 +471,7 @@ export function createNativeInventoryOwner(options: {
         const previous = row ? stateFromRow(row) : createInventoryState();
         const recordedAt = observationTime(previous);
         const context = inventoryReceiptContextSchema.parse({
-          version: 2,
+          version: 3,
           principal: principal(invocation),
           authority,
         });
@@ -1495,13 +1495,15 @@ export function createNativeInventoryOwner(options: {
       input: unknown,
       invocation: NativeInventoryInvocation = {}
     ): InventoryAvailabilitySnapshot | null {
-      const { row } = read(input);
+      const { row, project, request } = read(input);
       if (!row) return null;
       const state = stateFromRow(row);
       const asOf = observationTime(state);
       const caller = principal(invocation);
       return {
         ...inventoryAvailability(state, caller, asOf),
+        projectId: project.projectId,
+        inventoryId: request.inventoryId,
         revision: state.revision,
         asOf,
         principal: caller,

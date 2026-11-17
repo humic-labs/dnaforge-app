@@ -11,7 +11,6 @@ import {
   inventoryVesselContentsProjection,
   inventoryStoragePositions,
   inventoryAmountUnitDefinition,
-  inventoryStockEligibility,
   type InventoryComposition,
   type InventoryContribution,
   type InventoryLot,
@@ -29,6 +28,8 @@ import {
 } from './inventory-controller';
 import { InventoryMaterialForm, isInventoryMaterialDialog } from './InventoryMaterialForm';
 import { InventoryLotControlsForm, InventoryStockLotControls } from './InventoryLotControlsForm';
+import { InventoryOpeningForm, InventoryValidityForm } from './InventoryValidityForms';
+import { InventoryValidityPanel, useInventoryValidityRefresh } from './InventoryValidityPanel';
 import { InventoryContentsForm } from './InventoryContentsForm';
 import { InventoryContentsPanel } from './InventoryContentsPanel';
 import { inventoryContentsLabel } from './inventory-contents-view';
@@ -64,6 +65,7 @@ import {
   historyLabel,
   inventoryConcentrationLabel,
   inventoryAmountLabel,
+  inventoryStockAction,
   inventoryCustodyLabel,
   inventoryOccupant,
   locationPath,
@@ -212,6 +214,7 @@ export function InventoryPanel() {
     controller.getSnapshot
   );
   const data = inventoryData(status);
+  useInventoryValidityRefresh(data ?? null, controller);
   const [selection, setSelection] = useState<InventorySelection>({ kind: 'all' });
   const [drawer, setDrawer] = useState<Drawer>({ kind: 'closed' });
   const [dialog, setDialog] = useState<InventoryDialog>({ kind: 'none' });
@@ -241,11 +244,20 @@ export function InventoryPanel() {
       })
     );
   const selectedStock = state && drawer.kind === 'stock' ? state.stocks[drawer.stockId] : undefined;
-  const selectedEligibility =
-    state && selectedStock ? inventoryStockEligibility(state, selectedStock.id) : null;
-  const lotBlocked = Boolean(
-    selectedEligibility?.blockers.some((blocker) => blocker.code !== 'STOCK_QUARANTINED')
-  );
+  const selectedLotConstraints = selectedStock?.lotConstraints;
+  const selectedValidityRoots = selectedStock
+    ? (data?.availability?.stocks[selectedStock.id]?.validity?.families.map(
+        (family) => family.rootId
+      ) ?? [])
+    : [];
+  const reserveBlocked =
+    !data ||
+    !selectedStock ||
+    inventoryStockAction(data, selectedStock.id, 'reserve')?.kind !== 'allowed';
+  const withdrawBlocked =
+    !data ||
+    !selectedStock ||
+    inventoryStockAction(data, selectedStock.id, 'withdraw')?.kind !== 'allowed';
   const selectedVessel = state && selectedStock ? state.vessels[selectedStock.vesselId] : undefined;
   const selectedItem =
     state && drawer.kind === 'item'
@@ -472,11 +484,17 @@ export function InventoryPanel() {
                         command.id
                       )
                     : false) ||
+              (command.kind === 'record-validity-decision' &&
+                selectedValidityRoots.includes(command.id)) ||
+              (command.kind === 'correct-validity-decision' &&
+                selectedValidityRoots.includes(
+                  state!.validityFacts[command.supersedesId]?.rootId ?? ''
+                )) ||
               ('lotId' in command &&
-                Boolean(selectedEligibility?.lotConstraints.lotIds.includes(command.lotId))) ||
+                Boolean(selectedLotConstraints?.lotIds.includes(command.lotId))) ||
               (command.kind === 'withdraw-lot-recall' &&
                 Boolean(
-                  selectedEligibility?.lotConstraints.lotIds.includes(
+                  selectedLotConstraints?.lotIds.includes(
                     state!.lotRecalls[command.recallId]?.lotId
                   )
                 )) ||
@@ -657,6 +675,9 @@ export function InventoryPanel() {
         </Button>
         <Button disabled={!data} onClick={() => setDialog({ kind: 'lot-controls' })}>
           Lot quality and recalls
+        </Button>
+        <Button disabled={!data} onClick={() => setDialog({ kind: 'validity' })}>
+          Validity decisions
         </Button>
         <Button
           disabled={!editable}
@@ -1270,6 +1291,13 @@ export function InventoryPanel() {
                         onOpenItem={openItem}
                       />
                       <InventoryStockAvailability data={data} stockId={selectedStock.id} />
+                      <InventoryValidityPanel
+                        data={data}
+                        stockId={selectedStock.id}
+                        editable={editable}
+                        controller={controller}
+                        onDialog={setDialog}
+                      />
                       <InventoryStockLotControls
                         data={data}
                         stockId={selectedStock.id}
@@ -1349,9 +1377,7 @@ export function InventoryPanel() {
                         <>
                           <div className="flex flex-wrap gap-2">
                             <Button
-                              disabled={
-                                !editable || lotBlocked || selectedStock.quantity.kind === 'unknown'
-                              }
+                              disabled={!editable || reserveBlocked}
                               onClick={() =>
                                 setDialog({ kind: 'reserve-quantity', stockId: selectedStock.id })
                               }
@@ -1359,7 +1385,7 @@ export function InventoryPanel() {
                               Reserve quantity
                             </Button>
                             <Button
-                              disabled={!editable || lotBlocked}
+                              disabled={!editable}
                               onClick={() =>
                                 setDialog({
                                   kind: 'reserve-item',
@@ -1370,9 +1396,7 @@ export function InventoryPanel() {
                               Reserve item
                             </Button>
                             <Button
-                              disabled={
-                                !editable || lotBlocked || selectedStock.quantity.kind === 'unknown'
-                              }
+                              disabled={!editable || withdrawBlocked}
                               onClick={() =>
                                 setDialog({
                                   kind: 'fulfill-reservation',
@@ -1399,9 +1423,7 @@ export function InventoryPanel() {
                               Assign lot
                             </Button>
                             <Button
-                              disabled={
-                                !editable || lotBlocked || selectedStock.quantity.kind === 'unknown'
-                              }
+                              disabled={!editable || withdrawBlocked}
                               onClick={() =>
                                 setDialog({ kind: 'transfer', stockId: selectedStock.id })
                               }
@@ -1411,7 +1433,7 @@ export function InventoryPanel() {
                             <Button
                               disabled={
                                 !editable ||
-                                lotBlocked ||
+                                withdrawBlocked ||
                                 selectedStock.quantity.kind === 'unknown' ||
                                 inventoryAmountUnitDefinition(selectedStock.quantity.unit)
                                   .dimension !== 'volume'
@@ -1423,7 +1445,7 @@ export function InventoryPanel() {
                             <Button
                               disabled={
                                 !editable ||
-                                lotBlocked ||
+                                withdrawBlocked ||
                                 selectedStock.quantity.kind === 'unknown' ||
                                 inventoryAmountUnitDefinition(selectedStock.quantity.unit)
                                   .dimension !== 'volume'
@@ -1454,7 +1476,7 @@ export function InventoryPanel() {
                               variant="primary"
                               disabled={
                                 !editable ||
-                                lotBlocked ||
+                                withdrawBlocked ||
                                 selectedStock.quality === 'quarantined' ||
                                 selectedStock.quantity.kind === 'unknown' ||
                                 selectedStock.quantity.value === '0'
@@ -1764,6 +1786,24 @@ export function InventoryPanel() {
         ) : dialog.kind === 'custody' ? (
           <InventoryCustodyForm
             key={`${data.project.projectId}:${dialog.item.id}:${dialog.action}`}
+            dialog={dialog}
+            data={data}
+            status={status}
+            controller={controller}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : dialog.kind === 'opening' ? (
+          <InventoryOpeningForm
+            key={`${data.project.projectId}:${dialog.stockId}:${dialog.supersedesId ?? ''}`}
+            dialog={dialog}
+            data={data}
+            status={status}
+            controller={controller}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : dialog.kind === 'validity' ? (
+          <InventoryValidityForm
+            key={`${data.project.projectId}:${dialog.headId ?? JSON.stringify(dialog.owner)}`}
             dialog={dialog}
             data={data}
             status={status}

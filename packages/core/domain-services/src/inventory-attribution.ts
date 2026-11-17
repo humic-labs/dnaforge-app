@@ -43,6 +43,11 @@ function* recordedPrincipals(state: InventoryState): Generator<InventoryRecorded
     if (version.selection.kind === 'retired') yield version.selection.by;
   }
   for (const evidence of Object.values(state.fitEvidence)) yield evidence.by;
+  for (const fact of [
+    ...Object.values(state.openingObservations),
+    ...Object.values(state.validityFacts),
+  ])
+    yield fact.by;
   for (const lot of Object.values(state.lots))
     if (lot.controls.kind === 'managed') yield lot.controls.assessment.by;
   for (const recall of Object.values(state.lotRecalls)) {

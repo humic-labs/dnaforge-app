@@ -90,20 +90,30 @@ export function applyNativeInventoryAdoption(
   request: InventoryApplyImportRequest,
   context: InventoryExecutionContext,
   depth = 0,
-  replay?: { readonly receiptContextVersion: 1 | 2 | undefined }
+  replay?: { readonly receiptContextVersion: 1 | 2 | 3 | undefined }
 ) {
   const archive = parseInventoryArchive(request.sourceText, nativeInventoryArchiveRuntime, {
     depth,
   });
   if (
     replay &&
-    replay.receiptContextVersion !== 2 &&
+    (replay.receiptContextVersion ?? 1) < 2 &&
     Number(
       archive.document.content.source.storedSchema?.match(/^dnaforge\.inventory\.v([1-9]\d*)$/)?.[1]
     ) >= 19
   )
     throw new Error(
       'INVENTORY_DATA_INVALID: A legacy receipt cannot adopt a current lot-constraint archive.'
+    );
+  if (
+    replay &&
+    (replay.receiptContextVersion ?? 1) < 3 &&
+    Number(
+      archive.document.content.source.storedSchema?.match(/^dnaforge\.inventory\.v([1-9]\d*)$/)?.[1]
+    ) >= 20
+  )
+    throw new Error(
+      'INVENTORY_DATA_INVALID: A pre-V3 receipt cannot adopt an opening and validity archive.'
     );
   const preview = inventoryImportPreview(
     archive,

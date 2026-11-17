@@ -11,7 +11,8 @@ import type {
   InventoryLotRecall,
   InventoryStockEligibility,
 } from './inventory-lot-controls-types';
-import { inventoryItemContains } from './inventory-placement';
+import { inventoryStockValidity, inventoryUseStockIds } from './inventory-validity';
+import { inventoryRecordIdExists } from './inventory-identity';
 
 type Failure = { readonly ok: false; readonly code: InventoryErrorCode; readonly message: string };
 const refuse = (code: InventoryErrorCode, message: string): Failure => ({
@@ -105,11 +106,15 @@ export function projectLegacyInventoryLotConstraints(state: InventoryState): Inv
   return { ...state, lots, stocks };
 }
 
-type EligibilityState = Pick<InventoryState, 'stocks' | 'lots' | 'lotRecalls'>;
+type EligibilityState = Pick<
+  InventoryState,
+  'stocks' | 'lots' | 'lotRecalls' | 'openingObservations' | 'validityFacts' | 'lastRecordedAt'
+>;
 
 export function inventoryStockEligibility(
   state: EligibilityState,
-  stockId: string
+  stockId: string,
+  asOf: number
 ): InventoryStockEligibility | null {
   const stock = Object.hasOwn(state.stocks, stockId) ? state.stocks[stockId] : undefined;
   if (!stock) return null;
@@ -139,6 +144,7 @@ export function inventoryStockEligibility(
     }
   }
   return {
+    validity: inventoryStockValidity(state, stockId, asOf)!,
     stockId,
     stockQuality: stock.quality,
     lotConstraints: structuredClone(stock.lotConstraints),
@@ -160,38 +166,9 @@ export function inventoryLotUseGuard(
   state: EligibilityState & Pick<InventoryState, 'storage' | 'vessels'>,
   command: InventoryCommand
 ): Failure | null {
-  let stockIds: readonly string[];
-  switch (command.kind) {
-    case 'consume':
-    case 'reserve-quantity':
-      stockIds = [command.stockId];
-      break;
-    case 'transfer':
-      stockIds = [
-        command.sourceStockId,
-        ...(command.destination.kind === 'existing-stock' ? [command.destination.stockId] : []),
-      ];
-      break;
-    case 'pool':
-      stockIds = command.inputs.map((input) => input.stockId);
-      break;
-    case 'dilute':
-      stockIds = [command.sample.stockId, command.diluent.stockId];
-      break;
-    case 'reserve-item':
-      stockIds = Object.values(state.stocks)
-        .filter((stock) =>
-          inventoryItemContains(state, command.item, { kind: 'vessel', id: stock.vesselId })
-        )
-        .map((stock) => stock.id);
-      break;
-    case 'fulfill-reservations':
-      return inventoryLotUseGuard(state, command.withdrawal);
-    default:
-      return null;
-  }
+  const { stockIds } = inventoryUseStockIds(state, command);
   for (const id of new Set(stockIds)) {
-    const blocker = inventoryStockEligibility(state, id)?.blockers.find(
+    const blocker = inventoryStockEligibility(state, id, state.lastRecordedAt)?.blockers.find(
       (entry) => entry.code !== 'STOCK_QUARANTINED'
     );
     if (blocker)
@@ -214,6 +191,8 @@ type IdentityState = Pick<
   | 'fitEvidence'
   | 'itemCodes'
   | 'temperatureClaims'
+  | 'openingObservations'
+  | 'validityFacts'
 >;
 export interface InventoryLotControlDraft extends IdentityState {
   readonly lots: Record<string, InventoryLot>;
@@ -300,21 +279,7 @@ export function applyInventoryLotControlCommand(
     };
     return null;
   }
-  if (
-    [
-      state.storage,
-      state.vessels,
-      state.stocks,
-      state.lots,
-      state.reservations,
-      state.typeVersions,
-      state.recipeVersions,
-      state.fitEvidence,
-      state.itemCodes,
-      state.temperatureClaims,
-      state.lotRecalls,
-    ].some((rows) => Object.hasOwn(rows, command.id))
-  )
+  if (inventoryRecordIdExists(state, command.id))
     return refuse('ID_ALREADY_EXISTS', 'That inventory identifier already exists.');
   if (command.observedAt !== null && command.observedAt > context.at)
     return refuse(

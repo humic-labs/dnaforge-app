@@ -2,6 +2,7 @@ import type {
   InventoryCommand,
   InventoryContribution,
   InventoryErrorCode,
+  InventoryExecutionContext,
   InventoryLot,
   InventoryQuantity,
   InventoryReservation,
@@ -35,6 +36,15 @@ import {
 } from './inventory-amount';
 import { inventoryVesselStockAdmission } from './inventory-contents';
 import { inventoryLotConstraints, mergeInventoryLotConstraints } from './inventory-lot-controls';
+import { inventoryRecordIdExists } from './inventory-identity';
+import {
+  bindInventoryInheritedValidity,
+  emptyInventoryLotValidity,
+  emptyInventoryStockValidity,
+  inventoryStockValidityInheritance,
+  mergeInventoryInheritedValidity,
+} from './inventory-validity';
+import type { InventoryInheritedValidity } from './inventory-validity-types';
 
 export interface InventoryMaterialDraft {
   readonly temperatureClaims: InventoryState['temperatureClaims'];
@@ -45,6 +55,8 @@ export interface InventoryMaterialDraft {
   readonly stocks: Record<string, InventoryStock>;
   readonly lots: Record<string, InventoryLot>;
   readonly lotRecalls: InventoryState['lotRecalls'];
+  readonly openingObservations: InventoryState['openingObservations'];
+  readonly validityFacts: InventoryState['validityFacts'];
   readonly vessels: Record<string, InventoryVessel>;
   readonly storage: InventoryState['storage'];
   readonly reservations: Readonly<Record<string, InventoryReservation>>;
@@ -120,20 +132,16 @@ export function inventoryWithdrawalResult(
   return { quantity: { kind: 'known', ...result.quantity } };
 }
 
-function hasId(state: InventoryMaterialDraft, id: string): boolean {
-  return [
-    state.stocks,
-    state.lots,
-    state.lotRecalls,
-    state.vessels,
-    state.storage,
-    state.reservations,
-    state.typeVersions,
-    state.recipeVersions,
-    state.fitEvidence,
-    state.itemCodes,
-    state.temperatureClaims,
-  ].some((rows) => Object.hasOwn(rows, id));
+function physicalValidity(
+  refs: readonly InventoryInheritedValidity[],
+  context: InventoryExecutionContext | undefined
+): readonly InventoryInheritedValidity[] | Refusal {
+  if (refs.length && !context)
+    return refuse(
+      'CONTEXT_REQUIRED',
+      'Inherited validity requires trusted physical recording time.'
+    );
+  return context ? bindInventoryInheritedValidity(refs, context.at) : [];
 }
 
 function sameSource(first: InventoryStockSource, second: InventoryStockSource): boolean {
@@ -190,13 +198,14 @@ export function inventoryMixingDimensionFailure(
 
 export function applyInventoryMaterialCommand(
   state: InventoryMaterialDraft,
-  command: InventoryCommand
+  command: InventoryCommand,
+  context?: InventoryExecutionContext
 ): Refusal | null | undefined {
   const mixingFailure = inventoryMixingDimensionFailure(state, command);
   if (mixingFailure) return mixingFailure;
   switch (command.kind) {
     case 'create-lot': {
-      if (hasId(state, command.id))
+      if (inventoryRecordIdExists(state, command.id))
         return refuse('ID_ALREADY_EXISTS', 'That inventory identifier already exists.');
       let origin: InventoryLot['origin'];
       if (command.origin.kind === 'received') origin = { ...command.origin };
@@ -211,6 +220,7 @@ export function applyInventoryMaterialCommand(
         origin = { kind: 'prepared', inputs, method: command.origin.method };
       }
       state.lots[command.id] = {
+        ...emptyInventoryLotValidity(),
         id: command.id,
         materialId: command.materialId,
         name: command.name,
@@ -222,11 +232,18 @@ export function applyInventoryMaterialCommand(
             ? command.origin.sourceStockIds.map((id) => state.stocks[id].lotConstraints)
             : [])
         ),
+        inheritedValidity: mergeInventoryInheritedValidity(
+          ...(command.origin.kind === 'prepared'
+            ? command.origin.sourceStockIds.map((id) =>
+                inventoryStockValidityInheritance(state.stocks[id], null)
+              )
+            : [])
+        ),
       };
       return null;
     }
     case 'receive-lot-stock': {
-      if (hasId(state, command.id))
+      if (inventoryRecordIdExists(state, command.id))
         return refuse('ID_ALREADY_EXISTS', 'That inventory identifier already exists.');
       const lot = state.lots[command.lotId];
       if (!lot) return refuse('LOT_NOT_FOUND', 'The receiving lot does not exist.');
@@ -235,7 +252,11 @@ export function applyInventoryMaterialCommand(
       const quantity = normalizeInventoryQuantity(command.quantity);
       const invalid = inventoryCapacityFailure(vessel, quantity);
       if (invalid) return invalid;
+      const inheritedValidity = physicalValidity(lot.inheritedValidity, context);
+      if ('ok' in inheritedValidity) return inheritedValidity;
       state.stocks[command.id] = {
+        ...emptyInventoryStockValidity(),
+        inheritedValidity,
         id: command.id,
         vesselId: command.vesselId,
         materialId: lot.materialId,
@@ -279,10 +300,16 @@ export function applyInventoryMaterialCommand(
           'INCOMPATIBLE_PROVENANCE',
           'The stock and lot must identify the same material.'
         );
+      const inheritedValidity = physicalValidity(
+        mergeInventoryInheritedValidity(stock.inheritedValidity, lot.inheritedValidity),
+        context
+      );
+      if ('ok' in inheritedValidity) return inheritedValidity;
       state.stocks[stock.id] = {
         ...stock,
         source: { kind: 'lot', lotId: lot.id },
         lotConstraints: mergeInventoryLotConstraints(stock.lotConstraints, lot.lotConstraints),
+        inheritedValidity,
       };
       return null;
     }
@@ -315,13 +342,20 @@ export function applyInventoryMaterialCommand(
       });
       if ('ok' in debit) return debit;
       const source = state.stocks[command.sourceStockId];
+      const incomingValidity = physicalValidity(
+        inventoryStockValidityInheritance(source, null),
+        context
+      );
+      if ('ok' in incomingValidity) return incomingValidity;
       let destination: InventoryStock;
       if (command.destination.kind === 'new-stock') {
-        if (hasId(state, command.destination.stockId))
+        if (inventoryRecordIdExists(state, command.destination.stockId))
           return refuse('ID_ALREADY_EXISTS', 'The destination stock identifier already exists.');
         const vessel = emptyVessel(state, command.destination.vesselId);
         if ('ok' in vessel) return vessel;
         destination = {
+          ...emptyInventoryStockValidity(),
+          inheritedValidity: incomingValidity,
           id: command.destination.stockId,
           vesselId: vessel.id,
           materialId: source.materialId,
@@ -365,8 +399,14 @@ export function applyInventoryMaterialCommand(
             'MIXING_REQUIRES_VOLUME',
             'Homogeneous mixing requires volume-based source and destination stocks.'
           );
+        const existingValidity = physicalValidity(
+          inventoryStockValidityInheritance(stock, null),
+          context
+        );
+        if ('ok' in existingValidity) return existingValidity;
         destination = {
           ...stock,
+          inheritedValidity: mergeInventoryInheritedValidity(existingValidity, incomingValidity),
           lotConstraints: mergeInventoryLotConstraints(stock.lotConstraints, source.lotConstraints),
           composition:
             stock.quantity.unit !== 'uL'
@@ -407,8 +447,8 @@ export function applyInventoryMaterialCommand(
     case 'dilute': {
       if (
         command.stockId === command.lotId ||
-        hasId(state, command.stockId) ||
-        hasId(state, command.lotId)
+        inventoryRecordIdExists(state, command.stockId) ||
+        inventoryRecordIdExists(state, command.lotId)
       )
         return refuse(
           'ID_ALREADY_EXISTS',
@@ -443,12 +483,23 @@ export function applyInventoryMaterialCommand(
         contributions,
         'mixing' in command ? command.mixing : 'unknown'
       );
+      const inheritedValidity = physicalValidity(
+        mergeInventoryInheritedValidity(
+          ...inputs.map((input) =>
+            inventoryStockValidityInheritance(state.stocks[input.stockId], null)
+          )
+        ),
+        context
+      );
+      if ('ok' in inheritedValidity) return inheritedValidity;
       const origin: InventoryLot['origin'] =
         command.kind === 'pool'
           ? { kind: 'pooled', inputs: contributions }
           : { kind: 'diluted', sample: contributions[0], diluent: contributions[1] };
       for (const [id, quantity] of remaining) state.stocks[id] = { ...state.stocks[id], quantity };
       state.lots[command.lotId] = {
+        ...emptyInventoryLotValidity(),
+        inheritedValidity,
         id: command.lotId,
         materialId: command.materialId,
         name: command.name,
@@ -460,6 +511,8 @@ export function applyInventoryMaterialCommand(
         ),
       };
       state.stocks[command.stockId] = {
+        ...emptyInventoryStockValidity(),
+        inheritedValidity,
         id: command.stockId,
         vesselId: vessel.id,
         materialId: command.materialId,

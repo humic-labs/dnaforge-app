@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 're
 import {
   inventoryVesselContentsProjection,
   inventoryAmountUnitDefinition,
-  inventoryStockEligibility,
   normalizeInventoryAmount,
   type InventoryAmountUnit,
   type InventoryCommand,
@@ -25,6 +24,8 @@ import {
   inventoryAmountLabel,
   inventoryAmountUnitLabel,
   inventoryAmountUnitOptions,
+  inventoryStockAction,
+  inventoryBlockerLabel,
 } from './inventory-view';
 import {
   InventoryReservationClaims,
@@ -119,16 +120,10 @@ export function InventoryMaterialForm({
   const busy = status.kind === 'submitting';
   const volumeSource =
     source && inventoryAmountUnitDefinition(source.quantity.unit).dimension === 'volume';
-  const lotBlockers = source
-    ? (inventoryStockEligibility(state, source.id)?.blockers.filter(
-        (blocker) => blocker.code !== 'STOCK_QUARANTINED'
-      ) ?? [])
-    : [];
+  const withdrawal = source ? inventoryStockAction(data, source.id, 'withdraw') : undefined;
   const withdrawalBlocked =
     (dialog.kind === 'transfer' || dialog.kind === 'pool' || dialog.kind === 'dilute') &&
-    (source?.quantity.kind !== 'known' ||
-      lotBlockers.length > 0 ||
-      (dialog.kind !== 'transfer' && !volumeSource));
+    (withdrawal?.kind !== 'allowed' || (dialog.kind !== 'transfer' && !volumeSource));
   const editable =
     !withdrawalBlocked &&
     !data.project.pinned &&
@@ -141,7 +136,7 @@ export function InventoryMaterialForm({
       stock.id !== source?.id &&
       state.vessels[stock.vesselId].lifecycle === 'active' &&
       stock.quantity.kind === 'known' &&
-      !inventoryStockEligibility(state, stock.id)?.blockers.length &&
+      inventoryStockAction(data, stock.id, 'withdraw')?.kind === 'allowed' &&
       inventoryAmountUnitDefinition(stock.quantity.unit).dimension ===
         (dialog.kind === 'transfer' && source
           ? inventoryAmountUnitDefinition(source.quantity.unit).dimension
@@ -723,11 +718,16 @@ export function InventoryMaterialForm({
                     <Notice>
                       {source?.quantity.kind === 'unknown'
                         ? 'Record a measured quantity before withdrawing this stock.'
-                        : lotBlockers.length
-                          ? 'Lot assessment or recall prevents withdrawing this stock. Inspect its lot controls.'
+                        : withdrawal?.kind !== 'allowed'
+                          ? 'Native availability prevents this withdrawal. Review the recorded blockers.'
                           : 'Pooling and dilution require stock measured by volume.'}
                     </Notice>
                   ) : null}
+                  {withdrawal?.kind === 'blocked'
+                    ? withdrawal.blockers.map((blocker, index) => (
+                        <Notice key={index}>{inventoryBlockerLabel(blocker, state)}</Notice>
+                      ))
+                    : null}
                   <InventoryReservationClaims
                     data={data}
                     stockIds={[

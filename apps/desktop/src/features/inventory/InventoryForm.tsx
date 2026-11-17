@@ -1,5 +1,6 @@
 import type { InventoryContentsDialog } from './InventoryContentsForm';
 import type { InventoryLotControlsDialog } from './InventoryLotControlsForm';
+import type { InventoryValidityDialog } from './InventoryValidityForms';
 import type { InventoryMaterialDialog } from './InventoryMaterialForm';
 import type { InventoryCompositionDialog } from './InventoryCompositionForm';
 import type { InventoryReservationDialog } from './InventoryReservations';
@@ -13,7 +14,6 @@ import {
   inventoryStoragePositions,
   inventoryWellId,
   normalizeInventoryAmount,
-  inventoryStockEligibility,
   type InventoryCommand,
   type InventoryLocatedPlacement,
   type InventoryLayout,
@@ -49,6 +49,8 @@ import {
   locationPath,
   vesselLocation,
   inventoryAmountUnitOptions,
+  inventoryStockAction,
+  inventoryBlockerLabel,
   type InventoryDialog,
 } from './inventory-view';
 
@@ -56,6 +58,7 @@ type OpenDialog = Exclude<
   InventoryDialog,
   | InventoryContentsDialog
   | InventoryLotControlsDialog
+  | InventoryValidityDialog
   | InventoryMaterialDialog
   | InventoryCompositionDialog
   | InventoryReservationDialog
@@ -153,15 +156,9 @@ export function InventoryForm({
   const [materials, setMaterials] = useState<Materials>({ kind: 'loading' });
   const [validation, setValidation] = useState<string | null>(null);
   const unknownWithdrawal = dialog.kind === 'use' && stock?.quantity.kind === 'unknown';
-  const lotWithdrawalBlocked =
-    dialog.kind === 'use' &&
-    Boolean(
-      stock &&
-      inventoryStockEligibility(state, stock.id)?.blockers.some(
-        (blocker) => blocker.code !== 'STOCK_QUARANTINED'
-      )
-    );
-  const canSubmit = inventoryCanEdit(status) && !unknownWithdrawal && !lotWithdrawalBlocked;
+  const withdrawal = stock ? inventoryStockAction(data, stock.id, 'withdraw') : undefined;
+  const canSubmit =
+    inventoryCanEdit(status) && (dialog.kind !== 'use' || withdrawal?.kind === 'allowed');
   const selectedStorage = state.storage[storageId];
   const fixedWell = dialog.kind === 'receive' && selectedStorage?.layout.kind === 'fixed-well';
   const selectedContainer = state.vessels[containerId];
@@ -535,10 +532,13 @@ export function InventoryForm({
         {unknownWithdrawal ? (
           <Notice>Record a measured quantity before using this stock.</Notice>
         ) : null}
-        {lotWithdrawalBlocked ? (
-          <Notice>
-            Lot assessment or recall prevents using this stock. Inspect its lot controls.
-          </Notice>
+        {dialog.kind === 'use' && withdrawal?.kind === 'blocked'
+          ? withdrawal.blockers.map((blocker, index) => (
+              <Notice key={index}>{inventoryBlockerLabel(blocker, state)}</Notice>
+            ))
+          : null}
+        {dialog.kind === 'use' && !withdrawal ? (
+          <Notice>Refresh native availability before using this stock.</Notice>
         ) : null}
       </>
     ) : null;

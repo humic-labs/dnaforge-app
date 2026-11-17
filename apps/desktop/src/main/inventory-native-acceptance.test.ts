@@ -621,7 +621,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       revision: 1,
       actor: 'agent:synthetic-inventory-writer',
       context: {
-        version: 2,
+        version: 3,
         principal: { kind: 'agent', identityId: 'synthetic-inventory-writer' },
         authority: { kind: 'local-profile', profileKey },
       },
@@ -929,7 +929,7 @@ it('preserves inventory through real native HTTP, lost acknowledgements, restart
       revision: 4,
       recordedAt: deadline,
       context: {
-        version: 2,
+        version: 3,
         principal: { kind: 'local-profile', profileKey },
         authority: { kind: 'local-profile', profileKey },
       },

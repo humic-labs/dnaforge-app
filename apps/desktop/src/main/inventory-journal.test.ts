@@ -48,7 +48,7 @@ const associate = (lotId: string): InventoryCommand => ({
 function entry(
   index: number,
   commands: readonly InventoryCommand[],
-  version: 1 | 2 | undefined
+  version: 1 | 2 | 3 | undefined
 ): NativeInventoryHistoryEntry {
   const request = {
     project: 'project',
@@ -99,19 +99,61 @@ function replay(entries: readonly NativeInventoryHistoryEntry[]): InventoryState
   );
 }
 function v18Snapshot(state: InventoryState): unknown {
-  const { lotRecalls: _recalls, ...facts } = state;
+  const {
+    lotRecalls: _recalls,
+    openingObservations: _openings,
+    validityFacts: _validityFacts,
+    ...facts
+  } = state;
   return {
     ...facts,
     schema: 'dnaforge.inventory.v18',
     lots: Object.fromEntries(
       Object.entries(state.lots).map(([id, lot]) => {
-        const { controls: _controls, lotConstraints: _constraints, ...old } = lot;
+        const {
+          controls: _controls,
+          lotConstraints: _constraints,
+          validity: _validity,
+          inheritedValidity: _inherited,
+          ...old
+        } = lot;
         return [id, old];
       })
     ),
     stocks: Object.fromEntries(
       Object.entries(state.stocks).map(([id, stock]) => {
-        const { lotConstraints: _constraints, ...old } = stock;
+        const {
+          lotConstraints: _constraints,
+          opening: _opening,
+          validity: _validity,
+          inheritedValidity: _inherited,
+          ...old
+        } = stock;
+        return [id, old];
+      })
+    ),
+  };
+}
+
+function v19Snapshot(state: InventoryState): unknown {
+  const { openingObservations: _openings, validityFacts: _validityFacts, ...facts } = state;
+  return {
+    ...facts,
+    schema: 'dnaforge.inventory.v19',
+    lots: Object.fromEntries(
+      Object.entries(state.lots).map(([id, lot]) => {
+        const { validity: _validity, inheritedValidity: _inherited, ...old } = lot;
+        return [id, old];
+      })
+    ),
+    stocks: Object.fromEntries(
+      Object.entries(state.stocks).map(([id, stock]) => {
+        const {
+          opening: _opening,
+          validity: _validity,
+          inheritedValidity: _inherited,
+          ...old
+        } = stock;
         return [id, old];
       })
     ),
@@ -119,15 +161,15 @@ function v18Snapshot(state: InventoryState): unknown {
 }
 
 describe('versioned native inventory replay', () => {
-  it('preserves missing and V1 receipt context exactly while admitting explicit V2', () => {
-    for (const version of [undefined, 1, 2] as const) {
+  it('preserves missing and V1/V2 receipt context exactly while admitting explicit V3', () => {
+    for (const version of [undefined, 1, 2, 3] as const) {
       const receipt = entry(0, received, version).receipt;
       expect(inventoryReceiptSchema.parse(receipt)).toEqual(receipt);
     }
     expect(() =>
       inventoryReceiptSchema.parse({
         ...entry(0, received, 2).receipt,
-        context: { version: 3, principal, authority },
+        context: { version: 4, principal, authority },
       })
     ).toThrow();
   });
@@ -152,6 +194,9 @@ describe('versioned native inventory replay', () => {
     const history = [entry(0, received, 2), entry(1, [associate('lot-b')], 2)];
     const state = replay(history);
     expect(state).toEqual(history.reduce(apply, createInventoryState()));
+    expect(state).toEqual(
+      parseInventoryState(v19Snapshot(history.reduce(apply, createInventoryState())))
+    );
     expect(state.stocks.stock.lotConstraints).toEqual({
       knowledge: 'recorded',
       lotIds: ['lot-a', 'lot-b'],
@@ -195,8 +240,9 @@ describe('versioned native inventory replay', () => {
 
 function archiveAdoption(
   managed: boolean,
-  version: 1 | 2 | undefined,
-  legacySnapshot = !managed
+  version: 1 | 2 | 3 | undefined,
+  legacySnapshot = !managed,
+  sourceSchema: 18 | 19 | 20 = legacySnapshot ? 18 : 19
 ): NativeInventoryHistoryEntry {
   const commands: readonly InventoryCommand[] = managed
     ? [
@@ -210,14 +256,20 @@ function archiveAdoption(
         },
       ]
     : received;
-  const sourceEntry = entry(0, commands, legacySnapshot ? 1 : 2);
+  const sourceEntry = entry(0, commands, sourceSchema === 18 ? 1 : sourceSchema === 19 ? 2 : 3);
   const sourceState = apply(createInventoryState(), sourceEntry);
   const artifact = nativeInventoryArchive({
     projectId: sourceEntry.request.project,
     inventoryId: sourceEntry.request.inventoryId,
     state: {
       revision: sourceState.revision,
-      json: JSON.stringify(legacySnapshot ? v18Snapshot(sourceState) : sourceState),
+      json: JSON.stringify(
+        sourceSchema === 18
+          ? v18Snapshot(sourceState)
+          : sourceSchema === 19
+            ? v19Snapshot(sourceState)
+            : sourceState
+      ),
     },
     history: [
       {
@@ -300,6 +352,63 @@ describe('archive adoption at the receipt semantics boundary', () => {
       kind: 'managed',
       assessment: { value: 'released', by: { kind: 'imported' } },
     });
+    expect(state.stocks.stock.lotConstraints).toEqual({ knowledge: 'recorded', lotIds: ['lot-a'] });
+  });
+});
+
+describe('opening and validity receipt semantics', () => {
+  const opening: InventoryCommand = {
+    kind: 'record-stock-opening',
+    id: 'opening',
+    stockId: 'stock',
+    value: 'opened',
+    observedAt: 1,
+    source: null,
+    reason: 'Actual opening observation',
+  };
+  it.each([undefined, 1, 2] as const)(
+    'refuses opening facts under pre-V3 %s semantics',
+    (version) => {
+      expect(() => replay([entry(0, received, version), entry(1, [opening], version)])).toThrow(
+        'Opening and validity require V3 receipt semantics'
+      );
+    }
+  );
+  it.each([undefined, 1, 2] as const)(
+    'refuses receipt semantics regression from V3 to %s',
+    (version) => {
+      expect(() =>
+        replay([entry(0, received, 3), entry(1, [associate('lot-b')], version)])
+      ).toThrow('cannot return to the legacy version');
+    }
+  );
+  it('preserves cumulative V2 lot owners when V3 begins recording opening', () => {
+    const prefix = [entry(0, received, 2), entry(1, [associate('lot-b')], 2)];
+    const baseline = parseInventoryState(v19Snapshot(prefix.reduce(apply, createInventoryState())));
+    const next = entry(2, [opening], 3);
+    const state = replay([...prefix, next]);
+    expect(state).toEqual(apply(baseline, next));
+    expect(state.stocks.stock.lotConstraints).toEqual({
+      knowledge: 'recorded',
+      lotIds: ['lot-a', 'lot-b'],
+    });
+    expect(state.stocks.stock.opening).toEqual({
+      kind: 'opened-observed',
+      observationId: 'opening',
+    });
+  });
+  it('refuses a V2 adoption of a current archive even when its validity remains untracked', () => {
+    expect(() => replayNativeInventoryJournal([archiveAdoption(true, 2, false, 20)])).toThrow(
+      'A pre-V3 receipt cannot adopt an opening and validity archive'
+    );
+  });
+  it('permits explicit V3 adoption of a current archive', () => {
+    const state = replayNativeInventoryJournal([archiveAdoption(true, 3, false, 20)]);
+    expect(state.lots['lot-a'].controls).toMatchObject({
+      kind: 'managed',
+      assessment: { value: 'released', by: { kind: 'imported' } },
+    });
+    expect(state.stocks.stock.opening).toEqual({ kind: 'unobserved', observationId: null });
     expect(state.stocks.stock.lotConstraints).toEqual({ knowledge: 'recorded', lotIds: ['lot-a'] });
   });
 });

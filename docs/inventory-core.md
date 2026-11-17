@@ -28,7 +28,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v19. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v20. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -232,13 +232,97 @@ initialize legacy lot controls and an empty recall map, without inventing erased
 associations, events or dates. Reading never persists this upcast.
 
 Historical transition semantics are explicit in the existing receipt context:
-missing or version 1 context forms a legacy prefix; new receipts use version 2.
-After each legacy prefix entry only, replay applies the same owner projection as
-legacy snapshot upcast. Version 2 uses cumulative owner propagation. A version 1
-or missing-context entry after version 2 refuses, as do new lot controls in an
-old-context entry. Native and nested archive history use the same replay
-adapter. Original requests, receipt shapes and digests remain unchanged; parsing
-never inserts a new context version into historical receipts.
+missing or version 1 context forms a legacy prefix; version 2 introduces
+cumulative lot restrictions. After each legacy prefix entry only, replay applies
+the same owner projection as legacy snapshot upcast. Version 2 uses cumulative
+owner propagation. A version 1 or missing-context entry after version 2 refuses,
+as do new lot controls in an old-context entry. Native and nested archive
+history use the same replay adapter. Original requests, receipt shapes and
+digests remain unchanged; parsing never inserts a new context version into
+historical receipts.
+
+## Opening and expiry
+
+Opening describes the first opening of a stock's material-container episode.
+Opening an empty vessel, freezer or plate carrier does not open its contents.
+`record-stock-opening` records an initial sealed/opened observation or the first
+opening after a sealed observation. `correct-stock-opening` names the current
+observation and either corrects the first-opening time or explicitly admits that
+opening status is unobserved. Unknown status differs from
+opened-at-unknown-time. Every prior fact remains, and the current stock points
+to the exact chain head. Ordinary resealing or resetting is refused.
+
+```mermaid
+stateDiagram-v2
+    Unobserved --> SealedObserved: initial observation
+    Unobserved --> OpenedObserved: first opening, time known or unknown
+    SealedObserved --> OpenedObserved: first opening
+    OpenedObserved --> OpenedObserved: named correction
+    OpenedObserved --> CorrectedUnobserved: admit unreliable observation
+    SealedObserved --> CorrectedUnobserved: admit unreliable observation
+    CorrectedUnobserved --> OpenedObserved: record actual opening
+```
+
+`record-validity-decision` explicitly starts tracking with an initial rule, or
+adds an independent family. `correct-validity-decision` names the exact current
+head and preserves its root and owner. Families have one root, one chain and one
+current head; missing predecessors, forks, cycles and owner changes refuse.
+Rules are unresolved, not-required, an explicit absolute cutoff, or an exact
+elapsed limit after the original stock's opening. Lot-wide after-opening rules
+refuse; each actual stock binds its own original opening owner.
+
+Printed source text and precision stay separate from the chosen interpretation.
+A printed month/date is not an instant; no UTC midnight, end-of-month, fixed
+month/year length or opening time is inferred. Elapsed durations are positive
+safe-integer milliseconds. Unsupported or overflowing interpretation stays
+unresolved. A not-required decision affects only its own family and cannot
+cancel another owner's restriction.
+
+All source-stock family IDs copy when material is derived, including unresolved,
+absolute and not-required families. Physical copies retain the earliest native
+derivation bound regardless of the family's current rule. A later correction can
+therefore change interpretation without inventing evidence for a later opening.
+Prepared-lot provenance copies refs; actual output receipt binds its physical
+time. Existing destinations retain their own families and incoming families even
+at known zero. Later unrelated parent families leave earlier siblings unchanged.
+Lot-wide absolute cutoffs follow retained lot owners.
+
+A corrected source opening later than an already-recorded derivation remains
+visible evidence and yields a chronology conflict for affected descendants; it
+does not extend their usable life. A destination's own opening cannot restart an
+inherited rule. Corrected-unobserved retains the same references and bounds.
+
+The shared projection uses native `asOf`, reports every family/head/original
+opening owner, the earliest effective deadline and `nextBoundaryAt`. At exactly
+the cutoff it is expired. Availability exposes tagged `.actions.reserve` and
+`.actions.withdraw` with all applicable blockers; `.blockers` retains withdrawal
+blockers for compatibility. Explicitly observed sealed stock with an applicable
+relative rule can reserve while withdrawal requires opening. Opening and use can
+commit in one batch. Unknown opening/time, expiration and chronology conflicts
+block both. Without an opening-dependent policy, opening observations do not
+create an arbitrary use gate.
+
+Views consume the native admissions. A timer requests a fresh native observation
+at the next boundary; no renderer clock, cron or stored expired flag owns
+eligibility. Requested quantities, reservation claims, custody, quality and
+recalls are still checked independently on mutation. Expired material remains
+physically on hand and can be measured, moved, documented or disposed.
+
+Imported positive interpretation requires an explicit local reassessment of that
+family. Restrictive and unresolved facts remain blocking. Reassessment cannot
+manufacture a local opening or erase a different inherited family.
+Legacy-untracked or mixed coverage is not proof of unexpired material; a current
+projection describes current recorded rules.
+
+v1–v19 snapshots gain unobserved opening with a null head, untracked validity,
+empty inherited refs and empty opening/validity fact maps without invented
+actors, dates, receipt changes or writes. v19 lot controls, recalls and
+cumulative lot restrictions remain exact. New native receipts use context
+version 3. Version 2 prefix replay preserves cumulative lot restrictions and
+initializes only the new opening/validity fields. Version 1/missing retains its
+existing legacy lot projection. Context versions cannot regress; new temporal
+commands or facts in older contexts and too-new adopted source schemas refuse.
+Replay uses the saved native observation time, never today's wall clock.
 
 ## Physical custody and observations
 

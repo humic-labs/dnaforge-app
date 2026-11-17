@@ -5,6 +5,18 @@ export * from './inventory-hierarchy-types';
 export * from './inventory-vessel-binding-types';
 export * from './inventory-contents-types';
 export * from './inventory-lot-controls-types';
+export * from './inventory-validity-types';
+export {
+  emptyInventoryStockValidity,
+  emptyInventoryLotValidity,
+  inventoryStockValidity,
+  inventoryValidityFamilyHead,
+  applyInventoryValidityCommand,
+  inventoryValidityUseGuard,
+  mergeInventoryInheritedValidity,
+  bindInventoryInheritedValidity,
+  inventoryStockValidityInheritance,
+} from './inventory-validity';
 export {
   inventoryStockEligibility,
   inventoryLotUseGuard,

@@ -1,3 +1,5 @@
+import { inventoryRecordIdExists } from './inventory-identity';
+export { inventoryRecordIdExists } from './inventory-identity';
 import { inventoryCommandWithdrawals } from './inventory-materials';
 import { inventoryReservationDestinationFailure } from './inventory-reservation-placement';
 import type {
@@ -60,37 +62,6 @@ type Failure = Extract<InventoryTransition, { ok: false }>;
 const refuse = (code: Failure['code'], message: string): Failure => ({ ok: false, code, message });
 const record = (state: Pick<InventoryState, 'storage' | 'vessels'>, item: InventoryPhysicalItem) =>
   item.kind === 'storage' ? state.storage[item.id] : state.vessels[item.id];
-export function inventoryRecordIdExists(
-  state: Pick<
-    InventoryState,
-    | 'storage'
-    | 'vessels'
-    | 'stocks'
-    | 'lots'
-    | 'reservations'
-    | 'typeVersions'
-    | 'recipeVersions'
-    | 'fitEvidence'
-    | 'itemCodes'
-    | 'temperatureClaims'
-    | 'lotRecalls'
-  >,
-  id: string
-): boolean {
-  return [
-    state.storage,
-    state.vessels,
-    state.stocks,
-    state.lots,
-    state.reservations,
-    state.typeVersions,
-    state.recipeVersions,
-    state.fitEvidence,
-    state.itemCodes,
-    state.temperatureClaims,
-    state.lotRecalls,
-  ].some((rows) => Object.hasOwn(rows, id));
-}
 export function inventoryEffectiveGeometry(
   state: State,
   item: InventoryPhysicalItem

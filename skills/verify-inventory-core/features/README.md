@@ -67,3 +67,7 @@
 - [Lot assessment and recalls](lot-controls.md): explicit local assessment,
   independent recalls and inherited stock constraints; workflow under
   construction.
+
+- [Opening and validity](opening-validity.md): explicit opening observations,
+  retained rule families and native timed admissions; workflow under
+  construction.

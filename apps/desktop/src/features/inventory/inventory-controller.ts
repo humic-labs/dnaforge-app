@@ -384,7 +384,10 @@ export class InventoryController {
         this.observedRevision.get(scopeKey(request.project, request.inventoryId)) ?? 0;
       if (
         (inspected && !availability) ||
-        (availability && availability.revision !== state.revision) ||
+        (availability &&
+          (availability.revision !== state.revision ||
+            availability.projectId !== request.project ||
+            availability.inventoryId !== request.inventoryId)) ||
         storageConditions.revision !== state.revision ||
         storageConditions.projectId !== request.project ||
         storageConditions.inventoryId !== request.inventoryId ||
