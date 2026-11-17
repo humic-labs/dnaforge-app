@@ -2473,6 +2473,7 @@ describe('registered DevPanel scenario replay', () => {
         }),
       })
     );
+    expect(platformMock.stat).toHaveBeenCalledWith('/profile/Track assets/verified/AGS001841.bw');
     platformMock.stat.mockResolvedValueOnce({
       canonicalPath: '/repo/test-fixtures/indexed/danRer11/pownall-figure-4n/AGS001841.bw',
       size: 2_630,
