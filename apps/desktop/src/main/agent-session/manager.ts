@@ -938,6 +938,11 @@ export class AgentSessionManager {
           durationMs: result.durationMs,
           actionId: request.turnId,
           reasonHint: result.failureReason,
+          ...(terminal === 'cancelled' &&
+          abortController.signal.aborted &&
+          result.userStopAcknowledged
+            ? { userStopAcknowledged: true as const }
+            : {}),
           visibleAssistantText: result.text,
           toolCallCount: observedToolCallIds.size,
           completedWorkspaceToolCount: new Set(workspaceProvenance.completedWorkspaceTools).size,

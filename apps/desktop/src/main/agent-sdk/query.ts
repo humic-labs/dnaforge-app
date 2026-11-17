@@ -98,6 +98,7 @@ export interface QueryResult {
   failureReason?: 'admission_rejected';
   durationMs: number;
   stopState?: 'completed' | 'failed' | 'cancelled' | 'stop_requested';
+  userStopAcknowledged?: true;
   providerConversationId?: string;
 }
 
@@ -1019,6 +1020,7 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
             error: result.error,
             durationMs: Date.now() - start,
             stopState: 'cancelled',
+            ...(result.userStopAcknowledged ? { userStopAcknowledged: true as const } : {}),
             providerConversationId,
           };
         }

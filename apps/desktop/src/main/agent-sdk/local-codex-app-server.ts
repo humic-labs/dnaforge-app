@@ -355,6 +355,7 @@ type TerminalResult =
   | {
       ok: false;
       stopState: Extract<AgentQueryStopState, 'cancelled'>;
+      userStopAcknowledged?: true;
       error?: string;
     }
   | {
@@ -676,7 +677,12 @@ export async function runLocalCodexAppServerTurn(options: {
     const turn = record(params?.turn);
     if (turn?.status === 'completed') finish({ ok: true });
     else if (turn?.status === 'interrupted')
-      finish({ ok: false, error: 'Stop requested.', stopState: 'cancelled' });
+      finish({
+        ok: false,
+        error: 'Stop requested.',
+        stopState: 'cancelled',
+        ...(options.signal.aborted ? { userStopAcknowledged: true as const } : {}),
+      });
     else finish({ ok: false, error: turnFailureMessage(notification.params) });
   });
 
