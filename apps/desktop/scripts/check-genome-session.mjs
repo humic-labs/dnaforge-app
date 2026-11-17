@@ -92,10 +92,11 @@ try {
       timeout: 60000,
     });
     await expect(page.getByTestId('indexed-genome-loading')).toHaveCount(0);
-    assert.ok(
-      await page.getByTestId('indexed-genome-runtime-area').locator('canvas').count(),
-      'The real renderer has a canvas'
-    );
+    const canvas = surface
+      .getByTestId('indexed-genome-runtime-area')
+      .locator('canvas:visible')
+      .first();
+    await expect(canvas, 'The genome renderer displays its canvas').toBeVisible({ timeout: 60000 });
   };
   const projectName = `Genome session ${Date.now()}`;
   await page.keyboard.press('Escape');

@@ -90,6 +90,9 @@ This proves encoding only; the unchanged full journey must still pass in CI.
   directories, prior ownership verification and TCP acceptance under
   `ELECTRON_DEV_TEARDOWN_INCOMPLETE`. This observation does not retry shutdown
   or change its failure result.
+- The genome journey waits for a visible canvas in the opened genome tab before
+  capturing the initial view and the reopened view. Coordinate controls can
+  become available while the renderer is still mounting.
 - Workspace transitions require the runner's fresh scenario profile. Setup waits
   for successful sample import, the visible Samples project and no pending
   imports, then observes the existing reconciliation-idle signal for each
