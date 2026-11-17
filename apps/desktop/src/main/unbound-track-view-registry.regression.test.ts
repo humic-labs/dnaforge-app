@@ -174,8 +174,8 @@ describe('library Track view Registry project retention', () => {
       )
       .run(900_000_001, 'Different default', otherRoot, 'different-default', 'writable', 2);
     fixture.db
-      .prepare('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)')
-      .run('default_workspace_path', otherRoot);
+      .prepare('INSERT OR REPLACE INTO settings(key,value,updated_at) VALUES(?,?,?)')
+      .run('default_workspace_path', otherRoot, Date.now());
     const renamed = await library.save({
       document: { ...saved.document, name: 'Retained owner' },
       expectedRevision: saved.revision,
