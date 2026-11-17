@@ -10,11 +10,11 @@ import {
   inventoryStackItems,
   inventoryVesselContentsProjection,
   inventoryStoragePositions,
+  inventoryAmountUnitDefinition,
   type InventoryComposition,
   type InventoryContribution,
   type InventoryLot,
   type InventorySourceIdentity,
-  type InventoryStock,
 } from '@waypoint/domain-services';
 import { Button, Notice, Select, TextField, TextArea } from '../../components/ui';
 import { platform } from '../../platform';
@@ -61,6 +61,7 @@ import { InventoryStatusNotice } from './InventoryStatusNotice';
 import {
   historyLabel,
   inventoryConcentrationLabel,
+  inventoryAmountLabel,
   inventoryCustodyLabel,
   inventoryOccupant,
   locationPath,
@@ -166,12 +167,6 @@ const sourceHistoryCopy: Readonly<
       'The complete original spreadsheet, evidence-only columns and explicit scientific, plate, position, quantity and quality decisions are retained with this atomic receiving operation.',
   },
 };
-
-function quantityLabel(stock: InventoryStock): string {
-  return stock.quantity.kind === 'unknown'
-    ? 'Unknown'
-    : `${stock.quantity.value} ${stock.quantity.unit === 'uL' ? 'µL' : stock.quantity.unit}`;
-}
 
 function compositionValues(
   composition: InventoryComposition,
@@ -1098,9 +1093,9 @@ export function InventoryPanel() {
                           <td className="px-3 py-3 text-fg-muted">{vessel.name}</td>
                           <td
                             data-testid="inventory-stock-quantity"
-                            className="whitespace-nowrap px-3 py-3 tabular-nums"
+                            className="max-w-[12rem] whitespace-normal break-all px-3 py-3 tabular-nums"
                           >
-                            {quantityLabel(stock)}
+                            {inventoryAmountLabel(stock.quantity)}
                           </td>
                           <td className="max-w-xs px-3 py-3 text-xs text-fg-muted">
                             {vessel.lifecycle === 'disposed'
@@ -1331,7 +1326,7 @@ export function InventoryPanel() {
                         <>
                           <div className="flex flex-wrap gap-2">
                             <Button
-                              disabled={!editable}
+                              disabled={!editable || selectedStock.quantity.kind === 'unknown'}
                               onClick={() =>
                                 setDialog({ kind: 'reserve-quantity', stockId: selectedStock.id })
                               }
@@ -1350,7 +1345,7 @@ export function InventoryPanel() {
                               Reserve item
                             </Button>
                             <Button
-                              disabled={!editable}
+                              disabled={!editable || selectedStock.quantity.kind === 'unknown'}
                               onClick={() =>
                                 setDialog({
                                   kind: 'fulfill-reservation',
@@ -1377,7 +1372,7 @@ export function InventoryPanel() {
                               Assign lot
                             </Button>
                             <Button
-                              disabled={!editable}
+                              disabled={!editable || selectedStock.quantity.kind === 'unknown'}
                               onClick={() =>
                                 setDialog({ kind: 'transfer', stockId: selectedStock.id })
                               }
@@ -1385,13 +1380,23 @@ export function InventoryPanel() {
                               Transfer or aliquot
                             </Button>
                             <Button
-                              disabled={!editable}
+                              disabled={
+                                !editable ||
+                                selectedStock.quantity.kind === 'unknown' ||
+                                inventoryAmountUnitDefinition(selectedStock.quantity.unit)
+                                  .dimension !== 'volume'
+                              }
                               onClick={() => setDialog({ kind: 'pool', stockId: selectedStock.id })}
                             >
                               Pool stocks
                             </Button>
                             <Button
-                              disabled={!editable}
+                              disabled={
+                                !editable ||
+                                selectedStock.quantity.kind === 'unknown' ||
+                                inventoryAmountUnitDefinition(selectedStock.quantity.unit)
+                                  .dimension !== 'volume'
+                              }
                               onClick={() =>
                                 setDialog({ kind: 'dilute', stockId: selectedStock.id })
                               }

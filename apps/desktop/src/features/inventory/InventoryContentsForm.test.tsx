@@ -242,7 +242,9 @@ it('keeps identified zero and unknown quantities separate from unresolved conten
   expect(inventoryContentsLabel(inventoryVesselContents(s, 'tube'))).toBe('Identified contents');
   const changed = {
     ...s,
-    stocks: { stock: { ...s.stocks.stock, quantity: { kind: 'unknown' as const } } },
+    stocks: {
+      stock: { ...s.stocks.stock, quantity: { kind: 'unknown' as const, unit: 'uL' as const } },
+    },
   };
   expect(inventoryContentsLabel(inventoryVesselContents(changed, 'tube'))).toBe(
     'Identified contents'

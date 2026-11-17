@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   inventoryVesselContentsProjection,
+  inventoryAmountUnitDefinition,
+  normalizeInventoryAmount,
+  type InventoryAmountUnit,
   type InventoryCommand,
-  type InventoryQuantity,
+  type InventoryVolumeQuantity,
 } from '@waypoint/domain-services';
 import { Button, Notice, Select, TextArea, TextField } from '../../components/ui';
 import {
@@ -17,6 +20,11 @@ import type {
   InventoryData,
 } from './inventory-controller';
 import { InventoryStatusNotice } from './InventoryStatusNotice';
+import {
+  inventoryAmountLabel,
+  inventoryAmountUnitLabel,
+  inventoryAmountUnitOptions,
+} from './inventory-view';
 import {
   InventoryReservationClaims,
   type InventoryReservationClaimRow,
@@ -87,6 +95,7 @@ export function InventoryMaterialForm({
   const [materials, setMaterials] = useState<readonly InventoryMaterial[]>([]);
   const [materialsError, setMaterialsError] = useState(false);
   const [amount, setAmount] = useState('');
+  const [unit, setUnit] = useState<InventoryAmountUnit>(source?.quantity.unit ?? 'uL');
   const [secondAmount, setSecondAmount] = useState('');
   const [secondId, setSecondId] = useState('');
   const [extraInputs, setExtraInputs] = useState<
@@ -107,19 +116,32 @@ export function InventoryMaterialForm({
   );
   const [validation, setValidation] = useState<string | null>(null);
   const busy = status.kind === 'submitting';
+  const volumeSource =
+    source && inventoryAmountUnitDefinition(source.quantity.unit).dimension === 'volume';
+  const withdrawalBlocked =
+    (dialog.kind === 'transfer' || dialog.kind === 'pool' || dialog.kind === 'dilute') &&
+    (source?.quantity.kind !== 'known' || (dialog.kind !== 'transfer' && !volumeSource));
   const editable =
+    !withdrawalBlocked &&
     !data.project.pinned &&
     (status.kind === 'ready' || (status.kind === 'refused' && !status.recoveryError));
   const emptyVessels = Object.values(state.vessels).filter(
     (item) => item.lifecycle === 'active' && contentsByVessel[item.id]?.kind === 'declared-empty'
   );
   const candidates = Object.values(state.stocks).filter(
-    (stock) => stock.id !== source?.id && state.vessels[stock.vesselId].lifecycle === 'active'
+    (stock) =>
+      stock.id !== source?.id &&
+      state.vessels[stock.vesselId].lifecycle === 'active' &&
+      stock.quantity.kind === 'known' &&
+      inventoryAmountUnitDefinition(stock.quantity.unit).dimension ===
+        (dialog.kind === 'transfer' && source
+          ? inventoryAmountUnitDefinition(source.quantity.unit).dimension
+          : 'volume')
   );
   const stockOptions = candidates.map((stock) => ({
     value: stock.id,
     label: state.vessels[stock.vesselId].name,
-    description: `${stock.quantity.kind === 'known' ? `${stock.quantity.value} µL` : 'Unknown'} · ${stock.source.kind === 'lot' ? state.lots[stock.source.lotId].name : 'Unattributed'}`,
+    description: `${inventoryAmountLabel(stock.quantity)} · ${stock.source.kind === 'lot' ? state.lots[stock.source.lotId].name : 'Unattributed'}`,
   }));
 
   useEffect(() => {
@@ -199,7 +221,7 @@ export function InventoryMaterialForm({
           reason: reason.trim(),
         });
       } else if (dialog.kind === 'limits') {
-        const measured = (value: string): InventoryQuantity =>
+        const measured = (value: string): InventoryVolumeQuantity =>
           value.trim() ? { kind: 'known', value: value.trim(), unit: 'uL' } : { kind: 'unknown' };
         commands.push({
           kind: 'set-vessel-limits',
@@ -208,6 +230,7 @@ export function InventoryMaterialForm({
           reason: reason.trim(),
         });
       } else if (dialog.kind === 'transfer') {
+        normalizeInventoryAmount({ value: amount, unit });
         const target =
           destinationKind === 'existing'
             ? { kind: 'existing-stock' as const, stockId: destinationId }
@@ -219,9 +242,9 @@ export function InventoryMaterialForm({
         commands.push({
           kind: 'transfer',
           sourceStockId: dialog.stockId,
-          quantity: { value: amount, unit: 'uL' },
+          quantity: { value: amount, unit },
           destination: target,
-          ...(destinationKind === 'existing' ? { mixing } : {}),
+          ...(destinationKind === 'existing' && volumeSource ? { mixing } : {}),
           reason: reason.trim(),
         });
       } else {
@@ -263,10 +286,21 @@ export function InventoryMaterialForm({
             command.kind === 'transfer' || command.kind === 'pool' || command.kind === 'dilute'
               ? {
                   kind: 'fulfill-reservations',
-                  claims: claims.map((claim) => ({
-                    reservationId: claim.reservationId,
-                    quantity: { value: claim.quantity, unit: 'uL' as const },
-                  })),
+                  claims: claims.map((claim) => {
+                    const reservation =
+                      data.availability?.reservations[claim.reservationId]?.reservation;
+                    const claimUnit =
+                      reservation?.kind === 'quantity'
+                        ? reservation.remaining.unit
+                        : dialog.kind === 'transfer'
+                          ? (source?.quantity.unit ?? unit)
+                          : 'uL';
+                    normalizeInventoryAmount({ value: claim.quantity, unit: claimUnit });
+                    return {
+                      reservationId: claim.reservationId,
+                      quantity: { value: claim.quantity, unit: claimUnit },
+                    };
+                  }),
                   withdrawal: command,
                 }
               : command
@@ -467,11 +501,21 @@ export function InventoryMaterialForm({
               ) : (
                 <>
                   <Field
-                    label={dialog.kind === 'dilute' ? 'Sample amount (µL)' : 'Source amount (µL)'}
+                    label={
+                      dialog.kind === 'transfer'
+                        ? `Source amount (${inventoryAmountUnitLabel(unit)})`
+                        : dialog.kind === 'dilute'
+                          ? 'Sample amount (µL)'
+                          : 'Source amount (µL)'
+                    }
                   >
                     <TextField
                       aria-label={
-                        dialog.kind === 'dilute' ? 'Sample amount (µL)' : 'Source amount (µL)'
+                        dialog.kind === 'transfer'
+                          ? `Source amount (${inventoryAmountUnitLabel(unit)})`
+                          : dialog.kind === 'dilute'
+                            ? 'Sample amount (µL)'
+                            : 'Source amount (µL)'
                       }
                       inputMode="decimal"
                       value={amount}
@@ -481,6 +525,14 @@ export function InventoryMaterialForm({
                   </Field>
                   {dialog.kind === 'transfer' ? (
                     <>
+                      <Field label="Unit">
+                        <Select
+                          ariaLabel="Unit"
+                          value={unit}
+                          options={inventoryAmountUnitOptions(source?.quantity.unit)}
+                          onValueChange={(value) => setUnit(value as InventoryAmountUnit)}
+                        />
+                      </Field>
                       <Field label="Transfer destination">
                         <Select
                           ariaLabel="Transfer destination"
@@ -626,7 +678,8 @@ export function InventoryMaterialForm({
                       </Notice>
                     </>
                   )}
-                  {dialog.kind !== 'transfer' || destinationKind === 'existing' ? (
+                  {(dialog.kind !== 'transfer' || destinationKind === 'existing') &&
+                  volumeSource ? (
                     <>
                       <Field label="Result mixing">
                         <Select
@@ -645,9 +698,16 @@ export function InventoryMaterialForm({
                           : 'The resulting composition will remain unknown. Choose homogeneous only when the contents are evenly mixed.'}
                       </Notice>
                     </>
-                  ) : (
+                  ) : destinationKind === 'empty' ? (
                     <Notice>The new aliquot inherits the source’s recorded composition.</Notice>
-                  )}
+                  ) : null}
+                  {withdrawalBlocked ? (
+                    <Notice>
+                      {source?.quantity.kind === 'unknown'
+                        ? 'Record a measured quantity before withdrawing this stock.'
+                        : 'Pooling and dilution require stock measured by volume.'}
+                    </Notice>
+                  ) : null}
                   <InventoryReservationClaims
                     data={data}
                     stockIds={[

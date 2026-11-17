@@ -3,7 +3,8 @@ import {
   inventoryVesselContents,
   type InventoryCommand,
   type InventoryQuality,
-  type InventoryVolumeUnit,
+  normalizeInventoryAmount,
+  type InventoryAmountUnit,
 } from '@waypoint/domain-services';
 import { Notice, Select, TextArea, TextField } from '../../components/ui';
 import type { InventoryClient, InventoryMaterialPage } from '../../shared/inventory-client';
@@ -15,6 +16,7 @@ import {
 } from './inventory-controller';
 import { InventoryPhysicalDialog } from './InventoryPhysicalDialog';
 import { inventoryContentsLabel } from './inventory-contents-view';
+import { inventoryAmountUnitOptions } from './inventory-view';
 
 export interface InventoryContentsDialog {
   kind: 'contents';
@@ -61,7 +63,7 @@ export function InventoryContentsForm({
   const [materials, setMaterials] = useState<Materials>({ kind: 'loading' });
   const [quantityKind, setQuantityKind] = useState<'known' | 'unknown'>('known');
   const [quantity, setQuantity] = useState('');
-  const [unit, setUnit] = useState<InventoryVolumeUnit>('uL');
+  const [unit, setUnit] = useState<InventoryAmountUnit>('uL');
   const [quality, setQuality] = useState<InventoryQuality | ''>('');
   const [validation, setValidation] = useState<string | null>(null);
   const title =
@@ -134,6 +136,7 @@ export function InventoryContentsForm({
       else {
         if (!materialId) throw new Error('Choose a scientific material from this project.');
         if (!quality) throw new Error('Choose the stock quality explicitly.');
+        if (quantityKind === 'known') normalizeInventoryAmount({ value: quantity, unit });
         command = {
           kind: 'identify-vessel-stock',
           id: crypto.randomUUID(),
@@ -141,7 +144,7 @@ export function InventoryContentsForm({
           materialId,
           quantity:
             quantityKind === 'unknown'
-              ? { kind: 'unknown' }
+              ? { kind: 'unknown', unit }
               : { kind: 'known', value: quantity, unit },
           quality,
           reason: reason.trim(),
@@ -240,8 +243,8 @@ export function InventoryContentsForm({
               ]}
               onValueChange={(value) => setQuantityKind(value as typeof quantityKind)}
             />
-            {quantityKind === 'known' ? (
-              <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-3">
+            <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-3">
+              {quantityKind === 'known' ? (
                 <TextField
                   aria-label="Quantity"
                   inputMode="decimal"
@@ -249,17 +252,14 @@ export function InventoryContentsForm({
                   onChange={(event) => setQuantity(event.target.value)}
                   required
                 />
-                <Select
-                  ariaLabel="Unit"
-                  value={unit}
-                  options={['uL', 'mL', 'L', 'nL'].map((value) => ({
-                    value,
-                    label: value === 'uL' ? 'µL' : value,
-                  }))}
-                  onValueChange={(value) => setUnit(value as InventoryVolumeUnit)}
-                />
-              </div>
-            ) : null}
+              ) : null}
+              <Select
+                ariaLabel="Unit"
+                value={unit}
+                options={inventoryAmountUnitOptions()}
+                onValueChange={(value) => setUnit(value as InventoryAmountUnit)}
+              />
+            </div>
             <Select
               ariaLabel="Stock quality"
               value={quality}

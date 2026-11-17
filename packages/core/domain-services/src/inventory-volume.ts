@@ -1,8 +1,4 @@
-import {
-  INVENTORY_VOLUME_UNITS,
-  type InventoryQuantity,
-  type InventoryVolume,
-} from './inventory-types';
+import { INVENTORY_VOLUME_UNITS, type InventoryVolume } from './inventory-types';
 import {
   addInventoryAmounts,
   compareInventoryAmounts,
@@ -23,11 +19,7 @@ function volumeOutput(value: InventoryCanonicalAmount): InventoryVolume {
 export function normalizeInventoryVolume(quantity: InventoryVolume): InventoryVolume {
   return volumeOutput(normalizeInventoryAmount(volumeInput(quantity)));
 }
-export function normalizeInventoryQuantity(quantity: InventoryQuantity): InventoryQuantity {
-  return quantity.kind === 'unknown'
-    ? { kind: 'unknown' }
-    : { kind: 'known', ...normalizeInventoryVolume(quantity) };
-}
+export { normalizeInventoryQuantity, normalizeInventoryVolumeQuantity } from './inventory-quantity';
 export function subtractInventoryVolume(
   available: InventoryVolume,
   consumed: InventoryVolume

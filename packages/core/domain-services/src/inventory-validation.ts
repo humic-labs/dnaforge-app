@@ -1,3 +1,12 @@
+import {
+  INVENTORY_AMOUNT_UNITS,
+  inventoryAmountUnitDefinition,
+  normalizeInventoryAmount,
+  compareInventoryAmounts,
+  type InventoryAmount,
+  type InventoryCanonicalAmount,
+} from './inventory-amount';
+import { normalizeInventoryQuantity } from './inventory-quantity';
 import type { InventoryHierarchyBinding } from './inventory-hierarchy-types';
 import type { InventoryVesselBinding } from './inventory-vessel-binding-types';
 import type { InventoryContentsKnowledge } from './inventory-contents-types';
@@ -47,6 +56,7 @@ import type {
 import {
   INVENTORY_SCHEMA,
   INVENTORY_HIERARCHY_SCHEMA,
+  INVENTORY_CONTENTS_SCHEMA,
   INVENTORY_SOURCE_REVISION_SCHEMA,
   INVENTORY_STOCKTAKE_SCHEMA,
   INVENTORY_RECEIVE_TABLE_SCHEMA,
@@ -82,6 +92,8 @@ import {
   type InventoryLayout,
   type InventoryLot,
   type InventoryQuantity,
+  type InventoryQuantityInput,
+  type InventoryVolumeQuantity,
   type InventoryReservation,
   type InventoryWithdrawalCommand,
   type InventoryState,
@@ -471,16 +483,86 @@ function validateVolume(value: InventoryVolume): void {
   }
 }
 const volume: Codec<InventoryVolume> = checked(fields('Volume', volumeFields), validateVolume);
-const quantity: Codec<InventoryQuantity> = union('Stock quantity', [
+const volumeQuantity: Codec<InventoryVolumeQuantity> = union('Stock quantity', [
   fields('Unknown quantity', { kind: literal('unknown') }),
   checked(fields('Known quantity', { kind: literal('known'), ...volumeFields }), validateVolume),
 ]);
-const storedQuantity = checked(quantity, (value) => {
+const storedVolumeQuantity = checked(volumeQuantity, (value) => {
   if (value.kind === 'unknown') return;
   const normalized = normalizeInventoryVolume(value);
   if (value.unit !== normalized.unit || value.value !== normalized.value)
     invalid('Stored inventory quantities require canonical uL decimal values.');
 });
+
+const amountFields = {
+  value: volumeFields.value,
+  unit: union(
+    'Amount unit',
+    INVENTORY_AMOUNT_UNITS.map((unit) => literal(unit))
+  ),
+};
+const amount: Codec<InventoryAmount> = checked(fields('Amount', amountFields), (value) => {
+  try {
+    normalizeInventoryAmount(value);
+  } catch (error) {
+    invalid(error instanceof Error ? error.message : 'Invalid amount.');
+  }
+});
+const quantity: Codec<InventoryQuantityInput> = union('Stock quantity input', [
+  fields('Legacy unknown volume amount', { kind: literal('unknown') }),
+  fields('Unknown amount in a declared unit', {
+    kind: literal('unknown'),
+    unit: amountFields.unit,
+  }),
+  checked(fields('Known stock quantity', { kind: literal('known'), ...amountFields }), (value) => {
+    try {
+      normalizeInventoryAmount(value);
+    } catch (error) {
+      invalid(error instanceof Error ? error.message : 'Invalid stock quantity.');
+    }
+  }),
+]);
+const storedQuantity: Codec<InventoryQuantity> = checked(
+  union('Canonical stock quantity', [
+    fields('Unknown stock balance', {
+      kind: literal('unknown'),
+      unit: union(
+        'Canonical balance unit',
+        ['uL', 'ng', 'nmol', 'item'].map((unit) => literal(unit as 'uL' | 'ng' | 'nmol' | 'item'))
+      ),
+    }),
+    fields('Known stock balance', {
+      kind: literal('known'),
+      value: volumeFields.value,
+      unit: union(
+        'Canonical balance unit',
+        ['uL', 'ng', 'nmol', 'item'].map((unit) => literal(unit as 'uL' | 'ng' | 'nmol' | 'item'))
+      ),
+    }),
+  ]),
+  (value) => {
+    const normalized = normalizeInventoryQuantity(value);
+    if (
+      normalized.unit !== value.unit ||
+      (value.kind === 'known' && (normalized.kind !== 'known' || normalized.value !== value.value))
+    )
+      invalid('Stored stock quantities require their canonical declared unit and exact amount.');
+  }
+);
+const storedAmount: Codec<InventoryCanonicalAmount> = checked(
+  fields('Canonical amount', {
+    value: volumeFields.value,
+    unit: union(
+      'Canonical amount unit',
+      ['uL', 'ng', 'nmol', 'item'].map((unit) => literal(unit as 'uL' | 'ng' | 'nmol' | 'item'))
+    ),
+  }),
+  (value) => {
+    const normalized = normalizeInventoryAmount(value);
+    if (normalized.unit !== value.unit || normalized.value !== value.value)
+      invalid('Stored amounts require canonical units and exact decimal values.');
+  }
+);
 
 const concentrationReason = union('Unknown concentration reason', [
   literal('unmeasured'),
@@ -633,17 +715,17 @@ const previousLotRecord = fields('Previous lot record', {
     }),
   ]),
 });
-const limits = fields('Container limits', { capacity: quantity, deadVolume: quantity });
+const limits = fields('Container limits', { capacity: volumeQuantity, deadVolume: volumeQuantity });
 const storedLimits = fields('Stored container limits', {
-  capacity: storedQuantity,
-  deadVolume: storedQuantity,
+  capacity: storedVolumeQuantity,
+  deadVolume: storedVolumeQuantity,
 });
 const withdrawal = fields('Material withdrawal', { stockId: id, quantity: volume });
 const derivedOutput = { lotId: id, stockId: id, vesselId, materialId: id, name, reason };
 const transferFields = {
   kind: literal('transfer'),
   sourceStockId: id,
-  quantity: volume,
+  quantity: amount,
   destination: union('Transfer destination', [
     fields('New destination stock', { kind: literal('new-stock'), stockId: id, vesselId }),
     fields('Existing destination stock', { kind: literal('existing-stock'), stockId: id }),
@@ -683,7 +765,7 @@ const diluteCommand = union('Dilution command', [
 const consumeCommand = fields('Consume command', {
   kind: literal('consume'),
   stockId: id,
-  quantity: volume,
+  quantity: amount,
   reason,
 });
 const withdrawalCommand: Codec<InventoryWithdrawalCommand> = union('Reservation withdrawal', [
@@ -1116,7 +1198,7 @@ const observationSubject = union('Observation subject', [
   fields('Observed stock', { kind: literal('stock'), stockId: id }),
   fields('Observed physical item', { kind: literal('item'), item: reservationItem }),
 ]);
-const observationFact = (quantityCodec: Codec<InventoryQuantity>) =>
+const observationFact = <Q extends InventoryQuantityInput>(quantityCodec: Codec<Q>) =>
   union('Observation fact', [
     fields('Quantity observation', { kind: literal('quantity'), quantity: quantityCodec }),
     fields('Missing observation', { kind: literal('presence'), value: literal('missing') }),
@@ -1138,28 +1220,38 @@ const validateObservationSubject = (value: InventoryObservationInput) => {
   if ((value.subject.kind === 'stock') !== (value.fact.kind === 'quantity'))
     invalid('Stock observations measure quantity; item observations record presence.');
 };
-const observationRecord: Codec<InventoryObservation> = checked(
-  fields('Recorded inventory observation', {
-    ...observationFacts,
-    fact: observationFact(storedQuantity),
-    at: timestamp,
-    by: recordedPrincipal,
-    application: union('Observation application', [
-      fields('Unapplied observation', { kind: literal('unapplied') }),
-      fields('Applied observation', {
-        kind: literal('applied'),
-        reason,
-        at: timestamp,
-        by: recordedPrincipal,
-      }),
-    ]),
-  }),
-  validateObservationSubject
-);
-function observations(value: unknown): Record<string, InventoryObservation> {
+const observationRecordFor = <Q extends InventoryQuantityInput>(quantityCodec: Codec<Q>) =>
+  checked(
+    fields('Recorded inventory observation', {
+      ...observationFacts,
+      fact: observationFact(quantityCodec),
+      at: timestamp,
+      by: recordedPrincipal,
+      application: union('Observation application', [
+        fields('Unapplied observation', { kind: literal('unapplied') }),
+        fields('Applied observation', {
+          kind: literal('applied'),
+          reason,
+          at: timestamp,
+          by: recordedPrincipal,
+        }),
+      ]),
+    }),
+    validateObservationSubject
+  );
+const observationRecord = observationRecordFor(storedQuantity);
+const previousObservationRecord = observationRecordFor(storedVolumeQuantity);
+function observations(value: unknown, current: boolean): Record<string, InventoryObservation> {
   const result = Object.create(null) as Record<string, InventoryObservation>;
   for (const [key, raw] of Object.entries(object(value, 'Inventory observations'))) {
-    const observation = observationRecord.parse(raw);
+    const parsed = current ? observationRecord.parse(raw) : previousObservationRecord.parse(raw);
+    const observation: InventoryObservation =
+      parsed.fact.kind === 'quantity'
+        ? {
+            ...parsed,
+            fact: { kind: 'quantity', quantity: normalizeInventoryQuantity(parsed.fact.quantity) },
+          }
+        : { ...parsed, fact: parsed.fact };
     if (key !== inventoryObservationKey(observation.namespace, observation.observationId))
       invalid('An observation key must match its exact namespace and identity.');
     result[key] = observation;
@@ -1371,7 +1463,7 @@ const commands = {
     kind: literal('reserve-quantity'),
     id,
     stockId: id,
-    quantity: volume,
+    quantity: amount,
     deadline,
     purpose: reason,
   }),
@@ -1399,7 +1491,7 @@ const commands = {
   'fulfill-reservations': fields('Fulfill reservations command', {
     kind: literal('fulfill-reservations'),
     claims: array(
-      fields('Reservation fulfillment claim', { reservationId: id, quantity: volume }),
+      fields('Reservation fulfillment claim', { reservationId: id, quantity: amount }),
       MAX_INVENTORY_BATCH_COMMANDS,
       1
     ),
@@ -1537,20 +1629,25 @@ const previousStockRecord = fields('Stock record', {
   id,
   vesselId,
   materialId: id,
-  quantity: storedQuantity,
+  quantity: storedVolumeQuantity,
   quality,
 });
 const materialStockFields = {
   id,
   vesselId,
   materialId: id,
-  quantity: storedQuantity,
+  quantity: storedVolumeQuantity,
   quality,
   source: stockSource,
 };
 const materialStockRecord = fields('Previous stock record', materialStockFields);
+const previousCompositionStockRecord = fields('Previous composition stock record', {
+  ...materialStockFields,
+  composition: storedComposition,
+});
 const stockRecord = fields('Stock record', {
   ...materialStockFields,
+  quantity: storedQuantity,
   composition: storedComposition,
 });
 const reservationVolume = checked(volume, (value) => {
@@ -1577,20 +1674,24 @@ const reservationFacts = {
     fields('Expired reservation', { kind: literal('expired'), at: timestamp }),
   ]),
 };
-const reservationRecord: Codec<InventoryReservation> = union('Reservation record', [
-  fields('Quantity reservation record', {
-    ...reservationFacts,
-    kind: literal('quantity'),
-    stockId: id,
-    quantity: reservationVolume,
-    remaining: reservationVolume,
-  }),
-  fields('Item reservation record', {
-    ...reservationFacts,
-    kind: literal('item'),
-    item: reservationItem,
-  }),
-]);
+const reservationRecordFor = <Q extends InventoryAmount>(quantityCodec: Codec<Q>) =>
+  union('Reservation record', [
+    fields('Quantity reservation record', {
+      ...reservationFacts,
+      kind: literal('quantity'),
+      stockId: id,
+      quantity: quantityCodec,
+      remaining: quantityCodec,
+    }),
+    fields('Item reservation record', {
+      ...reservationFacts,
+      kind: literal('item'),
+      item: reservationItem,
+    }),
+  ]);
+
+const reservationRecord = reservationRecordFor(storedAmount);
+const previousReservationRecord = reservationRecordFor(reservationVolume);
 
 const storageFields = { id, name, layout, placement: storagePlacement, lifecycle };
 const previousStorageRecord = fields('Previous storage record', storageFields);
@@ -1977,8 +2078,9 @@ function validateState(state: InventoryState): void {
     const capacity = state.vessels[stock.vesselId].limits.capacity;
     if (
       stock.quantity.kind === 'known' &&
+      stock.quantity.unit === 'uL' &&
       capacity.kind === 'known' &&
-      compareInventoryVolumes(stock.quantity, capacity) > 0
+      compareInventoryVolumes({ value: stock.quantity.value, unit: 'uL' }, capacity) > 0
     )
       invalid('A recorded quantity cannot exceed known container capacity.');
   }
@@ -2003,13 +2105,17 @@ function validateState(state: InventoryState): void {
     if (reservation.kind === 'quantity') {
       if (!state.stocks[reservation.stockId])
         invalid('A quantity reservation requires an existing stock.');
+      const comparison = compareInventoryAmounts(reservation.remaining, reservation.quantity);
       if (
         reservation.quantity.value === '0' ||
-        compareInventoryVolumes(reservation.remaining, reservation.quantity) > 0
+        comparison.kind === 'incompatible' ||
+        comparison.order > 0
       )
         invalid(
           'A reservation requires positive original quantity and a bounded remaining quantity.'
         );
+      if (reservation.remaining.unit !== state.stocks[reservation.stockId].quantity.unit)
+        invalid('Quantity reservations must match the stock balance basis.');
       if (
         (reservation.lifecycle.kind === 'active' && reservation.remaining.value === '0') ||
         (reservation.lifecycle.kind === 'fulfilled' && reservation.remaining.value !== '0')
@@ -2169,7 +2275,8 @@ function vesselBindings(value: unknown): Record<string, InventoryVesselBinding> 
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const hierarchySources = current || row.schema === INVENTORY_HIERARCHY_SCHEMA;
+  const contents = current || row.schema === INVENTORY_CONTENTS_SCHEMA;
+  const hierarchySources = contents || row.schema === INVENTORY_HIERARCHY_SCHEMA;
   const sourceRevisions = hierarchySources || row.schema === INVENTORY_SOURCE_REVISION_SCHEMA;
   const observationRecords = sourceRevisions || row.schema === INVENTORY_STOCKTAKE_SCHEMA;
   const tableSources = observationRecords || row.schema === INVENTORY_RECEIVE_TABLE_SCHEMA;
@@ -2186,6 +2293,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_CONTENTS_SCHEMA),
       literal(INVENTORY_HIERARCHY_SCHEMA),
       literal(INVENTORY_SOURCE_REVISION_SCHEMA),
       literal(INVENTORY_STOCKTAKE_SCHEMA),
@@ -2204,7 +2312,7 @@ export function parseInventoryState(value: unknown): InventoryState {
       literal(LEGACY_INVENTORY_SCHEMA),
     ]),
     revision,
-    ...(current
+    ...(contents
       ? { vesselBindings: { schema: { type: 'object' }, parse: (input: unknown) => input } }
       : {}),
     ...(hierarchySources
@@ -2274,7 +2382,7 @@ export function parseInventoryState(value: unknown): InventoryState {
     };
   });
   const vessels = records(shape.vessels, (raw): InventoryVessel => {
-    if (current) return vesselRecord.parse(raw);
+    if (contents) return vesselRecord.parse(raw);
     if (configuration)
       return { ...configuredVesselRecord.parse(raw), contentsKnowledge: { kind: 'recorded' } };
     if (custody)
@@ -2306,12 +2414,14 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   const state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    vesselBindings: current ? vesselBindings(shape.vesselBindings) : Object.create(null),
+    vesselBindings: contents ? vesselBindings(shape.vesselBindings) : Object.create(null),
     hierarchyBindings: hierarchySources
       ? hierarchyBindings(shape.hierarchyBindings)
       : Object.create(null),
     origin: archiveAttribution ? inventoryOrigin.parse(shape.origin) : { kind: 'native' },
-    observations: observationRecords ? observations(shape.observations) : Object.create(null),
+    observations: observationRecords
+      ? observations(shape.observations, current)
+      : Object.create(null),
     tableBindings: tableSources
       ? tableBindings(shape.tableBindings, sourceRevisions)
       : Object.create(null),
@@ -2364,17 +2474,40 @@ export function parseInventoryState(value: unknown): InventoryState {
     revision: shape.revision,
     lastRecordedAt: reservation ? timestamp.parse(shape.lastRecordedAt) : 0,
     reservations: reservation
-      ? records(shape.reservations, (raw) => reservationRecord.parse(raw))
+      ? records(shape.reservations, (raw): InventoryReservation => {
+          const parsed = current
+            ? reservationRecord.parse(raw)
+            : previousReservationRecord.parse(raw);
+          return parsed.kind === 'quantity'
+            ? {
+                ...parsed,
+                quantity: normalizeInventoryAmount(parsed.quantity),
+                remaining: normalizeInventoryAmount(parsed.remaining),
+              }
+            : parsed;
+        })
       : (Object.create(null) as Record<string, InventoryReservation>),
     storage,
     vessels,
     stocks: records(shape.stocks, (raw): InventoryStock => {
-      if (composition) return stockRecord.parse(raw);
-      if (material) return { ...materialStockRecord.parse(raw), composition: { kind: 'unknown' } };
+      if (current) return stockRecord.parse(raw);
+      if (composition) {
+        const stock = previousCompositionStockRecord.parse(raw);
+        return { ...stock, quantity: normalizeInventoryQuantity(stock.quantity) };
+      }
+      if (material) {
+        const stock = materialStockRecord.parse(raw);
+        return {
+          ...stock,
+          quantity: normalizeInventoryQuantity(stock.quantity),
+          composition: { kind: 'unknown' },
+        };
+      }
       const stock = previousStockRecord.parse(raw);
       return {
         ...stock,
         source: { kind: 'unattributed', rootStockId: stock.id },
+        quantity: normalizeInventoryQuantity(stock.quantity),
         composition: { kind: 'unknown' },
       };
     }),
@@ -2439,6 +2572,13 @@ export function parseInventoryState(value: unknown): InventoryState {
           )
     )
       invalid('An observation requires an existing inventory subject.');
+    if (
+      observation.application.kind === 'applied' &&
+      observation.fact.kind === 'quantity' &&
+      subject.kind === 'stock' &&
+      observation.fact.quantity.unit !== state.stocks[subject.stockId].quantity.unit
+    )
+      invalid('An applied quantity observation must match the stock balance basis.');
     if (observation.fact.kind === 'presence' && observation.fact.value === 'found') {
       const destination = observation.fact.destination;
       if (destination.kind === 'located' && !Object.hasOwn(state.storage, destination.storageId))

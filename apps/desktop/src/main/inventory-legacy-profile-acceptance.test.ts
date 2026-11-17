@@ -80,7 +80,7 @@ it.runIf(Boolean(sourcePath))(
         expect(JSON.parse(row.state_json).schema).toBe(inventory.storedSchema);
         const scope = { project: row.project_id, inventoryId: inventory.inventoryId };
         const state = owner.inspect(scope)!;
-        expect(state.schema).toBe('dnaforge.inventory.v17');
+        expect(state.schema).toBe('dnaforge.inventory.v18');
         expect(state.tableBindings).toEqual(
           Object.fromEntries(
             Object.entries(JSON.parse(row.state_json).tableBindings ?? {}).map(([key, value]) => [
@@ -92,7 +92,35 @@ it.runIf(Boolean(sourcePath))(
             ])
           )
         );
-        expect(state.observations).toEqual(JSON.parse(row.state_json).observations ?? {});
+        expect(state.observations).toEqual(
+          Object.fromEntries(
+            Object.entries(JSON.parse(row.state_json).observations ?? {}).map(([key, value]) => {
+              const observation = value as {
+                fact: { kind: string; quantity?: { kind: string; unit?: string } };
+              };
+              return [
+                key,
+                observation.fact.kind === 'quantity' &&
+                observation.fact.quantity?.kind === 'unknown' &&
+                observation.fact.quantity.unit === undefined
+                  ? {
+                      ...observation,
+                      fact: {
+                        ...observation.fact,
+                        quantity: { ...observation.fact.quantity, unit: 'uL' },
+                      },
+                    }
+                  : observation,
+              ];
+            })
+          )
+        );
+        for (const [id, stock] of Object.entries(state.stocks)) {
+          const saved = JSON.parse(row.state_json).stocks[id].quantity;
+          expect(stock.quantity).toEqual(
+            saved.kind === 'unknown' && saved.unit === undefined ? { ...saved, unit: 'uL' } : saved
+          );
+        }
         expect(state.vesselBindings).toEqual(JSON.parse(row.state_json).vesselBindings ?? {});
         for (const [id, vessel] of Object.entries(state.vessels))
           expect(vessel.contentsKnowledge).toEqual(

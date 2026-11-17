@@ -37,7 +37,6 @@ export const INVENTORY_AMOUNT_UNITS: readonly InventoryAmountUnit[] = Object.fre
   Object.keys(DEFINITIONS) as InventoryAmountUnit[]
 );
 export const MAX_INVENTORY_AMOUNT_DECIMAL_LENGTH = 128;
-export const MAX_INVENTORY_AMOUNT_SUM_INPUTS = 10_000;
 export interface InventoryAmount {
   readonly value: string;
   readonly unit: InventoryAmountUnit;
@@ -152,8 +151,7 @@ export function addInventoryAmounts(
 ):
   | InventoryAmountMismatch
   | { readonly kind: 'added'; readonly quantity: InventoryCanonicalAmount } {
-  if (!Array.isArray(values) || values.length > MAX_INVENTORY_AMOUNT_SUM_INPUTS)
-    throw new TypeError('The amount sum exceeds the supported input count.');
+  if (!Array.isArray(values)) throw new TypeError('An amount sum requires an array of amounts.');
   const target = inventoryAmountUnitDefinition(targetUnit);
   let coefficient = 0n;
   let scale = 0;

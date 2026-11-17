@@ -1,5 +1,9 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import type { InventoryCommand } from '@waypoint/domain-services';
+import {
+  normalizeInventoryAmount,
+  type InventoryAmountUnit,
+  type InventoryCommand,
+} from '@waypoint/domain-services';
 import { Button, Notice, Select, TextArea, TextField } from '../../components/ui';
 import {
   PresentationScopeContext,
@@ -18,6 +22,7 @@ import {
   inventoryReservationOwner,
   type InventoryReservationDialog,
 } from './InventoryReservations';
+import { inventoryAmountUnitLabel, inventoryAmountUnitOptions } from './inventory-view';
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -44,6 +49,9 @@ export function InventoryReservationForm({
   const overlay = usePresentationOverlay('modal');
   const events = usePresentationListener(overlay.scope);
   const [amount, setAmount] = useState('');
+  const stockId = 'stockId' in dialog ? dialog.stockId : undefined;
+  const stock = stockId ? data.state.stocks[stockId] : undefined;
+  const [unit, setUnit] = useState<InventoryAmountUnit>(stock?.quantity.unit ?? 'uL');
   const [purpose, setPurpose] = useState('');
   const [expiry, setExpiry] = useState<'none' | 'deadline'>('none');
   const [deadline, setDeadline] = useState('');
@@ -53,7 +61,8 @@ export function InventoryReservationForm({
   );
   const [validation, setValidation] = useState<string | null>(null);
   const busy = status.kind === 'submitting';
-  const editable = inventoryCanEdit(status);
+  const unknownWithdrawal = Boolean(stock && stock.quantity.kind === 'unknown');
+  const editable = inventoryCanEdit(status) && !unknownWithdrawal;
   const action =
     dialog.kind === 'reservation-action'
       ? data.availability?.reservations[dialog.reservationId]
@@ -72,7 +81,6 @@ export function InventoryReservationForm({
             : dialog.action === 'cancel'
               ? 'Cancel reservation'
               : 'Record expiry';
-  const stockId = 'stockId' in dialog ? dialog.stockId : undefined;
   const eligible = stockId
     ? (data.availability?.stocks[stockId]?.reservationIds ?? []).flatMap((id) => {
         const view = data.availability?.reservations[id];
@@ -96,6 +104,8 @@ export function InventoryReservationForm({
     setValidation(null);
     if (!editable) return;
     try {
+      if (dialog.kind === 'reserve-quantity' || dialog.kind === 'fulfill-reservation')
+        normalizeInventoryAmount({ value: amount, unit });
       let command: InventoryCommand;
       if (dialog.kind === 'reserve-quantity' || dialog.kind === 'reserve-item') {
         const expiresAt = expiry === 'none' ? null : new Date(deadline).getTime();
@@ -108,17 +118,17 @@ export function InventoryReservationForm({
                 kind: 'reserve-quantity',
                 ...common,
                 stockId: dialog.stockId,
-                quantity: { value: amount, unit: 'uL' },
+                quantity: { value: amount, unit },
               }
             : { kind: 'reserve-item', ...common, item: dialog.item };
       } else if (dialog.kind === 'fulfill-reservation') {
         command = {
           kind: 'fulfill-reservations',
-          claims: [{ reservationId, quantity: { value: amount, unit: 'uL' } }],
+          claims: [{ reservationId, quantity: { value: amount, unit } }],
           withdrawal: {
             kind: 'consume',
             stockId: dialog.stockId,
-            quantity: { value: amount, unit: 'uL' },
+            quantity: { value: amount, unit },
             reason: reason.trim(),
           },
         };
@@ -187,15 +197,30 @@ export function InventoryReservationForm({
                 </>
               ) : null}
               {dialog.kind === 'reserve-quantity' || dialog.kind === 'fulfill-reservation' ? (
-                <Field label="Quantity (µL)">
-                  <TextField
-                    aria-label="Quantity (µL)"
-                    inputMode="decimal"
-                    value={amount}
-                    onChange={(event) => setAmount(event.target.value)}
-                    required
-                  />
-                </Field>
+                <>
+                  <Field label={`Quantity (${inventoryAmountUnitLabel(unit)})`}>
+                    <TextField
+                      aria-label={`Quantity (${inventoryAmountUnitLabel(unit)})`}
+                      inputMode="decimal"
+                      value={amount}
+                      onChange={(event) => setAmount(event.target.value)}
+                      required
+                    />
+                  </Field>
+                  <Field label="Unit">
+                    <Select
+                      ariaLabel="Unit"
+                      value={unit}
+                      options={inventoryAmountUnitOptions(stock?.quantity.unit)}
+                      onValueChange={(value) => setUnit(value as InventoryAmountUnit)}
+                    />
+                  </Field>
+                  {unknownWithdrawal ? (
+                    <Notice>
+                      Record a measured quantity before allocating or using this stock.
+                    </Notice>
+                  ) : null}
+                </>
               ) : null}
               {dialog.kind === 'reserve-quantity' || dialog.kind === 'reserve-item' ? (
                 <>

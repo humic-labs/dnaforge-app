@@ -12,7 +12,7 @@ import {
   MAX_INVENTORY_BATCH_COMMANDS,
   type InventoryCommand,
   type InventoryExecutionContext,
-  type InventoryQuantity,
+  type InventoryQuantityInput,
   type InventoryState,
   type InventoryTransition,
   type InventoryVesselPlacement,
@@ -381,7 +381,7 @@ export function inventoryTablePreview(
           ? observation.reason
           : 'Resolve this material key to a currently admitted scientific record.'
       );
-    let quantity: InventoryQuantity | null = null;
+    let quantity: InventoryQuantityInput | null = null;
     if (fields.quantity_kind === 'unknown' && fields.quantity === '' && fields.unit === '')
       quantity = { kind: 'unknown' };
     else if (

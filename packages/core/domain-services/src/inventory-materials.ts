@@ -11,7 +11,6 @@ import type {
   InventoryStockSource,
   InventoryVessel,
   InventoryVesselLimits,
-  InventoryVolume,
   InventoryWithdrawal,
 } from './inventory-types';
 import {
@@ -25,8 +24,15 @@ import {
   compareInventoryVolumes,
   normalizeInventoryQuantity,
   normalizeInventoryVolume,
-  subtractInventoryVolume,
+  normalizeInventoryVolumeQuantity,
 } from './inventory-volume';
+import {
+  addInventoryAmounts,
+  normalizeInventoryAmount,
+  subtractInventoryAmounts,
+  type InventoryAmount,
+  type InventoryCanonicalAmount,
+} from './inventory-amount';
 import { inventoryVesselStockAdmission } from './inventory-contents';
 
 export interface InventoryMaterialDraft {
@@ -59,8 +65,12 @@ export function inventoryCapacityFailure(
 ): Refusal | null {
   if (
     quantity.kind === 'known' &&
+    quantity.unit === 'uL' &&
     vessel.limits.capacity.kind === 'known' &&
-    compareInventoryVolumes(quantity, vessel.limits.capacity) > 0
+    compareInventoryVolumes(
+      { value: quantity.value, unit: quantity.unit },
+      vessel.limits.capacity
+    ) > 0
   )
     return refuse(
       'CAPACITY_EXCEEDED',
@@ -72,7 +82,7 @@ export function inventoryCapacityFailure(
 export function inventoryWithdrawalResult(
   stock: InventoryStock,
   vessel: InventoryVessel,
-  amount: InventoryVolume
+  amount: InventoryAmount
 ): Refusal | { readonly quantity: InventoryQuantity } {
   if (vessel.lifecycle !== 'active')
     return refuse('VESSEL_DISPOSED', 'Disposed stock cannot be withdrawn.');
@@ -83,14 +93,23 @@ export function inventoryWithdrawalResult(
       'QUANTITY_UNKNOWN',
       'Measure and reconcile an unknown stock quantity before use.'
     );
-  const result = subtractInventoryVolume(stock.quantity, amount);
+  const result = subtractInventoryAmounts(stock.quantity, amount);
+  if (result.kind === 'incompatible')
+    return refuse(
+      'QUANTITY_DIMENSION_MISMATCH',
+      'A withdrawal must use the stock’s declared measurement dimension.'
+    );
   if (result.kind === 'non-positive')
-    return refuse('INVALID_QUANTITY', 'A withdrawal requires a positive volume.');
+    return refuse('INVALID_QUANTITY', 'A withdrawal requires a positive amount.');
   if (result.kind === 'insufficient')
-    return refuse('INSUFFICIENT_QUANTITY', 'The stock does not contain the requested volume.');
+    return refuse('INSUFFICIENT_QUANTITY', 'The stock does not contain the requested amount.');
   if (
+    result.quantity.unit === 'uL' &&
     vessel.limits.deadVolume.kind === 'known' &&
-    compareInventoryVolumes(result.quantity, vessel.limits.deadVolume) < 0
+    compareInventoryVolumes(
+      { value: result.quantity.value, unit: result.quantity.unit },
+      vessel.limits.deadVolume
+    ) < 0
   )
     return refuse(
       'DEAD_VOLUME_REQUIRED',
@@ -136,7 +155,12 @@ function emptyVessel(state: InventoryMaterialDraft, id: string): InventoryVessel
 function contribution(
   state: InventoryMaterialDraft,
   input: InventoryWithdrawal
-): { contribution: InventoryContribution; remaining: InventoryQuantity } | Refusal {
+):
+  | {
+      contribution: InventorySourceIdentity & { readonly quantity: InventoryCanonicalAmount };
+      remaining: InventoryQuantity;
+    }
+  | Refusal {
   const stock = state.stocks[input.stockId];
   if (!stock) return refuse('STOCK_NOT_FOUND', 'A source stock does not exist.');
   const vessel = state.vessels[stock.vesselId];
@@ -144,15 +168,29 @@ function contribution(
   const result = inventoryWithdrawalResult(stock, vessel, input.quantity);
   if ('ok' in result) return result;
   return {
-    contribution: { ...identity(stock), quantity: normalizeInventoryVolume(input.quantity) },
+    contribution: { ...identity(stock), quantity: normalizeInventoryAmount(input.quantity) },
     remaining: result.quantity,
   };
+}
+
+export function inventoryMixingDimensionFailure(
+  state: Pick<InventoryMaterialDraft, 'stocks'>,
+  command: InventoryCommand
+): Refusal | null {
+  if (command.kind !== 'pool' && command.kind !== 'dilute') return null;
+  return inventoryCommandWithdrawals(command).some(
+    (input) => state.stocks[input.stockId] && state.stocks[input.stockId].quantity.unit !== 'uL'
+  )
+    ? refuse('MIXING_REQUIRES_VOLUME', 'Pooling and dilution require volume-based source stocks.')
+    : null;
 }
 
 export function applyInventoryMaterialCommand(
   state: InventoryMaterialDraft,
   command: InventoryCommand
 ): Refusal | null | undefined {
+  const mixingFailure = inventoryMixingDimensionFailure(state, command);
+  if (mixingFailure) return mixingFailure;
   switch (command.kind) {
     case 'create-lot': {
       if (hasId(state, command.id))
@@ -239,8 +277,8 @@ export function applyInventoryMaterialCommand(
       if (vessel.lifecycle !== 'active')
         return refuse('VESSEL_DISPOSED', 'Disposed containers cannot be changed.');
       const limits = {
-        capacity: normalizeInventoryQuantity(command.limits.capacity),
-        deadVolume: normalizeInventoryQuantity(command.limits.deadVolume),
+        capacity: normalizeInventoryVolumeQuantity(command.limits.capacity),
+        deadVolume: normalizeInventoryVolumeQuantity(command.limits.deadVolume),
       };
       if (
         limits.capacity.kind === 'known' &&
@@ -297,23 +335,45 @@ export function applyInventoryMaterialCommand(
             'QUANTITY_UNKNOWN',
             'Measure the destination quantity before transferring into it.'
           );
+        const combined = addInventoryAmounts(
+          [stock.quantity, debit.contribution.quantity],
+          stock.quantity.unit
+        );
+        if (combined.kind === 'incompatible')
+          return refuse(
+            'QUANTITY_DIMENSION_MISMATCH',
+            'A transfer must preserve the destination stock’s measurement dimension.'
+          );
+        if (stock.quantity.unit !== 'uL' && 'mixing' in command && command.mixing === 'homogeneous')
+          return refuse(
+            'MIXING_REQUIRES_VOLUME',
+            'Homogeneous mixing requires volume-based source and destination stocks.'
+          );
         destination = {
           ...stock,
           composition:
-            stock.quantity.value === '0'
-              ? 'mixing' in command && command.mixing === 'homogeneous'
-                ? structuredClone(source.composition)
-                : { kind: 'unknown' }
-              : mixInventoryCompositions(
-                  [
-                    { composition: stock.composition, quantity: stock.quantity },
-                    debit.contribution,
-                  ],
-                  'mixing' in command ? command.mixing : 'unknown'
-                ),
+            stock.quantity.unit !== 'uL'
+              ? { kind: 'unknown' }
+              : stock.quantity.value === '0'
+                ? 'mixing' in command && command.mixing === 'homogeneous'
+                  ? structuredClone(source.composition)
+                  : { kind: 'unknown' }
+                : mixInventoryCompositions(
+                    [
+                      {
+                        composition: stock.composition,
+                        quantity: { value: stock.quantity.value, unit: 'uL' },
+                      },
+                      {
+                        ...debit.contribution,
+                        quantity: { value: debit.contribution.quantity.value, unit: 'uL' },
+                      },
+                    ],
+                    'mixing' in command ? command.mixing : 'unknown'
+                  ),
           quantity: {
             kind: 'known',
-            ...addInventoryVolumes([stock.quantity, debit.contribution.quantity]),
+            ...combined.quantity,
           },
         };
       }
@@ -350,13 +410,16 @@ export function applyInventoryMaterialCommand(
       for (const input of inputs) {
         const debit = contribution(state, input);
         if ('ok' in debit) return debit;
-        contributions.push(debit.contribution);
+        contributions.push({
+          ...debit.contribution,
+          quantity: normalizeInventoryVolume(input.quantity),
+        });
         remaining.set(input.stockId, debit.remaining);
       }
-      const quantity = {
+      const quantity = normalizeInventoryQuantity({
         kind: 'known' as const,
         ...addInventoryVolumes(contributions.map((input) => input.quantity)),
-      };
+      });
       const invalid = inventoryCapacityFailure(vessel, quantity);
       if (invalid) return invalid;
       const composition = mixInventoryCompositions(

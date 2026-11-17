@@ -1,8 +1,14 @@
-import type { InventoryQuantity, InventoryVolume } from '@waypoint/domain-services';
+import type { InventoryQuantity, InventoryAmount } from '@waypoint/domain-services';
 import { Button, Notice } from '../../components/ui';
 import type { InventoryData } from './inventory-controller';
 import type { InventoryItem } from './inventory-view';
-import { inventoryBlockerLabel, inventoryPrincipalLabel } from './inventory-view';
+import {
+  inventoryAmountLabel,
+  inventoryBlockerLabel,
+  inventoryPrincipalLabel,
+} from './inventory-view';
+
+export { inventoryAmountLabel } from './inventory-view';
 
 export type InventoryReservationDialog =
   | { kind: 'reserve-quantity'; stockId: string }
@@ -20,12 +26,6 @@ export function isInventoryReservationDialog(dialog: {
 
 type Availability = NonNullable<InventoryData['availability']>;
 export type InventoryReservationView = Availability['reservations'][string];
-
-export function inventoryAmountLabel(amount: InventoryQuantity | InventoryVolume): string {
-  return 'kind' in amount && amount.kind === 'unknown'
-    ? 'Unknown'
-    : `${amount.value} ${amount.unit === 'uL' ? 'µL' : amount.unit}`;
-}
 
 export function inventoryReservationOwner(view: InventoryReservationView): string {
   const holder = view.reservation.holder;
@@ -48,7 +48,7 @@ export function InventoryStockAvailability({
   const availability = snapshot?.stocks[stockId];
   if (!snapshot || !availability)
     return <Notice>Availability is unavailable. Refresh inventory before allocating stock.</Notice>;
-  const facts: readonly (readonly [string, InventoryQuantity | InventoryVolume])[] = [
+  const facts: readonly (readonly [string, InventoryQuantity | InventoryAmount])[] = [
     ['On hand', availability.onHand],
     ['Held', availability.held],
     ['Unreserved', availability.unreserved],
@@ -62,9 +62,12 @@ export function InventoryStockAvailability({
     >
       <dl className="grid grid-cols-2 gap-3">
         {facts.map(([label, amount]) => (
-          <div key={label}>
+          <div key={label} className="min-w-0">
             <dt className="text-xs text-fg-muted">{label}</dt>
-            <dd data-availability={label} className="mt-1 text-lg font-semibold tabular-nums">
+            <dd
+              data-availability={label}
+              className="mt-1 min-w-0 break-all text-lg font-semibold tabular-nums"
+            >
               {inventoryAmountLabel(amount)}
             </dd>
           </div>
@@ -141,7 +144,7 @@ export function InventoryReservationList({
                     }[reservation.lifecycle.kind]}
               </p>
               {reservation.kind === 'quantity' ? (
-                <p className="tabular-nums">
+                <p className="min-w-0 break-all tabular-nums">
                   {inventoryAmountLabel(reservation.remaining)} remaining
                 </p>
               ) : (

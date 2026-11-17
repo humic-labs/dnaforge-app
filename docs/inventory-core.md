@@ -14,11 +14,12 @@ server and desktop IPC invoke the same inventory owner.
 The Inventory workspace and authenticated agent tool consume this same owner.
 Layouts distinguish named positions, grids, removable-tube boxes, permanent-well
 plates and ordered stacks. This version supports one stock per vessel and exact
-volume accounting. Lots, internal preparations, exact-volume transfers, pooling,
-tracked dilution, exact concentration facts and known container limits use the
-same command owner. Quantity and item reservations and physical custody use that
-owner too. Physical types, equipment recipes, installed arrangements and scoped
-fit evidence use that owner. Team synchronization remains separate work.
+dimensioned amount accounting. Lots, internal preparations, amount transfers,
+pooling, tracked dilution, exact concentration facts and known container limits
+use the same command owner. Quantity and item reservations and physical custody
+use that owner too. Physical types, equipment recipes, installed arrangements
+and scoped fit evidence use that owner. Team synchronization remains separate
+work.
 
 Permanent wells have stable identity and remain attached to their plate. A plate
 moves with all its wells. Whole-plate disposal retains historical stock and
@@ -99,9 +100,28 @@ exclusive across storage and vessels. Containment is acyclic. Moving a parent
 changes its immediate placement and preserves descendant identities and local
 positions.
 
-Quantities use non-negative decimal strings in `L`, `mL`, `uL`, or `nL`, with
-exact arithmetic and canonical `uL` readback. Unsupported units, negative
-values, exponential notation and unrepresentable results are refused.
+Stock quantities use non-negative decimal strings with an explicit measurement
+basis. Volume, mass, amount of substance and whole-item counts normalize exactly
+to `uL`, `ng`, `nmol` and `item`. Supported decimal prefixes convert only within
+the same dimension. Counts must be whole; decimal arithmetic never passes
+through JavaScript numbers. Unsupported units, negative values, exponential
+notation and unrepresentable results are refused. Enzyme activity labels need a
+shared assay definition and are not interchangeable generic amounts.
+
+Canonical v18 retains the unit for both known and unknown amounts. A known zero
+still has its basis and identified stock. Ordinary measurement, reconciliation,
+withdrawal and reservation cannot change a stock's dimension. A different-basis
+observation can remain unapplied evidence. Native mutations refuse applying it
+as an inferred conversion. Package counts are distinct from measured contents.
+
+Old request bodies remain byte-compatible: a unitless unknown quantity retains
+the earlier volume meaning. New unknown amounts declare their unit. Request
+parsing does not insert defaults into accepted history; mutation and persisted
+state upcast establish the canonical unit. Older volume states gain their
+already-defined `uL` basis without an invented amount, event, actor or
+timestamp. Source receive-v1/stocktake-v1 and Benchling source-volume choices
+retain their volume contracts and saved commands, raw fields and digests.
+
 Consumption requires a positive amount. Reconciliation, quality changes,
 consumption and disposal require a reason.
 
@@ -127,7 +147,7 @@ until explicitly released, cancelled or expired. No timer owns business state.
 
 ```mermaid
 flowchart LR
-    Facts[On-hand quantity and known dead volume] --> Availability
+    Facts[Declared stock balance and applicable volume limits] --> Availability
     Holds[Active remaining quantity holds] --> Availability
     Context[Verified principal and native observation time] --> Availability
     Availability --> Free[Unreserved quantity and typed blockers]
@@ -961,9 +981,9 @@ reason; field order never chooses precedence.
 
 Physical source correlation and content admission have separate lifetimes.
 Storage already has hierarchy bindings and stock has receive-table bindings.
-Canonical v17 also has vessel bindings that can refer to an empty movable
-container or a permanent plate well. Foreign capture application owns their
-commitment; read-only capture inspection never creates a binding.
+Vessel bindings, introduced in v17, can refer to an empty movable container or a
+permanent plate well. Foreign capture application owns their commitment;
+read-only capture inspection never creates a binding.
 
 ```mermaid
 stateDiagram-v2
@@ -1105,12 +1125,12 @@ stateDiagram-v2
   Identified --> Identified: use or reconcile, including known zero
 ```
 
-The v17 knowledge value is recorded, unobserved or unidentified. The shared
-domain projection combines recorded knowledge with actual stock records to
-distinguish declared-empty from identified. A known zero stock stays identified;
-unknown quantity also stays identified. Legacy and ordinary vessel creation
-retain their recorded declaration without inventing an observation time or actor
-during upcast.
+The contents knowledge value introduced in v17 is recorded, unobserved or
+unidentified. The shared domain projection combines recorded knowledge with
+actual stock records to distinguish declared-empty from identified. A known zero
+stock stays identified; unknown quantity also stays identified. Legacy and
+ordinary vessel creation retain their recorded declaration without inventing an
+observation time or actor during upcast.
 
 Unobserved and unidentified vessels cannot accept ordinary receiving or any
 operation requiring an empty destination. Identifying their existing contents
@@ -1137,8 +1157,9 @@ destination, explicit output material and a new lot. Pool credits equal summed
 contributions; dilution debits both the sample and a tracked diluent. Every
 source debit, output credit and lineage record commits in one revision.
 
-Known capacity limits additions and measured quantities. Known dead volume
-limits withdrawals. Unknown limits remain explicit. Reconciliation records a
+Known physical volume capacity and dead volume constrain volume balances. Mass
+or count does not establish physical volume or imply a density conversion.
+Unknown physical limits and volumes remain explicit. Reconciliation records a
 measurement; it does not invent a transfer. Quantities use exact decimal
 arithmetic, including mixed units. Composition distinguishes unknown from
 homogeneous with explicit analyte facts. Known concentration is an exact reduced
@@ -1147,11 +1168,13 @@ input units normalize exactly; mass and molar quantities are not converted
 without molecular weight. Unlisted analytes are unmeasured, not zero.
 
 Pool, dilution and transfer into existing stock require an explicit output
-mixing choice before calculating weighted concentrations. Legacy request shapes
-without mixing remain unchanged and produce unknown mixed composition. A new
-aliquot inherits its source. Missing input measurements or incompatible units
-remain explicit unknown results. Contribution snapshots deep-copy the facts used
-at commitment. Later measurements do not rewrite them.
+mixing choice before calculating weighted concentrations. Non-volume transfer
+into existing stock permits unknown mixing with unknown resulting concentration;
+homogeneous mixing, pooling and dilution require volume amounts. Legacy request
+shapes without mixing remain unchanged and produce unknown mixed composition. A
+new aliquot inherits its source. Missing input measurements or incompatible
+units remain explicit unknown results. Contribution snapshots deep-copy the
+facts used at commitment. Later measurements do not rewrite them.
 
 Measurement input accepts decimal values and strict canonical facts. This lets
 an edit preserve an existing one-third concentration and unknown reason while

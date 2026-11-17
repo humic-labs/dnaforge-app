@@ -3,7 +3,7 @@ import {
   INVENTORY_STOCKTAKE_COLUMNS,
   MAX_INVENTORY_BATCH_COMMANDS,
   type InventoryObservationSubject,
-  type InventoryQuantity,
+  type InventoryQuantityInput,
   type InventoryStocktakeChoices,
   type InventoryStocktakeRowPreview,
   type InventoryStocktakeSubjectSnapshot,
@@ -22,7 +22,12 @@ import {
   type InventoryData,
 } from './inventory-controller';
 import { InventoryPhysicalDialog } from './InventoryPhysicalDialog';
-import { inventoryCustodyLabel, locationPath, vesselLocation } from './inventory-view';
+import {
+  inventoryAmountLabel,
+  inventoryCustodyLabel,
+  locationPath,
+  vesselLocation,
+} from './inventory-view';
 
 interface StocktakeInspection {
   subjectKeys: readonly string[];
@@ -57,12 +62,8 @@ const emptyChoices = (): InventoryStocktakeChoices => ({
 });
 const subjectValue = (subject: InventoryObservationSubject): string =>
   subject.kind === 'stock' ? `stock:${subject.stockId}` : `${subject.item.kind}:${subject.item.id}`;
-const quantityLabel = (quantity: InventoryQuantity | null): string =>
-  quantity === null
-    ? 'Not observed'
-    : quantity.kind === 'unknown'
-      ? 'Unknown'
-      : `${quantity.value} ${quantity.unit === 'uL' ? 'µL' : quantity.unit}`;
+const quantityLabel = (quantity: InventoryQuantityInput | null): string =>
+  quantity === null ? 'Not observed' : inventoryAmountLabel(quantity);
 function replaceKey<T extends { key: string }>(items: readonly T[], key: string, value?: T): T[] {
   return [...items.filter((item) => item.key !== key), ...(value ? [value] : [])];
 }
@@ -82,9 +83,8 @@ function StocktakeSnapshot({
       {snapshot.custody ? <p>Custody: {inventoryCustodyLabel(snapshot.custody)}</p> : null}
       {snapshot.availability ? (
         <p>
-          Held: {snapshot.availability.held.value}{' '}
-          {snapshot.availability.held.unit === 'uL' ? 'µL' : snapshot.availability.held.unit} ·
-          Unreserved: {quantityLabel(snapshot.availability.unreserved)}
+          Held: {inventoryAmountLabel(snapshot.availability.held)} · Unreserved:{' '}
+          {quantityLabel(snapshot.availability.unreserved)}
         </p>
       ) : null}
     </div>

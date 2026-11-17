@@ -3,7 +3,7 @@ import type {
   InventoryCommand,
   InventoryItemCustody,
   InventoryPrincipal,
-  InventoryQuantity,
+  InventoryQuantityInput,
   InventoryStockAvailability,
 } from './inventory-types';
 import type {
@@ -57,7 +57,7 @@ export interface InventoryStocktakeIssue {
   readonly message: string;
 }
 export interface InventoryStocktakeSubjectSnapshot {
-  readonly quantity: InventoryQuantity | null;
+  readonly quantity: InventoryQuantityInput | null;
   readonly custody: InventoryItemCustody | null;
   readonly availability: InventoryStockAvailability | null;
 }

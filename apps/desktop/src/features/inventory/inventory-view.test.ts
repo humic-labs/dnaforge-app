@@ -6,9 +6,41 @@ import {
 } from '@waypoint/domain-services';
 import {
   inventoryLocationPathLabel,
+  inventoryAmountLabel,
+  inventoryAmountUnitOptions,
   inventoryPrincipalLabel,
   locationPath,
 } from './inventory-view';
+
+it('labels exact generic amounts and the declared basis of unknown quantities', () => {
+  expect(inventoryAmountLabel({ value: '900719925474099312345678901', unit: 'item' })).toBe(
+    '900719925474099312345678901 item'
+  );
+  expect(inventoryAmountLabel({ value: '0.00000000000000001', unit: 'ug' })).toBe(
+    '0.00000000000000001 µg'
+  );
+  expect(inventoryAmountLabel({ kind: 'unknown', unit: 'nmol' })).toBe('Unknown nmol');
+  expect(inventoryAmountLabel({ kind: 'unknown' })).toBe('Unknown µL');
+});
+
+it('offers only units from the declared amount dimension for existing stock', () => {
+  expect(inventoryAmountUnitOptions('item')).toEqual([{ value: 'item', label: 'item' }]);
+  expect(inventoryAmountUnitOptions('ng').map((option) => option.value)).toEqual([
+    'kg',
+    'g',
+    'mg',
+    'ug',
+    'ng',
+    'pg',
+  ]);
+  expect(inventoryAmountUnitOptions('uL').map((option) => option.value)).toEqual([
+    'L',
+    'mL',
+    'uL',
+    'nL',
+    'pL',
+  ]);
+});
 
 function storage(
   id: string,

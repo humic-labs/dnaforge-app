@@ -14,7 +14,7 @@ import { parseInventoryCommandBatch } from './inventory-validation';
 import {
   MAX_INVENTORY_STORAGE_SLOTS,
   type InventoryLayout,
-  type InventoryQuantity,
+  type InventoryQuantityInput,
 } from './inventory-types';
 import type {
   InventoryBenchlingCaptureInspection,
@@ -95,7 +95,7 @@ export interface ResolvedBenchlingVessel {
         reason: string;
         materialId: string;
         materialKey: string;
-        quantity: InventoryQuantity;
+        quantity: InventoryQuantityInput;
         quality: 'usable' | 'quarantined';
       };
 }
@@ -416,7 +416,7 @@ function placement(
 function sourceQuantity(
   record: InventoryBenchlingRecord,
   choice: InventoryBenchlingQuantityChoice
-): InventoryQuantity {
+): InventoryQuantityInput {
   if (choice?.kind === 'unknown') {
     shape(choice, ['kind', 'reason'], '/choices/quantity');
     if (!requireReason(choice.reason))

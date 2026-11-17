@@ -4,7 +4,10 @@ import {
   inventoryPhysicalPositionUnavailable,
 } from './inventory-configuration';
 import { inventoryReservationPlacementFailure } from './inventory-reservation-placement';
-import { inventoryCommandWithdrawals } from './inventory-materials';
+import {
+  inventoryCommandWithdrawals,
+  inventoryMixingDimensionFailure,
+} from './inventory-materials';
 import { inventoryVesselContentsProjection } from './inventory-contents';
 import { inventoryCustodyAccess, inventoryItemCustody } from './inventory-custody';
 import { inventoryItemContains } from './inventory-placement';
@@ -22,15 +25,15 @@ import type {
   InventoryReservationCommand,
   InventoryState,
   InventoryStockAvailability,
-  InventoryVolume,
-  InventoryWithdrawal,
 } from './inventory-types';
 import {
-  addInventoryVolumes,
-  compareInventoryVolumes,
-  normalizeInventoryVolume,
-  subtractInventoryVolume,
-} from './inventory-volume';
+  addInventoryAmounts,
+  compareInventoryAmounts,
+  normalizeInventoryAmount,
+  subtractInventoryAmounts,
+  type InventoryAmount,
+  type InventoryCanonicalAmount,
+} from './inventory-amount';
 
 type ReservationState = Pick<
   InventoryState,
@@ -55,7 +58,10 @@ const refuse = (code: InventoryErrorCode, message: string): Failure => ({
   code,
   message,
 });
-const zero = (): InventoryVolume => ({ value: '0', unit: 'uL' });
+const zero = (unit: InventoryCanonicalAmount['unit']): InventoryCanonicalAmount => ({
+  value: '0',
+  unit,
+});
 
 function due(reservation: InventoryReservation, at: number): boolean {
   return reservation.deadline !== null && at >= reservation.deadline;
@@ -81,14 +87,32 @@ function target(
   return reservation.kind === 'item' ? reservation.item : stockTarget(state, reservation.stockId);
 }
 
-function positive(value: InventoryVolume): boolean {
-  return normalizeInventoryVolume(value).value !== '0';
+function positive(value: InventoryAmount): boolean {
+  return normalizeInventoryAmount(value).value !== '0';
 }
 
-function remainder(available: InventoryVolume, amount: InventoryVolume): InventoryVolume {
-  if (amount.value === '0') return { ...available };
-  const result = subtractInventoryVolume(available, amount);
-  return result.kind === 'remaining' ? result.quantity : zero();
+function total(
+  values: readonly InventoryAmount[],
+  unit: InventoryCanonicalAmount['unit']
+): InventoryCanonicalAmount {
+  const result = addInventoryAmounts(values, unit);
+  if (result.kind === 'incompatible')
+    throw new TypeError('Recorded allocations must share the stock’s measurement dimension.');
+  return result.quantity;
+}
+
+function remainder(
+  available: InventoryCanonicalAmount,
+  amount: InventoryAmount
+): InventoryCanonicalAmount {
+  const result = subtractInventoryAmounts(available, amount);
+  if (result.kind === 'incompatible')
+    throw new TypeError('Recorded allocations must share the stock’s measurement dimension.');
+  return result.kind === 'remaining'
+    ? result.quantity
+    : result.kind === 'non-positive'
+      ? { ...available }
+      : zero(available.unit);
 }
 
 function stockAvailability(
@@ -106,11 +130,15 @@ function stockAvailability(
   );
   const active = related.filter((reservation) => reservation.lifecycle.kind === 'active');
   const quantities = active.filter((reservation) => reservation.kind === 'quantity');
-  const held = addInventoryVolumes(quantities.map((reservation) => reservation.remaining));
-  const mine = addInventoryVolumes(
+  const held = total(
+    quantities.map((reservation) => reservation.remaining),
+    stock.quantity.unit
+  );
+  const mine = total(
     quantities
       .filter((reservation) => inventoryPrincipalMatchesActor(reservation.holder, principal))
-      .map((reservation) => reservation.remaining)
+      .map((reservation) => reservation.remaining),
+    stock.quantity.unit
   );
   const blockers: InventoryAvailabilityBlocker[] = [];
   if (inventoryPhysicalPositionUnavailable(state, item))
@@ -128,13 +156,15 @@ function stockAvailability(
       code: 'ITEM_RESERVED',
       reservationIds: itemHolds.map((reservation) => reservation.id),
     });
-  let unreserved: InventoryQuantity = { kind: 'unknown' };
+  let unreserved: InventoryQuantity = { kind: 'unknown', unit: stock.quantity.unit };
   if (stock.quantity.kind === 'known') {
     const usable =
-      vessel.limits.deadVolume.kind === 'known'
+      stock.quantity.unit === 'uL' && vessel.limits.deadVolume.kind === 'known'
         ? remainder(stock.quantity, vessel.limits.deadVolume)
         : stock.quantity;
-    if (compareInventoryVolumes(held, usable) > 0) blockers.push({ code: 'ALLOCATION_SHORTFALL' });
+    const comparison = compareInventoryAmounts(held, usable);
+    if (comparison.kind === 'compared' && comparison.order > 0)
+      blockers.push({ code: 'ALLOCATION_SHORTFALL' });
     unreserved = { kind: 'known', ...remainder(usable, held) };
   }
   return {
@@ -242,8 +272,15 @@ export function inventoryReservationGuard(
   command: InventoryCommand,
   context?: InventoryExecutionContext
 ): Failure | null {
+  const mixingFailure = inventoryMixingDimensionFailure(state, command);
+  if (mixingFailure) return mixingFailure;
   for (const input of inventoryCommandWithdrawals(command)) {
     if (!state.stocks[input.stockId]) continue;
+    if (normalizeInventoryAmount(input.quantity).unit !== state.stocks[input.stockId].quantity.unit)
+      return refuse(
+        'QUANTITY_DIMENSION_MISMATCH',
+        'A withdrawal must use the stock’s declared measurement dimension.'
+      );
     const facts = stockAvailability(state, input.stockId, context?.principal);
     if (facts.blockers.some((blocker) => blocker.code === 'ALLOCATION_SHORTFALL'))
       return refuse(
@@ -252,15 +289,14 @@ export function inventoryReservationGuard(
       );
     const itemHold = facts.blockers.find((blocker) => blocker.code === 'ITEM_RESERVED');
     if (itemHold) return refuse('ITEM_RESERVED', 'Another holder has reserved this physical item.');
-    if (
-      facts.held.value !== '0' &&
-      facts.unreserved.kind === 'known' &&
-      compareInventoryVolumes(input.quantity, facts.unreserved) > 0
-    )
-      return refuse(
-        'QUANTITY_RESERVED',
-        'The withdrawal exceeds unreserved usable quantity. Claim owned reservations explicitly.'
-      );
+    if (facts.held.value !== '0' && facts.unreserved.kind === 'known') {
+      const comparison = compareInventoryAmounts(input.quantity, facts.unreserved);
+      if (comparison.kind === 'compared' && comparison.order > 0)
+        return refuse(
+          'QUANTITY_RESERVED',
+          'The withdrawal exceeds unreserved usable quantity. Claim owned reservations explicitly.'
+        );
+    }
   }
   let items: InventoryPhysicalItem[] = [];
   let locations: InventoryPhysicalItem[] = [];
@@ -388,16 +424,22 @@ export function applyInventoryReservationCommand(
     if (command.kind === 'reserve-quantity') {
       const stock = state.stocks[command.stockId];
       if (!stock) return refuse('STOCK_NOT_FOUND', 'The reserved stock does not exist.');
-      const quantity = normalizeInventoryVolume(command.quantity);
+      const quantity = normalizeInventoryAmount(command.quantity);
+      if (quantity.unit !== stock.quantity.unit)
+        return refuse(
+          'QUANTITY_DIMENSION_MISMATCH',
+          'A reservation must use the stock’s declared measurement dimension.'
+        );
       if (!positive(quantity))
-        return refuse('INVALID_QUANTITY', 'A quantity reservation requires positive volume.');
+        return refuse('INVALID_QUANTITY', 'A quantity reservation requires a positive amount.');
       const available = stockAvailability(state, stock.id, context.principal);
       const blocker = available.blockers[0];
       if (blocker)
         return refuse(blocker.code, 'The stock is blocked from a new quantity reservation.');
       if (available.unreserved.kind !== 'known')
         return refuse('QUANTITY_UNKNOWN', 'Measure the stock before reserving quantity.');
-      if (compareInventoryVolumes(quantity, available.unreserved) > 0)
+      const comparison = compareInventoryAmounts(quantity, available.unreserved);
+      if (comparison.kind === 'compared' && comparison.order > 0)
         return refuse(
           'QUANTITY_RESERVED',
           'The requested reservation exceeds unreserved usable quantity.'
@@ -503,12 +545,23 @@ export function prepareInventoryFulfillment(
       'INVALID_RESERVATION_CLAIM',
       'Each fulfillment claim must identify a distinct reservation.'
     );
-  const debits = new Map<string, InventoryVolume>();
-  for (const input of inventoryCommandWithdrawals(command.withdrawal))
+  const mixingFailure = inventoryMixingDimensionFailure(state, command.withdrawal);
+  if (mixingFailure) return mixingFailure;
+  const debits = new Map<string, InventoryCanonicalAmount>();
+  for (const input of inventoryCommandWithdrawals(command.withdrawal)) {
+    const stock = state.stocks[input.stockId];
+    if (!stock) return refuse('STOCK_NOT_FOUND', 'A withdrawn stock does not exist.');
+    const quantity = normalizeInventoryAmount(input.quantity);
+    if (quantity.unit !== stock.quantity.unit)
+      return refuse(
+        'QUANTITY_DIMENSION_MISMATCH',
+        'A withdrawal must use the stock’s declared measurement dimension.'
+      );
     debits.set(
       input.stockId,
-      addInventoryVolumes([debits.get(input.stockId) ?? zero(), input.quantity])
+      total([debits.get(input.stockId) ?? zero(stock.quantity.unit), quantity], stock.quantity.unit)
     );
+  }
   for (const stockId of debits.keys()) {
     if (
       state.stocks[stockId] &&
@@ -521,7 +574,7 @@ export function prepareInventoryFulfillment(
         'Recorded quantity is below held allocations. Resolve the shortfall before fulfilling.'
       );
   }
-  const claimed = new Map<string, InventoryVolume>();
+  const claimed = new Map<string, InventoryCanonicalAmount>();
   const updates = new Map<string, InventoryReservation>();
   for (const claim of command.claims) {
     const reservation = state.reservations[claim.reservationId];
@@ -536,22 +589,32 @@ export function prepareInventoryFulfillment(
         'EXPIRY_PENDING',
         'A reservation past its deadline cannot be fulfilled. Release or expire it explicitly.'
       );
-    const quantity = normalizeInventoryVolume(claim.quantity);
+    const quantity = normalizeInventoryAmount(claim.quantity);
     if (!positive(quantity))
-      return refuse('INVALID_RESERVATION_CLAIM', 'A fulfillment claim requires positive volume.');
+      return refuse('INVALID_RESERVATION_CLAIM', 'A fulfillment claim requires a positive amount.');
     if (reservation.kind === 'quantity') {
       const debit = debits.get(reservation.stockId);
-      const total = addInventoryVolumes([claimed.get(reservation.stockId) ?? zero(), quantity]);
+      if (quantity.unit !== reservation.remaining.unit || (debit && quantity.unit !== debit.unit))
+        return refuse(
+          'QUANTITY_DIMENSION_MISMATCH',
+          'A fulfillment claim must use the reserved stock’s measurement dimension.'
+        );
+      const claimedTotal = total(
+        [claimed.get(reservation.stockId) ?? zero(reservation.remaining.unit), quantity],
+        reservation.remaining.unit
+      );
+      const debitComparison = debit ? compareInventoryAmounts(claimedTotal, debit) : null;
+      const heldComparison = compareInventoryAmounts(quantity, reservation.remaining);
       if (
         !debit ||
-        compareInventoryVolumes(total, debit) > 0 ||
-        compareInventoryVolumes(quantity, reservation.remaining) > 0
+        (debitComparison?.kind === 'compared' && debitComparison.order > 0) ||
+        (heldComparison.kind === 'compared' && heldComparison.order > 0)
       )
         return refuse(
           'INVALID_RESERVATION_CLAIM',
           'Quantity claims must match a debited stock and cannot exceed its debit or reserved remainder.'
         );
-      claimed.set(reservation.stockId, total);
+      claimed.set(reservation.stockId, claimedTotal);
       const remaining = remainder(reservation.remaining, quantity);
       updates.set(reservation.id, {
         ...reservation,
@@ -564,11 +627,20 @@ export function prepareInventoryFulfillment(
         const item = stockTarget(state, stockId);
         return item !== undefined && inventoryItemContains(state, reservation.item, item);
       });
-      const total = addInventoryVolumes(covered.map(([, amount]) => amount));
-      if (!covered.length || compareInventoryVolumes(total, quantity) !== 0)
+      const coveredTotal = addInventoryAmounts(
+        covered.map(([, amount]) => amount),
+        quantity.unit
+      );
+      if (coveredTotal.kind === 'incompatible')
+        return refuse(
+          'QUANTITY_DIMENSION_MISMATCH',
+          'An item claim and its covered withdrawals must share one measurement dimension.'
+        );
+      const comparison = compareInventoryAmounts(coveredTotal.quantity, quantity);
+      if (!covered.length || (comparison.kind === 'compared' && comparison.order !== 0))
         return refuse(
           'INVALID_RESERVATION_CLAIM',
-          'An item claim must equal the exact withdrawal volume covered by its physical item.'
+          'An item claim must equal the exact withdrawal amount covered by its physical item.'
         );
       updates.set(reservation.id, {
         ...reservation,

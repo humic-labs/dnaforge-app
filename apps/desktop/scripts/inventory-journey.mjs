@@ -1,4 +1,9 @@
 import {
+  runInventoryAmountsJourney,
+  runInventoryAmountsResume,
+  runInventoryAmountsReopen,
+} from './journeys/inventory-amounts.mjs';
+import {
   runInventoryBenchlingApplicationJourney,
   runInventoryBenchlingApplicationResume,
   runInventoryBenchlingApplicationReopen,
@@ -118,6 +123,9 @@ assert.ok(
     'contents',
     'contents-reopen',
     'contents-resume',
+    'amounts',
+    'amounts-resume',
+    'amounts-reopen',
     'benchling-apply',
     'benchling-apply-reopen',
     'benchling-apply-resume',
@@ -693,6 +701,25 @@ try {
     writeFileSync(
       path.join(out, 'material-reopen-fixture.json'),
       JSON.stringify({ project, scope, ...receipt.expected }, null, 2)
+    );
+  }
+
+  if (stage === 'amounts' || stage === 'amounts-resume' || stage === 'amounts-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass an exact current v18 inventory fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    receipt.expected = await (
+      stage === 'amounts'
+        ? runInventoryAmountsJourney
+        : stage === 'amounts-resume'
+          ? runInventoryAmountsResume
+          : runInventoryAmountsReopen
+    )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+    writeFileSync(
+      path.join(out, 'amounts-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
     );
   }
 

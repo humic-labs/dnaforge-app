@@ -63,8 +63,8 @@ incompatible transfer with unchanged state and history.
 - Pool and dilution output identity is explicit. Diluent is tracked stock.
 - Unknown capacity/dead volume remains explicit. Quantity arithmetic does not
   establish physical fit or pipetting feasibility.
-- This slice records exact volumes. Concentration and mixture calculations
-  remain separate acceptance work.
+- Pooling and dilution record exact volumes. Their composition calculations
+  remain distinct from generic mass, count and molar stock balances.
 
 ## Exact amount arithmetic
 
@@ -75,7 +75,8 @@ arithmetic even at zero, whole counts beyond JavaScript's safe integer range,
 explicit units for empty sums, bounded input/output and unchanged legacy volume
 results. Activity labels without a shared assay definition are unsupported.
 
-Arithmetic support alone does not establish stockroom receiving support. The
-current stock, reservation and mixing contracts remain volume-specific until
-those business contracts and their real workflows are explicitly generalized.
-Package counts never supply a content measurement by inference.
+Arithmetic support alone does not establish stockroom receiving support. See
+[stock amount workflows](amounts.md) for the generic receiving, transfer and
+reservation path and its current qualification status. Mixing and physical
+capacity remain volume-specific. Package counts never supply a content
+measurement by inference.

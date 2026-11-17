@@ -4,7 +4,7 @@ import { inventoryAvailability } from './inventory-reservations';
 import { inventoryItemCustody } from './inventory-custody';
 import { inventoryObservationKey } from './inventory-observation-identity';
 import { inventoryTableCanonicalJson, inventoryTableSha256 } from './inventory-table-binding';
-import { normalizeInventoryQuantity } from './inventory-volume';
+import { normalizeInventoryVolume } from './inventory-volume';
 import {
   parseInventoryCommand,
   parseInventoryExecutionContext,
@@ -173,7 +173,13 @@ const observationInput = (value: InventoryObservationInput): InventoryObservatio
   namespace: value.namespace,
   observationId: value.observationId,
   subject: value.subject,
-  fact: value.fact,
+  fact:
+    value.fact.kind === 'quantity' &&
+    value.fact.quantity.kind === 'unknown' &&
+    'unit' in value.fact.quantity &&
+    value.fact.quantity.unit === 'uL'
+      ? { kind: 'quantity', quantity: { kind: 'unknown' } }
+      : value.fact,
   observedAt: value.observedAt,
   reason: value.reason,
 });
@@ -414,11 +420,13 @@ export function inventoryStocktakePreview(
         try {
           fact = {
             kind: 'quantity',
-            quantity: normalizeInventoryQuantity({
+            quantity: {
               kind: 'known',
-              value: fields.quantity,
-              unit: fields.unit as (typeof INVENTORY_VOLUME_UNITS)[number],
-            }),
+              ...normalizeInventoryVolume({
+                value: fields.quantity,
+                unit: fields.unit as (typeof INVENTORY_VOLUME_UNITS)[number],
+              }),
+            },
           };
         } catch (error) {
           rowIssue(

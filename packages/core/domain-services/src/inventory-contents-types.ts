@@ -1,5 +1,5 @@
 import type {
-  InventoryQuantity,
+  InventoryQuantityInput,
   InventoryQuality,
   InventoryRecordedPrincipal,
 } from './inventory-types';
@@ -37,7 +37,7 @@ export type InventoryContentsCommand =
       readonly id: string;
       readonly vesselId: string;
       readonly materialId: string;
-      readonly quantity: InventoryQuantity;
+      readonly quantity: InventoryQuantityInput;
       readonly quality: InventoryQuality;
       readonly reason: string;
     };

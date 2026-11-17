@@ -264,11 +264,17 @@ function applyCommand(
         return null;
       }
       if (command.kind === 'reconcile') {
-        const capacity = inventoryCapacityFailure(vessel, command.quantity);
+        const quantity = normalizeInventoryQuantity(command.quantity);
+        if (quantity.unit !== stock.quantity.unit)
+          return failure(
+            'QUANTITY_DIMENSION_MISMATCH',
+            'A measurement must use the stock’s declared measurement dimension.'
+          );
+        const capacity = inventoryCapacityFailure(vessel, quantity);
         if (capacity) return capacity;
         state.stocks[stock.id] = {
           ...stock,
-          quantity: normalizeInventoryQuantity(command.quantity),
+          quantity,
         };
         return null;
       }

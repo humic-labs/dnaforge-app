@@ -11,10 +11,11 @@ import {
   inventoryVesselContentsProjection,
   inventoryStoragePositions,
   inventoryWellId,
+  normalizeInventoryAmount,
   type InventoryCommand,
   type InventoryLocatedPlacement,
   type InventoryLayout,
-  type InventoryVolumeUnit,
+  type InventoryAmountUnit,
 } from '@waypoint/domain-services';
 import { Button, Notice, Select, TextArea, TextField } from '../../components/ui';
 import {
@@ -45,6 +46,7 @@ import {
   destinationPositions,
   locationPath,
   vesselLocation,
+  inventoryAmountUnitOptions,
   type InventoryDialog,
 } from './inventory-view';
 
@@ -124,7 +126,7 @@ export function InventoryForm({
   const [quantity, setQuantity] = useState(
     stock?.quantity.kind === 'known' && dialog.kind === 'reconcile' ? stock.quantity.value : ''
   );
-  const [unit, setUnit] = useState<InventoryVolumeUnit>('uL');
+  const [unit, setUnit] = useState<InventoryAmountUnit>(stock?.quantity.unit ?? 'uL');
   const [reason, setReason] = useState('');
   const [contentsKnowledge, setContentsKnowledge] = useState<
     'recorded' | 'unobserved' | 'unidentified'
@@ -147,7 +149,8 @@ export function InventoryForm({
   );
   const [materials, setMaterials] = useState<Materials>({ kind: 'loading' });
   const [validation, setValidation] = useState<string | null>(null);
-  const canSubmit = inventoryCanEdit(status);
+  const unknownWithdrawal = dialog.kind === 'use' && stock?.quantity.kind === 'unknown';
+  const canSubmit = inventoryCanEdit(status) && !unknownWithdrawal;
   const selectedStorage = state.storage[storageId];
   const fixedWell = dialog.kind === 'receive' && selectedStorage?.layout.kind === 'fixed-well';
   const selectedContainer = state.vessels[containerId];
@@ -242,6 +245,11 @@ export function InventoryForm({
     setValidation(null);
     if (!canSubmit) return;
     try {
+      if (
+        dialog.kind === 'use' ||
+        ((dialog.kind === 'receive' || dialog.kind === 'reconcile') && quantityKind === 'known')
+      )
+        normalizeInventoryAmount({ value: quantity, unit });
       if ((dialog.kind === 'location' || dialog.kind === 'container') && typeBlocked)
         throw new Error('This type version is unavailable for new items.');
       const commands: InventoryCommand[] = [];
@@ -358,7 +366,7 @@ export function InventoryForm({
                 lotId,
                 quantity:
                   quantityKind === 'unknown'
-                    ? { kind: 'unknown' }
+                    ? { kind: 'unknown', unit }
                     : { kind: 'known', value: quantity, unit },
                 quality: 'usable',
               }
@@ -369,7 +377,7 @@ export function InventoryForm({
                 materialId,
                 quantity:
                   quantityKind === 'unknown'
-                    ? { kind: 'unknown' }
+                    ? { kind: 'unknown', unit }
                     : { kind: 'known', value: quantity, unit },
                 quality: 'usable',
               }
@@ -390,7 +398,7 @@ export function InventoryForm({
           stockId: dialog.stockId,
           quantity:
             quantityKind === 'unknown'
-              ? { kind: 'unknown' }
+              ? { kind: 'unknown', unit }
               : { kind: 'known', value: quantity, unit },
           reason: reason.trim(),
         });
@@ -491,8 +499,8 @@ export function InventoryForm({
             />
           </Field>
         ) : null}
-        {dialog.kind === 'use' || quantityKind === 'known' ? (
-          <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-3">
+        <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-3">
+          {dialog.kind === 'use' || quantityKind === 'known' ? (
             <Field label={dialog.kind === 'use' ? 'Amount to use' : 'Amount'}>
               <TextField
                 aria-label="Quantity"
@@ -503,18 +511,18 @@ export function InventoryForm({
                 required
               />
             </Field>
-            <Field label="Unit">
-              <Select
-                ariaLabel="Unit"
-                value={unit}
-                options={['uL', 'mL', 'L', 'nL'].map((value) => ({
-                  value,
-                  label: value === 'uL' ? 'µL' : value,
-                }))}
-                onValueChange={(value) => setUnit(value as InventoryVolumeUnit)}
-              />
-            </Field>
-          </div>
+          ) : null}
+          <Field label="Unit">
+            <Select
+              ariaLabel="Unit"
+              value={unit}
+              options={inventoryAmountUnitOptions(stock?.quantity.unit)}
+              onValueChange={(value) => setUnit(value as InventoryAmountUnit)}
+            />
+          </Field>
+        </div>
+        {unknownWithdrawal ? (
+          <Notice>Record a measured quantity before using this stock.</Notice>
         ) : null}
       </>
     ) : null;

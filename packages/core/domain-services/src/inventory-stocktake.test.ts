@@ -332,7 +332,7 @@ describe('inventory observations and stocktake plans', () => {
         : { ...row, quantity: '0' };
     const state = apply(fixture(), table([source]));
     expect(state.stocks.stock.quantity).toEqual(
-      kind === 'unknown' ? { kind: 'unknown' } : volume('0')
+      kind === 'unknown' ? { kind: 'unknown', unit: 'uL' } : volume('0')
     );
   });
   it('uses source namespace and exact leading-zero identity independently of file quoting or decimal units', () => {

@@ -22,7 +22,12 @@ import {
   type InventoryData,
 } from './inventory-controller';
 import { InventoryPhysicalDialog } from './InventoryPhysicalDialog';
-import { inventoryCustodyLabel, locationPath, vesselLocation } from './inventory-view';
+import {
+  inventoryAmountLabel,
+  inventoryCustodyLabel,
+  locationPath,
+  vesselLocation,
+} from './inventory-view';
 
 interface SourceInspection {
   materialKeys: readonly string[];
@@ -120,22 +125,15 @@ function ActualInventory({
       {actual ? (
         <>
           <p className="break-words">Name: {actual.vessel.name}</p>
-          <p>
-            Quantity:{' '}
-            {actual.stock.quantity.kind === 'unknown'
-              ? 'Unknown'
-              : `${actual.stock.quantity.value} ${actual.stock.quantity.unit === 'uL' ? 'µL' : actual.stock.quantity.unit}`}
-          </p>
+          <p>Quantity: {inventoryAmountLabel(actual.stock.quantity)}</p>
           <p>Quality: {actual.stock.quality}</p>
           <p className="break-words">
             Location: {vesselLocation(data.state, actual.vessel, actual.custody)}
           </p>
           <p>Custody: {inventoryCustodyLabel(actual.custody)}</p>
           <p>
-            Held: {actual.availability.held.value} µL · Unreserved:{' '}
-            {actual.availability.unreserved.kind === 'unknown'
-              ? 'Unknown'
-              : `${actual.availability.unreserved.value} µL`}
+            Held: {inventoryAmountLabel(actual.availability.held)} · Unreserved:{' '}
+            {inventoryAmountLabel(actual.availability.unreserved)}
           </p>
           <details>
             <summary className="cursor-pointer text-accent">Bound identities</summary>

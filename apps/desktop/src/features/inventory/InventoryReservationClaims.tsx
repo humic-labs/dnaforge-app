@@ -1,6 +1,7 @@
 import { Button, Notice, Select, TextField } from '../../components/ui';
 import type { InventoryData } from './inventory-controller';
 import { inventoryAmountLabel, inventoryReservationOwner } from './InventoryReservations';
+import { inventoryAmountUnitLabel } from './inventory-view';
 
 export interface InventoryReservationClaimRow {
   id: string;
@@ -39,44 +40,55 @@ export function InventoryReservationClaims({
           ? 'Each claim explicitly spends the entered amount from its reservation. Any remaining withdrawal must be unreserved.'
           : 'This operation uses unreserved quantity. Add a claim to deliberately fulfill a reservation.'}
       </Notice>
-      {claims.map((claim, index) => (
-        <div key={claim.id} className="space-y-2">
-          <Select
-            ariaLabel={`Reservation claim ${index + 1}`}
-            value={claim.reservationId}
-            options={[
-              { value: '', label: 'Choose a reservation' },
-              ...eligible.map((view) => ({
-                value: view.reservation.id,
-                label: view.reservation.purpose,
-                description: `${inventoryReservationOwner(view)}${view.reservation.kind === 'quantity' ? ` · ${inventoryAmountLabel(view.reservation.remaining)} remaining` : ''}`,
-              })),
-            ]}
-            onValueChange={(reservationId) =>
-              onChange(claims.map((row) => (row.id === claim.id ? { ...row, reservationId } : row)))
-            }
-          />
-          <label className="flex flex-col gap-1.5 text-xs text-fg-muted">
-            <span>{`Reservation claim ${index + 1} quantity (µL)`}</span>
-            <TextField
-              aria-label={`Reservation claim ${index + 1} quantity (µL)`}
-              inputMode="decimal"
-              value={claim.quantity}
-              onChange={(event) =>
+      {claims.map((claim, index) => {
+        const reservation = data.availability?.reservations[claim.reservationId]?.reservation;
+        const stock = stockIds.length === 1 ? data.state.stocks[stockIds[0]] : undefined;
+        const unit = inventoryAmountUnitLabel(
+          reservation?.kind === 'quantity'
+            ? reservation.remaining.unit
+            : (stock?.quantity.unit ?? 'uL')
+        );
+        return (
+          <div key={claim.id} className="space-y-2">
+            <Select
+              ariaLabel={`Reservation claim ${index + 1}`}
+              value={claim.reservationId}
+              options={[
+                { value: '', label: 'Choose a reservation' },
+                ...eligible.map((view) => ({
+                  value: view.reservation.id,
+                  label: view.reservation.purpose,
+                  description: `${inventoryReservationOwner(view)}${view.reservation.kind === 'quantity' ? ` · ${inventoryAmountLabel(view.reservation.remaining)} remaining` : ''}`,
+                })),
+              ]}
+              onValueChange={(reservationId) =>
                 onChange(
-                  claims.map((row) =>
-                    row.id === claim.id ? { ...row, quantity: event.target.value } : row
-                  )
+                  claims.map((row) => (row.id === claim.id ? { ...row, reservationId } : row))
                 )
               }
-              required
             />
-          </label>
-          <Button
-            onClick={() => onChange(claims.filter((row) => row.id !== claim.id))}
-          >{`Remove reservation claim ${index + 1}`}</Button>
-        </div>
-      ))}
+            <label className="flex flex-col gap-1.5 text-xs text-fg-muted">
+              <span>{`Reservation claim ${index + 1} quantity (${unit})`}</span>
+              <TextField
+                aria-label={`Reservation claim ${index + 1} quantity (${unit})`}
+                inputMode="decimal"
+                value={claim.quantity}
+                onChange={(event) =>
+                  onChange(
+                    claims.map((row) =>
+                      row.id === claim.id ? { ...row, quantity: event.target.value } : row
+                    )
+                  )
+                }
+                required
+              />
+            </label>
+            <Button
+              onClick={() => onChange(claims.filter((row) => row.id !== claim.id))}
+            >{`Remove reservation claim ${index + 1}`}</Button>
+          </div>
+        );
+      })}
       <Button
         disabled={!eligible.length || claims.length >= 256}
         onClick={() =>

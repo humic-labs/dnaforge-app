@@ -1,4 +1,9 @@
 import type {
+  InventoryAmount,
+  InventoryAmountUnit,
+  InventoryCanonicalAmount,
+} from './inventory-amount';
+import type {
   InventoryObservation,
   InventoryObservationCommand,
 } from './inventory-observation-types';
@@ -42,7 +47,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v17' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v18' as const;
+export const INVENTORY_CONTENTS_SCHEMA = 'dnaforge.inventory.v17' as const;
 export const INVENTORY_HIERARCHY_SCHEMA = 'dnaforge.inventory.v16' as const;
 export const INVENTORY_SOURCE_REVISION_SCHEMA = 'dnaforge.inventory.v15' as const;
 export const INVENTORY_STOCKTAKE_SCHEMA = 'dnaforge.inventory.v14' as const;
@@ -90,9 +96,16 @@ export interface InventoryVolume {
   readonly unit: InventoryVolumeUnit;
 }
 
-export type InventoryQuantity =
+export type InventoryVolumeQuantity =
   | { readonly kind: 'unknown' }
   | ({ readonly kind: 'known' } & InventoryVolume);
+export type InventoryQuantityInput =
+  | { readonly kind: 'unknown' }
+  | { readonly kind: 'unknown'; readonly unit: InventoryAmountUnit }
+  | ({ readonly kind: 'known' } & InventoryAmount);
+export type InventoryQuantity =
+  | { readonly kind: 'unknown'; readonly unit: InventoryCanonicalAmount['unit'] }
+  | ({ readonly kind: 'known' } & InventoryCanonicalAmount);
 
 export interface InventoryLocatedPlacement {
   readonly kind: 'located';
@@ -194,8 +207,8 @@ export interface InventoryStorage {
 }
 
 export interface InventoryVesselLimits {
-  readonly capacity: InventoryQuantity;
-  readonly deadVolume: InventoryQuantity;
+  readonly capacity: InventoryVolumeQuantity;
+  readonly deadVolume: InventoryVolumeQuantity;
 }
 
 interface InventoryVesselFacts {
@@ -391,8 +404,8 @@ export type InventoryReservation = InventoryReservationFacts &
     | {
         readonly kind: 'quantity';
         readonly stockId: string;
-        readonly quantity: InventoryVolume;
-        readonly remaining: InventoryVolume;
+        readonly quantity: InventoryCanonicalAmount;
+        readonly remaining: InventoryCanonicalAmount;
       }
     | { readonly kind: 'item'; readonly item: InventoryPhysicalItem }
   );
@@ -416,10 +429,10 @@ export type InventoryAvailabilityBlocker =
 export interface InventoryStockAvailability {
   readonly stockId: string;
   readonly onHand: InventoryQuantity;
-  readonly held: InventoryVolume;
+  readonly held: InventoryCanonicalAmount;
   readonly unreserved: InventoryQuantity;
-  readonly mine: InventoryVolume;
-  readonly deadVolume: InventoryQuantity;
+  readonly mine: InventoryCanonicalAmount;
+  readonly deadVolume: InventoryVolumeQuantity;
   readonly blockers: readonly InventoryAvailabilityBlocker[];
   readonly reservationIds: readonly string[];
 }
@@ -447,13 +460,17 @@ export interface InventoryAvailability {
 
 export interface InventoryWithdrawal {
   readonly stockId: string;
+  readonly quantity: InventoryAmount;
+}
+export interface InventoryVolumeWithdrawal {
+  readonly stockId: string;
   readonly quantity: InventoryVolume;
 }
 
 export interface InventoryLegacyTransferCommand {
   readonly kind: 'transfer';
   readonly sourceStockId: string;
-  readonly quantity: InventoryVolume;
+  readonly quantity: InventoryAmount;
   readonly destination:
     | { readonly kind: 'new-stock'; readonly stockId: string; readonly vesselId: string }
     | { readonly kind: 'existing-stock'; readonly stockId: string };
@@ -467,7 +484,7 @@ export interface InventoryLegacyPoolCommand {
   readonly vesselId: string;
   readonly materialId: string;
   readonly name: string;
-  readonly inputs: readonly InventoryWithdrawal[];
+  readonly inputs: readonly InventoryVolumeWithdrawal[];
   readonly reason: string;
 }
 
@@ -478,8 +495,8 @@ export interface InventoryLegacyDiluteCommand {
   readonly vesselId: string;
   readonly materialId: string;
   readonly name: string;
-  readonly sample: InventoryWithdrawal;
-  readonly diluent: InventoryWithdrawal;
+  readonly sample: InventoryVolumeWithdrawal;
+  readonly diluent: InventoryVolumeWithdrawal;
   readonly reason: string;
 }
 
@@ -502,7 +519,7 @@ export type InventoryMaterialCommand =
       readonly id: string;
       readonly vesselId: string;
       readonly lotId: string;
-      readonly quantity: InventoryQuantity;
+      readonly quantity: InventoryQuantityInput;
       readonly quality: InventoryQuality;
     }
   | {
@@ -562,7 +579,10 @@ export type InventoryCommand =
       readonly name: string;
       readonly placement: InventoryVesselPlacement;
     }
-  | ({ readonly kind: 'receive-stock' } & Omit<InventoryStock, 'source' | 'composition'>)
+  | ({ readonly kind: 'receive-stock'; readonly quantity: InventoryQuantityInput } & Omit<
+      InventoryStock,
+      'source' | 'composition' | 'quantity'
+    >)
   | {
       readonly kind: 'move-storage';
       readonly id: string;
@@ -576,13 +596,13 @@ export type InventoryCommand =
   | {
       readonly kind: 'consume';
       readonly stockId: string;
-      readonly quantity: InventoryVolume;
+      readonly quantity: InventoryAmount;
       readonly reason: string;
     }
   | {
       readonly kind: 'reconcile';
       readonly stockId: string;
-      readonly quantity: InventoryQuantity;
+      readonly quantity: InventoryQuantityInput;
       readonly reason: string;
     }
   | {
@@ -611,7 +631,7 @@ export type InventoryWithdrawalCommand = Extract<
   | {
       readonly kind: 'consume';
       readonly stockId: string;
-      readonly quantity: InventoryVolume;
+      readonly quantity: InventoryAmount;
       readonly reason: string;
     },
   { readonly kind: 'transfer' | 'pool' | 'dilute' | 'consume' }
@@ -622,7 +642,7 @@ export type InventoryReservationCommand =
       readonly kind: 'reserve-quantity';
       readonly id: string;
       readonly stockId: string;
-      readonly quantity: InventoryVolume;
+      readonly quantity: InventoryAmount;
       readonly deadline: number | null;
       readonly purpose: string;
     }
@@ -644,7 +664,7 @@ export type InventoryReservationCommand =
       readonly kind: 'fulfill-reservations';
       readonly claims: readonly {
         readonly reservationId: string;
-        readonly quantity: InventoryVolume;
+        readonly quantity: InventoryAmount;
       }[];
       readonly withdrawal: InventoryWithdrawalCommand;
     };
@@ -681,6 +701,8 @@ export type InventoryCustodyCommand =
     };
 
 export type InventoryErrorCode =
+  | 'QUANTITY_DIMENSION_MISMATCH'
+  | 'MIXING_REQUIRES_VOLUME'
   | 'INVALID_INVENTORY_INPUT'
   | 'REVISION_CONFLICT'
   | 'REVISION_EXHAUSTED'

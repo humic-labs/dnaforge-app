@@ -59,3 +59,7 @@
 
 - [Container contents knowledge](contents-knowledge.md): declared empty,
   unobserved and unidentified containers, separate from stock quantity.
+
+- [Stock amounts and measurement units](amounts.md): exact dimensional stock,
+  explicit unknown units and compatible withdrawals; workflow under
+  construction.

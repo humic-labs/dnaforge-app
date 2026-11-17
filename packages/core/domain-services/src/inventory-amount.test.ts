@@ -150,12 +150,7 @@ describe('exact dimensioned inventory amounts', () => {
         'ng'
       )
     ).toThrow(/supported decimal range/);
-    expect(() =>
-      addInventoryAmounts(
-        Array.from({ length: 10001 }, () => ({ value: '0', unit: 'ng' })),
-        'ng'
-      )
-    ).toThrow(/input count/);
+    expect(() => addInventoryAmounts({ length: 10001 } as any, 'ng')).toThrow(/array/);
   });
   it('keeps unit definitions immutable to callers', () => {
     expect(Object.isFrozen(INVENTORY_AMOUNT_UNITS)).toBe(true);
@@ -219,4 +214,13 @@ it('preserves the recorded legacy volume normalization, comparison, subtraction 
     }
     expect(result, `${item.operation} ${JSON.stringify(item.args)}`).toEqual(item.result);
   }
+});
+
+it('keeps valid sums independent of physical position and transaction limits', () => {
+  const values = Array.from({ length: 10001 }, () => ({ value: '0.001', unit: 'uL' as const }));
+  expect(addInventoryVolumes(values)).toEqual({ value: '10.001', unit: 'uL' });
+  expect(addInventoryAmounts(values, 'uL')).toEqual({
+    kind: 'added',
+    quantity: { value: '10.001', unit: 'uL' },
+  });
 });

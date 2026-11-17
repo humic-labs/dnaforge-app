@@ -7,6 +7,8 @@ import type { InventoryPhysicalDialogKind } from './inventory-physical-view';
 import type { InventoryItemCodeDialog } from './inventory-item-code-view';
 import type { InventoryTemperatureDialog } from './inventory-temperature-view';
 import {
+  INVENTORY_AMOUNT_UNITS,
+  inventoryAmountUnitDefinition,
   inventoryStoragePositions,
   inventoryStackItems,
   type InventoryCommand,
@@ -21,7 +23,30 @@ import {
   type InventoryVessel,
   type InventoryPrincipal,
   type InventoryRecordedPrincipal,
+  type InventoryAmount,
+  type InventoryAmountUnit,
+  type InventoryQuantityInput,
 } from '@waypoint/domain-services';
+
+export function inventoryAmountUnitLabel(unit: InventoryAmountUnit): string {
+  return unit.replace(/^u/u, 'µ');
+}
+
+export function inventoryAmountUnitOptions(unit?: InventoryAmountUnit) {
+  return INVENTORY_AMOUNT_UNITS.filter(
+    (candidate) =>
+      !unit ||
+      inventoryAmountUnitDefinition(candidate).dimension ===
+        inventoryAmountUnitDefinition(unit).dimension
+  ).map((value) => ({ value, label: inventoryAmountUnitLabel(value) }));
+}
+
+export function inventoryAmountLabel(amount: InventoryQuantityInput | InventoryAmount): string {
+  const unit = inventoryAmountUnitLabel('unit' in amount ? amount.unit : 'uL');
+  return 'kind' in amount && amount.kind === 'unknown'
+    ? `Unknown ${unit}`
+    : `${amount.value} ${unit}`;
+}
 
 export function inventoryPrincipalLabel(
   holder: InventoryRecordedPrincipal,
