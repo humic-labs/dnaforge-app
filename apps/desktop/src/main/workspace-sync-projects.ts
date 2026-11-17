@@ -3458,7 +3458,9 @@ async function replaceBundleFilesInExistingManagedRepo(
         if (!isNodeError(error) || error.code !== 'ENOENT') throw error;
       }
     }
-    const generatedPackageFiles = conversion.mutatedGitFiles;
+    const generatedPackageFiles = conversion.mutatedGitFiles.filter(
+      (path) => conversion.expectedContentSha256[path] !== null
+    );
     const pathsToInstall = [
       ...new Set([MANAGED_WORKSPACE_MARKER, ...existingBundlePaths, ...generatedPackageFiles]),
     ];

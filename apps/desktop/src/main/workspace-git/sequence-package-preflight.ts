@@ -25,8 +25,8 @@ import {
   migrationPathsIntersect,
   type MigrationPathOptions,
 } from './migration-paths';
+import { SEQUENCE_UPGRADE_DIRECTORY as DIRECTORY } from '../../shared/sequence-migration-path';
 
-const DIRECTORY = '.dnaforge-sequence-upgrades';
 const digest = (text: string | Uint8Array) => createHash('sha256').update(text).digest('hex');
 const relativePath = z
   .string()
