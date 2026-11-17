@@ -285,6 +285,10 @@ export class SequencePackageTargetChangedError extends Error {
 }
 
 export interface MaterializeOptions extends MigrationPathOptions {
+  prepareAutomaticMigration?: (sourceSha256: string) => Promise<{
+    expectedSourceSha256: string;
+    onPackagePlanned: NonNullable<MaterializeOptions['onPackagePlanned']>;
+  }>;
   onPackagePlanned?: (plan: {
     packageRoot: string;
     packageId: string;
@@ -303,6 +307,7 @@ export interface MaterializeOptions extends MigrationPathOptions {
   packageCollisionPolicy?: SequencePackageCollisionPolicy;
   automatic?: boolean;
   packageId?: string;
+  rerunPackageId?: string;
   updateExistingPackage?: (input: { packageRoot: string; productContent: string }) => Promise<void>;
 }
 
@@ -321,6 +326,12 @@ async function rerunPackageRoot(
   assertMigrationPathsAvailable([packageRoot], options);
   try {
     const document = parseSequencePackageDocument(await fs.readFile(metaPath, 'utf8'));
+    if (
+      options.protectedEntityIds?.has(document.id) ||
+      (options.rerunPackageId && document.id !== options.rerunPackageId) ||
+      (options.packageId && document.id !== options.packageId)
+    )
+      return null;
     return document.product.file === productFile ? packageRoot : null;
   } catch {
     return null;
@@ -345,6 +356,18 @@ async function updateRerunPackage(
   }
   const fileName = basename(importedFilePath);
   const stem = fileName.slice(0, fileName.length - extname(fileName).length);
+  if (options.onPackagePlanned) {
+    const document = parseSequencePackageDocument(
+      await fs.readFile(sequencePackagePaths(packageRoot).metaPath, 'utf8')
+    );
+    await options.onPackagePlanned({
+      packageRoot,
+      packageId: document.id,
+      productFile: document.product.file,
+      productSha256: sha256Bytes(Buffer.from(productContent)),
+      packageCount: 1,
+    });
+  }
   const recoveryRoot = await fs.mkdtemp(
     join(dirname(importedFilePath), `.${stem}.conversion-source-`)
   );
@@ -720,8 +743,26 @@ export async function materializeImportedSequencePackages(
     throw new Error(
       'The sequence identity already belongs to an accepted entity. Its source was preserved.'
     );
-  const materialize = () =>
-    materializeImportedSequencePackagesUnlocked(importedFilePath, ops, options);
+  const materialize = async () => {
+    if (options.prepareAutomaticMigration) {
+      const preview = await previewImportedSequencePackages(importedFilePath, {
+        ...options,
+        automatic: true,
+      });
+      if (preview.kind === 'blocked') {
+        if (preview.reasonCode === 'read_failure') throw new Error(preview.reason);
+        return {
+          packages: [],
+          converted: false,
+          untouchedPath: importedFilePath,
+          skippedReason: preview.reason,
+          sourceOnly: true,
+        };
+      }
+      options = { ...options, ...(await options.prepareAutomaticMigration(preview.sourceSha256)) };
+    }
+    return materializeImportedSequencePackagesUnlocked(importedFilePath, ops, options);
+  };
   return options.withCleanPaths ? options.withCleanPaths(sourcePaths, materialize) : materialize();
 }
 

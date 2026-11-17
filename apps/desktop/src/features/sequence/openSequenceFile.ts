@@ -61,8 +61,6 @@ import { withRendererWorkspaceMutation } from '../../services/workspace-mutation
 import type { QuickLookPackageReceipt } from '../../shared/file-association-ipc';
 import type { FileAssociationFamilyId } from '../../shared/file-associations';
 import { MANAGED_DNA_FILE_EXTENSIONS } from '@waypoint/sequence-utils/sequence-file-types';
-import { reconcileWorkspaceAfterFilesChanged } from '../../services/workspace-operations';
-import { reportEntityMigrationIssues } from '../../services/workspace-reconcile-report';
 
 export interface QuickLookSequencePresentation {
   readonly kind: 'quick-look';
@@ -241,6 +239,8 @@ async function openSequenceFileWithTelemetry(
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        const { reportEntityMigrationIssues } =
+          await import('../../services/workspace-reconcile-report');
         reportEntityMigrationIssues(root, {
           migrationIssues: [{ path: opts.filePath, reason: message, kind: 'failed' }],
         });
@@ -270,10 +270,13 @@ async function automaticallyPackageSequence(
     if (inspection?.state !== 'convertible') return null;
     const conversion = await owner.convert({ workspaceRoot, sourcePath, automatic: true });
     if (!conversion.converted || conversion.packageRoots.length === 0) {
-      if (conversion.reason)
+      if (conversion.reason) {
+        const { reportEntityMigrationIssues } =
+          await import('../../services/workspace-reconcile-report');
         reportEntityMigrationIssues(workspaceRoot, {
           migrationIssues: [{ path: sourcePath, reason: conversion.reason, kind: 'refused' }],
         });
+      }
       if (conversion.disposition !== 'source-only' && conversion.disposition !== 'owned')
         throw new Error(
           conversion.reason ??
@@ -281,6 +284,8 @@ async function automaticallyPackageSequence(
         );
       return null;
     }
+    const { reconcileWorkspaceAfterFilesChanged } =
+      await import('../../services/workspace-operations');
     await reconcileWorkspaceAfterFilesChanged({
       workspaceRoot,
       revealPath: conversion.packageRoots[0],

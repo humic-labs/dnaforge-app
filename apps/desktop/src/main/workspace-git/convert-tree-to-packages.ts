@@ -1,7 +1,7 @@
 import { isRecoveredComputeResultDirectory } from '../../shared/compute-result-path';
 import { promises as fs } from 'node:fs';
 import type { NucleicAcid } from '@waypoint/sequence-utils';
-import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, relative, sep } from 'node:path';
 import {
   isConstructSequenceFile,
   isConversionSourceDirectoryName,
@@ -123,19 +123,6 @@ export async function convertTreeToPlasmidPackages(
     rememberedRefusals.delete(path);
     let receipt: Awaited<ReturnType<typeof prepareSequenceMigration>> | undefined;
     try {
-      const preview = await previewImportedSequencePackages(path, { automatic: true });
-      if (preview.kind === 'blocked') {
-        if (preview.reasonCode === 'read_failure') {
-          result.failures.push({ path, message: preview.reason });
-        } else {
-          result.skipped += 1;
-          result.skippedDetails.push({ path, reason: preview.reason });
-          rememberRefusal(path, identity, preview.reason);
-        }
-        done += 1;
-        options.onProgress?.(done, total);
-        continue;
-      }
       const sidecars = (
         await Promise.all(
           PAIRED_SIDECAR_SUFFIXES.map(async (suffix) => {
@@ -150,19 +137,33 @@ export async function convertTreeToPlasmidPackages(
           })
         )
       ).filter((path): path is string => path !== null);
-      receipt = await prepareSequenceMigration(rootDir, path, migration);
-      if (receipt.expectedSourceSha256 !== preview.sourceSha256) {
-        await receipt.cancel();
-        throw new Error('The sequence changed after its automatic conversion was inspected.');
-      }
+      const rerunRoot = join(dirname(path), basename(path, extname(path)));
+      const rerun = settled.rerunPackages.find(
+        (candidate) => candidate.source === path && candidate.packageRoot === rerunRoot
+      );
       const materialized = await materializeImportedSequencePackages(path, undefined, {
         ...migration,
-        expectedSourceSha256: receipt.expectedSourceSha256,
-        onPackagePlanned: receipt.onPackagePlanned,
+        prepareAutomaticMigration: async (sourceSha256) => {
+          receipt = await prepareSequenceMigration(rootDir, path, migration);
+          if (receipt.expectedSourceSha256 !== sourceSha256) {
+            await receipt.cancel();
+            throw new Error('The sequence changed after its automatic conversion was inspected.');
+          }
+          return receipt;
+        },
         automatic: true,
         packageId: options.packageIdForPath?.(path),
+        ...(rerun
+          ? {
+              rerunPackageId: rerun.packageId,
+              updateExistingPackage: (input: { packageRoot: string; productContent: string }) =>
+                publishRerunSequenceRevision(rootDir, { ...input, expected: rerun }),
+            }
+          : {}),
       });
       if (materialized.converted) {
+        if (!receipt)
+          throw new Error('The converted sequence is missing its required migration receipt.');
         result.converted += 1;
         result.packages += materialized.packages.length;
         const ownedFiles: string[] = [];
@@ -196,7 +197,7 @@ export async function convertTreeToPlasmidPackages(
         );
         result.mutatedGitFiles.push(...Object.keys(content.expectedContentSha256));
       } else {
-        await receipt.cancel();
+        await receipt?.cancel();
         result.skipped += 1;
         if (materialized.skippedReason) {
           result.skippedDetails.push({ path, reason: materialized.skippedReason });
@@ -390,16 +391,17 @@ export async function convertLooseSequenceFile(
     await receipt?.cancelIfUnchanged().catch(() => undefined);
     throw error;
   });
-  const content = materialized.converted
-    ? await captureMigrationGitContent(
-        rootDir,
-        (
-          await Promise.all(
-            materialized.packages.map((pkg) => collectPlasmidPackageGitFiles(pkg.packageRoot))
-          )
-        ).flat()
-      )
-    : undefined;
+  const content =
+    materialized.converted && options.automatic
+      ? await captureMigrationGitContent(
+          rootDir,
+          (
+            await Promise.all(
+              materialized.packages.map((pkg) => collectPlasmidPackageGitFiles(pkg.packageRoot))
+            )
+          ).flat()
+        )
+      : undefined;
   if (content) {
     content.expectedContentSha256[relative(rootDir, sourcePath).split(sep).join('/')] = null;
     for (const suffix of PAIRED_SIDECAR_SUFFIXES) {

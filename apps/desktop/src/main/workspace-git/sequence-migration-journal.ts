@@ -18,8 +18,8 @@ import {
 } from './migration-paths';
 import { relocatePairedSidecars, type MaterializeOptions } from './sequence-package-import';
 import { assertPhysicalWriteDestination } from './package-member-boundary';
+import { SEQUENCE_MIGRATION_DIRECTORY as DIRECTORY } from '../../shared/sequence-migration-path';
 
-const DIRECTORY = '.dnaforge-sequence-migrations';
 const pathSchema = z
   .string()
   .min(1)
@@ -230,6 +230,13 @@ export async function collectSequenceMigrationGitContent(
     expectedContentSha256: {} as Record<string, string | null>,
     failures: [] as Array<{ path: string; message: string }>,
     pendingSources: [] as string[],
+    rerunPackages: [] as Array<{
+      source: string;
+      packageRoot: string;
+      packageId: string;
+      markerSha256: string;
+      productSha256: string;
+    }>,
     recovered: 0,
   };
   const directory = join(root, DIRECTORY);
@@ -342,6 +349,30 @@ export async function collectSequenceMigrationGitContent(
         root,
         Object.keys(completion.expectedContentSha256).map((path) => join(root, path))
       );
+      if (completed && plans.length === 1) {
+        const plan = plans[0];
+        const packageRoot = join(root, plan.packageRoot);
+        const marker = relative(root, sequencePackagePaths(packageRoot).metaPath)
+          .split(sep)
+          .join('/');
+        const product = `${plan.packageRoot}/${plan.productFile}`;
+        const markerSha256 = completion.expectedContentSha256[marker];
+        const productSha256 = completion.expectedContentSha256[product];
+        if (
+          markerSha256 &&
+          productSha256 &&
+          current.expectedContentSha256[marker] === markerSha256 &&
+          current.expectedContentSha256[product] === productSha256 &&
+          !options.protectedPaths?.some((path) => migrationPathsIntersect(packageRoot, path))
+        )
+          result.rerunPackages.push({
+            source,
+            packageRoot,
+            packageId: plan.packageId,
+            markerSha256,
+            productSha256,
+          });
+      }
       for (const [path, hash] of Object.entries(completion.expectedContentSha256)) {
         if (
           options.protectedPaths?.some((protectedPath) =>
