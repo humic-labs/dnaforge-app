@@ -162,3 +162,83 @@ describe('library Track view file and Registry ownership', () => {
     ).resolves.toBeUndefined();
   });
 });
+
+describe('library Track view Registry project retention', () => {
+  it('keeps the first assigned Registry project after the default project changes', async () => {
+    const saved = await createSavedView();
+    const otherRoot = join(root, 'different-default');
+    await (await import('node:fs/promises')).mkdir(otherRoot);
+    fixture.db
+      .prepare(
+        'INSERT INTO workspaces(id,name,path,repo_uuid,access_mode,created_at) VALUES(?,?,?,?,?,?)'
+      )
+      .run(900_000_001, 'Different default', otherRoot, 'different-default', 'writable', 2);
+    fixture.db
+      .prepare('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)')
+      .run('default_workspace_path', otherRoot);
+    const renamed = await library.save({
+      document: { ...saved.document, name: 'Retained owner' },
+      expectedRevision: saved.revision,
+    });
+    projectCatalog(renamed);
+    await expect(
+      reconstructFileBackedRegistryEntity(
+        fixture.db,
+        {
+          action: 'update',
+          input: {
+            id: renamed.document.id,
+            name: renamed.document.name,
+            fields: trackViewProjectionFields(renamed.document),
+            replaceFields: true,
+            workspaceId: null,
+            actor: 'track-view-file',
+          },
+        },
+        (work) => work()
+      )
+    ).resolves.toMatchObject({
+      name: 'Retained owner',
+      workspaceId: originalProject.workspaceId,
+    });
+    expect(
+      fixture.db
+        .prepare('SELECT workspace_id FROM catalog_entities WHERE id=?')
+        .get(renamed.document.id)
+    ).toEqual({ workspace_id: null });
+    expect(
+      fixture.db.prepare('SELECT value FROM settings WHERE key=?').get('default_workspace_path')
+    ).toEqual({ value: otherRoot });
+  });
+
+  it('refuses an explicit different Registry project while preserving the native file binding', async () => {
+    const saved = await createSavedView();
+    await expect(
+      reconstructFileBackedRegistryEntity(
+        fixture.db,
+        {
+          action: 'update',
+          input: {
+            id: saved.document.id,
+            name: saved.document.name,
+            fields: trackViewProjectionFields(saved.document),
+            replaceFields: true,
+            workspaceId: 900_000_001,
+            actor: 'track-view-file',
+          },
+        },
+        (work) => work()
+      )
+    ).rejects.toThrow(/owning project|canonical file projection/);
+    expect(
+      fixture.db.prepare('SELECT workspace_id FROM lims_entity WHERE id=?').get(saved.document.id)
+    ).toEqual({ workspace_id: originalProject.workspaceId });
+    expect(
+      fixture.db
+        .prepare(
+          "SELECT workspace_id,path FROM catalog_entity_files WHERE entity_id=? AND status='current'"
+        )
+        .get(saved.document.id)
+    ).toEqual({ workspace_id: null, path: saved.path });
+  });
+});
