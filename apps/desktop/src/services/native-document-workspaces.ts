@@ -13,6 +13,7 @@ import {
 } from '../features/sequence/sequence-document-client';
 import { sequenceDocumentModel } from '../features/sequence/store';
 import { migrateLegacySequenceDrafts } from '../features/sequence/legacy-sequence-recovery-client';
+import { reconcileWorkspaceAfterFilesChanged } from './workspace-operations';
 
 export function deferNativeDocumentWorkspaceStartup(): () => void {
   let resolve!: () => void;
@@ -29,6 +30,47 @@ export function installNativeDocumentWorkspacePublisher(loadId: string): () => v
   const detachFileSync = installFileDocumentClientSync(loadId);
   const detachSequenceClient = installNativeSequenceDocumentClient(sequenceDocumentModel);
   let previous: string | undefined;
+  let currentReadiness: Promise<void> = Promise.resolve();
+  let currentEnrollment: { key: string; writableRoots: string[]; ready: boolean } | undefined;
+  const migrations = new Map<
+    string,
+    { changed: boolean; enrollment: NonNullable<typeof currentEnrollment> }
+  >();
+  const requestMigration = (root: string) => {
+    const enrollment = currentEnrollment;
+    if (disposed || !enrollment?.writableRoots.includes(root)) return;
+    const existing = migrations.get(root);
+    if (existing?.enrollment === enrollment) {
+      existing.changed = true;
+      return;
+    }
+    const state = { changed: false, enrollment };
+    migrations.set(root, state);
+    const ready = currentReadiness;
+    void ready
+      .then(async () => {
+        const assertCurrent = () => {
+          if (disposed || currentEnrollment !== enrollment || !enrollment.ready)
+            throw new Error('The document project enrollment changed during migration.');
+        };
+        if (disposed || currentEnrollment !== enrollment || !enrollment.ready) return;
+        do {
+          state.changed = false;
+          await reconcileWorkspaceAfterFilesChanged({ workspaceRoot: root, assertCurrent });
+          assertCurrent();
+        } while (state.changed);
+      })
+      .catch((error: unknown) => {
+        if (!disposed && currentEnrollment === enrollment)
+          console.warn('[Document jobs] Automatic entity migration remains pending:', error);
+      })
+      .finally(() => {
+        if (migrations.get(root) === state) migrations.delete(root);
+      });
+  };
+  const detachMigrationCandidates = platform().workspace.onMigrationCandidatesChanged?.(
+    ({ workspaceRoot }) => requestMigration(workspaceRoot)
+  );
   const publish = () => {
     if (disposed) return;
     const roots = [
@@ -45,6 +87,8 @@ export function installNativeDocumentWorkspacePublisher(loadId: string): () => v
     const key = JSON.stringify({ roots, readableRoots });
     if (key === previous) return;
     previous = key;
+    const enrollment = { key, writableRoots: roots, ready: false };
+    currentEnrollment = enrollment;
     const readiness = platform()
       .workspace.setDocumentCommandRoots({ loadId, roots, readableRoots })
       .then(async (enrolled) => {
@@ -52,8 +96,10 @@ export function installNativeDocumentWorkspacePublisher(loadId: string): () => v
           await migrateLegacyFileDrafts();
           await migrateLegacySequenceDrafts();
           await migrateLegacyNotebookDrafts();
-          if (!disposed && key === previous)
+          if (!disposed && key === previous) {
+            enrollment.ready = true;
             getNativeSequenceDocumentClient()?.refreshAvailableDocuments();
+          }
         }
       })
       .catch((error: unknown) => {
@@ -62,7 +108,17 @@ export function installNativeDocumentWorkspacePublisher(loadId: string): () => v
         console.warn('[Document jobs] Could not enroll the current workspaces:', error);
         throw error;
       });
+    currentReadiness = readiness;
     setNativeFileDocumentReadiness(readiness);
+    void readiness
+      .then(async () => {
+        if (disposed || key !== previous || !enrollment.ready) return;
+        for (const root of roots) requestMigration(root);
+      })
+      .catch((error: unknown) => {
+        if (!disposed && key === previous)
+          console.warn('[Document jobs] Automatic entity migration remains pending:', error);
+      });
   };
   const unsubscribe = useWorkspaceStore.subscribe(publish);
   publish();
@@ -72,5 +128,6 @@ export function installNativeDocumentWorkspacePublisher(loadId: string): () => v
     detachFileSync();
     detachNotebookCatalog();
     detachSequenceClient();
+    detachMigrationCandidates?.();
   };
 }

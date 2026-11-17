@@ -5,6 +5,7 @@ import {
   canonicalPredictionProtein,
   submittedProteins,
 } from '../../shared/compute-protein-sequence';
+import { isWorkspaceSyncDatabaseBusyError } from '../../shared/workspace-sync-errors';
 
 import type Database from 'better-sqlite3';
 
@@ -21,6 +22,7 @@ import {
   type ComputeJobsSnapshot,
   type ComputeJobsSnapshotOptions,
   type ComputeJobTerminalEvent,
+  type ComputeRecoveryResult,
 } from '../../shared/compute-jobs-ipc';
 
 type SidecarFetch = (pathOrUrl: string | URL, init?: RequestInit) => Promise<Response>;
@@ -32,6 +34,10 @@ export interface ComputeJobsDeps {
   grantedCapabilities: () => string[];
   notifyTerminal?: (event: ComputeJobTerminalEvent) => void;
   observeLifecycle?: (record: ComputeJobRecord) => void;
+  recoverLegacyResult?: (
+    record: ComputeJobRecord,
+    assertCurrent: () => void
+  ) => Promise<ComputeRecoveryResult>;
   now?: () => number;
   schedule?: (fn: () => void, ms: number) => { cancel: () => void };
   createPollAbortSignal?: () => AbortSignal;
@@ -207,6 +213,10 @@ export class ComputeJobRegistry {
   private timer: { cancel: () => void } | null = null;
   private polling = false;
   private stopped = false;
+  private readonly recoveringResults = new Set<string>();
+  private readonly requestedRecoveryRetries = new Set<string>();
+  private readonly recoveryTails = new Map<string, Promise<void>>();
+  private readonly recoveryRetryTimers = new Map<string, { cancel: () => void }>();
 
   constructor(deps: ComputeJobsDeps) {
     this.deps = {
@@ -358,7 +368,9 @@ export class ComputeJobRegistry {
         `UPDATE compute_jobs SET state = 'imported', imported_paths_json = ?, import_details_json = COALESCE(?, import_details_json), next_poll_at = NULL, updated_at = ? WHERE id = ?`
       )
       .run(JSON.stringify(paths), details ? JSON.stringify(details) : null, now, id);
-    return this.announce(this.get(id));
+    const record = this.announce(this.get(id));
+    if (record?.state === 'imported') this.recoverImportedResult(record);
+    return record;
   }
 
   importDetails(id: string): ComputeImportDetails | null {
@@ -569,12 +581,104 @@ export class ComputeJobRegistry {
       )
       .run(now, now + POLL_SLOW_MS);
     this.kick();
+    this.retryLegacyResultMigrations();
+  }
+
+  retryLegacyResultMigrations(): void {
+    if (this.stopped) return;
+    if (this.deps.recoverLegacyResult) {
+      const rows = this.deps
+        .db()
+        .prepare("SELECT * FROM compute_jobs WHERE state='imported' ORDER BY created_at,id")
+        .all() as Row[];
+      for (const row of rows) {
+        if (this.recoveringResults.has(row.id)) this.requestedRecoveryRetries.add(row.id);
+        else this.recoverImportedResult(toRecord(row));
+      }
+    }
+  }
+
+  private recoverImportedResult(job: ComputeJobRecord): void {
+    const recover = this.deps.recoverLegacyResult;
+    if (!recover || this.stopped || !job.workspaceRoot || !job.remoteId) return;
+    const root = job.workspaceRoot;
+    const source = `${root.replace(/\\/g, '/').replace(/\/+$/, '')}/compute/${job.provider}/${job.remoteId}/`;
+    if (
+      this.recoveringResults.has(job.id) ||
+      !job.importedPaths.some((path) => path.replace(/\\/g, '/').startsWith(source))
+    )
+      return;
+    const db = this.deps.db();
+    this.recoveryRetryTimers.get(job.id)?.cancel();
+    this.recoveryRetryTimers.delete(job.id);
+    const assertCurrent = () => {
+      if (this.stopped || this.deps.db() !== db) throw new Error('COMPUTE_MIGRATION_OWNER_CHANGED');
+    };
+    this.recoveringResults.add(job.id);
+    const operation = (this.recoveryTails.get(root) ?? Promise.resolve()).then(async () => {
+      assertCurrent();
+      const current = this.get(job.id);
+      if (
+        !current ||
+        current.state !== 'imported' ||
+        current.workspaceRoot !== root ||
+        current.remoteId !== job.remoteId ||
+        current.provider !== job.provider ||
+        !current.importedPaths.some((path) => path.replace(/\\/g, '/').startsWith(source))
+      )
+        return;
+      await recover(current, assertCurrent);
+      assertCurrent();
+      db.prepare(
+        "UPDATE compute_jobs SET last_error=NULL WHERE id=? AND state='imported' AND last_error LIKE 'Automatic result conversion remains pending:%'"
+      ).run(job.id);
+    });
+    const settled = operation
+      .catch((error: unknown) => {
+        if (this.stopped || this.deps.db() !== db) return;
+        const reason = error instanceof Error ? error.message : String(error);
+        db.prepare(
+          "UPDATE compute_jobs SET last_error=? WHERE id=? AND state='imported' AND workspace_root=? AND provider_job_ref=?"
+        ).run(`Automatic result conversion remains pending: ${reason}`, job.id, root, job.remoteId);
+        if (isWorkspaceSyncDatabaseBusyError(error) && !this.recoveryRetryTimers.has(job.id)) {
+          this.recoveryRetryTimers.set(
+            job.id,
+            this.deps.schedule(() => {
+              this.recoveryRetryTimers.delete(job.id);
+              if (this.stopped || this.deps.db() !== db) return;
+              const current = this.get(job.id);
+              if (
+                current?.state === 'imported' &&
+                current.workspaceRoot === root &&
+                current.provider === job.provider &&
+                current.remoteId === job.remoteId
+              )
+                this.recoverImportedResult(current);
+            }, POLL_BASE_MS)
+          );
+        }
+      })
+      .finally(() => {
+        this.recoveringResults.delete(job.id);
+        if (this.recoveryTails.get(root) === settled) this.recoveryTails.delete(root);
+        if (
+          this.requestedRecoveryRetries.delete(job.id) &&
+          !this.stopped &&
+          this.deps.db() === db
+        ) {
+          const current = this.get(job.id);
+          if (current?.state === 'imported') this.recoverImportedResult(current);
+        }
+      });
+    this.recoveryTails.set(root, settled);
   }
 
   stop(): void {
     this.stopped = true;
     this.timer?.cancel();
     this.timer = null;
+    for (const timer of this.recoveryRetryTimers.values()) timer.cancel();
+    this.recoveryRetryTimers.clear();
   }
 
   private kick(): void {
