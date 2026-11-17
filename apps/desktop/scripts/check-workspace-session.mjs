@@ -71,7 +71,8 @@ try {
       'scientificObjects',
       'lims',
     ]) {
-      const owner = bridge[group];
+      const owner = Object.isFrozen(bridge[group]) ? { ...bridge[group] } : bridge[group];
+      bridge[group] = owner;
       for (const [method, original] of Object.entries(owner)) {
         if (typeof original !== 'function' || /^(subscribe|on[A-Z])/.test(method)) continue;
         owner[method] = function (...args) {
