@@ -1,4 +1,6 @@
 import type { Editor, JSONContent } from '@tiptap/core';
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
+import type { NativeNotebookDocumentClient } from '../../notebook-document-client';
 import type { Transaction } from '@tiptap/pm/state';
 import { platform } from '../../../../platform';
 import {
@@ -69,11 +71,12 @@ function captureOriginGuard() {
 }
 type OriginGuard = ReturnType<typeof captureOriginGuard>;
 
+type TableOwner = Editor | NativeNotebookDocumentClient;
+
 interface TableIntent {
   observation: TableOperationObservation;
-  owner: Editor;
+  owner: TableOwner;
   refId: string;
-  position: number;
   revisionId: string;
   acceptedAtMs: number;
   guard: OriginGuard | null;
@@ -88,7 +91,7 @@ interface TableRevision {
   committed: boolean;
 }
 interface TableSource {
-  owner: Editor;
+  owner: TableOwner;
   pageId: string;
   workspaceRoot: string;
   current: boolean;
@@ -120,7 +123,7 @@ interface TableReceipt {
   readbackMatch?: boolean;
 }
 
-let sources = new WeakMap<Editor, TableSource>();
+let sources = new WeakMap<TableOwner, TableSource>();
 let snapshots = new WeakMap<JSONContent, TableNotebookSave>();
 const currentSources = new Map<string, TableSource>();
 const sourceKey = (root: string, pageId: string) => JSON.stringify([root, pageId]);
@@ -167,7 +170,7 @@ export function retireTableNotebookSource(owner: Editor | null): void {
 }
 
 export function bindTableNotebookSource(
-  owner: Editor,
+  owner: TableOwner,
   pageId: string,
   workspaceRoot: string
 ): void {
@@ -206,6 +209,62 @@ export function bindTableNotebookSource(
   }
 }
 
+function attachTableIntent(
+  transaction: Transaction,
+  owner: TableOwner,
+  refId: string,
+  data: unknown,
+  observation?: TableOperationObservation
+): TableIntent | undefined {
+  try {
+    if (isTableOperationObservation(observation)) {
+      const intent = {
+        owner,
+        refId,
+        data,
+        revisionId: crypto.randomUUID(),
+        acceptedAtMs: Date.now(),
+        observation: { ...observation, calculation: { ...observation.calculation } },
+        guard: captureOriginGuard(),
+      };
+      transaction.setMeta(TABLE_NOTEBOOK_UPDATE_META, intent);
+      return intent;
+    }
+  } catch {}
+}
+
+export function observeNativeTableNotebookUpdate(
+  client: NativeNotebookDocumentClient,
+  workspaceRoot: string,
+  refId: string,
+  data: unknown,
+  transaction: Transaction,
+  content: JSONContent,
+  observation?: TableOperationObservation
+): (acceptedDoc: ProseMirrorNode | null) => void {
+  const key = sourceKey(workspaceRoot, client.pageId);
+  if (!currentSources.get(key)?.current)
+    bindTableNotebookSource(client, client.pageId, workspaceRoot);
+  const source = currentSources.get(key)!;
+  const owner = source.owner;
+  const intent = attachTableIntent(transaction, owner, refId, data, observation);
+  return (acceptedDoc) => {
+    if (
+      !acceptedDoc?.eq(transaction.doc) ||
+      currentSources.get(key) !== source ||
+      !source.current
+    ) {
+      intent?.guard?.dispose();
+      return;
+    }
+    captureTableUpdate(
+      { owner, pageId: client.pageId, workspaceRoot, transaction, content },
+      transaction.doc,
+      true
+    );
+  };
+}
+
 export function updateTableNotebookAttributes(
   owner: Editor,
   position: number,
@@ -225,25 +284,8 @@ export function updateTableNotebookAttributes(
     throw new Error('The table source changed. Reopen the source notebook.');
   }
   const data = { ...node.attrs.data, ...patch };
-  let intent: TableIntent | null = null;
-  try {
-    if (isTableOperationObservation(observation)) {
-      intent = {
-        owner,
-        refId,
-        position,
-        revisionId: crypto.randomUUID(),
-        acceptedAtMs: Date.now(),
-        guard: captureOriginGuard(),
-        data,
-        observation: { ...observation, calculation: { ...observation.calculation } },
-      };
-    }
-  } catch (_error) {
-    void _error;
-  }
   const transaction = owner.state.tr.setNodeMarkup(position, undefined, { ...node.attrs, data });
-  if (intent) transaction.setMeta(TABLE_NOTEBOOK_UPDATE_META, intent);
+  const intent = attachTableIntent(transaction, owner, refId, data, observation);
   try {
     owner.view.dispatch(transaction);
     let admitted = 0;
@@ -393,13 +435,25 @@ function emit(
   );
 }
 
-export function captureTableNotebookDocumentUpdate(input: {
-  owner: Editor;
+interface TableDocumentUpdate {
+  owner: TableOwner;
   pageId: string;
   workspaceRoot: string | null;
   transaction: Transaction;
   content: JSONContent;
-}): void {
+}
+
+export function captureTableNotebookDocumentUpdate(
+  input: TableDocumentUpdate & { owner: Editor }
+): void {
+  captureTableUpdate(input, input.owner.state.doc);
+}
+
+function captureTableUpdate(
+  input: TableDocumentUpdate,
+  acceptedDoc: ProseMirrorNode,
+  nativeSnapshot = false
+): void {
   try {
     if (!input.transaction.docChanged) return;
     const intent = input.transaction.getMeta(TABLE_NOTEBOOK_UPDATE_META) as TableIntent | undefined;
@@ -411,14 +465,22 @@ export function captureTableNotebookDocumentUpdate(input: {
     const source = sources.get(input.owner)!;
     source.epoch += 1;
     const dataByRef = new Map<string, unknown>();
-    input.owner.state.doc.descendants((node) => {
+    acceptedDoc.descendants((node) => {
       if (node.type.name === 'embed' && node.attrs.type === 'table') {
         const ref = node.attrs.refId as string;
         dataByRef.set(ref, dataByRef.has(ref) ? null : node.attrs.data);
       }
     });
     for (const [ref, revision] of source.revisions) {
-      if (dataByRef.get(ref) !== revision.data) {
+      const data = dataByRef.get(ref);
+      if (
+        data !== revision.data &&
+        nativeSnapshot &&
+        data &&
+        canonicalNotebookJson(data) === canonicalNotebookJson(revision.data)
+      )
+        revision.data = data;
+      if (data !== revision.data) {
         retire(revision);
         source.revisions.delete(ref);
       }

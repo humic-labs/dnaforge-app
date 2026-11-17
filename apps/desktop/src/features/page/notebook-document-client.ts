@@ -1,4 +1,5 @@
 import { notebookTableData } from '../../shared/table-document-reference';
+import type { TableOperationObservation } from '../../shared/table-notebook-observation';
 import { TABLE_NOTEBOOK_BLOCK } from '../../shared/table-notebook-contract';
 import { mergeTableDataPatch } from '../../shared/notebook-model/table/utils/merge-table-data';
 import { userMessage, userMessageWithValues, userMessageValue } from '@waypoint/user-messages';
@@ -25,7 +26,7 @@ import { projectNotebookDocumentSnapshot } from './notebook-document-projection'
 import {
   captureNativeTableNotebookSave,
   confirmNativeTableNotebookSave,
-  type NativeTableNotebookSave,
+  observeNativeTableNotebookUpdate,
 } from './embeds/table/notebook-observation';
 import {
   captureNotebookSave,
@@ -136,7 +137,6 @@ export class NativeNotebookDocumentClient {
   private pending = 0;
   private saves = 0;
   private inputVersion = 0;
-  private tableSave: NativeTableNotebookSave | null = null;
   private notebookContent: JSONContent | null = null;
   private projectedContent: JSONContent | null = null;
   private readonly capturedSaves = new Map<number, Promise<boolean>>();
@@ -269,7 +269,11 @@ export class NativeNotebookDocumentClient {
       void this.flush().catch(() => {});
     };
   }
-  capture(transaction: Transaction, content?: JSONContent): void {
+  capture(
+    transaction: Transaction,
+    content?: JSONContent,
+    settleTableEdit?: (doc: ProseMirrorNode | null) => void
+  ): void {
     if (this.applying || !transaction.docChanged) return;
     this.assertActive();
     if (!this.snapshot || this.error) {
@@ -279,7 +283,6 @@ export class NativeNotebookDocumentClient {
     const steps = transaction.steps.map((step) => step.toJSON()),
       selection = transaction.selection.toJSON();
     this.inputVersion++;
-    this.tableSave = content ? captureNativeTableNotebookSave(this.pageId, content) : null;
     this.notebookContent = content ?? null;
     this.projectedContent = content ?? transaction.doc.toJSON();
     this.pending++;
@@ -312,6 +315,7 @@ export class NativeNotebookDocumentClient {
           },
         });
         const nativeAfter = transaction.doc.type.schema.nodeFromJSON(snapshot.copy.content);
+        settleTableEdit?.(nativeAfter);
         this.acknowledgedCapture =
           !transaction.doc.eq(nativeAfter) && sameNotebookPositions(transaction.doc, nativeAfter)
             ? { revision: snapshot.revision, optimisticAfter: transaction.doc, nativeAfter }
@@ -319,6 +323,7 @@ export class NativeNotebookDocumentClient {
         this.observe(snapshot);
       })
       .catch((error) => {
+        settleTableEdit?.(null);
         this.fail(error);
         throw error;
       })
@@ -333,7 +338,12 @@ export class NativeNotebookDocumentClient {
     this.tail = work;
     void work.catch(() => {});
   }
-  updateTable(blockId: string, patch: Record<string, unknown>): void {
+  updateTable(
+    blockId: string,
+    patch: Record<string, unknown>,
+    observation?: TableOperationObservation
+  ): void {
+    this.assertActive();
     if (!this.snapshot || this.error || this.snapshot.readOnly || this.snapshot.recovery)
       throw new Error(this.error ?? 'The native notebook working copy is not ready for editing.');
     const content = this.content;
@@ -354,8 +364,18 @@ export class NativeNotebookDocumentClient {
       ...node.attrs,
       data,
     });
-    if (canonicalNotebookJson(content) === canonicalNotebookJson(transaction.doc.toJSON())) return;
-    this.capture(transaction, transaction.doc.toJSON());
+    const updated = transaction.doc.toJSON();
+    if (canonicalNotebookJson(content) === canonicalNotebookJson(updated)) return;
+    const settle = observeNativeTableNotebookUpdate(
+      this,
+      this.snapshot.workspaceRoot,
+      blockId,
+      data,
+      transaction,
+      updated,
+      observation
+    );
+    this.capture(transaction, updated, settle);
     this.projectEditors(this.content!);
   }
   async flush(purpose: FileDocumentFlushPurpose = 'synchronize'): Promise<void> {
@@ -407,7 +427,6 @@ export class NativeNotebookDocumentClient {
       !(operation.kind === 'table' && operation.command.kind === 'inspect')
     ) {
       this.inputVersion++;
-      this.tableSave = null;
       this.notebookContent = null;
     }
     const work = this.tail.then(async () => {
@@ -477,7 +496,7 @@ export class NativeNotebookDocumentClient {
     const version = this.inputVersion,
       previous = this.capturedSaves.get(version);
     if (previous) return previous;
-    const tableSave = this.tableSave;
+    const tableContent = this.notebookContent;
     const notebookSave = this.notebookContent
       ? captureNotebookSave(this.pageId, this.notebookContent)
       : null;
@@ -493,6 +512,9 @@ export class NativeNotebookDocumentClient {
           documentId: this.nativeDocumentId,
           operation: { kind: 'await-save', saveCaptureId: capture.saveCaptureId },
         });
+        const tableSave = tableContent
+          ? captureNativeTableNotebookSave(this.pageId, tableContent)
+          : null;
         await confirmNativeTableNotebookSave(tableSave, capture, committed);
         confirmNativeNotebookSave(notebookSave, capture, committed, persistedFingerprint);
         const snapshot = await this.enqueueCommand({ kind: 'inspect-copy' });
