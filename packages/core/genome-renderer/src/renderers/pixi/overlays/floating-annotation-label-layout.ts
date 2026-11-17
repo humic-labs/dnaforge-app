@@ -1334,7 +1334,7 @@ export function planFloatingAnnotationLabels(
       candidate.anchor.x <= viewport.width &&
       candidate.anchor.y >= 0 &&
       candidate.anchor.y <= viewport.height;
-    if (anchorOnScreen && !first?.outsideRunway) {
+    if (anchorOnScreen && !first?.outsideRunway && repairAttemptsRemaining > 0) {
       let repaired: { result: SlotAttempt; leader: FloatingAnnotationLabelLeader } | null = null;
       for (const slot of repairSlots(candidate)) {
         if (
