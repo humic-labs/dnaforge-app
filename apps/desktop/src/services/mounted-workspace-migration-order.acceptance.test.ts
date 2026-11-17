@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   activeLease: false,
@@ -40,6 +40,7 @@ vi.mock('./reconcile-scientific-projections', () => ({
 import { reconcileMountedWorkspaceRoot } from './mounted-workspace-reconcile';
 
 const root = '/project';
+let runtimeBefore: string | undefined;
 function result(path = '/project/original.entity.json') {
   return {
     scanned: 1,
@@ -56,6 +57,7 @@ function result(path = '/project/original.entity.json') {
   };
 }
 beforeEach(() => {
+  runtimeBefore = document.documentElement.dataset.dnaforgeRuntime;
   vi.clearAllMocks();
   mocks.activeLease = false;
   mocks.readonly = false;
@@ -96,6 +98,10 @@ beforeEach(() => {
     };
   });
 });
+afterEach(() => {
+  if (runtimeBefore === undefined) delete document.documentElement.dataset.dnaforgeRuntime;
+  else document.documentElement.dataset.dnaforgeRuntime = runtimeBefore;
+});
 
 describe('mounted reconstruction settles notebook migration outside the caller lease', () => {
   it('releases first, invokes the native owner, then reconstructs the new working files without healing again', async () => {
@@ -118,10 +124,11 @@ describe('mounted reconstruction settles notebook migration outside the caller l
     expect(mocks.activeLease).toBe(false);
   });
 
-  it.each(['healing-disabled', 'caller-token', 'readonly'] as const)(
+  it.each(['healing-disabled', 'caller-token', 'readonly', 'hosted'] as const)(
     'does not start a second native writer for %s',
     async (state) => {
       mocks.readonly = state === 'readonly';
+      if (state === 'hosted') document.documentElement.dataset.dnaforgeRuntime = 'hosted-browser';
       await reconcileMountedWorkspaceRoot(root, {
         healManagedHead: state !== 'healing-disabled',
         ...(state === 'caller-token' ? { mutationToken: 'retained-caller-token' } : {}),

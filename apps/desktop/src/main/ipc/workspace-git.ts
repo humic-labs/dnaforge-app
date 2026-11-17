@@ -506,7 +506,12 @@ export function registerWorkspaceGitHandlers(): void {
     },
     discoverArtifacts: async (_event, request: WorkspaceArtifactDiscoveryRequest) => {
       await assertSafePath(request.rootPath);
-      return discoverWorkspaceArtifacts(request);
+      const admission = captureSequenceMigrationAdmission(getDb(), request.rootPath);
+      const result = await discoverWorkspaceArtifacts(request, {
+        activeAcceptedPaths: admission.activeAcceptedPaths,
+      });
+      admission.assertCurrent();
+      return result;
     },
     purgeTrashed: async (_event, request: { repoUuid: string }) => {
       const db = getDb();

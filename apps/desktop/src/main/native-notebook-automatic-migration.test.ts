@@ -205,33 +205,53 @@ describe('native notebook automatic legacy migration', () => {
 
   it('resumes a cutover interrupted after source retirement and preserves an earlier native draft', async () => {
     const fixture = await seed('flat');
-    db.exec("CREATE TRIGGER interrupt_notebook_rebinding BEFORE INSERT ON catalog_entity_files BEGIN SELECT RAISE(ABORT, 'Interrupted notebook rebinding'); END");
+    db.exec(
+      "CREATE TRIGGER interrupt_notebook_rebinding BEFORE INSERT ON catalog_entity_files BEGIN SELECT RAISE(ABORT, 'Interrupted notebook rebinding'); END"
+    );
     const native = owner();
-    await expect(native.execute({ documentId: fixture.id, operation: { kind: 'inspect-copy' } })).rejects.toThrow('Interrupted notebook rebinding');
+    await expect(
+      native.execute({ documentId: fixture.id, operation: { kind: 'inspect-copy' } })
+    ).rejects.toThrow('Interrupted notebook rebinding');
     await native.close();
     await expect(access(fixture.path)).rejects.toMatchObject({ code: 'ENOENT' });
     expect(await readFile(fixture.path + '.legacy', 'utf8')).toBe(fixture.original);
     db.exec('DROP TRIGGER interrupt_notebook_rebinding');
-    const draft = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Unsaved work from before interruption.' }] }] };
+    const draft = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Unsaved work from before interruption.' }],
+        },
+      ],
+    };
     const records = join(directory, 'profile', 'notebook-working-copies');
     await mkdir(records, { recursive: true });
-    await writeFile(join(records, createHash('sha256').update(fixture.id).digest('hex') + '.json'), JSON.stringify({
-      version: 1,
-      documentId: fixture.id,
-      path: fixture.path,
-      baselineFingerprint: contentFingerprint(fixture.original),
-      baselineContent: fixture.document.content,
-      content: draft,
-      title: fixture.document.title,
-      dirty: true,
-    }));
+    await writeFile(
+      join(records, createHash('sha256').update(fixture.id).digest('hex') + '.json'),
+      JSON.stringify({
+        version: 1,
+        documentId: fixture.id,
+        path: fixture.path,
+        baselineFingerprint: contentFingerprint(fixture.original),
+        baselineContent: fixture.document.content,
+        content: draft,
+        title: fixture.document.title,
+        dirty: true,
+      })
+    );
     const restarted = owner();
-    const reopened = await restarted.execute({ documentId: fixture.id, operation: { kind: 'inspect-copy' } });
+    const reopened = await restarted.execute({
+      documentId: fixture.id,
+      operation: { kind: 'inspect-copy' },
+    });
     expect(reopened.documentId).toBe(fixture.id);
     expect(reopened.path).not.toBe(fixture.path);
     expect(reopened.recovery?.content).toEqual(draft);
     expect(await readFile(fixture.path + '.legacy', 'utf8')).toBe(fixture.original);
-    expect(db.prepare("SELECT COUNT(*) AS count FROM catalog_entities WHERE type='notebook'").get()).toEqual({ count: 1 });
+    expect(
+      db.prepare("SELECT COUNT(*) AS count FROM catalog_entities WHERE type='notebook'").get()
+    ).toEqual({ count: 1 });
     await restarted.close();
   });
 });

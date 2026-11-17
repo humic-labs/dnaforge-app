@@ -6,6 +6,7 @@ import { gitCommitPaths, gitStatus } from '../features/workspace/public/git';
 import { isWorkspaceMutationBusyError } from './workspace-mutation-transaction';
 import { platform } from '../platform';
 import { reportEntityMigrationIssues } from './workspace-reconcile-report';
+import { isHostedBrowserRuntime } from '../utils/environment';
 import type { ManagedSequenceDocumentRef } from '../shared/managed-sequence-document';
 import {
   reconcileWorkspaceRoot,
@@ -145,7 +146,12 @@ export async function reconcileMountedWorkspaceRoot(
         options
       );
       const migrate = platform().notebook?.migrateLegacyProjectFiles;
-      if (migrate && options.healManagedHead !== false && !options.mutationToken) {
+      if (
+        migrate &&
+        !isHostedBrowserRuntime() &&
+        options.healManagedHead !== false &&
+        !options.mutationToken
+      ) {
         const owners = await platform().db.select<
           Array<{
             access_mode?: string;

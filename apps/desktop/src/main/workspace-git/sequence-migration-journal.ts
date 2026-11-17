@@ -249,14 +249,21 @@ export async function collectSequenceMigrationGitContent(
       );
       source = join(root, manifest.source);
       const completionPath = join(attempt, 'complete.json');
-      if (!(await exists(completionPath))) {
-        const plans = await Promise.all(
-          (await fs.readdir(attempt))
-            .filter((name) => /^plan-[a-f0-9-]+\.json$/u.test(name))
-            .map(async (name) =>
-              planSchema.parse(JSON.parse(await fs.readFile(join(attempt, name), 'utf8')))
-            )
+      const completed = await exists(completionPath);
+      const plans = await Promise.all(
+        (await fs.readdir(attempt))
+          .filter((name) => /^plan-[a-f0-9-]+\.json$/u.test(name))
+          .map(async (name) =>
+            planSchema.parse(JSON.parse(await fs.readFile(join(attempt, name), 'utf8')))
+          )
+      );
+      if (plans.some((plan) => options.protectedEntityIds?.has(plan.packageId))) {
+        if (completed) continue;
+        throw new Error(
+          'An interrupted sequence conversion now belongs to an accepted or deleted entity. Its retained files were left unchanged.'
         );
+      }
+      if (!completed) {
         if (
           plans.length === 0 &&
           (await exists(source)) &&

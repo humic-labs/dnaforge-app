@@ -26,6 +26,7 @@ import {
   commitOwnedPathsIfDirty,
   hasActiveQuickLookPromotion,
   resolveHeadCommit,
+  readBlobBytesAtCommit,
   withManagedWorkspaceMutationLock,
 } from './index';
 import { benchlingProjectionLayoutPolicy } from './benchling-projection-layout';
@@ -34,6 +35,10 @@ import { GIT_READ_CONFIG_ARGS } from '../ipc/git-read-policy';
 import type { MigrationPathOptions } from './migration-paths';
 import { MOLECULAR_MIGRATION_DIRECTORY } from './molecular-migration-journal';
 import { preflightLegacySequencePackages } from './sequence-package-preflight';
+import {
+  collectRetainedComputeSourcePaths,
+  isRetainedComputeSourceCandidate,
+} from './compute-retained-source-discovery';
 
 export type {
   ManagedCatalogHeadIndex,
@@ -44,6 +49,7 @@ export type {
 type ManagedHeadEntry = Readonly<{ relPath: string; oid: string }>;
 
 interface HeadIndexOptions extends MigrationPathOptions {
+  activeAcceptedPaths?: readonly string[];
   healWorkingTree?: boolean;
   packageIdForPath?: (path: string) => string | undefined;
   removeCoordinateSource?: (path: string) => Promise<unknown>;
@@ -324,15 +330,34 @@ export async function collectManagedCatalogHeadIndex(
     options
   );
   const preserved = new Set(preserveRelPaths.map((path) => path.replace(/\\/g, '/')));
+  const retainedPaths = headCommit
+    ? await collectRetainedComputeSourcePaths({
+        workspaceRoot: repoPath,
+        committedFiles: entries.map((entry) => entry.relPath),
+        readText: async (path) =>
+          Buffer.from(await readBlobBytesAtCommit(repoPath, headCommit, path)).toString('utf8'),
+      })
+    : new Set<string>();
   const selected: ManagedHeadEntry[] = [];
   let visibleFileCount = 0;
 
   for (const entry of entries) {
     if (isVisibleManagedHeadFile(entry.relPath)) visibleFileCount++;
+    if (
+      isRetainedComputeSourceCandidate(
+        repoPath,
+        join(repoPath, entry.relPath),
+        retainedPaths,
+        options.activeAcceptedPaths
+      )
+    )
+      continue;
     if (preserved.has(entry.relPath) || isManagedCatalogHeadCandidate(entry.relPath)) {
       selected.push(entry);
     }
   }
+
+  options.assertCurrent?.();
 
   return {
     headCommit,

@@ -267,6 +267,10 @@ export async function preflightLegacySequencePackages(
           )
         )
           continue;
+        const document = parseSequencePackageDocument(
+          await fs.readFile(join(root, manifest.marker), 'utf8')
+        );
+        if (options.protectedEntityIds?.has(document.id)) continue;
         if (digest(await fs.readFile(join(directory, 'original.json'))) !== manifest.beforeSha256)
           throw new Error('The retained sequence package marker changed.');
         Object.assign(

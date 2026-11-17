@@ -4,6 +4,13 @@ import type Database from 'better-sqlite3';
 import { canonicalJson } from '../../shared/canonical-json';
 import type { ComputeImportDetails } from '../../shared/compute-jobs-ipc';
 import { assertWorkspaceWriteAllowed } from '../workspace-write-admission';
+import { rebindCatalogFilesInDb } from '../catalog-projection-commands';
+import {
+  computeNativeBindingRows,
+  computeNativeIdentityWitness,
+  computeNativeCatalogHead,
+  type ComputeNativePlan,
+} from './compute-native-result-members';
 
 const RECEIPT_SCHEMA = 'dnaforge.compute-result-migration-receipt.v1';
 
@@ -25,6 +32,8 @@ export interface ComputeResultPublication {
   sourceTreeSha256: string;
   targetRelativePaths: string[];
   previews: ComputeImportDetails['outputs'];
+  native?: ComputeNativePlan;
+  nativeTargetRelativeRoot?: string;
 }
 
 export class ComputeResultPublicationConflict extends Error {
@@ -168,9 +177,14 @@ export function publishComputeResultJob(
   const preservedPaths = paths(witness.previousPathsJson).filter(
     (path) => path !== source && !path.startsWith(`${source}${sep}`)
   );
+  const retainedNativePaths = (publication.native?.retainedImportedPaths ?? []).map((path) => {
+    relativePath(path);
+    return join(source, path);
+  });
   const publishedPaths = JSON.stringify([
     ...new Set([
       ...preservedPaths,
+      ...retainedNativePaths,
       ...targets.map((target) => join(witness.workspaceRoot, target)),
     ]),
   ]);
@@ -221,6 +235,35 @@ export function publishComputeResultJob(
         row.import_details_json !== witness.previousDetailsJson
       )
         conflict('COMPUTE_PUBLICATION_JOB_CHANGED');
+      if (publication.native) {
+        if (
+          computeNativeCatalogHead(db, witness.workspaceRoot) !==
+          publication.native.catalogHeadWitness
+        )
+          conflict('COMPUTE_PUBLICATION_NATIVE_HEAD_CHANGED');
+        if (!publication.nativeTargetRelativeRoot)
+          conflict('COMPUTE_PUBLICATION_NATIVE_TARGET_MISSING');
+        relativePath(publication.nativeTargetRelativeRoot);
+        for (const member of publication.native.members) {
+          const oldPath = join(source, member.path);
+          if (canonicalJson(computeNativeBindingRows(db, oldPath)) !== member.bindingWitness)
+            conflict('COMPUTE_PUBLICATION_NATIVE_OWNER_CHANGED');
+          if (
+            computeNativeIdentityWitness(db, member.entityId, member.kind) !==
+            member.identityWitness
+          )
+            conflict('COMPUTE_PUBLICATION_NATIVE_IDENTITY_CHANGED');
+          if (member.disposition !== 'transfer') continue;
+          const moved = rebindCatalogFilesInDb(db, {
+            oldPath,
+            newPath: join(witness.workspaceRoot, publication.nativeTargetRelativeRoot, member.path),
+            workspaceRoot: witness.workspaceRoot,
+            actor: 'compute-result-migration',
+          });
+          if (moved.missingOldPath || !moved.updated)
+            conflict('COMPUTE_PUBLICATION_NATIVE_OWNER_CHANGED');
+        }
+      }
       const nextDetails = {
         ...currentDetails,
         receipt: { ...currentDetails.receipt, legacyResultMigration: receipt },

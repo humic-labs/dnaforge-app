@@ -453,7 +453,12 @@ async function migrateMolecularFileWithinCleanSource(
       const retainedPath = join(attempt, `source-${manifest.sourceName}`);
       const retiringPath = join(attempt, `retiring-${manifest.sourceName}`);
       const stagedProduct = join(attempt, 'product');
-      await assertFile(stagedProduct, manifest.product);
+      const stagedBytes = await assertFile(stagedProduct, manifest.product);
+      if (
+        kind === 'extension-name' &&
+        options.protectedEntityIds?.has(JSON.parse(stagedBytes.toString('utf8')).id)
+      )
+        throw new Error('MOLECULAR_MIGRATION_IDENTITY_OWNED');
       const original = await readRegular(join(attempt, 'original'));
       if (hash(original.bytes) !== manifest.source.sha256)
         throw new Error(`MOLECULAR_MIGRATION_ORIGINAL_CHANGED: ${attempt}`);
