@@ -1184,6 +1184,7 @@ interface SlotAttempt {
   readonly x: number;
   readonly y: number;
   readonly bounds: FloatingLabelBounds;
+  readonly leader: FloatingAnnotationLabelLeader;
   readonly outsideRunway: boolean;
   readonly blockers: ReadonlySet<string> | null;
 }
@@ -1204,8 +1205,8 @@ export function planFloatingAnnotationLabels(
     candidate: FloatingAnnotationLabelCandidate,
     outward: FloatingLabelPoint,
     slot: FloatingAnnotationLabelSlot,
-    collectAllBlockers: boolean
-  ): SlotAttempt => {
+    assigned: boolean
+  ): SlotAttempt | null => {
     const tangentX = -outward.y;
     const tangentY = outward.x;
     const labelNormalHalfExtent =
@@ -1225,9 +1226,16 @@ export function planFloatingAnnotationLabels(
       yMin: y - candidate.textHeight / 2,
       yMax: y + candidate.textHeight / 2,
     };
-    if (!insideRunway(bounds, viewport)) {
-      return { slot, x, y, bounds, outsideRunway: true, blockers: null };
+    const outsideRunway = !insideRunway(bounds, viewport);
+    if (
+      !assigned &&
+      (outsideRunway || (slot.outwardRow >= OUTWARD_ROW_COUNT && !insidePane(bounds, viewport)))
+    ) {
+      return null;
     }
+    const leader = calloutLeader(candidate.anchor, { x, y }, bounds);
+    if (!assigned && leader.length > FLOATING_LABEL_MAX_LEADER_PX) return null;
+    if (outsideRunway) return { slot, x, y, bounds, leader, outsideRunway, blockers: null };
     const ownBodyOwner = `body:${candidate.featureId}`;
     let blockers: Set<string> | null = null;
     const firstBucket = Math.floor(bounds.xMin / OBSTACLE_BUCKET_PX);
@@ -1237,8 +1245,8 @@ export function planFloatingAnnotationLabels(
       if (placed) {
         for (const obstacle of placed) {
           if (!overlaps(bounds, obstacle)) continue;
+          if (!assigned) return null;
           (blockers ??= new Set()).add(obstacle.owner);
-          if (!collectAllBlockers) return { slot, x, y, bounds, outsideRunway: false, blockers };
         }
       }
       const members = obstacleBuckets.get(bucket);
@@ -1246,19 +1254,16 @@ export function planFloatingAnnotationLabels(
       for (const obstacle of members) {
         if (obstacle.owner === ownBodyOwner) continue;
         if (!floatingLabelBoundsHitObstacle(bounds, obstacle, outlineLookup)) continue;
+        if (!assigned) return null;
         (blockers ??= new Set()).add(obstacle.owner);
-        if (!collectAllBlockers) return { slot, x, y, bounds, outsideRunway: false, blockers };
       }
     }
-    return { slot, x, y, bounds, outsideRunway: false, blockers };
+    return { slot, x, y, bounds, leader, outsideRunway, blockers };
   };
-  const leaderFor = (candidate: FloatingAnnotationLabelCandidate, result: SlotAttempt) =>
-    calloutLeader(candidate.anchor, { x: result.x, y: result.y }, result.bounds);
   const place = (
     index: number,
     candidate: FloatingAnnotationLabelCandidate,
     chosen: SlotAttempt,
-    leader: FloatingAnnotationLabelLeader,
     testedSlotCount: number
   ): void => {
     decisionByIndex[index] = {
@@ -1270,7 +1275,7 @@ export function planFloatingAnnotationLabels(
       x: chosen.x,
       y: chosen.y,
       bounds: chosen.bounds,
-      leader,
+      leader: chosen.leader,
       slot: chosen.slot,
       testedSlotCount,
       assignmentOptions: candidate.placementOptions,
@@ -1293,7 +1298,6 @@ export function planFloatingAnnotationLabels(
     readonly candidate: FloatingAnnotationLabelCandidate;
     readonly outward: FloatingLabelPoint;
     readonly first: SlotAttempt | null;
-    readonly firstLeader: FloatingAnnotationLabelLeader | null;
   }> = [];
   ordered.forEach((candidate, index) => {
     const outward = normalized(candidate.outward);
@@ -1313,22 +1317,20 @@ export function planFloatingAnnotationLabels(
     }
     const assignedSlot = assignments.get(candidate.featureId);
     const first = assignedSlot ? attempt(candidate, outward, assignedSlot, true) : null;
-    const firstLeader = first ? leaderFor(candidate, first) : null;
     if (
       first &&
-      firstLeader &&
       !first.outsideRunway &&
       first.blockers === null &&
-      firstLeader.length <= FLOATING_LABEL_MAX_LEADER_PX
+      first.leader.length <= FLOATING_LABEL_MAX_LEADER_PX
     ) {
-      place(index, candidate, first, firstLeader, 1);
+      place(index, candidate, first, 1);
       return;
     }
-    pending.push({ index, candidate, outward, first, firstLeader });
+    pending.push({ index, candidate, outward, first });
   });
 
   let repairAttemptsRemaining = MAX_REPAIR_ATTEMPTS_PER_FRAME;
-  for (const { index, candidate, outward, first, firstLeader } of pending) {
+  for (const { index, candidate, outward, first } of pending) {
     let testedSlotCount = first ? 1 : 0;
     const anchorOnScreen =
       candidate.anchor.x >= 0 &&
@@ -1336,7 +1338,7 @@ export function planFloatingAnnotationLabels(
       candidate.anchor.y >= 0 &&
       candidate.anchor.y <= viewport.height;
     if (anchorOnScreen && !first?.outsideRunway && repairAttemptsRemaining > 0) {
-      let repaired: { result: SlotAttempt; leader: FloatingAnnotationLabelLeader } | null = null;
+      let repaired: SlotAttempt | null = null;
       for (const slot of repairSlots(candidate)) {
         if (
           first &&
@@ -1350,44 +1352,40 @@ export function planFloatingAnnotationLabels(
         repairAttemptsRemaining -= 1;
         testedSlotCount += 1;
         const result = attempt(candidate, outward, slot, false);
-        if (result.outsideRunway || result.blockers !== null) continue;
-        if (slot.outwardRow >= OUTWARD_ROW_COUNT && !insidePane(result.bounds, viewport)) continue;
-        const leader = leaderFor(candidate, result);
-        if (leader.length > FLOATING_LABEL_MAX_LEADER_PX) continue;
-        repaired = { result, leader };
+        if (!result) continue;
+        repaired = result;
         break;
       }
       if (repaired) {
-        place(index, candidate, repaired.result, repaired.leader, testedSlotCount);
+        place(index, candidate, repaired, testedSlotCount);
         continue;
       }
     }
-    decisionByIndex[index] =
-      first && firstLeader
-        ? {
-            featureId: candidate.featureId,
-            text: candidate.text,
-            anchor: candidate.anchor,
-            bodyBounds: candidate.bodyBounds,
-            status: 'rejected',
-            reason: first.outsideRunway ? 'outside-runway' : 'blocked-fixed-slot',
-            slot: first.slot,
-            plannedPlacement: { x: first.x, y: first.y, bounds: first.bounds, leader: firstLeader },
-            testedSlotCount,
-            blockers: first.blockers ? [...first.blockers].sort() : [],
-          }
-        : {
-            featureId: candidate.featureId,
-            text: candidate.text,
-            anchor: candidate.anchor,
-            bodyBounds: candidate.bodyBounds,
-            status: 'rejected',
-            reason: 'no-assignment',
-            slot: null,
-            testedSlotCount,
-            blockers: [],
-            assignmentOptions: candidate.placementOptions,
-          };
+    decisionByIndex[index] = first
+      ? {
+          featureId: candidate.featureId,
+          text: candidate.text,
+          anchor: candidate.anchor,
+          bodyBounds: candidate.bodyBounds,
+          status: 'rejected',
+          reason: first.outsideRunway ? 'outside-runway' : 'blocked-fixed-slot',
+          slot: first.slot,
+          plannedPlacement: { x: first.x, y: first.y, bounds: first.bounds, leader: first.leader },
+          testedSlotCount,
+          blockers: first.blockers ? [...first.blockers].sort() : [],
+        }
+      : {
+          featureId: candidate.featureId,
+          text: candidate.text,
+          anchor: candidate.anchor,
+          bodyBounds: candidate.bodyBounds,
+          status: 'rejected',
+          reason: 'no-assignment',
+          slot: null,
+          testedSlotCount,
+          blockers: [],
+          assignmentOptions: candidate.placementOptions,
+        };
   }
 
   return floatingAnnotationLabelPlanFromDecisions(

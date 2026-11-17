@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   FLOATING_LABEL_MAX_LEADER_PX,
+  FLOATING_LABEL_TANGENT_STEPS,
   floatingAnnotationLabelDensityTarget,
   floatingAnnotationVisibleLeaderSegments,
   floatingLabelOutwardAnchor,
@@ -516,6 +517,34 @@ describe('floating annotation label layout', () => {
     } finally {
       sort.mockRestore();
     }
+  });
+
+  it('skips obstacle outlines for repair positions beyond the leader length limit', () => {
+    const label = candidate(1, 300, {
+      anchor: { x: 300, y: 600 },
+      placementOptions: FLOATING_LABEL_TANGENT_STEPS.map((tangentStep) => ({
+        tangentStep,
+        layoutCenterBp: 300,
+        outwardClearance: 320,
+        outwardRail: -320,
+      })),
+    });
+    const obstacle = { xMin: 0, xMax: 600, yMin: 0, yMax: 400, owner: 'body:2' };
+    const outline = vi.fn(() => null);
+    const plan = planFloatingAnnotationLabels(
+      [label],
+      new Map(),
+      { width: 600, height: 800, preloadMargin: 0 },
+      [obstacle],
+      outline
+    );
+
+    expect(plan.decisions[0]).toMatchObject({
+      status: 'rejected',
+      reason: 'no-assignment',
+      testedSlotCount: 72,
+    });
+    expect(outline).not.toHaveBeenCalled();
   });
 
   it('keeps unblocked slots fixed and moves a blocked label to a free slot instead of hiding it', () => {
