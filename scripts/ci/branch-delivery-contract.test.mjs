@@ -59,8 +59,10 @@ function fixture(target = 'dev') {
       type: 'required_status_checks',
       parameters: {
         strict_required_status_checks_policy: false,
-        required_status_checks: names.map((context) => ({ context,
-          integration_id: policyModule.policy.externalChecks[context]?.appId ?? 15368 })),
+        required_status_checks: names.map((context) => ({
+          context,
+          integration_id: policyModule.policy.externalChecks[context]?.appId ?? 15368,
+        })),
       },
     },
     ...(development
@@ -452,20 +454,26 @@ function promotionFixture(target = 'staging') {
     desktop: { files: 5, passed: 20 },
   };
   const receipt = {
-    schema: 'dnaforge.public-electron-qualification.v1',
-    repository: repository.full_name, repositoryId: repository.id,
-    pullRequest: f.candidate.number, target, headSha: head, baseSha: base,
-    mergeSha: source, treeSha: tree,
-    controller: { commit: 'c'.repeat(40), tree: 'd'.repeat(40) },
-    run: { id: 700, attempt: 1, workflow: '.github/workflows/e2e-electron.yml' },
-    rosterSha256: 'a'.repeat(64), evidenceSha256: 'b'.repeat(64), status: 'passed',
+    schema: 'dnaforge.public-electron-qualification.v2',
+    repository: repository.full_name,
+    repositoryId: repository.id,
+    pullRequest: f.candidate.number,
+    target,
+    headSha: head,
+    baseSha: base,
+    mergeSha: source,
+    treeSha: tree,
+    proofSha256: 'c'.repeat(64),
+    rosterSha256: 'a'.repeat(64),
+    evidenceSha256: 'b'.repeat(64),
+    status: 'passed',
     counts: { passed: 20, skipped: 0, flaky: 0, failedAttempts: 0, reports: 2 },
   };
   const text = JSON.stringify(receipt);
   const external = f.observation.checks.find((check) => check.name === 'Electron E2E');
   external.output = { text };
   external.external_id = `${receipt.schema}:${createHash('sha256').update(text).digest('hex')}`;
-  external.details_url = 'https://github.com/humic-labs/dnaforge/actions/runs/700/attempts/1';
+  external.details_url = `https://github.com/humic-labs/dnaforge-app/commit/${head}/checks`;
   return f;
 }
 
