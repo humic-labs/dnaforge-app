@@ -154,6 +154,7 @@ function defaultArtifactFileName(kind: PendingArtifactKind): string {
   if (kind === 'notebook') return 'Untitled';
   if (kind === 'assembly') return 'Untitled.wpdesign.json';
   if (kind === 'dna-sequence') return 'Untitled DNA sequence';
+  if (kind === 'table') return 'Untitled table';
   if (kind === 'folder') return 'New Folder';
   return 'Untitled.txt';
 }
@@ -890,60 +891,99 @@ export function FileBrowser({
     });
     try {
       const duplicatePath =
-        filesystemContextMenu.packageKind === 'sequence' && isHostedBrowserRuntime()
-          ? await (
-              await import('../hosted/duplicate-sequence-package')
-            ).duplicateHostedSequencePackage(sourcePath)
-          : await withRendererWorkspaceMutation(workspaceRoot, async (mutationToken) => {
-              const sourceName = basename(sourcePath);
-              const parentPath = sourcePath.slice(0, -(sourceName.length + 1));
-              const suffix = ['.primer.json', '.entity.json'].find((extension) =>
-                sourceName.toLowerCase().endsWith(extension)
-              );
-              const lastDot =
-                filesystemContextMenu.packageKind === 'sequence'
-                  ? -1
-                  : suffix
-                    ? sourceName.length - suffix.length
-                    : sourceName.lastIndexOf('.');
-              const hasExtension = lastDot > 0;
-              const stem = hasExtension ? sourceName.slice(0, lastDot) : sourceName;
-              const extension = hasExtension ? sourceName.slice(lastDot) : '';
-
-              for (let copyNumber = 1; copyNumber <= 10_000; copyNumber += 1) {
-                const suffix = copyNumber === 1 ? ' copy' : ` copy ${copyNumber}`;
-                const candidate = `${parentPath}/${stem}${suffix}${extension}`;
+        filesystemContextMenu.packageKind === 'table'
+          ? await (async () => {
+              const opened = await platform().fs.tableDocument({
+                kind: 'open',
+                location: { workspaceRoot, packageRoot: sourcePath },
+              });
+              if (opened.kind !== 'resolved' || opened.table.owner.kind !== 'file')
+                throw new Error('Open the current table before making an independent copy.');
+              const source = await platform().fs.fileDocument({
+                target: { documentId: opened.table.owner.documentId },
+                operation: {
+                  kind: 'inspect',
+                  offset: 0,
+                  limit: 2000,
+                  rowOffset: 0,
+                  rowLimit: 20,
+                  columnOffset: 0,
+                  columnLimit: 20,
+                },
+              });
+              const name = basename(sourcePath);
+              const parent = sourcePath.slice(0, -(name.length + 1));
+              for (let index = 1; index <= 10000; index++) {
+                const candidate = `${parent}/${name} copy${index === 1 ? '' : ` ${index}`}`;
                 if (await platform().fs.exists(candidate)) continue;
-                try {
-                  if (
-                    await copyAcceptedScientificPath({
-                      workspaceRoot,
-                      sourcePath,
-                      destinationPath: candidate,
-                      mutationToken,
-                    })
-                  )
-                    return candidate;
-                  if (filesystemContextMenu.packageKind === 'sequence')
-                    throw new Error(
-                      'Enroll this sequence project in accepted storage before duplicating its package.'
-                    );
-                  const content = await platform().fs.readFile(sourcePath);
-                  await platform().fs.writeWorkspaceBinaryFileAtomic({
-                    workspaceRoot,
-                    path: candidate,
-                    content,
-                    mutationToken,
-                    artifactNoun: 'file',
-                  });
-                  return candidate;
-                } catch (error) {
-                  if (error instanceof Error && /already exists/i.test(error.message)) continue;
-                  throw error;
-                }
+                const copied = await platform().fs.tableDocument({
+                  kind: 'copy',
+                  requestId: crypto.randomUUID(),
+                  source: opened.table.reference,
+                  expectedRevision: source.revision,
+                  destination: { workspaceRoot, packageRoot: candidate },
+                  title: `${name} copy`,
+                });
+                if (copied.kind !== 'created')
+                  throw new Error('The table copy is pending recovery.');
+                return candidate;
               }
-              throw new Error('Could not find an available duplicate file name.');
-            });
+              throw new Error('Could not choose an available table copy name.');
+            })()
+          : filesystemContextMenu.packageKind === 'sequence' && isHostedBrowserRuntime()
+            ? await (
+                await import('../hosted/duplicate-sequence-package')
+              ).duplicateHostedSequencePackage(sourcePath)
+            : await withRendererWorkspaceMutation(workspaceRoot, async (mutationToken) => {
+                const sourceName = basename(sourcePath);
+                const parentPath = sourcePath.slice(0, -(sourceName.length + 1));
+                const suffix = ['.primer.json', '.entity.json'].find((extension) =>
+                  sourceName.toLowerCase().endsWith(extension)
+                );
+                const lastDot =
+                  filesystemContextMenu.packageKind === 'sequence'
+                    ? -1
+                    : suffix
+                      ? sourceName.length - suffix.length
+                      : sourceName.lastIndexOf('.');
+                const hasExtension = lastDot > 0;
+                const stem = hasExtension ? sourceName.slice(0, lastDot) : sourceName;
+                const extension = hasExtension ? sourceName.slice(lastDot) : '';
+
+                for (let copyNumber = 1; copyNumber <= 10_000; copyNumber += 1) {
+                  const suffix = copyNumber === 1 ? ' copy' : ` copy ${copyNumber}`;
+                  const candidate = `${parentPath}/${stem}${suffix}${extension}`;
+                  if (await platform().fs.exists(candidate)) continue;
+                  try {
+                    if (
+                      await copyAcceptedScientificPath({
+                        workspaceRoot,
+                        sourcePath,
+                        destinationPath: candidate,
+                        mutationToken,
+                      })
+                    )
+                      return candidate;
+                    if (filesystemContextMenu.packageKind === 'sequence')
+                      throw new Error(
+                        'Enroll this sequence project in accepted storage before duplicating its package.'
+                      );
+                    const content = await platform().fs.readFile(sourcePath);
+                    await platform().fs.writeWorkspaceBinaryFileAtomic({
+                      workspaceRoot,
+                      path: candidate,
+                      content,
+                      mutationToken,
+                      artifactNoun: 'file',
+                    });
+                    return candidate;
+                  } catch (error) {
+                    if (error instanceof Error && /already exists/i.test(error.message)) continue;
+                    throw error;
+                  }
+                }
+                throw new Error('Could not find an available duplicate file name.');
+              });
 
       try {
         await Promise.resolve(onWorkspaceChanged?.(workspaceRoot));
@@ -1151,6 +1191,8 @@ export function FileBrowser({
           fileName = index === 1 ? defaultName : `Untitled DNA sequence ${index}`;
         } else if (kind === 'text-file') {
           fileName = index === 1 ? defaultName : `Untitled ${index}.txt`;
+        } else if (kind === 'table') {
+          fileName = index === 1 ? defaultName : `Untitled table ${index}`;
         } else {
           fileName = index === 1 ? defaultName : `New Folder ${index}`;
         }
@@ -1305,6 +1347,21 @@ export function FileBrowser({
             })
           );
           createdPath = created?.filePath ?? null;
+        } else if (pending.kind === 'table') {
+          if (!pending.workspaceRoot)
+            throw new Error('Choose a registered project for this table.');
+          const created = await platform().fs.tableDocument({
+            kind: 'create',
+            requestId: pending.id,
+            destination: { workspaceRoot: pending.workspaceRoot, packageRoot: finalPath },
+            title: finalFileName,
+            rows: 3,
+            columns: 3,
+          });
+          if (created.kind !== 'created' || created.table.owner.kind !== 'file')
+            throw new Error('The native table creation is still pending recovery.');
+          createdPath = finalPath;
+          onFileSelect(created.table.owner.path, 'table');
         } else if (pending.kind === 'text-file') {
           await platform().fs.writeTextFile(finalPath, '');
           await registerWorkspaceFile({
@@ -1349,10 +1406,11 @@ export function FileBrowser({
       if (pending.workspaceRoot) {
         notifyGitStatusChanged(pending.workspaceRoot);
         if (
-          pending.kind !== 'text-file' ||
-          !textFileRegistered ||
-          getTabTypeForFile(finalPath) !== 'text' ||
-          isManagedCatalogHeadCandidate(finalPath)
+          pending.kind !== 'table' &&
+          (pending.kind !== 'text-file' ||
+            !textFileRegistered ||
+            getTabTypeForFile(finalPath) !== 'text' ||
+            isManagedCatalogHeadCandidate(finalPath))
         )
           void Promise.resolve(onWorkspaceChanged?.(pending.workspaceRoot));
       }
@@ -1363,6 +1421,7 @@ export function FileBrowser({
       onCreateEntity,
       onNewAssembly,
       onNewNotebook,
+      onFileSelect,
       onWorkspaceChanged,
       pendingArtifacts,
       projectAllowsWritesForPath,
@@ -1512,10 +1571,14 @@ export function FileBrowser({
           });
         return;
       }
-      if (request.entityType === 'notebook' || request.entityType === 'assembly') {
+      if (
+        request.entityType === 'notebook' ||
+        request.entityType === 'assembly' ||
+        request.entityType === 'table'
+      ) {
         const destinationPath = request.destinationPath;
         if (!destinationPath) {
-          if (onCreateEntity) {
+          if (onCreateEntity && request.entityType !== 'table') {
             void onCreateEntity(request);
             return;
           }
@@ -1791,11 +1854,12 @@ export function FileBrowser({
               onRequestClose={() => setAddPickerLaunch(null)}
               onCommitAction={() => setContextMenu(null)}
               onCreateEntity={
-                onCreateEntity || onNewNotebook || onNewAssembly
+                onCreateEntity || onNewNotebook || onNewAssembly || !isBrowserOnly()
                   ? handleCreateEntityFromPicker
                   : undefined
               }
               canCreateEntity={(entityType) => {
+                if (entityType === 'table') return !isBrowserOnly();
                 if (entityType === 'notebook') return Boolean(onNewNotebook || onCreateEntity);
                 if (entityType === 'assembly') return Boolean(onNewAssembly || onCreateEntity);
                 return Boolean(onCreateEntity);

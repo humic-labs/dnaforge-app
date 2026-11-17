@@ -1,3 +1,9 @@
+import { tableDataForPersistence } from '../../shared/table-document-data';
+import {
+  parseTablePackageHead,
+  serializeTablePackageHead,
+  tablePackageHeadWithData,
+} from '../../shared/table-package';
 import { platform } from '../../platform';
 import type { FileDocumentFlushPurpose } from '../../shared/file-document-client-sync';
 import type { TextFileAtomicWriteInput } from '../../shared/text-file-atomic';
@@ -40,7 +46,13 @@ function subscribeNativeDocuments() {
   const subscribe = platform().fs.subscribeFileDocuments;
   if (!subscribe) throw new Error('The native file-document service is unavailable.');
   subscribed = true;
-  subscribe((snapshot) => clients.get(snapshot.path)?.observe(snapshot));
+  subscribe((snapshot) => {
+    const client =
+      [...new Set(clients.values())].find(
+        (candidate) => candidate.snapshot?.documentId === snapshot.documentId
+      ) ?? clients.get(snapshot.path);
+    client?.observe(snapshot);
+  });
 }
 
 export function installFileDocumentClientSync(loadId: string): () => void {
@@ -103,10 +115,14 @@ export class FileDocumentClient {
   private epoch = 0;
   private tail: Promise<unknown> = Promise.resolve();
   private readonly listeners = new Set<() => void>();
+  private notificationVersion = 0;
   private readonly capturedSaves = new Map<number, Promise<unknown>>();
   private loading: Promise<void> | null = null;
 
   constructor(readonly filePath: string) {}
+  get viewRevision(): number {
+    return this.notificationVersion;
+  }
   get revisionId() {
     return this.snapshot?.revision ?? `file-loading:${this.filePath}`;
   }
@@ -130,7 +146,9 @@ export class FileDocumentClient {
 
   observe(snapshot: FileDocumentSnapshot): void {
     if (
-      (snapshot.path !== this.filePath && snapshot.documentId !== this.snapshot?.documentId) ||
+      (this.snapshot
+        ? snapshot.documentId !== this.snapshot.documentId && !this.isTableActivation(snapshot)
+        : snapshot.path !== this.filePath) ||
       this.pending > 0
     )
       return;
@@ -151,8 +169,9 @@ export class FileDocumentClient {
     subscribeNativeDocuments();
     await this.flush();
     await Promise.allSettled([...this.capturedSaves.values()]);
+    const documentId = this.snapshot?.documentId;
     const snapshot = await platform().fs.fileDocument({
-      target: { path: this.filePath },
+      target: documentId ? { documentId } : { path: this.filePath },
       projection: 'document',
       operation: {
         kind: 'inspect',
@@ -164,6 +183,10 @@ export class FileDocumentClient {
         columnLimit: 20,
       },
     });
+    if (documentId && snapshot.documentId !== documentId && !this.isTableActivation(snapshot))
+      throw new Error(
+        'FILE_DOCUMENT_BINDING_CHANGED: The native document identity no longer matches this view.'
+      );
     const current =
       !snapshot.dirty &&
       snapshot.ready &&
@@ -210,6 +233,20 @@ export class FileDocumentClient {
   }
 
   changeTable(data: TableData, firstRowAsHeader: boolean): void {
+    if (this.snapshot?.type === 'table') {
+      const head = parseTablePackageHead(this.content ?? this.snapshot.content ?? '');
+      const persistedData = tableDataForPersistence(data);
+      const next = tablePackageHeadWithData(head, persistedData);
+      this.content = serializeTablePackageHead(next);
+      this.epoch += 1;
+      this.emit();
+      void this.enqueue({
+        kind: 'replace-table',
+        data: structuredClone(persistedData),
+        firstRowAsHeader: false,
+      }).catch(() => {});
+      return;
+    }
     const rows = (data.cells ?? []).map((row) => row.map((cell) => cell.value));
     if (firstRowAsHeader) rows.unshift(data.columnLabels ?? []);
     const next = serializeDelimitedRows(
@@ -246,7 +283,7 @@ export class FileDocumentClient {
   }
 
   async save(
-    _write: (input: TextFileAtomicWriteInput) => Promise<void>,
+    _write?: (input: TextFileAtomicWriteInput) => Promise<void>,
     assertCurrent: () => void = () => {},
     afterPublish?: () => Promise<void>
   ): Promise<FileDocumentSnapshot> {
@@ -364,6 +401,9 @@ export class FileDocumentClient {
   }
 
   private accept(snapshot: FileDocumentSnapshot, content: boolean): void {
+    for (const [path, client] of clients)
+      if (client === this && path !== snapshot.path) clients.delete(path);
+    clients.set(snapshot.path, this);
     this.snapshot = snapshot;
     this.persistedContent = snapshot.persistedContent;
     this.diskContent = snapshot.diskContent;
@@ -371,7 +411,29 @@ export class FileDocumentClient {
     this.emit();
   }
 
+  private isTableActivation(snapshot: FileDocumentSnapshot): boolean {
+    return Boolean(
+      this.snapshot?.path === snapshot.path &&
+      this.snapshot.tableDocument?.status === 'pending-promotion' &&
+      snapshot.tableDocument?.status === 'active' &&
+      snapshot.tableDocument.id === this.snapshot.tableDocument.id
+    );
+  }
+
   private emit(): void {
-    for (const listener of this.listeners) listener();
+    this.notificationVersion++;
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch (error) {
+        try {
+          console.error(
+            '[FileDocumentClient] Observer notification failed:',
+            { documentId: this.snapshot?.documentId, filePath: this.filePath },
+            error
+          );
+        } catch {}
+      }
+    }
   }
 }

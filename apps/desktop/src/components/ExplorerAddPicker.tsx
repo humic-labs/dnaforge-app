@@ -23,10 +23,12 @@ import {
 } from './icons';
 import { useMenuAim } from '@waypoint/ui-components';
 import { isHostedCapabilityShown } from '../hosted/capabilities';
+import { isElectron } from '../utils/environment';
+import { SpreadsheetFileIcon } from './icons/glyphs';
 
 export type ExplorerAddPickerLaunchSource = 'context-menu' | 'registry';
 export type ExplorerEntityImportRequest = EntityImportRequest;
-export type ExplorerEntityCreateType = EntityImportType | 'notebook' | 'assembly';
+export type ExplorerEntityCreateType = EntityImportType | 'notebook' | 'assembly' | 'table';
 export interface ExplorerEntityCreateRequest {
   entityType: ExplorerEntityCreateType;
   destinationPath: string | null;
@@ -65,7 +67,7 @@ interface PickerPlacement {
 
 type PickerEntityType =
   | { id: EntityImportType; label: string; importAvailable: true }
-  | { id: 'notebook' | 'assembly'; label: string; importAvailable: false };
+  | { id: 'notebook' | 'assembly' | 'table'; label: string; importAvailable: false };
 
 const ENTITY_TYPES: readonly PickerEntityType[] = [
   {
@@ -78,6 +80,7 @@ const ENTITY_TYPES: readonly PickerEntityType[] = [
     label: 'Assembly',
     importAvailable: false,
   },
+  { id: 'table', label: 'Table', importAvailable: false },
   {
     id: 'dna-sequences',
     label: 'DNA sequences',
@@ -187,8 +190,9 @@ export function ExplorerAddPicker({
   const typeMenuAim = useMenuAim();
   const entityTypes = ENTITY_TYPES.filter(
     (entityType) =>
-      (entityType.id !== 'dna-oligos' && entityType.id !== 'rna-oligos') ||
-      isHostedCapabilityShown('primers')
+      (entityType.id !== 'table' || (isElectron() && launchSource === 'context-menu')) &&
+      ((entityType.id !== 'dna-oligos' && entityType.id !== 'rna-oligos') ||
+        isHostedCapabilityShown('primers'))
   );
   const projectActions =
     launchSource === 'registry'
@@ -295,7 +299,9 @@ export function ExplorerAddPicker({
     onCreateAssembly({ mode, destinationPath: destinationPath ?? null });
   };
   const entityTypeIcon = (entityType: PickerEntityType) =>
-    entityType.id === 'assembly' ? (
+    entityType.id === 'table' ? (
+      <SpreadsheetFileIcon className="h-4 w-4" />
+    ) : entityType.id === 'assembly' ? (
       <AssemblyTabIcon className="h-4 w-4" />
     ) : (
       (iconForEntityKind(entityType.id, 'h-4 w-4') ?? <GenericFileIcon className="h-4 w-4" />)
