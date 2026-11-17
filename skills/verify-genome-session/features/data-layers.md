@@ -6,7 +6,6 @@ An existing saved sequence can receive a project-owned CSV layer through the
 sequence_data_layers command. The owner retains the CSV snapshot, exact sequence
 revision, mapping recipe, every row outcome and presentation in a .dnalayer.json
 artifact. The ordinary viewer discovers it through its existing Tracks control.
-There is no custom attachment form or Data layers strip.
 
 ## Workflow
 

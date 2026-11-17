@@ -18,9 +18,6 @@ For indexed native quantitative tracks, use the existing track gutter checkbox
 and gear. Follow [Native genomic projections](native-projections.md) for bars,
 heatmap bands, points, native source admission and saved-view restoration.
 
-The former Data sources strip and CSV attachment forms are retired. Do not use
-the older standalone viewers or their screenshots as integration evidence.
-
 ## Acceptance
 
 Require the same native canvas and renderer across presentation changes. Check

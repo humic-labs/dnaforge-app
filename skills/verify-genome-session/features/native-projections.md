@@ -12,7 +12,7 @@ In the background desktop preview, open Dev Scenarios and use one of:
 Wait for the selected tab and its source to finish opening before interacting.
 Close Dev Scenarios using its existing toggle. Capture after its closing
 transition ends. Use the existing native sidebar, track gear, coordinate field
-and map canvas. Do not add a separate review viewer or dataset control strip.
+and map canvas.
 
 ## Expression
 
@@ -76,8 +76,7 @@ source identities and relevant renderer errors. Use video for zoom, pan and
 close/reopen continuity. A source control test or diagnostic count alone does
 not qualify the painted app behavior.
 
-Query nucleotide letters and query annotation loading are not yet qualified in
-the comparison app path. The native source descriptors retain project ownership
-and hashes; copying a saved view to a different computer without its managed
-source is not qualified. All 20 scientific datasets remain a broader scope than
-these three native examples.
+The comparison app path currently displays alignment coordinates and gaps; query
+nucleotide letters and annotations are not loaded. The native source descriptors
+retain project ownership and hashes; copying a saved view to a different
+computer without its managed source is not qualified.
