@@ -140,10 +140,173 @@ describe('sequence_data_layers command boundary', () => {
   });
 
   it.each(['not-published', 'publication-uncertain'] as const)(
-    'preserves the native %s disposition across the AI boundary', async (disposition) => {
-      run.mockResolvedValue({ status: 'failed', disposition, message: 'Native command did not confirm publication' });
-      expect(await createSequenceDataLayersTool([project]).execute!(request, options)).toMatchObject({
-        ok: false, stateChanged: disposition === 'not-published' ? false : 'unknown',
+    'preserves the native %s disposition across the AI boundary',
+    async (disposition) => {
+      run.mockResolvedValue({
+        status: 'failed',
+        disposition,
+        message: 'Native command did not confirm publication',
+      });
+      expect(
+        await createSequenceDataLayersTool([project]).execute!(request, options)
+      ).toMatchObject({
+        ok: false,
+        stateChanged: disposition === 'not-published' ? false : 'unknown',
+      });
+    }
+  );
+});
+
+describe('reusing a retained dataset through the caller boundary', () => {
+  const sourceProject = { name: 'Measurements', path: '/projects/measurements', addedAt: 2 };
+  const source = {
+    project: sourceProject.path,
+    id: `layer-${'c'.repeat(64)}`,
+    revision: 'd'.repeat(64),
+  };
+  const reuseRequest = { ...request, csv: { kind: 'layer' as const, source } };
+
+  function published(projectPath?: string) {
+    return {
+      status: 'published',
+      ...(projectPath ? { project: projectPath } : {}),
+      document: {
+        id: `layer-${'e'.repeat(64)}`,
+        target: { documentId: request.targetDocumentId },
+        label: request.label,
+        unit: request.unit,
+        valueColumns: request.valueColumns,
+        source: { csv: request.csv.text, origin: source },
+        report: { counts: { total: 2, mapped: 2 } },
+        presentation: { sampleId: 'fitness' },
+      },
+      path: '/projects/existing/.dnaforge/sequence-data-layers/layer.json',
+      revision: 'f'.repeat(64),
+      availability: { status: 'current' },
+      alreadyPublished: false,
+    };
+  }
+
+  it('accepts an exact saved source version and rejects incomplete source references', () => {
+    expect(sequenceDataLayersToolSchema.safeParse(reuseRequest).success).toBe(true);
+    expect(
+      sequenceDataLayersToolSchema.safeParse({
+        ...reuseRequest,
+        csv: { kind: 'layer', source: { ...source, revision: undefined } },
+      }).success
+    ).toBe(false);
+  });
+
+  it('does not submit a source outside the caller projects', async () => {
+    expect(
+      await createSequenceDataLayersTool([project]).execute!(reuseRequest, options)
+    ).toMatchObject({
+      ok: false,
+      code: 'PROJECT_NOT_FOUND',
+      stateChanged: false,
+      partialEffects: [],
+    });
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('does not submit an ambiguously named source project', async () => {
+    const folders = [
+      project,
+      sourceProject,
+      { ...sourceProject, path: '/projects/other-measurements' },
+    ];
+    expect(
+      await createSequenceDataLayersTool(folders).execute!(
+        {
+          ...reuseRequest,
+          csv: { kind: 'layer', source: { ...source, project: sourceProject.name } },
+        },
+        options
+      )
+    ).toMatchObject({ ok: false, code: 'PROJECT_NOT_FOUND', stateChanged: false });
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('resolves both admitted project names without changing the selected source version', async () => {
+    run.mockResolvedValue(published());
+    await createSequenceDataLayersTool([project, sourceProject]).execute!(
+      {
+        ...reuseRequest,
+        project: project.name,
+        csv: { kind: 'layer', source: { ...source, project: sourceProject.name } },
+      },
+      options
+    );
+    expect(run).toHaveBeenCalledWith(reuseRequest);
+  });
+
+  it.each(['create', 'inspect'] as const)(
+    'returns the published artifact reference and measurement metadata from %s without CSV bytes',
+    async (operation) => {
+      const saved = published('/canonical/projects/existing');
+      run.mockResolvedValue(saved);
+      const input =
+        operation === 'create'
+          ? reuseRequest
+          : {
+              operation,
+              project: project.path,
+              id: saved.document.id,
+            };
+      const result = await createSequenceDataLayersTool([project, sourceProject]).execute!(
+        input,
+        options
+      );
+      expect(result).toMatchObject({
+        ok: true,
+        status: 'published',
+        data: {
+          unit: request.unit,
+          valueColumns: request.valueColumns,
+          source: { project: saved.project, id: saved.document.id, revision: saved.revision },
+          origin: source,
+        },
+      });
+      expect(JSON.stringify(result)).not.toContain(request.csv.text);
+    }
+  );
+
+  it('returns a reusable reference for each listed artifact with the admitted root as a legacy fallback', async () => {
+    const saved = published();
+    run.mockResolvedValue({ status: 'listed', errors: [], layers: [saved] });
+    const result = await createSequenceDataLayersTool([project]).execute!(
+      {
+        operation: 'list',
+        project: project.name,
+      },
+      options
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      status: 'listed',
+      data: {
+        layers: [
+          {
+            unit: request.unit,
+            valueColumns: request.valueColumns,
+            source: { project: project.path, id: saved.document.id, revision: saved.revision },
+            origin: source,
+          },
+        ],
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain(request.csv.text);
+  });
+
+  it.each(['not-published', 'publication-uncertain'] as const)(
+    'preserves the native %s disposition for source reuse',
+    async (disposition) => {
+      run.mockResolvedValue({ status: 'failed', disposition, message: 'Source did not verify' });
+      expect(
+        await createSequenceDataLayersTool([project, sourceProject]).execute!(reuseRequest, options)
+      ).toMatchObject({
+        ok: false,
+        stateChanged: disposition === 'not-published' ? false : 'unknown',
       });
     }
   );

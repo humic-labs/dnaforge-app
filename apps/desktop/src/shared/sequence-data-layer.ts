@@ -95,11 +95,19 @@ const annotationSchema = z
     qualifiers: z.record(z.array(z.string())).optional(),
   })
   .strict();
+const sourceReferenceSchema = z
+  .object({
+    project: z.string().min(1).max(4096),
+    id: sequenceDataLayerIdSchema,
+    revision: z.string().regex(/^[a-f0-9]{64}$/u),
+  })
+  .strict();
 const sourceSchema = z
   .object({
     kind: z.literal('csv-snapshot'),
     csv: z.string().min(1).max(MAX_SEQUENCE_DATA_LAYER_CSV_BYTES),
     sha256: digest,
+    origin: sourceReferenceSchema.optional(),
   })
   .strict();
 
@@ -120,6 +128,7 @@ export const sequenceDataLayerCommandSchema = z.discriminatedUnion('operation', 
           })
           .strict(),
         z.object({ kind: z.literal('path'), path: z.string().min(1).max(4096) }).strict(),
+        z.object({ kind: z.literal('layer'), source: sourceReferenceSchema }).strict(),
       ]),
       mapping: mappingSchema,
       valueColumns: z.array(text).min(1).max(32),
@@ -170,7 +179,7 @@ export interface SequenceDataLayerDocument {
   readonly createdAt: string;
   readonly target: SequenceDataLayerTarget;
   readonly annotations: readonly SequenceDataLayerAnnotation[];
-  readonly source: { readonly kind: 'csv-snapshot'; readonly csv: string; readonly sha256: string };
+  readonly source: z.infer<typeof sourceSchema>;
   readonly mapping: SequenceDataLayerMapping;
   readonly valueColumns: readonly string[];
   readonly unresolvedPolicy: 'reject' | 'exclude';
@@ -191,6 +200,7 @@ export type SequenceDataLayerAvailability =
   | { readonly status: 'unavailable'; readonly reason: string };
 export interface PublishedSequenceDataLayer {
   readonly status: 'published';
+  readonly project?: string;
   readonly document: SequenceDataLayerDocument;
   readonly path: string;
   readonly revision: string;
@@ -314,6 +324,7 @@ export function sequenceDataLayerInputIdentity(
     'label' | 'unit' | 'target' | 'mapping' | 'valueColumns' | 'unresolvedPolicy' | 'aggregation'
   > & {
     readonly sourceSha256: string;
+    readonly sourceOrigin?: z.infer<typeof sourceReferenceSchema>;
     readonly requestedPresentation: SequenceDataLayerPresentation | null;
   }
 ): string {

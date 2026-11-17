@@ -471,3 +471,127 @@ describe('native sequence data layer commands', () => {
     expect(f.states.at(-1)?.kind).toBe('publication-uncertain');
   });
 });
+
+describe('reusing a retained dataset on another sequence', () => {
+  async function sourceAndTarget() {
+    const source = await fixture();
+    const sourceRequest = {
+      ...source.request,
+      expectedAnnotationFingerprint: annotationFingerprint,
+      csv: { kind: 'text' as const, text: 'tag,fitness\ntag-a,0\n' },
+      mapping: {
+        kind: 'annotation' as const,
+        identifierColumn: 'tag',
+        identifierField: 'locus_tag' as const,
+      },
+    };
+    const saved = await source.commands.run(sourceRequest);
+    if (saved.status !== 'published') throw new Error('Source fixture was not published.');
+    const target = await fixture();
+    target.setTarget({
+      ...target.getTarget(),
+      documentId: 'another-sequence',
+      sequenceFingerprint: `sha256:${'c'.repeat(64)}`,
+      annotations: [{ id: 'gene-b', start0: 70, end0: 90, qualifiers: { locus_tag: ['tag-a'] } }],
+    });
+    let sourceRevoked = false;
+    const dependencies = {
+      ...target.dependencies,
+      resolveProject: async (project: string) => {
+        if (project !== source.root && project !== target.root)
+          throw new Error('PROJECT_NOT_FOUND');
+        return project;
+      },
+      capture: (root: string) =>
+        root === source.root
+          ? () => {
+              if (sourceRevoked) throw new Error('SOURCE_PROJECT_REVOKED');
+            }
+          : target.dependencies.capture(),
+    };
+    const request = {
+      ...sourceRequest,
+      project: target.root,
+      requestId: 'bind-existing-dataset',
+      targetDocumentId: target.getTarget().documentId,
+      expectedSequenceFingerprint: target.getTarget().sequenceFingerprint,
+      csv: {
+        kind: 'layer' as const,
+        source: { project: source.root, id: saved.document.id, revision: saved.revision },
+      },
+    };
+    return {
+      source,
+      target,
+      saved,
+      request,
+      dependencies,
+      commands: new SequenceDataLayerCommands(dependencies),
+      revokeSource: () => {
+        sourceRevoked = true;
+      },
+    };
+  }
+
+  it('maps the same immutable measurements independently of the original target availability', async () => {
+    const f = await sourceAndTarget();
+    f.source.setTarget({ ...f.source.getTarget(), documentId: 'original-sequence-removed' });
+    const rebound = await f.commands.run(f.request);
+    expect(rebound.status).toBe('published');
+    if (rebound.status !== 'published') throw new Error(JSON.stringify(rebound));
+    expect(rebound.document.target.documentId).toBe('another-sequence');
+    expect(rebound.document.dataset.samples[0].observations).toMatchObject([
+      { value: 0, start: 70, end: 90 },
+    ]);
+    expect(rebound.document.source).toEqual({
+      ...f.saved.document.source,
+      origin: f.request.csv.source,
+    });
+    expect(f.target.resolveTarget.mock.calls.every(([id]) => id === 'another-sequence')).toBe(true);
+  });
+
+  it('refuses a different retained source revision before publishing', async () => {
+    const f = await sourceAndTarget();
+    const result = await f.commands.run({
+      ...f.request,
+      csv: { ...f.request.csv, source: { ...f.request.csv.source, revision: 'd'.repeat(64) } },
+    });
+    expect(result).toMatchObject({ status: 'failed', disposition: 'not-published' });
+    expect(f.target.publish).not.toHaveBeenCalled();
+  });
+
+  it('reconciles an unchanged retry from the saved binding after the source file is removed', async () => {
+    const f = await sourceAndTarget();
+    const first = await f.commands.run(f.request);
+    if (first.status !== 'published') throw new Error(JSON.stringify(first));
+    await rm(f.saved.path);
+    const replayed = await new SequenceDataLayerCommands(f.dependencies).run(f.request);
+    expect(replayed).toMatchObject({
+      status: 'published',
+      alreadyPublished: true,
+      revision: first.revision,
+    });
+    expect(f.target.publish).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses publication if source project access is revoked during target resolution', async () => {
+    const f = await sourceAndTarget();
+    f.target.resolveTarget.mockImplementation(async () => {
+      f.revokeSource();
+      return f.target.getTarget();
+    });
+    const result = await f.commands.run(f.request);
+    expect(result).toMatchObject({ status: 'failed', disposition: 'not-published' });
+    expect(f.target.publish).not.toHaveBeenCalled();
+  });
+
+  it.each([{ unit: 'counts' }, { valueColumns: ['start'] }])(
+    'does not relabel source units or invent a measurement column: %j',
+    async (patch) => {
+      const f = await sourceAndTarget();
+      const result = await f.commands.run({ ...f.request, ...patch });
+      expect(result).toMatchObject({ status: 'failed', disposition: 'not-published' });
+      expect(f.target.publish).not.toHaveBeenCalled();
+    }
+  );
+});

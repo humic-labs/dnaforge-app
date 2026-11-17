@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { handleGroup } from '../../shared/ipc-contract';
 import { sequenceDataLayersContract } from '../../shared/ipc/sequence-data-layers.contract';
 import { resolveExplicitProjectRoot } from '../../shared/project-root-selection';
@@ -41,7 +42,10 @@ export function registerSequenceDataLayerIpcHandlers(): void {
       assertWorkspaceWriteAllowed(getDb(), [path]);
     },
     resolveTarget: async (documentId, root) => {
-      const document = await resolveDocument({ targetDocumentId: documentId });
+      const document = await resolveDocument({
+        operationId: randomUUID(),
+        targetDocumentId: documentId,
+      });
       if ((await resolveCanonicalPath(document.workspaceRoot)) !== root)
         throw new Error('The sequence belongs to another project.');
       const bytes = await readFileBoundedFromHandle(document.sourcePath, 32 * 1024 * 1024);

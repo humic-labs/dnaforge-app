@@ -7,6 +7,7 @@ import {
   sequenceDataLayerIdSchema,
   SEQUENCE_DATA_LAYERS_CHANGED,
   type SequenceDataLayerCommand,
+  type PublishedSequenceDataLayer,
 } from '../../../shared/sequence-data-layer';
 import { resultTool, toolFailure, toolSuccess } from '../../agent-bridge/public/tool-result';
 import {
@@ -33,10 +34,19 @@ export const sequenceDataLayersOutputSchema = z.object({
   data: z.record(z.unknown()),
 });
 
+function reusableSource(layer: PublishedSequenceDataLayer, project: string) {
+  return {
+    source: { project: layer.project ?? project, id: layer.document.id, revision: layer.revision },
+    unit: layer.document.unit,
+    valueColumns: layer.document.valueColumns,
+    ...(layer.document.source.origin ? { origin: layer.document.source.origin } : {}),
+  };
+}
+
 export function createSequenceDataLayersTool(folders: WorkspaceFolder[]) {
   return resultTool({
     description:
-      'Inspect an existing saved sequence and attach a user CSV dataset as a durable scientific data layer. Start with target to obtain exact sequence and annotation fingerprints. Create requires an explicit position convention or stable annotation identifier join, numeric value columns, units and unmatched-row policy. It retains the CSV snapshot, mapping report and presentation in the project. Missing values remain distinct from zero. It does not edit the sequence. Reuse identical requestId and inputs after an uncertain response; inspect/list before starting a different creation. Returns mapped/unmatched counts and a saved layer path. Existing views discover matching layers; view attachment or drawing is not guaranteed by file publication.',
+      'Inspect an existing saved sequence and attach a user CSV dataset as a durable scientific data layer. Start with target to obtain exact sequence and annotation fingerprints. Create requires an explicit position convention or stable annotation identifier join, numeric value columns, units and unmatched-row policy. It retains the CSV snapshot, mapping report and presentation in the project. Missing values remain distinct from zero. Reuse a published dataset on another sequence with csv kind layer and its exact source project, id and revision; keep its units and choose from its measurement columns. Both projects must be available to this caller. It does not edit the sequence. Reuse identical requestId and inputs after an uncertain response; inspect/list before starting a different creation. Returns mapped/unmatched counts and a saved layer path. Existing views discover matching layers; view attachment or drawing is not guaranteed by file publication.',
     inputSchema: sequenceDataLayersToolSchema,
     execute: async (input: SequenceDataLayerCommand, options) => {
       if (options.abortSignal?.aborted)
@@ -56,13 +66,26 @@ export function createSequenceDataLayersTool(folders: WorkspaceFolder[]) {
           stateChanged: false,
           partialEffects: [],
         });
+      let command: SequenceDataLayerCommand = { ...input, project: selected.path };
+      if (command.operation === 'create' && command.csv.kind === 'layer') {
+        const source = resolveExplicitProjectRoot(folders, command.csv.source.project);
+        if (!source)
+          return toolFailure({
+            code: 'PROJECT_NOT_FOUND',
+            error: 'Choose an exact source project available to this caller.',
+            retriable: false,
+            stateChanged: false,
+            partialEffects: [],
+          });
+        command = {
+          ...command,
+          csv: { ...command.csv, source: { ...command.csv.source, project: source.path } },
+        };
+      }
       try {
-        const views = input.operation === 'create'
-          ? captureSequenceDataLayerViews(input.targetDocumentId) : [];
-        const result = await platform().sequenceDataLayers.run({
-          ...input,
-          project: selected.path,
-        });
+        const views =
+          input.operation === 'create' ? captureSequenceDataLayerViews(input.targetDocumentId) : [];
+        const result = await platform().sequenceDataLayers.run(command);
         if (result.status === 'failed')
           return toolFailure({
             code: 'SEQUENCE_DATA_LAYER_FAILED',
@@ -77,10 +100,16 @@ export function createSequenceDataLayersTool(folders: WorkspaceFolder[]) {
                   ],
           });
         if (result.status === 'published') {
-          const viewAttachments = input.operation === 'create'
-            ? views.map((view) => ({ tabId: view.tabId,
-              status: selectSequenceDataLayerView(view, { project: selected.path, layerId: result.document.id }) }))
-            : [];
+          const viewAttachments =
+            input.operation === 'create'
+              ? views.map((view) => ({
+                  tabId: view.tabId,
+                  status: selectSequenceDataLayerView(view, {
+                    project: selected.path,
+                    layerId: result.document.id,
+                  }),
+                }))
+              : [];
           window.dispatchEvent(new Event(SEQUENCE_DATA_LAYERS_CHANGED));
           return toolSuccess({
             status: result.status,
@@ -88,6 +117,7 @@ export function createSequenceDataLayersTool(folders: WorkspaceFolder[]) {
               id: result.document.id,
               path: result.path,
               revision: result.revision,
+              ...reusableSource(result, selected.path),
               target: result.document.target,
               label: result.document.label,
               counts: result.document.report.counts,
@@ -114,6 +144,7 @@ export function createSequenceDataLayersTool(folders: WorkspaceFolder[]) {
                 label: layer.document.label,
                 path: layer.path,
                 revision: layer.revision,
+                ...reusableSource(layer, selected.path),
                 availability: layer.availability,
                 counts: layer.document.report.counts,
                 target: layer.document.target,

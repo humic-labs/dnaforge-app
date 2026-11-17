@@ -94,10 +94,12 @@ function reference(value: GenomeComparisonReference): void {
 export function parseGenomeComparisonCigar(cigar: string): readonly GenomeComparisonCigarOperation[] {
   if (!cigar) throw new Error('A base-aligned comparison needs a CIGAR.');
   const operations: GenomeComparisonCigarOperation[] = [];
-  const expression = /([1-9][0-9]*)([M=XID])/gu;
+  const expression = /([1-9][0-9]*)([M=XID])/uy;
   let cursor = 0;
-  for (const match of cigar.matchAll(expression)) {
-    if (match.index !== cursor) throw new Error('Unsupported or malformed comparison CIGAR.');
+  while (cursor < cigar.length) {
+    expression.lastIndex = cursor;
+    const match = expression.exec(cigar);
+    if (!match) throw new Error('Unsupported or malformed comparison CIGAR.');
     const length = integer(match[1], 'CIGAR length');
     operations.push({ code: match[2] as GenomeComparisonCigarCode, length });
     if (operations.length > MAX_CIGAR_OPERATIONS) throw new Error('Comparison CIGAR is too large.');

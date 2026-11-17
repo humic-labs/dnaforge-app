@@ -153,6 +153,7 @@ function identity(
       unit: document.unit,
       target: document.target,
       sourceSha256: document.source.sha256,
+      ...(document.source.origin ? { sourceOrigin: document.source.origin } : {}),
       mapping: document.mapping,
       valueColumns: document.valueColumns,
       unresolvedPolicy: document.unresolvedPolicy,
@@ -263,8 +264,13 @@ export class SequenceDataLayerCommands {
     const path = join(root, SEQUENCE_DATA_LAYER_DIRECTORY, `${id}${SEQUENCE_DATA_LAYER_SUFFIX}`);
     await this.dependencies.assertWritable(root, path);
     assertCurrent();
-    const csv = await this.readCsv(root, request);
-    assertCurrent();
+    const retained = await this.readSource(root, id, request, assertCurrent);
+    const source = retained.source;
+    const assertPublicationCurrent = () => {
+      assertCurrent();
+      retained.assertCurrent();
+    };
+    assertPublicationCurrent();
     const target: Omit<SequenceDataLayerTarget, 'length'> = {
       documentId: request.targetDocumentId,
       sequenceFingerprint: request.expectedSequenceFingerprint,
@@ -273,7 +279,15 @@ export class SequenceDataLayerCommands {
         : {}),
     };
     const inputHash = digest(
-      canonicalJson({ ...request, project: root, csv: { kind: 'snapshot', sha256: digest(csv) } })
+      canonicalJson({
+        ...request,
+        project: root,
+        csv: {
+          kind: 'snapshot',
+          sha256: source.sha256,
+          ...(source.origin ? { origin: source.origin } : {}),
+        },
+      })
     );
     const key = `${root}\0${request.requestId}`;
     const active = this.inflight.get(key);
@@ -287,9 +301,9 @@ export class SequenceDataLayerCommands {
       path,
       id,
       request,
-      csv,
+      source,
       target,
-      assertCurrent,
+      assertPublicationCurrent,
       options.signal
     );
     this.inflight.set(key, { inputHash, promise });
@@ -300,13 +314,68 @@ export class SequenceDataLayerCommands {
     }
   }
 
-  private async readCsv(root: string, request: SequenceDataLayerCreateRequest): Promise<string> {
+  private async readSource(
+    root: string,
+    id: string,
+    request: SequenceDataLayerCreateRequest,
+    assertTargetCurrent: () => void
+  ): Promise<{ source: SequenceDataLayerDocument['source']; assertCurrent: () => void }> {
+    if (request.csv.kind !== 'layer') {
+      const csv = await this.readCsv(root, request.csv);
+      return {
+        source: { kind: 'csv-snapshot', csv, sha256: digest(csv) },
+        assertCurrent: () => {},
+      };
+    }
+    const reference = request.csv.source;
+    let existing: Awaited<ReturnType<SequenceDataLayerCommands['read']>> | undefined;
+    try {
+      existing = await this.read(root, id);
+    } catch (error) {
+      if (!fileMissing(error)) throw error;
+    }
+    if (existing) {
+      if (canonicalJson(existing.document.source.origin ?? null) !== canonicalJson(reference))
+        throw new Error('The layer request ID conflicts with a different dataset source.');
+      return { source: existing.document.source, assertCurrent: () => {} };
+    }
+    const sourceRoot = await this.dependencies.resolveProject(reference.project);
+    assertTargetCurrent();
+    if (!isAbsolute(reference.project) || sourceRoot !== reference.project)
+      throw new Error('Use the dataset source project returned by the native layer owner.');
+    const assertCurrent = await this.dependencies.capture(sourceRoot, false);
+    assertCurrent();
+    const retained = await this.read(sourceRoot, reference.id);
+    assertCurrent();
+    assertTargetCurrent();
+    if (retained.revision !== reference.revision)
+      throw new Error('The retained dataset revision changed. Inspect its source again.');
+    if (
+      request.unit !== retained.document.unit ||
+      request.valueColumns.some((column) => !retained.document.valueColumns.includes(column))
+    )
+      throw new Error('Reuse the source measurement columns and units without relabeling them.');
+    return {
+      source: {
+        kind: 'csv-snapshot',
+        csv: retained.document.source.csv,
+        sha256: retained.document.source.sha256,
+        origin: reference,
+      },
+      assertCurrent,
+    };
+  }
+
+  private async readCsv(
+    root: string,
+    csv: Exclude<SequenceDataLayerCreateRequest['csv'], { kind: 'layer' }>
+  ): Promise<string> {
     let bytes: Uint8Array;
-    if (request.csv.kind === 'text') bytes = new TextEncoder().encode(request.csv.text);
+    if (csv.kind === 'text') bytes = new TextEncoder().encode(csv.text);
     else {
-      if (isAbsolute(request.csv.path))
+      if (isAbsolute(csv.path))
         throw new Error('Choose a CSV path relative to its owning project.');
-      const path = resolve(root, request.csv.path);
+      const path = resolve(root, csv.path);
       const inside = relative(root, path);
       if (
         !inside ||
@@ -380,6 +449,7 @@ export class SequenceDataLayerCommands {
   ): Promise<PublishedSequenceDataLayer> {
     return {
       status: 'published',
+      project: root,
       ...result,
       alreadyPublished,
       availability: await this.availability(root, result.document),
@@ -392,11 +462,12 @@ export class SequenceDataLayerCommands {
     path: string,
     id: string,
     request: SequenceDataLayerCreateRequest,
-    csv: string,
+    source: SequenceDataLayerDocument['source'],
     expected: Omit<SequenceDataLayerTarget, 'length'>,
     assertCurrent: () => void,
     signal?: AbortSignal
   ): Promise<SequenceDataLayerCommandResult> {
+    const csv = source.csv;
     let existing: Awaited<ReturnType<SequenceDataLayerCommands['read']>> | undefined;
     try {
       existing = await this.read(root, id);
@@ -409,7 +480,7 @@ export class SequenceDataLayerCommands {
         label: request.label,
         unit: request.unit,
         target: { ...expected, length: existing.document.target.length },
-        source: { kind: 'csv-snapshot', csv, sha256: digest(csv) },
+        source,
         mapping: request.mapping,
         valueColumns: request.valueColumns,
         unresolvedPolicy: request.unresolvedPolicy,
@@ -514,7 +585,7 @@ export class SequenceDataLayerCommands {
         createdAt: this.dependencies.now?.() ?? new Date().toISOString(),
         target,
         annotations: annotation ? [...(snapshot.annotations ?? [])] : [],
-        source: { kind: 'csv-snapshot', csv, sha256: digest(csv) },
+        source,
         mapping: request.mapping,
         valueColumns: request.valueColumns,
         unresolvedPolicy: request.unresolvedPolicy,

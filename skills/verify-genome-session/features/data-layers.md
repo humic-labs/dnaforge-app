@@ -29,6 +29,16 @@ again; the saved snapshot must stay unchanged. Retry identical creation and
 require reuse of the original publication. A later human visibility or style
 change must survive completion of an earlier agent request.
 
+Inspect or list the saved layer to obtain its exact source reference, measurement
+columns and units. Create a binding on a second sequence with csv kind layer and
+that source reference. Change only the mapping and presentation. Require the
+same retained CSV fingerprint and measurements, a new exact target fingerprint,
+and mapping outcomes in the second sequence's coordinates. Close and reopen
+both sequences and require independent selections and styles. Removing the
+original target must not invalidate the retained measurements. Retry the same
+binding after the original source file is unavailable and require the existing
+publication; a different source revision must be refused.
+
 ## Evidence
 
 Read the actual native artifact and verify its revision, retained CSV content

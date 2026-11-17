@@ -68,6 +68,10 @@ describe('exact genome comparison columns', () => {
     expect(() => parseGenomeComparisonCigar(cigar)).toThrow();
   });
 
+  it('rejects an unterminated long CIGAR operation', () => {
+    expect(() => parseGenomeComparisonCigar('1'.repeat(100_000))).toThrow(/malformed/u);
+  });
+
   it('refuses CIGAR whose consumption disagrees with declared source intervals', () => {
     expect(() => createGenomeComparisonBlock({ ...block(), cigar: '9M' })).toThrow(/consume/u);
     expect(() => createGenomeComparisonBlock({ ...block(), alignmentColumns: 12 })).toThrow(/consume/u);

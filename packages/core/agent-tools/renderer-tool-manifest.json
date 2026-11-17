@@ -23502,6 +23502,24 @@
                 },
                 "required": ["kind", "path"],
                 "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "layer" },
+                  "source": {
+                    "type": "object",
+                    "properties": {
+                      "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                      "id": { "type": "string", "pattern": "^layer-[a-f0-9]{64}$" },
+                      "revision": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+                    },
+                    "required": ["project", "id", "revision"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["kind", "source"],
+                "additionalProperties": false
               }
             ]
           },
