@@ -5,6 +5,7 @@ import { act, render, screen, fireEvent, waitFor, cleanup, within } from '@testi
 import type {
   HostedReferenceCatalogEntryV1,
   PreparedReferenceAssemblyEntryV1,
+  ReferenceAssetHostedInstallProgressV1,
   ReferenceAssetPreparationProgressV1,
 } from '../../../shared/reference-assets-ipc';
 
@@ -2315,6 +2316,61 @@ describe('ReferenceGenomePicker — assemblies section', () => {
     expect(mockImportLocalReference).not.toHaveBeenCalled();
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
     await waitFor(() => expect(row).not.toBeDisabled());
+  });
+
+  it('keeps an admitted download openable when the catalog refresh fails', async () => {
+    const { hosted, prepared } = hostedOpenRecoveryFixture();
+    const available = { ...hosted, cacheStatus: 'not-cached' as const };
+    const onClose = vi.fn();
+    mockListHostedReferences
+      .mockResolvedValueOnce([available])
+      .mockRejectedValueOnce(new Error('Catalog refresh unavailable'));
+    mockInstallHostedReference.mockResolvedValue({ status: 'view-ready', entry: prepared });
+
+    render(<ReferenceGenomePicker open onClose={onClose} />);
+    const row = await screen.findByTestId(`reference-hosted-${hosted.id}`);
+    fireEvent.click(within(row).getByRole('button', { name: `Download ${hosted.name}` }));
+
+    await waitFor(() => expect(mockListHostedReferences).toHaveBeenCalledTimes(2));
+    const open = within(row).getByRole('button', { name: `Open ${hosted.name}` });
+    await waitFor(() => expect(open).toBeEnabled());
+    expect(within(row).queryByRole('button', { name: `Retry download ${hosted.name}` })).toBeNull();
+    expect(mockInstallHostedReference).toHaveBeenCalledOnce();
+
+    fireEvent.click(open);
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    expect(mockOpenAssembly).toHaveBeenCalledWith(prepared, expect.any(Object));
+  });
+
+  it('keeps the last catalog when a progress refresh fails and applies the next successful refresh', async () => {
+    const { hosted } = hostedOpenRecoveryFixture();
+    let reportProgress: (progress: ReferenceAssetHostedInstallProgressV1) => void = () => {};
+    mockOnHostedInstallProgress.mockImplementation((callback) => {
+      reportProgress = callback;
+      return () => {};
+    });
+    mockListHostedReferences
+      .mockResolvedValueOnce([hosted])
+      .mockRejectedValueOnce(new Error('Catalog refresh unavailable'))
+      .mockResolvedValueOnce([]);
+
+    render(<ReferenceGenomePicker open onClose={() => {}} />);
+    const row = await screen.findByTestId(`reference-hosted-${hosted.id}`);
+    const progress = {
+      catalogId: hosted.id,
+      operationId: 'background-refresh',
+      phase: 'cache-reconcile-ready',
+      label: 'Ready',
+    };
+
+    await act(async () => reportProgress(progress));
+    expect(mockListHostedReferences).toHaveBeenCalledTimes(2);
+    expect(within(row).getByRole('button', { name: `Open ${hosted.name}` })).toBeEnabled();
+    expect(row).toBeInTheDocument();
+
+    await act(async () => reportProgress(progress));
+    expect(mockListHostedReferences).toHaveBeenCalledTimes(3);
+    expect(row).not.toBeInTheDocument();
   });
 
   it('routes a cached hosted genome through main-process readiness admission before opening', async () => {
