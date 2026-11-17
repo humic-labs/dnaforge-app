@@ -1,9 +1,11 @@
 import * as fs from 'node:fs';
 import * as git from 'isomorphic-git';
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
+import { serializeGenBank } from '@waypoint/sequence-utils';
+import { defineBlob } from '@waypoint/workspace-revisions';
 
 vi.mock('electron', () => ({
   app: { getPath: () => '/tmp', getVersion: () => '1.0.0' },
@@ -28,6 +30,9 @@ import { createEntityReferenceInDb } from '../entity-reference-commands';
 import { prepareEntityReferenceRow } from '../../shared/entity-reference-ipc';
 import { discoverWorkspaceArtifacts } from '../workspace-artifact-discovery';
 import { collectManagedCatalogHeadIndex } from './head-index';
+import { ScientificObjectStore } from '../scientific-object-store';
+import { submitScientificWorkspace } from '../scientific-workspace-service';
+import { captureSequenceMigrationAdmission } from './sequence-migration-admission';
 
 const cleanup: Array<() => void> = [];
 afterEach(() => {
@@ -259,3 +264,232 @@ it('recovers mixed old compute outputs with existing native IDs, bindings, links
     reference
   );
 });
+
+it.each(['current', 'tombstoned'] as const)(
+  'preserves the %s accepted compute source owner while recovering only unowned output across restart',
+  async (state) => {
+    const f = createFileTestDb(`compute-accepted-${state}`);
+    cleanup.push(f.cleanup);
+    ensureSchema(f.db, f.dbPath);
+    const root = join(realpathSync(f.tmpDir), 'project');
+    mkdirSync(root);
+    const repoUuid = randomUUID();
+    const workspaceId = Number(
+      f.db
+        .prepare('INSERT INTO workspaces(name,path,created_at,repo_uuid) VALUES(?,?,?,?)')
+        .run('Accepted compute', root, 1, repoUuid).lastInsertRowid
+    );
+    const store = new ScientificObjectStore(f.db, workspaceId);
+    const submit = (request: Parameters<typeof submitScientificWorkspace>[0]['request']) =>
+      submitScientificWorkspace({ db: f.db, workspaceId, request });
+    await submit({
+      operationId: 'enroll-accepted-compute',
+      expectedHead: null,
+      source: {
+        kind: 'documents',
+        entries: [
+          {
+            resourceId: 'seed-primer',
+            path: 'seed.json',
+            document: {
+              formatVersion: 1,
+              kind: 'primer',
+              name: 'Seed',
+              molecule: 'DNA',
+              bases: 'ACGT',
+              modifications: [],
+              fields: {},
+            },
+          },
+        ],
+      },
+    });
+    const sourceRelativePath = 'compute/boltz/accepted-result';
+    const packageRelativePath = `${sourceRelativePath}/Accepted sequence`;
+    const source = join(root, sourceRelativePath);
+    const packageRoot = join(root, packageRelativePath);
+    const productPath = join(packageRoot, 'Accepted.gb');
+    const markerPath = join(packageRoot, '.forge/plasmid.json');
+    const sequenceId = 'accepted-compute-sequence';
+    const text = serializeGenBank({
+      id: sequenceId,
+      name: 'Accepted sequence',
+      sequence: 'ACGTACGTACGT',
+      length: 12,
+      circular: false,
+      annotations: [],
+    });
+    await submit({
+      operationId: 'create-accepted-compute-sequence',
+      expectedHead: store.read().head,
+      source: {
+        kind: 'native-artifact',
+        expectedRevisionId: null,
+        entry: {
+          resourceId: sequenceId,
+          path: `${packageRelativePath}/Accepted.gb`,
+          representation: { format: 'genbank-v1', text },
+          sequencePackageText: JSON.stringify(
+            buildSequencePackageDocument({
+              id: sequenceId,
+              name: 'Accepted sequence',
+              product: {
+                file: 'Accepted.gb',
+                topology: 'linear',
+                genBankChecksum: defineBlob(new TextEncoder().encode(text)).hash,
+              },
+            })
+          ),
+        },
+      },
+    });
+    const marker = readFileSync(markerPath, 'utf8');
+    const reference = createEntityReferenceInDb(
+      f.db,
+      prepareEntityReferenceRow({
+        entityType: 'sequence',
+        displayLabel: 'Accepted compute sequence',
+        locator: `entity://sequence/${sequenceId}`,
+        source: 'ai',
+        workspaceScope: repoUuid,
+        workspaceRootPath: root,
+        data: { documentId: sequenceId },
+      })
+    );
+    if (state === 'tombstoned') {
+      await submit({
+        operationId: 'delete-accepted-compute-sequence',
+        expectedHead: store.read().head,
+        source: { kind: 'delete', sourcePath: packageRelativePath },
+      });
+      mkdirSync(join(packageRoot, '.forge'), { recursive: true });
+      writeFileSync(productPath, text);
+      writeFileSync(markerPath, marker);
+    }
+    writeFileSync(join(source, 'New.gb'), sequence.replace('Native', 'New'));
+    writeFileSync(join(source, 'New.pdb'), pdb);
+    writeFileSync(join(source, '.provider-receipt'), 'historical original receipt');
+    writeFileSync(join(source, 'data.bin'), Buffer.from([0, 128, 255]));
+    mkdirSync(join(source, 'empty'));
+    const importedPaths = [productPath, join(source, 'New.gb'), join(source, 'New.pdb')];
+    f.db
+      .prepare(
+        `INSERT INTO compute_jobs(id,provider,tool_id,settings_hash,settings_json,provider_job_ref,state,workspace_root,imported_paths_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`
+      )
+      .run(
+        'accepted-job',
+        'boltz',
+        'boltz-2',
+        'a'.repeat(64),
+        '{}',
+        'accepted-result',
+        'imported',
+        root,
+        JSON.stringify(importedPaths),
+        1,
+        1
+      );
+    await git.init({ fs, dir: root });
+    await git.add({ fs, dir: root, filepath: '.' });
+    await git.commit({
+      fs,
+      dir: root,
+      message: 'accepted historical compute owner',
+      author: { name: 'Test', email: 'test@example.invalid' },
+    });
+    const before = {
+      catalog: store.catalog(),
+      history: store.exportHistory(),
+      entity: f.db.prepare('SELECT * FROM catalog_entities WHERE id=?').get(sequenceId),
+      bindings: f.db
+        .prepare('SELECT * FROM catalog_entity_files WHERE entity_id=? ORDER BY id')
+        .all(sequenceId),
+      source: await inventoryComputeSource(source),
+    };
+    expect(before.catalog.entries.find((entry) => entry.resourceId === sequenceId)?.tombstone).toBe(
+      state === 'tombstoned'
+    );
+    const result = await recoverComputeResult(f.db, {
+      workspaceRoot: root,
+      provider: 'boltz',
+      remoteId: 'accepted-result',
+    });
+    expect(result.kind).toBe('committed');
+    const target = join(root, result.targetRelativePath);
+    expect(existsSync(join(target, 'Accepted sequence'))).toBe(false);
+    expect(existsSync(join(target, 'New/.forge/plasmid.json'))).toBe(true);
+    expect(existsSync(join(target, 'New.dnaforge-molecular.json'))).toBe(true);
+    expect(readFileSync(markerPath, 'utf8')).toBe(marker);
+    expect(readFileSync(productPath, 'utf8')).toBe(text);
+    expect((await inventoryComputeSource(source)).treeSha256).toBe(before.source.treeSha256);
+    expect((await inventoryComputeSource(join(root, result.retainedRelativePath))).treeSha256).toBe(
+      before.source.treeSha256
+    );
+    expect(store.catalog()).toEqual(before.catalog);
+    expect(store.exportHistory()).toEqual(before.history);
+    expect(f.db.prepare('SELECT * FROM catalog_entities WHERE id=?').get(sequenceId)).toEqual(
+      before.entity
+    );
+    expect(
+      f.db
+        .prepare('SELECT * FROM catalog_entity_files WHERE entity_id=? ORDER BY id')
+        .all(sequenceId)
+    ).toEqual(before.bindings);
+    expect(f.db.prepare('SELECT * FROM entity_references WHERE id=?').get(reference.id)).toEqual(
+      reference
+    );
+    const admission = captureSequenceMigrationAdmission(f.db, root);
+    const discovery = await discoverWorkspaceArtifacts(
+      {
+        rootPath: root,
+        knownFiles: [{ path: packageRoot, contentHash: null, sizeBytes: null, modifiedAt: null }],
+      },
+      { activeAcceptedPaths: admission.activeAcceptedPaths }
+    );
+    expect(discovery.errors).toEqual([]);
+    expect(discovery.entityArtifactPaths.includes(markerPath)).toBe(state === 'current');
+    expect(discovery.catalogProjection?.missingPaths).not.toContain(packageRoot);
+    const headIndex = await collectManagedCatalogHeadIndex(
+      root,
+      [`${packageRelativePath}/.forge/plasmid.json`, `${packageRelativePath}/Accepted.gb`],
+      { ...admission, healWorkingTree: false }
+    );
+    expect(
+      headIndex.files.some(
+        (entry) => entry.relPath === `${packageRelativePath}/.forge/plasmid.json`
+      )
+    ).toBe(state === 'current');
+    const job = f.db
+      .prepare('SELECT imported_paths_json FROM compute_jobs WHERE id=?')
+      .get('accepted-job') as { imported_paths_json: string };
+    expect((JSON.parse(job.imported_paths_json) as string[]).includes(productPath)).toBe(
+      state === 'current'
+    );
+    const head = await git.resolveRef({ fs, dir: root, ref: 'HEAD' });
+    const output = await inventoryComputeSource(target);
+    f.db.close();
+    const reopened = openFileTestDb(f.dbPath);
+    cleanup.push(() => reopened.close());
+    const retried = await recoverComputeResult(reopened, {
+      workspaceRoot: root,
+      provider: 'boltz',
+      remoteId: 'accepted-result',
+    });
+    expect(retried).toEqual({ ...result, kind: 'already-committed' });
+    expect(await git.resolveRef({ fs, dir: root, ref: 'HEAD' })).toBe(head);
+    expect(new ScientificObjectStore(reopened, workspaceId).catalog()).toEqual(before.catalog);
+    expect(new ScientificObjectStore(reopened, workspaceId).exportHistory()).toEqual(
+      before.history
+    );
+    expect(
+      reopened
+        .prepare('SELECT * FROM catalog_entity_files WHERE entity_id=? ORDER BY id')
+        .all(sequenceId)
+    ).toEqual(before.bindings);
+    expect(
+      reopened.prepare('SELECT * FROM entity_references WHERE id=?').get(reference.id)
+    ).toEqual(reference);
+    expect((await inventoryComputeSource(source)).treeSha256).toBe(before.source.treeSha256);
+    expect((await inventoryComputeSource(target)).treeSha256).toBe(output.treeSha256);
+  }
+);

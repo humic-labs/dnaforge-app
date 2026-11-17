@@ -23,9 +23,11 @@ import {
   captureComputeNativeMembers,
   computeNativePlanSchema,
 } from './compute-native-result-members';
+import { parseSequencePackageDocument, sequencePackagePaths } from '../../db/sequence-package';
 import {
   isConstructSequenceFile,
   materializeImportedSequencePackages,
+  previewImportedSequencePackages,
 } from './sequence-package-import';
 
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -185,19 +187,64 @@ export async function recoverComputeResult(
           item.relativePath.split('/').some((part) => part.startsWith('.')) ||
           native.members.some(
             (member) =>
-              item.relativePath === member.path || item.relativePath.startsWith(member.path + '/')
+              !(
+                member.kind === 'file' &&
+                member.disposition === 'transfer' &&
+                !member.preserveDirect
+              ) &&
+              (item.relativePath === member.path || item.relativePath.startsWith(member.path + '/'))
           )
         )
           continue;
         assertCurrent();
         const filePath = join(outputRoot, item.relativePath);
+        const bound = native.members.find(
+          (member) =>
+            member.kind === 'file' &&
+            member.disposition === 'transfer' &&
+            member.path === item.relativePath
+        );
         if (isConstructSequenceFile(filePath)) {
+          if (bound) {
+            const preview = await previewImportedSequencePackages(filePath, { automatic: true });
+            if (preview.kind === 'blocked') {
+              if (
+                ![
+                  'source_too_large',
+                  'automatic_split_required',
+                  'non_dna_content',
+                  'lossless_conversion_blocked',
+                  'unsupported_source_kind',
+                ].includes(preview.reasonCode ?? '')
+              )
+                throw new Error(`COMPUTE_RECOVERY_CONVERSION_REFUSED: ${preview.reason}`);
+              bound.preserveDirect = true;
+              bound.directReason = preview.reason;
+              continue;
+            }
+          }
           const result = await materializeImportedSequencePackages(filePath, undefined, {
             automatic: true,
             expectedSourceSha256: item.sha256,
+            ...(bound ? { packageId: bound.entityId } : {}),
           });
           if (result.skippedReason)
             throw new Error(`COMPUTE_RECOVERY_CONVERSION_REFUSED: ${result.skippedReason}`);
+          if (bound) {
+            const owned = [];
+            for (const pkg of result.packages)
+              if (
+                parseSequencePackageDocument(
+                  await readFile(sequencePackagePaths(pkg.packageRoot).metaPath, 'utf8')
+                ).id === bound.entityId
+              )
+                owned.push(pkg);
+            if (!result.converted || owned.length !== 1)
+              throw new Error('COMPUTE_RECOVERY_NATIVE_SEQUENCE_NOT_PACKAGED');
+            bound.targetPath = owned[0].packageRoot
+              .slice(outputRoot.length + 1)
+              .replaceAll('\\', '/');
+          }
         } else {
           const result = await materializeCoordinatePackage(filePath, { removeSource: unlink });
           if (!result.converted && result.skippedReason)

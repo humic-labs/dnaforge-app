@@ -1,10 +1,11 @@
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join, relative, sep } from 'node:path';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import { canonicalJson } from '../../shared/canonical-json';
 import { parseMolecularDocument } from '../../shared/molecular-document';
-import { parseSequenceFileAsDocument } from '../../shared/parse-sequence-file';
 import { stripWorkspaceScope } from '../../shared/workspace-scoped-identity';
 import { parseSequencePackageDocument, fromPackageRelative } from '../../db/sequence-package';
 import { parseNotebookPackageDocument } from '../../db/notebook-package';
@@ -15,6 +16,12 @@ import { ScientificObjectStore, hasAcceptedScientificWorkspace } from '../scient
 import type { ComputeSourceInventory } from './compute-result-retention';
 import { captureSequenceMigrationAdmission } from './sequence-migration-admission';
 import { migrationPathsIntersect } from './migration-paths';
+import { assertWorkspaceProjectionPathSafe } from '../workspace-projection-boundary';
+import {
+  NATIVE_WORKSPACE_MANIFEST_PATH,
+  NATIVE_WORKSPACE_MANIFEST_V2_SCHEMA,
+  parseNativeWorkspaceManifest,
+} from '../../shared/native-workspace-manifest';
 
 const path = z
   .string()
@@ -27,11 +34,15 @@ const path = z
 export const computeNativePlanSchema = z
   .object({
     catalogHeadWitness: z.string().nullable(),
+    manifestWitness: z.string().nullable().optional(),
     retainedImportedPaths: z.array(path),
     members: z.array(
       z
         .object({
           path,
+          targetPath: path.optional(),
+          preserveDirect: z.boolean().optional(),
+          directReason: z.string().optional(),
           entityId: z.string().min(1),
           kind: z.enum(['sequence-package', 'notebook-package', 'molecular', 'file']),
           disposition: z.enum([
@@ -55,6 +66,18 @@ export function computeNativeCatalogHead(db: Database.Database, root: string): s
   return id !== null && hasAcceptedScientificWorkspace(db, id)
     ? canonicalJson(new ScientificObjectStore(db, id).catalog().head)
     : null;
+}
+
+export function computeNativeManifestWitness(root: string): string | null {
+  assertWorkspaceProjectionPathSafe(root, join(root, NATIVE_WORKSPACE_MANIFEST_PATH));
+  try {
+    return createHash('sha256')
+      .update(readFileSync(join(root, NATIVE_WORKSPACE_MANIFEST_PATH)))
+      .digest('hex');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
+  }
 }
 
 export function computeNativeBindingRows(db: Database.Database, root: string) {
@@ -115,6 +138,22 @@ export async function captureComputeNativeMembers(
   }
 ): Promise<ComputeNativePlan> {
   const root = input.sourceRoot;
+  let manifestRaw: Buffer | null = null;
+  assertWorkspaceProjectionPathSafe(
+    input.workspaceRoot,
+    join(input.workspaceRoot, NATIVE_WORKSPACE_MANIFEST_PATH)
+  );
+  try {
+    manifestRaw = await readFile(join(input.workspaceRoot, NATIVE_WORKSPACE_MANIFEST_PATH));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+  const manifest = manifestRaw ? parseNativeWorkspaceManifest(manifestRaw.toString('utf8')) : null;
+  const manifestWitness = manifestRaw
+    ? createHash('sha256').update(manifestRaw).digest('hex')
+    : null;
+  if (computeNativeManifestWitness(input.workspaceRoot) !== manifestWitness)
+    throw new Error('COMPUTE_RECOVERY_NATIVE_MANIFEST_CHANGED');
   const destinationBindings = db.prepare('SELECT path FROM catalog_entity_files').all() as Array<{
     path: string;
   }>;
@@ -162,8 +201,7 @@ export async function captureComputeNativeMembers(
       if (
         !source ||
         source.kind !== 'file' ||
-        document.product.genBankChecksum !== `sha256:${source.sha256}` ||
-        !parseSequenceFileAsDocument(await read(product), product).sequence.length
+        document.product.genBankChecksum !== `sha256:${source.sha256}`
       )
         throw new Error('COMPUTE_RECOVERY_NATIVE_SEQUENCE_INVALID');
       descriptors.push({ path: packagePath, entityId: document.id, kind: 'sequence-package' });
@@ -197,15 +235,21 @@ export async function captureComputeNativeMembers(
       });
   }
   const allBindings = computeNativeBindingRows(db, root);
+  if (manifest?.schema === NATIVE_WORKSPACE_MANIFEST_V2_SCHEMA) {
+    for (const entry of manifest.entities) {
+      if (entry.placement.kind !== 'file') continue;
+      const file = join(input.workspaceRoot, entry.placement.relativePath);
+      if (!pathIsAtOrUnder(file, root)) continue;
+      const path = relative(root, file).split(sep).join('/');
+      if (covered(path)) continue;
+      if (!files.has(path)) throw new Error('COMPUTE_RECOVERY_NATIVE_DECLARATION_SOURCE_MISSING');
+      descriptors.push({ path, entityId: entry.id, kind: 'file' });
+    }
+  }
   for (const row of allBindings.filter((row) => row.status === 'current')) {
     const path = relative(root, row.path).split(sep).join('/');
     if (covered(path)) continue;
-    if (
-      !files.has(path) ||
-      !['genbank', 'fasta', 'fastq'].includes(row.file_kind) ||
-      !parseSequenceFileAsDocument(await read(path), path).sequence.length
-    )
-      throw new Error('COMPUTE_RECOVERY_NATIVE_BINDING_UNSUPPORTED');
+    if (!files.has(path)) throw new Error('COMPUTE_RECOVERY_NATIVE_BINDING_UNSUPPORTED');
     descriptors.push({ path, entityId: row.entity_id, kind: 'file' });
   }
   const workspaceId = scientificWorkspaceIdForRoot(db, input.workspaceRoot);
@@ -216,6 +260,7 @@ export async function captureComputeNativeMembers(
   const seen = new Set<string>();
   const plan: ComputeNativePlan = {
     catalogHeadWitness: computeNativeCatalogHead(db, input.workspaceRoot),
+    manifestWitness,
     members: [],
     retainedImportedPaths: [],
   };
@@ -239,12 +284,35 @@ export async function captureComputeNativeMembers(
     const primary = bindings.filter(
       (row) => row.status === 'current' && row.entity_status === 'active' && matches(row.entity_id)
     );
+    const declared =
+      manifest?.schema === NATIVE_WORKSPACE_MANIFEST_V2_SCHEMA
+        ? manifest.entities.find(
+            (entry) =>
+              (entry.placement.kind === 'file' &&
+                join(input.workspaceRoot, entry.placement.relativePath) === sourcePath) ||
+              (entry.placement.kind === 'package' &&
+                join(input.workspaceRoot, entry.placement.rootRelativePath) === sourcePath)
+          )
+        : undefined;
     const types =
       descriptor.kind === 'notebook-package'
         ? ['notebook', 'page']
         : descriptor.kind === 'molecular'
           ? ['molecular-document']
-          : ['sequence', 'construct'];
+          : descriptor.kind === 'file'
+            ? declared
+              ? [declared.type]
+              : [
+                  'sequence',
+                  'construct',
+                  'protein',
+                  'structure',
+                  'track-view',
+                  'alignment',
+                  'trace',
+                  'file',
+                ]
+            : ['sequence', 'construct'];
     if (primary.some((row) => !types.includes(row.entity_type)))
       throw new Error('COMPUTE_RECOVERY_NATIVE_IDENTITY_TYPE_CHANGED');
     const protectedSlots =
@@ -254,10 +322,22 @@ export async function captureComputeNativeMembers(
           bindings.some((binding) => binding.entity_id === entry.resourceId)
       ) ?? [];
     let disposition: ComputeNativePlan['members'][number]['disposition'];
-    if (protectedSlots.length) {
+    if (declared && !matches(declared.id))
+      throw new Error('COMPUTE_RECOVERY_NATIVE_DECLARATION_OWNER_CHANGED');
+    if (
+      declared &&
+      !primary.length &&
+      !protectedSlots.some((entry) => matches(entry.resourceId) && entry.tombstone) &&
+      JSON.parse(computeNativeIdentityWitness(db, descriptor.entityId, descriptor.kind)).entities
+        .length
+    )
+      throw new Error('COMPUTE_RECOVERY_NATIVE_DECLARATION_OWNER_CHANGED');
+    if (protectedSlots.length || declared) {
+      if (!declared && !protectedSlots.some((entry) => matches(entry.resourceId)))
+        throw new Error('COMPUTE_RECOVERY_NATIVE_PROTECTED_DEPENDENCY');
       disposition = protectedSlots.some((entry) => matches(entry.resourceId) && entry.tombstone)
         ? 'retain-tombstone'
-        : primary.length
+        : primary.length || declared
           ? 'retain-active'
           : 'retain-protected';
       if (disposition === 'retain-active') {
@@ -285,6 +365,12 @@ export async function captureComputeNativeMembers(
       disposition,
       bindingWitness: canonicalJson(bindings),
       identityWitness: computeNativeIdentityWitness(db, descriptor.entityId, descriptor.kind),
+      ...(descriptor.kind === 'file' &&
+      primary.some(
+        (row) => row.file_kind === 'fastq' || !['sequence', 'construct'].includes(row.entity_type)
+      )
+        ? { preserveDirect: true }
+        : {}),
     });
   }
   return plan;

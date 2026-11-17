@@ -3066,6 +3066,7 @@ async function writeRemoteVersionIntoFreshManagedRepo(
     failures: [],
     requiredGitFiles: [],
     mutatedGitFiles: [],
+    expectedContentSha256: {},
   };
 }
 

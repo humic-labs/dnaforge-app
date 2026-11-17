@@ -37,7 +37,7 @@ export function captureSequenceMigrationAdmission(
       ? new ScientificObjectStore(db, workspaceId)
       : null;
   const catalog = store?.catalog();
-  const acceptedIds = new Set(catalog?.entries.map((entry) => entry.resourceId));
+  const acceptedIds = new Set<string>(catalog?.entries.map((entry) => entry.resourceId));
   const protectedPaths = new Set<string>();
   const activeAcceptedPaths = new Set<string>();
   const protect = (path: string, paths = protectedPaths) => {

@@ -1,5 +1,4 @@
 export const USER_MESSAGES = {
-  'project.entityMigrationSummary': '{count} project files need attention. {target}: {detail}',
   'project.relink.unbound-file-document':
     'This project has retained file recovery identities that cannot follow a folder move yet. The original project and recovery records have been kept.',
   'project.relink.scientific-document':
@@ -2312,6 +2311,7 @@ export const USER_MESSAGES = {
 export type UserMessageKey = keyof typeof USER_MESSAGES;
 
 export const USER_MESSAGE_TEMPLATES = {
+  'project.entityMigrationSummary': '{count} project files need attention. {target}: {detail}',
   'alignment.selectMutationFrom': 'Select a mutation from {clone}.',
   'alignment.waitingForAlignment': 'Waiting for the alignment of {clone}.',
   'alignment.multiReadInput':

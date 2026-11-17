@@ -5,9 +5,11 @@ import { canonicalJson } from '../../shared/canonical-json';
 import type { ComputeImportDetails } from '../../shared/compute-jobs-ipc';
 import { assertWorkspaceWriteAllowed } from '../workspace-write-admission';
 import { rebindCatalogFilesInDb } from '../catalog-projection-commands';
+import { SEQUENCE_PACKAGE_FILE_KIND } from '../../db/sequence-package';
 import {
   computeNativeBindingRows,
   computeNativeIdentityWitness,
+  computeNativeManifestWitness,
   computeNativeCatalogHead,
   type ComputeNativePlan,
 } from './compute-native-result-members';
@@ -237,6 +239,11 @@ export function publishComputeResultJob(
         conflict('COMPUTE_PUBLICATION_JOB_CHANGED');
       if (publication.native) {
         if (
+          publication.native.manifestWitness !== undefined &&
+          computeNativeManifestWitness(witness.workspaceRoot) !== publication.native.manifestWitness
+        )
+          conflict('COMPUTE_PUBLICATION_NATIVE_MANIFEST_CHANGED');
+        if (
           computeNativeCatalogHead(db, witness.workspaceRoot) !==
           publication.native.catalogHeadWitness
         )
@@ -256,9 +263,14 @@ export function publishComputeResultJob(
           if (member.disposition !== 'transfer') continue;
           const moved = rebindCatalogFilesInDb(db, {
             oldPath,
-            newPath: join(witness.workspaceRoot, publication.nativeTargetRelativeRoot, member.path),
+            newPath: join(
+              witness.workspaceRoot,
+              publication.nativeTargetRelativeRoot,
+              member.targetPath ?? member.path
+            ),
             workspaceRoot: witness.workspaceRoot,
             actor: 'compute-result-migration',
+            ...(member.targetPath ? { targetFileKind: SEQUENCE_PACKAGE_FILE_KIND } : {}),
           });
           if (moved.missingOldPath || !moved.updated)
             conflict('COMPUTE_PUBLICATION_NATIVE_OWNER_CHANGED');
