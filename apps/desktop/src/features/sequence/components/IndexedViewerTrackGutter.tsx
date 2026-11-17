@@ -1772,15 +1772,19 @@ function DataLayerTrackSettings({
           })
         }
       />
-      <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={presentation.annotationColors}
-          aria-label={`Color annotations from ${row.label}`}
-          onChange={(event) => update({ ...presentation, annotationColors: event.target.checked })}
-        />
-        Annotation colors
-      </label>
+      {controls.annotationColorsSupported !== false ? (
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={presentation.annotationColors}
+            aria-label={`Color annotations from ${row.label}`}
+            onChange={(event) =>
+              update({ ...presentation, annotationColors: event.target.checked })
+            }
+          />
+          Annotation colors
+        </label>
+      ) : null}
       <label className="flex items-center gap-2">
         <input
           type="checkbox"

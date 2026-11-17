@@ -126,10 +126,13 @@ export function useIndexedSequenceDataLayers(tab: Tab, genome: IndexedGenomeTabS
   };
   return {
     ...layers,
+    annotationColorsByIdentity: undefined,
+    missingColor: undefined,
     ready: !selection || (enabled && layers.loadedLayers !== null),
     capture,
     trackControls: {
       ...layers.trackControls,
+      annotationColorsSupported: false,
       errors: [
         ...layers.trackControls.errors,
         ...(native?.key === key && native.kind === 'error' ? [native.message] : []),

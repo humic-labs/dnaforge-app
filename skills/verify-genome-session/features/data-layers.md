@@ -55,7 +55,8 @@ a prepared annotation file up to 32 MiB and at most 100,000 source features.
 It must refuse changed identities before reading, without installing a reference.
 
 Use the existing indexed gutter eye and gear to select samples, change geometry
-and palette, or recolor annotations. Click a signal mark and require its exact
+and palette. Indexed compiled annotations retain their own colors; per-feature
+dataset recoloring is not supported by their painter. Click a signal mark and require its exact
 genomic interval. Save the native Track view, close it and reopen it from the
 reference library. Require the same retained layer revision, sample and style.
 A changed retained artifact revision must stay unavailable and must not paint.

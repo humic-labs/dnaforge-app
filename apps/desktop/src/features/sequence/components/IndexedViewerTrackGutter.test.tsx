@@ -540,6 +540,31 @@ describe('IndexedViewerTrackGutter', () => {
     });
   });
 
+  it('hides unsupported annotation recoloring while keeping native signal controls available', () => {
+    const controls = { ...savedLayerControls(), annotationColorsSupported: false };
+    renderSavedLayers(controls);
+    fireEvent.click(screen.getByLabelText('Open settings for Expression'));
+    expect(screen.queryByLabelText('Color annotations from Expression')).toBeNull();
+    expect(screen.getByLabelText('Sample for Expression')).toBeVisible();
+    expect(screen.getByLabelText('Show signal for Expression')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Heatmap for Expression' }));
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith(
+      'expression',
+      expect.objectContaining({ style: expect.objectContaining({ geometry: 'band' }) })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cividis palette for Expression' }));
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith(
+      'expression',
+      expect.objectContaining({
+        style: expect.objectContaining({
+          colorScale: expect.objectContaining({
+            colors: [...SCIENTIFIC_COLOR_PALETTES.cividis.colors],
+          }),
+        }),
+      })
+    );
+  });
+
   it('keeps an unavailable saved layer discoverable with its actual mapping status', () => {
     const controls = savedLayerControls('The displayed annotations have changed.');
     renderSavedLayers(controls);

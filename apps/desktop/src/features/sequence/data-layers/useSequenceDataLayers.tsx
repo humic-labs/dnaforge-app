@@ -50,6 +50,7 @@ export interface SequenceDataLayerTrackRow {
 }
 
 export interface SequenceDataLayerTrackControls {
+  readonly annotationColorsSupported?: boolean;
   readonly rows: readonly SequenceDataLayerTrackRow[];
   readonly errors: readonly string[];
   readonly onVisibilityChange: (layerId: string, visible: boolean) => void;
