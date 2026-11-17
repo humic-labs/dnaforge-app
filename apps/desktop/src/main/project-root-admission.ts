@@ -38,7 +38,7 @@ function invalidRoot(message: string): never {
 
 function validateManagedProjectRoot(
   rootPath: string,
-  row: ProjectRow | undefined,
+  row: Pick<ProjectRow, 'repo_uuid'> | undefined,
   managedRoot: string
 ): void {
   if (!row?.repo_uuid) invalidRoot('Use the app to create or import a project.');
@@ -84,6 +84,18 @@ function managedProjectIdentity(rootPath: string) {
   return null;
 }
 
+export function validateProjectStorageLocation(
+  rootPath: string,
+  row: Pick<ProjectRow, 'repo_uuid'> | undefined,
+  managedRootDir: string
+): void {
+  const managedRoot = workspaceMutationRootIdentity(managedRootDir);
+  if (isPathInsideBoundary(managedRoot, rootPath))
+    invalidRoot('App project storage cannot be opened as a project.');
+  if (isPathInsideBoundary(rootPath, managedRoot))
+    validateManagedProjectRoot(rootPath, row, managedRoot);
+}
+
 function admitProjectRoot(
   path: string,
   deps: { db: Database.Database; managedRootDir: string; protectedAppDataRoot?: string }
@@ -111,11 +123,7 @@ function admitProjectRoot(
     )
       invalidRoot('A project content directory cannot be opened as a separate project.');
   }
-  const managedRoot = workspaceMutationRootIdentity(deps.managedRootDir);
-  if (isPathInsideBoundary(managedRoot, rootPath))
-    invalidRoot('App project storage cannot be opened as a project.');
-  if (isPathInsideBoundary(rootPath, managedRoot))
-    validateManagedProjectRoot(rootPath, row, managedRoot);
+  validateProjectStorageLocation(rootPath, row, deps.managedRootDir);
   return { rootPath, row };
 }
 
