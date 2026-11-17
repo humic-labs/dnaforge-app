@@ -35,6 +35,7 @@ import {
   createExcelSheetSyncConnection,
   createGoogleSheetSyncConnection,
   setSheetSyncEnabled,
+  prepareSheetSyncConnection,
 } from '../sheet-sync-runtime';
 import {
   authorizeLocalSheetSync,
@@ -55,7 +56,7 @@ type Workbook = { path: string; sheets: string[] } & (
 );
 type Preview =
   | { kind: 'idle' | 'loading' }
-  | { kind: 'ready'; plan: LimsImportPlan }
+  | { kind: 'ready'; plan: LimsImportPlan; preparedId: string }
   | { kind: 'error'; message: string };
 const KIND_OPTIONS: Array<{ value: LimsEntityKind; label: string }> = [
   { value: 'oligo', label: 'DNA oligos' },
@@ -201,7 +202,7 @@ export function SheetSyncManagerButton() {
       columnMappings: mappings,
       ...(keyColumn ? { externalRowKeyColumn: keyColumn } : {}),
     })
-      .then((plan) => {
+      .then(async (plan) => {
         if (cancelled) return;
         setInspected(plan);
         if (!mappings.length && plan.columns.length) {
@@ -218,8 +219,25 @@ export function SheetSyncManagerButton() {
           setPreview({ kind: 'error', message: 'Choose a permanent unique ID column.' });
           return;
         }
-        sheetSyncRowsFromImportPlan(plan, keyColumn);
-        setPreview({ kind: 'ready', plan });
+        const sourceMapping = { keyColumn, forcedKind: kind, columnMappings: mappings };
+        const prepared = await prepareSheetSyncConnection({
+          workspaceRoot: root,
+          source:
+            workbook.provider === 'local-excel'
+              ? { ...sourceMapping, path: workbook.path, sheetName: sheet }
+              : {
+                  ...sourceMapping,
+                  provider: 'google-sheets',
+                  spreadsheetId: workbook.snapshot.spreadsheetId,
+                  sheetId: workbook.snapshot.sheetId,
+                },
+          ...(workbook.provider === 'google-sheets' ? { grantId: workbook.grantId } : {}),
+          destinationRelativePath: 'spreadsheets',
+        });
+        if (cancelled) return;
+        sheetSyncRowsFromImportPlan(prepared.plan, keyColumn);
+        setInspected(prepared.plan);
+        setPreview({ kind: 'ready', plan: prepared.plan, preparedId: prepared.preparedId });
       })
       .catch((reason) => {
         if (!cancelled)
@@ -231,7 +249,7 @@ export function SheetSyncManagerButton() {
     return () => {
       cancelled = true;
     };
-  }, [open, workbook, sheet, kind, keyColumn, mappings]);
+  }, [open, root, workbook, sheet, kind, keyColumn, mappings]);
 
   async function chooseWorkbook() {
     setError(null);
@@ -270,6 +288,7 @@ export function SheetSyncManagerButton() {
               workspaceRoot: root,
               source: { ...sourceMapping, path: workbook.path, sheetName: sheet },
               destinationRelativePath: 'spreadsheets',
+              preparedId: preview.preparedId,
             })
           : await createGoogleSheetSyncConnection({
               workspaceRoot: root,
@@ -281,6 +300,7 @@ export function SheetSyncManagerButton() {
                 sheetId: workbook.snapshot.sheetId,
               },
               destinationRelativePath: 'spreadsheets',
+              preparedId: preview.preparedId,
             });
       setWorkbook(null);
       setInspected(null);

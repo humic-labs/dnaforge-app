@@ -635,6 +635,9 @@ export interface PlatformBridge {
       ): Promise<string>;
     };
   importReview: {
+    sheetSync(
+      request: import('../shared/registry-artifacts/sheet-sync/command').SheetSyncRequest
+    ): Promise<import('../shared/registry-artifacts/sheet-sync/command').SheetSyncResult>;
     call(request: ImportReviewRequest): Promise<ImportReviewInspection>;
     snapshot(id: string): Promise<ImportReviewDocument>;
     onChanged(listener: (event: ImportReviewChanged) => void): () => void;

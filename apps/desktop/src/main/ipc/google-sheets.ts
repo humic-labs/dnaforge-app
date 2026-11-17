@@ -15,6 +15,10 @@ const worksheetSchema = requestSchema.extend({ sheetId: googleWorksheetIdSchema 
 export function registerGoogleSheetsHandlers(input: {
   trustedRendererUrl(): string | null;
   controller?: GoogleSheetsController;
+  onReady?(
+    controller: GoogleSheetsController,
+    assertRenderer: (event: IpcMainInvokeEvent) => void
+  ): void;
 }): () => void {
   const controller = input.controller ?? createNativeGoogleSheetsController();
   const ownedContents = new Set<number>();
@@ -30,6 +34,9 @@ export function registerGoogleSheetsHandlers(input: {
       throw new Error('Untrusted Google Sheets sender');
     return event.sender.id;
   }
+  input.onReady?.(controller, (event) => {
+    trusted(event);
+  });
   const remove = handleGroup(googleSheetsContract, {
     status: (event) => {
       trusted(event);

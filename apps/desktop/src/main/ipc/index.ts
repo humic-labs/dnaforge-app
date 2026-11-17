@@ -256,6 +256,8 @@ export function registerAllIpcHandlers(deps: RegisterAllIpcHandlersDeps = {}): v
   registerLimsIpcHandlers();
   registerGoogleSheetsHandlers({
     trustedRendererUrl: deps.googleSheetsTrustedRendererUrl ?? (() => null),
+    onReady: (controller, assertRenderer) =>
+      nativeDocuments.setSheetSyncProvider(controller, assertRenderer),
   });
   registerConversationLedgerHandlers();
   registerCloudSyncHandlers();

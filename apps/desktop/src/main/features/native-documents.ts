@@ -65,6 +65,9 @@ export function createNativeDocuments(
   const workspaces = new NativeDocumentWorkspaces({
     authority: projectAuthority,
   });
+  let assertSheetSyncRenderer: (event: IpcMainInvokeEvent) => void = () => {
+    throw new Error('Native spreadsheet renderer authority is unavailable.');
+  };
   let profileKey: string | null = null;
   let profileDirectory: string | null = null;
   const fileRelocations = createWorkspaceFileRelocator({
@@ -330,6 +333,10 @@ export function createNativeDocuments(
     handleGroup(importReviewContract, {
       call: (_event, request) => importReviews.call(request),
       snapshot: (_event, id) => importReviews.snapshot(id),
+      sheetSync: (event, request) => {
+        assertSheetSyncRenderer(event);
+        return importReviews.sheetSync(request);
+      },
     });
     handleGroup(workspaceNativeDocumentsContract, {
       listRegisteredProjects: () => projectAuthority.folders(),
@@ -483,6 +490,13 @@ export function createNativeDocuments(
       ack: import('../../shared/file-document-client-sync').FileDocumentClientFlushAck
     ) => fileClientSync?.acknowledge(sender, ack) ?? false,
     importReviews,
+    setSheetSyncProvider(
+      controller: import('../google-sheets/controller').GoogleSheetsController,
+      assertRenderer: (event: IpcMainInvokeEvent) => void
+    ) {
+      importReviews.setGoogleSheetsController(controller);
+      assertSheetSyncRenderer = assertRenderer;
+    },
     bindProfile,
     start,
     startRendererPublisher,

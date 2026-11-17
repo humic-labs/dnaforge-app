@@ -177,7 +177,7 @@ const receipt = z.object({
   importSet: z.object({ id: z.string(), manifestRelativePath: z.string() }).nullable().optional(),
   partialEffects: strings.optional(),
 });
-export const importReviewOutputSchema = z
+const retainedImportReviewOutputSchema = z
   .object({
     ...ok,
     id: z.string(),
@@ -226,6 +226,84 @@ export const importReviewOutputSchema = z
     error: z.string().optional(),
   })
   .strict();
+
+const storedSheetSyncConnection = z
+  .object({ connection: jsonObjectSchema, content: z.string() })
+  .strict();
+const sheetSyncOutputSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      ...ok,
+      kind: z.literal('prepared'),
+      preparedId: z.string(),
+      sourceRevision: z.string(),
+      schemaRevisionId: z.string(),
+      plan: jsonObjectSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ...ok,
+      kind: z.literal('connected'),
+      requestId: z.string(),
+      connectionId: z.string(),
+      stored: storedSheetSyncConnection.nullable(),
+      message: z.string().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ...ok,
+      kind: z.literal('partial'),
+      requestId: z.string(),
+      connectionId: z.string(),
+      stored: storedSheetSyncConnection.nullable(),
+      message: z.string().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ...ok,
+      kind: z.literal('connections'),
+      entries: z.array(
+        z.discriminatedUnion('kind', [
+          z.object({ kind: z.literal('connection'), stored: storedSheetSyncConnection }).strict(),
+          z.object({ kind: z.literal('invalid'), name: z.string(), message: z.string() }).strict(),
+        ])
+      ),
+    })
+    .strict(),
+  z.object({ ...ok, kind: z.literal('connection'), stored: storedSheetSyncConnection }).strict(),
+  z
+    .object({
+      ...ok,
+      kind: z.literal('pulled'),
+      summary: z
+        .object({
+          created: count,
+          updated: count,
+          unchanged: count,
+          conflicts: z.array(z.object({ key: z.string(), reason: z.string() }).strict()),
+          localEdits: strings,
+          missingRows: strings,
+        })
+        .strict()
+        .nullable(),
+    })
+    .strict(),
+  z
+    .object({
+      ...ok,
+      kind: z.literal('authorization'),
+      state: z.enum(['authorized', 'paused', 'required']),
+    })
+    .strict(),
+  z.object({ ...ok, kind: z.literal('changed') }).strict(),
+]);
+export const importReviewOutputSchema = z.union([
+  retainedImportReviewOutputSchema,
+  sheetSyncOutputSchema,
+]);
 
 const account = z.object({
   accountId: z.string(),

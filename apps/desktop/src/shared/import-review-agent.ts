@@ -1,3 +1,8 @@
+import {
+  sheetSyncCommandIsReadOnly,
+  type SheetSyncRequest,
+  type SheetSyncResult,
+} from './registry-artifacts/sheet-sync/command';
 import { importReviewSchema, type ImportReviewAgentInput } from './import-review-command';
 import type { ImportReviewInspection, ImportReviewRequest } from './import-review';
 import { resolveExplicitProjectRoot } from './project-root-selection';
@@ -8,13 +13,20 @@ export async function executeImportReviewAgent(
   context: {
     projects(): readonly { name: string; path: string; pinned?: boolean }[];
     call(request: ImportReviewRequest): Promise<ImportReviewInspection>;
+    sheetSync?(request: SheetSyncRequest): Promise<SheetSyncResult>;
   }
-): Promise<ImportReviewInspection> {
+): Promise<ImportReviewInspection | SheetSyncResult> {
   const { project, operation } = importReviewSchema.parse(input);
   const current = context.projects();
   const target = resolveExplicitProjectRoot(current, project);
   if (!target)
     throw new Error('IMPORT_PROJECT_UNAVAILABLE: Choose an exact currently admitted project.');
+  if (operation.kind === 'sheet-sync') {
+    if (target.pinned && !sheetSyncCommandIsReadOnly(operation.command))
+      throw new Error('IMPORT_PROJECT_READ_ONLY: This project is read-only.');
+    if (!context.sheetSync) throw new Error('The native spreadsheet owner is unavailable.');
+    return context.sheetSync({ workspaceRoot: target.path, command: operation.command });
+  }
   if (target.pinned && (operation.kind === 'prepare' || operation.command.kind !== 'inspect'))
     throw new Error('IMPORT_PROJECT_READ_ONLY: This project is read-only.');
   if (operation.kind === 'prepare') {

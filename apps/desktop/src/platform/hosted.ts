@@ -268,6 +268,9 @@ const hostedImplemented: Partial<PlatformBridge> = {
     deleteNotebookPage: async () => unavailable('db.deleteNotebookPage'),
   }),
   importReview: {
+    sheetSync: async () => {
+      throw new Error('Native spreadsheet synchronization is unavailable in this runtime.');
+    },
     call: async () => {
       throw new Error('Native import review is unavailable in this runtime.');
     },

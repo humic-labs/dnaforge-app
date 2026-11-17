@@ -47563,7 +47563,7 @@
     },
     {
       "name": "import_review",
-      "description": "Prepare a retained import review without opening the import wizard. Inspect bounded record pages and exact schema mappings, explicitly accept or skip records and resolve duplicate or relationship candidates. Mutations require the current review revision. Apply uses a stable caller request ID and retains the exact outcome; repeating the same apply never writes twice. Source bytes and schema revisions are checked before canonical file-authoritative apply. A failed or interrupted attempt must be inspected and reconciled; it cannot be blindly replayed. CSV, TSV, Excel, GenBank and FASTA use the existing import planners. Only current admitted projects and source files are allowed. External primer calculations also require the current external-compute:tm permission.",
+      "description": "Prepare a retained import review without opening the import wizard. Inspect bounded record pages and exact schema mappings, explicitly accept or skip records and resolve duplicate or relationship candidates. Mutations require the current review revision. Apply uses a stable caller request ID and retains the exact outcome; repeating the same apply never writes twice. Source bytes and schema revisions are checked before canonical file-authoritative apply. A failed or interrupted attempt must be inspected and reconciled; it cannot be blindly replayed. CSV, TSV, Excel, GenBank and FASTA use the existing import planners. Only current admitted projects and source files are allowed. External primer calculations also require the current external-compute:tm permission. Spreadsheet synchronization uses operation sheet-sync with native prepare, connect, list, inspect, pull, pause and device authorization commands. Connect requires its native preparedId and a stable requestId. Inspect a partial Connect by requestId and recover it explicitly; a request ID is not a crash transaction. Excel requires a workbook selected by the native file picker. Google operations refuse agents without a verified provider identity rather than using the human account.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -47574,6 +47574,382 @@
           },
           "operation": {
             "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "sheet-sync" },
+                  "command": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "prepare" },
+                          "source": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "keyColumn": { "type": "string", "minLength": 1 },
+                                  "forcedKind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "sequence",
+                                      "oligo",
+                                      "rna_oligo",
+                                      "plasmid",
+                                      "genome",
+                                      "chromosome",
+                                      "strain",
+                                      "organism",
+                                      "protein",
+                                      "dna_sequence",
+                                      "rna_sequence",
+                                      "guide_rna",
+                                      "allele",
+                                      "locus",
+                                      "part",
+                                      "fragment",
+                                      "marker",
+                                      "external_ref",
+                                      "notebook",
+                                      "track-view",
+                                      "molecular-document"
+                                    ]
+                                  },
+                                  "columnMappings": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "sourceColumn": { "type": "string", "minLength": 1 },
+                                        "mappedField": { "type": "string" },
+                                        "mappingMode": {
+                                          "type": "string",
+                                          "enum": ["mapped", "source_only", "ignored"]
+                                        },
+                                        "confidence": {
+                                          "type": "string",
+                                          "enum": [
+                                            "deterministic",
+                                            "agent_suggested",
+                                            "user_overridden",
+                                            "learned"
+                                          ]
+                                        }
+                                      },
+                                      "required": ["sourceColumn"],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "path": { "type": "string", "minLength": 1 },
+                                  "sheetName": { "type": "string", "minLength": 1 }
+                                },
+                                "required": [
+                                  "keyColumn",
+                                  "forcedKind",
+                                  "columnMappings",
+                                  "path",
+                                  "sheetName"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "keyColumn": { "type": "string", "minLength": 1 },
+                                  "forcedKind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "sequence",
+                                      "oligo",
+                                      "rna_oligo",
+                                      "plasmid",
+                                      "genome",
+                                      "chromosome",
+                                      "strain",
+                                      "organism",
+                                      "protein",
+                                      "dna_sequence",
+                                      "rna_sequence",
+                                      "guide_rna",
+                                      "allele",
+                                      "locus",
+                                      "part",
+                                      "fragment",
+                                      "marker",
+                                      "external_ref",
+                                      "notebook",
+                                      "track-view",
+                                      "molecular-document"
+                                    ]
+                                  },
+                                  "columnMappings": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "sourceColumn": { "type": "string", "minLength": 1 },
+                                        "mappedField": { "type": "string" },
+                                        "mappingMode": {
+                                          "type": "string",
+                                          "enum": ["mapped", "source_only", "ignored"]
+                                        },
+                                        "confidence": {
+                                          "type": "string",
+                                          "enum": [
+                                            "deterministic",
+                                            "agent_suggested",
+                                            "user_overridden",
+                                            "learned"
+                                          ]
+                                        }
+                                      },
+                                      "required": ["sourceColumn"],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "provider": { "type": "string", "const": "google-sheets" },
+                                  "spreadsheetId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 256,
+                                    "pattern": "^[A-Za-z0-9_-]+$"
+                                  },
+                                  "sheetId": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "keyColumn",
+                                  "forcedKind",
+                                  "columnMappings",
+                                  "provider",
+                                  "spreadsheetId",
+                                  "sheetId"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          },
+                          "destinationRelativePath": { "type": "string" },
+                          "grantId": { "type": "string", "format": "uuid" },
+                          "primerTmSettings": {
+                            "type": "object",
+                            "properties": {
+                              "userSetting": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "local" },
+                                      "algorithm": {
+                                        "type": "string",
+                                        "enum": ["santalucia98", "santalucia-owczarzy"]
+                                      }
+                                    },
+                                    "required": ["kind", "algorithm"],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "neb" },
+                                      "prodcode": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 100
+                                      },
+                                      "polymerase": {
+                                        "type": "string",
+                                        "enum": ["q5", "phusion", "onetaq", "taq", "longamp"]
+                                      }
+                                    },
+                                    "required": ["kind", "prodcode", "polymerase"],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "userSettingIsExplicit": { "type": "boolean" },
+                              "conditions": {
+                                "type": "object",
+                                "properties": {
+                                  "monovalentMm": { "type": "number", "minimum": 0 },
+                                  "divalentMm": { "type": "number", "minimum": 0 },
+                                  "dntpMm": { "type": "number", "minimum": 0 }
+                                },
+                                "required": ["monovalentMm", "divalentMm", "dntpMm"],
+                                "additionalProperties": false
+                              },
+                              "concNm": { "type": "number", "exclusiveMinimum": 0 }
+                            },
+                            "required": [
+                              "userSetting",
+                              "userSettingIsExplicit",
+                              "conditions",
+                              "concNm"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["kind", "source", "destinationRelativePath"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "connect" },
+                          "preparedId": { "type": "string", "format": "uuid" },
+                          "requestId": { "type": "string", "minLength": 1, "maxLength": 200 }
+                        },
+                        "required": ["kind", "preparedId", "requestId"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "recover-connect" },
+                          "requestId": { "type": "string", "minLength": 1, "maxLength": 200 }
+                        },
+                        "required": ["kind", "requestId"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": { "kind": { "type": "string", "const": "list" } },
+                        "required": ["kind"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "inspect" },
+                          "id": { "type": "string", "format": "uuid" }
+                        },
+                        "required": ["kind", "id"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "inspect-connect" },
+                          "requestId": { "type": "string", "minLength": 1, "maxLength": 200 }
+                        },
+                        "required": ["kind", "requestId"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "pull" },
+                          "id": { "type": "string", "format": "uuid" },
+                          "primerTmSettings": {
+                            "type": "object",
+                            "properties": {
+                              "userSetting": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "local" },
+                                      "algorithm": {
+                                        "type": "string",
+                                        "enum": ["santalucia98", "santalucia-owczarzy"]
+                                      }
+                                    },
+                                    "required": ["kind", "algorithm"],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "neb" },
+                                      "prodcode": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 100
+                                      },
+                                      "polymerase": {
+                                        "type": "string",
+                                        "enum": ["q5", "phusion", "onetaq", "taq", "longamp"]
+                                      }
+                                    },
+                                    "required": ["kind", "prodcode", "polymerase"],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "userSettingIsExplicit": { "type": "boolean" },
+                              "conditions": {
+                                "type": "object",
+                                "properties": {
+                                  "monovalentMm": { "type": "number", "minimum": 0 },
+                                  "divalentMm": { "type": "number", "minimum": 0 },
+                                  "dntpMm": { "type": "number", "minimum": 0 }
+                                },
+                                "required": ["monovalentMm", "divalentMm", "dntpMm"],
+                                "additionalProperties": false
+                              },
+                              "concNm": { "type": "number", "exclusiveMinimum": 0 }
+                            },
+                            "required": [
+                              "userSetting",
+                              "userSettingIsExplicit",
+                              "conditions",
+                              "concNm"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["kind", "id"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "set-enabled" },
+                          "id": { "type": "string", "format": "uuid" },
+                          "enabled": { "type": "boolean" }
+                        },
+                        "required": ["kind", "id", "enabled"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "authorization" },
+                          "id": { "type": "string", "format": "uuid" }
+                        },
+                        "required": ["kind", "id"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "authorize-excel" },
+                          "id": { "type": "string", "format": "uuid" },
+                          "selectedPath": { "type": "string", "minLength": 1 }
+                        },
+                        "required": ["kind", "id", "selectedPath"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "authorize-google" },
+                          "id": { "type": "string", "format": "uuid" },
+                          "grantId": { "type": "string", "format": "uuid" }
+                        },
+                        "required": ["kind", "id", "grantId"],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": ["kind", "command"],
+                "additionalProperties": false
+              },
               {
                 "type": "object",
                 "properties": {
@@ -47793,369 +48169,570 @@
         "properties": {
           "ok": { "const": true },
           "result": {
-            "type": "object",
-            "properties": {
-              "ok": { "type": "boolean", "const": true },
-              "id": { "type": "string" },
-              "revision": { "type": "string" },
-              "workspaceRoot": { "type": "string" },
-              "destinationDir": { "type": "string" },
-              "phase": {
-                "type": "string",
-                "enum": ["review", "applying", "applied", "partial", "cancelled", "failed"]
-              },
-              "sourceName": { "type": "string" },
-              "sourceFingerprint": { "type": "string" },
-              "schemaRevisionId": { "type": "string" },
-              "selectedSheet": { "type": "string" },
-              "sheetDispositions": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "sheetName": { "type": "string" },
-                    "verdict": {
-                      "type": "string",
-                      "enum": [
-                        "entity-table",
-                        "possible-table",
-                        "metadata-notes",
-                        "low-density",
-                        "empty",
-                        "leftover-region"
-                      ]
-                    },
-                    "score": { "type": "number" },
-                    "rowCount": { "type": "integer", "minimum": 0 },
-                    "headerRowIndex": {
-                      "$ref": "#/properties/result/properties/sheetDispositions/items/properties/rowCount"
-                    },
-                    "reason": { "type": "string" }
-                  },
-                  "required": ["sheetName", "verdict", "score", "rowCount"],
-                  "additionalProperties": false
-                }
-              },
-              "sourceKind": {
-                "type": "string",
-                "enum": ["csv", "tsv", "xlsx", "genbank", "fasta", "mixed"]
-              },
-              "columns": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "sourceColumn": { "type": "string" },
-                    "mappedField": { "type": "string" },
-                    "mappingMode": {
-                      "type": "string",
-                      "enum": ["mapped", "source_only", "ignored"]
-                    },
-                    "confidence": {
-                      "type": "string",
-                      "enum": ["deterministic", "agent_suggested", "user_overridden", "learned"]
-                    },
-                    "warnings": { "type": "array", "items": { "type": "string" } }
-                  },
-                  "required": ["sourceColumn", "mappingMode", "confidence", "warnings"],
-                  "additionalProperties": false
-                }
-              },
-              "totalRecords": {
-                "$ref": "#/properties/result/properties/sheetDispositions/items/properties/rowCount"
-              },
-              "records": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "id": { "type": "string" },
-                    "sourceRow": {
-                      "$ref": "#/properties/result/properties/sheetDispositions/items/properties/rowCount"
-                    },
-                    "externalRowId": { "type": "string" },
-                    "sequenceNotation": { "type": "string" },
-                    "accepted": { "type": "boolean" },
-                    "action": { "type": "string", "enum": ["create", "skip"] },
-                    "entityDraft": {
-                      "type": "object",
-                      "properties": {
-                        "id": { "type": "string" },
-                        "kind": { "type": "string" },
-                        "name": { "type": "string" },
-                        "fields": {
-                          "type": "object",
-                          "additionalProperties": {
-                            "anyOf": [
-                              { "type": "null" },
-                              { "type": "boolean" },
-                              { "type": "number" },
-                              { "type": "string" },
-                              {
-                                "type": "array",
-                                "items": {
-                                  "$ref": "#/properties/result/properties/records/items/properties/entityDraft/properties/fields/additionalProperties"
-                                }
-                              },
-                              {
-                                "type": "object",
-                                "additionalProperties": {
-                                  "$ref": "#/properties/result/properties/records/items/properties/entityDraft/properties/fields/additionalProperties"
-                                }
-                              }
-                            ]
-                          }
-                        },
-                        "registrationStatus": { "type": "string" },
-                        "domainStatus": { "type": ["string", "null"] },
-                        "schemaRevisionId": { "type": "string" },
-                        "schemaSnapshot": {
-                          "$ref": "#/properties/result/properties/records/items/properties/entityDraft/properties/fields"
-                        },
-                        "workspaceId": {
-                          "anyOf": [
-                            {
-                              "$ref": "#/properties/result/properties/sheetDispositions/items/properties/rowCount"
-                            },
-                            { "type": "null" }
-                          ]
-                        },
-                        "actor": { "type": ["string", "null"] },
-                        "batchId": { "type": ["string", "null"] },
-                        "createdAt": { "type": "number" },
-                        "failAfterEntityInsert": { "type": "boolean" }
-                      },
-                      "required": ["kind", "name", "fields"],
-                      "additionalProperties": false
-                    },
-                    "requiresRegistrationKind": { "type": "boolean" },
-                    "suggestedKind": { "type": "string" },
-                    "kindEvidence": { "type": "string" },
-                    "duplicateCandidates": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "entityId": { "type": "string" },
-                          "name": { "type": "string" },
-                          "reason": { "type": "string" }
-                        },
-                        "required": ["entityId", "name", "reason"],
-                        "additionalProperties": false
-                      }
-                    },
-                    "duplicateDecision": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": { "kind": { "type": "string", "const": "skip" } },
-                          "required": ["kind"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "kind": { "type": "string", "const": "reuse" },
-                            "entityId": { "type": "string" }
-                          },
-                          "required": ["kind", "entityId"],
-                          "additionalProperties": false
-                        }
-                      ]
-                    },
-                    "proposedLinks": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "type": { "type": "string" },
-                          "fromEntityId": { "type": "string" },
-                          "fromEntityLookup": {
-                            "type": "object",
-                            "properties": {
-                              "kind": { "type": "string" },
-                              "name": { "type": "string" }
-                            },
-                            "required": ["name"],
-                            "additionalProperties": false
-                          },
-                          "toEntityId": { "type": "string" },
-                          "toEntityLookup": {
-                            "$ref": "#/properties/result/properties/records/items/properties/proposedLinks/items/properties/fromEntityLookup"
-                          },
-                          "suggested": { "type": "boolean" },
-                          "payload": {
-                            "$ref": "#/properties/result/properties/records/items/properties/entityDraft/properties/fields"
-                          }
-                        },
-                        "required": ["type", "payload"],
-                        "additionalProperties": false
-                      }
-                    },
-                    "unresolvedLinks": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "label": { "type": "string" },
-                          "kind": { "type": "string" },
-                          "type": { "type": "string" },
-                          "targetProviderIdentity": {
-                            "type": "object",
-                            "properties": {
-                              "provider": { "type": "string", "const": "benchling" },
-                              "stableObjectId": { "type": "string" },
-                              "objectClass": {
-                                "type": "string",
-                                "enum": [
-                                  "notebook",
-                                  "sequence",
-                                  "protein",
-                                  "protocol",
-                                  "registry_entity",
-                                  "other"
-                                ]
-                              }
-                            },
-                            "required": ["provider", "stableObjectId", "objectClass"],
-                            "additionalProperties": false
-                          },
-                          "severity": {
-                            "type": "string",
-                            "enum": ["advisory", "blocking", "provisional_stub", "ambiguous"]
-                          },
-                          "candidateEntityIds": {
-                            "$ref": "#/properties/result/properties/columns/items/properties/warnings"
-                          },
-                          "reason": { "type": "string" }
-                        },
-                        "required": ["label", "severity", "reason"],
-                        "additionalProperties": false
-                      }
-                    },
-                    "errors": {
-                      "$ref": "#/properties/result/properties/columns/items/properties/warnings"
-                    },
-                    "warnings": {
-                      "$ref": "#/properties/result/properties/columns/items/properties/warnings"
-                    },
-                    "source": {
-                      "$ref": "#/properties/result/properties/records/items/properties/entityDraft/properties/fields"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "accepted",
-                    "action",
-                    "entityDraft",
-                    "duplicateCandidates",
-                    "proposedLinks",
-                    "unresolvedLinks",
-                    "errors",
-                    "warnings",
-                    "source"
-                  ],
-                  "additionalProperties": false
-                }
-              },
-              "nextOffset": {
-                "anyOf": [
-                  {
-                    "$ref": "#/properties/result/properties/sheetDispositions/items/properties/rowCount"
-                  },
-                  { "type": "null" }
-                ]
-              },
-              "canApply": { "type": "boolean" },
-              "receipt": {
+            "anyOf": [
+              {
                 "type": "object",
                 "properties": {
-                  "sourcePath": { "type": "string" },
-                  "members": {
+                  "ok": { "type": "boolean", "const": true },
+                  "id": { "type": "string" },
+                  "revision": { "type": "string" },
+                  "workspaceRoot": { "type": "string" },
+                  "destinationDir": { "type": "string" },
+                  "phase": {
+                    "type": "string",
+                    "enum": ["review", "applying", "applied", "partial", "cancelled", "failed"]
+                  },
+                  "sourceName": { "type": "string" },
+                  "sourceFingerprint": { "type": "string" },
+                  "schemaRevisionId": { "type": "string" },
+                  "selectedSheet": { "type": "string" },
+                  "sheetDispositions": {
                     "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
-                        "sourceRecordId": { "type": "string" },
-                        "sourceRowId": { "type": "string" },
+                        "sheetName": { "type": "string" },
+                        "verdict": {
+                          "type": "string",
+                          "enum": [
+                            "entity-table",
+                            "possible-table",
+                            "metadata-notes",
+                            "low-density",
+                            "empty",
+                            "leftover-region"
+                          ]
+                        },
+                        "score": { "type": "number" },
+                        "rowCount": { "type": "integer", "minimum": 0 },
+                        "headerRowIndex": {
+                          "$ref": "#/properties/result/anyOf/0/properties/sheetDispositions/items/properties/rowCount"
+                        },
+                        "reason": { "type": "string" }
+                      },
+                      "required": ["sheetName", "verdict", "score", "rowCount"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "sourceKind": {
+                    "type": "string",
+                    "enum": ["csv", "tsv", "xlsx", "genbank", "fasta", "mixed"]
+                  },
+                  "columns": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "sourceColumn": { "type": "string" },
+                        "mappedField": { "type": "string" },
+                        "mappingMode": {
+                          "type": "string",
+                          "enum": ["mapped", "source_only", "ignored"]
+                        },
+                        "confidence": {
+                          "type": "string",
+                          "enum": ["deterministic", "agent_suggested", "user_overridden", "learned"]
+                        },
+                        "warnings": { "type": "array", "items": { "type": "string" } }
+                      },
+                      "required": ["sourceColumn", "mappingMode", "confidence", "warnings"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "totalRecords": {
+                    "$ref": "#/properties/result/anyOf/0/properties/sheetDispositions/items/properties/rowCount"
+                  },
+                  "records": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
                         "sourceRow": {
-                          "$ref": "#/properties/result/properties/sheetDispositions/items/properties/rowCount"
+                          "$ref": "#/properties/result/anyOf/0/properties/sheetDispositions/items/properties/rowCount"
                         },
                         "externalRowId": { "type": "string" },
-                        "entityId": { "type": "string" },
-                        "entityKind": { "type": "string" },
-                        "artifactRelativePath": { "type": "string" }
+                        "sequenceNotation": { "type": "string" },
+                        "accepted": { "type": "boolean" },
+                        "action": { "type": "string", "enum": ["create", "skip"] },
+                        "entityDraft": {
+                          "type": "object",
+                          "properties": {
+                            "id": { "type": "string" },
+                            "kind": { "type": "string" },
+                            "name": { "type": "string" },
+                            "fields": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "anyOf": [
+                                  { "type": "null" },
+                                  { "type": "boolean" },
+                                  { "type": "number" },
+                                  { "type": "string" },
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "$ref": "#/properties/result/anyOf/0/properties/records/items/properties/entityDraft/properties/fields/additionalProperties"
+                                    }
+                                  },
+                                  {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "$ref": "#/properties/result/anyOf/0/properties/records/items/properties/entityDraft/properties/fields/additionalProperties"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            "registrationStatus": { "type": "string" },
+                            "domainStatus": { "type": ["string", "null"] },
+                            "schemaRevisionId": { "type": "string" },
+                            "schemaSnapshot": {
+                              "$ref": "#/properties/result/anyOf/0/properties/records/items/properties/entityDraft/properties/fields"
+                            },
+                            "workspaceId": {
+                              "anyOf": [
+                                {
+                                  "$ref": "#/properties/result/anyOf/0/properties/sheetDispositions/items/properties/rowCount"
+                                },
+                                { "type": "null" }
+                              ]
+                            },
+                            "actor": { "type": ["string", "null"] },
+                            "batchId": { "type": ["string", "null"] },
+                            "createdAt": { "type": "number" },
+                            "failAfterEntityInsert": { "type": "boolean" }
+                          },
+                          "required": ["kind", "name", "fields"],
+                          "additionalProperties": false
+                        },
+                        "requiresRegistrationKind": { "type": "boolean" },
+                        "suggestedKind": { "type": "string" },
+                        "kindEvidence": { "type": "string" },
+                        "duplicateCandidates": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "entityId": { "type": "string" },
+                              "name": { "type": "string" },
+                              "reason": { "type": "string" }
+                            },
+                            "required": ["entityId", "name", "reason"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "duplicateDecision": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": { "kind": { "type": "string", "const": "skip" } },
+                              "required": ["kind"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": { "type": "string", "const": "reuse" },
+                                "entityId": { "type": "string" }
+                              },
+                              "required": ["kind", "entityId"],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "proposedLinks": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": { "type": "string" },
+                              "fromEntityId": { "type": "string" },
+                              "fromEntityLookup": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string" },
+                                  "name": { "type": "string" }
+                                },
+                                "required": ["name"],
+                                "additionalProperties": false
+                              },
+                              "toEntityId": { "type": "string" },
+                              "toEntityLookup": {
+                                "$ref": "#/properties/result/anyOf/0/properties/records/items/properties/proposedLinks/items/properties/fromEntityLookup"
+                              },
+                              "suggested": { "type": "boolean" },
+                              "payload": {
+                                "$ref": "#/properties/result/anyOf/0/properties/records/items/properties/entityDraft/properties/fields"
+                              }
+                            },
+                            "required": ["type", "payload"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "unresolvedLinks": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "label": { "type": "string" },
+                              "kind": { "type": "string" },
+                              "type": { "type": "string" },
+                              "targetProviderIdentity": {
+                                "type": "object",
+                                "properties": {
+                                  "provider": { "type": "string", "const": "benchling" },
+                                  "stableObjectId": { "type": "string" },
+                                  "objectClass": {
+                                    "type": "string",
+                                    "enum": [
+                                      "notebook",
+                                      "sequence",
+                                      "protein",
+                                      "protocol",
+                                      "registry_entity",
+                                      "other"
+                                    ]
+                                  }
+                                },
+                                "required": ["provider", "stableObjectId", "objectClass"],
+                                "additionalProperties": false
+                              },
+                              "severity": {
+                                "type": "string",
+                                "enum": ["advisory", "blocking", "provisional_stub", "ambiguous"]
+                              },
+                              "candidateEntityIds": {
+                                "$ref": "#/properties/result/anyOf/0/properties/columns/items/properties/warnings"
+                              },
+                              "reason": { "type": "string" }
+                            },
+                            "required": ["label", "severity", "reason"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "errors": {
+                          "$ref": "#/properties/result/anyOf/0/properties/columns/items/properties/warnings"
+                        },
+                        "warnings": {
+                          "$ref": "#/properties/result/anyOf/0/properties/columns/items/properties/warnings"
+                        },
+                        "source": {
+                          "$ref": "#/properties/result/anyOf/0/properties/records/items/properties/entityDraft/properties/fields"
+                        }
                       },
                       "required": [
-                        "sourceRecordId",
-                        "sourceRowId",
-                        "entityId",
-                        "entityKind",
-                        "artifactRelativePath"
+                        "id",
+                        "accepted",
+                        "action",
+                        "entityDraft",
+                        "duplicateCandidates",
+                        "proposedLinks",
+                        "unresolvedLinks",
+                        "errors",
+                        "warnings",
+                        "source"
                       ],
                       "additionalProperties": false
                     }
                   },
-                  "changed": {
-                    "anyOf": [{ "type": "boolean" }, { "type": "string", "const": "unknown" }]
-                  },
-                  "artifactPaths": {
-                    "$ref": "#/properties/result/properties/columns/items/properties/warnings"
-                  },
-                  "imported": {
-                    "$ref": "#/properties/result/properties/sheetDispositions/items/properties/rowCount"
-                  },
-                  "skipped": {
-                    "$ref": "#/properties/result/properties/sheetDispositions/items/properties/rowCount"
-                  },
-                  "failed": {
-                    "$ref": "#/properties/result/properties/sheetDispositions/items/properties/rowCount"
-                  },
-                  "batchId": { "type": "string" },
-                  "insertedLinks": {
-                    "$ref": "#/properties/result/properties/sheetDispositions/items/properties/rowCount"
-                  },
-                  "gitCommitted": { "type": "boolean" },
-                  "importSet": {
+                  "nextOffset": {
                     "anyOf": [
                       {
-                        "type": "object",
-                        "properties": {
-                          "id": { "type": "string" },
-                          "manifestRelativePath": { "type": "string" }
-                        },
-                        "required": ["id", "manifestRelativePath"],
-                        "additionalProperties": false
+                        "$ref": "#/properties/result/anyOf/0/properties/sheetDispositions/items/properties/rowCount"
                       },
                       { "type": "null" }
                     ]
                   },
-                  "partialEffects": {
-                    "$ref": "#/properties/result/properties/columns/items/properties/warnings"
-                  }
+                  "canApply": { "type": "boolean" },
+                  "receipt": {
+                    "type": "object",
+                    "properties": {
+                      "sourcePath": { "type": "string" },
+                      "members": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "sourceRecordId": { "type": "string" },
+                            "sourceRowId": { "type": "string" },
+                            "sourceRow": {
+                              "$ref": "#/properties/result/anyOf/0/properties/sheetDispositions/items/properties/rowCount"
+                            },
+                            "externalRowId": { "type": "string" },
+                            "entityId": { "type": "string" },
+                            "entityKind": { "type": "string" },
+                            "artifactRelativePath": { "type": "string" }
+                          },
+                          "required": [
+                            "sourceRecordId",
+                            "sourceRowId",
+                            "entityId",
+                            "entityKind",
+                            "artifactRelativePath"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "changed": {
+                        "anyOf": [{ "type": "boolean" }, { "type": "string", "const": "unknown" }]
+                      },
+                      "artifactPaths": {
+                        "$ref": "#/properties/result/anyOf/0/properties/columns/items/properties/warnings"
+                      },
+                      "imported": {
+                        "$ref": "#/properties/result/anyOf/0/properties/sheetDispositions/items/properties/rowCount"
+                      },
+                      "skipped": {
+                        "$ref": "#/properties/result/anyOf/0/properties/sheetDispositions/items/properties/rowCount"
+                      },
+                      "failed": {
+                        "$ref": "#/properties/result/anyOf/0/properties/sheetDispositions/items/properties/rowCount"
+                      },
+                      "batchId": { "type": "string" },
+                      "insertedLinks": {
+                        "$ref": "#/properties/result/anyOf/0/properties/sheetDispositions/items/properties/rowCount"
+                      },
+                      "gitCommitted": { "type": "boolean" },
+                      "importSet": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": { "type": "string" },
+                              "manifestRelativePath": { "type": "string" }
+                            },
+                            "required": ["id", "manifestRelativePath"],
+                            "additionalProperties": false
+                          },
+                          { "type": "null" }
+                        ]
+                      },
+                      "partialEffects": {
+                        "$ref": "#/properties/result/anyOf/0/properties/columns/items/properties/warnings"
+                      }
+                    },
+                    "required": ["changed", "artifactPaths", "imported", "skipped", "failed"],
+                    "additionalProperties": false
+                  },
+                  "error": { "type": "string" }
                 },
-                "required": ["changed", "artifactPaths", "imported", "skipped", "failed"],
+                "required": [
+                  "ok",
+                  "id",
+                  "revision",
+                  "workspaceRoot",
+                  "destinationDir",
+                  "phase",
+                  "sourceName",
+                  "sourceFingerprint",
+                  "sourceKind",
+                  "columns",
+                  "totalRecords",
+                  "records",
+                  "nextOffset",
+                  "canApply"
+                ],
                 "additionalProperties": false
               },
-              "error": { "type": "string" }
-            },
-            "required": [
-              "ok",
-              "id",
-              "revision",
-              "workspaceRoot",
-              "destinationDir",
-              "phase",
-              "sourceName",
-              "sourceFingerprint",
-              "sourceKind",
-              "columns",
-              "totalRecords",
-              "records",
-              "nextOffset",
-              "canApply"
-            ],
-            "additionalProperties": false
+              {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                      "kind": { "type": "string", "const": "prepared" },
+                      "preparedId": { "type": "string" },
+                      "sourceRevision": { "type": "string" },
+                      "schemaRevisionId": { "type": "string" },
+                      "plan": {
+                        "$ref": "#/properties/result/anyOf/0/properties/records/items/properties/entityDraft/properties/fields"
+                      }
+                    },
+                    "required": [
+                      "ok",
+                      "kind",
+                      "preparedId",
+                      "sourceRevision",
+                      "schemaRevisionId",
+                      "plan"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                      "kind": { "type": "string", "const": "connected" },
+                      "requestId": { "type": "string" },
+                      "connectionId": { "type": "string" },
+                      "stored": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "connection": {
+                                "$ref": "#/properties/result/anyOf/0/properties/records/items/properties/entityDraft/properties/fields"
+                              },
+                              "content": { "type": "string" }
+                            },
+                            "required": ["connection", "content"],
+                            "additionalProperties": false
+                          },
+                          { "type": "null" }
+                        ]
+                      },
+                      "message": { "type": "string" }
+                    },
+                    "required": ["ok", "kind", "requestId", "connectionId", "stored"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                      "kind": { "type": "string", "const": "partial" },
+                      "requestId": { "type": "string" },
+                      "connectionId": { "type": "string" },
+                      "stored": {
+                        "anyOf": [
+                          {
+                            "$ref": "#/properties/result/anyOf/1/anyOf/1/properties/stored/anyOf/0"
+                          },
+                          { "type": "null" }
+                        ]
+                      },
+                      "message": { "type": "string" }
+                    },
+                    "required": ["ok", "kind", "requestId", "connectionId", "stored"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                      "kind": { "type": "string", "const": "connections" },
+                      "entries": {
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": { "type": "string", "const": "connection" },
+                                "stored": {
+                                  "$ref": "#/properties/result/anyOf/1/anyOf/1/properties/stored/anyOf/0"
+                                }
+                              },
+                              "required": ["kind", "stored"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": { "type": "string", "const": "invalid" },
+                                "name": { "type": "string" },
+                                "message": { "type": "string" }
+                              },
+                              "required": ["kind", "name", "message"],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "required": ["ok", "kind", "entries"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                      "kind": { "type": "string", "const": "connection" },
+                      "stored": {
+                        "$ref": "#/properties/result/anyOf/1/anyOf/1/properties/stored/anyOf/0"
+                      }
+                    },
+                    "required": ["ok", "kind", "stored"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                      "kind": { "type": "string", "const": "pulled" },
+                      "summary": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "created": {
+                                "$ref": "#/properties/result/anyOf/0/properties/sheetDispositions/items/properties/rowCount"
+                              },
+                              "updated": {
+                                "$ref": "#/properties/result/anyOf/0/properties/sheetDispositions/items/properties/rowCount"
+                              },
+                              "unchanged": {
+                                "$ref": "#/properties/result/anyOf/0/properties/sheetDispositions/items/properties/rowCount"
+                              },
+                              "conflicts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "key": { "type": "string" },
+                                    "reason": { "type": "string" }
+                                  },
+                                  "required": ["key", "reason"],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "localEdits": {
+                                "$ref": "#/properties/result/anyOf/0/properties/columns/items/properties/warnings"
+                              },
+                              "missingRows": {
+                                "$ref": "#/properties/result/anyOf/0/properties/columns/items/properties/warnings"
+                              }
+                            },
+                            "required": [
+                              "created",
+                              "updated",
+                              "unchanged",
+                              "conflicts",
+                              "localEdits",
+                              "missingRows"
+                            ],
+                            "additionalProperties": false
+                          },
+                          { "type": "null" }
+                        ]
+                      }
+                    },
+                    "required": ["ok", "kind", "summary"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                      "kind": { "type": "string", "const": "authorization" },
+                      "state": { "type": "string", "enum": ["authorized", "paused", "required"] }
+                    },
+                    "required": ["ok", "kind", "state"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                      "kind": { "type": "string", "const": "changed" }
+                    },
+                    "required": ["ok", "kind"],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            ]
           }
         },
         "required": ["ok", "result"],

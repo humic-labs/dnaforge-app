@@ -1,4 +1,8 @@
 import {
+  sheetSyncCommandIsReadOnly,
+  type SheetSyncCommand,
+} from '../../shared/registry-artifacts/sheet-sync/command';
+import {
   mergeRendererToolCatalogs,
   type RendererToolDefinition,
   type RendererCapability,
@@ -96,7 +100,10 @@ const nativeDocumentTools = defineRendererToolCatalog({
         .operation;
       return {
         additionalRequiredCapabilities:
-          operation?.kind === 'execute' && operation.command?.kind === 'inspect'
+          (operation?.kind === 'execute' && operation.command?.kind === 'inspect') ||
+          (operation?.kind === 'sheet-sync' &&
+            operation.command &&
+            sheetSyncCommandIsReadOnly(operation.command as SheetSyncCommand))
             ? []
             : ['write-workspace'],
       };

@@ -86,71 +86,10 @@ export async function applyNativeSpecializedImport(
 ): Promise<ImportReviewReceipt> {
   const { db, persistence, assertCurrent } = options;
   const root = document.workspaceRoot;
-  const { repository, query, getSchemas, history, workflow, withMutation, select } =
-    createNativeWriterContext(root, document.id, options);
-  const entityOwner = createEntityArtifactOwner({
-    scientific: createNativeScientificArtifactPort({
-      db,
-      workspaceRoot: root,
-      assertCurrent,
-      files: persistence.fs,
-      publicationAuthority: options.publicationAuthority,
-    }),
-    withRendererWorkspaceMutation: withMutation,
-    queryLimsEntities: query,
-    io: () => ({ fs: persistence.fs, db: { select } }),
-    ...history,
-    beginWorkflowAction: workflow,
-    emitLimsRegistrationChanged: () => {},
-    getLimsSchemas: getSchemas,
-    async projectArtifact(artifact, _content, artifactPath, input) {
-      assertCurrent();
-      const workspaceId = await repository.resolveWorkspaceId(root);
-      if (workspaceId === null) throw new Error('The import project has no durable identity.');
-      const existing = queryLimsEntitiesInDb(db, {
-        id: artifact.id,
-        includeArchived: true,
-        limit: 1,
-      })[0];
-      if (existing) {
-        if (
-          existing.tombstone ||
-          existing.kind !== artifact.kind ||
-          existing.name !== artifact.name ||
-          !isDeepStrictEqual(existing.fields, artifact.fields)
-        )
-          throw new Error('An existing Registry identity differs from the reviewed protein.');
-      } else {
-        registerLimsEntityInDb(db, {
-          id: artifact.id,
-          kind: artifact.kind,
-          name: artifact.name,
-          fields: artifact.fields,
-          schemaRevisionId: artifact.schemaRevisionId,
-          schemaSnapshot: artifact.schemaSnapshot,
-          registrationStatus: artifact.registrationStatus,
-          domainStatus: artifact.domainStatus,
-          workspaceId,
-          actor: 'local-user',
-        });
-      }
-      const catalog = await repository.registerCatalogEntity({
-        id: artifact.id,
-        type: 'file',
-        name: artifact.name,
-        locator: `file://${artifactPath}`,
-        storageType: 'file',
-        workspaceRoot: input.workspaceRoot,
-      });
-      if (catalog.id !== artifact.id || catalog.workspace_id !== workspaceId)
-        throw new Error('Registry record file is bound to another catalog identity.');
-      await repository.bindCatalogEntityToFile({
-        entityId: artifact.id,
-        path: artifactPath,
-        fileKind: 'waypoint-entity',
-        workspaceRoot: root,
-      });
-    },
+  const { entityOwner, query, workflow } = createNativeEntityArtifactWriter({
+    ...options,
+    workspaceRoot: root,
+    operationId: document.id,
   });
   const source = { text: document.source.text, arrayBuffer: document.source.arrayBuffer };
   const protein = document.plan.records.some(
@@ -217,6 +156,88 @@ export async function applyNativeSpecializedImport(
       ...(result.importSetError ? [result.importSetError] : []),
     ],
   };
+}
+
+export function createNativeEntityArtifactWriter(
+  options: NativeWriterOptions & { workspaceRoot: string; operationId?: string }
+) {
+  const { db, persistence, assertCurrent } = options;
+  const root = options.workspaceRoot;
+  const { repository, query, getSchemas, history, workflow, withMutation, select } =
+    createNativeWriterContext(root, options.operationId ?? randomUUID(), options);
+  const projectArtifact: Parameters<
+    typeof createEntityArtifactOwner
+  >[0]['projectArtifact'] = async (artifact, _content, artifactPath, input) => {
+    assertCurrent();
+    const workspaceId = await repository.resolveWorkspaceId(root);
+    assertCurrent();
+    if (workspaceId === null) throw new Error('The import project has no durable identity.');
+    const existing = queryLimsEntitiesInDb(db, {
+      id: artifact.id,
+      includeArchived: true,
+      limit: 1,
+    })[0];
+    if (existing) {
+      if (
+        existing.tombstone ||
+        existing.workspaceId !== workspaceId ||
+        existing.schemaRevisionId !== artifact.schemaRevisionId ||
+        existing.registrationStatus !== artifact.registrationStatus ||
+        existing.domainStatus !== artifact.domainStatus ||
+        existing.kind !== artifact.kind ||
+        existing.name !== artifact.name ||
+        !isDeepStrictEqual(existing.fields, artifact.fields)
+      )
+        throw new Error('An existing Registry identity differs from the owned record.');
+    } else {
+      registerLimsEntityInDb(db, {
+        id: artifact.id,
+        kind: artifact.kind,
+        name: artifact.name,
+        fields: artifact.fields,
+        schemaRevisionId: artifact.schemaRevisionId,
+        schemaSnapshot: artifact.schemaSnapshot,
+        registrationStatus: artifact.registrationStatus,
+        domainStatus: artifact.domainStatus,
+        workspaceId,
+        actor: 'local-user',
+      });
+    }
+    const catalog = await repository.registerCatalogEntity({
+      id: artifact.id,
+      type: 'file',
+      name: artifact.name,
+      locator: `file://${artifactPath}`,
+      storageType: 'file',
+      workspaceRoot: input.workspaceRoot,
+    });
+    if (catalog.id !== artifact.id || catalog.workspace_id !== workspaceId)
+      throw new Error('Registry record file is bound to another catalog identity.');
+    await repository.bindCatalogEntityToFile({
+      entityId: artifact.id,
+      path: artifactPath,
+      fileKind: 'waypoint-entity',
+      workspaceRoot: root,
+    });
+  };
+  const entityOwner = createEntityArtifactOwner({
+    scientific: createNativeScientificArtifactPort({
+      db,
+      workspaceRoot: root,
+      assertCurrent,
+      files: persistence.fs,
+      publicationAuthority: options.publicationAuthority,
+    }),
+    withRendererWorkspaceMutation: withMutation,
+    queryLimsEntities: query,
+    io: () => ({ fs: persistence.fs, db: { select } }),
+    ...history,
+    beginWorkflowAction: workflow,
+    emitLimsRegistrationChanged: () => {},
+    getLimsSchemas: getSchemas,
+    projectArtifact,
+  });
+  return { entityOwner, query, workflow, projectArtifact };
 }
 
 export function createNativePrimerImportWriter(
