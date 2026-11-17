@@ -21,6 +21,7 @@ import {
   type WorkspaceSyncManifestV1,
   type WorkspaceSyncBundleV1,
   type WorkspaceSyncBundleV3,
+  type WorkspaceSyncPublicationPolicy,
 } from '@waypoint/share-bundle';
 
 vi.mock('../workspace-sync-direct-upload', async (importOriginal) => ({
@@ -130,6 +131,14 @@ const TEST_STORAGE_POLICY = {
   storageQuotaBytes: 240 * 1024 ** 3,
 };
 
+function publicationPolicy(policy = TEST_STORAGE_POLICY): WorkspaceSyncPublicationPolicy {
+  return {
+    schema: 'dnaforge.workspace-sync-publication-policy/v1',
+    policy,
+    fileSelection: { supportedVersion: 1, requiredVersion: 0 },
+  };
+}
+
 describe('manifest upload scheduling', () => {
   beforeEach(() => {
     vi.mocked(uploadWorkspaceSyncFileDirect).mockReset();
@@ -221,7 +230,8 @@ describe('manifest upload scheduling', () => {
           options: Parameters<DesktopSyncClient['requestJson']>[1]
         ) => {
           expect(options.expectedAccountId).toBe(ownerAccountId);
-          if (path.endsWith('/storage-policy')) return TEST_STORAGE_POLICY as T;
+          if (path.endsWith('/storage-policy?fileSelectionVersion=1'))
+            return publicationPolicy() as T;
           if (path.endsWith('/reserve')) {
             const body = options.body as { contentSha256: string; sizeBytes: number };
             return { status: 'ready', blobId: REMOTE_VERSION_ID, ...body } as T;
@@ -284,10 +294,10 @@ describe('manifest upload scheduling', () => {
         options: Parameters<DesktopSyncClient['requestJson']>[1]
       ) => {
         expect(options.expectedAccountId).toBe('account-a');
-        if (path.endsWith('/storage-policy')) {
+        if (path.endsWith('/storage-policy?fileSelectionVersion=1')) {
           reads.push(path);
           expect(options.method).toBe('GET');
-          return policy as T;
+          return publicationPolicy(policy) as T;
         }
         if (path.endsWith('/recovery-candidates')) return recoveryResponse(options.body) as T;
         if (path.endsWith('/reserve')) {
@@ -328,7 +338,9 @@ describe('manifest upload scheduling', () => {
 
   it('fails closed on malformed policy data before any storage request', async () => {
     const base = bundleFor('missing-policy');
-    const requestJson = vi.fn(async () => ({ ...TEST_STORAGE_POLICY, maxFileBytes: 0 }));
+    const requestJson = vi.fn(async () =>
+      publicationPolicy({ ...TEST_STORAGE_POLICY, maxFileBytes: 0 })
+    );
     const client = createWorkspaceSyncUploadClient({ requestJson } as unknown as DesktopSyncClient);
     await expect(
       client.createVersion({
@@ -342,7 +354,7 @@ describe('manifest upload scheduling', () => {
           files: [{ ...base.files[0], content: '', encoding: 'blob' }],
         },
       })
-    ).rejects.toMatchObject({ code: 'BAD_RESPONSE' });
+    ).rejects.toMatchObject({ code: 'UPGRADE_REQUIRED' });
     expect(requestJson).toHaveBeenCalledTimes(1);
     expect(uploadWorkspaceSyncFileDirect).not.toHaveBeenCalled();
   });
@@ -371,7 +383,8 @@ describe('manifest upload scheduling', () => {
         path: string,
         options: Parameters<DesktopSyncClient['requestJson']>[1]
       ) => {
-        if (path.endsWith('/storage-policy')) return TEST_STORAGE_POLICY as T;
+        if (path.endsWith('/storage-policy?fileSelectionVersion=1'))
+          return publicationPolicy() as T;
         if (path.endsWith('/recovery-candidates')) return recoveryResponse(options.body) as T;
         if (path.endsWith('/reserve')) {
           reservations++;
@@ -445,7 +458,8 @@ describe('manifest upload scheduling', () => {
         path: string,
         options: Parameters<DesktopSyncClient['requestJson']>[1]
       ) => {
-        if (path.endsWith('/storage-policy')) return TEST_STORAGE_POLICY as T;
+        if (path.endsWith('/storage-policy?fileSelectionVersion=1'))
+          return publicationPolicy() as T;
         if (!path.endsWith('/reserve')) {
           terminalRequests++;
           throw new Error('Must not complete or publish after account switch');
@@ -521,7 +535,8 @@ describe('manifest upload scheduling', () => {
         path: string,
         options: Parameters<DesktopSyncClient['requestJson']>[1]
       ) => {
-        if (path.endsWith('/storage-policy')) return TEST_STORAGE_POLICY as T;
+        if (path.endsWith('/storage-policy?fileSelectionVersion=1'))
+          return publicationPolicy() as T;
         if (path.endsWith('/recovery-candidates')) return recoveryResponse(options.body) as T;
         calls.push({ path, body: options.body, accountId: options.expectedAccountId });
         const body = options.body as Record<string, unknown>;
@@ -1422,7 +1437,7 @@ describe('workspace sync upload worker', () => {
   ])('rejects a non-UUID remote $label before returning it to the worker', async ({ response }) => {
     const client = createWorkspaceSyncUploadClient({
       requestJson: vi.fn(async (path: string) =>
-        path.endsWith('/storage-policy') ? TEST_STORAGE_POLICY : response
+        path.endsWith('/storage-policy?fileSelectionVersion=1') ? publicationPolicy() : response
       ),
       requestStream: async () => {
         throw new Error('requestStream is not expected in this test.');
@@ -1457,7 +1472,7 @@ describe('workspace sync upload worker', () => {
     ).rejects.toMatchObject({ code: 'ACCOUNT_CHANGED' });
 
     expect(requestJson).toHaveBeenCalledWith(
-      `/api/desktop-sync/workspaces/${REMOTE_WORKSPACE_ID}/storage-policy`,
+      `/api/desktop-sync/workspaces/${REMOTE_WORKSPACE_ID}/storage-policy?fileSelectionVersion=1`,
       expect.objectContaining({ method: 'GET', expectedAccountId: 'account-a' })
     );
   });
@@ -1469,7 +1484,8 @@ describe('workspace sync upload worker', () => {
     const bodies: unknown[] = [];
     const requestJson = vi.fn(
       async (path: string, options: { idempotencyKey?: string; body?: unknown }) => {
-        if (path.endsWith('/storage-policy')) return policy;
+        if (path.endsWith('/storage-policy?fileSelectionVersion=1'))
+          return publicationPolicy(policy);
         keys.push(options.idempotencyKey!);
         bodies.push(options.body);
         if (keys.length === 1)
@@ -1503,7 +1519,9 @@ describe('workspace sync upload worker', () => {
     await client.createVersion(request);
     expect(keys[1]).not.toBe(keys[0]);
     expect(keys[2]).toBe(keys[1]);
-    expect(bodies).toEqual(Array.from({ length: 3 }, () => ({ baseVersionId: null, bundle })));
+    expect(bodies).toEqual(
+      Array.from({ length: 3 }, () => ({ baseVersionId: null, fileSelectionVersion: 0, bundle }))
+    );
   });
 
   it('publishes an oversized queued legacy bundle as control metadata and retains policy revision keys', async () => {
@@ -1544,7 +1562,8 @@ describe('workspace sync upload worker', () => {
         }
       ) => {
         expect(options.expectedAccountId).toBe('account-a');
-        if (path.endsWith('/storage-policy')) return policy;
+        if (path.endsWith('/storage-policy?fileSelectionVersion=1'))
+          return publicationPolicy(policy);
         if (path.endsWith('/recovery-candidates')) return recoveryResponse(options.body);
         if (path.endsWith('/blobs/reserve'))
           return {
@@ -1637,6 +1656,7 @@ describe('workspace sync upload worker', () => {
       content_sha256: CONTENT_A,
       local_head_sha: 'head-a',
       excluded_summary_json: JSON.stringify({
+        ignoredCount: 0,
         unsupportedCount: 0,
         privateRawDataCount: 0,
         referencePointerCount: 0,
@@ -2309,11 +2329,14 @@ describe('workspace sync upload worker', () => {
           }) as never,
         performRefresh: async () => ({ status: 'refreshed' }),
         fetch: async (url, options) => {
-          const path = new URL(String(url)).pathname;
+          const requestUrl = new URL(String(url));
+          const path = requestUrl.pathname;
           const body = options?.body ? JSON.parse(String(options.body)) : null;
           let response: unknown;
-          if (path.endsWith('/storage-policy')) response = TEST_STORAGE_POLICY;
-          else if (path.endsWith('/blobs/reserve'))
+          if (path.endsWith('/storage-policy')) {
+            expect(requestUrl.search).toBe('?fileSelectionVersion=1');
+            response = publicationPolicy();
+          } else if (path.endsWith('/blobs/reserve'))
             response = {
               status: 'ready',
               blobId: REMOTE_VERSION_ID,
@@ -2944,6 +2967,13 @@ describe('workspace sync upload worker', () => {
     await initManagedRepo(repo);
     await commitAllIfDirty(repo, 'Shared notes');
     db.prepare('UPDATE workspaces SET path = ? WHERE id = 1').run(repo);
+    recordWorkspaceSyncReplicaFiles(db, {
+      workspaceUuid: 'workspace-a',
+      remoteWorkspaceId: 'remote-workspace-a',
+      remoteVersionId: 'remote-base-a',
+      paths: ['notes.txt'],
+      nowMs,
+    });
     let finishVerification: (() => void) | undefined;
     const gate = new Promise<void>((resolve) => {
       finishVerification = resolve;
