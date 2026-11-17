@@ -11,6 +11,7 @@ import {
   type SequenceDataLayerTarget,
 } from '@waypoint/genome-data';
 import { canonicalJson } from './canonical-json';
+import { HEX_COLOR_PATTERN } from './published-schema-patterns';
 
 export const SEQUENCE_DATA_LAYER_SCHEMA = 'dnaforge.sequence-data-layer.v1' as const;
 export const SEQUENCE_DATA_LAYERS_CHANGED = 'dnaforge:sequence-data-layers-changed' as const;
@@ -25,7 +26,7 @@ const annotationDigest = z
   .string()
   .regex(/^annotation-(?:mapping|document)-v1:sha256:[a-f0-9]{64}$/u);
 export const sequenceDataLayerIdSchema = z.string().regex(/^layer-[a-f0-9]{64}$/u);
-const hex = z.string().regex(/^#[a-f0-9]{6}$/iu);
+const hex = z.string().regex(HEX_COLOR_PATTERN);
 const finite = z.number().finite();
 const scaleSchema = z
   .object({
@@ -50,7 +51,7 @@ const scaleSchema = z
   });
 const styleSchema = z
   .object({
-    geometry: z.enum(['bars', 'band', 'points']),
+    geometry: z.enum(['bars', 'band', 'points', 'arcs']),
     colorScale: scaleSchema,
   })
   .strict();

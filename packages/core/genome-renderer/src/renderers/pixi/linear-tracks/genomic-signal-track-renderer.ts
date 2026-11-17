@@ -11,12 +11,21 @@ import type {
   TrackHitResult,
 } from './types';
 
+type Point = { x: number; y: number };
+type Arc = {
+  start: Point;
+  control: Point;
+  end: Point;
+  points: Point[];
+};
 type Hit = {
   x: number;
   y: number;
   width: number;
   height: number;
   record: ResolvedGenomicMarkupObservation;
+  arc?: Arc;
+  pickPoint?: Point;
 };
 type State = {
   graphics: Graphics;
@@ -76,11 +85,12 @@ export class PixiGenomicSignalTrackRenderer implements PixiLinearTrackRenderer<R
     const color = args.theme.background < 0x555555 ? 0xcbd5e1 : 0x475569;
     state.heading.style.fill = color;
     state.detail.style.fill = color;
-    state.heading.text = data.unit;
+    state.heading.text = `${data.sampleId} · ${data.unit}`;
     state.heading.position.set(10, 6);
     state.detail.text = `${domain[0].toPrecision(3)} to ${domain[domain.length - 1].toPrecision(3)}`;
     state.detail.position.set(10, h - 20);
-    g.moveTo(0, zero).lineTo(w, zero).stroke({ color, alpha: 0.2, width: 1 });
+    const baseline = data.style.geometry === 'arcs' ? h - 34 : zero;
+    g.moveTo(0, baseline).lineTo(w, baseline).stroke({ color, alpha: 0.2, width: 1 });
     for (const record of data.records) {
       if (
         record.end <= args.viewportBpRange.start ||
@@ -88,11 +98,30 @@ export class PixiGenomicSignalTrackRenderer implements PixiLinearTrackRenderer<R
         record.value === null
       )
         continue;
+      const fill = Number.parseInt(record.color.slice(1), 16);
+      if (data.style.geometry === 'arcs') {
+        if (record.sourceStart < data.window.start || record.sourceEnd > data.window.end) continue;
+        const startX = args.pathMapper.bpLeftX(record.sourceStart - data.window.start + 0.5);
+        const endX = args.pathMapper.bpLeftX(record.sourceEnd - data.window.start - 0.5);
+        const rise = Math.min(Math.max(6, Math.abs(endX - startX) * 0.4), h - 70);
+        const arc = makeArc(startX, endX, baseline, rise);
+        drawArc(g, arc, fill, 1.5);
+        g.circle(startX, baseline, 2).circle(endX, baseline, 2).fill(fill);
+        state.hits.push({
+          x: Math.min(startX, endX) - 5,
+          y: baseline - rise - 5,
+          width: Math.abs(endX - startX) + 10,
+          height: rise + 10,
+          record,
+          arc,
+          pickPoint: { x: (startX + endX) / 2, y: baseline - rise },
+        });
+        continue;
+      }
       const left = Math.max(0, args.pathMapper.bpLeftX(record.start)),
         right = Math.min(w, args.pathMapper.bpLeftX(record.end));
       if (right < 0 || left > w) continue;
-      const fill = Number.parseInt(record.color.slice(1), 16),
-        py = y(record.value),
+      const py = y(record.value),
         width = Math.max(1, right - left);
       const top = data.style.geometry === 'band' ? 36 : Math.min(py, zero),
         height = data.style.geometry === 'band' ? h - 70 : Math.max(2, Math.abs(py - zero));
@@ -120,7 +149,7 @@ export class PixiGenomicSignalTrackRenderer implements PixiLinearTrackRenderer<R
       viewport: { ...args.viewportBpRange },
       containerTopPx: args.containerTopPx,
       visibleRecordCount: state.hits.length,
-      sampleHits: state.hits.slice(0, 5),
+      sampleHits: state.hits.slice(0, 5).map(({ arc, ...hit }) => hit),
       annotationValues: Object.fromEntries(data.annotationValues),
       colorScale: data.style.colorScale,
     };
@@ -130,8 +159,14 @@ export class PixiGenomicSignalTrackRenderer implements PixiLinearTrackRenderer<R
     if (!hits) return undefined;
     for (let index = hits.length - 1; index >= 0; index--) {
       const hit = hits[index];
-      if (args.localX >= hit.x && args.localX <= hit.x + hit.width &&
-          args.localY >= hit.y && args.localY <= hit.y + hit.height) return hit;
+      if (
+        args.localX >= hit.x &&
+        args.localX <= hit.x + hit.width &&
+        args.localY >= hit.y &&
+        args.localY <= hit.y + hit.height &&
+        (!hit.arc || nearArc(hit.arc, args.localX, args.localY))
+      )
+        return hit;
     }
     return undefined;
   }
@@ -154,7 +189,9 @@ export class PixiGenomicSignalTrackRenderer implements PixiLinearTrackRenderer<R
     state.tooltip.visible = false;
     const hit = this.hit(args);
     if (!hit || !state.data) return;
-    state.hover.rect(hit.x, hit.y, hit.width, hit.height).stroke({ color: 0x64748b, width: 1.5 });
+    if (hit.arc) drawArc(state.hover, hit.arc, 0x64748b, 3);
+    else
+      state.hover.rect(hit.x, hit.y, hit.width, hit.height).stroke({ color: 0x64748b, width: 1.5 });
     state.tooltip.text = `${hit.record.label ?? hit.record.id}: ${hit.record.value} ${state.data.unit} · source ${hit.record.sourceStart}–${hit.record.sourceEnd}`;
     state.tooltip.style.fill = args.chromosome ? 0x64748b : 0x475569;
     state.tooltip.position.set(
@@ -177,4 +214,41 @@ export class PixiGenomicSignalTrackRenderer implements PixiLinearTrackRenderer<R
     this.states.delete(container);
     container.destroy({ children: true });
   }
+}
+
+function makeArc(startX: number, endX: number, baseline: number, rise: number): Arc {
+  const start = { x: startX, y: baseline };
+  const control = { x: (startX + endX) / 2, y: baseline - rise * 2 };
+  const end = { x: endX, y: baseline };
+  const segments = Math.max(12, Math.min(128, Math.ceil(Math.abs(endX - startX) / 8)));
+  const points = Array.from({ length: segments + 1 }, (_, index) => {
+    const t = index / segments;
+    return {
+      x: startX + (endX - startX) * t,
+      y: baseline - 4 * rise * t * (1 - t),
+    };
+  });
+  return { start, control, end, points };
+}
+
+function drawArc(graphics: Graphics, arc: Arc, color: number, width: number): void {
+  graphics
+    .moveTo(arc.start.x, arc.start.y)
+    .quadraticCurveTo(arc.control.x, arc.control.y, arc.end.x, arc.end.y)
+    .stroke({ color, alpha: 0.85, width });
+}
+
+function nearArc(arc: Arc, x: number, y: number): boolean {
+  for (let index = 1; index < arc.points.length; index++) {
+    const start = arc.points[index - 1],
+      end = arc.points[index];
+    const dx = end.x - start.x,
+      dy = end.y - start.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const t = lengthSquared
+      ? Math.max(0, Math.min(1, ((x - start.x) * dx + (y - start.y) * dy) / lengthSquared))
+      : 0;
+    if ((x - start.x - t * dx) ** 2 + (y - start.y - t * dy) ** 2 <= 25) return true;
+  }
+  return false;
 }

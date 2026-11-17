@@ -47,6 +47,7 @@ export interface SequenceDataLayerTrackRow {
   readonly samples: readonly { id: string; label: string }[];
   readonly presentation: SequenceDataLayerPresentation;
   readonly unavailable: string | null;
+  readonly annotationColorsSupported?: boolean;
 }
 
 export interface SequenceDataLayerTrackControls {
@@ -423,6 +424,7 @@ export function useSavedSequenceDataLayers({
       visible: visibleLayerIds.includes(layer.document.id),
       samples: layer.document.dataset.samples.map(({ id, label }) => ({ id, label })),
       presentation: presentationFor(layer),
+      annotationColorsSupported: layer.document.mapping.kind === 'annotation',
       unavailable: documentId
         ? sequenceDataLayerRenderAvailability(
             layer,

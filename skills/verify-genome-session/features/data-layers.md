@@ -65,3 +65,27 @@ Ordinary documents and indexed references have distinct target owners and
 share the saved dataset, mapping and drawing contracts. Circular signal
 geometry, arbitrary alignment lifting and cross-machine recovery are separate
 acceptance paths.
+
+## Scientific examples
+
+Open Dev scenarios and choose RNA · SHAPE and paired bases. Require the ordinary
+432-base RNA document, 341 measured reactivities, 91 missing values and three
+measured zeros. The separate supplied-model layer has 103 arcs. Each arc joins
+the centers of its two source bases; its intervening span is not a measurement.
+Hover and click the actual curve, then require the native source interval
+selection. Pan and zoom without moving the paired bases. Hide and restore either
+layer independently, then close and reopen the document through the file tree.
+
+Open a RegSeq promoter example. Require the supplied 160-base fragment and two
+native signal rows for LB and anaerobic measurements. All four fragments and
+both conditions use one symmetric signed scale. Change the first row's sample
+through its native gear and require unchanged source measurements in the second
+row. These fragment coordinates do not claim a chromosome placement.
+
+Open CRISPRi · guide growth effects. Require 820 exact guide placements on
+NC_000913.3 and signed growth measurements. Click a visible guide mark and require
+its 20-base source interval. Open RegulonDB · binding sites and require 176
+sequence-verified intervals through the normal BED admission owner. Site width
+describes genomic extent, with no fabricated binding-strength score. Save and
+reopen the native indexed Track view to verify admitted source and presentation
+continuity.

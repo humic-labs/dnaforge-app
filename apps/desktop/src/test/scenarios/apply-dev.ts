@@ -570,6 +570,10 @@ async function applyResolvedDevScenarioPreset(
       const { applyNativeOrdinaryExpression } = await import('./native-ordinary-expression');
       await applyNativeOrdinaryExpression();
     }
+    if (preset.nativeDataLayerExample) {
+      const { applyNativeDataLayerExample } = await import('./native-data-layer-examples');
+      await applyNativeDataLayerExample(preset.nativeDataLayerExample, openedReference?.tabId);
+    }
     await applyPresetUcscCatalogTracksIfAny(preset);
     const composedTabId = await applyPresetTrackViewCompositionIfAny(preset);
     if (

@@ -330,9 +330,15 @@ function DataLayerTrackRow({
               { value: 'bars', label: 'Bars' },
               { value: 'band', label: 'Color band' },
               { value: 'points', label: 'Points' },
+              { value: 'arcs', label: 'Arcs' },
             ]}
             onChange={(geometry) => {
-              if (geometry === 'bars' || geometry === 'band' || geometry === 'points')
+              if (
+                geometry === 'bars' ||
+                geometry === 'band' ||
+                geometry === 'points' ||
+                geometry === 'arcs'
+              )
                 setPresentation({ ...presentation, style: { ...presentation.style, geometry } });
             }}
           />
@@ -361,17 +367,20 @@ function DataLayerTrackRow({
                 });
             }}
           />
-          <label className="col-span-2 flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={presentation.annotationColors}
-              aria-label={`Color annotations from ${row.label}`}
-              onChange={(event) =>
-                setPresentation({ ...presentation, annotationColors: event.target.checked })
-              }
-            />
-            Annotation colors
-          </label>
+          {controls.annotationColorsSupported !== false &&
+          row.annotationColorsSupported !== false ? (
+            <label className="col-span-2 flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={presentation.annotationColors}
+                aria-label={`Color annotations from ${row.label}`}
+                onChange={(event) =>
+                  setPresentation({ ...presentation, annotationColors: event.target.checked })
+                }
+              />
+              Annotation colors
+            </label>
+          ) : null}
           <label className="col-span-2 flex items-center gap-2">
             <input
               type="checkbox"

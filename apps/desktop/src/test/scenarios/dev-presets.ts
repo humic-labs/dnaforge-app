@@ -1,5 +1,6 @@
 import { cdsMutationGallery, CDS_MUTATION_GALLERY_ID } from './cds-mutation-gallery';
 import { agentWorkflowCheck } from './agent-workflow-check';
+import type { NativeDataLayerExample } from './native-data-layer-examples';
 import {
   typicalSession,
   freshSession,
@@ -361,6 +362,7 @@ export interface DevScenarioPreset {
   nativeComparisonProjection?: boolean;
   nativeExpressionTracks?: boolean;
   nativeOrdinaryExpression?: boolean;
+  nativeDataLayerExample?: NativeDataLayerExample;
 
   indexedReference?: {
     preferredLocalAssemblyAccession: string;
@@ -1244,6 +1246,44 @@ export const DEV_SCENARIO_PRESET_GROUPS: readonly DevScenarioPresetGroup[] = [
           'The same measurements on a real 17 kb MG1655 locus in the normal sequence viewer.',
         factory: () => ({ laneContract: {} }),
         nativeOrdinaryExpression: true,
+        noAutoReplay: true,
+      },
+      {
+        id: 'native-crispri-guides',
+        label: 'CRISPRi · guide growth effects',
+        description:
+          '820 exact guide-sequence placements on NC_000913.3 with measured growth effects and a signed color scale.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes',
+        nativeDataLayerExample: 'crispri',
+        noAutoReplay: true,
+      },
+      {
+        id: 'native-regulatory-sites',
+        label: 'RegulonDB · binding sites',
+        description:
+          '176 sequence-verified regulatory sites in native interval lanes. Site widths describe genomic extent.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes',
+        nativeDataLayerExample: 'regulondb',
+        noAutoReplay: true,
+      },
+      ...(['araAB', 'arcA', 'groSL', 'aphA'] as const).map((gene) => ({
+        id: `native-regseq-${gene}`,
+        label: `RegSeq · ${gene} promoter footprint`,
+        description:
+          'Two measured conditions on the supplied 160-base promoter fragment, using a shared signed scale and the normal sequence viewer.',
+        factory: () => ({ laneContract: {} }),
+        nativeDataLayerExample: `regseq-${gene}` as const,
+        noAutoReplay: true,
+      })),
+      {
+        id: 'native-rna-reactivity',
+        label: 'RNA · SHAPE and paired bases',
+        description:
+          'Measured reactivity and supplied base-pair arcs on the same 432-base RNA sequence. Missing measurements remain missing.',
+        factory: () => ({ laneContract: {} }),
+        nativeDataLayerExample: 'shape-rpsT_5',
         noAutoReplay: true,
       },
       {

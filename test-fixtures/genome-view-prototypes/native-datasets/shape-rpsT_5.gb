@@ -1,0 +1,22 @@
+LOCUS       rpsT_5                   432 bp    RNA     linear   UNK 16-NOV-2026
+DEFINITION  rpsT_5 transcript supplied with Mustoe et al. 2018 in-cell SHAPE data.
+ACCESSION   rpsT_5
+VERSION     rpsT_5
+KEYWORDS    SHAPE; transcript-relative coordinates.
+SOURCE      Escherichia coli
+  ORGANISM  Escherichia coli
+            Bacteria.
+COMMENT     Supplied RNA sequence; no chromosome mapping is asserted.
+COMMENT     Study DOI: 10.1016/j.cell.2018.02.034.
+COMMENT     LOCUS date is the fixture preparation date.
+FEATURES             Location/Qualifiers
+ORIGIN
+        1 aucacuacgu aacgagugcc ggcacauuaa cggcgcuuau uugcacaaau ccauugacaa
+       61 aagaaggcua aaagggcaua uuccucggcc uuugaauugu ccauauagaa cacauuuggg
+      121 aguuggaccu uggcuaauau caaaucagcu aagaagcgcg ccauucaguc ugaaaaggcu
+      181 cguaagcaca acgcaagccg ucgcucuaug augcguacuu ucaucaagaa aguauacgca
+      241 gcuaucgaag cuggcgacaa agcugcugca cagaaagcau uuaacgaaau gcaaccgauc
+      301 guggaccguc aggcugcuaa aggucugauc cacaaaaaca aagcugcacg ucauaaggcu
+      361 aaccugacug cacagaucaa caaacuggcu uaaucgccaa uuugcugaag cuuugugaaa
+      421 aagcccgcgc aa
+//

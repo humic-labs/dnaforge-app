@@ -98,6 +98,13 @@ describe('saved layers in the existing Tracks popover', () => {
       ...dataLayers.rows[0].presentation,
       style: { ...dataLayers.rows[0].presentation.style, geometry: 'points' },
     });
+    fireEvent.change(screen.getByLabelText('Drawing style for Fitness'), {
+      target: { value: 'arcs' },
+    });
+    expect(dataLayers.onPresentationChange).toHaveBeenLastCalledWith(layerId, {
+      ...dataLayers.rows[0].presentation,
+      style: { ...dataLayers.rows[0].presentation.style, geometry: 'arcs' },
+    });
     fireEvent.change(screen.getByLabelText('Sample for Fitness'), { target: { value: 'second' } });
     expect(dataLayers.onPresentationChange).toHaveBeenLastCalledWith(layerId, {
       ...dataLayers.rows[0].presentation,

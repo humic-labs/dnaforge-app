@@ -517,6 +517,11 @@ describe('IndexedViewerTrackGutter', () => {
       ...original,
       style: { ...original.style, geometry: 'points' },
     });
+    fireEvent.click(screen.getByRole('button', { name: 'Arcs for Expression' }));
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith('expression', {
+      ...original,
+      style: { ...original.style, geometry: 'arcs' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Cividis palette for Expression' }));
     expect(controls.onPresentationChange).toHaveBeenLastCalledWith('expression', {
       ...original,
@@ -1281,6 +1286,7 @@ describe('IndexedViewerTrackGutter', () => {
 
     fireEvent.click(screen.getByLabelText('Open settings for RNA signal'));
     expect(screen.getByTestId(`track-settings-form-signal-settings`)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Arcs for RNA signal' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Heatmap for RNA signal' }));
     fireEvent.click(screen.getByRole('button', { name: 'Cividis palette for RNA signal' }));
     expect(screen.queryByRole('alert')).toBeNull();

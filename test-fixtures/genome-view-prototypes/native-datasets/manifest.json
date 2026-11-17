@@ -1,0 +1,470 @@
+{
+  "schema": "dnaforge.scientific-dataset-fixtures.v1",
+  "datasets": [
+    {
+      "id": "crispri",
+      "sourceId": "03-crispri",
+      "file": "crispri-guides.csv",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "e999dceccb76562d40e49a10d9e6d4cf1c05d184f4f80b92bb32d4a2420c11d0",
+        "sourceFileSha256": "03c41475639fe8de50f23f2b9456402668411ccaf488d39d8f99cafea6552ced",
+        "citation": "https://www.ncbi.nlm.nih.gov/nuccore/NC_000913.3"
+      },
+      "rows": 820,
+      "unit": "log2 fold change after growth",
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start0",
+        "endColumn": "end0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "valueColumns": [
+        "growthEffect"
+      ],
+      "unmapped": 0,
+      "ambiguous": 0,
+      "referenceFile": "../MG1655-NC_000913.3.fasta",
+      "metadata": "crispri-placement-metadata.json",
+      "sourceSnapshot": "source-data/03-crispri.json"
+    },
+    {
+      "id": "regulondb",
+      "sourceId": "10-regulondb",
+      "file": "regulondb-bindings.bed",
+      "metadata": "regulondb-binding-metadata.json",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "e999dceccb76562d40e49a10d9e6d4cf1c05d184f4f80b92bb32d4a2420c11d0",
+        "sourceFileSha256": "03c41475639fe8de50f23f2b9456402668411ccaf488d39d8f99cafea6552ced",
+        "citation": "https://www.ncbi.nlm.nih.gov/nuccore/NC_000913.3"
+      },
+      "format": "BED4",
+      "rows": 176,
+      "measuredBindingStrength": false,
+      "referenceFile": "../MG1655-NC_000913.3.fasta",
+      "sourceSnapshot": "source-data/10-regulondb.json"
+    },
+    {
+      "id": "regseq-araAB",
+      "sourceId": "12-regseq",
+      "file": "regseq-araAB.csv",
+      "referenceFile": "regseq-araAB.fasta",
+      "reference": {
+        "id": "RegSeq_araAB",
+        "length": 160,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "2ff90c5eb36df263569925088bf7f84d0847a3bc7b4d3613e90d39fe37bcc424"
+      },
+      "rows": 160,
+      "measurements": 320,
+      "unit": "signed information (bits)",
+      "valueColumns": [
+        "LB",
+        "Anaero"
+      ],
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "position0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "limits": [
+        "Positions refer only to the supplied synthesized fragment; no chromosome mapping."
+      ],
+      "sourceSnapshot": "source-data/12-regseq.json"
+    },
+    {
+      "id": "regseq-arcA",
+      "sourceId": "12-regseq",
+      "file": "regseq-arcA.csv",
+      "referenceFile": "regseq-arcA.fasta",
+      "reference": {
+        "id": "RegSeq_arcA",
+        "length": 160,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "3f53abb71826436ef261742aba999d9e56593b8d8867f403d1c29922f7053e84"
+      },
+      "rows": 160,
+      "measurements": 320,
+      "unit": "signed information (bits)",
+      "valueColumns": [
+        "LB",
+        "Anaero"
+      ],
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "position0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "limits": [
+        "Positions refer only to the supplied synthesized fragment; no chromosome mapping."
+      ],
+      "sourceSnapshot": "source-data/12-regseq.json"
+    },
+    {
+      "id": "regseq-groSL",
+      "sourceId": "12-regseq",
+      "file": "regseq-groSL.csv",
+      "referenceFile": "regseq-groSL.fasta",
+      "reference": {
+        "id": "RegSeq_groSL",
+        "length": 160,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "1375d1d4662e5875b493aaad61ab57492cf116939b8a9528f54d5c7a4f622414"
+      },
+      "rows": 160,
+      "measurements": 320,
+      "unit": "signed information (bits)",
+      "valueColumns": [
+        "LB",
+        "Anaero"
+      ],
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "position0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "limits": [
+        "Positions refer only to the supplied synthesized fragment; no chromosome mapping."
+      ],
+      "sourceSnapshot": "source-data/12-regseq.json"
+    },
+    {
+      "id": "regseq-aphA",
+      "sourceId": "12-regseq",
+      "file": "regseq-aphA.csv",
+      "referenceFile": "regseq-aphA.fasta",
+      "reference": {
+        "id": "RegSeq_aphA",
+        "length": 160,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "913d49a30f8c4b5b05ba07b792dc0016f17c676b131a5e6ebbb97ef2068751ca"
+      },
+      "rows": 160,
+      "measurements": 320,
+      "unit": "signed information (bits)",
+      "valueColumns": [
+        "LB",
+        "Anaero"
+      ],
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "position0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "limits": [
+        "Positions refer only to the supplied synthesized fragment; no chromosome mapping."
+      ],
+      "sourceSnapshot": "source-data/12-regseq.json"
+    },
+    {
+      "id": "shape-rpsT_5",
+      "sourceId": "16-rna-structure",
+      "file": "shape-rpsT_5.csv",
+      "referenceFile": "shape-rpsT_5.gb",
+      "pairFile": "shape-rpsT_5-pairs.json",
+      "reference": {
+        "id": "rpsT_5",
+        "length": 432,
+        "nucleicAcid": "RNA",
+        "normalizedSequenceSha256": "f5afa86d3f78e48c406f2d955914bdfb0500da9e674c7196ae537c002f706adc"
+      },
+      "rows": 432,
+      "measurements": 341,
+      "missing": 91,
+      "realZeroMeasurements": 3,
+      "suppliedModelPairs": 103,
+      "unit": "normalized SHAPE reactivity",
+      "valueColumns": [
+        "reactivity"
+      ],
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "position",
+        "coordinateSystem": "one-based-inclusive"
+      },
+      "sourceSnapshot": "source-data/16-rna-structure.json"
+    },
+    {
+      "id": "shape-rpsT_5-pairs",
+      "sourceId": "16-rna-structure",
+      "sourceSnapshot": "source-data/16-rna-structure.json",
+      "file": "shape-rpsT_5-pairs.csv",
+      "referenceFile": "shape-rpsT_5.gb",
+      "pairFile": "shape-rpsT_5-pairs.json",
+      "reference": {
+        "id": "rpsT_5",
+        "length": 432,
+        "nucleicAcid": "RNA",
+        "normalizedSequenceSha256": "f5afa86d3f78e48c406f2d955914bdfb0500da9e674c7196ae537c002f706adc"
+      },
+      "rows": 103,
+      "unit": "supplied model pair",
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start0",
+        "endColumn": "end0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "valueColumns": [
+        "paired"
+      ],
+      "recordSemantics": "endpoint-span",
+      "endpoints": {
+        "first": "start0",
+        "second": "end0-1"
+      },
+      "valueMeaning": "Presence in the supplied model, not confidence or coverage.",
+      "limits": [
+        "The intervening span locates two paired bases; it is not a continuous measurement.",
+        "These are supplied model pairs; no new pairing or chromosome mapping is inferred."
+      ]
+    }
+  ],
+  "sourceSnapshots": {
+    "03-crispri": {
+      "file": "source-data/03-crispri.json",
+      "sha256": "79ff86f0fe5c8da21bc93ee506dfc53c2a1404f26e964b86f4ad02090e625133",
+      "originalSnapshotSha256": "4a1fcf14677a1d6b58c5de13159d6094cfb26c773720268824eb79af0c139a77",
+      "title": "CRISPRi growth and essentiality",
+      "study": "Rousset et al., 2018",
+      "omittedPresentationFields": [
+        "suggestedViews"
+      ]
+    },
+    "10-regulondb": {
+      "file": "source-data/10-regulondb.json",
+      "sha256": "a6a3ab74e462c9cec4934b385418e3817a4d0abb7993c20ece5fb8c1b98e0e18",
+      "originalSnapshotSha256": "660e974e6117cc4d017feb44718d09f8f823364b01ca4216575e0988e6a5ad60",
+      "title": "Curated regulatory interactions",
+      "study": "RegulonDB 11.1 (2022 release)",
+      "omittedPresentationFields": [
+        "suggestedViews",
+        "xLabel"
+      ]
+    },
+    "12-regseq": {
+      "file": "source-data/12-regseq.json",
+      "sha256": "92d95e4eec2facfa6d5ab10399dfe4d324a57e39f920fb09f3227b5bbb327229",
+      "originalSnapshotSha256": "d2d4a79fef2699e2e0f58051033872135be075f9918b23bbe1b2977323266167",
+      "title": "Promoter mutation footprints",
+      "study": "Ireland et al. 2020",
+      "omittedPresentationFields": [
+        "suggestedViews",
+        "xLabel"
+      ]
+    },
+    "16-rna-structure": {
+      "file": "source-data/16-rna-structure.json",
+      "sha256": "ad0ed677ad37696132003b2dcae385f20b244398e61eeee1e4b16a748a85eec9",
+      "originalSnapshotSha256": "ad0ed677ad37696132003b2dcae385f20b244398e61eeee1e4b16a748a85eec9",
+      "title": "RNA structure at nucleotide resolution",
+      "study": "Mustoe et al., 2018 · rpsT · in-cell SHAPE",
+      "omittedPresentationFields": []
+    }
+  },
+  "sources": {
+    "03-crispri": [
+      {
+        "url": "https://journals.plos.org/plosgenetics/article/file?id=10.1371/journal.pgen.1007749.s011&type=supplementary",
+        "file": "raw/genes/Rousset2018-S1.csv",
+        "sha256": "015ebda56925fee97cd2c44557b146799299f883b2255ed22836ebab61875ebb",
+        "citation": "https://doi.org/10.1371/journal.pgen.1007749"
+      }
+    ],
+    "10-regulondb": [
+      {
+        "url": "https://raw.githubusercontent.com/regulondbunam/download-data-files/master/src/resources/RIdata.txt",
+        "file": "raw/regulation/RegulonDB_RIdata.txt",
+        "sha256": "2f95d9281e17731a0be393c4f4c45d7945e5063fbac7021625d6778c8c2123e2",
+        "bytes": 1874086,
+        "citation": "https://doi.org/10.1099/mgen.0.000833"
+      }
+    ],
+    "12-regseq": [
+      {
+        "url": "https://raw.githubusercontent.com/RPGroup-PBoC/RegSeq/master/data/information_footprints/araABLBdatasetinfofootprint.txt",
+        "file": "raw/regulation/RegSeq_araAB_LB.txt",
+        "sha256": "db2c47b8b81a5890ebbd0fc8894e26fa3e837ddac3eabc23aa62a91b23b967a7",
+        "bytes": 4024,
+        "citation": "https://doi.org/10.7554/eLife.55308"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/RPGroup-PBoC/RegSeq/master/data/information_footprints/araABAnaerodatasetinfofootprint.txt",
+        "file": "raw/regulation/RegSeq_araAB_Anaero.txt",
+        "sha256": "d91014eab061854f84a69d5c867302cdc2e8d255639b24f723b5a42ca6c37757",
+        "bytes": 4024,
+        "citation": "https://doi.org/10.7554/eLife.55308"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/RPGroup-PBoC/RegSeq/master/data/information_footprints/arcALBdatasetinfofootprint.txt",
+        "file": "raw/regulation/RegSeq_arcA_LB.txt",
+        "sha256": "47d4f3dc78071881e379fc42fe3aed66760d8e62e179ea8c819045f2bb152df4",
+        "bytes": 4024,
+        "citation": "https://doi.org/10.7554/eLife.55308"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/RPGroup-PBoC/RegSeq/master/data/information_footprints/arcAAnaerodatasetinfofootprint.txt",
+        "file": "raw/regulation/RegSeq_arcA_Anaero.txt",
+        "sha256": "613bd5f5e95d8de54de1a8429bf98106c8245ec45bf64250144e02fb80861d98",
+        "bytes": 4024,
+        "citation": "https://doi.org/10.7554/eLife.55308"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/RPGroup-PBoC/RegSeq/master/data/information_footprints/groSLLBdatasetinfofootprint.txt",
+        "file": "raw/regulation/RegSeq_groSL_LB.txt",
+        "sha256": "4aedf96a731a000a4fd50f1364fabd639e3cd80c5801e9bf58294dbfefb6a29b",
+        "bytes": 4024,
+        "citation": "https://doi.org/10.7554/eLife.55308"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/RPGroup-PBoC/RegSeq/master/data/information_footprints/groSLAnaerodatasetinfofootprint.txt",
+        "file": "raw/regulation/RegSeq_groSL_Anaero.txt",
+        "sha256": "774faa9c0eda6ca248583dc03ed5d2f58fa020816e180007bd2b70f7d0f39a75",
+        "bytes": 4024,
+        "citation": "https://doi.org/10.7554/eLife.55308"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/RPGroup-PBoC/RegSeq/master/data/information_footprints/aphALBdatasetinfofootprint.txt",
+        "file": "raw/regulation/RegSeq_aphA_LB.txt",
+        "sha256": "5bdd6ef79ec45594c08b5458cbc5bef5160a3fb5f0482a45c3cb31721eea199e",
+        "bytes": 4024,
+        "citation": "https://doi.org/10.7554/eLife.55308"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/RPGroup-PBoC/RegSeq/master/data/information_footprints/aphAAnaerodatasetinfofootprint.txt",
+        "file": "raw/regulation/RegSeq_aphA_Anaero.txt",
+        "sha256": "37e4f22f5254771afe4b98fc32eb910df6bba5d6ee487a1d119ef20f9a0f30b8",
+        "bytes": 4024,
+        "citation": "https://doi.org/10.7554/eLife.55308"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/RPGroup-PBoC/RegSeq/master/data/prior_designs/wtsequences.csv",
+        "file": "raw/regulation/RegSeq_wtsequences.csv",
+        "sha256": "7decbabb52ba92e3b19e14a96f09ee4cecccdacdcf1d57ef42cb1d14585f67c7",
+        "bytes": 20356,
+        "citation": "https://doi.org/10.7554/eLife.55308"
+      }
+    ],
+    "16-rna-structure": [
+      {
+        "file": "raw/comparison/mustoe-incell.dbn",
+        "url": "https://raw.githubusercontent.com/BackofenLab/ShaKer/6f29547d70a2b72ceccf28218c790c45406946e8/data/weeks194_orig/incell.dbn",
+        "sha256": "cb13b2092f594facf49ef11ca4c8c9d25c8232fcbd806d0f8ca3f06d2c0136fa",
+        "citation": "https://doi.org/10.1016/j.cell.2018.02.034"
+      },
+      {
+        "file": "raw/comparison/mustoe-incell.react",
+        "url": "https://raw.githubusercontent.com/BackofenLab/ShaKer/6f29547d70a2b72ceccf28218c790c45406946e8/data/weeks194_orig/incell.react",
+        "sha256": "1be61b44ea242621f33f7e6c050b469ee05d2b66120b3e441a8e9241d3381aa6",
+        "citation": "https://doi.org/10.1016/j.cell.2018.02.034"
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "file": "crispri-guides.csv",
+      "sha256": "4e455c4cdd01bb34c0e502abc0be86de0f7771f7c839d45c4b7ef3b6f0c6b423",
+      "bytes": 52646
+    },
+    {
+      "file": "crispri-placement-metadata.json",
+      "sha256": "9b2d5c1c17e0ba589ba3b4ef89888f6f7ecdc4108786696373bad935986c794e",
+      "bytes": 446184
+    },
+    {
+      "file": "regseq-aphA.csv",
+      "sha256": "5a449ff2eea882cfb41e66faa150e3716d53567a65e763f62304fc49d8844719",
+      "bytes": 5101
+    },
+    {
+      "file": "regseq-aphA.fasta",
+      "sha256": "5a016747c753e60cc6ce0f7f15b1efd7dbfbeff27b61efd15d7405429c341eeb",
+      "bytes": 241
+    },
+    {
+      "file": "regseq-araAB.csv",
+      "sha256": "0051db1fab7e36a3a603a6322fedd5f21f20b87c4d50ab02954cd81624fa41c7",
+      "bytes": 5134
+    },
+    {
+      "file": "regseq-araAB.fasta",
+      "sha256": "4303278ece612a5c86d86465eaa6cecb08cb08ab2fb9a81b2045a1f33bc0032c",
+      "bytes": 242
+    },
+    {
+      "file": "regseq-arcA.csv",
+      "sha256": "f812d4e06af736f1157d19a59726507ef25b1ed76534c337226fd64ff7276ec6",
+      "bytes": 5119
+    },
+    {
+      "file": "regseq-arcA.fasta",
+      "sha256": "696b7d4bae7a86587a117b41d430024e49620a31d03bee2a614ac97630d699f3",
+      "bytes": 241
+    },
+    {
+      "file": "regseq-groSL.csv",
+      "sha256": "d8ec70b427a276057cd50fbd1099caf520e1dfa355638b20aad73183573efa4f",
+      "bytes": 5127
+    },
+    {
+      "file": "regseq-groSL.fasta",
+      "sha256": "c3b29dcb640fae8506a1bd541b5c1dbe89632672c23d1b46f58f93193adb5da9",
+      "bytes": 242
+    },
+    {
+      "file": "regulondb-binding-metadata.json",
+      "sha256": "c575e066859d29b74ace9925aa6568b8e06cd5bec08af6b175f112249fbd559b",
+      "bytes": 148268
+    },
+    {
+      "file": "regulondb-bindings.bed",
+      "sha256": "51c94f0e3417aa6be8007a28c1f1c3064899563645026b4b3f170d0604623bb9",
+      "bytes": 13528
+    },
+    {
+      "file": "shape-rpsT_5-pairs.csv",
+      "sha256": "b7cc8eeb2fa60972773e6ddfadaab3ad23192c5e20f7dfd18021ad4288362e49",
+      "bytes": 1007
+    },
+    {
+      "file": "shape-rpsT_5-pairs.json",
+      "sha256": "2d7c9bb436b37ee530df14e3235d14e4a5d685e323a42352ce399af1cbbac800",
+      "bytes": 6810
+    },
+    {
+      "file": "shape-rpsT_5.csv",
+      "sha256": "ad4ba1f4689015704080da42d1a01bd344447b09ea49fb6dcfa76c90c35fbd55",
+      "bytes": 4302
+    },
+    {
+      "file": "shape-rpsT_5.gb",
+      "sha256": "24cff637e3cb2dac71c240b8b99abf781ea0b816a14da6e752f3c2f599f1be4d",
+      "bytes": 1117
+    },
+    {
+      "file": "source-data/03-crispri.json",
+      "sha256": "79ff86f0fe5c8da21bc93ee506dfc53c2a1404f26e964b86f4ad02090e625133",
+      "bytes": 286818
+    },
+    {
+      "file": "source-data/10-regulondb.json",
+      "sha256": "a6a3ab74e462c9cec4934b385418e3817a4d0abb7993c20ece5fb8c1b98e0e18",
+      "bytes": 130096
+    },
+    {
+      "file": "source-data/12-regseq.json",
+      "sha256": "92d95e4eec2facfa6d5ab10399dfe4d324a57e39f920fb09f3227b5bbb327229",
+      "bytes": 331475
+    },
+    {
+      "file": "source-data/16-rna-structure.json",
+      "sha256": "ad0ed677ad37696132003b2dcae385f20b244398e61eeee1e4b16a748a85eec9",
+      "bytes": 81734
+    }
+  ]
+}

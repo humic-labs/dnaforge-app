@@ -1636,14 +1636,18 @@ function SelectSetting<T extends string>({
   );
 }
 
-function SignalGeometryControl({
+function SignalGeometryControl<
+  Geometry extends SequenceDataLayerPresentation['style']['geometry'],
+>({
   label,
+  geometries,
   geometry,
   onChange,
 }: {
   label: string;
-  geometry: SequenceDataLayerPresentation['style']['geometry'];
-  onChange: (geometry: SequenceDataLayerPresentation['style']['geometry']) => void;
+  geometries: readonly Geometry[];
+  geometry: Geometry;
+  onChange: (geometry: Geometry) => void;
 }) {
   return (
     <div className="flex items-center justify-between gap-2">
@@ -1653,8 +1657,8 @@ function SignalGeometryControl({
         aria-label={`Drawing style for ${label}`}
         className="flex overflow-hidden rounded-md border border-border"
       >
-        {(['bars', 'band', 'points'] as const).map((value) => {
-          const name = value === 'bars' ? 'Bars' : value === 'band' ? 'Heatmap' : 'Points';
+        {geometries.map((value) => {
+          const name = { bars: 'Bars', band: 'Heatmap', points: 'Points', arcs: 'Arcs' }[value];
           return (
             <button
               key={value}
@@ -1674,6 +1678,14 @@ function SignalGeometryControl({
                     <path opacity=".6" d="M7 3h5v10H7z" />
                     <path d="M13 3h6v10h-6z" />
                   </>
+                ) : value === 'arcs' ? (
+                  <path
+                    d="M2 13Q10-9 18 13M6 13Q10 2 14 13"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
                 ) : (
                   <>
                     <circle cx="4" cy="11" r="2" />
@@ -1751,6 +1763,7 @@ function DataLayerTrackSettings({
       />
       <SignalGeometryControl
         label={row.label}
+        geometries={['bars', 'band', 'points', 'arcs']}
         geometry={presentation.style.geometry}
         onChange={(geometry) =>
           update({ ...presentation, style: { ...presentation.style, geometry } })
@@ -1772,7 +1785,7 @@ function DataLayerTrackSettings({
           })
         }
       />
-      {controls.annotationColorsSupported !== false ? (
+      {controls.annotationColorsSupported !== false && row.annotationColorsSupported !== false ? (
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -1854,6 +1867,7 @@ function QuantitativeTrackSettings({
       <legend className="mb-0.5 font-semibold text-fg">Signal</legend>
       <SignalGeometryControl
         label={dataset.label}
+        geometries={['bars', 'band', 'points'] as const}
         geometry={presentation.graph === 'bar' ? 'bars' : presentation.graph}
         onChange={(geometry) =>
           update({ ...presentation, graph: geometry === 'bars' ? 'bar' : geometry })

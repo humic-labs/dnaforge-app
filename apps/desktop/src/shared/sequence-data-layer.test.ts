@@ -111,6 +111,15 @@ describe('saved sequence data layer format', () => {
     expect(restored.dataset.samples[0].observations.map((row) => row.value)).toEqual([0, null]);
   });
 
+  it('persists native span-arcs presentation without modifying the source intervals', () => {
+    const document = fixture();
+    document.presentation.style.geometry = 'arcs';
+    const restored = parseSequenceDataLayerDocument(serializeSequenceDataLayerDocument(document));
+    expect(restored.presentation.style.geometry).toBe('arcs');
+    expect(restored.dataset).toEqual(document.dataset);
+    expect(restored.source).toEqual(document.source);
+  });
+
   it('refuses forged mapping outcomes and modified resolved coordinates', () => {
     const document = fixture();
     const changed = structuredClone(document);

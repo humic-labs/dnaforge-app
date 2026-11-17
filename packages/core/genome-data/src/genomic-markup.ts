@@ -35,7 +35,7 @@ export interface GenomicMarkupSourceWindow {
 }
 
 export interface GenomicMarkupStyle {
-  readonly geometry: 'bars' | 'band' | 'points';
+  readonly geometry: 'bars' | 'band' | 'points' | 'arcs';
   readonly colorScale: DataColorScale;
 }
 
@@ -82,7 +82,7 @@ export function resolveGenomicMarkup({
     throw new Error('Genomic markup source and viewer must use the same reference.');
   }
   requireInterval(window.start, window.end, window.reference.length);
-  if (!['bars', 'band', 'points'].includes(style.geometry)) {
+  if (!['bars', 'band', 'points', 'arcs'].includes(style.geometry)) {
     throw new Error('Unsupported genomic markup geometry.');
   }
   if (annotationAggregation !== undefined && annotationAggregation !== 'mean') {
