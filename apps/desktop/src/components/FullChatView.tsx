@@ -1587,7 +1587,18 @@ function InitializedChatView({
   }, [allRefIds, entityReferenceLoadFailures, referenceMap, referenceResolution]);
 
   const [composeReferences, setComposeReferences] = useState<DBEntityReference[]>([]);
-  liveComposerRef.current = { input, attachedFiles, composeReferences, stagedCapability };
+  useLayoutEffect(() => {
+    liveComposerRef.current = { ...liveComposerRef.current, input };
+  }, [input]);
+  useLayoutEffect(() => {
+    liveComposerRef.current = { ...liveComposerRef.current, attachedFiles };
+  }, [attachedFiles]);
+  useLayoutEffect(() => {
+    liveComposerRef.current = { ...liveComposerRef.current, composeReferences };
+  }, [composeReferences]);
+  useLayoutEffect(() => {
+    liveComposerRef.current = { ...liveComposerRef.current, stagedCapability };
+  }, [stagedCapability]);
   useConversationComposerDraft({
     conversationId: viewConversationId,
     text: input,
