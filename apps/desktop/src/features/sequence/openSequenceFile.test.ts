@@ -190,7 +190,11 @@ describe('openSequenceFile  Layer A)', () => {
     const opened = await openSequenceFileResult({ filePath: source, label: 'Incoming' });
 
     expect(mockInspectLoose).toHaveBeenCalledWith({ workspaceRoot: root, sourcePath: source });
-    expect(mockConvertLoose).toHaveBeenCalledWith({ workspaceRoot: root, sourcePath: source });
+    expect(mockConvertLoose).toHaveBeenCalledWith({
+      workspaceRoot: root,
+      sourcePath: source,
+      automatic: true,
+    });
     expect(opened.status).toBe('presented');
     const tabs = Object.values(useCanvasStore.getState().panels).flatMap((panel) => panel.tabs);
     expect(tabs).toHaveLength(1);
