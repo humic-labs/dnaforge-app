@@ -506,14 +506,14 @@ export function ReferenceGenomePicker({
       const revision = ++hostedRefreshRevision;
       void platform()
         .referenceAssets.listHosted()
-        .then((entries) => {
-          if (!cancelled && revision === hostedRefreshRevision) {
-            setHostedReferences(entries.filter((entry) => !RETIRED_REFERENCE_IDS.has(entry.id)));
-          }
-        })
-        .catch(() => {
-          if (!cancelled && revision === hostedRefreshRevision) setHostedReferences([]);
-        });
+        .then(
+          (entries) => {
+            if (!cancelled && revision === hostedRefreshRevision) {
+              setHostedReferences(entries.filter((entry) => !RETIRED_REFERENCE_IDS.has(entry.id)));
+            }
+          },
+          () => {}
+        );
     };
     refreshHosted();
     const unsubscribe = platform().referenceAssets.onPreparationProgress((progress) => {
@@ -922,8 +922,12 @@ export function ReferenceGenomePicker({
         next.add(hosted.id);
         return next;
       });
-      const refreshed = await platform().referenceAssets.listHosted();
-      setHostedReferences(refreshed.filter((entry) => !RETIRED_REFERENCE_IDS.has(entry.id)));
+      const refreshed = await platform()
+        .referenceAssets.listHosted()
+        .catch(() => null);
+      if (refreshed) {
+        setHostedReferences(refreshed.filter((entry) => !RETIRED_REFERENCE_IDS.has(entry.id)));
+      }
       setStatusByEntry((current) => ({ ...current, [hosted.id]: 'idle' }));
       setHostedProgressByEntry((current) => {
         const next = { ...current };
