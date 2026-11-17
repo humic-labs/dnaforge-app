@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   FLOATING_LABEL_MAX_LEADER_PX,
@@ -491,6 +491,31 @@ describe('floating annotation label layout', () => {
     });
 
     expect(result.decisions[0]).toMatchObject({ featureId: 1, status: 'placed' });
+  });
+
+  it('reuses the repair search order across candidates with distinct clearances', () => {
+    const candidates = [8, 16, 24].map((outwardClearance, index) =>
+      candidate(index + 1, 70 + 100 * index, {
+        placementOptions: [
+          { tangentStep: 0, layoutCenterBp: 0, outwardClearance, outwardRail: -20 },
+        ],
+      })
+    );
+    const sort = vi.spyOn(Array.prototype, 'sort');
+    try {
+      const plan = planFloatingAnnotationLabels(candidates, new Map(), {
+        width: 400,
+        height: 300,
+        preloadMargin: 80,
+      });
+      const slotSorts = sort.mock.contexts.filter((items) => items[0]?.outwardRow !== undefined);
+      expect(slotSorts.length).toBeLessThanOrEqual(1);
+      expect(plan.decisions.map((decision) => decision.slot?.outwardClearance)).toEqual([
+        8, 16, 24,
+      ]);
+    } finally {
+      sort.mockRestore();
+    }
   });
 
   it('keeps unblocked slots fixed and moves a blocked label to a free slot instead of hiding it', () => {
