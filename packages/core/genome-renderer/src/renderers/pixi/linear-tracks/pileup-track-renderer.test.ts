@@ -6755,6 +6755,70 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
     expect(d.renderedReadRowsAlpha + d.renderedReadDensityAlpha).toBeCloseTo(1, 2);
   });
 
+  it('prepares row heights only when the same exact reads switch from tiled to static coverage', () => {
+    const renderer = new PixiPileupTrackRenderer({
+      type: 'pileup-test',
+      rowHeightPx: 10,
+      maxRows: 8,
+    });
+    const container = renderer.mount(mountArgs);
+    const tiled: PileupTrackData = {
+      dataAuthority: 'tile-engine',
+      coverage: {
+        bins: Array(20).fill(12),
+        binSize: 100,
+        maxDepth: 120,
+        provenance: { exact: true, method: 'pyramid-maxpool', source: 'tile-engine' },
+      },
+      records: [read(0, 400, 'first'), read(20, 420, 'second')],
+      readSource: {
+        truncated: false,
+        windowStartBp: 0,
+        windowEndBp: 2000,
+        sourceGenerationKey: 'same-bam',
+      },
+    };
+    const prepare = vi.spyOn(rowHeightField, 'beginReadRowHeightFieldJob');
+    const paint = (data: PileupTrackData) => {
+      const args = paintArgsZoom(container, data, 4 / 150, { start: 100, end: 350 });
+      renderer.paint(args);
+      for (let i = 0; renderer.hasPendingPaintWork(container) && i < 20; i++) renderer.paint(args);
+      expect(renderer.hasPendingPaintWork(container)).toBe(false);
+      const diagnostics = renderer.getDiagnostics(container)!;
+      expect(diagnostics.rowsMeshVisible).toBe(true);
+      for (const [row, readId] of ['first', 'second'].entries()) {
+        const localX = args.pathMapper.bpLeftX(200);
+        const localY = diagnostics.readRowsTopPx + diagnostics.effectiveRowHeightPx * (row + 0.5);
+        expect(
+          renderer.hitTestReadEvent(container, {
+            trackId: 'test-bam',
+            localX,
+            localY,
+            screenX: localX,
+            screenY: args.containerTopPx + localY,
+            pathMapper: args.pathMapper,
+            chromosomeGlobalStartBp: 0,
+          })
+        ).toMatchObject({ readId, sourceGenerationKey: 'same-bam' });
+      }
+      return diagnostics;
+    };
+    try {
+      const native = paint(tiled);
+      expect(native.aggregateDepthSource).toBe('tile-engine-coverage');
+      expect(native.readDensityMorph).toBe(0);
+      const tiledPreparationCount = prepare.mock.calls.length;
+      const legacy = paint({ ...tiled, dataAuthority: 'static' });
+      expect(legacy.readDensityMorph).toBeGreaterThan(0.95);
+      expect(legacy.readDensityRowStackMaxFill).toBeGreaterThan(0);
+      expect(legacy.readDensityMaxFill).toBeCloseTo(legacy.readDensityRowStackMaxFill, 2);
+      expect(tiledPreparationCount).toBe(0);
+    } finally {
+      prepare.mockRestore();
+      renderer.unmount(container);
+    }
+  });
+
   it('morphs aggregate height from coverage depth toward lane-packed row height', async () => {
     const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
     const r = new PixiPileupTrackRenderer({
