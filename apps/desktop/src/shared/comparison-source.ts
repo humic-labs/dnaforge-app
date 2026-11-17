@@ -1,9 +1,17 @@
 import { z } from 'zod';
 import type { GenomeComparison } from '@waypoint/genome-data';
-import type { ComparisonCamera } from '@waypoint/genome-renderer/pure';
+import type {
+  ComparisonAnnotation,
+  ComparisonCamera,
+  ComparisonSequenceWindow,
+} from '@waypoint/genome-renderer/pure';
+import { sha256Hex } from './sha256-sync';
 
 export const COMPARISON_SOURCE_SCHEMA = 'dnaforge.comparison-source.v1' as const;
 export const MAX_COMPARISON_SOURCE_BYTES = 16 * 1_048_576;
+export const MAX_COMPARISON_WINDOW_BASES = 20_000;
+export const MAX_COMPARISON_WINDOW_FEATURES = 20_000;
+export const MAX_COMPARISON_SOURCE_WINDOWS = 1024;
 
 const text = z
   .string()
@@ -22,6 +30,14 @@ const referenceSchema = z
     message: 'A comparison axis must use its exact chromosome accession as its reference ID.',
   });
 
+export const comparisonPreparedSourceSchema = z
+  .object({
+    referenceId: text,
+    sequenceIdentity: z.string().regex(/^[a-f0-9]{64}$/u),
+    annotationIdentity: z.string().regex(/^[a-f0-9]{64}$/u),
+  })
+  .strict();
+
 export const comparisonSourceDescriptorSchema = z
   .object({
     schema: z.literal(COMPARISON_SOURCE_SCHEMA),
@@ -38,6 +54,8 @@ export const comparisonSourceDescriptorSchema = z
     sha256: z.string().regex(/^[a-f0-9]{64}$/u),
     targetReference: referenceSchema,
     queryReference: referenceSchema,
+    targetSource: comparisonPreparedSourceSchema.optional(),
+    querySource: comparisonPreparedSourceSchema.optional(),
   })
   .strict();
 
@@ -53,7 +71,18 @@ export const comparisonCameraSchema = z
   });
 
 export function comparisonSourceProjectionId(source: ComparisonSourceDescriptor): string {
-  return `comparison:${source.sha256}`;
+  const id = `comparison:${source.sha256}`;
+  return source.targetSource || source.querySource
+    ? `${id}:${sha256Hex(
+        JSON.stringify(
+          [source.targetSource, source.querySource].map((binding) =>
+            binding
+              ? [binding.referenceId, binding.sequenceIdentity, binding.annotationIdentity]
+              : null
+          )
+        )
+      )}`
+    : id;
 }
 
 export const comparisonProjectionViewStateSchema = z
@@ -75,6 +104,7 @@ export const comparisonProjectionViewStateSchema = z
   );
 
 export type ComparisonSourceDescriptor = z.infer<typeof comparisonSourceDescriptorSchema>;
+export type ComparisonPreparedSource = z.infer<typeof comparisonPreparedSourceSchema>;
 export interface ComparisonProjectionViewState {
   readonly kind: 'aligned-genomes';
   readonly project: string;
@@ -91,4 +121,30 @@ export interface ComparisonSourceReadResult {
   readonly label: string;
   readonly revision: string;
   readonly path: string;
+}
+
+export const comparisonSourceWindowRequestSchema = comparisonSourceReadRequestSchema
+  .extend({ camera: comparisonCameraSchema })
+  .refine(
+    (request) => request.camera.projectionId === comparisonSourceProjectionId(request.source),
+    {
+      message: 'The comparison window must belong to its exact pinned sources.',
+      path: ['camera'],
+    }
+  );
+export type ComparisonSourceWindowRequest = z.infer<typeof comparisonSourceWindowRequestSchema>;
+export interface ComparisonSourceWindowResult {
+  readonly projectionId: string;
+  readonly camera: ComparisonCamera;
+  readonly basesStatus: 'ready' | 'zoom-in';
+  readonly annotationsStatus: Readonly<{
+    target: 'ready' | 'unbound' | 'unavailable' | 'zoom-in';
+    query: 'ready' | 'unbound' | 'unavailable' | 'zoom-in';
+  }>;
+  readonly targetSequenceWindows: readonly ComparisonSequenceWindow[];
+  readonly querySequenceWindows: readonly ComparisonSequenceWindow[];
+  readonly annotations: Readonly<{
+    target: readonly ComparisonAnnotation[];
+    query: readonly ComparisonAnnotation[];
+  }>;
 }

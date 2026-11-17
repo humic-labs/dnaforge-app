@@ -128,7 +128,11 @@ export async function withLocalTrackViewReference<T>(
   const release = await owner.retention.retainPreparation(root);
   try {
     if (prepared !== owner) throw new Error('Reference assets are unavailable.');
-    if (!hasRelativePaths) return await use(entry);
+    if (!hasRelativePaths) {
+      const result = await use(entry);
+      if (prepared !== owner) throw new Error('Reference assets are unavailable.');
+      return result;
+    }
     const definition = parsePreparedReferenceDefinition(
       JSON.parse(await readFile(join(root, PREPARED_REFERENCE_DEFINITION_FILE), 'utf8')) as unknown,
       entry.assetCacheKey
@@ -146,7 +150,7 @@ export async function withLocalTrackViewReference<T>(
       isAbsolute(path) ? path : joinProjectPath(root!, path)
     );
     const byChrom = new Map(assembly.chromosomes.map((member) => [member.chrom, member.manifest]));
-    return await use({
+    const result = await use({
       ...entry,
       members: sourceEntry.members.map((member) => {
         const manifest = byChrom.get(member.chrom)!;
@@ -161,6 +165,8 @@ export async function withLocalTrackViewReference<T>(
         };
       }),
     });
+    if (prepared !== owner) throw new Error('Reference assets are unavailable.');
+    return result;
   } finally {
     release();
   }

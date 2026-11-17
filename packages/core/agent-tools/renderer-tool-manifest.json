@@ -23866,7 +23866,10 @@
               "style": {
                 "type": "object",
                 "properties": {
-                  "geometry": { "type": "string", "enum": ["bars", "band", "points", "arcs"] },
+                  "geometry": {
+                    "type": "string",
+                    "enum": ["bars", "band", "points", "arcs", "matrix"]
+                  },
                   "colorScale": {
                     "type": "object",
                     "properties": {

@@ -51,7 +51,7 @@ const scaleSchema = z
   });
 const styleSchema = z
   .object({
-    geometry: z.enum(['bars', 'band', 'points', 'arcs']),
+    geometry: z.enum(['bars', 'band', 'points', 'arcs', 'matrix']),
     colorScale: scaleSchema,
   })
   .strict();

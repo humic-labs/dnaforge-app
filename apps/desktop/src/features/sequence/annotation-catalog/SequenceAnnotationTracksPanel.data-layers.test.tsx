@@ -12,7 +12,7 @@ beforeEach(() => {
   useCanvasStore.getState().reset();
 });
 
-function renderTracks(mapCircular = false) {
+function renderTracks(mapCircular = false, geometry: 'bars' | 'matrix' = 'bars') {
   const ownerTabId = useCanvasStore.getState().openTab('main', {
     type: 'sequence',
     entityId: 'ordinary-without-catalog',
@@ -39,7 +39,7 @@ function renderTracks(mapCircular = false) {
           signalVisible: true,
           annotationColors: true,
           style: {
-            geometry: 'bars',
+            geometry,
             colorScale: {
               kind: 'continuous',
               domain: [-2, 4],
@@ -124,5 +124,34 @@ describe('saved layers in the existing Tracks popover', () => {
       },
     });
     expect(dataLayers.rows[0].presentation.style.geometry).toBe('bars');
+  });
+
+  it('shows every source sample in matrix mode and restores the remembered sample on a geometry change', () => {
+    const dataLayers = renderTracks(false, 'matrix');
+    fireEvent.click(screen.getByRole('button', { name: 'Tracks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings for Fitness' }));
+    expect(screen.queryByLabelText('Sample for Fitness')).toBeNull();
+    expect(screen.getByText('All 2 source samples')).toBeVisible();
+    expect(screen.getByLabelText('Drawing style for Fitness')).toHaveValue('matrix');
+    fireEvent.change(screen.getByLabelText('Drawing style for Fitness'), { target: { value: 'bars' } });
+    expect(dataLayers.onPresentationChange).toHaveBeenLastCalledWith(layerId, {
+      ...dataLayers.rows[0].presentation,
+      sampleId: 'first',
+      style: { ...dataLayers.rows[0].presentation.style, geometry: 'bars' },
+    });
+  });
+
+  it('hides matrix annotation recoloring without clearing the retained preference', () => {
+    const dataLayers = renderTracks(false, 'matrix');
+    fireEvent.click(screen.getByRole('button', { name: 'Tracks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings for Fitness' }));
+    expect(screen.queryByLabelText('Color annotations from Fitness')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Drawing style for Fitness'), { target: { value: 'bars' } });
+    expect(dataLayers.onPresentationChange).toHaveBeenLastCalledWith(layerId, {
+      ...dataLayers.rows[0].presentation,
+      sampleId: 'first',
+      annotationColors: true,
+      style: { ...dataLayers.rows[0].presentation.style, geometry: 'bars' },
+    });
   });
 });

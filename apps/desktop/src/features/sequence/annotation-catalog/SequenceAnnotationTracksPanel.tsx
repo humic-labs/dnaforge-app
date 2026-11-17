@@ -315,13 +315,22 @@ function DataLayerTrackRow({
           id={`sequence-data-layer-settings-${row.id}`}
           className="grid grid-cols-[72px_1fr] items-center gap-x-2 gap-y-2 text-[11px] text-fg-muted"
         >
-          <span>Sample</span>
-          <CompactFilterSelect
-            value={presentation.sampleId}
-            ariaLabel={`Sample for ${row.label}`}
-            options={row.samples.map((sample) => ({ value: sample.id, label: sample.label }))}
-            onChange={(sampleId) => setPresentation({ ...presentation, sampleId })}
-          />
+          {presentation.style.geometry === 'matrix' ? (
+            <>
+              <span>Samples</span>
+              <span>All {row.samples.length} source samples</span>
+            </>
+          ) : (
+            <>
+              <span>Sample</span>
+              <CompactFilterSelect
+                value={presentation.sampleId}
+                ariaLabel={`Sample for ${row.label}`}
+                options={row.samples.map((sample) => ({ value: sample.id, label: sample.label }))}
+                onChange={(sampleId) => setPresentation({ ...presentation, sampleId })}
+              />
+            </>
+          )}
           <span>Drawn as</span>
           <CompactFilterSelect
             value={presentation.style.geometry}
@@ -331,13 +340,15 @@ function DataLayerTrackRow({
               { value: 'band', label: 'Color band' },
               { value: 'points', label: 'Points' },
               { value: 'arcs', label: 'Arcs' },
+              { value: 'matrix', label: 'Matrix' },
             ]}
             onChange={(geometry) => {
               if (
                 geometry === 'bars' ||
                 geometry === 'band' ||
                 geometry === 'points' ||
-                geometry === 'arcs'
+                geometry === 'arcs' ||
+                geometry === 'matrix'
               )
                 setPresentation({ ...presentation, style: { ...presentation.style, geometry } });
             }}
@@ -367,7 +378,8 @@ function DataLayerTrackRow({
                 });
             }}
           />
-          {controls.annotationColorsSupported !== false &&
+          {presentation.style.geometry !== 'matrix' &&
+          controls.annotationColorsSupported !== false &&
           row.annotationColorsSupported !== false ? (
             <label className="col-span-2 flex items-center gap-2">
               <input

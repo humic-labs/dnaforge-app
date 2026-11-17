@@ -359,7 +359,7 @@ export function useSavedSequenceDataLayers({
                       zone: 'below-legacy' as const,
                       sizing: {
                         kind: 'fixed' as const,
-                        pixels: resolved.style.geometry === 'band' ? 110 : 190,
+                        pixels: renderer.getTrackHeight(resolved),
                       },
                     },
                     renderer,
@@ -375,7 +375,7 @@ export function useSavedSequenceDataLayers({
     let colors: Map<string, string> | undefined;
     let missingColor: string | undefined;
     for (const { presentation, resolved } of resolvedLayers) {
-      if (!presentation.annotationColors) continue;
+      if (!presentation.annotationColors || presentation.style.geometry === 'matrix') continue;
       colors ??= new Map();
       for (const [id, color] of resolved.annotationColors) colors.set(id, color);
       missingColor = presentation.style.colorScale.missingColor;

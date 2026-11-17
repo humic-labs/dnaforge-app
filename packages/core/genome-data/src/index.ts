@@ -480,6 +480,7 @@ export type {
   GenomicMarkupSourceWindow,
   GenomicMarkupStyle,
   ResolvedGenomicMarkupObservation,
+  ResolvedGenomicMarkupSample,
   ResolvedGenomicMarkup,
 } from './genomic-markup';
 export * from './genomic-layer-operation';

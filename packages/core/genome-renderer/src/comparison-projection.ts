@@ -17,6 +17,11 @@ export interface ComparisonAnnotation {
   readonly strand?: '+' | '-';
 }
 
+export interface ComparisonSequenceWindow {
+  readonly start: number;
+  readonly sequence: string;
+}
+
 export interface ComparisonProjection {
   readonly kind: 'aligned-comparison';
   readonly id: string;
@@ -26,6 +31,8 @@ export interface ComparisonProjection {
   readonly queryLabel?: string;
   readonly targetSequence?: string;
   readonly querySequence?: string;
+  readonly targetSequenceWindows?: readonly ComparisonSequenceWindow[];
+  readonly querySequenceWindows?: readonly ComparisonSequenceWindow[];
   readonly annotations?: Readonly<{
     target?: readonly ComparisonAnnotation[];
     query?: readonly ComparisonAnnotation[];
@@ -82,6 +89,20 @@ export function createComparisonProjection(
     const sequence = side === 'target' ? input.targetSequence : input.querySequence;
     if (sequence !== undefined && sequence.length !== reference.length)
       throw new Error('Comparison sequence bases do not match their exact reference length.');
+    const windows = side === 'target' ? input.targetSequenceWindows : input.querySequenceWindows;
+    let windowEnd = 0;
+    for (const window of [...(windows ?? [])].sort((a, b) => a.start - b.start)) {
+      if (
+        !Number.isSafeInteger(window.start) ||
+        window.start < 0 ||
+        window.start > reference.length - window.sequence.length
+      )
+        throw new Error('Comparison sequence windows exceed their exact reference length.');
+      if (window.sequence.length === 0) continue;
+      if (window.start < windowEnd)
+        throw new Error('Comparison sequence windows must not overlap.');
+      windowEnd = window.start + window.sequence.length;
+    }
     const ids = new Set<string>();
     for (const annotation of input.annotations?.[side] ?? []) {
       if (

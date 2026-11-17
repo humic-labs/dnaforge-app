@@ -71,3 +71,45 @@ upstream attribution. Presentation suggestions and plot-axis labels are omitted.
 processed snapshot hash. The source files' original URLs, citations and hashes
 remain in `sources`; this directory does not assert a new license for those
 upstream data.
+
+## Gene-property transfers
+
+The `gene-properties` folders retain the original source identifiers and measured
+values, alongside a row-by-row crosswalk to exact MG1655 GFF gene identifiers.
+They transfer properties between named genes; they do not assert that source
+strains have MG1655 coordinates or physiology. The native mapping excludes every
+unresolved source row and retains its reason in the metadata.
+
+Goodall insertion indices describe gene-level summaries, with 4,040 uniquely
+mapped rows and 273 excluded rows. Of those exclusions, 53 have repeated source
+names that cannot identify individual copies. Nichols mutant growth scores map
+48 ECK identifiers through exact source annotation aliases, preserving 21
+conditions and nine missing scores. Schmidt protein abundance retains 22
+conditions for 48 proteins, using exact protein-to-parent-gene identities and one
+explicitly documented gene-name fallback. The Touchon table is enriched for
+pseudogenes; only 17 of its 81 source genes map uniquely, with states retained
+for all 21 named strains. It is not a whole-genome conservation survey.
+
+## Exact historical reference
+
+The indexed RNA and chromosome-topology examples use NC_000913.2, with its
+4,639,675 bases and annotation source retained separately under
+`native-references/NC_000913.2`. No coordinates are borrowed from NC_000913.3.
+
+Ribosome profiles retain 400 bins for two conditions. A nonempty bin's density
+is its reported weighted-read contribution divided by genomic width. Empty bins
+are missing, including 195 values represented as zeros in the original derived
+snapshot. The original values remain in audit columns. The one-based origin is
+derived from the publisher's WIG format declaration; the headerless files do not
+provide direct sequence anchors.
+
+The transcription-start example separates 300 strand-coverage bins from 134
+published TSS assignments. All 134 supplied sequence anchors match the exact
+reference and declared strand. Coverage means use only reported positions;
+blank bins remain missing. TSS point heights are the published expression step
+heights, with their own units.
+
+Psoralen data retains 464 intervals for two conditions, containing all 928
+source means. Every source probe matches the exact reference. The final interval
+ends at the actual reference length; its original bin bound and probe count are
+retained. These values describe crosslinked/non-crosslinked signal ratios.

@@ -3,6 +3,7 @@ import { comparisonSourcesContract } from '../../shared/ipc/comparison-sources.c
 import { resolveExplicitProjectRoot } from '../../shared/project-root-selection';
 import { ComparisonSourceCommands } from '../comparison-source-commands';
 import { nativeDocuments } from '../features/native-documents';
+import { withLocalTrackViewReference } from '../features/reference-assets';
 import { getDb } from './database';
 import { resolveCanonicalPath } from './path-allowlist';
 
@@ -24,6 +25,10 @@ export function registerComparisonSourceIpcHandlers(): void {
       return resolveCanonicalPath(selected.path);
     },
     captureReadable: (root) => nativeDocuments.workspaces.captureReadable(root),
+    references: { withReference: withLocalTrackViewReference },
   });
-  handleGroup(comparisonSourcesContract, { read: (_event, request) => commands.read(request) });
+  handleGroup(comparisonSourcesContract, {
+    read: (_event, request) => commands.read(request),
+    readWindow: (_event, request) => commands.readWindow(request),
+  });
 }

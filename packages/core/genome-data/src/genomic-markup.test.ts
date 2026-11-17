@@ -77,6 +77,48 @@ describe('shared genomic markup binding', () => {
     );
   });
 
+  it('resolves every matrix row in source order while retaining the single-sample binding', () => {
+    const result = resolveGenomicMarkup({
+      dataset,
+      sampleId: 'stress',
+      window,
+      style: { ...style, geometry: 'matrix' },
+    });
+    expect(result.sampleId).toBe('stress');
+    expect(result.records).toBe(result.sampleRows[1].records);
+    expect(result.sampleRows.map(({ sampleId, label }) => ({ sampleId, label }))).toEqual([
+      { sampleId: 'control', label: 'Control' },
+      { sampleId: 'stress', label: 'Stress' },
+    ]);
+    expect(result.sampleRows[0].records).toMatchObject([
+      { id: 'guide-1', start: 0, end: 20, sourceStart: 1_069_990, sourceEnd: 1_070_020, value: 0, color: '#000000' },
+      { id: 'guide-2', value: null, color: '#94a3b8' },
+    ]);
+    expect(result.sampleRows[1].records[0]).toMatchObject({ value: 10, color: '#ffffff' });
+    expect(result.annotationValues.get('b1007')).toBe(10);
+    expect(result.unit).toBe(dataset.unit);
+    expect(resolveGenomicMarkup({ dataset, sampleId: result.sampleId, window, style }).records)
+      .toEqual(result.records);
+  });
+
+  it('validates all displayed matrix samples without treating shared observation IDs as duplicates', () => {
+    const matrixStyle = { ...style, geometry: 'matrix' as const };
+    expect(() => resolveGenomicMarkup({ dataset, sampleId: 'stress', window, style: matrixStyle }))
+      .not.toThrow();
+    const invalid = {
+      ...dataset,
+      samples: [dataset.samples[0], { ...dataset.samples[1], observations: [{ ...observations[0], value: Number.NaN }] }],
+    };
+    expect(() => resolveGenomicMarkup({ dataset: invalid, sampleId: 'control', window, style: matrixStyle }))
+      .toThrow('finite numbers or null');
+    const tooMany = {
+      ...dataset,
+      samples: Array.from({ length: 33 }, (_, index) => ({ ...dataset.samples[0], id: `sample-${index}` })),
+    };
+    expect(() => resolveGenomicMarkup({ dataset: tooMany, sampleId: 'sample-0', window, style: matrixStyle }))
+      .toThrow('at most 32');
+  });
+
   it.each([
     { ...reference, id: 'U00096.2' },
     { ...reference, chrom: 'different-contig' },

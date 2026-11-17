@@ -185,17 +185,41 @@ export class ComparisonProjectionPainter {
       }
     }
     if (pixelsPerColumn >= 10) {
+      const sequenceWindows = {
+        target: projection.targetSequenceWindows
+          ?.filter((window) => window.sequence.length > 0)
+          .sort((a, b) => a.start - b.start),
+        query: projection.querySequenceWindows
+          ?.filter((window) => window.sequence.length > 0)
+          .sort((a, b) => a.start - b.start),
+      };
+      const baseAt = (side: GenomeComparisonSide, position: number): string | null => {
+        const windows = sequenceWindows[side];
+        if (!windows) {
+          const sequence = side === 'target' ? projection.targetSequence : projection.querySequence;
+          return sequence?.[position] ?? null;
+        }
+        let low = 0,
+          high = windows.length - 1;
+        while (low <= high) {
+          const mid = (low + high) >>> 1;
+          const window = windows[mid];
+          if (position < window.start) high = mid - 1;
+          else if (position >= window.start + window.sequence.length) low = mid + 1;
+          else return window.sequence[position - window.start];
+        }
+        return null;
+      };
       for (let column = Math.ceil(camera.startColumn); column < camera.endColumn; column += 1) {
         const loci = comparisonColumnLoci(projection, column);
         if (!loci) continue;
         for (const side of ['target', 'query'] as const) {
           const locus = loci[side];
-          const sequence = side === 'target' ? projection.targetSequence : projection.querySequence;
           let base =
             locus.kind === 'gap'
               ? '-'
-              : locus.kind === 'base' && sequence
-                ? sequence[locus.position]
+              : locus.kind === 'base'
+                ? baseAt(side, locus.position)
                 : null;
           if (base && locus.kind === 'base' && side === 'query' && loci.strand === '-')
             base = complementBase(base);

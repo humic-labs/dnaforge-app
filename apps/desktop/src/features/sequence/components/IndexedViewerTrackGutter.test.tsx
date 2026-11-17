@@ -545,6 +545,37 @@ describe('IndexedViewerTrackGutter', () => {
     });
   });
 
+  it('shows all matrix samples in the existing gear without exposing a misleading single-sample filter', () => {
+    const controls = savedLayerControls();
+    controls.rows[0].presentation.style.geometry = 'matrix';
+    renderSavedLayers(controls);
+    fireEvent.click(screen.getByLabelText('Open settings for Expression'));
+    expect(screen.queryByLabelText('Sample for Expression')).toBeNull();
+    expect(screen.getByText('All 2 source samples')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Matrix for Expression' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Bars for Expression' }));
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith('expression', {
+      ...controls.rows[0].presentation,
+      sampleId: 'glucose',
+      style: { ...controls.rows[0].presentation.style, geometry: 'bars' },
+    });
+  });
+
+  it('hides matrix annotation recoloring without clearing the retained preference', () => {
+    const controls = savedLayerControls();
+    controls.rows[0].presentation.style.geometry = 'matrix';
+    renderSavedLayers(controls);
+    fireEvent.click(screen.getByLabelText('Open settings for Expression'));
+    expect(screen.queryByLabelText('Color annotations from Expression')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Bars for Expression' }));
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith('expression', {
+      ...controls.rows[0].presentation,
+      sampleId: 'glucose',
+      annotationColors: true,
+      style: { ...controls.rows[0].presentation.style, geometry: 'bars' },
+    });
+  });
+
   it('hides unsupported annotation recoloring while keeping native signal controls available', () => {
     const controls = { ...savedLayerControls(), annotationColorsSupported: false };
     renderSavedLayers(controls);

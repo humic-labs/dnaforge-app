@@ -35,7 +35,7 @@ export interface GenomicMarkupSourceWindow {
 }
 
 export interface GenomicMarkupStyle {
-  readonly geometry: 'bars' | 'band' | 'points' | 'arcs';
+  readonly geometry: 'bars' | 'band' | 'points' | 'arcs' | 'matrix';
   readonly colorScale: DataColorScale;
 }
 
@@ -43,6 +43,12 @@ export interface ResolvedGenomicMarkupObservation extends GenomicMarkupObservati
   readonly sourceStart: number;
   readonly sourceEnd: number;
   readonly color: string;
+}
+
+export interface ResolvedGenomicMarkupSample {
+  readonly sampleId: string;
+  readonly label: string;
+  readonly records: readonly ResolvedGenomicMarkupObservation[];
 }
 
 export interface ResolvedGenomicMarkup {
@@ -53,6 +59,7 @@ export interface ResolvedGenomicMarkup {
   readonly unit: string;
   readonly style: GenomicMarkupStyle;
   readonly records: readonly ResolvedGenomicMarkupObservation[];
+  readonly sampleRows: readonly ResolvedGenomicMarkupSample[];
   readonly annotationAggregation: 'none' | 'mean';
   readonly annotationValues: ReadonlyMap<string, number | null>;
   readonly annotationColors: ReadonlyMap<string, string>;
@@ -82,8 +89,11 @@ export function resolveGenomicMarkup({
     throw new Error('Genomic markup source and viewer must use the same reference.');
   }
   requireInterval(window.start, window.end, window.reference.length);
-  if (!['bars', 'band', 'points', 'arcs'].includes(style.geometry)) {
+  if (!['bars', 'band', 'points', 'arcs', 'matrix'].includes(style.geometry)) {
     throw new Error('Unsupported genomic markup geometry.');
+  }
+  if (style.geometry === 'matrix' && dataset.samples.length > 32) {
+    throw new Error('Genomic markup matrices support at most 32 source samples.');
   }
   if (annotationAggregation !== undefined && annotationAggregation !== 'mean') {
     throw new Error('Unsupported genomic markup annotation aggregation.');
@@ -96,33 +106,43 @@ export function resolveGenomicMarkup({
   }
   const sample = dataset.samples.find((candidate) => candidate.id === sampleId);
   if (!sample) throw new Error(`Unknown genomic markup sample: ${sampleId}.`);
-  const observationIds = new Set<string>();
-  const records: ResolvedGenomicMarkupObservation[] = [];
+  const sampleRows: ResolvedGenomicMarkupSample[] = [];
   const annotationRows: Array<{ annotationId: string; value: number | null }> = [];
-  for (const observation of sample.observations) {
-    requireIdentifier(observation.id, 'Observation');
-    if (observationIds.has(observation.id)) {
-      throw new Error('Genomic markup observation IDs must be unique within a sample.');
+  for (const sourceSample of style.geometry === 'matrix' ? dataset.samples : [sample]) {
+    const observationIds = new Set<string>();
+    const records: ResolvedGenomicMarkupObservation[] = [];
+    for (const observation of sourceSample.observations) {
+      requireIdentifier(observation.id, 'Observation');
+      if (observationIds.has(observation.id)) {
+        throw new Error('Genomic markup observation IDs must be unique within a sample.');
+      }
+      observationIds.add(observation.id);
+      requireInterval(observation.start, observation.end, dataset.reference.length);
+      if (observation.value !== null && !Number.isFinite(observation.value)) {
+        throw new Error('Genomic markup values must be finite numbers or null.');
+      }
+      if (observation.annotationId !== undefined) {
+        requireIdentifier(observation.annotationId, 'Annotation');
+        if (sourceSample.id === sampleId) {
+          annotationRows.push({ annotationId: observation.annotationId, value: observation.value });
+        }
+      }
+      if (observation.end <= window.start || observation.start >= window.end) continue;
+      const color = dataColor(observation.value, style.colorScale);
+      requireColor(color);
+      records.push({
+        ...observation,
+        sourceStart: observation.start,
+        sourceEnd: observation.end,
+        start: Math.max(observation.start, window.start) - window.start,
+        end: Math.min(observation.end, window.end) - window.start,
+        color,
+      });
     }
-    observationIds.add(observation.id);
-    requireInterval(observation.start, observation.end, dataset.reference.length);
-    if (observation.value !== null && !Number.isFinite(observation.value)) {
-      throw new Error('Genomic markup values must be finite numbers or null.');
-    }
-    if (observation.annotationId !== undefined) {
-      requireIdentifier(observation.annotationId, 'Annotation');
-      annotationRows.push({ annotationId: observation.annotationId, value: observation.value });
-    }
-    if (observation.end <= window.start || observation.start >= window.end) continue;
-    const color = dataColor(observation.value, style.colorScale);
-    requireColor(color);
-    records.push({
-      ...observation,
-      sourceStart: observation.start,
-      sourceEnd: observation.end,
-      start: Math.max(observation.start, window.start) - window.start,
-      end: Math.min(observation.end, window.end) - window.start,
-      color,
+    sampleRows.push({
+      sampleId: sourceSample.id,
+      label: sourceSample.label,
+      records,
     });
   }
   const colorRows =
@@ -142,7 +162,8 @@ export function resolveGenomicMarkup({
     window: { start: window.start, end: window.end },
     unit: dataset.unit,
     style,
-    records,
+    records: sampleRows.find((row) => row.sampleId === sampleId)!.records,
+    sampleRows,
     annotationAggregation: annotationAggregation ?? 'none',
     annotationValues: new Map(colorRows.map(({ annotationId, value }) => [annotationId, value])),
     annotationColors,

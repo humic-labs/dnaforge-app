@@ -1658,7 +1658,13 @@ function SignalGeometryControl<
         className="flex overflow-hidden rounded-md border border-border"
       >
         {geometries.map((value) => {
-          const name = { bars: 'Bars', band: 'Heatmap', points: 'Points', arcs: 'Arcs' }[value];
+          const name = {
+            bars: 'Bars',
+            band: 'Heatmap',
+            points: 'Points',
+            arcs: 'Arcs',
+            matrix: 'Matrix',
+          }[value];
           return (
             <button
               key={value}
@@ -1677,6 +1683,12 @@ function SignalGeometryControl<
                     <path opacity=".3" d="M1 3h5v10H1z" />
                     <path opacity=".6" d="M7 3h5v10H7z" />
                     <path d="M13 3h6v10h-6z" />
+                  </>
+                ) : value === 'matrix' ? (
+                  <>
+                    <path opacity=".3" d="M1 1h5v4H1zm6 5h5v4H7zm6 5h6v4h-6z" />
+                    <path opacity=".6" d="M7 1h5v4H7zm6 5h6v4h-6zM1 11h5v4H1z" />
+                    <path d="M13 1h6v4h-6zM1 6h5v4H1zm6 5h5v4H7z" />
                   </>
                 ) : value === 'arcs' ? (
                   <path
@@ -1753,17 +1765,24 @@ function DataLayerTrackSettings({
     controls.onPresentationChange(row.id, next);
   return (
     <div className="flex min-w-0 flex-col gap-2.5 text-[10px] text-fg-muted">
-      <SelectSetting
-        label="Sample"
-        value={presentation.sampleId}
-        ariaLabel={`Sample for ${row.label}`}
-        testId={`data-layer-sample-${row.id}`}
-        options={row.samples.map((sample) => ({ value: sample.id, label: sample.label }))}
-        onChange={(sampleId) => update({ ...presentation, sampleId })}
-      />
+      {presentation.style.geometry === 'matrix' ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-medium">Samples</span>
+          <span>All {row.samples.length} source samples</span>
+        </div>
+      ) : (
+        <SelectSetting
+          label="Sample"
+          value={presentation.sampleId}
+          ariaLabel={`Sample for ${row.label}`}
+          testId={`data-layer-sample-${row.id}`}
+          options={row.samples.map((sample) => ({ value: sample.id, label: sample.label }))}
+          onChange={(sampleId) => update({ ...presentation, sampleId })}
+        />
+      )}
       <SignalGeometryControl
         label={row.label}
-        geometries={['bars', 'band', 'points', 'arcs']}
+        geometries={['bars', 'band', 'points', 'arcs', 'matrix']}
         geometry={presentation.style.geometry}
         onChange={(geometry) =>
           update({ ...presentation, style: { ...presentation.style, geometry } })
@@ -1785,7 +1804,9 @@ function DataLayerTrackSettings({
           })
         }
       />
-      {controls.annotationColorsSupported !== false && row.annotationColorsSupported !== false ? (
+      {presentation.style.geometry !== 'matrix' &&
+      controls.annotationColorsSupported !== false &&
+      row.annotationColorsSupported !== false ? (
         <label className="flex items-center gap-2">
           <input
             type="checkbox"

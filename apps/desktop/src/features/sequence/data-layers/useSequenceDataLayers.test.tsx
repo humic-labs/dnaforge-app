@@ -22,6 +22,9 @@ vi.mock('../../../platform', () => ({ platform: () => ({ sequenceDataLayers: { r
 vi.mock('@waypoint/genome-renderer', () => ({
   PixiGenomicSignalTrackRenderer: class {
     type = 'quantitative';
+    getTrackHeight() {
+      return 777;
+    }
   },
 }));
 
@@ -305,6 +308,31 @@ describe('ordinary sequence data layers', () => {
     expect(native.mock.calls.every(([request]) => request.operation === 'list')).toBe(true);
   });
 
+  it('uses matrix rows and renderer-owned height while retaining the sample for a later geometry switch', async () => {
+    const originalSample = layer.document.dataset.samples[0];
+    layer = {
+      ...layer,
+      document: {
+        ...layer.document,
+        dataset: { ...layer.document.dataset, samples: [originalSample, { ...originalSample, id: 'second', label: 'Second condition' }] },
+      },
+    };
+    const presentation = {
+      ...layer.document.presentation,
+      sampleId: 'second',
+      style: { ...layer.document.presentation.style, geometry: 'matrix' as const },
+    };
+    const selection = { project: '/project', layerId: ID, presentationByLayerId: { [ID]: presentation } };
+    const { result, rerender } = renderHook((props) => useSequenceDataLayers(props), { initialProps: { ...options(), selection } });
+    await waitFor(() => expect(result.current.tracks).toHaveLength(1));
+    expect(result.current.tracks[0].track.sizing).toEqual({ kind: 'fixed', pixels: 777 });
+    expect(result.current.tracks[0].data).toMatchObject({ sampleId: 'second', sampleRows: [{ sampleId: originalSample.id }, { sampleId: 'second' }] });
+    const singlePresentation = { ...presentation, style: { ...presentation.style, geometry: 'bars' as const } };
+    rerender({ ...options(), selection: { ...selection, presentationByLayerId: { [ID]: singlePresentation } } });
+    expect(result.current.tracks[0].data).toMatchObject({ sampleId: 'second', style: { geometry: 'bars' }, sampleRows: [{ sampleId: 'second' }] });
+    expect(layer.document.presentation.style.geometry).toBe('bars');
+  });
+
   it('falls back to saved presentation when retained view state refers to an absent sample', async () => {
     const retained = {
       ...layer.document.presentation,
@@ -325,6 +353,64 @@ describe('ordinary sequence data layers', () => {
     expect(result.current.tracks[0].data).toMatchObject({
       sampleId: layer.document.presentation.sampleId,
     });
+  });
+
+  it.each([true, false])('suspends matrix annotation colors and restores the retained sample preference (signals supported: %s)', async (signalsSupported) => {
+    const originalSample = layer.document.dataset.samples[0];
+    layer = {
+      ...layer,
+      document: {
+        ...layer.document,
+        dataset: {
+          ...layer.document.dataset,
+          samples: [
+            originalSample,
+            {
+              ...originalSample,
+              id: 'second',
+              label: 'Second condition',
+              observations: originalSample.observations.map((record) => ({ ...record, value: 6 })),
+            },
+          ],
+        },
+      },
+    };
+    const onSelectionChange = vi.fn();
+    const presentation = {
+      ...layer.document.presentation,
+      sampleId: 'second',
+      style: { ...layer.document.presentation.style, geometry: 'matrix' as const },
+    };
+    const initialProps: Parameters<typeof useSequenceDataLayers>[0] = {
+      ...options(),
+      signalsSupported,
+      onSelectionChange,
+      selection: {
+        project: '/project',
+        layerId: ID,
+        presentationByLayerId: { [ID]: presentation },
+      },
+    };
+    const { result, rerender } = renderHook((props) => useSequenceDataLayers(props), { initialProps });
+    await waitFor(() => expect(result.current.trackControls.rows).toHaveLength(1));
+    expect(result.current.annotationColorsByIdentity).toBeUndefined();
+    expect(result.current.missingColor).toBeUndefined();
+    expect(result.current.trackControls.rows[0].presentation).toEqual(presentation);
+    expect(onSelectionChange).not.toHaveBeenCalled();
+    act(() => result.current.trackControls.onPresentationChange(ID, {
+      ...presentation,
+      style: { ...presentation.style, geometry: 'bars' },
+    }));
+    const selection = onSelectionChange.mock.calls[0][0];
+    expect(selection.presentationByLayerId[ID]).toMatchObject({
+      sampleId: 'second',
+      annotationColors: true,
+    });
+    rerender({ ...initialProps, selection });
+    expect(result.current.annotationColorsByIdentity?.get('locusA')).toBe('#ffffff');
+    expect(result.current.missingColor).toBe('#cccccc');
+    expect(layer.document.presentation.style.geometry).toBe('bars');
+    expect(native.mock.calls.every(([request]) => request.operation === 'list')).toBe(true);
   });
 
   it('composes independently visible saved layers, retains hidden styles and uses last visible annotation colors', async () => {

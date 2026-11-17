@@ -296,6 +296,7 @@ const hostedImplemented: Partial<PlatformBridge> = {
   referenceAssets: hostedReferenceAssets,
   comparisonSources: {
     read: async () => unavailable('platform.comparisonSources.read'),
+    readWindow: async () => unavailable('platform.comparisonSources.readWindow'),
   },
   contactSources: {
     read: async () => unavailable('platform.contactSources.read'),

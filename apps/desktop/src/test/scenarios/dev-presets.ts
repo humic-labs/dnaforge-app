@@ -1286,6 +1286,65 @@ export const DEV_SCENARIO_PRESET_GROUPS: readonly DevScenarioPresetGroup[] = [
         nativeDataLayerExample: 'shape-rpsT_5',
         noAutoReplay: true,
       },
+      ...(
+        [
+          [
+            '01-tradis',
+            'Transposon · gene insertion indices',
+            'BW25113 gene-level insertion indices transferred by exact gene identity to MG1655 annotations. Unmatched and repeated source genes remain excluded. These are gene summaries.',
+          ],
+          [
+            '02-chemical-genetics',
+            'Mutant fitness · condition matrix',
+            'Published growth scores across 21 conditions, mapped by exact ECK aliases to MG1655 genes. Missing scores remain missing.',
+          ],
+          [
+            '06-proteome',
+            'Proteome · condition matrix',
+            'BW25113 protein abundance across 22 conditions, transferred by verified protein-to-gene identities onto MG1655 annotations.',
+          ],
+          [
+            '17-conservation',
+            'Gene states · matched subset',
+            'Published states across 21 strains for the uniquely matched subset of a pseudogene-enriched source table. Foreign-reference coordinates are excluded.',
+          ],
+        ] as const
+      ).map(([id, label, description]) => ({
+        id: `native-${id}`,
+        label,
+        description,
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes',
+        nativeDataLayerExample: id,
+        noAutoReplay: true,
+      })),
+      ...(
+        [
+          [
+            '05-ribosome-profiling',
+            'Ribosome profiling · exact source genome',
+            'Two conditions on NC_000913.2. Empty source bins remain missing; density is the reported read contribution divided by bin width.',
+          ],
+          [
+            '08-tss-coverage',
+            'RNA starts · coverage and TSS points',
+            'Strand coverage and published expression step heights on exact NC_000913.2, with independently verified TSS sequence anchors.',
+          ],
+          [
+            '14-supercoiling',
+            'Chromosome topology · condition matrix',
+            'Stationary and exponential psoralen crosslinking signals on NC_000913.2. Values describe published signal ratios.',
+          ],
+        ] as const
+      ).map(([id, label, description]) => ({
+        id: `native-${id}`,
+        label,
+        description,
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes/native-references/NC_000913.2',
+        nativeDataLayerExample: id,
+        noAutoReplay: true,
+      })),
       {
         id: 'indexed-mg1655-reference',
         label: 'Indexed MG1655 reference',

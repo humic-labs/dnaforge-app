@@ -26,6 +26,7 @@ vi.mock('../features/native-documents', () => ({
 }));
 vi.mock('./database', () => ({ getDb: () => ({ prepare: () => ({ all: () => mocks.rows }) }) }));
 vi.mock('./path-allowlist', () => ({ resolveCanonicalPath: (path: string) => realpath(path) }));
+vi.mock('../features/reference-assets', () => ({ withLocalTrackViewReference: vi.fn() }));
 
 import { registerComparisonSourceIpcHandlers } from './comparison-sources';
 

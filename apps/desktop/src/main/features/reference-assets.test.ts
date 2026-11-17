@@ -247,6 +247,19 @@ describe('local reference use for data layer targets', () => {
     expect(mocks.releaseGeneration).toHaveBeenCalledOnce();
   });
 
+  it('rejects an absolute-source callback result after the prepared owner is replaced', async () => {
+    await referenceAssetsFeature.prepare?.({ getMainWindow: () => null });
+    mocks.listLocal.mockResolvedValue([entry]);
+    await expect(
+      withLocalTrackViewReference(entry.id, async () => {
+        referenceAssetsFeature.willQuit?.();
+        await referenceAssetsFeature.prepare?.({ getMainWindow: () => null });
+        return 'stale source result';
+      })
+    ).rejects.toThrow('Reference assets are unavailable');
+    expect(mocks.releaseGeneration).toHaveBeenCalledOnce();
+  });
+
   it.each([{ entries: [] }, { entries: [entry, entry] }])(
     'refuses missing or ambiguous local entries without starting an install',
     async ({ entries }) => {
@@ -396,6 +409,20 @@ describe('published relative reference source paths', () => {
     );
     expect(use).not.toHaveBeenCalled();
     expect(mocks.installHosted).not.toHaveBeenCalled();
+  });
+
+  it('rejects a relative-source callback result after the prepared owner is replaced', async () => {
+    const fixture = await publishedFixture();
+    await referenceAssetsFeature.prepare?.({ getMainWindow: () => null });
+    mocks.listLocal.mockResolvedValue([fixture.entry]);
+    await expect(
+      withLocalTrackViewReference(fixture.entry.id, async () => {
+        referenceAssetsFeature.willQuit?.();
+        await referenceAssetsFeature.prepare?.({ getMainWindow: () => null });
+        return 'stale source result';
+      })
+    ).rejects.toThrow('Reference assets are unavailable');
+    expect(mocks.releaseGeneration).toHaveBeenCalledOnce();
   });
 
   it('projects an owned portable generation when no current publication is available', async () => {

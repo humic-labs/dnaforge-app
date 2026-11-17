@@ -120,6 +120,16 @@ describe('saved sequence data layer format', () => {
     expect(restored.source).toEqual(document.source);
   });
 
+  it('persists matrix geometry and its remembered single sample without changing source measurements', () => {
+    const document = fixture();
+    document.presentation.style.geometry = 'matrix';
+    const restored = parseSequenceDataLayerDocument(serializeSequenceDataLayerDocument(document));
+    expect(restored.presentation).toEqual(document.presentation);
+    expect(restored.dataset).toEqual(document.dataset);
+    expect(restored.dataset.samples[0].observations.map(({ value }) => value)).toEqual([0, null]);
+    expect(restored.source).toEqual(document.source);
+  });
+
   it('refuses forged mapping outcomes and modified resolved coordinates', () => {
     const document = fixture();
     const changed = structuredClone(document);

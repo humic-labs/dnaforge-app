@@ -2107,6 +2107,9 @@ export const browserMockBridge: PlatformBridge = {
     read: async () => {
       throw new Error('Comparison sources require the native desktop owner.');
     },
+    readWindow: async () => {
+      throw new Error('Comparison source windows require the native desktop owner.');
+    },
   },
   contactSources: {
     read: async () => {

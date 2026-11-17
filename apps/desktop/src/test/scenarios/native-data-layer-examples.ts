@@ -30,13 +30,20 @@ export type NativeDataLayerExample =
   | 'regseq-arcA'
   | 'regseq-groSL'
   | 'regseq-aphA'
-  | 'shape-rpsT_5';
+  | 'shape-rpsT_5'
+  | '01-tradis'
+  | '02-chemical-genetics'
+  | '06-proteome'
+  | '17-conservation'
+  | '05-ribosome-profiling'
+  | '08-tss-coverage'
+  | '14-supercoiling';
 
 type Dataset = (typeof manifest.datasets)[number];
 type OpenView = { panelId: string; tabId: string; documentId: string };
 const FIXTURE_DIRECTORY = '../../../../../test-fixtures/genome-view-prototypes/native-datasets/';
 const files = import.meta.glob<string>(
-  '../../../../../test-fixtures/genome-view-prototypes/native-datasets/*.{csv,fasta,gb,bed}',
+  '../../../../../test-fixtures/genome-view-prototypes/native-datasets/**/*.{csv,fasta,gb,bed}',
   { query: '?raw', import: 'default', eager: true }
 );
 
@@ -162,9 +169,10 @@ async function addCsvLayer(input: {
   view: OpenView;
   dataset: Dataset;
   label: string;
-  geometry: 'bars' | 'points' | 'arcs';
+  geometry: 'bars' | 'points' | 'arcs' | 'matrix';
   palette: 'balance' | 'cividis';
   domain: [number, number];
+  transform?: 'linear' | 'log10';
   source?: Extract<SequenceDataLayerCreateRequest['csv'], { kind: 'layer' }>;
   valueColumns?: string[];
 }): Promise<Extract<SequenceDataLayerCreateRequest['csv'], { kind: 'layer' }>> {
@@ -180,7 +188,15 @@ async function addCsvLayer(input: {
   const request = sequenceDataLayerCommandSchema.parse({
     operation: 'create',
     project,
-    requestId: `native-${dataset.id}-${valueColumns.join('-')}-v1`,
+    requestId: `native-${dataset.id}-${Array.from(
+      new Uint8Array(
+        await crypto.subtle.digest(
+          'SHA-256',
+          new TextEncoder().encode(JSON.stringify(valueColumns))
+        )
+      ),
+      (byte) => byte.toString(16).padStart(2, '0')
+    ).join('')}-v1`,
     targetDocumentId: view.documentId,
     expectedSequenceFingerprint: target.sequenceFingerprint,
     expectedAnnotationFingerprint: target.annotationFingerprint,
@@ -189,7 +205,7 @@ async function addCsvLayer(input: {
     valueColumns,
     label: input.label,
     unit: dataset.unit,
-    unresolvedPolicy: 'reject',
+    unresolvedPolicy: dataset.unresolvedPolicy ?? 'reject',
     aggregation: 'none',
     presentation: {
       sampleId: valueColumns[0],
@@ -202,7 +218,7 @@ async function addCsvLayer(input: {
           domain: input.domain,
           colors: [...SCIENTIFIC_COLOR_PALETTES[input.palette].colors],
           missingColor: '#cbd5e1',
-          transform: 'linear',
+          transform: input.transform ?? 'linear',
         },
       },
     },
@@ -263,7 +279,7 @@ export async function applyNativeDataLayerExample(
   const dataset = datasetById(id);
   const project = await createTrackedEmptyWorkspace({ name: dataset.reference.id + ' · ' + id });
   await mountProject(project);
-  if (id === 'crispri' || id === 'regulondb') {
+  if (id === 'crispri' || id === 'regulondb' || /^\d{2}-/u.test(id)) {
     if (!indexedTabId) throw new Error('The example requires its indexed reference.');
     const view = indexedView(indexedTabId, dataset);
     const csv = await readFixture(dataset.file);
@@ -284,7 +300,7 @@ export async function applyNativeDataLayerExample(
         numericValues(csv, ['start0']),
         dataset.reference.length
       );
-    } else {
+    } else if (id === 'regulondb') {
       await inspectTarget(project.rootPath, view, dataset);
       const checkout = await platform().path.projectRoot();
       if (!checkout) throw new Error('The binding-site example requires its development checkout.');
@@ -328,6 +344,82 @@ export async function applyNativeDataLayerExample(
           .trim()
           .split('\n')
           .map((row) => Number(row.split('\t')[1])),
+        dataset.reference.length
+      );
+    } else if (dataset.mapping?.kind === 'positions') {
+      if (!dataset.valueColumns) throw new Error('The source has no declared measurement columns.');
+      const values = numericValues(csv, dataset.valueColumns);
+      const maximum = Math.max(...values.map(Math.abs));
+      const label =
+        id === '05-ribosome-profiling'
+          ? 'Ribosome footprint density'
+          : id === '08-tss-coverage'
+            ? 'Strand-specific RNA coverage'
+            : 'Psoralen crosslinking signal';
+      await addCsvLayer({
+        project: project.rootPath,
+        view,
+        dataset,
+        label,
+        geometry: id === '14-supercoiling' ? 'matrix' : 'bars',
+        palette: id === '14-supercoiling' ? 'balance' : 'cividis',
+        domain: id === '14-supercoiling' ? [-maximum, maximum] : [Math.min(0, ...values), maximum],
+      });
+      if (id === '08-tss-coverage') {
+        const points = datasetById('08-tss-tss-step-height');
+        const pointValues = numericValues(await readFixture(points.file), points.valueColumns!);
+        await addCsvLayer({
+          project: project.rootPath,
+          view,
+          dataset: points,
+          label: 'Published TSS step heights',
+          geometry: 'points',
+          palette: 'cividis',
+          domain: [Math.min(0, ...pointValues), Math.max(...pointValues)],
+        });
+      }
+      const offset = dataset.mapping.coordinateSystem === 'one-based-inclusive' ? 1 : 0;
+      focusIndexed(
+        view,
+        label,
+        numericValues(csv, [dataset.mapping.startColumn]).map((position) => position - offset),
+        dataset.reference.length
+      );
+    } else {
+      if (!dataset.valueColumns) throw new Error('The source has no declared measurement columns.');
+      const values = numericValues(csv, dataset.valueColumns);
+      const labels = {
+        '01-tradis': 'BW25113 gene insertion indices',
+        '02-chemical-genetics': 'Mutant growth scores',
+        '06-proteome': 'BW25113 protein copies per cell',
+        '17-conservation': 'Published gene states · matched subset',
+      };
+      const label = labels[id as keyof typeof labels];
+      if (!label) throw new Error('Unknown gene-property example.');
+      const signed = id === '02-chemical-genetics' || id === '17-conservation';
+      const maximum = Math.max(...values.map(Math.abs));
+      const binding = await addCsvLayer({
+        project: project.rootPath,
+        view,
+        dataset,
+        label,
+        geometry: id === '01-tradis' ? 'bars' : 'matrix',
+        palette: signed ? 'balance' : 'cividis',
+        domain: signed
+          ? [-maximum, maximum]
+          : [id === '06-proteome' ? Math.min(...values) : Math.min(0, ...values), maximum],
+        transform: id === '06-proteome' ? 'log10' : 'linear',
+      });
+      const layer = await platform().sequenceDataLayers.run({
+        operation: 'inspect',
+        project: project.rootPath,
+        id: binding.source.id,
+      });
+      if (layer.status !== 'published') throw new Error('The gene-property layer is unavailable.');
+      focusIndexed(
+        view,
+        label + ' · MG1655 gene mapping',
+        layer.document.dataset.samples[0].observations.map((observation) => observation.start),
         dataset.reference.length
       );
     }
