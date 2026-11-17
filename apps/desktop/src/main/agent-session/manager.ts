@@ -118,6 +118,7 @@ type QueryExecutor = (
   failureReason?: 'admission_rejected';
   durationMs: number;
   stopState?: ProviderTerminalState;
+  userStopAcknowledged?: true;
   providerConversationId?: string;
 }>;
 
