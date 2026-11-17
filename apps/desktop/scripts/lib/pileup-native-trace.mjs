@@ -207,7 +207,7 @@ export function createPileupNativeTrace({ output, refreshHz, diagnosticOnly = fa
           await cdp.send('Profiler.start');
           profiling = true;
           await cdp.send('Tracing.start', {
-            categories: `${categories},toplevel,devtools.timeline,v8,disabled-by-default-v8.gc`,
+            categories: `${categories},skia.shaders,skia.gpu,toplevel,devtools.timeline,v8,disabled-by-default-v8.gc`,
             transferMode: 'ReturnAsStream',
             streamFormat: 'json',
           });
