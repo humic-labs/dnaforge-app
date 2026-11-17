@@ -2682,6 +2682,59 @@ describe('workspace sync upload worker', () => {
     expect(queueStatus(db, 'queue-a')).toBe('succeeded');
   });
 
+  it.each([false, true])(
+    'manually retries an unchanged upload after a blob failure with automatic retry %s',
+    async (retryable) => {
+      createVersion.mockRejectedValue(
+        Object.assign(new Error('storage transfer failed'), {
+          code: 'BLOB_UPLOAD_FAILED',
+          retryable,
+          terminal: !retryable,
+        })
+      );
+      const worker = new WorkspaceSyncUploadWorker(db, { ...baseDeps(), maxAttempts: undefined });
+      await worker.flushWorkspace('workspace-a');
+      for (let attempt = 1; attempt < 5; attempt += 1) {
+        nowMs += 60_000;
+        await worker.runNext();
+      }
+
+      const failedAttempts = retryable ? 5 : 1;
+      expect(createVersion).toHaveBeenCalledTimes(failedAttempts);
+      expect(queueRow(db, 'queue-a')).toMatchObject({
+        status: 'failed',
+        attempt_count: failedAttempts,
+        error_code: 'BLOB_UPLOAD_FAILED',
+        next_attempt_at: null,
+      });
+      expect(uploadSnapshotCount(db, 'queue-a')).toBe(0);
+
+      createVersion.mockResolvedValue(readyVersion('remote-version-a', 2, CONTENT_A));
+      nowMs += 60_000;
+      await expect(worker.runNext()).resolves.toMatchObject({ status: 'idle' });
+      await expect(worker.flushWorkspace('workspace-a')).resolves.toMatchObject({
+        status: 'failed',
+        errorCode: 'BLOB_UPLOAD_FAILED',
+      });
+      expect(createVersion).toHaveBeenCalledTimes(failedAttempts);
+
+      await expect(worker.flushWorkspace('workspace-a', { force: true })).resolves.toMatchObject({
+        status: 'uploaded',
+      });
+      expect(createVersion).toHaveBeenCalledTimes(failedAttempts + 1);
+      expect(queueRow(db, 'queue-a')).toMatchObject({
+        status: 'succeeded',
+        attempt_count: 1,
+        error_code: null,
+        local_head_sha: 'head-a',
+        bundle_content_sha256: CONTENT_A,
+      });
+      expect(createVersion.mock.calls.at(-1)?.[0].bundle).toEqual(
+        createVersion.mock.calls[0]?.[0].bundle
+      );
+    }
+  );
+
   it.each(['VALIDATION', 'QUOTA_EXCEEDED'])(
     'force flush reuses immutable bytes after a %s refusal',
     async (refusalCode) => {
