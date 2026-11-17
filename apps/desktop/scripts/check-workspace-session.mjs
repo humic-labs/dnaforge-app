@@ -58,19 +58,41 @@ try {
     const { platform } = await import('/src/platform/index.ts');
     const bridge = platform();
     const calls = [];
+    const reads = new Map();
     const pending = new Map();
     let nextId = 0;
-    for (const group of ['workspace', 'fs']) {
+    for (const group of [
+      'workspace',
+      'fs',
+      'db',
+      'notebook',
+      'molecularCatalog',
+      'molecularData',
+      'scientificObjects',
+      'lims',
+    ]) {
       const owner = bridge[group];
       for (const [method, original] of Object.entries(owner)) {
-        if (typeof original !== 'function' || method.startsWith('subscribe')) continue;
+        if (typeof original !== 'function' || /^(subscribe|on[A-Z])/.test(method)) continue;
         owner[method] = function (...args) {
           const call = { id: ++nextId, method: `${group}.${method}`, startedAt: Date.now() };
           pending.set(call.id, call);
           const finish = (status) => {
             pending.delete(call.id);
-            calls.push({ ...call, status, finishedAt: Date.now() });
-            if (calls.length > 512) calls.shift();
+            const finishedAt = Date.now();
+            if (group === 'fs' && ['exists', 'stat', 'readTextFile'].includes(method)) {
+              const summary = reads.get(call.method) ?? {
+                method: call.method,
+                count: 0,
+                maxDurationMs: 0,
+              };
+              summary.count += 1;
+              summary.maxDurationMs = Math.max(summary.maxDurationMs, finishedAt - call.startedAt);
+              reads.set(call.method, summary);
+            } else {
+              calls.push({ ...call, status, finishedAt });
+              if (calls.length > 2048) calls.shift();
+            }
           };
           try {
             const result = Reflect.apply(original, this, args);
@@ -94,7 +116,11 @@ try {
         };
       }
     }
-    window.__workspaceJourneyCalls = () => ({ completed: calls, pending: [...pending.values()] });
+    window.__workspaceJourneyCalls = () => ({
+      completed: calls,
+      reads: [...reads.values()],
+      pending: [...pending.values()],
+    });
   });
   cdp = await page.context().newCDPSession(page);
   cdp.on('Page.screencastFrame', (frame) => {
