@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware';
 import { isKnownTabType, TAB_TYPES } from './types';
 import type {
   Tab,
+  CanvasTabIdentity,
+  TabUpdates,
   TabType,
   TabViewState,
   PanelState,
@@ -63,8 +65,14 @@ function assertKnownTabType(tab: Pick<Tab, 'type'>): void {
   );
 }
 
-function assertLogicalSequenceTab(tab: Pick<Tab, 'type' | 'entityId' | 'sequenceDocument'>): void {
-  if (tab.type !== 'sequence') return;
+function assertLogicalSequenceTab(
+  tab: Pick<Tab, 'type' | 'entityId' | 'sequenceDocument' | 'assemblyEditDesignId'>
+): void {
+  if (tab.type !== 'sequence') {
+    if (tab.sequenceDocument || tab.assemblyEditDesignId)
+      throw new Error('Only sequence tabs accept a sequence document or assembly edit session.');
+    return;
+  }
   if (looksLikeWorkspacePath(tab.entityId)) {
     throw new Error(
       `Sequence tabs require a logical document ID; a filesystem path was supplied: ${tab.entityId}`
@@ -76,6 +84,61 @@ function assertLogicalSequenceTab(tab: Pick<Tab, 'type' | 'entityId' | 'sequence
   if (sequenceDocumentKey(tab.sequenceDocument) !== tab.entityId) {
     throw new Error('Sequence tab identity does not match its document reference.');
   }
+}
+
+function assertPresentationUpdates(updates: TabUpdates): void {
+  for (const key of ['id', 'type', 'entityId', 'sequenceDocument', 'assemblyEditDesignId']) {
+    if (Object.hasOwn(updates, key))
+      throw new Error(`Use a canvas identity or assembly-edit command to change ${key}.`);
+  }
+}
+
+function retargetTabDocument(tab: Tab, identity: CanvasTabIdentity, updates: TabUpdates): Tab {
+  assertPresentationUpdates(updates);
+  const entityId =
+    identity.type === 'sequence'
+      ? sequenceDocumentKey(identity.sequenceDocument)
+      : identity.entityId;
+  const next: Tab = {
+    ...tab,
+    ...(tab.type !== identity.type
+      ? {
+          viewState: undefined,
+          pendingViewState: undefined,
+          loadStatus: undefined,
+          initialStructureAttrs: undefined,
+          molecularViewReferenceId: undefined,
+          structureInspection: undefined,
+          predictionResult: undefined,
+          proteinRunPreview: undefined,
+          artifactDocument: undefined,
+          recoveredDraft: undefined,
+          tableDocument: undefined,
+        }
+      : {}),
+    ...(identity.type !== 'sequence'
+      ? {
+          indexedGenome: undefined,
+          trackView: undefined,
+          openingTrackViewPath: undefined,
+          initialAnnotationMapperPolicy: undefined,
+          legacyMigrationRead: undefined,
+          legacyFasta: undefined,
+          quickLookSource: undefined,
+        }
+      : {}),
+    type: identity.type,
+    entityId,
+    sequenceDocument: identity.type === 'sequence' ? identity.sequenceDocument : undefined,
+    assemblyEditDesignId:
+      tab.type === identity.type && tab.entityId === entityId
+        ? tab.assemblyEditDesignId
+        : undefined,
+    ...updates,
+  };
+  assertKnownTabType(next);
+  assertLogicalSequenceTab(next);
+  return normalizeSequenceTab({ ...next, ...normalizeIndexedGenomeUpdate(tab, updates) });
 }
 
 const MAX_RECENTLY_CLOSED = 20;
@@ -107,7 +170,7 @@ function promoteOpenTab(
   getState: () => {
     findTab: (type: TabType, entityId: string) => { panelId: string; tabId: string } | null;
     closeTab: (panelId: string, tabId: string) => void;
-    updateTab: (panelId: string, tabId: string, updates: Partial<Tab>) => void;
+    retargetTab: CanvasActions['retargetTab'];
     setActiveTab: (panelId: string, tabId: string) => void;
     panels: Record<string, PanelState>;
   },
@@ -139,13 +202,16 @@ function promoteOpenTab(
     getState().closeTab(duplicate.panelId, duplicate.tabId);
   }
 
-  getState().updateTab(source.panelId, source.tabId, {
-    type: input.toType,
-    entityId: input.toEntityId,
-    label: input.label,
-    viewState: {},
-    ...(input.sequenceDocument ? { sequenceDocument: input.sequenceDocument } : {}),
-  });
+  if (input.toType === 'sequence' && !input.sequenceDocument)
+    throw new Error('Sequence promotion requires a document reference.');
+  getState().retargetTab(
+    source.panelId,
+    source.tabId,
+    input.toType === 'sequence'
+      ? { type: 'sequence', sequenceDocument: input.sequenceDocument! }
+      : { type: input.toType, entityId: input.toEntityId },
+    { label: input.label, viewState: {} }
+  );
   getState().setActiveTab(source.panelId, source.tabId);
   return source.tabId;
 }
@@ -614,8 +680,20 @@ export interface CanvasActions {
   openTab: (panelId: string, tab: Omit<Tab, 'id'>) => string;
   closeTab: (panelId: string, tabId: string) => void;
   setActiveTab: (panelId: string, tabId: string) => void;
-  updateTab: (panelId: string, tabId: string, updates: Partial<Tab>) => void;
-  updateTabByEntityId: (entityId: string, updates: Partial<Tab>) => void;
+  updateTab: (panelId: string, tabId: string, updates: TabUpdates) => void;
+  updateTabByEntityId: (entityId: string, updates: TabUpdates) => void;
+  retargetTab: (
+    panelId: string,
+    tabId: string,
+    identity: CanvasTabIdentity,
+    updates?: TabUpdates
+  ) => void;
+  retargetTabsByEntityId: (
+    entityId: string,
+    identity: CanvasTabIdentity,
+    updates?: TabUpdates
+  ) => void;
+  setSequenceAssemblyEdit: (panelId: string, tabId: string, designId: string | null) => void;
 
   retargetTabsUnderPath: (oldPath: string, newPath: string) => void;
   setTabViewState: (panelId: string, tabId: string, viewState: Partial<TabViewState>) => void;
@@ -901,6 +979,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       },
 
       updateTab: (panelId, tabId, updates) => {
+        assertPresentationUpdates(updates);
         debugLog('[CanvasStore] updateTab called:', {
           panelId,
           tabId,
@@ -937,6 +1016,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       },
 
       updateTabByEntityId: (entityId, updates) => {
+        assertPresentationUpdates(updates);
         set((state) => {
           let changed = false;
           const panels = { ...state.panels };
@@ -963,6 +1043,66 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
             }
           }
           return changed ? { panels } : state;
+        });
+      },
+
+      retargetTab: (panelId, tabId, identity, updates = {}) => {
+        set((state) => {
+          const panel = state.panels[panelId];
+          if (!panel) return state;
+          const tab = panel.tabs.find((candidate) => candidate.id === tabId);
+          if (!tab) return state;
+          const next = retargetTabDocument(tab, identity, updates);
+          return {
+            panels: {
+              ...state.panels,
+              [panelId]: {
+                ...panel,
+                tabs: panel.tabs.map((candidate) => (candidate.id === tabId ? next : candidate)),
+              },
+            },
+          };
+        });
+      },
+
+      retargetTabsByEntityId: (entityId, identity, updates = {}) => {
+        set((state) => {
+          const panels = { ...state.panels };
+          let changed = false;
+          for (const [panelId, panel] of Object.entries(state.panels)) {
+            if (!panel.tabs.some((tab) => tab.entityId === entityId)) continue;
+            panels[panelId] = {
+              ...panel,
+              tabs: panel.tabs.map((tab) =>
+                tab.entityId === entityId ? retargetTabDocument(tab, identity, updates) : tab
+              ),
+            };
+            changed = true;
+          }
+          return changed ? { panels } : state;
+        });
+      },
+
+      setSequenceAssemblyEdit: (panelId, tabId, designId) => {
+        set((state) => {
+          const panel = state.panels[panelId];
+          const tab = panel?.tabs.find((candidate) => candidate.id === tabId);
+          if (!tab) return state;
+          if (tab.type !== 'sequence') throw new Error('Assembly editing requires a sequence tab.');
+          if (tab.assemblyEditDesignId === (designId ?? undefined)) return state;
+          return {
+            panels: {
+              ...state.panels,
+              [panelId]: {
+                ...panel,
+                tabs: panel.tabs.map((candidate) =>
+                  candidate.id === tabId
+                    ? { ...candidate, assemblyEditDesignId: designId ?? undefined }
+                    : candidate
+                ),
+              },
+            },
+          };
         });
       },
 
@@ -1710,10 +1850,29 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         const existingTab = findTab(type, entityId);
         if (existingTab) {
           if (initialStructureAttrs !== undefined || options !== undefined) {
-            updateTab(existingTab.panelId, existingTab.tabId, {
+            const { sequenceDocument, assemblyEditDesignId, ...presentation } = options ?? {};
+            const updates = {
               ...(initialStructureAttrs !== undefined ? { initialStructureAttrs } : {}),
-              ...options,
-            });
+              ...presentation,
+            };
+            if (sequenceDocument) {
+              if (type !== 'sequence')
+                throw new Error('Only sequence tabs accept a document reference.');
+              get().retargetTab(
+                existingTab.panelId,
+                existingTab.tabId,
+                { type: 'sequence', sequenceDocument },
+                updates
+              );
+            } else {
+              updateTab(existingTab.panelId, existingTab.tabId, updates);
+            }
+            if (options && Object.hasOwn(options, 'assemblyEditDesignId'))
+              get().setSequenceAssemblyEdit(
+                existingTab.panelId,
+                existingTab.tabId,
+                assemblyEditDesignId ?? null
+              );
           }
           focusPanel(existingTab.panelId);
           get().setActiveTab(existingTab.panelId, existingTab.tabId);
@@ -2041,10 +2200,14 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           }
 
           if (legacyChatTab) {
-            state.updateTab(legacyChatTab.panelId, legacyChatTab.tabId, {
-              entityId: convId,
-              label: legacyChatTab.label || 'New Chat',
-            });
+            state.retargetTab(
+              legacyChatTab.panelId,
+              legacyChatTab.tabId,
+              { type: 'chat', entityId: convId },
+              {
+                label: legacyChatTab.label || 'New Chat',
+              }
+            );
             state.focusPanel(legacyChatTab.panelId);
             state.setActiveTab(legacyChatTab.panelId, legacyChatTab.tabId);
             return { tabId: legacyChatTab.tabId, conversationId: convId, isNew: true };
@@ -2083,10 +2246,14 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         for (const panelId of orderedPanelIds) {
           const chatTab = state.panels[panelId]?.tabs.find((t) => t.type === 'chat');
           if (chatTab) {
-            state.updateTab(panelId, chatTab.id, {
-              entityId: conversationId,
-              label: chatTab.label || 'New Chat',
-            });
+            state.retargetTab(
+              panelId,
+              chatTab.id,
+              { type: 'chat', entityId: conversationId },
+              {
+                label: chatTab.label || 'New Chat',
+              }
+            );
             state.focusPanel(panelId);
             state.setActiveTab(panelId, chatTab.id);
             return { tabId: chatTab.id, conversationId, isNew: false };
@@ -2130,10 +2297,14 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
             (tab) => tab.id === reusable.tabId
           );
           if (reusableTab?.entityId !== conversationId) {
-            state.updateTab(reusable.panelId, reusable.tabId, {
-              entityId: conversationId,
-              label: reusableTab?.label || 'New Chat',
-            });
+            state.retargetTab(
+              reusable.panelId,
+              reusable.tabId,
+              { type: 'chat', entityId: conversationId },
+              {
+                label: reusableTab?.label || 'New Chat',
+              }
+            );
           }
           if (reusable.panelId !== targetPanelId) {
             state.moveTab(reusable.panelId, targetPanelId, reusable.tabId);

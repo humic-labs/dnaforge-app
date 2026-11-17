@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { AssemblySegment } from '../../assembly-layout';
 import {
   createAssemblyCoverageTileSource,
@@ -58,6 +58,78 @@ const sourceGeneration = {
     ctimeNs: '13',
   },
 } as const;
+
+describe('tile payload byte accounting', () => {
+  it.each([
+    ['alignment', createAlignmentTileSource, { bamPath: '/data/HG002.bam' }],
+    ['annotation', createAnnotationTileSource, { gffPath: '/data/chr11.gff3.gz' }],
+  ] as const)(
+    'reuses decoded HTTP bytes for %s without serializing the payload',
+    async (_, create, file) => {
+      const serialize = vi.fn(() => ({
+        reads: [{ readId: 'one' }],
+        transcripts: [{ id: 'gene' }],
+      }));
+      const body = { reads: [{}], transcripts: [{}], toJSON: serialize };
+      const transport: TileTransport = async () => ({
+        ok: true,
+        status: 200,
+        body,
+        bodyByteSize: 87,
+      });
+      const source = create(file as never, { transport });
+
+      const result = await source.fetchTile(0, 0, [seg()], new AbortController().signal);
+
+      expect(result.byteSize).toBe(87);
+      expect(result.payload).toBe(body);
+      expect(serialize).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([undefined, 0, -1, NaN, Infinity, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    'keeps injected transport fallback accounting for invalid bytes %s',
+    async (bodyByteSize) => {
+      const body = { reads: [{ readId: 'one' }] };
+      const source = createAlignmentTileSource(
+        { bamPath: '/data/HG002.bam' },
+        {
+          transport: async () => ({ ok: true, status: 200, body, bodyByteSize }),
+        }
+      );
+
+      const result = await source.fetchTile(0, 0, [seg()], new AbortController().signal);
+
+      expect(result.byteSize).toBe(JSON.stringify(body).length);
+    }
+  );
+
+  it('retains coverage array accounting when HTTP byte metadata is present', async () => {
+    const body = { bins: [0, 3, 0], provenance: { exact: true } };
+    const transport: TileTransport = async () => ({
+      ok: true,
+      status: 200,
+      body,
+      bodyByteSize: 87,
+    });
+    const source = createCoverageTileSource({ bamPath: '/data/HG002.bam' }, { transport });
+
+    expect((await source.fetchTile(0, 0, [seg()], new AbortController().signal)).byteSize).toBe(12);
+  });
+
+  it('retains assembly coverage array accounting when HTTP byte metadata is present', async () => {
+    const body = { segments: [{ bins: [0, 3, 0] }, { bins: [0, 1] }] };
+    const transport: TileTransport = async () => ({
+      ok: true,
+      status: 200,
+      body,
+      bodyByteSize: 87,
+    });
+    const source = createAssemblyCoverageTileSource({ bamPath: '/data/HG002.bam' }, { transport });
+
+    expect((await source.fetchTile(0, 0, [seg()], new AbortController().signal)).byteSize).toBe(20);
+  });
+});
 
 describe('createCoverageTileSource', () => {
   const file = {

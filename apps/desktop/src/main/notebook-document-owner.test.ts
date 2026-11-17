@@ -639,3 +639,59 @@ describe('native notebook working copy', () => {
     });
   });
 });
+
+describe('notebook write failure causes', () => {
+  it('retains the original publication error cause and the dirty recovery', async () => {
+    const f = await fixture();
+    const initial = await f.owner.execute({
+      documentId: 'book',
+      operation: { kind: 'inspect-copy' },
+    });
+    const markdown = notebookPackagePaths(f.path).markdownPath;
+    const before = await readFile(markdown, 'utf8');
+    const changed = await f.owner.execute({
+      documentId: 'book',
+      expectedRevision: initial.revision,
+      operation: {
+        kind: 'splice-blocks',
+        index: 0,
+        deleteCount: 1,
+        blocks: [{ type: 'paragraph', content: [{ type: 'text', text: 'Retained local draft' }] }],
+      },
+    });
+    const originalError = Object.assign(new Error('EPERM: notebook file is in use'), {
+      code: 'EPERM',
+      syscall: 'rename',
+      path: markdown,
+    });
+    f.options.publish = async () => {
+      throw originalError;
+    };
+
+    const failure: unknown = await f.owner
+      .execute({
+        documentId: 'book',
+        expectedRevision: changed.revision,
+        operation: { kind: 'save' },
+      })
+      .then(
+        () => undefined,
+        (error) => error
+      );
+
+    expect(await readFile(markdown, 'utf8')).toBe(before);
+    const retained = await f.owner.execute({
+      documentId: 'book',
+      operation: { kind: 'inspect-copy' },
+    });
+    expect(retained).toMatchObject({ dirty: true, saving: false });
+    expect(retained.copy.content).toEqual(changed.copy.content);
+    expect(JSON.parse(await readFile(f.recordPath, 'utf8'))).toMatchObject({
+      dirty: true,
+      content: changed.copy.content,
+    });
+    expect(failure).toBeInstanceOf(NativeDocumentCommandError);
+    expect(failure).toHaveProperty('code', 'NOTEBOOK_SAVE_FAILED');
+    expect((failure as Error).cause).toBe(originalError);
+  });
+});

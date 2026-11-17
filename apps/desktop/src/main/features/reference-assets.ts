@@ -128,6 +128,7 @@ async function prepareReferenceAssets(): Promise<void> {
   });
   const retention = new ReferenceGenerationRetention({
     cacheRoot: referenceAssetRoots.cacheRoot,
+    ownedPublicationRoot: referenceAssetRoots.publicationRoot,
     publicationRoots: [
       referenceAssetRoots.publicationRoot,
       ...(referenceAssetRoots.fallbackPublicationRoot

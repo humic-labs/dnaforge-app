@@ -8,7 +8,11 @@ from fastapi import APIRouter, Header, HTTPException, Request, Response
 from starlette.responses import JSONResponse
 
 from ..concurrency.dispatcher import UnknownToolError, dispatch_tool
-from ..concurrency.job_manager import IdempotencyConflict, get_job_manager
+from ..concurrency.job_manager import (
+    ACTIVE_JOB_STATUSES,
+    IdempotencyConflict,
+    get_job_manager,
+)
 from ..concurrency.refusals import QueueRefusal
 from ..concurrency.schema import ToolHome, manifest_json_schema, to_mcp_format
 from ..concurrency.tool_registry import agent_tool_registry
@@ -206,6 +210,6 @@ async def execute_agent_tool(
         response.headers["Retry-After"] = str(exc.retry_after_seconds)
         raise HTTPException(status_code=503, detail=exc.to_response()) from exc
 
-    if job.status in ("queued", "running"):
+    if job.status in ACTIVE_JOB_STATUSES:
         response.status_code = 202
     return get_job_manager().snapshot(job.id) or job.snapshot()

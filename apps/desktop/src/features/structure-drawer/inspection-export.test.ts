@@ -1,4 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { createElement } from 'react';
+import { platform } from '../../platform';
+import { InspectionExport } from './components/InspectionExport';
+const exportBridge = vi.hoisted(() => ({
+  dialog: { save: vi.fn() },
+  fs: { writeTextFileAtomic: vi.fn() },
+}));
+vi.mock('../../platform', () => ({ platform: () => exportBridge }));
+
 import { inspectionFigureSvg, inspectionMeasurementsCsv } from './inspection-export';
 import type { MolecularView } from '../page/public/embeds/structure3d/molecularView';
 import { coordinateDigest } from '../page/public/embeds/structure3d/molecularView';
@@ -74,4 +84,33 @@ describe('saved protein figure and measurement export', () => {
     view.coordinates.text = 'DIFFERENT';
     await expect(inspectionFigureSvg(view)).rejects.toThrow('digest');
   });
+});
+
+describe('saved molecular view export failures', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each(['dialog', 'write'] as const)(
+    'retains the original %s error for diagnostics',
+    async (phase) => {
+      const originalError = Object.assign(new Error('PRIVATE_EXPORT_FAILURE'), { code: 'EACCES' });
+      const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const picker = vi.spyOn(platform().dialog, 'save');
+      const writer = vi.spyOn(platform().fs, 'writeTextFileAtomic');
+      if (phase === 'dialog') picker.mockRejectedValueOnce(originalError);
+      else {
+        picker.mockResolvedValueOnce('/exports/saved-view.json');
+        writer.mockRejectedValueOnce(originalError);
+      }
+      render(createElement(InspectionExport, { view: await fixture() }));
+      fireEvent.click(screen.getByText('Export saved view'));
+      fireEvent.click(screen.getByRole('button', { name: 'Complete saved scene (.json)' }));
+      await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+      expect(errors).toHaveBeenCalledWith(
+        '[InspectionExport] Save failed:',
+        expect.objectContaining({ format: 'json', phase }),
+        originalError
+      );
+      expect(screen.getByRole('alert')).not.toHaveTextContent('PRIVATE_EXPORT_FAILURE');
+    }
+  );
 });

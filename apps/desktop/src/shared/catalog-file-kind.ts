@@ -65,6 +65,7 @@ export function inferCatalogFileKind(filePath: string): string {
   if (lowerName.endsWith('.wpnote.json')) return 'waypoint-notebook';
   if (lowerName.endsWith('.wpdesign.json')) return 'waypoint-design';
   if (lowerName.endsWith('.wpselection.json')) return 'waypoint-residue-selection';
+  if (isForgePackageMetaPath(filePath, 'table.json')) return 'dnaforge-table';
   if (
     lowerName === NOTEBOOK_PACKAGE_META_NAME &&
     isForgePackageMetaPath(filePath, NOTEBOOK_PACKAGE_META_NAME)
@@ -98,6 +99,7 @@ export function inferCatalogFileKind(filePath: string): string {
 
 const MANAGED_CATALOG_HEAD_KINDS = new Set([
   'dnaforge-molecular-document',
+  'dnaforge-table',
   'genbank',
   'fasta',
   'fastq',

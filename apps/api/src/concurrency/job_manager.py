@@ -12,6 +12,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Literal
 
+from ..action_completion import ActionCompletionOwner
 from ..control_plane import get_control_plane_store
 from ..external_access_observation import observations_enabled, observe_action
 from .pools import get_pool_manager
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
     from ..operations import ManagedOperationService
     from ..security.native_document_authority import NativeDocumentAuthority
 
-JobStatus = Literal["queued", "running", "completed", "failed", "canceled"]
+JobStatus = Literal["queued", "running", "stopping", "completed", "failed", "canceled"]
 IdempotencyCacheKey = tuple[str, str]
 
 DEFAULT_MAX_TERMINAL_JOBS = 256
@@ -38,6 +39,7 @@ DEFAULT_MAX_EVENT_SUBSCRIBERS_PER_AGENT = 32
 DEFAULT_EVENT_SUBSCRIBER_QUEUE_SIZE = 8
 RENDERER_INLINE_WAIT_SECONDS = 1.0
 TERMINAL_JOB_STATUSES: tuple[JobStatus, ...] = ("completed", "failed", "canceled")
+ACTIVE_JOB_STATUSES: tuple[JobStatus, ...] = ("queued", "running", "stopping")
 EventQueue = asyncio.Queue[dict[str, Any] | None]
 
 
@@ -62,12 +64,14 @@ class JobRecord:
     observation_id: str | None = None
 
     def snapshot(self) -> dict[str, Any]:
-        data = {
+        data: dict[str, Any] = {
             "jobId": self.id,
             "toolName": self.tool_name,
             "pool": self.pool,
-            "status": self.status,
+            "status": "running" if self.status == "stopping" else self.status,
         }
+        if self.status == "stopping":
+            data["cancelRequested"] = True
         return data
 
 
@@ -114,15 +118,16 @@ class JobEventSubscription:
         self._started = True
         try:
             for event in self._replay_events:
-                yield event
+                if event.get("event") not in TERMINAL_JOB_STATUSES:
+                    yield event
             if self._event_queue is not None:
                 while True:
                     event = await self._event_queue.get()
                     if event is None:
                         return
-                    yield event
                     if event.get("event") in TERMINAL_JOB_STATUSES:
                         break
+                    yield event
             yield {
                 "event": self._job.status,
                 "data": self._manager.snapshot(self._job.id) or self._job.snapshot(),
@@ -176,7 +181,7 @@ class JobManager:
 
         self._prune_expired()
         job = self._jobs.get(job_id)
-        if job is None or job.status not in {"queued", "running"}:
+        if job is None or job.status not in ACTIVE_JOB_STATUSES:
             return None
         return job
 
@@ -240,7 +245,7 @@ class JobManager:
                 and job.agent_identity_id != agent_identity_id
             ):
                 continue
-            if job.status == "running":
+            if job.status in {"running", "stopping"}:
                 counts["active"] += 1
             elif job.status == "queued":
                 counts["queued"] += 1
@@ -279,6 +284,7 @@ class JobManager:
         managed_operations: ManagedOperationService | None = None,
         native_document_authority: NativeDocumentAuthority | None = None,
         reuse_cached_result: bool = True,
+        completion_owner: ActionCompletionOwner = "job",
         persisted_result_projector: (
             Callable[[dict[str, Any]], dict[str, Any]] | None
         ) = None,
@@ -328,6 +334,7 @@ class JobManager:
                 _idempotency_key_hash(cache_key) if cache_key else None
             ),
             idempotency_body_hash=body_hash if cache_key else None,
+            completion_owner=completion_owner,
         )
         job = JobRecord(
             id=job_id,
@@ -369,6 +376,7 @@ class JobManager:
                 managed_operations,
                 native_document_authority,
                 persisted_result_projector,
+                completion_owner,
             )
         else:
             owner = asyncio.create_task(
@@ -383,13 +391,12 @@ class JobManager:
                     managed_operations,
                     native_document_authority,
                     persisted_result_projector,
+                    completion_owner,
                 )
             )
             job.task = owner
             if should_run_inline:
-
                 if spec.home == ToolHome.RENDERER.value:
-
                     await asyncio.wait({owner}, timeout=RENDERER_INLINE_WAIT_SECONDS)
                 else:
                     await asyncio.shield(owner)
@@ -397,27 +404,18 @@ class JobManager:
 
     async def cancel(self, job_id: str) -> bool:
         job = self.get(job_id)
-        if job is None:
+        if job is None or not job.cancelable:
             return False
-        if job.status in ("completed", "failed", "canceled"):
+        if job.status in TERMINAL_JOB_STATUSES or job.status == "stopping":
             return True
+        running = job.status == "running"
+        job.status = "stopping"
+        job.updated_at = time.time()
         if job.cancel_event is not None:
             job.cancel_event.set()
-        if job.task is not None:
+        self._push_event(job, "stopping", job.snapshot())
+        if running and job.task is not None:
             job.task.cancel()
-        job.status = "canceled"
-        job.updated_at = time.time()
-        try:
-            get_control_plane_store().complete_agent_action(
-                job.id,
-                error={"code": "CANCELED", "message": "Job canceled"},
-                terminal_expires_at=time.time() + self.ttl_seconds,
-            )
-        finally:
-
-            self._mark_terminal(job, None)
-            self._push_event(job, "canceled", job.snapshot())
-            self._compact_terminal(job)
         return True
 
     def subscribe_events(self, job_id: str) -> JobEventSubscription | None:
@@ -469,6 +467,7 @@ class JobManager:
         managed_operations: ManagedOperationService | None,
         native_document_authority: NativeDocumentAuthority | None,
         persisted_result_projector: Callable[[dict[str, Any]], dict[str, Any]] | None,
+        completion_owner: ActionCompletionOwner,
     ) -> None:
         store = get_control_plane_store()
         cancel_event = job.cancel_event
@@ -484,6 +483,8 @@ class JobManager:
                     await observe_action(
                         job.id, admitted=True, operation_id=job.observation_id
                     )
+            if cancel_event.is_set():
+                raise asyncio.CancelledError
             job.status = "running"
             job.updated_at = time.time()
             self._push_event(job, "running", {"status": "running"})
@@ -497,29 +498,20 @@ class JobManager:
                 managed_operations=managed_operations,
                 native_document_authority=native_document_authority,
             )
-            if cancel_event.is_set():
-                raise asyncio.CancelledError
-            result = await get_pool_manager().run(
-                spec.pool, _maybe_await(handler(args, context))
-            )
+            async with get_pool_manager().get(spec.pool).slot():
+                result = await _maybe_await(handler(args, context))
 
             if not (isinstance(result, dict) and result.get("ok") is False):
                 validate_tool_value(result, spec.outputs, output=True)
-            if cancel_event.is_set() and not (
-                spec.home == ToolHome.RENDERER.value
-                and job.status in TERMINAL_JOB_STATUSES
-            ):
-                raise asyncio.CancelledError
-            job.status = "completed"
             persisted_result = (
                 persisted_result_projector(result)
                 if persisted_result_projector is not None
                 else result
             )
-            store.complete_agent_action(
-                job.id,
+            settled = self._settle_action(
+                job,
                 result=persisted_result,
-                terminal_expires_at=time.time() + self.ttl_seconds,
+                completion_owner=completion_owner,
             )
             store.insert_audit_record(
                 action_id=job.id,
@@ -539,10 +531,10 @@ class JobManager:
                     "reason": "granted",
                 },
             )
-            if persisted_result_projector is not None:
+            if settled and persisted_result_projector is not None:
                 job.delivery_result = result
             self._mark_terminal(job, idempotency_key)
-            self._push_event(job, "completed", job.snapshot())
+            self._push_event(job, job.status, job.snapshot())
             self._compact_terminal(job)
         except asyncio.CancelledError:
             if job.status in TERMINAL_JOB_STATUSES:
@@ -562,26 +554,20 @@ class JobManager:
                 if external_owner
                 else {"code": "CANCELED", "message": "Job canceled"}
             )
-            store.complete_agent_action(
-                job.id,
-                error=error,
-                terminal_expires_at=time.time() + self.ttl_seconds,
-            )
+            self._settle_action(job, error=error)
             self._mark_terminal(job, idempotency_key)
             self._push_event(job, job.status, job.snapshot())
             self._compact_terminal(job)
         except ToolExecutionFailure as exc:
-            if job.status in TERMINAL_JOB_STATUSES and not (exc.details or {}).get(
-                "renderer_audit_id"
-            ):
-                return
             is_canceled = exc.code == "CANCELED"
             job.status = "canceled" if is_canceled else "failed"
             error = exc.to_error()
-            store.complete_agent_action(
-                job.id,
+            self._settle_action(
+                job,
                 error=error,
-                terminal_expires_at=time.time() + self.ttl_seconds,
+                completion_owner=(
+                    exc.completion_owner if completion_owner == "renderer" else "job"
+                ),
             )
             store.insert_audit_record(
                 action_id=job.id,
@@ -609,22 +595,9 @@ class JobManager:
             self._push_event(job, job.status, job.snapshot())
             self._compact_terminal(job)
         except Exception as exc:
-            action = store.get_agent_action(job.id)
-            if spec.home == ToolHome.RENDERER.value and action is not None:
-                result = action.get("result_json")
-                error = action.get("error_json")
-                if (isinstance(result, dict) and result.get("audit_id")) or (
-                    isinstance(error, dict)
-                    and (error.get("details") or {}).get("renderer_audit_id")
-                ):
-                    return
             job.status = "failed"
             error = {"code": "HANDLER_ERROR", "message": str(exc)}
-            store.complete_agent_action(
-                job.id,
-                error=error,
-                terminal_expires_at=time.time() + self.ttl_seconds,
-            )
+            self._settle_action(job, error=error)
             store.insert_audit_record(
                 action_id=job.id,
                 actor_kind="agent",
@@ -644,12 +617,11 @@ class JobManager:
                 },
             )
             self._mark_terminal(job, idempotency_key)
-            self._push_event(job, "failed", job.snapshot())
+            self._push_event(job, job.status, job.snapshot())
             self._compact_terminal(job)
         finally:
             job.updated_at = time.time()
             if job.status in ("completed", "failed", "canceled"):
-
                 if not job.events or job.events[-1].get("event") != job.status:
                     self._push_event(job, job.status, job.snapshot())
                 self._mark_terminal(job, idempotency_key)
@@ -659,6 +631,51 @@ class JobManager:
                     await observe_action(
                         job.id, operation_id=job.observation_id, execution=job.status
                     )
+
+    def _settle_action(
+        self,
+        job: JobRecord,
+        *,
+        result: dict[str, Any] | None = None,
+        error: dict[str, Any] | None = None,
+        completion_owner: ActionCompletionOwner = "job",
+    ) -> bool:
+        store = get_control_plane_store()
+        expires_at = time.time() + self.ttl_seconds
+        with store.transaction():
+            unresolved = error is not None and error.get("code") == "OUTCOME_UNRESOLVED"
+            settled = (
+                False
+                if unresolved
+                else store.complete_agent_action(
+                    job.id,
+                    result=result,
+                    error=error,
+                    completion_owner=completion_owner,
+                    terminal_expires_at=expires_at,
+                )
+            )
+            action = store.get_agent_action(job.id)
+            if action is None:
+                raise RuntimeError(f"Missing admitted action: {job.id}")
+            if action["completion_state"] != "settled":
+                action = store.reconcile_interrupted_agent_action(
+                    job.id,
+                    error=error
+                    if unresolved
+                    else {
+                        "code": "OUTCOME_UNRESOLVED",
+                        "message": "The completion owner has not reported an outcome. Recover the original action before repeating work.",
+                        "retriable": False,
+                        "details": {"actionId": job.id, "stateMayHaveChanged": True},
+                    },
+                    terminal_expires_at=expires_at,
+                )
+            retained = self._job_record_from_action(action)
+            if retained is None:
+                raise RuntimeError(f"Action has no retained outcome: {job.id}")
+            job.status = retained.status
+        return settled
 
     def _push_event(self, job: JobRecord, event: str, data: dict[str, Any]) -> None:
         if (
@@ -823,11 +840,7 @@ class JobManager:
                 self._idempotency_cache.pop(key, None)
 
     def _recover_interrupted_action(self, action: dict[str, Any]) -> dict[str, Any]:
-        error = action.get("error_json")
-        unresolved = (
-            isinstance(error, dict) and error.get("code") == "OUTCOME_UNRESOLVED"
-        )
-        if action.get("completed_at") and not unresolved:
+        if action["completion_state"] == "settled":
             return action
 
         store = get_control_plane_store()
@@ -921,7 +934,7 @@ class JobManager:
         planned = sum(
             1
             for job in self._jobs.values()
-            if job.pool == pool_name and job.status in ("queued", "running")
+            if job.pool == pool_name and job.status in ACTIVE_JOB_STATUSES
         )
         capacity = pool_stats["size"]
         max_queued = pool_stats["max_queued_jobs"]

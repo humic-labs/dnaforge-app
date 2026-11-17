@@ -25,6 +25,11 @@ export class NativeDocumentWorkspaces {
     return this.authority.list().map((project) => project.path);
   }
 
+  access(root: string): { readOnly: boolean } | null {
+    const project = this.authority.resolve(root);
+    return project ? { readOnly: project.pinned } : null;
+  }
+
   observedRoots(): readonly string[] {
     return [...this.observedWritable];
   }

@@ -29,7 +29,7 @@ export async function startPairwiseSessionAlignmentOperation(
   inputFiles: readonly ManagedOperationInputFile[] = []
 ): Promise<OperationSnapshot> {
   return managedOperations.startRegisteredOperation(
-    async ({ scopeId, submissionKey, acceptedWorkspaceInput, expectedAccountId }) => {
+    async ({ apiClient, scopeId, submissionKey, acceptedWorkspaceInput, expectedAccountId }) => {
       const response =
         await startPairwiseSessionAlignmentOperationOperationsPairwiseSessionAlignmentPost(
           {
@@ -44,9 +44,11 @@ export async function startPairwiseSessionAlignmentOperation(
             },
             input,
           },
-          acceptedWorkspaceInput
-            ? { headers: { 'X-DNAForge-Account-ID': expectedAccountId! } }
-            : undefined
+          apiClient.options(
+            acceptedWorkspaceInput
+              ? { headers: { 'X-DNAForge-Account-ID': expectedAccountId! } }
+              : undefined
+          )
         );
       if (response.status !== 202) {
         throw new Error(response.data.detail.message);

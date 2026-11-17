@@ -1,3 +1,4 @@
+import { VARIANT_CLASS_COLORS } from '@waypoint/sequence-utils';
 import type { Container } from 'pixi.js';
 
 import type { AnnotationRecord, VariantRecord } from '@waypoint/genome-data';
@@ -24,15 +25,6 @@ export interface VariantTrackDiagnostics extends AnnotationTrackDiagnostics {
 export interface PixiVariantTrackRendererOptions {
   readonly type: string;
 }
-
-const VARIANT_COLORS: Readonly<Record<VariantRecord['variantClass'], number>> = {
-  substitution: 0xdc2626,
-  insertion: 0x16a34a,
-  deletion: 0xea580c,
-  replacement: 0x7c3aed,
-  mixed: 0x2563eb,
-  structural: 0x9333ea,
-};
 
 export class PixiVariantTrackRenderer implements PixiLinearTrackRenderer<VariantTrackData> {
   readonly type: string;
@@ -83,7 +75,7 @@ export class PixiVariantTrackRenderer implements PixiLinearTrackRenderer<Variant
         start: record.start,
         end: Math.max(record.start + 1, record.end),
         name: record.recordId ?? `${record.ref}>${record.alts.join(',')}`,
-        color: VARIANT_COLORS[record.variantClass],
+        color: VARIANT_CLASS_COLORS[record.variantClass],
         extra: { variant: record },
       })
     );

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const pixiFakes = vi.hoisted(() => {
@@ -156,6 +157,11 @@ import {
   scopeTrustedPartitionedTranscriptRendererAdmissionV4,
   unpackTrustedMainValidatedPartitionedTranscriptSceneBinaryV4,
 } from './partitioned-transcript-scene-binary-v4';
+import {
+  packPartitionedTranscriptSceneDetailPacketV1,
+  unpackPartitionedTranscriptSceneDetailPacketV1,
+} from './partitioned-transcript-scene-detail-packet-v1';
+import { buildPartitionedTranscriptSceneRangeCatalogV1 } from './partitioned-transcript-scene-range-catalog-v1';
 import { buildPrepackedAnnotationInteractionIndexV2 } from './prepacked-annotation-interaction-index-v2';
 import { TRANSCRIPT_GLYPH_INSTANCE_LAYOUT } from './transcript-glyph-instances';
 import type { ViewerRenderContract } from './viewer-render-contract';
@@ -314,11 +320,12 @@ async function trustedDirectBankFixture() {
       canonicalBandOrder: ['mRNA'],
     },
   });
-  return unpackTrustedMainValidatedPartitionedTranscriptSceneBinaryV4(
+  const unpacked = await unpackTrustedMainValidatedPartitionedTranscriptSceneBinaryV4(
     packed.manifest,
     packed.payload,
     TRUSTED_MAIN_PARTITIONED_TRANSCRIPT_SCENE_VALIDATION_V4
   );
+  return { ...unpacked, packed };
 }
 
 function policyFeature(expandedLane: number, canonicalLane: number | null) {
@@ -983,6 +990,125 @@ describe('PartitionedInstancedTranscriptLayer — shared WebGL buffer views', ()
         scoped.capability
       )
     ).toThrow(/capability mismatch/);
+  });
+
+  it('resumes missing fine views after the deadline without changing the current front', () => {
+    const { scene, submissionBank, submissionFineIndices } = directBankFixture();
+    const layer = new PartitionedInstancedTranscriptLayer(scene, {
+      rendererKind: 'webgl',
+      artifactGeneration: 'deadline-fine',
+      submissionBank,
+      submissionFineIndices,
+      maxFineViews: 8,
+    });
+    const renderer = {
+      shader: { bind: vi.fn(), resetState: vi.fn() },
+      geometry: { bind: vi.fn(), resetState: vi.fn() },
+    };
+    layer.prepareGpuResources(renderer as never);
+    layer.updateVisibleRange(25, 155);
+    const front = layer.getDebugViews().filter((view) => view.visible);
+    expect(front.length).toBeGreaterThan(0);
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    renderer.geometry.bind.mockClear();
+    renderer.geometry.bind.mockImplementation(() => {
+      now += 2;
+    });
+    try {
+      expect(layer.prewarmFineViews(25, 155, renderer as never, 0, 1)).toEqual({
+        built: 1,
+        reused: 0,
+        evicted: 0,
+        requiredFineCount: 1,
+      });
+      expect(layer.areFineViewsPrewarmed(25, 155, 0)).toBe(false);
+      expect(layer.getDebugViews().filter((view) => view.visible)).toEqual(front);
+      expect(layer.prewarmFineViews(25, 155, renderer as never, 0, 1).built).toBe(0);
+      expect(renderer.geometry.bind).toHaveBeenCalledTimes(1);
+      expect(layer.areFineViewsPrewarmed(25, 155, 0)).toBe(false);
+      expect(layer.prewarmFineViews(25, 155, renderer as never, 0, 10)).toMatchObject({
+        built: 1,
+        reused: 1,
+      });
+      expect(renderer.geometry.bind).toHaveBeenCalledTimes(2);
+      expect(layer.areFineViewsPrewarmed(25, 155, 0)).toBe(true);
+      expect(layer.getDebugViews().filter((view) => view.visible)).toEqual(front);
+      layer.updateVisibleRange(25, 155);
+      expect(layer.isFinePresentationExact).toBe(true);
+    } finally {
+      clock.mockRestore();
+      layer.destroy();
+    }
+  });
+
+  it('retains the pending coarse cursor at an expired deadline and resumes every view once', async () => {
+    const { packed } = await trustedDirectBankFixture();
+    const sha256 = async (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
+    const rangeCatalog = await buildPartitionedTranscriptSceneRangeCatalogV1(
+      packed.manifest,
+      packed.payload,
+      sha256
+    );
+    const packet = await packPartitionedTranscriptSceneDetailPacketV1({
+      sourceManifest: packed.manifest,
+      rangeCatalog,
+      startBp: 0,
+      endBp: 300,
+      readRange: async ({ byteOffset, byteLength }) =>
+        packed.payload.slice(byteOffset, byteOffset + byteLength),
+      payloadSha256: sha256,
+    });
+    const detail = await unpackPartitionedTranscriptSceneDetailPacketV1(
+      packet.manifest,
+      packet.payload,
+      sha256
+    );
+    const layer = PartitionedInstancedTranscriptLayer.fromValidatedDetailPacket(
+      detail,
+      {
+        rendererKind: 'webgl',
+        artifactGeneration: 'deadline-coarse',
+        submissionBank: detail.submissionBank,
+        submissionFineIndices: detail.submissionFineIndices,
+      },
+      detail.rendererAdmissionCapability
+    );
+    const renderer = {
+      shader: { bind: vi.fn(), resetState: vi.fn() },
+      geometry: { bind: vi.fn(), resetState: vi.fn() },
+    };
+    layer.prepareGpuResources(renderer as never);
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    renderer.geometry.bind.mockImplementation(() => {
+      now += 2;
+    });
+    const expectedViews =
+      detail.submissionBank.expanded.partitions.length +
+      detail.submissionBank.canonical.partitions.length;
+    try {
+      expect(layer.prepareNextCoarseFallbackView(renderer as never, 1)).toBe(true);
+      const prepared = layer.getDebugViews();
+      expect(prepared).toHaveLength(1);
+      expect(layer.isCoarseFallbackPrepared).toBe(false);
+      expect(layer.prepareNextCoarseFallbackView(renderer as never, 1)).toBe(false);
+      expect(layer.getDebugViews()).toEqual(prepared);
+      expect(layer.isCoarseFallbackPrepared).toBe(false);
+      expect(renderer.geometry.bind).toHaveBeenCalledTimes(1);
+      while (!layer.isCoarseFallbackPrepared) {
+        expect(layer.prepareNextCoarseFallbackView(renderer as never)).toBe(true);
+      }
+      expect(layer.getDebugViews()).toHaveLength(expectedViews);
+      expect(renderer.geometry.bind).toHaveBeenCalledTimes(expectedViews);
+      expect(new Set(renderer.geometry.bind.mock.calls.map(([geometry]) => geometry)).size).toBe(
+        expectedViews
+      );
+      expect(layer.prepareNextCoarseFallbackView(renderer as never)).toBe(false);
+    } finally {
+      clock.mockRestore();
+      layer.destroy();
+    }
   });
 
   it('prewarms both fine modes under artifact+tile+mode keys and never cap keys', () => {

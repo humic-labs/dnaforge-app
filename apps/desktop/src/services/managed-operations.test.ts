@@ -147,7 +147,7 @@ function setup() {
       configuredBaseUrl = baseUrl;
     }),
     getBaseUrl: vi.fn(() => configuredBaseUrl),
-    bindGeneratedClient: vi.fn(),
+    client: vi.fn(() => ({ options: (options: RequestInit = {}) => options })),
     discover: vi.fn(async () => catalog),
     startAnnotation: vi.fn(async () => operation('started', 1, { state: 'queued' })),
     getOperation: vi.fn(async (id: string) => operation(id, 2)),
@@ -733,7 +733,7 @@ describe('ManagedOperationsStore', () => {
     expect(api.getResult).toHaveBeenCalledOnce();
     expect(api.requestCancel).toHaveBeenCalledOnce();
     expect(api.releaseResult).toHaveBeenCalledOnce();
-    expect(api.bindGeneratedClient).toHaveBeenCalledTimes(7);
+    expect(api.client).toHaveBeenCalledOnce();
     expect(store.getSnapshot().records[0]).toMatchObject({
       snapshot: { id: 'started', version: 4, state: 'succeeded', result_status: 'released' },
       cancelResponse: {
@@ -767,8 +767,9 @@ describe('ManagedOperationsStore', () => {
     expect(starter).toHaveBeenCalledExactlyOnceWith({
       scopeId: 'scope-a',
       submissionKey: 'coverage-key',
+      apiClient: expect.objectContaining({ options: expect.any(Function) }),
     });
-    expect(api.bindGeneratedClient).toHaveBeenCalledTimes(2);
+    expect(api.client).toHaveBeenCalledOnce();
     expect(store.getSnapshot().records).toEqual([
       expect.objectContaining({
         snapshot: expect.objectContaining({ id: 'coverage', state: 'queued' }),
@@ -964,8 +965,9 @@ describe('ManagedOperationsStore', () => {
     expect(starter).toHaveBeenCalledExactlyOnceWith({
       scopeId: 'scope-a',
       submissionKey: 'coverage-startup-key',
+      apiClient: expect.objectContaining({ options: expect.any(Function) }),
     });
-    expect(api.bindGeneratedClient).toHaveBeenCalledTimes(2);
+    expect(api.client).toHaveBeenCalledOnce();
   });
 
   it('rejects a registered-operation snapshot from a different owner scope', async () => {

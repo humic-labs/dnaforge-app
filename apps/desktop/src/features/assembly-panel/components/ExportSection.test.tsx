@@ -458,6 +458,10 @@ describe('ExportSection accepted assembly finalization', () => {
   it.each(['dialog', 'write'] as const)(
     'joins %s failure to a browser request without claiming a saved CSV',
     async (failure) => {
+      const originalError = Object.assign(new Error(`PRIVATE_${failure.toUpperCase()}_FAILURE`), {
+        code: 'EACCES',
+      });
+      const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
       const create = vi.fn(() => 'blob:synthetic-export');
       const revoke = vi.fn();
       Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: create });
@@ -465,12 +469,12 @@ describe('ExportSection accepted assembly finalization', () => {
       const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
       if (failure === 'dialog')
         fsState.saveOverride = async () => {
-          throw new Error('PRIVATE_DIALOG_FAILURE');
+          throw originalError;
         };
       else {
         fsState.saveResult = '/exports/primers.csv';
         fsState.onWriteTextFile = () => {
-          throw new Error('PRIVATE_WRITE_FAILURE');
+          throw originalError;
         };
       }
       const design = createDesign();
@@ -491,6 +495,11 @@ describe('ExportSection accepted assembly finalization', () => {
       expect(fsState.files.has('/exports/primers.csv')).toBe(false);
       expect(revoke).toHaveBeenCalledWith('blob:synthetic-export');
       expect(JSON.stringify(workflowTelemetryMocks.complete.mock.calls)).not.toContain('PRIVATE_');
+      expect(errors).toHaveBeenCalledWith(
+        '[AssemblyExport] CSV export failed:',
+        expect.objectContaining({ designId: design.id, phase: failure }),
+        originalError
+      );
     }
   );
 

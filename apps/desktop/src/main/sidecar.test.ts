@@ -58,7 +58,7 @@ describe('sidecar status after native shutdown', () => {
       ).outputText;
       const authority = new SidecarSessionAuthority({ initialToken: 'session-sentinel' });
       authority.markReady(authority.snapshot().generation);
-      if (stopped) authority.markStopped();
+      if (stopped || shutdownRequested) authority.markStopped();
       const ensureApiPort = vi.fn();
       const probe = vi.fn();
       const refresh = new Function(
@@ -337,7 +337,7 @@ describe('sidecar version handshake', () => {
     expect(refreshBlock).toContain('probeSidecarHealth(snapshot)');
     expect(refreshBlock).toContain("result.state === 'ok'");
     expect(refreshBlock).toContain("result.state === 'mismatch'");
-    expect(refreshBlock).toContain("sendStatus(mainWindow, 'ready')");
+    expect(refreshBlock).toContain('sidecarSessionAuthority.markReady(snapshot.generation)');
     expect(refreshBlock).not.toContain("lastSidecarStatus = 'ready'");
   });
 
@@ -361,7 +361,9 @@ describe('sidecar version handshake', () => {
     expect(pollBlock).not.toBeNull();
     expect(pollBlock![0]).toMatch(/mismatch/);
 
-    expect(pollBlock![0]).toMatch(/sendStatus\([^,]+,\s*['"]error['"]\)/);
+    expect(pollBlock![0]).toContain(
+      "sidecarSessionAuthority.markFailed(launchSession.generation, 'error')"
+    );
   });
 });
 
@@ -502,11 +504,11 @@ describe(' sidecar supervisor', () => {
   });
 
   it('does not respawn during intentional app shutdown', () => {
-    expect(sidecarContent).toContain('intentionalStop');
-    expect(sidecarContent).toMatch(/supervisorState\.intentionalStop\s*=\s*true/);
-    expect(sidecarContent).toMatch(
-      /if\s*\(\s*!supervisorState\.started\s*\|\|\s*supervisorState\.intentionalStop\s*\|\|\s*supervisorState\.shutdownRequested\s*\)\s*return/
+    expect(sidecarContent).toContain(
+      "if (!supervisorState.started || sidecarSessionAuthority.snapshot().state === 'stopped') return"
     );
+    expect(sidecarContent).toContain('sidecarSessionAuthority.markStopped()');
+    expect(sidecarContent).not.toContain('intentionalStop');
   });
 
   it('exposes a manual restart IPC path through preload types', () => {
@@ -534,16 +536,18 @@ describe(' sidecar supervisor', () => {
     expect(sidecarContent).toContain('let restartPromise: Promise<void> | null = null');
     expect(sidecarContent).toContain('if (restartPromise) return restartPromise');
     expect(sidecarContent).toContain('const tracked = performRestartSidecar()');
-    expect(sidecarContent).toContain("sendStatus(mainWindow, 'error')");
+    expect(sidecarContent).toContain(
+      "sidecarSessionAuthority.markFailed(sidecarSessionAuthority.snapshot().generation, 'error')"
+    );
   });
 
   it('latches shutdown across bootstrap awaits and performs a final child sweep', () => {
-    expect(sidecarContent).toContain('shutdownRequested: boolean');
+    expect(sidecarContent).not.toContain('shutdownRequested: boolean');
     expect(sidecarContent).toMatch(
-      /await ensureApiPort\(\);\s+if \(supervisorState\.shutdownRequested\) return/
+      /await ensureApiPort\(\);\s+if \(sidecarSessionAuthority\.snapshot\(\)\.state === 'stopped'\) return/
     );
     expect(sidecarContent).toMatch(
-      /await waitForTestPreSpawnDelay\(\);\s+if \(supervisorState\.shutdownRequested\) return/
+      /await waitForTestPreSpawnDelay\(\);\s+if \(sidecarSessionAuthority\.snapshot\(\)\.state === 'stopped'\) return/
     );
     expect(sidecarContent).toMatch(
       /await stopCurrentChild\(\);[\s\S]*Promise\.allSettled\(inFlight\)[\s\S]*await stopCurrentChild\(\)/
@@ -568,7 +572,7 @@ describe(' sidecar supervisor', () => {
       "currentSession.owner === 'external'"
     );
     expect(sidecarContent.slice(compatibleCheck, manualLaunch)).toContain(
-      "sendStatus(mainWindow, 'ready')"
+      'sidecarSessionAuthority.markReady(currentSession.generation)'
     );
     expect(sidecarContent.slice(compatibleCheck, manualLaunch)).toContain(
       'reportExistingSidecarMismatch'
@@ -582,8 +586,8 @@ describe(' sidecar supervisor', () => {
       sidecarContent.indexOf('export async function killSidecar', restartStart)
     );
 
-    expect(restartBlock.indexOf("sendStatus(mainWindow, 'restarting')")).toBeGreaterThan(-1);
-    expect(restartBlock.indexOf("sendStatus(mainWindow, 'restarting')")).toBeLessThan(
+    expect(restartBlock.indexOf('sidecarSessionAuthority.markRestarting()')).toBeGreaterThan(-1);
+    expect(restartBlock.indexOf('sidecarSessionAuthority.markRestarting()')).toBeLessThan(
       restartBlock.indexOf('if (sidecarProcess)')
     );
   });
@@ -594,10 +598,14 @@ describe(' sidecar supervisor', () => {
     const restartBlock = sidecarContent.slice(restartStart, restartEnd);
 
     expect(restartBlock).toContain("recordSidecarLifecycle('manual_restart_failed'");
-    expect(restartBlock).toContain("sendStatus(mainWindow, 'error')");
-    expect(restartBlock.indexOf("sendStatus(mainWindow, 'error')")).toBeLessThan(
-      restartBlock.indexOf('throw error')
+    expect(restartBlock).toContain(
+      "sidecarSessionAuthority.markFailed(sidecarSessionAuthority.snapshot().generation, 'error')"
     );
+    expect(
+      restartBlock.indexOf(
+        "sidecarSessionAuthority.markFailed(sidecarSessionAuthority.snapshot().generation, 'error')"
+      )
+    ).toBeLessThan(restartBlock.indexOf('throw error'));
   });
 
   it('awaits process-tree termination before automatic respawn and app shutdown', () => {
@@ -645,8 +653,8 @@ describe(' sidecar supervisor', () => {
     const refreshEnd = sidecarContent.indexOf('function sendStatus', refreshStart);
     const refreshBlock = sidecarContent.slice(refreshStart, refreshEnd);
 
-    expect(refreshBlock).toContain("lastSidecarStatus === 'restarting'");
-    expect(refreshBlock.indexOf("lastSidecarStatus === 'restarting'")).toBeLessThan(
+    expect(refreshBlock).toContain("currentStatus === 'restarting'");
+    expect(refreshBlock.indexOf("currentStatus === 'restarting'")).toBeLessThan(
       refreshBlock.indexOf('probeSidecarHealth')
     );
     expect(refreshBlock).toContain('sidecarSessionAuthority.isCurrent(snapshot)');
@@ -808,6 +816,10 @@ describe('private MCP port readiness', () => {
       ).outputText;
       const authority = new SidecarSessionAuthority({ initialToken: 'private-port-session' });
       const port = vi.fn();
+      authority.subscribe(({ state }) => {
+        if (state !== 'ready') port(null);
+      });
+      port.mockClear();
       const probe = vi.fn(async () => {
         if (mode === 'stale') authority.prepareManagedSpawn('manual_restart');
         return mode === 'wrong-session'
@@ -839,11 +851,9 @@ describe('private MCP port readiness', () => {
         { warn: vi.fn() }
       );
       expect(await refresh()).toBe(
-        mode === 'current' ? 'ready' : mode === 'stale' ? 'starting' : 'error'
+        mode === 'current' ? 'ready' : mode === 'stale' ? 'restarting' : 'error'
       );
-      expect(port.mock.calls).toEqual(
-        mode === 'current' ? [[35769]] : mode === 'stale' ? [] : [[null]]
-      );
+      expect(port.mock.calls).toEqual(mode === 'current' ? [[35769]] : [[null]]);
     }
   );
 });

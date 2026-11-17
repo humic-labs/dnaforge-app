@@ -21,6 +21,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator, Literal, overload
 
+from ..action_completion import ActionCompletionOwner
+from ..agent_manifest_paths import agent_tool_manifest_path
 from ..agent_workspace_authority import snapshot_workspace_roots
 from .managed_operation_rows import ManagedOperationRow, managed_operation_row
 
@@ -123,6 +125,8 @@ CREATE TABLE IF NOT EXISTS agent_action (
   result_json         TEXT,
   error_json          TEXT,
   completed_at        TEXT,
+  completion_owner    TEXT NOT NULL DEFAULT 'job' CHECK (completion_owner IN ('job','renderer')),
+  completion_state    TEXT NOT NULL DEFAULT 'pending' CHECK (completion_state IN ('pending','unresolved','settled')),
   managed_operation_id TEXT REFERENCES managed_operation(id) ON DELETE SET NULL
 );
 
@@ -853,6 +857,7 @@ class ControlPlaneStore:
         self._ensure_external_resource_binding_paper_source_kind()
         self._ensure_agent_action_authorized_scope_column()
         self._ensure_agent_action_job_columns()
+        self._ensure_agent_action_completion_columns()
         self._ensure_agent_action_operation_column()
         self._ensure_managed_operation_cancellation_mode_column()
         self._ensure_managed_operation_accepted_input_column()
@@ -983,6 +988,49 @@ class ControlPlaneStore:
               ON agent_action(job_duration, requested_at DESC)
               WHERE job_duration IN ('long-running','streaming')
             """)
+
+    def _ensure_agent_action_completion_columns(self) -> None:
+        columns = {
+            row["name"]
+            for row in self._conn.execute("PRAGMA table_info(agent_action)").fetchall()
+        }
+        if "completion_owner" not in columns:
+            self._conn.execute(
+                "ALTER TABLE agent_action ADD COLUMN completion_owner TEXT NOT NULL "
+                "DEFAULT 'job' CHECK (completion_owner IN ('job','renderer'))"
+            )
+            manifest = json.loads(
+                agent_tool_manifest_path("renderer-tool-manifest.json").read_text()
+            )
+            aliases = manifest.get("providerToolNames", {})
+            renderer_names = {
+                name
+                for tool in manifest["tools"]
+                if not tool.get("sidecarOrchestrated", False)
+                for name in (tool["name"], aliases.get(tool["name"], tool["name"]))
+            }
+            self._conn.executemany(
+                "UPDATE agent_action SET completion_owner = 'renderer' WHERE tool_name = ?",
+                [(name,) for name in renderer_names],
+            )
+            self._conn.execute("""
+                UPDATE agent_action SET completion_owner = 'renderer'
+                WHERE tool_name = 'file_document'
+                  AND json_type(parameters_json, '$.tabId') = 'text'
+                  AND json_type(parameters_json, '$.target') IS NULL
+                  AND json_extract(parameters_json, '$.operation.kind') != 'list-dirty'
+                """)
+        if "completion_state" not in columns:
+            self._conn.execute(
+                "ALTER TABLE agent_action ADD COLUMN completion_state TEXT NOT NULL "
+                "DEFAULT 'pending' CHECK (completion_state IN ('pending','unresolved','settled'))"
+            )
+            self._conn.execute("""
+                UPDATE agent_action SET completion_state = CASE
+                    WHEN json_extract(error_json, '$.code') = 'OUTCOME_UNRESOLVED' THEN 'unresolved'
+                    WHEN completed_at IS NOT NULL THEN 'settled'
+                    ELSE 'pending' END
+                """)
 
     def _ensure_agent_action_operation_column(self) -> None:
         columns = {
@@ -2689,6 +2737,7 @@ class ControlPlaneStore:
         job_turn_id: str | None = None,
         idempotency_key_hash: str | None = None,
         idempotency_body_hash: str | None = None,
+        completion_owner: ActionCompletionOwner = "job",
     ) -> str:
         action_id = action_id or new_uuid7()
         root_action_id = root_action_id or action_id
@@ -2704,9 +2753,9 @@ class ControlPlaneStore:
               id, agent_identity_id, tool_name, parameters_json, authorized_scope_json,
               requested_at, authorization_state, parent_action_id, root_action_id,
               job_pool, job_cancelable, job_duration, job_turn_id,
-              idempotency_key_hash, idempotency_body_hash
+              idempotency_key_hash, idempotency_body_hash, completion_owner
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 action_id,
@@ -2724,6 +2773,7 @@ class ControlPlaneStore:
                 job_turn_id,
                 idempotency_key_hash,
                 idempotency_body_hash,
+                completion_owner,
             ),
         )
         self._commit()
@@ -2736,37 +2786,44 @@ class ControlPlaneStore:
         result: dict[str, Any] | None = None,
         error: dict[str, Any] | None = None,
         terminal_expires_at: float | None = None,
-    ) -> None:
-        self._conn.execute(
-            """
-            UPDATE agent_action
-            SET result_json = ?, error_json = ?, completed_at = ?, terminal_expires_at = ?
-            WHERE id = ?
-            """,
-            (
-                json.dumps(result, sort_keys=True) if result is not None else None,
-                json.dumps(error, sort_keys=True) if error is not None else None,
-                utc_now(),
-                terminal_expires_at,
-                action_id,
-            ),
-        )
-        if error is None and isinstance(result, dict) and result.get("ok") is True:
-            payload = result.get("result")
-            action = self.get_agent_action(action_id)
-            if (
-                action
-                and action["tool_name"] == "create_design"
-                and action["authorization_state"] in {"granted", "approved"}
-                and isinstance(payload, dict)
-                and isinstance(payload.get("designId"), str)
-                and payload["designId"]
-            ):
-                self._conn.execute(
-                    "INSERT OR IGNORE INTO agent_design_authority VALUES (?, ?, ?)",
-                    (payload["designId"], action["agent_identity_id"], action_id),
-                )
-        self._commit()
+        completion_owner: ActionCompletionOwner = "job",
+    ) -> bool:
+        with self.transaction():
+            cursor = self._conn.execute(
+                """
+                UPDATE agent_action
+                SET result_json = ?, error_json = ?, completed_at = ?, terminal_expires_at = ?,
+                    completion_state = 'settled'
+                WHERE id = ? AND completion_owner = ?
+                  AND completion_state IN ('pending','unresolved')
+                """,
+                (
+                    json.dumps(result, sort_keys=True) if result is not None else None,
+                    json.dumps(error, sort_keys=True) if error is not None else None,
+                    utc_now(),
+                    terminal_expires_at,
+                    action_id,
+                    completion_owner,
+                ),
+            )
+            if cursor.rowcount == 0:
+                return False
+            if error is None and isinstance(result, dict) and result.get("ok") is True:
+                payload = result.get("result")
+                action = self.get_agent_action(action_id)
+                if (
+                    action
+                    and action["tool_name"] == "create_design"
+                    and action["authorization_state"] in {"granted", "approved"}
+                    and isinstance(payload, dict)
+                    and isinstance(payload.get("designId"), str)
+                    and payload["designId"]
+                ):
+                    self._conn.execute(
+                        "INSERT OR IGNORE INTO agent_design_authority VALUES (?, ?, ?)",
+                        (payload["designId"], action["agent_identity_id"], action_id),
+                    )
+            return True
 
     def agent_design_owner(self, design_id: str) -> str | None:
         row = self._conn.execute(
@@ -2820,32 +2877,23 @@ class ControlPlaneStore:
         error: dict[str, Any],
         terminal_expires_at: float,
     ) -> dict[str, Any] | None:
-        """Retain one ownerless action without overwriting a later real outcome.
-
-        A second sidecar can observe an unfinished row after the process that
-        admitted it disappeared. The conditional update makes that recovery
-        safe against a terminal write that wins the race. An already unresolved
-        row may renew its result-lookup window while preserving the same action
-        identity.
-        """
-
-        self._conn.execute(
-            """
-            UPDATE agent_action
-            SET result_json = NULL, error_json = ?, completed_at = ?, terminal_expires_at = ?
-            WHERE id = ?
-              AND (completed_at IS NULL
-                OR json_extract(error_json, '$.code') = 'OUTCOME_UNRESOLVED')
-            """,
-            (
-                json.dumps(error, sort_keys=True),
-                utc_now(),
-                terminal_expires_at,
-                action_id,
-            ),
-        )
-        self._commit()
-        return self.get_agent_action(action_id)
+        with self.transaction():
+            self._conn.execute(
+                """
+                UPDATE agent_action
+                SET result_json = NULL, error_json = ?, completed_at = ?, terminal_expires_at = ?,
+                    completion_state = 'unresolved'
+                WHERE id = ?
+                  AND completion_state IN ('pending','unresolved')
+                """,
+                (
+                    json.dumps(error, sort_keys=True),
+                    utc_now(),
+                    terminal_expires_at,
+                    action_id,
+                ),
+            )
+            return self.get_agent_action(action_id)
 
     def get_retained_agent_action_by_idempotency_hash(
         self,
@@ -2862,7 +2910,7 @@ class ControlPlaneStore:
               AND idempotency_key_hash = ?
               AND ((terminal_expires_at > ? AND completed_at IS NOT NULL)
                 OR (? AND (completed_at IS NULL
-                  OR json_extract(error_json, '$.code') = 'OUTCOME_UNRESOLVED')))
+                  OR completion_state = 'unresolved')))
             ORDER BY requested_at DESC
             LIMIT 1
             """,

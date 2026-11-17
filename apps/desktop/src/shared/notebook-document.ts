@@ -1,3 +1,4 @@
+import { tableDocumentReferenceSchema } from './table-document-reference';
 import { molecularDocumentReferenceSchema } from './molecular-document-reference';
 import { z } from 'zod';
 import type { JSONContent } from '@tiptap/core';
@@ -40,6 +41,8 @@ const notebookOperations = {
       index: z.number().int().nonnegative(),
       referenceId: z.string().uuid().optional(),
       documentReference: molecularDocumentReferenceSchema.optional(),
+      tableReference: tableDocumentReferenceSchema.optional(),
+      presentation: z.enum(['embed', 'link']).optional(),
       label: z.string().min(1).max(500).optional(),
     })
     .strict(),

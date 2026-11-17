@@ -47,9 +47,14 @@ export type PrepackedSceneLifecycleResident = {
     prewarmFineViews(
       startBp: number,
       endBp: number,
-      renderer: PartitionedTranscriptGpuPreparationRenderer
+      renderer: PartitionedTranscriptGpuPreparationRenderer,
+      haloTiles?: number,
+      deadlineMs?: number
     ): void;
-    prepareNextCoarseFallbackView(renderer: PartitionedTranscriptGpuPreparationRenderer): void;
+    prepareNextCoarseFallbackView(
+      renderer: PartitionedTranscriptGpuPreparationRenderer,
+      deadlineMs?: number
+    ): void;
   };
 };
 
@@ -105,7 +110,8 @@ export function preparePrepackedAnnotationFineViews(
   host: PrepackedSceneLifecycleHost,
   viewportStartBp: number,
   viewportEndBp: number,
-  _themeMode: 'light' | 'dark'
+  _themeMode: 'light' | 'dark',
+  deadlineMs = Number.POSITIVE_INFINITY
 ): PrepackedAnnotationFinePreparationResult {
   const viewport = clampPrepackedFinePrewarmViewport({
     viewportStartBp,
@@ -133,14 +139,26 @@ export function preparePrepackedAnnotationFineViews(
   if (action.kind === 'complete') {
     return { status: 'complete', preparedOwnerKey: null, pendingOwnerCount: 0 };
   }
+  if (performance.now() >= deadlineMs) {
+    return {
+      status: 'prepared',
+      preparedOwnerKey: null,
+      pendingOwnerCount: countPrepackedFinePreparationPending({
+        residents: residents as PrepackedSceneLifecycleResident[],
+        startBp,
+        endBp,
+        includeGpu: true,
+      }),
+    };
+  }
   const renderer = host.pixiRenderer as PartitionedTranscriptGpuPreparationRenderer;
   if (action.kind === 'prepare-gpu') {
     action.resident.layer.prepareGpuResources(renderer);
     host.prepackedAnnotationSceneGpuPreparations += 1;
   } else if (action.kind === 'prewarm-fine') {
-    action.resident.layer.prewarmFineViews(startBp, endBp, renderer);
+    action.resident.layer.prewarmFineViews(startBp, endBp, renderer, undefined, deadlineMs);
   } else {
-    action.resident.layer.prepareNextCoarseFallbackView(renderer);
+    action.resident.layer.prepareNextCoarseFallbackView(renderer, deadlineMs);
   }
   const pendingOwnerCount = countPrepackedFinePreparationPending({
     residents: residents as PrepackedSceneLifecycleResident[],

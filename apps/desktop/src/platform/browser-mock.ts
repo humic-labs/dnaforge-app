@@ -1799,6 +1799,9 @@ export const browserMockBridge: PlatformBridge = {
     fileDocument: async () => {
       throw new Error('Native file documents require the desktop runtime.');
     },
+    tableDocument: async () => {
+      throw new Error('Native table documents require the desktop runtime.');
+    },
     subscribeFileDocuments: () => () => {},
     beginWorkspaceMutation: async () => 'browser-workspace-mutation',
     endWorkspaceMutation: async () => undefined,
@@ -2120,6 +2123,9 @@ export const browserMockBridge: PlatformBridge = {
     },
   },
   molecularDocuments: {
+    reconcileSourceLinks: async () => {
+      throw new Error('Molecular document source projection requires the desktop app.');
+    },
     read: async () => {
       throw new Error('Molecular documents require the desktop app.');
     },

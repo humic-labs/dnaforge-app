@@ -1,3 +1,4 @@
+import { normalizeLegacyTableData } from './normalize-table-data';
 import type {
   Cell,
   TableData,
@@ -183,6 +184,7 @@ export function tableDataModel({
   canObserve,
   browserActions,
 }: TableDataModelInput) {
+  data = normalizeLegacyTableData(data);
   const localSort = memory.sort;
   const setLocalSort = (
     value: ColumnSort | null | ((previous: ColumnSort | null) => ColumnSort | null)

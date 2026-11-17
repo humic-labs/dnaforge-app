@@ -1,4 +1,5 @@
 import { ipcMain, ipcRenderer } from 'electron';
+import type { SaveAllResult } from './save-all-result';
 import {
   isUserMessagePayload,
   renderUserMessagePayload,
@@ -46,6 +47,7 @@ import type {
 } from './benchling-migration-render-validation';
 import type { InvokeContract } from './ipc-invoke-contract.generated';
 import type { RemoteGenomicsStatusDeliveryV1 } from './remote-genomics-ipc';
+import type { FrameTabNavigationRequest } from './frame-tab-navigation';
 import type {
   StaticIpcChannel,
   StaticInvokeChannel,
@@ -104,13 +106,14 @@ export interface RendererSendContract {
     [payload: { errorClass: string; source: 'error' | 'unhandledrejection' }]
   >;
   'diagnostics:breadcrumbs': EventEntry<[lines: string[]]>;
-  'app:saveAllDone': EventEntry<[requestId: string]>;
+  'app:saveAllDone': EventEntry<[requestId: string, result?: SaveAllResult]>;
   'cloudSync:replicaAppliedAck': EventEntry<[ack: WorkspaceSyncReplicaDeliveryAck]>;
   'workspace:mutationAck': EventEntry<[ack: WorkspaceRendererMutationAck]>;
   'workspace:set-path-listener-ready': EventEntry<[]>;
 }
 
 export interface MainSendContract {
+  'window:frame-tab-navigation': EventEntry<[request: FrameTabNavigationRequest]>;
   'app:saveAll': EventEntry<[requestId: string]>;
   'remoteGenomics:statusChanged': EventEntry<[delivery: RemoteGenomicsStatusDeliveryV1]>;
   'benchling-migration:render-validation-request': EventEntry<
@@ -243,6 +246,7 @@ export type GenericMainSendChannel = Extract<
   | 'menu:explorer'
   | 'menu:search'
   | 'window:resize'
+  | 'window:frame-tab-navigation'
   | 'window:move'
   | 'compute:jobTerminal'
   | 'file-changed'

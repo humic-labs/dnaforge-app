@@ -31,7 +31,11 @@ from ..agent_workflows import (
     workflow_run_summary_resource,
 )
 from ..concurrency.dispatcher import dispatch_tool
-from ..concurrency.job_manager import IdempotencyConflict, get_job_manager
+from ..concurrency.job_manager import (
+    ACTIVE_JOB_STATUSES,
+    IdempotencyConflict,
+    get_job_manager,
+)
 from ..concurrency.refusals import QueueRefusal
 from ..concurrency.renderer_bridge import read_renderer_resource
 from ..concurrency.schema import ToolHome
@@ -212,7 +216,7 @@ async def call_mcp_tool(
             ),
         )
 
-    status_code = 202 if job.status in ("queued", "running") else 200
+    status_code = 202 if job.status in ACTIVE_JOB_STATUSES else 200
     ok = job.status not in {"failed", "canceled"}
     snapshot = get_job_manager().snapshot(job.id) or job.snapshot()
     return JSONResponse(status_code=status_code, content={"ok": ok, **snapshot})

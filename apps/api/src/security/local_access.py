@@ -416,6 +416,7 @@ ALLOWED_CORS_HEADERS = [
     "X-DNAForge-Turn-Id",
 ]
 EXPOSED_CORS_HEADERS = [
+    "Content-Encoding",
     "Accept-Ranges",
     "Content-Range",
     "ETag",

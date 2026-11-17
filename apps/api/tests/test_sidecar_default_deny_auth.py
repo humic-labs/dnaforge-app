@@ -474,6 +474,7 @@ def test_cors_preflight_is_outermost_but_never_authenticates_a_real_request(
     assert authenticated.status_code == 200
     exposed = authenticated.headers.get("access-control-expose-headers", "").lower()
     assert "x-waypoint-coverage-contract" in exposed
+    assert "content-encoding" in exposed
     assert "x-structure-format" in exposed
 
     attacker = client.options(

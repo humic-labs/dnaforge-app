@@ -15,7 +15,7 @@ import { OrfTrack } from './tracks/orf-track';
 import { RestrictionTrack } from './tracks/restriction-track';
 import { getCDSIntrons, translateCDS } from '../../biology/translation';
 import { createBaseReader } from './shared/base-reader';
-import { findCutSites, type CutSite } from '../../biology/restriction-sites';
+import type { CutSite } from '../../biology/restriction-sites';
 import {
   computeTickStep,
   enumerateCircularRulerTickBps,
@@ -655,16 +655,7 @@ export class PixiStadiumRenderer {
         this.codonTrack.reset();
         this.orfTrack.loadGenome(genome);
 
-        const skip =
-          typeof window !== 'undefined' &&
-          (window as unknown as { __webglSkipInternalCutSites?: boolean })
-            .__webglSkipInternalCutSites !== false;
-        this.cutSites =
-          genome.sequence && !skip
-            ? ptime('stadium.loadGenome.findCutSites', () => findCutSites(genome.sequence!), {
-                seqLen: genome.sequence.length,
-              })
-            : [];
+        this.cutSites = [];
         this.codonCache.clear();
       },
       { features: genomeFeatures(genome).length, seqLen: genome.sequence?.length ?? 0 }

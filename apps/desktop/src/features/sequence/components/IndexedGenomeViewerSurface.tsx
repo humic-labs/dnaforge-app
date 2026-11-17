@@ -218,6 +218,7 @@ export function IndexedGenomeViewerSurface({
   readSourcesByTrackId,
   hasDataTracks,
   hasQuantitativeTracks,
+  hasPileupTracks = false,
   referencePathsByChrom,
   assemblyRoutingEnabled,
   assemblySequenceWindow,
@@ -338,6 +339,7 @@ export function IndexedGenomeViewerSurface({
   readSourcesByTrackId: ReadonlyMap<string, PileupSource>;
   hasDataTracks: boolean;
   hasQuantitativeTracks: boolean;
+  hasPileupTracks?: boolean;
   referencePathsByChrom?: ReadonlyMap<string, string>;
   assemblyRoutingEnabled: boolean;
   assemblySequenceWindow: IndexedGenomeViewerSequenceWindowState | null;
@@ -527,6 +529,7 @@ export function IndexedGenomeViewerSurface({
               readSourcesByTrackId={readSourcesByTrackId}
               allowSparseCanvasCrop={!hasDataTracks}
               hasQuantitativeTracks={hasQuantitativeTracks}
+              hasPileupTracks={hasPileupTracks}
               canvasLayoutKey={`${rendererEffectiveVisibleLayerTypes.join(',')}:${laneLimit}:${transcriptDisplayMode}`}
               referencePathsByChrom={referencePathsByChrom}
               sequenceWindow={indexedGenomeMapSequenceWindow(

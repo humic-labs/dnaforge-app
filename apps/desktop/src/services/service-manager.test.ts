@@ -57,12 +57,12 @@ describe('ServiceManager', () => {
     });
   });
 
-  describe('generated client binding', () => {
+  describe('endpoint ownership', () => {
     beforeEach(() => {
       global.fetch = vi.fn();
     });
 
-    it('binds its own base URL after another feature reconfigures the shared client', async () => {
+    it('uses its own base URL when the compatibility default points elsewhere', async () => {
       configureApiClient({ baseUrl: 'http://another-feature.test.invalid' });
       (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
         jsonResponse({ status: 'healthy' })

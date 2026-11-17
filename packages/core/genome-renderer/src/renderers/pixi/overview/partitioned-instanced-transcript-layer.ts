@@ -768,13 +768,17 @@ export class PartitionedInstancedTranscriptLayer {
     }
   }
 
-  prepareNextCoarseFallbackView(renderer: PartitionedTranscriptGpuPreparationRenderer): boolean {
+  prepareNextCoarseFallbackView(
+    renderer: PartitionedTranscriptGpuPreparationRenderer,
+    deadlineMs = Number.POSITIVE_INFINITY
+  ): boolean {
     this.assertAlive();
     if (!this.gpuResourcesPrepared) {
       throw new Error('partitioned transcript GPU resources must be prepared first');
     }
     const plan = this.pendingDirectCoarseViews[this.pendingDirectCoarseViewCursor];
     if (!plan) return false;
+    if (performance.now() >= deadlineMs) return false;
     let view: PartitionView | null = null;
     try {
       view = this.createDirectCoarseView(plan.mode, plan.partition, true);
@@ -979,7 +983,8 @@ export class PartitionedInstancedTranscriptLayer {
     viewportStartBp: number,
     viewportEndBp: number,
     renderer: PartitionedTranscriptGpuPreparationRenderer,
-    haloTiles = 1
+    haloTiles = 1,
+    deadlineMs = Number.POSITIVE_INFINITY
   ): { built: number; reused: number; evicted: number; requiredFineCount: number } {
     this.assertAlive();
     if (!this.gpuResourcesPrepared) {
@@ -1017,6 +1022,7 @@ export class PartitionedInstancedTranscriptLayer {
           reused += 1;
           continue;
         }
+        if (performance.now() >= deadlineMs) break;
         const directTile =
           mode && this.submissionBank && this.submissionFineIndices
             ? materializeAnnotationPolicyDirectFineTileV1(

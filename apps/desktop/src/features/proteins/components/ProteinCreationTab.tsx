@@ -1,3 +1,4 @@
+import { reportSaveFailure } from '../../../lib/report-save-failure';
 import { useDocumentLifecycle } from '../../../shared/use-document-lifecycle';
 import { toUserMessage, userMessageWithValues, userMessageValue } from '@waypoint/user-messages';
 import { Button, TextField, TextArea } from '../../../components/ui';
@@ -94,12 +95,14 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
         sourceCds: sourceCds.trim() || undefined,
         notes: notes.trim() || undefined,
       });
-      updateTab(panelId, tab.id, {
-        entityId: result.limsEntity.id,
-        label: result.limsEntity.name,
-        artifactDocument: undefined,
-        isDirty: false,
-      });
+      useCanvasStore
+        .getState()
+        .retargetTab(
+          panelId,
+          tab.id,
+          { type: 'protein', entityId: result.limsEntity.id },
+          { label: result.limsEntity.name, artifactDocument: undefined, isDirty: false }
+        );
       window.dispatchEvent(
         new CustomEvent('waypoint:workspace-files-changed', {
           detail: { workspaceRoot: context.workspaceRoot, revealPath: result.artifactPath },
@@ -115,6 +118,7 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
       );
       return true;
     } catch (error) {
+      reportSaveFailure('[ProteinCreationTab] Save failed:', { tabId: tab.id }, error);
       useToastStore.getState().addToast(toUserMessage(error, 'structure.failed'), {
         definition: 'protein-creation-tab-save',
       });

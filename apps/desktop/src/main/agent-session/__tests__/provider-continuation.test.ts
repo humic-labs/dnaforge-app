@@ -49,7 +49,7 @@ function insertSession(input: {
   id: string;
   turnId: string;
   provider: 'codex-sdk' | 'claude-agent-sdk';
-  status: 'completed' | 'failed' | 'stop_requested' | 'cancelled' | 'interrupted';
+  status: 'completed' | 'failed' | 'stop_unconfirmed' | 'cancelled' | 'interrupted';
   providerConversationId: string | null;
   conversationId?: string;
 }): void {
@@ -94,7 +94,7 @@ describe('findProviderContinuation', () => {
   });
 
   it.each([
-    ['stopped', 'stop_requested'],
+    ['stopped', 'stop_unconfirmed'],
     ['cancelled', 'cancelled'],
     ['interrupted', 'interrupted'],
   ] as const)('resumes the explicit follow-up after a %s turn', (turnStatus, sessionStatus) => {

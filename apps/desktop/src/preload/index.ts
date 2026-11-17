@@ -1,4 +1,5 @@
 import { trackViewCommandsContract } from '../shared/ipc/track-view-commands.contract';
+import type { SaveAllResult } from '../shared/save-all-result';
 import { notebookContract } from '../shared/ipc/notebook.contract';
 import { importReviewContract } from '../shared/ipc/import-review.contract';
 import { administrationContract } from '../shared/ipc/administration.contract';
@@ -484,6 +485,7 @@ const api = {
       'menu:explorer',
       'menu:search',
       'window:resize',
+      'window:frame-tab-navigation',
       'window:move',
       'file-changed',
       'workspace:set-path',
@@ -550,8 +552,8 @@ const api = {
   startup: createClient(startupContract),
   app: {
     ...createClient(appDirtyStateContract),
-    saveAllDone: (requestId: string): void => {
-      rendererIpc.send('app:saveAllDone', requestId);
+    saveAllDone: (requestId: string, result?: SaveAllResult): void => {
+      rendererIpc.send('app:saveAllDone', requestId, result);
     },
   },
 

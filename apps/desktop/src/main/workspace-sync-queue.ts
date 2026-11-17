@@ -499,6 +499,333 @@ export function isForceRetryableWorkspaceSyncFailure(job: WorkspaceSyncQueueJob)
   return false;
 }
 
+export function cancelWorkspaceSyncUploadsBeforeStart(
+  db: Database.Database,
+  workspaceId: number,
+  nowMs: number
+): void {
+  db.prepare(
+    `UPDATE workspace_sync_queue
+     SET status = 'canceled',
+         locked_at = NULL,
+         locked_by_device_id = NULL,
+         next_attempt_at = NULL,
+         error_code = 'SYNC_DISABLED',
+         error_message = 'Auto sync was turned off before this upload ran.',
+         updated_at = ?
+     WHERE workspace_id = ?
+       AND operation = 'upload'
+       AND status IN ('pending', 'blocked')`
+  ).run(nowMs, workspaceId);
+}
+
+export function settleWorkspaceSyncPullFailures(
+  db: Database.Database,
+  workspaceId: number,
+  nowMs: number
+): void {
+  db.prepare(
+    `UPDATE workspace_sync_queue
+     SET status = 'succeeded',
+         next_attempt_at = NULL,
+         locked_at = NULL,
+         locked_by_device_id = NULL,
+         error_code = NULL,
+         error_message = NULL,
+         updated_at = ?
+     WHERE workspace_id = ?
+       AND operation = 'refresh'
+       AND idempotency_key LIKE 'pull-error:%'
+       AND status IN ('pending', 'running', 'retry_wait', 'blocked', 'failed')`
+  ).run(nowMs, workspaceId);
+}
+
+export function settleWorkspaceSyncReplicaRecovery(
+  db: Database.Database,
+  activeQuarantineWorkspaceIds: ReadonlySet<number>,
+  nowMs: number
+): string[] {
+  const candidates = db
+    .prepare(
+      `SELECT DISTINCT recovery.workspace_id, binding.workspace_uuid
+       FROM workspace_sync_queue recovery
+       JOIN workspace_sync_bindings binding ON binding.workspace_id = recovery.workspace_id
+       WHERE recovery.error_code = 'REPLICA_RECOVERY_REQUIRED'
+         AND recovery.status = 'failed'`
+    )
+    .all() as Array<{ workspace_id: number; workspace_uuid: string }>;
+  const settle = db.prepare(
+    `UPDATE workspace_sync_queue
+     SET status = 'succeeded',
+         next_attempt_at = NULL,
+         locked_at = NULL,
+         locked_by_device_id = NULL,
+         error_code = NULL,
+         error_message = NULL,
+         updated_at = ?
+     WHERE workspace_id = ?
+       AND error_code = 'REPLICA_RECOVERY_REQUIRED'
+       AND status = 'failed'`
+  );
+  return db.transaction(() => {
+    const recoveredWorkspaceUuids: string[] = [];
+    for (const candidate of candidates) {
+      if (activeQuarantineWorkspaceIds.has(candidate.workspace_id)) continue;
+      const result = settle.run(nowMs, candidate.workspace_id);
+      if (result.changes > 0) recoveredWorkspaceUuids.push(candidate.workspace_uuid);
+    }
+    return recoveredWorkspaceUuids;
+  })();
+}
+
+export function cancelReconciledWorkspaceSyncConflicts(
+  db: Database.Database,
+  workspaceId: number,
+  at: number,
+  code: 'CONFLICT_RESOLVED_MERGED' | 'CONFLICT_RESOLVED_NO_REMOTE_CHANGE'
+): void {
+  db.prepare(
+    `UPDATE workspace_sync_queue
+     SET status = 'canceled', error_code = ?, updated_at = ?
+     WHERE workspace_id = ?
+       AND status = 'failed'
+       AND error_code IN ('CONFLICT', 'SYNC_CONFLICT')`
+  ).run(code, at, workspaceId);
+}
+
+export interface WorkspaceSyncConflictSnapshot {
+  id: string;
+  error_code: 'CONFLICT' | 'SYNC_CONFLICT';
+  error_message: string | null;
+}
+
+export function selectResolvableWorkspaceSyncConflicts(
+  db: Database.Database,
+  workspaceId: number
+): WorkspaceSyncConflictSnapshot[] {
+  return db
+    .prepare(
+      `SELECT id, error_code, error_message
+       FROM workspace_sync_queue
+       WHERE workspace_id = ?
+         AND status = 'failed'
+         AND error_code IN ('CONFLICT', 'SYNC_CONFLICT')
+       ORDER BY updated_at DESC, created_at DESC, id`
+    )
+    .all(workspaceId) as WorkspaceSyncConflictSnapshot[];
+}
+
+export function cancelResolvedWorkspaceSyncConflicts(
+  db: Database.Database,
+  jobs: readonly WorkspaceSyncConflictSnapshot[],
+  code: 'CONFLICT_RESOLVED_KEEP_LOCAL' | 'CONFLICT_RESOLVED_USE_REMOTE',
+  nowMs: number
+): void {
+  const update = db.prepare(
+    `UPDATE workspace_sync_queue
+     SET status = 'canceled',
+         next_attempt_at = NULL,
+         locked_at = NULL,
+         locked_by_device_id = NULL,
+         error_code = ?,
+         error_message = ?,
+         updated_at = ?
+     WHERE id = ?
+       AND status = 'failed'
+       AND error_code IS ?
+       AND error_message IS ?`
+  );
+  for (const job of jobs) {
+    const changed = update.run(
+      code,
+      'Sync conflict was resolved by explicit user action.',
+      nowMs,
+      job.id,
+      job.error_code,
+      job.error_message
+    ).changes;
+    if (changed !== 1) {
+      throw new Error('The pending sync conflict changed before resolution could commit.');
+    }
+  }
+}
+
+export function attachRunningWorkspaceSyncSnapshot(
+  db: Database.Database,
+  input: { id: string; localHeadSha: string | null; bundleContentSha256: string; nowMs: number }
+): void {
+  const updated = db
+    .prepare(
+      `UPDATE workspace_sync_queue
+       SET local_head_sha = COALESCE(local_head_sha, @localHeadSha),
+           bundle_content_sha256 = COALESCE(bundle_content_sha256, @bundleContentSha256),
+           updated_at = @nowMs
+       WHERE id = @id
+         AND status = 'running'
+         AND (local_head_sha IS NULL OR local_head_sha IS @localHeadSha)
+         AND (bundle_content_sha256 IS NULL OR bundle_content_sha256 = @bundleContentSha256)`
+    )
+    .run(input);
+  if (updated.changes !== 1) {
+    throw Object.assign(
+      new Error(`Workspace sync job ${input.id} no longer names the captured upload bytes.`),
+      { code: 'DURABLE_UPLOAD_INVALID', retryable: false }
+    );
+  }
+}
+
+export const WORKSPACE_SYNC_ACCESS_REMOVED_CODE = 'ACCESS_REMOVED';
+
+export function blockWorkspaceSyncJobsAfterAccessRemoval(
+  db: Database.Database,
+  input: { workspaceId: number; nowMs: number; reason?: string }
+): void {
+  db.prepare(
+    `UPDATE workspace_sync_queue
+       SET status = 'blocked',
+           locked_at = NULL,
+           locked_by_device_id = NULL,
+           next_attempt_at = NULL,
+           error_code = @code,
+           error_message = @message,
+           updated_at = @nowMs
+       WHERE workspace_id = @workspaceId
+         AND operation IN ('upload', 'refresh')
+         AND status IN ('pending', 'retry_wait', 'blocked', 'failed')`
+  ).run({
+    workspaceId: input.workspaceId,
+    code: WORKSPACE_SYNC_ACCESS_REMOVED_CODE,
+    message:
+      input.reason ??
+      'You no longer have access to this shared project. Your unsent changes are kept on this computer.',
+    nowMs: input.nowMs,
+  });
+}
+
+export function cancelWorkspaceSyncJobsForDeletedCloudCopy(
+  db: Database.Database,
+  input: { workspaceId: number; nowMs: number }
+): void {
+  db.prepare(
+    `UPDATE workspace_sync_queue
+       SET status = 'canceled',
+           next_attempt_at = NULL,
+           locked_at = NULL,
+           locked_by_device_id = NULL,
+           error_code = 'CLOUD_COPY_DELETED',
+           error_message = 'Cloud copy was deleted.',
+           updated_at = @nowMs
+       WHERE workspace_id = @workspaceId
+         AND status IN ('pending', 'running', 'retry_wait', 'blocked')`
+  ).run(input);
+}
+
+export function cancelWorkspaceSyncJobsForReplacedReplica(
+  db: Database.Database,
+  input: { workspaceId: number; nowMs: number }
+): void {
+  db.prepare(
+    `UPDATE workspace_sync_queue
+     SET status = 'canceled',
+         next_attempt_at = NULL,
+         locked_at = NULL,
+         locked_by_device_id = NULL,
+         error_code = 'LOCAL_REPLICA_REPLACED',
+         error_message = 'Missing local replica was replaced from its cloud copy.',
+         updated_at = @nowMs
+     WHERE workspace_id = @workspaceId
+       AND status IN ('pending', 'running', 'retry_wait', 'blocked', 'failed')`
+  ).run(input);
+}
+
+export function recordWorkspaceSyncUploadCaptureIdentity(
+  db: Database.Database,
+  input: { jobId: string; idempotencyKey: string; contentSha256: string; nowMs: number }
+): void {
+  const updated = db
+    .prepare(
+      `UPDATE workspace_sync_queue
+             SET idempotency_key = @idempotencyKey,
+                 bundle_content_sha256 = @contentSha256,
+                 updated_at = @nowMs
+             WHERE id = @jobId
+               AND status = 'running'`
+    )
+    .run({
+      jobId: input.jobId,
+      idempotencyKey: input.idempotencyKey,
+      contentSha256: input.contentSha256,
+      nowMs: input.nowMs,
+    });
+  if (updated.changes !== 1) {
+    throw new Error(`Workspace sync job ${input.jobId} changed before snapshot persistence.`);
+  }
+}
+
+export function acknowledgeWorkspaceSyncUpload(
+  db: Database.Database,
+  input: {
+    job: Pick<WorkspaceSyncQueueJob, 'id' | 'lockedAt' | 'attemptCount' | 'acceptedOperationId'>;
+    deviceId: string;
+    nowMs: number;
+  }
+): void {
+  const terminalUpdate = db
+    .prepare(
+      `UPDATE workspace_sync_queue
+         SET status = 'succeeded',
+             next_attempt_at = NULL,
+             locked_at = NULL,
+             locked_by_device_id = NULL,
+             error_code = NULL,
+             error_message = NULL,
+             updated_at = @nowMs
+         WHERE id = @jobId
+           AND status = 'running'
+           AND locked_by_device_id = @deviceId
+           AND locked_at = @lockedAt
+           AND attempt_count = @attemptCount
+           AND accepted_operation_id IS @acceptedOperationId`
+    )
+    .run({
+      jobId: input.job.id,
+      deviceId: input.deviceId,
+      lockedAt: input.job.lockedAt,
+      attemptCount: input.job.attemptCount,
+      acceptedOperationId: input.job.acceptedOperationId,
+      nowMs: input.nowMs,
+    });
+  if (terminalUpdate.changes !== 1) {
+    throw Object.assign(new Error('Workspace sync upload lease changed before acknowledgement.'), {
+      code: 'STALE_UPLOAD_RESULT',
+      retryable: false,
+    });
+  }
+}
+
+export function supersedeWorkspaceSyncUploadFailures(
+  db: Database.Database,
+  input: { workspaceId: number; completedJobId: string; nowMs: number }
+): void {
+  db.prepare(
+    `UPDATE workspace_sync_queue
+       SET status = 'canceled',
+           next_attempt_at = NULL,
+           locked_at = NULL,
+           locked_by_device_id = NULL,
+           error_code = 'SUPERSEDED_BY_UPLOAD_SUCCESS',
+           error_message = 'A newer upload completed successfully.',
+           updated_at = @nowMs
+       WHERE workspace_id = @workspaceId
+         AND operation = 'upload'
+         AND (
+           status = 'failed'
+           OR (status = 'canceled' AND error_code = 'SYNC_DISABLED')
+         )
+         AND id <> @jobId`
+  ).run({ workspaceId: input.workspaceId, jobId: input.completedJobId, nowMs: input.nowMs });
+}
+
 function selectJobByIdempotencyKey(
   db: Database.Database,
   idempotencyKey: string

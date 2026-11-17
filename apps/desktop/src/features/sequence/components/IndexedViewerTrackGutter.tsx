@@ -1,3 +1,4 @@
+import { TRACK_COLOR_PRESETS, TRACK_DEFAULT_COLORS } from '@waypoint/sequence-utils';
 import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import {
   toUserMessage,
@@ -90,9 +91,7 @@ import {
 import type { LaneLimit } from './indexed-genome-legacy-adapter';
 import type { TranscriptDisplayMode } from './isoform-collapse';
 import { ReferenceTrackControls } from './ReferenceTrackControls';
-import { INDEXED_BIGWIG_LANE_COLOR } from '../attach-indexed-bigwig';
 import {
-  READ_PILEUP_DEFAULT_COLOR,
   READ_PILEUP_DEFAULT_MAX_ROWS,
   READ_PILEUP_DEFAULT_ROW_HEIGHT_PX,
   READ_PILEUP_DEFAULT_TRACK_HEIGHT_PX,
@@ -123,8 +122,6 @@ import {
 
 const EMPTY_LANES: ReadonlyArray<Lane> = [];
 const TRACK_TYPE_REGISTRY = defaultBuiltinRegistry();
-const DEFAULT_DATA_TRACK_COLOR = INDEXED_BIGWIG_LANE_COLOR;
-const DEFAULT_PEAK_TRACK_COLOR = 0x7c3aed;
 
 function TrackStreamErrorDetails({ message, trackLabel }: { message: string; trackLabel: string }) {
   const detailsId = useId();
@@ -173,21 +170,6 @@ function TrackStreamErrorDetails({ message, trackLabel }: { message: string; tra
     </>
   );
 }
-
-const TRACK_COLOR_PRESETS = [
-  '#3b82f6',
-  '#2563eb',
-  '#8b5cf6',
-  '#7c3aed',
-  '#d97706',
-  '#f59e0b',
-  '#16a34a',
-  '#0891b2',
-  '#e11d48',
-  '#64748b',
-  '#111827',
-  '#f8fafc',
-] as const;
 
 const TRACK_SETTING_ROW_CLASS =
   'relative grid min-w-0 grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2';
@@ -1294,7 +1276,7 @@ function TrackSettingsPanel({
   const { dataset } = lane;
   const commit = (patch: TrackPresentationPatch): UpdateLanePresentationResult => {
     const result = updateLanePresentation(bucket, dataset.trackId, patch);
-    setError(toUserMessage(result, 'sequence.failed'));
+    setError(result.status === 'updated' ? null : toUserMessage(result, 'sequence.failed'));
     return result;
   };
   const canSetColor =
@@ -1925,10 +1907,10 @@ function defaultTrackPresentationPatch(lane: Lane, canSetColor: boolean): TrackP
       ? {
           color:
             dataset.kind === 'pileup'
-              ? READ_PILEUP_DEFAULT_COLOR
+              ? TRACK_DEFAULT_COLORS.pileupLight
               : dataset.trackType === BUILTIN_TRACK_TYPES.peak
-                ? DEFAULT_PEAK_TRACK_COLOR
-                : DEFAULT_DATA_TRACK_COLOR,
+                ? TRACK_DEFAULT_COLORS.peak
+                : TRACK_DEFAULT_COLORS.importedData,
         }
       : {}),
     heightPx: defaultHeight,

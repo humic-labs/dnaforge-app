@@ -5,6 +5,8 @@ import type Database from 'better-sqlite3';
 import { getActiveStoredSession } from './auth/session-store';
 import { DesktopSyncClientError } from './desktop-sync-client';
 import {
+  settleWorkspaceSyncReplicaRecovery,
+  settleWorkspaceSyncPullFailures,
   recoverWorkspaceSyncQueue,
   type WorkspaceSyncQueueRecoveryResult,
 } from './workspace-sync-queue';
@@ -311,7 +313,7 @@ export class WorkspaceSyncRuntime {
         completed: result.completed,
         quarantined: result.quarantined ?? [],
       };
-      const recoveredWorkspaceUuids = clearResolvedReplicaRecoveryQuarantines(
+      const recoveredWorkspaceUuids = settleWorkspaceSyncReplicaRecovery(
         this.db,
         new Set(normalized.quarantined.map((entry) => entry.workspaceId)),
         this.nowMs()
@@ -606,7 +608,7 @@ export class WorkspaceSyncRuntime {
       result.failed += 1;
     } else {
       if (admission.clearFailures) {
-        clearReplicaPullFailures(this.db, binding.workspace_id, this.nowMs());
+        settleWorkspaceSyncPullFailures(this.db, binding.workspace_id, this.nowMs());
       }
       result.skipped += 1;
     }
@@ -773,7 +775,7 @@ export class WorkspaceSyncRuntime {
           ...bindingObservationFacts(binding),
           ...workspaceSyncVersionFacts(latest.version),
         });
-        clearReplicaPullFailures(this.db, binding.workspace_id, this.nowMs());
+        settleWorkspaceSyncPullFailures(this.db, binding.workspace_id, this.nowMs());
         this.invalidateWorkspace(binding.workspace_id, 'queue_changed');
       } catch (error) {
         if (!applyStarted && (this.stopping || signal.aborted)) {
@@ -815,7 +817,7 @@ export class WorkspaceSyncRuntime {
     pending: PendingWorkspaceSyncRendererRefresh
   ): void {
     markWorkspaceSyncRendererRefreshSucceeded(this.db, { delivery: pending, nowMs: this.nowMs() });
-    clearReplicaPullFailures(this.db, workspaceId, this.nowMs());
+    settleWorkspaceSyncPullFailures(this.db, workspaceId, this.nowMs());
     this.invalidateWorkspace(workspaceId, 'queue_changed');
   }
 
@@ -1476,61 +1478,6 @@ function pullErrorCode(error: unknown): 'NETWORK' | 'RATE_LIMITED' | 'SERVER' | 
     if (code === 'RATE_LIMITED' || code === 'SERVER' || code === 'FEATURE_DISABLED') return code;
   }
   return 'NETWORK';
-}
-
-function clearReplicaPullFailures(db: Database.Database, workspaceId: number, nowMs: number): void {
-  db.prepare(
-    `UPDATE workspace_sync_queue
-     SET status = 'succeeded',
-         next_attempt_at = NULL,
-         locked_at = NULL,
-         locked_by_device_id = NULL,
-         error_code = NULL,
-         error_message = NULL,
-         updated_at = ?
-     WHERE workspace_id = ?
-       AND operation = 'refresh'
-       AND idempotency_key LIKE 'pull-error:%'
-       AND status IN ('pending', 'running', 'retry_wait', 'blocked', 'failed')`
-  ).run(nowMs, workspaceId);
-}
-
-function clearResolvedReplicaRecoveryQuarantines(
-  db: Database.Database,
-  activeQuarantineWorkspaceIds: ReadonlySet<number>,
-  nowMs: number
-): string[] {
-  const candidates = db
-    .prepare(
-      `SELECT DISTINCT recovery.workspace_id, binding.workspace_uuid
-       FROM workspace_sync_queue recovery
-       JOIN workspace_sync_bindings binding ON binding.workspace_id = recovery.workspace_id
-       WHERE recovery.error_code = 'REPLICA_RECOVERY_REQUIRED'
-         AND recovery.status = 'failed'`
-    )
-    .all() as Array<{ workspace_id: number; workspace_uuid: string }>;
-  const settle = db.prepare(
-    `UPDATE workspace_sync_queue
-     SET status = 'succeeded',
-         next_attempt_at = NULL,
-         locked_at = NULL,
-         locked_by_device_id = NULL,
-         error_code = NULL,
-         error_message = NULL,
-         updated_at = ?
-     WHERE workspace_id = ?
-       AND error_code = 'REPLICA_RECOVERY_REQUIRED'
-       AND status = 'failed'`
-  );
-  return db.transaction(() => {
-    const recoveredWorkspaceUuids: string[] = [];
-    for (const candidate of candidates) {
-      if (activeQuarantineWorkspaceIds.has(candidate.workspace_id)) continue;
-      const result = settle.run(nowMs, candidate.workspace_id);
-      if (result.changes > 0) recoveredWorkspaceUuids.push(candidate.workspace_uuid);
-    }
-    return recoveredWorkspaceUuids;
-  })();
 }
 
 function hasPendingUpload(db: Database.Database, workspaceId: number): boolean {

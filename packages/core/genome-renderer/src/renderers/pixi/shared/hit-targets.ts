@@ -99,6 +99,7 @@ export interface ReadHitPayload {
   trackId: string;
 
   sourceGenerationKey: string;
+  presentationOwnerKey?: string;
   readId: string;
   chrom: string;
 
@@ -143,12 +144,20 @@ export interface ReadHitPayload {
 export function readHitIdentityKey(
   read: Pick<
     ReadHitPayload,
-    'trackId' | 'sourceGenerationKey' | 'readId' | 'chrom' | 'referenceStart' | 'flag' | 'pair'
+    | 'trackId'
+    | 'sourceGenerationKey'
+    | 'presentationOwnerKey'
+    | 'readId'
+    | 'chrom'
+    | 'referenceStart'
+    | 'flag'
+    | 'pair'
   >
 ): string {
   return [
     read.trackId,
     read.sourceGenerationKey,
+    read.presentationOwnerKey ?? read.sourceGenerationKey,
     read.readId,
     read.chrom,
     read.referenceStart,

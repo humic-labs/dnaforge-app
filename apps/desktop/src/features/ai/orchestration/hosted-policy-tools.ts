@@ -25,7 +25,7 @@ import {
   rendererToolSdkInputSchema,
   type RendererToolName,
 } from '../../agent-bridge/public/renderer-tools';
-import { configureSidecarApiClient } from '../tools/sidecar-client';
+import { resolveSidecarApiClient } from '../tools/sidecar-client';
 import { callMcpToolMcpCallPost, isApiError } from '@waypoint/api-client';
 import { resolveCurrentAgentCaller } from '../../../services/agent-caller';
 import type { AgentCaller } from '../../../shared/agent-caller';
@@ -351,7 +351,7 @@ export async function dispatchViaSidecar(
   if (context.abortSignal?.aborted) {
     throw new DOMException('The AI turn was stopped.', 'AbortError');
   }
-  await configureSidecarApiClient(toolName);
+  const apiClient = await resolveSidecarApiClient(toolName);
   const headers: Record<string, string> = {
     'X-DNAForge-Agent-Identity': caller.agentIdentityId,
     'X-DNAForge-Agent-Capabilities': JSON.stringify(caller.effectiveCapabilities),
@@ -369,7 +369,7 @@ export async function dispatchViaSidecar(
         method: 'tools/call',
         params: { name: toolName, arguments: args ?? {} },
       },
-      { headers, signal: context.abortSignal }
+      apiClient.options({ headers, signal: context.abortSignal })
     );
     payload = response.data as SidecarToolResponse;
     responseStatus = response.status;

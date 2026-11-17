@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { CloseConfirmationDialog } from './CloseConfirmationDialog';
 
 describe('CloseConfirmationDialog', () => {
@@ -70,10 +72,91 @@ describe('CloseConfirmationDialog', () => {
       expect(defaultProps.onCancel).toHaveBeenCalledTimes(1);
     });
 
-    it('calls onSave when Enter key is pressed', () => {
+    it('calls onSave when Enter activates the initially focused button', async () => {
+      const user = userEvent.setup();
       render(<CloseConfirmationDialog {...defaultProps} />);
-      fireEvent.keyDown(window, { key: 'Enter' });
+      expect(screen.getByRole('button', { name: 'Save' })).toHaveFocus();
+      await user.keyboard('{Enter}');
       expect(defaultProps.onSave).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      ['Cancel', 'onCancel'],
+      ["Don't Save", 'onDontSave'],
+      ['Save', 'onSave'],
+    ] as const)('Enter and Space activate the focused %s button', async (name, action) => {
+      const user = userEvent.setup();
+      render(<CloseConfirmationDialog {...defaultProps} />);
+      screen.getByRole('button', { name }).focus();
+      await user.keyboard('{Enter}');
+      expect(defaultProps[action]).toHaveBeenCalledTimes(1);
+      await user.keyboard(' ');
+      expect(defaultProps[action]).toHaveBeenCalledTimes(2);
+      for (const other of ['onCancel', 'onDontSave', 'onSave'] as const)
+        if (other !== action) expect(defaultProps[other]).not.toHaveBeenCalled();
+    });
+
+    it.each([true, false])(
+      'keeps Tab navigation inside the modal with discard allowed=%s',
+      async (allowDontSave) => {
+        const user = userEvent.setup();
+        render(
+          <>
+            <button>Background action</button>
+            <input aria-label="Document text" defaultValue="unsaved draft" />
+            <CloseConfirmationDialog {...defaultProps} allowDontSave={allowDontSave} />
+          </>
+        );
+        const save = screen.getByRole('button', { name: 'Save' });
+        const cancel = screen.getByRole('button', { name: 'Cancel' });
+        save.focus();
+        await user.tab();
+        expect(cancel).toHaveFocus();
+        await user.tab({ shift: true });
+        expect(save).toHaveFocus();
+        await user.tab({ shift: true });
+        expect(
+          allowDontSave ? screen.getByRole('button', { name: "Don't Save" }) : cancel
+        ).toHaveFocus();
+        await user.tab();
+        expect(save).toHaveFocus();
+        const editor = screen.getByRole('textbox', { name: 'Document text' });
+        editor.focus();
+        expect(save).toHaveFocus();
+        await user.keyboard('untouched');
+        expect(editor).toHaveValue('unsaved draft');
+      }
+    );
+
+    it('cancels with Escape and restores the opener without saving', async () => {
+      const user = userEvent.setup();
+      function Harness() {
+        const [open, setOpen] = useState(false);
+        return (
+          <>
+            <button onClick={() => setOpen(true)}>Close document</button>
+            {open && (
+              <CloseConfirmationDialog
+                {...defaultProps}
+                onCancel={() => {
+                  defaultProps.onCancel();
+                  setOpen(false);
+                }}
+              />
+            )}
+          </>
+        );
+      }
+      render(<Harness />);
+      const opener = screen.getByRole('button', { name: 'Close document' });
+      await act(async () => user.click(opener));
+      expect(screen.getByRole('button', { name: 'Save' })).toHaveFocus();
+      await act(async () => user.keyboard('{Escape}'));
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(opener).toHaveFocus();
+      expect(defaultProps.onCancel).toHaveBeenCalledTimes(1);
+      expect(defaultProps.onSave).not.toHaveBeenCalled();
+      expect(defaultProps.onDontSave).not.toHaveBeenCalled();
     });
 
     it('does not call callbacks for other keys', () => {
@@ -108,8 +191,7 @@ describe('CloseConfirmationDialog', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const dialog = screen.getByRole('dialog');
-      fireEvent.mouseDown(dialog);
+      fireEvent.mouseDown(screen.getByRole('heading', { name: 'Do you want to save changes?' }));
 
       expect(defaultProps.onCancel).not.toHaveBeenCalled();
     });

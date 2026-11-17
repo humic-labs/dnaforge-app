@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   settle: vi.fn(),
   acknowledge: vi.fn(),
@@ -53,6 +53,8 @@ vi.mock('../features/design/design-recovery', () => ({
 }));
 import { initSaveAllHandler } from './dirty-reporter';
 
+beforeEach(() => vi.clearAllMocks());
+
 it('returns each request identity only after its save operation settles', async () => {
   let finishFirst!: (value: unknown) => void;
   let finishSecond!: (value: unknown) => void;
@@ -74,11 +76,44 @@ it('returns each request identity only after its save operation settles', async 
     expect(mocks.acknowledge).not.toHaveBeenCalled();
     finishSecond({ failures: [], remaining: [] });
     for (let index = 0; index < 8; index += 1) await Promise.resolve();
-    expect(mocks.acknowledge.mock.calls).toEqual([['request-second']]);
+    expect(mocks.acknowledge.mock.calls).toEqual([['request-second', { status: 'saved' }]]);
     finishFirst({ failures: [], remaining: [] });
     for (let index = 0; index < 8; index += 1) await Promise.resolve();
-    expect(mocks.acknowledge.mock.calls).toEqual([['request-second'], ['request-first']]);
+    expect(mocks.acknowledge.mock.calls).toEqual([
+      ['request-second', { status: 'saved' }],
+      ['request-first', { status: 'saved' }],
+    ]);
   } finally {
     stop();
   }
 });
+
+it.each([false, true])(
+  'returns native file failures even when the diagnostic sink throws=%s',
+  async (loggingThrows) => {
+    const failures = [
+      {
+        documentId: 'doc-blocked',
+        path: '/workspace/Blocked Save.txt',
+        error: 'The text file is read-only.',
+      },
+    ];
+    mocks.settle.mockResolvedValue({ failures, remaining: [] });
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {
+      if (loggingThrows) throw new Error('Diagnostic sink unavailable');
+    });
+    const stop = initSaveAllHandler();
+    try {
+      mocks.receive!('request-failed');
+      for (let index = 0; index < 8; index += 1) await Promise.resolve();
+      expect(mocks.acknowledge).toHaveBeenCalledExactlyOnceWith('request-failed', {
+        status: 'failed',
+        failures,
+      });
+      expect(report).toHaveBeenCalledOnce();
+    } finally {
+      stop();
+      report.mockRestore();
+    }
+  }
+);

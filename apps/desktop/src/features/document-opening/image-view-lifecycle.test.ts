@@ -177,7 +177,10 @@ describe('I1 actual image producer and admitted view-generation ownership', () =
       else if (change === 'retarget')
         useCanvasStore
           .getState()
-          .updateTab(result.panelId, result.tabId, { entityId: '/synthetic/replacement.png' });
+          .retargetTab(result.panelId, result.tabId, {
+            type: 'image',
+            entityId: '/synthetic/replacement.png',
+          });
       else if (change === 'inactive') useCanvasStore.setState({ focusedPanelId: null });
       else abort.abort();
       owner.bytesReady();
@@ -195,7 +198,7 @@ describe('I1 actual image producer and admitted view-generation ownership', () =
     const result = present();
     useCanvasStore
       .getState()
-      .updateTab(result.panelId, result.tabId, { entityId: '/synthetic/B.png' });
+      .retargetTab(result.panelId, result.tabId, { type: 'image', entityId: '/synthetic/B.png' });
     admitImageOpen(request, result);
     decode(beginImageRead({ tabId: result.tabId, filePath: '/synthetic/B.png' }, dependencies));
     expect(terminals()).toHaveLength(1);
@@ -210,9 +213,11 @@ describe('I1 actual image producer and admitted view-generation ownership', () =
     admitImageOpen(request, result);
     useCanvasStore
       .getState()
-      .updateTab(result.panelId, result.tabId, { entityId: '/synthetic/B.png' });
+      .retargetTab(result.panelId, result.tabId, { type: 'image', entityId: '/synthetic/B.png' });
     decode(beginImageRead({ tabId: result.tabId, filePath: '/synthetic/B.png' }, dependencies));
-    useCanvasStore.getState().updateTab(result.panelId, result.tabId, { entityId: path });
+    useCanvasStore
+      .getState()
+      .retargetTab(result.panelId, result.tabId, { type: 'image', entityId: path });
     decode(beginImageRead({ tabId: result.tabId, filePath: path }, dependencies));
     expect(terminals()).toHaveLength(1);
     expect(terminals()[0][1].action_phase).toBe('cancel');

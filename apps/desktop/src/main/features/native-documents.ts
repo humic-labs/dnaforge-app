@@ -7,6 +7,11 @@ import {
   type FileDocumentClientReadinessReader,
 } from '../file-document-client-sync';
 import { createNativeFileDocuments } from '../native-file-documents';
+import { NativeTableDocumentCommands } from '../table-document-commands';
+import { readTablePackageInMain } from '../table-package';
+import { readProjectResourceIdentityInMain } from '../project-filesystem-authority';
+import { managedProjectStorageRoot } from '../project-root-admission';
+import { registerWorkspaceFileInDb } from '../catalog-entity-registration';
 import { createNativeSequenceWorkingCopies } from '../native-sequence-working-copies';
 import { NativeDocumentDispatcher } from '../native-document-dispatcher';
 import { createWorkspaceFileRelocator } from '../workspace-file-relocation';
@@ -41,6 +46,7 @@ import {
   sidecarSessionAuthority,
 } from '../sidecar-session-runtime';
 import { withNativeDocumentSettlementTestSeam } from './test-hooks';
+import { reportNativeSaveFailure } from '../save-failure-diagnostics';
 import { workspaceNativeDocumentsContract } from '../../shared/ipc/workspace-native-documents.contract';
 import {
   createRegisteredProjectAuthority,
@@ -94,6 +100,8 @@ export function createNativeDocuments(
   });
   const notebookDocuments = createNativeNotebookWorkingCopies({
     db: getDb,
+    tableDocuments: () => tableDocuments,
+    workspaceAccess: (root) => workspaces.access(root),
     relocateEntityFile: (input) => fileRelocations.relocateEntityFile(input),
     workspaceRoots: () => workspaces.readableRoots(),
     writableWorkspaceRoots: () => workspaces.roots(),
@@ -112,6 +120,55 @@ export function createNativeDocuments(
       nativeSequenceDocumentAdapter(sequenceDocuments),
       nativeNotebookDocumentAdapter(notebookDocuments),
     ],
+  });
+  const tableDocuments = new NativeTableDocumentCommands({
+    db: getDb,
+    workspaceRoots: () => workspaces.readableRoots(),
+    writableWorkspaceRoots: () => workspaces.roots(),
+    workspaceAccess: (root) => workspaces.access(root),
+    managedRootDir: managedProjectStorageRoot,
+    captureWorkspace: (root, mutating) =>
+      mutating ? workspaces.capture(root) : workspaces.captureReadable(root),
+    files: ordinaryFiles,
+    notebookTables: notebookDocuments.tableTransitions,
+    reconcileTablePackage: async (location) => {
+      const assertCurrent = workspaces.capture(location.workspaceRoot);
+      const actual = await readTablePackageInMain(location);
+      const identity = await readProjectResourceIdentityInMain(location, {
+        db: getDb(),
+        managedRootDir: managedProjectStorageRoot(),
+      });
+      assertCurrent();
+      if (!identity) throw new Error('The table project has no portable identity.');
+      registerWorkspaceFileInDb(getDb(), {
+        path: actual.headPath,
+        workspaceRoot: location.workspaceRoot,
+        entityType: 'file',
+        fileKind: 'dnaforge-table',
+        name: actual.snapshot.title,
+      });
+      const copy = await ordinaryFiles.execute({
+        target: { path: actual.headPath, workspaceRoot: location.workspaceRoot },
+        operation: {
+          kind: 'inspect',
+          offset: 0,
+          limit: 2000,
+          rowOffset: 0,
+          rowLimit: 20,
+          columnOffset: 0,
+          columnLimit: 20,
+        },
+      });
+      assertCurrent();
+      if (!copy.ready || copy.tableDocument?.id !== actual.head.id)
+        throw new Error('The native file owner could not verify the table package.');
+      return {
+        projectId: identity.projectId,
+        tableId: actual.head.id,
+        fileDocumentId: copy.documentId,
+        headPath: actual.headPath,
+      };
+    },
   });
   const markdownImporter = new MarkdownNotebookImporter({
     onMigrationCandidatesChanged: (workspaceRoot) => {
@@ -264,6 +321,7 @@ export function createNativeDocuments(
       fileOwner: fileDocuments,
       sequenceOwner: sequenceDocuments,
       notebookOwner: notebookDocuments,
+      tableOwner: tableDocuments,
       flushFileClients: () => flushFileDocumentClients(),
       workspaceCommands,
       importReviews,
@@ -435,13 +493,43 @@ export function createNativeDocuments(
       await flushFileDocumentClients(purpose);
   }
 
-  function settleDirtyDocuments(request: NativeDirtySettlementRequest) {
-    return settleNativeDirtyDocuments(request, {
-      listDirty: () => fileDocuments.listDirty(),
-      execute: (request) => fileDocuments.execute(request),
-      beforeList: () =>
-        flushDirtyDocumentClients(request.action === 'discard' ? 'discard' : 'synchronize'),
-    });
+  async function settleDirtyDocuments(request: NativeDirtySettlementRequest) {
+    const reported = new Set<unknown>();
+    const reportedMessages = new Set<string>();
+    const report = (error: unknown): void => {
+      if (request.action !== 'save' || reported.has(error)) return;
+      reported.add(error);
+      reportedMessages.add(error instanceof Error ? error.message : String(error));
+      reportNativeSaveFailure(error);
+    };
+    const observe = async <T>(run: () => Promise<T>): Promise<T> => {
+      try {
+        return await run();
+      } catch (error) {
+        report(error);
+        throw error;
+      }
+    };
+    try {
+      const result = await settleNativeDirtyDocuments(request, {
+        listDirty: () => observe(() => fileDocuments.listDirty()),
+        execute: (command) => observe(() => fileDocuments.execute(command)),
+        beforeList: () =>
+          observe(() =>
+            flushDirtyDocumentClients(request.action === 'discard' ? 'discard' : 'synchronize')
+          ),
+      });
+      if (request.action === 'save') {
+        for (const failure of result.failures)
+          if (!reportedMessages.has(failure.error)) report(failure.error);
+        if (!result.failures.length && result.remaining.length)
+          report('Some native documents still have unsaved work.');
+      }
+      return result;
+    } catch (error) {
+      report(error);
+      throw error;
+    }
   }
 
   return {
@@ -455,6 +543,7 @@ export function createNativeDocuments(
     sequenceDocuments,
     notebookDocuments,
     fileDocuments,
+    tableDocuments,
     fileRelocations,
     flushFileDocumentClients,
     flushDirtyDocumentClients,

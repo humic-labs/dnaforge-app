@@ -14,7 +14,15 @@ describe('editable tab registration coverage', () => {
     for (const modules of Object.values(TAB_DOCUMENT_OWNER_MODULES)) {
       for (const module of modules) {
         const source = readFileSync(new URL(`../${module}`, import.meta.url), 'utf8');
-        expect(source, module).toMatch(/useDocumentLifecycle\(/);
+        if (/documentLifecycle\.register\(/.test(source)) {
+          const registration = source.match(
+            /\b((?:this\.)?\w+)\s*=\s*documentLifecycle\.register\(/
+          )?.[1];
+          expect(registration, module).toBeDefined();
+          expect(source, module).toContain(`${registration}.release()`);
+        } else {
+          expect(source, module).toMatch(/useDocumentLifecycle\(/);
+        }
         expect(source, module).not.toMatch(
           /(?:addEventListener|removeEventListener)\(['"](?:save-document-request|discard-document-request|save-document-complete)['"]/
         );

@@ -10,13 +10,13 @@ import {
 const TEST_SIDECAR_BASE_URL = vi.hoisted(() => 'http://127.0.0.1:8127');
 
 vi.mock('../../../../../services/service-manager', async () => {
-  const { configureRendererSidecarApiClient } =
+  const { createRendererSidecarApiClient } =
     await import('../../../../../services/sidecar-session');
   return {
     serviceManager: {
       getBaseUrl: () => TEST_SIDECAR_BASE_URL,
       getExternalLookupBaseUrl: () => TEST_SIDECAR_BASE_URL,
-      bindExternalLookupClient: () => configureRendererSidecarApiClient(TEST_SIDECAR_BASE_URL),
+      externalLookupClient: () => createRendererSidecarApiClient(TEST_SIDECAR_BASE_URL),
     },
   };
 });

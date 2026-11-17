@@ -86,6 +86,7 @@ export function buildAnnotationRecordVertices(
 
 export interface BeginJobOptions {
   pool?: AnnotationRecordVerticesPool;
+  visibleRecordCount?: number;
 }
 
 export interface AnnotationRecordVerticesJob {
@@ -105,6 +106,8 @@ export interface AnnotationRecordVerticesJob {
 
 const X_CORNERS = [0, 1, 1, 0, 1, 0];
 const Y_CORNERS = [-1, -1, 1, -1, 1, 1];
+const RECORD_BUDGET_CHECK_INTERVAL = 4;
+const monotonicNow = (): number => performance.now();
 
 export function beginAnnotationRecordVerticesJob(
   records: ReadonlyArray<AnnotationRecord>,
@@ -121,10 +124,14 @@ export function beginAnnotationRecordVerticesJob(
   const defaultAlpha = config.defaultAlpha ?? 1;
   if (laneHeightPx <= 0) throw new Error(`laneHeightPx must be positive`);
 
-  let visibleCount = 0;
-  for (let i = 0; i < records.length; i++) {
-    if (includeRecord && !includeRecord(records[i], i)) continue;
-    if (laneAssignment[i] >= 0) visibleCount++;
+  let visibleCount = options?.visibleRecordCount ?? 0;
+  if (options?.visibleRecordCount === undefined) {
+    for (let i = 0; i < records.length; i++) {
+      if (includeRecord && !includeRecord(records[i], i)) continue;
+      if (laneAssignment[i] >= 0) visibleCount++;
+    }
+  } else if (!Number.isInteger(visibleCount) || visibleCount < 0 || visibleCount > records.length) {
+    throw new RangeError('prepared visible record count must fit records');
   }
   const vertexCount = visibleCount * 6;
 
@@ -180,7 +187,8 @@ export function beginAnnotationRecordVerticesJob(
 
 export function advanceAnnotationRecordVerticesJob(
   job: AnnotationRecordVerticesJob,
-  maxRecords: number
+  maxRecords: number,
+  options?: { workBudgetMs?: number; now?: () => number }
 ): number {
   const {
     records,
@@ -205,10 +213,24 @@ export function advanceAnnotationRecordVerticesJob(
     color,
   } = out;
   const end = Math.min(records.length, job.recordCursor + Math.max(0, maxRecords));
+  const workBudgetMs = options?.workBudgetMs;
+  if (workBudgetMs !== undefined && (!Number.isFinite(workBudgetMs) || workBudgetMs <= 0)) {
+    throw new TypeError('annotation vertex work budget must be finite and positive');
+  }
+  const now = options?.now ?? monotonicNow;
+  const startedAt = workBudgetMs === undefined ? 0 : now();
   let vertex = job.vertexCursor;
   let dropped = job.droppedCursor;
   let consumed = 0;
   for (let recIdx = job.recordCursor; recIdx < end; recIdx++) {
+    if (
+      workBudgetMs !== undefined &&
+      consumed > 0 &&
+      consumed % RECORD_BUDGET_CHECK_INTERVAL === 0 &&
+      now() - startedAt >= workBudgetMs
+    ) {
+      break;
+    }
     consumed++;
     const r = records[recIdx];
     if (includeRecord && !includeRecord(r, recIdx)) continue;
@@ -237,7 +259,7 @@ export function advanceAnnotationRecordVerticesJob(
       vertex++;
     }
   }
-  job.recordCursor = end;
+  job.recordCursor += consumed;
   job.vertexCursor = vertex;
   job.droppedCursor = dropped;
   return consumed;
