@@ -1,3 +1,4 @@
+import type { InventoryScientificDialog } from './InventoryScientificForm';
 import type { InventoryStockroomDialog } from './InventoryStockroomForm';
 import type { InventoryArrivalDialog } from './InventoryArrivalForm';
 import type { InventoryContentsDialog } from './InventoryContentsForm';
@@ -97,6 +98,7 @@ export type InventorySelection =
 export type InventoryItem = { kind: 'storage' | 'vessel'; id: string };
 
 export type InventoryDialog =
+  | InventoryScientificDialog
   | InventoryStockroomDialog
   | InventoryArrivalDialog
   | { kind: 'export-archive' }

@@ -1,3 +1,5 @@
+import type { InventoryScientificWork } from './inventory-scientific-types';
+import { validateInventoryScientificState } from './inventory-scientific-validation';
 import { validateInventoryStockroomState } from './inventory-stockroom-validation';
 import type {
   InventoryExpectedDelivery,
@@ -81,6 +83,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_STOCKROOM_SCHEMA,
   INVENTORY_ARRIVAL_SCHEMA,
   INVENTORY_VALIDITY_SCHEMA,
   INVENTORY_LOT_CONTROLS_SCHEMA,
@@ -2241,6 +2244,61 @@ const stockRecord = fields('Stock record', {
   validity: validityManagement,
   inheritedValidity,
 });
+const scientificVesselSnapshot = fields('Scientific transfer vessel observation', {
+  id: vesselId,
+  kind: union('Observed vessel kind', [literal('movable'), literal('fixed-well')]),
+  name,
+  placement: vesselPlacement,
+});
+const scientificWorkRecord: Codec<InventoryScientificWork> = fields('Scientific work observation', {
+  id,
+  identity: fields('Stable scientific work identity', {
+    namespace: arrivalKey,
+    workId: arrivalKey,
+  }),
+  intentSha256: sha256,
+  context: fields('Saved notebook scientific context', {
+    kind: literal('notebook-page'),
+    projectId: id,
+    workspaceScope: id,
+    pageId: id,
+    source: fields('Native observed saved notebook source', {
+      kind: literal('native-observed-saved-source'),
+      sha256,
+      fileObjectUuid: id,
+      title: text('Saved notebook source title', 17 * 1024 * 1024),
+    }),
+  }),
+  observation: fields('Completed manual observation', {
+    kind: literal('completed-manual-transfer'),
+  }),
+  transfer: fields('Scientific transfer observation', {
+    kind: literal('transfer'),
+    sourceStockId: id,
+    quantity: storedAmount,
+    destination: fields('New scientific aliquot', {
+      kind: literal('new-stock'),
+      stockId: id,
+      vesselId,
+    }),
+    reason,
+  }),
+  effects: fields('Scientific transfer effects', {
+    source: fields('Source stock observation', {
+      before: stockRecord,
+      after: stockRecord,
+      vessel: scientificVesselSnapshot,
+    }),
+    destination: fields('Destination stock observation', {
+      before: nullValue,
+      after: stockRecord,
+      vessel: scientificVesselSnapshot,
+    }),
+  }),
+  at: timestamp,
+  by: recordedPrincipal,
+  reason,
+});
 const reservationVolume = checked(volume, (value) => {
   const normalized = normalizeInventoryVolume(value);
   if (normalized.value !== value.value || normalized.unit !== value.unit)
@@ -2914,7 +2972,8 @@ function vesselBindings(value: unknown): Record<string, InventoryVesselBinding> 
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const arrivalRecords = current || row.schema === INVENTORY_ARRIVAL_SCHEMA;
+  const stockroomRecords = current || row.schema === INVENTORY_STOCKROOM_SCHEMA;
+  const arrivalRecords = stockroomRecords || row.schema === INVENTORY_ARRIVAL_SCHEMA;
   const validityRecords = arrivalRecords || row.schema === INVENTORY_VALIDITY_SCHEMA;
   const controlled = validityRecords || row.schema === INVENTORY_LOT_CONTROLS_SCHEMA;
   const amounts = controlled || row.schema === INVENTORY_AMOUNTS_SCHEMA;
@@ -2936,6 +2995,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_STOCKROOM_SCHEMA),
       literal(INVENTORY_ARRIVAL_SCHEMA),
       literal(INVENTORY_VALIDITY_SCHEMA),
       literal(INVENTORY_LOT_CONTROLS_SCHEMA),
@@ -2960,6 +3020,9 @@ export function parseInventoryState(value: unknown): InventoryState {
     ]),
     revision,
     ...(current
+      ? { scientificWorks: { schema: { type: 'object' }, parse: (input: unknown) => input } }
+      : {}),
+    ...(stockroomRecords
       ? {
           expectedDeliveries: { schema: { type: 'object' }, parse: (input: unknown) => input },
           arrivalAllocations: { schema: { type: 'object' }, parse: (input: unknown) => input },
@@ -3080,13 +3143,16 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   let state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    expectedDeliveries: current
+    scientificWorks: current
+      ? records(shape.scientificWorks, (raw) => scientificWorkRecord.parse(raw))
+      : Object.create(null),
+    expectedDeliveries: stockroomRecords
       ? records(shape.expectedDeliveries, (raw) => expectedDeliveryRecord.parse(raw))
       : Object.create(null),
-    arrivalAllocations: current
+    arrivalAllocations: stockroomRecords
       ? records(shape.arrivalAllocations, (raw) => arrivalAllocationRecord.parse(raw))
       : Object.create(null),
-    reorderRules: current
+    reorderRules: stockroomRecords
       ? records(shape.reorderRules, (raw) => reorderRuleRecord.parse(raw))
       : Object.create(null),
     arrivals: arrivalRecords
@@ -3350,6 +3416,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   }
   validateState(state);
   try {
+    validateInventoryScientificState(state);
     validateInventoryStockroomState(state);
     validateInventoryArrivalState(state);
     validateInventoryValidityState(state);

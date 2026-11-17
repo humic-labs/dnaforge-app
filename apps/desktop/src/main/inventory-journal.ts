@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
   applyInventoryCommandBatch,
+  inventoryNotebookSourceSha256,
   createInventoryState,
   projectLegacyInventoryLotConstraints,
   type InventoryExecutionContext,
@@ -18,9 +19,12 @@ import {
   type InventoryApplyMappedTableRequest,
   type InventoryApplyBenchlingCaptureRequest,
   type InventoryApplyArrivalRequest,
+  type InventoryApplyScientificTransferRequest,
   type InventoryAcknowledgeSourceRequest,
   type NativeInventoryHistoryEntry,
 } from '../shared/inventory-command';
+import { notebookSavedSourceSchema } from '../shared/notebook-saved-source';
+import { applyNativeInventoryScientificTransfer } from './inventory-scientific';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 
 export interface NativeInventoryJournalRow {
@@ -42,6 +46,22 @@ export function parseNativeInventoryJournalEntry(
 ): NativeInventoryHistoryEntry {
   const request = inventoryAcceptedRequestSchema.parse(input.request);
   const receipt = inventoryReceiptSchema.parse(input.receipt);
+  const scientific = 'kind' in request && request.kind === 'record-scientific-transfer';
+  if (scientific) {
+    if (
+      receipt.context?.version !== 6 ||
+      !receipt.context.scientificSource ||
+      inventoryNotebookSourceSha256(
+        notebookSavedSourceSchema.parse(receipt.context.scientificSource)
+      ) !== request.choices.expectedSourceSha256
+    )
+      throw new Error(
+        'INVENTORY_DATA_INVALID: Scientific work requires its V6 native source witness.'
+      );
+  } else if (receipt.context?.scientificSource)
+    throw new Error(
+      'INVENTORY_DATA_INVALID: Only scientific work may retain a notebook source witness.'
+    );
   if (
     request.project !== project ||
     request.inventoryId !== row.inventory_id ||
@@ -62,7 +82,7 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryApplyImportRequest,
     context: InventoryExecutionContext,
-    receiptContextVersion: 1 | 2 | 3 | 4 | 5 | undefined
+    receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | undefined
   ) => InventoryTransition,
   table: (
     target: InventoryState | null,
@@ -160,7 +180,18 @@ export function replayNativeInventoryEntries(
     if (request.expectedRevision !== state.revision)
       throw new Error('INVENTORY_DATA_INVALID: The saved inventory journal is not contiguous.');
     let result: InventoryTransition;
-    if ('kind' in request && request.kind === 'receive-arrival') {
+    if ('kind' in request && request.kind === 'record-scientific-transfer') {
+      if (contextVersion !== 6 || !context || !entry.receipt.context?.scientificSource)
+        throw new Error(
+          'INVENTORY_DATA_INVALID: Scientific work requires V6 native receipt semantics.'
+        );
+      result = applyNativeInventoryScientificTransfer(
+        state,
+        request as InventoryApplyScientificTransferRequest,
+        context,
+        entry.receipt.context.scientificSource
+      );
+    } else if ('kind' in request && request.kind === 'receive-arrival') {
       if (contextVersion < 4 || !context || !arrival)
         throw new Error(
           'INVENTORY_DATA_INVALID: Actual arrivals require V4 native receipt semantics.'

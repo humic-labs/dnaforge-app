@@ -534,6 +534,7 @@ describe('strict canonical receive tables', () => {
       hierarchyBindings: _hierarchy,
       tableBindings: _bindings,
       observations: _observations,
+      scientificWorks: _scientificWorks,
       expectedDeliveries: _expected,
       arrivalAllocations: _allocations,
       reorderRules: _rules,

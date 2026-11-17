@@ -383,7 +383,7 @@ it('receives actual components atomically through native HTTP, retains supplier 
     });
     expect(denied.after).toEqual(denied.before);
     const receipt = await loseAcknowledgement(firstRequest);
-    expect(receipt).toMatchObject({ status: 'committed', revision: 1, context: { version: 5 } });
+    expect(receipt).toMatchObject({ status: 'committed', revision: 1, context: { version: 6 } });
     const state = owner.inspect(scope)!;
     expect(Object.keys(state.arrivals)).toEqual([first.arrival.id]);
     expect(state.revision).toBe(1);

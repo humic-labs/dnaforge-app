@@ -19,7 +19,7 @@ import type { InventoryAcceptedRequest } from '../shared/inventory-command';
 const sourcePath = process.env.INVENTORY_LEGACY_PROFILE_SOURCE;
 it.runIf(Boolean(sourcePath))(
   'replays a captured legacy native profile without rewriting stored facts',
-  () => {
+  async () => {
     const source = JSON.parse(readFileSync(sourcePath!, 'utf8')) as {
       profile: string;
       databaseCopy: string;
@@ -47,9 +47,11 @@ it.runIf(Boolean(sourcePath))(
         profileKey: nativeDocumentProfileKey(source.profile),
       });
       owner.initialize();
-      const retry = (request: InventoryAcceptedRequest) => {
+      const retry = async (request: InventoryAcceptedRequest) => {
         if (!('kind' in request)) return owner.execute(request);
         switch (request.kind) {
+          case 'record-scientific-transfer':
+            return owner.applyScientificTransfer(request);
           case 'adopt-archive':
             return owner.applyImport(request);
           case 'receive-table':
@@ -73,118 +75,126 @@ it.runIf(Boolean(sourcePath))(
         }
       };
       const changes = db.prepare('SELECT total_changes() AS count').get();
-      const evidence = source.inventories.map((inventory) => {
-        const row = db
-          .prepare('SELECT project_id,state_json FROM inventory_state WHERE inventory_id=?')
-          .get(inventory.inventoryId) as { project_id: string; state_json: string };
-        expect(createHash('sha256').update(row.state_json).digest('hex')).toBe(
-          inventory.rawStateSha256
-        );
-        expect(JSON.parse(row.state_json).schema).toBe(inventory.storedSchema);
-        const scope = { project: row.project_id, inventoryId: inventory.inventoryId };
-        const state = owner.inspect(scope)!;
-        expect(state.schema).toBe(INVENTORY_SCHEMA);
-        expect(state.tableBindings).toEqual(
-          Object.fromEntries(
-            Object.entries(JSON.parse(row.state_json).tableBindings ?? {}).map(([key, value]) => [
-              key,
-              {
-                ...(value as Record<string, unknown>),
-                sourceRevisions: (value as Record<string, unknown>).sourceRevisions ?? [],
-              },
-            ])
-          )
-        );
-        expect(state.observations).toEqual(
-          Object.fromEntries(
-            Object.entries(JSON.parse(row.state_json).observations ?? {}).map(([key, value]) => {
-              const observation = value as {
-                fact: { kind: string; quantity?: { kind: string; unit?: string } };
-              };
-              return [
+      const evidence = await Promise.all(
+        source.inventories.map(async (inventory) => {
+          const row = db
+            .prepare('SELECT project_id,state_json FROM inventory_state WHERE inventory_id=?')
+            .get(inventory.inventoryId) as { project_id: string; state_json: string };
+          expect(createHash('sha256').update(row.state_json).digest('hex')).toBe(
+            inventory.rawStateSha256
+          );
+          expect(JSON.parse(row.state_json).schema).toBe(inventory.storedSchema);
+          const scope = { project: row.project_id, inventoryId: inventory.inventoryId };
+          const state = owner.inspect(scope)!;
+          expect(state.schema).toBe(INVENTORY_SCHEMA);
+          expect(state.tableBindings).toEqual(
+            Object.fromEntries(
+              Object.entries(JSON.parse(row.state_json).tableBindings ?? {}).map(([key, value]) => [
                 key,
-                observation.fact.kind === 'quantity' &&
-                observation.fact.quantity?.kind === 'unknown' &&
-                observation.fact.quantity.unit === undefined
-                  ? {
-                      ...observation,
-                      fact: {
-                        ...observation.fact,
-                        quantity: { ...observation.fact.quantity, unit: 'uL' },
-                      },
-                    }
-                  : observation,
-              ];
-            })
-          )
-        );
-        expect(state.lotRecalls).toEqual(JSON.parse(row.state_json).lotRecalls ?? {});
-        expect(state.openingObservations).toEqual(
-          JSON.parse(row.state_json).openingObservations ?? {}
-        );
-        expect(state.validityFacts).toEqual(JSON.parse(row.state_json).validityFacts ?? {});
-        expect(state.arrivals).toEqual(JSON.parse(row.state_json).arrivals ?? {});
-        expect(state.expectedDeliveries).toEqual(
-          JSON.parse(row.state_json).expectedDeliveries ?? {}
-        );
-        expect(state.arrivalAllocations).toEqual(
-          JSON.parse(row.state_json).arrivalAllocations ?? {}
-        );
-        expect(state.reorderRules).toEqual(JSON.parse(row.state_json).reorderRules ?? {});
-        for (const lot of Object.values(state.lots)) {
-          const original = JSON.parse(row.state_json).lots[lot.id];
-          expect(lot.controls).toEqual(original.controls ?? { kind: 'legacy-untracked' });
-          if (original.lotConstraints) expect(lot.lotConstraints).toEqual(original.lotConstraints);
-          else expect(lot.lotConstraints.knowledge).toBe('legacy-partial');
-          expect(lot.validity).toEqual(original.validity ?? { kind: 'legacy-untracked' });
-          expect(lot.inheritedValidity).toEqual(original.inheritedValidity ?? []);
-          expect(lot.lotConstraints.lotIds).toContain(lot.id);
-        }
-        for (const [id, stock] of Object.entries(state.stocks)) {
-          const original = JSON.parse(row.state_json).stocks[id];
-          if (original.lotConstraints)
-            expect(stock.lotConstraints).toEqual(original.lotConstraints);
-          else expect(stock.lotConstraints.knowledge).toBe('legacy-partial');
-          expect(stock.opening).toEqual(
-            original.opening ?? { kind: 'unobserved', observationId: null }
+                {
+                  ...(value as Record<string, unknown>),
+                  sourceRevisions: (value as Record<string, unknown>).sourceRevisions ?? [],
+                },
+              ])
+            )
           );
-          expect(stock.validity).toEqual(original.validity ?? { kind: 'legacy-untracked' });
-          expect(stock.inheritedValidity).toEqual(original.inheritedValidity ?? []);
-          const saved = JSON.parse(row.state_json).stocks[id].quantity;
-          expect(stock.quantity).toEqual(
-            saved.kind === 'unknown' && saved.unit === undefined ? { ...saved, unit: 'uL' } : saved
+          expect(state.observations).toEqual(
+            Object.fromEntries(
+              Object.entries(JSON.parse(row.state_json).observations ?? {}).map(([key, value]) => {
+                const observation = value as {
+                  fact: { kind: string; quantity?: { kind: string; unit?: string } };
+                };
+                return [
+                  key,
+                  observation.fact.kind === 'quantity' &&
+                  observation.fact.quantity?.kind === 'unknown' &&
+                  observation.fact.quantity.unit === undefined
+                    ? {
+                        ...observation,
+                        fact: {
+                          ...observation.fact,
+                          quantity: { ...observation.fact.quantity, unit: 'uL' },
+                        },
+                      }
+                    : observation,
+                ];
+              })
+            )
           );
-        }
-        expect(state.vesselBindings).toEqual(JSON.parse(row.state_json).vesselBindings ?? {});
-        for (const [id, vessel] of Object.entries(state.vessels))
-          expect(vessel.contentsKnowledge).toEqual(
-            JSON.parse(row.state_json).vessels[id].contentsKnowledge ?? { kind: 'recorded' }
+          expect(state.lotRecalls).toEqual(JSON.parse(row.state_json).lotRecalls ?? {});
+          expect(state.openingObservations).toEqual(
+            JSON.parse(row.state_json).openingObservations ?? {}
           );
-        expect(state.hierarchyBindings).toEqual(JSON.parse(row.state_json).hierarchyBindings ?? {});
-        expect(state.revision).toBe(inventory.revision);
-        expect(state.thermalContexts).toEqual(JSON.parse(row.state_json).thermalContexts ?? {});
-        expect(state.origin).toEqual(JSON.parse(row.state_json).origin ?? { kind: 'native' });
-        const history = owner.history({ ...scope, afterRevision: 0, limit: 1000 });
-        expect(history.length).toBe(inventory.revision);
-        const replay = owner.replay(scope);
-        expect(replay).toEqual({ state, acceptedOperations: inventory.revision });
-        for (const entry of history) {
-          expect(owner.operation({ ...scope, operationId: entry.request.operationId })).toEqual(
-            entry.receipt
+          expect(state.validityFacts).toEqual(JSON.parse(row.state_json).validityFacts ?? {});
+          expect(state.arrivals).toEqual(JSON.parse(row.state_json).arrivals ?? {});
+          expect(state.expectedDeliveries).toEqual(
+            JSON.parse(row.state_json).expectedDeliveries ?? {}
           );
-          expect(retry(entry.request)).toEqual(entry.receipt);
-        }
-        expect(raw()).toEqual(before);
-        expect(db.prepare('SELECT total_changes() AS count').get()).toEqual(changes);
-        return {
-          scope,
-          storedSchema: inventory.storedSchema,
-          state,
-          history,
-          replay,
-          originalReceiptRetries: history.length,
-        };
-      });
+          expect(state.arrivalAllocations).toEqual(
+            JSON.parse(row.state_json).arrivalAllocations ?? {}
+          );
+          expect(state.reorderRules).toEqual(JSON.parse(row.state_json).reorderRules ?? {});
+          expect(state.scientificWorks).toEqual(JSON.parse(row.state_json).scientificWorks ?? {});
+          for (const lot of Object.values(state.lots)) {
+            const original = JSON.parse(row.state_json).lots[lot.id];
+            expect(lot.controls).toEqual(original.controls ?? { kind: 'legacy-untracked' });
+            if (original.lotConstraints)
+              expect(lot.lotConstraints).toEqual(original.lotConstraints);
+            else expect(lot.lotConstraints.knowledge).toBe('legacy-partial');
+            expect(lot.validity).toEqual(original.validity ?? { kind: 'legacy-untracked' });
+            expect(lot.inheritedValidity).toEqual(original.inheritedValidity ?? []);
+            expect(lot.lotConstraints.lotIds).toContain(lot.id);
+          }
+          for (const [id, stock] of Object.entries(state.stocks)) {
+            const original = JSON.parse(row.state_json).stocks[id];
+            if (original.lotConstraints)
+              expect(stock.lotConstraints).toEqual(original.lotConstraints);
+            else expect(stock.lotConstraints.knowledge).toBe('legacy-partial');
+            expect(stock.opening).toEqual(
+              original.opening ?? { kind: 'unobserved', observationId: null }
+            );
+            expect(stock.validity).toEqual(original.validity ?? { kind: 'legacy-untracked' });
+            expect(stock.inheritedValidity).toEqual(original.inheritedValidity ?? []);
+            const saved = JSON.parse(row.state_json).stocks[id].quantity;
+            expect(stock.quantity).toEqual(
+              saved.kind === 'unknown' && saved.unit === undefined
+                ? { ...saved, unit: 'uL' }
+                : saved
+            );
+          }
+          expect(state.vesselBindings).toEqual(JSON.parse(row.state_json).vesselBindings ?? {});
+          for (const [id, vessel] of Object.entries(state.vessels))
+            expect(vessel.contentsKnowledge).toEqual(
+              JSON.parse(row.state_json).vessels[id].contentsKnowledge ?? { kind: 'recorded' }
+            );
+          expect(state.hierarchyBindings).toEqual(
+            JSON.parse(row.state_json).hierarchyBindings ?? {}
+          );
+          expect(state.revision).toBe(inventory.revision);
+          expect(state.thermalContexts).toEqual(JSON.parse(row.state_json).thermalContexts ?? {});
+          expect(state.origin).toEqual(JSON.parse(row.state_json).origin ?? { kind: 'native' });
+          const history = owner.history({ ...scope, afterRevision: 0, limit: 1000 });
+          expect(history.length).toBe(inventory.revision);
+          const replay = owner.replay(scope);
+          expect(replay).toEqual({ state, acceptedOperations: inventory.revision });
+          for (const entry of history) {
+            expect(owner.operation({ ...scope, operationId: entry.request.operationId })).toEqual(
+              entry.receipt
+            );
+            expect(await retry(entry.request)).toEqual(entry.receipt);
+          }
+          expect(raw()).toEqual(before);
+          expect(db.prepare('SELECT total_changes() AS count').get()).toEqual(changes);
+          return {
+            scope,
+            storedSchema: inventory.storedSchema,
+            state,
+            history,
+            replay,
+            originalReceiptRetries: history.length,
+          };
+        })
+      );
       writeFileSync(
         join(dirname(sourcePath!), 'acceptance.json'),
         JSON.stringify(

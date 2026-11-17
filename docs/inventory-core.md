@@ -509,6 +509,52 @@ older transition semantics, original requests, receipts and hashes. Current
 scientific admission applies to material-bearing statements and rules; archive
 adoption maps their explicit material references and imported actors.
 
+## Scientific work and saved notebook context
+
+A scientific work observation links a completed manual transfer to an existing
+saved notebook page. Previewing a transfer neither moves material nor records
+execution. The operator explicitly reports completed work; a software receipt
+does not verify pipetting accuracy or biological success.
+
+```mermaid
+stateDiagram-v2
+    Editing --> Previewed: inspect current saved page and physical choices
+    Previewed --> Editing: change a choice
+    Previewed --> Stale: source or inventory changes
+    Previewed --> Recorded: report completed manual transfer
+    Previewed --> OutcomeUnknown: acknowledgement missing
+    OutcomeUnknown --> Recorded: recover original operation receipt
+```
+
+The existing notebook owner supplies canonical project/page identity, its
+current file binding and a complete structured saved title/content snapshot.
+Only clean, settled V2 pages are admitted. The snapshot has a SHA-256 and
+remains native observed saved-source evidence, independent of the notebook's
+later edits or availability. Working-copy concurrency tokens are not immutable
+scientific revisions. This snapshot does not claim original Markdown or
+attachment bytes.
+
+One inventory transaction stores the exact source debit, new aliquot, immutable
+work observation, journal and receipt. Existing transfer guards own quantities,
+physical contents, lot restrictions, validity, custody and reservations. The
+notebook source is checked around this transaction; no notebook file is written
+as an implied side effect. Source members and current binding/authority must
+remain unchanged during admission.
+
+Stable work identity is separate from operation identity. Repeating an identical
+observation cannot debit again, including after later use or movement. A changed
+observation under the same work identity is a conflict. Original operation
+retries return the original receipt. Historical effects and source metadata do
+not change to match current stock or notebook content.
+
+Canonical v23 adds `scientificWorks`; older snapshots gain an empty map without
+writes or invented observations. Receipt context version 6 retains the trusted
+structured notebook source for scientific-transfer replay. Other requests do not
+carry that witness. Historical contexts and request digests remain unchanged.
+Adoption maps scientific material references and actors in effect snapshots,
+while preserving physical/work identities and foreign notebook provenance.
+Notebook context does not create a Protocol Run, plate plan or robot execution.
+
 ## Physical custody and observations
 
 Custody is independent of quality, quantity, reservation and lifecycle. Each

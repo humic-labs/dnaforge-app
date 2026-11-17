@@ -24,6 +24,12 @@ import {
   type NotebookDocumentOperation,
 } from '../shared/notebook-document';
 import type { NativeDirtyDocument } from '../shared/native-document-drafts';
+import {
+  notebookSavedSourceSchema,
+  type NotebookSavedSource,
+} from '../shared/notebook-saved-source';
+import { canonicalJson } from '../shared/canonical-json';
+import { withNotebookPackageAuthorityLock } from '../db/notebook-package-migration';
 import { NativeDocumentCommandError } from '../shared/native-document-error';
 import {
   resolveNotebookResourceReferenceRequestSchema,
@@ -36,7 +42,9 @@ export interface NativeNotebookScope {
   path: string;
   workspaceRoot: string;
   readOnly: boolean;
+  sourceIdentity?: { projectId: string; workspaceScope: string; fileObjectUuid: string };
   assertCurrent(): void;
+  assertCapturedBinding?(): void;
 }
 export interface NativeNotebookSource {
   content: JSONContent;
@@ -50,6 +58,12 @@ export interface NativeNotebookSource {
   preservedPreamble: string;
   sourceShape?: 'v2-package' | 'v1-package' | 'legacy-wpnote';
   preservedTitleProjection: import('../shared/notebook-package-ipc').PreservedNotebookTitleProjection;
+  assertSourceCurrentSync?(): void;
+}
+export interface NotebookSavedSourceCapture {
+  source: NotebookSavedSource;
+  sourceSha256: `sha256:${string}`;
+  assertCurrent(): void;
 }
 export interface NativeNotebookRecord {
   version: 1;
@@ -155,6 +169,98 @@ export class NativeNotebookWorkingCopyOwner {
   private closed = false;
   private pendingRequestBytes = 0;
   constructor(private readonly options: NativeNotebookOptions) {}
+  async savedSources(projectId: string, query = '', limit = 20) {
+    const rows = (await this.options.list()) as Array<{
+      pageId: string;
+      title: string;
+      workspaceRoot: string;
+    }>;
+    const result: Array<{ pageId: string; title: string; sourceSha256: `sha256:${string}` }> = [];
+    for (const row of rows) {
+      if (result.length >= limit) break;
+      if (!row.title.toLocaleLowerCase().includes(query.toLocaleLowerCase())) continue;
+      try {
+        const admitted = await this.withSavedSource(projectId, row.pageId, (capture) => ({
+          pageId: capture.source.pageId,
+          title: capture.source.title,
+          sourceSha256: capture.sourceSha256,
+        }));
+        result.push(admitted);
+      } catch {}
+    }
+    return result;
+  }
+  async withSavedSource<T>(
+    projectId: string,
+    pageId: string,
+    action: (capture: NotebookSavedSourceCapture) => T | Promise<T>
+  ): Promise<T> {
+    if (this.closed) throw refused('NOTEBOOK_OWNER_CLOSED', 'The native notebook owner is closed.');
+    const scope = await this.options.resolve(pageId, false);
+    if (!scope.sourceIdentity || scope.sourceIdentity.projectId !== projectId)
+      throw refused('NOTEBOOK_PROJECT_MISMATCH', 'Choose a notebook in this inventory project.');
+    return withNotebookPackageAuthorityLock(scope.path, async () => {
+      const copy = await this.copy(pageId);
+      const pending = this.copies.get(pageId);
+      const version = copy.version;
+      const source = await this.options.load(scope);
+      const assertCopy = () => {
+        if (!scope.assertCapturedBinding)
+          throw refused(
+            'NOTEBOOK_SOURCE_UNAVAILABLE',
+            'The notebook source binding cannot be checked.'
+          );
+        scope.assertCapturedBinding();
+        if (
+          this.closed ||
+          this.copies.get(pageId) !== pending ||
+          copy.version !== version ||
+          this.dirty(copy) ||
+          copy.recovery ||
+          copy.saves.size
+        )
+          throw refused(
+            'NOTEBOOK_SOURCE_UNSETTLED',
+            'Save or reconcile the notebook before recording scientific work.'
+          );
+        if (
+          source.sourceShape !== 'v2-package' ||
+          source.publication?.status !== 'settled' ||
+          !source.assertSourceCurrentSync
+        )
+          throw refused('NOTEBOOK_SOURCE_UNSETTLED', 'Choose a settled current notebook package.');
+        if (
+          copy.source.fingerprint !== source.fingerprint ||
+          copy.source.title !== source.title ||
+          canonicalNotebookJson(copy.source.content) !== canonicalNotebookJson(source.content)
+        )
+          throw refused(
+            'NOTEBOOK_EXTERNAL_CONFLICT',
+            'Reload or reconcile the changed notebook before recording scientific work.'
+          );
+      };
+      assertCopy();
+      const saved = notebookSavedSourceSchema.parse({
+        schema: 'dnaforge.notebook-saved-source.v1',
+        ...scope.sourceIdentity,
+        pageId,
+        title: source.title,
+        content: source.content,
+      });
+      const sourceSha256 =
+        `sha256:${createHash('sha256').update(canonicalJson(saved)).digest('hex')}` as const;
+      const capture: NotebookSavedSourceCapture = {
+        source: structuredClone(saved),
+        sourceSha256,
+        assertCurrent() {
+          assertCopy();
+          source.assertSourceCurrentSync!();
+        },
+      };
+      capture.assertCurrent();
+      return action(capture);
+    });
+  }
   async resolveResourceReference(
     input: ResolveNotebookResourceReferenceRequest
   ): Promise<ResolvedProjectResourceReference> {

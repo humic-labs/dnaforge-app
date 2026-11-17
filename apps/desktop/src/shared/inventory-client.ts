@@ -1,5 +1,6 @@
 import type {
   InventoryAvailability,
+  InventoryScientificTransferPreview,
   InventoryStockroomProjection,
   InventoryArrivalPreview,
   InventoryArrivalDocumentRead,
@@ -32,6 +33,10 @@ import type {
 import type { InventoryRenderedLabel } from '@waypoint/domain-services/inventory-label-types';
 import type {
   InventoryPreviewArrivalRequest,
+  InventoryScientificContextsRequest,
+  InventoryPreviewScientificTransferRequest,
+  InventoryApplyScientificTransferRequest,
+  InventoryScientificSourceRequest,
   InventoryApplyArrivalRequest,
   InventoryArrivalDocumentRequest,
   InventoryCatalogUpdatePreviewRequest,
@@ -62,6 +67,38 @@ import type {
   NativeInventoryHistoryEntry,
   NativeInventoryReceipt,
 } from './inventory-command';
+import type { NotebookSavedSource } from './notebook-saved-source';
+
+export interface InventoryScientificContextsSnapshot {
+  readonly projectId: string;
+  readonly inventoryId: string;
+  readonly revision: number;
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+  readonly pages: readonly {
+    readonly kind: 'notebook-page';
+    readonly projectId: string;
+    readonly pageId: string;
+    readonly title: string;
+    readonly sourceSha256: `sha256:${string}`;
+    readonly sourceKind: 'native-observed-saved-source';
+  }[];
+}
+export type InventoryScientificTransferPreviewSnapshot = InventoryScientificTransferPreview & {
+  readonly projectId: string;
+  readonly inventoryId: string;
+  readonly revision: number;
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+};
+export type InventoryScientificSourceRead =
+  | {
+      readonly kind: 'available';
+      readonly workId: string;
+      readonly sourceSha256: `sha256:${string}`;
+      readonly source: NotebookSavedSource;
+    }
+  | { readonly kind: 'unavailable'; readonly code: string; readonly message: string };
 
 export interface InventoryProject {
   readonly projectId: string;
@@ -209,6 +246,16 @@ export type InventoryArrivalPreviewSnapshot = InventoryArrivalPreview & {
 export type { InventoryArrivalDocumentRead };
 
 export interface InventoryClient {
+  scientificContexts(
+    input: InventoryScientificContextsRequest
+  ): Promise<InventoryScientificContextsSnapshot>;
+  previewScientificTransfer(
+    input: InventoryPreviewScientificTransferRequest
+  ): Promise<InventoryScientificTransferPreviewSnapshot>;
+  applyScientificTransfer(
+    input: InventoryApplyScientificTransferRequest
+  ): Promise<NativeInventoryExecution>;
+  scientificSource(input: InventoryScientificSourceRequest): Promise<InventoryScientificSourceRead>;
   stockroom(input: InventoryReadRequest): Promise<InventoryStockroomSnapshot | null>;
   previewArrival(input: InventoryPreviewArrivalRequest): Promise<InventoryArrivalPreviewSnapshot>;
   applyArrival(input: InventoryApplyArrivalRequest): Promise<NativeInventoryExecution>;
@@ -276,6 +323,10 @@ export function unavailableInventoryClient(): InventoryClient {
     message: 'Inventory requires the connected desktop owner.',
   });
   return {
+    scientificContexts: unavailable,
+    previewScientificTransfer: unavailable,
+    applyScientificTransfer: unavailableMutation,
+    scientificSource: unavailable,
     stockroom: unavailable,
     previewArrival: unavailable,
     applyArrival: unavailableMutation,
@@ -329,6 +380,10 @@ export type {
   InventoryPreviewSourceRevisionRequest,
   InventoryAcknowledgeSourceRequest,
   InventoryAcceptedRequest,
+  InventoryScientificContextsRequest,
+  InventoryPreviewScientificTransferRequest,
+  InventoryApplyScientificTransferRequest,
+  InventoryScientificSourceRequest,
   InventoryPreviewArrivalRequest,
   InventoryApplyArrivalRequest,
   InventoryArrivalDocumentRequest,

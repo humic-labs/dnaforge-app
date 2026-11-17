@@ -78,3 +78,5 @@
 - [Expected deliveries and reorder reporting](stockroom.md): original receipt
   allocation, explicit matching corrections and native policy-based free-stock
   projections.
+
+- [Observed scientific transfers with notebook context](scientific.md).

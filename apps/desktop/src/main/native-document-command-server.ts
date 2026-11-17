@@ -21,6 +21,10 @@ import type { NativeImportReviews } from './native-import-reviews';
 import type { AdministrationOwner } from './administration-owner';
 import { agentProjectScopeSchema } from '../shared/agent-project-scope';
 import {
+  inventoryScientificContextsRequestSchema,
+  inventoryPreviewScientificTransferRequestSchema,
+  inventoryApplyScientificTransferRequestSchema,
+  inventoryScientificSourceRequestSchema,
   inventoryPreviewArrivalRequestSchema,
   inventoryApplyArrivalRequestSchema,
   inventoryArrivalDocumentRequestSchema,
@@ -89,6 +93,42 @@ const selection = target
   })
   .strict();
 const commandSchema = z.discriminatedUnion('command', [
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.scientific-contexts'),
+      request: inventoryScientificContextsRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-scientific-transfer'),
+      request: inventoryPreviewScientificTransferRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.apply-scientific-transfer'),
+      request: inventoryApplyScientificTransferRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.scientific-source'),
+      request: inventoryScientificSourceRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
   z
     .object({
       ownerInstanceId: identity,
@@ -486,6 +526,10 @@ export async function startNativeDocumentCommandServer(options: {
   inventory?: Pick<
     ReturnType<typeof createNativeInventoryOwner>,
     | 'execute'
+    | 'scientificContexts'
+    | 'previewScientificTransfer'
+    | 'applyScientificTransfer'
+    | 'scientificSource'
     | 'stockroom'
     | 'previewArrival'
     | 'applyArrival'
@@ -608,6 +652,10 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'project-history.execute' ||
           body.command === 'import-review.execute' ||
           body.command === 'administration.execute' ||
+          body.command === 'inventory.scientific-contexts' ||
+          body.command === 'inventory.preview-scientific-transfer' ||
+          body.command === 'inventory.apply-scientific-transfer' ||
+          body.command === 'inventory.scientific-source' ||
           body.command === 'inventory.stockroom' ||
           body.command === 'inventory.preview-arrival' ||
           body.command === 'inventory.apply-arrival' ||
@@ -649,6 +697,7 @@ export async function startNativeDocumentCommandServer(options: {
               body.agent
             ) {
               const required =
+                body.command === 'inventory.apply-scientific-transfer' ||
                 body.command === 'inventory.apply-arrival' ||
                 body.command === 'inventory.execute' ||
                 body.command === 'inventory.apply-import' ||
@@ -690,6 +739,55 @@ export async function startNativeDocumentCommandServer(options: {
           const run = (() => {
             if (options.inventory) {
               const receiver = options.inventory;
+              if (body.command === 'inventory.scientific-contexts') {
+                const invocation = body.agent
+                  ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
+                  : undefined;
+                return async () => {
+                  const contexts = await receiver.scientificContexts(body.request, invocation);
+                  await authorizeInventoryRequest();
+                  assertCurrent();
+                  return { kind: 'scientific-contexts', contexts };
+                };
+              }
+              if (body.command === 'inventory.preview-scientific-transfer') {
+                const invocation = body.agent
+                  ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
+                  : undefined;
+                return async () => {
+                  const preview = await receiver.previewScientificTransfer(
+                    body.request,
+                    invocation
+                  );
+                  await authorizeInventoryRequest();
+                  assertCurrent();
+                  return { kind: 'scientific-transfer-preview', preview };
+                };
+              }
+              if (body.command === 'inventory.scientific-source')
+                return () => ({
+                  kind: 'scientific-source',
+                  result: receiver.scientificSource(body.request),
+                });
+              if (body.command === 'inventory.apply-scientific-transfer') {
+                const invocation = {
+                  ...(body.agent
+                    ? {
+                        actor: `agent:${body.agent.identityId}`,
+                        principal: { kind: 'agent' as const, identityId: body.agent.identityId },
+                      }
+                    : {}),
+                  beforeScientificCommit: authorizeInventoryRequest,
+                };
+                return async () => ({
+                  kind: 'execution',
+                  execution: await receiver.applyScientificTransfer(
+                    body.request,
+                    assertCurrent,
+                    invocation
+                  ),
+                });
+              }
               if (body.command === 'inventory.stockroom') {
                 const invocation = body.agent
                   ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
@@ -1030,6 +1128,9 @@ export async function startNativeDocumentCommandServer(options: {
             body.command !== 'inventory.operation' &&
             body.command !== 'inventory.history';
           if (
+            body.command === 'inventory.scientific-contexts' ||
+            body.command === 'inventory.preview-scientific-transfer' ||
+            body.command === 'inventory.scientific-source' ||
             body.command === 'inventory.preview-arrival' ||
             body.command === 'inventory.arrival-document' ||
             body.command === 'inventory.projects' ||

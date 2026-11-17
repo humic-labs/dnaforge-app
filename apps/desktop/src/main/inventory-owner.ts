@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import {
   applyInventoryCommandBatch,
+  inventoryScientificTransferPreview,
+  inventoryScientificTransferExisting,
   createInventoryState,
   inventoryAvailability,
   inventoryStockroomProjection,
@@ -35,6 +37,10 @@ import {
 } from '@waypoint/domain-services';
 import {
   inventoryPreviewArrivalRequestSchema,
+  inventoryScientificContextsRequestSchema,
+  inventoryPreviewScientificTransferRequestSchema,
+  inventoryApplyScientificTransferRequestSchema,
+  inventoryScientificSourceRequestSchema,
   inventoryApplyArrivalRequestSchema,
   inventoryArrivalDocumentRequestSchema,
   inventoryExecuteRequestSchema,
@@ -73,6 +79,9 @@ import {
 } from '../shared/inventory-command';
 import type {
   InventoryArrivalPreviewSnapshot,
+  InventoryScientificContextsSnapshot,
+  InventoryScientificTransferPreviewSnapshot,
+  InventoryScientificSourceRead,
   InventoryChanged,
   InventoryAvailabilitySnapshot,
   InventoryStockroomSnapshot,
@@ -93,6 +102,14 @@ import type {
   InventoryBenchlingCaptureSnapshot,
   InventoryBenchlingCapturePreviewSnapshot,
 } from '../shared/inventory-client';
+import type {
+  NativeNotebookWorkingCopyOwner,
+  NotebookSavedSourceCapture,
+} from './notebook-document-owner';
+import {
+  applyNativeInventoryScientificTransfer,
+  findNativeInventoryScientificSource,
+} from './inventory-scientific';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import type { RegisteredProject, RegisteredProjectAuthority } from './registered-project-authority';
 import { resolveSavedRegistryProject } from './registry-entity-project';
@@ -230,6 +247,7 @@ export function createNativeInventoryOwner(options: {
   actor(): string;
   profileKey: string;
   now?: () => number;
+  notebookSources?: Pick<NativeNotebookWorkingCopyOwner, 'savedSources' | 'withSavedSource'>;
 }) {
   const authority = inventoryReceiptContextSchema.shape.authority.parse({
     kind: 'local-profile',
@@ -418,7 +436,8 @@ export function createNativeInventoryOwner(options: {
   const commit = (
     parsed: InventoryAcceptedRequest,
     assertCurrent: () => void,
-    invocation: NativeInventoryInvocation
+    invocation: NativeInventoryInvocation,
+    scientificCapture?: NotebookSavedSourceCapture
   ): NativeInventoryExecution => {
     const project = resolveProject(parsed.project, true);
     const assertProject = options.projectAuthority.capture(project.projectId, true);
@@ -481,9 +500,14 @@ export function createNativeInventoryOwner(options: {
         const previous = row ? stateFromRow(row) : createInventoryState();
         const recordedAt = observationTime(previous);
         const context = inventoryReceiptContextSchema.parse({
-          version: 5,
+          version: 6,
           principal: principal(invocation),
           authority,
+          ...('kind' in request &&
+          request.kind === 'record-scientific-transfer' &&
+          scientificCapture
+            ? { scientificSource: scientificCapture.source }
+            : {}),
         });
         const reject = (code: string, message: string): NativeInventoryExecution => ({
           status: 'rejected',
@@ -495,7 +519,36 @@ export function createNativeInventoryOwner(options: {
         });
         let result: InventoryTransition;
         let assertStockroomMaterials = () => {};
-        if ('kind' in request && request.kind === 'receive-arrival') {
+        if ('kind' in request && request.kind === 'record-scientific-transfer') {
+          const existingWork = inventoryScientificTransferExisting(previous, request.choices);
+          if (existingWork.kind === 'no-change')
+            return reject(
+              'INVENTORY_SCIENTIFIC_NO_CHANGES',
+              'This completed manual work is already recorded.'
+            );
+          if (existingWork.kind === 'conflict')
+            return reject(
+              'SCIENTIFIC_WORK_CONFLICT',
+              'That physical work identity already records a different observation.'
+            );
+          if (request.expectedRevision !== previous.revision)
+            return reject(
+              'REVISION_CONFLICT',
+              'Inventory changed after scientific work was previewed.'
+            );
+          if (!scientificCapture)
+            return reject(
+              'SCIENTIFIC_CONTEXT_MISMATCH',
+              'A current native notebook source observation is required.'
+            );
+          scientificCapture.assertCurrent();
+          result = applyNativeInventoryScientificTransfer(
+            previous,
+            request,
+            { at: recordedAt, principal: context.principal, authority },
+            scientificCapture.source
+          );
+        } else if ('kind' in request && request.kind === 'receive-arrival') {
           if (request.expectedRevision !== previous.revision)
             return reject(
               'REVISION_CONFLICT',
@@ -961,8 +1014,19 @@ export function createNativeInventoryOwner(options: {
           context,
           requestDigest: nativeInventoryRequestDigest(request),
         });
+        if (
+          'kind' in request &&
+          request.kind === 'record-scientific-transfer' &&
+          Buffer.byteLength(canonicalNativeMutationRequest({ request, receipt }), 'utf8') >
+            NATIVE_DOCUMENT_MAX_BODY_BYTES
+        )
+          return reject(
+            'INVENTORY_SCIENTIFIC_SOURCE_TOO_LARGE',
+            'The complete scientific request and retained source exceed the native inline limit.'
+          );
         assertCurrent();
         assertStockroomMaterials();
+        scientificCapture?.assertCurrent();
         db.prepare(
           `INSERT INTO inventory_state (inventory_id,project_id,revision,state_json) VALUES(?,?,?,?)
        ON CONFLICT(inventory_id) DO UPDATE SET revision=excluded.revision,state_json=excluded.state_json`
@@ -985,6 +1049,7 @@ export function createNativeInventoryOwner(options: {
         assertCurrent();
         assertAcceptingProject();
         assertStockroomMaterials();
+        scientificCapture?.assertCurrent();
         committed = true;
         return receipt;
       })
@@ -1006,6 +1071,166 @@ export function createNativeInventoryOwner(options: {
   };
 
   return {
+    async scientificContexts(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<InventoryScientificContextsSnapshot> {
+      const request = inventoryScientificContextsRequestSchema.parse(input);
+      const project = resolveProject(request.project, false);
+      const assertProject = options.projectAuthority.capture(project.projectId, false);
+      if (!options.notebookSources)
+        throw new NativeDocumentCommandError(
+          'INVENTORY_SCIENTIFIC_SOURCE_UNAVAILABLE',
+          'Notebook source observations are unavailable.',
+          false
+        );
+      const pages = await options.notebookSources.savedSources(
+        project.projectId,
+        request.query ?? '',
+        request.limit ?? 20
+      );
+      assertProject();
+      const row = inventory(options.db(), request.inventoryId, project.projectId);
+      const state = row ? stateFromRow(row) : createInventoryState();
+      return {
+        projectId: project.projectId,
+        inventoryId: request.inventoryId,
+        revision: state.revision,
+        asOf: observationTime(state),
+        principal: principal(invocation),
+        pages: pages.map((page) => ({
+          ...page,
+          kind: 'notebook-page',
+          projectId: project.projectId,
+          sourceKind: 'native-observed-saved-source',
+        })),
+      };
+    },
+    async previewScientificTransfer(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<InventoryScientificTransferPreviewSnapshot> {
+      const request = inventoryPreviewScientificTransferRequestSchema.parse(input);
+      const project = resolveProject(request.project, false);
+      const assertProject = options.projectAuthority.capture(project.projectId, false);
+      const observe = (capture: NotebookSavedSourceCapture | null) => {
+        assertProject();
+        capture?.assertCurrent();
+        return options
+          .db()
+          .transaction(() => {
+            const row = inventory(options.db(), request.inventoryId, project.projectId);
+            const state = row ? stateFromRow(row) : createInventoryState();
+            const asOf = observationTime(state),
+              caller = principal(invocation);
+            const target = importTarget(options.db(), project, request.inventoryId, row);
+            const preview = inventoryScientificTransferPreview(state, {
+              ...request.choices,
+              target: { ...target, revision: request.expectedRevision },
+              source: capture?.source ?? null,
+              asOf,
+              principal: caller,
+              authority,
+            });
+            return structuredClone({
+              ...preview,
+              projectId: project.projectId,
+              inventoryId: request.inventoryId,
+              revision: state.revision,
+              asOf,
+              principal: caller,
+            });
+          })
+          .deferred();
+      };
+      const initial = read({ project: project.projectId, inventoryId: request.inventoryId });
+      const current = initial.row ? stateFromRow(initial.row) : createInventoryState();
+      if (inventoryScientificTransferExisting(current, request.choices).kind !== 'new')
+        return observe(null);
+      if (!options.notebookSources) return observe(null);
+      try {
+        return await options.notebookSources.withSavedSource(
+          project.projectId,
+          request.choices.pageId,
+          (capture) => observe(capture)
+        );
+      } catch {
+        return observe(null);
+      }
+    },
+    async applyScientificTransfer(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<NativeInventoryExecution> {
+      const request = inventoryApplyScientificTransferRequestSchema.parse(input);
+      const project = resolveProject(request.project, true);
+      const row = inventory(options.db(), request.inventoryId, project.projectId);
+      const existing = options
+        .db()
+        .prepare('SELECT 1 FROM inventory_journal WHERE inventory_id=? AND operation_id=?')
+        .get(request.inventoryId, request.operationId);
+      const current = row ? stateFromRow(row) : createInventoryState();
+      if (existing || inventoryScientificTransferExisting(current, request.choices).kind !== 'new')
+        return commit(request, assertCurrent, invocation);
+      if (!options.notebookSources)
+        throw new NativeDocumentCommandError(
+          'INVENTORY_SCIENTIFIC_SOURCE_UNAVAILABLE',
+          'Notebook source observations are unavailable.',
+          false
+        );
+      try {
+        return await options.notebookSources.withSavedSource(
+          project.projectId,
+          request.choices.pageId,
+          async (capture) => {
+            await invocation.beforeScientificCommit?.();
+            return commit(request, assertCurrent, invocation, capture);
+          }
+        );
+      } catch (error) {
+        if (error instanceof NativeDocumentCommandError) throw error;
+        throw new NativeDocumentCommandError(
+          'INVENTORY_SCIENTIFIC_SOURCE_CHANGED',
+          error instanceof Error
+            ? error.message
+            : 'The notebook source changed before recording scientific work.',
+          false
+        );
+      }
+    },
+    scientificSource(input: unknown): InventoryScientificSourceRead {
+      const request = inventoryScientificSourceRequestSchema.parse(input);
+      const project = resolveProject(request.project, false);
+      const assertProject = options.projectAuthority.capture(project.projectId, false);
+      const db = options.db();
+      const result = db
+        .transaction((): InventoryScientificSourceRead => {
+          const row = inventory(db, request.inventoryId, project.projectId);
+          const state = row ? stateFromRow(row) : null;
+          const work = state?.scientificWorks[request.workId];
+          if (!work)
+            return {
+              kind: 'unavailable',
+              code: 'INVENTORY_SCIENTIFIC_WORK_NOT_FOUND',
+              message: 'The scientific work observation is unavailable.',
+            };
+          const entries = (
+            db
+              .prepare('SELECT * FROM inventory_journal WHERE inventory_id=? ORDER BY revision ASC')
+              .all(request.inventoryId) as JournalRow[]
+          ).map((saved) => entryFromRow(saved, project.projectId));
+          if (
+            canonicalNativeMutationRequest(replayNativeInventoryJournal(entries)) !==
+            canonicalNativeMutationRequest(state)
+          )
+            return dataError();
+          return findNativeInventoryScientificSource(work, entries);
+        })
+        .deferred();
+      assertProject();
+      return structuredClone(result);
+    },
     stockroom(
       input: unknown,
       invocation: NativeInventoryInvocation = {}
@@ -1755,6 +1980,7 @@ export function createNativeInventoryOwner(options: {
 export type NativeInventoryOwner = ReturnType<typeof createNativeInventoryOwner>;
 
 export interface NativeInventoryInvocation {
+  beforeScientificCommit?(): Promise<void>;
   readonly actor?: string;
   readonly principal?: InventoryPrincipal;
 }

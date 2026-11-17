@@ -81,6 +81,8 @@ async def test_search_runs_without_a_renderer_or_any_write_capability(native):
     "operation, result_kind, result_field",
     [
         ("stockroom", "stockroom", "stockroom"),
+        ("scientific-contexts", "scientific-contexts", "contexts"),
+        ("scientific-source", "scientific-source", "result"),
         ("inspect", "inspection", "state"),
         ("availability", "availability", "availability"),
     ],
@@ -372,6 +374,39 @@ async def test_inventory_archive_reads_need_only_current_read_grant(native, kind
         )
     assert revoked.value.code == "GRANT_REVOKED"
     assert len(state["calls"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_inventory_scientific_transfer_preserves_work_identity_and_requires_write(native):
+    state, context = native
+    choices = {
+        "identity": {"namespace": "manual-work", "workId": "one-physical-transfer"},
+        "pageId": "project::page",
+        "expectedSourceSha256": "sha256:" + "a" * 64,
+        "sourceStockId": "stock",
+        "destinationVesselId": "well:plate#A1",
+        "quantity": {"value": "10.00", "unit": "uL"},
+        "reason": "Observed completed manual transfer",
+    }
+    operation = {
+        "kind": "apply-scientific-transfer",
+        "project": "project",
+        "inventoryId": "inventory",
+        "operationId": "stable-attempt",
+        "expectedRevision": 2,
+        "choices": choices,
+        "expectedPlanDigest": "sha256:" + "b" * 64,
+    }
+    state["scope"] = ["read-workspace"]
+    with pytest.raises(ToolExecutionFailure) as denied:
+        await execute_native_workflow("inventory", {"operation": operation}, context)
+    assert denied.value.code == "INSUFFICIENT_SCOPE"
+    assert state["calls"] == []
+    state["scope"] = ["read-workspace", "write-workspace"]
+    await execute_native_workflow("inventory", {"operation": operation}, context)
+    assert state["calls"][0]["command"] == "inventory.apply-scientific-transfer"
+    assert state["calls"][0]["request"] == {**operation, "kind": "record-scientific-transfer"}
+    assert state["calls"][0]["request"]["choices"] == choices
 
 
 @pytest.mark.asyncio

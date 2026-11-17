@@ -91,6 +91,7 @@ def _required(name: str, args: dict[str, Any]) -> list[str]:
             "apply-hierarchy",
             "apply-mapped-table",
             "apply-benchling-capture",
+            "apply-scientific-transfer",
             "apply-arrival",
             "acknowledge-source",
         }:
@@ -210,6 +211,10 @@ async def execute_native_workflow(
             "inspect-benchling-capture",
             "preview-benchling-capture",
             "apply-benchling-capture",
+            "scientific-contexts",
+            "preview-scientific-transfer",
+            "apply-scientific-transfer",
+            "scientific-source",
             "preview-arrival",
             "apply-arrival",
             "arrival-document",
@@ -226,7 +231,9 @@ async def execute_native_workflow(
                 details={"stateChanged": False},
             )
         request = {key: value for key, value in operation.items() if key != "kind"}
-        if operation["kind"] == "apply-arrival":
+        if operation["kind"] == "apply-scientific-transfer":
+            request["kind"] = "record-scientific-transfer"
+        elif operation["kind"] == "apply-arrival":
             request["kind"] = "receive-arrival"
         elif operation["kind"] == "apply-import":
             request["kind"] = "adopt-archive"

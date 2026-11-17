@@ -1,3 +1,5 @@
+export * from './inventory-scientific-types';
+export * from './inventory-scientific';
 export * from './inventory-stockroom-types';
 export * from './inventory-stockroom';
 export * from './inventory-arrival-types';

@@ -52,6 +52,7 @@ function* recordedPrincipals(state: InventoryState): Generator<InventoryRecorded
     if (row.lifecycle.kind !== 'open' && row.lifecycle.kind !== 'active') yield row.lifecycle.by;
   }
   for (const arrival of Object.values(state.arrivals)) yield arrival.by;
+  for (const work of Object.values(state.scientificWorks)) yield work.by;
   for (const fact of [
     ...Object.values(state.openingObservations),
     ...Object.values(state.validityFacts),

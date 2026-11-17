@@ -1,4 +1,11 @@
 import {
+  runInventoryScientificJourney,
+  runInventoryScientificResume,
+  runInventoryScientificReopen,
+  runInventoryScientificSourceEdit,
+  runInventoryScientificSourceEditResume,
+} from './journeys/inventory-scientific.mjs';
+import {
   runInventoryArrivalEvidenceJourney,
   runInventoryArrivalEvidenceResume,
   runInventoryArrivalEvidenceReopen,
@@ -168,6 +175,11 @@ assert.ok(
     'arrival-evidence-reopen',
     'arrival-evidence-text',
     'arrival-evidence-text-resume',
+    'scientific',
+    'scientific-resume',
+    'scientific-reopen',
+    'scientific-source-edit',
+    'scientific-source-edit-resume',
     'stockroom',
     'stockroom-resume',
     'stockroom-reopen',
@@ -850,6 +862,41 @@ try {
         : stage === 'stockroom-corrections-resume'
           ? runInventoryStockroomCorrectionsResume
           : runInventoryStockroomCorrectionsReopen
+    )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
+  if (
+    [
+      'scientific',
+      'scientific-resume',
+      'scientific-reopen',
+      'scientific-source-edit',
+      'scientific-source-edit-resume',
+    ].includes(stage)
+  ) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the exact current native23 fixture or scientific checkpoint.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    if (stage === 'scientific-resume' || stage === 'scientific-source-edit-resume') {
+      const existing = page.getByTestId('inventory-physical-dialog');
+      for (let attempt = 0; attempt < 3 && (await existing.count()); attempt++)
+        await page.keyboard.press('Escape');
+      await expect(existing).toBeHidden();
+    }
+    await openInventory(fixture.project.name);
+    receipt.expected = await (
+      stage === 'scientific'
+        ? runInventoryScientificJourney
+        : stage === 'scientific-resume'
+          ? runInventoryScientificResume
+          : stage === 'scientific-source-edit'
+            ? runInventoryScientificSourceEdit
+            : stage === 'scientific-source-edit-resume'
+              ? runInventoryScientificSourceEditResume
+              : runInventoryScientificReopen
     )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
   }
   if (['stockroom', 'stockroom-resume', 'stockroom-reopen'].includes(stage)) {

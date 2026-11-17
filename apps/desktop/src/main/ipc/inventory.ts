@@ -4,6 +4,7 @@ import { ZodError } from 'zod';
 import { handleGroup } from '../../shared/ipc-contract';
 import { inventoryContract } from '../../shared/ipc/inventory.contract';
 import {
+  inventoryApplyScientificTransferRequestSchema,
   inventoryApplyArrivalRequestSchema,
   inventoryExecuteRequestSchema,
   inventoryApplyImportRequestSchema,
@@ -151,6 +152,47 @@ export function registerInventoryHandlers(options: {
     }
   };
   return handleGroup(inventoryContract, {
+    scientificContexts: (event, request) => {
+      assertCaller(event);
+      return currentOwner().scientificContexts(request);
+    },
+    previewScientificTransfer: (event, request) => {
+      assertCaller(event);
+      return currentOwner().previewScientificTransfer(request);
+    },
+    scientificSource: (event, request) => {
+      assertCaller(event);
+      return currentOwner().scientificSource(request);
+    },
+    applyScientificTransfer: async (event, input) => {
+      assertCaller(event);
+      const request = inventoryApplyScientificTransferRequestSchema.parse(input);
+      const owner = currentOwner();
+      const assertCurrent = () => {
+        assertCaller(event);
+        if (options.owner() !== owner)
+          throw new NativeDocumentCommandError(
+            'INVENTORY_OWNER_UNAVAILABLE',
+            'The desktop inventory owner changed.',
+            false
+          );
+      };
+      try {
+        return await owner.applyScientificTransfer(request, assertCurrent, {
+          actor: `human:desktop:${event.sender.id}`,
+        });
+      } catch (error) {
+        if (error instanceof NativeDocumentCommandError && error.stateChanged === false)
+          return {
+            status: 'rejected' as const,
+            inventoryId: request.inventoryId,
+            operationId: request.operationId,
+            code: error.code,
+            message: error.message,
+          };
+        throw error;
+      }
+    },
     stockroom: (event, request) => {
       assertCaller(event);
       return currentOwner().stockroom(request);

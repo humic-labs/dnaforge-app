@@ -1,3 +1,5 @@
+import type { InventoryScientificWork } from './inventory-scientific-types';
+export type * from './inventory-scientific-types';
 import type {
   InventoryExpectedDelivery,
   InventoryArrivalAllocation,
@@ -76,7 +78,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v22' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v23' as const;
+export const INVENTORY_STOCKROOM_SCHEMA = 'dnaforge.inventory.v22' as const;
 export const INVENTORY_ARRIVAL_SCHEMA = 'dnaforge.inventory.v21' as const;
 export const INVENTORY_VALIDITY_SCHEMA = 'dnaforge.inventory.v20' as const;
 export const INVENTORY_LOT_CONTROLS_SCHEMA = 'dnaforge.inventory.v19' as const;
@@ -314,6 +317,7 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly scientificWorks: Readonly<Record<string, InventoryScientificWork>>;
   readonly expectedDeliveries: Readonly<Record<string, InventoryExpectedDelivery>>;
   readonly arrivalAllocations: Readonly<Record<string, InventoryArrivalAllocation>>;
   readonly reorderRules: Readonly<Record<string, InventoryReorderRule>>;
@@ -876,7 +880,9 @@ export type InventoryErrorCode =
   | 'ARRIVAL_ALLOCATION_NOT_FOUND'
   | 'ARRIVAL_ALLOCATION_NOT_ACTIVE'
   | 'REORDER_RULE_NOT_FOUND'
-  | 'REORDER_RULE_NOT_ACTIVE';
+  | 'REORDER_RULE_NOT_ACTIVE'
+  | 'SCIENTIFIC_WORK_CONFLICT'
+  | 'SCIENTIFIC_CONTEXT_MISMATCH';
 
 export type InventoryTransition =
   | { readonly ok: true; readonly state: InventoryState }
@@ -889,6 +895,7 @@ export type InventoryTransition =
 export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
+    scientificWorks: Object.create(null) as Record<string, InventoryScientificWork>,
     expectedDeliveries: Object.create(null) as Record<string, InventoryExpectedDelivery>,
     arrivalAllocations: Object.create(null) as Record<string, InventoryArrivalAllocation>,
     reorderRules: Object.create(null) as Record<string, InventoryReorderRule>,

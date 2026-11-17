@@ -1,3 +1,4 @@
+import { InventoryScientificForm } from './InventoryScientificForm';
 import { InventoryStockroomForm } from './InventoryStockroomForm';
 import { InventoryArrivalForm } from './InventoryArrivalForm';
 import {
@@ -14,6 +15,7 @@ import {
   inventoryStoragePositions,
   inventoryAmountUnitDefinition,
   type InventoryComposition,
+  type InventoryCommand,
   type InventoryContribution,
   type InventoryLot,
   type InventorySourceIdentity,
@@ -100,10 +102,10 @@ type Drawer =
   | { kind: 'item'; item: InventoryItem }
   | { kind: 'stock'; stockId: string; tab: 'details' | 'history' | 'reservations' };
 
-type InventorySourceKind = Extract<
-  NativeInventoryHistoryEntry['request'],
-  { kind: string }
->['kind'];
+type InventorySourceKind = Exclude<
+  Extract<NativeInventoryHistoryEntry['request'], { kind: string }>['kind'],
+  'record-scientific-transfer'
+>;
 const sourceHistoryCopy: Readonly<
   Record<
     InventorySourceKind,
@@ -476,7 +478,7 @@ export function InventoryPanel() {
         !selectedStock ||
         'kind' in entry.request ||
         ('commands' in entry.request ? entry.request.commands : [])
-          .flatMap((command) =>
+          .flatMap<InventoryCommand>((command) =>
             command.kind === 'fulfill-reservations' ? [command, command.withdrawal] : [command]
           )
           .some(
@@ -539,12 +541,30 @@ export function InventoryPanel() {
             >
               <p className="font-medium text-fg">
                 {'kind' in entry.request
-                  ? sourceHistoryCopy[entry.request.kind].title
+                  ? entry.request.kind === 'record-scientific-transfer'
+                    ? 'Recorded observed scientific transfer'
+                    : sourceHistoryCopy[entry.request.kind].title
                   : entry.request.commands
                       .map((command) => (state ? historyLabel(command, state) : ''))
                       .join(' · ')}
               </p>
-              {'kind' in entry.request ? (
+              {'kind' in entry.request && entry.request.kind === 'record-scientific-transfer' ? (
+                <div className="space-y-1 text-xs">
+                  <p>
+                    Operator-reported completed manual transfer:{' '}
+                    {inventoryAmountLabel(entry.request.choices.quantity)}
+                  </p>
+                  <p>{entry.request.choices.reason}</p>
+                  <p className="break-all">
+                    Saved notebook source: {entry.request.choices.pageId} ·{' '}
+                    {entry.request.choices.expectedSourceSha256}
+                  </p>
+                  <p>
+                    Retained structured context and exact before/after stocks are available in
+                    Recorded scientific work.
+                  </p>
+                </div>
+              ) : 'kind' in entry.request ? (
                 <details
                   className="space-y-2 text-xs"
                   data-testid="inventory-imported-source-evidence"
@@ -682,6 +702,9 @@ export function InventoryPanel() {
         </Button>
         <Button disabled={!editable} onClick={() => setDialog({ kind: 'lot' })}>
           Add lot
+        </Button>
+        <Button disabled={!data} onClick={() => setDialog({ kind: 'scientific-transfer' })}>
+          Record scientific transfer
         </Button>
         <Button disabled={!data} onClick={() => setDialog({ kind: 'stockroom' })}>
           Stockroom
@@ -1688,6 +1711,16 @@ export function InventoryPanel() {
             data={data}
             controller={controller}
             status={status}
+            client={platform().inventory}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : dialog.kind === 'scientific-transfer' ? (
+          <InventoryScientificForm
+            key={data.project.projectId + ':' + data.project.defaultInventoryId}
+            dialog={dialog}
+            data={data}
+            status={status}
+            controller={controller}
             client={platform().inventory}
             onClose={() => setDialog({ kind: 'none' })}
           />

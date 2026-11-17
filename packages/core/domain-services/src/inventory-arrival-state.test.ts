@@ -140,6 +140,7 @@ describe('immutable arrival state', () => {
   it('upcasts v20 without inventing old arrival facts or rewriting any existing state field', () => {
     const { state } = received(),
       {
+        scientificWorks: _scientificWorks,
         expectedDeliveries: _expected,
         arrivalAllocations: _allocations,
         reorderRules: _rules,
@@ -150,6 +151,7 @@ describe('immutable arrival state', () => {
       before = JSON.stringify(previous);
     const parsed = parseInventoryState(previous),
       {
+        scientificWorks,
         expectedDeliveries,
         arrivalAllocations,
         reorderRules,
@@ -158,6 +160,7 @@ describe('immutable arrival state', () => {
         ...unchanged
       } = parsed;
     const { schema: _oldSchema, ...oldFields } = previous;
+    expect(scientificWorks).toEqual({});
     expect(arrivals).toEqual({});
     expect(expectedDeliveries).toEqual({});
     expect(arrivalAllocations).toEqual({});

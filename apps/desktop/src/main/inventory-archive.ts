@@ -91,7 +91,7 @@ export function applyNativeInventoryAdoption(
   request: InventoryApplyImportRequest,
   context: InventoryExecutionContext,
   depth = 0,
-  replay?: { readonly receiptContextVersion: 1 | 2 | 3 | 4 | 5 | undefined }
+  replay?: { readonly receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | undefined }
 ) {
   const archive = parseInventoryArchive(request.sourceText, nativeInventoryArchiveRuntime, {
     depth,
@@ -134,6 +134,16 @@ export function applyNativeInventoryAdoption(
     ) >= 22
   )
     throw new Error('INVENTORY_DATA_INVALID: A pre-V5 receipt cannot adopt a stockroom archive.');
+  if (
+    replay &&
+    (replay.receiptContextVersion ?? 1) < 6 &&
+    Number(
+      archive.document.content.source.storedSchema?.match(/^dnaforge\.inventory\.v([1-9]\d*)$/)?.[1]
+    ) >= 23
+  )
+    throw new Error(
+      'INVENTORY_DATA_INVALID: A pre-V6 receipt cannot adopt a scientific work archive.'
+    );
   const preview = inventoryImportPreview(
     archive,
     {

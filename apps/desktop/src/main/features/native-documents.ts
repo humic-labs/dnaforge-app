@@ -202,6 +202,7 @@ export function createNativeDocuments(
     if (!nativeAuthority) return;
     detachInventoryPublisher?.();
     inventory = createNativeInventoryOwner({
+      notebookSources: notebookDocuments,
       db: getDb,
       projectAuthority,
       actor: () => `native:${nativeAuthority.ownerInstanceId}`,

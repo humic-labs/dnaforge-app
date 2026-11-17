@@ -104,6 +104,7 @@ describe('opening and expiry snapshot integrity', () => {
   it('upcasts actual v19 fields without changing lot controls, ancestry, recall map or clock', () => {
     const state = base();
     const {
+      scientificWorks: _scientificWorks,
       expectedDeliveries: _expected,
       arrivalAllocations: _allocations,
       reorderRules: _rules,

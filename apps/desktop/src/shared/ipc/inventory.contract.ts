@@ -5,6 +5,13 @@ import type {
   InventoryState,
 } from '@waypoint/domain-services';
 import type {
+  InventoryScientificContextsRequest,
+  InventoryScientificContextsSnapshot,
+  InventoryPreviewScientificTransferRequest,
+  InventoryScientificTransferPreviewSnapshot,
+  InventoryApplyScientificTransferRequest,
+  InventoryScientificSourceRequest,
+  InventoryScientificSourceRead,
   InventoryPreviewArrivalRequest,
   InventoryApplyArrivalRequest,
   InventoryArrivalDocumentRequest,
@@ -59,6 +66,22 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  scientificContexts: invoke<
+    [request: InventoryScientificContextsRequest],
+    InventoryScientificContextsSnapshot
+  >(),
+  previewScientificTransfer: invoke<
+    [request: InventoryPreviewScientificTransferRequest],
+    InventoryScientificTransferPreviewSnapshot
+  >(),
+  applyScientificTransfer: invoke<
+    [request: InventoryApplyScientificTransferRequest],
+    NativeInventoryExecution
+  >(),
+  scientificSource: invoke<
+    [request: InventoryScientificSourceRequest],
+    InventoryScientificSourceRead
+  >(),
   stockroom: invoke<[request: InventoryReadRequest], InventoryStockroomSnapshot | null>(),
   previewArrival: invoke<
     [request: InventoryPreviewArrivalRequest],

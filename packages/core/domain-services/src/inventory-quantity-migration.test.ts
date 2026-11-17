@@ -24,6 +24,7 @@ function fixture(
     configuration: emptyInventoryPhysicalConfiguration(),
   });
   const {
+    scientificWorks,
     expectedDeliveries,
     arrivalAllocations,
     reorderRules,
@@ -37,6 +38,7 @@ function fixture(
     ...(schema === INVENTORY_SCHEMA
       ? {
           ...legacyBase,
+          scientificWorks,
           expectedDeliveries,
           arrivalAllocations,
           reorderRules,

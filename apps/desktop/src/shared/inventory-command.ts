@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { notebookSavedSourceSchema } from './notebook-saved-source';
 import { INVENTORY_LABEL_MEDIA_PROFILE_IDS } from '@waypoint/domain-services/inventory-label-types';
 import {
   MAX_INVENTORY_BATCH_COMMANDS,
@@ -39,15 +40,78 @@ export const inventoryPrincipalSchema = z.discriminatedUnion('kind', [
 
 export const inventoryReceiptContextSchema = z
   .object({
-    version: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
+    version: z.union([
+      z.literal(1),
+      z.literal(2),
+      z.literal(3),
+      z.literal(4),
+      z.literal(5),
+      z.literal(6),
+    ]),
     principal: inventoryPrincipalSchema,
     authority: z.object({ kind: z.literal('local-profile'), profileKey }).strict(),
+    scientificSource: notebookSavedSourceSchema.optional(),
   })
   .strict();
 
 export const inventoryReadRequestSchema = z
   .object({ project: z.string().min(1).max(4096), inventoryId: identity })
   .strict();
+
+export const inventoryScientificContextsRequestSchema = inventoryReadRequestSchema
+  .extend({
+    query: z.string().max(256).optional(),
+    limit: z.number().int().min(1).max(50).optional(),
+  })
+  .strict();
+export const inventoryScientificTransferChoicesSchema = z
+  .object({
+    identity: z.object({ namespace: identity, workId: identity }).strict(),
+    pageId: z.string().min(1).max(1000),
+    expectedSourceSha256: digest,
+    sourceStockId: identity,
+    destinationVesselId: identity,
+    quantity: z
+      .object({
+        value: z.string().min(1).max(128),
+        unit: z.enum([...INVENTORY_AMOUNT_UNITS] as [
+          InventoryAmountUnit,
+          ...InventoryAmountUnit[],
+        ]),
+      })
+      .strict(),
+    reason: z.string().min(1).max(4096),
+  })
+  .strict();
+export const inventoryPreviewScientificTransferRequestSchema = inventoryReadRequestSchema
+  .extend({
+    expectedRevision: revision,
+    choices: inventoryScientificTransferChoicesSchema,
+  })
+  .strict();
+export const inventoryApplyScientificTransferRequestSchema =
+  inventoryPreviewScientificTransferRequestSchema
+    .extend({
+      kind: z.literal('record-scientific-transfer'),
+      operationId: identity,
+      expectedPlanDigest: digest,
+    })
+    .strict();
+export const inventoryScientificSourceRequestSchema = inventoryReadRequestSchema
+  .extend({ workId: identity })
+  .strict();
+export type InventoryScientificContextsRequest = z.infer<
+  typeof inventoryScientificContextsRequestSchema
+>;
+export type InventoryPreviewScientificTransferRequest = z.infer<
+  typeof inventoryPreviewScientificTransferRequestSchema
+>;
+export type InventoryApplyScientificTransferRequest = z.infer<
+  typeof inventoryApplyScientificTransferRequestSchema
+>;
+export type InventoryScientificSourceRequest = z.infer<
+  typeof inventoryScientificSourceRequestSchema
+>;
 
 export const inventoryInspectBenchlingCaptureRequestSchema = inventoryReadRequestSchema
   .extend({ sourceText: z.string() })
@@ -810,6 +874,7 @@ export const inventoryExecuteRequestSchema = inventoryReadRequestSchema
   }));
 
 export const inventoryAcceptedRequestSchema = z.union([
+  inventoryApplyScientificTransferRequestSchema,
   inventoryExecuteRequestSchema,
   inventoryApplyImportRequestSchema,
   inventoryApplyTableRequestSchema,
@@ -964,6 +1029,7 @@ export type InventoryAcknowledgeSourceRequest = InventoryReadRequest & {
   readonly expectedPlanDigest: `sha256:${string}`;
 };
 export type InventoryAcceptedRequest =
+  | InventoryApplyScientificTransferRequest
   | InventoryExecuteRequest
   | InventoryApplyImportRequest
   | InventoryApplyTableRequest

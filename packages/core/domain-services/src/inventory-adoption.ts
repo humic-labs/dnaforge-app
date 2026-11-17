@@ -107,6 +107,32 @@ function mapOrigin(
 function mapScientificReferences(state: InventoryState, resolve: ResolveMaterial): InventoryState {
   return {
     ...state,
+    scientificWorks: mapRecords(state.scientificWorks, (work, id) => ({
+      ...work,
+      effects: {
+        source: {
+          ...work.effects.source,
+          before: mapIdentity(
+            work.effects.source.before,
+            `/scientificWorks/${pointerKey(id)}/effects/source/before`,
+            resolve
+          ),
+          after: mapIdentity(
+            work.effects.source.after,
+            `/scientificWorks/${pointerKey(id)}/effects/source/after`,
+            resolve
+          ),
+        },
+        destination: {
+          ...work.effects.destination,
+          after: mapIdentity(
+            work.effects.destination.after,
+            `/scientificWorks/${pointerKey(id)}/effects/destination/after`,
+            resolve
+          ),
+        },
+      },
+    })),
     expectedDeliveries: mapRecords(state.expectedDeliveries, (row, id) => ({
       ...row,
       expectation: {
@@ -207,6 +233,10 @@ function mapAttribution(state: InventoryState, source: InventoryAdoptionSource):
     value.kind === 'available' ? value : { ...value, by: principal(value.by) };
   return {
     ...state,
+    scientificWorks: mapRecords(state.scientificWorks, (work) => ({
+      ...work,
+      by: principal(work.by),
+    })),
     expectedDeliveries: mapRecords(state.expectedDeliveries, (row) => ({
       ...row,
       by: principal(row.by),

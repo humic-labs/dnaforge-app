@@ -5,6 +5,7 @@ import { prepareNotebookReferenceInsertion } from './notebook-reference-insertio
 import { resolvePortablePrimerReferencePath } from '../shared/primer-reference-path';
 import { createHash, randomUUID } from 'node:crypto';
 import { access, mkdir, open, readFile, readdir, rename, rm, stat } from 'node:fs/promises';
+import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 import type Database from 'better-sqlite3';
 import {
@@ -118,7 +119,7 @@ export function createNativeNotebookWorkingCopies(options: {
     const rows = options
       .db()
       .prepare(
-        "SELECT e.id,f.id AS bindingId,f.object_uuid AS objectUuid,f.path,w.path AS root,w.access_mode FROM catalog_entities e JOIN catalog_entity_files f ON f.entity_id=e.id JOIN workspaces w ON w.id=f.workspace_id WHERE e.id=? AND e.type IN ('notebook','page') AND e.status='active' AND f.status='current' AND w.archived_at IS NULL AND w.trashed_at IS NULL LIMIT 2"
+        "SELECT e.id,f.id AS bindingId,f.object_uuid AS objectUuid,f.path,w.id AS workspaceId,w.repo_uuid AS workspaceScope,w.path AS root,w.access_mode FROM catalog_entities e JOIN catalog_entity_files f ON f.entity_id=e.id JOIN workspaces w ON w.id=f.workspace_id WHERE e.id=? AND e.workspace_id=f.workspace_id AND e.type IN ('notebook','page') AND e.status='active' AND f.status='current' AND w.archived_at IS NULL AND w.trashed_at IS NULL LIMIT 2"
       )
       .all(id) as Array<{
       id: string;
@@ -127,6 +128,8 @@ export function createNativeNotebookWorkingCopies(options: {
       access_mode: string;
       bindingId: string;
       objectUuid: string | null;
+      workspaceId: number;
+      workspaceScope: string | null;
     }>;
     if (rows.length !== 1)
       throw new NativeDocumentCommandError(
@@ -166,6 +169,36 @@ export function createNativeNotebookWorkingCopies(options: {
     } catch {
       readOnly = true;
     }
+    const assertCapturedBinding = () => {
+      const current = options
+        .db()
+        .prepare(
+          "SELECT f.id AS bindingId,f.object_uuid AS objectUuid,f.path,w.id AS workspaceId,w.repo_uuid AS workspaceScope,w.path AS root FROM catalog_entities e JOIN catalog_entity_files f ON f.entity_id=e.id JOIN workspaces w ON w.id=f.workspace_id WHERE e.id=? AND e.workspace_id=f.workspace_id AND e.type IN ('notebook','page') AND e.status='active' AND f.status='current' AND w.archived_at IS NULL AND w.trashed_at IS NULL LIMIT 2"
+        )
+        .all(id) as Array<{
+        path: string;
+        root: string;
+        bindingId: string;
+        objectUuid: string | null;
+        workspaceId: number;
+        workspaceScope: string | null;
+      }>;
+      if (
+        findKnownWorkspaceRoot(options.db(), currentPath) !== root ||
+        current.length !== 1 ||
+        current[0].bindingId !== row.bindingId ||
+        current[0].objectUuid !== row.objectUuid ||
+        current[0].workspaceId !== row.workspaceId ||
+        current[0].workspaceScope !== row.workspaceScope ||
+        workspaceMutationRootIdentity(current[0].root) !== root ||
+        workspaceMutationRootIdentity(current[0].path) !== currentPath
+      )
+        throw new NativeDocumentCommandError(
+          'NOTEBOOK_BINDING_CHANGED',
+          'The notebook package identity changed.',
+          false
+        );
+    };
     const assertCurrent = () => {
       assertEnrollment();
       if (
@@ -178,30 +211,7 @@ export function createNativeNotebookWorkingCopies(options: {
           'This notebook project is no longer enrolled.',
           false
         );
-      const current = options
-        .db()
-        .prepare(
-          "SELECT f.id AS bindingId,f.object_uuid AS objectUuid,f.path,w.path AS root FROM catalog_entities e JOIN catalog_entity_files f ON f.entity_id=e.id JOIN workspaces w ON w.id=f.workspace_id WHERE e.id=? AND e.type IN ('notebook','page') AND e.status='active' AND f.status='current' AND w.archived_at IS NULL AND w.trashed_at IS NULL LIMIT 2"
-        )
-        .all(id) as Array<{
-        path: string;
-        root: string;
-        bindingId: string;
-        objectUuid: string | null;
-      }>;
-      if (
-        findKnownWorkspaceRoot(options.db(), currentPath) !== root ||
-        current.length !== 1 ||
-        current[0].bindingId !== row.bindingId ||
-        current[0].objectUuid !== row.objectUuid ||
-        workspaceMutationRootIdentity(current[0].root) !== root ||
-        workspaceMutationRootIdentity(current[0].path) !== currentPath
-      )
-        throw new NativeDocumentCommandError(
-          'NOTEBOOK_BINDING_CHANGED',
-          'The notebook package identity changed.',
-          false
-        );
+      assertCapturedBinding();
       if (mutating) {
         if (!writable())
           throw new NativeDocumentCommandError(
@@ -213,11 +223,29 @@ export function createNativeNotebookWorkingCopies(options: {
       }
     };
     assertCurrent();
-    return { documentId: id, path: currentPath, workspaceRoot: root, readOnly, assertCurrent };
+    const sourceScope = workspaceScopeKey(row.workspaceScope, row.workspaceId)!;
+    return {
+      documentId: id,
+      path: currentPath,
+      workspaceRoot: root,
+      readOnly,
+      assertCurrent,
+      assertCapturedBinding,
+      ...(row.objectUuid
+        ? {
+            sourceIdentity: {
+              projectId: sourceScope,
+              workspaceScope: sourceScope,
+              fileObjectUuid: row.objectUuid,
+            },
+          }
+        : {}),
+    };
   };
   const load = async (scope: NativeNotebookScope): Promise<NativeNotebookSource> => {
     const reads = new Map<string, string>(),
-      missing = new Set<string>();
+      missing = new Set<string>(),
+      canonicalMembers = new Map<string, string>();
     const safe = async (path: string) => {
       const member = await canonicalWorkspacePath({
         workspaceRoot: scope.workspaceRoot,
@@ -228,6 +256,7 @@ export function createNativeNotebookWorkingCopies(options: {
       if (!under(member.candidate, scope.path))
         throw new Error('A notebook member escaped its package.');
       scope.assertCurrent();
+      canonicalMembers.set(path, member.candidate);
       return member.candidate;
     };
     const read = async (path: string) => {
@@ -316,6 +345,38 @@ export function createNativeNotebookWorkingCopies(options: {
       preservedPreamble: result.parsed.preservedPreamble,
       preservedTitleProjection: result.parsed.preservedTitleProjection,
       sourceShape: 'v2-package',
+      assertSourceCurrentSync() {
+        scope.assertCapturedBinding!();
+        for (const [path, bytes] of reads) {
+          const canonical = canonicalMembers.get(path)!;
+          if (
+            realpathSync(path) !== canonical ||
+            !lstatSync(canonical).isFile() ||
+            readFileSync(canonical, 'utf8') !== bytes
+          )
+            throw new Error('The saved notebook source changed before scientific work committed.');
+        }
+        for (const path of missing) {
+          try {
+            lstatSync(path);
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+            throw error;
+          }
+          throw new Error('The saved notebook source changed before scientific work committed.');
+        }
+        if (
+          readNotebookPublicationInDb(options.db(), {
+            ...scope,
+            title: result.parsed.title,
+            content: result.parsed.content,
+            canonicalFingerprint: contentFingerprint(result.markdown),
+          }).status !== 'settled'
+        )
+          throw new Error(
+            'The saved notebook publication changed before scientific work committed.'
+          );
+      },
       publication: readNotebookPublicationInDb(options.db(), {
         ...scope,
         title: result.parsed.title,

@@ -1,3 +1,4 @@
+import { InventoryScientificSession } from './inventory-scientific-session';
 import { InventoryArrivalSession } from './inventory-arrival-session';
 import {
   createInventoryState,
@@ -15,6 +16,7 @@ import {
   type InventoryResolvedMappedTableOptions,
   type InventoryResolvedBenchlingCaptureOptions,
   type InventoryResolvedArrivalOptions,
+  type InventoryScientificTransferChoices,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
@@ -27,6 +29,7 @@ import {
   inventoryApplyMappedTableRequestSchema,
   inventoryApplyBenchlingCaptureRequestSchema,
   inventoryApplyArrivalRequestSchema,
+  inventoryApplyScientificTransferRequestSchema,
   inventoryReceiptSchema,
   type InventoryAcceptedRequest,
   type NativeInventoryHistoryEntry,
@@ -198,6 +201,7 @@ export class InventoryController {
   private readonly catalogCache = new Map<string, readonly InventoryEquipmentCatalogEntry[]>();
   private readonly labelSessions = new Map<string, InventoryLabelSession>();
   private readonly archiveSessions = new Map<string, InventoryArchiveSession>();
+  private readonly scientificSessions = new Map<string, InventoryScientificSession>();
   private readonly arrivalSessions = new Map<string, InventoryArrivalSession>();
   private readonly storageFreshnessPolicies = new Map<string, number | null>();
   private opening: Promise<void> | undefined;
@@ -220,6 +224,20 @@ export class InventoryController {
     if (!session) {
       session = new InventoryArchiveSession(source, this.client, output);
       this.archiveSessions.set(key, session);
+    }
+    return session;
+  }
+
+  scientificSession(source: InventoryReadRequest): InventoryScientificSession {
+    const key = scopeKey(source.project, source.inventoryId);
+    let session = this.scientificSessions.get(key);
+    if (!session) {
+      session = new InventoryScientificSession(
+        this.client,
+        source,
+        typeof localStorage === 'undefined' ? null : localStorage
+      );
+      this.scientificSessions.set(key, session);
     }
     return session;
   }
@@ -871,6 +889,26 @@ export class InventoryController {
     );
   }
 
+  async recordScientificTransfer(
+    choices: InventoryScientificTransferChoices,
+    expectedPlanDigest: InventoryTableSha256
+  ): Promise<NativeInventoryReceipt | null> {
+    return this.sourceAttempt(
+      (data) =>
+        inventoryApplyScientificTransferRequestSchema.parse({
+          kind: 'record-scientific-transfer',
+          project: data.project.projectId,
+          inventoryId: data.project.defaultInventoryId,
+          operationId: this.operationId(),
+          expectedRevision: data.state.revision,
+          choices,
+          expectedPlanDigest,
+        }),
+      'Record observed scientific transfer',
+      'Preview the exact observed transfer and saved notebook source before recording.'
+    );
+  }
+
   private async sourceAttempt(
     request: (data: InventoryData) => InventoryAcceptedRequest,
     summary: string,
@@ -967,6 +1005,8 @@ export class InventoryController {
         return this.client.applyBenchlingCapture(request);
       case 'receive-arrival':
         return this.client.applyArrival(request);
+      case 'record-scientific-transfer':
+        return this.client.applyScientificTransfer(request);
     }
   }
 
