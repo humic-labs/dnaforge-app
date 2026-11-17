@@ -5,6 +5,7 @@ import type { PileupRecord, PileupTrackData } from '@waypoint/genome-data';
 
 import { startWebGLRenderLoop, type WebGLRenderLoop } from '../../../react/webgl-render-loop';
 import { webglThemeForMode, type WebGLRenderTheme } from '../shared/theme';
+import * as readVertices from './annotation-record-vertices';
 import { buildCoverageGpuAtlas } from './coverage-gpu-atlas';
 import { PENDING_INTERVAL_BAND_HEIGHT_PX } from './pileup-pending-interval-layer';
 import { PersistentRowLayout } from './pileup-row-layout';
@@ -3051,6 +3052,72 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         renderer.unmount(container);
       }
     });
+
+    it.each(['all overlap', 'touches the left boundary', 'touches the right boundary'] as const)(
+      'counts drawable rows for a source window when the input %s',
+      (bounds) => {
+        const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test', maxRows: 3 });
+        const container = renderer.mount(mountArgs);
+        const assigned = vi.spyOn(PersistentRowLayout.prototype, 'finishAssignment');
+        const vertices = vi.spyOn(readVertices, 'beginAnnotationRecordVerticesJob');
+        const clock = vi.spyOn(performance, 'now').mockReturnValue(1000);
+        try {
+          let boundsReadsBeforeVertices = 0;
+          const interior = read(155, 170, 'interior');
+          Object.defineProperty(interior, 'end', {
+            get() {
+              if (assigned.mock.calls.length > 0 && vertices.mock.calls.length === 0) {
+                boundsReadsBeforeVertices++;
+              }
+              return 170;
+            },
+          });
+          const records = [
+            read(90, 111, 'crosses-left'),
+            read(122, 135, 'first-row'),
+            read(122, 136, 'second-row'),
+            read(122, 137, 'third-row'),
+            read(123, 138, 'hidden'),
+            interior,
+            read(190, 210, 'crosses-right'),
+          ];
+          if (bounds === 'touches the left boundary') records.unshift(read(80, 100));
+          if (bounds === 'touches the right boundary') records.push(read(200, 215));
+          const args = paintArgsZoom(
+            container,
+            {
+              dataAuthority: 'tile-engine',
+              coverage: {
+                bins: [4, 4],
+                binSize: 100,
+                maxDepth: 4,
+                provenance: { exact: true, method: 'pyramid-maxpool', source: 'tile-engine' },
+              },
+              records,
+              readSource: { truncated: false, windowStartBp: 100, windowEndBp: 200 },
+            },
+            4 / 150,
+            { start: 100, end: 200 }
+          );
+          paintCommittedReadFront(renderer, args);
+          expect(renderer.getDiagnostics(container)).toMatchObject({
+            rowsMeshVisible: true,
+            rowsUsed: 3,
+            rowsMeshRecordCount: 7,
+            rowsVertexCount: 36,
+            hiddenReadCount: 1,
+          });
+          expect(assigned).toHaveBeenCalledOnce();
+          expect(vertices).toHaveBeenCalledOnce();
+          if (bounds === 'all overlap') expect(boundsReadsBeforeVertices).toBe(0);
+        } finally {
+          assigned.mockRestore();
+          vertices.mockRestore();
+          clock.mockRestore();
+          renderer.unmount(container);
+        }
+      }
+    );
 
     it('uses remaining preparation time for drawing when assignment finishes', () => {
       const renderer = new PixiPileupTrackRenderer({

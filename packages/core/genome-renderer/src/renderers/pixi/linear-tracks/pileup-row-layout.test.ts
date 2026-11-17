@@ -217,6 +217,8 @@ describe('PersistentRowLayout (JBrowse2-style)', () => {
     expect(job.recordStats).toEqual({
       startBp: Math.min(...records.map((record) => record.start)),
       endBp: Math.max(...records.map((record) => record.end)),
+      earliestEndBp: Math.min(...records.map((record) => record.end)),
+      latestStartBp: Math.max(...records.map((record) => record.start)),
       forwardReadCount: records.filter((record) => record.strand === '+').length,
       reverseReadCount: records.filter((record) => record.strand === '-').length,
       pairedReadCount: records.filter((record) => record.pair?.paired).length,

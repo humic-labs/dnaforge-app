@@ -610,8 +610,7 @@ interface ContainerState {
   readSourceWindowStartBp: number | null;
   readSourceWindowEndBp: number | null;
   readOccupancy: ReadOccupancy | null;
-  cachedReadRows: Int32Array | null;
-  cachedReadHitIndex: PileupReadHitIndex | null;
+  cachedReadAssignment: PileupRowAssignment | null;
   readSourceGenerationKey: string;
   readPresentationOwnerKey: string;
   readRowHeightField: ReadRowHeightField | null;
@@ -1985,8 +1984,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       readSourceGenerationKey: '',
       readPresentationOwnerKey: '',
       readOccupancy: null,
-      cachedReadRows: null,
-      cachedReadHitIndex: null,
+      cachedReadAssignment: null,
       readRowHeightField: null,
       cachedReadRowHeightField: null,
       cachedReadVisibleAdmission: null,
@@ -2384,8 +2382,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       state.rowsRetainBuildJob = null;
       state.rowsRetainBuildRecordsLastFrame = 0;
       state.lastRowAssignment = null;
-      state.cachedReadRows = null;
-      state.cachedReadHitIndex = null;
+      state.cachedReadAssignment = null;
       state.readRowHeightField = null;
       state.cachedReadRowHeightField = null;
       state.cachedReadVisibleAdmission = null;
@@ -2898,8 +2895,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       state.rowsRetainBuildJob = null;
       state.rowsRetainBuildRecordsLastFrame = 0;
       if (disjointReadWindow) {
-        state.cachedReadRows = null;
-        state.cachedReadHitIndex = null;
+        state.cachedReadAssignment = null;
         state.lastRowAssignment = null;
       }
       const workingLayout = disjointReadWindow
@@ -3018,9 +3014,8 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     state.rowsRetainBuildRecordsLastFrame = 0;
     state.rowsAssignmentBuildJob = null;
     state.cachedReadVisibleAdmission = finishedAssignmentJob.visibleAdmission;
-    state.cachedReadRows = assignment.rows;
-    state.cachedReadHitIndex = assignment.readHitIndex;
-    const { recordStats } = finishedAssignmentJob.job;
+    state.cachedReadAssignment = assignment;
+    const { recordStats } = assignment;
     const loadedLo = recordStats.startBp;
     const loadedHi = recordStats.endBp;
     state.reverseReadCount = recordStats.reverseReadCount;
@@ -3099,8 +3094,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     state.collapsedPileupField = null;
     this.resetCollapsedPileupStats(state);
     state.lastRowAssignment = null;
-    state.cachedReadRows = null;
-    state.cachedReadHitIndex = null;
+    state.cachedReadAssignment = null;
   }
 
   private clearExactReadRecords(state: ContainerState): void {
@@ -3120,8 +3114,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     this.resetCollapsedPileupStats(state);
     this.disposeBar(state, 'rows');
     state.lastRowAssignment = null;
-    state.cachedReadRows = null;
-    state.cachedReadHitIndex = null;
+    state.cachedReadAssignment = null;
   }
 
   private advanceReadRowsRetain(state: ContainerState): void {
@@ -3158,8 +3151,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       this.ensureReadRowsMesh(
         state,
         state.cachedRecordsRef,
-        state.cachedReadRows,
-        state.cachedReadHitIndex,
+        state.cachedReadAssignment,
         recordsKey,
         args,
         readRowsTopPx,
@@ -4297,8 +4289,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     state.rowsRetainBuildRecordsLastFrame = 0;
     state.rowsMeshBuildJob = null;
     state.layout.reset();
-    state.cachedReadRows = null;
-    state.cachedReadHitIndex = null;
+    state.cachedReadAssignment = null;
     state.cachedRecordsExactDerived = false;
     state.lastRowAssignment = null;
     state.readOccupancy = null;
@@ -4340,14 +4331,14 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
   private ensureReadRowsMesh(
     state: ContainerState,
     records: ReadonlyArray<PileupRecord> | null,
-    rows: Int32Array | null,
-    readHitIndex: PileupReadHitIndex | null,
+    assignment: PileupRowAssignment | null,
     recordsKey: string,
     args: TrackPaintArgs<PileupTrackData>,
     readRowsTopPx: number,
     allowance: ReadRowsPreparationAllowance,
     input: ExactReadCommitInput
   ): void {
+    const rows = assignment?.rows ?? null;
     const viewStart = args.viewportBpRange.start;
     const viewEnd = args.viewportBpRange.end;
     const viewSpan = viewEnd - viewStart;
@@ -4386,7 +4377,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       ) ||
       records === null ||
       rows === null ||
-      readHitIndex === null
+      assignment === null
     ) {
       this.disposeBar(state, 'rows');
       return;
@@ -4471,6 +4462,10 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     }
 
     if (job === null || targetChanged) {
+      const allRecordsOverlap =
+        assignment.recordStats.earliestEndBp > meshStart &&
+        assignment.recordStats.latestStartBp < meshEnd;
+      const countedRecords = allRecordsOverlap ? records.length : 0;
       state.rowsMeshBuildJob = {
         input,
         visibleAdmission: state.cachedReadVisibleAdmission,
@@ -4479,16 +4474,16 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         meshStart,
         meshEnd,
         colorKey: rowsMeshColorKey,
-        recordCount: 0,
-        countCursor: 0,
-        visibleRecordCount: 0,
+        recordCount: countedRecords,
+        countCursor: countedRecords,
+        visibleRecordCount: allRecordsOverlap ? countedRecords - assignment.hiddenReadCount : 0,
         rowHeightField: state.cachedReadRowHeightField,
         recordsKey,
         records,
         rows,
         hiddenReadCount: state.hiddenReadCount,
         collapsedPileupField: state.collapsedPileupField,
-        readHitIndex,
+        readHitIndex: assignment.readHitIndex,
         sourceGenerationKey: state.readSourceGenerationKey,
         difference: state.readDifferenceLayer.beginPreparation({
           records,
