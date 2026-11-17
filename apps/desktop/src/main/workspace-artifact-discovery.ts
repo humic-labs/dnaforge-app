@@ -13,6 +13,10 @@ import {
 import { HARD_CAP_BYTES } from '../shared/oversized-guard';
 import { readTablePackageInMain } from './table-package';
 import { tablePackagePaths } from '../shared/table-package';
+import {
+  collectRetainedComputeSourcePaths,
+  isRetainedComputeSourceCandidate,
+} from './workspace-git/compute-retained-source-discovery';
 import type {
   WorkspaceArtifactDiscoveryRequest,
   WorkspaceArtifactDiscoveryResult,
@@ -60,9 +64,13 @@ function knownFileMap(
 }
 
 export async function discoverWorkspaceArtifacts(
-  request: WorkspaceArtifactDiscoveryRequest
+  request: WorkspaceArtifactDiscoveryRequest,
+  options: { activeAcceptedPaths?: readonly string[] } = {}
 ): Promise<WorkspaceArtifactDiscoveryResult> {
   const { rootPath, knownFiles } = request;
+  const retainedPaths = await collectRetainedComputeSourcePaths({ workspaceRoot: rootPath });
+  const retained = (path: string) =>
+    isRetainedComputeSourceCandidate(rootPath, path, retainedPaths, options.activeAcceptedPaths);
   const knownByPath = knownFileMap(knownFiles);
   const unseenKnownPaths = new Set(knownByPath.keys());
   const projection: NonNullable<WorkspaceArtifactDiscoveryResult['catalogProjection']> = {
@@ -85,6 +93,7 @@ export async function discoverWorkspaceArtifacts(
   };
 
   const addCatalogCandidate = async (path: string, fileKind: string): Promise<void> => {
+    if (retained(path)) return;
     try {
       const fileStat = await stat(path);
       const modifiedAt = normalizedMtime(fileStat);
@@ -117,6 +126,7 @@ export async function discoverWorkspaceArtifacts(
   };
 
   const observeArtifactMeta = (absolutePath: string, relativePath: string): void => {
+    if (retained(absolutePath)) return;
     const kind = inferCatalogFileKind(relativePath);
     if (isManagedEntityArtifactPath(relativePath, kind)) {
       result.entityArtifactPaths.push(absolutePath);
@@ -134,6 +144,7 @@ export async function discoverWorkspaceArtifacts(
       return;
     }
     const tableHeadPath = tablePackagePaths(directoryPath).headPath;
+    if (retained(tableHeadPath)) return;
     let tablePackageFound = false;
     try {
       tablePackageFound = (await stat(tableHeadPath)).isFile();
@@ -246,7 +257,7 @@ export async function discoverWorkspaceArtifacts(
         projection.visibleFileCount += 1;
       }
       observePath(absolutePath);
-      if (isManagedPrimerArtifactPath(relativePath)) {
+      if (isManagedPrimerArtifactPath(relativePath) && !retained(absolutePath)) {
         result.primerArtifactPaths.push(absolutePath);
       }
       const fileKind = inferCatalogFileKind(relativePath);
@@ -290,9 +301,9 @@ export async function discoverWorkspaceArtifacts(
       result.primerArtifactPaths.sort((left, right) => left.localeCompare(right));
       result.entityArtifactPaths.sort((left, right) => left.localeCompare(right));
       projection.candidates.sort((left, right) => left.path.localeCompare(right.path));
-      projection.missingPaths = [...unseenKnownPaths].sort((left, right) =>
-        left.localeCompare(right)
-      );
+      projection.missingPaths = [...unseenKnownPaths]
+        .filter((path) => !retained(path))
+        .sort((left, right) => left.localeCompare(right));
       return result;
     }
     const rootPlasmidMetaPath = join(rootPath, '.forge', 'plasmid.json');
@@ -315,7 +326,9 @@ export async function discoverWorkspaceArtifacts(
   result.entityArtifactPaths.sort((left, right) => left.localeCompare(right));
   projection.candidates.sort((left, right) => left.path.localeCompare(right.path));
   projection.missingPaths = traversalComplete
-    ? [...unseenKnownPaths].sort((left, right) => left.localeCompare(right))
+    ? [...unseenKnownPaths]
+        .filter((path) => !retained(path))
+        .sort((left, right) => left.localeCompare(right))
     : [];
   return result;
 }

@@ -24,7 +24,9 @@ beforeEach(async () => {
   root = await realpath(fixture.tmpDir);
   writable = [root];
   changed.mockReset();
-  fixture.db.prepare('INSERT INTO workspaces(id,name,path,repo_uuid,created_at) VALUES(7,?,?,?,1)').run('Arrivals', root, 'arrival-project');
+  fixture.db
+    .prepare('INSERT INTO workspaces(id,name,path,repo_uuid,created_at) VALUES(7,?,?,?,1)')
+    .run('Arrivals', root, 'arrival-project');
   const options: ConstructorParameters<typeof MarkdownNotebookImporter>[0] & {
     onMigrationCandidatesChanged(root: string): void;
   } = {
@@ -60,7 +62,10 @@ it('notifies the mounted owner when an external sequence or structure arrives, w
   const count = changed.mock.calls.length;
   await importer.scan(root);
   expect(changed).toHaveBeenCalledTimes(count);
-  await writeFile(sequence, 'LOCUS       Arrival 16 bp DNA\nORIGIN\n        1 acgtacgtacgtacgt\n//\n');
+  await writeFile(
+    sequence,
+    'LOCUS       Arrival 16 bp DNA\nORIGIN\n        1 acgtacgtacgtacgt\n//\n'
+  );
   await importer.scan(root);
   expect(changed.mock.calls.length).toBeGreaterThan(count);
 });

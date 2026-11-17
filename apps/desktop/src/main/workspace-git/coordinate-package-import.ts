@@ -244,6 +244,8 @@ export async function renameExtensionNamedMolecularViews(
         'extension-name',
         async (bytes) => {
           const document = parseMolecularDocument(bytes.toString('utf8'));
+          if (options.protectedEntityIds?.has(document.id))
+            throw new Error('MOLECULAR_MIGRATION_IDENTITY_OWNED');
           const name = coordinateFileStem(document.name).trim() || document.name;
           const stem = basename(extensionFreeMolecularViewPath(path)!).slice(
             0,

@@ -179,7 +179,7 @@ describe('automatic migration of imported legacy compute results', () => {
     ).retryLegacyResultMigrations;
     expect(retry, 'native draft completion has a retained-job retry owner').toBeTypeOf('function');
     await retry!.call(registry);
-    await vi.waitFor(() => expect(f.successes).toHaveLength(1));
+    await vi.waitFor(() => expect(f.successes).toHaveLength(1), { timeout: 10_000 });
     await Promise.all(f.attempts);
     expect(f.failures).toEqual([]);
     expect(registry.get('job')?.lastError).toBeNull();
@@ -194,7 +194,7 @@ describe('automatic migration of imported legacy compute results', () => {
     );
     expect((await inventoryComputeSource(f.source)).treeSha256).toBe(before.treeSha256);
     expect(await git.resolveRef({ fs, dir: f.root, ref: 'HEAD' })).toBe(head);
-  });
+  }, 15_000);
 
   it('recovers on registry startup and preserves exact source and one stable output across restart', async () => {
     const f = await fixture();

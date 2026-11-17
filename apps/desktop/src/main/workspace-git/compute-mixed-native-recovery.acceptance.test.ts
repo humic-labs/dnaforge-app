@@ -26,6 +26,8 @@ import { bindCatalogEntityFileInDb } from '../catalog-file-binding';
 import { linkCatalogEntitiesInDb } from '../catalog-association-commands';
 import { createEntityReferenceInDb } from '../entity-reference-commands';
 import { prepareEntityReferenceRow } from '../../shared/entity-reference-ipc';
+import { discoverWorkspaceArtifacts } from '../workspace-artifact-discovery';
+import { collectManagedCatalogHeadIndex } from './head-index';
 
 const cleanup: Array<() => void> = [];
 afterEach(() => {
@@ -189,6 +191,28 @@ it('recovers mixed old compute outputs with existing native IDs, bindings, links
   expect((await inventoryComputeSource(join(root, result.retainedRelativePath))).treeSha256).toBe(
     original.treeSha256
   );
+  const discovery = await discoverWorkspaceArtifacts({ rootPath: root, knownFiles: [] });
+  expect(discovery.errors).toEqual([]);
+  const discovered = [
+    ...discovery.entityArtifactPaths,
+    ...(discovery.catalogProjection?.candidates.map((entry) => entry.path) ?? []),
+  ];
+  expect(
+    discovered.some((path) => path.startsWith(`${source}/`)),
+    'retained original compute bytes cannot become canonical artifacts again'
+  ).toBe(false);
+  expect(discovery.entityArtifactPaths).toContain(
+    join(target, 'Existing sequence/.forge/plasmid.json')
+  );
+  const headIndex = await collectManagedCatalogHeadIndex(root, [], { healWorkingTree: false });
+  expect(
+    headIndex.files.some((entry) => entry.relPath.startsWith('compute/boltz/remote-1/')),
+    'committed retained originals are excluded from canonical HEAD candidates'
+  ).toBe(false);
+  expect(headIndex.files.map((entry) => entry.relPath)).toContain(
+    `${result.targetRelativePath}/Existing sequence/.forge/plasmid.json`
+  );
+  expect((await inventoryComputeSource(source)).treeSha256).toBe(original.treeSha256);
   const active = f.db
     .prepare(
       'SELECT id,type,workspace_id FROM catalog_entities WHERE id IN (?,?) AND status=? ORDER BY id'

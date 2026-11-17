@@ -30,9 +30,9 @@ export function registerNotebookOwnerHandlers(
       if (sender.isDestroyed() || getTarget() !== sender)
         throw new Error('The notebook client changed.');
       const root = await assertSafePath(request.workspaceRoot, { requireAbsolute: true });
+      const expectedHead = await resolveHeadCommit(root);
+      const result = await owner.migrateLegacyProjectFiles(root);
       return withManagedWorkspaceMutationLock(root, async () => {
-        const expectedHead = await resolveHeadCommit(root);
-        const result = await owner.migrateLegacyProjectFiles(root);
         if (expectedHead && result.mutatedGitFiles.length) {
           const before = await resolveHeadCommit(root);
           await commitOwnedPathsIfDirty(root, 'Migrate legacy notebook files', {
