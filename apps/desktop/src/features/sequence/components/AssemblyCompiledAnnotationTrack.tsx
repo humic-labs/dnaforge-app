@@ -46,6 +46,10 @@ export interface IndexedGenomeAnnotationMapperPolicy {
 }
 
 export interface CompiledBroadTrackReadinessReceipt {
+  readonly annotationSourceBinding?:
+    | import('@waypoint/genome-renderer/pure').SourceAnnotationAliasBindingV1
+    | null;
+  readonly sourceAnnotationAliasesAvailable?: boolean;
   readonly readiness: AssemblyCompiledBroadRasterReadinessV1;
   readonly targetIdentityKey: string | null;
   readonly readinessTargetIdentityKey: string | null;
@@ -88,6 +92,9 @@ export interface CompiledBroadTrackReadinessReceipt {
 
 export function AssemblyCompiledAnnotationTrack({
   trackType,
+  annotationColorsByIdentity,
+  prepareAnnotationAliases,
+  missingAnnotationColor,
   selected,
   seedCache,
   assetGeneration,
@@ -118,6 +125,9 @@ export function AssemblyCompiledAnnotationTrack({
   viewportCssWidthPx,
 }: Readonly<{
   trackType: string;
+  annotationColorsByIdentity?: ReadonlyMap<string, string>;
+  prepareAnnotationAliases?: boolean;
+  missingAnnotationColor?: string;
   selected: boolean;
   seedCache: AssemblyPrepackedAnnotationSceneCacheState;
   assetGeneration: AssemblyReferenceAssetGenerationV1 | null;
@@ -215,8 +225,13 @@ export function AssemblyCompiledAnnotationTrack({
     targetIdentityKey,
     expectedInteractionOwnerKey: readyInteractionOwnerKey,
     policyFailureRequestId,
+    annotationSourceBinding,
   } = useAssemblyCompiledBroadRasterSurface({
     enabled: selected,
+    annotationColorsByIdentity,
+    prepareAnnotationAliases,
+    missingAnnotationColor,
+    themeMode,
     cache: surfaceCache,
     assetGeneration,
     assemblyRequirement,
@@ -386,6 +401,8 @@ export function AssemblyCompiledAnnotationTrack({
       selected
         ? {
             readiness,
+            sourceAnnotationAliasesAvailable: annotationSourceBinding !== null,
+            annotationSourceBinding,
             targetIdentityKey,
             readinessTargetIdentityKey,
             readinessRendererMatchesCurrent,
@@ -475,7 +492,9 @@ export function AssemblyCompiledAnnotationTrack({
           }
     );
   }, [
+    annotationSourceBinding,
     compactInteraction,
+    surfaceCache,
     effectiveInteractionOwnerKey,
     interactionCache,
     onReadinessChanged,

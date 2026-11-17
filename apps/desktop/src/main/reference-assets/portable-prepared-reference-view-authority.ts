@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
+import { verifyOptionalSha256 } from './reference-preparation-file-integrity';
 
 import {
   PREPACKED_ANNOTATION_SEARCH_CONTRACT_TOKEN,
@@ -223,6 +224,44 @@ function portableViewProjection(
 export class PortablePreparedReferenceViewAuthorityV1 {
   readonly #admissions = new Map<string, PortableViewAdmission>();
   readonly #retainedAdmissions = new Map<string, PortableViewAdmission[]>();
+
+  async assertRetainedAnnotationSources(
+    request: AssemblyAnnotationSceneReadRequest
+  ): Promise<void> {
+    const admission = this.#admissionForRequest(request);
+    const product = admission?.annotationProducts?.productsByTheme.get(request.artifact.themeMode);
+    if (
+      !admission?.prepared ||
+      !product ||
+      !requestMatchesPortableProduct(request, admission, product)
+    )
+      throw new Error('Retained annotation source generation is unavailable.');
+    for (const [index, chromosome] of request.chromosomes.entries()) {
+      if (request.scope.placements[index]?.annotationCoverage !== 'sourced') continue;
+      const manifest = chromosome.manifest;
+      if (!manifest) throw new Error('Retained annotation source manifest is unavailable.');
+      for (const path of [
+        manifest.fastaPath,
+        manifest.faiPath,
+        manifest.gffPath,
+        manifest.tbiPath,
+      ]) {
+        if (!path) throw new Error('Retained annotation source quartet is incomplete.');
+        await assertPortableSourcePath(path, admission);
+        const object = admission.hydration.bundle.objects.find(
+          (candidate) => admission.hydration.objectPaths.get(candidate.id) === resolve(path)
+        );
+        if (!object || canonicalHydratedObjectPath(admission.hydration, object) !== resolve(path))
+          throw new Error('Retained annotation source is not an admitted bundle object.');
+        const metadata = await stat(path);
+        if (!metadata.isFile() || metadata.size !== object.byteLength)
+          throw new Error('Retained annotation source size changed.');
+        await verifyOptionalSha256(path, object.sha256, 'Retained annotation source');
+      }
+    }
+    if (!this.#hasAdmission(admission) || this.#admissionForRequest(request) !== admission)
+      throw new Error('Retained annotation source admission changed.');
+  }
 
   releaseGeneration(generationRoot: string): void {
     for (const [key, admissions] of this.#retainedAdmissions) {

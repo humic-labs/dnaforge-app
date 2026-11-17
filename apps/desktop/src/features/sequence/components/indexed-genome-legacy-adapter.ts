@@ -77,6 +77,7 @@ export interface TranscriptCarrierFeature extends GenomeFeature {
   _resolvedCds?: ReadonlyArray<{ start: number; end: number }>;
   _resolvedTranscriptId?: string;
   _resolvedTranslation?: string;
+  _sourceAnnotationAliases?: readonly string[];
 }
 
 export interface RendererAnnotationIdentityProjection {
@@ -507,7 +508,11 @@ function flattenResolvedAnnotations(annotations: ResolvedAnnotation[]): Transcri
       if (isPseudogeneRecord(gene)) {
         const { transcripts, ...locus } = gene;
         if (transcripts.length === 0) {
-          out.push({ ...locus, type: PSEUDOGENE_LAYER_TYPE } as TranscriptCarrierFeature);
+          out.push({
+            ...locus,
+            type: PSEUDOGENE_LAYER_TYPE,
+            _sourceAnnotationAliases: annotationSourceAliases(gene),
+          } as TranscriptCarrierFeature);
           continue;
         }
         for (const t of transcripts) {
@@ -515,12 +520,16 @@ function flattenResolvedAnnotations(annotations: ResolvedAnnotation[]): Transcri
             ...transcriptCarrierFeatureForRendererIdentity(t),
             type: PSEUDOGENE_LAYER_TYPE,
             attributes: { ...t.attributes, ...layerIdentityAttributes(gene.attributes) },
+            _sourceAnnotationAliases: annotationSourceAliases(t, gene),
           });
         }
         continue;
       }
       for (const t of gene.transcripts) {
-        out.push(transcriptCarrierFeatureForRendererIdentity(t));
+        out.push({
+          ...transcriptCarrierFeatureForRendererIdentity(t),
+          _sourceAnnotationAliases: annotationSourceAliases(t, gene),
+        });
       }
     } else if ('exons' in a && 'cds' in a && Array.isArray((a as { exons: unknown }).exons)) {
       out.push(transcriptCarrierFeatureForRendererIdentity(a));
@@ -529,6 +538,21 @@ function flattenResolvedAnnotations(annotations: ResolvedAnnotation[]): Transcri
     }
   }
   return out;
+}
+
+function annotationSourceAliases(...features: GenomeFeature[]): readonly string[] {
+  return Object.freeze(
+    [
+      ...new Set(
+        features.flatMap((feature) => [
+          ...(feature.sourceAnnotationAliases ?? []),
+          ...['ID', 'locus_tag', 'gene_id', 'transcript_id'].flatMap(
+            (key) => feature.attributes?.[key] ?? []
+          ),
+        ])
+      ),
+    ].sort()
+  );
 }
 
 const PSEUDOGENE_LAYER_TYPE = 'pseudogene';
@@ -570,6 +594,7 @@ export function transcriptCarrierFeatureForRendererIdentity(
     _resolvedCds: transcript.cds,
     _resolvedTranscriptId: transcript.transcriptId,
     _resolvedTranslation: transcript.translation,
+    _sourceAnnotationAliases: annotationSourceAliases(transcript),
   };
 }
 
@@ -971,6 +996,7 @@ function rendererFeatureFromGenomeFeature(
     _resolvedCds?: ReadonlyArray<{ start: number; end: number }>;
     _resolvedTranscriptId?: string;
     _resolvedTranslation?: string;
+    _sourceAnnotationAliases?: readonly string[];
     compositeKind?: ResolvedTranscript['compositeKind'];
   },
   lane: number,
@@ -1004,6 +1030,7 @@ function rendererFeatureFromGenomeFeature(
     ...(feature._resolvedCds ? { cds: feature._resolvedCds } : {}),
     ...(feature.compositeKind ? { compositeKind: feature.compositeKind } : {}),
     ...(identity.transcriptId ? { transcriptId: identity.transcriptId } : {}),
+    sourceAnnotationAliases: feature._sourceAnnotationAliases ?? annotationSourceAliases(feature),
     qualifiers,
   };
 }

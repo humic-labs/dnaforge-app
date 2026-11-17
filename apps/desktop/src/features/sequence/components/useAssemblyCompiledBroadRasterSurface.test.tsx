@@ -21,6 +21,7 @@ import {
 const platformHarness = vi.hoisted(() => ({
   readManifest: vi.fn(),
   readCells: vi.fn(),
+  prepareAppearance: vi.fn(),
 }));
 
 vi.mock('../../../platform', () => ({
@@ -28,6 +29,7 @@ vi.mock('../../../platform', () => ({
     genome: {
       readAssemblyCompiledBroadRasterManifestV1: platformHarness.readManifest,
       readAssemblyCompiledBroadRasterCellsV1: platformHarness.readCells,
+      prepareAssemblyAnnotationAppearanceV1: platformHarness.prepareAppearance,
     },
   }),
 }));
@@ -145,6 +147,50 @@ function cache(): AssemblyPrepackedAnnotationSceneCacheState {
 }
 
 describe('useAssemblyCompiledBroadRasterSurface', () => {
+  it('prepares legacy source aliases and removes the binding immediately when the exact source changes', async () => {
+    const original = cache();
+    const sourceBinding = {
+      payloadSha256: original.result!.manifest.integrity.payloadSha256,
+      contractSha256: original.result!.manifest.integrity.contractSha256,
+      aliases: [{ featureIndex: 0, aliases: ['glcF.gene.1', 'b1007'] }],
+    };
+    platformHarness.prepareAppearance.mockResolvedValueOnce({ status: 'ready', sourceBinding });
+    const options = {
+      enabled: true,
+      prepareAnnotationAliases: true,
+      assemblyRequirement: null,
+      policy: { isoformMode: 'expanded' as const, laneLimit: null },
+      rendererReadyEpoch: 0,
+      rendererGenomeCommitEpoch: 0,
+      webglRef: { current: null },
+      recordEvent: vi.fn(),
+    };
+    const view = renderHook(
+      ({ cacheState }) => useAssemblyCompiledBroadRasterSurface({ ...options, cache: cacheState }),
+      { initialProps: { cacheState: original } }
+    );
+    await waitFor(() => expect(view.result.current.annotationSourceBinding).toEqual(sourceBinding));
+    expect(platformHarness.prepareAppearance).toHaveBeenLastCalledWith(
+      expect.objectContaining({ prepareAliasesOnly: true, scene: original.descriptor!.request })
+    );
+    const changed = {
+      ...original,
+      result: {
+        ...original.result!,
+        manifest: {
+          ...original.result!.manifest,
+          integrity: { ...original.result!.manifest.integrity, contractSha256: 'a'.repeat(64) },
+        },
+      },
+    } as AssemblyPrepackedAnnotationSceneCacheState;
+    platformHarness.prepareAppearance.mockResolvedValueOnce({ status: 'ready', sourceBinding });
+    view.rerender({ cacheState: changed });
+    expect(view.result.current.annotationSourceBinding).toBeNull();
+    await waitFor(() => expect(platformHarness.prepareAppearance).toHaveBeenCalledTimes(2));
+    expect(view.result.current.annotationSourceBinding).toBeNull();
+    view.unmount();
+  });
+
   it('derives the same visual raster target while the independent V4 cache is unresolved or failed', () => {
     const hit = cache();
     const loading = {

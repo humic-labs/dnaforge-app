@@ -1,3 +1,4 @@
+import type { AnnotationDataAppearanceV1 } from '@waypoint/genome-renderer/pure';
 import { realpath } from 'node:fs/promises';
 
 import type { PartitionedTranscriptSceneBinaryManifestV4 } from '@waypoint/genome-renderer/pure';
@@ -20,6 +21,8 @@ const MAX_WORKER_ATTEMPTS_PER_SCENE = 4;
 
 export interface AssemblyCompiledBroadRasterSceneHitV1 {
   readonly request: AssemblyAnnotationSceneReadRequest;
+  readonly appearance?: AnnotationDataAppearanceV1;
+  readonly artifactDirectory?: string;
   readonly sourceFingerprint: string;
   readonly scenePath: string;
   readonly sceneManifest: PartitionedTranscriptSceneBinaryManifestV4;
@@ -111,7 +114,7 @@ export class AssemblyCompiledBroadRasterPreparationOrchestratorV1 {
   }
 
   private registerSceneHit(hit: AssemblyCompiledBroadRasterSceneHitV1): KnownPreparation | null {
-    const key = requestKey(hit.request);
+    const key = requestKey(hit.request, hit.appearance?.fingerprint);
     const identity = sceneHitIdentity(hit);
     const incumbent = this.known.get(key);
     if (incumbent?.identity === identity) {
@@ -153,7 +156,7 @@ export class AssemblyCompiledBroadRasterPreparationOrchestratorV1 {
   }
 
   retryKnownMissingManifest(input: AssemblyCompiledBroadRasterArtifactRequestV1): void {
-    const entry = this.known.get(requestKey(input.scene));
+    const entry = this.known.get(requestKey(input.scene, input.appearance?.fingerprint));
     if (
       !entry ||
       entry.status === 'initializing' ||
@@ -170,7 +173,7 @@ export class AssemblyCompiledBroadRasterPreparationOrchestratorV1 {
   repairKnownCorruptArtifact(
     input: AssemblyCompiledBroadRasterArtifactRequestV1
   ): AssemblyCompiledBroadRasterRepairRequestOutcomeV1 {
-    const entry = this.known.get(requestKey(input.scene));
+    const entry = this.known.get(requestKey(input.scene, input.appearance?.fingerprint));
     if (
       !entry ||
       (entry.expectedSurfaceManifestFingerprint !== null &&
@@ -285,6 +288,7 @@ export class AssemblyCompiledBroadRasterPreparationOrchestratorV1 {
     const surfaceManifest = await buildSurfaceManifest({
       sceneManifest: entry.hit.sceneManifest,
       artifact: entry.hit.request.artifact,
+      appearance: entry.hit.appearance,
     });
     if (this.known.get(entry.key) !== entry) {
       throw new Error('Compiled broad raster preparation was superseded before initialization.');
@@ -317,6 +321,8 @@ export class AssemblyCompiledBroadRasterPreparationOrchestratorV1 {
         prepareInWorker(
           {
             request: entry.hit.request,
+            appearance: entry.hit.appearance,
+            artifactDirectory: entry.hit.artifactDirectory,
             sourceFingerprint: entry.hit.sourceFingerprint,
             scenePath: entry.hit.scenePath,
             authorizedSceneRealPath,
@@ -377,7 +383,10 @@ export class AssemblyCompiledBroadRasterPreparationOrchestratorV1 {
   }
 }
 
-function requestKey(request: AssemblyAnnotationSceneReadRequest): string {
+function requestKey(
+  request: AssemblyAnnotationSceneReadRequest,
+  appearanceFingerprint?: string
+): string {
   return JSON.stringify({
     workspaceRoot: request.workspaceRoot,
     assemblyId: request.assemblyId,
@@ -385,6 +394,8 @@ function requestKey(request: AssemblyAnnotationSceneReadRequest): string {
     scope: request.scope,
     datasetContract: request.datasetContract,
     artifact: request.artifact,
+    expectedAssetGeneration: request.expectedAssetGeneration,
+    appearanceFingerprint,
   });
 }
 
@@ -394,5 +405,7 @@ function sceneHitIdentity(hit: AssemblyCompiledBroadRasterSceneHitV1): string {
     hit.payloadSha256,
     hit.sceneManifest.integrity.contractSha256,
     hit.scenePath,
+    hit.appearance?.fingerprint ?? '',
+    hit.artifactDirectory ?? '',
   ].join('\u0000');
 }

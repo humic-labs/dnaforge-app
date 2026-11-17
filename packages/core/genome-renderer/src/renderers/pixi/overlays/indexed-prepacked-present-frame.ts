@@ -1,3 +1,4 @@
+import type { AnnotationDataColorsV1 } from '../../../annotation-data-appearance';
 import { INDEXED_ANNOTATION_COLOR_BASIS_THEME } from '../shared/annotation-runtime-theme';
 import { ANNOTATION_LANE_TOTAL } from '../shared/lane-contracts';
 import {
@@ -79,7 +80,8 @@ export type PrepackedPresentResident = {
       cdsDetail: number,
       annotationTrackBasePx: number,
       themeMode: 'light' | 'dark',
-      rolePalette?: AnnotationRolePaletteOverridesV1
+      rolePalette?: AnnotationRolePaletteOverridesV1,
+      annotationDataColors?: AnnotationDataColorsV1
     ): void;
     hide(): void;
     show(): void;
@@ -95,6 +97,7 @@ export type PrepackedPresentLastPresentation = {
   cdsDetail: number;
   themeMode: 'light' | 'dark';
   rolePalette?: AnnotationRolePaletteOverridesV1;
+  annotationDataColors?: AnnotationDataColorsV1;
 };
 
 export type PrepackedPresentFrameHost<
@@ -336,7 +339,8 @@ export function presentPrepackedAnnotationScene<TResident extends PrepackedPrese
       cdsDetail,
       annotationTrackBase! - laneStart * laneRowCssHeightPx,
       camera.state.themeMode ?? 'light',
-      camera.state.annotationRolePalette
+      camera.state.annotationRolePalette,
+      camera.state.sequencePresentation?.annotationDataColors
     );
     resident.visiblePartitionCount = submissions.length;
     resident.visibleInstanceCount = submissions.reduce(
@@ -360,6 +364,7 @@ export function presentPrepackedAnnotationScene<TResident extends PrepackedPrese
     cdsDetail,
     themeMode: camera.state.themeMode ?? 'light',
     rolePalette: camera.state.annotationRolePalette,
+    annotationDataColors: camera.state.sequencePresentation?.annotationDataColors,
   });
   host.setVisibleCounts(visiblePartitionCount, visibleInstanceCount);
   host.setFinePendingReason(null);

@@ -1,4 +1,8 @@
 import {
+  assertSourceAnnotationAliasesV1,
+  type SourceAnnotationAliasesV1,
+} from '../../../annotation-data-appearance';
+import {
   ANNOTATION_POLICY_DIRECT_FINE_INDEX_V1,
   buildAnnotationPolicyDirectFineIndexV1,
   type AnnotationPolicyDirectFineIndexV1,
@@ -64,6 +68,7 @@ export interface PartitionedTranscriptSceneDetailPacketManifestV1 {
   readonly assemblyLengthBp: number;
   readonly featureCount: number;
   readonly sourcePrimitiveCount: number;
+  readonly sourceAnnotationAliases?: readonly SourceAnnotationAliasesV1[];
   readonly families: readonly AnnotationShapeFamilyV1[];
   readonly partitionSpanBp: number;
   readonly maxPrimitiveSpanBp: number;
@@ -345,12 +350,29 @@ export async function packPartitionedTranscriptSceneDetailPacketV1(input: {
   if (!SHA256.test(payloadDigest)) {
     throw new Error('partitioned transcript detail packet hash is invalid');
   }
+  const activeAliasFeatureIndices = input.sourceManifest.sourceAnnotationAliases
+    ? new Set(interactionPrimitiveCsr.activeFeatureIndices)
+    : null;
   const manifest: PartitionedTranscriptSceneDetailPacketManifestV1 = Object.freeze({
     schema: PARTITIONED_TRANSCRIPT_SCENE_DETAIL_PACKET_V1,
     sourceScene: input.rangeCatalog.sourceScene,
     assemblyLengthBp: input.sourceManifest.assemblyContract.assemblyLengthBp,
     featureCount: input.sourceManifest.featureCount,
     sourcePrimitiveCount: input.sourceManifest.sourcePrimitiveCount,
+    ...(input.sourceManifest.sourceAnnotationAliases
+      ? {
+          sourceAnnotationAliases: Object.freeze(
+            input.sourceManifest.sourceAnnotationAliases
+              .filter((entry) => activeAliasFeatureIndices!.has(entry.featureIndex))
+              .map((entry) =>
+                Object.freeze({
+                  featureIndex: entry.featureIndex,
+                  aliases: Object.freeze([...entry.aliases]),
+                })
+              )
+          ),
+        }
+      : {}),
     families: Object.freeze(structuredClone(input.sourceManifest.families)),
     partitionSpanBp: input.rangeCatalog.partitionSpanBp,
     maxPrimitiveSpanBp: input.rangeCatalog.maxPrimitiveSpanBp,
@@ -448,7 +470,25 @@ export async function unpackPartitionedTranscriptSceneDetailPacketV1(
   }
   const expanded = unpackMode(manifest, payload, 'expanded');
   const canonical = unpackMode(manifest, payload, 'canonical');
+  if (manifest.sourceAnnotationAliases)
+    assertSourceAnnotationAliasesV1(manifest.sourceAnnotationAliases, manifest.featureCount);
   const scene: GpuReadyPartitionedTranscriptScene = {
+    sourceAnnotationIdentity: Object.freeze({
+      payloadSha256: manifest.sourceScene.payloadSha256,
+      contractSha256: manifest.sourceScene.contractSha256,
+    }),
+    ...(manifest.sourceAnnotationAliases
+      ? {
+          sourceAnnotationAliases: Object.freeze(
+            manifest.sourceAnnotationAliases.map((entry) =>
+              Object.freeze({
+                featureIndex: entry.featureIndex,
+                aliases: Object.freeze([...entry.aliases]),
+              })
+            )
+          ),
+        }
+      : {}),
     partitionSpanBp: manifest.partitionSpanBp,
     maxPrimitiveSpanBp: manifest.maxPrimitiveSpanBp,
     packedInstanceData: expanded.packedInstanceData,

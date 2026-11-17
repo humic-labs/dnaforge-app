@@ -34,6 +34,7 @@ export interface LinearSequencePresentation {
     readonly columnToBio: (column: number) => number | null;
   };
   readonly annotationColors?: ReadonlyMap<number, number>;
+  readonly annotationDataColors?: import('./annotation-data-appearance').AnnotationDataColorsV1;
   readonly annotationUnchangedColor?: number;
   readonly showReverseComplement?: boolean;
   readonly alignedQuery?: string;
@@ -84,6 +85,8 @@ export interface Feature {
   compositeKind?: 'transcript' | 'compound-cds' | 'disrupted-locus' | 'compound-feature';
 
   sourceId?: string;
+
+  sourceAnnotationAliases?: readonly string[];
 
   canonicalIdentity?: string;
 

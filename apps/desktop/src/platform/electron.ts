@@ -972,6 +972,8 @@ export const electronBridge: PlatformBridge = {
     readAssemblyOverviewTexture: (request) => api().genome.readAssemblyOverviewTexture(request),
     readAssemblyAnnotationRasterV2: (request) =>
       api().genome.readAssemblyAnnotationRasterV2(request),
+    prepareAssemblyAnnotationAppearanceV1: (request) =>
+      api().genome.prepareAssemblyAnnotationAppearanceV1(request),
     readAssemblyCompiledBroadRasterManifestV1: (request) =>
       api().genome.readAssemblyCompiledBroadRasterManifestV1(request),
     readAssemblyCompiledBroadRasterCellsV1: (request) =>

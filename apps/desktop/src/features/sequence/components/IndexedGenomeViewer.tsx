@@ -1097,6 +1097,8 @@ export function IndexedGenomeViewer({
       setCompiledBroadRasterReadinessByTrack((previous) => {
         const current = previous[trackType];
         return current?.readiness === receipt.readiness &&
+          current.sourceAnnotationAliasesAvailable === receipt.sourceAnnotationAliasesAvailable &&
+          current.annotationSourceBinding === receipt.annotationSourceBinding &&
           current.targetIdentityKey === receipt.targetIdentityKey &&
           current.readinessTargetIdentityKey === receipt.readinessTargetIdentityKey &&
           current.readinessRendererMatchesCurrent === receipt.readinessRendererMatchesCurrent &&
@@ -1135,6 +1137,40 @@ export function IndexedGenomeViewer({
     },
     []
   );
+  const onAnnotationColorsSupportChange = dataLayerControls?.onAnnotationColorsSupportChange;
+  const annotationSourceBindings = useMemo(
+    () =>
+      rendererEffectiveVisibleLayerTypes.flatMap((trackType) => {
+        const receipt = compiledBroadRasterReadinessByTrack[trackType];
+        return receipt?.ownerReadinessScopeKey === compiledResidentOwnerReadinessScopeKey &&
+          receipt.annotationSourceBinding
+          ? [receipt.annotationSourceBinding]
+          : [];
+      }),
+    [
+      rendererEffectiveVisibleLayerKey,
+      compiledBroadRasterReadinessByTrack,
+      compiledResidentOwnerReadinessScopeKey,
+    ]
+  );
+  useEffect(() => {
+    const supported =
+      rendererEffectiveVisibleLayerTypes.length > 0 &&
+      rendererEffectiveVisibleLayerTypes.every((trackType) => {
+        const receipt = compiledBroadRasterReadinessByTrack[trackType];
+        return (
+          receipt?.sourceAnnotationAliasesAvailable === true &&
+          receipt.ownerReadinessScopeKey === compiledResidentOwnerReadinessScopeKey
+        );
+      });
+    onAnnotationColorsSupportChange?.(supported);
+    return () => onAnnotationColorsSupportChange?.(false);
+  }, [
+    onAnnotationColorsSupportChange,
+    rendererEffectiveVisibleLayerKey,
+    compiledBroadRasterReadinessByTrack,
+    compiledResidentOwnerReadinessScopeKey,
+  ]);
   const compiledBroadSelectedReadinessReceipts = rendererEffectiveVisibleLayerTypes.map(
     (trackType) => ({
       trackType,
@@ -3532,6 +3568,7 @@ export function IndexedGenomeViewer({
     <IndexedGenomeViewerSurface
       dataLayerControls={dataLayerControls}
       annotationColorsByIdentity={annotationColorsByIdentity}
+      annotationSourceBindings={annotationSourceBindings}
       missingAnnotationColor={missingAnnotationColor}
       compiledBroadOwnsAssembly={compiledBroadOwnsAssembly}
       state={state}

@@ -51,6 +51,8 @@ export interface SequenceDataLayerTrackRow {
 }
 
 export interface SequenceDataLayerTrackControls {
+  readonly annotationSourceAliasesRequired?: boolean;
+  readonly onAnnotationColorsSupportChange?: (supported: boolean) => void;
   readonly annotationColorsSupported?: boolean;
   readonly rows: readonly SequenceDataLayerTrackRow[];
   readonly errors: readonly string[];

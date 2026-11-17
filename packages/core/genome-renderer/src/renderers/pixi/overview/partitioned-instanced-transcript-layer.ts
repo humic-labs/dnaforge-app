@@ -1,4 +1,10 @@
 import {
+  annotationDataColorsByFeatureV1,
+  annotationAliasesForSceneV1,
+  packAnnotationDataAppearanceBytesV1,
+  type AnnotationDataColorsV1,
+} from '../../../annotation-data-appearance';
+import {
   Buffer as PixiBuffer,
   BufferUsage,
   Container,
@@ -25,8 +31,7 @@ import {
 import { retainedSubpixelOpacityPolicy } from './retained-subpixel-aa';
 import {
   TRANSCRIPT_FRAGMENT_SHADER,
-  POLICY_TRANSCRIPT_VERTEX_SHADER,
-  TRANSCRIPT_VERTEX_SHADER,
+  buildTranscriptVertexShader,
   type RetainedLinearTranscriptUniforms,
 } from './retained-linear-transcript-layer';
 import {
@@ -109,10 +114,10 @@ export interface PartitionedTranscriptRolePaletteDebug {
 const trustedV4LayerOptions = new WeakSet<PartitionedInstancedTranscriptLayerOptions>();
 const trustedDetailPacketLayerOptions = new WeakSet<PartitionedInstancedTranscriptLayerOptions>();
 
-function partitionedTranscriptGlProgram(policyEnabled: boolean): GlProgram {
+function partitionedTranscriptGlProgram(policyEnabled: boolean, dataAppearance = false): GlProgram {
   return GlProgram.from({
     name: 'partitioned-instanced-transcript-bodies',
-    vertex: policyEnabled ? POLICY_TRANSCRIPT_VERTEX_SHADER : TRANSCRIPT_VERTEX_SHADER,
+    vertex: buildTranscriptVertexShader(policyEnabled, dataAppearance),
     fragment: TRANSCRIPT_FRAGMENT_SHADER,
   });
 }
@@ -254,6 +259,10 @@ export class PartitionedInstancedTranscriptLayer {
   private readonly scene: GpuReadyPartitionedTranscriptScene;
   private readonly cornerBuffer: PixiBuffer;
   private readonly instanceBuffer: PixiBuffer;
+  private readonly appearanceBuffers = new Map<PixiBuffer, ArrayLike<number>>();
+  private readonly appearanceGeometry = new Map<Geometry, PixiBuffer>();
+  private annotationDataColors: AnnotationDataColorsV1 | undefined;
+  private resolvedDataColors: ReadonlyMap<number, number> = new Map();
   private readonly canonicalInstanceBuffer: PixiBuffer | null;
   private readonly policyBuffer: PixiBuffer | null;
   private readonly submissionBank: AnnotationPolicyDirectSubmissionBankV1 | null;
@@ -304,10 +313,16 @@ export class PartitionedInstancedTranscriptLayer {
   private rolePaletteTheme: WebGLThemeMode | null = null;
   private readonly admissionValidationDebug: PartitionedTranscriptAdmissionValidationDebug;
 
-  static prepareGpuPrograms(renderer: PixiGpuProgramPreparationRenderer): void {
+  static prepareGpuPrograms(
+    renderer: PixiGpuProgramPreparationRenderer,
+    dataAppearance = false
+  ): void {
     prepareSharedPixiGpuPrograms(renderer, [
       partitionedTranscriptGlProgram(false),
       partitionedTranscriptGlProgram(true),
+      ...(dataAppearance
+        ? [partitionedTranscriptGlProgram(false, true), partitionedTranscriptGlProgram(true, true)]
+        : []),
     ]);
   }
 
@@ -791,7 +806,7 @@ export class PartitionedInstancedTranscriptLayer {
       if (view) {
         this.container.removeChild(view.mesh);
         view.mesh.destroy();
-        view.geometry.destroy(false);
+        this.destroyAppearanceGeometry(view.geometry);
         view.ownedInstanceBuffer?.destroy();
       }
       throw error;
@@ -1049,7 +1064,12 @@ export class PartitionedInstancedTranscriptLayer {
             buffer,
             directTile ? 0 : range.firstInstance,
             instanceCount,
-            !directTile && this.policyBuffer !== null
+            !directTile && this.policyBuffer !== null,
+            directTile?.featureIndices ??
+              this.scene.featureIndices.subarray(
+                range.firstInstance,
+                range.firstInstance + instanceCount
+              )
           );
           mesh = new Mesh({ geometry, shader: this.shader, state: State.for2d() });
           mesh.eventMode = 'none';
@@ -1083,7 +1103,7 @@ export class PartitionedInstancedTranscriptLayer {
           this.container.removeChild(fine.mesh);
           fine.mesh.destroy();
         }
-        fine.geometry?.destroy(false);
+        if (fine.geometry) this.destroyAppearanceGeometry(fine.geometry);
         fine.ownedInstanceBuffer?.destroy();
       }
       throw error;
@@ -1102,6 +1122,37 @@ export class PartitionedInstancedTranscriptLayer {
     return { built, reused, evicted, requiredFineCount: plan.requiredTileIndices.length };
   }
 
+  setAnnotationDataColors(appearance: AnnotationDataColorsV1 | undefined): void {
+    this.assertAlive();
+    if (appearance === this.annotationDataColors) return;
+    const aliases = annotationAliasesForSceneV1(this.scene, appearance);
+    if (appearance && !aliases) {
+      throw new Error('The compiled annotation owner has no admitted source aliases.');
+    }
+    const colors = appearance
+      ? annotationDataColorsByFeatureV1(aliases!, appearance)
+      : new Map<number, number>();
+    this.annotationDataColors = appearance;
+    this.resolvedDataColors = colors;
+    for (const [buffer, featureIndices] of this.appearanceBuffers) {
+      buffer.data = packAnnotationDataAppearanceBytesV1(
+        featureIndices,
+        colors,
+        appearance?.missingColor
+      );
+    }
+  }
+
+  private destroyAppearanceGeometry(geometry: Geometry): void {
+    const buffer = this.appearanceGeometry.get(geometry);
+    this.appearanceGeometry.delete(geometry);
+    if (buffer) {
+      this.appearanceBuffers.delete(buffer);
+      buffer.destroy();
+    }
+    geometry.destroy(false);
+  }
+
   updateCamera(
     contract: ViewerRenderContract,
     viewportWidth: number,
@@ -1109,9 +1160,11 @@ export class PartitionedInstancedTranscriptLayer {
     cdsDetail = 0,
     annotationTrackBasePx = 0,
     themeMode: WebGLThemeMode = 'light',
-    rolePalette?: AnnotationRolePaletteOverridesV1
+    rolePalette?: AnnotationRolePaletteOverridesV1,
+    annotationDataColors?: AnnotationDataColorsV1
   ): void {
     this.assertAlive();
+    this.setAnnotationDataColors(annotationDataColors);
     if (!Number.isFinite(annotationTrackBasePx)) {
       throw new Error('partitioned transcript annotation track base must be finite');
     }
@@ -1252,14 +1305,14 @@ export class PartitionedInstancedTranscriptLayer {
         this.container.removeChild(fine.mesh);
         fine.mesh.destroy();
       }
-      fine.geometry?.destroy(false);
+      if (fine.geometry) this.destroyAppearanceGeometry(fine.geometry);
       fine.ownedInstanceBuffer?.destroy();
     }
     this.fineViews.clear();
     for (const { mesh, geometry, ownedInstanceBuffer } of this.views) {
       this.container.removeChild(mesh);
       mesh.destroy();
-      geometry.destroy(false);
+      this.destroyAppearanceGeometry(geometry);
       ownedInstanceBuffer?.destroy();
     }
     destroyLayerShader(this.shader);
@@ -1276,7 +1329,11 @@ export class PartitionedInstancedTranscriptLayer {
       this.instanceBuffer,
       partition.firstInstance,
       partition.instanceCount,
-      this.policyBuffer !== null
+      this.policyBuffer !== null,
+      this.scene.featureIndices.subarray(
+        partition.firstInstance,
+        partition.firstInstance + partition.instanceCount
+      )
     );
   }
 
@@ -1312,7 +1369,11 @@ export class PartitionedInstancedTranscriptLayer {
         ownedInstanceBuffer ?? sharedBuffer,
         ownedInstanceBuffer ? 0 : partition.firstInstance,
         partition.instanceCount,
-        false
+        false,
+        modeBank.featureIndices.subarray(
+          partition.firstInstance,
+          partition.firstInstance + partition.instanceCount
+        )
       );
       const mesh = new Mesh({ geometry, shader: this.shader, state: State.for2d() });
       mesh.eventMode = 'none';
@@ -1328,7 +1389,7 @@ export class PartitionedInstancedTranscriptLayer {
         ownedInstanceBuffer,
       };
     } catch (error) {
-      geometry?.destroy(false);
+      if (geometry) this.destroyAppearanceGeometry(geometry);
       ownedInstanceBuffer?.destroy();
       throw error;
     }
@@ -1338,7 +1399,8 @@ export class PartitionedInstancedTranscriptLayer {
     instanceBuffer: PixiBuffer,
     firstInstance: number,
     instanceCount: number,
-    policyEnabled: boolean
+    policyEnabled: boolean,
+    featureIndices: ArrayLike<number>
   ): Geometry {
     const base = firstInstance * TRANSCRIPT_GLYPH_INSTANCE_LAYOUT.strideBytes;
     const instanceAttribute = (floatOffset: number, format: 'float32' | 'float32x4') => ({
@@ -1348,7 +1410,32 @@ export class PartitionedInstancedTranscriptLayer {
       offset: base + floatOffset * Float32Array.BYTES_PER_ELEMENT,
       instance: true,
     });
+    const appearanceBuffer =
+      this.scene.sourceAnnotationAliases || this.scene.sourceAnnotationIdentity
+        ? new PixiBuffer({
+            data: packAnnotationDataAppearanceBytesV1(
+              featureIndices,
+              this.resolvedDataColors,
+              this.annotationDataColors?.missingColor
+            ),
+            usage: BufferUsage.VERTEX | BufferUsage.COPY_DST,
+            label: 'partitioned-transcript-data-appearance',
+            shrinkToFit: false,
+          })
+        : null;
+    if (appearanceBuffer) this.appearanceBuffers.set(appearanceBuffer, featureIndices);
     const attributes = {
+      ...(appearanceBuffer
+        ? {
+            aDataAppearance: {
+              buffer: appearanceBuffer,
+              format: 'unorm8x4' as const,
+              stride: 4,
+              offset: 0,
+              instance: true,
+            },
+          }
+        : {}),
       aCorner: { buffer: this.cornerBuffer, format: 'float32' as const },
       aBpStartChunk: instanceAttribute(TRANSCRIPT_GLYPH_INSTANCE_LAYOUT.bpStartChunk, 'float32'),
       aBpStartDelta: instanceAttribute(TRANSCRIPT_GLYPH_INSTANCE_LAYOUT.bpStartDelta, 'float32'),
@@ -1374,11 +1461,13 @@ export class PartitionedInstancedTranscriptLayer {
         },
       });
     }
-    return new Geometry({
+    const geometry = new Geometry({
       attributes,
       topology: 'triangle-list',
       instanceCount,
     });
+    if (appearanceBuffer) this.appearanceGeometry.set(geometry, appearanceBuffer);
+    return geometry;
   }
 
   private fineViewCacheKey(
@@ -1414,7 +1503,7 @@ export class PartitionedInstancedTranscriptLayer {
         this.container.removeChild(fine.mesh);
         fine.mesh.destroy();
       }
-      fine.geometry?.destroy(false);
+      if (fine.geometry) this.destroyAppearanceGeometry(fine.geometry);
       fine.ownedInstanceBuffer?.destroy();
       this.fineViewEvictionCount += 1;
       evicted += 1;
@@ -1467,7 +1556,10 @@ export class PartitionedInstancedTranscriptLayer {
     const subpixel = retainedSubpixelOpacityPolicy();
     const runtimeTheme = indexedAnnotationRuntimeThemeUniforms(this.trackType, 'light');
     return new Shader({
-      glProgram: partitionedTranscriptGlProgram(policyEnabled),
+      glProgram: partitionedTranscriptGlProgram(
+        policyEnabled,
+        Boolean(this.scene.sourceAnnotationAliases || this.scene.sourceAnnotationIdentity)
+      ),
       resources: {
         transcriptUniforms: {
           uSubpixelMinWidthPx: { value: subpixel.minWidthPx, type: 'f32' },

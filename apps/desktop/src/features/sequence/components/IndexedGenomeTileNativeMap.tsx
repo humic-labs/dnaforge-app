@@ -119,6 +119,7 @@ export interface IndexedGenomeTileNativeMapHandle {
 export interface IndexedGenomeTileNativeMapProps
   extends ContactProjectionProps, ComparisonProjectionProps {
   annotationColorsByIdentity?: ReadonlyMap<string, string>;
+  annotationSourceBindings?: readonly import('@waypoint/genome-renderer/pure').SourceAnnotationAliasBindingV1[];
   missingAnnotationColor?: string;
   genome: Genome;
 
@@ -214,6 +215,7 @@ export const IndexedGenomeTileNativeMap = memo(
         annotationChangeDecorations,
         sequencePresentation,
         annotationColorsByIdentity,
+        annotationSourceBindings,
         missingAnnotationColor,
         showResidueNumbers,
         hoveredCodon,
@@ -261,6 +263,18 @@ export const IndexedGenomeTileNativeMap = memo(
           annotationColorsByIdentity
             ? {
                 ...sequencePresentation,
+                annotationDataColors: {
+                  sourceBindings: annotationSourceBindings,
+                  colors: new Map(
+                    [...annotationColorsByIdentity].map(([id, color]) => [
+                      id,
+                      Number.parseInt(color.slice(1), 16),
+                    ])
+                  ),
+                  missingColor: missingAnnotationColor
+                    ? Number.parseInt(missingAnnotationColor.slice(1), 16)
+                    : undefined,
+                },
                 annotationColors: resolveAnnotationDataColors(
                   annotationResidentPagePublication?.pages.flatMap((page) => page.features) ??
                     features,
@@ -277,6 +291,7 @@ export const IndexedGenomeTileNativeMap = memo(
           features,
           annotationResidentPagePublication,
           annotationColorsByIdentity,
+          annotationSourceBindings,
           missingAnnotationColor,
         ]
       );

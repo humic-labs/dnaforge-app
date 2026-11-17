@@ -237,3 +237,51 @@ it('does not report a saved indexed layer ready when its retained revision diffe
     { id: first.document.id, revision: pinnedRevision },
   ]);
 });
+
+it('allows annotation coloring from the selected column and suppresses matrix controls', async () => {
+  const { genome, incomingTab, first, pins } = indexedLayerReadinessFixture();
+  const row = {
+    id: first.document.id,
+    label: 'Measured conditions',
+    visible: true,
+    samples: [
+      { id: 'value', label: 'First condition' },
+      { id: 'other', label: 'Second condition' },
+    ],
+    presentation: first.document.presentation,
+    annotationColorsSupported: true,
+    unavailable: null,
+  };
+  load.mockReturnValue({
+    loadedLayers: [first],
+    trackControls: { errors: [], rows: [row] },
+    tracks: [],
+  });
+  const { result, rerender } = renderHook(() => useIndexedSequenceDataLayers(incomingTab, genome));
+  await waitFor(() => expect(load.mock.lastCall?.[0].fingerprints).toEqual(pins));
+  expect(result.current.trackControls.annotationSourceAliasesRequired).toBe(true);
+  expect(result.current.trackControls.rows?.[0].annotationColorsSupported).toBe(false);
+
+  act(() => result.current.trackControls.onAnnotationColorsSupportChange(true));
+  expect(result.current.trackControls.rows?.[0].annotationColorsSupported).toBe(true);
+
+  load.mockReturnValue({
+    loadedLayers: [first],
+    trackControls: {
+      errors: [],
+      rows: [
+        {
+          ...row,
+          presentation: {
+            ...row.presentation,
+            style: { ...row.presentation.style, geometry: 'matrix' },
+          },
+        },
+      ],
+    },
+    tracks: [],
+  });
+  rerender();
+  expect(result.current.trackControls.annotationSourceAliasesRequired).toBe(false);
+  expect(result.current.trackControls.rows?.[0].annotationColorsSupported).toBe(false);
+});

@@ -135,6 +135,7 @@ export function IndexedGenomeViewerSurface({
   onContactCameraChange,
   dataLayerControls,
   annotationColorsByIdentity,
+  annotationSourceBindings,
   missingAnnotationColor,
   compiledBroadOwnsAssembly,
   state,
@@ -258,6 +259,7 @@ export function IndexedGenomeViewerSurface({
   contactUnit?: ContactProjectionProps['contactUnit'];
   onContactCameraChange?: ContactProjectionProps['onContactCameraChange'];
   annotationColorsByIdentity?: ReadonlyMap<string, string>;
+  annotationSourceBindings?: readonly import('@waypoint/genome-renderer/pure').SourceAnnotationAliasBindingV1[];
   missingAnnotationColor?: string;
   state: CompatibilitySceneState;
   manifest: IndexedGenomeManifest;
@@ -459,6 +461,9 @@ export function IndexedGenomeViewerSurface({
           <AssemblyCompiledAnnotationTrack
             key={`${compiledBroadTrackMountScopeKey}:${trackType}`}
             trackType={trackType}
+            annotationColorsByIdentity={annotationColorsByIdentity}
+            prepareAnnotationAliases={dataLayerControls?.annotationSourceAliasesRequired}
+            missingAnnotationColor={missingAnnotationColor}
             selected={
               resolveAnnotationTrackIdentity(
                 trackType,
@@ -555,6 +560,7 @@ export function IndexedGenomeViewerSurface({
               contactUnit={contactUnit}
               onContactCameraChange={onContactCameraChange}
               annotationColorsByIdentity={annotationColorsByIdentity}
+              annotationSourceBindings={annotationSourceBindings}
               missingAnnotationColor={missingAnnotationColor}
               ref={webglRef}
               genome={rendererGenomeForMap}

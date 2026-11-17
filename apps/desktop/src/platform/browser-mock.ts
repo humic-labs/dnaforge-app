@@ -2518,6 +2518,10 @@ ORIGIN
     }),
     readAssemblyOverviewTexture: async () => null,
     readAssemblyAnnotationRasterV2: async () => null,
+    prepareAssemblyAnnotationAppearanceV1: async () => ({
+      status: 'unavailable',
+      reason: 'source-unavailable',
+    }),
     readAssemblyCompiledBroadRasterManifestV1: async () => null,
     readAssemblyCompiledBroadRasterCellsV1: async () => ({
       contract: ASSEMBLY_COMPILED_BROAD_RASTER_WIRE_V1,

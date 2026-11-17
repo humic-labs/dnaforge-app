@@ -51,6 +51,20 @@ export function useIndexedSequenceDataLayers(tab: Tab, genome: IndexedGenomeTabS
     project && documentId && !genome?.contactProjection && !genome?.comparisonProjection
   );
   const key = `${project}\0${documentId ?? ''}`;
+  const [annotationCapability, setAnnotationCapability] = useState<{
+    key: string;
+    supported: boolean;
+  } | null>(null);
+  const onAnnotationColorsSupportChange = useCallback(
+    (supported: boolean) => {
+      setAnnotationCapability((current) =>
+        current?.key === key && current.supported === supported ? current : { key, supported }
+      );
+    },
+    [key]
+  );
+  const annotationColorsSupported =
+    enabled && annotationCapability?.key === key && annotationCapability.supported;
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
     const update = () => setRefresh((value) => value + 1);
@@ -150,13 +164,30 @@ export function useIndexedSequenceDataLayers(tab: Tab, genome: IndexedGenomeTabS
   };
   return {
     ...layers,
-    annotationColorsByIdentity: undefined,
-    missingColor: undefined,
+    annotationColorsByIdentity: annotationColorsSupported
+      ? layers.annotationColorsByIdentity
+      : undefined,
+    missingColor: annotationColorsSupported ? layers.missingColor : undefined,
     ready: snapshot.status === 'inactive' || snapshot.status === 'ready',
     capture,
     trackControls: {
       ...layers.trackControls,
-      annotationColorsSupported: false,
+      annotationColorsSupported,
+      annotationSourceAliasesRequired: Boolean(
+        enabled &&
+        layers.trackControls.rows?.some(
+          (row) => row.annotationColorsSupported && row.presentation.style.geometry !== 'matrix'
+        )
+      ),
+      onAnnotationColorsSupportChange,
+      rows: layers.trackControls.rows?.map((row) => ({
+        ...row,
+        annotationColorsSupported: Boolean(
+          annotationColorsSupported &&
+          row.annotationColorsSupported &&
+          row.presentation.style.geometry !== 'matrix'
+        ),
+      })),
       errors: [
         ...layers.trackControls.errors,
         ...(native?.key === key && native.kind === 'error' ? [native.message] : []),
