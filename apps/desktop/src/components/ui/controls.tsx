@@ -13,7 +13,7 @@ import {
 } from 'react';
 import { ChatComposerDisclosureIcon } from '../ChatComposerDisclosureIcon';
 import { PortalMenu } from '../PortalMenu';
-import { safeFocus, scheduleFocus } from '../../shared/utils/safeFocus';
+import { safeFocus } from '../../shared/utils/safeFocus';
 import {
   UI_DANGER_BUTTON_CLASS,
   UI_APPBAR_ACTION_CLASS,
@@ -241,11 +241,6 @@ export function Select({
       setActiveIndex(enabledIndexes[0] ?? selectedIndex);
   }, [activeIndex, enabledIndexes, open, selectedIndex]);
 
-  useEffect(() => {
-    if (!open || !searchable) return;
-    return scheduleFocus(searchRef.current);
-  }, [open, searchable]);
-
   const close = useCallback(() => setOpen(false), []);
   const openFromTrigger = useCallback(() => {
     if (disabled || options.length === 0) return;
@@ -349,6 +344,7 @@ export function Select({
         id={searchable ? undefined : listboxId}
         open={open}
         anchorRef={triggerRef}
+        initialFocusRef={searchable ? searchRef : undefined}
         onRequestClose={close}
         role={searchable ? 'dialog' : 'listbox'}
         aria-label={ariaLabel}

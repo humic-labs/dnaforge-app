@@ -1,10 +1,10 @@
 import { createRef } from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Button, Select, TextField } from './index';
 
 describe('shared app form controls', () => {
-  it('searches rich choices, respects composition, and commits the filtered keyboard choice', () => {
+  it('searches rich choices, respects composition, and commits the filtered keyboard choice', async () => {
     const onValueChange = vi.fn();
     render(
       <Select
@@ -20,6 +20,7 @@ describe('shared app form controls', () => {
       />
     );
     const search = screen.getByRole('searchbox', { name: 'Search options' });
+    await waitFor(() => expect(search).toHaveFocus());
     fireEvent.change(search, { target: { value: 'Beta' } });
     expect(screen.getAllByRole('option')).toHaveLength(1);
     fireEvent.keyDown(search, { key: 'Enter', isComposing: true });
