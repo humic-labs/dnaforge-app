@@ -32,6 +32,7 @@ import { migrateFlatNotebookInMain } from './notebook-flat-migration';
 import { captureSequenceMigrationAdmission } from './workspace-git/sequence-migration-admission';
 import { captureMigrationGitContent } from './workspace-git/migration-paths';
 import { publishFileContentNoClobber } from './workspace-git/exclusive-file-claim';
+import { detectDocumentPackage } from '../shared/document-package';
 import type { NotebookLegacyProjectMigrationResult } from '../shared/notebook-document';
 import {
   stripWorkspaceScope,
@@ -517,16 +518,48 @@ export function createNativeNotebookWorkingCopies(options: {
   };
   const migrationPublications = (root: string) =>
     join(root, '.dnaforge-notebook-migrations', 'publications');
-  const flatMigrationAuthority = (scope: NativeNotebookScope) => {
+  const flatMigrationAuthority = async (scope: NativeNotebookScope) => {
     const admitted = captureSequenceMigrationAdmission(options.db(), scope.workspaceRoot, {
       requireWritable: true,
     });
     const foreign = options
       .db()
-      .prepare('SELECT path FROM catalog_entity_files WHERE entity_id<>?')
-      .all(scope.documentId) as Array<{ path: string }>;
+      .prepare(
+        'SELECT f.path,f.file_kind,e.type FROM catalog_entity_files f LEFT JOIN catalog_entities e ON e.id=f.entity_id WHERE f.entity_id<>?'
+      )
+      .all(scope.documentId) as Array<{ path: string; file_kind: string; type: string | null }>;
+    const protectedPaths = [...admitted.protectedPaths];
+    for (const row of foreign) {
+      const path = workspaceMutationRootIdentity(row.path);
+      if (
+        row.type === 'folder' &&
+        row.file_kind === 'folder' &&
+        path !== scope.path &&
+        under(scope.path, path) &&
+        !(await detectDocumentPackage(path, {
+          exists: async (candidate) => {
+            try {
+              if ((await lstat(candidate)).isSymbolicLink())
+                throw new Error('The notebook container metadata is a symbolic link.');
+              return true;
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+              throw error;
+            }
+          },
+          readDir: async (candidate) =>
+            (await readdir(candidate, { withFileTypes: true })).map((entry) => ({
+              name: entry.name,
+              isFile: entry.isFile() || entry.isSymbolicLink(),
+              isDirectory: entry.isDirectory(),
+            })),
+        }))
+      )
+        continue;
+      protectedPaths.push(row.path);
+    }
     return {
-      protectedPaths: [...admitted.protectedPaths, ...foreign.map((row) => row.path)],
+      protectedPaths,
       assertCurrent: () => {
         scope.assertCurrent();
         admitted.assertCurrent();
@@ -778,7 +811,7 @@ export function createNativeNotebookWorkingCopies(options: {
           workspaceRoot: scope.workspaceRoot,
           sourcePath: oldPath,
           documentId: scope.documentId,
-          ...flatMigrationAuthority(scope),
+          ...(await flatMigrationAuthority(scope)),
         });
         scope.assertCurrent();
         result = migrated.result;
@@ -1124,7 +1157,7 @@ export function createNativeNotebookWorkingCopies(options: {
             workspaceRoot: scope.workspaceRoot,
             sourcePath: scope.path,
             documentId: scope.documentId,
-            ...flatMigrationAuthority(scope),
+            ...(await flatMigrationAuthority(scope)),
             desired: { content, title, expectedRaw: current.metadataRaw },
           });
           scope.assertCurrent();

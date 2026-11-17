@@ -60,6 +60,7 @@ import { notebookContract } from '../shared/ipc/notebook.contract';
 import { createRegisteredProjectAuthority } from './registered-project-authority';
 import type { MarkdownNotebookImporter } from './markdown-notebook-import';
 import type { WebContents } from 'electron';
+import { bindCatalogEntityToFile, registerCatalogEntity } from '../db/workspace-catalog';
 
 const sender = Object.assign(new EventEmitter(), { id: 527411, isDestroyed: () => false });
 let root: string;
@@ -199,7 +200,7 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
-async function expectCurrentNotebook(): Promise<void> {
+async function expectCurrentNotebook(packageRoot = join(root, title)): Promise<void> {
   const row = state
     .db!.prepare(
       "SELECT entity_id,path,workspace_id,file_kind FROM catalog_entity_files WHERE status='current' AND entity_id=?"
@@ -207,7 +208,7 @@ async function expectCurrentNotebook(): Promise<void> {
     .get(id) as { path: string };
   expect(row).toEqual({
     entity_id: id,
-    path: join(root, title),
+    path: packageRoot,
     workspace_id: 7,
     file_kind: 'waypoint-notebook',
   });
@@ -255,5 +256,78 @@ describe('unbound legacy notebook automatic project migration', () => {
     expect(reconciled.result.errors).toEqual([]);
     expect(reconciled.entityResult.errors).toEqual([]);
     await expectCurrentNotebook();
+  });
+
+  it('migrates an unbound flat notebook beneath the ordinary cataloged project folder', async () => {
+    const folder = await registerCatalogEntity({
+      type: 'folder',
+      name: 'Unbound notebook migration',
+      locator: `file://${root}`,
+      storageType: 'file',
+      workspaceRoot: root,
+      metadata: {
+        discoveredFrom: 'workspace-store',
+        path: root,
+        relativePath: '',
+        fileKind: 'folder',
+      },
+    });
+    await bindCatalogEntityToFile({
+      entityId: folder.id,
+      path: root,
+      workspaceRoot: root,
+      fileKind: 'folder',
+      status: 'current',
+    });
+    const before = state
+      .db!.prepare(
+        'SELECT entity_id,path,workspace_id,file_kind,status FROM catalog_entity_files WHERE entity_id=?'
+      )
+      .get(folder.id);
+    const reconciled = await reconcileMountedWorkspaceRoot(root, { catalogSource: 'working-tree' });
+    expect(reconciled.result.errors).toEqual([]);
+    expect(reconciled.entityResult.errors).toEqual([]);
+    await expectCurrentNotebook();
+    expect(
+      state
+        .db!.prepare(
+          'SELECT entity_id,path,workspace_id,file_kind,status FROM catalog_entity_files WHERE entity_id=?'
+        )
+        .get(folder.id)
+    ).toEqual(before);
+  });
+
+  it('keeps a foreign scientific document reservation while choosing a free notebook destination', async () => {
+    const reconciled = await reconcileWorkspaceRoot(root, { catalogSource: 'working-tree' });
+    expect(reconciled.errors).toEqual([]);
+    const protectedPath = join(root, title);
+    const sequence = await registerCatalogEntity({
+      id: 'foreign-sequence-reservation',
+      type: 'sequence',
+      name: 'Reserved sequence',
+      locator: 'entity://sequence/foreign-sequence-reservation',
+      storageType: 'file',
+      workspaceRoot: root,
+    });
+    await bindCatalogEntityToFile({
+      entityId: sequence.id,
+      path: protectedPath,
+      workspaceRoot: root,
+      fileKind: 'waypoint-sequence',
+      status: 'current',
+    });
+    const before = state
+      .db!.prepare('SELECT * FROM catalog_entity_files WHERE entity_id=?')
+      .all(sequence.id);
+    const migration = await state.bridge!.notebook.migrateLegacyProjectFiles({
+      workspaceRoot: root,
+    });
+    expect(migration.issues).toEqual([]);
+    expect(migration.migrated).toBe(1);
+    await expectCurrentNotebook(join(root, `${title} (2)`));
+    await expect(stat(protectedPath)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(
+      state.db!.prepare('SELECT * FROM catalog_entity_files WHERE entity_id=?').all(sequence.id)
+    ).toEqual(before);
   });
 });
