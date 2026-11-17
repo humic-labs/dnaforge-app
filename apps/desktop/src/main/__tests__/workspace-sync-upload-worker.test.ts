@@ -2735,6 +2735,123 @@ describe('workspace sync upload worker', () => {
     }
   );
 
+  it('publishes an approved selection after a legacy refusal without changing saved bytes', async () => {
+    createVersion.mockRejectedValueOnce(
+      Object.assign(new Error('This project requires shared file selection.'), {
+        code: 'UPGRADE_REQUIRED',
+        retryable: false,
+        terminal: true,
+      })
+    );
+    const worker = makeWorker();
+    await expect(worker.flushWorkspace('workspace-a')).resolves.toMatchObject({
+      status: 'failed',
+      errorCode: 'UPGRADE_REQUIRED',
+    });
+    const oldRequest = JSON.stringify(createVersion.mock.calls[0][0]);
+    expect(createVersion.mock.calls[0][0].fileSelectionVersion).toBe(0);
+    const reviewed = {
+      ...snapshot('workspace-a', CONTENT_A, 'head-a'),
+      excludedFiles: [],
+      selection: {
+        version: 1 as const,
+        revision: 'a'.repeat(64),
+        state: 'active' as const,
+        ruleFiles: [],
+        newlyIncludedPaths: [],
+      },
+    };
+    snapshotWorkspace.mockResolvedValue(reviewed);
+    nextJobId = 'queue-b';
+    nowMs += 1000;
+    await expect(worker.flushWorkspace('workspace-a', { force: true })).resolves.toMatchObject({
+      status: 'uploaded',
+      job: { id: 'queue-b' },
+    });
+    expect(createVersion).toHaveBeenCalledTimes(2);
+    const upgraded = createVersion.mock.calls[1][0];
+    expect(upgraded.fileSelectionVersion).toBe(1);
+    expect(upgraded.idempotencyKey).not.toBe(createVersion.mock.calls[0][0].idempotencyKey);
+    expect(upgraded.bundle).toEqual(createVersion.mock.calls[0][0].bundle);
+    expect(JSON.stringify(createVersion.mock.calls[0][0])).toBe(oldRequest);
+    expect(queueRow(db, 'queue-b')).toMatchObject({
+      status: 'succeeded',
+      local_head_sha: 'head-a',
+      bundle_content_sha256: CONTENT_A,
+    });
+    expect(
+      readWorkspaceSyncStatus(db, {
+        workspaceUuid: 'workspace-a',
+        getActiveAccountId: () => 'account-a',
+        getCurrentLocalHeadSha: () => 'head-a',
+        nowMs: () => nowMs,
+      })
+    ).toMatchObject({ syncAxis: 'idle_synced', terminalErrorCode: null });
+  });
+
+  it.each(['NETWORK', 'QUOTA_EXCEEDED'])(
+    'preserves an already reviewed upload with an older queue key after %s',
+    async (refusalCode) => {
+      const captured = {
+        ...snapshot('workspace-a', CONTENT_A, 'head-a'),
+        excludedFiles: [],
+        selection: {
+          version: 1 as const,
+          revision: 'b'.repeat(64),
+          state: 'active' as const,
+          ruleFiles: [],
+          newlyIncludedPaths: [],
+        },
+      };
+      const oldKey = `upload:workspace-a:remote-base-a:head-a:${CONTENT_A}`;
+      enqueueWorkspaceSyncJob(db, {
+        id: 'queue-a',
+        workspaceId: 1,
+        operation: 'upload',
+        idempotencyKey: oldKey,
+        baseRemoteVersionId: 'remote-base-a',
+        localHeadSha: 'head-a',
+        bundleContentSha256: CONTENT_A,
+        nowMs,
+      });
+      recordWorkspaceSyncUploadSnapshot(db, { jobId: 'queue-a', snapshot: captured, nowMs });
+      createVersion.mockRejectedValueOnce(
+        Object.assign(new Error(refusalCode), {
+          code: refusalCode,
+          retryable: refusalCode === 'NETWORK',
+          terminal: refusalCode !== 'NETWORK',
+        })
+      );
+      const refused = await makeWorker().runNext();
+      expect(refused, JSON.stringify(refused)).toMatchObject({ errorCode: refusalCode });
+      const originalRequest = JSON.stringify(createVersion.mock.calls[0][0]);
+      expect(createVersion.mock.calls[0][0].fileSelectionVersion).toBe(1);
+      nextJobId = 'queue-b';
+      nowMs += 60000;
+      const restarted = makeWorker();
+      if (refusalCode === 'NETWORK') {
+        snapshotWorkspace.mockRejectedValue(new Error('Do not recapture a queued retry.'));
+        await expect(restarted.runNext()).resolves.toMatchObject({ status: 'uploaded' });
+      } else {
+        snapshotWorkspace.mockResolvedValue({
+          ...captured,
+          bundle: { ...captured.bundle, capturedAt: '2026-07-08T00:00:01.000Z' },
+        });
+        await expect(
+          restarted.flushWorkspace('workspace-a', { force: true })
+        ).resolves.toMatchObject({
+          status: 'uploaded',
+          job: { id: 'queue-a' },
+        });
+      }
+      expect(createVersion).toHaveBeenCalledTimes(2);
+      expect(JSON.stringify(createVersion.mock.calls[1][0])).toBe(originalRequest);
+      expect(createVersion.mock.calls[1][0].idempotencyKey).toBe(oldKey);
+      expect(queueCount(db)).toBe(1);
+      expect(queueStatus(db, 'queue-a')).toBe('succeeded');
+    }
+  );
+
   it.each(['VALIDATION', 'QUOTA_EXCEEDED'])(
     'force flush reuses immutable bytes after a %s refusal',
     async (refusalCode) => {

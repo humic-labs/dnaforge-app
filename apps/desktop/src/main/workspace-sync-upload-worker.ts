@@ -1099,11 +1099,15 @@ export class WorkspaceSyncUploadWorker {
       assertWorkspaceSyncUploadSnapshotFitsWire(snapshot, binding.remote_latest_version_id, {
         allowManifest: this.client().supportsManifest === true,
       });
-      const idempotencyKey = uploadIdempotencyKey({
+      const captureIdentity = {
         workspaceUuid,
         baseRemoteVersionId: binding.remote_latest_version_id,
         localHeadSha,
         contentSha256: snapshot.contentSha256,
+      };
+      const idempotencyKey = uploadIdempotencyKey({
+        ...captureIdentity,
+        fileSelectionVersion: snapshot.selection?.version,
       });
       const acceptedJob = await this.withDatabaseFence(async () => {
         const activeAccountId = await this.deps.getActiveAccountId();
@@ -1114,6 +1118,23 @@ export class WorkspaceSyncUploadWorker {
         if (active) return active;
         const nowMs = this.nowMs();
         return this.db.transaction(() => {
+          let compatibleIdempotencyKey = idempotencyKey;
+          if (snapshot.selection?.version === 1) {
+            const legacyKey = uploadIdempotencyKey(captureIdentity);
+            const legacyJob = this.db
+              .prepare(
+                `SELECT id FROM workspace_sync_queue
+                 WHERE workspace_id = ? AND idempotency_key = ? AND operation = 'upload'
+                   AND (status = 'failed' OR (status = 'canceled' AND error_code = 'SYNC_DISABLED'))`
+              )
+              .get(binding.workspace_id, legacyKey) as { id: string } | undefined;
+            if (
+              legacyJob &&
+              this.readDurableUploadSnapshot(binding, legacyJob.id)?.selection?.version === 1
+            ) {
+              compatibleIdempotencyKey = legacyKey;
+            }
+          }
           const candidateJobId = this.deps.createJobId?.() ?? randomUUID();
           const existingCandidate = this.db
             .prepare('SELECT 1 FROM workspace_sync_queue WHERE id = ?')
@@ -1122,7 +1143,7 @@ export class WorkspaceSyncUploadWorker {
             id: candidateJobId,
             workspaceId: binding.workspace_id,
             operation: 'upload',
-            idempotencyKey,
+            idempotencyKey: compatibleIdempotencyKey,
             baseRemoteVersionId: binding.remote_latest_version_id,
             localHeadSha,
             bundleContentSha256: snapshot.contentSha256,
@@ -1208,13 +1229,17 @@ export class WorkspaceSyncUploadWorker {
     if (durable) {
       if (!job.localHeadSha) throw localCaptureObsoleteError();
       const idempotencyKey = requireIdempotencyKey(job);
-      const expected = uploadIdempotencyKey({
+      const captureIdentity = {
         workspaceUuid: binding.workspace_uuid,
         baseRemoteVersionId: job.baseRemoteVersionId,
         localHeadSha: job.localHeadSha,
         contentSha256: durable.contentSha256,
+      };
+      const expected = uploadIdempotencyKey({
+        ...captureIdentity,
+        fileSelectionVersion: durable.selection?.version,
       });
-      if (idempotencyKey !== expected) {
+      if (idempotencyKey !== expected && idempotencyKey !== uploadIdempotencyKey(captureIdentity)) {
         throw durableUploadInvalidError(
           `Workspace sync job ${job.id} idempotency key does not name its bytes.`
         );
@@ -1251,6 +1276,7 @@ export class WorkspaceSyncUploadWorker {
       baseRemoteVersionId: job.baseRemoteVersionId,
       localHeadSha: job.localHeadSha,
       contentSha256: snapshot.contentSha256,
+      fileSelectionVersion: snapshot.selection?.version,
     });
     let persistedSnapshot: WorkspaceSyncUploadSnapshot | null = null;
     await this.withDatabaseFence(() =>
@@ -2287,8 +2313,10 @@ function uploadIdempotencyKey(input: {
   baseRemoteVersionId: string | null;
   localHeadSha: string;
   contentSha256: string;
+  fileSelectionVersion?: 0 | 1;
 }): string {
-  return `upload:${input.workspaceUuid}:${input.baseRemoteVersionId ?? 'no-base'}:${input.localHeadSha}:${input.contentSha256}`;
+  const key = `upload:${input.workspaceUuid}:${input.baseRemoteVersionId ?? 'no-base'}:${input.localHeadSha}:${input.contentSha256}`;
+  return input.fileSelectionVersion === 1 ? `${key}:selection:1` : key;
 }
 
 function durableUploadInvalidError(message: string): Error & { code: string; retryable: boolean } {
