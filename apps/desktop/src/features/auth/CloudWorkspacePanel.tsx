@@ -169,32 +169,37 @@ export function CloudWorkspacePanel({
         </p>
       ) : null}
       {syncWorkspaceUuid ? (
-        <div
-          data-testid="account-cloud-backup-preview"
-          className="mt-2 max-h-64 overflow-auto rounded border border-border bg-bg px-1.5 py-1"
-        >
-          {uploadPreviewError ? (
-            <p className="text-[11px] leading-4 text-warning">
-              {toUserMessage(uploadPreviewError, 'account.failed')}
-            </p>
-          ) : null}
+        <div className="mt-2 max-h-64 overflow-auto rounded border border-border bg-bg px-1.5 py-1">
+          <div data-testid="account-cloud-backup-preview">
+            {uploadPreviewError ? (
+              <p className="text-[11px] leading-4 text-warning">
+                {toUserMessage(uploadPreviewError, 'account.failed')}
+              </p>
+            ) : null}
+            {uploadPreview ? (
+              <>
+                <p className="text-[10px] uppercase tracking-wide text-fg-muted">
+                  Will upload ({formatFileCount(uploadPreview.includedFileCount)},{' '}
+                  {formatBytes(uploadPreview.includedBytes)})
+                </p>
+                <ul className="mt-1 space-y-0.5">
+                  {uploadPreview.includedFiles.map((file) => (
+                    <li
+                      key={file.relativePath}
+                      className="truncate text-[11px] leading-4 text-fg-muted"
+                      title={file.relativePath}
+                    >
+                      {file.relativePath}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="text-[11px] leading-4 text-fg-muted">Checking what will upload…</p>
+            )}
+          </div>
           {uploadPreview ? (
             <>
-              <p className="text-[10px] uppercase tracking-wide text-fg-muted">
-                Will upload ({formatFileCount(uploadPreview.includedFileCount)},{' '}
-                {formatBytes(uploadPreview.includedBytes)})
-              </p>
-              <ul className="mt-1 space-y-0.5">
-                {uploadPreview.includedFiles.map((file) => (
-                  <li
-                    key={file.relativePath}
-                    className="truncate text-[11px] leading-4 text-fg-muted"
-                    title={file.relativePath}
-                  >
-                    {file.relativePath}
-                  </li>
-                ))}
-              </ul>
               {uploadPreview.excludedFiles && uploadPreview.excludedFiles.length > 0 && (
                 <div
                   className="mt-2 border-t border-border pt-2"
@@ -226,9 +231,7 @@ export function CloudWorkspacePanel({
                 </p>
               )}
             </>
-          ) : (
-            <p className="text-[11px] leading-4 text-fg-muted">Checking what will upload…</p>
-          )}
+          ) : null}
         </div>
       ) : null}
       {selection && onSaveSelectionRules && onApproveSelection ? (

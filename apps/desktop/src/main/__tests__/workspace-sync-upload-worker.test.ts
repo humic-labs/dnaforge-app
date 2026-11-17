@@ -88,6 +88,7 @@ import {
 } from '../workspace-sync-queue';
 import { acquireWorkspaceMutationShared } from '../workspace-sync-mutation-lease';
 import { readWorkspaceSyncStatus } from '../workspace-sync-status';
+import { recordWorkspaceSyncReplicaFiles } from '../workspace-sync-replica-files';
 import {
   assertRendererDatabaseStatementAllowed,
   notifyRendererDatabaseStatementSettled,
@@ -1702,46 +1703,61 @@ describe('workspace sync upload worker', () => {
   });
 
   it('durably enqueues an uncommitted watcher edit after a direct retry upload succeeds', async () => {
-    enqueueWorkspaceSyncJob(db, {
-      id: 'queue-a',
-      workspaceId: 1,
-      operation: 'upload',
-      idempotencyKey: 'upload:workspace-a:remote-base-a:head-a',
-      baseRemoteVersionId: 'remote-base-a',
-      localHeadSha: 'head-a',
+    const root = mkdtempSync(join(tmpdir(), 'sync-watcher-edit-'));
+    await initManagedRepo(root);
+    writeFileSync(join(root, 'design.gb'), 'LOCUS       design\nORIGIN\n        1 atgc\n//\n');
+    db.prepare('UPDATE workspaces SET path = ? WHERE id = 1').run(root);
+    recordWorkspaceSyncReplicaFiles(db, {
+      workspaceUuid: 'workspace-a',
+      remoteWorkspaceId: 'remote-workspace-a',
+      remoteVersionId: 'remote-base-a',
+      paths: ['design.gb'],
       nowMs,
     });
-    let localHeadSha = 'head-a';
-    let workingTreeDirty = false;
-    let releaseUpload: (() => void) | undefined;
-    createVersion.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          releaseUpload = () => resolve(readyVersion('remote-version-a', 2, CONTENT_A));
-        })
-    );
-    const worker = new WorkspaceSyncUploadWorker(db, {
-      ...baseDeps(),
-      getCurrentLocalHeadSha: () => localHeadSha,
-      commitWorkingTreeIfDirty: async () => {
-        if (!workingTreeDirty) return localHeadSha;
-        workingTreeDirty = false;
-        localHeadSha = 'head-b';
-        return localHeadSha;
-      },
-    });
+    try {
+      enqueueWorkspaceSyncJob(db, {
+        id: 'queue-a',
+        workspaceId: 1,
+        operation: 'upload',
+        idempotencyKey: 'upload:workspace-a:remote-base-a:head-a',
+        baseRemoteVersionId: 'remote-base-a',
+        localHeadSha: 'head-a',
+        nowMs,
+      });
+      let localHeadSha = 'head-a';
+      let workingTreeDirty = false;
+      let releaseUpload: (() => void) | undefined;
+      createVersion.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseUpload = () => resolve(readyVersion('remote-version-a', 2, CONTENT_A));
+          })
+      );
+      const worker = new WorkspaceSyncUploadWorker(db, {
+        ...baseDeps(),
+        getCurrentLocalHeadSha: () => localHeadSha,
+        commitWorkingTreeIfDirty: async () => {
+          if (!workingTreeDirty) return localHeadSha;
+          workingTreeDirty = false;
+          localHeadSha = 'head-b';
+          return localHeadSha;
+        },
+      });
 
-    const uploading = worker.runNext();
-    await vi.waitFor(() => expect(createVersion).toHaveBeenCalledOnce());
-    workingTreeDirty = true;
-    nextJobId = 'queue-b';
-    worker.scheduleWorkspaceChanged('workspace-a');
-    invokeDeferred(releaseUpload);
+      const uploading = worker.runNext();
+      await vi.waitFor(() => expect(createVersion).toHaveBeenCalledOnce());
+      workingTreeDirty = true;
+      nextJobId = 'queue-b';
+      worker.scheduleWorkspaceChanged('workspace-a');
+      invokeDeferred(releaseUpload);
 
-    await expect(uploading).resolves.toMatchObject({ status: 'uploaded' });
-    expect(queueStatus(db, 'queue-a')).toBe('succeeded');
-    expect(queueStatus(db, 'queue-b')).toBe('pending');
-    expect(localHeadSha).toBe('head-b');
+      await expect(uploading).resolves.toMatchObject({ status: 'uploaded' });
+      expect(queueStatus(db, 'queue-a')).toBe('succeeded');
+      expect(queueStatus(db, 'queue-b')).toBe('pending');
+      expect(localHeadSha).toBe('head-b');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('flushes the exact workspace job even when an older upload for another workspace exists', async () => {
@@ -2464,6 +2480,13 @@ describe('workspace sync upload worker', () => {
       db.prepare(
         `UPDATE workspace_sync_bindings SET remote_workspace_id = ?, remote_latest_version_id = ?, last_acked_local_head_sha = 'base-head' WHERE workspace_id = 1`
       ).run(REMOTE_WORKSPACE_ID, REMOTE_VERSION_ID);
+      recordWorkspaceSyncReplicaFiles(db, {
+        workspaceUuid: 'workspace-a',
+        remoteWorkspaceId: REMOTE_WORKSPACE_ID,
+        remoteVersionId: REMOTE_VERSION_ID,
+        paths: ['notes.txt'],
+        nowMs,
+      });
       const head = (await resolveHeadCommit(repo))!;
       const observed: unknown[] = [];
       let publicationRequests = 0;
@@ -2473,6 +2496,12 @@ describe('workspace sync upload worker', () => {
           path: string,
           options: Parameters<DesktopSyncClient['requestJson']>[1]
         ) => {
+          if (path.endsWith('/storage-policy?fileSelectionVersion=1'))
+            return {
+              schema: 'dnaforge.workspace-sync-publication-policy/v1',
+              policy: TEST_STORAGE_POLICY,
+              fileSelection: { supportedVersion: 1, requiredVersion: 0 },
+            } as T;
           if (path.endsWith('/storage-policy')) return TEST_STORAGE_POLICY as T;
           if (path.endsWith('/blobs/reserve')) {
             const body = options.body as { contentSha256: string; sizeBytes: number };
@@ -2835,29 +2864,46 @@ describe('workspace sync upload worker', () => {
   });
 
   it('commits working-tree drift before HEAD-gated enqueue so dirty mirrors upload', async () => {
-    db.prepare(
-      `UPDATE workspace_sync_bindings
+    const root = mkdtempSync(join(tmpdir(), 'sync-working-tree-drift-'));
+    await initManagedRepo(root);
+    writeFileSync(join(root, 'design.gb'), 'LOCUS       design\nORIGIN\n        1 atgc\n//\n');
+    db.prepare('UPDATE workspaces SET path = ? WHERE id = 1').run(root);
+    recordWorkspaceSyncReplicaFiles(db, {
+      workspaceUuid: 'workspace-a',
+      remoteWorkspaceId: 'remote-workspace-a',
+      remoteVersionId: 'remote-base-a',
+      paths: ['design.gb'],
+      nowMs,
+    });
+    try {
+      db.prepare(
+        `UPDATE workspace_sync_bindings
        SET last_acked_local_head_sha = 'head-a'
        WHERE workspace_id = 1`
-    ).run();
-    let head = 'head-a';
-    const commitWorkingTreeIfDirty = vi.fn(async () => {
-      head = 'head-b';
-      return 'head-b';
-    });
-    const worker = new WorkspaceSyncUploadWorker(db, {
-      ...baseDeps(),
-      getCurrentLocalHeadSha: () => head,
-      commitWorkingTreeIfDirty,
-    });
+      ).run();
+      let head = 'head-a';
+      const commitWorkingTreeIfDirty = vi.fn(async () => {
+        head = 'head-b';
+        return 'head-b';
+      });
+      const worker = new WorkspaceSyncUploadWorker(db, {
+        ...baseDeps(),
+        getCurrentLocalHeadSha: () => head,
+        commitWorkingTreeIfDirty,
+      });
 
-    await worker.flushWorkspace('workspace-a');
+      await worker.flushWorkspace('workspace-a');
 
-    expect(commitWorkingTreeIfDirty).toHaveBeenCalledWith(expect.any(String));
-    expect(createVersion).toHaveBeenCalledTimes(1);
-    expect(bindingState(db)).toMatchObject({
-      last_acked_local_head_sha: 'head-b',
-    });
+      expect(commitWorkingTreeIfDirty).toHaveBeenCalledWith(root, {
+        forceInclude: ['design.gb'],
+      });
+      expect(createVersion).toHaveBeenCalledTimes(1);
+      expect(bindingState(db)).toMatchObject({
+        last_acked_local_head_sha: 'head-b',
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('removes only capture directories left by exited processes at startup', async () => {
@@ -2966,6 +3012,13 @@ describe('workspace sync upload worker', () => {
     const originalHead = await commitAllIfDirty(repo, 'Original shared project');
     expect(originalHead).toBeTruthy();
     db.prepare('UPDATE workspaces SET path = ? WHERE id = 1').run(repo);
+    recordWorkspaceSyncReplicaFiles(db, {
+      workspaceUuid: 'workspace-a',
+      remoteWorkspaceId: 'remote-workspace-a',
+      remoteVersionId: 'remote-base-a',
+      paths: ['large.fasta', 'notes.txt'],
+      nowMs,
+    });
     const originalStat = statSync(source);
     let finishVerification: (() => void) | undefined;
     const verificationGate = new Promise<void>((resolve) => {
@@ -3566,7 +3619,7 @@ describe('workspace sync upload worker', () => {
       getActiveAccountId: () => 'account-a',
       getCurrentLocalHeadSha: () => 'head-a',
       snapshotWorkspace,
-      client: { createVersion } as WorkspaceSyncUploadClient,
+      client: { createVersion, readStoragePolicy: async () => TEST_STORAGE_POLICY },
       nowMs: () => nowMs,
       debounceMs: 1000,
       retryBaseDelayMs: 5000,

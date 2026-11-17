@@ -976,6 +976,42 @@ export class WorkspaceSyncUploadWorker {
         releaseDatabaseFence();
       }
 
+      let storagePolicy: WorkspaceSyncStoragePolicy | undefined;
+      const captureOptions = {
+        projectionPrepared: true,
+        mutationLease: releaseMutation ?? undefined,
+        onSourcesFrozen: () => {
+          releaseMutation?.();
+          releaseMutation = null;
+        },
+      };
+      const recoverCapture = async (error: unknown, releaseSources = true) => {
+        if (
+          !(error instanceof WorkspaceSyncSnapshotError) ||
+          !['UNSUPPORTED_AUTHORITATIVE_STATE', 'INVALID_BUNDLE', 'INVALID_TEXT_ENCODING'].includes(
+            error.code
+          ) ||
+          this.client().supportsManifest !== true ||
+          !this.deps.uploadSnapshotRoot ||
+          this.deps.snapshotWorkspace ||
+          this.deps.snapshotUploadWorkspace
+        )
+          throw error;
+        if (!releaseMutation)
+          releaseMutation = await acquireWorkspaceSyncMutationLease(binding.workspace_path);
+        storagePolicy ??= await this.readCapturePolicy(binding);
+        return buildWorkspaceSyncRecoveryCapture(this.db, {
+          workspaceUuid,
+          appVersion: this.deps.appVersion,
+          storagePolicy,
+          prepareProjection: false,
+          scientificHistoryFormat: this.scientificHistoryFormat(binding.workspace_id),
+          mutationLease: releaseMutation,
+          captureSourceRoot: this.deps.uploadSnapshotRoot,
+          onSourcesFrozen: releaseSources ? captureOptions.onSourcesFrozen : undefined,
+        });
+      };
+
       if (this.deps.commitWorkingTreeIfDirty) {
         const client = this.client();
         if (client.readVersionPaths)
@@ -984,13 +1020,23 @@ export class WorkspaceSyncUploadWorker {
             workspaceUuid,
             client.readVersionPaths.bind(client)
           );
-        const preview = await previewWorkspaceSyncUploadWithHeldMutationLease(this.db, {
-          workspaceUuid,
-          scientificHistoryFormat: this.scientificHistoryFormat(binding.workspace_id),
-        });
-        assertWorkspaceSyncSelectionActive(preview.selection);
+        storagePolicy = await this.readCapturePolicy(binding);
+        let selectedPaths: string[];
+        try {
+          const preview = await previewWorkspaceSyncUploadWithHeldMutationLease(this.db, {
+            workspaceUuid,
+            storagePolicy,
+            scientificHistoryFormat: this.scientificHistoryFormat(binding.workspace_id),
+          });
+          assertWorkspaceSyncSelectionActive(preview.selection);
+          selectedPaths = preview.includedFiles.map((file) => file.relativePath);
+        } catch (error) {
+          const recovery = await recoverCapture(error, false);
+          capturedSnapshot = recovery;
+          selectedPaths = recovery.manifest.files.map((file) => file.path);
+        }
         await this.deps.commitWorkingTreeIfDirty(binding.workspace_path, {
-          forceInclude: preview.includedFiles.map((file) => file.relativePath),
+          forceInclude: selectedPaths,
         });
       }
 
@@ -1005,51 +1051,19 @@ export class WorkspaceSyncUploadWorker {
         return null;
       }
       if (!localHeadSha) throw localCaptureObsoleteError();
-      const captureOptions = {
-        projectionPrepared: true,
-        mutationLease: releaseMutation ?? undefined,
-        onSourcesFrozen: () => {
-          releaseMutation?.();
-          releaseMutation = null;
-        },
-      };
       let snapshot: WorkspaceSyncUploadSnapshot;
       try {
-        snapshot = await this.snapshotForUpload(workspaceUuid, captureOptions);
+        if (capturedSnapshot) {
+          snapshot = capturedSnapshot;
+          captureOptions.onSourcesFrozen();
+        } else {
+          snapshot = await this.snapshotForUpload(workspaceUuid, {
+            ...captureOptions,
+            storagePolicy,
+          });
+        }
       } catch (error) {
-        if (
-          !(error instanceof WorkspaceSyncSnapshotError) ||
-          !['UNSUPPORTED_AUTHORITATIVE_STATE', 'INVALID_BUNDLE', 'INVALID_TEXT_ENCODING'].includes(
-            error.code
-          ) ||
-          this.client().supportsManifest !== true ||
-          !this.deps.uploadSnapshotRoot ||
-          this.deps.snapshotWorkspace ||
-          this.deps.snapshotUploadWorkspace
-        )
-          throw error;
-
-        if (!releaseMutation)
-          releaseMutation = await acquireWorkspaceSyncMutationLease(binding.workspace_path);
-        const client = this.client();
-        if (!client.readStoragePolicy) throw error;
-        const policy = await readWorkspaceSyncCapturePolicy(this.db, {
-          remoteWorkspaceId: binding.remote_workspace_id,
-          expectedAccountId: binding.owner_account_id,
-          readPolicy: () =>
-            client.readStoragePolicy!(binding.remote_workspace_id!, binding.owner_account_id),
-          runDatabase: (operation) => this.withDatabaseFence(operation),
-        });
-        snapshot = await buildWorkspaceSyncRecoveryCapture(this.db, {
-          workspaceUuid,
-          appVersion: this.deps.appVersion,
-          storagePolicy: policy,
-          prepareProjection: false,
-          scientificHistoryFormat: this.scientificHistoryFormat(binding.workspace_id),
-          mutationLease: releaseMutation ?? undefined,
-          captureSourceRoot: this.deps.uploadSnapshotRoot,
-          onSourcesFrozen: captureOptions.onSourcesFrozen,
-        });
+        snapshot = await recoverCapture(error);
       }
       capturedSnapshot = snapshot;
       if (
@@ -1260,24 +1274,13 @@ export class WorkspaceSyncUploadWorker {
       projectionPrepared?: boolean;
       onSourcesFrozen?: () => void;
       mutationLease?: () => void;
+      storagePolicy?: WorkspaceSyncStoragePolicy;
     } = {}
   ): Promise<WorkspaceSyncUploadSnapshot> {
     if (this.deps.snapshotWorkspace) return this.deps.snapshotWorkspace(workspaceUuid);
     const binding = requireBindingByWorkspaceUuid(this.db, workspaceUuid);
     const client = this.client();
-    const readPolicy = client.readStoragePolicy;
-    if (!binding.remote_workspace_id || !readPolicy) {
-      throw Object.assign(new Error('Storage policy is unavailable.'), {
-        code: 'SERVER',
-        retryable: true,
-      });
-    }
-    const storagePolicy = await readWorkspaceSyncCapturePolicy(this.db, {
-      remoteWorkspaceId: binding.remote_workspace_id,
-      expectedAccountId: binding.owner_account_id,
-      readPolicy: () => readPolicy(binding.remote_workspace_id!, binding.owner_account_id),
-      runDatabase: (operation) => this.withDatabaseFence(operation),
-    });
+    const storagePolicy = options.storagePolicy ?? (await this.readCapturePolicy(binding));
     const capture = () =>
       (client.supportsManifest === true
         ? buildWorkspaceSyncUploadCapture
@@ -1307,6 +1310,7 @@ export class WorkspaceSyncUploadWorker {
       if (
         !(error instanceof WorkspaceSyncSnapshotError) ||
         error.code !== 'SHARED_FILE_OWNERSHIP_REQUIRED' ||
+        !binding.remote_workspace_id ||
         !binding.remote_latest_version_id ||
         !client.readVersionPaths
       )
@@ -1350,12 +1354,31 @@ export class WorkspaceSyncUploadWorker {
       projectionPrepared?: boolean;
       onSourcesFrozen?: () => void;
       mutationLease?: () => void;
+      storagePolicy?: WorkspaceSyncStoragePolicy;
     } = {}
   ): Promise<WorkspaceSyncUploadSnapshot> {
     if (this.client().supportsManifest === true && this.deps.snapshotUploadWorkspace) {
       return this.deps.snapshotUploadWorkspace(workspaceUuid);
     }
     return this.snapshotWorkspace(workspaceUuid, options);
+  }
+
+  private readCapturePolicy(binding: WorkspaceBindingRow): Promise<WorkspaceSyncStoragePolicy> {
+    const client = this.client();
+    const remoteWorkspaceId = binding.remote_workspace_id;
+    const readPolicy = client.readStoragePolicy;
+    if (!remoteWorkspaceId || !readPolicy) {
+      throw Object.assign(new Error('Storage policy is unavailable.'), {
+        code: 'SERVER',
+        retryable: true,
+      });
+    }
+    return readWorkspaceSyncCapturePolicy(this.db, {
+      remoteWorkspaceId,
+      expectedAccountId: binding.owner_account_id,
+      readPolicy: () => readPolicy(remoteWorkspaceId, binding.owner_account_id),
+      runDatabase: (operation) => this.withDatabaseFence(operation),
+    });
   }
 
   private readDurableUploadSnapshot(
