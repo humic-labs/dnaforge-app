@@ -21,9 +21,13 @@ export function useIndexedSequenceDataLayers(tab: Tab, genome: IndexedGenomeTabS
   const folders = useWorkspaceStore((state) => state.folders);
   const saved = genome?.sequenceDataLayers;
   const restoredSelection = useMemo(() => sequenceDataLayerSelectionFromSaved(saved), [saved]);
-  const selection = Object.hasOwn(tab.viewState ?? {}, 'sequenceDataLayerSelection')
-    ? (tab.viewState?.sequenceDataLayerSelection ?? undefined)
-    : restoredSelection;
+  const liveSelection = useCanvasStore(
+    (state) =>
+      Object.values(state.panels)
+        .flatMap((panel) => panel.tabs)
+        .find((candidate) => candidate.id === tab.id)?.viewState?.sequenceDataLayerSelection
+  );
+  const selection = liveSelection === undefined ? restoredSelection : (liveSelection ?? undefined);
   const selectedProject = selection?.project;
   const project = selectedProject
     ? (resolveExplicitProjectRoot(folders, selectedProject)?.path ?? '')

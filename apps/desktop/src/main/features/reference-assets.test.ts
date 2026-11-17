@@ -214,6 +214,28 @@ describe('local reference use for data layer targets', () => {
     expect(mocks.installHosted).not.toHaveBeenCalled();
   });
 
+  it('accepts explicitly absent optional paths on an owned sequence-only member', async () => {
+    await referenceAssetsFeature.prepare?.({ getMainWindow: () => null });
+    const sequenceOnly = {
+      ...entry,
+      members: [
+        {
+          ...entry.members[0],
+          manifest: {
+            ...entry.members[0].manifest!,
+            gffPath: undefined,
+            tbiPath: undefined,
+          },
+        },
+      ],
+    };
+    mocks.listLocal.mockResolvedValue([sequenceOnly]);
+    await expect(withLocalTrackViewReference(entry.id, async (selected) => selected)).resolves.toBe(
+      sequenceOnly
+    );
+    expect(mocks.releaseGeneration).toHaveBeenCalledOnce();
+  });
+
   it('releases the generation when target resolution fails', async () => {
     await referenceAssetsFeature.prepare?.({ getMainWindow: () => null });
     mocks.listLocal.mockResolvedValue([entry]);
@@ -373,6 +395,30 @@ describe('published relative reference source paths', () => {
       'REFERENCE_NOT_PREPARED'
     );
     expect(use).not.toHaveBeenCalled();
+    expect(mocks.installHosted).not.toHaveBeenCalled();
+  });
+
+  it('projects an owned portable generation when no current publication is available', async () => {
+    const fixture = await publishedFixture();
+    await rm(fixture.publication);
+    await referenceAssetsFeature.prepare?.({ getMainWindow: () => null });
+    mocks.listLocal.mockResolvedValue([
+      {
+        ...fixture.entry,
+        portableView: {
+          generationRoot: fixture.generation,
+          bundleFingerprint: 'd'.repeat(64),
+          trackTypes: ['CDS'],
+        },
+      },
+    ]);
+    await withLocalTrackViewReference(fixture.entry.id, async (selected) => {
+      expect(selected.members[0].manifest?.fastaPath).toBe(
+        join(fixture.generation, 'prepared/puc19/puc19.fa')
+      );
+    });
+    expect(mocks.retention.retainPreparation).toHaveBeenCalledWith(fixture.generation);
+    expect(mocks.releaseGeneration).toHaveBeenCalledOnce();
     expect(mocks.installHosted).not.toHaveBeenCalled();
   });
 
