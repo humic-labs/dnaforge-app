@@ -109,6 +109,8 @@ async function fixture(
   };
   const getAuthority = vi.fn(() => authority);
   const inventory = {
+    previewBenchlingCapture: vi.fn(),
+    applyBenchlingCapture: vi.fn(),
     inspectBenchlingCapture: vi.fn(),
     exportSnapshot: vi.fn(),
     previewImport: vi.fn(),
@@ -228,6 +230,85 @@ const inventoryAgent = {
   identityId: 'agent-1',
   capabilities: ['read-workspace', 'write-workspace'],
 };
+
+it('separates read-only capture preview from granted atomic capture application', async () => {
+  const authorizeInventoryAgent = vi.fn(async () => {});
+  const f = await fixture({ authorizeInventoryAgent });
+  const options = {
+    scopeAcceptance: { kind: 'selected-records', reason: '' },
+    records: [],
+    sourceIssueDispositions: [],
+    uncapturedPositions: [],
+  };
+  f.inventory.previewBenchlingCapture.mockReturnValue({ kind: 'blocked', issues: [] });
+  const preview = {
+    ownerInstanceId: 'native-1',
+    projectScope: { kind: 'app-following' },
+    command: 'inventory.preview-benchling-capture',
+    request: { project: '/workspace', inventoryId: 'inventory-1', sourceText: '', options },
+    agent: { ...inventoryAgent, capabilities: ['read-workspace'] },
+  };
+  expect(await (await f.call(preview)).json()).toMatchObject({
+    result: { kind: 'benchling-capture-preview', preview: { kind: 'blocked' } },
+  });
+  expect(authorizeInventoryAgent).toHaveBeenLastCalledWith(preview.agent, ['read-workspace']);
+  expect(f.inventory.previewBenchlingCapture).toHaveBeenCalledWith(preview.request, {
+    principal: { kind: 'agent', identityId: inventoryAgent.identityId },
+  });
+  expect(f.inventory.applyBenchlingCapture).not.toHaveBeenCalled();
+  const request = {
+    ...preview.request,
+    sourceText: '{}',
+    kind: 'import-benchling-capture',
+    operationId: 'capture-once',
+    expectedRevision: 0,
+    expectedPlanDigest: `sha256:${'a'.repeat(64)}`,
+    options: {
+      ...options,
+      materials: [],
+      resolvedTargets: [],
+      normalizedStockRows: [],
+      normalizedTableOptions: {
+        namespace: 'source',
+        delimiter: ',',
+        materials: [],
+        locations: [],
+        vessels: [],
+        skips: [],
+      },
+    },
+  };
+  const apply = { ...preview, command: 'inventory.apply-benchling-capture', request };
+  expect(await (await f.call(apply)).json()).toMatchObject({
+    result: { ok: false, code: 'INSUFFICIENT_SCOPE', stateChanged: false },
+  });
+  expect(f.inventory.applyBenchlingCapture).not.toHaveBeenCalled();
+  f.inventory.applyBenchlingCapture.mockReturnValue({
+    status: 'committed',
+    operationId: 'capture-once',
+  });
+  const writable = { ...apply, agent: inventoryAgent };
+  expect(await (await f.call(writable)).json()).toMatchObject({
+    result: { kind: 'execution', execution: { status: 'committed' } },
+  });
+  expect(authorizeInventoryAgent).toHaveBeenLastCalledWith(inventoryAgent, [
+    'read-workspace',
+    'write-workspace',
+  ]);
+  expect(f.inventory.applyBenchlingCapture).toHaveBeenCalledWith(request, expect.any(Function), {
+    actor: `agent:${inventoryAgent.identityId}`,
+    principal: { kind: 'agent', identityId: inventoryAgent.identityId },
+  });
+  expect(
+    (
+      await f.call({
+        ...writable,
+        request: { ...request, principal: { kind: 'agent', identityId: 'forged' } },
+      })
+    ).status
+  ).toBe(400);
+  expect(f.inventory.applyBenchlingCapture).toHaveBeenCalledTimes(1);
+});
 
 it('inspects Benchling capture text using only current read authority and never accepts a write', async () => {
   const authorizeInventoryAgent = vi.fn(async () => {});

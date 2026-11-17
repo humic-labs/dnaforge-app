@@ -25,6 +25,8 @@ import {
   inventoryPreviewSourceRevisionRequestSchema,
   inventoryAcknowledgeSourceRequestSchema,
   inventoryInspectBenchlingCaptureRequestSchema,
+  inventoryPreviewBenchlingCaptureRequestSchema,
+  inventoryApplyBenchlingCaptureRequestSchema,
 } from '../../../shared/inventory-command';
 import { jsonObjectSchema } from '../../../shared/json-value';
 import { resultTool, toolFailure } from '../../agent-bridge/public/tool-result';
@@ -34,6 +36,8 @@ const identity = z.string().min(1).max(256);
 const revision = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const scope = { project, inventoryId: identity };
 const plainInput = z.discriminatedUnion('kind', [
+  inventoryPreviewBenchlingCaptureRequestSchema.extend({ kind: z.literal('preview-benchling-capture') }).strict(),
+  inventoryApplyBenchlingCaptureRequestSchema.extend({ kind: z.literal('apply-benchling-capture') }).strict(),
   inventoryInspectBenchlingCaptureRequestSchema
     .extend({ kind: z.literal('inspect-benchling-capture') })
     .strict(),
@@ -138,6 +142,7 @@ const material = z
   .object({ id: z.string(), name: z.string(), kind: z.string(), registryId: z.string().nullable() })
   .strict();
 export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
+  z.object({ ...ok, kind: z.literal('benchling-capture-preview'), preview: jsonObjectSchema }).strict(),
   z
     .object({ ...ok, kind: z.literal('benchling-capture-inspection'), result: jsonObjectSchema })
     .strict(),
@@ -201,6 +206,7 @@ export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
 ]);
 
 export const INVENTORY_DESCRIPTION =
+  'Apply an offline physical capture with preview-benchling-capture and apply-benchling-capture. Retain the original sourceText and explicit per-record choices, field observation references/conflict reasons, layouts, parent/position decisions, source issues and uncaptured-position blocks. The source namespace is in the versioned capture. Empty means selected contents=[] AND exact selected volume zero; unobserved and unidentified contents remain explicit physical vessels, never fake stock. Identify one supported source content through a current local scientific material with explicit quality and exact source volume or a reasoned unknown quantity. Current mass/count units never become volume, and deprecated volume requires an explicit choice. Fixed wells retain plate/coordinate identity; matrix tubes are movable. Preview is read-only. Apply only ready resolved options, material fingerprints, target IDs, canonical source rows and expectedPlanDigest with expectedRevision/stable operationId. One transaction creates all storage/vessel/stock bindings and physical changes; metadata-only new binding changes also commit once without dummy commands. No-change saves no new source or receipt. Bound source IDs survive local movement/use/disposal/adoption and cannot replenish or duplicate stock. Changed stock source requires established source-revision comparison; previous rows come from retained accepted capture history. An uncertain result requires original receipt lookup or the identical saved request. ' +
   'Vessel contents knowledge is separate from stock quantity. Read contentsKnowledge: recorded with no stock means declared empty, recorded with stock means identified even at known zero, and unobserved/unidentified means unresolved. Never infer physical emptiness from no stock. Use record-vessel-contents with vesselId, knowledge and reason to record unobserved or unidentified contents, or record-vessels-contents with a nonempty unique vesselIds list for one atomic bulk declaration. Use declare-vessel-empty only after an explicit empty observation with reason. Use identify-vessel-stock to identify material already present in an unresolved vessel, with id, vesselId, current project materialId, explicit quantity, quality and reason; this is not a new physical receiving event. Actor and time come from the native boundary. Unresolved contents block ordinary receiving and every new-stock material destination; move, custody and disposal remain separate. Contents declarations cannot erase any identified stock, including known zero. ' +
   'Inspect an offline DNAForge Benchling V2 physical capture with inspect-benchling-capture and exact sourceText. This read-only inspection preserves raw responses and exact JSON number tokens and distinguishes omitted fields, explicit null, present values and conflicting observations. Inspect unresolved source facts, placements and pagination without creating inventory, stock, receipts, journal entries or imported authority. It does not connect to Benchling, prove complete exports, support V3 or apply physical inventory. ' +
   'Use preview-mapped-table and apply-mapped-table with mapped-plate-v1 to receive original CSV/TSV plate spreadsheets into existing permanent wells. Preserve the complete raw source and declare every column as source identity, plate, well or reason-bearing evidence only. Bind scientific materials explicitly in the admitted project, map source plate and well labels to existing plate IDs and exact positions, declare unknown quantity with a reason and choose quality per row explicitly. Never strip leading zeros, infer plate dimensions, treat QC labels as quality or interpret box labels as freezers. Preview has no effects; apply accepts only the exact original bytes, resolved fingerprints, choices and ready digest through the existing journal. Stable physical row bindings prevent duplicates; evidence-only edits may yield no physical changes and save no revised source or receipt. Scientific publication and hierarchy creation remain separate visible stages. ' +

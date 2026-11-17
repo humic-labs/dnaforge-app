@@ -446,6 +446,52 @@ async def test_inventory_mapped_table_preserves_layout_source_and_requires_write
 
 
 @pytest.mark.asyncio
+async def test_inventory_physical_capture_preserves_source_and_requires_write_for_application(
+    native,
+):
+    state, context = native
+    options = {
+        "scopeAcceptance": {"kind": "selected-records", "reason": ""},
+        "records": [],
+        "sourceIssueDispositions": [],
+        "uncapturedPositions": [],
+    }
+    preview = {
+        "kind": "preview-benchling-capture",
+        "project": "project",
+        "inventoryId": "inventory",
+        "sourceText": "exact capture\r\n",
+        "options": options,
+    }
+    state["scope"] = ["read-workspace"]
+    await execute_native_workflow("inventory", {"operation": preview}, context)
+    assert state["calls"][0]["command"] == "inventory.preview-benchling-capture"
+    assert state["calls"][0]["request"]["sourceText"] == "exact capture\r\n"
+    apply = {
+        **preview,
+        "kind": "apply-benchling-capture",
+        "operationId": "capture-once",
+        "expectedRevision": 0,
+        "expectedPlanDigest": "sha256:" + "a" * 64,
+        "options": {
+            **options,
+            "materials": [],
+            "resolvedTargets": [],
+            "normalizedStockRows": [],
+            "normalizedTableOptions": {},
+        },
+    }
+    with pytest.raises(ToolExecutionFailure) as denied:
+        await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert denied.value.code == "INSUFFICIENT_SCOPE"
+    assert len(state["calls"]) == 1
+    state["scope"] = ["read-workspace", "write-workspace"]
+    await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert state["calls"][1]["command"] == "inventory.apply-benchling-capture"
+    assert state["calls"][1]["request"] == {**apply, "kind": "import-benchling-capture"}
+
+
+@pytest.mark.asyncio
 async def test_inventory_hierarchy_preserves_layout_source_and_requires_write_for_application(
     native,
 ):

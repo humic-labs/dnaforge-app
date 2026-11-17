@@ -15,6 +15,7 @@ import type {
   InventoryControllerState,
   InventoryData,
 } from './inventory-controller';
+import { InventoryBenchlingApplicationForm } from './InventoryBenchlingApplicationForm';
 import { InventoryPhysicalDialog } from './InventoryPhysicalDialog';
 
 interface CaptureDraftFacts {
@@ -91,6 +92,11 @@ export function InventoryBenchlingCaptureForm({
   const [storedDraft, setDraft] = useState<CaptureDraft>(() => emptyDraft(scope));
   const draft = storedDraft.scope === scope ? storedDraft : emptyDraft(scope);
   const [shownRecords, setShownRecords] = useState(100);
+  const [interpreting, setInterpreting] = useState(false);
+  const locked =
+    status.kind === 'submitting' ||
+    status.kind === 'outcome-unknown' ||
+    status.kind === 'committed-refresh-failed';
   const inspection = draft.phase === 'inspected' ? draft.inspection : null;
   const fieldCounts = { omitted: 0, null: 0, present: 0, conflict: 0 };
   for (const record of inspection?.records ?? [])
@@ -100,6 +106,7 @@ export function InventoryBenchlingCaptureForm({
     ++generation.current;
     setDraft(emptyDraft(scope));
     setShownRecords(100);
+    setInterpreting(false);
     return () => {
       ++generation.current;
     };
@@ -109,6 +116,7 @@ export function InventoryBenchlingCaptureForm({
     ++generation.current;
     setDraft({ scope, sourceText, sourcePath: null, phase: 'editing' });
     setShownRecords(100);
+    setInterpreting(false);
   }
 
   async function chooseFile() {
@@ -132,6 +140,7 @@ export function InventoryBenchlingCaptureForm({
       if (generation.current !== current || scopeRef.current !== before.scope) return;
       setDraft({ ...draftFacts(before), phase: 'editing', sourcePath, sourceText });
       setShownRecords(100);
+      setInterpreting(false);
     } catch (cause) {
       if (generation.current === current && scopeRef.current === before.scope)
         setDraft({
@@ -160,6 +169,7 @@ export function InventoryBenchlingCaptureForm({
         throw new Error('The capture inspection belongs to another project or inventory.');
       setDraft({ ...before, phase: 'inspected', inspection: result });
       setShownRecords(100);
+      setInterpreting(false);
     } catch (cause) {
       if (generation.current === current && scopeRef.current === before.scope)
         setDraft({
@@ -193,7 +203,10 @@ export function InventoryBenchlingCaptureForm({
           change local custody, quality, permissions or history. Inspection does not import physical
           items or change scientific records.
         </Notice>
-        <Button disabled={draft.phase === 'reading-source'} onClick={() => void chooseFile()}>
+        <Button
+          disabled={locked || draft.phase === 'reading-source'}
+          onClick={() => void chooseFile()}
+        >
           {draft.phase === 'reading-source' ? 'Reading capture…' : 'Choose capture file'}
         </Button>
         {draft.sourcePath ? (
@@ -203,13 +216,15 @@ export function InventoryBenchlingCaptureForm({
         ) : null}
         <TextArea
           aria-label="Benchling capture text"
+          disabled={locked}
           value={draft.sourceText}
           onChange={(event) => editSource(event.target.value)}
-          className="h-40 font-mono text-xs"
+          rows={8}
+          monospace
         />
         <Button
           variant="primary"
-          disabled={draft.phase === 'reading-source' || draft.phase === 'inspecting'}
+          disabled={locked || draft.phase === 'reading-source' || draft.phase === 'inspecting'}
           onClick={() => void inspect()}
         >
           {draft.phase === 'inspecting' ? 'Inspecting…' : 'Inspect capture'}
@@ -263,6 +278,23 @@ export function InventoryBenchlingCaptureForm({
                   <dd>{inspection.capture.capturedAt}</dd>
                 </div>
               </dl>
+            ) : null}
+            {inspection.kind === 'inspected' && !interpreting ? (
+              <Button disabled={locked} onClick={() => setInterpreting(true)}>
+                Interpret physical inventory
+              </Button>
+            ) : null}
+            {inspection.kind === 'inspected' && interpreting ? (
+              <InventoryBenchlingApplicationForm
+                key={JSON.stringify([scope, inspection.sourceSha256])}
+                data={data}
+                controller={controller}
+                status={status}
+                client={client}
+                sourceText={draft.sourceText}
+                inspection={inspection}
+                onClose={onClose}
+              />
             ) : null}
             <section className="space-y-2" data-testid="inventory-benchling-issues">
               <h3 className="font-semibold">Interpretation gaps</h3>
@@ -430,7 +462,8 @@ export function InventoryBenchlingCaptureForm({
                       readOnly
                       aria-label={`Original response ${response.id}`}
                       value={response.bodyText}
-                      className="h-36 font-mono text-xs"
+                      rows={7}
+                      monospace
                     />
                   </details>
                 ))}

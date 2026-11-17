@@ -27,6 +27,8 @@ import {
   type InventoryMappedTableChoices,
   type InventoryMappedTableBindingObservation,
   type InventoryTableBindingObservation,
+  type InventoryBenchlingCaptureChoices,
+  type InventoryBenchlingCapturePreviewInput,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
@@ -50,6 +52,8 @@ import {
   inventoryOperationRequestSchema,
   inventoryReadRequestSchema,
   inventoryInspectBenchlingCaptureRequestSchema,
+  inventoryPreviewBenchlingCaptureRequestSchema,
+  inventoryApplyBenchlingCaptureRequestSchema,
   inventoryStorageConditionsRequestSchema,
   inventoryResolveItemCodeRequestSchema,
   inventoryPrepareLabelRequestSchema,
@@ -79,6 +83,7 @@ import type {
   InventoryMappedTablePreviewSnapshot,
   InventorySourceRevisionPreviewSnapshot,
   InventoryBenchlingCaptureSnapshot,
+  InventoryBenchlingCapturePreviewSnapshot,
 } from '../shared/inventory-client';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import type { RegisteredProject, RegisteredProjectAuthority } from './registered-project-authority';
@@ -118,6 +123,10 @@ import {
   nativeInventoryMappedTablePreview,
 } from './inventory-mapped-table';
 import { findNativeInventorySourcePreimages } from './inventory-source-preimages';
+import {
+  applyNativeInventoryBenchlingCapture,
+  nativeInventoryBenchlingCapturePreview,
+} from './inventory-benchling-application';
 
 interface InventoryRow {
   inventory_id: string;
@@ -381,6 +390,21 @@ export function createNativeInventoryOwner(options: {
       materials.map((value) => ({ key: value.sourceId, materialId: value.materialId }))
     ).map(({ key, ...value }) => ({ sourceId: key, ...value }));
 
+  const observeBenchlingBindings = (
+    db: Database.Database,
+    project: RegisteredProject,
+    choices: InventoryBenchlingCaptureChoices
+  ): InventoryBenchlingCapturePreviewInput['bindings'] =>
+    observeMappedBindings(
+      db,
+      project,
+      choices.records.flatMap((decision) =>
+        decision.disposition === 'vessel' && decision.contents.kind === 'identify'
+          ? [{ sourceId: decision.record.sourceId, materialId: decision.contents.materialId }]
+          : []
+      )
+    );
+
   const commit = (
     parsed: InventoryAcceptedRequest,
     assertCurrent: () => void,
@@ -460,7 +484,55 @@ export function createNativeInventoryOwner(options: {
           currentRevision: previous.revision,
         });
         let result: InventoryTransition;
-        if ('kind' in request && request.kind === 'adopt-archive') {
+        if ('kind' in request && request.kind === 'import-benchling-capture') {
+          if (request.expectedRevision !== previous.revision)
+            return reject(
+              'REVISION_CONFLICT',
+              'Inventory changed after the capture was previewed.'
+            );
+          if (Buffer.byteLength(canonical, 'utf8') > NATIVE_DOCUMENT_MAX_BODY_BYTES)
+            return reject(
+              'INVENTORY_BENCHLING_CAPTURE_TOO_LARGE',
+              'The encoded capture request exceeds the inline native transport limit.'
+            );
+          const executionContext = {
+            at: recordedAt,
+            principal: context.principal,
+            authority: context.authority,
+          };
+          const preview = nativeInventoryBenchlingCapturePreview(
+            row ? previous : null,
+            importTarget(db, project, request.inventoryId, row),
+            request.sourceText,
+            request.options,
+            observeBenchlingBindings(db, project, request.options),
+            executionContext
+          );
+          if (preview.kind === 'blocked')
+            return reject(
+              preview.issues[0]?.code ?? 'INVENTORY_BENCHLING_CAPTURE_BLOCKED',
+              preview.issues[0]?.message ?? 'The capture application is blocked.'
+            );
+          if (preview.kind !== 'ready')
+            return reject(
+              'INVENTORY_BENCHLING_CAPTURE_NO_CHANGES',
+              'This capture has no inventory changes to apply.'
+            );
+          if (
+            preview.planDigest !== request.expectedPlanDigest ||
+            canonicalNativeMutationRequest(preview.options) !==
+              canonicalNativeMutationRequest(request.options)
+          )
+            return reject(
+              'INVENTORY_BENCHLING_CAPTURE_PLAN_CHANGED',
+              'The capture, target or scientific bindings changed. Preview it again.'
+            );
+          result = applyNativeInventoryBenchlingCapture(
+            row ? previous : null,
+            request,
+            executionContext
+          );
+        } else if ('kind' in request && request.kind === 'adopt-archive') {
           if (request.expectedRevision !== previous.revision)
             return reject('REVISION_CONFLICT', 'Inventory changed after the import was previewed.');
           if (Buffer.byteLength(canonical, 'utf8') > NATIVE_DOCUMENT_MAX_BODY_BYTES)
@@ -841,6 +913,35 @@ export function createNativeInventoryOwner(options: {
   };
 
   return {
+    previewBenchlingCapture(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventoryBenchlingCapturePreviewSnapshot {
+      const request = inventoryPreviewBenchlingCaptureRequestSchema.parse(input);
+      const project = resolveProject(request.project, false);
+      const assertProject = options.projectAuthority.capture(project.projectId, false);
+      const db = options.db();
+      assertProject();
+      const snapshot = db
+        .transaction(() => {
+          const row = inventory(db, request.inventoryId, project.projectId);
+          const state = row ? stateFromRow(row) : null;
+          const asOf = observationTime(state ?? createInventoryState());
+          const caller = principal(invocation);
+          const preview = nativeInventoryBenchlingCapturePreview(
+            state,
+            importTarget(db, project, request.inventoryId, row),
+            request.sourceText,
+            request.options,
+            observeBenchlingBindings(db, project, request.options),
+            { at: asOf, principal: caller, authority }
+          );
+          return structuredClone({ ...preview, asOf, principal: caller });
+        })
+        .deferred();
+      assertProject();
+      return snapshot;
+    },
     inspectBenchlingCapture(
       input: unknown,
       invocation: NativeInventoryInvocation = {}
@@ -1335,6 +1436,18 @@ export function createNativeInventoryOwner(options: {
       invocation: NativeInventoryInvocation = {}
     ): NativeInventoryExecution {
       return commit(inventoryApplyTableRequestSchema.parse(input), assertCurrent, invocation);
+    },
+
+    applyBenchlingCapture(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): NativeInventoryExecution {
+      return commit(
+        inventoryApplyBenchlingCaptureRequestSchema.parse(input),
+        assertCurrent,
+        invocation
+      );
     },
 
     applyMappedTable(

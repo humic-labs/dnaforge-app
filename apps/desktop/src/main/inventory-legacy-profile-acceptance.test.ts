@@ -13,6 +13,7 @@ import { openFileTestDb } from './__tests__/test-db';
 import { createNativeInventoryOwner } from './inventory-owner';
 import { createRegisteredProjectAuthority } from './registered-project-authority';
 import { nativeDocumentProfileKey } from './native-document-owner-identity';
+import type { InventoryAcceptedRequest } from '../shared/inventory-command';
 
 const sourcePath = process.env.INVENTORY_LEGACY_PROFILE_SOURCE;
 it.runIf(Boolean(sourcePath))(
@@ -45,6 +46,29 @@ it.runIf(Boolean(sourcePath))(
         profileKey: nativeDocumentProfileKey(source.profile),
       });
       owner.initialize();
+      const retry = (request: InventoryAcceptedRequest) => {
+        if (!('kind' in request)) return owner.execute(request);
+        switch (request.kind) {
+          case 'adopt-archive':
+            return owner.applyImport(request);
+          case 'receive-table':
+            return owner.applyTable(request);
+          case 'apply-stocktake':
+            return owner.applyStocktake(request);
+          case 'acknowledge-table-source':
+            return owner.acknowledgeSource(request);
+          case 'import-hierarchy':
+            return owner.applyHierarchy(request);
+          case 'receive-mapped-table':
+            return owner.applyMappedTable(request);
+          case 'import-benchling-capture':
+            return owner.applyBenchlingCapture(request);
+          default: {
+            const unsupported: never = request;
+            throw new Error(`Unsupported accepted inventory request: ${String(unsupported)}`);
+          }
+        }
+      };
       const changes = db.prepare('SELECT total_changes() AS count').get();
       const evidence = source.inventories.map((inventory) => {
         const row = db
@@ -86,21 +110,7 @@ it.runIf(Boolean(sourcePath))(
           expect(owner.operation({ ...scope, operationId: entry.request.operationId })).toEqual(
             entry.receipt
           );
-          expect(
-            'kind' in entry.request
-              ? entry.request.kind === 'adopt-archive'
-                ? owner.applyImport(entry.request)
-                : entry.request.kind === 'receive-table'
-                  ? owner.applyTable(entry.request)
-                  : entry.request.kind === 'apply-stocktake'
-                    ? owner.applyStocktake(entry.request)
-                    : entry.request.kind === 'acknowledge-table-source'
-                      ? owner.acknowledgeSource(entry.request)
-                      : entry.request.kind === 'import-hierarchy'
-                        ? owner.applyHierarchy(entry.request)
-                        : owner.applyMappedTable(entry.request)
-              : owner.execute(entry.request)
-          ).toEqual(entry.receipt);
+          expect(retry(entry.request)).toEqual(entry.receipt);
         }
         expect(raw()).toEqual(before);
         expect(db.prepare('SELECT total_changes() AS count').get()).toEqual(changes);

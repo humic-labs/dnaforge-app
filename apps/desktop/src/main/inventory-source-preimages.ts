@@ -1,6 +1,7 @@
 import {
   inventoryReceiveTableRowSha256,
   normalizeInventoryMappedTable,
+  normalizeInventoryBenchlingCaptureStocks,
   parseInventoryArchive,
   parseInventoryReceiveTableSource,
   type InventoryReceiveTableFields,
@@ -65,6 +66,17 @@ export function findNativeInventorySourcePreimages(
           NATIVE_DOCUMENT_MAX_BODY_BYTES
         );
         if (normalized.kind === 'normalized') table(normalized.normalizedSourceText, ',');
+      }
+      if (
+        request.kind === 'import-benchling-capture' &&
+        request.options.normalizedTableOptions.namespace === namespace
+      ) {
+        const normalized = normalizeInventoryBenchlingCaptureStocks(
+          request.sourceText,
+          request.options,
+          NATIVE_DOCUMENT_MAX_BODY_BYTES
+        );
+        if (normalized.kind === 'normalized') table(normalized.sourceText, ',');
       }
       if (
         request.kind === 'acknowledge-table-source' &&

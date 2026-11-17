@@ -15,6 +15,7 @@ import {
   type InventoryApplyStocktakeRequest,
   type InventoryApplyHierarchyRequest,
   type InventoryApplyMappedTableRequest,
+  type InventoryApplyBenchlingCaptureRequest,
   type InventoryAcknowledgeSourceRequest,
   type NativeInventoryHistoryEntry,
 } from '../shared/inventory-command';
@@ -84,6 +85,11 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryApplyMappedTableRequest,
     context: InventoryExecutionContext
+  ) => InventoryTransition,
+  benchlingCapture: (
+    target: InventoryState | null,
+    request: InventoryApplyBenchlingCaptureRequest,
+    context: InventoryExecutionContext
   ) => InventoryTransition
 ): InventoryState {
   let state = createInventoryState();
@@ -99,7 +105,13 @@ export function replayNativeInventoryEntries(
     if (request.expectedRevision !== state.revision)
       throw new Error('INVENTORY_DATA_INVALID: The saved inventory journal is not contiguous.');
     let result: InventoryTransition;
-    if ('kind' in request && request.kind === 'adopt-archive') {
+    if ('kind' in request && request.kind === 'import-benchling-capture') {
+      if (!context)
+        throw new Error(
+          'INVENTORY_DATA_INVALID: A physical capture import requires its native receipt context.'
+        );
+      result = benchlingCapture(state.revision === 0 ? null : state, request, context);
+    } else if ('kind' in request && request.kind === 'adopt-archive') {
       if (!context)
         throw new Error('INVENTORY_DATA_INVALID: An adoption requires its native receipt context.');
       result = adoption(state.revision === 0 ? null : state, request, context);

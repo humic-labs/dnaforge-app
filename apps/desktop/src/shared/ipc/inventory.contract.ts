@@ -8,6 +8,9 @@ import type {
   InventoryChanged,
   InventoryInspectBenchlingCaptureRequest,
   InventoryBenchlingCaptureSnapshot,
+  InventoryPreviewBenchlingCaptureRequest,
+  InventoryApplyBenchlingCaptureRequest,
+  InventoryBenchlingCapturePreviewSnapshot,
   InventoryExportSnapshotRequest,
   InventoryPreviewImportRequest,
   InventoryApplyImportRequest,
@@ -50,6 +53,14 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  previewBenchlingCapture: invoke<
+    [request: InventoryPreviewBenchlingCaptureRequest],
+    InventoryBenchlingCapturePreviewSnapshot
+  >(),
+  applyBenchlingCapture: invoke<
+    [request: InventoryApplyBenchlingCaptureRequest],
+    NativeInventoryExecution
+  >(),
   inspectBenchlingCapture: invoke<
     [request: InventoryInspectBenchlingCaptureRequest],
     InventoryBenchlingCaptureSnapshot

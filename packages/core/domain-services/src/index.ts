@@ -9,3 +9,9 @@ export * from './metadata-fields';
 export * from './inventory-equipment-catalog';
 export { inspectInventoryBenchlingCapture } from './inventory-benchling-source';
 export type * from './inventory-benchling-types';
+export {
+  inventoryBenchlingCapturePreview,
+  applyInventoryBenchlingCapture,
+  normalizeInventoryBenchlingCaptureStocks,
+} from './inventory-benchling-application';
+export type * from './inventory-benchling-application-types';

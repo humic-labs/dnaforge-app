@@ -5,10 +5,11 @@
 Read-only inspection is qualified through actual native HTTP/file SQLite and the
 desktop workflow, including a full app restart. The representative synthetic
 capture has twelve responses and sixteen source records. The desktop runs kept
-every inventory's raw state and journal bytes unchanged. Physical Benchling
-import remains unqualified. This boundary is an offline DNAForge capture wrapper
-around documented Benchling V2 responses, not a Benchling CSV export format, a
-live tenant connection or a claim about V3 compatibility.
+every inventory's raw state and journal bytes unchanged. Physical capture
+application adds a separate all-or-nothing preview and command workflow. This
+boundary is an offline DNAForge capture wrapper around documented Benchling V2
+responses, not a Benchling CSV export format, a live tenant connection or a
+claim about V3 compatibility.
 
 ### Source contracts
 
@@ -47,11 +48,46 @@ bounded UTF-8 reader; qualify the operating-system picker separately.
 
 ## Driving it with native HTTP and Electron
 
+### Physical application
+
+After read-only inspection, open **Interpret physical inventory**. Every source
+record needs an explicit disposition. Storage decisions name the local layout,
+dimensions and parent/position evidence. Containers distinguish permanent wells
+from movable vessels and empty, unobserved, unidentified or identified contents.
+An empty interpretation requires both a captured empty contents array and an
+explicit captured zero volume. A zero quantity with an identified entity is
+stock. Material and quality decisions never come from names or foreign status.
+
+The guided controls retain captured observation references or explicit declared
+values and reasons. A human action may copy unique captured facts into visible
+controls; it cannot select scientific identities, quality or missing parents.
+Keep unsupported or omitted contents explicit. Unrepresented permanent wells
+become unobserved; unrepresented box/matrix positions require an explicit
+unavailable-position decision. Use the core preview's exact position list.
+
+Preview the immutable combined proposal before applying it. Source, choice,
+project or revision changes invalidate it. The existing controller persists the
+exact submitted operation for receipt lookup or identical retry after a lost
+acknowledgement. Apply commits storage, vessel bindings and contents together.
+No-change must disclose that neither a revised source file nor a new receipt is
+saved. Current local movement, quantity and contents knowledge remain intact.
+
+Application acceptance must use the representative fixture and genuine current
+project materials. Import known-zero stock, empty containers, unidentified
+multicontent material and unobserved positions in one operation. Reimport after
+movement and use without duplication or replenishment. Later contents reuse an
+original empty vessel. Changed source facts show the original target and require
+reconciliation. Archive adoption and full restart retain the raw capture,
+decisions, source identities, knowledge and original receipts. Preserve the
+original recordings and receipts outside the checkout.
+
 From the repository root, use a new evidence directory outside the checkout:
 
 ```sh
-INVENTORY_BENCHLING_EVIDENCE_DIR=/absolute/evidence/native pnpm --dir apps/desktop exec vitest run src/main/inventory-benchling-capture-native-acceptance.test.ts
-node apps/desktop/scripts/inventory-journey.mjs --stage benchling-capture --fixture /absolute/current-owned-inventory-fixture.json --out /absolute/evidence/desktop
+INVENTORY_BENCHLING_EVIDENCE_DIR=/absolute/evidence/inspection pnpm --dir apps/desktop exec vitest run src/main/inventory-benchling-capture-native-acceptance.test.ts
+INVENTORY_BENCHLING_APPLICATION_EVIDENCE_DIR=/absolute/evidence/application pnpm --dir apps/desktop exec vitest run src/main/inventory-benchling-application-native-acceptance.test.ts
+node apps/desktop/scripts/inventory-journey.mjs --stage benchling-capture --fixture /absolute/current-owned-inventory-fixture.json --out /absolute/evidence/inspection-desktop
+node apps/desktop/scripts/inventory-journey.mjs --stage benchling-apply --fixture /absolute/current-owned-inventory-fixture.json --out /absolute/evidence/application-desktop
 ```
 
 The native workflow uses actual HTTP, registered-project authority and file
@@ -130,3 +166,13 @@ Keep source fixtures, official contract references, original captures, receipts
 and failed attempts. Qualification must name the supported capture version and
 unsupported fields; representative synthetic evidence does not prove live
 Benchling access or historical actions absent from the source.
+
+For physical application restart acceptance, use the generated
+`benchling-application-reopen-fixture.json` with
+`--stage benchling-apply-reopen`. If a driver fails after its single import
+checkpoint, preserve the failed movie and receipt. Confirm that the checkpoint
+exactly matches native persisted state and history, then continue with
+`--stage benchling-apply-resume` and the generated `imported-fixture.json`. That
+continuation never submits the original import again. Later failures require a
+new explicitly bounded continuation; do not use an earlier checkpoint or repeat
+physical operations.

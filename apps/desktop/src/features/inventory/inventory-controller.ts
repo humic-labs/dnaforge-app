@@ -12,6 +12,7 @@ import {
   type InventoryResolvedSourceRevisionOptions,
   type InventoryHierarchyChoices,
   type InventoryResolvedMappedTableOptions,
+  type InventoryResolvedBenchlingCaptureOptions,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
@@ -22,6 +23,7 @@ import {
   inventoryAcknowledgeSourceRequestSchema,
   inventoryApplyHierarchyRequestSchema,
   inventoryApplyMappedTableRequestSchema,
+  inventoryApplyBenchlingCaptureRequestSchema,
   inventoryReceiptSchema,
   type InventoryAcceptedRequest,
   type NativeInventoryHistoryEntry,
@@ -796,6 +798,28 @@ export class InventoryController {
     );
   }
 
+  async importBenchlingCapture(
+    sourceText: string,
+    options: InventoryResolvedBenchlingCaptureOptions,
+    expectedPlanDigest: InventoryTableSha256
+  ): Promise<NativeInventoryReceipt | null> {
+    return this.sourceAttempt(
+      (data) =>
+        inventoryApplyBenchlingCaptureRequestSchema.parse({
+          kind: 'import-benchling-capture',
+          project: data.project.projectId,
+          inventoryId: data.project.defaultInventoryId,
+          operationId: this.operationId(),
+          expectedRevision: data.state.revision,
+          sourceText,
+          options,
+          expectedPlanDigest,
+        }),
+      'Import Benchling physical inventory',
+      'Preview the complete capture before importing physical inventory.'
+    );
+  }
+
   private async sourceAttempt(
     request: (data: InventoryData) => InventoryAcceptedRequest,
     summary: string,
@@ -888,6 +912,8 @@ export class InventoryController {
         return this.client.applyHierarchy(request);
       case 'receive-mapped-table':
         return this.client.applyMappedTable(request);
+      case 'import-benchling-capture':
+        return this.client.applyBenchlingCapture(request);
     }
   }
 

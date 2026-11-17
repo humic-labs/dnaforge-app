@@ -30,6 +30,8 @@ const request: InventoryExecuteRequest = {
 };
 let owner: NativeInventoryOwner | null;
 let inspectBenchlingCapture: ReturnType<typeof vi.fn>;
+let previewBenchlingCapture: ReturnType<typeof vi.fn>;
+let applyBenchlingCapture: ReturnType<typeof vi.fn>;
 let execute: ReturnType<typeof vi.fn>;
 let availability: ReturnType<typeof vi.fn>;
 let catalog: ReturnType<typeof vi.fn>;
@@ -60,6 +62,8 @@ const call = (input: unknown = request) =>
 
 beforeEach(() => {
   inspectBenchlingCapture = vi.fn(() => ({ kind: 'blocked', capture: null }));
+  previewBenchlingCapture = vi.fn(() => ({ kind: 'blocked', issues: [] }));
+  applyBenchlingCapture = vi.fn(() => ({ status: 'committed', operationId: 'capture-once' }));
   execute = vi.fn(() => ({ status: 'committed' }));
   availability = vi.fn(() => null);
   catalog = vi.fn(() => []);
@@ -82,6 +86,8 @@ beforeEach(() => {
   acknowledgeSource = vi.fn(() => ({ status: 'committed' }));
   owner = {
     inspectBenchlingCapture,
+    previewBenchlingCapture,
+    applyBenchlingCapture,
     execute,
     availability,
     catalog,
@@ -119,6 +125,58 @@ it('keeps capture inspection under the current renderer caller without mutation'
   expect(inspectBenchlingCapture).toHaveBeenCalledTimes(1);
   owner = null;
   expect(() => read(event, input)).toThrow(/INVENTORY_OWNER_UNAVAILABLE/);
+});
+
+it('keeps capture preview read-only and routes only the resolved accepted request to apply', () => {
+  const options = {
+    scopeAcceptance: { kind: 'selected-records', reason: '' },
+    records: [],
+    sourceIssueDispositions: [],
+    uncapturedPositions: [],
+  };
+  const read = captured.handlers.previewBenchlingCapture as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => unknown;
+  const preview = { project: 'project', inventoryId: 'inventory', sourceText: '', options };
+  expect(read(event, preview)).toEqual({ kind: 'blocked', issues: [] });
+  expect(previewBenchlingCapture).toHaveBeenCalledWith(preview);
+  expect(applyBenchlingCapture).not.toHaveBeenCalled();
+  const apply = captured.handlers.applyBenchlingCapture as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => NativeInventoryExecution;
+  const accepted = {
+    ...preview,
+    sourceText: '{}',
+    kind: 'import-benchling-capture',
+    operationId: 'capture-once',
+    expectedRevision: 0,
+    expectedPlanDigest: `sha256:${'a'.repeat(64)}`,
+    options: {
+      ...options,
+      materials: [],
+      resolvedTargets: [],
+      normalizedStockRows: [],
+      normalizedTableOptions: {
+        namespace: 'source',
+        delimiter: ',',
+        materials: [],
+        locations: [],
+        vessels: [],
+        skips: [],
+      },
+    },
+  };
+  expect(apply(event, accepted)).toMatchObject({ status: 'committed' });
+  expect(applyBenchlingCapture).toHaveBeenCalledWith(accepted, expect.any(Function), {
+    actor: 'human:desktop:7',
+  });
+  expect(apply(event, { ...accepted, options })).toMatchObject({
+    status: 'rejected',
+    code: 'INVALID_INVENTORY_INPUT',
+  });
+  expect(applyBenchlingCapture).toHaveBeenCalledTimes(1);
 });
 
 it('keeps source revision preview read-only and source acknowledgement under the same current-caller fence', () => {

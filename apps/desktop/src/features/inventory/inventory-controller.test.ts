@@ -8,6 +8,8 @@ import {
   applyInventorySourceRevision,
   applyInventoryHierarchy,
   applyInventoryMappedTable,
+  applyInventoryBenchlingCapture,
+  inventoryBenchlingCapturePreview,
   inventoryMappedTablePreview,
   inventoryHierarchyPreview,
   inventorySourceRevisionPreview,
@@ -110,44 +112,43 @@ function fixture(empty = false) {
     if (previous) return previous.receipt;
     const result =
       'kind' in request
-        ? request.kind === 'adopt-archive'
-          ? adoptInventoryState(
+        ? request.kind === 'import-benchling-capture'
+          ? applyInventoryBenchlingCapture(
               state.revision === 0 ? null : state,
-              initial.state,
               {
-                source: {
-                  archiveSha256: `sha256:${'a'.repeat(64)}`,
-                  projectId: 'source-project',
-                  inventoryId: 'source-inventory',
-                  revision: initial.state.revision,
+                ...request,
+                target: {
+                  projectId: request.project,
+                  inventoryId: request.inventoryId,
+                  present: state.revision !== 0,
+                  revision: request.expectedRevision,
                 },
-                materialBindings: Object.fromEntries(
-                  request.options.bindings.map((binding) => [
-                    binding.sourceMaterialId,
-                    binding.destinationMaterialId,
-                  ])
-                ),
               },
-              { at: 1, principal, authority: principal }
+              { at: 1, principal, authority: principal },
+              17 * 1024 * 1024
             )
-          : request.kind === 'receive-table'
-            ? applyInventoryTable(
+          : request.kind === 'adopt-archive'
+            ? adoptInventoryState(
                 state.revision === 0 ? null : state,
+                initial.state,
                 {
-                  ...request,
-                  target: {
-                    projectId: request.project,
-                    inventoryId: request.inventoryId,
-                    present: state.revision !== 0,
-                    revision: request.expectedRevision,
+                  source: {
+                    archiveSha256: `sha256:${'a'.repeat(64)}`,
+                    projectId: 'source-project',
+                    inventoryId: 'source-inventory',
+                    revision: initial.state.revision,
                   },
-                  expectedPlanDigest: request.expectedPlanDigest as `sha256:${string}`,
+                  materialBindings: Object.fromEntries(
+                    request.options.bindings.map((binding) => [
+                      binding.sourceMaterialId,
+                      binding.destinationMaterialId,
+                    ])
+                  ),
                 },
-                { at: 1, principal, authority: principal },
-                17 * 1024 * 1024
+                { at: 1, principal, authority: principal }
               )
-            : request.kind === 'apply-stocktake'
-              ? applyInventoryStocktake(
+            : request.kind === 'receive-table'
+              ? applyInventoryTable(
                   state.revision === 0 ? null : state,
                   {
                     ...request,
@@ -162,8 +163,8 @@ function fixture(empty = false) {
                   { at: 1, principal, authority: principal },
                   17 * 1024 * 1024
                 )
-              : request.kind === 'acknowledge-table-source'
-                ? applyInventorySourceRevision(
+              : request.kind === 'apply-stocktake'
+                ? applyInventoryStocktake(
                     state.revision === 0 ? null : state,
                     {
                       ...request,
@@ -173,12 +174,13 @@ function fixture(empty = false) {
                         present: state.revision !== 0,
                         revision: request.expectedRevision,
                       },
+                      expectedPlanDigest: request.expectedPlanDigest as `sha256:${string}`,
                     },
                     { at: 1, principal, authority: principal },
                     17 * 1024 * 1024
                   )
-                : request.kind === 'import-hierarchy'
-                  ? applyInventoryHierarchy(
+                : request.kind === 'acknowledge-table-source'
+                  ? applyInventorySourceRevision(
                       state.revision === 0 ? null : state,
                       {
                         ...request,
@@ -192,20 +194,35 @@ function fixture(empty = false) {
                       { at: 1, principal, authority: principal },
                       17 * 1024 * 1024
                     )
-                  : applyInventoryMappedTable(
-                      state.revision === 0 ? null : state,
-                      {
-                        ...request,
-                        target: {
-                          projectId: request.project,
-                          inventoryId: request.inventoryId,
-                          present: state.revision !== 0,
-                          revision: request.expectedRevision,
+                  : request.kind === 'import-hierarchy'
+                    ? applyInventoryHierarchy(
+                        state.revision === 0 ? null : state,
+                        {
+                          ...request,
+                          target: {
+                            projectId: request.project,
+                            inventoryId: request.inventoryId,
+                            present: state.revision !== 0,
+                            revision: request.expectedRevision,
+                          },
                         },
-                      },
-                      { at: 1, principal, authority: principal },
-                      17 * 1024 * 1024
-                    )
+                        { at: 1, principal, authority: principal },
+                        17 * 1024 * 1024
+                      )
+                    : applyInventoryMappedTable(
+                        state.revision === 0 ? null : state,
+                        {
+                          ...request,
+                          target: {
+                            projectId: request.project,
+                            inventoryId: request.inventoryId,
+                            present: state.revision !== 0,
+                            revision: request.expectedRevision,
+                          },
+                        },
+                        { at: 1, principal, authority: principal },
+                        17 * 1024 * 1024
+                      )
         : applyInventoryCommandBatch(state, {
             expectedRevision: request.expectedRevision,
             commands: request.commands,
@@ -273,6 +290,10 @@ function fixture(empty = false) {
     previewMappedTable: vi.fn(async () => {
       throw new Error('Mapped preview is not used by this controller fixture.');
     }),
+    previewBenchlingCapture: vi.fn(async () => {
+      throw new Error('Capture preview is not used by this controller fixture.');
+    }),
+    applyBenchlingCapture: vi.fn(async (request) => commit(request)),
     inspectBenchlingCapture: vi.fn(async () => {
       throw new Error('Benchling capture inspection is not used by this controller fixture.');
     }),
@@ -1629,4 +1650,85 @@ describe('mapped spreadsheet recovery', () => {
     expect(Object.values(f.state().tableBindings)).toEqual([]);
     f.controller.dispose();
   });
+});
+
+it('restores the exact Benchling capture request after a lost response without importing twice', async () => {
+  const f = fixture();
+  await f.controller.initialize();
+  const sourceText = JSON.stringify({
+    format: 'dnaforge.benchling-physical-capture.v1',
+    apiVersion: 'v2',
+    namespace: 'capture-recovery',
+    capturedAt: '2026-11-16T00:00:00.000Z',
+    scope: { kind: 'selected-records', description: 'One synthetic container' },
+    responses: [
+      {
+        id: 'container',
+        request: { method: 'GET', path: '/api/v2/containers/capture-tube', query: {} },
+        bodyText: '{"id":"capture-tube","name":"Capture tube"}',
+      },
+    ],
+  });
+  const plan = inventoryBenchlingCapturePreview(f.state(), {
+    sourceText,
+    target: {
+      projectId: project.projectId,
+      inventoryId: project.defaultInventoryId,
+      present: true,
+      revision: f.state().revision,
+    },
+    options: {
+      scopeAcceptance: { kind: 'selected-records', reason: 'Explicit limited capture' },
+      records: [
+        {
+          record: { kind: 'container', sourceId: 'capture-tube' },
+          disposition: 'vessel',
+          target: {
+            kind: 'movable',
+            name: { kind: 'declared', value: 'Capture tube', reason: 'Explicit name' },
+            placement: {
+              kind: 'unplaced',
+              basis: { kind: 'declared', reason: 'No source placement established' },
+            },
+          },
+          contents: { kind: 'unobserved', reason: 'No source contents established' },
+        },
+      ],
+      sourceIssueDispositions: [],
+      uncapturedPositions: [],
+    },
+    bindings: [],
+    asOf: 1,
+    principal,
+    authority: principal,
+    maxBytes: 17 * 1024 * 1024,
+  });
+  if (plan.kind !== 'ready') throw new Error(JSON.stringify(plan));
+  vi.mocked(f.client.applyBenchlingCapture).mockImplementationOnce(async (request) => {
+    f.commit(request);
+    throw new Error('Lost capture response');
+  });
+  await f.controller.importBenchlingCapture(sourceText, plan.options, plan.planDigest);
+  expect(f.controller.getSnapshot().status.kind).toBe('outcome-unknown');
+  const original = structuredClone(f.saved()[0].request);
+  expect(original).toMatchObject({
+    kind: 'import-benchling-capture',
+    sourceText,
+    options: plan.options,
+    expectedPlanDigest: plan.planDigest,
+  });
+  expect(
+    await f.controller.importBenchlingCapture('replacement draft', plan.options, plan.planDigest)
+  ).toBeNull();
+  f.controller.dispose();
+  const reopened = new InventoryController(f.client, f.storage, () => 'must-not-replace-capture');
+  await reopened.initialize();
+  await reopened.checkPending();
+  expect(reopened.getSnapshot().status.kind).toBe('ready');
+  expect(f.saved()).toEqual([]);
+  expect(f.client.applyBenchlingCapture).toHaveBeenCalledOnce();
+  expect(f.client.applyBenchlingCapture).toHaveBeenCalledWith(original);
+  expect(f.entries).toHaveLength(1);
+  expect(Object.values(f.state().vesselBindings)).toHaveLength(1);
+  reopened.dispose();
 });

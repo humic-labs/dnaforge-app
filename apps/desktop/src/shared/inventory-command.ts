@@ -16,6 +16,8 @@ import {
   type InventoryReceiveTableColumn,
   type InventorySourceRevisionChoices,
   type InventoryResolvedSourceRevisionOptions,
+  type InventoryBenchlingCaptureChoices,
+  type InventoryResolvedBenchlingCaptureOptions,
 } from '@waypoint/domain-services';
 
 const identity = z.string().min(1).max(256);
@@ -102,6 +104,289 @@ export const inventoryResolvedTableOptionsSchema = z
   .object({
     ...tableOptions,
     materials: z.array(tableResolvedMaterial),
+  })
+  .strict();
+
+const benchlingText = z.string().max(4096);
+const benchlingSourceId = z.string().max(256);
+const benchlingReason = z.string().max(4096);
+const benchlingCaptured = z
+  .object({
+    kind: z.literal('captured'),
+    responseId: benchlingSourceId,
+    pointer: benchlingText,
+    reason: benchlingReason.nullable(),
+  })
+  .strict();
+const benchlingDeclared = <T extends z.ZodTypeAny>(value: T) =>
+  z
+    .object({
+      kind: z.literal('declared'),
+      value,
+      reason: benchlingReason,
+    })
+    .strict();
+const benchlingRecord = <T extends z.ZodTypeAny>(kind: T) =>
+  z
+    .object({
+      kind,
+      sourceId: benchlingSourceId,
+    })
+    .strict();
+const benchlingPhysicalRecord = benchlingRecord(z.enum(['location', 'box', 'plate', 'container']));
+const benchlingSchemaRecord = benchlingRecord(z.enum(['box-schema', 'plate-schema']));
+const benchlingBasis = z.discriminatedUnion('kind', [
+  benchlingCaptured,
+  z
+    .object({
+      kind: z.literal('membership'),
+      responseId: benchlingSourceId,
+      pointer: benchlingText,
+      reason: benchlingReason.nullable(),
+    })
+    .strict(),
+  z.object({ kind: z.literal('declared'), reason: benchlingReason }).strict(),
+]);
+const benchlingPosition = z
+  .object({
+    value: z.string().max(512),
+    basis: z.enum(['captured-exact', 'declared-mapping']),
+    reason: benchlingReason.nullable(),
+  })
+  .strict();
+const benchlingSourcePlacement = z
+  .object({
+    kind: z.literal('source'),
+    parentSourceId: benchlingSourceId,
+    position: benchlingPosition,
+    basis: benchlingBasis,
+  })
+  .strict();
+const benchlingExistingPlacement = z
+  .object({
+    kind: z.literal('existing'),
+    storageId: benchlingSourceId,
+    position: benchlingPosition,
+    basis: benchlingBasis,
+    reason: benchlingReason,
+  })
+  .strict();
+const benchlingStoragePlacement = z.discriminatedUnion('kind', [
+  benchlingSourcePlacement,
+  benchlingExistingPlacement,
+  z.object({ kind: z.literal('root'), basis: benchlingBasis }).strict(),
+]);
+const benchlingVesselPlacement = z.discriminatedUnion('kind', [
+  benchlingSourcePlacement,
+  benchlingExistingPlacement,
+  z.object({ kind: z.literal('unplaced'), basis: benchlingBasis }).strict(),
+]);
+const benchlingDimension = z.number().int().min(0).max(10000);
+const benchlingLayout = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('named'), slots: z.array(z.string().max(512)) }).strict(),
+  ...(['grid', 'removable-tube', 'fixed-well'] as const).map((kind) =>
+    z
+      .object({ kind: z.literal(kind), rows: benchlingDimension, columns: benchlingDimension })
+      .strict()
+  ),
+  z
+    .object({
+      kind: z.literal('stack'),
+      capacity: benchlingDimension,
+      removal: z.literal('top-only'),
+    })
+    .strict(),
+]);
+const benchlingGrid = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('captured-schema'),
+      schema: benchlingSchemaRecord,
+      height: benchlingCaptured,
+      width: benchlingCaptured,
+    })
+    .strict(),
+  benchlingDeclared(z.object({ rows: benchlingDimension, columns: benchlingDimension }).strict()),
+]);
+const benchlingDefinition = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('location'), layout: benchlingDeclared(benchlingLayout) }).strict(),
+  z.object({ kind: z.literal('box'), layout: benchlingGrid }).strict(),
+  z
+    .object({
+      kind: z.literal('plate'),
+      plateType: z.discriminatedUnion('kind', [
+        benchlingCaptured,
+        benchlingDeclared(z.enum(['well_plate', 'matrix_plate'])),
+      ]),
+      layout: benchlingGrid,
+    })
+    .strict(),
+]);
+const benchlingSourceVolume = z
+  .object({
+    kind: z.literal('source-volume'),
+    sourceField: z.enum(['quantity', 'volume']),
+    selection: benchlingCaptured,
+  })
+  .strict();
+const benchlingQuantity = z.discriminatedUnion('kind', [
+  benchlingSourceVolume,
+  z.object({ kind: z.literal('unknown'), reason: benchlingReason }).strict(),
+]);
+const benchlingContents = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('empty'),
+      selection: benchlingCaptured,
+      quantity: benchlingSourceVolume,
+      reason: benchlingReason,
+    })
+    .strict(),
+  z.object({ kind: z.literal('unobserved'), reason: benchlingReason }).strict(),
+  z
+    .object({
+      kind: z.literal('unidentified'),
+      selection: benchlingCaptured,
+      reason: benchlingReason,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('identify'),
+      selection: benchlingCaptured,
+      materialId: benchlingSourceId,
+      quantity: benchlingQuantity,
+      quality: z
+        .object({ value: z.enum(['usable', 'quarantined']), reason: benchlingReason })
+        .strict(),
+      reason: benchlingReason,
+    })
+    .strict(),
+]);
+const benchlingVesselTarget = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('movable'),
+      name: z.discriminatedUnion('kind', [
+        benchlingCaptured,
+        benchlingDeclared(z.string().max(512)),
+      ]),
+      placement: benchlingVesselPlacement,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('fixed-well'),
+      plateSourceId: benchlingSourceId,
+      position: benchlingPosition,
+      basis: benchlingBasis,
+    })
+    .strict(),
+]);
+export const inventoryBenchlingCaptureOptionsSchema = z
+  .object({
+    scopeAcceptance: z
+      .object({ kind: z.literal('selected-records'), reason: benchlingReason })
+      .strict(),
+    records: z.array(
+      z.discriminatedUnion('disposition', [
+        z
+          .object({
+            record: benchlingPhysicalRecord,
+            disposition: z.literal('skip'),
+            reason: benchlingReason,
+          })
+          .strict(),
+        z
+          .object({
+            record: benchlingSchemaRecord,
+            disposition: z.literal('evidence'),
+            reason: benchlingReason,
+          })
+          .strict(),
+        z
+          .object({
+            record: benchlingRecord(z.enum(['location', 'box', 'plate'])),
+            disposition: z.literal('storage'),
+            name: z.discriminatedUnion('kind', [
+              benchlingCaptured,
+              benchlingDeclared(z.string().max(512)),
+            ]),
+            definition: benchlingDefinition,
+            placement: benchlingStoragePlacement,
+          })
+          .strict(),
+        z
+          .object({
+            record: benchlingRecord(z.literal('container')),
+            disposition: z.literal('vessel'),
+            target: benchlingVesselTarget,
+            contents: benchlingContents,
+          })
+          .strict(),
+      ])
+    ),
+    sourceIssueDispositions: z.array(
+      z
+        .object({
+          code: benchlingSourceId,
+          responseId: benchlingSourceId.nullable(),
+          bodyPointer: benchlingText.nullable(),
+          reason: benchlingReason,
+        })
+        .strict()
+    ),
+    uncapturedPositions: z.array(
+      z
+        .object({
+          storageSourceId: benchlingSourceId,
+          positions: z.array(z.string().max(512)),
+          kind: z.literal('unavailable'),
+          reason: benchlingReason,
+        })
+        .strict()
+    ),
+  })
+  .strict();
+export const inventoryResolvedBenchlingCaptureOptionsSchema = inventoryBenchlingCaptureOptionsSchema
+  .extend({
+    materials: z.array(
+      z.object({ sourceId: identity, materialId: identity, fingerprint: digest }).strict()
+    ),
+    resolvedTargets: z.array(
+      z
+        .object({
+          record: benchlingPhysicalRecord,
+          target: z.object({ kind: z.enum(['storage', 'vessel']), id: identity }).strict(),
+        })
+        .strict()
+    ),
+    normalizedStockRows: z.array(
+      z
+        .object(
+          Object.fromEntries(
+            INVENTORY_RECEIVE_TABLE_COLUMNS.map((column) => [column, z.string()])
+          ) as Record<InventoryReceiveTableColumn, z.ZodString>
+        )
+        .strict()
+    ),
+    normalizedTableOptions: inventoryResolvedTableOptionsSchema,
+  })
+  .strict();
+export const inventoryPreviewBenchlingCaptureRequestSchema = inventoryReadRequestSchema
+  .extend({
+    sourceText: z.string(),
+    options: inventoryBenchlingCaptureOptionsSchema,
+  })
+  .strict();
+export const inventoryApplyBenchlingCaptureRequestSchema = inventoryReadRequestSchema
+  .extend({
+    kind: z.literal('import-benchling-capture'),
+    operationId: identity,
+    expectedRevision: revision,
+    sourceText: z.string().min(1),
+    options: inventoryResolvedBenchlingCaptureOptionsSchema,
+    expectedPlanDigest: digest,
   })
   .strict();
 export const inventoryPreviewTableRequestSchema = inventoryReadRequestSchema
@@ -396,6 +681,7 @@ export const inventoryAcceptedRequestSchema = z.union([
   inventoryAcknowledgeSourceRequestSchema,
   inventoryApplyHierarchyRequestSchema,
   inventoryApplyMappedTableRequestSchema,
+  inventoryApplyBenchlingCaptureRequestSchema,
 ]);
 
 export const inventoryOperationRequestSchema = inventoryReadRequestSchema
@@ -437,6 +723,18 @@ export type InventoryReadRequest = z.infer<typeof inventoryReadRequestSchema>;
 export type InventoryInspectBenchlingCaptureRequest = z.infer<
   typeof inventoryInspectBenchlingCaptureRequestSchema
 >;
+export type InventoryPreviewBenchlingCaptureRequest = InventoryReadRequest & {
+  readonly sourceText: string;
+  readonly options: InventoryBenchlingCaptureChoices;
+};
+export type InventoryApplyBenchlingCaptureRequest = InventoryReadRequest & {
+  readonly kind: 'import-benchling-capture';
+  readonly operationId: string;
+  readonly expectedRevision: number;
+  readonly sourceText: string;
+  readonly options: InventoryResolvedBenchlingCaptureOptions;
+  readonly expectedPlanDigest: `sha256:${string}`;
+};
 export type InventoryExportSnapshotRequest = z.infer<typeof inventoryExportSnapshotRequestSchema>;
 export type InventoryPreviewImportRequest = InventoryReadRequest & {
   readonly sourceText: string;
@@ -522,7 +820,8 @@ export type InventoryAcceptedRequest =
   | InventoryApplyStocktakeRequest
   | InventoryAcknowledgeSourceRequest
   | InventoryApplyHierarchyRequest
-  | InventoryApplyMappedTableRequest;
+  | InventoryApplyMappedTableRequest
+  | InventoryApplyBenchlingCaptureRequest;
 export type InventoryStorageConditionsRequest = z.infer<
   typeof inventoryStorageConditionsRequestSchema
 >;

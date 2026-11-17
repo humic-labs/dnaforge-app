@@ -149,6 +149,14 @@ const sourceHistoryCopy: Readonly<
     description:
       'Original hierarchy text and explicit layout, parent and skip choices are retained with this atomic import.',
   },
+  'import-benchling-capture': {
+    title: 'Imported Benchling physical inventory',
+    summary: 'Retained original Benchling capture',
+    sourceLabel: 'Retained Benchling physical capture',
+    choicesLabel: 'Retained Benchling physical interpretation',
+    description:
+      'Original response bodies, source identities, layout and placement evidence, scientific bindings, quantity interpretations and contents decisions are retained with this single atomic import.',
+  },
   'receive-mapped-table': {
     title: 'Received mapped spreadsheet',
     summary: 'Retained original spreadsheet',

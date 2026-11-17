@@ -73,6 +73,23 @@ describe('inventory contents knowledge agent contract', () => {
   });
 });
 
+describe('inventory physical capture application agent contract', () => {
+  const options = { scopeAcceptance: { kind: 'selected-records', reason: '' }, records: [], sourceIssueDispositions: [], uncapturedPositions: [] };
+  const preview = { kind: 'preview-benchling-capture', project: '/project', inventoryId: 'inventory', sourceText: '', options };
+  it('admits unresolved preview choices but requires saved resolved facts for application', () => {
+    expect(inventoryAgentSchema.parse({ operation: preview })).toEqual({ operation: preview });
+    const apply = { ...preview, kind: 'apply-benchling-capture', sourceText: '{}', operationId: 'capture-once', expectedRevision: 0, expectedPlanDigest: `sha256:${'a'.repeat(64)}` };
+    expect(inventoryAgentSchema.safeParse({ operation: apply }).success).toBe(false);
+    const ready = { ...apply, options: { ...options, materials: [], resolvedTargets: [], normalizedStockRows: [], normalizedTableOptions: { namespace: 'source', delimiter: ',', materials: [], locations: [], vessels: [], skips: [] } } };
+    expect(inventoryAgentSchema.parse({ operation: ready })).toEqual({ operation: ready });
+    expect(inventoryAgentSchema.safeParse({ operation: { ...ready, principal: { kind: 'agent', identityId: 'forged' } } }).success).toBe(false);
+    const schema = JSON.stringify(inventoryAgentJsonSchema());
+    expect(schema).toContain('preview-benchling-capture');
+    expect(schema).toContain('apply-benchling-capture');
+    expect(schema).toContain('uncapturedPositions');
+  });
+});
+
 describe('inventory label agent contract', () => {
   it('admits only the bounded native preparation read without caller-authored identity or output', () => {
     expect(inventoryAgentSchema.parse({ operation })).toEqual({ operation });

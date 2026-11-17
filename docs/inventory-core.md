@@ -950,6 +950,15 @@ Exact volume interpretation uses those tokens, not an already rounded number.
 Unit dimensions and absent/null/zero amounts remain explicit. Empty movable
 containers need lifetime physical identity independent of stock existence.
 
+Capture application uses explicit field observations or reason-bearing local
+declarations. An empty registered-contents array alone does not establish a
+physically empty container. The bounded source-empty choice requires that array
+and an explicitly selected supported volume of exactly zero. Positive,
+unresolved or non-volume amounts remain unresolved rather than silently empty. A
+container with a registered entity and zero amount stays identified stock.
+Selecting deprecated volume while current quantity is supplied needs an explicit
+reason; field order never chooses precedence.
+
 Physical source correlation and content admission have separate lifetimes.
 Storage already has hierarchy bindings and stock has receive-table bindings.
 Canonical v17 also has vessel bindings that can refer to an empty movable
@@ -992,6 +1001,85 @@ Changing physical source facts must not overwrite later local movement. Capture
 application must assemble one existing command batch and binding additions for
 one native transaction, rather than chaining independently committed hierarchy,
 vessel and stock imports.
+
+### Capture application
+
+The capture application uses one accepted request, `import-benchling-capture`.
+Preview is read-only. Its private construction phases do not publish
+intermediate inventories or consume extra revisions. The final proposal is
+checked again against the original inventory before one transaction commits
+commands, physical bindings, stock bindings, the original capture and its
+receipt together.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Inspecting
+  Inspecting --> Invalid: malformed or over-limit capture
+  Inspecting --> Decisions: exact observations retained
+  Decisions --> Previewing: every record and source issue has a disposition
+  Previewing --> Decisions: unresolved facts or refused complete batch
+  Previewing --> NoChange: no commands or new bindings
+  Previewing --> Ready: original target and scientific admissions pinned
+  Ready --> Decisions: source or interpretation edited
+  Ready --> Stale: target revision or scientific admission changed
+  Stale --> Previewing: regenerate against current facts
+  Ready --> Submitted: exact request retained by controller
+  Submitted --> Committed: single native transaction
+  Submitted --> OutcomeUnknown: acknowledgement unavailable
+  OutcomeUnknown --> Submitted: original receipt lookup or identical retry
+  NoChange --> Decisions: no receipt or revised source saved
+```
+
+Each location, box, plate and container needs an explicit import or skip
+decision. Schema records remain source evidence. Locations require declared
+local layouts; boxes and plates require explicitly selected schema dimensions or
+declared bounded dimensions. Names cannot establish dimensions. Permanent wells
+and removable matrix tubes use different physical owners. Every captured
+container identity receives a durable vessel binding. Existing bindings resolve
+before new IDs are generated, including after archive adoption.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Unbound
+  Unbound --> Bound: explicit target and validated physical projection
+  Bound --> Bound: local move, use, disposition or archive adoption
+  Bound --> Unchanged: same source physical projection
+  Bound --> NeedsReconciliation: changed physical facts or interpretation
+  Unchanged --> Bound: retain original target and local state
+  NeedsReconciliation --> Bound: explicit reconciliation outside import
+```
+
+Contents decisions are independent of physical bindings. Captured contents `[]`
+can establish an initial empty vessel only when an explicitly selected supported
+volume is exactly zero. Nonempty contents with zero volume remain identified
+stock. Multicontent tubes can remain physically present and unidentified;
+omitted contents can remain unobserved. Uncaptured permanent wells are
+initialized as unobserved in the same batch. Uncaptured removable-container
+coordinates require an explicit unavailable-position policy. No phantom tube is
+created.
+
+Exact source volume interpretation uses the original JSON numeric token and
+bounded decimal arithmetic. Unsupported or absent amounts require an explicit
+unknown-volume reason. Quality and current local scientific identity are
+separate explicit choices. Scientific admission fingerprints cover the saved
+Registry row, catalog identity and file-binding metadata; they are not raw
+file-content hashes. Foreign restrictions and checkout records remain source
+evidence.
+
+A versioned physical projection preserves omitted, null, present and conflicting
+source facts. It excludes contents, quantity, foreign status, observation order
+and explanatory prose. Plate membership maps do not rename the plate's physical
+baseline; each identified well has its own binding. Reimport preserves current
+movement, contents knowledge and stock use. Changed stock source fields require
+source reconciliation and cannot replenish inventory. New source contents for a
+previously empty or unresolved bound vessel use its original physical identity.
+
+Canonical stock preimages regenerate from retained capture text, saved typed
+choices and resolved targets. They never derive from current remaining stock.
+Validated nested archive histories use the same normalizer. A real new binding
+without physical commands advances one metadata revision; a no-change preview
+creates no receipt and saves no revised capture. The existing complete-batch and
+inline transport limits apply without splitting the operation.
 
 ## Material identity and conservation
 

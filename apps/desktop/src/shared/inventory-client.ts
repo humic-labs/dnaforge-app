@@ -23,6 +23,7 @@ import type {
   InventoryMappedTablePreview,
   InventorySourceRevisionPreview,
   InventoryBenchlingCaptureInspection,
+  InventoryBenchlingCapturePreview,
   InventoryImportTarget,
 } from '@waypoint/domain-services';
 import type { InventoryRenderedLabel } from '@waypoint/domain-services/inventory-label-types';
@@ -47,6 +48,8 @@ import type {
   InventoryPrepareLabelRequest,
   InventoryReadRequest,
   InventoryInspectBenchlingCaptureRequest,
+  InventoryPreviewBenchlingCaptureRequest,
+  InventoryApplyBenchlingCaptureRequest,
   InventoryResolveItemCodeRequest,
   InventoryStorageConditionsRequest,
   NativeInventoryExecution,
@@ -178,8 +181,18 @@ export type InventoryBenchlingCaptureSnapshot = InventoryBenchlingCaptureInspect
   readonly asOf: number;
   readonly principal: InventoryPrincipal;
 };
+export type InventoryBenchlingCapturePreviewSnapshot = InventoryBenchlingCapturePreview & {
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+};
 
 export interface InventoryClient {
+  previewBenchlingCapture(
+    input: InventoryPreviewBenchlingCaptureRequest
+  ): Promise<InventoryBenchlingCapturePreviewSnapshot>;
+  applyBenchlingCapture(
+    input: InventoryApplyBenchlingCaptureRequest
+  ): Promise<NativeInventoryExecution>;
   inspectBenchlingCapture(
     input: InventoryInspectBenchlingCaptureRequest
   ): Promise<InventoryBenchlingCaptureSnapshot>;
@@ -237,6 +250,8 @@ export function unavailableInventoryClient(): InventoryClient {
     message: 'Inventory requires the connected desktop owner.',
   });
   return {
+    previewBenchlingCapture: unavailable,
+    applyBenchlingCapture: unavailableMutation,
     inspectBenchlingCapture: unavailable,
     exportSnapshot: unavailable,
     previewImport: unavailable,
@@ -268,6 +283,8 @@ export function unavailableInventoryClient(): InventoryClient {
 }
 
 export type {
+  InventoryPreviewBenchlingCaptureRequest,
+  InventoryApplyBenchlingCaptureRequest,
   InventoryExportSnapshotRequest,
   InventoryPreviewImportRequest,
   InventoryApplyImportRequest,
