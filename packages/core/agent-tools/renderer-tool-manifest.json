@@ -46878,12 +46878,954 @@
     },
     {
       "name": "inventory",
-      "description": "Opening and validity belong to explicit stock/material episodes. Use record-stock-opening with an observed timestamp or null; correct-stock-opening names the current observation and records opened or unobserved, never a silent reseal/reset. Use record-validity-decision for an independent stock/lot rule family and correct-validity-decision for its exact current head. Preserve sourceText and sourcePrecision separately from an explicit absolute cutoff or positive elapsed milliseconds after the original stock opening. A printed month/year is not a UTC instant or fixed duration. Unresolved and not-required are explicit reasoned decisions; no receipt, movement, quality release or new aliquot invents opening or clears another family. Derived material retains applicable source families and earliest physical derivation bounds, including known-zero destinations; late opening contradictions block rather than extend life. Read native availability.actions.reserve and actions.withdraw instead of filtering blocker codes: a consistently observed sealed stock with an applicable relative rule may reserve, while use requires recording opening first, optionally in the same batch. At native asOf equal to deadline, material is expired; nextBoundaryAt tells clients when to request a fresh native observation. No applicable opening-dependent rule means unobserved opening alone adds no use gate. Imported positive validity requires explicit local reassessment without manufacturing an opening observation; restrictive evidence remains blocking. Recover uncertain operations through their original saved receipt even after later expiry. For new supplier lots and derived preparations, compose create-lot, pool or dilute with manage-lot in the same execute batch. Manage-lot starts local assessment as unassessed; physical receive-lot-stock can record held material but does not release it. Use assess-lot with a reason for released, quarantined or rejected decisions. Stock set-quality remains an independent hold. Record-lot-recall and withdraw-lot-recall retain independent reasoned safety facts; release never clears a recall. Availability discloses all inherited lot restrictions and legacy-partial or untracked coverage. Transfers, preparations and reassociation retain prior lot constraints, so a new lot name cannot erase a hold or recall. Imported released assessments require explicit local reassessment; imported active recalls remain blocking until explicit local withdrawal. Use the original operation receipt for uncertain outcomes. Stock balances have an explicit measurement basis: volume, mass, amount of substance, or whole-item count. Send non-negative decimal strings and an explicit supported unit for known and unknown quantities. Canonical readback uses uL/ng/nmol/item; unknown amount retains its unit. Unitless unknown input is only the retained legacy volume contract. Never interpret package count as content amount or infer density, molecular weight or enzyme activity. Consume, transfer, reserve and fulfill only within the stock basis; ordinary reconciliation or observation application cannot change dimension. Physical capacity/dead-volume and pool/dilute remain volume-specific. Non-volume transfer into existing stock supports unknown mixing only; homogeneous concentration mixing requires volumes. Apply an offline physical capture with preview-benchling-capture and apply-benchling-capture. Retain the original sourceText and explicit per-record choices, field observation references/conflict reasons, layouts, parent/position decisions, source issues and uncaptured-position blocks. The source namespace is in the versioned capture. Empty means selected contents=[] AND exact selected volume zero; unobserved and unidentified contents remain explicit physical vessels, never fake stock. Identify one supported source content through a current local scientific material with explicit quality and exact source volume or a reasoned unknown quantity. Current mass/count units never become volume, and deprecated volume requires an explicit choice. Fixed wells retain plate/coordinate identity; matrix tubes are movable. Preview is read-only. Apply only ready resolved options, material fingerprints, target IDs, canonical source rows and expectedPlanDigest with expectedRevision/stable operationId. One transaction creates all storage/vessel/stock bindings and physical changes; metadata-only new binding changes also commit once without dummy commands. No-change saves no new source or receipt. Bound source IDs survive local movement/use/disposal/adoption and cannot replenish or duplicate stock. Changed stock source requires established source-revision comparison; previous rows come from retained accepted capture history. An uncertain result requires original receipt lookup or the identical saved request. Vessel contents knowledge is separate from stock quantity. Read contentsKnowledge: recorded with no stock means declared empty, recorded with stock means identified even at known zero, and unobserved/unidentified means unresolved. Never infer physical emptiness from no stock. Use record-vessel-contents with vesselId, knowledge and reason to record unobserved or unidentified contents, or record-vessels-contents with a nonempty unique vesselIds list for one atomic bulk declaration. Use declare-vessel-empty only after an explicit empty observation with reason. Use identify-vessel-stock to identify material already present in an unresolved vessel, with id, vesselId, current project materialId, explicit quantity, quality and reason; this is not a new physical receiving event. Actor and time come from the native boundary. Unresolved contents block ordinary receiving and every new-stock material destination; move, custody and disposal remain separate. Contents declarations cannot erase any identified stock, including known zero. Inspect an offline DNAForge Benchling V2 physical capture with inspect-benchling-capture and exact sourceText. This read-only inspection preserves raw responses and exact JSON number tokens and distinguishes omitted fields, explicit null, present values and conflicting observations. Inspect unresolved source facts, placements and pagination without creating inventory, stock, receipts, journal entries or imported authority. It does not connect to Benchling, prove complete exports, support V3 or apply physical inventory. Use preview-mapped-table and apply-mapped-table with mapped-plate-v1 to receive original CSV/TSV plate spreadsheets into existing permanent wells. Preserve the complete raw source and declare every column as source identity, plate, well or reason-bearing evidence only. Bind scientific materials explicitly in the admitted project, map source plate and well labels to existing plate IDs and exact positions, declare unknown quantity with a reason and choose quality per row explicitly. Never strip leading zeros, infer plate dimensions, treat QC labels as quality or interpret box labels as freezers. Preview has no effects; apply accepts only the exact original bytes, resolved fingerprints, choices and ready digest through the existing journal. Stable physical row bindings prevent duplicates; evidence-only edits may yield no physical changes and save no revised source or receipt. Scientific publication and hierarchy creation remain separate visible stages. Compare revised external receive records with preview-source-revision, format receive-v1 and exact sourceText. Supply existing table namespace and explicit same-identity material/location/vessel resolutions plus acknowledgements with sourceId, expectedPreviousRowSha256 and reason. The read-only comparison separates verified previous source fields, revised source fields and actual inventory; missing previous evidence blocks. Acknowledge only a ready plan with acknowledge-source, saved resolved options/preimages, plan digest, expected revision and stable operation ID. This appends source history without receiving, replenishing, renaming, moving, changing quality, custody or holds, or applying measurements. Original bindings remain immutable; scientific rebinding, vessel replacement, vessel-kind changes and unbound rows refuse. Unchanged receive reimports compare the latest accepted source baseline and preserve later use or movement. Original source fields come from retained accepted requests, including archives, never inferred from current stock. A lost acknowledgement requires the original receipt or identical retry. Import explicit hierarchy-v1 CSV/TSV with preview-hierarchy and apply-hierarchy. Required columns are source_id,name,layout_kind,positions,rows,columns,capacity,parent_kind,parent_key,slot. Supply a stable namespace, explicit delimiter, existing-parent mappings and reason-bearing skips. Named positions use a strict JSON array; grids, tube boxes and fixed-well plates require explicit dimensions; stacks require capacity. Parents are explicit root, local source IDs or mapped existing storage. Stack ordinals define order independently of row order. Preview resolves parent graphs and validates the complete existing-command batch without writes. Cycles, missing parents, occupied positions, noncontiguous stacks and oversized atomic batches refuse. Existing source bindings prevent duplication and never reverse later movement or disposal. Changed source facts require separate reconciliation. Apply only the exact ready plan, source, options, revision and stable operation ID; recover uncertain outcomes using the original receipt or identical retry. No equipment specifications, plate dimensions, temperature control, stock or fit qualification are inferred from names. Receive stock in a separate explicit stage. Preview explicit stocktake observations with preview-stocktake, format stocktake-v1 and exact sourceText. Supply a stable observation namespace, explicit delimiter, subject and destination bindings and one explicit decision per observation: record-only, apply with reason, or skip with reason. Required columns are observation_id,subject_key,observed_at,quantity_kind,quantity,unit,presence,location_key,slot,reason. Stock subjects support known or unknown quantity; item subjects support missing or found presence. Unobserved dimensions use not-observed; found requires an explicit destination. Source time is unknown or exact UTC ISO with milliseconds, separate from trusted native recording time. Record-only creates immutable observation facts without changing quantity or custody; a later explicit apply uses the recorded fact once. Quantity measurement preserves holds and custody, including allocation shortfalls. Missing/found corrections preserve quantity and use existing physical custody rules; never infer a plate from a permanent well or missing stock from an omitted row. Reusing an observation identity with changed facts refuses. Reimporting an applied observation never repeats its correction after later use. Apply only a ready preview through apply-stocktake with exact source, options, plan digest, revision and stable operation ID; uncertain outcomes use original receipt recovery or identical retry. Observations and corrections commit through the existing atomic journal and command limit. Changed receive registers are not physical measurements. Preview a strict canonical receive table with preview-table, format receive-v1 and exact sourceText. Supply a stable source namespace, explicit comma or tab delimiter, material/location/existing-vessel bindings and reason-bearing skipped source IDs. The required columns are source_id,name,material_key,quantity_kind,quantity,unit,quality,vessel_kind,vessel_key,location_key,slot. Every column must appear exactly once; no inferred headers, values, units, scientific identities, unplaced choice or silent extra columns. A new vessel requires a name and explicit location key; an existing empty vessel or permanent well requires its bound vessel key and blank name/location/slot fields. Known zero differs from explicit unknown quantity. Preview reports every source row, proposed commands and blocking issues without writes. Stable namespace plus exact source_id prevents duplicates when rows reorder or the file changes. Unchanged imported rows remain unchanged even after later consumption or movement; changed source facts or resolutions require reconciliation and refuse. Apply only a ready preview with apply-table, its exact sourceText, resolved options/fingerprints, expectedPlanDigest, expectedRevision and one stable operationId. All generated commands and source bindings commit atomically under the existing 256-command limit; never split silently. An uncertain result must recover or retry that exact operation. This format does not imply Benchling header compatibility or stocktake correction support. Export a lossless native inventory archive with export-snapshot and format native-v1. It captures one admitted state and complete accepted history without changing inventory or writing a file. Preview an exact sourceText using preview-import and options.bindings [{sourceMaterialId,destinationMaterialId}]. Preview is read-only; it reports source-linked refusals, exact scientific bindings, responsibilities and proposed identities. Only a ready preview supplies complete resolved options with fingerprints and a planDigest. Apply into an absent inventory with apply-import, the identical sourceText, those resolved options, expectedPlanDigest, expectedRevision and one stable operationId. Reuse the original operation or exact request after an uncertain result before creating a new intent. Adoption creates destination records under the current native receipt; imported source history remains evidence. Imported holders never gain current authority by matching an agent ID; source clocks cannot advance native acceptance. No populated-target merging, automatic scientific identity matching, silent chunking or spreadsheet/Benchling compatibility is implied. Read storage-conditions in an explicit project and inventory with required freshnessMaxAgeMs null for no age policy or a nonnegative safe integer in milliseconds. This read returns separate specified capability, operator-reported target and installed qualified-support assessments at one native revision and asOf time. Reported setpoints are not sensor measurements, and a supported temperature assessment is not overall sample suitability. Record the thermal relationship independently with record-thermal-context: inherit uses surroundings, self declares own temperature control, and unknown blocks inheritance. Evidence, withdrawal and reports never change this relationship. New qualified-envelope assertions declare scope physical-and-thermal-arrangement; legacy qualifications with unrecorded thermal scope remain inapplicable. Unknowns, conflicts, source scope and freshness remain explicit. It never changes stock, quality, holds, custody or placement. Record temperature claims, setpoints and stock/lot requirements only through execute with explicit observation time (timestamp or null); trusted recorded time and actor come from the native owner. Use prepare-label with an active exact codeId and mediaProfileId qr-50x30-300dpi or qr-80x50-300dpi to render an immutable existing-code QR SVG artifact. Its symbol contains the exact alias value only; namespace and explicit project/inventory context are required for lookup. The artifact retains full target and binding snapshots, source revision, exact SVG and SHA256. Rendered does not mean independently decoded, saved, printed, attached or physically scanned. Preparation is read-only, grants no access, and refuses retired bindings, disposed targets, unsupported text or layout overflow. Missing custody remains explicit and does not establish location. No file or printer is written. Resolve exact physical item codes with resolve-item-code in an explicit project and inventory. Pass query.namespace as an exact technical namespace or null for all namespaces and query.value as the unchanged code. Case, leading zeros and spaces matter. Invalid, not found, retired and ambiguous are distinct results; never prefer one ambiguous match or fall back to scientific material search. The lookup returns current target facts, custody and stock availability at one revision. Codes grant no access, and URL text is not navigation. Lookup never changes inventory. Use catalog-update-preview with an exact catalogEntryId and inventoryId to classify built-in definitions and inspect source scope and installed references without inventory writes. Any definition conflict blocks applying the entire pack. Apply selected new definitions through execute at the current revision; identical retired definitions remain retired. Inspect and change physical laboratory inventory through the same native owner as the Inventory view. Start with projects, then materials in the exact selected project. Inspect the returned defaultInventoryId before changing it. Read catalog for built-in physical type and equipment recipe definitions without installing them. Existing definition ID conflicts require explicit resolution; never overwrite. Execute only needed definitions plus explicit recipe instantiation as one atomic batch. Read availability at the matching revision for exact on-hand, held and unreserved quantities, item custody, reservation actions and blocking reasons. Execute an atomic typed command batch with the inspected expectedRevision and one stable operationId. Exact retries return the original receipt; changed requests require a new explicitly reviewed operation. A timeout leaves the outcome unknown: inspect the original operationId or retry that identical request. Publish immutable physical type and equipment recipe versions, then instantiate explicit pinned versions. Physical metadata is separate from scientific material identity. Allowed child types constrain placement logically; unknown fit remains unknown, and known geometric contradictions refuse placement. Read the physical projection for installed configuration, metadata issues and fit evidence. Reservations do not subtract on-hand quantity. Expiry requires an explicit recorded command. Checkout, transit and missing reports free the previous position and retain immutable last-known location facts. Planned destinations and last-known positions are not current locations. Return or locate requires an explicit valid destination; use stack-top for a stack. A plate or box governs effective custody of its contents, and permanent wells cannot depart independently. Missing or in-transit items block physical use and additions; reconciliation and quality observations remain distinct. Custody never changes quantity or silently releases reservations. Hold ownership, custody responsibility and execution time come from the native authority. Known zero quantity differs from unknown quantity. Scientific designs do not imply physical possession. Placement, quantity, quality, disposal and storage-layout rules are validated by the inventory owner. History retains accepted requests, trusted actors and durable owner context. Read operations need read-workspace; execute also needs write-workspace.",
+      "description": "Record actual deliveries with preview-arrival and apply-arrival using exact application-owned dnaforge.inventory-arrival-source.v1 sourceText. Retain original inline supplier documents, explicit full/excerpt scope, package grouping and one reasoned component disposition: identified, unidentified-physical, unobserved-physical, observed-missing or evidence-only. A package batch is distinct from a component lot, product and delivery identity. Bind each identified component to a current admitted scientific material, explicit existing or new managed-unassessed lot, new movable vessel and explicit placement. Known amount needs a separate measurement or exact supported supplier quantity claim; unsupported activity units remain raw evidence and cannot become mass/volume/count. Supplier QC never releases local stock or lot assessment. Preview is read-only. Apply only ready resolved options, original sourceText, planDigest, revision and stable operationId in one atomic transaction, including metadata-only arrivals. Stable namespace plus arrivalId prevents re-receiving after use, movement, disposal or adoption; changed source or original choices need reconciliation. An unchanged delivery is no-change and writes no new receipt or event. A deliberately renamed physical delivery cannot be detected as a duplicate. Recover an uncertain result with the original operation receipt or identical saved request. Read arrival-document by arrivalId, documentKey and expectedSha256 for exact retained bytes through original or nested adopted history; no fetch, OCR or supplier format compatibility is implied. The existing encoded native request limit applies; never split a delivery silently. Opening and validity belong to explicit stock/material episodes. Use record-stock-opening with an observed timestamp or null; correct-stock-opening names the current observation and records opened or unobserved, never a silent reseal/reset. Use record-validity-decision for an independent stock/lot rule family and correct-validity-decision for its exact current head. Preserve sourceText and sourcePrecision separately from an explicit absolute cutoff or positive elapsed milliseconds after the original stock opening. A printed month/year is not a UTC instant or fixed duration. Unresolved and not-required are explicit reasoned decisions; no receipt, movement, quality release or new aliquot invents opening or clears another family. Derived material retains applicable source families and earliest physical derivation bounds, including known-zero destinations; late opening contradictions block rather than extend life. Read native availability.actions.reserve and actions.withdraw instead of filtering blocker codes: a consistently observed sealed stock with an applicable relative rule may reserve, while use requires recording opening first, optionally in the same batch. At native asOf equal to deadline, material is expired; nextBoundaryAt tells clients when to request a fresh native observation. No applicable opening-dependent rule means unobserved opening alone adds no use gate. Imported positive validity requires explicit local reassessment without manufacturing an opening observation; restrictive evidence remains blocking. Recover uncertain operations through their original saved receipt even after later expiry. For new supplier lots and derived preparations, compose create-lot, pool or dilute with manage-lot in the same execute batch. Manage-lot starts local assessment as unassessed; physical receive-lot-stock can record held material but does not release it. Use assess-lot with a reason for released, quarantined or rejected decisions. Stock set-quality remains an independent hold. Record-lot-recall and withdraw-lot-recall retain independent reasoned safety facts; release never clears a recall. Availability discloses all inherited lot restrictions and legacy-partial or untracked coverage. Transfers, preparations and reassociation retain prior lot constraints, so a new lot name cannot erase a hold or recall. Imported released assessments require explicit local reassessment; imported active recalls remain blocking until explicit local withdrawal. Use the original operation receipt for uncertain outcomes. Stock balances have an explicit measurement basis: volume, mass, amount of substance, or whole-item count. Send non-negative decimal strings and an explicit supported unit for known and unknown quantities. Canonical readback uses uL/ng/nmol/item; unknown amount retains its unit. Unitless unknown input is only the retained legacy volume contract. Never interpret package count as content amount or infer density, molecular weight or enzyme activity. Consume, transfer, reserve and fulfill only within the stock basis; ordinary reconciliation or observation application cannot change dimension. Physical capacity/dead-volume and pool/dilute remain volume-specific. Non-volume transfer into existing stock supports unknown mixing only; homogeneous concentration mixing requires volumes. Apply an offline physical capture with preview-benchling-capture and apply-benchling-capture. Retain the original sourceText and explicit per-record choices, field observation references/conflict reasons, layouts, parent/position decisions, source issues and uncaptured-position blocks. The source namespace is in the versioned capture. Empty means selected contents=[] AND exact selected volume zero; unobserved and unidentified contents remain explicit physical vessels, never fake stock. Identify one supported source content through a current local scientific material with explicit quality and exact source volume or a reasoned unknown quantity. Current mass/count units never become volume, and deprecated volume requires an explicit choice. Fixed wells retain plate/coordinate identity; matrix tubes are movable. Preview is read-only. Apply only ready resolved options, material fingerprints, target IDs, canonical source rows and expectedPlanDigest with expectedRevision/stable operationId. One transaction creates all storage/vessel/stock bindings and physical changes; metadata-only new binding changes also commit once without dummy commands. No-change saves no new source or receipt. Bound source IDs survive local movement/use/disposal/adoption and cannot replenish or duplicate stock. Changed stock source requires established source-revision comparison; previous rows come from retained accepted capture history. An uncertain result requires original receipt lookup or the identical saved request. Vessel contents knowledge is separate from stock quantity. Read contentsKnowledge: recorded with no stock means declared empty, recorded with stock means identified even at known zero, and unobserved/unidentified means unresolved. Never infer physical emptiness from no stock. Use record-vessel-contents with vesselId, knowledge and reason to record unobserved or unidentified contents, or record-vessels-contents with a nonempty unique vesselIds list for one atomic bulk declaration. Use declare-vessel-empty only after an explicit empty observation with reason. Use identify-vessel-stock to identify material already present in an unresolved vessel, with id, vesselId, current project materialId, explicit quantity, quality and reason; this is not a new physical receiving event. Actor and time come from the native boundary. Unresolved contents block ordinary receiving and every new-stock material destination; move, custody and disposal remain separate. Contents declarations cannot erase any identified stock, including known zero. Inspect an offline DNAForge Benchling V2 physical capture with inspect-benchling-capture and exact sourceText. This read-only inspection preserves raw responses and exact JSON number tokens and distinguishes omitted fields, explicit null, present values and conflicting observations. Inspect unresolved source facts, placements and pagination without creating inventory, stock, receipts, journal entries or imported authority. It does not connect to Benchling, prove complete exports, support V3 or apply physical inventory. Use preview-mapped-table and apply-mapped-table with mapped-plate-v1 to receive original CSV/TSV plate spreadsheets into existing permanent wells. Preserve the complete raw source and declare every column as source identity, plate, well or reason-bearing evidence only. Bind scientific materials explicitly in the admitted project, map source plate and well labels to existing plate IDs and exact positions, declare unknown quantity with a reason and choose quality per row explicitly. Never strip leading zeros, infer plate dimensions, treat QC labels as quality or interpret box labels as freezers. Preview has no effects; apply accepts only the exact original bytes, resolved fingerprints, choices and ready digest through the existing journal. Stable physical row bindings prevent duplicates; evidence-only edits may yield no physical changes and save no revised source or receipt. Scientific publication and hierarchy creation remain separate visible stages. Compare revised external receive records with preview-source-revision, format receive-v1 and exact sourceText. Supply existing table namespace and explicit same-identity material/location/vessel resolutions plus acknowledgements with sourceId, expectedPreviousRowSha256 and reason. The read-only comparison separates verified previous source fields, revised source fields and actual inventory; missing previous evidence blocks. Acknowledge only a ready plan with acknowledge-source, saved resolved options/preimages, plan digest, expected revision and stable operation ID. This appends source history without receiving, replenishing, renaming, moving, changing quality, custody or holds, or applying measurements. Original bindings remain immutable; scientific rebinding, vessel replacement, vessel-kind changes and unbound rows refuse. Unchanged receive reimports compare the latest accepted source baseline and preserve later use or movement. Original source fields come from retained accepted requests, including archives, never inferred from current stock. A lost acknowledgement requires the original receipt or identical retry. Import explicit hierarchy-v1 CSV/TSV with preview-hierarchy and apply-hierarchy. Required columns are source_id,name,layout_kind,positions,rows,columns,capacity,parent_kind,parent_key,slot. Supply a stable namespace, explicit delimiter, existing-parent mappings and reason-bearing skips. Named positions use a strict JSON array; grids, tube boxes and fixed-well plates require explicit dimensions; stacks require capacity. Parents are explicit root, local source IDs or mapped existing storage. Stack ordinals define order independently of row order. Preview resolves parent graphs and validates the complete existing-command batch without writes. Cycles, missing parents, occupied positions, noncontiguous stacks and oversized atomic batches refuse. Existing source bindings prevent duplication and never reverse later movement or disposal. Changed source facts require separate reconciliation. Apply only the exact ready plan, source, options, revision and stable operation ID; recover uncertain outcomes using the original receipt or identical retry. No equipment specifications, plate dimensions, temperature control, stock or fit qualification are inferred from names. Receive stock in a separate explicit stage. Preview explicit stocktake observations with preview-stocktake, format stocktake-v1 and exact sourceText. Supply a stable observation namespace, explicit delimiter, subject and destination bindings and one explicit decision per observation: record-only, apply with reason, or skip with reason. Required columns are observation_id,subject_key,observed_at,quantity_kind,quantity,unit,presence,location_key,slot,reason. Stock subjects support known or unknown quantity; item subjects support missing or found presence. Unobserved dimensions use not-observed; found requires an explicit destination. Source time is unknown or exact UTC ISO with milliseconds, separate from trusted native recording time. Record-only creates immutable observation facts without changing quantity or custody; a later explicit apply uses the recorded fact once. Quantity measurement preserves holds and custody, including allocation shortfalls. Missing/found corrections preserve quantity and use existing physical custody rules; never infer a plate from a permanent well or missing stock from an omitted row. Reusing an observation identity with changed facts refuses. Reimporting an applied observation never repeats its correction after later use. Apply only a ready preview through apply-stocktake with exact source, options, plan digest, revision and stable operation ID; uncertain outcomes use original receipt recovery or identical retry. Observations and corrections commit through the existing atomic journal and command limit. Changed receive registers are not physical measurements. Preview a strict canonical receive table with preview-table, format receive-v1 and exact sourceText. Supply a stable source namespace, explicit comma or tab delimiter, material/location/existing-vessel bindings and reason-bearing skipped source IDs. The required columns are source_id,name,material_key,quantity_kind,quantity,unit,quality,vessel_kind,vessel_key,location_key,slot. Every column must appear exactly once; no inferred headers, values, units, scientific identities, unplaced choice or silent extra columns. A new vessel requires a name and explicit location key; an existing empty vessel or permanent well requires its bound vessel key and blank name/location/slot fields. Known zero differs from explicit unknown quantity. Preview reports every source row, proposed commands and blocking issues without writes. Stable namespace plus exact source_id prevents duplicates when rows reorder or the file changes. Unchanged imported rows remain unchanged even after later consumption or movement; changed source facts or resolutions require reconciliation and refuse. Apply only a ready preview with apply-table, its exact sourceText, resolved options/fingerprints, expectedPlanDigest, expectedRevision and one stable operationId. All generated commands and source bindings commit atomically under the existing 256-command limit; never split silently. An uncertain result must recover or retry that exact operation. This format does not imply Benchling header compatibility or stocktake correction support. Export a lossless native inventory archive with export-snapshot and format native-v1. It captures one admitted state and complete accepted history without changing inventory or writing a file. Preview an exact sourceText using preview-import and options.bindings [{sourceMaterialId,destinationMaterialId}]. Preview is read-only; it reports source-linked refusals, exact scientific bindings, responsibilities and proposed identities. Only a ready preview supplies complete resolved options with fingerprints and a planDigest. Apply into an absent inventory with apply-import, the identical sourceText, those resolved options, expectedPlanDigest, expectedRevision and one stable operationId. Reuse the original operation or exact request after an uncertain result before creating a new intent. Adoption creates destination records under the current native receipt; imported source history remains evidence. Imported holders never gain current authority by matching an agent ID; source clocks cannot advance native acceptance. No populated-target merging, automatic scientific identity matching, silent chunking or spreadsheet/Benchling compatibility is implied. Read storage-conditions in an explicit project and inventory with required freshnessMaxAgeMs null for no age policy or a nonnegative safe integer in milliseconds. This read returns separate specified capability, operator-reported target and installed qualified-support assessments at one native revision and asOf time. Reported setpoints are not sensor measurements, and a supported temperature assessment is not overall sample suitability. Record the thermal relationship independently with record-thermal-context: inherit uses surroundings, self declares own temperature control, and unknown blocks inheritance. Evidence, withdrawal and reports never change this relationship. New qualified-envelope assertions declare scope physical-and-thermal-arrangement; legacy qualifications with unrecorded thermal scope remain inapplicable. Unknowns, conflicts, source scope and freshness remain explicit. It never changes stock, quality, holds, custody or placement. Record temperature claims, setpoints and stock/lot requirements only through execute with explicit observation time (timestamp or null); trusted recorded time and actor come from the native owner. Use prepare-label with an active exact codeId and mediaProfileId qr-50x30-300dpi or qr-80x50-300dpi to render an immutable existing-code QR SVG artifact. Its symbol contains the exact alias value only; namespace and explicit project/inventory context are required for lookup. The artifact retains full target and binding snapshots, source revision, exact SVG and SHA256. Rendered does not mean independently decoded, saved, printed, attached or physically scanned. Preparation is read-only, grants no access, and refuses retired bindings, disposed targets, unsupported text or layout overflow. Missing custody remains explicit and does not establish location. No file or printer is written. Resolve exact physical item codes with resolve-item-code in an explicit project and inventory. Pass query.namespace as an exact technical namespace or null for all namespaces and query.value as the unchanged code. Case, leading zeros and spaces matter. Invalid, not found, retired and ambiguous are distinct results; never prefer one ambiguous match or fall back to scientific material search. The lookup returns current target facts, custody and stock availability at one revision. Codes grant no access, and URL text is not navigation. Lookup never changes inventory. Use catalog-update-preview with an exact catalogEntryId and inventoryId to classify built-in definitions and inspect source scope and installed references without inventory writes. Any definition conflict blocks applying the entire pack. Apply selected new definitions through execute at the current revision; identical retired definitions remain retired. Inspect and change physical laboratory inventory through the same native owner as the Inventory view. Start with projects, then materials in the exact selected project. Inspect the returned defaultInventoryId before changing it. Read catalog for built-in physical type and equipment recipe definitions without installing them. Existing definition ID conflicts require explicit resolution; never overwrite. Execute only needed definitions plus explicit recipe instantiation as one atomic batch. Read availability at the matching revision for exact on-hand, held and unreserved quantities, item custody, reservation actions and blocking reasons. Execute an atomic typed command batch with the inspected expectedRevision and one stable operationId. Exact retries return the original receipt; changed requests require a new explicitly reviewed operation. A timeout leaves the outcome unknown: inspect the original operationId or retry that identical request. Publish immutable physical type and equipment recipe versions, then instantiate explicit pinned versions. Physical metadata is separate from scientific material identity. Allowed child types constrain placement logically; unknown fit remains unknown, and known geometric contradictions refuse placement. Read the physical projection for installed configuration, metadata issues and fit evidence. Reservations do not subtract on-hand quantity. Expiry requires an explicit recorded command. Checkout, transit and missing reports free the previous position and retain immutable last-known location facts. Planned destinations and last-known positions are not current locations. Return or locate requires an explicit valid destination; use stack-top for a stack. A plate or box governs effective custody of its contents, and permanent wells cannot depart independently. Missing or in-transit items block physical use and additions; reconciliation and quality observations remain distinct. Custody never changes quantity or silently releases reservations. Hold ownership, custody responsibility and execution time come from the native authority. Known zero quantity differs from unknown quantity. Scientific designs do not imply physical possession. Placement, quantity, quality, disposal and storage-layout rules are validated by the inventory owner. History retains accepted requests, trusted actors and durable owner context. Read operations need read-workspace; execute also needs write-workspace.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "operation": {
             "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "sourceText": { "type": "string", "minLength": 1 },
+                  "options": {
+                    "type": "object",
+                    "properties": {
+                      "components": {
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "componentKey": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256
+                                },
+                                "kind": { "type": "string", "const": "identified" },
+                                "materialId": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256
+                                },
+                                "lot": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "existing" },
+                                        "lotId": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 256
+                                        },
+                                        "reason": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 4096
+                                        }
+                                      },
+                                      "required": ["kind", "lotId", "reason"],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "unattributed" },
+                                        "reason": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 4096
+                                        }
+                                      },
+                                      "required": ["kind", "reason"],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "new" },
+                                        "lotKey": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 256
+                                        },
+                                        "name": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 512
+                                        },
+                                        "supplier": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 512
+                                        },
+                                        "lotNumber": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 512
+                                        },
+                                        "managementReason": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 4096
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "lotKey",
+                                        "name",
+                                        "supplier",
+                                        "lotNumber",
+                                        "managementReason"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                },
+                                "quantity": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "known" },
+                                        "value": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 128
+                                        },
+                                        "unit": {
+                                          "type": "string",
+                                          "enum": [
+                                            "L",
+                                            "mL",
+                                            "uL",
+                                            "nL",
+                                            "pL",
+                                            "kg",
+                                            "g",
+                                            "mg",
+                                            "ug",
+                                            "ng",
+                                            "pg",
+                                            "mol",
+                                            "mmol",
+                                            "umol",
+                                            "nmol",
+                                            "pmol",
+                                            "fmol",
+                                            "item"
+                                          ]
+                                        }
+                                      },
+                                      "required": ["kind", "value", "unit"],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "unknown" },
+                                        "unit": {
+                                          "type": "string",
+                                          "enum": [
+                                            "L",
+                                            "mL",
+                                            "uL",
+                                            "nL",
+                                            "pL",
+                                            "kg",
+                                            "g",
+                                            "mg",
+                                            "ug",
+                                            "ng",
+                                            "pg",
+                                            "mol",
+                                            "mmol",
+                                            "umol",
+                                            "nmol",
+                                            "pmol",
+                                            "fmol",
+                                            "item"
+                                          ]
+                                        }
+                                      },
+                                      "required": ["kind", "unit"],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                },
+                                "quantityBasis": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "measurement" },
+                                        "reason": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 4096
+                                        }
+                                      },
+                                      "required": ["kind", "reason"],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "supplier-declared" },
+                                        "claimKey": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 256
+                                        },
+                                        "reason": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 4096
+                                        }
+                                      },
+                                      "required": ["kind", "claimKey", "reason"],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "unknown" },
+                                        "reason": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 4096
+                                        }
+                                      },
+                                      "required": ["kind", "reason"],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                },
+                                "stockQuality": {
+                                  "type": "object",
+                                  "properties": {
+                                    "value": {
+                                      "type": "string",
+                                      "enum": ["usable", "quarantined"]
+                                    },
+                                    "reason": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 4096
+                                    }
+                                  },
+                                  "required": ["value", "reason"],
+                                  "additionalProperties": false
+                                },
+                                "vessel": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": { "type": "string", "minLength": 1, "maxLength": 512 },
+                                    "placement": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "unplaced" }
+                                          },
+                                          "required": ["kind"],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "located" },
+                                            "storageId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 256
+                                            },
+                                            "slotId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 512
+                                            }
+                                          },
+                                          "required": ["kind", "storageId", "slotId"],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": ["name", "placement"],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "componentKey",
+                                "kind",
+                                "materialId",
+                                "lot",
+                                "quantity",
+                                "quantityBasis",
+                                "stockQuality",
+                                "vessel"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "componentKey": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256
+                                },
+                                "kind": { "type": "string", "const": "unidentified-physical" },
+                                "vessel": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": { "type": "string", "minLength": 1, "maxLength": 512 },
+                                    "placement": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "unplaced" }
+                                          },
+                                          "required": ["kind"],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "located" },
+                                            "storageId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 256
+                                            },
+                                            "slotId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 512
+                                            }
+                                          },
+                                          "required": ["kind", "storageId", "slotId"],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": ["name", "placement"],
+                                  "additionalProperties": false
+                                },
+                                "reason": { "type": "string", "minLength": 1, "maxLength": 4096 }
+                              },
+                              "required": ["componentKey", "kind", "vessel", "reason"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "componentKey": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256
+                                },
+                                "kind": { "type": "string", "const": "unobserved-physical" },
+                                "vessel": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": { "type": "string", "minLength": 1, "maxLength": 512 },
+                                    "placement": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "unplaced" }
+                                          },
+                                          "required": ["kind"],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "located" },
+                                            "storageId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 256
+                                            },
+                                            "slotId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 512
+                                            }
+                                          },
+                                          "required": ["kind", "storageId", "slotId"],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": ["name", "placement"],
+                                  "additionalProperties": false
+                                },
+                                "reason": { "type": "string", "minLength": 1, "maxLength": 4096 }
+                              },
+                              "required": ["componentKey", "kind", "vessel", "reason"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "componentKey": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256
+                                },
+                                "kind": { "type": "string", "const": "observed-missing" },
+                                "reason": { "type": "string", "minLength": 1, "maxLength": 4096 }
+                              },
+                              "required": ["componentKey", "kind", "reason"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "componentKey": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256
+                                },
+                                "kind": { "type": "string", "const": "evidence-only" },
+                                "reason": { "type": "string", "minLength": 1, "maxLength": 4096 }
+                              },
+                              "required": ["componentKey", "kind", "reason"],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "required": ["components"],
+                    "additionalProperties": false
+                  },
+                  "kind": { "type": "string", "const": "preview-arrival" }
+                },
+                "required": ["project", "inventoryId", "sourceText", "options", "kind"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "kind": { "type": "string", "const": "apply-arrival" },
+                  "operationId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "sourceText": { "type": "string", "minLength": 1 },
+                  "options": {
+                    "type": "object",
+                    "properties": {
+                      "components": {
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "componentKey": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256
+                                },
+                                "kind": { "type": "string", "const": "identified" },
+                                "materialId": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256
+                                },
+                                "lot": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "existing" },
+                                        "lotId": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 256
+                                        },
+                                        "reason": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 4096
+                                        }
+                                      },
+                                      "required": ["kind", "lotId", "reason"],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "unattributed" },
+                                        "reason": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 4096
+                                        }
+                                      },
+                                      "required": ["kind", "reason"],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "new" },
+                                        "lotKey": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 256
+                                        },
+                                        "name": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 512
+                                        },
+                                        "supplier": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 512
+                                        },
+                                        "lotNumber": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 512
+                                        },
+                                        "managementReason": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 4096
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "lotKey",
+                                        "name",
+                                        "supplier",
+                                        "lotNumber",
+                                        "managementReason"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                },
+                                "quantity": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "known" },
+                                        "value": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 128
+                                        },
+                                        "unit": {
+                                          "type": "string",
+                                          "enum": [
+                                            "L",
+                                            "mL",
+                                            "uL",
+                                            "nL",
+                                            "pL",
+                                            "kg",
+                                            "g",
+                                            "mg",
+                                            "ug",
+                                            "ng",
+                                            "pg",
+                                            "mol",
+                                            "mmol",
+                                            "umol",
+                                            "nmol",
+                                            "pmol",
+                                            "fmol",
+                                            "item"
+                                          ]
+                                        }
+                                      },
+                                      "required": ["kind", "value", "unit"],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "unknown" },
+                                        "unit": {
+                                          "type": "string",
+                                          "enum": [
+                                            "L",
+                                            "mL",
+                                            "uL",
+                                            "nL",
+                                            "pL",
+                                            "kg",
+                                            "g",
+                                            "mg",
+                                            "ug",
+                                            "ng",
+                                            "pg",
+                                            "mol",
+                                            "mmol",
+                                            "umol",
+                                            "nmol",
+                                            "pmol",
+                                            "fmol",
+                                            "item"
+                                          ]
+                                        }
+                                      },
+                                      "required": ["kind", "unit"],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                },
+                                "quantityBasis": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "measurement" },
+                                        "reason": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 4096
+                                        }
+                                      },
+                                      "required": ["kind", "reason"],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "supplier-declared" },
+                                        "claimKey": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 256
+                                        },
+                                        "reason": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 4096
+                                        }
+                                      },
+                                      "required": ["kind", "claimKey", "reason"],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "const": "unknown" },
+                                        "reason": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 4096
+                                        }
+                                      },
+                                      "required": ["kind", "reason"],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                },
+                                "stockQuality": {
+                                  "type": "object",
+                                  "properties": {
+                                    "value": {
+                                      "type": "string",
+                                      "enum": ["usable", "quarantined"]
+                                    },
+                                    "reason": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 4096
+                                    }
+                                  },
+                                  "required": ["value", "reason"],
+                                  "additionalProperties": false
+                                },
+                                "vessel": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": { "type": "string", "minLength": 1, "maxLength": 512 },
+                                    "placement": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "unplaced" }
+                                          },
+                                          "required": ["kind"],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "located" },
+                                            "storageId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 256
+                                            },
+                                            "slotId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 512
+                                            }
+                                          },
+                                          "required": ["kind", "storageId", "slotId"],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": ["name", "placement"],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "componentKey",
+                                "kind",
+                                "materialId",
+                                "lot",
+                                "quantity",
+                                "quantityBasis",
+                                "stockQuality",
+                                "vessel"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "componentKey": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256
+                                },
+                                "kind": { "type": "string", "const": "unidentified-physical" },
+                                "vessel": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": { "type": "string", "minLength": 1, "maxLength": 512 },
+                                    "placement": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "unplaced" }
+                                          },
+                                          "required": ["kind"],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "located" },
+                                            "storageId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 256
+                                            },
+                                            "slotId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 512
+                                            }
+                                          },
+                                          "required": ["kind", "storageId", "slotId"],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": ["name", "placement"],
+                                  "additionalProperties": false
+                                },
+                                "reason": { "type": "string", "minLength": 1, "maxLength": 4096 }
+                              },
+                              "required": ["componentKey", "kind", "vessel", "reason"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "componentKey": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256
+                                },
+                                "kind": { "type": "string", "const": "unobserved-physical" },
+                                "vessel": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": { "type": "string", "minLength": 1, "maxLength": 512 },
+                                    "placement": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "unplaced" }
+                                          },
+                                          "required": ["kind"],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "located" },
+                                            "storageId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 256
+                                            },
+                                            "slotId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 512
+                                            }
+                                          },
+                                          "required": ["kind", "storageId", "slotId"],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": ["name", "placement"],
+                                  "additionalProperties": false
+                                },
+                                "reason": { "type": "string", "minLength": 1, "maxLength": 4096 }
+                              },
+                              "required": ["componentKey", "kind", "vessel", "reason"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "componentKey": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256
+                                },
+                                "kind": { "type": "string", "const": "observed-missing" },
+                                "reason": { "type": "string", "minLength": 1, "maxLength": 4096 }
+                              },
+                              "required": ["componentKey", "kind", "reason"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "componentKey": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 256
+                                },
+                                "kind": { "type": "string", "const": "evidence-only" },
+                                "reason": { "type": "string", "minLength": 1, "maxLength": 4096 }
+                              },
+                              "required": ["componentKey", "kind", "reason"],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      },
+                      "materials": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": { "type": "string", "minLength": 1, "maxLength": 256 },
+                            "materialId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                            "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+                          },
+                          "required": ["key", "materialId", "fingerprint"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "targets": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "componentKey": { "type": "string", "minLength": 1, "maxLength": 256 },
+                            "lotId": {
+                              "anyOf": [
+                                { "type": "string", "minLength": 1, "maxLength": 256 },
+                                { "type": "null" }
+                              ]
+                            },
+                            "stockId": {
+                              "anyOf": [
+                                { "type": "string", "minLength": 1, "maxLength": 256 },
+                                { "type": "null" }
+                              ]
+                            },
+                            "vesselId": {
+                              "anyOf": [
+                                { "type": "string", "minLength": 1, "maxLength": 256 },
+                                { "type": "null" }
+                              ]
+                            }
+                          },
+                          "required": ["componentKey", "lotId", "stockId", "vesselId"],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": ["components", "materials", "targets"],
+                    "additionalProperties": false
+                  },
+                  "expectedPlanDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+                },
+                "required": [
+                  "project",
+                  "inventoryId",
+                  "kind",
+                  "operationId",
+                  "expectedRevision",
+                  "sourceText",
+                  "options",
+                  "expectedPlanDigest"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "arrivalId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "documentKey": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "expectedSha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+                  "kind": { "type": "string", "const": "arrival-document" }
+                },
+                "required": [
+                  "project",
+                  "inventoryId",
+                  "arrivalId",
+                  "documentKey",
+                  "expectedSha256",
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
               {
                 "type": "object",
                 "properties": {
@@ -59436,7 +60378,7 @@
                 "type": "object",
                 "properties": {
                   "ok": { "type": "boolean", "const": true },
-                  "kind": { "type": "string", "const": "benchling-capture-preview" },
+                  "kind": { "type": "string", "const": "arrival-preview" },
                   "preview": {
                     "type": "object",
                     "additionalProperties": {
@@ -59460,6 +60402,26 @@
                       ]
                     }
                   }
+                },
+                "required": ["ok", "kind", "preview"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                  "kind": { "type": "string", "const": "arrival-document" },
+                  "result": { "$ref": "#/properties/result/anyOf/0/properties/preview" }
+                },
+                "required": ["ok", "kind", "result"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                  "kind": { "type": "string", "const": "benchling-capture-preview" },
+                  "preview": { "$ref": "#/properties/result/anyOf/0/properties/preview" }
                 },
                 "required": ["ok", "kind", "preview"],
                 "additionalProperties": false
@@ -59693,7 +60655,7 @@
                       "status": { "type": "string", "const": "committed" },
                       "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
                       "operationId": {
-                        "$ref": "#/properties/result/anyOf/18/properties/execution/properties/inventoryId"
+                        "$ref": "#/properties/result/anyOf/20/properties/execution/properties/inventoryId"
                       },
                       "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
                       "actor": { "type": "string", "minLength": 1, "maxLength": 1024 },
@@ -59706,7 +60668,7 @@
                       "context": {
                         "type": "object",
                         "properties": {
-                          "version": { "type": "number", "enum": [1, 2, 3] },
+                          "version": { "type": "number", "enum": [1, 2, 3, 4] },
                           "principal": {
                             "anyOf": [
                               {
@@ -59738,7 +60700,7 @@
                             "properties": {
                               "kind": { "type": "string", "const": "local-profile" },
                               "profileKey": {
-                                "$ref": "#/properties/result/anyOf/18/properties/execution/properties/context/properties/principal/anyOf/0/properties/profileKey"
+                                "$ref": "#/properties/result/anyOf/20/properties/execution/properties/context/properties/principal/anyOf/0/properties/profileKey"
                               }
                             },
                             "required": ["kind", "profileKey"],
@@ -59771,7 +60733,7 @@
                   "kind": { "type": "string", "const": "operation" },
                   "receipt": {
                     "anyOf": [
-                      { "$ref": "#/properties/result/anyOf/18/properties/execution" },
+                      { "$ref": "#/properties/result/anyOf/20/properties/execution" },
                       { "type": "null" }
                     ]
                   }
@@ -59790,7 +60752,7 @@
                       "type": "object",
                       "properties": {
                         "request": { "$ref": "#/properties/result/anyOf/0/properties/preview" },
-                        "receipt": { "$ref": "#/properties/result/anyOf/18/properties/execution" }
+                        "receipt": { "$ref": "#/properties/result/anyOf/20/properties/execution" }
                       },
                       "required": ["request", "receipt"],
                       "additionalProperties": false

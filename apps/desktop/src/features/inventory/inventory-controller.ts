@@ -1,3 +1,4 @@
+import { InventoryArrivalSession } from './inventory-arrival-session';
 import {
   createInventoryState,
   type InventoryCommand,
@@ -13,6 +14,7 @@ import {
   type InventoryHierarchyChoices,
   type InventoryResolvedMappedTableOptions,
   type InventoryResolvedBenchlingCaptureOptions,
+  type InventoryResolvedArrivalOptions,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
@@ -24,6 +26,7 @@ import {
   inventoryApplyHierarchyRequestSchema,
   inventoryApplyMappedTableRequestSchema,
   inventoryApplyBenchlingCaptureRequestSchema,
+  inventoryApplyArrivalRequestSchema,
   inventoryReceiptSchema,
   type InventoryAcceptedRequest,
   type NativeInventoryHistoryEntry,
@@ -193,6 +196,7 @@ export class InventoryController {
   private readonly catalogCache = new Map<string, readonly InventoryEquipmentCatalogEntry[]>();
   private readonly labelSessions = new Map<string, InventoryLabelSession>();
   private readonly archiveSessions = new Map<string, InventoryArchiveSession>();
+  private readonly arrivalSessions = new Map<string, InventoryArrivalSession>();
   private readonly storageFreshnessPolicies = new Map<string, number | null>();
   private opening: Promise<void> | undefined;
   private unsubscribe: (() => void) | undefined;
@@ -214,6 +218,20 @@ export class InventoryController {
     if (!session) {
       session = new InventoryArchiveSession(source, this.client, output);
       this.archiveSessions.set(key, session);
+    }
+    return session;
+  }
+
+  arrivalSession(source: InventoryReadRequest): InventoryArrivalSession {
+    const key = scopeKey(source.project, source.inventoryId);
+    let session = this.arrivalSessions.get(key);
+    if (!session) {
+      session = new InventoryArrivalSession(
+        this.client,
+        source,
+        typeof localStorage === 'undefined' ? null : localStorage
+      );
+      this.arrivalSessions.set(key, session);
     }
     return session;
   }
@@ -823,6 +841,28 @@ export class InventoryController {
     );
   }
 
+  async receiveArrival(
+    sourceText: string,
+    options: InventoryResolvedArrivalOptions,
+    expectedPlanDigest: InventoryTableSha256
+  ): Promise<NativeInventoryReceipt | null> {
+    return this.sourceAttempt(
+      (data) =>
+        inventoryApplyArrivalRequestSchema.parse({
+          kind: 'receive-arrival',
+          project: data.project.projectId,
+          inventoryId: data.project.defaultInventoryId,
+          operationId: this.operationId(),
+          expectedRevision: data.state.revision,
+          sourceText,
+          options,
+          expectedPlanDigest,
+        }),
+      'Receive actual delivery',
+      'Preview the complete delivery before recording its arrival.'
+    );
+  }
+
   private async sourceAttempt(
     request: (data: InventoryData) => InventoryAcceptedRequest,
     summary: string,
@@ -917,6 +957,8 @@ export class InventoryController {
         return this.client.applyMappedTable(request);
       case 'import-benchling-capture':
         return this.client.applyBenchlingCapture(request);
+      case 'receive-arrival':
+        return this.client.applyArrival(request);
     }
   }
 

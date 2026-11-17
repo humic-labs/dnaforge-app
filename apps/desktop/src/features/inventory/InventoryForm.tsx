@@ -1,3 +1,4 @@
+import type { InventoryArrivalDialog } from './InventoryArrivalForm';
 import type { InventoryContentsDialog } from './InventoryContentsForm';
 import type { InventoryLotControlsDialog } from './InventoryLotControlsForm';
 import type { InventoryValidityDialog } from './InventoryValidityForms';
@@ -56,6 +57,7 @@ import {
 
 type OpenDialog = Exclude<
   InventoryDialog,
+  | InventoryArrivalDialog
   | InventoryContentsDialog
   | InventoryLotControlsDialog
   | InventoryValidityDialog

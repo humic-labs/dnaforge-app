@@ -103,7 +103,12 @@ function recorded(): InventoryState {
 describe('opening and expiry snapshot integrity', () => {
   it('upcasts actual v19 fields without changing lot controls, ancestry, recall map or clock', () => {
     const state = base();
-    const { openingObservations: _openings, validityFacts: _facts, ...rest } = state;
+    const {
+      arrivals: _arrivals,
+      openingObservations: _openings,
+      validityFacts: _facts,
+      ...rest
+    } = state;
     const previous = {
       ...rest,
       schema: 'dnaforge.inventory.v19',

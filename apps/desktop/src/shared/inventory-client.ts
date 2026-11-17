@@ -1,5 +1,7 @@
 import type {
   InventoryAvailability,
+  InventoryArrivalPreview,
+  InventoryArrivalDocumentRead,
   InventoryEquipmentCatalogEntry,
   InventoryEquipmentCatalogUpdatePreview,
   InventoryItemCodeResolution,
@@ -28,6 +30,9 @@ import type {
 } from '@waypoint/domain-services';
 import type { InventoryRenderedLabel } from '@waypoint/domain-services/inventory-label-types';
 import type {
+  InventoryPreviewArrivalRequest,
+  InventoryApplyArrivalRequest,
+  InventoryArrivalDocumentRequest,
   InventoryCatalogUpdatePreviewRequest,
   InventoryExportSnapshotRequest,
   InventoryPreviewImportRequest,
@@ -188,7 +193,16 @@ export type InventoryBenchlingCapturePreviewSnapshot = InventoryBenchlingCapture
   readonly principal: InventoryPrincipal;
 };
 
+export type InventoryArrivalPreviewSnapshot = InventoryArrivalPreview & {
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+};
+export type { InventoryArrivalDocumentRead };
+
 export interface InventoryClient {
+  previewArrival(input: InventoryPreviewArrivalRequest): Promise<InventoryArrivalPreviewSnapshot>;
+  applyArrival(input: InventoryApplyArrivalRequest): Promise<NativeInventoryExecution>;
+  arrivalDocument(input: InventoryArrivalDocumentRequest): Promise<InventoryArrivalDocumentRead>;
   previewBenchlingCapture(
     input: InventoryPreviewBenchlingCaptureRequest
   ): Promise<InventoryBenchlingCapturePreviewSnapshot>;
@@ -252,6 +266,9 @@ export function unavailableInventoryClient(): InventoryClient {
     message: 'Inventory requires the connected desktop owner.',
   });
   return {
+    previewArrival: unavailable,
+    applyArrival: unavailableMutation,
+    arrivalDocument: unavailable,
     previewBenchlingCapture: unavailable,
     applyBenchlingCapture: unavailableMutation,
     inspectBenchlingCapture: unavailable,
@@ -301,6 +318,9 @@ export type {
   InventoryPreviewSourceRevisionRequest,
   InventoryAcknowledgeSourceRequest,
   InventoryAcceptedRequest,
+  InventoryPreviewArrivalRequest,
+  InventoryApplyArrivalRequest,
+  InventoryArrivalDocumentRequest,
   InventoryCatalogUpdatePreviewRequest,
   InventoryExecuteRequest,
   InventoryHistoryRequest,

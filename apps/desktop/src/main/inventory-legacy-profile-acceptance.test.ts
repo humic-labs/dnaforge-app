@@ -13,6 +13,7 @@ import { openFileTestDb } from './__tests__/test-db';
 import { createNativeInventoryOwner } from './inventory-owner';
 import { createRegisteredProjectAuthority } from './registered-project-authority';
 import { nativeDocumentProfileKey } from './native-document-owner-identity';
+import { INVENTORY_SCHEMA } from '@waypoint/domain-services';
 import type { InventoryAcceptedRequest } from '../shared/inventory-command';
 
 const sourcePath = process.env.INVENTORY_LEGACY_PROFILE_SOURCE;
@@ -61,6 +62,8 @@ it.runIf(Boolean(sourcePath))(
             return owner.applyHierarchy(request);
           case 'receive-mapped-table':
             return owner.applyMappedTable(request);
+          case 'receive-arrival':
+            return owner.applyArrival(request);
           case 'import-benchling-capture':
             return owner.applyBenchlingCapture(request);
           default: {
@@ -80,7 +83,7 @@ it.runIf(Boolean(sourcePath))(
         expect(JSON.parse(row.state_json).schema).toBe(inventory.storedSchema);
         const scope = { project: row.project_id, inventoryId: inventory.inventoryId };
         const state = owner.inspect(scope)!;
-        expect(state.schema).toBe('dnaforge.inventory.v20');
+        expect(state.schema).toBe(INVENTORY_SCHEMA);
         expect(state.tableBindings).toEqual(
           Object.fromEntries(
             Object.entries(JSON.parse(row.state_json).tableBindings ?? {}).map(([key, value]) => [
@@ -116,15 +119,18 @@ it.runIf(Boolean(sourcePath))(
           )
         );
         expect(state.lotRecalls).toEqual(JSON.parse(row.state_json).lotRecalls ?? {});
-        expect(state.openingObservations).toEqual({});
-        expect(state.validityFacts).toEqual({});
+        expect(state.openingObservations).toEqual(
+          JSON.parse(row.state_json).openingObservations ?? {}
+        );
+        expect(state.validityFacts).toEqual(JSON.parse(row.state_json).validityFacts ?? {});
+        expect(state.arrivals).toEqual(JSON.parse(row.state_json).arrivals ?? {});
         for (const lot of Object.values(state.lots)) {
           const original = JSON.parse(row.state_json).lots[lot.id];
           expect(lot.controls).toEqual(original.controls ?? { kind: 'legacy-untracked' });
           if (original.lotConstraints) expect(lot.lotConstraints).toEqual(original.lotConstraints);
           else expect(lot.lotConstraints.knowledge).toBe('legacy-partial');
-          expect(lot.validity).toEqual({ kind: 'legacy-untracked' });
-          expect(lot.inheritedValidity).toEqual([]);
+          expect(lot.validity).toEqual(original.validity ?? { kind: 'legacy-untracked' });
+          expect(lot.inheritedValidity).toEqual(original.inheritedValidity ?? []);
           expect(lot.lotConstraints.lotIds).toContain(lot.id);
         }
         for (const [id, stock] of Object.entries(state.stocks)) {
@@ -132,9 +138,11 @@ it.runIf(Boolean(sourcePath))(
           if (original.lotConstraints)
             expect(stock.lotConstraints).toEqual(original.lotConstraints);
           else expect(stock.lotConstraints.knowledge).toBe('legacy-partial');
-          expect(stock.opening).toEqual({ kind: 'unobserved', observationId: null });
-          expect(stock.validity).toEqual({ kind: 'legacy-untracked' });
-          expect(stock.inheritedValidity).toEqual([]);
+          expect(stock.opening).toEqual(
+            original.opening ?? { kind: 'unobserved', observationId: null }
+          );
+          expect(stock.validity).toEqual(original.validity ?? { kind: 'legacy-untracked' });
+          expect(stock.inheritedValidity).toEqual(original.inheritedValidity ?? []);
           const saved = JSON.parse(row.state_json).stocks[id].quantity;
           expect(stock.quantity).toEqual(
             saved.kind === 'unknown' && saved.unit === undefined ? { ...saved, unit: 'uL' } : saved

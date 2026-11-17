@@ -107,6 +107,22 @@ function mapOrigin(
 function mapScientificReferences(state: InventoryState, resolve: ResolveMaterial): InventoryState {
   return {
     ...state,
+    arrivals: mapRecords(state.arrivals, (arrival, id) => ({
+      ...arrival,
+      components: arrival.components.map((component, index) => ({
+        ...component,
+        choice:
+          component.choice.kind === 'identified'
+            ? {
+                ...component.choice,
+                materialId: resolve(
+                  component.choice.materialId,
+                  `/arrivals/${pointerKey(id)}/components/${index}/choice/materialId`
+                ),
+              }
+            : component.choice,
+      })),
+    })),
     tableBindings: mapRecords(state.tableBindings, (binding, id) => ({
       ...binding,
       materialId: resolve(binding.materialId, `/tableBindings/${pointerKey(id)}/materialId`),
@@ -177,6 +193,7 @@ function mapAttribution(state: InventoryState, source: InventoryAdoptionSource):
     value.kind === 'available' ? value : { ...value, by: principal(value.by) };
   return {
     ...state,
+    arrivals: mapRecords(state.arrivals, (row) => ({ ...row, by: principal(row.by) })),
     openingObservations: mapRecords(state.openingObservations, (row) => ({
       ...row,
       by: principal(row.by),

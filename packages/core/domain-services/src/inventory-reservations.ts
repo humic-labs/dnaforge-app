@@ -55,6 +55,7 @@ type ReservationState = Pick<
   | 'temperatureClaims'
   | 'openingObservations'
   | 'validityFacts'
+  | 'arrivals'
 >;
 export interface InventoryReservationDraft extends Omit<ReservationState, 'reservations'> {
   readonly reservations: Record<string, InventoryReservation>;

@@ -1,3 +1,5 @@
+import type { InventoryArrival } from './inventory-arrival-types';
+export type * from './inventory-arrival-types';
 import type {
   InventoryOpeningState,
   InventoryOpeningObservation,
@@ -67,7 +69,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v20' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v21' as const;
+export const INVENTORY_VALIDITY_SCHEMA = 'dnaforge.inventory.v20' as const;
 export const INVENTORY_LOT_CONTROLS_SCHEMA = 'dnaforge.inventory.v19' as const;
 export const INVENTORY_AMOUNTS_SCHEMA = 'dnaforge.inventory.v18' as const;
 export const INVENTORY_CONTENTS_SCHEMA = 'dnaforge.inventory.v17' as const;
@@ -303,6 +306,7 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly arrivals: Readonly<Record<string, InventoryArrival>>;
   readonly openingObservations: Readonly<Record<string, InventoryOpeningObservation>>;
   readonly validityFacts: Readonly<Record<string, InventoryValidityFact>>;
   readonly lotRecalls: Readonly<Record<string, InventoryLotRecall>>;
@@ -859,6 +863,7 @@ export type InventoryTransition =
 export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
+    arrivals: Object.create(null) as Record<string, InventoryArrival>,
     openingObservations: Object.create(null) as Record<string, InventoryOpeningObservation>,
     validityFacts: Object.create(null) as Record<string, InventoryValidityFact>,
     lotRecalls: Object.create(null) as Record<string, InventoryLotRecall>,

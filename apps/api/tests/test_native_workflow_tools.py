@@ -946,3 +946,53 @@ async def test_inventory_source_revision_requires_write_and_preserves_verified_s
     await execute_native_workflow("inventory", {"operation": apply}, context)
     assert state["calls"][1]["command"] == "inventory.acknowledge-source"
     assert state["calls"][1]["request"] == {**apply, "kind": "acknowledge-table-source"}
+
+
+@pytest.mark.asyncio
+async def test_inventory_arrival_preserves_original_evidence_and_requires_current_write_grant(native):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    preview = {
+        "kind": "preview-arrival",
+        "project": "project",
+        "inventoryId": "inventory",
+        "sourceText": "original delivery packet\r\n",
+        "options": {"components": []},
+    }
+    await execute_native_workflow("inventory", {"operation": preview}, context)
+    assert state["calls"][0]["command"] == "inventory.preview-arrival"
+    assert state["calls"][0]["request"]["sourceText"] == preview["sourceText"]
+    document = {
+        "kind": "arrival-document",
+        "project": "project",
+        "inventoryId": "inventory",
+        "arrivalId": "arrival",
+        "documentKey": "packing",
+        "expectedSha256": "sha256:" + "0" * 64,
+    }
+    await execute_native_workflow("inventory", {"operation": document}, context)
+    assert state["calls"][1]["command"] == "inventory.arrival-document"
+    assert state["calls"][1]["request"] == {
+        key: value for key, value in document.items() if key != "kind"
+    }
+    apply = {
+        **preview,
+        "kind": "apply-arrival",
+        "operationId": "receive-once",
+        "expectedRevision": 0,
+        "expectedPlanDigest": "sha256:" + "1" * 64,
+        "options": {"components": [], "materials": [], "targets": []},
+    }
+    with pytest.raises(ToolExecutionFailure) as denied:
+        await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert denied.value.code == "INSUFFICIENT_SCOPE"
+    assert len(state["calls"]) == 2
+    state["scope"] = ["read-workspace", "write-workspace"]
+    await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert state["calls"][2]["command"] == "inventory.apply-arrival"
+    assert state["calls"][2]["request"] == {**apply, "kind": "receive-arrival"}
+    state["revoked"] = True
+    with pytest.raises(ToolExecutionFailure) as revoked:
+        await execute_native_workflow("inventory", {"operation": document}, context)
+    assert revoked.value.code == "GRANT_REVOKED"
+    assert len(state["calls"]) == 3

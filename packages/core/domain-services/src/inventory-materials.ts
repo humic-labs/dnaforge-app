@@ -47,6 +47,7 @@ import {
 import type { InventoryInheritedValidity } from './inventory-validity-types';
 
 export interface InventoryMaterialDraft {
+  readonly arrivals: InventoryState['arrivals'];
   readonly temperatureClaims: InventoryState['temperatureClaims'];
   readonly itemCodes: InventoryState['itemCodes'];
   readonly typeVersions: InventoryState['typeVersions'];

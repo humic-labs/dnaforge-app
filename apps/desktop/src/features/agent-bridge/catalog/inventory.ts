@@ -25,10 +25,11 @@ export const inventoryTools = defineRendererToolCatalog({
     inputSchemaJson: inventoryAgentJsonSchema,
     outputSchema: inventoryAgentOutputSchema,
     resolveInputAuthorization: (args) => ({
-      additionalRequiredCapabilities:
-        (args as { operation?: { kind?: string } }).operation?.kind === 'execute'
-          ? ['write-workspace']
-          : [],
+      additionalRequiredCapabilities: ['execute', 'apply-arrival'].includes(
+        (args as { operation?: { kind?: string } }).operation?.kind ?? ''
+      )
+        ? ['write-workspace']
+        : [],
     }),
     execution: resultSdkRendererTool(() => createInventoryTool()),
   },

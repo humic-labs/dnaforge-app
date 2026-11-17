@@ -23,10 +23,11 @@ function fixture(
     limits: { capacity: { kind: 'unknown' as const }, deadVolume: { kind: 'unknown' as const } },
     configuration: emptyInventoryPhysicalConfiguration(),
   });
-  const { lotRecalls, openingObservations, validityFacts, ...legacyBase } = createInventoryState();
+  const { arrivals, lotRecalls, openingObservations, validityFacts, ...legacyBase } =
+    createInventoryState();
   const state = {
     ...(schema === INVENTORY_SCHEMA
-      ? { ...legacyBase, lotRecalls, openingObservations, validityFacts }
+      ? { ...legacyBase, arrivals, lotRecalls, openingObservations, validityFacts }
       : legacyBase),
     schema,
     lastRecordedAt: 100,

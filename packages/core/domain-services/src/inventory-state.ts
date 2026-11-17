@@ -63,6 +63,7 @@ import { applyInventoryContentsCommand, inventoryVesselStockAdmission } from './
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
 interface Draft {
+  arrivals: InventoryState['arrivals'];
   openingObservations: Record<string, InventoryState['openingObservations'][string]>;
   validityFacts: Record<string, InventoryState['validityFacts'][string]>;
   lotRecalls: Record<string, InventoryState['lotRecalls'][string]>;
@@ -404,6 +405,7 @@ export function applyInventoryCommandBatch(
     return failure('CLOCK_REGRESSION', 'The trusted timestamp precedes the inventory clock floor.');
   const draft: Draft = {
     vesselBindings: state.vesselBindings,
+    arrivals: state.arrivals,
     openingObservations: Object.assign(Object.create(null), state.openingObservations),
     validityFacts: Object.assign(Object.create(null), state.validityFacts),
     lotRecalls: Object.assign(Object.create(null), state.lotRecalls),

@@ -1,3 +1,4 @@
+import type { InventoryArrivalDialog } from './InventoryArrivalForm';
 import type { InventoryContentsDialog } from './InventoryContentsForm';
 import type { InventoryData } from './inventory-controller';
 import type { InventoryValidityDialog } from './InventoryValidityForms';
@@ -95,6 +96,7 @@ export type InventorySelection =
 export type InventoryItem = { kind: 'storage' | 'vessel'; id: string };
 
 export type InventoryDialog =
+  | InventoryArrivalDialog
   | { kind: 'export-archive' }
   | { kind: 'import-archive' }
   | { kind: 'receive-table' }

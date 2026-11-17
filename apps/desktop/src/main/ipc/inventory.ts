@@ -4,6 +4,7 @@ import { ZodError } from 'zod';
 import { handleGroup } from '../../shared/ipc-contract';
 import { inventoryContract } from '../../shared/ipc/inventory.contract';
 import {
+  inventoryApplyArrivalRequestSchema,
   inventoryExecuteRequestSchema,
   inventoryApplyImportRequestSchema,
   inventoryApplyTableRequestSchema,
@@ -51,6 +52,7 @@ export function registerInventoryHandlers(options: {
     event: IpcMainInvokeEvent,
     input: unknown,
     kind:
+      | 'arrival'
       | 'commands'
       | 'adoption'
       | 'table'
@@ -78,21 +80,23 @@ export function registerInventoryHandlers(options: {
     let request;
     try {
       request =
-        kind === 'benchling-capture'
-          ? inventoryApplyBenchlingCaptureRequestSchema.parse(input)
-          : kind === 'commands'
-            ? inventoryExecuteRequestSchema.parse(input)
-            : kind === 'adoption'
-              ? inventoryApplyImportRequestSchema.parse(input)
-              : kind === 'table'
-                ? inventoryApplyTableRequestSchema.parse(input)
-                : kind === 'stocktake'
-                  ? inventoryApplyStocktakeRequestSchema.parse(input)
-                  : kind === 'hierarchy'
-                    ? inventoryApplyHierarchyRequestSchema.parse(input)
-                    : kind === 'mapped-table'
-                      ? inventoryApplyMappedTableRequestSchema.parse(input)
-                      : inventoryAcknowledgeSourceRequestSchema.parse(input);
+        kind === 'arrival'
+          ? inventoryApplyArrivalRequestSchema.parse(input)
+          : kind === 'benchling-capture'
+            ? inventoryApplyBenchlingCaptureRequestSchema.parse(input)
+            : kind === 'commands'
+              ? inventoryExecuteRequestSchema.parse(input)
+              : kind === 'adoption'
+                ? inventoryApplyImportRequestSchema.parse(input)
+                : kind === 'table'
+                  ? inventoryApplyTableRequestSchema.parse(input)
+                  : kind === 'stocktake'
+                    ? inventoryApplyStocktakeRequestSchema.parse(input)
+                    : kind === 'hierarchy'
+                      ? inventoryApplyHierarchyRequestSchema.parse(input)
+                      : kind === 'mapped-table'
+                        ? inventoryApplyMappedTableRequestSchema.parse(input)
+                        : inventoryAcknowledgeSourceRequestSchema.parse(input);
     } catch (error) {
       if (!(error instanceof ZodError || error instanceof InventoryValidationError)) throw error;
       return reject('INVALID_INVENTORY_INPUT', error.message);
@@ -109,35 +113,37 @@ export function registerInventoryHandlers(options: {
           );
       };
       assertCurrent();
-      return kind === 'benchling-capture'
-        ? owner.applyBenchlingCapture(request, assertCurrent, {
-            actor: `human:desktop:${event.sender.id}`,
-          })
-        : kind === 'commands'
-          ? owner.execute(request, assertCurrent, { actor: `human:desktop:${event.sender.id}` })
-          : kind === 'adoption'
-            ? owner.applyImport(request, assertCurrent, {
-                actor: `human:desktop:${event.sender.id}`,
-              })
-            : kind === 'table'
-              ? owner.applyTable(request, assertCurrent, {
+      return kind === 'arrival'
+        ? owner.applyArrival(request, assertCurrent, { actor: `human:desktop:${event.sender.id}` })
+        : kind === 'benchling-capture'
+          ? owner.applyBenchlingCapture(request, assertCurrent, {
+              actor: `human:desktop:${event.sender.id}`,
+            })
+          : kind === 'commands'
+            ? owner.execute(request, assertCurrent, { actor: `human:desktop:${event.sender.id}` })
+            : kind === 'adoption'
+              ? owner.applyImport(request, assertCurrent, {
                   actor: `human:desktop:${event.sender.id}`,
                 })
-              : kind === 'stocktake'
-                ? owner.applyStocktake(request, assertCurrent, {
+              : kind === 'table'
+                ? owner.applyTable(request, assertCurrent, {
                     actor: `human:desktop:${event.sender.id}`,
                   })
-                : kind === 'hierarchy'
-                  ? owner.applyHierarchy(request, assertCurrent, {
+                : kind === 'stocktake'
+                  ? owner.applyStocktake(request, assertCurrent, {
                       actor: `human:desktop:${event.sender.id}`,
                     })
-                  : kind === 'mapped-table'
-                    ? owner.applyMappedTable(request, assertCurrent, {
+                  : kind === 'hierarchy'
+                    ? owner.applyHierarchy(request, assertCurrent, {
                         actor: `human:desktop:${event.sender.id}`,
                       })
-                    : owner.acknowledgeSource(request, assertCurrent, {
-                        actor: `human:desktop:${event.sender.id}`,
-                      });
+                    : kind === 'mapped-table'
+                      ? owner.applyMappedTable(request, assertCurrent, {
+                          actor: `human:desktop:${event.sender.id}`,
+                        })
+                      : owner.acknowledgeSource(request, assertCurrent, {
+                          actor: `human:desktop:${event.sender.id}`,
+                        });
     } catch (error) {
       if (error instanceof NativeDocumentCommandError && error.stateChanged === false)
         return reject(error.code, error.message);
@@ -145,6 +151,15 @@ export function registerInventoryHandlers(options: {
     }
   };
   return handleGroup(inventoryContract, {
+    previewArrival: (event, request) => {
+      assertCaller(event);
+      return currentOwner().previewArrival(request);
+    },
+    arrivalDocument: (event, request) => {
+      assertCaller(event);
+      return currentOwner().arrivalDocument(request);
+    },
+    applyArrival: (event, request) => mutate(event, request, 'arrival'),
     previewBenchlingCapture: (event, request) => {
       assertCaller(event);
       return currentOwner().previewBenchlingCapture(request);

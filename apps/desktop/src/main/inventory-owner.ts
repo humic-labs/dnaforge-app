@@ -13,6 +13,8 @@ import {
   parseInventoryState,
   parseInventoryReceiveTableSource,
   inspectInventoryBenchlingCapture,
+  inventoryArrivalMaterialChoices,
+  type InventoryArrivalDocumentRead,
   type InventoryPrincipal,
   type InventoryEquipmentCatalogEntry,
   type InventoryEquipmentCatalogUpdatePreview,
@@ -31,6 +33,9 @@ import {
   type InventoryBenchlingCapturePreviewInput,
 } from '@waypoint/domain-services';
 import {
+  inventoryPreviewArrivalRequestSchema,
+  inventoryApplyArrivalRequestSchema,
+  inventoryArrivalDocumentRequestSchema,
   inventoryExecuteRequestSchema,
   inventoryApplyImportRequestSchema,
   inventoryExportSnapshotRequestSchema,
@@ -66,6 +71,7 @@ import {
   type NativeInventoryReceipt,
 } from '../shared/inventory-command';
 import type {
+  InventoryArrivalPreviewSnapshot,
   InventoryChanged,
   InventoryAvailabilitySnapshot,
   InventoryMaterial,
@@ -122,6 +128,8 @@ import {
   applyNativeInventoryMappedTable,
   nativeInventoryMappedTablePreview,
 } from './inventory-mapped-table';
+import { applyNativeInventoryArrival, nativeInventoryArrivalPreview } from './inventory-arrival';
+import { findNativeInventoryArrivalDocument } from './inventory-arrival-documents';
 import { findNativeInventorySourcePreimages } from './inventory-source-preimages';
 import {
   applyNativeInventoryBenchlingCapture,
@@ -471,7 +479,7 @@ export function createNativeInventoryOwner(options: {
         const previous = row ? stateFromRow(row) : createInventoryState();
         const recordedAt = observationTime(previous);
         const context = inventoryReceiptContextSchema.parse({
-          version: 3,
+          version: 4,
           principal: principal(invocation),
           authority,
         });
@@ -484,7 +492,51 @@ export function createNativeInventoryOwner(options: {
           currentRevision: previous.revision,
         });
         let result: InventoryTransition;
-        if ('kind' in request && request.kind === 'import-benchling-capture') {
+        if ('kind' in request && request.kind === 'receive-arrival') {
+          if (request.expectedRevision !== previous.revision)
+            return reject(
+              'REVISION_CONFLICT',
+              'Inventory changed after the delivery was previewed.'
+            );
+          if (Buffer.byteLength(canonical, 'utf8') > NATIVE_DOCUMENT_MAX_BODY_BYTES)
+            return reject(
+              'INVENTORY_ARRIVAL_TOO_LARGE',
+              'The encoded delivery request exceeds the inline native transport limit.'
+            );
+          const executionContext = {
+            at: recordedAt,
+            principal: context.principal,
+            authority: context.authority,
+          };
+          const preview = nativeInventoryArrivalPreview(
+            row ? previous : null,
+            importTarget(db, project, request.inventoryId, row),
+            request.sourceText,
+            request.options,
+            observeTableBindings(db, project, inventoryArrivalMaterialChoices(request.options)),
+            executionContext
+          );
+          if (preview.kind === 'blocked')
+            return reject(
+              preview.issues[0]?.code ?? 'INVENTORY_ARRIVAL_BLOCKED',
+              preview.issues[0]?.message ?? 'The delivery is blocked.'
+            );
+          if (preview.kind !== 'ready')
+            return reject(
+              'INVENTORY_ARRIVAL_NO_CHANGES',
+              'This delivery is already recorded and has no changes to apply.'
+            );
+          if (
+            preview.planDigest !== request.expectedPlanDigest ||
+            canonicalNativeMutationRequest(preview.options) !==
+              canonicalNativeMutationRequest(request.options)
+          )
+            return reject(
+              'INVENTORY_ARRIVAL_PLAN_CHANGED',
+              'The delivery, target or scientific bindings changed. Preview it again.'
+            );
+          result = applyNativeInventoryArrival(row ? previous : null, request, executionContext);
+        } else if ('kind' in request && request.kind === 'import-benchling-capture') {
           if (request.expectedRevision !== previous.revision)
             return reject(
               'REVISION_CONFLICT',
@@ -913,6 +965,69 @@ export function createNativeInventoryOwner(options: {
   };
 
   return {
+    previewArrival(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventoryArrivalPreviewSnapshot {
+      const request = inventoryPreviewArrivalRequestSchema.parse(input);
+      const project = resolveProject(request.project, false);
+      const assertProject = options.projectAuthority.capture(project.projectId, false);
+      const db = options.db();
+      assertProject();
+      const snapshot = db
+        .transaction(() => {
+          const row = inventory(db, request.inventoryId, project.projectId);
+          const state = row ? stateFromRow(row) : null;
+          const asOf = observationTime(state ?? createInventoryState());
+          const caller = principal(invocation);
+          const preview = nativeInventoryArrivalPreview(
+            state,
+            importTarget(db, project, request.inventoryId, row),
+            request.sourceText,
+            request.options,
+            observeTableBindings(db, project, inventoryArrivalMaterialChoices(request.options)),
+            { at: asOf, principal: caller, authority }
+          );
+          return structuredClone({ ...preview, asOf, principal: caller });
+        })
+        .deferred();
+      assertProject();
+      return snapshot;
+    },
+    arrivalDocument(input: unknown): InventoryArrivalDocumentRead {
+      const request = inventoryArrivalDocumentRequestSchema.parse(input);
+      const project = resolveProject(request.project, false);
+      const assertProject = options.projectAuthority.capture(project.projectId, false);
+      const db = options.db();
+      assertProject();
+      const result = db
+        .transaction((): InventoryArrivalDocumentRead => {
+          const row = inventory(db, request.inventoryId, project.projectId);
+          const state = row ? stateFromRow(row) : null;
+          const arrival = state?.arrivals[request.arrivalId];
+          if (!arrival)
+            return {
+              kind: 'unavailable',
+              code: 'INVENTORY_ARRIVAL_NOT_FOUND',
+              message: 'The recorded delivery is unavailable.',
+            };
+          const entries = (
+            db
+              .prepare('SELECT * FROM inventory_journal WHERE inventory_id=? ORDER BY revision ASC')
+              .all(request.inventoryId) as JournalRow[]
+          ).map((saved) => entryFromRow(saved, project.projectId));
+          if (
+            entries.length !== state!.revision ||
+            canonicalNativeMutationRequest(replayNativeInventoryJournal(entries)) !==
+              canonicalNativeMutationRequest(state)
+          )
+            return dataError();
+          return findNativeInventoryArrivalDocument(arrival, entries, request);
+        })
+        .deferred();
+      assertProject();
+      return structuredClone(result);
+    },
     previewBenchlingCapture(
       input: unknown,
       invocation: NativeInventoryInvocation = {}
@@ -1436,6 +1551,14 @@ export function createNativeInventoryOwner(options: {
       invocation: NativeInventoryInvocation = {}
     ): NativeInventoryExecution {
       return commit(inventoryApplyTableRequestSchema.parse(input), assertCurrent, invocation);
+    },
+
+    applyArrival(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): NativeInventoryExecution {
+      return commit(inventoryApplyArrivalRequestSchema.parse(input), assertCurrent, invocation);
     },
 
     applyBenchlingCapture(

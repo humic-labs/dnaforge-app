@@ -6,6 +6,9 @@ import {
   parseInventoryCommandBatch,
 } from '@waypoint/domain-services';
 import {
+  inventoryPreviewArrivalRequestSchema,
+  inventoryApplyArrivalRequestSchema,
+  inventoryArrivalDocumentRequestSchema,
   inventoryCatalogUpdatePreviewRequestSchema,
   inventoryResolveItemCodeRequestSchema,
   inventoryPrepareLabelRequestSchema,
@@ -36,6 +39,9 @@ const identity = z.string().min(1).max(256);
 const revision = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const scope = { project, inventoryId: identity };
 const plainInput = z.discriminatedUnion('kind', [
+  inventoryPreviewArrivalRequestSchema.extend({ kind: z.literal('preview-arrival') }).strict(),
+  inventoryApplyArrivalRequestSchema.extend({ kind: z.literal('apply-arrival') }).strict(),
+  inventoryArrivalDocumentRequestSchema.extend({ kind: z.literal('arrival-document') }).strict(),
   inventoryPreviewBenchlingCaptureRequestSchema.extend({ kind: z.literal('preview-benchling-capture') }).strict(),
   inventoryApplyBenchlingCaptureRequestSchema.extend({ kind: z.literal('apply-benchling-capture') }).strict(),
   inventoryInspectBenchlingCaptureRequestSchema
@@ -142,6 +148,8 @@ const material = z
   .object({ id: z.string(), name: z.string(), kind: z.string(), registryId: z.string().nullable() })
   .strict();
 export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
+  z.object({ ...ok, kind: z.literal('arrival-preview'), preview: jsonObjectSchema }).strict(),
+  z.object({ ...ok, kind: z.literal('arrival-document'), result: jsonObjectSchema }).strict(),
   z.object({ ...ok, kind: z.literal('benchling-capture-preview'), preview: jsonObjectSchema }).strict(),
   z
     .object({ ...ok, kind: z.literal('benchling-capture-inspection'), result: jsonObjectSchema })
@@ -206,6 +214,7 @@ export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
 ]);
 
 export const INVENTORY_DESCRIPTION =
+  'Record actual deliveries with preview-arrival and apply-arrival using exact application-owned dnaforge.inventory-arrival-source.v1 sourceText. Retain original inline supplier documents, explicit full/excerpt scope, package grouping and one reasoned component disposition: identified, unidentified-physical, unobserved-physical, observed-missing or evidence-only. A package batch is distinct from a component lot, product and delivery identity. Bind each identified component to a current admitted scientific material, explicit existing or new managed-unassessed lot, new movable vessel and explicit placement. Known amount needs a separate measurement or exact supported supplier quantity claim; unsupported activity units remain raw evidence and cannot become mass/volume/count. Supplier QC never releases local stock or lot assessment. Preview is read-only. Apply only ready resolved options, original sourceText, planDigest, revision and stable operationId in one atomic transaction, including metadata-only arrivals. Stable namespace plus arrivalId prevents re-receiving after use, movement, disposal or adoption; changed source or original choices need reconciliation. An unchanged delivery is no-change and writes no new receipt or event. A deliberately renamed physical delivery cannot be detected as a duplicate. Recover an uncertain result with the original operation receipt or identical saved request. Read arrival-document by arrivalId, documentKey and expectedSha256 for exact retained bytes through original or nested adopted history; no fetch, OCR or supplier format compatibility is implied. The existing encoded native request limit applies; never split a delivery silently. ' +
   'Opening and validity belong to explicit stock/material episodes. Use record-stock-opening with an observed timestamp or null; correct-stock-opening names the current observation and records opened or unobserved, never a silent reseal/reset. Use record-validity-decision for an independent stock/lot rule family and correct-validity-decision for its exact current head. Preserve sourceText and sourcePrecision separately from an explicit absolute cutoff or positive elapsed milliseconds after the original stock opening. A printed month/year is not a UTC instant or fixed duration. Unresolved and not-required are explicit reasoned decisions; no receipt, movement, quality release or new aliquot invents opening or clears another family. Derived material retains applicable source families and earliest physical derivation bounds, including known-zero destinations; late opening contradictions block rather than extend life. Read native availability.actions.reserve and actions.withdraw instead of filtering blocker codes: a consistently observed sealed stock with an applicable relative rule may reserve, while use requires recording opening first, optionally in the same batch. At native asOf equal to deadline, material is expired; nextBoundaryAt tells clients when to request a fresh native observation. No applicable opening-dependent rule means unobserved opening alone adds no use gate. Imported positive validity requires explicit local reassessment without manufacturing an opening observation; restrictive evidence remains blocking. Recover uncertain operations through their original saved receipt even after later expiry. ' +
   'For new supplier lots and derived preparations, compose create-lot, pool or dilute with manage-lot in the same execute batch. Manage-lot starts local assessment as unassessed; physical receive-lot-stock can record held material but does not release it. Use assess-lot with a reason for released, quarantined or rejected decisions. Stock set-quality remains an independent hold. Record-lot-recall and withdraw-lot-recall retain independent reasoned safety facts; release never clears a recall. Availability discloses all inherited lot restrictions and legacy-partial or untracked coverage. Transfers, preparations and reassociation retain prior lot constraints, so a new lot name cannot erase a hold or recall. Imported released assessments require explicit local reassessment; imported active recalls remain blocking until explicit local withdrawal. Use the original operation receipt for uncertain outcomes. ' +
   'Stock balances have an explicit measurement basis: volume, mass, amount of substance, or whole-item count. Send non-negative decimal strings and an explicit supported unit for known and unknown quantities. Canonical readback uses uL/ng/nmol/item; unknown amount retains its unit. Unitless unknown input is only the retained legacy volume contract. Never interpret package count as content amount or infer density, molecular weight or enzyme activity. Consume, transfer, reserve and fulfill only within the stock basis; ordinary reconciliation or observation application cannot change dimension. Physical capacity/dead-volume and pool/dilute remain volume-specific. Non-volume transfer into existing stock supports unknown mixing only; homogeneous concentration mixing requires volumes. ' +

@@ -2,6 +2,10 @@ import { z } from 'zod';
 import { INVENTORY_LABEL_MEDIA_PROFILE_IDS } from '@waypoint/domain-services/inventory-label-types';
 import {
   MAX_INVENTORY_BATCH_COMMANDS,
+  INVENTORY_AMOUNT_UNITS,
+  type InventoryAmountUnit,
+  type InventoryArrivalChoices,
+  type InventoryResolvedArrivalOptions,
   parseInventoryCommandBatch,
   type InventoryCommandBatch,
   type InventoryTableChoices,
@@ -35,7 +39,7 @@ export const inventoryPrincipalSchema = z.discriminatedUnion('kind', [
 
 export const inventoryReceiptContextSchema = z
   .object({
-    version: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    version: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
     principal: inventoryPrincipalSchema,
     authority: z.object({ kind: z.literal('local-profile'), profileKey }).strict(),
   })
@@ -104,6 +108,138 @@ export const inventoryResolvedTableOptionsSchema = z
   .object({
     ...tableOptions,
     materials: z.array(tableResolvedMaterial),
+  })
+  .strict();
+
+const arrivalReason = z.string().min(1).max(4096);
+const arrivalPlacement = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('unplaced') }).strict(),
+  z
+    .object({ kind: z.literal('located'), storageId: identity, slotId: z.string().min(1).max(512) })
+    .strict(),
+]);
+const arrivalVessel = z
+  .object({ name: z.string().min(1).max(512), placement: arrivalPlacement })
+  .strict();
+const arrivalUnit = z.enum([...INVENTORY_AMOUNT_UNITS] as [
+  InventoryAmountUnit,
+  ...InventoryAmountUnit[],
+]);
+const arrivalQuantity = z.discriminatedUnion('kind', [
+  z
+    .object({ kind: z.literal('known'), value: z.string().min(1).max(128), unit: arrivalUnit })
+    .strict(),
+  z.object({ kind: z.literal('unknown'), unit: arrivalUnit }).strict(),
+]);
+const arrivalQuantityBasis = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('measurement'), reason: arrivalReason }).strict(),
+  z
+    .object({ kind: z.literal('supplier-declared'), claimKey: identity, reason: arrivalReason })
+    .strict(),
+  z.object({ kind: z.literal('unknown'), reason: arrivalReason }).strict(),
+]);
+const arrivalLot = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('existing'), lotId: identity, reason: arrivalReason }).strict(),
+  z.object({ kind: z.literal('unattributed'), reason: arrivalReason }).strict(),
+  z
+    .object({
+      kind: z.literal('new'),
+      lotKey: identity,
+      name: z.string().min(1).max(512),
+      supplier: z.string().min(1).max(512),
+      lotNumber: z.string().min(1).max(512),
+      managementReason: arrivalReason,
+    })
+    .strict(),
+]);
+export const inventoryArrivalOptionsSchema = z
+  .object({
+    components: z.array(
+      z.discriminatedUnion('kind', [
+        z
+          .object({
+            componentKey: identity,
+            kind: z.literal('identified'),
+            materialId: identity,
+            lot: arrivalLot,
+            quantity: arrivalQuantity,
+            quantityBasis: arrivalQuantityBasis,
+            stockQuality: z
+              .object({ value: z.enum(['usable', 'quarantined']), reason: arrivalReason })
+              .strict(),
+            vessel: arrivalVessel,
+          })
+          .strict(),
+        z
+          .object({
+            componentKey: identity,
+            kind: z.literal('unidentified-physical'),
+            vessel: arrivalVessel,
+            reason: arrivalReason,
+          })
+          .strict(),
+        z
+          .object({
+            componentKey: identity,
+            kind: z.literal('unobserved-physical'),
+            vessel: arrivalVessel,
+            reason: arrivalReason,
+          })
+          .strict(),
+        z
+          .object({
+            componentKey: identity,
+            kind: z.literal('observed-missing'),
+            reason: arrivalReason,
+          })
+          .strict(),
+        z
+          .object({
+            componentKey: identity,
+            kind: z.literal('evidence-only'),
+            reason: arrivalReason,
+          })
+          .strict(),
+      ])
+    ),
+  })
+  .strict();
+export const inventoryResolvedArrivalOptionsSchema = inventoryArrivalOptionsSchema
+  .extend({
+    materials: z.array(tableResolvedMaterial),
+    targets: z.array(
+      z
+        .object({
+          componentKey: identity,
+          lotId: identity.nullable(),
+          stockId: identity.nullable(),
+          vesselId: identity.nullable(),
+        })
+        .strict()
+    ),
+  })
+  .strict();
+export const inventoryPreviewArrivalRequestSchema = inventoryReadRequestSchema
+  .extend({
+    sourceText: z.string().min(1),
+    options: inventoryArrivalOptionsSchema,
+  })
+  .strict();
+export const inventoryApplyArrivalRequestSchema = inventoryReadRequestSchema
+  .extend({
+    kind: z.literal('receive-arrival'),
+    operationId: identity,
+    expectedRevision: revision,
+    sourceText: z.string().min(1),
+    options: inventoryResolvedArrivalOptionsSchema,
+    expectedPlanDigest: digest,
+  })
+  .strict();
+export const inventoryArrivalDocumentRequestSchema = inventoryReadRequestSchema
+  .extend({
+    arrivalId: identity,
+    documentKey: identity,
+    expectedSha256: digest,
   })
   .strict();
 
@@ -682,6 +818,7 @@ export const inventoryAcceptedRequestSchema = z.union([
   inventoryApplyHierarchyRequestSchema,
   inventoryApplyMappedTableRequestSchema,
   inventoryApplyBenchlingCaptureRequestSchema,
+  inventoryApplyArrivalRequestSchema,
 ]);
 
 export const inventoryOperationRequestSchema = inventoryReadRequestSchema
@@ -719,6 +856,19 @@ export const inventoryReceiptSchema = z
   })
   .strict();
 
+export type InventoryPreviewArrivalRequest = InventoryReadRequest & {
+  readonly sourceText: string;
+  readonly options: InventoryArrivalChoices;
+};
+export type InventoryApplyArrivalRequest = InventoryReadRequest & {
+  readonly kind: 'receive-arrival';
+  readonly operationId: string;
+  readonly expectedRevision: number;
+  readonly sourceText: string;
+  readonly options: InventoryResolvedArrivalOptions;
+  readonly expectedPlanDigest: `sha256:${string}`;
+};
+export type InventoryArrivalDocumentRequest = z.infer<typeof inventoryArrivalDocumentRequestSchema>;
 export type InventoryReadRequest = z.infer<typeof inventoryReadRequestSchema>;
 export type InventoryInspectBenchlingCaptureRequest = z.infer<
   typeof inventoryInspectBenchlingCaptureRequestSchema
@@ -821,7 +971,8 @@ export type InventoryAcceptedRequest =
   | InventoryAcknowledgeSourceRequest
   | InventoryApplyHierarchyRequest
   | InventoryApplyMappedTableRequest
-  | InventoryApplyBenchlingCaptureRequest;
+  | InventoryApplyBenchlingCaptureRequest
+  | InventoryApplyArrivalRequest;
 export type InventoryStorageConditionsRequest = z.infer<
   typeof inventoryStorageConditionsRequestSchema
 >;

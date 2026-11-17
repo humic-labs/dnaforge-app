@@ -422,7 +422,7 @@ it('enforces opening and exact expiry through native HTTP, trusted clocks, recei
       'inventory.execute',
       receiveRequest
     );
-    expect(receiveReceipt).toMatchObject({ status: 'committed', context: { version: 3 } });
+    expect(receiveReceipt).toMatchObject({ status: 'committed', context: { version: 4 } });
     await execute('unobserved-alone-does-not-block-untracked-use', [consume('legacy')]);
     await execute('retain-printed-month-as-unresolved-evidence', [
       {

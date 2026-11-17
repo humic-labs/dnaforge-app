@@ -23,6 +23,7 @@ import type {
 import { NATIVE_DOCUMENT_MAX_BODY_BYTES } from '../shared/native-document-transport';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import { applyNativeInventoryMappedTable } from './inventory-mapped-table';
+import { applyNativeInventoryArrival } from './inventory-arrival';
 import { applyNativeInventoryBenchlingCapture } from './inventory-benchling-application';
 import { applyNativeInventoryTable } from './inventory-table';
 import { applyNativeInventoryHierarchy } from './inventory-hierarchy';
@@ -90,7 +91,7 @@ export function applyNativeInventoryAdoption(
   request: InventoryApplyImportRequest,
   context: InventoryExecutionContext,
   depth = 0,
-  replay?: { readonly receiptContextVersion: 1 | 2 | 3 | undefined }
+  replay?: { readonly receiptContextVersion: 1 | 2 | 3 | 4 | undefined }
 ) {
   const archive = parseInventoryArchive(request.sourceText, nativeInventoryArchiveRuntime, {
     depth,
@@ -114,6 +115,16 @@ export function applyNativeInventoryAdoption(
   )
     throw new Error(
       'INVENTORY_DATA_INVALID: A pre-V3 receipt cannot adopt an opening and validity archive.'
+    );
+  if (
+    replay &&
+    (replay.receiptContextVersion ?? 1) < 4 &&
+    Number(
+      archive.document.content.source.storedSchema?.match(/^dnaforge\.inventory\.v([1-9]\d*)$/)?.[1]
+    ) >= 21
+  )
+    throw new Error(
+      'INVENTORY_DATA_INVALID: A pre-V4 receipt cannot adopt an actual-arrival archive.'
     );
   const preview = inventoryImportPreview(
     archive,
@@ -174,6 +185,7 @@ export function replayNativeInventoryJournal(
     applyNativeInventoryHierarchy,
     applyNativeInventorySourceRevision,
     applyNativeInventoryMappedTable,
-    applyNativeInventoryBenchlingCapture
+    applyNativeInventoryBenchlingCapture,
+    applyNativeInventoryArrival
   );
 }

@@ -17,6 +17,7 @@ import {
   type InventoryApplyHierarchyRequest,
   type InventoryApplyMappedTableRequest,
   type InventoryApplyBenchlingCaptureRequest,
+  type InventoryApplyArrivalRequest,
   type InventoryAcknowledgeSourceRequest,
   type NativeInventoryHistoryEntry,
 } from '../shared/inventory-command';
@@ -61,7 +62,7 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryApplyImportRequest,
     context: InventoryExecutionContext,
-    receiptContextVersion: 1 | 2 | 3 | undefined
+    receiptContextVersion: 1 | 2 | 3 | 4 | undefined
   ) => InventoryTransition,
   table: (
     target: InventoryState | null,
@@ -91,6 +92,11 @@ export function replayNativeInventoryEntries(
   benchlingCapture: (
     target: InventoryState | null,
     request: InventoryApplyBenchlingCaptureRequest,
+    context: InventoryExecutionContext
+  ) => InventoryTransition,
+  arrival?: (
+    target: InventoryState | null,
+    request: InventoryApplyArrivalRequest,
     context: InventoryExecutionContext
   ) => InventoryTransition
 ): InventoryState {
@@ -138,7 +144,13 @@ export function replayNativeInventoryEntries(
     if (request.expectedRevision !== state.revision)
       throw new Error('INVENTORY_DATA_INVALID: The saved inventory journal is not contiguous.');
     let result: InventoryTransition;
-    if ('kind' in request && request.kind === 'import-benchling-capture') {
+    if ('kind' in request && request.kind === 'receive-arrival') {
+      if (contextVersion < 4 || !context || !arrival)
+        throw new Error(
+          'INVENTORY_DATA_INVALID: Actual arrivals require V4 native receipt semantics.'
+        );
+      result = arrival(state.revision === 0 ? null : state, request, context);
+    } else if ('kind' in request && request.kind === 'import-benchling-capture') {
       if (!context)
         throw new Error(
           'INVENTORY_DATA_INVALID: A physical capture import requires its native receipt context.'
@@ -215,6 +227,10 @@ export function replayNativeInventoryEntries(
     )
       throw new Error(
         'INVENTORY_DATA_INVALID: Opening and validity cannot enter through pre-V3 receipt semantics.'
+      );
+    if (contextVersion < 4 && Object.keys(result.state.arrivals).length > 0)
+      throw new Error(
+        'INVENTORY_DATA_INVALID: Actual arrivals cannot enter through pre-V4 receipt semantics.'
       );
     state = cumulativeLotSemantics
       ? result.state

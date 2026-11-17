@@ -1,3 +1,5 @@
+import { validateInventoryArrivalState } from './inventory-arrival-record-validation';
+import type { InventoryArrival } from './inventory-arrival-types';
 import { inventoryIdentityMaps } from './inventory-identity';
 import { emptyInventoryStockValidity, emptyInventoryLotValidity } from './inventory-validity';
 import { validateInventoryValidityState } from './inventory-validity-validation';
@@ -73,6 +75,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_VALIDITY_SCHEMA,
   INVENTORY_LOT_CONTROLS_SCHEMA,
   INVENTORY_AMOUNTS_SCHEMA,
   INVENTORY_HIERARCHY_SCHEMA,
@@ -1006,6 +1009,200 @@ const sourceReference = fields('Source reference', {
   readAt: text('Source read date', 10, true, '^\\d{4}-\\d{2}-\\d{2}$'),
   documentRevision: nullable(text('Source document revision')),
   sha256: nullable(text('Source hash', 64, true, '^[a-f0-9]{64}$')),
+});
+const sha256: Codec<InventoryArrival['sourceSha256']> = text(
+  'Arrival SHA-256',
+  71,
+  false,
+  '^sha256:[a-f0-9]{64}$'
+) as Codec<InventoryArrival['sourceSha256']>;
+const arrivalKey = text('Exact arrival source key', 1024);
+const arrivalLabel = text('Arrival source text', 1024);
+const arrivalLargeText: Codec<string> = {
+  schema: { type: 'string', maxLength: 17 * 1024 * 1024 },
+  parse(value) {
+    if (typeof value !== 'string' || value.length > 17 * 1024 * 1024 || value.includes('\0'))
+      return invalid('Retained arrival text must fit the inline limit without null characters.');
+    return value;
+  },
+};
+const arrivalNullableText = nullable(text('Arrival source identifier', 4096));
+const arrivalPackage = fields('Received package', {
+  key: arrivalKey,
+  label: arrivalLabel,
+  productCode: arrivalNullableText,
+  packagingBatch: arrivalNullableText,
+});
+const arrivalSourceComponentFields = {
+  key: arrivalKey,
+  packageKey: nullable(arrivalKey),
+  label: arrivalLabel,
+  productCode: arrivalNullableText,
+  componentBatch: arrivalNullableText,
+};
+const arrivalQuantityBasis = union('Original received quantity basis', [
+  fields('Measured receiving quantity', { kind: literal('measurement'), reason }),
+  fields('Supplier declared receiving quantity', {
+    kind: literal('supplier-declared'),
+    claimKey: arrivalKey,
+    reason,
+  }),
+  fields('Unknown receiving quantity', { kind: literal('unknown'), reason }),
+]);
+const arrivalVessel = fields('Original received vessel', { name, placement: vesselPlacement });
+const arrivalComponentChoice = union('Original component disposition', [
+  fields('Identified received component', {
+    componentKey: arrivalKey,
+    kind: literal('identified'),
+    materialId: id,
+    lot: union('Original received lot choice', [
+      fields('Selected existing lot', { kind: literal('existing'), lotId: id, reason }),
+      fields('Unattributed received material', { kind: literal('unattributed'), reason }),
+      fields('Created managed received lot', {
+        kind: literal('new'),
+        lotKey: arrivalKey,
+        name,
+        supplier: name,
+        lotNumber: text('Supplier lot number', 4096),
+        managementReason: reason,
+      }),
+    ]),
+    quantity: storedQuantity,
+    quantityBasis: arrivalQuantityBasis,
+    stockQuality: fields('Initial stock quality', { value: quality, reason }),
+    vessel: arrivalVessel,
+  }),
+  fields('Unidentified received physical contents', {
+    componentKey: arrivalKey,
+    kind: literal('unidentified-physical'),
+    vessel: arrivalVessel,
+    reason,
+  }),
+  fields('Unobserved received physical contents', {
+    componentKey: arrivalKey,
+    kind: literal('unobserved-physical'),
+    vessel: arrivalVessel,
+    reason,
+  }),
+  fields('Observed missing delivery component', {
+    componentKey: arrivalKey,
+    kind: literal('observed-missing'),
+    reason,
+  }),
+  fields('Evidence only delivery component', {
+    componentKey: arrivalKey,
+    kind: literal('evidence-only'),
+    reason,
+  }),
+]);
+const arrivalSelection = fields('Pinned supplier document selection', {
+  documentKey: arrivalKey,
+  expectedSha256: sha256,
+  locator: union('Document selection locator', [
+    fields('UTF8 byte selection', {
+      kind: literal('utf8-byte-range'),
+      startByte: integer('UTF8 selection start', 0, Number.MAX_SAFE_INTEGER),
+      endByte: integer('UTF8 selection end', 1, Number.MAX_SAFE_INTEGER),
+    }),
+    fields('JSON source pointer', { kind: literal('json-pointer'), pointer: arrivalLargeText }),
+    fields('Operator cited PDF region', {
+      kind: literal('pdf-region'),
+      page1Based: integer('PDF page', 1, Number.MAX_SAFE_INTEGER),
+      description: reason,
+    }),
+  ]),
+  verbatim: arrivalLargeText,
+});
+const arrivalClaim = fields('Recorded supplier claim', {
+  key: arrivalKey,
+  subject: union('Supplier claim subject', [
+    fields('Delivery claim subject', { kind: literal('delivery') }),
+    fields('Package claim subject', { kind: literal('package'), packageKey: arrivalKey }),
+    fields('Component claim subject', { kind: literal('component'), componentKey: arrivalKey }),
+  ]),
+  selection: arrivalSelection,
+  claim: union('Supplier claim interpretation', [
+    fields('Supplier QC claim', { kind: literal('supplier-qc'), resultText: arrivalLargeText }),
+    fields('Supplier quantity claim', {
+      kind: literal('quantity'),
+      valueLexeme: text('Source numeric lexeme', 4096),
+      unitText: text('Source quantity unit', 4096),
+    }),
+    fields('Supplier identifier claim', {
+      kind: literal('identifier'),
+      role: union('Supplier identifier role', [
+        literal('product'),
+        literal('packaging-batch'),
+        literal('component-batch'),
+      ]),
+      value: text('Source identifier value', 4096),
+    }),
+    fields('Supplier date or condition claim', {
+      kind: literal('date-or-condition'),
+      text: arrivalLargeText,
+    }),
+  ]),
+  verification: union('Selection verification', [
+    literal('exact-text-selection'),
+    literal('operator-cited-pdf-region'),
+  ]),
+});
+const arrivalRecord: Codec<InventoryArrival> = fields('Immutable arrival record', {
+  id,
+  identity: fields('Physical delivery identity', {
+    namespace: text('Arrival namespace', 64, true, '^[a-z][a-z0-9._:-]{0,63}$'),
+    arrivalId: arrivalKey,
+  }),
+  sourceSha256: sha256,
+  admissionSha256: sha256,
+  supplier: nullable(arrivalLabel),
+  observedAt: deadline,
+  observationReason: reason,
+  scope: fields('Observed delivery scope', {
+    kind: union('Delivery scope', [
+      literal('selected-components'),
+      literal('complete-listed-manifest'),
+    ]),
+    reason,
+  }),
+  documents: array(
+    fields('Retained supplier document metadata', {
+      key: arrivalKey,
+      mediaType: union('Supplier document media', [
+        literal('text/plain'),
+        literal('text/csv'),
+        literal('application/json'),
+        literal('application/pdf'),
+      ]),
+      reference: nullable(sourceReference),
+      coverage: union('Document coverage', [
+        fields('Full retained original', { kind: literal('full') }),
+        fields('Retained document excerpt', { kind: literal('excerpt'), reason }),
+      ]),
+      sha256,
+      byteLength: integer('Retained byte length', 0, Number.MAX_SAFE_INTEGER),
+    }),
+    Number.MAX_SAFE_INTEGER
+  ),
+  packages: array(arrivalPackage, Number.MAX_SAFE_INTEGER),
+  claims: array(arrivalClaim, Number.MAX_SAFE_INTEGER),
+  components: array(
+    fields('Original received component', {
+      ...arrivalSourceComponentFields,
+      choice: arrivalComponentChoice,
+      target: fields('Original component physical targets', {
+        componentKey: arrivalKey,
+        lotId: nullable(id),
+        stockId: nullable(id),
+        vesselId: nullable(id),
+      }),
+      receivedQuantity: nullable(storedQuantity),
+    }),
+    Number.MAX_SAFE_INTEGER,
+    1
+  ),
+  at: timestamp,
+  by: recordedPrincipal,
 });
 const openingInputFields = { id, stockId: id, source: nullable(sourceReference), reason };
 const openingRecordedFields = { ...openingInputFields, at: timestamp, by: recordedPrincipal };
@@ -2596,7 +2793,8 @@ function vesselBindings(value: unknown): Record<string, InventoryVesselBinding> 
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const controlled = current || row.schema === INVENTORY_LOT_CONTROLS_SCHEMA;
+  const validityRecords = current || row.schema === INVENTORY_VALIDITY_SCHEMA;
+  const controlled = validityRecords || row.schema === INVENTORY_LOT_CONTROLS_SCHEMA;
   const amounts = controlled || row.schema === INVENTORY_AMOUNTS_SCHEMA;
   const contents = amounts || row.schema === INVENTORY_CONTENTS_SCHEMA;
   const hierarchySources = contents || row.schema === INVENTORY_HIERARCHY_SCHEMA;
@@ -2616,6 +2814,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_VALIDITY_SCHEMA),
       literal(INVENTORY_LOT_CONTROLS_SCHEMA),
       literal(INVENTORY_AMOUNTS_SCHEMA),
       literal(INVENTORY_CONTENTS_SCHEMA),
@@ -2638,6 +2837,9 @@ export function parseInventoryState(value: unknown): InventoryState {
     ]),
     revision,
     ...(current
+      ? { arrivals: { schema: { type: 'object' }, parse: (input: unknown) => input } }
+      : {}),
+    ...(validityRecords
       ? {
           openingObservations: { schema: { type: 'object' }, parse: (input: unknown) => input },
           validityFacts: { schema: { type: 'object' }, parse: (input: unknown) => input },
@@ -2748,10 +2950,13 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   let state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    openingObservations: current
+    arrivals: current
+      ? records(shape.arrivals, (raw) => arrivalRecord.parse(raw))
+      : Object.create(null),
+    openingObservations: validityRecords
       ? records(shape.openingObservations, (raw) => openingObservationRecord.parse(raw))
       : Object.create(null),
-    validityFacts: current
+    validityFacts: validityRecords
       ? records(shape.validityFacts, (raw) => validityFactRecord.parse(raw))
       : Object.create(null),
     lotRecalls: controlled
@@ -2833,7 +3038,7 @@ export function parseInventoryState(value: unknown): InventoryState {
     storage,
     vessels,
     stocks: records(shape.stocks, (raw): InventoryStock => {
-      if (current) return stockRecord.parse(raw);
+      if (validityRecords) return stockRecord.parse(raw);
       if (controlled)
         return { ...controlledStockRecord.parse(raw), ...emptyInventoryStockValidity() };
       const constraints: InventoryLotConstraints = { knowledge: 'legacy-partial', lotIds: [] };
@@ -2874,7 +3079,7 @@ export function parseInventoryState(value: unknown): InventoryState {
     }),
     lots: material
       ? records(shape.lots, (raw): InventoryLot => {
-          if (current) return lotRecord.parse(raw);
+          if (validityRecords) return lotRecord.parse(raw);
           if (controlled)
             return { ...controlledLotRecord.parse(raw), ...emptyInventoryLotValidity() };
           const legacy = ((): Omit<
@@ -3006,6 +3211,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   }
   validateState(state);
   try {
+    validateInventoryArrivalState(state);
     validateInventoryValidityState(state);
     validateInventoryItemCodes(state);
     validateInventoryTemperatureState(state);

@@ -5,6 +5,11 @@ import type {
   InventoryState,
 } from '@waypoint/domain-services';
 import type {
+  InventoryPreviewArrivalRequest,
+  InventoryApplyArrivalRequest,
+  InventoryArrivalDocumentRequest,
+  InventoryArrivalPreviewSnapshot,
+  InventoryArrivalDocumentRead,
   InventoryChanged,
   InventoryInspectBenchlingCaptureRequest,
   InventoryBenchlingCaptureSnapshot,
@@ -53,6 +58,15 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  previewArrival: invoke<
+    [request: InventoryPreviewArrivalRequest],
+    InventoryArrivalPreviewSnapshot
+  >(),
+  applyArrival: invoke<[request: InventoryApplyArrivalRequest], NativeInventoryExecution>(),
+  arrivalDocument: invoke<
+    [request: InventoryArrivalDocumentRequest],
+    InventoryArrivalDocumentRead
+  >(),
   previewBenchlingCapture: invoke<
     [request: InventoryPreviewBenchlingCaptureRequest],
     InventoryBenchlingCapturePreviewSnapshot

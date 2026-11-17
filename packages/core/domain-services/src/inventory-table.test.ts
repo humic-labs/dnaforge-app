@@ -534,6 +534,7 @@ describe('strict canonical receive tables', () => {
       hierarchyBindings: _hierarchy,
       tableBindings: _bindings,
       observations: _observations,
+      arrivals: _arrivals,
       lotRecalls: _recalls,
       openingObservations: _openingObservations,
       validityFacts: _validityFacts,

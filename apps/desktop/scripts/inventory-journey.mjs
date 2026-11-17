@@ -1,4 +1,12 @@
 import {
+  runInventoryArrivalJourney,
+  runInventoryArrivalResume,
+  runInventoryArrivalReopen,
+  runInventoryArrivalComponents,
+  runInventoryArrivalComponentsResume,
+  runInventoryArrivalComponentsReopen,
+} from './journeys/inventory-arrivals.mjs';
+import {
   runInventoryOpeningJourney,
   runInventoryOpeningResume,
   runInventoryOpeningReopen,
@@ -140,6 +148,12 @@ assert.ok(
     'amounts-resume',
     'amounts-reopen',
     'refresh-fixture',
+    'arrival',
+    'arrival-resume',
+    'arrival-reopen',
+    'arrival-components',
+    'arrival-components-resume',
+    'arrival-components-reopen',
     'lots',
     'lots-resume',
     'lots-reopen',
@@ -736,6 +750,55 @@ try {
     );
   }
 
+  if (stage === 'arrival' || stage === 'arrival-resume' || stage === 'arrival-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass an exact native21 inventory fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    if (stage === 'arrival-resume') {
+      const existing = page.getByTestId('inventory-physical-dialog');
+      for (let attempt = 0; attempt < 3 && (await existing.count()); attempt++)
+        await page.keyboard.press('Escape');
+      await expect(existing).toBeHidden();
+    }
+    await openInventory(fixture.project.name);
+    receipt.expected = await (
+      stage === 'arrival'
+        ? runInventoryArrivalJourney
+        : stage === 'arrival-resume'
+          ? runInventoryArrivalResume
+          : runInventoryArrivalReopen
+    )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+    writeFileSync(
+      path.join(out, 'arrival-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
+  if (
+    ['arrival-components', 'arrival-components-resume', 'arrival-components-reopen'].includes(stage)
+  ) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the exact completed first arrival or component checkpoint fixture.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    if (stage === 'arrival-components-resume') {
+      const existing = page.getByTestId('inventory-physical-dialog');
+      for (let attempt = 0; attempt < 3 && (await existing.count()); attempt++)
+        await page.keyboard.press('Escape');
+      await expect(existing).toBeHidden();
+    }
+    await openInventory(fixture.project.name);
+    receipt.expected = await (
+      stage === 'arrival-components'
+        ? runInventoryArrivalComponents
+        : stage === 'arrival-components-resume'
+          ? runInventoryArrivalComponentsResume
+          : runInventoryArrivalComponentsReopen
+    )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
   if (stage === 'opening' || stage === 'opening-resume' || stage === 'opening-reopen') {
     assert.ok(args.includes('--fixture'), 'Pass an exact native v20 fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));

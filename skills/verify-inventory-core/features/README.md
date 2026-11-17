@@ -71,3 +71,6 @@
 - [Opening and validity](opening-validity.md): explicit opening observations,
   retained rule families and native timed admissions; workflow under
   construction.
+
+- [Actual delivery receiving](arrivals.md): explicit component dispositions,
+  retained original text, atomic admission and duplicate no-refill behavior.

@@ -28,7 +28,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v20. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v21. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -323,6 +323,98 @@ initializes only the new opening/validity fields. Version 1/missing retains its
 existing legacy lot projection. Context versions cannot regress; new temporal
 commands or facts in older contexts and too-new adopted source schemas refuse.
 Replay uses the saved native observation time, never today's wall clock.
+
+## Physical deliveries and retained supplier documents
+
+An arrival is an immutable record of an actual observed delivery. Its namespace
+and delivery ID differ from operation IDs, lot numbers, certificates, products
+and orders. `preview-arrival` reads an application-owned versioned source packet
+and one explicit choice per component. `apply-arrival` accepts its exact source,
+resolved scientific fingerprints, targets, plan digest and revision through the
+existing native transaction. The guided **Receive delivery** form builds the
+packet from ordinary fields; it does not claim a supplier export format.
+
+```mermaid
+stateDiagram-v2
+    Draft --> Blocked: incomplete or conflicting choices
+    Blocked --> Draft: edit draft
+    Draft --> Ready: read-only exact preview
+    Ready --> Submitting: frozen request and stable operation ID
+    Submitting --> Committed: native receipt
+    Submitting --> Refused: no effects
+    Submitting --> OutcomeUnknown: acknowledgement lost
+    OutcomeUnknown --> Committed: original receipt or identical retry
+    Draft --> AlreadyRecorded: same delivery and original admission
+```
+
+Submission states belong to the existing recovery owner. A committed arrival has
+no mutable pending or failed flag. Source packets retain exact document bytes,
+observation scope, package grouping, component identities and supplier claims.
+Canonical arrival records retain document metadata/hashes and original admission
+snapshots; the accepted request/history owns the original bodies. Packages
+describe historical delivery grouping, not current storage hierarchy. Packaging
+batch and component batch remain separate fields.
+
+Every listed component is identified, physically unidentified, physically
+unobserved, observed missing or evidence only. Missing and evidence-only entries
+cannot create phantom stock. Unresolved physical entries create genuine vessels
+without fake scientific identities or amounts. Identified receipts use explicit
+material, exact known or unit-bearing unknown quantity, its measurement/source
+basis, independent stock quality, and actual placement. Each physical component
+creates a new empty movable vessel; this adapter cannot refill existing stock.
+
+A new received lot requires the exactly observed supplier and component batch,
+then composes `create-lot` and `manage-lot`, leaving local assessment
+unassessed. Unknown supplier is explicit null. Known material with unknown
+supplier lot can be received as explicitly unattributed stock, with a reason,
+rather than inventing a batch label. Selecting an existing lot requires a reason
+and the same material. No lot matching is inferred from similar supplier
+strings. Held or expired lot material can still be physically received;
+possession is separate from eligibility.
+
+Known supplier-declared quantities must exactly normalize the selected component
+quantity claim within its supported dimension. Unsupported activity units stay
+raw evidence; they cannot become volume or mass. A separately measured amount
+requires its own explicit reason. Package counts do not establish content
+amount. Supplier QC cannot emit local release, stock-quality changes, opening or
+expiry interpretation. Those are independent explicit actions.
+
+Documents hash their decoded original bytes. UTF-8 must round-trip; base64 is
+strict and canonical. Text byte selections must match original bytes at valid
+boundaries; JSON selections retain numeric lexemes. A PDF region is an operator
+citation, not a claim of verified extraction. Full originals and excerpts are
+explicit coverage choices. No URL fetch, OCR, vendor connection, silent chunking
+or larger transport cap is implied. The complete accepted request must fit the
+existing inline limit.
+
+`arrival-document` reads the exact retained body by arrival ID, document key and
+expected hash through verified original or nested archive history. It is scoped
+and read-only. Missing or corrupt source bytes yield unavailable, never live-URL
+fallback. Current stock cannot substitute for a receipt or document preimage.
+
+Arrival identity is checked before generating physical IDs. The identical source
+and original choices preview as no-change after use, movement, disposal or
+archive adoption, retaining original target IDs. Changed source or admission
+requires separate reconciliation; it never replenishes or overwrites. A fresh
+no-change apply writes no revision, receipt or event and cannot claim an old
+receipt as a new operation. Exact original operation retries retain their
+existing recovery contract. A locally generated delivery UUID cannot detect the
+same physical package deliberately entered under another delivery ID.
+
+Original admitted amounts, source hashes and initial choices remain immutable.
+Current remaining amount, position, stock quarantine, reassociation, custody,
+lot decisions and validity can evolve independently. Adoption maps explicit
+scientific identities and imported actors while preserving original evidence
+hashes and physical identities. One late component failure rolls back all lot,
+vessel, stock and arrival effects together; metadata-only arrivals use the same
+composite transition without dummy physical commands.
+
+v1–v20 snapshots gain an empty arrival map without invented historical receiving
+facts or writes. v20 opening/validity records and earlier controls remain exact.
+Receipt context version 4 admits arrivals and preserves the prior monotonic
+context rules; older contexts cannot contain new arrivals or too-new source
+archives. Orders and receipt allocations are separate; expected orders never
+manufacture physical stock, and later consumption cannot undo an actual receipt.
 
 ## Physical custody and observations
 

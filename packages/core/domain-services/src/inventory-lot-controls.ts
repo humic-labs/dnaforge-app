@@ -193,6 +193,7 @@ type IdentityState = Pick<
   | 'temperatureClaims'
   | 'openingObservations'
   | 'validityFacts'
+  | 'arrivals'
 >;
 export interface InventoryLotControlDraft extends IdentityState {
   readonly lots: Record<string, InventoryLot>;

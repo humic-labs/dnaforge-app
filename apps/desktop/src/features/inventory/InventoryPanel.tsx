@@ -1,3 +1,4 @@
+import { InventoryArrivalForm } from './InventoryArrivalForm';
 import {
   useEffect,
   useMemo,
@@ -121,6 +122,14 @@ const sourceHistoryCopy: Readonly<
     choicesLabel: '',
     description:
       'Original source history remains in this archive. This operation records adoption in the destination.',
+  },
+  'receive-arrival': {
+    title: 'Received actual delivery',
+    summary: 'Retained original delivery admission',
+    sourceLabel: 'Original delivery source packet',
+    choicesLabel: 'Original delivery resolutions',
+    description:
+      'This operation retains the original supplier document, actual delivery identity and explicit component dispositions. Later use never replenishes a previously recorded arrival.',
   },
   'receive-table': {
     title: 'Received inventory table',
@@ -672,6 +681,9 @@ export function InventoryPanel() {
         </Button>
         <Button disabled={!editable} onClick={() => setDialog({ kind: 'lot' })}>
           Add lot
+        </Button>
+        <Button disabled={!data} onClick={() => setDialog({ kind: 'receive-delivery' })}>
+          Receive delivery
         </Button>
         <Button disabled={!data} onClick={() => setDialog({ kind: 'lot-controls' })}>
           Lot quality and recalls
@@ -1672,6 +1684,15 @@ export function InventoryPanel() {
             data={data}
             controller={controller}
             status={status}
+            client={platform().inventory}
+            onClose={() => setDialog({ kind: 'none' })}
+          />
+        ) : dialog.kind === 'receive-delivery' ? (
+          <InventoryArrivalForm
+            key={data.project.projectId + ':' + data.project.defaultInventoryId}
+            data={data}
+            status={status}
+            controller={controller}
             client={platform().inventory}
             onClose={() => setDialog({ kind: 'none' })}
           />
