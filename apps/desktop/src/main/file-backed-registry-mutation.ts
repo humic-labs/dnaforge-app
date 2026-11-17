@@ -26,6 +26,7 @@ import {
 } from '../shared/lims';
 import { canonicalEntityArtifactValue } from '../shared/entity-artifact-projection';
 import { entitySchemaRevisionContent } from '../shared/entity-schema';
+import { trackViewProjectionOwnership } from '../shared/track-view-projection';
 import { isEntityRecordArtifactProjection } from '../shared/registry-file-types';
 import {
   MANAGED_SEQUENCE_DOCUMENT_FIELD,
@@ -282,12 +283,12 @@ function canonicalJson(value: unknown): string {
   return JSON.stringify(canonicalEntityArtifactValue(JSON.parse(JSON.stringify(value))));
 }
 
-export async function assertFileBackedRegistryMutation(
+async function validateFileBackedRegistryMutation(
   db: Database.Database,
   action: FileBackedRegistryMutationAction,
   input: MutationInput,
   runDatabase: <T>(work: () => T) => T = (work) => work()
-): Promise<boolean> {
+): Promise<{ workspaceId: number | null } | null> {
   if (
     !['register', 'update', 'archive', 'restore', 'revert'].includes(action) ||
     !input ||
@@ -296,7 +297,7 @@ export async function assertFileBackedRegistryMutation(
   )
     throw new Error('Registry source validation request is invalid.');
   const owner = await resolveRegistrySource(db, action, input, runDatabase);
-  if (!owner) return false;
+  if (!owner) return null;
   if (
     action === 'revert' ||
     (action === 'archive' && owner.key.adapterKind !== 'notebook') ||
@@ -336,6 +337,15 @@ export async function assertFileBackedRegistryMutation(
           update?.domainStatus === undefined ? current!.domainStatus : update.domainStatus,
         workspaceId: update?.workspaceId === undefined ? current!.workspaceId : update.workspaceId,
       };
+  if (
+    owner.key.adapterKind === 'track-view' &&
+    owner.workspace === null &&
+    candidate.workspaceId == null
+  )
+    candidate.workspaceId = trackViewProjectionOwnership(
+      null,
+      current?.workspaceId
+    ).registryWorkspaceId;
   const semantic = {
     id: expected.id,
     kind: expected.kind,
@@ -383,7 +393,16 @@ export async function assertFileBackedRegistryMutation(
     else if (['molecular-document', 'track-view'].includes(owner.key.adapterKind))
       assertNativeProjectionBinding(db, latest);
   });
-  return true;
+  return { workspaceId: expected.workspaceId };
+}
+
+export async function assertFileBackedRegistryMutation(
+  db: Database.Database,
+  action: FileBackedRegistryMutationAction,
+  input: MutationInput,
+  runDatabase: <T>(work: () => T) => T = (work) => work()
+): Promise<boolean> {
+  return (await validateFileBackedRegistryMutation(db, action, input, runDatabase)) !== null;
 }
 
 export async function assertFileBackedRegistryRelationships(
@@ -448,8 +467,13 @@ export async function reconstructFileBackedRegistryEntity(
     | { action: 'update'; input: LimsUpdateEntityInput },
   runDatabase: <T>(work: () => T) => T
 ): Promise<LimsEntity | null> {
-  if (!(await assertFileBackedRegistryMutation(db, operation.action, operation.input, runDatabase)))
-    return null;
+  const validated = await validateFileBackedRegistryMutation(
+    db,
+    operation.action,
+    operation.input,
+    runDatabase
+  );
+  if (!validated) return null;
   return runDatabase(() => {
     seedLimsBuiltinsInDb(db);
     return db.transaction(() => {
@@ -460,8 +484,14 @@ export async function reconstructFileBackedRegistryEntity(
       )
         repairLimsEntityFromVerifiedAuditInDb(db, operation.input.id);
       return operation.action === 'register'
-        ? registerLimsEntityInsideTx(db, operation.input)
-        : updateLimsEntityInsideTx(db, operation.input);
+        ? registerLimsEntityInsideTx(db, {
+            ...operation.input,
+            workspaceId: validated.workspaceId,
+          })
+        : updateLimsEntityInsideTx(db, {
+            ...operation.input,
+            workspaceId: validated.workspaceId,
+          });
     })();
   });
 }

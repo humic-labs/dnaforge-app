@@ -19,6 +19,7 @@ const TRACK_VIEW_REGISTRY_KIND = 'track-view';
 import {
   trackViewTrackCount as trackCount,
   trackViewProjectionFields as registryFields,
+  trackViewProjectionOwnership,
 } from '../../shared/track-view-projection';
 
 async function projectionWorkspaceId(context: {
@@ -46,6 +47,7 @@ export const trackViewAdapter: WorkspaceEntityAdapter<TrackViewDocument> = {
     if (!catalogEntity || catalogEntity.type !== 'track-view') return null;
     const registryEntity = registryEntities[0];
     if (!registryEntity || registryEntity.kind !== TRACK_VIEW_REGISTRY_KIND) return null;
+    const ownership = trackViewProjectionOwnership(workspaceId, registryEntity.workspaceId);
     const metadata: unknown = catalogEntity.metadata ? JSON.parse(catalogEntity.metadata) : null;
     if (
       !metadata ||
@@ -70,7 +72,8 @@ export const trackViewAdapter: WorkspaceEntityAdapter<TrackViewDocument> = {
       fingerprint: projectionMetadata.fingerprint as string,
       updatedAtMs: Math.max(catalogEntity.updated_at, registryEntity.updatedAt),
       sourceBindingMatches:
-        catalogEntity.workspace_id === workspaceId && registryEntity.workspaceId === workspaceId,
+        catalogEntity.workspace_id === ownership.fileWorkspaceId &&
+        registryEntity.workspaceId === ownership.registryWorkspaceId,
     };
   },
   async writeProjection(document, id, fileMtimeMs, path, context) {
@@ -124,10 +127,11 @@ export const trackViewAdapter: WorkspaceEntityAdapter<TrackViewDocument> = {
     if (existing.kind !== TRACK_VIEW_REGISTRY_KIND) {
       throw new Error(`Registry entity ${id} is not a Track view.`);
     }
+    const ownership = trackViewProjectionOwnership(workspaceId, existing.workspaceId);
     const alreadyCurrent =
       !existing.tombstone &&
       existing.name === document.name &&
-      existing.workspaceId === workspaceId &&
+      existing.workspaceId === ownership.registryWorkspaceId &&
       existing.fields.artifactFingerprint === fingerprint &&
       existing.fields.referenceAssemblyId === document.reference.assemblyId &&
       existing.fields.referenceName === document.reference.name &&
@@ -140,7 +144,7 @@ export const trackViewAdapter: WorkspaceEntityAdapter<TrackViewDocument> = {
       replaceFields: true,
       registrationStatus: 'registered',
       domainStatus: null,
-      workspaceId,
+      workspaceId: ownership.registryWorkspaceId,
       actor: 'track-view-file',
     });
     if (existing.tombstone) {
