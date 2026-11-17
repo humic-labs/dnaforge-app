@@ -1405,6 +1405,17 @@ function paintArgsZoom(
   } as unknown as TrackPaintArgs<PileupTrackData>;
 }
 
+function paintCommittedReadFront(
+  renderer: PixiPileupTrackRenderer,
+  args: TrackPaintArgs<PileupTrackData>
+): void {
+  renderer.paint(args);
+  for (let frame = 0; renderer.hasPendingPaintWork(args.container) && frame < 20; frame += 1) {
+    renderer.paint(args);
+  }
+  expect(renderer.hasPendingPaintWork(args.container)).toBe(false);
+}
+
 function drawnDensityHeightStats(
   renderer: unknown,
   container: object,
@@ -1683,7 +1694,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       800
     );
 
-    renderer.paint(args);
+    paintCommittedReadFront(renderer, args);
 
     expect(
       renderer.hitTestReadEvent(container, {
@@ -2066,7 +2077,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
     const record = read(100, 110, 'overlapping-events', { mismatches: events });
     const args = paintArgsZoom(container, { records: [record] }, 4, { start: 90, end: 190 }, 800);
     try {
-      renderer.paint(args);
+      paintCommittedReadFront(renderer, args);
       const hit = renderer.hitTestReadEvent(container, {
         trackId: 'test-bam',
         localX: 104 * 4 + 1,
@@ -2110,7 +2121,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       800
     );
 
-    renderer.paint(args);
+    paintCommittedReadFront(renderer, args);
 
     expect(
       renderer.hitTestReadEvent(container, {
@@ -2181,7 +2192,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       800
     );
 
-    renderer.paint(args);
+    paintCommittedReadFront(renderer, args);
 
     expect(
       renderer.hitTestReadEvent(container, {
@@ -2214,7 +2225,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       readSource: { truncated: false, sourceGenerationKey: 'alignment-generation-7' },
     };
     const exactArgs = paintArgsZoom(container, data, 8, { start: 90, end: 190 }, 800);
-    renderer.paint(exactArgs);
+    paintCommittedReadFront(renderer, exactArgs);
     const hit = renderer.hitTestReadEvent(container, {
       trackId: 'tumor-bam',
       localX: 105 * 8,
@@ -2269,7 +2280,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       { start: 90, end: 190 },
       800
     );
-    renderer.paint(initial);
+    paintCommittedReadFront(renderer, initial);
 
     const replacement = [read(110, 130, 'incoming-a'), read(140, 160, 'incoming-b')];
     renderer.paint({
@@ -2313,7 +2324,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       { start: 90, end: 190 },
       800
     );
-    renderer.paint(args);
+    paintCommittedReadFront(renderer, args);
     const hitArgs = {
       trackId: 'tumor-bam',
       localX: 110 * 8,
