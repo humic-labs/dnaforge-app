@@ -391,7 +391,7 @@ export async function applyNativeDataLayerExample(
         dataset.reference.length
       );
     } else if (id === '15-methylation') {
-      const source = await addCsvLayer({
+      await addCsvLayer({
         project: project.rootPath,
         view,
         dataset,
@@ -410,7 +410,6 @@ export async function applyNativeDataLayerExample(
         geometry: 'bars',
         palette: 'cividis',
         domain: [0, Math.max(...values)],
-        source,
       });
       focusIndexed(
         view,
