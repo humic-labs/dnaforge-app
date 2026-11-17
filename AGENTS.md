@@ -16,14 +16,13 @@ snapshot.
 Keep required checks. Do not add rules requiring approving or code-owner
 reviews. Verify the actual merged result before reporting delivery.
 
-Use [the public merge policy](docs/ci/merge-policy.md) for delivery authority,
+Use [the public merge policy](docs/ci/merge-policy.md) for the merge route,
 complete-feature readiness and qualification. Keep incomplete or held work in a
-draft PR. An ordinary implementation assignment authorizes delivery to `dev`
-through `node scripts/ci/deliver.mjs --deliver`. The command readies the complete
-change, waits for current checks, enters the queue and verifies its merge.
-Respect explicit draft-only or no-merge requests. Use `inspect --pr NUMBER` for
-a read-only decision. Staging and production promotion belong to the release
-owner unless assigned explicitly; a source merge does not publish a release.
+draft PR. Maintainers deliver completed pull requests to `dev` with
+`node scripts/ci/deliver.mjs --deliver`. The command readies the complete
+change, waits for current checks, enters the queue and verifies its merge. Use
+`inspect --pr NUMBER` for a read-only decision. A source promotion to staging or
+production does not publish a release.
 
 Before changing a delivery or application workflow, reuse or extend its
 verification skill and feature map. The delivery surface is documented in

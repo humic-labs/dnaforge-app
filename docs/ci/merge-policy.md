@@ -18,12 +18,11 @@ feature PR ── fast checks + merge queue ──> dev
 
 ## Development
 
-Ordinary implementation assignments include delivery to `dev`. Finish the
-requested change and its focused acceptance before requesting delivery. Keep
-incomplete work in draft. Respect explicit draft-only, no-merge and hold
-instructions even when checks pass. Maintainers use the same public development
-commands as contributors; private trackers and release credentials are not
-prerequisites.
+Completed development changes land on `dev`. Finish the change and its focused
+acceptance before requesting delivery. Keep incomplete work in draft and
+preserve explicit holds even when checks pass. Maintainers use the same public
+development commands as contributors; private trackers and release credentials
+are not prerequisites.
 
 Development admission requires the CLA and PR Preflight checks named in the
 policy. Draft preflight checks changed-source syntax. Ready pull requests and
@@ -54,9 +53,9 @@ expected GitHub app. Missing, stale, failed, cancelled or skipped evidence
 refuses promotion.
 
 The Electron check includes a digest-bound receipt for the current PR head,
-target base, tested merge commit and tree. It identifies the private controller,
-workflow run and attempt, complete roster and original evidence digests. A head
-check from an earlier target base cannot qualify a new combined candidate.
+target base, tested merge commit and tree. It binds the complete test roster and
+evidence without publishing the producer's operational records. A head check
+from an earlier target base cannot qualify a new combined candidate.
 
 The broad qualification artifact binds the repository, combined candidate commit
 and tree, target base, protected control revision, workflow run and attempt,

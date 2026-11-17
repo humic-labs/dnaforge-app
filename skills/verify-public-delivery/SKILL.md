@@ -24,8 +24,8 @@ Record `git rev-parse --show-toplevel`, `git branch --show-current`,
 checkout. Run
 `gh api repos/humic-labs/dnaforge-app --jq '{id,full_name,default_branch}'`. The
 repository ID must match `.ci/merge-policy.json`. Read the live rules for the
-candidate's target and identify whether migration has activated that branch.
-Do not print credentials.
+candidate's target and identify whether migration has activated that branch. Do
+not print credentials.
 
 ## Drive
 
@@ -43,7 +43,7 @@ it with the actual target rules before claiming live enforcement.
 Run `node --test scripts/ci/merge-policy.test.mjs scripts/ci/deliver.test.mjs`
 for bounded negative controls. These supplement actual GitHub inspection.
 
-For a completed development assignment, run
+To deliver a completed development pull request, run
 `node scripts/ci/deliver.mjs --deliver --pr NUMBER --out /absolute/evidence/delivery.json`.
 The clean local head must match the PR. The command readies the draft, waits for
 fresh preflight, queues once and verifies the merged commit on `dev`. Preserve

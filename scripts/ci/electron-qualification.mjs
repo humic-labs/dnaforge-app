@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
-const schema = 'dnaforge.public-electron-qualification.v1';
+const schema = 'dnaforge.public-electron-qualification.v2';
 const sha = /^[a-f0-9]{40}$/u;
 const digest = /^[a-f0-9]{64}$/u;
 const positive = (value) => Number.isSafeInteger(value) && value > 0;
@@ -28,6 +28,27 @@ export function validateElectronQualification(check, { candidate, qualification,
     'Electron receipt digest differs'
   );
   const receipt = JSON.parse(text);
+  assert.ok(receipt && typeof receipt === 'object' && !Array.isArray(receipt));
+  assert.deepEqual(
+    Object.keys(receipt).sort(),
+    [
+      'schema',
+      'repository',
+      'repositoryId',
+      'pullRequest',
+      'target',
+      'headSha',
+      'baseSha',
+      'mergeSha',
+      'treeSha',
+      'status',
+      'counts',
+      'rosterSha256',
+      'evidenceSha256',
+      'proofSha256',
+    ].sort(),
+    'Electron receipt fields differ from the public contract'
+  );
   assert.equal(receipt?.schema, schema, 'Unsupported Electron receipt');
   assert.equal(receipt.repository, 'humic-labs/dnaforge-app', 'Electron source repository differs');
   assert.equal(
@@ -51,25 +72,21 @@ export function validateElectronQualification(check, { candidate, qualification,
     qualification.baseSha,
     'Electron and broad qualification bases differ'
   );
-  assert.match(receipt.controller?.commit ?? '', sha, 'Private controller commit is missing');
-  assert.match(receipt.controller?.tree ?? '', sha, 'Private controller tree is missing');
-  assert.ok(
-    positive(receipt.run?.id) && positive(receipt.run?.attempt),
-    'Private run identity is invalid'
-  );
-  assert.equal(
-    receipt.run.workflow,
-    '.github/workflows/e2e-electron.yml',
-    'Private workflow differs'
-  );
   assert.equal(
     check.details_url,
-    `https://github.com/humic-labs/dnaforge/actions/runs/${receipt.run.id}/attempts/${receipt.run.attempt}`,
-    'Electron run link differs'
+    `https://github.com/humic-labs/dnaforge-app/commit/${receipt.headSha}/checks`,
+    'Electron source link differs'
   );
+  assert.match(receipt.proofSha256 ?? '', digest, 'Electron proof binding is missing');
   assert.match(receipt.rosterSha256 ?? '', digest, 'Electron roster binding is missing');
   assert.match(receipt.evidenceSha256 ?? '', digest, 'Electron evidence binding is missing');
   assert.equal(receipt.status, 'passed', 'Electron receipt did not pass');
+  assert.ok(receipt.counts && typeof receipt.counts === 'object' && !Array.isArray(receipt.counts));
+  assert.deepEqual(
+    Object.keys(receipt.counts).sort(),
+    ['passed', 'skipped', 'flaky', 'failedAttempts', 'reports'].sort(),
+    'Electron counts differ from the public contract'
+  );
   assert.ok(
     positive(receipt.counts?.passed) && positive(receipt.counts?.reports),
     'Electron evidence is empty'
