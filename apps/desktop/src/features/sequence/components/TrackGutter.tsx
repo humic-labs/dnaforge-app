@@ -172,9 +172,9 @@ export type TrackGutterDataTone =
 function dotColorClass(row: GutterRow, tone: TrackGutterDataTone = 'default'): string {
   if (row.kind === 'reference') return 'bg-emerald-500';
   if (row.kind === 'cytoband') return 'bg-indigo-500';
-  if (tone === 'loading') return 'bg-slate-400 animate-pulse';
+  if (tone === 'loading') return 'bg-slate-400';
   if (tone === 'recovering') return 'bg-amber-500';
-  if (tone === 'stalled') return 'bg-amber-500 animate-pulse';
+  if (tone === 'stalled') return 'bg-amber-500';
   if (tone === 'blocked') return 'bg-danger';
   if (tone === 'empty') return 'bg-slate-400';
   return 'bg-blue-500';

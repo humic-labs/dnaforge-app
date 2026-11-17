@@ -55,6 +55,7 @@ import {
   PileupReadHitIndex,
   PersistentRowLayout,
   pileupReadPlacementKey,
+  type PileupRowAssignment,
   type PileupRowAssignmentJob,
   type PileupRowRetainJob,
 } from './pileup-row-layout';
@@ -106,12 +107,29 @@ import {
 import {
   PileupReadDifferenceLayer,
   pileupReadBodyVerticalGeometry,
+  type PileupReadDifferencePreparation,
 } from './pileup-read-glyph-layer';
+import {
+  advanceReadRowHeightFieldJob,
+  beginReadRowHeightFieldJob,
+  finishReadRowHeightFieldJob,
+  isReadRowHeightFieldJobComplete,
+  type ReadRowHeightField,
+  type ReadRowHeightFieldJob,
+} from './pileup-read-row-height-field';
+import {
+  advanceReadVisibleMembershipJob,
+  beginReadVisibleMembershipJob,
+  finishReadVisibleMembershipJob,
+  isReadVisibleMembershipJobComplete,
+  type ReadVisibleMembershipJob,
+} from './pileup-read-visible-membership';
 import { PILEUP_READ_BODY_COLOR_BY_THEME } from './pileup-read-quality-palette';
 import { normalizeTrackColor } from './track-presentation';
 import type {
   PixiLinearTrackRenderer,
   TrackCoverageDepthSnapshot,
+  TrackReadPresentationSnapshot,
   TrackMountArgs,
   TrackPaintArgs,
 } from './types';
@@ -200,71 +218,42 @@ export function resolveCoverageCutoffDepth(
     ? configuredDepth
     : defaultDepth;
 }
-function coverageHeatColor(t: number): number {
-  const x = clamp01(t);
-  let r: number;
-  let g: number;
-  let b: number;
-  if (x < 0.5) {
-    const u = x / 0.5;
-    r = 30 + u * (255 - 30);
-    g = 90 + u * (180 - 90);
-    b = 255 + u * (40 - 255);
-  } else {
-    const u = (x - 0.5) / 0.5;
-    r = 255 + u * (230 - 255);
-    g = 180 + u * (30 - 180);
-    b = 40 + u * (30 - 40);
-  }
-  return (
-    (Math.round(clamp01(r / 255) * 255) << 16) |
-    (Math.round(clamp01(g / 255) * 255) << 8) |
-    Math.round(clamp01(b / 255) * 255)
-  );
-}
-function coverageFillAndColor(
+function coverageFill(
   d: number,
   pct: CoverageDepthPercentiles,
   mode: CoverageScaleMode,
   collapsedMaxFill: number,
   cutoffDepth: number
-): { fill: number; color?: number } {
-  if (d <= 0 || collapsedMaxFill <= 0) return { fill: 0 };
+): number {
+  if (d <= 0 || collapsedMaxFill <= 0) return 0;
   const max = Math.max(1, pct.max);
   if (mode === 'logcolor') {
     if (cutoffDepth > 0) {
-      const fill = coverageGpuAtlasHeightCutoffFill(d, cutoffDepth, collapsedMaxFill);
-      const logSpan = Math.log(Math.max(max, cutoffDepth + 1) / cutoffDepth);
-      const t = d > cutoffDepth && logSpan > 0 ? Math.log(d / cutoffDepth) / logSpan : 0;
-      return { fill, ...(d > cutoffDepth ? { color: coverageHeatColor(t) } : {}) };
+      return coverageGpuAtlasHeightCutoffFill(d, cutoffDepth, collapsedMaxFill);
     }
     const knee = Math.max(1, pct.p99);
-    const fill = coverageGpuAtlasLogColorFill(d, knee, max, collapsedMaxFill);
-    const logSpan = Math.log(Math.max(max, knee + 1) / knee);
-    const t = d > knee && logSpan > 0 ? Math.log(d / knee) / logSpan : 0;
-    return { fill, ...(d > knee ? { color: coverageHeatColor(t) } : {}) };
+    return coverageGpuAtlasLogColorFill(d, knee, max, collapsedMaxFill);
   }
   if (mode === 'combo') {
     const p99 = Math.max(1, pct.p99);
     if (d <= p99) {
-      return { fill: collapsedMaxFill * 0.85 * clamp01(d / p99) };
+      return collapsedMaxFill * 0.85 * clamp01(d / p99);
     }
     const logSpan = Math.log(Math.max(max, p99 + 1) / p99);
     const t = logSpan > 0 ? Math.log(d / p99) / logSpan : 1;
-    const fill = collapsedMaxFill * clamp01(0.85 + 0.15 * clamp01(t));
-    return { fill, color: coverageHeatColor(t) };
+    return collapsedMaxFill * clamp01(0.85 + 0.15 * clamp01(t));
   }
   const p99 = Math.max(1, pct.p99);
-  return { fill: Math.min(collapsedMaxFill, (d / p99) * collapsedMaxFill) };
+  return Math.min(collapsedMaxFill, (d / p99) * collapsedMaxFill);
 }
 const READ_ROWS_ASSIGN_RECORDS_PER_FRAME = 512;
 const READ_ROWS_ASSIGN_WORK_BUDGET_MS = 0.75;
+const READ_ROWS_URGENT_ASSIGN_WORK_BUDGET_MS = 2;
 const READ_ROWS_RETAIN_RECORDS_PER_FRAME = 512;
 const READ_ROWS_BUILD_RECORDS_PER_FRAME = 512;
 const READ_ROWS_URGENT_RECORDS_PER_FRAME = 4_096;
+const READ_ROWS_URGENT_BUILD_RECORDS_PER_FRAME = 8_192;
 const READ_ROWS_HANDOFF_RUNWAY_VIEWPORTS = 1;
-const READ_ROW_HEIGHT_FIELD_TARGET_BIN_BP = 16;
-const READ_ROW_HEIGHT_FIELD_MAX_BINS = 32768;
 const READ_OVERFLOW_MIN_FILL_FRACTION = 0.08;
 const READ_OVERFLOW_MIN_DENOMINATOR_READS = 8;
 const READ_OVERFLOW_BAR_ALPHA = 0.76;
@@ -336,6 +325,10 @@ interface BarMesh {
 }
 
 interface ReadRowsMeshBuildJob {
+  input: ExactReadCommitInput;
+  visibleAdmission: ReadVisibleMembershipJob | null;
+  effectiveMaxRows: number;
+  rowHeightPx: number;
   meshStart: number;
   meshEnd: number;
   colorKey: string;
@@ -347,7 +340,11 @@ interface ReadRowsMeshBuildJob {
   collapsedPileupField: CollapsedPileupField | null;
   readHitIndex: PileupReadHitIndex;
   sourceGenerationKey: string;
-  job: AnnotationRecordVerticesJob;
+  job: AnnotationRecordVerticesJob | null;
+  countCursor: number;
+  visibleRecordCount: number;
+  rowHeightField: ReadRowHeightField | null;
+  difference: PileupReadDifferencePreparation;
 }
 
 interface ReadRowsAssignmentBuildJob {
@@ -357,6 +354,18 @@ interface ReadRowsAssignmentBuildJob {
   maxRows: number;
   layout: PersistentRowLayout;
   job: PileupRowAssignmentJob;
+  assignment: PileupRowAssignment | null;
+  heightJob: ReadRowHeightFieldJob | null;
+  visibleAdmission: ReadVisibleMembershipJob | null;
+}
+
+interface ReadRowsPreparationAllowance {
+  startedAt: number;
+  workBudgetMs: number;
+}
+
+function remainingReadRowsWorkMs(allowance: ReadRowsPreparationAllowance): number {
+  return Math.max(0, allowance.workBudgetMs - (nowMs() - allowance.startedAt));
 }
 
 interface ReadRowsRetainBuildJob {
@@ -408,6 +417,7 @@ interface ExactReadCommitInput {
   sourceWindowStartBp: number | null;
   sourceWindowEndBp: number | null;
   sourceGenerationKey: string;
+  presentationOwnerKey: string;
   exactRowsMayRender: boolean;
   experimentalHybridHeightMorph: boolean;
   needsExactCollapsedAggregate: boolean;
@@ -502,6 +512,9 @@ interface ContainerState {
   rowsMeshRowsRef: Int32Array | null;
   rowsMeshReadHitIndex: PileupReadHitIndex | null;
   rowsMeshSourceGenerationKey: string;
+  rowsMeshPresentationOwnerKey: string;
+  rowsMeshMaxRows: number;
+  rowsMeshRowHeightPx: number;
   rowsMeshHiddenReadCount: number;
   rowsMeshCollapsedPileupField: CollapsedPileupField | null;
   rowsMeshBuildJob: ReadRowsMeshBuildJob | null;
@@ -600,7 +613,13 @@ interface ContainerState {
   cachedReadRows: Int32Array | null;
   cachedReadHitIndex: PileupReadHitIndex | null;
   readSourceGenerationKey: string;
+  readPresentationOwnerKey: string;
   readRowHeightField: ReadRowHeightField | null;
+  cachedReadRowHeightField: ReadRowHeightField | null;
+  cachedReadVisibleAdmission: ReadVisibleMembershipJob | null;
+  visibleAdmission: ReadVisibleMembershipJob | null;
+  incomingReadInput: ExactReadCommitInput | null;
+  incomingReadTilesPending: boolean;
   collapsedPileupField: CollapsedPileupField | null;
   visibleReadColumnCoverage: number | null;
   lastPaintTiming: PaintTiming | null;
@@ -941,13 +960,6 @@ interface ReadOccupancy {
   bins: Uint8Array;
 }
 
-interface ReadRowHeightField {
-  startBp: number;
-  endBp: number;
-  binSizeBp: number;
-  bins: Uint16Array;
-}
-
 function buildReadOccupancy(
   records: ReadonlyArray<PileupRecord> | null,
   loadedStartBp: number,
@@ -1081,8 +1093,8 @@ function isDisjointReadWindow(
 
 function countPositiveBins(bins: ReadonlyArray<number>): number {
   let count = 0;
-  for (const bin of bins) {
-    if (bin > 0) count++;
+  for (let index = 0; index < bins.length; index++) {
+    if (bins[index] > 0) count++;
   }
   return count;
 }
@@ -1392,43 +1404,6 @@ function nowMs(): number {
     : Date.now();
 }
 
-function buildReadRowHeightField(
-  records: ReadonlyArray<PileupRecord> | null,
-  rows: Int32Array | null,
-  loadedStartBp: number,
-  loadedEndBp: number
-): ReadRowHeightField | null {
-  if (
-    !records ||
-    !rows ||
-    records.length === 0 ||
-    rows.length !== records.length ||
-    loadedEndBp <= loadedStartBp
-  ) {
-    return null;
-  }
-  const span = loadedEndBp - loadedStartBp;
-  const binCount = Math.min(
-    READ_ROW_HEIGHT_FIELD_MAX_BINS,
-    Math.max(1, Math.ceil(span / READ_ROW_HEIGHT_FIELD_TARGET_BIN_BP))
-  );
-  const binSizeBp = span / binCount;
-  const bins = new Uint16Array(binCount);
-  for (let i = 0; i < records.length; i++) {
-    const row = rows[i];
-    if (row < 0) continue;
-    const rec = records[i];
-    const start = Math.max(rec.start, loadedStartBp);
-    const end = Math.min(rec.end, loadedEndBp);
-    if (end <= start) continue;
-    const b0 = Math.max(0, Math.min(binCount - 1, Math.floor((start - loadedStartBp) / binSizeBp)));
-    const b1 = Math.max(b0 + 1, Math.min(binCount, Math.ceil((end - loadedStartBp) / binSizeBp)));
-    const h = Math.min(65535, row + 1);
-    for (let b = b0; b < b1; b++) if (h > bins[b]) bins[b] = h;
-  }
-  return { startBp: loadedStartBp, endBp: loadedEndBp, binSizeBp, bins };
-}
-
 function sampleReadRowHeightField(
   field: ReadRowHeightField | null,
   viewStart: number,
@@ -1600,41 +1575,6 @@ function readRecordsEqual(
   return true;
 }
 
-const readSubsetProofs = new WeakMap<
-  ReadonlyArray<PileupRecord>,
-  WeakMap<ReadonlyArray<PileupRecord>, boolean>
->();
-
-function readRecordsContain(
-  resident: ReadonlyArray<PileupRecord>,
-  target: ReadonlyArray<PileupRecord>
-): boolean {
-  if (resident === target) return true;
-  const cached = readSubsetProofs.get(resident)?.get(target);
-  if (cached !== undefined) return cached;
-  let contains = target.length <= resident.length;
-  if (contains) {
-    const counts = new Map<PileupRecord, number>();
-    for (const record of resident) counts.set(record, (counts.get(record) ?? 0) + 1);
-    for (const record of target) {
-      const count = counts.get(record) ?? 0;
-      if (count === 0) {
-        contains = false;
-        break;
-      }
-      if (count === 1) counts.delete(record);
-      else counts.set(record, count - 1);
-    }
-  }
-  let proofsForResident = readSubsetProofs.get(resident);
-  if (!proofsForResident) {
-    proofsForResident = new WeakMap();
-    readSubsetProofs.set(resident, proofsForResident);
-  }
-  proofsForResident.set(target, contains);
-  return contains;
-}
-
 export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTrackData> {
   readonly type: string;
   private readonly rowHeightPx: number;
@@ -1656,6 +1596,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
   private readonly readRowsAssignRecordsPerFrame: number;
   private readonly readRowsUrgentAssignRecordsPerFrame: number;
   private readonly readRowsAssignWorkBudgetMs: number;
+  private readonly readRowsUrgentAssignWorkBudgetMs: number;
   private readonly readRowsRetainRecordsPerFrame: number;
   private coverageDepthScratch: Float32Array | null = null;
   private coverageGaussianScratch: Float32Array | null = null;
@@ -1678,7 +1619,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     );
     this.readRowsUrgentBuildRecordsPerFrame =
       options.readRowsBuildRecordsPerFrame == null
-        ? Math.max(this.readRowsBuildRecordsPerFrame, READ_ROWS_URGENT_RECORDS_PER_FRAME)
+        ? Math.max(this.readRowsBuildRecordsPerFrame, READ_ROWS_URGENT_BUILD_RECORDS_PER_FRAME)
         : this.readRowsBuildRecordsPerFrame;
     this.readRowsAssignRecordsPerFrame = Math.max(
       1,
@@ -1692,6 +1633,10 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       0.1,
       options.readRowsAssignWorkBudgetMs ?? READ_ROWS_ASSIGN_WORK_BUDGET_MS
     );
+    this.readRowsUrgentAssignWorkBudgetMs =
+      options.readRowsAssignWorkBudgetMs == null
+        ? Math.max(this.readRowsAssignWorkBudgetMs, READ_ROWS_URGENT_ASSIGN_WORK_BUDGET_MS)
+        : this.readRowsAssignWorkBudgetMs;
     this.readRowsRetainRecordsPerFrame = Math.max(
       1,
       options.readRowsRetainRecordsPerFrame ?? READ_ROWS_RETAIN_RECORDS_PER_FRAME
@@ -1712,6 +1657,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
   hasPendingPaintWork(container: Container): boolean {
     const state = this.containerState.get(container);
     return Boolean(
+      state?.visibleAdmission?.complete === false ||
       state?.rowsAssignmentBuildJob ||
       state?.rowsRetainBuildJob ||
       state?.rowsMeshBuildJob ||
@@ -1793,6 +1739,8 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       state.readSourceTruncated ||
       (state.readDisplayMode !== 'reads' && state.readDisplayMode !== 'blend') ||
       state.rowsMeshSourceGenerationKey !== read.sourceGenerationKey ||
+      this.readHitPresentationOwnerKey(state) !==
+        (read.presentationOwnerKey ?? read.sourceGenerationKey) ||
       !state.rowsMeshRecordsRef ||
       !state.rowsMeshRowsRef ||
       !state.rowsMeshReadHitIndex
@@ -1814,6 +1762,12 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     });
   }
 
+  private readHitPresentationOwnerKey(state: ContainerState): string {
+    return state.readPresentationOwnerKey === state.readSourceGenerationKey
+      ? state.rowsMeshSourceGenerationKey
+      : state.readPresentationOwnerKey;
+  }
+
   private readHitPayload(
     state: ContainerState,
     record: PileupRecord,
@@ -1829,6 +1783,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     },
     event?: NonNullable<ReadHitPayload['event']>
   ): ReadHitPayload {
+    const presentationOwnerKey = this.readHitPresentationOwnerKey(state);
     const chromosomeGlobalStartBp =
       typeof args.chromosomeGlobalStartBp === 'function'
         ? args.chromosomeGlobalStartBp(record.chrom)
@@ -1841,6 +1796,9 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     return {
       trackId: args.trackId,
       sourceGenerationKey: state.rowsMeshSourceGenerationKey,
+      ...(presentationOwnerKey === state.rowsMeshSourceGenerationKey
+        ? {}
+        : { presentationOwnerKey }),
       readId: record.readId,
       chrom: record.chrom,
       referenceStart: alignmentReferenceStart,
@@ -1911,6 +1869,9 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       rowsMeshRowsRef: null,
       rowsMeshReadHitIndex: null,
       rowsMeshSourceGenerationKey: '',
+      rowsMeshPresentationOwnerKey: '',
+      rowsMeshMaxRows: 0,
+      rowsMeshRowHeightPx: 0,
       rowsMeshHiddenReadCount: 0,
       rowsMeshCollapsedPileupField: null,
       rowsMeshBuildJob: null,
@@ -2022,10 +1983,16 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       readSourceWindowStartBp: null,
       readSourceWindowEndBp: null,
       readSourceGenerationKey: '',
+      readPresentationOwnerKey: '',
       readOccupancy: null,
       cachedReadRows: null,
       cachedReadHitIndex: null,
       readRowHeightField: null,
+      cachedReadRowHeightField: null,
+      cachedReadVisibleAdmission: null,
+      visibleAdmission: null,
+      incomingReadInput: null,
+      incomingReadTilesPending: false,
       collapsedPileupField: null,
       visibleReadColumnCoverage: null,
       lastPaintTiming: null,
@@ -2111,7 +2078,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       ? pileupExactReadZoomAlpha(args.pathMapper.pixelsPerBp)
       : 0;
 
-    const exactReadCommit = this.prepareExactReadCommit(
+    const incomingReadCommit = this.prepareExactReadCommit(
       state,
       args,
       data,
@@ -2119,12 +2086,43 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       tileEngineAuthority
     );
     const recordsStartedAt = nowMs();
-    let deferReadRowsMeshWork = this.commitExactReadRecords(state, exactReadCommit, rowBudget);
-    if (deferReadRowsMeshWork && state.rows !== null) {
-      const runwayBp = (state.rowsMeshEndBp - state.rowsMeshStartBp) / 8;
-      deferReadRowsMeshWork =
-        args.viewportBpRange.start - state.rowsMeshStartBp >= runwayBp &&
-        state.rowsMeshEndBp - args.viewportBpRange.end >= runwayBp;
+    state.incomingReadInput = incomingReadCommit;
+    const visibleAdmission = state.visibleAdmission;
+    if (
+      visibleAdmission !== null &&
+      (!incomingReadCommit.shouldBuildExactDerivedRecords ||
+        visibleAdmission.candidate !== state.rowsMeshRecordsRef ||
+        visibleAdmission.incoming !== incomingReadCommit.records ||
+        visibleAdmission.startBp !== args.viewportBpRange.start ||
+        visibleAdmission.endBp !== args.viewportBpRange.end)
+    )
+      state.visibleAdmission = null;
+    state.incomingReadTilesPending = pendingReferenceIntervalOverlapsViewport(
+      data?.referenceIntervals,
+      args.viewportBpRange.start,
+      args.viewportBpRange.end
+    );
+    const currentVisibleReadsCertified =
+      this.incomingReadBandCoversViewport(state) && this.committedReadRowsMatchIncoming(state);
+    const workInput =
+      incomingReadCommit.shouldBuildExactDerivedRecords && !currentVisibleReadsCertified
+        ? { ...incomingReadCommit, urgentReadRowsWork: true }
+        : incomingReadCommit;
+    state.incomingReadInput = workInput;
+    const readPreparationAllowance: ReadRowsPreparationAllowance = {
+      startedAt: recordsStartedAt,
+      workBudgetMs: workInput.urgentReadRowsWork
+        ? this.readRowsUrgentAssignWorkBudgetMs
+        : this.readRowsAssignWorkBudgetMs,
+    };
+    const exactReadCommit = this.selectReadPreparationInput(
+      state,
+      workInput,
+      args,
+      readPreparationAllowance
+    );
+    if (exactReadCommit !== null) {
+      this.commitExactReadRecords(state, exactReadCommit, rowBudget, readPreparationAllowance);
     }
     const recordsMs = nowMs() - recordsStartedAt;
 
@@ -2133,15 +2131,15 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     const retainMs = nowMs() - retainStartedAt;
 
     const readRowsMeshStartedAt = nowMs();
-    this.paintExactReadRowsMesh(
-      state,
-      args,
-      exactReadCommit.records,
-      exactReadCommit.recordsKey,
-      rowBudget.readRowsTopPx,
-      themedReadColor,
-      deferReadRowsMeshWork
-    );
+    if (exactReadCommit !== null) {
+      this.paintExactReadRowsMesh(
+        state,
+        args,
+        exactReadCommit,
+        rowBudget.readRowsTopPx,
+        readPreparationAllowance
+      );
+    }
     const readRowsMeshMs = nowMs() - readRowsMeshStartedAt;
     this.applyExactReadRowsCameraAndSamples(state, args, rowBudget, themeMode);
 
@@ -2389,6 +2387,8 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       state.cachedReadRows = null;
       state.cachedReadHitIndex = null;
       state.readRowHeightField = null;
+      state.cachedReadRowHeightField = null;
+      state.cachedReadVisibleAdmission = null;
       state.collapsedPileupField = null;
       this.resetCollapsedPileupStats(state);
       this.disposeBar(state, 'rows');
@@ -2421,12 +2421,27 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     const sourceWindowStartBp = data?.readSource?.windowStartBp ?? null;
     const sourceWindowEndBp = data?.readSource?.windowEndBp ?? null;
     const sourceGenerationKey = data?.readSource?.sourceGenerationKey ?? '';
+    const presentationOwnerKey = data?.readSource?.presentationOwnerKey ?? sourceGenerationKey;
+    if (
+      (tileEngineAuthority || data?.readSource?.presentationOwnerKey !== undefined) &&
+      (presentationOwnerKey !== state.readPresentationOwnerKey ||
+        sourceGenerationKey !== state.readSourceGenerationKey ||
+        ((state.rows !== null || state.rowsMeshRecordsRef !== null) &&
+          sourceGenerationKey !== state.rowsMeshSourceGenerationKey))
+    ) {
+      this.clearExactReadRecords(state);
+      state.layout.reset();
+      state.cachedRecordsExactDerived = false;
+      this.disposeDensityRows(state);
+      this.disposeOverflowRows(state);
+    }
+    state.readPresentationOwnerKey = presentationOwnerKey;
     const recordsSampleKey = pileupRecordsKey(
       records,
       sourceWindowStartBp,
       sourceWindowEndBp,
       readSourceTruncated,
-      sourceGenerationKey
+      presentationOwnerKey
     );
     const recordsKey =
       recordsSampleKey === state.cachedRecordsSampleKey &&
@@ -2457,43 +2472,8 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     if (!shouldBuildExactDerivedRecords) {
       this.retireExactReadDetailPreparation(state);
     }
-    const pendingInput = state.rowsAssignmentBuildJob?.input;
-    if (
-      shouldBuildExactDerivedRecords &&
-      tileEngineAuthority &&
-      pendingInput?.tileEngineAuthority &&
-      pendingInput.sourceGenerationKey === sourceGenerationKey &&
-      pendingInput.exactRowsMayRender === exactRowsMayRender &&
-      pendingInput.experimentalHybridHeightMorph === experimentalHybridHeightMorph &&
-      pendingInput.needsExactCollapsedAggregate === needsExactCollapsedAggregate &&
-      pendingInput.sourceWindowStartBp !== null &&
-      pendingInput.sourceWindowEndBp !== null &&
-      (pendingInput.sourceWindowStartBp !== sourceWindowStartBp ||
-        pendingInput.sourceWindowEndBp !== sourceWindowEndBp) &&
-      viewportCoverageFraction(
-        pendingInput.sourceWindowStartBp,
-        pendingInput.sourceWindowEndBp,
-        args.viewportBpRange.start,
-        args.viewportBpRange.end
-      ) >= 0.999
-    ) {
-      return {
-        ...pendingInput,
-        tileEngineCoverageOwnsDensity,
-        urgentReadRowsWork:
-          state.rows !== null &&
-          readRowsHandoffNeedsUrgentWork(
-            state.rowsMeshStartBp,
-            state.rowsMeshEndBp,
-            pendingInput.sourceWindowStartBp,
-            pendingInput.sourceWindowEndBp,
-            args.viewportBpRange.start,
-            args.viewportBpRange.end
-          ),
-      };
-    }
     const urgentReadRowsWork =
-      state.rows !== null &&
+      state.rows === null ||
       readRowsHandoffNeedsUrgentWork(
         state.rowsMeshStartBp,
         state.rowsMeshEndBp,
@@ -2510,6 +2490,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       sourceWindowStartBp,
       sourceWindowEndBp,
       sourceGenerationKey,
+      presentationOwnerKey,
       exactRowsMayRender,
       experimentalHybridHeightMorph,
       needsExactCollapsedAggregate,
@@ -2520,11 +2501,232 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     };
   }
 
+  private incomingReadBandCoversViewport(state: ContainerState): boolean {
+    const input = state.incomingReadInput;
+    if (
+      !input ||
+      input.records === null ||
+      input.readSourceTruncated ||
+      state.incomingReadTilesPending
+    )
+      return false;
+    const start =
+      input.sourceWindowStartBp ?? (input.tileEngineAuthority ? null : state.loadedStartBp);
+    const end = input.sourceWindowEndBp ?? (input.tileEngineAuthority ? null : state.loadedEndBp);
+    return (
+      start !== null &&
+      end !== null &&
+      viewportCoverageFraction(start, end, state.lastViewportStartBp, state.lastViewportEndBp) >=
+        0.999
+    );
+  }
+
+  private visibleAdmissionMatchesIncoming(
+    state: ContainerState,
+    candidate: ReadonlyArray<PileupRecord>,
+    admission: ReadVisibleMembershipJob | null
+  ): boolean {
+    return (
+      admission !== null &&
+      admission.candidate === candidate &&
+      admission.candidateRows === state.rowsMeshRowsRef &&
+      admission.incoming === state.incomingReadInput?.records &&
+      admission.startBp === state.lastViewportStartBp &&
+      admission.endBp === state.lastViewportEndBp &&
+      admission.complete &&
+      admission.equivalent
+    );
+  }
+
+  private advanceVisibleReadAdmission(
+    state: ContainerState,
+    owner: { visibleAdmission: ReadVisibleMembershipJob | null },
+    candidate: ReadonlyArray<PileupRecord>,
+    recordsKey: string,
+    allowance: ReadRowsPreparationAllowance,
+    candidateRows: Int32Array | null
+  ): boolean | null {
+    const incoming = state.incomingReadInput;
+    if (!incoming || incoming.records === null) return false;
+    if (recordsKey === incoming.recordsKey) {
+      owner.visibleAdmission = null;
+      return true;
+    }
+    const previous = owner.visibleAdmission;
+    if (
+      previous === null ||
+      previous.candidate !== candidate ||
+      previous.candidateRows !== candidateRows ||
+      previous.incoming !== incoming.records ||
+      previous.startBp !== state.lastViewportStartBp ||
+      previous.endBp !== state.lastViewportEndBp
+    ) {
+      owner.visibleAdmission = beginReadVisibleMembershipJob(
+        candidate,
+        incoming.records,
+        state.lastViewportStartBp,
+        state.lastViewportEndBp,
+        candidateRows
+      );
+    }
+    const job = owner.visibleAdmission!;
+    const remainingMs = remainingReadRowsWorkMs(allowance);
+    if (!isReadVisibleMembershipJobComplete(job) && remainingMs > 0) {
+      advanceReadVisibleMembershipJob(job, Number.POSITIVE_INFINITY, { workBudgetMs: remainingMs });
+    }
+    return isReadVisibleMembershipJobComplete(job) ? finishReadVisibleMembershipJob(job) : null;
+  }
+
+  private committedReadRowsMatchIncoming(state: ContainerState): boolean {
+    const input = state.incomingReadInput;
+    const records = state.rowsMeshRecordsRef;
+    return (
+      input !== null &&
+      records !== null &&
+      state.rowsMeshSourceGenerationKey === input.sourceGenerationKey &&
+      state.rowsMeshPresentationOwnerKey === input.presentationOwnerKey &&
+      state.rowsMeshMaxRows === state.effectiveMaxRows &&
+      state.rowsMeshRowHeightPx === state.effectiveRowHeightPx &&
+      (state.rowsMeshRecordsKey === input.recordsKey ||
+        this.visibleAdmissionMatchesIncoming(state, records, state.visibleAdmission))
+    );
+  }
+
+  private selectReadPreparationInput(
+    state: ContainerState,
+    input: ExactReadCommitInput,
+    args: TrackPaintArgs<PileupTrackData>,
+    allowance: ReadRowsPreparationAllowance
+  ): ExactReadCommitInput | null {
+    if (!input.shouldBuildExactDerivedRecords || !this.incomingReadBandCoversViewport(state))
+      return input;
+    const mayReusePreparation =
+      input.tileEngineAuthority &&
+      !input.experimentalHybridHeightMorph &&
+      !input.needsExactCollapsedAggregate;
+    const covers = (start: number, end: number) =>
+      viewportCoverageFraction(start, end, args.viewportBpRange.start, args.viewportBpRange.end) >=
+      0.999;
+    if (
+      state.rows !== null &&
+      state.rowsMeshRecordsRef !== null &&
+      state.rowsMeshSourceGenerationKey === input.sourceGenerationKey &&
+      state.rowsMeshPresentationOwnerKey === input.presentationOwnerKey &&
+      state.rowsMeshMaxRows === state.effectiveMaxRows &&
+      state.rowsMeshRowHeightPx === state.effectiveRowHeightPx &&
+      covers(state.rowsMeshStartBp, state.rowsMeshEndBp)
+    ) {
+      const admitted = this.advanceVisibleReadAdmission(
+        state,
+        state,
+        state.rowsMeshRecordsRef,
+        state.rowsMeshRecordsKey,
+        allowance,
+        state.rowsMeshRowsRef
+      );
+      if (admitted === null) return null;
+      if (admitted && mayReusePreparation) {
+        state.rowsAssignmentBuildJob = null;
+        state.rowsMeshBuildJob = null;
+        return null;
+      }
+    }
+    if (!mayReusePreparation) return input;
+    const body = state.rowsMeshBuildJob;
+    if (
+      body !== null &&
+      body.sourceGenerationKey === input.sourceGenerationKey &&
+      body.input.presentationOwnerKey === input.presentationOwnerKey &&
+      body.effectiveMaxRows === state.effectiveMaxRows &&
+      body.rowHeightPx === state.effectiveRowHeightPx &&
+      body.input.exactRowsMayRender === input.exactRowsMayRender &&
+      body.input.experimentalHybridHeightMorph === input.experimentalHybridHeightMorph &&
+      body.input.needsExactCollapsedAggregate === input.needsExactCollapsedAggregate &&
+      covers(body.meshStart, body.meshEnd)
+    ) {
+      const admitted = this.advanceVisibleReadAdmission(
+        state,
+        body,
+        body.records,
+        body.recordsKey,
+        allowance,
+        body.rows
+      );
+      if (admitted === null) return null;
+      if (admitted) return { ...body.input, urgentReadRowsWork: input.urgentReadRowsWork };
+      state.rowsMeshBuildJob = null;
+    }
+    const assignment = state.rowsAssignmentBuildJob;
+    if (
+      assignment !== null &&
+      assignment.input.sourceGenerationKey === input.sourceGenerationKey &&
+      assignment.input.presentationOwnerKey === input.presentationOwnerKey &&
+      assignment.maxRows === state.effectiveMaxRows &&
+      assignment.input.exactRowsMayRender === input.exactRowsMayRender &&
+      assignment.input.experimentalHybridHeightMorph === input.experimentalHybridHeightMorph &&
+      assignment.input.needsExactCollapsedAggregate === input.needsExactCollapsedAggregate &&
+      assignment.input.sourceWindowStartBp !== null &&
+      assignment.input.sourceWindowEndBp !== null &&
+      covers(assignment.input.sourceWindowStartBp, assignment.input.sourceWindowEndBp)
+    ) {
+      const admitted = this.advanceVisibleReadAdmission(
+        state,
+        assignment,
+        assignment.records,
+        assignment.recordsKey,
+        allowance,
+        assignment.job.complete ? assignment.job.rows : null
+      );
+      if (admitted === null) return null;
+      if (admitted) return { ...assignment.input, urgentReadRowsWork: input.urgentReadRowsWork };
+    }
+    return input;
+  }
+
+  private preparedReadRowsMatchIncoming(
+    state: ContainerState,
+    active: ReadRowsMeshBuildJob,
+    args: TrackPaintArgs<PileupTrackData>,
+    allowance: ReadRowsPreparationAllowance
+  ): boolean {
+    const incoming = state.incomingReadInput;
+    if (
+      incoming === null ||
+      active.sourceGenerationKey !== incoming.sourceGenerationKey ||
+      active.input.presentationOwnerKey !== incoming.presentationOwnerKey ||
+      active.effectiveMaxRows !== state.effectiveMaxRows ||
+      active.rowHeightPx !== state.effectiveRowHeightPx
+    )
+      return false;
+    if (active.recordsKey === incoming.recordsKey) return true;
+    if (
+      !this.incomingReadBandCoversViewport(state) ||
+      viewportCoverageFraction(
+        active.meshStart,
+        active.meshEnd,
+        args.viewportBpRange.start,
+        args.viewportBpRange.end
+      ) < 0.999
+    )
+      return false;
+    return (
+      this.advanceVisibleReadAdmission(
+        state,
+        active,
+        active.records,
+        active.recordsKey,
+        allowance,
+        active.rows
+      ) === true
+    );
+  }
+
   private commitExactReadRecords(
     state: ContainerState,
     input: ExactReadCommitInput,
-    rowBudget: ReadRowBudget
-  ): boolean {
+    rowBudget: ReadRowBudget,
+    allowance: ReadRowsPreparationAllowance
+  ): void {
     const {
       records,
       recordsKey,
@@ -2543,7 +2745,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       !(shouldBuildExactDerivedRecords && !state.cachedRecordsExactDerived) &&
       state.rowsAssignmentBuildJob === null
     ) {
-      return false;
+      return;
     }
     const commitStartedAt = nowMs();
     const work = emptyRecordsCommitWork();
@@ -2554,6 +2756,11 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     state.readSourceWindowStartBp = sourceWindowStartBp;
     state.readSourceWindowEndBp = sourceWindowEndBp;
     state.readSourceGenerationKey = sourceGenerationKey;
+    if (
+      state.rowsMeshBuildJob !== null &&
+      state.rowsMeshBuildJob.sourceGenerationKey !== sourceGenerationKey
+    )
+      state.rowsMeshBuildJob = null;
     state.forwardReadCount = 0;
     state.reverseReadCount = 0;
     state.pairedReadCount = 0;
@@ -2565,7 +2772,8 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         rowBudget,
         previousWindowStart,
         previousWindowEnd,
-        work
+        work,
+        allowance
       );
     } else if (records && records.length > 0) {
       this.commitMetadataOnlyReadRecords(state, input, work);
@@ -2610,11 +2818,6 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     if (!records) {
       state.cachedOverflowRowsKey = '';
     }
-    return (
-      work.exactDerivedBuilt &&
-      input.tileEngineAuthority &&
-      (records?.length ?? 0) > this.readRowsAssignRecordsPerFrame
-    );
   }
 
   private commitEmptyHybridReadFront(
@@ -2631,6 +2834,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     });
     if (!field) return;
 
+    state.readDifferenceLayer.clear();
     state.loadedStartBp = startBp;
     state.loadedEndBp = endBp;
     state.collapsedPileupField = field;
@@ -2644,6 +2848,9 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     state.rowsMeshRowsRef = new Int32Array(0);
     state.rowsMeshReadHitIndex = null;
     state.rowsMeshSourceGenerationKey = input.sourceGenerationKey;
+    state.rowsMeshPresentationOwnerKey = input.presentationOwnerKey;
+    state.rowsMeshMaxRows = rowBudget.effectiveMaxRows;
+    state.rowsMeshRowHeightPx = rowBudget.effectiveRowHeightPx;
     state.rowsMeshHiddenReadCount = 0;
     state.rowsMeshCollapsedPileupField = field;
     state.effectiveRowHeightPx = rowBudget.effectiveRowHeightPx;
@@ -2657,7 +2864,8 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     rowBudget: ReadRowBudget,
     previousWindowStart: number | null,
     previousWindowEnd: number | null,
-    work: RecordsCommitWork
+    work: RecordsCommitWork,
+    allowance: ReadRowsPreparationAllowance
   ): void {
     const {
       recordsKey,
@@ -2679,6 +2887,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     if (
       activeAssignment === null ||
       activeAssignment.recordsKey !== recordsKey ||
+      activeAssignment.input.sourceGenerationKey !== input.sourceGenerationKey ||
       !readRecordsEqual(activeAssignment.records, records) ||
       activeAssignment.maxRows !== effectiveMaxRows
     ) {
@@ -2689,7 +2898,9 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         state.cachedReadHitIndex = null;
         state.lastRowAssignment = null;
       }
-      const workingLayout = disjointReadWindow ? new PersistentRowLayout() : state.layout;
+      const workingLayout = disjointReadWindow
+        ? new PersistentRowLayout()
+        : state.layout.forkForAssignment();
       state.rowsAssignmentBuildJob = {
         input,
         records,
@@ -2699,20 +2910,25 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         job: workingLayout.beginAssignment(records, effectiveMaxRows, {
           coordinateOrdered: tileEngineAuthority,
         }),
+        assignment: null,
+        heightJob: null,
+        visibleAdmission: null,
       };
       state.cachedRecordsExactDerived = false;
     }
     const assignStartedAt = nowMs();
     const assignmentJob = state.rowsAssignmentBuildJob;
-    work.assignRecordsProcessed = assignmentJob
-      ? assignmentJob.layout.advanceAssignmentWithinBudget(
-          assignmentJob.job,
-          urgentReadRowsWork
-            ? this.readRowsUrgentAssignRecordsPerFrame
-            : this.readRowsAssignRecordsPerFrame,
-          this.readRowsAssignWorkBudgetMs
-        )
-      : 0;
+    const assignmentBudgetMs = remainingReadRowsWorkMs(allowance);
+    work.assignRecordsProcessed =
+      assignmentJob && assignmentBudgetMs > 0
+        ? assignmentJob.layout.advanceAssignmentWithinBudget(
+            assignmentJob.job,
+            urgentReadRowsWork
+              ? this.readRowsUrgentAssignRecordsPerFrame
+              : this.readRowsAssignRecordsPerFrame,
+            assignmentBudgetMs
+          )
+        : 0;
     work.assignMs = nowMs() - assignStartedAt;
     this.lastRowsAssignmentBuildRecordsThisFrame = work.assignRecordsProcessed;
     state.rowsAssignmentBuildRecordsLastFrame = work.assignRecordsProcessed;
@@ -2720,7 +2936,33 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       this.rowsAssignmentBuildChunkCount += 1;
       state.rowsAssignmentBuildChunkCount += 1;
     }
-    work.assignmentPending = state.rowsAssignmentBuildJob?.job.complete !== true;
+    if (assignmentJob?.job.complete) {
+      if (assignmentJob.assignment === null) {
+        const finishStartedAt = nowMs();
+        assignmentJob.assignment = assignmentJob.layout.finishAssignment(assignmentJob.job);
+        work.finishAssignmentMs = nowMs() - finishStartedAt;
+        if (input.exactRowsMayRender) {
+          assignmentJob.heightJob = beginReadRowHeightFieldJob(
+            records,
+            assignmentJob.assignment.rows,
+            assignmentJob.job.recordStats.startBp,
+            assignmentJob.job.recordStats.endBp
+          );
+        }
+      }
+      const heightBudgetMs = remainingReadRowsWorkMs(allowance);
+      if (assignmentJob.heightJob !== null && heightBudgetMs > 0) {
+        const heightStartedAt = nowMs();
+        advanceReadRowHeightFieldJob(assignmentJob.heightJob, Number.POSITIVE_INFINITY, {
+          workBudgetMs: heightBudgetMs,
+        });
+        work.rowHeightFieldMs = nowMs() - heightStartedAt;
+      }
+    }
+    work.assignmentPending =
+      assignmentJob?.job.complete !== true ||
+      (assignmentJob.heightJob !== null &&
+        !isReadRowHeightFieldJobComplete(assignmentJob.heightJob));
     if (work.assignmentPending) {
       if (
         sourceWindowStartBp !== null &&
@@ -2738,7 +2980,6 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         state.hiddenReadCount = 0;
       }
       state.readOccupancy = null;
-      state.readRowHeightField = null;
       state.collapsedPileupField = null;
       this.resetCollapsedPileupStats(state);
       return;
@@ -2754,7 +2995,6 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     work: RecordsCommitWork
   ): void {
     const {
-      recordsKey,
       sourceWindowStartBp,
       sourceWindowEndBp,
       exactRowsMayRender,
@@ -2764,32 +3004,22 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     const { effectiveMaxRows } = rowBudget;
     const finishedAssignmentJob = state.rowsAssignmentBuildJob;
     if (!finishedAssignmentJob) return;
+    const assignment = finishedAssignmentJob.assignment;
+    if (assignment === null) return;
     work.exactDerivedBuilt = true;
-    const finishAssignmentStartedAt = nowMs();
-    const assignment = finishedAssignmentJob.layout.finishAssignment(finishedAssignmentJob.job);
-    work.finishAssignmentMs = nowMs() - finishAssignmentStartedAt;
     state.layout = finishedAssignmentJob.layout;
-    const beginRetainStartedAt = nowMs();
-    state.rowsRetainBuildJob = {
-      recordsKey,
-      job: state.layout.beginRetain(records),
-    };
-    work.beginRetainMs = nowMs() - beginRetainStartedAt;
-    work.retainScheduled = true;
+    state.rowsRetainBuildJob = null;
+    state.rowsRetainBuildRecordsLastFrame = 0;
     state.rowsAssignmentBuildJob = null;
+    state.cachedReadVisibleAdmission = finishedAssignmentJob.visibleAdmission;
     state.cachedReadRows = assignment.rows;
     state.cachedReadHitIndex = assignment.readHitIndex;
-    const extentStartedAt = nowMs();
-    let loadedLo = Infinity;
-    let loadedHi = -Infinity;
-    for (const r of records) {
-      if (r.start < loadedLo) loadedLo = r.start;
-      if (r.end > loadedHi) loadedHi = r.end;
-      if (r.strand === '-') state.reverseReadCount++;
-      else state.forwardReadCount++;
-      if (r.pair?.paired === true) state.pairedReadCount++;
-    }
-    work.extentMs = nowMs() - extentStartedAt;
+    const { recordStats } = finishedAssignmentJob.job;
+    const loadedLo = recordStats.startBp;
+    const loadedHi = recordStats.endBp;
+    state.reverseReadCount = recordStats.reverseReadCount;
+    state.forwardReadCount = recordStats.forwardReadCount;
+    state.pairedReadCount = recordStats.pairedReadCount;
     state.loadedStartBp = loadedLo;
     state.loadedEndBp = loadedHi;
     const occupancyStartedAt = nowMs();
@@ -2798,18 +3028,10 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       ? buildReadOccupancy(records, loadedLo, loadedHi)
       : null;
     work.occupancyMs = nowMs() - occupancyStartedAt;
-    if (exactRowsMayRender) {
-      const rowHeightFieldStartedAt = nowMs();
-      state.readRowHeightField = buildReadRowHeightField(
-        records,
-        assignment.rows,
-        loadedLo,
-        loadedHi
-      );
-      work.rowHeightFieldMs = nowMs() - rowHeightFieldStartedAt;
-    } else {
-      state.readRowHeightField = null;
-    }
+    state.cachedReadRowHeightField =
+      exactRowsMayRender && finishedAssignmentJob.heightJob !== null
+        ? finishReadRowHeightFieldJob(finishedAssignmentJob.heightJob)
+        : null;
     if (needsExactCollapsedAggregate) {
       const exactFieldStart = sourceWindowStartBp ?? loadedLo;
       const exactFieldEnd = sourceWindowEndBp ?? loadedHi;
@@ -2866,6 +3088,8 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     }
     state.readOccupancy = null;
     state.readRowHeightField = null;
+    state.cachedReadRowHeightField = null;
+    state.cachedReadVisibleAdmission = null;
     state.collapsedPileupField = null;
     this.resetCollapsedPileupStats(state);
     state.lastRowAssignment = null;
@@ -2884,6 +3108,8 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     state.loadedEndBp = 0;
     state.readOccupancy = null;
     state.readRowHeightField = null;
+    state.cachedReadRowHeightField = null;
+    state.cachedReadVisibleAdmission = null;
     state.collapsedPileupField = null;
     this.resetCollapsedPileupStats(state);
     this.disposeBar(state, 'rows');
@@ -2912,12 +3138,11 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
   private paintExactReadRowsMesh(
     state: ContainerState,
     args: TrackPaintArgs<PileupTrackData>,
-    records: ReadonlyArray<PileupRecord> | null,
-    recordsKey: string,
+    input: ExactReadCommitInput,
     readRowsTopPx: number,
-    themedReadColor: number,
-    deferBuildWork: boolean
+    allowance: ReadRowsPreparationAllowance
   ): void {
+    const { records, recordsKey } = input;
     const exactRowsReadyForCurrentRecords =
       records !== null &&
       records.length > 0 &&
@@ -2932,11 +3157,11 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         recordsKey,
         args,
         readRowsTopPx,
-        themedReadColor,
-        deferBuildWork
+        allowance,
+        input
       );
     } else if (state.rowsMeshBuildJob !== null) {
-      this.advanceReadRowsMeshBuild(state, args, args.containerTopPx + readRowsTopPx);
+      this.advanceReadRowsMeshBuild(state, args, args.containerTopPx + readRowsTopPx, allowance);
     }
   }
 
@@ -3211,8 +3436,9 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     }
 
     const requestedGenerationKey = data?.readSource?.sourceGenerationKey ?? '';
-    if (requestedGenerationKey !== state.experimentalHybridSourceGenerationKey) {
-      state.experimentalHybridSourceGenerationKey = requestedGenerationKey;
+    const requestedOwnerKey = data?.readSource?.presentationOwnerKey ?? requestedGenerationKey;
+    if (requestedOwnerKey !== state.experimentalHybridSourceGenerationKey) {
+      state.experimentalHybridSourceGenerationKey = requestedOwnerKey;
       state.experimentalHybridCompletedIntervals.length = 0;
     }
     const completedViewport = completedHybridIntervalsCover(
@@ -3244,18 +3470,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       state.rowsMeshRowsRef !== null &&
       state.rowsMeshRowsRef.length === state.rowsMeshRecordsRef.length &&
       state.rowsMeshCollapsedPileupField !== null;
-    const currentRecords = state.cachedRecordsRef;
-    const currentReadWindowContained =
-      state.readSourceWindowStartBp !== null &&
-      state.readSourceWindowEndBp !== null &&
-      state.rowsMeshStartBp <= state.readSourceWindowStartBp &&
-      state.rowsMeshEndBp >= state.readSourceWindowEndBp;
-    const frontContainsCurrentRecords =
-      currentRecords !== null &&
-      state.rowsMeshRecordsRef !== null &&
-      (state.rowsMeshRecordsRef === currentRecords ||
-        (currentReadWindowContained &&
-          readRecordsContain(state.rowsMeshRecordsRef, currentRecords)));
+    const frontContainsCurrentRecords = this.committedReadRowsMatchIncoming(state);
     const emptyExactFrontReady =
       data?.readSource !== undefined &&
       !state.readSourceTruncated &&
@@ -3802,7 +4017,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       rowsMeshBuildTargetMatchesRecordsKey: state.rowsMeshBuildJob
         ? state.rowsMeshBuildJob.recordsKey === state.cachedRecordsKey
         : null,
-      rowsMeshBuildRecordCursor: state.rowsMeshBuildJob?.job.recordCursor ?? 0,
+      rowsMeshBuildRecordCursor: state.rowsMeshBuildJob?.job?.recordCursor ?? 0,
       rowsMeshBuildRecordCount: state.rowsMeshBuildJob?.recordCount ?? 0,
       rowsAssignmentBuildInProgress: state.rowsAssignmentBuildJob !== null,
       rowsAssignmentBuildRecordsLastFrame: this.lastRowsAssignmentBuildRecordsThisFrame,
@@ -3978,6 +4193,43 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     };
   }
 
+  getReadPresentationSnapshot(container: Container): TrackReadPresentationSnapshot | null {
+    const state = this.containerState.get(container);
+    if (!state) return null;
+    const recordCount = state.rows ? state.rowsMeshRecordCount : 0;
+    const visible =
+      state.rows?.mesh.visible === true &&
+      state.rows.vertexCount > 0 &&
+      recordCount > 0 &&
+      state.renderedReadRowsAlpha > READ_LOD_MESH_VISIBLE_ALPHA_EPSILON;
+    const sourceCoversViewport = this.incomingReadBandCoversViewport(state);
+    const readsReady =
+      visible &&
+      sourceCoversViewport &&
+      state.rowsMeshViewportCoverageFraction >= 0.999 &&
+      !state.readSourceTruncated &&
+      this.committedReadRowsMatchIncoming(state);
+    const emptyReady =
+      state.rows === null &&
+      state.incomingReadInput?.records?.length === 0 &&
+      sourceCoversViewport &&
+      !state.readSourceTruncated;
+    return {
+      kind: readsReady ? 'reads' : emptyReady ? 'empty' : 'pending',
+      sourceGenerationKey: state.rows
+        ? state.rowsMeshSourceGenerationKey
+        : state.readSourceGenerationKey,
+      presentationOwnerKey: state.readPresentationOwnerKey,
+      viewStartBp: state.lastViewportStartBp,
+      viewEndBp: state.lastViewportEndBp,
+      sourceCoversViewport,
+      meshCoverageFraction: state.rowsMeshViewportCoverageFraction,
+      truncated: state.incomingReadInput?.readSourceTruncated ?? state.readSourceTruncated,
+      visible,
+      recordCount,
+    };
+  }
+
   unmount(container: Container): void {
     const state = this.containerState.get(container);
     if (state) {
@@ -4045,6 +4297,8 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     state.lastRowAssignment = null;
     state.readOccupancy = null;
     state.readRowHeightField = null;
+    state.cachedReadRowHeightField = null;
+    state.cachedReadVisibleAdmission = null;
     state.collapsedPileupField = null;
     this.resetCollapsedPileupStats(state);
   }
@@ -4085,8 +4339,8 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     recordsKey: string,
     args: TrackPaintArgs<PileupTrackData>,
     readRowsTopPx: number,
-    themedReadColor: number,
-    deferBuildWork: boolean
+    allowance: ReadRowsPreparationAllowance,
+    input: ExactReadCommitInput
   ): void {
     const viewStart = args.viewportBpRange.start;
     const viewEnd = args.viewportBpRange.end;
@@ -4137,16 +4391,29 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       state.rows !== null &&
       state.rowsMeshRecordCount > 0 &&
       state.rowsMeshColorKey === rowsMeshColorKey &&
-      state.rowsMeshSourceGenerationKey === state.readSourceGenerationKey &&
+      state.rowsMeshSourceGenerationKey === input.sourceGenerationKey &&
+      state.rowsMeshPresentationOwnerKey === input.presentationOwnerKey &&
+      state.rowsMeshMaxRows === state.effectiveMaxRows &&
+      state.rowsMeshRowHeightPx === state.effectiveRowHeightPx &&
       state.rowsMeshStartBp <= meshStart &&
       state.rowsMeshEndBp >= meshEnd &&
       (state.rowsMeshStartBp < meshStart || state.rowsMeshEndBp > meshEnd) &&
       state.rowsMeshRecordsRef !== null &&
-      readRecordsContain(state.rowsMeshRecordsRef, records);
+      this.incomingReadBandCoversViewport(state);
     if (residentStrictlyContainsTarget) {
-      state.rowsMeshBuildJob = null;
-      this.applyCamera(state.rows!, args, rowsY);
-      return;
+      const admitted = this.advanceVisibleReadAdmission(
+        state,
+        state,
+        state.rowsMeshRecordsRef!,
+        state.rowsMeshRecordsKey,
+        allowance,
+        state.rowsMeshRowsRef
+      );
+      if (admitted !== false) {
+        if (admitted) state.rowsMeshBuildJob = null;
+        this.applyCamera(state.rows!, args, rowsY);
+        return;
+      }
     }
     if (
       state.rows &&
@@ -4164,63 +4431,52 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     }
 
     const job = state.rowsMeshBuildJob;
-    const jobStrictlyContainsTarget =
-      job !== null &&
-      job.colorKey === rowsMeshColorKey &&
-      job.sourceGenerationKey === state.readSourceGenerationKey &&
-      job.meshStart <= meshStart &&
-      job.meshEnd >= meshEnd &&
-      (job.meshStart < meshStart || job.meshEnd > meshEnd) &&
-      readRecordsContain(job.records, records);
     const targetChanged =
       job !== null &&
-      !jobStrictlyContainsTarget &&
       (job.meshStart !== meshStart ||
         job.meshEnd !== meshEnd ||
         job.colorKey !== rowsMeshColorKey ||
-        job.sourceGenerationKey !== state.readSourceGenerationKey ||
+        job.sourceGenerationKey !== input.sourceGenerationKey ||
         job.recordsKey !== recordsKey ||
         job.records !== records);
-
     if (
       job !== null &&
       targetChanged &&
-      viewportCoverageFraction(
-        job.meshStart,
-        job.meshEnd,
-        args.viewportBpRange.start,
-        args.viewportBpRange.end
-      ) >= 0.999
+      job.sourceGenerationKey === input.sourceGenerationKey &&
+      job.input.presentationOwnerKey === input.presentationOwnerKey &&
+      job.effectiveMaxRows === state.effectiveMaxRows &&
+      job.rowHeightPx === state.effectiveRowHeightPx &&
+      this.incomingReadBandCoversViewport(state) &&
+      viewportCoverageFraction(job.meshStart, job.meshEnd, viewStart, viewEnd) >= 0.999
     ) {
-      if (!deferBuildWork) this.advanceReadRowsMeshBuild(state, args, rowsY);
-      return;
+      const admitted = this.advanceVisibleReadAdmission(
+        state,
+        job,
+        job.records,
+        job.recordsKey,
+        allowance,
+        job.rows
+      );
+      if (admitted !== false) {
+        if (admitted) this.advanceReadRowsMeshBuild(state, args, rowsY, allowance);
+        else if (state.rows) this.applyCamera(state.rows, args, rowsY);
+        return;
+      }
     }
 
     if (job === null || targetChanged) {
-      let meshRecordCount = 0;
-      for (const record of records) {
-        if (record.end > meshStart && record.start < meshEnd) meshRecordCount += 1;
-      }
-      if (meshRecordCount === 0) {
-        state.rowsMeshBuildJob = null;
-        this.disposeBar(state, 'rows');
-        state.rowsMeshStartBp = meshStart;
-        state.rowsMeshEndBp = meshEnd;
-        state.rowsMeshRecordCount = 0;
-        state.rowsMeshColorKey = rowsMeshColorKey;
-        return;
-      }
-      const backPool = state.rowsBack.pool;
-      const grew = ensureVerticesPoolCapacity(backPool, meshRecordCount * 6);
-      if (grew) {
-        this.rowsMeshBufferAllocCount += 1;
-        bumpReadRowsBufferAlloc();
-      }
       state.rowsMeshBuildJob = {
+        input,
+        visibleAdmission: state.cachedReadVisibleAdmission,
+        effectiveMaxRows: state.effectiveMaxRows,
+        rowHeightPx: state.effectiveRowHeightPx,
         meshStart,
         meshEnd,
         colorKey: rowsMeshColorKey,
-        recordCount: meshRecordCount,
+        recordCount: 0,
+        countCursor: 0,
+        visibleRecordCount: 0,
+        rowHeightField: state.cachedReadRowHeightField,
         recordsKey,
         records,
         rows,
@@ -4228,31 +4484,30 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         collapsedPileupField: state.collapsedPileupField,
         readHitIndex,
         sourceGenerationKey: state.readSourceGenerationKey,
-        job: beginAnnotationRecordVerticesJob(
+        difference: state.readDifferenceLayer.beginPreparation({
           records,
           rows,
-          {
-            laneHeightPx: state.effectiveRowHeightPx,
-            defaultColor: themedReadColor,
-            includeRecord: (record) => record.end > meshStart && record.start < meshEnd,
-          },
-          { pool: backPool }
-        ),
+          rowHeightPx: state.effectiveRowHeightPx,
+        }),
+        job: null,
       };
     }
 
-    if (!deferBuildWork) this.advanceReadRowsMeshBuild(state, args, rowsY);
+    this.advanceReadRowsMeshBuild(state, args, rowsY, allowance);
   }
 
   private advanceReadRowsMeshBuild(
     state: ContainerState,
     args: TrackPaintArgs<PileupTrackData>,
-    rowsY: number
+    rowsY: number,
+    allowance: ReadRowsPreparationAllowance
   ): void {
     const active = state.rowsMeshBuildJob;
     if (active) {
       const urgentReadRowsBuild =
-        state.rows !== null &&
+        state.rows === null ||
+        !this.incomingReadBandCoversViewport(state) ||
+        !this.committedReadRowsMatchIncoming(state) ||
         readRowsHandoffNeedsUrgentWork(
           state.rowsMeshStartBp,
           state.rowsMeshEndBp,
@@ -4261,13 +4516,71 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
           args.viewportBpRange.start,
           args.viewportBpRange.end
         );
-      this.lastRowsMeshBuildRecordsThisFrame = advanceAnnotationRecordVerticesJob(
-        active.job,
-        urgentReadRowsBuild
-          ? this.readRowsUrgentBuildRecordsPerFrame
-          : this.readRowsBuildRecordsPerFrame
-      );
-      if (isAnnotationRecordVerticesJobComplete(active.job)) {
+      const maxRecords = urgentReadRowsBuild
+        ? this.readRowsUrgentBuildRecordsPerFrame
+        : this.readRowsBuildRecordsPerFrame;
+      while (active.countCursor < active.records.length && remainingReadRowsWorkMs(allowance) > 0) {
+        const index = active.countCursor++;
+        const record = active.records[index];
+        if (record.end > active.meshStart && record.start < active.meshEnd) {
+          active.recordCount += 1;
+          if (active.rows[index] >= 0) active.visibleRecordCount += 1;
+        }
+      }
+      if (active.countCursor < active.records.length) {
+        this.rowsMeshBuildChunkCount += 1;
+        if (state.rows) this.applyCamera(state.rows, args, rowsY);
+        return;
+      }
+      if (active.job === null && remainingReadRowsWorkMs(allowance) > 0) {
+        const pool = state.rowsBack.pool;
+        if (ensureVerticesPoolCapacity(pool, active.visibleRecordCount * 6)) {
+          this.rowsMeshBufferAllocCount += 1;
+          bumpReadRowsBufferAlloc();
+        }
+        active.job = beginAnnotationRecordVerticesJob(
+          active.records,
+          active.rows,
+          {
+            laneHeightPx: state.effectiveRowHeightPx,
+            defaultColor: state.pairedReadColor,
+            includeRecord: (record) =>
+              record.end > active.meshStart && record.start < active.meshEnd,
+          },
+          { pool, visibleRecordCount: active.visibleRecordCount }
+        );
+      }
+      const bodyBudgetMs = remainingReadRowsWorkMs(allowance);
+      if (
+        active.job !== null &&
+        bodyBudgetMs > 0 &&
+        !isAnnotationRecordVerticesJobComplete(active.job)
+      ) {
+        this.lastRowsMeshBuildRecordsThisFrame = advanceAnnotationRecordVerticesJob(
+          active.job,
+          maxRecords,
+          { workBudgetMs: bodyBudgetMs }
+        );
+      }
+      const differenceBudgetMs = remainingReadRowsWorkMs(allowance);
+      if (
+        differenceBudgetMs > 0 &&
+        !state.readDifferenceLayer.isPreparationComplete(active.difference)
+      ) {
+        state.readDifferenceLayer.advancePreparation(
+          active.difference,
+          urgentReadRowsBuild
+            ? READ_ROWS_URGENT_BUILD_RECORDS_PER_FRAME
+            : READ_ROWS_BUILD_RECORDS_PER_FRAME,
+          { workBudgetMs: differenceBudgetMs }
+        );
+      }
+      if (
+        active.job !== null &&
+        isAnnotationRecordVerticesJobComplete(active.job) &&
+        state.readDifferenceLayer.isPreparationComplete(active.difference) &&
+        this.preparedReadRowsMatchIncoming(state, active, args, allowance)
+      ) {
         const v = finishAnnotationRecordVerticesJob(active.job);
         this.commitReadRowsSwap(state, v, active, args, rowsY);
         state.rowsMeshBuildJob = null;
@@ -4300,8 +4613,13 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       state.rowsMeshRowsRef = active.rows;
       state.rowsMeshReadHitIndex = active.readHitIndex;
       state.rowsMeshSourceGenerationKey = active.sourceGenerationKey;
+      state.rowsMeshPresentationOwnerKey = active.input.presentationOwnerKey;
+      state.rowsMeshMaxRows = active.effectiveMaxRows;
+      state.rowsMeshRowHeightPx = active.rowHeightPx;
+      state.visibleAdmission = active.visibleAdmission;
       state.rowsMeshHiddenReadCount = active.hiddenReadCount;
       state.rowsMeshCollapsedPileupField = active.collapsedPileupField;
+      state.readRowHeightField = active.rowHeightField;
       return;
     }
 
@@ -4345,8 +4663,14 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     state.rowsMeshRowsRef = active.rows;
     state.rowsMeshReadHitIndex = active.readHitIndex;
     state.rowsMeshSourceGenerationKey = active.sourceGenerationKey;
+    state.rowsMeshPresentationOwnerKey = active.input.presentationOwnerKey;
+    state.rowsMeshMaxRows = active.effectiveMaxRows;
+    state.rowsMeshRowHeightPx = active.rowHeightPx;
+    state.visibleAdmission = active.visibleAdmission;
     state.rowsMeshHiddenReadCount = active.hiddenReadCount;
     state.rowsMeshCollapsedPileupField = active.collapsedPileupField;
+    state.readRowHeightField = active.rowHeightField;
+    state.readDifferenceLayer.commitPreparation(active.difference);
 
     if (back.mesh) {
       back.mesh.mesh.visible = false;
@@ -4365,6 +4689,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
   }
 
   private retireFrontToBack(state: ContainerState): void {
+    state.readDifferenceLayer.clear();
     const back = state.rowsBack;
     if (back.mesh) this.destroyBarMesh(back.mesh);
     back.mesh = state.rows;
@@ -4835,13 +5160,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         fillCutoff: (d) => coverageGpuAtlasHeightCutoffFill(d, cutoffDepth, collapsedMaxFill),
         fillFromGlobalPercentiles: (d) => {
           if (!globalPct) return 0;
-          return coverageFillAndColor(
-            d,
-            globalPct,
-            coverageScaleMode,
-            collapsedMaxFill,
-            cutoffDepth
-          ).fill;
+          return coverageFill(d, globalPct, coverageScaleMode, collapsedMaxFill, cutoffDepth);
         },
         fillFromContrast: (d) =>
           coverageDepthFillFraction(
@@ -5814,6 +6133,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     const bar = state.rows;
     if (bar) this.destroyBarMesh(bar);
     if (which === 'rows') {
+      state.readDifferenceLayer.clear();
       state.rows = null;
       state.rowsMeshStartBp = 0;
       state.rowsMeshEndBp = 0;
@@ -5821,6 +6141,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       state.rowsMeshColorKey = '';
       state.rowsMeshRecordsKey = '';
       state.rowsMeshRecordsRef = null;
+      state.visibleAdmission = null;
       state.rowsMeshRowsRef = null;
       state.rowsMeshReadHitIndex = null;
       state.rowsMeshSourceGenerationKey = '';

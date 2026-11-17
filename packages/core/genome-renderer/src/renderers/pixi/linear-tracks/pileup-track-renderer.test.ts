@@ -8,7 +8,12 @@ import { webglThemeForMode, type WebGLRenderTheme } from '../shared/theme';
 import { buildCoverageGpuAtlas } from './coverage-gpu-atlas';
 import { PENDING_INTERVAL_BAND_HEIGHT_PX } from './pileup-pending-interval-layer';
 import { PersistentRowLayout } from './pileup-row-layout';
-import { pileupReadBodyVerticalGeometry } from './pileup-read-glyph-layer';
+import * as rowHeightField from './pileup-read-row-height-field';
+import { TrackDataStore } from './track-data-store';
+import {
+  PileupReadDifferenceLayer,
+  pileupReadBodyVerticalGeometry,
+} from './pileup-read-glyph-layer';
 import type { TrackMountArgs, TrackPaintArgs } from './types';
 import {
   pileupExactReadPreparationEligible,
@@ -1711,6 +1716,372 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
     expect(renderer.getDiagnostics(container)?.readDifferenceHitTestCandidateCount).toBe(1);
   });
 
+  it.each(['replace', 'cancel-source'] as const)(
+    'keeps read bodies and difference hits atomic during held preparation: %s',
+    (mode) => {
+      const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+      const container = renderer.mount(mountArgs);
+      const initial = read(100, 110, 'initial', {
+        mismatches: [{ pos: 104, kind: 'sub', refBase: 'A', readBase: 'T' }],
+      });
+      const replacement = read(100, 110, 'replacement', {
+        mismatches: [{ pos: 106, kind: 'sub', refBase: 'C', readBase: 'G' }],
+      });
+      const newest = read(100, 110, 'newest', {
+        mismatches: [{ pos: 108, kind: 'sub', refBase: 'G', readBase: 'A' }],
+      });
+      const args = (record: PileupRecord, generation: string) =>
+        paintArgsZoom(
+          container,
+          {
+            dataAuthority: 'tile-engine',
+            records: [record],
+            readSource: {
+              truncated: false,
+              windowStartBp: 90,
+              windowEndBp: 190,
+              sourceGenerationKey: generation,
+            },
+          },
+          4,
+          { start: 90, end: 190 },
+          800,
+          240
+        );
+      const initialArgs = args(initial, 'source-a');
+      const replacementArgs = args(replacement, mode === 'replace' ? 'source-a' : 'source-b');
+      const newestArgs = args(newest, 'source-c');
+      const hit = (position: number, paint: TrackPaintArgs<PileupTrackData>, row = 0) =>
+        renderer.hitTestReadEvent(container, {
+          trackId: 'test-bam',
+          localX: position * 4 + 1,
+          localY: row * (renderer.getDiagnostics(container)?.effectiveRowHeightPx ?? 3) + 1,
+          screenX: position * 4 + 1,
+          screenY: 51 + row * (renderer.getDiagnostics(container)?.effectiveRowHeightPx ?? 3),
+          pathMapper: paint.pathMapper,
+          chromosomeGlobalStartBp: 0,
+        });
+      let restore = () => {};
+      try {
+        renderer.paint(initialArgs);
+        for (let count = 0; renderer.hasPendingPaintWork(container) && count < 20; count++) {
+          renderer.paint(initialArgs);
+        }
+        const before = renderer.getDiagnostics(container)!;
+        expect(before.readDifferenceMarkCount).toBe(1);
+        expect(hit(104, initialArgs)).toMatchObject({ readId: 'initial', event: { pos: 104 } });
+
+        let hold = true;
+        const original = PileupReadDifferenceLayer.prototype.advancePreparation;
+        const preparation = vi
+          .spyOn(PileupReadDifferenceLayer.prototype, 'advancePreparation')
+          .mockImplementation(function (
+            this: PileupReadDifferenceLayer,
+            ...parameters: Parameters<typeof original>
+          ) {
+            return hold ? 0 : original.apply(this, parameters);
+          });
+        restore = () => preparation.mockRestore();
+        for (let count = 0; count < 3; count++) renderer.paint(replacementArgs);
+        expect(renderer.hasPendingPaintWork(container)).toBe(true);
+        const pending = renderer.getDiagnostics(container)!;
+        expect(pending.readDifferenceBuildCount).toBe(before.readDifferenceBuildCount);
+        if (mode === 'replace') {
+          expect(renderer.getReadPresentationSnapshot(container)?.kind).toBe('pending');
+          expect(pending.rowsMeshGenerationKey).toBe(before.rowsMeshGenerationKey);
+          expect(hit(104, replacementArgs)).toMatchObject({
+            readId: 'initial',
+            event: { pos: 104 },
+          });
+        } else {
+          expect(pending.readDifferenceLayerVisible).toBe(false);
+          expect(hit(104, replacementArgs)).toBeNull();
+          for (let count = 0; count < 3; count++) renderer.paint(newestArgs);
+          expect(renderer.getDiagnostics(container)?.readDifferenceLayerVisible).toBe(false);
+        }
+
+        hold = false;
+        const finalArgs = mode === 'replace' ? replacementArgs : newestArgs;
+        for (let count = 0; renderer.hasPendingPaintWork(container) && count < 20; count++) {
+          renderer.paint(finalArgs);
+        }
+        expect(renderer.hasPendingPaintWork(container)).toBe(false);
+        expect(renderer.getDiagnostics(container)).toMatchObject({
+          readDifferenceMarkCount: 1,
+          readDifferenceInstanceCount: 1,
+          readDifferenceLayerVisible: true,
+        });
+        const position = mode === 'replace' ? 106 : 108;
+        const committedRow = mode === 'replace' ? 1 : 0;
+        expect(hit(position, finalArgs, committedRow)).toMatchObject({
+          readId: mode === 'replace' ? 'replacement' : 'newest',
+          sourceGenerationKey: mode === 'replace' ? 'source-a' : 'source-c',
+          event: { pos: position },
+        });
+        expect(hit(mode === 'replace' ? 104 : 106, finalArgs, committedRow)?.event).toBeUndefined();
+      } finally {
+        restore();
+        renderer.unmount(container);
+      }
+    }
+  );
+
+  it.each(['offscreen', 'visible'] as const)(
+    'arbitrates a pending read body against newer %s data',
+    (addition) => {
+      const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+      const container = renderer.mount(mountArgs);
+      const initial = read(100, 110, 'initial', {
+        mismatches: [{ pos: 104, kind: 'sub', readBase: 'T' }],
+      });
+      const staged = read(150, 160, 'staged', {
+        mismatches: [{ pos: 154, kind: 'sub', readBase: 'G' }],
+      });
+      const late =
+        addition === 'offscreen'
+          ? read(220, 230, 'late')
+          : read(170, 180, 'late', {
+              mismatches: [{ pos: 174, kind: 'sub', readBase: 'C' }],
+            });
+      const nextRecords = [staged, late];
+      const args = (records: PileupRecord[], end: number) =>
+        paintArgsZoom(
+          container,
+          {
+            dataAuthority: 'tile-engine',
+            records,
+            readSource: {
+              truncated: false,
+              windowStartBp: 90,
+              windowEndBp: end,
+              sourceGenerationKey: 'source-a',
+            },
+          },
+          4,
+          { start: 90, end: 190 },
+          800,
+          240
+        );
+      const initialArgs = args([initial], 190);
+      const stagedArgs = args([staged], 190);
+      const nextArgs = args(nextRecords, 290);
+      const hit = (position: number) =>
+        renderer.hitTestReadEvent(container, {
+          trackId: 'test-bam',
+          localX: position * 4 + 1,
+          localY: 1,
+          screenX: position * 4 + 1,
+          screenY: 51,
+          pathMapper: nextArgs.pathMapper,
+          chromosomeGlobalStartBp: 0,
+        });
+      let restorePreparation = () => {};
+      let restoreAssignment = () => {};
+      try {
+        renderer.paint(initialArgs);
+        for (let frame = 0; renderer.hasPendingPaintWork(container) && frame < 20; frame++) {
+          renderer.paint(initialArgs);
+        }
+        expect(hit(104)?.readId).toBe('initial');
+        let hold = true;
+        const advance = PileupReadDifferenceLayer.prototype.advancePreparation;
+        const preparation = vi
+          .spyOn(PileupReadDifferenceLayer.prototype, 'advancePreparation')
+          .mockImplementation(function (
+            this: PileupReadDifferenceLayer,
+            ...parameters: Parameters<typeof advance>
+          ) {
+            return hold ? 0 : advance.apply(this, parameters);
+          });
+        restorePreparation = () => preparation.mockRestore();
+        for (let frame = 0; frame < 3; frame++) renderer.paint(stagedArgs);
+        expect(renderer.hasPendingPaintWork(container)).toBe(true);
+        let newerAssignmentBeforeCommit = false;
+        const begin = PersistentRowLayout.prototype.beginAssignment;
+        const assignment = vi
+          .spyOn(PersistentRowLayout.prototype, 'beginAssignment')
+          .mockImplementation(function (
+            this: PersistentRowLayout,
+            ...parameters: Parameters<typeof begin>
+          ) {
+            if (parameters[0] === nextRecords && hit(154)?.readId !== 'staged') {
+              newerAssignmentBeforeCommit = true;
+            }
+            return begin.apply(this, parameters);
+          });
+        restoreAssignment = () => assignment.mockRestore();
+        renderer.paint(nextArgs);
+        if (addition === 'offscreen') expect(newerAssignmentBeforeCommit).toBe(false);
+        expect(renderer.getReadPresentationSnapshot(container)?.kind).toBe('pending');
+        hold = false;
+        for (let frame = 0; frame < 100; frame++) {
+          renderer.paint(nextArgs);
+          if (
+            renderer.getReadPresentationSnapshot(container)?.kind === 'reads' &&
+            !renderer.hasPendingPaintWork(container)
+          )
+            break;
+        }
+        if (addition === 'offscreen') expect(newerAssignmentBeforeCommit).toBe(false);
+        expect(renderer.getReadPresentationSnapshot(container)?.kind).toBe('reads');
+        expect(hit(154)?.readId).toBe('staged');
+        if (addition === 'visible') expect(hit(174)?.readId).toBe('late');
+      } finally {
+        restoreAssignment();
+        restorePreparation();
+        renderer.unmount(container);
+      }
+    }
+  );
+
+  it.each(['replace', 'cancel-source'] as const)(
+    'keeps read fronts and hits paired while height preparation is held: %s',
+    (mode) => {
+      const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+      const container = renderer.mount(mountArgs);
+      const initial = read(100, 110, 'initial', {
+        mismatches: [{ pos: 104, kind: 'sub', refBase: 'A', readBase: 'T' }],
+      });
+      const replacement = read(100, 110, 'replacement', {
+        mismatches: [{ pos: 106, kind: 'sub', refBase: 'C', readBase: 'G' }],
+      });
+      const newest = read(100, 110, 'newest', {
+        mismatches: [{ pos: 108, kind: 'sub', refBase: 'G', readBase: 'A' }],
+      });
+      const args = (record: PileupRecord, generation: string) =>
+        paintArgsZoom(
+          container,
+          {
+            dataAuthority: 'tile-engine',
+            records: [record],
+            readSource: {
+              truncated: false,
+              windowStartBp: 90,
+              windowEndBp: 190,
+              sourceGenerationKey: generation,
+            },
+          },
+          4,
+          { start: 90, end: 190 },
+          800,
+          240
+        );
+      const initialArgs = args(initial, 'source-a');
+      const replacementArgs = args(replacement, mode === 'replace' ? 'source-a' : 'source-b');
+      const newestArgs = args(newest, 'source-c');
+      const hit = (position: number, paint: TrackPaintArgs<PileupTrackData>, row = 0) =>
+        renderer.hitTestReadEvent(container, {
+          trackId: 'test-bam',
+          localX: position * 4 + 1,
+          localY: row * (renderer.getDiagnostics(container)?.effectiveRowHeightPx ?? 3) + 1,
+          screenX: position * 4 + 1,
+          screenY: 51 + row * (renderer.getDiagnostics(container)?.effectiveRowHeightPx ?? 3),
+          pathMapper: paint.pathMapper,
+          chromosomeGlobalStartBp: 0,
+        });
+      let restore = () => {};
+      try {
+        renderer.paint(initialArgs);
+        for (let count = 0; renderer.hasPendingPaintWork(container) && count < 20; count++) {
+          renderer.paint(initialArgs);
+        }
+        const before = renderer.getDiagnostics(container)!;
+        expect(before.readDifferenceMarkCount).toBe(1);
+        expect(hit(104, initialArgs)).toMatchObject({ readId: 'initial', event: { pos: 104 } });
+
+        let hold = true;
+        const original = rowHeightField.advanceReadRowHeightFieldJob;
+        const preparation = vi
+          .spyOn(rowHeightField, 'advanceReadRowHeightFieldJob')
+          .mockImplementation((...parameters: Parameters<typeof original>) =>
+            hold ? 0 : original(...parameters)
+          );
+        restore = () => preparation.mockRestore();
+        for (let count = 0; count < 3; count++) renderer.paint(replacementArgs);
+        expect(renderer.hasPendingPaintWork(container)).toBe(true);
+        const pending = renderer.getDiagnostics(container)!;
+        expect(pending.readDifferenceBuildCount).toBe(before.readDifferenceBuildCount);
+        if (mode === 'replace') {
+          expect(renderer.getReadPresentationSnapshot(container)?.kind).toBe('pending');
+          expect(pending.rowsMeshGenerationKey).toBe(before.rowsMeshGenerationKey);
+          expect(hit(104, replacementArgs)).toMatchObject({
+            readId: 'initial',
+            event: { pos: 104 },
+          });
+        } else {
+          expect(pending.readDifferenceLayerVisible).toBe(false);
+          expect(hit(104, replacementArgs)).toBeNull();
+          for (let count = 0; count < 3; count++) renderer.paint(newestArgs);
+          expect(renderer.getDiagnostics(container)?.readDifferenceLayerVisible).toBe(false);
+        }
+
+        hold = false;
+        const finalArgs = mode === 'replace' ? replacementArgs : newestArgs;
+        for (let count = 0; renderer.hasPendingPaintWork(container) && count < 20; count++) {
+          renderer.paint(finalArgs);
+        }
+        expect(renderer.hasPendingPaintWork(container)).toBe(false);
+        expect(renderer.getDiagnostics(container)).toMatchObject({
+          readDifferenceMarkCount: 1,
+          readDifferenceInstanceCount: 1,
+          readDifferenceLayerVisible: true,
+        });
+        const position = mode === 'replace' ? 106 : 108;
+        const committedRow = mode === 'replace' ? 1 : 0;
+        expect(hit(position, finalArgs, committedRow)).toMatchObject({
+          readId: mode === 'replace' ? 'replacement' : 'newest',
+          sourceGenerationKey: mode === 'replace' ? 'source-a' : 'source-c',
+          event: { pos: position },
+        });
+        expect(hit(mode === 'replace' ? 104 : 106, finalArgs, committedRow)?.event).toBeUndefined();
+      } finally {
+        restore();
+        renderer.unmount(container);
+      }
+    }
+  );
+
+  it.each([
+    {
+      name: 'highest matching coordinate',
+      events: [
+        { pos: 105, kind: 'ins' as const, readBase: 'AA' },
+        { pos: 102, kind: 'del' as const, length: 6 },
+        { pos: 104, kind: 'sub' as const, readBase: 'T' },
+        { pos: 104, kind: 'del' as const, length: 2 },
+      ],
+      expectedIndex: 0,
+    },
+    {
+      name: 'stable event order at one coordinate',
+      events: [
+        { pos: 104, kind: 'sub' as const, readBase: 'T' },
+        { pos: 104, kind: 'ins' as const, readBase: 'AA' },
+      ],
+      expectedIndex: 1,
+    },
+  ])('preserves difference-hit priority for $name', ({ events, expectedIndex }) => {
+    const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+    const container = renderer.mount(mountArgs);
+    const record = read(100, 110, 'overlapping-events', { mismatches: events });
+    const args = paintArgsZoom(container, { records: [record] }, 4, { start: 90, end: 190 }, 800);
+    try {
+      renderer.paint(args);
+      const hit = renderer.hitTestReadEvent(container, {
+        trackId: 'test-bam',
+        localX: 104 * 4 + 1,
+        localY: 1,
+        screenX: 104 * 4 + 1,
+        screenY: 51,
+        pathMapper: args.pathMapper,
+        chromosomeGlobalStartBp: 0,
+      });
+      expect(hit?.event).toBe(events[expectedIndex]);
+    } finally {
+      renderer.unmount(container);
+    }
+  });
+
   it('hit-tests the whole committed read body and distinguishes paired alignments with one QNAME', async () => {
     const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
     const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test', rowHeightPx: 8 });
@@ -2229,6 +2600,83 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
     }
   });
 
+  it('reports only committed visible read geometry while replacement work remains pending', () => {
+    const r = new PixiPileupTrackRenderer({
+      type: 'pileup-test',
+      readRowsAssignRecordsPerFrame: 1,
+      readRowsBuildRecordsPerFrame: 1,
+    });
+    const c = r.mount(mountArgs);
+    const source = {
+      truncated: false,
+      windowStartBp: 0,
+      windowEndBp: 1_000,
+      sourceGenerationKey: 'generation-a',
+      presentationOwnerKey: 'owner-a',
+    };
+    const records = [read(100, 150, 'a'), read(160, 200, 'b')];
+    let viewport = { start: 100, end: 200 };
+    const paint = (data: PileupTrackDataFixture) => r.paint(paintArgsZoom(c, data, 10, viewport));
+    paint({ dataAuthority: 'tile-engine', records, readSource: source });
+    expect(r.getReadPresentationSnapshot(c)?.kind).toBe('pending');
+    let frames = 0;
+    while (r.getDiagnostics(c)?.rowsMeshRecordCount !== records.length && frames++ < 20) {
+      paint({ dataAuthority: 'tile-engine', records, readSource: source });
+    }
+    expect(r.getReadPresentationSnapshot(c)).toMatchObject({
+      kind: 'reads',
+      sourceGenerationKey: 'generation-a',
+      presentationOwnerKey: 'owner-a',
+      viewStartBp: 100,
+      viewEndBp: 200,
+      sourceCoversViewport: true,
+      meshCoverageFraction: 1,
+      truncated: false,
+      visible: true,
+      recordCount: 2,
+    });
+    paint({
+      dataAuthority: 'tile-engine',
+      records: [...records, read(600, 650, 'offscreen')],
+      readSource: source,
+    });
+    expect(r.getDiagnostics(c)?.rowsAssignmentBuildInProgress).toBe(false);
+    expect(r.getDiagnostics(c)?.rowsMeshRecordCount).toBe(2);
+    expect(r.getReadPresentationSnapshot(c)?.kind).toBe('reads');
+    viewport = { start: 800, end: 1_200 };
+    paint({
+      dataAuthority: 'tile-engine',
+      records: [...records, read(900, 950, 'new-visible')],
+      readSource: { ...source, windowEndBp: 2_000 },
+    });
+    expect(r.getReadPresentationSnapshot(c)).toMatchObject({
+      kind: 'pending',
+      meshCoverageFraction: 0.5,
+      sourceCoversViewport: true,
+    });
+    viewport = { start: 100, end: 200 };
+    paint({ dataAuthority: 'tile-engine', records, readSource: { ...source, truncated: true } });
+    expect(r.getReadPresentationSnapshot(c)?.kind).toBe('pending');
+    paint({
+      dataAuthority: 'tile-engine',
+      records,
+      readSource: { ...source, presentationOwnerKey: 'owner-b' },
+    });
+    expect(r.getReadPresentationSnapshot(c)).toMatchObject({
+      kind: 'pending',
+      presentationOwnerKey: 'owner-b',
+      visible: false,
+    });
+    paint({ dataAuthority: 'tile-engine', records: [], readSource: source });
+    expect(r.getReadPresentationSnapshot(c)).toMatchObject({
+      kind: 'empty',
+      recordCount: 0,
+      visible: false,
+      sourceCoversViewport: true,
+    });
+    r.unmount(c);
+  });
+
   it('reports zero state for a mounted track before paint', async () => {
     const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
     const r = new PixiPileupTrackRenderer({ type: 'pileup-test', maxRows: 60 });
@@ -2530,12 +2978,197 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         240
       );
 
+    it('shares the elapsed allowance with height finalization before publishing new reads', () => {
+      const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+      const container = renderer.mount(mountArgs);
+      const initial = [read(100, 105, 'initial')];
+      const initialPaint = readPaint(container, initial);
+      let clock = 0;
+      let derivedWork = false;
+      const records = makeWindowReads(1_500, 110_000).map((record) => {
+        const { start, end } = record;
+        Object.defineProperties(record, {
+          start: {
+            get: () => {
+              if (derivedWork) clock += 0.005;
+              return start;
+            },
+          },
+          end: {
+            get: () => {
+              if (derivedWork) clock += 0.005;
+              return end;
+            },
+          },
+        });
+        return record;
+      });
+      const advance = PersistentRowLayout.prototype.advanceAssignmentWithinBudget;
+      let assignment: ReturnType<typeof vi.spyOn> | undefined;
+      let timer: ReturnType<typeof vi.spyOn> | undefined;
+      try {
+        renderer.paint(initialPaint);
+        for (let frame = 0; renderer.hasPendingPaintWork(container) && frame < 20; frame++) {
+          renderer.paint(initialPaint);
+        }
+        const before = renderer.getDiagnostics(container)!;
+        expect(before.rowsMeshRecordCount).toBe(1);
+        assignment = vi
+          .spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget')
+          .mockImplementation(function (this: PersistentRowLayout, job, ...args) {
+            const processed = advance.call(this, job, ...args);
+            if (job.complete) derivedWork = true;
+            return processed;
+          });
+        timer = vi.spyOn(performance, 'now').mockImplementation(() => clock);
+        const replacement = readPaint(container, records, 110_000);
+        renderer.paint(replacement);
+
+        expect(clock).toBeLessThanOrEqual(2.25);
+        expect(renderer.hasPendingPaintWork(container)).toBe(true);
+        expect(renderer.getDiagnostics(container)?.rowsMeshRecordCount).toBe(1);
+        for (let frame = 0; renderer.hasPendingPaintWork(container) && frame < 400; frame++) {
+          const started = clock;
+          renderer.paint(replacement);
+          expect(clock - started).toBeLessThanOrEqual(2.25);
+        }
+        expect(renderer.hasPendingPaintWork(container)).toBe(false);
+        expect(renderer.getDiagnostics(container)?.rowsMeshRecordCount).toBe(records.length);
+      } finally {
+        timer?.mockRestore();
+        assignment?.mockRestore();
+        renderer.unmount(container);
+      }
+    });
+
+    it('uses remaining preparation time for drawing when assignment finishes', () => {
+      const renderer = new PixiPileupTrackRenderer({
+        type: 'pileup-test',
+        readRowsAssignRecordsPerFrame: 512,
+        readRowsBuildRecordsPerFrame: 8,
+      });
+      const container = renderer.mount(mountArgs);
+      const records = makeWindowReads(513, 100_000);
+      const clock = vi.spyOn(performance, 'now').mockReturnValue(1_000);
+      try {
+        renderer.paint(readPaint(container, records));
+        expect(renderer.getDiagnostics(container)?.rowsAssignmentBuildInProgress).toBe(true);
+        expect(renderer.getDiagnostics(container)?.rowsAssignmentBuildRecordsLastFrame).toBe(512);
+
+        renderer.paint(readPaint(container, records));
+
+        const joining = renderer.getDiagnostics(container)!;
+        expect(joining.rowsAssignmentBuildInProgress).toBe(false);
+        expect(joining.rowsMeshBuildInProgress).toBe(true);
+        expect(joining.rowsMeshBuildRecordCursor).toBe(8);
+        expect(joining.rowsMeshBuildRecordsLastFrame).toBe(8);
+        expect(renderer.getReadPresentationSnapshot(container)?.kind).toBe('pending');
+        for (let frame = 0; renderer.hasPendingPaintWork(container) && frame < 100; frame++) {
+          renderer.paint(readPaint(container, records));
+          expect(
+            renderer.getDiagnostics(container)?.rowsMeshBuildRecordsLastFrame
+          ).toBeLessThanOrEqual(8);
+        }
+        expect(renderer.hasPendingPaintWork(container)).toBe(false);
+        expect(renderer.getDiagnostics(container)?.rowsMeshRecordCount).toBe(records.length);
+        expect(renderer.getReadPresentationSnapshot(container)?.kind).toBe('reads');
+      } finally {
+        clock.mockRestore();
+        renderer.unmount(container);
+      }
+    });
+
+    it('prioritizes a missing read front within the urgent elapsed-work budget', () => {
+      const r = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+      const c = r.mount(mountArgs);
+      const records = makeWindowReads(5_500, 100_000);
+      const advance = PersistentRowLayout.prototype.advanceAssignmentWithinBudget;
+      const assignment = vi
+        .spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget')
+        .mockImplementation(function (this: PersistentRowLayout, job, maxRecords, budgetMs) {
+          return advance.call(this, job, maxRecords, budgetMs, () => job.processedCount * 0.001);
+        });
+      let meshClock: ReturnType<typeof vi.spyOn> | undefined;
+      try {
+        r.paint(readPaint(c, records));
+        expect(assignment.mock.lastCall?.[1]).toBe(4_096);
+        expect(assignment.mock.lastCall?.[2]).toBeGreaterThan(0);
+        expect(assignment.mock.lastCall?.[2]).toBeLessThanOrEqual(2);
+        let d = r.getDiagnostics(c)!;
+        const expectedRecords = Math.floor(assignment.mock.lastCall![2] * 1_000);
+        expect(d.rowsAssignmentBuildRecordsLastFrame).toBeGreaterThanOrEqual(expectedRecords);
+        expect(d.rowsAssignmentBuildRecordsLastFrame).toBeLessThanOrEqual(expectedRecords + 4);
+        expect(d.rowsAssignmentBuildInProgress).toBe(true);
+        while (d.rowsAssignmentBuildInProgress) {
+          r.paint(readPaint(c, records));
+          d = r.getDiagnostics(c)!;
+        }
+        let clock = 0;
+        meshClock = vi.spyOn(performance, 'now').mockImplementation(() => (clock += 0.01));
+        let mesh = r.getDiagnostics(c)!;
+        for (let frame = 0; frame < 100; frame++) {
+          r.paint(readPaint(c, records));
+          mesh = r.getDiagnostics(c)!;
+          if (mesh.rowsMeshBuildRecordsLastFrame > 0) break;
+          expect(r.hasPendingPaintWork(c)).toBe(true);
+        }
+        expect(mesh.rowsMeshBuildRecordsLastFrame).toBeGreaterThan(0);
+        expect(mesh.rowsMeshBuildRecordsLastFrame).toBeLessThan(records.length);
+        expect(mesh.rowsMeshBuildInProgress).toBe(true);
+      } finally {
+        meshClock?.mockRestore();
+        assignment.mockRestore();
+        r.unmount(c);
+      }
+    });
+
+    it('reuses the visible empty read set when new reads remain offscreen', () => {
+      const r = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+      const c = r.mount(mountArgs);
+      const paint = (records: PileupRecord[], end: number) =>
+        r.paint(
+          paintArgsZoom(
+            c,
+            {
+              dataAuthority: 'tile-engine',
+              records,
+              readSource: { truncated: false, windowStartBp: 0, windowEndBp: end },
+            },
+            4 / 150,
+            { start: 40_000, end: 60_000 },
+            800,
+            240
+          )
+        );
+      paint([read(100, 150, 'front')], 100_000);
+      const advance = PersistentRowLayout.prototype.advanceAssignmentWithinBudget;
+      const assignment = vi
+        .spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget')
+        .mockImplementation(function (this: PersistentRowLayout, job, maxRecords, budgetMs) {
+          return advance.call(this, job, maxRecords, budgetMs, () => 0);
+        });
+      try {
+        const records = makeWindowReads(5_500, 110_000);
+        paint(records, 110_000);
+        for (let frame = 0; r.hasPendingPaintWork(c) && frame < 100; frame++) {
+          paint(records, 110_000);
+        }
+        expect(assignment).not.toHaveBeenCalled();
+        expect(r.hasPendingPaintWork(c)).toBe(false);
+        expect(r.getDiagnostics(c)?.rowsMeshRecordCount).toBe(1);
+      } finally {
+        assignment.mockRestore();
+        r.unmount(c);
+      }
+    });
+
     it('keeps an exact aggregate bridge visible while an urgent WGS handoff yields', async () => {
       const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
       const r = new PixiPileupTrackRenderer({
         type: 'pileup-test',
         rowHeightPx: 4,
         maxRows: 4000,
+        readRowsAssignRecordsPerFrame: 512,
       });
       const c = r.mount(mountArgs);
       const frontRecords = makeWindowReads(100, 2_048);
@@ -2612,7 +3245,8 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       r.paint(readPaint(c, records));
       const detail = r.getDiagnostics(c)!;
       expect(detail.rowsAssignmentBuildInProgress).toBe(true);
-      expect(detail.rowsRetainedPlacementCount).toBeGreaterThan(0);
+      expect(detail.rowsAssignmentBuildRecordsLastFrame).toBeGreaterThan(0);
+      expect(detail.rowsRetainedPlacementCount).toBe(0);
 
       r.paint(
         paintArgsZoom(
@@ -2748,8 +3382,14 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         r.paint(frontPaint());
         while (r.hasPendingPaintWork(c)) r.paint(frontPaint());
 
+        const visibleStart = Math.max(viewStart, nextStart);
+        const visibleEnd = Math.min(viewEnd, nextEnd);
+        const step = Math.max(
+          1,
+          Math.min(120, Math.floor((visibleEnd - visibleStart - 150) / 125))
+        );
         const nextRecords = Array.from({ length: 10_000 }, (_, index) => {
-          const start = nextStart + Math.floor(index / 80) * 120;
+          const start = visibleStart + Math.floor(index / 80) * step;
           return read(start, start + 150, `next-${index}`);
         });
         r.paint(paintWindow(nextRecords, nextStart, nextEnd, viewStart, viewEnd));
@@ -2793,14 +3433,19 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
             4 / 150,
             { start: 12_000, end: 12_512 },
             800,
-            240
+            480
           )
         );
-      const front = records('front', 8);
+      const intermediate = records('intermediate', 128);
+      const front = intermediate.slice(0, 8);
       paint(front, 0);
       while (r.hasPendingPaintWork(c)) paint(front, 0);
-      const intermediate = records('intermediate', 128);
-      const latest = records('latest', 128);
+      const latest = [
+        ...intermediate,
+        ...Array.from({ length: 16 }, (_, index) =>
+          read(20_000 + index * 2, 20_150 + index * 2, `latest-offscreen-${index}`)
+        ),
+      ];
       paint(intermediate, 4_096);
       let intermediatePublished = false;
       for (let frame = 0; frame < 24; frame += 1) {
@@ -2872,65 +3517,78 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       expect(narrow.rowsMeshBuildChunkCount).toBe(broadBuildCount);
     });
 
-    it('rebuilds a broader but incomplete resident when a narrower feed admits another read', async () => {
-      const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
-      const r = new PixiPileupTrackRenderer({
-        type: 'pileup-test',
-        rowHeightPx: 4,
-        maxRows: 4000,
-      });
-      const c = r.mount(mountArgs);
-      const broadRecords = makeWindowReads(240, 2_048);
-      const paintWindow = (records: PileupRecord[], startBp: number) =>
-        paintArgsZoom(
-          c,
-          {
-            dataAuthority: 'tile-engine',
-            records,
-            readSource: {
-              truncated: false,
-              windowStartBp: startBp,
-              windowEndBp: 2_048,
-              sourceGenerationKey: 'same-alignment-file',
+    it.each(['adds', 'removes'] as const)(
+      'rebuilds a broader resident when a narrower feed %s a visible read',
+      async (change) => {
+        const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
+        const r = new PixiPileupTrackRenderer({
+          type: 'pileup-test',
+          rowHeightPx: 4,
+          maxRows: 4000,
+        });
+        const c = r.mount(mountArgs);
+        const broadRecords = makeWindowReads(240, 2_048);
+        const paintWindow = (records: PileupRecord[], startBp: number) =>
+          paintArgsZoom(
+            c,
+            {
+              dataAuthority: 'tile-engine',
+              records,
+              readSource: {
+                truncated: false,
+                windowStartBp: startBp,
+                windowEndBp: 2_048,
+                sourceGenerationKey: 'same-alignment-file',
+              },
             },
-          },
-          4.0 / 150,
-          { start: 1_100, end: 1_612 },
-          800,
-          240
+            4.0 / 150,
+            { start: 1_100, end: 1_612 },
+            800,
+            240
+          );
+
+        r.paint(paintWindow(broadRecords, 0));
+        while (r.hasPendingPaintWork(c)) r.paint(paintWindow(broadRecords, 0));
+        const broad = r.getDiagnostics(c)!;
+        expect(broad.rowsMeshRecordCount).toBe(broadRecords.length);
+
+        const removedReadId = broadRecords.find((record) => record.start === 1_300)!.readId;
+        const narrowRecords = broadRecords.filter(
+          (record) =>
+            record.start >= 1_024 && (change !== 'removes' || record.readId !== removedReadId)
         );
-
-      r.paint(paintWindow(broadRecords, 0));
-      while (r.hasPendingPaintWork(c)) r.paint(paintWindow(broadRecords, 0));
-      const broad = r.getDiagnostics(c)!;
-      expect(broad.rowsMeshRecordCount).toBe(broadRecords.length);
-
-      const narrowRecords = [
-        ...broadRecords.filter((record) => record.start >= 1_024),
-        read(1_300, 1_450, 'late-tile-read'),
-      ];
-      expect(narrowRecords.length).toBeLessThan(broadRecords.length);
-      const debug = globalThis as { __dna119ExposePileupRows?: boolean };
-      debug.__dna119ExposePileupRows = true;
-      try {
-        r.paint(paintWindow(narrowRecords, 1_024));
-        let frames = 0;
-        while (r.hasPendingPaintWork(c) && frames++ < 100) {
+        if (change === 'adds') narrowRecords.push(read(1_300, 1_450, 'late-tile-read'));
+        narrowRecords.sort((left, right) => left.start - right.start || left.end - right.end);
+        expect(narrowRecords.length).toBeLessThan(broadRecords.length);
+        const debug = globalThis as { __dna119ExposePileupRows?: boolean };
+        debug.__dna119ExposePileupRows = true;
+        try {
           r.paint(paintWindow(narrowRecords, 1_024));
-        }
-        const settled = r.getDiagnostics(c)!;
+          let frames = 0;
+          while (r.hasPendingPaintWork(c) && frames++ < 100) {
+            r.paint(paintWindow(narrowRecords, 1_024));
+          }
+          const settled = r.getDiagnostics(c)!;
 
-        expect(r.hasPendingPaintWork(c)).toBe(false);
-        expect(settled.rowsMeshGenerationKey).not.toBe(broad.rowsMeshGenerationKey);
-        expect(settled.rowsMeshRecordCount).toBe(narrowRecords.length);
-        expect(
-          settled.visibleReadSamples?.some((sample) => sample.readId === 'late-tile-read')
-        ).toBe(true);
-      } finally {
-        debug.__dna119ExposePileupRows = false;
-        r.unmount(c);
+          expect(r.hasPendingPaintWork(c)).toBe(false);
+          expect(settled.rowsMeshGenerationKey).not.toBe(broad.rowsMeshGenerationKey);
+          expect(settled.rowsMeshRecordCount).toBe(narrowRecords.length);
+          expect(r.getReadPresentationSnapshot(c)?.kind).toBe('reads');
+          if (change === 'adds') {
+            expect(
+              settled.visibleReadSamples?.some((sample) => sample.readId === 'late-tile-read')
+            ).toBe(true);
+          } else {
+            expect(
+              settled.visibleReadSamples?.some((sample) => sample.readId === removedReadId)
+            ).toBe(false);
+          }
+        } finally {
+          debug.__dna119ExposePileupRows = false;
+          r.unmount(c);
+        }
       }
-    });
+    );
 
     it('replaces an interior read even when count and sampled identity reads are unchanged', async () => {
       const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
@@ -2985,7 +3643,9 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
 
     it('bounds a normal 80× tile-engine read window across frames under the default budget', async () => {
       const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
-      const DEFAULT_NORMAL_CHUNK_CAP = 512;
+      const DEFAULT_URGENT_CHUNK_CAP = 4_096;
+      const DEFAULT_URGENT_MESH_CHUNK_CAP = 8_192;
+      const DEFAULT_RETAIN_CHUNK_CAP = 512;
       const r = new PixiPileupTrackRenderer({
         type: 'pileup-test',
         rowHeightPx: 4,
@@ -2998,7 +3658,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       let d = r.getDiagnostics(c)!;
 
       expect(d.rowsAssignmentBuildInProgress).toBe(true);
-      expect(d.rowsAssignmentBuildRecordsLastFrame).toBeLessThanOrEqual(DEFAULT_NORMAL_CHUNK_CAP);
+      expect(d.rowsAssignmentBuildRecordsLastFrame).toBeLessThanOrEqual(DEFAULT_URGENT_CHUNK_CAP);
       expect(d.rowsMeshBuildInProgress).toBe(false);
 
       let frames = 1;
@@ -3010,9 +3670,9 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       ) {
         r.paint(readPaint(c, records));
         d = r.getDiagnostics(c)!;
-        expect(d.rowsAssignmentBuildRecordsLastFrame).toBeLessThanOrEqual(DEFAULT_NORMAL_CHUNK_CAP);
-        expect(d.rowsMeshBuildRecordsLastFrame).toBeLessThanOrEqual(DEFAULT_NORMAL_CHUNK_CAP);
-        expect(d.rowsRetainBuildRecordsLastFrame).toBeLessThanOrEqual(DEFAULT_NORMAL_CHUNK_CAP);
+        expect(d.rowsAssignmentBuildRecordsLastFrame).toBeLessThanOrEqual(DEFAULT_URGENT_CHUNK_CAP);
+        expect(d.rowsMeshBuildRecordsLastFrame).toBeLessThanOrEqual(DEFAULT_URGENT_MESH_CHUNK_CAP);
+        expect(d.rowsRetainBuildRecordsLastFrame).toBeLessThanOrEqual(DEFAULT_RETAIN_CHUNK_CAP);
         frames++;
       }
 
@@ -3070,7 +3730,9 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         }
         expect(d.rowsAssignmentBuildInProgress).toBe(false);
         expect(assignmentFrames).toBeLessThan(50);
-        expect(assignmentClock.mock.calls.every(([, , budgetMs]) => budgetMs === 0.75)).toBe(true);
+        expect(
+          assignmentClock.mock.calls.every(([, , budgetMs]) => budgetMs > 0 && budgetMs <= 2)
+        ).toBe(true);
 
         expect(d.rowsMeshBuildInProgress).toBe(true);
         expect(d.rowsMeshBuildRecordsLastFrame).toBeLessThanOrEqual(CAP);
@@ -3199,12 +3861,9 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       expect(d.recordsCommitTiming?.assignmentPending).toBe(false);
       expect(d.recordsCommitTiming?.exactDerivedBuilt).toBe(true);
       expect(d.rowsUsed).toBeGreaterThan(0);
-      expect(d.rowsMeshBuildInProgress).toBe(true);
-      expect(d.rowsMeshBuildRecordsLastFrame).toBe(0);
-      expect(d.rowsVertexCount).toBe(0);
-      expect(r.hasPendingPaintWork(c)).toBe(true);
-      r.paint(paint());
-      d = r.getDiagnostics(c)!;
+      expect(d.rowsMeshBuildInProgress).toBe(false);
+      expect(d.rowsMeshBuildRecordsLastFrame).toBe(records.length);
+      expect(r.hasPendingPaintWork(c)).toBe(false);
       expect(d.rowsVertexCount).toBe(records.length * 6);
       expect(d.rowsAssignmentBuildChunkCount).toBeGreaterThanOrEqual(
         Math.ceil(records.length / ASSIGN_CAP)
@@ -3319,23 +3978,13 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         guard++;
       }
       expect(d.rowsAssignmentBuildInProgress).toBe(false);
-      expect(d.rowsMeshBuildInProgress).toBe(true);
-      expect(r.hasPendingPaintWork(c)).toBe(true);
-      r.paint(
-        paintArgsZoom(
-          c,
-          dataFor(records.map((record) => ({ ...record }))),
-          4.0 / 150,
-          { start: 0, end: 100_000 },
-          800,
-          240
-        )
-      );
-      d = r.getDiagnostics(c)!;
+      expect(d.rowsMeshBuildInProgress).toBe(false);
+      expect(r.hasPendingPaintWork(c)).toBe(false);
       expect(d.rowsVertexCount).toBe(records.length * 6);
+      expect(r.getReadPresentationSnapshot(c)?.kind).toBe('reads');
     });
 
-    it('schedules row-layout retain cleanup as bounded post-commit work', async () => {
+    it('commits a current-only row layout without scheduling redundant retain work', async () => {
       const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
       const RETAIN_CAP = 1;
       const r = new PixiPileupTrackRenderer({
@@ -3387,11 +4036,15 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       d = r.getDiagnostics(c)!;
 
       expect(d.recordsCommitTiming?.exactDerivedBuilt).toBe(true);
-      expect(d.recordsCommitTiming?.retainScheduled).toBe(true);
-      expect(d.rowsRetainBuildInProgress).toBe(true);
-      expect(d.rowsRetainBuildRecordsLastFrame).toBeLessThanOrEqual(RETAIN_CAP);
+      expect(d.recordsCommitTiming?.retainScheduled).toBe(false);
+      expect(d.recordsCommitTiming?.beginRetainMs).toBe(0);
+      expect(d.rowsRetainBuildInProgress).toBe(false);
+      expect(d.rowsRetainBuildRecordsLastFrame).toBe(0);
+      expect(d.rowsRetainedPlacementCount).toBe(bRecords.length);
+      expect(d.rowsRetainedIntervalCount).toBe(bRecords.length);
       expect(d.paintTiming?.retainMs).toBeGreaterThanOrEqual(0);
       expect(d.rowsVertexCount).toBe(bRecords.length * 6);
+      r.unmount(c);
     });
 
     it('does not clone the complete retained row map for an overlapping handoff', async () => {
@@ -3436,6 +4089,171 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       ).not.toHaveBeenCalled();
       clone.mockRestore();
     });
+
+    it('rejects old-source read pixels when an empty reset and replacement feed coalesce before paint', () => {
+      const renderer = new PixiPileupTrackRenderer({
+        type: 'pileup-test',
+        maxRows: 80,
+        readRowsAssignRecordsPerFrame: 1,
+        readRowsBuildRecordsPerFrame: 1,
+      });
+      const container = renderer.mount(mountArgs);
+      const data = new TrackDataStore();
+      const trackId = 'generation-replacement';
+      const payload = (sourceGenerationKey: string, count: number): PileupTrackData => ({
+        dataAuthority: 'tile-engine',
+        records: Array.from({ length: count }, (_, index) =>
+          read(100 + index * 200, 250 + index * 200, `${sourceGenerationKey}-${index}`)
+        ),
+        readSource: {
+          truncated: false,
+          windowStartBp: 0,
+          windowEndBp: 8_192,
+          sourceGenerationKey,
+        },
+        coverage: { startBp: 0, binSize: 128, bins: new Array(64).fill(8), maxDepth: 8 },
+      });
+      const paint = () =>
+        renderer.paint(
+          paintArgsZoom(
+            container,
+            data.get<PileupTrackData>(trackId)!,
+            4 / 150,
+            { start: 0, end: 8_192 },
+            800,
+            240
+          )
+        );
+      try {
+        data.set(trackId, payload('old-bam', 8));
+        let frames = 0;
+        do {
+          paint();
+        } while (renderer.hasPendingPaintWork(container) && frames++ < 100);
+        expect(renderer.hasPendingPaintWork(container)).toBe(false);
+        expect(renderer.getDiagnostics(container)?.renderedReadRowsAlpha).toBe(1);
+
+        data.set(trackId, { dataAuthority: 'tile-engine', records: [] });
+        data.set(trackId, payload('replacement-bam', 32));
+        paint();
+
+        const state = (
+          renderer as unknown as {
+            containerState: WeakMap<
+              object,
+              { rowsMeshSourceGenerationKey: string; readSourceGenerationKey: string }
+            >;
+          }
+        ).containerState.get(container)!;
+        const during = renderer.getDiagnostics(container)!;
+        expect(state.readSourceGenerationKey).toBe('replacement-bam');
+        expect(during.rowsAssignmentBuildInProgress).toBe(true);
+        if (state.rowsMeshSourceGenerationKey !== state.readSourceGenerationKey) {
+          expect(
+            during.renderedReadRowsAlpha,
+            'a committed mesh from another BAM generation must not remain visible'
+          ).toBe(0);
+        }
+
+        frames = 0;
+        while (renderer.hasPendingPaintWork(container) && frames++ < 200) paint();
+        expect(renderer.hasPendingPaintWork(container)).toBe(false);
+        expect(state.rowsMeshSourceGenerationKey).toBe('replacement-bam');
+        expect(renderer.getDiagnostics(container)?.rowsMeshRecordCount).toBe(32);
+        expect(renderer.getDiagnostics(container)?.renderedReadRowsAlpha).toBe(1);
+      } finally {
+        renderer.unmount(container);
+      }
+    });
+
+    it.each(['same-file-generation', ''])(
+      'retires another presentation owner while preserving raw generation %j for read hits',
+      (sourceGenerationKey) => {
+        const renderer = new PixiPileupTrackRenderer({
+          type: 'pileup-test',
+          maxRows: 80,
+          readRowsAssignRecordsPerFrame: 1,
+          readRowsBuildRecordsPerFrame: 1,
+        });
+        const container = renderer.mount(mountArgs);
+        const payload = (presentationOwnerKey: string, count: number): PileupTrackData => {
+          const readSource = {
+            truncated: false,
+            windowStartBp: 0,
+            windowEndBp: 8_192,
+            sourceGenerationKey,
+            presentationOwnerKey,
+          };
+          return {
+            dataAuthority: 'tile-engine',
+            readSource,
+            records: Array.from({ length: count }, (_, index) =>
+              read(100 + index * 200, 250 + index * 200, `same-read-${index}`)
+            ),
+            coverage: { startBp: 0, binSize: 128, bins: new Array(64).fill(8), maxDepth: 8 },
+          };
+        };
+        const args = (data: PileupTrackData) =>
+          paintArgsZoom(container, data, 4 / 150, { start: 0, end: 8_192 }, 800, 240);
+        const paint = (data: PileupTrackData) => renderer.paint(args(data));
+        try {
+          const old = payload('old-reference-or-locator', 8);
+          let frames = 0;
+          do {
+            paint(old);
+          } while (renderer.hasPendingPaintWork(container) && frames++ < 100);
+          expect(renderer.hasPendingPaintWork(container)).toBe(false);
+          expect(renderer.getDiagnostics(container)?.renderedReadRowsAlpha).toBe(1);
+          const locateArgs = {
+            trackId: 'presentation-owner',
+            pathMapper: args(old).pathMapper,
+            containerTopPx: 50,
+            chromosomeGlobalStartBp: 0,
+          };
+          const pointer = {
+            ...locateArgs,
+            localX: (175 * 4) / 150,
+            localY: 1.5,
+            screenX: (175 * 4) / 150,
+            screenY: 51.5,
+          };
+          const oldHit = renderer.hitTestReadEvent(container, pointer);
+          if (!oldHit) throw new Error('The original painted read must be selectable.');
+          expect(renderer.locateRead(container, oldHit, locateArgs)).not.toBeNull();
+          const replacement = payload('current-reference-or-locator', 32);
+          paint(replacement);
+          const during = renderer.getDiagnostics(container)!;
+          expect(
+            during.renderedReadRowsAlpha,
+            'equal raw file generations do not authorize another locator or reference surface'
+          ).toBe(0);
+          frames = 0;
+          while (renderer.hasPendingPaintWork(container) && frames++ < 200) paint(replacement);
+          expect(renderer.hasPendingPaintWork(container)).toBe(false);
+          expect(renderer.getDiagnostics(container)?.rowsMeshRecordCount).toBe(32);
+          expect(renderer.getDiagnostics(container)?.renderedReadRowsAlpha).toBe(1);
+          const state = (
+            renderer as unknown as {
+              containerState: WeakMap<object, { rowsMeshSourceGenerationKey: string }>;
+            }
+          ).containerState.get(container)!;
+          expect(state.rowsMeshSourceGenerationKey).toBe(sourceGenerationKey);
+          expect(
+            renderer.locateRead(container, oldHit, locateArgs),
+            'a pinned read from the retired owner must not migrate to the same read ID in another source'
+          ).toBeNull();
+          const currentHit = renderer.hitTestReadEvent(container, pointer);
+          if (!currentHit) throw new Error('The replacement painted read must be selectable.');
+          expect(currentHit).toMatchObject({
+            sourceGenerationKey,
+            presentationOwnerKey: 'current-reference-or-locator',
+          });
+          expect(renderer.locateRead(container, currentHit, locateArgs)).not.toBeNull();
+        } finally {
+          renderer.unmount(container);
+        }
+      }
+    );
 
     it('NEVER-BLANK: the OLD mesh stays RESIDENT while a NEW window builds, then swaps atomically', async () => {
       const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
@@ -3724,23 +4542,24 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       );
       r.paint(paintWindow(bRecords, 20_000, 100_000));
       r.paint(paintWindow(bRecords, 20_000, 100_000));
-      expect(r.getDiagnostics(c)!.rowsMeshBuildRecordCursor).toBe(0);
-      r.paint(paintWindow(bRecords, 20_000, 100_000));
       const bBuilding = r.getDiagnostics(c)!;
       expect(bBuilding.rowsMeshBuildInProgress).toBe(true);
       expect(bBuilding.rowsMeshBuildRecordCursor).toBe(2);
       expect(bBuilding.rowsMeshGenerationKey).toBe(aGeneration);
 
-      const cRecords = Array.from({ length: 12 }, (_, i) =>
-        read(45_000 + i * 20, 45_010 + i * 20, `c${i}`)
-      );
+      const cRecords = [
+        ...bRecords,
+        ...Array.from({ length: 4 }, (_, i) =>
+          read(70_000 + i * 20, 70_010 + i * 20, `c-offscreen-${i}`)
+        ),
+      ];
       r.paint(paintWindow(cRecords, 40_000, 120_000));
       const cAssigning = r.getDiagnostics(c)!;
-      expect(cAssigning.rowsAssignmentBuildInProgress).toBe(true);
+      expect(cAssigning.rowsAssignmentBuildInProgress).toBe(false);
       expect(cAssigning.rowsMeshBuildInProgress).toBe(true);
       expect(
         cAssigning.rowsMeshBuildRecordCursor,
-        'the already-started B mesh must keep progressing while C lane assignment runs'
+        'the already-started B mesh must progress before offscreen C work'
       ).toBeGreaterThan(bBuilding.rowsMeshBuildRecordCursor);
 
       for (let guard = 0; guard < 2; guard += 1) {

@@ -174,6 +174,7 @@ export interface PileupTrackData {
     windowStartBp?: number;
     windowEndBp?: number;
     sourceGenerationKey?: string;
+    presentationOwnerKey?: string;
   };
   referenceIntervals?: ReadonlyArray<PileupReferenceInterval>;
   experimentalReadHandoff?: {

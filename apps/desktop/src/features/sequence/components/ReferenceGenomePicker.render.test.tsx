@@ -177,6 +177,89 @@ function hostedOpenRecoveryFixture(): {
   };
 }
 
+function hostedCatalogEntry(
+  entry: PreparedReferenceAssemblyEntryV1
+): HostedReferenceCatalogEntryV1 {
+  const assembly = buildGenomeAssembly(entry, (relative) => relative);
+  return {
+    id: entry.id,
+    name: entry.name,
+    organism: entry.organism,
+    description: entry.description,
+    cacheStatus: 'cached',
+    lengthBp: assembly.chromosomes.reduce((sum, chromosome) => sum + chromosome.length, 0),
+    contigCount: assembly.chromosomes.length,
+    downloadBytes: 0,
+    provider: 'Controlled fixture',
+    datasetVersion: 'controlled-v1',
+  };
+}
+
+function installedHostedViewFixture(): {
+  saved: SavedTrackView;
+  prepared: PreparedReferenceAssemblyEntryV1;
+} {
+  const catalog = referenceAssemblyById('grch38');
+  if (!catalog) throw new Error('Missing GRCh38 catalog fixture');
+  const referenceIdentity = {
+    sequenceIdentity: 'd'.repeat(64),
+    annotationIdentity: 'e'.repeat(64),
+  };
+  const bundleFingerprint = 'a'.repeat(64);
+  const sourceFingerprint = 'b'.repeat(24);
+  const inventoryFingerprint = 'c'.repeat(64);
+  const prepared: PreparedReferenceAssemblyEntryV1 = {
+    ...catalog,
+    referenceIdentity,
+    portableView: {
+      generationRoot: '/reference-assets/grch38/installed-generation',
+      bundleFingerprint,
+      trackTypes: ['gene', 'mRNA'],
+      assetGenerationsByTheme: {
+        light: {
+          contract: ASSEMBLY_REFERENCE_ASSET_GENERATION_V1,
+          sourceFingerprint,
+          inventoryFingerprint,
+          themeMode: 'light',
+        },
+      },
+    },
+  };
+  const assembly = buildGenomeAssembly(prepared, (relative) => relative);
+  const saved: SavedTrackView = {
+    path: '/tmp/installed-reference.dnaforge-track-view.json',
+    workspaceRoot: '/tmp',
+    revision: 'f'.repeat(64),
+    document: validateTrackViewDocument({
+      ...trackViewFixture('track-view-installed-reference'),
+      reference: {
+        assemblyId: catalog.id,
+        name: catalog.name,
+        chromosomes: assembly.chromosomes.map(({ chrom, length }) => ({ chrom, length })),
+        sourceFingerprint,
+        inventoryFingerprint,
+        bundleFingerprint,
+        ...referenceIdentity,
+      },
+      portableReference: {
+        kind: 'hosted-reference',
+        catalogId: catalog.id,
+        assemblyId: catalog.id,
+        bundleFingerprint,
+        sourceFingerprint,
+        inventoryFingerprint,
+        ...referenceIdentity,
+      },
+      annotation: {
+        policy: { isoformMode: 'canonical', laneLimit: 2 },
+        orderedTrackIds: ['gene', 'mRNA'],
+        visibilityByTrackId: { gene: true, mRNA: false },
+      },
+    }),
+  };
+  return { saved, prepared };
+}
+
 describe('ReferenceGenomePicker — assemblies section', () => {
   beforeEach(() => {
     mockOpenAssembly.mockReset();
@@ -463,6 +546,7 @@ describe('ReferenceGenomePicker — assemblies section', () => {
         }),
       };
       mockListTrackViews.mockResolvedValue({ views: [saved], errors: [] });
+      mockListHostedReferences.mockResolvedValue([hostedCatalogEntry(prepared)]);
       mockInstallHostedReference.mockResolvedValue({ status: 'view-ready', entry: prepared });
       const opened = requestGenomeViewFileOpen(saved.path);
       const requestId = pendingGenomeViewFileOpen()!.id;
@@ -820,6 +904,7 @@ describe('ReferenceGenomePicker — assemblies section', () => {
         filePath: '/tmp/grch38.dnaforge-genome-view.json',
         document,
       });
+      mockListHostedReferences.mockResolvedValue([hostedCatalogEntry(prepared)]);
       mockInstallHostedReference.mockResolvedValue({ status: 'view-ready', entry: prepared });
       mockAdmitPortableTracks.mockResolvedValue({
         dataTracks: [],
@@ -895,6 +980,121 @@ describe('ReferenceGenomePicker — assemblies section', () => {
       fireEvent.click(await screen.findByTestId('reference-picker-open-saved-view'));
       await waitFor(() => expect(onClose).toHaveBeenCalledTimes(2));
       expect(committedRestoreView?.command.id).not.toBe(firstRestoreCommandId);
+    }
+  );
+
+  it.each(['same', 'different'] as const)(
+    'resolves a saved hosted file against the %s installed sequence without a hosted catalog',
+    async (sequence) => {
+      const { saved, prepared } = installedHostedViewFixture();
+      const installed: PreparedReferenceAssemblyEntryV1 = {
+        ...prepared,
+        referenceIdentity: {
+          sequenceIdentity:
+            sequence === 'same' ? prepared.referenceIdentity!.sequenceIdentity : '0'.repeat(64),
+          annotationIdentity: '1'.repeat(64),
+        },
+        portableView: {
+          ...prepared.portableView!,
+          bundleFingerprint: '2'.repeat(64),
+          trackTypes: ['gene', 'exon'],
+        },
+      };
+      mockListLocalReferences.mockResolvedValue([installed]);
+      mockListTrackViews.mockResolvedValue({ views: [saved], errors: [] });
+      mockInstallHostedReference.mockRejectedValue(
+        new Error('Unknown hosted reference catalog ID: grch38')
+      );
+      const onClose = vi.fn();
+      const opened = requestGenomeViewFileOpen(saved.path);
+      const requestId = pendingGenomeViewFileOpen()!.id;
+      render(
+        <ReferenceGenomePicker
+          open
+          backgroundFileOpen
+          backgroundFileOpenRequestId={requestId}
+          onClose={onClose}
+        />
+      );
+
+      if (sequence === 'different') {
+        expect(await screen.findByTestId('reference-picker-open-saved-view-error')).toBeVisible();
+        expect(mockOpenAssembly).not.toHaveBeenCalled();
+        expect(onClose).not.toHaveBeenCalled();
+      } else {
+        await expect(opened).resolves.toBe('tab-1');
+        expect(mockOpenAssembly).toHaveBeenCalledExactlyOnceWith(
+          installed,
+          expect.objectContaining({
+            validateReference: expect.any(Function),
+            restoreView: expect.objectContaining({
+              indexedViewport: saved.document.viewport,
+              annotationTrackTypes: ['gene', 'exon'],
+              command: expect.objectContaining({
+                visibleAnnotationTrackIds: ['gene'],
+                orderedAnnotationTrackIds: ['gene', 'exon'],
+              }),
+            }),
+          })
+        );
+        expect(useToastStore.getState().toasts).toEqual([]);
+      }
+      expect(mockInstallHostedReference).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(['same', 'different'] as const)(
+    'admits a saved file against a raw local reference with the %s sequence',
+    async (sequence) => {
+      const { saved, prepared } = installedHostedViewFixture();
+      const { portableView: _portableView, ...local } = prepared;
+      const installed: PreparedReferenceAssemblyEntryV1 = {
+        ...local,
+        referenceIdentity: {
+          sequenceIdentity:
+            sequence === 'same' ? prepared.referenceIdentity!.sequenceIdentity : '0'.repeat(64),
+          annotationIdentity: '1'.repeat(64),
+        },
+      };
+      mockListLocalReferences.mockResolvedValue([installed]);
+      mockListTrackViews.mockResolvedValue({ views: [saved], errors: [] });
+      mockAdmitPortableTracks.mockResolvedValue({ dataTracks: [], bamTracks: [], outcomes: [] });
+      const actual =
+        await vi.importActual<typeof import('../open-track-view')>('../open-track-view');
+      mockOpenSavedTrackView.mockImplementation(actual.openSavedTrackView);
+      mockOpenAssembly.mockImplementation(
+        async (entry: PreparedReferenceAssemblyEntryV1, options?: OpenAssemblyOptions) => {
+          options?.validateReference?.({
+            assembly: buildGenomeAssembly(entry, (relative) => relative),
+            assemblyReferenceIdentity: entry.referenceIdentity,
+            assemblyAnnotationTrackTypes: ['gene', 'exon'],
+          } as Parameters<NonNullable<OpenAssemblyOptions['validateReference']>>[0]);
+          return 'tab-1';
+        }
+      );
+      const opened = requestGenomeViewFileOpen(saved.path);
+      const requestId = pendingGenomeViewFileOpen()!.id;
+      render(
+        <ReferenceGenomePicker
+          open
+          backgroundFileOpen
+          backgroundFileOpenRequestId={requestId}
+          onClose={() => {}}
+        />
+      );
+
+      if (sequence === 'same') {
+        await expect(opened).resolves.toBe('tab-1');
+      } else {
+        expect(await screen.findByTestId('reference-picker-open-saved-view-error')).toBeVisible();
+      }
+      expect(mockAdmitPortableTracks).toHaveBeenCalledOnce();
+      expect(mockOpenSavedTrackView).toHaveBeenCalledOnce();
+      expect(mockOpenAssembly).toHaveBeenCalledWith(
+        installed,
+        expect.objectContaining({ validateReference: expect.any(Function) })
+      );
+      expect(mockInstallHostedReference).not.toHaveBeenCalled();
     }
   );
 
@@ -1102,6 +1302,7 @@ describe('ReferenceGenomePicker — assemblies section', () => {
         tracks: [],
       },
     });
+    mockListHostedReferences.mockResolvedValue([hostedCatalogEntry(prepared)]);
     mockInstallHostedReference.mockResolvedValue({ status: 'view-ready', entry: prepared });
     let releaseOpen: (() => void) | null = null;
     let commitAllowedAfterClose: boolean | null = null;

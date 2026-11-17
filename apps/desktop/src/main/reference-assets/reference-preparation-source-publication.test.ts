@@ -14,6 +14,7 @@ import {
   preparedReferenceAssemblyEntry,
 } from './reference-preparation-manifest';
 import { inspectPreparedReferenceSourcePublication } from './reference-preparation-engine';
+import { forkPreparedReferenceSourceGeneration } from './fork-prepared-reference-source';
 
 const PROJECT_ROOT = resolve(process.cwd(), '../..');
 const FIXTURE_ROOT = join(PROJECT_ROOT, 'test-fixtures/indexed/pUC19');
@@ -146,6 +147,149 @@ describe('prepared reference source publication admission', () => {
       status: 'needs-refresh',
       message: expect.stringContaining('definition does not match'),
     });
+  });
+
+  it.each(['local', 'portable'] as const)(
+    'forks an inherited %s source into an independent generation without changing its owner',
+    async (receiptKind) => {
+      const fixture = await createSourcePublicationFixture(temporaryRoots);
+      const sourcePaths = {
+        fasta: fixture.outputFastaPath,
+        fai: `${fixture.outputFastaPath}.fai`,
+        gff: join(fixture.generationRoot, 'prepared/puc19/puc19.gff3.gz'),
+        tbi: join(fixture.generationRoot, 'prepared/puc19/puc19.gff3.gz.tbi'),
+      };
+      if (receiptKind === 'portable') {
+        const output = Object.fromEntries(
+          await Promise.all(
+            Object.entries(sourcePaths).map(async ([kind, path]) => {
+              const bytes = await readFile(path);
+              return [
+                kind,
+                {
+                  sha256: createHash('sha256').update(bytes).digest('hex'),
+                  byteLength: bytes.length,
+                  continuity: await fileIdentity(path),
+                },
+              ];
+            })
+          )
+        );
+        await writeFile(
+          fixture.receiptPath,
+          JSON.stringify({
+            contract: 'waypoint-reference-source-materialization.v2',
+            chrom: 'puc19',
+            pipelineRevision: 3,
+            bundleFingerprint: 'f'.repeat(64),
+            indexerContractToken: 'focused-portable-source',
+            source: { fastaSha256: FASTA_SHA256, gffSha256: GFF_SHA256 },
+            output,
+          })
+        );
+      }
+      const pointerPath = join(
+        fixture.cacheRoot,
+        ASSET_CACHE_KEY,
+        'current-reference-assets.v1.json'
+      );
+      const originalPointer = await readFile(pointerPath, 'utf8');
+      const originalReceipt = await readFile(fixture.receiptPath, 'utf8');
+      const originalIdentities = await Promise.all(Object.values(sourcePaths).map(fileIdentity));
+      const generationRoot = join(fixture.cacheRoot, ASSET_CACHE_KEY, 'generations/owned-fork');
+      await mkdir(generationRoot);
+
+      await forkPreparedReferenceSourceGeneration({
+        entry: ENTRY,
+        sourceGenerationRoot: fixture.generationRoot,
+        destinationGenerationRoot: generationRoot,
+      });
+
+      const forkReceipt = JSON.parse(
+        await readFile(
+          join(generationRoot, 'prepared/puc19/reference-source-materialization.v1.json'),
+          'utf8'
+        )
+      );
+      const publicationRoot = join(fixture.cacheRoot, 'profile-publications');
+      await mkdir(join(publicationRoot, ASSET_CACHE_KEY), { recursive: true });
+      const sourceMaterializationFingerprint = createHash('sha256')
+        .update(
+          JSON.stringify({
+            assetCacheKey: ASSET_CACHE_KEY,
+            dnaIndexerSchema: 2,
+            receipts: [forkReceipt],
+          })
+        )
+        .digest('hex');
+      await writeFile(
+        join(publicationRoot, ASSET_CACHE_KEY, 'current-reference-assets.v1.json'),
+        JSON.stringify({
+          contract: 'reference-asset-publication.v1',
+          assetCacheKey: ASSET_CACHE_KEY,
+          publicationId: 'owned-fork',
+          sourceMaterializationFingerprint,
+          publishedAtMs: 1,
+        })
+      );
+      await expect(
+        inspectPreparedReferenceSourcePublication({
+          entry: ENTRY,
+          cacheRoot: fixture.cacheRoot,
+          publicationRoot,
+          fallbackPublicationRoot: fixture.cacheRoot,
+          expectedSource: { fastaSha256: FASTA_SHA256, gffSha256: GFF_SHA256 },
+        })
+      ).resolves.toMatchObject({
+        status: 'ready',
+        publicationId: 'owned-fork',
+        sourceGenerationRoot: generationRoot,
+      });
+      for (const [kind, path] of Object.entries(sourcePaths)) {
+        const copied = join(generationRoot, path.slice(fixture.generationRoot.length + 1));
+        expect(await readFile(copied)).toEqual(await readFile(path));
+        expect((await stat(copied)).ino).not.toBe((await stat(path)).ino);
+        const output = forkReceipt.output[kind];
+        expect(receiptKind === 'portable' ? output.continuity : output).toEqual(
+          await fileIdentity(copied)
+        );
+      }
+      expect(await Promise.all(Object.values(sourcePaths).map(fileIdentity))).toEqual(
+        originalIdentities
+      );
+      expect(await readFile(pointerPath, 'utf8')).toBe(originalPointer);
+      expect(await readFile(fixture.receiptPath, 'utf8')).toBe(originalReceipt);
+      await expect(
+        forkPreparedReferenceSourceGeneration({
+          entry: ENTRY,
+          sourceGenerationRoot: fixture.generationRoot,
+          destinationGenerationRoot: generationRoot,
+        })
+      ).rejects.toThrow();
+    }
+  );
+
+  it('rejects stale inherited source receipts before copying their bytes', async () => {
+    const fixture = await createSourcePublicationFixture(temporaryRoots);
+    const receipt = JSON.parse(await readFile(fixture.receiptPath, 'utf8'));
+    receipt.output.fasta.mtimeMs -= 1;
+    await writeFile(fixture.receiptPath, JSON.stringify(receipt));
+    const destinationGenerationRoot = join(
+      fixture.cacheRoot,
+      ASSET_CACHE_KEY,
+      'generations/stale-fork'
+    );
+    await mkdir(destinationGenerationRoot);
+    await expect(
+      forkPreparedReferenceSourceGeneration({
+        entry: ENTRY,
+        sourceGenerationRoot: fixture.generationRoot,
+        destinationGenerationRoot,
+      })
+    ).rejects.toThrow('inherited reference receipt is stale');
+    await expect(
+      stat(join(destinationGenerationRoot, 'prepared/puc19/puc19.fa'))
+    ).rejects.toThrow();
   });
 });
 

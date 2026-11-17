@@ -244,7 +244,8 @@ function exactCoherentCoverageFeedCovers(
   if (!Number.isFinite(coverage.maxDepth) || coverage.maxDepth <= 0) return false;
   if (coverage.bins.length === 0) return false;
   let maxBin = 0;
-  for (const bin of coverage.bins) {
+  for (let index = 0; index < coverage.bins.length; index++) {
+    const bin = coverage.bins[index];
     if (!Number.isFinite(bin) || bin < 0) return false;
     maxBin = Math.max(maxBin, bin);
   }

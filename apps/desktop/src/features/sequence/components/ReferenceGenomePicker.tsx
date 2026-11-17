@@ -15,7 +15,7 @@ import { ReferenceSavedViewMenu } from './ReferenceSavedViewMenu';
 import { projectSavedTrackView } from '../track-view-library';
 import { assertTrackViewReference, openSavedTrackView } from '../open-track-view';
 import { recoverScenarioTrackView } from '../recover-scenario-track-view';
-import type { SavedTrackView } from '../../../shared/track-view';
+import { validateTrackViewDocument, type SavedTrackView } from '../../../shared/track-view';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   REFERENCE_ASSEMBLY_CATALOG,
@@ -988,9 +988,27 @@ export function ReferenceGenomePicker({
 
   const resolvePortableReference = useCallback(
     async (
-      reference: RestoredPortableGenomeViewState['reference']
+      reference: RestoredPortableGenomeViewState['reference'],
+      managedView?: SavedTrackView
     ): Promise<PreparedReferenceAssemblyEntryV1> => {
       if (reference.kind === 'hosted-reference') {
+        const hosted = (await platform().referenceAssets.listHosted()).find(
+          (entry) => entry.id === reference.catalogId
+        );
+        if (!hosted) {
+          const local = (await platform().referenceAssets.listLocal()).find(
+            (entry) => entry.id === reference.catalogId
+          );
+          if (!local) {
+            throw new Error(
+              `Saved view reference ${reference.catalogId} is not available in this library.`
+            );
+          }
+          if (!managedView || local.portableView) {
+            assertPreparedReferenceMatchesPortableView(local, reference);
+          }
+          return local;
+        }
         let installed = await platform().referenceAssets.installHosted({
           catalogId: reference.catalogId,
           themeMode: INDEXED_ANNOTATION_COLOR_BASIS_THEME,
@@ -1048,6 +1066,8 @@ export function ReferenceGenomePicker({
   const openRestoredPortableView = useCallback(
     async (session: PortableRecoverySession) => {
       const { operationId, restored, prepared, managedView } = session;
+      const useManagedReferenceAdmission =
+        managedView && restored.reference.kind === 'hosted-reference' && !prepared.portableView;
       const assembly = buildGenomeAssembly(prepared, (relativePath) => relativePath);
       const reboundReference =
         managedView &&
@@ -1072,7 +1092,7 @@ export function ReferenceGenomePicker({
         length: chromosome.length,
       }));
       const compatibility =
-        restored.reference.kind === 'hosted-reference'
+        restored.reference.kind === 'hosted-reference' && !useManagedReferenceAdmission
           ? assertPreparedReferenceMatchesPortableView(prepared, restored.reference)
           : { annotationsUpdated: false };
       const annotation =
@@ -1130,46 +1150,64 @@ export function ReferenceGenomePicker({
         visibleAnnotationTrackIds,
         orderedAnnotationTrackIds: [...annotation.orderedTrackIds],
       };
-      const tabId = await openAssembly(prepared, {
+      const placementOptions = {
         ...(backgroundFileOpen && pendingGenomeViewFileOpen()?.tabId
           ? { intoTabId: pendingGenomeViewFileOpen()!.tabId }
           : {}),
         ...(pendingGenomeViewFileOpen()?.placement
           ? { placement: pendingGenomeViewFileOpen()!.placement }
           : {}),
-        ...(managedView
-          ? {
-              viewEntity: {
-                id: managedView.document.id,
-                name: managedView.document.name,
-              },
-              validateReference: (state: Parameters<typeof assertTrackViewReference>[1]) =>
-                assertTrackViewReference(validationDocument!, state),
-            }
-          : {}),
-        initialAnnotationMapperPolicy: { ...restored.annotation.policy },
-        annotationThemeMode: INDEXED_ANNOTATION_COLOR_BASIS_THEME,
         commitGuard: () => isCurrentPortableViewOperation(operationId),
-        restoreView: {
-          scope: managedView?.document.scope ?? restoredViewport.scope,
-          dataTracks: restoredTracks.dataTracks,
-          bamTracks: [...restoredTracks.bamTracks],
-          ...(managedTracks
-            ? {
-                signalReadPileupViews: managedTracks.signalReadPileupViews,
-                primerBindings: managedTracks.primerBindings,
-                userAnnotations: managedTracks.userAnnotations,
-              }
-            : {}),
-          ...(restoredTracks.variantSource ? { variantSource: restoredTracks.variantSource } : {}),
-          annotationTrackTypes,
-          indexedViewport: {
-            start0: restoredViewport.globalStart0,
-            end0: restoredViewport.globalEnd0,
-          },
-          command: restoreCommand,
-        },
-      });
+      };
+      const tabId = useManagedReferenceAdmission
+        ? await openSavedTrackView(
+            {
+              ...managedView,
+              document: validateTrackViewDocument({
+                ...managedView.document,
+                ...managedTracks,
+                dataTracks: [...restoredTracks.dataTracks],
+                bamTracks: [...restoredTracks.bamTracks],
+              }),
+            },
+            placementOptions
+          )
+        : await openAssembly(prepared, {
+            ...placementOptions,
+            ...(managedView
+              ? {
+                  viewEntity: {
+                    id: managedView.document.id,
+                    name: managedView.document.name,
+                  },
+                  validateReference: (state: Parameters<typeof assertTrackViewReference>[1]) =>
+                    assertTrackViewReference(validationDocument!, state),
+                }
+              : {}),
+            initialAnnotationMapperPolicy: { ...restored.annotation.policy },
+            annotationThemeMode: INDEXED_ANNOTATION_COLOR_BASIS_THEME,
+            restoreView: {
+              scope: managedView?.document.scope ?? restoredViewport.scope,
+              dataTracks: restoredTracks.dataTracks,
+              bamTracks: [...restoredTracks.bamTracks],
+              ...(managedTracks
+                ? {
+                    signalReadPileupViews: managedTracks.signalReadPileupViews,
+                    primerBindings: managedTracks.primerBindings,
+                    userAnnotations: managedTracks.userAnnotations,
+                  }
+                : {}),
+              ...(restoredTracks.variantSource
+                ? { variantSource: restoredTracks.variantSource }
+                : {}),
+              annotationTrackTypes,
+              indexedViewport: {
+                start0: restoredViewport.globalStart0,
+                end0: restoredViewport.globalEnd0,
+              },
+              command: restoreCommand,
+            },
+          });
       if (!isCurrentPortableViewOperation(operationId)) return;
       if (!tabId) {
         throw new Error(`Reference ${prepared.name} was admitted but could not be opened.`);
@@ -1316,7 +1354,7 @@ export function ReferenceGenomePicker({
         const restored = restorePortableGenomeView(recoveryDocument);
         let prepared: PreparedReferenceAssemblyEntryV1;
         try {
-          prepared = await resolvePortableReference(restored.reference);
+          prepared = await resolvePortableReference(restored.reference, managedView);
         } catch (error) {
           if (!isCurrentPortableViewOperation(operationId)) return;
           if (!(error instanceof PortableReferenceMissingError)) throw error;

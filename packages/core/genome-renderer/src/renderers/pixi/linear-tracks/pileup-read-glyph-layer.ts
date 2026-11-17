@@ -22,9 +22,13 @@ import {
 } from '../overview/bp-coordinate-packing';
 import { destroyLayerShader } from '../shared/pixi-shader-lifecycle';
 import {
-  buildPileupReadDifferenceMarks,
+  advancePileupReadDifferenceMarksJob,
+  beginPileupReadDifferenceMarksJob,
+  finishPileupReadDifferenceMarksJob,
+  isPileupReadDifferenceMarksJobComplete,
   pileupDifferenceColor,
   type PileupReadDifferenceMark,
+  type PileupReadDifferenceMarksJob,
 } from './pileup-read-glyphs';
 import type { TrackPaintArgs } from './types';
 
@@ -78,9 +82,10 @@ export const PILEUP_DIFFERENCE_FRAGMENT_SHADER = `
 precision highp float;
 varying vec4 vColor;
 uniform float uLayerAlpha;
+uniform vec3 uDifferenceColor;
 void main() {
   float alpha = vColor.a * uLayerAlpha;
-  gl_FragColor = vec4(vColor.rgb * alpha, alpha);
+  gl_FragColor = vec4(uDifferenceColor * alpha, alpha);
 }
 `;
 
@@ -100,6 +105,7 @@ interface DifferenceUniforms {
   uViewportSize: Float32Array;
   uScreenYOrigin: number;
   uLayerAlpha: number;
+  uDifferenceColor: Float32Array;
 }
 
 export interface PileupReadDifferenceLayerPaint {
@@ -110,6 +116,22 @@ export interface PileupReadDifferenceLayerPaint {
   readonly exactRowsVisible: boolean;
   readonly layerAlpha: number;
   readonly args: TrackPaintArgs;
+}
+
+interface DifferenceInstancePool {
+  data: Float32Array;
+  capacity: number;
+  revision: number;
+}
+
+export interface PileupReadDifferencePreparation {
+  readonly records: ReadonlyArray<PileupRecord>;
+  readonly rows: Int32Array;
+  readonly rowHeightPx: number;
+  readonly marksJob: PileupReadDifferenceMarksJob;
+  readonly pool: DifferenceInstancePool;
+  readonly revision: number;
+  committed: boolean;
 }
 
 export interface PileupReadDifferenceLayerDiagnostics {
@@ -152,9 +174,14 @@ export class PileupReadDifferenceLayer {
   private readonly shader: Shader;
   private readonly mesh: Mesh<Geometry, Shader>;
   private capacity = 0;
-  private instanceData = new Float32Array(0);
+  private instanceData: Float32Array = new Float32Array(0);
   private residentMarks: PileupReadDifferenceMark[] = [];
-  private rowMarkOffsets = new Int32Array(0);
+  private rowMarkIndices = new Map<number, number[]>();
+  private backPool: DifferenceInstancePool = {
+    data: new Float32Array(0),
+    capacity: 0,
+    revision: 0,
+  };
   private recordsRef: ReadonlyArray<PileupRecord> | null = null;
   private rowsRef: Int32Array | null = null;
   private rowHeightPx = 0;
@@ -216,6 +243,7 @@ export class PileupReadDifferenceLayer {
           uViewportSize: { value: new Float32Array([1, 1]), type: 'vec2<f32>' },
           uScreenYOrigin: { value: 0, type: 'f32' },
           uLayerAlpha: { value: 0, type: 'f32' },
+          uDifferenceColor: { value: new Float32Array(3), type: 'vec3<f32>' },
         },
       },
     });
@@ -229,6 +257,73 @@ export class PileupReadDifferenceLayer {
     this.mesh.visible = false;
   }
 
+  beginPreparation(input: {
+    readonly records: ReadonlyArray<PileupRecord>;
+    readonly rows: Int32Array;
+    readonly rowHeightPx: number;
+  }): PileupReadDifferencePreparation {
+    if (!(Number.isFinite(input.rowHeightPx) && input.rowHeightPx > 0)) {
+      throw new TypeError('pileup read-difference row height must be finite and positive');
+    }
+    return {
+      ...input,
+      marksJob: beginPileupReadDifferenceMarksJob(input),
+      pool: this.backPool,
+      revision: ++this.backPool.revision,
+      committed: false,
+    };
+  }
+
+  advancePreparation(
+    preparation: PileupReadDifferencePreparation,
+    maxItems: number,
+    options?: { workBudgetMs?: number; now?: () => number }
+  ): number {
+    this.assertCurrentPreparation(preparation);
+    return advancePileupReadDifferenceMarksJob(preparation.marksJob, maxItems, {
+      ...options,
+      onMark: (mark, index) => this.writePreparedInstance(preparation, index, mark),
+    });
+  }
+
+  isPreparationComplete(preparation: PileupReadDifferencePreparation): boolean {
+    return isPileupReadDifferenceMarksJobComplete(preparation.marksJob);
+  }
+
+  commitPreparation(preparation: PileupReadDifferencePreparation): void {
+    this.assertCurrentPreparation(preparation);
+    const marks = finishPileupReadDifferenceMarksJob(preparation.marksJob);
+    this.backPool = { data: this.instanceData, capacity: this.capacity, revision: 0 };
+    this.instanceData = preparation.pool.data;
+    this.capacity = preparation.pool.capacity;
+    this.residentMarks = marks;
+    this.rowMarkIndices = preparation.marksJob.rowMarkIndices;
+    this.instanceBuffer.data = this.instanceData;
+    this.geometry.instanceCount = marks.length;
+    if (marks.length > 0) this.instanceBuffer.update();
+    this.recordsRef = preparation.records;
+    this.rowsRef = preparation.rows;
+    this.rowHeightPx = preparation.rowHeightPx;
+    this.lastHitTestCandidateCount = 0;
+    preparation.committed = true;
+    this.buildCount += 1;
+  }
+
+  clear(): void {
+    this.backPool.revision += 1;
+    if (this.recordsRef !== null || this.rowsRef !== null) {
+      this.residentMarks = [];
+      this.rowMarkIndices = new Map();
+      this.recordsRef = null;
+      this.rowsRef = null;
+    }
+    this.rowHeightPx = 0;
+    this.geometry.instanceCount = 0;
+    this.mesh.visible = false;
+    this.lastAlpha = 0;
+    this.lastHitTestCandidateCount = 0;
+  }
+
   paint(input: PileupReadDifferenceLayerPaint): void {
     const { args, records, rows } = input;
     if (
@@ -237,7 +332,9 @@ export class PileupReadDifferenceLayer {
       !rows ||
       rows.length !== records.length ||
       records.length === 0 ||
-      input.layerAlpha <= 0
+      input.layerAlpha <= 0 ||
+      records !== this.recordsRef ||
+      rows !== this.rowsRef
     ) {
       this.mesh.visible = false;
       this.lastAlpha = 0;
@@ -245,13 +342,6 @@ export class PileupReadDifferenceLayer {
     }
 
     const viewStart = args.viewportBpRange.start;
-    const identityChanged =
-      records !== this.recordsRef ||
-      rows !== this.rowsRef ||
-      input.rowHeightPx !== this.rowHeightPx ||
-      input.readRowsTopPx !== this.readRowsTopPx;
-    if (identityChanged) this.rebuild(input);
-
     const uniforms = (
       this.shader.resources.pileupDifferenceUniforms as {
         uniforms: DifferenceUniforms;
@@ -263,7 +353,9 @@ export class PileupReadDifferenceLayer {
     uniforms.uBpOriginDelta = bpCoordinateDelta(viewStart);
     uniforms.uViewportSize[0] = args.viewportWidthPx;
     uniforms.uViewportSize[1] = args.viewportHeightPx;
-    uniforms.uScreenYOrigin = args.containerTopPx;
+    uniforms.uScreenYOrigin = args.containerTopPx + input.readRowsTopPx;
+    uniforms.uDifferenceColor.set(pileupDifferenceColor(args.theme.mode));
+    this.readRowsTopPx = input.readRowsTopPx;
     uniforms.uLayerAlpha = Math.min(1, Math.max(0, input.layerAlpha));
     this.lastAlpha = uniforms.uLayerAlpha;
     this.lastScreenTopPx = args.containerTopPx + input.readRowsTopPx;
@@ -285,21 +377,34 @@ export class PileupReadDifferenceLayer {
     this.lastHitTestCandidateCount = 0;
     if (!this.mesh.visible || input.pathMapper.pixelsPerBp <= 0) return null;
     const row = Math.floor((input.localY - this.readRowsTopPx) / this.rowHeightPx);
-    if (row < 0 || row + 1 >= this.rowMarkOffsets.length) return null;
-    const start = this.rowMarkOffsets[row]!;
-    const end = this.rowMarkOffsets[row + 1]!;
-    this.lastHitTestCandidateCount = end - start;
-    for (let index = end - 1; index >= start; index -= 1) {
-      const mark = this.residentMarks[index]!;
+    if (row < 0) return null;
+    const indices = this.rowMarkIndices.get(row);
+    if (!indices) return null;
+    this.lastHitTestCandidateCount = indices.length;
+    let selected: PileupReadDifferenceMark | null = null;
+    let selectedIndex = -1;
+    for (let index = indices.length - 1; index >= 0; index -= 1) {
+      const markIndex = indices[index]!;
+      const mark = this.residentMarks[markIndex]!;
       const x = input.pathMapper.bpLeftX(mark.bp);
-      if (mark.event.kind === 'ins') {
-        if (Math.abs(input.localX - x) <= 3) return mark;
-        continue;
+      const hit =
+        mark.event.kind === 'ins'
+          ? Math.abs(input.localX - x) <= 3
+          : input.localX >= x &&
+            input.localX <= x + Math.max(1, input.pathMapper.pixelsPerBp * mark.length);
+      if (
+        hit &&
+        (selected === null ||
+          mark.bp > selected.bp ||
+          (mark.bp === selected.bp &&
+            (mark.recordIndex > selected.recordIndex ||
+              (mark.recordIndex === selected.recordIndex && markIndex > selectedIndex))))
+      ) {
+        selected = mark;
+        selectedIndex = markIndex;
       }
-      const width = Math.max(1, input.pathMapper.pixelsPerBp * mark.length);
-      if (input.localX >= x && input.localX <= x + width) return mark;
     }
-    return null;
+    return selected;
   }
 
   diagnostics(): PileupReadDifferenceLayerDiagnostics {
@@ -320,97 +425,69 @@ export class PileupReadDifferenceLayer {
   }
 
   destroy(): void {
+    this.clear();
     if (this.mesh.parent) this.mesh.parent.removeChild(this.mesh);
     this.mesh.destroy();
     this.geometry.destroy(true);
     destroyLayerShader(this.shader);
   }
 
-  private rebuild(input: PileupReadDifferenceLayerPaint): void {
-    const { records, rows } = input;
-    if (!records || !rows) return;
-    this.residentMarks = buildPileupReadDifferenceMarks({
-      records,
-      rows,
-    });
-    this.residentMarks.sort(
-      (left, right) =>
-        left.row - right.row || left.bp - right.bp || left.recordIndex - right.recordIndex
-    );
-    const maxRow = this.residentMarks[this.residentMarks.length - 1]?.row ?? -1;
-    this.rowMarkOffsets = new Int32Array(maxRow + 2);
-    let markIndex = 0;
-    for (let row = 0; row <= maxRow; row += 1) {
-      this.rowMarkOffsets[row] = markIndex;
-      while (markIndex < this.residentMarks.length && this.residentMarks[markIndex]!.row === row) {
-        markIndex += 1;
-      }
+  private assertCurrentPreparation(preparation: PileupReadDifferencePreparation): void {
+    if (
+      preparation.committed ||
+      preparation.pool !== this.backPool ||
+      preparation.revision !== this.backPool.revision
+    ) {
+      throw new Error('Cannot use an obsolete pileup read-difference preparation');
     }
-    if (this.rowMarkOffsets.length > 0) {
-      this.rowMarkOffsets[this.rowMarkOffsets.length - 1] = this.residentMarks.length;
-    }
-    this.lastHitTestCandidateCount = 0;
-    this.ensureCapacity(this.residentMarks.length);
-    for (let index = 0; index < this.residentMarks.length; index += 1) {
-      this.writeInstance(index, this.residentMarks[index]!, input);
-    }
-    this.geometry.instanceCount = this.residentMarks.length;
-    if (this.residentMarks.length > 0) this.instanceBuffer.update();
-    this.recordsRef = records;
-    this.rowsRef = rows;
-    this.rowHeightPx = input.rowHeightPx;
-    this.readRowsTopPx = input.readRowsTopPx;
-    this.buildCount += 1;
   }
 
-  private ensureCapacity(required: number): void {
-    if (required <= this.capacity) return;
-    this.capacity = nextCapacity(required);
-    this.instanceData = new Float32Array(this.capacity * INSTANCE_FLOATS);
-    this.instanceBuffer.data = this.instanceData;
-    this.bufferGrowCount += 1;
-  }
-
-  private writeInstance(
+  private writePreparedInstance(
+    preparation: PileupReadDifferencePreparation,
     instanceIndex: number,
-    mark: PileupReadDifferenceMark,
-    input: PileupReadDifferenceLayerPaint
+    mark: PileupReadDifferenceMark
   ): void {
+    const pool = preparation.pool;
+    if (instanceIndex >= pool.capacity) {
+      const capacity = nextCapacity(instanceIndex + 1);
+      const data = new Float32Array(capacity * INSTANCE_FLOATS);
+      data.set(pool.data.subarray(0, instanceIndex * INSTANCE_FLOATS));
+      pool.data = data;
+      pool.capacity = capacity;
+      this.bufferGrowCount += 1;
+    }
     const offset = instanceIndex * INSTANCE_FLOATS;
-    const rowTop = input.readRowsTopPx + mark.row * input.rowHeightPx;
-    const readBody = pileupReadBodyVerticalGeometry(rowTop, input.rowHeightPx);
-    const alpha = 1;
-    const color = pileupDifferenceColor(input.args.theme.mode);
+    const rowTop = mark.row * preparation.rowHeightPx;
+    const bodyHeight = Math.max(0, preparation.rowHeightPx - 1);
     let bpLength = mark.length;
-    let topPx = readBody.topPx;
-    let heightPx = readBody.heightPx;
+    let topPx = rowTop + (preparation.rowHeightPx - bodyHeight) * 0.5;
+    let heightPx = bodyHeight;
     let minWidthPx = 0;
     let centerAtStart = 0;
-
     if (mark.event.kind === 'ins') {
       bpLength = 0;
       minWidthPx = 2;
       centerAtStart = 1;
     } else if (mark.event.kind === 'del') {
-      topPx = rowTop + Math.max(0, (input.rowHeightPx - 1) * 0.5);
+      topPx = rowTop + Math.max(0, (preparation.rowHeightPx - 1) * 0.5);
       heightPx = 1;
       minWidthPx = 1;
     } else {
       bpLength = 1;
       minWidthPx = 1;
     }
-
-    this.instanceData[offset] = bpCoordinateChunk(mark.bp);
-    this.instanceData[offset + 1] = bpCoordinateDelta(mark.bp);
-    this.instanceData[offset + 2] = bpLength;
-    this.instanceData[offset + 3] = topPx;
-    this.instanceData[offset + 4] = heightPx;
-    this.instanceData[offset + 5] = minWidthPx;
-    this.instanceData[offset + 6] = centerAtStart;
-    this.instanceData[offset + 7] = color[0];
-    this.instanceData[offset + 8] = color[1];
-    this.instanceData[offset + 9] = color[2];
-    this.instanceData[offset + 10] = alpha;
-    this.instanceData[offset + 11] = 0;
+    const data = pool.data;
+    data[offset] = bpCoordinateChunk(mark.bp);
+    data[offset + 1] = bpCoordinateDelta(mark.bp);
+    data[offset + 2] = bpLength;
+    data[offset + 3] = topPx;
+    data[offset + 4] = heightPx;
+    data[offset + 5] = minWidthPx;
+    data[offset + 6] = centerAtStart;
+    data[offset + 7] = 1;
+    data[offset + 8] = 1;
+    data[offset + 9] = 1;
+    data[offset + 10] = 1;
+    data[offset + 11] = 0;
   }
 }
