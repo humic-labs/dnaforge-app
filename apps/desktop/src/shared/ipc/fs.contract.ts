@@ -8,6 +8,7 @@ import type {
 } from '../file-document-client-sync';
 import type { LegacyFileDraft, LegacyFileDraftRetention } from '../file-document-legacy-recovery';
 import type { FileDocumentRequest, FileDocumentSnapshot } from '../file-document';
+import type { TableDocumentCommand, TableDocumentCommandResult } from '../table-document-command';
 import type { SequenceDocumentRequest, SequenceDocumentSnapshot } from '../sequence-document';
 import type { NativeDirtyDocument } from '../native-document-drafts';
 import type {
@@ -70,6 +71,7 @@ export const fsContract = defineGroup('fs', {
   retainLegacyFileDraft: invoke<[draft: LegacyFileDraft], LegacyFileDraftRetention>(),
   assertFileDocumentsClean: invoke<[path: string], void>(),
   fileDocument: invoke<[request: FileDocumentRequest], FileDocumentSnapshot>(),
+  tableDocument: invoke<[command: TableDocumentCommand], TableDocumentCommandResult>(),
   subscribeFileDocuments:
     event<[snapshot: FileDocumentSnapshot]>().channel('fs:fileDocumentChanged'),
   beginWorkspaceMutation: invoke<

@@ -7,6 +7,11 @@ import {
   type FileDocumentClientReadinessReader,
 } from '../file-document-client-sync';
 import { createNativeFileDocuments } from '../native-file-documents';
+import { NativeTableDocumentCommands } from '../table-document-commands';
+import { readTablePackageInMain } from '../table-package';
+import { readProjectResourceIdentityInMain } from '../project-filesystem-authority';
+import { managedProjectStorageRoot } from '../project-root-admission';
+import { registerWorkspaceFileInDb } from '../catalog-entity-registration';
 import { createNativeSequenceWorkingCopies } from '../native-sequence-working-copies';
 import { NativeDocumentDispatcher } from '../native-document-dispatcher';
 import { createWorkspaceFileRelocator } from '../workspace-file-relocation';
@@ -95,6 +100,8 @@ export function createNativeDocuments(
   });
   const notebookDocuments = createNativeNotebookWorkingCopies({
     db: getDb,
+    tableDocuments: () => tableDocuments,
+    workspaceAccess: (root) => workspaces.access(root),
     relocateEntityFile: (input) => fileRelocations.relocateEntityFile(input),
     workspaceRoots: () => workspaces.readableRoots(),
     writableWorkspaceRoots: () => workspaces.roots(),
@@ -113,6 +120,55 @@ export function createNativeDocuments(
       nativeSequenceDocumentAdapter(sequenceDocuments),
       nativeNotebookDocumentAdapter(notebookDocuments),
     ],
+  });
+  const tableDocuments = new NativeTableDocumentCommands({
+    db: getDb,
+    workspaceRoots: () => workspaces.readableRoots(),
+    writableWorkspaceRoots: () => workspaces.roots(),
+    workspaceAccess: (root) => workspaces.access(root),
+    managedRootDir: managedProjectStorageRoot,
+    captureWorkspace: (root, mutating) =>
+      mutating ? workspaces.capture(root) : workspaces.captureReadable(root),
+    files: ordinaryFiles,
+    notebookTables: notebookDocuments.tableTransitions,
+    reconcileTablePackage: async (location) => {
+      const assertCurrent = workspaces.capture(location.workspaceRoot);
+      const actual = await readTablePackageInMain(location);
+      const identity = await readProjectResourceIdentityInMain(location, {
+        db: getDb(),
+        managedRootDir: managedProjectStorageRoot(),
+      });
+      assertCurrent();
+      if (!identity) throw new Error('The table project has no portable identity.');
+      registerWorkspaceFileInDb(getDb(), {
+        path: actual.headPath,
+        workspaceRoot: location.workspaceRoot,
+        entityType: 'file',
+        fileKind: 'dnaforge-table',
+        name: actual.snapshot.title,
+      });
+      const copy = await ordinaryFiles.execute({
+        target: { path: actual.headPath, workspaceRoot: location.workspaceRoot },
+        operation: {
+          kind: 'inspect',
+          offset: 0,
+          limit: 2000,
+          rowOffset: 0,
+          rowLimit: 20,
+          columnOffset: 0,
+          columnLimit: 20,
+        },
+      });
+      assertCurrent();
+      if (!copy.ready || copy.tableDocument?.id !== actual.head.id)
+        throw new Error('The native file owner could not verify the table package.');
+      return {
+        projectId: identity.projectId,
+        tableId: actual.head.id,
+        fileDocumentId: copy.documentId,
+        headPath: actual.headPath,
+      };
+    },
   });
   const markdownImporter = new MarkdownNotebookImporter({
     readableRoots: () => workspaces.observedReadableRoots(),
@@ -258,6 +314,7 @@ export function createNativeDocuments(
       fileOwner: fileDocuments,
       sequenceOwner: sequenceDocuments,
       notebookOwner: notebookDocuments,
+      tableOwner: tableDocuments,
       flushFileClients: () => flushFileDocumentClients(),
       workspaceCommands,
       importReviews,
@@ -463,6 +520,7 @@ export function createNativeDocuments(
     sequenceDocuments,
     notebookDocuments,
     fileDocuments,
+    tableDocuments,
     fileRelocations,
     flushFileDocumentClients,
     flushDirtyDocumentClients,

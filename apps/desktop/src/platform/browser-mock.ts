@@ -1796,6 +1796,9 @@ export const browserMockBridge: PlatformBridge = {
     fileDocument: async () => {
       throw new Error('Native file documents require the desktop runtime.');
     },
+    tableDocument: async () => {
+      throw new Error('Native table documents require the desktop runtime.');
+    },
     subscribeFileDocuments: () => () => {},
     beginWorkspaceMutation: async () => 'browser-workspace-mutation',
     endWorkspaceMutation: async () => undefined,

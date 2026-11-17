@@ -1,3 +1,7 @@
+import { TABLE_REFERENCE_NOTEBOOK_BLOCK } from '../shared/table-reference-notebook-contract';
+import { notebookTableReference, tableDocumentKey } from '../shared/table-document-reference';
+import { createNotebookTableAliases } from './notebook-table-aliases';
+import type { NativeTableDocumentCommands } from './table-document-commands';
 import { createNotebookConflictRecovery } from './notebook-conflict-recovery';
 import { createNotebookResourceReferences } from './notebook-resource-references';
 import type { RegisteredProjectAuthority } from './registered-project-authority';
@@ -72,12 +76,15 @@ export function createNativeNotebookWorkingCopies(options: {
   db(): Database.Database;
   workspaceRoots(): readonly string[];
   writableWorkspaceRoots(): readonly string[];
+  workspaceAccess?(root: string): { readOnly: boolean } | null;
   profileDirectory(): string;
   captureWorkspace(root: string, mutating: boolean): () => void;
   relocateEntityFile(input: RelocateEntityFileInput): Promise<RelocateEntityFileResult>;
   registeredProjects?: RegisteredProjectAuthority;
+  tableDocuments?: () => Pick<NativeTableDocumentCommands, 'execute'>;
 }): NativeNotebookWorkingCopyOwner {
   const resourceReferences = createNotebookResourceReferences(options);
+  const tableAliases = createNotebookTableAliases(options);
   const legacyFingerprint = (content: unknown) => {
     const text = JSON.stringify(content);
     let hash = 0x811c9dc5;
@@ -157,9 +164,11 @@ export function createNativeNotebookWorkingCopies(options: {
       );
     const assertEnrollment = options.captureWorkspace(root, mutating);
     const writable = () =>
-      options
-        .writableWorkspaceRoots()
-        .some((candidate) => workspaceMutationRootIdentity(candidate) === root);
+      options.workspaceAccess
+        ? options.workspaceAccess(root)?.readOnly === false
+        : options
+            .writableWorkspaceRoots()
+            .some((candidate) => workspaceMutationRootIdentity(candidate) === root);
     let readOnly = row.access_mode !== 'writable' || !writable();
     try {
       assertKnownWorkspaceContentWritable(options.db(), row.root);
@@ -169,9 +178,11 @@ export function createNativeNotebookWorkingCopies(options: {
     const assertCurrent = () => {
       assertEnrollment();
       if (
-        !options
-          .workspaceRoots()
-          .some((candidate) => workspaceMutationRootIdentity(candidate) === root)
+        options.workspaceAccess
+          ? !options.workspaceAccess(root)
+          : !options
+              .workspaceRoots()
+              .some((candidate) => workspaceMutationRootIdentity(candidate) === root)
       )
         throw new NativeDocumentCommandError(
           'OUTSIDE_WORKSPACE',
@@ -216,7 +227,7 @@ export function createNativeNotebookWorkingCopies(options: {
     return { documentId: id, path: currentPath, workspaceRoot: root, readOnly, assertCurrent };
   };
   const load = async (scope: NativeNotebookScope): Promise<NativeNotebookSource> => {
-    const reads = new Map<string, string>(),
+    const reads = new Map<string, Buffer>(),
       missing = new Set<string>();
     const safe = async (path: string) => {
       const member = await canonicalWorkspacePath({
@@ -231,9 +242,9 @@ export function createNativeNotebookWorkingCopies(options: {
       return member.candidate;
     };
     const read = async (path: string) => {
-      const value = await readFile(await safe(path), 'utf8');
-      reads.set(path, value);
-      return value;
+      const bytes = await readFile(await safe(path));
+      reads.set(path, bytes);
+      return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     };
     const legacy = scope.path.toLowerCase().endsWith('.wpnote.json');
     const metadataRaw = await read(legacy ? scope.path : notebookPackagePaths(scope.path).metaPath);
@@ -289,7 +300,7 @@ export function createNativeNotebookWorkingCopies(options: {
     if (stripWorkspaceScope(scope.documentId) !== stripWorkspaceScope(result.metadata.id))
       throw new Error('The notebook package belongs to another identity.');
     for (const [path, value] of reads)
-      if ((await readFile(await safe(path), 'utf8')) !== value)
+      if (!(await readFile(await safe(path))).equals(value))
         throw new Error('The notebook package changed while loading.');
     for (const path of missing) {
       try {
@@ -312,6 +323,12 @@ export function createNativeNotebookWorkingCopies(options: {
         ),
       ],
       fingerprint: contentFingerprint(result.markdown),
+      sourceFileHashes: Object.fromEntries(
+        [...reads].map(([path, bytes]) => [
+          relative(scope.path, path).replace(/\\/g, '/'),
+          createHash('sha256').update(bytes).digest('hex'),
+        ])
+      ),
       metadataRaw,
       preservedPreamble: result.parsed.preservedPreamble,
       preservedTitleProjection: result.parsed.preservedTitleProjection,
@@ -470,8 +487,67 @@ export function createNativeNotebookWorkingCopies(options: {
   };
   const conflictRecovery = createNotebookConflictRecovery(options);
   const owner: NativeNotebookWorkingCopyOwner = new NativeNotebookWorkingCopyOwner({
+    async resolveTableSource(reference, context) {
+      if (reference.backing.kind !== 'notebook-inline' || reference.binding.kind !== 'current')
+        throw new NativeDocumentCommandError(
+          'TABLE_SOURCE_UNSUPPORTED',
+          'Recovery requires a current notebook-backed table source.',
+          false
+        );
+      const root = workspaceMutationRootIdentity(context.workspaceRoot);
+      if (
+        !options
+          .workspaceRoots()
+          .some((candidate) => workspaceMutationRootIdentity(candidate) === root)
+      )
+        throw new NativeDocumentCommandError(
+          'OUTSIDE_WORKSPACE',
+          'The recovery notebook project is no longer enrolled.',
+          false
+        );
+      const canonical = await canonicalWorkspacePath({
+        workspaceRoot: root,
+        path: context.sourcePath,
+        allowMissing: false,
+        artifactNoun: 'recovery notebook package',
+      });
+      const sourcePath = workspaceMutationRootIdentity(canonical.candidate);
+      const rows = options
+        .db()
+        .prepare(
+          "SELECT e.id,f.path,w.path AS root FROM catalog_entities e JOIN catalog_entity_files f ON f.entity_id=e.id JOIN workspaces w ON w.id=f.workspace_id WHERE e.type IN ('notebook','page') AND e.status='active' AND f.status='current' AND w.archived_at IS NULL AND w.trashed_at IS NULL"
+        )
+        .all() as Array<{ id: string; path: string; root: string }>;
+      const matches = rows.filter(
+        (row) =>
+          workspaceMutationRootIdentity(row.root) === root &&
+          workspaceMutationRootIdentity(row.path) === sourcePath
+      );
+      if (matches.length !== 1)
+        throw new NativeDocumentCommandError(
+          'TABLE_SOURCE_CONTEXT_CHANGED',
+          'The recovery notebook has no unique active native binding at its verified project location.',
+          false
+        );
+      const scope = await resolveDocument(matches[0].id, false);
+      if (
+        workspaceMutationRootIdentity(scope.workspaceRoot) !== root ||
+        workspaceMutationRootIdentity(scope.path) !== sourcePath ||
+        stripWorkspaceScope(scope.documentId) !==
+          stripWorkspaceScope(reference.backing.notebookDocumentId)
+      )
+        throw new NativeDocumentCommandError(
+          'TABLE_SOURCE_CONTEXT_CHANGED',
+          'The current notebook binding does not match the archived portable identity.',
+          false
+        );
+      await load(scope);
+      scope.assertCurrent();
+      return notebookTableReference(scope.documentId, reference.backing.blockId);
+    },
     resolveResourceReference: resourceReferences.resolve,
     prepareResourceReferences: resourceReferences.prepare,
+    prepareTableAliases: tableAliases.prepare,
     inspectConflict: (scope) => conflictRecovery.inspect(scope),
     resolveConflict: (scope, request) => conflictRecovery.resolve(scope, request),
     beginLegacyMigration() {
@@ -537,7 +613,16 @@ export function createNativeNotebookWorkingCopies(options: {
     load,
     normalizePath: workspaceMutationRootIdentity,
     async publish(scope, source, content, title) {
+      let phase = 'waiting-project-publication';
+      const trace = (next: string) => {
+        phase = next;
+        try {
+          console.info('[Notebook publication]', { documentId: scope.documentId, phase });
+        } catch {}
+      };
+      trace(phase);
       return withKnownWorkspacePathMutation(options.db(), [scope.path], async () => {
+        trace('reading-current-source');
         scope.assertCurrent();
         const current = await load(scope);
         scope.assertCurrent();
@@ -545,6 +630,16 @@ export function createNativeNotebookWorkingCopies(options: {
           throw new NativeDocumentCommandError(
             'NOTEBOOK_EXTERNAL_CONFLICT',
             'The notebook package changed outside this working copy.',
+            false
+          );
+        if (
+          source.sourceFileHashes &&
+          canonicalNotebookJson(current.sourceFileHashes) !==
+            canonicalNotebookJson(source.sourceFileHashes)
+        )
+          throw new NativeDocumentCommandError(
+            'NOTEBOOK_EXTERNAL_CONFLICT',
+            'The exact saved notebook source bytes changed outside this working copy.',
             false
           );
         if (current.publication?.status === 'conflict')
@@ -572,6 +667,7 @@ export function createNativeNotebookWorkingCopies(options: {
           scope.assertCurrent();
           await mkdir(packageRoot, { recursive: false });
         }
+        trace('publishing-canonical-files');
         const result = await publishNotebookPackageV2InMain(
           {
             packageRoot,
@@ -590,6 +686,7 @@ export function createNativeNotebookWorkingCopies(options: {
           },
           scope.assertCurrent
         );
+        trace('canonical-files-published');
         const warnings: string[] = [];
         let nextScope = scope;
         if (packageRoot !== scope.path) {
@@ -630,13 +727,16 @@ export function createNativeNotebookWorkingCopies(options: {
           scope = nextScope;
           scope.assertCurrent();
           const db = options.db();
+          trace('publishing-projection');
           await publishProjection(scope, result.parsed);
+          trace('projection-published');
           db.prepare('UPDATE catalog_entities SET name=?,updated_at=? WHERE id=?').run(
             title,
             Date.now(),
             scope.documentId
           );
           const repo = catalog(scope.assertCurrent);
+          trace('binding-catalog-file');
           await repo.bindCatalogEntityToFile({
             entityId: scope.documentId,
             path: scope.path,
@@ -646,6 +746,7 @@ export function createNativeNotebookWorkingCopies(options: {
             modifiedAt: Date.now(),
             status: 'current',
           });
+          trace('recording-catalog-event');
           await repo.recordCatalogEvent({
             entityId: scope.documentId,
             eventType: 'artifact_updated',
@@ -657,32 +758,35 @@ export function createNativeNotebookWorkingCopies(options: {
             },
           });
         } catch (error) {
+          try {
+            console.error(
+              '[Notebook publication]',
+              { documentId: scope.documentId, phase, outcome: 'projection-pending' },
+              error
+            );
+          } catch {}
           warnings.push(
             'The notebook package was saved, but its catalog projection needs reconciliation: ' +
               (error instanceof Error ? error.message : String(error))
           );
         }
+        trace('reading-published-source');
+        const publishedSource = await load(nextScope);
+        trace('publication-complete');
         return {
           scope: nextScope,
-          source: {
-            sourceShape: 'v2-package' as const,
-            content: new NotebookDocumentModel(result.parsed.content, result.parsed.title).content,
-            title: result.parsed.title,
-            updatedAt: result.metadata.updatedAt,
-            sizeBytes: result.markdownBytes,
-            fingerprint: result.canonicalFingerprint,
-            metadataRaw: JSON.stringify(result.metadata),
-            preservedPreamble: result.parsed.preservedPreamble,
-            preservedTitleProjection: result.parsed.preservedTitleProjection,
-            publication: readNotebookPublicationInDb(options.db(), {
-              ...nextScope,
-              title: result.parsed.title,
-              content: result.parsed.content,
-              canonicalFingerprint: result.canonicalFingerprint,
-            }),
-          },
+          source: publishedSource,
           warnings,
         };
+      }).catch((error) => {
+        try {
+          console.error(
+            '[Notebook publication]',
+            { documentId: scope.documentId, phase, outcome: 'failed' },
+            error
+          );
+        } catch {}
+        throw error;
       });
     },
     async rename(scope, title) {
@@ -860,6 +964,43 @@ export function createNativeNotebookWorkingCopies(options: {
       return items.filter((item) => !type || item.type === type).slice(0, limit);
     },
     async prepareReferenceInsertion(scope, operation) {
+      if (operation.tableReference) {
+        if (operation.referenceId || operation.documentReference)
+          throw new Error('Supply one table, molecular document or saved result reference.');
+        const data = {
+          reference: operation.tableReference,
+          presentation: operation.presentation ?? 'embed',
+          ...(operation.label ? { label: operation.label } : {}),
+        };
+        const parsed = TABLE_REFERENCE_NOTEBOOK_BLOCK.parseData(data);
+        if (!parsed.ok) throw new Error(parsed.reason);
+        const referenceKey = tableDocumentKey(operation.tableReference);
+        const verify = async () => {
+          scope.assertCurrent();
+          const tables = options.tableDocuments?.();
+          if (!tables) throw new Error('The native table reference owner is unavailable.');
+          const result = await tables.execute({
+            kind: 'resolve',
+            reference: operation.tableReference!,
+          });
+          if (
+            result.kind !== 'resolved' ||
+            tableDocumentKey(result.table.reference) !== referenceKey
+          )
+            throw new Error('The table reference changed while preparing its notebook placement.');
+          scope.assertCurrent();
+        };
+        await verify();
+        return {
+          block: {
+            type: 'embed',
+            attrs: { type: 'table-reference', version: 1, refId: randomUUID(), data },
+          },
+          verify,
+        };
+      }
+      if (operation.presentation !== undefined)
+        throw new Error('A table presentation requires a table reference.');
       return prepareNotebookReferenceInsertion(options.db(), scope, operation);
     },
     async prepareInsertion(scope, source) {
