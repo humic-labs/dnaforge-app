@@ -1,3 +1,5 @@
+import type { ComparisonProjectionViewState } from './comparison-source';
+import type { ContactProjectionViewState } from './contact-source';
 import type {
   ReferenceContentIdentity,
   ReferenceVersionIdentity,
@@ -1311,6 +1313,8 @@ export function sameAssemblyReferenceAssetGenerationV1(
 }
 
 export interface IndexedGenomeTabState {
+  contactProjection?: ContactProjectionViewState;
+  comparisonProjection?: ComparisonProjectionViewState;
   sourcePath: string;
   workspaceRoot?: string;
   sourceSizeBytes?: number;

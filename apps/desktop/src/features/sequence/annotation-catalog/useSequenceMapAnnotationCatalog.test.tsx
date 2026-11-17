@@ -26,6 +26,7 @@ import {
   annotationCatalogTrackType,
   createAnnotationCatalogTrackRenderers,
   type PixiLinearTrackRenderer,
+  type SupplementalLinearTrack,
 } from '@waypoint/genome-renderer';
 import type { Annotation } from '@waypoint/sequence-utils';
 
@@ -107,6 +108,22 @@ function fakeMap() {
     }),
   };
   return { calls, renderer, mapRef: { current: handle } };
+}
+
+function supplementalTrack(): SupplementalLinearTrack {
+  return {
+    track: {
+      id: 'measured-rna',
+      type: 'test-genomic-markup',
+      order: 0,
+      visible: true,
+      assemblyId: 'NC_000913.3',
+      sizing: { kind: 'fixed', pixels: 180 },
+      zone: 'below-legacy',
+    },
+    renderer: { type: 'test-genomic-markup' } as PixiLinearTrackRenderer,
+    data: { measurements: [0, 2] },
+  };
 }
 
 function options(
@@ -299,5 +316,58 @@ describe('useSequenceMapAnnotationCatalog', () => {
     await waitFor(() => expect(readAnnotationCatalogWiring(tabId)?.drawing.phase).toBe('error'));
     expect(renderer.setTrackData).not.toHaveBeenCalled();
     expect(renderer.setTrackInstances).not.toHaveBeenCalled();
+  });
+
+  it('publishes supplemental scientific tracks for an ordinary document without a bundled catalog', () => {
+    openTab();
+    const { renderer, mapRef } = fakeMap();
+    const supplemental = supplementalTrack();
+    const document = { ...MG1655_DOCUMENT, name: 'rut locus', length: 17_000 };
+    const { rerender } = renderHook((props) => useSequenceMapAnnotationCatalog(props), {
+      initialProps: options(mapRef, { document, supplementalTracks: [supplemental] }),
+    });
+    expect(renderer.setChromosome).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'NC_000913.3', length: 17_000 })
+    );
+    expect(renderer.setTrackInstances).toHaveBeenLastCalledWith([supplemental.track]);
+    expect(renderer.setTrackData).toHaveBeenCalledWith('measured-rna', supplemental.data);
+    rerender(options(mapRef, { document }));
+    expect(renderer.setTrackInstances).toHaveBeenLastCalledWith([]);
+  });
+
+  it('retains supplemental tracks when ordinary catalog tracks are hidden', async () => {
+    openTab();
+    const { renderer, mapRef } = fakeMap();
+    const supplemental = supplementalTrack();
+    const { rerender } = renderHook((props) => useSequenceMapAnnotationCatalog(props), {
+      initialProps: options(mapRef, { supplementalTracks: [supplemental] }),
+    });
+    await waitFor(() => expect(renderer.setTrackData).toHaveBeenCalledTimes(2));
+    expect(renderer.setTrackInstances).toHaveBeenLastCalledWith([
+      expect.objectContaining({ id: 'transcription-units:transcription-unit-arrows' }),
+      expect.objectContaining({ id: 'measured-rna' }),
+    ]);
+    rerender(
+      options(mapRef, {
+        layout: { ...LAYOUT, tracks: LAYOUT.tracks.map((track) => ({ ...track, visible: false })) },
+        supplementalTracks: [supplemental],
+      })
+    );
+    expect(renderer.setTrackInstances).toHaveBeenLastCalledWith([supplemental.track]);
+  });
+
+  it('clears unsupported supplemental linear geometry on a transformed view', () => {
+    openTab();
+    const { renderer, mapRef } = fakeMap();
+    const supplemental = supplementalTrack();
+    const document = { ...MG1655_DOCUMENT, name: 'rut locus', length: 17_000 };
+    const { rerender } = renderHook((props) => useSequenceMapAnnotationCatalog(props), {
+      initialProps: options(mapRef, { document, supplementalTracks: [supplemental] }),
+    });
+    expect(renderer.setTrackData).toHaveBeenCalledWith('measured-rna', supplemental.data);
+    rerender(
+      options(mapRef, { document, supplementalTracks: [supplemental], viewTransformed: true })
+    );
+    expect(renderer.setTrackInstances).toHaveBeenLastCalledWith([]);
   });
 });

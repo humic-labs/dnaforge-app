@@ -1,5 +1,8 @@
 import { notebookContract } from './notebook.contract';
 import { trackViewCommandsContract } from './track-view-commands.contract';
+import { sequenceDataLayersContract } from './sequence-data-layers.contract';
+import { contactSourcesContract } from './contact-sources.contract';
+import { comparisonSourcesContract } from './comparison-sources.contract';
 import { importReviewContract } from './import-review.contract';
 import { administrationContract } from './administration.contract';
 import { primerArtifactContract } from './primer-artifact.contract';
@@ -71,6 +74,9 @@ import { workspaceNativeDocumentsContract } from './workspace-native-documents.c
 import { agentSdkMcpHttpListenerContract } from './agent-sdk-mcp-http-listener.contract';
 
 export const ipcContracts = [
+  comparisonSourcesContract,
+  contactSourcesContract,
+  sequenceDataLayersContract,
   trackViewCommandsContract,
   notebookContract,
   administrationContract,
@@ -143,6 +149,8 @@ export const ipcContracts = [
   appDirtyStateContract,
 ] as const;
 export {
+  comparisonSourcesContract,
+  contactSourcesContract,
   notebookContract,
   administrationContract,
   importReviewContract,

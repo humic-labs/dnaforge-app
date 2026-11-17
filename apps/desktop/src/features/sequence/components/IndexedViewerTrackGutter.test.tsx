@@ -1126,6 +1126,16 @@ describe('IndexedViewerTrackGutter', () => {
 
     fireEvent.click(screen.getByLabelText('Open settings for RNA signal'));
     expect(screen.getByTestId(`track-settings-form-signal-settings`)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Heatmap for RNA signal' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cividis palette for RNA signal' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(
+      useLaneContractStore
+        .getState()
+        .lanesForOwner(ASSEMBLY_ID)
+        .find((lane) => lane.dataset.trackId === 'signal-settings')?.dataset
+        .quantitativePresentation
+    ).toMatchObject({ graph: 'band', palette: 'cividis' });
     expect(screen.queryByTestId('quantitative-range-summary-signal-settings')).toBeNull();
     expect(screen.queryByText(/Values outside the chosen range/)).toBeNull();
     fireEvent.change(screen.getByTestId('quantitative-scale-mode-signal-settings'), {

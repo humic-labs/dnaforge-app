@@ -294,6 +294,15 @@ const hostedImplemented: Partial<PlatformBridge> = {
   lims: hostedLims,
   genome: hostedGenome,
   referenceAssets: hostedReferenceAssets,
+  comparisonSources: {
+    read: async () => unavailable('platform.comparisonSources.read'),
+  },
+  contactSources: {
+    read: async () => unavailable('platform.contactSources.read'),
+  },
+  sequenceDataLayers: {
+    run: async () => unavailable('platform.sequenceDataLayers.run'),
+  },
   trackViews: {
     locations: async () => unavailable('platform.trackViews.locations'),
     list: async () => unavailable('platform.trackViews.list'),

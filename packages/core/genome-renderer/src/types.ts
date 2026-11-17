@@ -1,4 +1,10 @@
+import type {
+  ComparisonProjection,
+  ComparisonCamera,
+  ComparisonHit,
+} from './comparison-projection';
 import type { AnnotationRolePaletteOverridesV1 } from './annotation-role-palette';
+import type { ContactCamera, ContactHit, ContactProjection } from './contact-projection';
 export interface AnnotationChangeDecoration {
   readonly kind: 'added' | 'modified' | 'removed';
 
@@ -496,6 +502,14 @@ export interface AnnotationSearchFocus {
 }
 
 export interface RenderState {
+  comparisonProjection?: ComparisonProjection | null;
+  comparisonCamera?: ComparisonCamera | null;
+  hoveredComparison?: ComparisonHit | null;
+  selectedComparison?: ComparisonHit | null;
+  contactProjection?: ContactProjection | null;
+  contactCamera?: ContactCamera | null;
+  hoveredContact?: ContactHit | null;
+  selectedContact?: ContactHit | null;
   performanceMode?: 'default' | 'stability';
   morph: number;
   viewOffset: number;

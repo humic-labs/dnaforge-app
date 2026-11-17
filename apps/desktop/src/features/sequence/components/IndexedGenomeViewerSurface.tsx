@@ -1,3 +1,5 @@
+import type { ComparisonProjectionProps } from './comparison-projection-props';
+import type { ContactProjectionProps } from './contact-projection-props';
 import type {
   ComponentProps,
   CSSProperties,
@@ -123,6 +125,15 @@ type MapHandle = IndexedGenomeTileNativeMapHandle;
 type CompiledTrackProps = ComponentProps<typeof AssemblyCompiledAnnotationTrack>;
 
 export function IndexedGenomeViewerSurface({
+  comparisonProjection,
+  comparisonCamera,
+  onComparisonCameraChange,
+  contactProjection,
+  contactCamera,
+  contactUnit,
+  onContactCameraChange,
+  annotationColorsByIdentity,
+  missingAnnotationColor,
   compiledBroadOwnsAssembly,
   state,
   manifest,
@@ -236,6 +247,15 @@ export function IndexedGenomeViewerSurface({
   annotationOwnerPending,
 }: {
   compiledBroadOwnsAssembly: boolean;
+  comparisonProjection?: ComparisonProjectionProps['comparisonProjection'];
+  comparisonCamera?: ComparisonProjectionProps['comparisonCamera'];
+  onComparisonCameraChange?: ComparisonProjectionProps['onComparisonCameraChange'];
+  contactProjection?: ContactProjectionProps['contactProjection'];
+  contactCamera?: ContactProjectionProps['contactCamera'];
+  contactUnit?: ContactProjectionProps['contactUnit'];
+  onContactCameraChange?: ContactProjectionProps['onContactCameraChange'];
+  annotationColorsByIdentity?: ReadonlyMap<string, string>;
+  missingAnnotationColor?: string;
   state: CompatibilitySceneState;
   manifest: IndexedGenomeManifest;
   sessionId?: string;
@@ -424,7 +444,13 @@ export function IndexedGenomeViewerSurface({
         className="relative flex h-full w-full min-w-0 flex-col overflow-hidden bg-bg"
         style={trackSurfaceStyle}
         data-testid="indexed-genome-viewer"
-        data-viewer-mode="continuous-overview"
+        data-viewer-mode={
+          comparisonProjection
+            ? 'aligned-comparison'
+            : contactProjection
+              ? 'contact-matrix'
+              : 'continuous-overview'
+        }
       >
         {mountedCompiledBroadTrackTypes.map((trackType) => (
           <AssemblyCompiledAnnotationTrack
@@ -517,6 +543,15 @@ export function IndexedGenomeViewerSurface({
           >
             <AlignedReadRepairNotice bamImport={bamImport} />
             <IndexedGenomeTileNativeMap
+              comparisonProjection={comparisonProjection}
+              comparisonCamera={comparisonCamera}
+              onComparisonCameraChange={onComparisonCameraChange}
+              contactProjection={contactProjection}
+              contactCamera={contactCamera}
+              contactUnit={contactUnit}
+              onContactCameraChange={onContactCameraChange}
+              annotationColorsByIdentity={annotationColorsByIdentity}
+              missingAnnotationColor={missingAnnotationColor}
               ref={webglRef}
               genome={rendererGenomeForMap}
               themeMode={themeMode}
@@ -527,8 +562,10 @@ export function IndexedGenomeViewerSurface({
               annotationSearchFocusFeature={rendererAnnotationSearchFocusFeature}
               annotationsVisible={annotationsVisible}
               readSourcesByTrackId={readSourcesByTrackId}
-              allowSparseCanvasCrop={!hasDataTracks}
-              hasQuantitativeTracks={hasQuantitativeTracks}
+              allowSparseCanvasCrop={!hasDataTracks && !contactProjection && !comparisonProjection}
+              hasQuantitativeTracks={
+                hasQuantitativeTracks || Boolean(contactProjection || comparisonProjection)
+              }
               hasPileupTracks={hasPileupTracks}
               canvasLayoutKey={`${rendererEffectiveVisibleLayerTypes.join(',')}:${laneLimit}:${transcriptDisplayMode}`}
               referencePathsByChrom={referencePathsByChrom}

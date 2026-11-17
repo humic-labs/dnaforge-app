@@ -1,3 +1,5 @@
+import type { ComparisonProjectionProps } from './comparison-projection-props';
+import type { ContactProjectionProps } from './contact-projection-props';
 import {
   type UserMessage,
   userMessage,
@@ -83,6 +85,13 @@ const GENOME_DRAWING_MIN_WIDTH = 160;
 export function IndexedGenomeTabRuntime({
   tabId,
   allowAutomaticSignalReadPileupViews = true,
+  comparisonProjection,
+  comparisonCamera,
+  onComparisonCameraChange,
+  contactProjection,
+  contactCamera,
+  contactUnit,
+  onContactCameraChange,
   assembly,
   canShowViewer,
   rangeStatus,
@@ -146,6 +155,13 @@ export function IndexedGenomeTabRuntime({
 }: {
   tabId: string;
   allowAutomaticSignalReadPileupViews?: boolean;
+  comparisonProjection?: ComparisonProjectionProps['comparisonProjection'];
+  comparisonCamera?: ComparisonProjectionProps['comparisonCamera'];
+  onComparisonCameraChange?: ComparisonProjectionProps['onComparisonCameraChange'];
+  contactProjection?: ContactProjectionProps['contactProjection'];
+  contactCamera?: ContactProjectionProps['contactCamera'];
+  contactUnit?: ContactProjectionProps['contactUnit'];
+  onContactCameraChange?: ContactProjectionProps['onContactCameraChange'];
   assembly: GenomeAssembly | undefined;
   canShowViewer: boolean;
   rangeStatus: RangeStatus;
@@ -256,6 +272,13 @@ export function IndexedGenomeTabRuntime({
           <IndexedGenomeTabViewerSurface
             tabId={tabId}
             allowAutomaticSignalReadPileupViews={allowAutomaticSignalReadPileupViews}
+            comparisonProjection={comparisonProjection}
+            comparisonCamera={comparisonCamera}
+            onComparisonCameraChange={onComparisonCameraChange}
+            contactProjection={contactProjection}
+            contactCamera={contactCamera}
+            contactUnit={contactUnit}
+            onContactCameraChange={onContactCameraChange}
             canShowViewer={canShowViewer}
             manifest={manifest}
             sessionId={sessionId}
@@ -362,6 +385,13 @@ function IndexedGenomeTabRangeStatus({
 function IndexedGenomeTabViewerSurface({
   tabId,
   allowAutomaticSignalReadPileupViews = true,
+  comparisonProjection,
+  comparisonCamera,
+  onComparisonCameraChange,
+  contactProjection,
+  contactCamera,
+  contactUnit,
+  onContactCameraChange,
   canShowViewer,
   manifest,
   sessionId,
@@ -415,6 +445,13 @@ function IndexedGenomeTabViewerSurface({
 }: {
   tabId: string;
   allowAutomaticSignalReadPileupViews?: boolean;
+  comparisonProjection?: ComparisonProjectionProps['comparisonProjection'];
+  comparisonCamera?: ComparisonProjectionProps['comparisonCamera'];
+  onComparisonCameraChange?: ComparisonProjectionProps['onComparisonCameraChange'];
+  contactProjection?: ContactProjectionProps['contactProjection'];
+  contactCamera?: ContactProjectionProps['contactCamera'];
+  contactUnit?: ContactProjectionProps['contactUnit'];
+  onContactCameraChange?: ContactProjectionProps['onContactCameraChange'];
   canShowViewer: boolean;
   manifest: IndexedGenomeManifest | null;
   sessionId: string | undefined;
@@ -477,6 +514,13 @@ function IndexedGenomeTabViewerSurface({
         <IndexedGenomeViewer
           laneOwnerId={tabId}
           allowAutomaticSignalReadPileupViews={allowAutomaticSignalReadPileupViews}
+          comparisonProjection={comparisonProjection}
+          comparisonCamera={comparisonCamera}
+          onComparisonCameraChange={onComparisonCameraChange}
+          contactProjection={contactProjection}
+          contactCamera={contactCamera}
+          contactUnit={contactUnit}
+          onContactCameraChange={onContactCameraChange}
           manifest={manifest}
           sessionId={sessionId}
           themeMode={themeMode}

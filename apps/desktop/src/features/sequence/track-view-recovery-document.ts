@@ -1,3 +1,4 @@
+import { platform } from '../../platform';
 import { createIndexedBbiTrackId, type PortableGenomeViewDocument } from '@waypoint/genome-data';
 import { validateTrackViewDocument, type TrackViewDocument } from '../../shared/track-view';
 import type { AdmitPortableTracksResult } from './portable-genome-view-restore';
@@ -27,6 +28,20 @@ export async function trackViewRecoveryDocument(
     if (reference.referenceSignature !== signature) {
       throw new Error('The saved view reference identity conflicts with its chromosome table.');
     }
+  }
+
+  if (document.contactProjection) {
+    await platform().contactSources.read({
+      project: document.contactProjection.project,
+      source: document.contactProjection.source,
+    });
+  }
+
+  if (document.comparisonProjection) {
+    await platform().comparisonSources.read({
+      project: document.comparisonProjection.project,
+      source: document.comparisonProjection.source,
+    });
   }
 
   const projected = await projectPortableGenomeView({
@@ -81,7 +96,14 @@ export function managedRestoredTracks(
   admitted: AdmitPortableTracksResult,
   referenceContext?: { readonly assemblyId: string }
 ): Pick<AdmitPortableTracksResult, 'dataTracks' | 'bamTracks' | 'variantSource'> &
-  Pick<TrackViewDocument, 'signalReadPileupViews' | 'primerBindings' | 'userAnnotations'> {
+  Pick<
+    TrackViewDocument,
+    | 'signalReadPileupViews'
+    | 'primerBindings'
+    | 'userAnnotations'
+    | 'contactProjection'
+    | 'comparisonProjection'
+  > {
   const document = validateTrackViewDocument(input);
   const dataById = new Map(admitted.dataTracks.map((track) => [track.trackId, track]));
   const bamById = new Map(admitted.bamTracks.map((track) => [track.trackId, track]));
@@ -150,6 +172,8 @@ export function managedRestoredTracks(
         },
       ];
     }),
+    contactProjection: document.contactProjection,
+    comparisonProjection: document.comparisonProjection,
     primerBindings: document.primerBindings,
     userAnnotations: document.userAnnotations,
   };

@@ -645,6 +645,15 @@ export interface ElectronAPI {
     typeof import('../shared/ipc/track-view-commands.contract').trackViewCommandsContract
   >;
   trackViews: TrackViewsBridge;
+  comparisonSources: ClientOf<
+    typeof import('../shared/ipc/comparison-sources.contract').comparisonSourcesContract
+  >;
+  contactSources: ClientOf<
+    typeof import('../shared/ipc/contact-sources.contract').contactSourcesContract
+  >;
+  sequenceDataLayers: ClientOf<
+    typeof import('../shared/ipc/sequence-data-layers.contract').sequenceDataLayersContract
+  >;
   molecularDocuments: MolecularDocumentsBridge;
   trackStore: TrackStoreBridge;
   referenceAssets: ReferenceAssetsBridge;

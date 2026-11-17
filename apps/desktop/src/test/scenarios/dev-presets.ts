@@ -356,6 +356,11 @@ export interface DevScenarioPreset {
   factory: () => AppScenario;
   aliases?: string[];
   referenceAssemblyId?: string;
+  referenceSourcePath?: string;
+  nativeContactProjection?: boolean;
+  nativeComparisonProjection?: boolean;
+  nativeExpressionTracks?: boolean;
+  nativeOrdinaryExpression?: boolean;
 
   indexedReference?: {
     preferredLocalAssemblyAccession: string;
@@ -496,8 +501,7 @@ export const DEV_SCENARIO_PRESET_GROUPS: readonly DevScenarioPresetGroup[] = [
       {
         id: 'privacy-usage-analytics-unavailable',
         label: 'privacyUsageAnalyticsUnavailable',
-        description:
-          ' — Settings → Privacy where this window cannot report the telemetry choice',
+        description: ' — Settings → Privacy where this window cannot report the telemetry choice',
         factory: () => ({ usageAnalytics: { enabled: null } }),
         aliases: ['analytics', 'telemetry', 'consent'],
         noAutoReplay: true,
@@ -1194,6 +1198,54 @@ export const DEV_SCENARIO_PRESET_GROUPS: readonly DevScenarioPresetGroup[] = [
     id: 'annotation-assembly-pileup',
     heading: 'Assembly tracks',
     presets: [
+      {
+        id: 'native-aligned-genomes',
+        label: 'Aligned genomes · native synteny',
+        description:
+          'Exact E. coli and Shigella genome alignment with CIGAR gaps, reverse blocks and unaligned joins in the existing indexed canvas.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes',
+        nativeComparisonProjection: true,
+        noAutoReplay: true,
+      },
+      {
+        id: 'native-contact-matrix',
+        label: 'Chromosome contacts · native matrix',
+        description:
+          'Measured chromosome contacts on exact U00096.2 genomic axes in the normal indexed viewer. Pan both axes, zoom, and select a measured bin pair.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes/U00096.2-contacts',
+        nativeContactProjection: true,
+        noAutoReplay: true,
+      },
+      {
+        id: 'native-expression-tracks',
+        label: 'Expression samples · native tracks',
+        description:
+          'Real PRECISE expression conditions in the existing indexed track rows and settings.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes',
+        nativeExpressionTracks: true,
+        noAutoReplay: true,
+      },
+      {
+        id: 'genome-markup-indexed',
+        label: 'Shared genome markup · indexed reference',
+        description: 'Real expression measurements in the native indexed track owner.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes',
+        nativeExpressionTracks: true,
+        noAutoReplay: true,
+      },
+      {
+        id: 'genome-markup-ordinary',
+        label: 'Shared genome markup · ordinary sequence',
+        description:
+          'The same measurements on a real 17 kb MG1655 locus in the normal sequence viewer.',
+        factory: () => ({ laneContract: {} }),
+        nativeOrdinaryExpression: true,
+        noAutoReplay: true,
+      },
       {
         id: 'indexed-mg1655-reference',
         label: 'Indexed MG1655 reference',

@@ -15,6 +15,7 @@ import { fingerprintText, useUnsavedDraftRecovery } from '../shared/unsaved-draf
 import { useToastStore } from '../stores/toast-store';
 import { useWorkspaceStore } from '../stores/workspaceStore';
 import { isPathInsideBoundary } from '../shared/path-boundary';
+import { parseSequenceDataLayerPath } from '../shared/sequence-data-layer-path';
 import type { EditorView } from '@codemirror/view';
 import {
   FileDocumentDraft,
@@ -102,13 +103,17 @@ export function TextViewerTab({
   const offeredNativeRecovery = useRef<string | null>(null);
   const lastNativeError = useRef<string | null>(null);
   const [nativeReadOnly, setNativeReadOnly] = useState(false);
-  const readOnly = requestedReadOnly || nativeReadOnly;
+  const sequenceDataLayer = useMemo(() => parseSequenceDataLayerPath(filePath), [filePath]);
+  const readOnly = requestedReadOnly || nativeReadOnly || Boolean(sequenceDataLayer);
   const document = useMemo(
     () =>
-      isBrowserOnly() || isHostedBrowserRuntime() || (requestedReadOnly && Boolean(sourceFileName))
+      sequenceDataLayer ||
+      isBrowserOnly() ||
+      isHostedBrowserRuntime() ||
+      (requestedReadOnly && Boolean(sourceFileName))
         ? new FileDocumentDraft(filePath)
         : getFileDocumentClient(filePath),
-    [filePath, requestedReadOnly, sourceFileName]
+    [filePath, requestedReadOnly, sequenceDataLayer, sourceFileName]
   );
   useEffect(() => {
     setNativeReadOnly(
@@ -409,6 +414,45 @@ export function TextViewerTab({
       };
 
       try {
+        if (sequenceDataLayer) {
+          const saved = await platform().sequenceDataLayers.run({
+            operation: 'inspect',
+            project: sequenceDataLayer.workspaceRoot,
+            id: sequenceDataLayer.id,
+          });
+          if (cancelled) return;
+          if (
+            saved.status !== 'published' ||
+            saved.path !== filePath ||
+            saved.document.id !== sequenceDataLayer.id
+          )
+            throw new Error('The saved sequence data layer could not be verified.');
+          const text = `${JSON.stringify(saved.document, null, 2)}\n`;
+          const bytes = new TextEncoder().encode(text);
+          if (bytes.byteLength > MAX_FULL_TEXT_FILE_SIZE) {
+            const previewSkipped = bytes.byteLength > MAX_LARGE_PREVIEW_SOURCE_BYTES;
+            const previewBytes = previewSkipped
+              ? 0
+              : Math.min(bytes.byteLength, LARGE_PREVIEW_BYTES);
+            updateOriginalContent(null);
+            updateEditedContent(null);
+            setLargePreview({
+              fileSizeBytes: bytes.byteLength,
+              previewText: previewSkipped
+                ? null
+                : new TextDecoder().decode(bytes.slice(0, previewBytes)),
+              previewBytes,
+              previewSkipped,
+            });
+          } else {
+            await document.load(text);
+            if (cancelled) return;
+            updateOriginalContent(document.persistedContent);
+            updateEditedContent(document.content);
+          }
+          setLoading(false);
+          return;
+        }
         if (isBrowserOnly()) {
           try {
             const loaded = await loadFromPlatform({ emptyFileIsReal: false });
@@ -441,7 +485,15 @@ export function TextViewerTab({
     return () => {
       cancelled = true;
     };
-  }, [document, filePath, filename, projectAvailable, updateEditedContent, updateOriginalContent]);
+  }, [
+    document,
+    filePath,
+    filename,
+    projectAvailable,
+    sequenceDataLayer,
+    updateEditedContent,
+    updateOriginalContent,
+  ]);
 
   useEffect(() => {
     if (loading) return;

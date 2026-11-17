@@ -446,3 +446,5 @@ export {
   type PackedCompiledBroadAnnotationInteractionBinaryV1,
   type UnpackedCompiledBroadAnnotationInteractionBinaryV1,
 } from './renderers/pixi/overview/compiled-broad-annotation-interaction-binary-v1';
+export * from './contact-projection';
+export * from './comparison-projection';
