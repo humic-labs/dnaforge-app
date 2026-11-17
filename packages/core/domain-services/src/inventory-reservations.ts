@@ -9,6 +9,7 @@ import {
   inventoryMixingDimensionFailure,
 } from './inventory-materials';
 import { inventoryVesselContentsProjection } from './inventory-contents';
+import { inventoryStockEligibility, inventoryLotUseGuard } from './inventory-lot-controls';
 import { inventoryCustodyAccess, inventoryItemCustody } from './inventory-custody';
 import { inventoryItemContains } from './inventory-placement';
 export { inventoryItemContains } from './inventory-placement';
@@ -41,6 +42,7 @@ type ReservationState = Pick<
   | 'vessels'
   | 'storage'
   | 'lots'
+  | 'lotRecalls'
   | 'reservations'
   | 'lastRecordedAt'
   | 'typeVersions'
@@ -145,7 +147,7 @@ function stockAvailability(
     blockers.push({ code: 'POSITION_UNAVAILABLE', item });
   blockers.push(...inventoryItemCustody(state, item, principal, state.lastRecordedAt).blockers);
   if (stock.quantity.kind === 'unknown') blockers.push({ code: 'QUANTITY_UNKNOWN' });
-  if (stock.quality !== 'usable') blockers.push({ code: 'STOCK_QUARANTINED' });
+  blockers.push(...inventoryStockEligibility(state, stockId)!.blockers);
   if (vessel.lifecycle !== 'active') blockers.push({ code: 'VESSEL_DISPOSED' });
   const itemHolds = active.filter(
     (reservation) =>
@@ -392,6 +394,8 @@ export function applyInventoryReservationCommand(
       'Reservation commands require a trusted actor and clock context.'
     );
   if (command.kind === 'reserve-quantity' || command.kind === 'reserve-item') {
+    const eligibility = inventoryLotUseGuard(state, command);
+    if (eligibility) return eligibility;
     if (
       [
         state.reservations,
@@ -399,6 +403,7 @@ export function applyInventoryReservationCommand(
         state.vessels,
         state.stocks,
         state.lots,
+        state.lotRecalls,
         state.typeVersions,
         state.recipeVersions,
         state.fitEvidence,
@@ -540,6 +545,8 @@ export function prepareInventoryFulfillment(
       'CONTEXT_REQUIRED',
       'Reservation fulfillment requires a trusted actor and clock context.'
     );
+  const eligibility = inventoryLotUseGuard(state, command.withdrawal);
+  if (eligibility) return eligibility;
   if (new Set(command.claims.map((claim) => claim.reservationId)).size !== command.claims.length)
     return refuse(
       'INVALID_RESERVATION_CLAIM',

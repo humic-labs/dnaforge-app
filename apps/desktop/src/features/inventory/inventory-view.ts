@@ -1,4 +1,5 @@
 import type { InventoryContentsDialog } from './InventoryContentsForm';
+import type { InventoryLotControlsDialog } from './InventoryLotControlsForm';
 import type { InventoryMaterialDialog } from './InventoryMaterialForm';
 import type { InventoryCompositionDialog } from './InventoryCompositionForm';
 import type { InventoryReservationDialog } from './InventoryReservations';
@@ -84,6 +85,7 @@ export type InventoryDialog =
   | { kind: 'receive-mapped-table' }
   | { kind: 'inspect-benchling-capture' }
   | InventoryContentsDialog
+  | InventoryLotControlsDialog
   | InventoryMaterialDialog
   | InventoryCompositionDialog
   | InventoryReservationDialog
@@ -154,8 +156,15 @@ export function inventoryLocationPathLabel(path: readonly InventoryLocationPathE
     .join(' / ');
 }
 
-export function inventoryBlockerLabel(blocker: InventoryAvailabilityBlocker): string {
+export function inventoryBlockerLabel(
+  blocker: InventoryAvailabilityBlocker,
+  state?: Pick<InventoryState, 'lots'>
+): string {
+  const lot = 'lotId' in blocker ? (state?.lots[blocker.lotId]?.name ?? blocker.lotId) : '';
   const labels: Record<InventoryAvailabilityBlocker['code'], string> = {
+    LOT_NOT_RELEASED: `Lot ${lot} is ${'assessment' in blocker && blocker.assessment === 'unassessed' ? 'unassessed' : 'assessment' in blocker ? blocker.assessment : 'not released'}`,
+    LOT_ASSESSMENT_IMPORTED: `Lot ${lot} requires a local release decision`,
+    LOT_RECALLED: `Lot ${lot} has an active recall`,
     QUANTITY_UNKNOWN: 'Recorded quantity is unknown',
     STOCK_QUARANTINED: 'This stock is quarantined',
     VESSEL_DISPOSED: 'This container has been disposed',
@@ -324,6 +333,14 @@ export function historyLabel(command: InventoryCommand, state: InventoryState): 
       return `Fulfilled reservation · ${historyLabel(command.withdrawal, state)}`;
     case 'create-lot':
       return `Added batch ${command.name}`;
+    case 'manage-lot':
+      return `Started managing lot ${state.lots[command.lotId]?.name ?? command.lotId}`;
+    case 'assess-lot':
+      return `Assessed lot ${state.lots[command.lotId]?.name ?? command.lotId}: ${command.assessment}`;
+    case 'record-lot-recall':
+      return `Recorded recall ${command.id} for ${state.lots[command.lotId]?.name ?? command.lotId}`;
+    case 'withdraw-lot-recall':
+      return `Withdrew recall ${command.recallId}`;
     case 'receive-lot-stock':
       return `Received batch ${state.lots[command.lotId]?.name ?? command.lotId}`;
     case 'associate-stock-lot':

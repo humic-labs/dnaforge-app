@@ -162,8 +162,12 @@ export function InventoryCustodyPanel({
         ) : null}
       </dl>
       {blockers.map((blocker) => (
-        <p key={blocker.code} data-blocker-code={blocker.code} className="text-xs text-fg-muted">
-          {inventoryBlockerLabel(blocker)}
+        <p
+          key={`${blocker.code}:${'lotId' in blocker ? blocker.lotId : ''}`}
+          data-blocker-code={blocker.code}
+          className="text-xs text-fg-muted"
+        >
+          {inventoryBlockerLabel(blocker, data.state)}
         </p>
       ))}
       <div className="flex flex-wrap gap-2">

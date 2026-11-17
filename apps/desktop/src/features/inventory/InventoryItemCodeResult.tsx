@@ -171,7 +171,10 @@ export function InventoryItemCodeResult({
                         {inventoryAmountLabel(availability.unreserved)}
                       </p>
                       {availability.blockers.map((blocker) => (
-                        <p key={blocker.code} data-blocker-code={blocker.code}>
+                        <p
+                          key={`${blocker.code}:${'lotId' in blocker ? blocker.lotId : ''}`}
+                          data-blocker-code={blocker.code}
+                        >
                           {inventoryBlockerLabel(blocker)}
                         </p>
                       ))}

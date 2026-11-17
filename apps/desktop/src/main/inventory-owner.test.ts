@@ -124,7 +124,7 @@ describe('durable native inventory commands', () => {
     expect(first).toMatchObject({
       recordedAt: now,
       context: {
-        version: 1,
+        version: 2,
         principal: { kind: 'local-profile', profileKey },
         authority: { kind: 'local-profile', profileKey },
       },

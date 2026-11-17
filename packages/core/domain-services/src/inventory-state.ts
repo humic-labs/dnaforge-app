@@ -1,3 +1,4 @@
+import { applyInventoryLotControlCommand, inventoryLotUseGuard } from './inventory-lot-controls';
 import { applyInventoryObservationCommand } from './inventory-observations';
 import {
   applyInventoryConfigurationCommand,
@@ -57,6 +58,7 @@ import { applyInventoryContentsCommand, inventoryVesselStockAdmission } from './
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
 interface Draft {
+  lotRecalls: Record<string, InventoryState['lotRecalls'][string]>;
   vesselBindings: InventoryState['vesselBindings'];
   hierarchyBindings: InventoryState['hierarchyBindings'];
   observations: Record<string, InventoryState['observations'][string]>;
@@ -163,6 +165,10 @@ function applyCommand(
   if (configuration !== undefined) return configuration;
   const custody = applyInventoryCustodyCommand(state, command, context);
   if (custody !== undefined) return custody;
+  const lotControl = applyInventoryLotControlCommand(state, command, context);
+  if (lotControl !== undefined) return lotControl;
+  const lotFailure = inventoryLotUseGuard(state, command);
+  if (lotFailure) return lotFailure;
   const reservation = applyInventoryReservationCommand(state, command, context);
   if (reservation !== undefined) return reservation;
   if (command.kind === 'fulfill-reservations') {
@@ -226,6 +232,7 @@ function applyCommand(
       if (capacity) return capacity;
       state.stocks[command.id] = {
         id: command.id,
+        lotConstraints: { knowledge: 'recorded', lotIds: [] },
         source: { kind: 'unattributed', rootStockId: command.id },
         vesselId: command.vesselId,
         materialId: command.materialId,
@@ -385,6 +392,7 @@ export function applyInventoryCommandBatch(
     return failure('CLOCK_REGRESSION', 'The trusted timestamp precedes the inventory clock floor.');
   const draft: Draft = {
     vesselBindings: state.vesselBindings,
+    lotRecalls: Object.assign(Object.create(null), state.lotRecalls),
     hierarchyBindings: state.hierarchyBindings,
     origin: state.origin,
     observations: Object.assign(Object.create(null), state.observations),

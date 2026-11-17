@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import {
   applyInventoryCommandBatch,
   createInventoryState,
+  projectLegacyInventoryLotConstraints,
   type InventoryExecutionContext,
   type InventoryState,
   type InventoryTransition,
@@ -59,7 +60,8 @@ export function replayNativeInventoryEntries(
   adoption: (
     target: InventoryState | null,
     request: InventoryApplyImportRequest,
-    context: InventoryExecutionContext
+    context: InventoryExecutionContext,
+    receiptContextVersion: 1 | 2 | undefined
   ) => InventoryTransition,
   table: (
     target: InventoryState | null,
@@ -93,7 +95,14 @@ export function replayNativeInventoryEntries(
   ) => InventoryTransition
 ): InventoryState {
   let state = createInventoryState();
+  let currentSemanticsSeen = false;
   for (const entry of entries) {
+    const currentSemantics = entry.receipt.context?.version === 2;
+    if (!currentSemantics && currentSemanticsSeen)
+      throw new Error(
+        'INVENTORY_DATA_INVALID: Inventory receipt semantics cannot return to the legacy version.'
+      );
+    if (currentSemantics) currentSemanticsSeen = true;
     const context = entry.receipt.context
       ? {
           at: entry.receipt.recordedAt,
@@ -102,6 +111,16 @@ export function replayNativeInventoryEntries(
         }
       : undefined;
     const request = entry.request;
+    if (
+      !currentSemantics &&
+      !('kind' in request) &&
+      request.commands.some((command) =>
+        ['manage-lot', 'assess-lot', 'record-lot-recall', 'withdraw-lot-recall'].includes(
+          command.kind
+        )
+      )
+    )
+      throw new Error('INVENTORY_DATA_INVALID: Lot controls require current receipt semantics.');
     if (request.expectedRevision !== state.revision)
       throw new Error('INVENTORY_DATA_INVALID: The saved inventory journal is not contiguous.');
     let result: InventoryTransition;
@@ -114,7 +133,12 @@ export function replayNativeInventoryEntries(
     } else if ('kind' in request && request.kind === 'adopt-archive') {
       if (!context)
         throw new Error('INVENTORY_DATA_INVALID: An adoption requires its native receipt context.');
-      result = adoption(state.revision === 0 ? null : state, request, context);
+      result = adoption(
+        state.revision === 0 ? null : state,
+        request,
+        context,
+        entry.receipt.context?.version
+      );
     } else if ('kind' in request && request.kind === 'receive-table') {
       if (!context)
         throw new Error(
@@ -152,7 +176,15 @@ export function replayNativeInventoryEntries(
     }
     if (!result.ok)
       throw new Error('INVENTORY_DATA_INVALID: The saved inventory journal could not be replayed.');
-    state = result.state;
+    if (
+      !currentSemantics &&
+      (Object.values(result.state.lots).some((lot) => lot.controls.kind === 'managed') ||
+        Object.keys(result.state.lotRecalls).length > 0)
+    )
+      throw new Error(
+        'INVENTORY_DATA_INVALID: Lot controls cannot enter through legacy receipt semantics.'
+      );
+    state = currentSemantics ? result.state : projectLegacyInventoryLotConstraints(result.state);
   }
   return state;
 }

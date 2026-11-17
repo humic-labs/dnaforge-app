@@ -471,7 +471,7 @@ export function createNativeInventoryOwner(options: {
         const previous = row ? stateFromRow(row) : createInventoryState();
         const recordedAt = observationTime(previous);
         const context = inventoryReceiptContextSchema.parse({
-          version: 1,
+          version: 2,
           principal: principal(invocation),
           authority,
         });

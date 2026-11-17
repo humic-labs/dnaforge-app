@@ -1,4 +1,5 @@
 import type { InventoryContentsDialog } from './InventoryContentsForm';
+import type { InventoryLotControlsDialog } from './InventoryLotControlsForm';
 import type { InventoryMaterialDialog } from './InventoryMaterialForm';
 import type { InventoryCompositionDialog } from './InventoryCompositionForm';
 import type { InventoryReservationDialog } from './InventoryReservations';
@@ -12,6 +13,7 @@ import {
   inventoryStoragePositions,
   inventoryWellId,
   normalizeInventoryAmount,
+  inventoryStockEligibility,
   type InventoryCommand,
   type InventoryLocatedPlacement,
   type InventoryLayout,
@@ -53,6 +55,7 @@ import {
 type OpenDialog = Exclude<
   InventoryDialog,
   | InventoryContentsDialog
+  | InventoryLotControlsDialog
   | InventoryMaterialDialog
   | InventoryCompositionDialog
   | InventoryReservationDialog
@@ -150,7 +153,15 @@ export function InventoryForm({
   const [materials, setMaterials] = useState<Materials>({ kind: 'loading' });
   const [validation, setValidation] = useState<string | null>(null);
   const unknownWithdrawal = dialog.kind === 'use' && stock?.quantity.kind === 'unknown';
-  const canSubmit = inventoryCanEdit(status) && !unknownWithdrawal;
+  const lotWithdrawalBlocked =
+    dialog.kind === 'use' &&
+    Boolean(
+      stock &&
+      inventoryStockEligibility(state, stock.id)?.blockers.some(
+        (blocker) => blocker.code !== 'STOCK_QUARANTINED'
+      )
+    );
+  const canSubmit = inventoryCanEdit(status) && !unknownWithdrawal && !lotWithdrawalBlocked;
   const selectedStorage = state.storage[storageId];
   const fixedWell = dialog.kind === 'receive' && selectedStorage?.layout.kind === 'fixed-well';
   const selectedContainer = state.vessels[containerId];
@@ -523,6 +534,11 @@ export function InventoryForm({
         </div>
         {unknownWithdrawal ? (
           <Notice>Record a measured quantity before using this stock.</Notice>
+        ) : null}
+        {lotWithdrawalBlocked ? (
+          <Notice>
+            Lot assessment or recall prevents using this stock. Inspect its lot controls.
+          </Notice>
         ) : null}
       </>
     ) : null;

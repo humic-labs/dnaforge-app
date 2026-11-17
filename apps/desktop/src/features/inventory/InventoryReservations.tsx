@@ -74,8 +74,8 @@ export function InventoryStockAvailability({
         ))}
       </dl>
       {availability.blockers.map((blocker) => (
-        <Notice key={blocker.code}>
-          <span data-blocker-code={blocker.code}>{inventoryBlockerLabel(blocker)}</span>
+        <Notice key={`${blocker.code}:${'lotId' in blocker ? blocker.lotId : stockId}`}>
+          <span data-blocker-code={blocker.code}>{inventoryBlockerLabel(blocker, data.state)}</span>
         </Notice>
       ))}
       <p className="text-xs text-fg-muted">
@@ -164,11 +164,11 @@ export function InventoryReservationList({
               ) : null}
               {blockers.map((blocker) => (
                 <p
-                  key={blocker.code}
+                  key={`${blocker.code}:${'lotId' in blocker ? blocker.lotId : reservation.id}`}
                   data-blocker-code={blocker.code}
                   className="text-xs text-fg-muted"
                 >
-                  {inventoryBlockerLabel(blocker)}
+                  {inventoryBlockerLabel(blocker, data.state)}
                 </p>
               ))}
               {view.overdue ? (

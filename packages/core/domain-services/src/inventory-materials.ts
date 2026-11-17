@@ -34,6 +34,7 @@ import {
   type InventoryCanonicalAmount,
 } from './inventory-amount';
 import { inventoryVesselStockAdmission } from './inventory-contents';
+import { inventoryLotConstraints, mergeInventoryLotConstraints } from './inventory-lot-controls';
 
 export interface InventoryMaterialDraft {
   readonly temperatureClaims: InventoryState['temperatureClaims'];
@@ -43,6 +44,7 @@ export interface InventoryMaterialDraft {
   readonly fitEvidence: InventoryState['fitEvidence'];
   readonly stocks: Record<string, InventoryStock>;
   readonly lots: Record<string, InventoryLot>;
+  readonly lotRecalls: InventoryState['lotRecalls'];
   readonly vessels: Record<string, InventoryVessel>;
   readonly storage: InventoryState['storage'];
   readonly reservations: Readonly<Record<string, InventoryReservation>>;
@@ -122,6 +124,7 @@ function hasId(state: InventoryMaterialDraft, id: string): boolean {
   return [
     state.stocks,
     state.lots,
+    state.lotRecalls,
     state.vessels,
     state.storage,
     state.reservations,
@@ -212,6 +215,13 @@ export function applyInventoryMaterialCommand(
         materialId: command.materialId,
         name: command.name,
         origin,
+        controls: { kind: 'legacy-untracked' },
+        lotConstraints: inventoryLotConstraints(
+          command.id,
+          ...(command.origin.kind === 'prepared'
+            ? command.origin.sourceStockIds.map((id) => state.stocks[id].lotConstraints)
+            : [])
+        ),
       };
       return null;
     }
@@ -230,6 +240,7 @@ export function applyInventoryMaterialCommand(
         vesselId: command.vesselId,
         materialId: lot.materialId,
         source: { kind: 'lot', lotId: lot.id },
+        lotConstraints: mergeInventoryLotConstraints(lot.lotConstraints),
         quantity,
         quality: command.quality,
         composition: { kind: 'unknown' },
@@ -268,7 +279,11 @@ export function applyInventoryMaterialCommand(
           'INCOMPATIBLE_PROVENANCE',
           'The stock and lot must identify the same material.'
         );
-      state.stocks[stock.id] = { ...stock, source: { kind: 'lot', lotId: lot.id } };
+      state.stocks[stock.id] = {
+        ...stock,
+        source: { kind: 'lot', lotId: lot.id },
+        lotConstraints: mergeInventoryLotConstraints(stock.lotConstraints, lot.lotConstraints),
+      };
       return null;
     }
     case 'set-vessel-limits': {
@@ -311,6 +326,7 @@ export function applyInventoryMaterialCommand(
           vesselId: vessel.id,
           materialId: source.materialId,
           source: { ...source.source },
+          lotConstraints: mergeInventoryLotConstraints(source.lotConstraints),
           quantity: { kind: 'known', ...debit.contribution.quantity },
           quality: 'usable',
           composition: structuredClone(source.composition),
@@ -351,6 +367,7 @@ export function applyInventoryMaterialCommand(
           );
         destination = {
           ...stock,
+          lotConstraints: mergeInventoryLotConstraints(stock.lotConstraints, source.lotConstraints),
           composition:
             stock.quantity.unit !== 'uL'
               ? { kind: 'unknown' }
@@ -436,12 +453,18 @@ export function applyInventoryMaterialCommand(
         materialId: command.materialId,
         name: command.name,
         origin,
+        controls: { kind: 'legacy-untracked' },
+        lotConstraints: inventoryLotConstraints(
+          command.lotId,
+          ...inputs.map((input) => state.stocks[input.stockId].lotConstraints)
+        ),
       };
       state.stocks[command.stockId] = {
         id: command.stockId,
         vesselId: vessel.id,
         materialId: command.materialId,
         source: { kind: 'lot', lotId: command.lotId },
+        lotConstraints: mergeInventoryLotConstraints(state.lots[command.lotId].lotConstraints),
         quantity,
         quality: 'usable',
         composition,

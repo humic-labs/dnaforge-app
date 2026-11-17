@@ -28,11 +28,15 @@ node apps/desktop/scripts/inventory-journey.mjs --stage materials --fixture /abs
 ```
 
 The helper drives supplier-lot creation, lot-specific receive, limits, a working
-aliquot, pooling, and tracked water dilution through the visible forms.
-Scientific reagent setup uses the existing native Registry contract. Require
-supplier100 µL → aliquot20/source80; pool5+15 → pooled20/source15/source65;
-dilute10+water30 → diluted40/pool10/water70. Inspect the native state, immutable
-contribution snapshots, accepted history and original video.
+aliquot, pooling, and tracked water dilution through the visible forms. Newly
+created lots, preparations and pool/dilution outputs start managed and
+Unassessed; the current helper records explicit reasons and local release
+decisions before later withdrawals. Original captures from earlier schemas keep
+their earlier semantics and source hashes. Scientific reagent setup uses the
+existing native Registry contract. Require supplier100 µL → aliquot20/source80;
+pool5+15 → pooled20/source15/source65; dilute10+water30 →
+diluted40/pool10/water70. Inspect the native state, immutable contribution
+snapshots, accepted history and original video.
 
 If a run fails after the verified pooling checkpoint, retain its receipt and
 original captures. `--resume` requires the exact captured65/15/20 amounts and

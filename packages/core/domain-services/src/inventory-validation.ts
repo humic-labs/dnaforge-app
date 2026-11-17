@@ -1,3 +1,9 @@
+import { projectLegacyInventoryLotConstraints } from './inventory-lot-controls';
+import type {
+  InventoryLotConstraints,
+  InventoryLotControls,
+  InventoryLotRecall,
+} from './inventory-lot-controls-types';
 import {
   INVENTORY_AMOUNT_UNITS,
   inventoryAmountUnitDefinition,
@@ -55,6 +61,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_AMOUNTS_SCHEMA,
   INVENTORY_HIERARCHY_SCHEMA,
   INVENTORY_CONTENTS_SCHEMA,
   INVENTORY_SOURCE_REVISION_SCHEMA,
@@ -687,7 +694,47 @@ const lotOrigin = union('Lot origin', [
     diluent: contribution,
   }),
 ]);
-const lotRecord = fields('Lot record', { id, materialId: id, name, origin: lotOrigin });
+const lotConstraints: Codec<InventoryLotConstraints> = checked(
+  fields('Lot constraint owners', {
+    knowledge: union('Lot constraint knowledge', [literal('recorded'), literal('legacy-partial')]),
+    lotIds: array(id, Number.MAX_SAFE_INTEGER),
+  }),
+  (value) => {
+    if (value.lotIds.some((key, index) => index > 0 && key <= value.lotIds[index - 1]))
+      invalid('Lot constraint identifiers must be sorted and distinct.');
+  }
+);
+const lotControls: Codec<InventoryLotControls> = union('Lot quality controls', [
+  fields('Legacy lot policy', { kind: literal('legacy-untracked') }),
+  fields('Managed lot quality', {
+    kind: literal('managed'),
+    assessment: fields('Local lot assessment', {
+      value: union('Lot assessment', [
+        literal('unassessed'),
+        literal('released'),
+        literal('quarantined'),
+        literal('rejected'),
+      ]),
+      at: timestamp,
+      by: recordedPrincipal,
+      reason,
+    }),
+  }),
+]);
+const compositionLotRecord = fields('Previous composed lot record', {
+  id,
+  materialId: id,
+  name,
+  origin: lotOrigin,
+});
+const lotRecord = fields('Lot record', {
+  id,
+  materialId: id,
+  name,
+  origin: lotOrigin,
+  controls: lotControls,
+  lotConstraints,
+});
 const previousSourceIdentity = fields('Previous source identity', previousSourceIdentityFields);
 const previousContribution = fields('Previous material contribution', {
   ...previousSourceIdentityFields,
@@ -890,6 +937,25 @@ const sourceReference = fields('Source reference', {
   documentRevision: nullable(text('Source document revision')),
   sha256: nullable(text('Source hash', 64, true, '^[a-f0-9]{64}$')),
 });
+const lotRecallRecord: Codec<InventoryLotRecall> = fields('Lot recall', {
+  id,
+  lotId: id,
+  observedAt: deadline,
+  source: nullable(sourceReference),
+  reason,
+  at: timestamp,
+  by: recordedPrincipal,
+  lifecycle: union('Lot recall lifecycle', [
+    fields('Active lot recall', { kind: literal('active') }),
+    fields('Withdrawn lot recall', {
+      kind: literal('withdrawn'),
+      at: timestamp,
+      by: recordedPrincipal,
+      reason,
+    }),
+  ]),
+});
+
 const physicalDefinition = union('Physical type definition', [
   fields('Storage type definition', {
     kind: literal('storage'),
@@ -1327,6 +1393,30 @@ const commands = {
     target: catalogTarget,
     reason,
   }),
+  'manage-lot': fields('Manage lot command', { kind: literal('manage-lot'), lotId: id, reason }),
+  'assess-lot': fields('Assess lot command', {
+    kind: literal('assess-lot'),
+    lotId: id,
+    assessment: union('Lot assessment decision', [
+      literal('released'),
+      literal('quarantined'),
+      literal('rejected'),
+    ]),
+    reason,
+  }),
+  'record-lot-recall': fields('Record lot recall command', {
+    kind: literal('record-lot-recall'),
+    id,
+    lotId: id,
+    observedAt: deadline,
+    source: nullable(sourceReference),
+    reason,
+  }),
+  'withdraw-lot-recall': fields('Withdraw lot recall command', {
+    kind: literal('withdraw-lot-recall'),
+    recallId: id,
+    reason,
+  }),
   'create-lot': fields('Create lot command', {
     kind: literal('create-lot'),
     id,
@@ -1645,10 +1735,16 @@ const previousCompositionStockRecord = fields('Previous composition stock record
   ...materialStockFields,
   composition: storedComposition,
 });
+const amountStockRecord = fields('Previous amount stock record', {
+  ...materialStockFields,
+  quantity: storedQuantity,
+  composition: storedComposition,
+});
 const stockRecord = fields('Stock record', {
   ...materialStockFields,
   quantity: storedQuantity,
   composition: storedComposition,
+  lotConstraints,
 });
 const reservationVolume = checked(volume, (value) => {
   const normalized = normalizeInventoryVolume(value);
@@ -1884,11 +1980,51 @@ function validateState(state: InventoryState): void {
     state.fitEvidence,
     state.itemCodes,
     state.temperatureClaims,
+    state.lotRecalls,
   ]) {
     for (const identifier of Object.keys(rows)) {
       if (allIds.has(identifier)) invalid('Inventory record identifiers must be distinct.');
       allIds.add(identifier);
     }
+  }
+  for (const row of [...Object.values(state.stocks), ...Object.values(state.lots)]) {
+    for (const lotId of row.lotConstraints.lotIds)
+      if (!Object.hasOwn(state.lots, lotId))
+        invalid('Lot constraint owners must reference existing lots.');
+    const ownLot = 'controls' in row ? row.id : row.source.kind === 'lot' ? row.source.lotId : null;
+    if (ownLot !== null && !row.lotConstraints.lotIds.includes(ownLot))
+      invalid('Lot constraints must retain the current source owner.');
+    if (!('controls' in row) && row.source.kind === 'lot') {
+      const sourceLot = state.lots[row.source.lotId];
+      if (
+        sourceLot &&
+        (sourceLot.lotConstraints.lotIds.some((key) => !row.lotConstraints.lotIds.includes(key)) ||
+          (sourceLot.lotConstraints.knowledge === 'legacy-partial' &&
+            row.lotConstraints.knowledge === 'recorded'))
+      )
+        invalid('Stock constraints must retain its source lot restrictions and uncertainty.');
+    }
+
+    if (
+      'controls' in row &&
+      row.controls.kind === 'managed' &&
+      row.controls.assessment.at > state.lastRecordedAt
+    )
+      invalid('Lot assessment cannot exceed the recorded inventory clock.');
+  }
+  for (const [key, recall] of Object.entries(state.lotRecalls)) {
+    if (key !== recall.id || !Object.hasOwn(state.lots, recall.lotId))
+      invalid('Lot recalls require their exact identity and existing lot.');
+    if (
+      recall.at > state.lastRecordedAt ||
+      (recall.observedAt !== null && recall.observedAt > recall.at)
+    )
+      invalid('Recall observations must be inside their recorded lifetime.');
+    if (
+      recall.lifecycle.kind === 'withdrawn' &&
+      (recall.lifecycle.at < recall.at || recall.lifecycle.at > state.lastRecordedAt)
+    )
+      invalid('Recall withdrawal must follow recording inside the inventory clock.');
   }
   const occupied = new Map<string, Set<string>>();
   for (const item of [...Object.values(state.storage), ...Object.values(state.vessels)]) {
@@ -2066,6 +2202,26 @@ function validateState(state: InventoryState): void {
     }
   }
   if (ready.length !== dependencies.size) invalid('Lot provenance must not contain a cycle.');
+  for (const lot of Object.values(state.lots)) {
+    const origin = lot.origin;
+    const inputs =
+      origin.kind === 'received'
+        ? []
+        : origin.kind === 'diluted'
+          ? [origin.sample, origin.diluent]
+          : origin.inputs;
+    for (const input of inputs) {
+      if (input.source.kind === 'lot') {
+        const inherited = state.lots[input.source.lotId].lotConstraints;
+        if (
+          inherited.lotIds.some((key) => !lot.lotConstraints.lotIds.includes(key)) ||
+          (inherited.knowledge === 'legacy-partial' && lot.lotConstraints.knowledge === 'recorded')
+        )
+          invalid('Derived lots must retain immutable input lot restrictions and uncertainty.');
+      }
+    }
+  }
+
   const stockVessels = new Set<string>();
   for (const stock of Object.values(state.stocks)) {
     if (!Object.hasOwn(state.vessels, stock.vesselId))
@@ -2275,7 +2431,8 @@ function vesselBindings(value: unknown): Record<string, InventoryVesselBinding> 
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const contents = current || row.schema === INVENTORY_CONTENTS_SCHEMA;
+  const amounts = current || row.schema === INVENTORY_AMOUNTS_SCHEMA;
+  const contents = amounts || row.schema === INVENTORY_CONTENTS_SCHEMA;
   const hierarchySources = contents || row.schema === INVENTORY_HIERARCHY_SCHEMA;
   const sourceRevisions = hierarchySources || row.schema === INVENTORY_SOURCE_REVISION_SCHEMA;
   const observationRecords = sourceRevisions || row.schema === INVENTORY_STOCKTAKE_SCHEMA;
@@ -2293,6 +2450,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_AMOUNTS_SCHEMA),
       literal(INVENTORY_CONTENTS_SCHEMA),
       literal(INVENTORY_HIERARCHY_SCHEMA),
       literal(INVENTORY_SOURCE_REVISION_SCHEMA),
@@ -2312,6 +2470,9 @@ export function parseInventoryState(value: unknown): InventoryState {
       literal(LEGACY_INVENTORY_SCHEMA),
     ]),
     revision,
+    ...(current
+      ? { lotRecalls: { schema: { type: 'object' }, parse: (input: unknown) => input } }
+      : {}),
     ...(contents
       ? { vesselBindings: { schema: { type: 'object' }, parse: (input: unknown) => input } }
       : {}),
@@ -2412,15 +2573,18 @@ export function parseInventoryState(value: unknown): InventoryState {
           configuration: emptyInventoryPhysicalConfiguration(),
         };
   });
-  const state: InventoryState = {
+  let state: InventoryState = {
     schema: INVENTORY_SCHEMA,
+    lotRecalls: current
+      ? records(shape.lotRecalls, (raw) => lotRecallRecord.parse(raw))
+      : Object.create(null),
     vesselBindings: contents ? vesselBindings(shape.vesselBindings) : Object.create(null),
     hierarchyBindings: hierarchySources
       ? hierarchyBindings(shape.hierarchyBindings)
       : Object.create(null),
     origin: archiveAttribution ? inventoryOrigin.parse(shape.origin) : { kind: 'native' },
     observations: observationRecords
-      ? observations(shape.observations, current)
+      ? observations(shape.observations, amounts)
       : Object.create(null),
     tableBindings: tableSources
       ? tableBindings(shape.tableBindings, sourceRevisions)
@@ -2475,7 +2639,7 @@ export function parseInventoryState(value: unknown): InventoryState {
     lastRecordedAt: reservation ? timestamp.parse(shape.lastRecordedAt) : 0,
     reservations: reservation
       ? records(shape.reservations, (raw): InventoryReservation => {
-          const parsed = current
+          const parsed = amounts
             ? reservationRecord.parse(raw)
             : previousReservationRecord.parse(raw);
           return parsed.kind === 'quantity'
@@ -2491,9 +2655,15 @@ export function parseInventoryState(value: unknown): InventoryState {
     vessels,
     stocks: records(shape.stocks, (raw): InventoryStock => {
       if (current) return stockRecord.parse(raw);
+      const constraints: InventoryLotConstraints = { knowledge: 'legacy-partial', lotIds: [] };
+      if (amounts) return { ...amountStockRecord.parse(raw), lotConstraints: constraints };
       if (composition) {
         const stock = previousCompositionStockRecord.parse(raw);
-        return { ...stock, quantity: normalizeInventoryQuantity(stock.quantity) };
+        return {
+          ...stock,
+          quantity: normalizeInventoryQuantity(stock.quantity),
+          lotConstraints: constraints,
+        };
       }
       if (material) {
         const stock = materialStockRecord.parse(raw);
@@ -2501,6 +2671,7 @@ export function parseInventoryState(value: unknown): InventoryState {
           ...stock,
           quantity: normalizeInventoryQuantity(stock.quantity),
           composition: { kind: 'unknown' },
+          lotConstraints: constraints,
         };
       }
       const stock = previousStockRecord.parse(raw);
@@ -2509,43 +2680,59 @@ export function parseInventoryState(value: unknown): InventoryState {
         source: { kind: 'unattributed', rootStockId: stock.id },
         quantity: normalizeInventoryQuantity(stock.quantity),
         composition: { kind: 'unknown' },
+        lotConstraints: constraints,
       };
     }),
     lots: material
       ? records(shape.lots, (raw): InventoryLot => {
-          if (composition) return lotRecord.parse(raw);
-          const lot = previousLotRecord.parse(raw);
-          const { origin } = lot;
-          const unknown = { kind: 'unknown' as const };
-          if (origin.kind === 'received') return { ...lot, origin };
-          if (origin.kind === 'diluted')
+          if (current) return lotRecord.parse(raw);
+          const legacy = ((): Omit<InventoryLot, 'controls' | 'lotConstraints'> => {
+            if (composition) return compositionLotRecord.parse(raw);
+            const lot = previousLotRecord.parse(raw);
+            const { origin } = lot;
+            const unknown = { kind: 'unknown' as const };
+            if (origin.kind === 'received') return { ...lot, origin };
+            if (origin.kind === 'diluted')
+              return {
+                ...lot,
+                origin: {
+                  kind: 'diluted',
+                  sample: { ...origin.sample, composition: { ...unknown } },
+                  diluent: { ...origin.diluent, composition: { ...unknown } },
+                },
+              };
+            if (origin.kind === 'pooled')
+              return {
+                ...lot,
+                origin: {
+                  kind: 'pooled',
+                  inputs: origin.inputs.map((input) => ({ ...input, composition: { ...unknown } })),
+                },
+              };
             return {
               ...lot,
               origin: {
-                kind: 'diluted',
-                sample: { ...origin.sample, composition: { ...unknown } },
-                diluent: { ...origin.diluent, composition: { ...unknown } },
-              },
-            };
-          if (origin.kind === 'pooled')
-            return {
-              ...lot,
-              origin: {
-                kind: 'pooled',
+                kind: 'prepared',
+                method: origin.method,
                 inputs: origin.inputs.map((input) => ({ ...input, composition: { ...unknown } })),
               },
             };
+          })();
           return {
-            ...lot,
-            origin: {
-              kind: 'prepared',
-              method: origin.method,
-              inputs: origin.inputs.map((input) => ({ ...input, composition: { ...unknown } })),
-            },
+            ...legacy,
+            controls: { kind: 'legacy-untracked' },
+            lotConstraints: { knowledge: 'legacy-partial', lotIds: [] },
           };
         })
       : (Object.create(null) as Record<string, InventoryLot>),
   };
+  if (!current) {
+    try {
+      state = projectLegacyInventoryLotConstraints(state);
+    } catch (error) {
+      invalid(error instanceof Error ? error.message : 'Invalid legacy lot ancestry.');
+    }
+  }
   if (!archiveAttribution && inventoryHasImportedAttribution(state))
     invalid('Legacy inventory schemas cannot contain imported attribution.');
   if (state.origin.kind === 'archive-adoption' && state.origin.at > state.lastRecordedAt)

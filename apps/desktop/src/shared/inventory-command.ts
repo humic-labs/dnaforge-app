@@ -35,7 +35,7 @@ export const inventoryPrincipalSchema = z.discriminatedUnion('kind', [
 
 export const inventoryReceiptContextSchema = z
   .object({
-    version: z.literal(1),
+    version: z.union([z.literal(1), z.literal(2)]),
     principal: inventoryPrincipalSchema,
     authority: z.object({ kind: z.literal('local-profile'), profileKey }).strict(),
   })

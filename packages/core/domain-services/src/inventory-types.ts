@@ -1,4 +1,12 @@
 import type {
+  InventoryLotConstraints,
+  InventoryLotControls,
+  InventoryLotRecall,
+  InventoryLotControlCommand,
+  InventoryLotEligibilityBlocker,
+} from './inventory-lot-controls-types';
+export type * from './inventory-lot-controls-types';
+import type {
   InventoryAmount,
   InventoryAmountUnit,
   InventoryCanonicalAmount,
@@ -47,7 +55,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v18' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v19' as const;
+export const INVENTORY_AMOUNTS_SCHEMA = 'dnaforge.inventory.v18' as const;
 export const INVENTORY_CONTENTS_SCHEMA = 'dnaforge.inventory.v17' as const;
 export const INVENTORY_HIERARCHY_SCHEMA = 'dnaforge.inventory.v16' as const;
 export const INVENTORY_SOURCE_REVISION_SCHEMA = 'dnaforge.inventory.v15' as const;
@@ -256,6 +265,8 @@ export type InventoryLotOrigin =
     };
 
 export interface InventoryLot {
+  readonly controls: InventoryLotControls;
+  readonly lotConstraints: InventoryLotConstraints;
   readonly id: string;
   readonly materialId: string;
   readonly name: string;
@@ -263,6 +274,7 @@ export interface InventoryLot {
 }
 
 export interface InventoryStock {
+  readonly lotConstraints: InventoryLotConstraints;
   readonly id: string;
   readonly vesselId: string;
   readonly source: InventoryStockSource;
@@ -273,6 +285,7 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly lotRecalls: Readonly<Record<string, InventoryLotRecall>>;
   readonly vesselBindings: Readonly<Record<string, InventoryVesselBinding>>;
   readonly hierarchyBindings: Readonly<Record<string, InventoryHierarchyBinding>>;
   readonly observations: Readonly<Record<string, InventoryObservation>>;
@@ -411,6 +424,7 @@ export type InventoryReservation = InventoryReservationFacts &
   );
 
 export type InventoryAvailabilityBlocker =
+  | InventoryLotEligibilityBlocker
   | { readonly code: 'POSITION_UNAVAILABLE'; readonly item: InventoryPhysicalItem }
   | {
       readonly code: 'ITEM_CHECKED_OUT';
@@ -551,6 +565,7 @@ export type InventoryMaterialCommand =
   | (InventoryLegacyDiluteCommand & { readonly mixing: InventoryMixing });
 
 export type InventoryCommand =
+  | InventoryLotControlCommand
   | InventoryContentsCommand
   | InventoryObservationCommand
   | InventoryTemperatureCommand
@@ -581,7 +596,7 @@ export type InventoryCommand =
     }
   | ({ readonly kind: 'receive-stock'; readonly quantity: InventoryQuantityInput } & Omit<
       InventoryStock,
-      'source' | 'composition' | 'quantity'
+      'source' | 'composition' | 'quantity' | 'lotConstraints'
     >)
   | {
       readonly kind: 'move-storage';
@@ -769,7 +784,15 @@ export type InventoryErrorCode =
   | 'OBSERVATION_ALREADY_EXISTS'
   | 'OBSERVATION_ALREADY_APPLIED'
   | 'OBSERVATION_TIME_FUTURE'
-  | 'POSITION_UNAVAILABLE';
+  | 'POSITION_UNAVAILABLE'
+  | 'LOT_ALREADY_MANAGED'
+  | 'LOT_MANAGEMENT_REQUIRED'
+  | 'LOT_ASSESSMENT_UNCHANGED'
+  | 'LOT_NOT_RELEASED'
+  | 'LOT_ASSESSMENT_IMPORTED'
+  | 'LOT_RECALLED'
+  | 'LOT_RECALL_NOT_FOUND'
+  | 'LOT_RECALL_NOT_ACTIVE';
 
 export type InventoryTransition =
   | { readonly ok: true; readonly state: InventoryState }
@@ -782,6 +805,7 @@ export type InventoryTransition =
 export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
+    lotRecalls: Object.create(null) as Record<string, InventoryLotRecall>,
     vesselBindings: Object.create(null) as Record<string, InventoryVesselBinding>,
     hierarchyBindings: Object.create(null) as Record<string, InventoryHierarchyBinding>,
     observations: Object.create(null) as Record<string, InventoryObservation>,

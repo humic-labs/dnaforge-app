@@ -63,3 +63,7 @@
 - [Stock amounts and measurement units](amounts.md): exact dimensional stock,
   explicit unknown units and compatible withdrawals; workflow under
   construction.
+
+- [Lot assessment and recalls](lot-controls.md): explicit local assessment,
+  independent recalls and inherited stock constraints; workflow under
+  construction.

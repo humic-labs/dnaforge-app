@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 're
 import {
   inventoryVesselContentsProjection,
   inventoryAmountUnitDefinition,
+  inventoryStockEligibility,
   normalizeInventoryAmount,
   type InventoryAmountUnit,
   type InventoryCommand,
@@ -118,9 +119,16 @@ export function InventoryMaterialForm({
   const busy = status.kind === 'submitting';
   const volumeSource =
     source && inventoryAmountUnitDefinition(source.quantity.unit).dimension === 'volume';
+  const lotBlockers = source
+    ? (inventoryStockEligibility(state, source.id)?.blockers.filter(
+        (blocker) => blocker.code !== 'STOCK_QUARANTINED'
+      ) ?? [])
+    : [];
   const withdrawalBlocked =
     (dialog.kind === 'transfer' || dialog.kind === 'pool' || dialog.kind === 'dilute') &&
-    (source?.quantity.kind !== 'known' || (dialog.kind !== 'transfer' && !volumeSource));
+    (source?.quantity.kind !== 'known' ||
+      lotBlockers.length > 0 ||
+      (dialog.kind !== 'transfer' && !volumeSource));
   const editable =
     !withdrawalBlocked &&
     !data.project.pinned &&
@@ -133,6 +141,7 @@ export function InventoryMaterialForm({
       stock.id !== source?.id &&
       state.vessels[stock.vesselId].lifecycle === 'active' &&
       stock.quantity.kind === 'known' &&
+      !inventoryStockEligibility(state, stock.id)?.blockers.length &&
       inventoryAmountUnitDefinition(stock.quantity.unit).dimension ===
         (dialog.kind === 'transfer' && source
           ? inventoryAmountUnitDefinition(source.quantity.unit).dimension
@@ -199,9 +208,11 @@ export function InventoryMaterialForm({
       if (dialog.kind === 'lot') {
         if (!materialId || !name.trim())
           throw new Error('Choose the material and enter a batch name.');
+        if (!reason.trim()) throw new Error('Enter a reason to start managing this lot.');
+        const lotId = crypto.randomUUID();
         commands.push({
           kind: 'create-lot',
-          id: crypto.randomUUID(),
+          id: lotId,
           materialId,
           name: name.trim(),
           origin:
@@ -213,6 +224,7 @@ export function InventoryMaterialForm({
                   method: method.trim(),
                 },
         });
+        commands.push({ kind: 'manage-lot', lotId, reason: reason.trim() });
       } else if (dialog.kind === 'attribute') {
         commands.push({
           kind: 'associate-stock-lot',
@@ -280,6 +292,7 @@ export function InventoryMaterialForm({
               }
             : { kind: 'dilute', ...output, sample: first, diluent: second }
         );
+        commands.push({ kind: 'manage-lot', lotId: output.lotId, reason: reason.trim() });
       }
       const submitted: InventoryCommand[] = claims.length
         ? commands.map<InventoryCommand>((command) =>
@@ -416,6 +429,10 @@ export function InventoryMaterialForm({
                 </>
               ) : dialog.kind === 'lot' ? (
                 <>
+                  <Notice>
+                    The new lot starts Unassessed. Record an explicit release decision before its
+                    stock can be reserved or used.
+                  </Notice>
                   <Field label="Batch name">
                     <TextField
                       aria-label="Batch name"
@@ -674,7 +691,8 @@ export function InventoryMaterialForm({
                       {emptyDestination}
                       <Notice>
                         All contributions are withdrawn together. Their identities and exact volumes
-                        are retained with their measured composition in the output batch.
+                        are retained with their measured composition in the output batch. The output
+                        lot starts Unassessed and requires its own release decision.
                       </Notice>
                     </>
                   )}
@@ -705,7 +723,9 @@ export function InventoryMaterialForm({
                     <Notice>
                       {source?.quantity.kind === 'unknown'
                         ? 'Record a measured quantity before withdrawing this stock.'
-                        : 'Pooling and dilution require stock measured by volume.'}
+                        : lotBlockers.length
+                          ? 'Lot assessment or recall prevents withdrawing this stock. Inspect its lot controls.'
+                          : 'Pooling and dilution require stock measured by volume.'}
                     </Notice>
                   ) : null}
                   <InventoryReservationClaims
@@ -721,16 +741,14 @@ export function InventoryMaterialForm({
                   />
                 </>
               )}
-              {dialog.kind !== 'lot' ? (
-                <Field label="Reason">
-                  <TextArea
-                    aria-label="Reason"
-                    value={reason}
-                    onChange={(event) => setReason(event.target.value)}
-                    required
-                  />
-                </Field>
-              ) : null}
+              <Field label="Reason">
+                <TextArea
+                  aria-label="Reason"
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  required
+                />
+              </Field>
             </div>
             <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
               <Button disabled={busy} onClick={onClose}>

@@ -89,11 +89,22 @@ export function applyNativeInventoryAdoption(
   target: InventoryState | null,
   request: InventoryApplyImportRequest,
   context: InventoryExecutionContext,
-  depth = 0
+  depth = 0,
+  replay?: { readonly receiptContextVersion: 1 | 2 | undefined }
 ) {
   const archive = parseInventoryArchive(request.sourceText, nativeInventoryArchiveRuntime, {
     depth,
   });
+  if (
+    replay &&
+    replay.receiptContextVersion !== 2 &&
+    Number(
+      archive.document.content.source.storedSchema?.match(/^dnaforge\.inventory\.v([1-9]\d*)$/)?.[1]
+    ) >= 19
+  )
+    throw new Error(
+      'INVENTORY_DATA_INVALID: A legacy receipt cannot adopt a current lot-constraint archive.'
+    );
   const preview = inventoryImportPreview(
     archive,
     {
@@ -146,7 +157,8 @@ export function replayNativeInventoryJournal(
 ): InventoryState {
   return replayNativeInventoryEntries(
     entries,
-    (target, request, context) => applyNativeInventoryAdoption(target, request, context, depth),
+    (target, request, context, receiptContextVersion) =>
+      applyNativeInventoryAdoption(target, request, context, depth, { receiptContextVersion }),
     applyNativeInventoryTable,
     applyNativeInventoryStocktake,
     applyNativeInventoryHierarchy,

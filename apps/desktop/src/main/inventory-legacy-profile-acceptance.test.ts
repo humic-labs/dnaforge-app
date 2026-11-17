@@ -80,7 +80,7 @@ it.runIf(Boolean(sourcePath))(
         expect(JSON.parse(row.state_json).schema).toBe(inventory.storedSchema);
         const scope = { project: row.project_id, inventoryId: inventory.inventoryId };
         const state = owner.inspect(scope)!;
-        expect(state.schema).toBe('dnaforge.inventory.v18');
+        expect(state.schema).toBe('dnaforge.inventory.v19');
         expect(state.tableBindings).toEqual(
           Object.fromEntries(
             Object.entries(JSON.parse(row.state_json).tableBindings ?? {}).map(([key, value]) => [
@@ -115,7 +115,14 @@ it.runIf(Boolean(sourcePath))(
             })
           )
         );
+        expect(state.lotRecalls).toEqual({});
+        for (const lot of Object.values(state.lots)) {
+          expect(lot.controls).toEqual({ kind: 'legacy-untracked' });
+          expect(lot.lotConstraints.knowledge).toBe('legacy-partial');
+          expect(lot.lotConstraints.lotIds).toContain(lot.id);
+        }
         for (const [id, stock] of Object.entries(state.stocks)) {
+          expect(stock.lotConstraints.knowledge).toBe('legacy-partial');
           const saved = JSON.parse(row.state_json).stocks[id].quantity;
           expect(stock.quantity).toEqual(
             saved.kind === 'unknown' && saved.unit === undefined ? { ...saved, unit: 'uL' } : saved

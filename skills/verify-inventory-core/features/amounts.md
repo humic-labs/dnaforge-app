@@ -21,10 +21,20 @@ the unit of an unknown amount.
 
 ## Driving it with Playwright and Electron
 
-Use an exact current v18 fixture captured from the owned native profile. Run:
+Use an exact current v19 fixture captured from the owned native profile. To
+refresh an older fixture after native migration without changing inventory, run:
 
 ```sh
-node apps/desktop/scripts/inventory-journey.mjs --stage amounts --fixture /absolute/evidence/v18-fixture.json --out /absolute/evidence/amounts
+node apps/desktop/scripts/inventory-journey.mjs --stage refresh-fixture --fixture /absolute/evidence/prior-fixture.json --out /absolute/evidence/current-fixture
+```
+
+This reads canonical state from the native owner and requires the original
+revision and full history to remain identical. It writes
+`inventory-current-fixture.json`; it does not synthesize ancestry or replay any
+intent. Then run:
+
+```sh
+node apps/desktop/scripts/inventory-journey.mjs --stage amounts --fixture /absolute/evidence/current-fixture/inventory-current-fixture.json --out /absolute/evidence/amounts
 ```
 
 The helper uses ordinary controls and an existing current scientific record.

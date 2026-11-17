@@ -28,7 +28,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v16. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v19. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -108,11 +108,12 @@ through JavaScript numbers. Unsupported units, negative values, exponential
 notation and unrepresentable results are refused. Enzyme activity labels need a
 shared assay definition and are not interchangeable generic amounts.
 
-Canonical v18 retains the unit for both known and unknown amounts. A known zero
-still has its basis and identified stock. Ordinary measurement, reconciliation,
-withdrawal and reservation cannot change a stock's dimension. A different-basis
-observation can remain unapplied evidence. Native mutations refuse applying it
-as an inferred conversion. Package counts are distinct from measured contents.
+From v18 onward, canonical state retains the unit for both known and unknown
+amounts. A known zero still has its basis and identified stock. Ordinary
+measurement, reconciliation, withdrawal and reservation cannot change a stock's
+dimension. A different-basis observation can remain unapplied evidence. Native
+mutations refuse applying it as an inferred conversion. Package counts are
+distinct from measured contents.
 
 Old request bodies remain byte-compatible: a unitless unknown quantity retains
 the earlier volume meaning. New unknown amounts declare their unit. Request
@@ -174,6 +175,70 @@ receipt before sampling a new clock. New receipts carry versioned context
 separately from the existing actor string. Replay uses saved context and time;
 historical receipt bytes and request digests remain unchanged. This is a local
 monotonic clock guarantee; shared authority belongs to team synchronization.
+
+## Lot quality, recalls and inherited restrictions
+
+Lot assessment and stock quarantine are independent. `create-lot` retains its
+historical untracked policy. A new controlled lot uses `create-lot` followed by
+`manage-lot` in one batch; it begins unassessed. The guided forms compose these
+commands for received and prepared lots, including pooled and diluted outputs.
+Physical receipt does not establish local release.
+
+```mermaid
+stateDiagram-v2
+    LegacyUntracked --> Unassessed: manage-lot with reason
+    Unassessed --> Released: assess-lot
+    Unassessed --> Quarantined: assess-lot
+    Unassessed --> Rejected: assess-lot
+    Released --> Quarantined: reasoned reassessment
+    Released --> Rejected: reasoned reassessment
+    Quarantined --> Released: reasoned reassessment
+    Quarantined --> Rejected: reasoned reassessment
+    Rejected --> Released: reasoned reassessment
+    Rejected --> Quarantined: reasoned reassessment
+```
+
+Every assessment records native time, actor and reason. The journal retains
+previous decisions. No action resets management to untracked or unassessed.
+Imported release remains attributed evidence and yields
+`LOT_ASSESSMENT_IMPORTED` until an explicit local reassessment. Other unreleased
+assessments yield `LOT_NOT_RELEASED`. Local reassessment cannot clear a stock
+quarantine or an active recall.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Active: record-lot-recall
+    Active --> Withdrawn: withdraw-lot-recall with reason
+```
+
+Recalls retain independent identities, optional source references, observed time
+or unknown time, and native recording facts. Several active recalls can apply;
+withdrawing one does not withdraw another. `LOT_RECALLED` identifies the lot and
+active recall IDs. Receipt, physical quantity, custody, observations, movement
+and disposal remain independent facts. Held stock remains physically on hand.
+
+Each stock and lot stores a sorted set of lot constraint owners and explicit
+`recorded` or `legacy-partial` ancestry knowledge. New derivations copy owner
+sets at the time of transfer or preparation; existing destinations union their
+owners with incoming owners. Reassociation adds owners. Later changes to the
+original stock do not rewrite earlier aliquots, and pouring an aliquot back
+cannot create a parent-reference cycle or erase restrictions. Current assessment
+and recalls of each retained lot owner determine eligibility. Availability and
+withdrawal, reservation and fulfillment guards use the same projection.
+
+Older snapshots can prove only their current source and immutable lot-origin
+snapshots. v1–v18 state upcasts derive those known owners as `legacy-partial`,
+initialize legacy lot controls and an empty recall map, without inventing erased
+associations, events or dates. Reading never persists this upcast.
+
+Historical transition semantics are explicit in the existing receipt context:
+missing or version 1 context forms a legacy prefix; new receipts use version 2.
+After each legacy prefix entry only, replay applies the same owner projection as
+legacy snapshot upcast. Version 2 uses cumulative owner propagation. A version 1
+or missing-context entry after version 2 refuses, as do new lot controls in an
+old-context entry. Native and nested archive history use the same replay
+adapter. Original requests, receipt shapes and digests remain unchanged; parsing
+never inserts a new context version into historical receipts.
 
 ## Physical custody and observations
 

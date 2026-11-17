@@ -4,6 +4,15 @@ export * from './inventory-mapped-table';
 export * from './inventory-hierarchy-types';
 export * from './inventory-vessel-binding-types';
 export * from './inventory-contents-types';
+export * from './inventory-lot-controls-types';
+export {
+  inventoryStockEligibility,
+  inventoryLotUseGuard,
+  inventoryLotConstraints,
+  mergeInventoryLotConstraints,
+  projectLegacyInventoryLotConstraints,
+  applyInventoryLotControlCommand,
+} from './inventory-lot-controls';
 export {
   inventoryVesselContents,
   inventoryVesselContentsProjection,

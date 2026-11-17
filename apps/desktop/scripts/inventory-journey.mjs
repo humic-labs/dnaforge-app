@@ -1,4 +1,10 @@
 import {
+  runInventoryLotJourney,
+  runInventoryLotResume,
+  runInventoryLotReopen,
+  releaseInventoryJourneyLot,
+} from './journeys/inventory-lot-controls.mjs';
+import {
   runInventoryAmountsJourney,
   runInventoryAmountsResume,
   runInventoryAmountsReopen,
@@ -126,6 +132,10 @@ assert.ok(
     'amounts',
     'amounts-resume',
     'amounts-reopen',
+    'refresh-fixture',
+    'lots',
+    'lots-resume',
+    'lots-reopen',
     'benchling-apply',
     'benchling-apply-reopen',
     'benchling-apply-resume',
@@ -533,6 +543,9 @@ try {
       await choose(dialog, 'Output material', new RegExp(material.name));
       await dialog.getByLabel('Supplier', { exact: true }).fill('Synthetic supplier');
       await dialog.getByLabel('Supplier lot number', { exact: true }).fill('ACCEPTANCE-123');
+      await dialog
+        .getByLabel('Reason', { exact: true })
+        .fill('Start managing the synthetic supplier lot');
       await dialog.getByRole('button', { name: 'Add lot or preparation', exact: true }).click();
       await expect(dialog).toBeHidden();
       readback = await inventoryRead(scope);
@@ -540,6 +553,7 @@ try {
         (item) => item.name === 'Supplier lot acceptance'
       );
       assert.ok(lot);
+      await releaseInventoryJourneyLot({ page, expect, choose }, lot.name);
       await page
         .getByTestId('inventory-panel')
         .locator('header')
@@ -651,6 +665,12 @@ try {
     await dialog.getByLabel('Quantity', { exact: true }).fill('100');
     await dialog.getByRole('button', { name: 'Receive stock', exact: true }).click();
     await expect(dialog).toBeHidden();
+    const currentPool = (await inventoryRead(scope)).state.lots[pooled.source.lotId];
+    if (
+      currentPool.controls.kind === 'managed' &&
+      currentPool.controls.assessment.value === 'unassessed'
+    )
+      await releaseInventoryJourneyLot({ page, expect, choose }, currentPool.name);
     await row(pooled.id).click();
     await page.getByRole('button', { name: 'Dilute stock', exact: true }).click();
     dialog = page.getByRole('dialog', { name: 'Dilute stock', exact: true });
@@ -704,8 +724,51 @@ try {
     );
   }
 
+  if (stage === 'lots' || stage === 'lots-resume' || stage === 'lots-reopen') {
+    assert.ok(args.includes('--fixture'), 'Pass an exact current native v19 inventory fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    receipt.expected = await (
+      stage === 'lots'
+        ? runInventoryLotJourney
+        : stage === 'lots-resume'
+          ? runInventoryLotResume
+          : runInventoryLotReopen
+    )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+    writeFileSync(
+      path.join(out, 'lot-reopen-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+  }
+  if (stage === 'refresh-fixture') {
+    assert.ok(args.includes('--fixture'), 'Pass the original project/scope/state/history fixture.');
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    assert.ok(fixture.state && Array.isArray(fixture.history));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    const actual = await inventoryRead(fixture.scope);
+    assert.equal(actual.state.revision, fixture.state.revision);
+    assert.deepEqual(
+      actual.history,
+      fixture.history,
+      'Refresh cannot accept any new inventory intent.'
+    );
+    receipt.expected = { ...fixture, ...actual };
+    writeFileSync(
+      path.join(out, 'inventory-current-fixture.json'),
+      JSON.stringify(receipt.expected, null, 2)
+    );
+    await capture('refreshed-current-native-fixture', {
+      previousSchema: fixture.state.schema,
+      currentSchema: actual.state.schema,
+      ...actual,
+    });
+  }
   if (stage === 'amounts' || stage === 'amounts-resume' || stage === 'amounts-reopen') {
-    assert.ok(args.includes('--fixture'), 'Pass an exact current v18 inventory fixture.');
+    assert.ok(args.includes('--fixture'), 'Pass an exact current native inventory fixture.');
     const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
     assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
     recording = await startRecording();
@@ -1275,6 +1338,9 @@ try {
     await dialog
       .getByLabel('Preparation method', { exact: true })
       .fill('Synthetic preparation with a recorded source identity');
+    await dialog
+      .getByLabel('Reason', { exact: true })
+      .fill('Start managing the synthetic preparation');
     await dialog.getByRole('button', { name: 'Add lot or preparation', exact: true }).click();
     await expect(dialog).toBeHidden();
     let after = await inventoryRead(scope);
@@ -1285,6 +1351,8 @@ try {
     assert.deepEqual(after.state.stocks[source.id].quantity, source.quantity);
     assert.deepEqual(preparation.origin.inputs[0].source, source.source);
     await capture('01-preparation-without-implied-withdrawal', after);
+    await releaseInventoryJourneyLot({ page, expect, choose }, preparation.name);
+    await row(source.id).click();
     await page.getByRole('button', { name: 'Assign lot', exact: true }).click();
     dialog = page.getByRole('dialog', { name: 'Assign lot', exact: true });
     await choose(dialog, 'Lot or preparation', 'Preparation acceptance');

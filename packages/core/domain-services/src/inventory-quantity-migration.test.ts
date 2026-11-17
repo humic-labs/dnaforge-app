@@ -22,8 +22,9 @@ function fixture(
     limits: { capacity: { kind: 'unknown' as const }, deadVolume: { kind: 'unknown' as const } },
     configuration: emptyInventoryPhysicalConfiguration(),
   });
+  const { lotRecalls, ...legacyBase } = createInventoryState();
   const state = {
-    ...createInventoryState(),
+    ...(schema === INVENTORY_SCHEMA ? { ...legacyBase, lotRecalls } : legacyBase),
     schema,
     lastRecordedAt: 100,
     revision: 1,
@@ -41,6 +42,9 @@ function fixture(
     },
     stocks: {
       stock: {
+        ...(schema === INVENTORY_SCHEMA
+          ? { lotConstraints: { knowledge: 'recorded' as const, lotIds: [] } }
+          : {}),
         id: 'stock',
         vesselId: 'tube',
         materialId: 'material',
@@ -68,7 +72,7 @@ describe('declared quantity basis migration', () => {
     'retains explicit canonical basis %s even when amount is unknown',
     (unit) => {
       const state = parseInventoryState(fixture({ kind: 'unknown', unit }));
-      expect(state.schema).toBe('dnaforge.inventory.v18');
+      expect(state.schema).toBe(INVENTORY_SCHEMA);
       expect(state.stocks.stock.quantity).toEqual({ kind: 'unknown', unit });
       expect(parseInventoryState(state)).toEqual(state);
       expect(state.vessels.tube.limits).toEqual({

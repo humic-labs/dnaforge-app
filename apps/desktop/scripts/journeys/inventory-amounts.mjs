@@ -68,7 +68,8 @@ async function assertAmountLayout(locator) {
 
 function assertStage(fixture, actual, completedStep) {
   const proof = fixture.amountsJourney;
-  assert.equal(actual.state.schema, 'dnaforge.inventory.v18');
+  assert.equal(fixture.state.schema, 'dnaforge.inventory.v19');
+  assert.equal(actual.state.schema, fixture.state.schema);
   assert.equal(actual.state.revision, proof.initialRevision + completedStep);
   assert.deepEqual(actual.history.slice(0, proof.baselineHistory.length), proof.baselineHistory);
   for (const [id, stock] of Object.entries(proof.baselineStocks))
@@ -160,8 +161,8 @@ export async function runInventoryAmountsJourney(ctx) {
   const current = await ctx.inventoryRead(ctx.fixture.scope);
   assert.equal(
     current.state.schema,
-    'dnaforge.inventory.v18',
-    'Capture an exact v18 fixture after native migration.'
+    'dnaforge.inventory.v19',
+    'Capture an exact current native fixture after migration.'
   );
   assert.deepEqual(current.state, ctx.fixture.state);
   assert.deepEqual(current.history, ctx.fixture.history);

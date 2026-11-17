@@ -177,6 +177,24 @@ function mapAttribution(state: InventoryState, source: InventoryAdoptionSource):
     value.kind === 'available' ? value : { ...value, by: principal(value.by) };
   return {
     ...state,
+    lots: mapRecords(state.lots, (row) => ({
+      ...row,
+      controls:
+        row.controls.kind === 'legacy-untracked'
+          ? row.controls
+          : {
+              ...row.controls,
+              assessment: { ...row.controls.assessment, by: principal(row.controls.assessment.by) },
+            },
+    })),
+    lotRecalls: mapRecords(state.lotRecalls, (row) => ({
+      ...row,
+      by: principal(row.by),
+      lifecycle:
+        row.lifecycle.kind === 'active'
+          ? row.lifecycle
+          : { ...row.lifecycle, by: principal(row.lifecycle.by) },
+    })),
     tableBindings: mapRecords(state.tableBindings, (binding) => ({
       ...binding,
       sourceRevisions: binding.sourceRevisions.map((revision) => ({
