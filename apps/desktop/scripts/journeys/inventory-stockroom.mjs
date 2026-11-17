@@ -298,3 +298,333 @@ export async function runInventoryStockroomReopen(ctx) {
   });
   return { ...ctx.fixture, ...current };
 }
+
+function unchangedCorrectionState(state) {
+  const {
+    revision,
+    lastRecordedAt,
+    expectedDeliveries,
+    arrivalAllocations,
+    reorderRules,
+    ...unchanged
+  } = state;
+  return unchanged;
+}
+function assertCorrectionStage(fixture, current, step) {
+  const proof = fixture.stockroomCorrectionsJourney;
+  assert.equal(current.state.schema, 'dnaforge.inventory.v22');
+  assert.equal(current.state.revision, proof.initialRevision + step);
+  assert.deepEqual(current.history.slice(0, proof.baselineHistory.length), proof.baselineHistory);
+  assert.deepEqual(
+    unchangedCorrectionState(current.state),
+    unchangedCorrectionState(proof.baselineState)
+  );
+  assert.deepEqual(current.state.stocks[proof.stockId].quantity, {
+    kind: 'known',
+    value: '850000',
+    unit: 'ng',
+  });
+  const component = current.state.arrivals[proof.arrivalId].components.find(
+    (item) => item.key === proof.componentKey
+  );
+  assert.deepEqual(component.receivedQuantity, { kind: 'known', value: '1000000', unit: 'ng' });
+  const line = current.state.expectedDeliveries[proof.lineId],
+    baselineLine = proof.baselineState.expectedDeliveries[proof.lineId],
+    expectedLifecycle = step === 2 || step >= 5 ? 'remainder-closed' : 'open';
+  assert.deepEqual({ ...line, lifecycle: baselineLine.lifecycle }, baselineLine);
+  assert.equal(line.lifecycle.kind, expectedLifecycle);
+  if (expectedLifecycle === 'remainder-closed')
+    assert.deepEqual(line.lifecycle.remainingAtClose, {
+      value: step === 2 ? '1000000' : '500000',
+      unit: 'ng',
+    });
+  for (const [id, other] of Object.entries(proof.baselineState.expectedDeliveries))
+    if (id !== proof.lineId) assert.deepEqual(current.state.expectedDeliveries[id], other);
+  const old = current.state.arrivalAllocations[proof.originalAllocationId],
+    baselineOld = proof.baselineState.arrivalAllocations[proof.originalAllocationId];
+  assert.deepEqual({ ...old, lifecycle: baselineOld.lifecycle }, baselineOld);
+  assert.equal(old.lifecycle.kind, step ? 'withdrawn' : 'active');
+  for (const [id, other] of Object.entries(proof.baselineState.arrivalAllocations))
+    if (id !== proof.originalAllocationId)
+      assert.deepEqual(current.state.arrivalAllocations[id], other);
+  const allocations = Object.values(current.state.arrivalAllocations).filter(
+    (item) => item.lineId === proof.lineId && item.lifecycle.kind === 'active'
+  );
+  if (!step) {
+    assert.equal(allocations.length, 1);
+    assert.deepEqual(allocations[0].quantity, { value: '1000000', unit: 'ng' });
+  } else if (step < 4) assert.equal(allocations.length, 0);
+  else {
+    assert.equal(allocations.length, 1);
+    assert.notEqual(allocations[0].id, proof.originalAllocationId);
+    assert.equal(allocations[0].arrivalId, proof.arrivalId);
+    assert.equal(allocations[0].componentKey, proof.componentKey);
+    assert.deepEqual(allocations[0].quantity, { value: '500000', unit: 'ng' });
+  }
+  assert.equal(
+    Object.keys(current.state.arrivalAllocations).length,
+    Object.keys(proof.baselineState.arrivalAllocations).length + (step >= 4 ? 1 : 0)
+  );
+  const rule = current.state.reorderRules[proof.ruleId],
+    baselineRule = proof.baselineState.reorderRules[proof.ruleId];
+  assert.deepEqual({ ...rule, lifecycle: baselineRule.lifecycle }, baselineRule);
+  assert.equal(rule.lifecycle.kind, step === 6 ? 'retired' : 'active');
+  for (const [id, other] of Object.entries(proof.baselineState.reorderRules))
+    if (id !== proof.ruleId) assert.deepEqual(current.state.reorderRules[id], other);
+}
+async function presentCorrection(ctx, current, step, name) {
+  const { page, expect, fixture } = ctx,
+    proof = fixture.stockroomCorrectionsJourney;
+  assertCorrectionStage(fixture, current, step);
+  const report = await nativeStockroom(page, fixture.scope),
+    progress = report.expectedDeliveries[proof.lineId],
+    allocated = !step ? '1000000' : step < 4 ? '0' : '500000',
+    remaining = !step ? '0' : step < 4 ? '1000000' : '500000',
+    received = !step ? 'fully-received' : step < 4 ? 'none-received' : 'partly-received';
+  assert.equal(report.projectId, fixture.project.projectId);
+  assert.equal(report.inventoryId, fixture.scope.inventoryId);
+  assert.equal(report.revision, current.state.revision);
+  assert.deepEqual(progress.allocated, { value: allocated, unit: 'ng' });
+  assert.deepEqual(progress.remaining, { value: remaining, unit: 'ng' });
+  assert.equal(progress.progress, received);
+  const balance = report.arrivalComponents.find(
+    (row) => row.arrivalId === proof.arrivalId && row.componentKey === proof.componentKey
+  );
+  assert.deepEqual(balance.received, { value: '1000000', unit: 'ng' });
+  assert.deepEqual(balance.allocated, { value: allocated, unit: 'ng' });
+  assert.deepEqual(balance.unmatched, { value: remaining, unit: 'ng' });
+  assert.equal(report.reorderRules[proof.ruleId].kind, step === 6 ? 'retired' : 'ready');
+  await openStockroom(page);
+  const card = page.locator(`[data-expected-line="${proof.lineId}"]`);
+  await card.scrollIntoViewIfNeeded();
+  await expect(card).toHaveAttribute('data-received-progress', received);
+  await expect(card).toContainText(`Originally received and matched: ${allocated} ng`);
+  await expect(card).toContainText(`Unreceived remainder: ${remaining} ng`);
+  if (step === 2 || step >= 5) {
+    await expect(card).toContainText('Lifecycle: Unreceived remainder closed');
+    await expect(card).toContainText(`Remainder at close: ${remaining} ng`);
+    await expect(button(card, 'Match received material')).toBeDisabled();
+    await expect(button(card, 'Reopen expected delivery')).toBeEnabled();
+    await expect(button(card, 'Close unreceived remainder')).toHaveCount(0);
+    if (step >= 5) await expect(button(card, 'Withdraw receipt matching')).toBeDisabled();
+  } else await expect(card).toContainText('Lifecycle: Open');
+  await expect(card.locator(`[data-allocation-id="${proof.originalAllocationId}"]`)).toContainText(
+    step ? 'withdrawn' : 'active'
+  );
+  if (step === 6) {
+    const ruleCard = page.locator(`[data-reorder-rule="${proof.ruleId}"]`);
+    await ruleCard.scrollIntoViewIfNeeded();
+    await expect(ruleCard).toHaveAttribute('data-reorder-conclusion', 'retired');
+    await expect(ruleCard).toContainText('This rule is retired.');
+    await expect(button(ruleCard, 'Retire reorder rule')).toHaveCount(0);
+  }
+  const unchanged = await ctx.inventoryRead(fixture.scope);
+  assert.deepEqual(unchanged.state, current.state);
+  assert.deepEqual(unchanged.history, current.history);
+  await ctx.capture(name, { ...current, report });
+}
+export async function runInventoryStockroomCorrectionsJourney(ctx) {
+  const initial = await ctx.inventoryRead(ctx.fixture.scope);
+  assert.deepEqual(initial.state, ctx.fixture.state);
+  assert.deepEqual(initial.history, ctx.fixture.history);
+  assert.equal(initial.state.revision, 85);
+  assert.equal(ctx.fixture.stockroomJourney.completedStep, 4);
+  assert.equal(ctx.fixture.arrivalEvidenceJourney.completedStep, 3);
+  assert.equal(ctx.fixture.arrivalEvidenceTextJourney.completedStep, 1);
+  const line = lineOf(ctx.fixture, initial.state),
+    rule = Object.values(initial.state.reorderRules).find(
+      (item) => item.name === ctx.fixture.stockroomJourney.ruleName
+    ),
+    allocation = Object.values(initial.state.arrivalAllocations).find(
+      (item) => item.lineId === line.id && item.lifecycle.kind === 'active'
+    );
+  assert.ok(rule && allocation);
+  assert.equal(line.lifecycle.kind, 'open');
+  assert.equal(rule.lifecycle.kind, 'active');
+  const fixture = {
+    ...ctx.fixture,
+    stockroomCorrectionsJourney: {
+      initialRevision: initial.state.revision,
+      completedStep: 0,
+      baselineState: initial.state,
+      baselineHistory: initial.history,
+      lineId: line.id,
+      ruleId: rule.id,
+      originalAllocationId: allocation.id,
+      arrivalId: allocation.arrivalId,
+      componentKey: allocation.componentKey,
+      stockId: ctx.fixture.stockroomJourney.stockId,
+      deliveryId: ctx.fixture.stockroomJourney.deliveryId,
+    },
+  };
+  assertCorrectionStage(fixture, initial, 0);
+  return finishCorrections({ ...ctx, fixture });
+}
+export async function runInventoryStockroomCorrectionsResume(ctx) {
+  assert.equal(ctx.fixture.resumePhase, 'stockroom-corrections-after-accepted-stage');
+  const current = await ctx.inventoryRead(ctx.fixture.scope);
+  assert.deepEqual(current.state, ctx.fixture.state);
+  assert.deepEqual(current.history, ctx.fixture.history);
+  await presentCorrection(
+    ctx,
+    current,
+    ctx.fixture.stockroomCorrectionsJourney.completedStep,
+    '00-resumed-exact-correction-checkpoint'
+  );
+  return finishCorrections(ctx);
+}
+async function finishCorrections(ctx) {
+  const { page, fixture, evidenceDirectory, inventoryRead } = ctx,
+    proof = fixture.stockroomCorrectionsJourney;
+  let current = await inventoryRead(fixture.scope);
+  const checkpoint = (step) => {
+    const saved = {
+      ...fixture,
+      ...current,
+      stockroomCorrectionsJourney: { ...proof, completedStep: step },
+      resumePhase: 'stockroom-corrections-after-accepted-stage',
+    };
+    writeFileSync(
+      path.join(
+        evidenceDirectory,
+        `${String(step).padStart(2, '0')}-stockroom-corrections-checkpoint.json`
+      ),
+      JSON.stringify(saved, null, 2)
+    );
+    return saved;
+  };
+  checkpoint(proof.completedStep);
+  const actions = [
+    async () => {
+      await openStockroom(page);
+      await button(
+        page.locator(`[data-allocation-id="${proof.originalAllocationId}"]`),
+        'Withdraw receipt matching'
+      ).click();
+      return modal(page, 'Withdraw receipt matching');
+    },
+    async () => {
+      await openStockroom(page);
+      await button(
+        page.locator(`[data-expected-line="${proof.lineId}"]`),
+        'Close unreceived remainder'
+      ).click();
+      return modal(page, 'Close expected remainder');
+    },
+    async () => {
+      await openStockroom(page);
+      await button(
+        page.locator(`[data-expected-line="${proof.lineId}"]`),
+        'Reopen expected delivery'
+      ).click();
+      return modal(page, 'Reopen expected delivery');
+    },
+    async () => {
+      await openStockroom(page);
+      await button(
+        page.locator(`[data-expected-line="${proof.lineId}"]`),
+        'Match received material'
+      ).click();
+      const form = modal(page, 'Match received material');
+      await ctx.choose(
+        form,
+        'Original received component',
+        new RegExp(`^${escape(proof.deliveryId)} ·`)
+      );
+      await ctx
+        .expect(form.getByTestId('inventory-allocation-original-balance'))
+        .toContainText('Original received amount: 1000000 ng');
+      await field(form, 'Amount to match').fill('0.5');
+      await ctx.choose(form, 'Amount unit', 'mg');
+      return form;
+    },
+    async () => {
+      await openStockroom(page);
+      await button(
+        page.locator(`[data-expected-line="${proof.lineId}"]`),
+        'Close unreceived remainder'
+      ).click();
+      return modal(page, 'Close expected remainder');
+    },
+    async () => {
+      await openStockroom(page);
+      await button(
+        page.locator(`[data-reorder-rule="${proof.ruleId}"]`),
+        'Retire reorder rule'
+      ).click();
+      return modal(page, 'Retire reorder rule');
+    },
+  ];
+  const names = [
+    'withdraw-original-full-matching',
+    'close-none-received-remainder',
+    'reopen-before-correction',
+    'match-half-original-receipt',
+    'close-partial-unreceived-remainder',
+    'retire-explicit-reorder-rule',
+  ];
+  const reasons = [
+    'Withdraw only the original matching; physical stock stays850000ng',
+    'Close the unreceived1mg remainder without marking it received',
+    'Explicitly reopen before revising original receipt matching',
+    'Match0.5mg of original1mg receipt independently of850000ng remaining',
+    'Close the remaining0.5mg without declaring it received',
+    'Retire this local report policy without changing stock or receipts',
+  ];
+  for (let index = proof.completedStep; index < actions.length; index++) {
+    const form = await actions[index]();
+    await field(form, 'Reason').fill(reasons[index]);
+    const title = [
+      'Withdraw receipt matching',
+      'Close expected remainder',
+      'Reopen expected delivery',
+      'Match received material',
+      'Close expected remainder',
+      'Retire reorder rule',
+    ][index];
+    await button(form, title).click();
+    const previousRevision = current.state.revision;
+    try {
+      const accepted = await page.waitForFunction(
+        async ({ scope, previousRevision }) => {
+          const state = await window.electronAPI.inventory.inspect(scope);
+          return state && state.revision > previousRevision;
+        },
+        { scope: fixture.scope, previousRevision },
+        { timeout: 30000, polling: 50 }
+      );
+      await accepted.dispose();
+    } finally {
+      current = await inventoryRead(fixture.scope);
+      if (current.state.revision > previousRevision) checkpoint(index + 1);
+    }
+    await ctx.expect(form).toBeHidden();
+    await presentCorrection(
+      ctx,
+      current,
+      index + 1,
+      `${String(index + 1).padStart(2, '0')}-${names[index]}`
+    );
+  }
+  await closeDialogs(page);
+  const saved = checkpoint(6);
+  writeFileSync(
+    path.join(evidenceDirectory, 'stockroom-corrections-reopen-fixture.json'),
+    JSON.stringify(saved, null, 2)
+  );
+  return saved;
+}
+export async function runInventoryStockroomCorrectionsReopen(ctx) {
+  const current = await ctx.inventoryRead(ctx.fixture.scope);
+  assert.deepEqual(current.state, ctx.fixture.state);
+  assert.deepEqual(current.history, ctx.fixture.history);
+  assert.equal(ctx.fixture.stockroomCorrectionsJourney.completedStep, 6);
+  await presentCorrection(
+    ctx,
+    current,
+    6,
+    'reopened-exact-partial-receipt-closed-remainder-and-retired-rule'
+  );
+  await closeDialogs(ctx.page);
+  return { ...ctx.fixture, ...current };
+}

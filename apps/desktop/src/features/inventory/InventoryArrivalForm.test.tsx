@@ -17,6 +17,7 @@ import {
   InventoryArrivalSession,
   inventoryArrivalDraftInput,
   newArrivalComponent,
+  newArrivalDocument,
   type InventoryArrivalDraft,
 } from './inventory-arrival-session';
 
@@ -32,9 +33,15 @@ function draft(): InventoryArrivalDraft {
     observationReason: 'Physical delivery observed',
     scopeKind: 'selected-components',
     scopeReason: 'One observed component',
-    documentText: text,
-    documentCoverage: 'excerpt',
-    excerptReason: 'Exact certificate excerpt only',
+    documents: [
+      {
+        ...newArrivalDocument('document-1'),
+        body: { encoding: 'utf8', value: text },
+        coverage: 'excerpt',
+        excerptReason: 'Exact certificate excerpt only',
+      },
+    ],
+    claims: [],
     packageLabel: '',
     packagingBatch: '',
     components: [
@@ -126,6 +133,10 @@ function data(): InventoryData {
     },
   };
 }
+function choose(label: string, option: string | RegExp) {
+  fireEvent.click(screen.getByRole('combobox', { name: label }));
+  fireEvent.click(screen.getByRole('option', { name: option }));
+}
 afterEach(() => {
   localStorage.clear();
   vi.restoreAllMocks();
@@ -157,7 +168,12 @@ it('retains exact document bytes and stable actual arrival identity across sessi
 });
 it('keeps unsupported source activity as evidence and unknown stock in its explicit basis', () => {
   const source = draft();
-  source.documentText = '1000 U of assay-specific enzyme activity';
+  source.documents = [
+    {
+      ...source.documents[0],
+      body: { encoding: 'utf8', value: '1000 U of assay-specific enzyme activity' },
+    },
+  ];
   source.components = [
     {
       ...source.components[0],
@@ -171,7 +187,7 @@ it('keeps unsupported source activity as evidence and unknown stock in its expli
     quantity: { kind: 'unknown', unit: 'mg' },
     quantityBasis: { kind: 'unknown', reason: 'Activity cannot establish mass' },
   });
-  expect(JSON.parse(input.sourceText).documents[0].body.value).toBe(source.documentText);
+  expect(JSON.parse(input.sourceText).documents[0].body.value).toBe(source.documents[0].body.value);
 });
 it('requires explicit quality and physical evidence, with missing components creating no vessel choice', () => {
   const source = draft();
@@ -267,4 +283,127 @@ it('submits only the frozen ready preview and disables it immediately after an e
     (screen.getByRole('button', { name: 'Receive delivery atomically' }) as HTMLButtonElement)
       .disabled
   ).toBe(true);
+});
+
+it('retains selected PDF bytes and an explicitly component-scoped supplier quantity without releasing its lot', async () => {
+  const native = client(),
+    controller = new InventoryController(native, { read: () => [], write: () => {} }),
+    current = data(),
+    session = controller.arrivalSession(scope);
+  session.edit(draft());
+  render(
+    <InventoryArrivalForm
+      data={current}
+      status={{ kind: 'ready', data: current }}
+      controller={controller}
+      client={native}
+      onClose={() => {}}
+    />
+  );
+  choose('Document format', 'PDF original');
+  const bytes = new TextEncoder().encode(
+    '%PDF-1.4\r\nSynthetic certificate\nQuantity 2 mg\n%%EOF\n'
+  );
+  fireEvent.change(screen.getByLabelText('Original supplier document file'), {
+    target: {
+      files: [
+        { name: 'original.pdf', type: 'application/pdf', arrayBuffer: async () => bytes.buffer },
+      ],
+    },
+  });
+  await screen.findByText('original.pdf · Original file bytes retained');
+  choose('Document coverage', 'Full original document');
+  fireEvent.click(screen.getByRole('button', { name: 'Add supplier statement' }));
+  choose('Statement subject', 'Component 1: Reagent');
+  choose('Statement document', 'Document 1: original.pdf');
+  choose('Statement kind', 'Quantity');
+  fireEvent.change(screen.getByLabelText('PDF page'), { target: { value: '1' } });
+  fireEvent.change(screen.getByLabelText('PDF region'), { target: { value: 'Quantity row' } });
+  fireEvent.change(screen.getByLabelText('Exact supplier quotation'), {
+    target: { value: 'Quantity 2 mg' },
+  });
+  fireEvent.change(screen.getByLabelText('Supplier quantity'), { target: { value: '2' } });
+  fireEvent.change(screen.getByLabelText('Supplier unit'), { target: { value: 'mg' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add statement' }));
+  choose('Component 1 amount basis', 'Supplier-declared quantity');
+  choose('Component 1 supplier quantity statement', /^2 mg/);
+  fireEvent.change(screen.getByLabelText('Component 1 measured amount'), {
+    target: { value: '2' },
+  });
+  fireEvent.change(screen.getByLabelText('Component 1 amount reason'), {
+    target: { value: 'Use this component certificate quantity' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Preview complete delivery' }));
+  await screen.findByText(/Ready to receive every listed disposition atomically/);
+  const snapshot = session.getSnapshot();
+  if (snapshot.phase !== 'previewed' || snapshot.preview.kind !== 'ready')
+    throw Error('Ready PDF preview required');
+  const source = JSON.parse(snapshot.input.sourceText);
+  expect(source.documents[0].body).toEqual({
+    encoding: 'base64',
+    value: btoa(String.fromCharCode(...bytes)),
+  });
+  expect(snapshot.preview.arrival.claims[0]).toMatchObject({
+    subject: { kind: 'component', componentKey: 'component-1' },
+    claim: { kind: 'quantity', valueLexeme: '2', unitText: 'mg' },
+    verification: 'operator-cited-pdf-region',
+  });
+  expect(snapshot.input.options.components[0]).toMatchObject({
+    quantity: { kind: 'known', value: '2', unit: 'mg' },
+    quantityBasis: { kind: 'supplier-declared', claimKey: source.claims[0].key },
+    lot: { kind: 'new' },
+  });
+  expect(snapshot.preview.commands.find((command) => command.kind === 'manage-lot')).toMatchObject({
+    reason: 'Begin local quality assessment',
+  });
+  expect(
+    snapshot.preview.commands.some(
+      (command) => command.kind === 'assess-lot' || command.kind === 'record-validity-decision'
+    )
+  ).toBe(false);
+});
+
+it('invalidates a ready preview while composing a statement and selects the second repeated quotation after original CRLF', async () => {
+  const native = client(),
+    controller = new InventoryController(native, { read: () => [], write: () => {} }),
+    current = data(),
+    session = controller.arrivalSession(scope),
+    input = draft();
+  input.documents = [
+    { ...input.documents[0], body: { encoding: 'utf8', value: 'α: 2 mg\r\nβ: 2 mg\r\n' } },
+  ];
+  session.edit(input);
+  render(
+    <InventoryArrivalForm
+      data={current}
+      status={{ kind: 'ready', data: current }}
+      controller={controller}
+      client={native}
+      onClose={() => {}}
+    />
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Preview complete delivery' }));
+  await screen.findByText(/Ready to receive every listed disposition atomically/);
+  fireEvent.click(screen.getByRole('button', { name: 'Add supplier statement' }));
+  expect(
+    (screen.getByRole('button', { name: 'Receive delivery atomically' }) as HTMLButtonElement)
+      .disabled
+  ).toBe(true);
+  choose('Statement subject', 'Component 1: Reagent');
+  choose('Statement document', 'Document 1');
+  choose('Statement kind', 'Quantity');
+  const selection = screen.getByLabelText('Select exact original text') as HTMLTextAreaElement;
+  selection.setSelectionRange(11, 15);
+  fireEvent.select(selection);
+  fireEvent.change(screen.getByLabelText('Supplier quantity'), { target: { value: '2' } });
+  fireEvent.change(screen.getByLabelText('Supplier unit'), { target: { value: 'mg' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add statement' }));
+  expect(session.getSnapshot().draft.claims[0].selection).toMatchObject({
+    locator: { kind: 'utf8-byte-range', startByte: 14, endByte: 18 },
+    verbatim: '2 mg',
+  });
+  fireEvent.change(screen.getByLabelText('Original supplier document text'), {
+    target: { value: 'Changed original text' },
+  });
+  expect(session.getSnapshot().draft.claims).toEqual([]);
 });

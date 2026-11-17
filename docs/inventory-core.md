@@ -387,6 +387,23 @@ explicit coverage choices. No URL fetch, OCR, vendor connection, silent chunking
 or larger transport cap is implied. The complete accepted request must fit the
 existing inline limit.
 
+The receiving draft retains stable document and claim keys. File selection has
+an explicit reading generation; cancellation, replacement and scope changes
+invalidate older completions. Preview requires complete retained bytes and a
+successful recovery-draft write. Document changes invalidate source-linked
+claims and any component quantity selection that depended on them. Selecting
+repeated text records that occurrence's exact UTF-8 byte range, rather than
+searching for the first matching quotation.
+
+The saved renderer draft has its own version. Its v1 migration preserves the
+delivery identity and original text, creates the original document entry and
+keeps measured amounts explicitly measured. This does not change inventory
+schema or accepted-operation recovery. Browser recovery storage may reject a
+file smaller than the native request limit; that refusal blocks submission and
+does not silently downgrade to an in-memory-only request. The existing
+controller retains ownership of submission, missing acknowledgements and exact
+operation retries.
+
 `arrival-document` reads the exact retained body by arrival ID, document key and
 expected hash through verified original or nested archive history. It is scoped
 and read-only. Missing or corrupt source bytes yield unavailable, never live-URL

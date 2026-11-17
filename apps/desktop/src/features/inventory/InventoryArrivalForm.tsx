@@ -1,9 +1,5 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import {
-  type InventoryAmountUnit,
-  type InventoryArrival,
-  type InventoryArrivalDocumentRead,
-} from '@waypoint/domain-services';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { type InventoryAmountUnit } from '@waypoint/domain-services';
 import { Button, Notice, Select, TextArea, TextField } from '../../components/ui';
 import type { InventoryClient, InventoryMaterial } from '../../shared/inventory-client';
 import {
@@ -13,159 +9,17 @@ import {
   type InventoryData,
 } from './inventory-controller';
 import { InventoryPhysicalDialog } from './InventoryPhysicalDialog';
+import { InventoryArrivalFacts } from './InventoryArrivalFacts';
+import { InventoryArrivalDocuments } from './InventoryArrivalDocuments';
+import { InventoryArrivalClaims } from './InventoryArrivalClaims';
 import { PhysicalField } from './InventoryPhysicalControls';
-import {
-  destinationPositions,
-  inventoryAmountLabel,
-  inventoryAmountUnitOptions,
-  locationPath,
-} from './inventory-view';
+import { destinationPositions, inventoryAmountUnitOptions, locationPath } from './inventory-view';
 import {
   newArrivalComponent,
   type InventoryArrivalComponentDraft,
 } from './inventory-arrival-session';
 
 export type InventoryArrivalDialog = { kind: 'receive-delivery' };
-
-function ArrivalFacts({
-  arrival,
-  data,
-  client,
-}: {
-  arrival: InventoryArrival;
-  data: InventoryData;
-  client: InventoryClient;
-}) {
-  const [document, setDocument] = useState<InventoryArrivalDocumentRead | null>(null);
-  const [failed, setFailed] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-  const scope = `${data.project.projectId}:${data.project.defaultInventoryId}:${arrival.id}`;
-  const scopeRef = useRef(scope);
-  scopeRef.current = scope;
-  useEffect(() => {
-    setDocument(null);
-    setFailed(null);
-    setPending(false);
-  }, [scope]);
-  async function readDocument(key: string) {
-    const source = arrival.documents.find((item) => item.key === key);
-    if (!source) return;
-    setPending(true);
-    setFailed(null);
-    try {
-      const result = await client.arrivalDocument({
-        project: data.project.projectId,
-        inventoryId: data.project.defaultInventoryId,
-        arrivalId: arrival.id,
-        documentKey: key,
-        expectedSha256: source.sha256,
-      });
-      if (scopeRef.current === scope) setDocument(result);
-    } catch (cause) {
-      if (scopeRef.current === scope)
-        setFailed(
-          cause instanceof Error ? cause.message : 'The original document could not be read.'
-        );
-    } finally {
-      if (scopeRef.current === scope) setPending(false);
-    }
-  }
-  return (
-    <section
-      className="space-y-3"
-      data-testid="inventory-arrival-facts"
-      data-arrival-id={arrival.id}
-    >
-      <p className="break-all text-xs">
-        Delivery: {arrival.identity.namespace} / {arrival.identity.arrivalId}
-      </p>
-      <p>Supplier: {arrival.supplier ?? 'Unknown'}</p>
-      <p className="text-xs">
-        Recorded {new Date(arrival.at).toISOString()} ·{' '}
-        {arrival.by.kind === 'imported' ? 'Imported arrival evidence' : 'Local arrival record'}
-      </p>
-      <p className="text-xs">
-        Observed scope: {arrival.scope.kind} · {arrival.scope.reason}
-      </p>
-      {arrival.packages.map((item) => (
-        <p key={item.key} className="text-xs">
-          Package: {item.label} · Packaging batch: {item.packagingBatch ?? 'Unrecorded'}
-        </p>
-      ))}
-      {arrival.components.map((component) => {
-        const stock = component.target.stockId ? data.state.stocks[component.target.stockId] : null;
-        return (
-          <article
-            key={component.key}
-            className="space-y-1 rounded border border-border p-3"
-            data-arrival-component={component.key}
-          >
-            <h4 className="text-sm font-semibold">{component.label}</h4>
-            <p className="text-xs">
-              Disposition: {component.choice.kind} · Component batch:{' '}
-              {component.componentBatch ?? 'Unrecorded'}
-            </p>
-            {component.receivedQuantity ? (
-              <p data-original-received-quantity>
-                Original received amount: {inventoryAmountLabel(component.receivedQuantity)}
-              </p>
-            ) : null}
-            {stock ? (
-              <p data-current-remaining-quantity>
-                Current remaining amount: {inventoryAmountLabel(stock.quantity)}
-              </p>
-            ) : null}
-            {stock ? (
-              <p className="text-xs">
-                Current stock quality: {stock.quality} · Current container:{' '}
-                {data.state.vessels[stock.vesselId]?.name ?? stock.vesselId}
-              </p>
-            ) : null}
-          </article>
-        );
-      })}
-      {arrival.documents.map((source) => (
-        <div key={source.key} className="space-y-1 text-xs">
-          <p className="break-all">
-            Document {source.key} · {source.coverage.kind} · {source.sha256} · {source.byteLength}{' '}
-            bytes
-          </p>
-          {source.coverage.kind === 'excerpt' ? (
-            <p>Excerpt scope: {source.coverage.reason}</p>
-          ) : null}
-          <Button
-            disabled={pending || !data.state.arrivals[arrival.id]}
-            onClick={() => void readDocument(source.key)}
-          >
-            Read retained document {source.key}
-          </Button>
-        </div>
-      ))}
-      {failed ? <Notice tone="error">{failed}</Notice> : null}
-      {document?.kind === 'unavailable' ? (
-        <Notice>{document.message}</Notice>
-      ) : document?.kind === 'available' ? (
-        <div className="space-y-2">
-          <p className="text-xs">
-            Original retained {document.document.coverage.kind} · {document.document.mediaType}
-          </p>
-          {document.body.encoding === 'utf8' ? (
-            <TextArea
-              readOnly
-              aria-label="Retained original delivery document"
-              value={document.body.value}
-              rows={8}
-            />
-          ) : (
-            <Notice>
-              The retained original is a binary document. Its hash and byte length are shown above.
-            </Notice>
-          )}
-        </div>
-      ) : null}
-    </section>
-  );
-}
 
 export function InventoryArrivalForm({
   data,
@@ -186,6 +40,10 @@ export function InventoryArrivalForm({
   });
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const { draft } = snapshot;
+  const [claimEditing, setClaimEditing] = useState(false);
+  const reading = snapshot.documentRead.kind === 'reading';
+  const fileReadBlocked = snapshot.documentRead.kind !== 'idle';
+  useEffect(() => () => session.cancelDocumentRead(), [session]);
   const [query, setQuery] = useState('');
   const [materials, setMaterials] = useState<readonly InventoryMaterial[]>([]);
   const [searchFailure, setSearchFailure] = useState<string | null>(null);
@@ -202,7 +60,8 @@ export function InventoryArrivalForm({
       preview.target.inventoryId !== data.project.defaultInventoryId ||
       preview.target.revision !== data.state.revision)
   );
-  const canApply = preview?.kind === 'ready' && !stale && editable;
+  const canApply =
+    preview?.kind === 'ready' && !stale && editable && !fileReadBlocked && !claimEditing;
   const edit = (change: Partial<typeof draft>) => session.edit({ ...draft, ...change });
   const editComponent = (key: string, change: Partial<InventoryArrivalComponentDraft>) =>
     edit({
@@ -344,41 +203,15 @@ export function InventoryArrivalForm({
               onChange={(event) => edit({ scopeReason: event.target.value })}
             />
           </PhysicalField>
-          <PhysicalField label="Original supplier document text">
-            <TextArea
-              aria-label="Original supplier document text"
-              value={draft.documentText}
-              onChange={(event) => edit({ documentText: event.target.value })}
-              rows={6}
-            />
-          </PhysicalField>
-          <PhysicalField label="Document coverage">
-            <Select
-              ariaLabel="Document coverage"
-              value={draft.documentCoverage}
-              options={[
-                { value: '', label: 'Choose full document or excerpt' },
-                { value: 'full', label: 'Full original text document' },
-                { value: 'excerpt', label: 'Explicitly labeled text excerpt' },
-              ]}
-              onValueChange={(value) =>
-                edit({ documentCoverage: value as typeof draft.documentCoverage })
-              }
-            />
-          </PhysicalField>
-          {draft.documentCoverage === 'excerpt' ? (
-            <PhysicalField label="Excerpt scope reason">
-              <TextArea
-                aria-label="Excerpt scope reason"
-                value={draft.excerptReason}
-                onChange={(event) => edit({ excerptReason: event.target.value })}
-              />
-            </PhysicalField>
+          <fieldset disabled={claimEditing}>
+            <InventoryArrivalDocuments draft={draft} session={session} reading={reading} />
+          </fieldset>
+          {snapshot.documentRead.kind === 'failed' ? (
+            <div className="space-y-2">
+              <Notice tone="error">{snapshot.documentRead.message}</Notice>
+              <Button onClick={() => session.cancelDocumentRead()}>Keep previous document</Button>
+            </div>
           ) : null}
-          <Notice>
-            Retain exact text and newlines. A text excerpt does not establish possession of a full
-            supplier PDF. Supplier QC or dates do not become local quality or expiry decisions.
-          </Notice>
           <details>
             <summary className="text-sm">Optional package grouping</summary>
             <div className="mt-3 grid grid-cols-2 gap-3">
@@ -557,13 +390,65 @@ export function InventoryArrivalForm({
                         />
                       </PhysicalField>
                     ) : null}
+                    {component.quantityKind === 'known' ? (
+                      <>
+                        <PhysicalField label={`${prefix} amount basis`}>
+                          <Select
+                            ariaLabel={`${prefix} amount basis`}
+                            value={component.quantityBasis}
+                            options={[
+                              { value: 'measurement', label: 'Measured locally' },
+                              { value: 'supplier-declared', label: 'Supplier-declared quantity' },
+                            ]}
+                            onValueChange={(value) =>
+                              editComponent(component.key, {
+                                quantityBasis: value as typeof component.quantityBasis,
+                                quantityClaimKey: '',
+                              })
+                            }
+                          />
+                        </PhysicalField>
+                        {component.quantityBasis === 'supplier-declared' ? (
+                          <PhysicalField label={`${prefix} supplier quantity statement`}>
+                            <Select
+                              ariaLabel={`${prefix} supplier quantity statement`}
+                              value={component.quantityClaimKey}
+                              options={[
+                                { value: '', label: 'Choose this component’s quantity statement' },
+                                ...draft.claims.flatMap((claim) =>
+                                  claim.subject.kind === 'component' &&
+                                  claim.subject.componentKey === component.key &&
+                                  claim.claim.kind === 'quantity'
+                                    ? [
+                                        {
+                                          value: claim.key,
+                                          label: `${claim.claim.valueLexeme} ${claim.claim.unitText} · ${claim.key}`,
+                                        },
+                                      ]
+                                    : []
+                                ),
+                              ]}
+                              onValueChange={(value) =>
+                                editComponent(component.key, { quantityClaimKey: value })
+                              }
+                            />
+                          </PhysicalField>
+                        ) : null}
+                      </>
+                    ) : null}
                     <div className="grid grid-cols-3 gap-3">
                       <PhysicalField label={`${prefix} amount knowledge`}>
                         <Select
                           ariaLabel={`${prefix} amount knowledge`}
                           value={component.quantityKind}
                           options={[
-                            { value: 'known', label: 'Measured amount' },
+                            {
+                              value: 'known',
+                              label:
+                                component.quantityBasis === 'supplier-declared'
+                                  ? 'Supplier-declared amount'
+                                  : 'Measured amount',
+                            },
                             { value: 'unknown', label: 'Unknown amount with explicit unit' },
                           ]}
                           onValueChange={(value) =>
@@ -712,7 +597,15 @@ export function InventoryArrivalForm({
           >
             Add another listed component
           </Button>
+          <InventoryArrivalClaims
+            key={`${data.project.projectId}:${data.project.defaultInventoryId}`}
+            draft={draft}
+            session={session}
+            onEditingChange={setClaimEditing}
+            disabled={fileReadBlocked}
+          />
           <Button
+            disabled={fileReadBlocked || claimEditing}
             onClick={() => {
               if (status.kind === 'refused' || status.kind === 'conflict') controller.dismiss();
               void session.preview();
@@ -748,7 +641,7 @@ export function InventoryArrivalForm({
           </Notice>
         ) : null}
         {preview && preview.kind !== 'blocked' ? (
-          <ArrivalFacts arrival={preview.arrival} data={data} client={client} />
+          <InventoryArrivalFacts arrival={preview.arrival} data={data} client={client} />
         ) : null}
         <details>
           <summary className="text-sm">
@@ -760,7 +653,7 @@ export function InventoryArrivalForm({
                 <summary className="cursor-pointer text-sm">
                   {arrival.supplier} · {arrival.identity.arrivalId}
                 </summary>
-                <ArrivalFacts arrival={arrival} data={data} client={client} />
+                <InventoryArrivalFacts arrival={arrival} data={data} client={client} />
               </details>
             ))}
           </div>

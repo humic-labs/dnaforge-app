@@ -1,7 +1,17 @@
 import {
+  runInventoryArrivalEvidenceJourney,
+  runInventoryArrivalEvidenceResume,
+  runInventoryArrivalEvidenceReopen,
+  runInventoryArrivalEvidenceTextJourney,
+  runInventoryArrivalEvidenceTextResume,
+} from './journeys/inventory-arrival-evidence.mjs';
+import {
   runInventoryStockroomJourney,
   runInventoryStockroomResume,
   runInventoryStockroomReopen,
+  runInventoryStockroomCorrectionsJourney,
+  runInventoryStockroomCorrectionsResume,
+  runInventoryStockroomCorrectionsReopen,
 } from './journeys/inventory-stockroom.mjs';
 import {
   runInventoryArrivalJourney,
@@ -153,9 +163,17 @@ assert.ok(
     'amounts-resume',
     'amounts-reopen',
     'refresh-fixture',
+    'arrival-evidence',
+    'arrival-evidence-resume',
+    'arrival-evidence-reopen',
+    'arrival-evidence-text',
+    'arrival-evidence-text-resume',
     'stockroom',
     'stockroom-resume',
     'stockroom-reopen',
+    'stockroom-corrections',
+    'stockroom-corrections-resume',
+    'stockroom-corrections-reopen',
     'arrival',
     'arrival-resume',
     'arrival-reopen',
@@ -758,6 +776,82 @@ try {
     );
   }
 
+  if (['arrival-evidence-text', 'arrival-evidence-text-resume'].includes(stage)) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the exact completed PDF fixture or text checkpoint.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    const previous = page.getByRole('dialog', { name: 'Receive delivery', exact: true });
+    if (await previous.isVisible())
+      await previous.getByRole('button', { name: 'Cancel', exact: true }).click();
+    if (stage === 'arrival-evidence-text-resume') {
+      const existing = page.getByTestId('inventory-physical-dialog');
+      for (let attempt = 0; attempt < 3 && (await existing.count()); attempt++)
+        await page.keyboard.press('Escape');
+      await expect(existing).toBeHidden();
+    }
+    await openInventory(fixture.project.name);
+    receipt.expected = await (
+      stage === 'arrival-evidence-text'
+        ? runInventoryArrivalEvidenceTextJourney
+        : runInventoryArrivalEvidenceTextResume
+    )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
+  if (['arrival-evidence', 'arrival-evidence-resume', 'arrival-evidence-reopen'].includes(stage)) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the exact native22 fixture or PDF evidence checkpoint.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    if (stage === 'arrival-evidence-resume') {
+      const existing = page.getByTestId('inventory-physical-dialog');
+      for (let attempt = 0; attempt < 3 && (await existing.count()); attempt++)
+        await page.keyboard.press('Escape');
+      await expect(existing).toBeHidden();
+    }
+    await openInventory(fixture.project.name);
+    receipt.expected = await (
+      stage === 'arrival-evidence'
+        ? runInventoryArrivalEvidenceJourney
+        : stage === 'arrival-evidence-resume'
+          ? runInventoryArrivalEvidenceResume
+          : runInventoryArrivalEvidenceReopen
+    )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
+  if (
+    [
+      'stockroom-corrections',
+      'stockroom-corrections-resume',
+      'stockroom-corrections-reopen',
+    ].includes(stage)
+  ) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the exact text-evidence fixture or correction checkpoint.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    if (stage === 'stockroom-corrections-resume') {
+      const existing = page.getByTestId('inventory-physical-dialog');
+      for (let attempt = 0; attempt < 3 && (await existing.count()); attempt++)
+        await page.keyboard.press('Escape');
+      await expect(existing).toBeHidden();
+    }
+    await openInventory(fixture.project.name);
+    receipt.expected = await (
+      stage === 'stockroom-corrections'
+        ? runInventoryStockroomCorrectionsJourney
+        : stage === 'stockroom-corrections-resume'
+          ? runInventoryStockroomCorrectionsResume
+          : runInventoryStockroomCorrectionsReopen
+    )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
   if (['stockroom', 'stockroom-resume', 'stockroom-reopen'].includes(stage)) {
     assert.ok(
       args.includes('--fixture'),

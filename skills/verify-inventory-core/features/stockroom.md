@@ -65,8 +65,39 @@ completed intent. A complete native restart uses `--stage stockroom-reopen` and
 independent original receipt progress and current native report parity.
 
 The first driver covers expectation, original receipt allocation, further use
-and one explicit reorder policy. Close/reopen/withdrawal corrections, strict
-validity policies, deadline refresh, overflow and whole-count refusal require
-their scoped native or actual desktop evidence before claiming those paths
-qualified. Cross-device inventory, vendor ordering and package-count fulfillment
-remain separate workflows.
+and one explicit reorder policy.
+
+## Receipt matching corrections
+
+From the exact completed PDF and text evidence fixture, run:
+
+```sh
+node apps/desktop/scripts/inventory-journey.mjs --stage stockroom-corrections --fixture /absolute/evidence/arrival-evidence-reopen-fixture.json --out /absolute/evidence/stockroom-corrections
+```
+
+This separate workflow retains the original stockroom proof and starts from its
+actual current state. It uses six ordinary actions: withdraw the original full 1
+mg matching, close the completely unreceived remainder, reopen explicitly, match
+0.5 mg of the original receipt, close the remaining 0.5 mg, and retire the
+existing reorder rule. The original 1 mg receipt and 850000 ng current stock
+remain independent. Closing the remainder must leave receipt progress none or
+partial, never fully received. Closed lines disable receipt matching and
+allocation withdrawal until reopened.
+
+Each accepted action writes `NN-stockroom-corrections-checkpoint.json` before
+checking the presentation. Preserve failures and resume using
+`stockroom-corrections-resume` with the latest exact checkpoint. The helper
+checks the complete original history prefix and all state outside the three
+stockroom maps, revision and recording clock. Physical stock, lots, document
+metadata, arrival facts, opening observations and validity facts must remain
+unchanged.
+
+After a complete native restart, use `stockroom-corrections-reopen` with
+`stockroom-corrections-reopen-fixture.json`. It requires exact saved state and
+history, the retained withdrawn allocation, one active 500000 ng allocation, a
+closed 500000 ng remainder, partial received progress and the retired rule.
+
+Strict validity policies, deadline refresh, overflow and whole-count refusal
+still need their corresponding scoped native or actual desktop evidence before
+claiming those paths qualified. Cross-device inventory, vendor ordering and
+package-count fulfillment remain separate workflows.
