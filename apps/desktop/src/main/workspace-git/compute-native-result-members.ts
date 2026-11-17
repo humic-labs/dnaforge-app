@@ -15,7 +15,7 @@ import { scientificWorkspaceIdForRoot } from '../scientific-workspace-identity';
 import { ScientificObjectStore, hasAcceptedScientificWorkspace } from '../scientific-object-store';
 import type { ComputeSourceInventory } from './compute-result-retention';
 import { captureSequenceMigrationAdmission } from './sequence-migration-admission';
-import { migrationPathsIntersect } from './migration-paths';
+import { isOrdinaryMigrationContainer, migrationPathsIntersect } from './migration-paths';
 import { assertWorkspaceProjectionPathSafe } from '../workspace-projection-boundary';
 import {
   NATIVE_WORKSPACE_MANIFEST_PATH,
@@ -154,18 +154,23 @@ export async function captureComputeNativeMembers(
     : null;
   if (computeNativeManifestWitness(input.workspaceRoot) !== manifestWitness)
     throw new Error('COMPUTE_RECOVERY_NATIVE_MANIFEST_CHANGED');
-  const destinationBindings = db.prepare('SELECT path FROM catalog_entity_files').all() as Array<{
-    path: string;
-  }>;
+  const destinationBindings = db
+    .prepare(
+      'SELECT f.path,f.file_kind,e.type FROM catalog_entity_files f LEFT JOIN catalog_entities e ON e.id=f.entity_id'
+    )
+    .all() as Array<{ path: string; file_kind: string; type: string | null }>;
   const protectedPaths = captureSequenceMigrationAdmission(db, input.workspaceRoot, {
     requireWritable: true,
   }).protectedPaths;
-  if (
-    [...protectedPaths, ...destinationBindings.map((row) => row.path)].some((path) =>
-      migrationPathsIntersect(input.targetRoot, path)
-    )
-  )
+  if (protectedPaths.some((path) => migrationPathsIntersect(input.targetRoot, path)))
     throw new Error('COMPUTE_RECOVERY_NATIVE_DESTINATION_OWNED');
+  for (const binding of destinationBindings) {
+    if (
+      migrationPathsIntersect(input.targetRoot, binding.path) &&
+      !(await isOrdinaryMigrationContainer(binding, input.targetRoot))
+    )
+      throw new Error('COMPUTE_RECOVERY_NATIVE_DESTINATION_OWNED');
+  }
   const files = new Map(
     input.source.entries
       .filter((entry) => entry.kind === 'file')

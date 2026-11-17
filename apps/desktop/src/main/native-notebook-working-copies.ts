@@ -30,9 +30,11 @@ import {
 } from '../db/notebook-markdown-codec';
 import { migrateFlatNotebookInMain } from './notebook-flat-migration';
 import { captureSequenceMigrationAdmission } from './workspace-git/sequence-migration-admission';
-import { captureMigrationGitContent } from './workspace-git/migration-paths';
+import {
+  captureMigrationGitContent,
+  isOrdinaryMigrationContainer,
+} from './workspace-git/migration-paths';
 import { publishFileContentNoClobber } from './workspace-git/exclusive-file-claim';
-import { detectDocumentPackage } from '../shared/document-package';
 import type { NotebookLegacyProjectMigrationResult } from '../shared/notebook-document';
 import {
   stripWorkspaceScope,
@@ -531,31 +533,7 @@ export function createNativeNotebookWorkingCopies(options: {
     const protectedPaths = [...admitted.protectedPaths];
     for (const row of foreign) {
       const path = workspaceMutationRootIdentity(row.path);
-      if (
-        row.type === 'folder' &&
-        row.file_kind === 'folder' &&
-        path !== scope.path &&
-        under(scope.path, path) &&
-        !(await detectDocumentPackage(path, {
-          exists: async (candidate) => {
-            try {
-              if ((await lstat(candidate)).isSymbolicLink())
-                throw new Error('The notebook container metadata is a symbolic link.');
-              return true;
-            } catch (error) {
-              if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
-              throw error;
-            }
-          },
-          readDir: async (candidate) =>
-            (await readdir(candidate, { withFileTypes: true })).map((entry) => ({
-              name: entry.name,
-              isFile: entry.isFile() || entry.isSymbolicLink(),
-              isDirectory: entry.isDirectory(),
-            })),
-        }))
-      )
-        continue;
+      if (await isOrdinaryMigrationContainer({ ...row, path }, scope.path)) continue;
       protectedPaths.push(row.path);
     }
     return {

@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { createReadStream, promises as fs } from 'node:fs';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { detectDocumentPackage } from '../../shared/document-package';
+import { FORGE_PACKAGE_MARKER_DIR } from '../../shared/forge-package-path';
 
 export interface MigrationPathOptions {
   protectedPaths?: readonly string[];
@@ -13,6 +15,39 @@ export function migrationPathsIntersect(left: string, right: string): boolean {
   const a = resolve(left);
   const b = resolve(right);
   return a === b || a.startsWith(b + sep) || b.startsWith(a + sep);
+}
+
+export async function hasDocumentPackageMarker(directory: string): Promise<boolean> {
+  const markers = join(directory, FORGE_PACKAGE_MARKER_DIR);
+  try {
+    if (!(await fs.lstat(markers)).isDirectory()) return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+  const entries = await fs.readdir(markers);
+  if (entries.some((name) => name.toLowerCase() === 'sequence.json')) return true;
+  return Boolean(
+    await detectDocumentPackage(directory, {
+      exists: async () => true,
+      readDir: async () => entries.map((name) => ({ name, isFile: true, isDirectory: false })),
+    })
+  );
+}
+
+export async function isOrdinaryMigrationContainer(
+  binding: { path: string; file_kind: string; type: string | null },
+  member: string
+): Promise<boolean> {
+  if (binding.type !== 'folder' || binding.file_kind !== 'folder') return false;
+  const rel = relative(binding.path, member);
+  return Boolean(
+    rel &&
+    rel !== '..' &&
+    !rel.startsWith(`..${sep}`) &&
+    !isAbsolute(rel) &&
+    !(await hasDocumentPackageMarker(resolve(binding.path)))
+  );
 }
 
 export function assertMigrationPathsAvailable(
