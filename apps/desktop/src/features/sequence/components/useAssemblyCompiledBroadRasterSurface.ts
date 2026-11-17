@@ -125,8 +125,9 @@ export function useAssemblyCompiledBroadRasterSurface({
   annotationSourceBinding: SourceAnnotationAliasBindingV1 | null;
 } {
   const aliasScene = cache.status === 'hit' ? cache.result : null;
-  const aliasKey = aliasScene
-    ? `${cache.descriptor?.runtimeCacheKey}\n${cache.descriptor?.artifact.artifactKey}\n${aliasScene.manifest.integrity.payloadSha256}\n${aliasScene.manifest.integrity.contractSha256}\n${assemblyReferenceAssetGenerationKey(assetGeneration)}`
+  const aliasDescriptor = cache.status === 'error' ? null : cache.descriptor;
+  const aliasKey = aliasDescriptor
+    ? `${aliasDescriptor.runtimeCacheKey}\n${aliasDescriptor.artifact.artifactKey}\n${aliasScene?.manifest.integrity.payloadSha256 ?? ''}\n${aliasScene?.manifest.integrity.contractSha256 ?? ''}\n${assemblyReferenceAssetGenerationKey(assetGeneration)}`
     : null;
   const [preparedAliases, setPreparedAliases] = useState<{
     key: string;
@@ -137,13 +138,12 @@ export function useAssemblyCompiledBroadRasterSurface({
       !enabled ||
       !prepareAnnotationAliases ||
       !aliasKey ||
-      !aliasScene ||
-      aliasScene.manifest.sourceAnnotationAliases ||
-      !cache.descriptor
+      aliasScene?.manifest.sourceAnnotationAliases ||
+      !aliasDescriptor
     )
       return;
     let current = true;
-    const request = cache.descriptor.request;
+    const request = aliasDescriptor.request;
     void compileAnnotationDataAppearanceV1({ colors: [], themeMode })
       .then((appearance) =>
         platform().genome.prepareAssemblyAnnotationAppearanceV1({
@@ -160,8 +160,11 @@ export function useAssemblyCompiledBroadRasterSurface({
         if (
           current &&
           result.status === 'ready' &&
-          result.sourceBinding.payloadSha256 === aliasScene.manifest.integrity.payloadSha256 &&
-          result.sourceBinding.contractSha256 === aliasScene.manifest.integrity.contractSha256
+          result.sourceBinding.payloadSha256 === result.sourcePayloadSha256 &&
+          result.sourceBinding.contractSha256 === result.sourceContractSha256 &&
+          (!aliasScene ||
+            (result.sourceBinding.payloadSha256 === aliasScene.manifest.integrity.payloadSha256 &&
+              result.sourceBinding.contractSha256 === aliasScene.manifest.integrity.contractSha256))
         )
           setPreparedAliases({ key: aliasKey, binding: result.sourceBinding });
       })

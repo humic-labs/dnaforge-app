@@ -13,6 +13,7 @@ import {
   COMPILED_BROAD_RASTER_PIXEL_FORMAT_WIRE_V1,
   COMPILED_BROAD_RASTER_OCCUPANCY_RGBA8_WIRE_V1,
   assemblyAnnotationSceneInteractionOwnerKeyV3,
+  type AssemblyAnnotationAppearancePrepareResultV1,
   buildAssemblyCompiledBroadRasterSurfaceManifestV1,
   type AssemblyAnnotationSceneArtifactContract,
   type AssemblyReferenceAssetGenerationV1,
@@ -146,6 +147,22 @@ function cache(): AssemblyPrepackedAnnotationSceneCacheState {
   } as AssemblyPrepackedAnnotationSceneCacheState;
 }
 
+type ReadyAppearanceResult = Extract<
+  AssemblyAnnotationAppearancePrepareResultV1,
+  { status: 'ready' }
+>;
+
+function readyAppearance(sourceBinding: ReadyAppearanceResult['sourceBinding']) {
+  return {
+    status: 'ready',
+    appearanceFingerprint: 'e'.repeat(64),
+    sourcePayloadSha256: sourceBinding.payloadSha256,
+    sourceContractSha256: sourceBinding.contractSha256,
+    surfaceManifestFingerprint: null,
+    sourceBinding,
+  } satisfies ReadyAppearanceResult;
+}
+
 describe('useAssemblyCompiledBroadRasterSurface', () => {
   it('prepares legacy source aliases and removes the binding immediately when the exact source changes', async () => {
     const original = cache();
@@ -154,7 +171,7 @@ describe('useAssemblyCompiledBroadRasterSurface', () => {
       contractSha256: original.result!.manifest.integrity.contractSha256,
       aliases: [{ featureIndex: 0, aliases: ['glcF.gene.1', 'b1007'] }],
     };
-    platformHarness.prepareAppearance.mockResolvedValueOnce({ status: 'ready', sourceBinding });
+    platformHarness.prepareAppearance.mockResolvedValueOnce(readyAppearance(sourceBinding));
     const options = {
       enabled: true,
       prepareAnnotationAliases: true,
@@ -183,7 +200,7 @@ describe('useAssemblyCompiledBroadRasterSurface', () => {
         },
       },
     } as AssemblyPrepackedAnnotationSceneCacheState;
-    platformHarness.prepareAppearance.mockResolvedValueOnce({ status: 'ready', sourceBinding });
+    platformHarness.prepareAppearance.mockResolvedValueOnce(readyAppearance(sourceBinding));
     view.rerender({ cacheState: changed });
     expect(view.result.current.annotationSourceBinding).toBeNull();
     await waitFor(() => expect(platformHarness.prepareAppearance).toHaveBeenCalledTimes(2));
@@ -686,4 +703,134 @@ describe('useAssemblyCompiledBroadRasterSurface', () => {
     expect(platformHarness.readManifest).not.toHaveBeenCalled();
     expect(renderer.loadCompiledBroadSurfaceManifest).not.toHaveBeenCalled();
   });
+
+  it('prepares descriptor-only aliases while the renderer scene cache remains loading', async () => {
+    platformHarness.prepareAppearance.mockReset();
+    platformHarness.readManifest.mockClear();
+    platformHarness.readCells.mockClear();
+    const hit = cache();
+    const loading = {
+      ...hit,
+      status: 'loading',
+      result: null,
+      error: null,
+    } as AssemblyPrepackedAnnotationSceneCacheState;
+    const sourceBinding = {
+      payloadSha256: 'b'.repeat(64),
+      contractSha256: 'c'.repeat(64),
+      aliases: [{ featureIndex: 0, aliases: ['glcF.gene.1', 'b1007'] }],
+    };
+    platformHarness.prepareAppearance.mockResolvedValueOnce(readyAppearance(sourceBinding));
+    const view = renderHook(() =>
+      useAssemblyCompiledBroadRasterSurface({
+        enabled: true,
+        prepareAnnotationAliases: true,
+        cache: loading,
+        assemblyRequirement: null,
+        policy: { isoformMode: 'expanded', laneLimit: null },
+        rendererReadyEpoch: 0,
+        rendererGenomeCommitEpoch: 0,
+        webglRef: { current: null },
+        recordEvent: vi.fn(),
+      })
+    );
+
+    await waitFor(() => expect(platformHarness.prepareAppearance).toHaveBeenCalledTimes(1));
+    expect(platformHarness.prepareAppearance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contract: 'assembly-compiled-broad-raster-wire.v1',
+        scene: loading.descriptor!.request,
+        prepareAliasesOnly: true,
+        appearance: expect.objectContaining({ colors: [], themeMode: 'light' }),
+      })
+    );
+    await waitFor(() => expect(view.result.current.annotationSourceBinding).toEqual(sourceBinding));
+    expect(loading.status).toBe('loading');
+    expect(loading.result).toBeNull();
+    expect(platformHarness.readManifest).not.toHaveBeenCalled();
+    expect(platformHarness.readCells).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('ignores a descriptor-only alias reply from an older reference generation', async () => {
+    platformHarness.prepareAppearance.mockReset();
+    const hit = cache();
+    const loading = {
+      ...hit,
+      status: 'loading',
+      result: null,
+      error: null,
+    } as AssemblyPrepackedAnnotationSceneCacheState;
+    const oldBinding = {
+      payloadSha256: 'a'.repeat(64),
+      contractSha256: 'b'.repeat(64),
+      aliases: [{ featureIndex: 0, aliases: ['old-gene'] }],
+    };
+    const currentBinding = {
+      payloadSha256: 'c'.repeat(64),
+      contractSha256: 'd'.repeat(64),
+      aliases: [{ featureIndex: 0, aliases: ['current-gene'] }],
+    };
+    let resolveOld!: (value: ReadyAppearanceResult) => void;
+    platformHarness.prepareAppearance
+      .mockReturnValueOnce(
+        new Promise<ReadyAppearanceResult>((resolve) => {
+          resolveOld = resolve;
+        })
+      )
+      .mockResolvedValueOnce(readyAppearance(currentBinding));
+    const generation: AssemblyReferenceAssetGenerationV1 = {
+      contract: 'assembly-reference-asset-generation.v1',
+      sourceFingerprint: 'a'.repeat(24),
+      inventoryFingerprint: 'b'.repeat(64),
+      themeMode: 'dark',
+    };
+    const replacement = { ...generation, inventoryFingerprint: 'c'.repeat(64) };
+    const view = renderHook(
+      ({ assetGeneration }) =>
+        useAssemblyCompiledBroadRasterSurface({
+          enabled: true,
+          prepareAnnotationAliases: true,
+          cache: loading,
+          assetGeneration,
+          assemblyRequirement: null,
+          policy: { isoformMode: 'expanded', laneLimit: null },
+          rendererReadyEpoch: 0,
+          rendererGenomeCommitEpoch: 0,
+          webglRef: { current: null },
+          recordEvent: vi.fn(),
+        }),
+      { initialProps: { assetGeneration: generation } }
+    );
+    await waitFor(() => expect(platformHarness.prepareAppearance).toHaveBeenCalledTimes(1));
+    expect(platformHarness.prepareAppearance).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        scene: { ...loading.descriptor!.request, expectedAssetGeneration: generation },
+        prepareAliasesOnly: true,
+      })
+    );
+
+    view.rerender({ assetGeneration: replacement });
+    expect(view.result.current.annotationSourceBinding).toBeNull();
+    await waitFor(() => expect(platformHarness.prepareAppearance).toHaveBeenCalledTimes(2));
+    expect(platformHarness.prepareAppearance).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        scene: { ...loading.descriptor!.request, expectedAssetGeneration: replacement },
+        prepareAliasesOnly: true,
+      })
+    );
+    await waitFor(() =>
+      expect(view.result.current.annotationSourceBinding).toEqual(currentBinding)
+    );
+    await act(async () => {
+      resolveOld(readyAppearance(oldBinding));
+      await Promise.resolve();
+    });
+    expect(view.result.current.annotationSourceBinding).toEqual(currentBinding);
+    expect(platformHarness.prepareAppearance).toHaveBeenCalledTimes(2);
+    view.unmount();
+  });
+
 });
