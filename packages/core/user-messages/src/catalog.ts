@@ -1127,7 +1127,7 @@ export const USER_MESSAGES = {
   'failure.could-not-load-saved-presentation': 'Could not load saved presentation.',
   'failure.could-not-load-the-saved-view': 'Could not load the saved view.',
   'failure.could-not-save-the-molecular-view': 'Could not save the molecular view.',
-  'failure.could-not-load-notebooks': 'Could not load notebooks.',
+  'failure.could-not-load-notebooks': 'Notebooks could not be loaded.',
   'failure.could-not-record-the-molecular-view': 'Could not record the molecular view.',
   'failure.the-saved-presentation-is-unavailable': 'The saved presentation is unavailable.',
   'failure.saved-structure-data-could-not-be-verified':

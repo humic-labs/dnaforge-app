@@ -125,7 +125,7 @@ export function PageEditor({ pageId, canvasTabId }: PageEditorProps) {
       >
         <p>
           {error
-            ? toUserMessage(error, 'failure.loading-notebooks')
+            ? toUserMessage(error, 'failure.could-not-load-notebooks')
             : userMessage('failure.loading-notebooks')}
         </p>
         {error && (
