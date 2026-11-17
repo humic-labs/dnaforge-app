@@ -226,6 +226,49 @@ try {
         }
       )
       .toEqual({ completed: '1', visible: true, pendingImports: 0 });
+    const initialFolders = (await observe()).folders;
+    receipt.setup.indexing = {
+      before: { at: new Date().toISOString(), folders: initialFolders },
+    };
+    let indexingTimer;
+    try {
+      await Promise.race([
+        (async () => {
+          await page.evaluate(
+            async (paths) => {
+              const wait = window.__test?.waitForWorkspaceReconcileIdle;
+              if (typeof wait !== 'function')
+                throw new Error('Workspace reconciliation readiness observation is unavailable');
+              await Promise.all(paths.map((path) => wait(path)));
+            },
+            initialFolders.map((folder) => folder.path)
+          );
+          receipt.setup.indexing.after = {
+            at: new Date().toISOString(),
+            folders: (await observe()).folders,
+            visibleErrors: await page
+              .locator('[data-testid="project-index-error"]:visible')
+              .allTextContents(),
+          };
+          assert.deepEqual(
+            receipt.setup.indexing.after.visibleErrors,
+            [],
+            'Initial project records must load before workspace transitions'
+          );
+        })(),
+        new Promise((_, reject) => {
+          indexingTimer = setTimeout(
+            () => reject(new Error('Initial project reconciliation did not settle within 60000ms')),
+            60000
+          );
+        }),
+      ]);
+    } catch (error) {
+      receipt.setup.indexing.failedAt = new Date().toISOString();
+      throw error;
+    } finally {
+      clearTimeout(indexingTimer);
+    }
     await page.keyboard.press('Escape');
     const suffix = Date.now();
     const first = await create(`Session A ${suffix}`);
