@@ -750,6 +750,9 @@ export const browserMockBridge: PlatformBridge = {
     onChanged: () => () => {},
   },
   notebook: {
+    migrateLegacyProjectFiles: async () => {
+      throw new Error('Native notebook commands require the desktop runtime.');
+    },
     create: async () => {
       throw new Error('Native notebook commands require the desktop runtime.');
     },

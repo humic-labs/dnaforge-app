@@ -8,8 +8,8 @@ import type { RegisteredProjectAuthority } from './registered-project-authority'
 import { prepareNotebookReferenceInsertion } from './notebook-reference-insertion';
 import { resolvePortablePrimerReferencePath } from '../shared/primer-reference-path';
 import { createHash, randomUUID } from 'node:crypto';
-import { access, mkdir, open, readFile, readdir, rename, rm, stat } from 'node:fs/promises';
-import { basename, dirname, isAbsolute, join, relative } from 'node:path';
+import { access, lstat, mkdir, open, readFile, readdir, rename, rm, stat } from 'node:fs/promises';
+import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import type Database from 'better-sqlite3';
 import {
   NativeNotebookWorkingCopyOwner,
@@ -17,10 +17,25 @@ import {
   type NativeNotebookScope,
   type NativeNotebookSource,
 } from './notebook-document-owner';
-import { readCanonicalNotebookPackage } from '../db/notebook-package-migration';
+import {
+  readCanonicalNotebookPackage,
+  type PublishNotebookPackageResult,
+} from '../db/notebook-package-migration';
 import { notebookPackagePaths, parseNotebookPackageDocument } from '../db/notebook-package';
 import { contentFingerprint } from '../shared/content-fingerprint';
-import { canonicalNotebookJson } from '../db/notebook-markdown-codec';
+import {
+  canonicalNotebookJson,
+  notebookMarkdownPreamble,
+  notebookPayloadPathsFromMarkdown,
+} from '../db/notebook-markdown-codec';
+import { migrateFlatNotebookInMain } from './notebook-flat-migration';
+import { captureSequenceMigrationAdmission } from './workspace-git/sequence-migration-admission';
+import {
+  captureMigrationGitContent,
+  isOrdinaryMigrationContainer,
+} from './workspace-git/migration-paths';
+import { publishFileContentNoClobber } from './workspace-git/exclusive-file-claim';
+import type { NotebookLegacyProjectMigrationResult } from '../shared/notebook-document';
 import {
   stripWorkspaceScope,
   scopedProjectionId,
@@ -146,7 +161,7 @@ export function createNativeNotebookWorkingCopies(options: {
       canonical = await canonicalWorkspacePath({
         workspaceRoot: root,
         path: row.path,
-        allowMissing: false,
+        allowMissing: row.path.toLowerCase().endsWith('.wpnote.json'),
         artifactNoun: 'notebook package',
       });
     const currentPath = workspaceMutationRootIdentity(canonical.candidate);
@@ -486,6 +501,353 @@ export function createNativeNotebookWorkingCopies(options: {
     }
   };
   const conflictRecovery = createNotebookConflictRecovery(options);
+  const readRetainedRecord = async (id: string): Promise<NativeNotebookRecord | undefined> => {
+    try {
+      const record = JSON.parse(await readFile(recordPath(id), 'utf8')) as NativeNotebookRecord;
+      if (
+        record.version !== 1 ||
+        record.documentId !== id ||
+        !record.path ||
+        typeof record.baselineFingerprint !== 'string' ||
+        typeof record.dirty !== 'boolean'
+      )
+        throw new Error('The retained notebook record is invalid.');
+      return record;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+      throw error;
+    }
+  };
+  const migrationPublications = (root: string) =>
+    join(root, '.dnaforge-notebook-migrations', 'publications');
+  const flatMigrationAuthority = async (scope: NativeNotebookScope) => {
+    const admitted = captureSequenceMigrationAdmission(options.db(), scope.workspaceRoot, {
+      requireWritable: true,
+    });
+    const foreign = options
+      .db()
+      .prepare(
+        'SELECT f.path,f.file_kind,e.type FROM catalog_entity_files f LEFT JOIN catalog_entities e ON e.id=f.entity_id WHERE f.entity_id<>?'
+      )
+      .all(scope.documentId) as Array<{ path: string; file_kind: string; type: string | null }>;
+    const protectedPaths = [...admitted.protectedPaths];
+    for (const row of foreign) {
+      const path = workspaceMutationRootIdentity(row.path);
+      if (await isOrdinaryMigrationContainer({ ...row, path }, scope.path)) continue;
+      protectedPaths.push(row.path);
+    }
+    return {
+      protectedPaths,
+      assertCurrent: () => {
+        scope.assertCurrent();
+        admitted.assertCurrent();
+      },
+    };
+  };
+  const planMigration = async (
+    scope: NativeNotebookScope,
+    raw: string,
+    content: import('@tiptap/core').JSONContent,
+    title: string
+  ) => {
+    const bytes = JSON.stringify({
+      schema: 'dnaforge.notebook-migration-plan.v1',
+      documentId: stripWorkspaceScope(scope.documentId),
+      package: relative(scope.workspaceRoot, scope.path).split(sep).join('/'),
+      originalRaw: raw,
+      content,
+      title,
+    });
+    const directory = migrationPublications(scope.workspaceRoot);
+    await canonicalWorkspacePath({
+      workspaceRoot: scope.workspaceRoot,
+      path: directory,
+      allowMissing: true,
+      artifactNoun: 'notebook migration',
+    });
+    scope.assertCurrent();
+    await mkdir(directory, { recursive: true });
+    const path = join(
+      directory,
+      'plan-' + createHash('sha256').update(bytes).digest('hex') + '.json'
+    );
+    try {
+      await publishFileContentNoClobber(path, bytes);
+      await syncDirectory(directory);
+    } catch (error) {
+      if (
+        (error as NodeJS.ErrnoException).code !== 'EEXIST' ||
+        (await readFile(path, 'utf8')) !== bytes
+      )
+        throw error;
+    }
+    return path;
+  };
+  const captureMigration = async (
+    scope: NativeNotebookScope,
+    result: PublishNotebookPackageResult,
+    additional: string[] = [],
+    additionalPins?: Record<string, string | null>
+  ) => {
+    const paths = notebookPackagePaths(scope.path);
+    const markdown = await readFile(paths.markdownPath, 'utf8');
+    if (contentFingerprint(markdown) !== result.canonicalFingerprint)
+      throw new Error('The migrated notebook changed before publication.');
+    const files = [
+      paths.metaPath,
+      paths.markdownPath,
+      paths.migrationJournalPath,
+      ...additional,
+      ...notebookPayloadPathsFromMarkdown(markdown).map((path) => join(scope.path, path)),
+    ];
+    if (result.metadata.migration)
+      files.push(join(paths.metaDir, result.metadata.migration.archivePath));
+    for (const path of files)
+      await canonicalWorkspacePath({
+        workspaceRoot: scope.workspaceRoot,
+        path,
+        allowMissing: true,
+        artifactNoun: 'notebook migration',
+      });
+    const pins = await captureMigrationGitContent(scope.workspaceRoot, files);
+    for (const [path, expected] of Object.entries(additionalPins ?? {})) {
+      const member = relative(scope.workspaceRoot, path).split(sep).join('/');
+      if (pins.expectedContentSha256[member] !== expected)
+        throw new Error(`The retained notebook source changed before publication: ${path}`);
+    }
+    const publication = JSON.stringify({
+      schema: 'dnaforge.notebook-migration-publication.v1',
+      documentId: stripWorkspaceScope(scope.documentId),
+      expectedContentSha256: pins.expectedContentSha256,
+    });
+    const publications = migrationPublications(scope.workspaceRoot);
+    await canonicalWorkspacePath({
+      workspaceRoot: scope.workspaceRoot,
+      path: publications,
+      allowMissing: true,
+      artifactNoun: 'notebook migration',
+    });
+    scope.assertCurrent();
+    await mkdir(publications, { recursive: true });
+    const receipt = join(
+      publications,
+      createHash('sha256').update(publication).digest('hex') + '.json'
+    );
+    try {
+      await publishFileContentNoClobber(receipt, publication);
+      await syncDirectory(publications);
+    } catch (error) {
+      if (
+        (error as NodeJS.ErrnoException).code !== 'EEXIST' ||
+        (await readFile(receipt, 'utf8')) !== publication
+      )
+        throw error;
+    }
+    return captureMigrationGitContent(scope.workspaceRoot, [...files, receipt]);
+  };
+  const prepareLegacyNotebook = async (
+    scope: NativeNotebookScope,
+    record?: NativeNotebookRecord
+  ): Promise<{ scope: NativeNotebookScope; migrated: boolean }> => {
+    if (scope.readOnly) return { scope, migrated: false };
+    const legacyFlat = scope.path.toLowerCase().endsWith('.wpnote.json');
+    let resuming = false;
+    if (legacyFlat) {
+      try {
+        await lstat(scope.path);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        resuming = true;
+      }
+    }
+    if (record?.dirty && !resuming) return { scope, migrated: false };
+    const state = await currentLegacyMigration();
+    if (!resuming && (!state || state.pendingIds.includes(scope.documentId)))
+      return { scope, migrated: false };
+    if (!legacyFlat) {
+      const metadata = JSON.parse(
+        await readFile(notebookPackagePaths(scope.path).metaPath, 'utf8')
+      ) as Record<string, unknown>;
+      if ('formatVersion' in metadata) {
+        const directory = migrationPublications(scope.workspaceRoot);
+        let names: string[] = [];
+        try {
+          names = await readdir(directory);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        }
+        for (const name of names.filter((name) => /^plan-[a-f0-9]{64}\.json$/u.test(name))) {
+          const path = join(directory, name);
+          await canonicalWorkspacePath({
+            workspaceRoot: scope.workspaceRoot,
+            path,
+            allowMissing: false,
+            artifactNoun: 'notebook migration',
+          });
+          const bytes = await readFile(path, 'utf8');
+          if ('plan-' + createHash('sha256').update(bytes).digest('hex') + '.json' !== name)
+            throw new Error('The notebook migration plan changed.');
+          const plan = JSON.parse(bytes) as {
+            schema: string;
+            documentId: string;
+            package: string;
+            originalRaw: string;
+            content: import('@tiptap/core').JSONContent;
+            title: string;
+          };
+          if (
+            plan.schema !== 'dnaforge.notebook-migration-plan.v1' ||
+            plan.documentId !== stripWorkspaceScope(scope.documentId) ||
+            plan.package !== relative(scope.workspaceRoot, scope.path).split(sep).join('/')
+          )
+            continue;
+          const relativePlan = relative(scope.workspaceRoot, path).split(sep).join('/');
+          let captured = false;
+          for (const receiptName of names.filter((name) => /^[a-f0-9]{64}\.json$/u.test(name))) {
+            await canonicalWorkspacePath({
+              workspaceRoot: scope.workspaceRoot,
+              path: join(directory, receiptName),
+              allowMissing: false,
+              artifactNoun: 'notebook migration',
+            });
+            const receiptBytes = await readFile(join(directory, receiptName), 'utf8');
+            if (createHash('sha256').update(receiptBytes).digest('hex') + '.json' !== receiptName)
+              throw new Error('The notebook migration publication changed.');
+            const receipt = JSON.parse(receiptBytes) as {
+              expectedContentSha256?: Record<string, string | null>;
+            };
+            if (
+              receipt.expectedContentSha256?.[relativePlan] ===
+              createHash('sha256').update(bytes).digest('hex')
+            )
+              captured = true;
+          }
+          if (captured) continue;
+          await withKnownWorkspacePathMutation(options.db(), [scope.path], async () => {
+            scope = await resolveDocument(scope.documentId, true);
+            const current = await readCanonicalNotebookPackage(
+              {
+                exists: async (path) => {
+                  try {
+                    await access(path);
+                    return true;
+                  } catch (error) {
+                    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+                    throw error;
+                  }
+                },
+                readTextFile: (path) => readFile(path, 'utf8'),
+              },
+              scope.path
+            );
+            if (
+              current.metadata.id !== stripWorkspaceScope(scope.documentId) ||
+              current.parsed.title !== plan.title ||
+              canonicalNotebookJson(current.parsed.content) !==
+                canonicalNotebookJson(plan.content) ||
+              !current.metadata.migration
+            )
+              throw new Error('The interrupted notebook migration changed.');
+            const archived = join(
+              notebookPackagePaths(scope.path).metaDir,
+              current.metadata.migration.archivePath
+            );
+            await canonicalWorkspacePath({
+              workspaceRoot: scope.workspaceRoot,
+              path: archived,
+              allowMissing: false,
+              artifactNoun: 'notebook migration',
+            });
+            if ((await readFile(archived, 'utf8')) !== plan.originalRaw)
+              throw new Error('The interrupted notebook source changed.');
+            await captureMigration(
+              scope,
+              {
+                ...current,
+                markdownBytes: Buffer.byteLength(current.markdown),
+                canonicalFingerprint: contentFingerprint(current.markdown),
+                recovered: true,
+                changed: false,
+              },
+              [path]
+            );
+          });
+        }
+        return { scope, migrated: false };
+      }
+    }
+    return withKnownWorkspacePathMutation(options.db(), [scope.path], async () => {
+      scope = await resolveDocument(scope.documentId, true);
+      if ((await readRetainedRecord(scope.documentId))?.dirty && !resuming)
+        return { scope, migrated: false };
+      scope.assertCurrent();
+      let result: PublishNotebookPackageResult;
+      let retained: string[] = [];
+      if (legacyFlat) {
+        const oldPath = scope.path;
+        const migrated = await migrateFlatNotebookInMain({
+          workspaceRoot: scope.workspaceRoot,
+          sourcePath: oldPath,
+          documentId: scope.documentId,
+          ...(await flatMigrationAuthority(scope)),
+        });
+        scope.assertCurrent();
+        result = migrated.result;
+        retained = [...migrated.retainedPaths, oldPath];
+        await captureMigration(
+          { ...scope, path: migrated.packageRoot },
+          result,
+          retained,
+          migrated.expectedContentSha256
+        );
+        bindCatalogEntityFileInDb(options.db(), {
+          entityId: scope.documentId,
+          path: migrated.packageRoot,
+          fileKind: 'waypoint-notebook',
+          workspaceRoot: scope.workspaceRoot,
+          sizeBytes: migrated.result.markdownBytes,
+          status: 'current',
+        });
+        scope = await resolveDocument(scope.documentId, true);
+      } else {
+        const paths = notebookPackagePaths(scope.path);
+        const raw = await readFile(paths.metaPath, 'utf8');
+        const legacy = parseNotebookPackageDocument(raw);
+        if (legacy.id !== stripWorkspaceScope(scope.documentId))
+          throw new Error('The legacy notebook belongs to another identity.');
+        let preamble = '';
+        const content = new NotebookDocumentModel(
+          legacy.content as import('@tiptap/core').JSONContent,
+          legacy.title
+        ).content;
+        const plan = await planMigration(scope, raw, content, legacy.title);
+        try {
+          preamble = notebookMarkdownPreamble(await readFile(paths.markdownPath, 'utf8'));
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        }
+        result = await publishNotebookPackageV2InMain(
+          {
+            packageRoot: scope.path,
+            workspaceRoot: scope.workspaceRoot,
+            id: legacy.id,
+            title: legacy.title,
+            content,
+            sourceShape: 'v1-package',
+            formerAuthorityRaw: raw,
+            existingMetadataRaw: raw,
+            preservedPreamble: preamble,
+            updatedAt: legacy.updatedAt,
+          },
+          scope.assertCurrent
+        );
+        retained = [plan];
+      }
+      if (!legacyFlat) await captureMigration(scope, result, retained);
+      await publishProjection(scope, result.parsed);
+      return { scope, migrated: true };
+    });
+  };
   const owner: NativeNotebookWorkingCopyOwner = new NativeNotebookWorkingCopyOwner({
     async resolveTableSource(reference, context) {
       if (reference.backing.kind !== 'notebook-inline' || reference.binding.kind !== 'current')
@@ -610,6 +972,122 @@ export function createNativeNotebookWorkingCopies(options: {
       }
     },
     resolve: resolveDocument,
+    prepareLoad: async (scope, record) => (await prepareLegacyNotebook(scope, record)).scope,
+    async migrateLegacyProjectFiles(rawRoot) {
+      const root = workspaceMutationRootIdentity(rawRoot);
+      const result: NotebookLegacyProjectMigrationResult = {
+        migrated: 0,
+        issues: [],
+        mutatedGitFiles: [],
+        expectedContentSha256: {},
+      };
+      if (
+        !currentProjects().some((project) => workspaceMutationRootIdentity(project.path) === root)
+      )
+        throw new Error('The notebook project is not enrolled for writing.');
+      const assertCurrent = options.captureWorkspace(root, true);
+      assertCurrent();
+      assertKnownWorkspaceContentWritable(options.db(), root);
+      const rows = options
+        .db()
+        .prepare(
+          "SELECT e.id,f.path FROM catalog_entities e JOIN catalog_entity_files f ON f.entity_id=e.id JOIN workspaces w ON w.id=f.workspace_id WHERE e.type IN ('notebook','page') AND e.status='active' AND f.status='current' AND w.archived_at IS NULL AND w.trashed_at IS NULL"
+        )
+        .all() as Array<{ id: string; path: string }>;
+      for (const row of rows.filter(
+        (row) => findKnownWorkspaceRoot(options.db(), row.path) === root
+      )) {
+        try {
+          await owner.withCleanPaths([row.path], async () => {
+            assertCurrent();
+            const scope = await resolveDocument(row.id, false);
+            const prepared = await prepareLegacyNotebook(scope, await readRetainedRecord(row.id));
+            if (prepared.migrated) {
+              result.migrated++;
+              await owner.refreshAfterMigration(row.id, prepared.scope);
+            }
+          });
+        } catch (error) {
+          result.issues.push({
+            path: row.path,
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+      const publications = migrationPublications(root);
+      let receipts: string[] = [];
+      try {
+        receipts = await readdir(publications);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+      const ids = new Set(
+        rows
+          .filter((row) => findKnownWorkspaceRoot(options.db(), row.path) === root)
+          .map((row) => stripWorkspaceScope(row.id))
+      );
+      for (const name of receipts) {
+        if (!/^[a-f0-9]{64}\.json$/u.test(name)) continue;
+        const path = join(publications, name);
+        try {
+          await canonicalWorkspacePath({
+            workspaceRoot: root,
+            path,
+            allowMissing: false,
+            artifactNoun: 'notebook migration',
+          });
+          const bytes = await readFile(path, 'utf8');
+          if (createHash('sha256').update(bytes).digest('hex') + '.json' !== name)
+            throw new Error('The notebook migration publication changed.');
+          const receipt = JSON.parse(bytes) as {
+            schema: string;
+            documentId: string;
+            expectedContentSha256: Record<string, string | null>;
+          };
+          if (
+            receipt.schema !== 'dnaforge.notebook-migration-publication.v1' ||
+            !ids.has(receipt.documentId) ||
+            !receipt.expectedContentSha256 ||
+            typeof receipt.expectedContentSha256 !== 'object'
+          )
+            continue;
+          for (const [member, expected] of Object.entries(receipt.expectedContentSha256)) {
+            const file = join(root, member);
+            const rel = relative(root, file);
+            if (
+              !rel ||
+              rel === '..' ||
+              rel.startsWith(`..${sep}`) ||
+              isAbsolute(rel) ||
+              rel.split(sep).includes('.git')
+            )
+              throw new Error('The notebook migration publication escaped its project.');
+            await canonicalWorkspacePath({
+              workspaceRoot: root,
+              path: file,
+              allowMissing: true,
+              artifactNoun: 'notebook migration',
+            });
+            const current = await captureMigrationGitContent(root, [file]);
+            if (current.expectedContentSha256[member] === expected)
+              result.expectedContentSha256[member] = expected;
+          }
+          result.expectedContentSha256[relative(root, path).split(sep).join('/')] = createHash(
+            'sha256'
+          )
+            .update(bytes)
+            .digest('hex');
+        } catch (error) {
+          result.issues.push({
+            path,
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+      assertCurrent();
+      result.mutatedGitFiles = Object.keys(result.expectedContentSha256);
+      return result;
+    },
     load,
     normalizePath: workspaceMutationRootIdentity,
     async publish(scope, source, content, title) {
@@ -648,81 +1126,65 @@ export function createNativeNotebookWorkingCopies(options: {
             'Compare both retained notebook versions before saving.',
             false
           );
-        let packageRoot = scope.path;
-        if (current.sourceShape === 'legacy-wpnote') {
-          const stem =
-            basename(scope.path)
-              .replace(/\.wpnote\.json$/i, '')
-              .replace(/[/:\\?%*"<>|]/g, '-') || 'Untitled';
-          packageRoot = join(dirname(scope.path), stem);
-          for (let suffix = 2; ; suffix++) {
-            try {
-              await access(packageRoot);
-              packageRoot = join(dirname(scope.path), `${stem} (${suffix})`);
-            } catch (error) {
-              if ((error as NodeJS.ErrnoException).code === 'ENOENT') break;
-              throw error;
-            }
-          }
-          scope.assertCurrent();
-          await mkdir(packageRoot, { recursive: false });
-        }
+        let result: PublishNotebookPackageResult;
         trace('publishing-canonical-files');
-        const result = await publishNotebookPackageV2InMain(
-          {
-            packageRoot,
-            workspaceRoot: scope.workspaceRoot,
-            id: stripWorkspaceScope(scope.documentId),
-            title,
-            content,
-            sourceShape: current.sourceShape ?? 'v2-package',
-            formerAuthorityRaw:
-              current.sourceShape !== 'v2-package' ? current.metadataRaw : undefined,
-            existingMetadataRaw: current.metadataRaw,
-            preservedPreamble: current.preservedPreamble,
-            preservedTitleProjection: current.preservedTitleProjection,
-            expectedCanonicalFingerprint:
-              current.sourceShape === 'v2-package' ? source.fingerprint : undefined,
-          },
-          scope.assertCurrent
-        );
-        trace('canonical-files-published');
-        const warnings: string[] = [];
         let nextScope = scope;
-        if (packageRoot !== scope.path) {
-          if ((await readFile(scope.path, 'utf8')) !== current.metadataRaw)
-            throw new NativeDocumentCommandError(
-              'NOTEBOOK_MIGRATION_PARTIAL',
-              'The new package was published, but the legacy source changed before cutover.',
-              true,
-              [{ path: packageRoot, published: true }]
-            );
+        if (current.sourceShape === 'legacy-wpnote') {
+          const originalPath = scope.path;
+          const migrated = await migrateFlatNotebookInMain({
+            workspaceRoot: scope.workspaceRoot,
+            sourcePath: scope.path,
+            documentId: scope.documentId,
+            ...(await flatMigrationAuthority(scope)),
+            desired: { content, title, expectedRaw: current.metadataRaw },
+          });
           scope.assertCurrent();
-          await rename(scope.path, scope.path + '.legacy');
-          try {
-            scope.assertCurrent();
-            bindCatalogEntityFileInDb(options.db(), {
-              entityId: scope.documentId,
-              path: packageRoot,
-              fileKind: 'waypoint-notebook',
+          result = migrated.result;
+          trace('canonical-files-published');
+          await captureMigration(
+            { ...scope, path: migrated.packageRoot },
+            result,
+            [...migrated.retainedPaths, originalPath],
+            migrated.expectedContentSha256
+          );
+          bindCatalogEntityFileInDb(options.db(), {
+            entityId: scope.documentId,
+            path: migrated.packageRoot,
+            fileKind: 'waypoint-notebook',
+            workspaceRoot: scope.workspaceRoot,
+            sizeBytes: migrated.result.markdownBytes,
+            modifiedAt: Date.now(),
+            status: 'current',
+          });
+          nextScope = await resolveDocument(scope.documentId, true);
+        } else {
+          const plan =
+            current.sourceShape === 'v1-package'
+              ? await planMigration(scope, current.metadataRaw, content, title)
+              : undefined;
+          result = await publishNotebookPackageV2InMain(
+            {
+              packageRoot: scope.path,
               workspaceRoot: scope.workspaceRoot,
-              sizeBytes: result.markdownBytes,
-              modifiedAt: Date.now(),
-              status: 'current',
-            });
-            nextScope = await resolveDocument(scope.documentId, true);
-          } catch (error) {
-            throw new NativeDocumentCommandError(
-              'NOTEBOOK_MIGRATION_PARTIAL',
-              error instanceof Error ? error.message : String(error),
-              true,
-              [
-                { path: packageRoot, published: true },
-                { path: scope.path + '.legacy', preserved: true },
-              ]
-            );
-          }
+              id: stripWorkspaceScope(scope.documentId),
+              title,
+              content,
+              sourceShape: current.sourceShape ?? 'v2-package',
+              formerAuthorityRaw:
+                current.sourceShape !== 'v2-package' ? current.metadataRaw : undefined,
+              existingMetadataRaw: current.metadataRaw,
+              preservedPreamble: current.preservedPreamble,
+              preservedTitleProjection: current.preservedTitleProjection,
+              expectedCanonicalFingerprint:
+                current.sourceShape === 'v2-package' ? source.fingerprint : undefined,
+            },
+            scope.assertCurrent
+          );
+          trace('canonical-files-published');
+          if (current.sourceShape === 'v1-package')
+            await captureMigration(scope, result, plan ? [plan] : []);
         }
+        const warnings: string[] = [];
         try {
           scope = nextScope;
           scope.assertCurrent();
@@ -877,23 +1339,7 @@ export function createNativeNotebookWorkingCopies(options: {
         );
       }
     },
-    async loadRecord(id) {
-      try {
-        const record = JSON.parse(await readFile(recordPath(id), 'utf8')) as NativeNotebookRecord;
-        if (
-          record.version !== 1 ||
-          record.documentId !== id ||
-          !record.path ||
-          typeof record.baselineFingerprint !== 'string' ||
-          typeof record.dirty !== 'boolean'
-        )
-          throw new Error('The retained notebook record is invalid.');
-        return record;
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
-        throw error;
-      }
-    },
+    loadRecord: readRetainedRecord,
     async storeRecord(record) {
       const identity = { documentId: record.documentId, path: record.path, dirty: record.dirty };
       if (record.dirty) await writeJson(identityPath(record.documentId), identity);

@@ -105,6 +105,13 @@ export interface NativeNotebookOptions {
   assertRecoveryClean?(path: string): Promise<void>;
   resolve(id: string, mutating: boolean): Promise<NativeNotebookScope>;
   load(scope: NativeNotebookScope): Promise<NativeNotebookSource>;
+  prepareLoad?(
+    scope: NativeNotebookScope,
+    record?: NativeNotebookRecord
+  ): Promise<NativeNotebookScope>;
+  migrateLegacyProjectFiles?(
+    root: string
+  ): Promise<import('../shared/notebook-document').NotebookLegacyProjectMigrationResult>;
   publish(
     scope: NativeNotebookScope,
     source: NativeNotebookSource,
@@ -662,10 +669,12 @@ export class NativeNotebookWorkingCopyOwner {
             operation.kind === 'schema' ||
             (operation.kind === 'table' && operation.command.kind === 'inspect');
           const retaining = operation.kind === 'retain-legacy-recovery';
-          const scope = await this.resolveCurrentScope(copy, !reading && !retaining);
+          let scope = await this.resolveCurrentScope(copy, !reading && !retaining);
           copy.scope = scope;
           if (reading) {
             if (!this.dirty(copy) && !copy.recovery && !copy.saves.size) {
+              scope = (await this.options.prepareLoad?.(scope)) ?? scope;
+              copy.scope = scope;
               const source = await this.options.load(scope);
               scope.assertCurrent();
               if (copy.tableTransitionUnavailable) this.tableHashes(source);
@@ -1167,9 +1176,10 @@ export class NativeNotebookWorkingCopyOwner {
     let pending = this.copies.get(id);
     if (pending) return pending;
     pending = (async () => {
-      const scope = await this.options.resolve(id, false),
-        source = await this.options.load(scope),
-        record = await this.options.loadRecord(id);
+      let scope = await this.options.resolve(id, false);
+      const record = await this.options.loadRecord(id);
+      scope = (await this.options.prepareLoad?.(scope, record)) ?? scope;
+      const source = await this.options.load(scope);
       scope.assertCurrent();
       const copy: NotebookCopy = {
         scope,
@@ -1472,8 +1482,36 @@ export class NativeNotebookWorkingCopyOwner {
     }
     return [...found.values()];
   }
+  async refreshAfterMigration(documentId: string, scope: NativeNotebookScope): Promise<void> {
+    const pending = this.copies.get(documentId);
+    if (!pending) return;
+    const copy = await pending;
+    if (this.dirty(copy) || copy.recovery || copy.saves.size)
+      throw refused(
+        'NOTEBOOK_RECOVERY_PENDING',
+        'The notebook draft protects its previous source.'
+      );
+    copy.scope = scope;
+    copy.source = await this.options.load(scope);
+    copy.model = new NotebookDocumentModel(copy.source.content, copy.source.title);
+    copy.version++;
+    copy.persistedRevision = this.revision(copy);
+    this.publish(this.snapshot(copy));
+  }
   beginLegacyMigration(): void {
     this.options.beginLegacyMigration?.();
+  }
+  async migrateLegacyProjectFiles(
+    root: string
+  ): Promise<import('../shared/notebook-document').NotebookLegacyProjectMigrationResult> {
+    return (
+      this.options.migrateLegacyProjectFiles?.(root) ?? {
+        migrated: 0,
+        issues: [],
+        mutatedGitFiles: [],
+        expectedContentSha256: {},
+      }
+    );
   }
   completeLegacyMigration(pendingIds: readonly string[]): Promise<void> {
     return this.options.completeLegacyMigration?.(pendingIds) ?? Promise.resolve();

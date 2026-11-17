@@ -550,6 +550,9 @@ export type * from '../shared/agent-capability-controls';
 
 export interface PlatformBridge {
   notebook: {
+    migrateLegacyProjectFiles(request: {
+      workspaceRoot: string;
+    }): Promise<import('../shared/notebook-document').NotebookLegacyProjectMigrationResult>;
     resolveResourceReference?(
       request: import('../shared/project-resource-reference').ResolveNotebookResourceReferenceRequest
     ): Promise<import('../shared/project-resource-reference').ResolvedProjectResourceReference>;
@@ -977,6 +980,11 @@ export interface PlatformBridge {
     discoverArtifacts(
       request: WorkspaceArtifactDiscoveryRequest
     ): Promise<WorkspaceArtifactDiscoveryResult>;
+    migrateLegacyProjectFiles?(request: {
+      repoPath: string;
+      mutationToken?: string;
+    }): Promise<import('../shared/workspace-git-types').WorkspaceEntityMigrationResult>;
+    onMigrationCandidatesChanged?(callback: (event: { workspaceRoot: string }) => void): () => void;
     listChildren(request: WorkspaceListChildrenRequest): Promise<WorkspaceListChildrenResult>;
     reconcileNativeRecords(request: NativeCatalogRecordReconcileRequest): Promise<number>;
     setDocumentCommandRoots(request: NativeDocumentWorkspaceRootsRequest): Promise<boolean>;

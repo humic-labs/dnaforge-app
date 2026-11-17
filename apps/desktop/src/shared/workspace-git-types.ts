@@ -204,6 +204,7 @@ export type SequenceImportBlockCode =
   | 'non_dna_content'
   | 'lossless_conversion_blocked'
   | 'source_too_large'
+  | 'automatic_split_required'
   | 'record_name_conflict';
 
 export type SequenceImportPreviewResult =
@@ -347,6 +348,18 @@ export interface ManagedHeadFile {
 export interface ManagedHeadIndex {
   headCommit: string | null;
   files: ManagedHeadFile[];
+  migrationIssues?: ManagedFileMigrationIssue[];
+}
+
+export interface ManagedFileMigrationIssue {
+  path: string;
+  reason: string;
+  kind: 'refused' | 'failed';
+}
+
+export interface WorkspaceEntityMigrationResult {
+  healedFileCount: number;
+  migrationIssues: ManagedFileMigrationIssue[];
 }
 
 export interface ManagedCatalogHeadIndex {
@@ -355,6 +368,7 @@ export interface ManagedCatalogHeadIndex {
   scannedFileCount: number;
   visibleFileCount: number;
   healedFileCount?: number;
+  migrationIssues?: ManagedFileMigrationIssue[];
 }
 
 export interface ManagedCatalogHeadIndexRequest {
