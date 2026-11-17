@@ -1425,6 +1425,7 @@ export class PartitionedInstancedTranscriptLayer {
         : null;
     if (appearanceBuffer) this.appearanceBuffers.set(appearanceBuffer, featureIndices);
     const attributes = {
+      aCorner: { buffer: this.cornerBuffer, format: 'float32' as const },
       ...(appearanceBuffer
         ? {
             aDataAppearance: {
@@ -1436,7 +1437,6 @@ export class PartitionedInstancedTranscriptLayer {
             },
           }
         : {}),
-      aCorner: { buffer: this.cornerBuffer, format: 'float32' as const },
       aBpStartChunk: instanceAttribute(TRANSCRIPT_GLYPH_INSTANCE_LAYOUT.bpStartChunk, 'float32'),
       aBpStartDelta: instanceAttribute(TRANSCRIPT_GLYPH_INSTANCE_LAYOUT.bpStartDelta, 'float32'),
       aBpEndChunk: instanceAttribute(TRANSCRIPT_GLYPH_INSTANCE_LAYOUT.bpEndChunk, 'float32'),
