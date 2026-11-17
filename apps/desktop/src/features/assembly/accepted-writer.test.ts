@@ -368,6 +368,44 @@ describe('accepted assembly writer', () => {
     expect(swaps[0]).toContain('.staging-');
   });
 
+  it('publishes into an existing workspace root without mutating the root', async () => {
+    const design = createDesign();
+    const projectionInput = await buildAcceptedAssemblyProjectionInput(design, {
+      sourceProvenance: design.regions.map((region) => buildSourceProvenanceSnapshot(region)),
+    });
+    const projectRoot = '/workspace/project';
+    const projectFile = `${projectRoot}/existing.gb`;
+    const files = await prepareAcceptedAssemblyFiles({
+      projectionInput,
+      validationSnapshot: buildAcceptedAssemblyValidationSnapshot({
+        designId: design.id,
+        designVersion: design.version,
+        assemblyMethod: design.assemblyMethod,
+        projectionInputChecksum: projectionInput.canonicalDraftChecksum,
+      }),
+      writeTarget: {
+        workspaceFolderId: 'main',
+        relativeDirectory: '',
+        basename: 'accepted-construct',
+      },
+      workspaceFolders: { main: { path: projectRoot, name: 'Project' } },
+    });
+    const disk = virtualPackageDisk({ [projectFile]: 'existing content' });
+
+    await writeAcceptedAssemblyFiles(files, {
+      ...disk.ops,
+      mkdir: async (path, options) => {
+        if (path === projectRoot) throw new Error('PROJECT_FILESYSTEM_AUTHORITY_REQUIRED');
+        await disk.ops.mkdir(path, options);
+      },
+    });
+
+    expect(disk.read(files.productGenBankPath)).toBe(files.productGenBankContent);
+    expect(disk.read(files.metaPath)).toBe(files.sidecarJsonContent);
+    expect(disk.read(projectFile)).toBe('existing content');
+    expect(disk.paths().some((path) => /\.(staging|previous)-/.test(path))).toBe(false);
+  });
+
   it('leaves nothing behind when staging itself fails', async () => {
     const design = createDesign();
     const projectionInput = await buildAcceptedAssemblyProjectionInput(design, {
