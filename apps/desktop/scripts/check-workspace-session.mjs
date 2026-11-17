@@ -26,6 +26,7 @@ const receipt = {
   startedAt: new Date().toISOString(),
   steps: [],
   pageErrors: [],
+  consoleErrors: [],
   frames: [],
 };
 let browser;
@@ -48,6 +49,10 @@ try {
   assert.ok(page);
   receipt.renderer = renderer;
   page.on('pageerror', (error) => receipt.pageErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error' || message.type() === 'warning')
+      receipt.consoleErrors.push({ type: message.type(), text: message.text() });
+  });
   cdp = await page.context().newCDPSession(page);
   cdp.on('Page.screencastFrame', (frame) => {
     const file = `frames/${String(receipt.frames.length).padStart(6, '0')}.jpg`;
@@ -66,8 +71,12 @@ try {
           ])
         )[0]?.value ?? null,
       projects: await window.electronAPI.db.select(
-        'SELECT path,name,archived_at,trashed_at FROM workspaces'
+        'SELECT path,name,repo_uuid,access_mode,archived_at,trashed_at FROM workspaces'
       ),
+      notices: [...document.querySelectorAll('[data-toast-definition]')].map((element) => ({
+        definition: element.getAttribute('data-toast-definition'),
+        text: element.textContent,
+      })),
     }));
   const step = async (name) => {
     const observed = await observe();
@@ -141,14 +150,19 @@ try {
           receipt.setup.sampleSeed = { ...sampleSeed, observedAt: new Date().toISOString() };
           return sampleSeed;
         },
-        { timeout: 60000, message: 'Fresh-profile sample setup must finish before project mutations' }
+        {
+          timeout: 60000,
+          message: 'Fresh-profile sample setup must finish before project mutations',
+        }
       )
       .toEqual({ completed: '1', visible: true, pendingImports: 0 });
     await page.keyboard.press('Escape');
     const suffix = Date.now();
     const first = await create(`Session A ${suffix}`);
     await step('created-first-project-and-selected-it');
-    for (const folder of (await observe()).folders.filter((f) => !f.pinned && f.path !== first.path))
+    for (const folder of (await observe()).folders.filter(
+      (f) => !f.pinned && f.path !== first.path
+    ))
       await archive(folder);
     const second = await create(`Session B ${suffix}`);
     await step('created-second-project-and-selected-it');

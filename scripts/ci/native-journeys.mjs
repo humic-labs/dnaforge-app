@@ -4,6 +4,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   closeSync,
+  copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -15,6 +16,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import net from 'node:net';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -433,6 +435,7 @@ export async function runNativeJourneys({
       let child;
       let output;
       let generation = 0;
+      let launchStartedAt;
       const stop = async () => {
         if (!child) return;
         try {
@@ -466,6 +469,7 @@ export async function runNativeJourneys({
       };
       const start = async () => {
         generation += 1;
+        launchStartedAt = Date.now();
         output = openSync(join(directory, `launch-${generation}.log`), 'wx');
         child = spawn(process.execPath, [GUARD], {
           cwd: root,
@@ -508,6 +512,24 @@ export async function runNativeJourneys({
       } catch (error) {
         journeyFailure = error;
         result.failure = error.stack ?? String(error);
+        if (result.runtime?.provenance?.execPath) {
+          try {
+            const guard = createRequire(import.meta.url)(join(root, GUARD));
+            const native = guard.currentNativeDiagnostics(
+              launchStartedAt,
+              resolve(dirname(result.runtime.provenance.execPath), '../..')
+            );
+            assert.ok(native, 'The current background launch has no owned native logs');
+            const capture = join(directory, `native-${generation}`);
+            mkdirSync(capture);
+            copyFileSync(native.metadataPath, join(capture, 'launch.json'));
+            copyFileSync(native.stdout, join(capture, 'stdout.log'));
+            copyFileSync(native.stderr, join(capture, 'stderr.log'));
+            result.nativeDiagnostics = { ...native, capture };
+          } catch (captureError) {
+            result.nativeDiagnosticsError = String(captureError);
+          }
+        }
         throw error;
       } finally {
         try {

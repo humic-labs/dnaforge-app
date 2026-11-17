@@ -65,8 +65,8 @@ missing original capture fails the command.
 The shared recording finalizer writes the receipt after encoding. It orders a
 copy of the frames by their capture timestamps, preserves the original arrival
 order and files, and records encoding errors separately from functional errors.
-A missing recording cannot leave a passing receipt. For an encoding repair,
-copy a retained capture into a new evidence directory and drive
+A missing recording cannot leave a passing receipt. For an encoding repair, copy
+a retained capture into a new evidence directory and drive
 `finalizeJourneyRecording` from
 `apps/desktop/scripts/lib/native-journey-recording.mjs`. Decode the resulting
 video with `ffprobe` and compare its frame count and duration with the capture.
@@ -80,24 +80,24 @@ This proves encoding only; the unchanged full journey must still pass in CI.
   the owned settings so recovery can address the right ports.
 - Every journey gets a fresh private automation profile. Only workspace
   restoration restarts that same profile within its journey. The existing
-  launcher's ownership checks stop the app; no process-name kill is used.
-  A child that exits during ownership inspection is already stopped. Live
+  launcher's ownership checks stop the app; no process-name kill is used. A
+  child that exits during ownership inspection is already stopped. Live
   processes with unknown or foreign ownership remain untouched and fail cleanup.
   If a previously verified child loses its working directory during shutdown,
   cleanup waits for confirmed exit within its existing grace period. Only a
-  confirmed missing process makes a raced termination signal harmless.
-  A final port-release failure records fresh listener identities, liveness,
-  working directories, prior ownership verification and TCP acceptance under
-  `ELECTRON_DEV_TEARDOWN_INCOMPLETE`. This observation does not retry shutdown or
-  change its failure result.
-- Workspace transitions require the runner's fresh scenario profile. Setup
-  waits for successful sample import, the visible Samples project and no pending
+  confirmed missing process makes a raced termination signal harmless. A final
+  port-release failure records fresh listener identities, liveness, working
+  directories, prior ownership verification and TCP acceptance under
+  `ELECTRON_DEV_TEARDOWN_INCOMPLETE`. This observation does not retry shutdown
+  or change its failure result.
+- Workspace transitions require the runner's fresh scenario profile. Setup waits
+  for successful sample import, the visible Samples project and no pending
   imports before changing the project collection. It archives setup projects
   once and verifies exactly one project remains before testing removal refusal.
-  Only the restoration phase reuses that profile.
-  Archiving awaits the required confirmation button. The receipt retains the
-  requested project and the observed folder, database and preference state so a
-  failed removal can be distinguished from a delayed or refused operation.
+  Only the restoration phase reuses that profile. Archiving awaits the required
+  confirmation button. The receipt retains the requested project and the
+  observed folder, database and preference state so a failed removal can be
+  distinguished from a delayed or refused operation.
 - Canvas, chat and palette reloads use `reloadNativePage` from
   `apps/desktop/scripts/lib/native-journey-readiness.mjs`. Navigation and native
   readiness share one deadline; a new load identity, page readiness and shell
@@ -112,7 +112,11 @@ This proves encoding only; the unchanged full journey must still pass in CI.
   are refused; approved profiles can reopen their own persisted data.
 - Profiles, fixture data, receipts and original media remain after the owned app
   stops. Upload the complete output directory even on failure. Do not replace
-  failed captures with a later passing run.
+  failed captures with a later passing run. A failed journey also retains the
+  current launch's native stdout and stderr when the launcher can verify their
+  ownership. Workspace observations include project registration, visible
+  notices and renderer warning/error messages. Capture failures remain separate
+  from the original journey failure.
 - Chat uses a fixed development credential and intercepts Anthropic HTTP in its
   disposable renderer. It establishes queue and persistence behavior, not
   live-model quality.
