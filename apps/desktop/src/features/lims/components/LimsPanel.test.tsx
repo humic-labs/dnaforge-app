@@ -636,6 +636,22 @@ describe('LIMS panel workflows', () => {
     mocks.reviewProfileDirectory = null;
   });
 
+  it('uses the default Registry bounds when its sidebar has no layout at opening', async () => {
+    render(<LimsPanel />);
+    const panel = await screen.findByTestId('lims-panel');
+    const measure = vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue(new DOMRect());
+    try {
+      act(() => useLimsOverlayStore.getState().requestRegistryEntity(null, 'track-view'));
+      expect(await screen.findByTestId('lims-registry-overlay')).toHaveStyle({
+        top: '58px',
+        left: '48px',
+        bottom: '0px',
+      });
+    } finally {
+      measure.mockRestore();
+    }
+  });
+
   it('joins a notebook reference disposition only after the intended Registry preview renders', async () => {
     const entity = await mocks.bridge!.registerEntity({
       kind: 'strain',
