@@ -494,7 +494,7 @@ export function isForceRetryableWorkspaceSyncFailure(job: WorkspaceSyncQueueJob)
   const code = job.errorCode ?? '';
   if (!code) return job.status === 'retry_wait';
   if (WORKSPACE_SYNC_TRANSIENT_RETRY_ERROR_CODES.has(code)) return true;
-  if (code === 'DURABLE_UPLOAD_INVALID') return true;
+  if (code === 'DURABLE_UPLOAD_INVALID' || code === 'BLOB_UPLOAD_FAILED') return true;
   if (code === 'VALIDATION' || code === 'QUOTA_EXCEEDED') return true;
   return false;
 }
