@@ -66,7 +66,7 @@ export interface ScientificWorkspaceSyncRecoveryDetail {
     Required<WorkspaceSyncScientificHistoryMetadata> & { representation: 'scientific_manifest_v1' };
   readonly manifest: WorkspaceSyncManifestV1;
   readonly resourceIdentities: readonly { path: string; resourceId: string }[];
-  readonly excludedSummary: Required<WorkspaceSyncExcludedSummary>;
+  readonly excludedSummary: Required<Omit<WorkspaceSyncExcludedSummary, 'ignoredCount'>>;
   readonly missingPaths: readonly string[];
 }
 
@@ -204,7 +204,7 @@ export function workspaceSyncRecoveryCandidateRequest(
         throw badReceipt('Recovery exclusion counters are invalid.');
       return [key, value];
     })
-  ) as Required<WorkspaceSyncExcludedSummary>;
+  ) as Required<Omit<WorkspaceSyncExcludedSummary, 'ignoredCount'>>;
   const missingPaths = [...(input.missingPaths ?? [])].sort((a, b) =>
     Buffer.compare(Buffer.from(a), Buffer.from(b))
   );

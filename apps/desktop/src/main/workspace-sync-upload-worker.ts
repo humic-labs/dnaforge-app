@@ -1,4 +1,8 @@
 import {
+  assertWorkspaceSyncSelectionActive,
+  ensureWorkspaceSyncAcceptedPaths,
+} from './workspace-sync-membership';
+import {
   workspaceSyncUploadBlockedSql,
   throwIfWorkspaceSyncUploadBlocked,
 } from './workspace-sync-renderer-refresh-pending';
@@ -56,6 +60,7 @@ import {
   buildWorkspaceSyncSnapshot,
   buildWorkspaceSyncUploadCapture,
   buildWorkspaceSyncRecoveryCapture,
+  previewWorkspaceSyncUploadWithHeldMutationLease,
   WorkspaceSyncSnapshotError,
   type WorkspaceSyncSnapshot,
   type WorkspaceSyncUploadCapture,
@@ -80,8 +85,6 @@ import {
 import { recoverNativeCatalogRecordPublications } from './native-catalog-record-mutations';
 import { assertWorkspaceMigrationActionsSettled } from './workspace-migration-admission';
 import { acquireWorkspaceSyncMutationLease } from './workspace-sync-mutation-lease';
-import { ScientificObjectStore } from './scientific-object-store';
-import { scientificHistoryCurrentFiles } from '@waypoint/scientific-artifacts';
 import { isAccessRemovedError, markWorkspaceSyncAccessRemoved } from './workspace-sync-access';
 import { hasWorkspaceSyncWorkingChanges } from './workspace-sync-git-state';
 import { isWorkspaceSyncRemoteUuid } from './workspace-sync-remote-id';
@@ -148,6 +151,7 @@ export interface WorkspaceSyncUploadRequest extends WorkspaceSyncScientificHisto
   ownerAccountId: string;
   idempotencyKey: string;
   baseVersionId: string | null;
+  fileSelectionVersion?: 0 | 1;
   bundle?: WorkspaceSyncBundle;
 
   manifest?: WorkspaceSyncManifestV1;
@@ -680,6 +684,7 @@ export class WorkspaceSyncUploadWorker {
         if (recoveryIntent) publishWorkspaceSyncRecoveryTelemetry(this.db, job.id);
 
         const request: WorkspaceSyncUploadRequest = {
+          fileSelectionVersion: snapshot.selection?.version ?? 0,
           remoteWorkspaceId: binding.remote_workspace_id,
           ownerAccountId: binding.owner_account_id,
           idempotencyKey: prepared.idempotencyKey,
@@ -900,6 +905,7 @@ export class WorkspaceSyncUploadWorker {
       transitionWon &&
       failed.status === 'failed' &&
       failed.errorCode !== 'VALIDATION' &&
+      failed.errorCode !== 'UPGRADE_REQUIRED' &&
       failed.errorCode !== 'QUOTA_EXCEEDED' &&
       failed.errorCode !== 'RECOVERY_CAPTURE_ONLY' &&
       failed.errorCode !== 'RECOVERY_CANDIDATE_EXPIRED' &&
@@ -971,12 +977,21 @@ export class WorkspaceSyncUploadWorker {
       }
 
       if (this.deps.commitWorkingTreeIfDirty) {
-        if (this.scientificHistoryFormat(binding.workspace_id)) {
-          const { graph, head } = new ScientificObjectStore(this.db, binding.workspace_id).read();
-          await this.deps.commitWorkingTreeIfDirty(binding.workspace_path, {
-            forceInclude: scientificHistoryCurrentFiles(graph, head).map((file) => file.path),
-          });
-        } else await this.deps.commitWorkingTreeIfDirty(binding.workspace_path);
+        const client = this.client();
+        if (client.readVersionPaths)
+          await ensureWorkspaceSyncAcceptedPaths(
+            this.db,
+            workspaceUuid,
+            client.readVersionPaths.bind(client)
+          );
+        const preview = await previewWorkspaceSyncUploadWithHeldMutationLease(this.db, {
+          workspaceUuid,
+          scientificHistoryFormat: this.scientificHistoryFormat(binding.workspace_id),
+        });
+        assertWorkspaceSyncSelectionActive(preview.selection);
+        await this.deps.commitWorkingTreeIfDirty(binding.workspace_path, {
+          forceInclude: preview.includedFiles.map((file) => file.relativePath),
+        });
       }
 
       const context = workspaceContext(binding);
@@ -1784,9 +1799,14 @@ export function createWorkspaceSyncUploadClient(
             request.bundle.schemaVersion === 3
               ? {
                   baseVersionId: request.baseVersionId,
+                  fileSelectionVersion: request.fileSelectionVersion ?? 0,
                   manifest: workspaceSyncManifestFromBundle(request.bundle),
                 }
-              : { baseVersionId: request.baseVersionId, bundle: request.bundle },
+              : {
+                  baseVersionId: request.baseVersionId,
+                  fileSelectionVersion: request.fileSelectionVersion ?? 0,
+                  bundle: request.bundle,
+                },
           signal,
         }
       );

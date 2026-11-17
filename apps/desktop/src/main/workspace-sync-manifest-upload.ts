@@ -88,6 +88,7 @@ export interface WorkspaceSyncManifestUploadRequest extends WorkspaceSyncScienti
   ownerAccountId: string;
   idempotencyKey: string;
   baseVersionId: string | null;
+  fileSelectionVersion?: 0 | 1;
 
   bundle?: WorkspaceSyncBundle;
 
@@ -358,8 +359,13 @@ export async function createManifestWorkspaceSyncVersion(
     idempotencyKey: request.idempotencyKey,
     body: {
       baseVersionId: request.baseVersionId,
+      fileSelectionVersion: request.fileSelectionVersion ?? 0,
       manifest,
-      excludedSummary: request.excludedSummary ?? {},
+      excludedSummary: request.excludedSummary
+        ? Object.fromEntries(
+            Object.entries(request.excludedSummary).filter(([key]) => key !== 'ignoredCount')
+          )
+        : {},
       ...(scientific
         ? {
             representation: 'scientific_manifest_v1',

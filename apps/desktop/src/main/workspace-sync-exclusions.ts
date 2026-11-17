@@ -43,6 +43,13 @@ export function parseWorkspaceSyncExcludedSummary(
       if (!Number.isSafeInteger(count) || (count as number) < 0) return null;
       summary[key] = count as number;
     }
+    const ignoredCount = parsed.ignoredCount;
+    if (
+      ignoredCount !== undefined &&
+      (!Number.isSafeInteger(ignoredCount) || (ignoredCount as number) < 0)
+    )
+      return null;
+    if (ignoredCount !== undefined) summary.ignoredCount = ignoredCount as number;
     return summary;
   } catch {
     return null;
@@ -53,6 +60,7 @@ function normalizeWorkspaceSyncExcludedSummary(
   summary: StatusExcludedSummary
 ): Required<StatusExcludedSummary> {
   return {
+    ignoredCount: validCount(summary.ignoredCount),
     unsupportedCount: validCount(summary.unsupportedCount),
     privateRawDataCount: validCount(summary.privateRawDataCount),
     referencePointerCount: validCount(summary.referencePointerCount),

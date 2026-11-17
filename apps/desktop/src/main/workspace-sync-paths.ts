@@ -1,20 +1,7 @@
 import { HOSTED_RESOURCE_BINDINGS_PATH } from '../shared/hosted-resource-bindings';
 import { MANAGED_WORKSPACE_MARKER } from '../shared/workspace-git-types';
 
-export const WORKSPACE_SYNC_SKIP_DIRS = new Set([
-  '.git',
-  'node_modules',
-  '.next',
-  'dist',
-  'dist-electron',
-  'build',
-  'coverage',
-  'tmp',
-  'temp',
-  '.tmp',
-  '.cache',
-  'vendor',
-]);
+export const WORKSPACE_SYNC_SKIP_DIRS = new Set(['.git']);
 export const WORKSPACE_SYNC_SKIP_FILES = new Set(['.DS_Store', MANAGED_WORKSPACE_MARKER]);
 export const WORKSPACE_SYNC_SKIP_RELATIVE_DIRS = new Set(['.waypoint/lims', '.dnaforge/migration']);
 export const WORKSPACE_SYNC_SKIP_RELATIVE_FILES = new Set([HOSTED_RESOURCE_BINDINGS_PATH]);

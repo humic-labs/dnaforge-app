@@ -1,3 +1,4 @@
+import { parseWorkspaceSyncSelectionMetadata } from './workspace-sync-membership';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import {
@@ -70,7 +71,10 @@ interface SnapshotFileDescriptor {
   encoding?: 'base64';
 }
 
-interface FileBackedSnapshotEnvelope {
+interface FileBackedSnapshotEnvelope extends Pick<
+  WorkspaceSyncSnapshot,
+  'selection' | 'excludedFiles'
+> {
   storageVersion: typeof SNAPSHOT_STORAGE_VERSION;
   bundle: WorkspaceSyncBundle;
   files: SnapshotFileDescriptor[];
@@ -85,6 +89,8 @@ interface FileBackedManifestSnapshotEnvelope extends WorkspaceSyncScientificHist
   excludedSummary: WorkspaceSyncUploadCapture['excludedSummary'];
   files: SnapshotFileDescriptor[];
   recoveryOnly?: WorkspaceSyncUploadCapture['recoveryOnly'];
+  selection?: WorkspaceSyncUploadCapture['selection'];
+  excludedFiles?: WorkspaceSyncUploadCapture['excludedFiles'];
 }
 
 export function ensureWorkspaceSyncRecoveryCandidateIntent(
@@ -338,10 +344,15 @@ export function recordWorkspaceSyncUploadSnapshot(
           input.root,
           input.jobId,
           input.snapshot.bundle,
-          input.snapshot.captureFileSources
+          input.snapshot.captureFileSources,
+          input.snapshot
         )
       : {
-          bundleJson: JSON.stringify(input.snapshot.bundle),
+          bundleJson: JSON.stringify({
+            ...input.snapshot.bundle,
+            selection: input.snapshot.selection,
+            excludedFiles: input.snapshot.excludedFiles,
+          }),
           fileSources: undefined,
         };
   if (Buffer.byteLength(staged.bundleJson, 'utf8') > MAX_DURABLE_UPLOAD_SNAPSHOT_BYTES) {
@@ -414,13 +425,27 @@ export function readWorkspaceSyncUploadSnapshot(
   if (bundle.workspace.id !== input.workspaceUuid) {
     throw new Error(`Workspace sync job ${input.jobId} snapshot belongs to another workspace.`);
   }
-  return snapshotFromBundle(
-    input,
-    bundle,
-    JSON.stringify(bundle),
-    row.content_sha256,
-    stored.fileSources
-  );
+  const selectionMetadata = parseWorkspaceSyncSelectionMetadata(isRecord(parsed) ? parsed : {});
+  return {
+    ...snapshotFromBundle(
+      input,
+      bundle,
+      JSON.stringify(bundle),
+      row.content_sha256,
+      stored.fileSources
+    ),
+    ...selectionMetadata,
+    statusExcludedSummary: {
+      ...toWorkspaceSyncStatusExcludedSummary(bundle.excludedSummary),
+      ...(selectionMetadata.excludedFiles
+        ? {
+            ignoredCount: selectionMetadata.excludedFiles.filter(
+              (file) => file.reason === 'project-ignore'
+            ).length,
+          }
+        : {}),
+    },
+  };
 }
 
 export function recordWorkspaceSyncUploadCapture(
@@ -574,7 +599,8 @@ function stageSnapshotFiles(
   root: string,
   jobId: string,
   bundle: WorkspaceSyncBundle,
-  captureFileSources?: ReadonlyMap<string, string>
+  captureFileSources?: ReadonlyMap<string, string>,
+  metadata?: Pick<WorkspaceSyncSnapshot, 'selection' | 'excludedFiles'>
 ): { bundleJson: string; fileSources: ReadonlyMap<string, string> } {
   const directory = workspaceSyncUploadSnapshotDirectory(root, jobId);
   removeSnapshotDirectory(root, jobId);
@@ -639,6 +665,8 @@ function stageSnapshotFiles(
     };
     const envelope: FileBackedSnapshotEnvelope = {
       storageVersion: SNAPSHOT_STORAGE_VERSION,
+      selection: metadata?.selection,
+      excludedFiles: metadata?.excludedFiles,
       bundle: skeleton,
       files: descriptors,
     };
@@ -660,7 +688,12 @@ function hydrateStoredBundle(
     if (!isRecord(value)) {
       throw new Error(`Workspace sync job ${jobId} has an invalid upload snapshot envelope.`);
     }
-    const { recoveryCandidate: _observationalReceipt, ...bundle } = value;
+    const {
+      recoveryCandidate: _observationalReceipt,
+      selection: _selection,
+      excludedFiles: _excludedFiles,
+      ...bundle
+    } = value;
     return { bundle };
   }
   if (!root || !isRecord(value.bundle) || !Array.isArray(value.files)) {
@@ -757,8 +790,24 @@ function snapshotWithStoredSources(
   root: string | undefined,
   jobId: string
 ): WorkspaceSyncSnapshot {
-  const stored = hydrateStoredBundle(JSON.parse(bundleJson), root, jobId);
-  return { ...snapshot, fileSources: stored.fileSources };
+  const parsed: unknown = JSON.parse(bundleJson);
+  const stored = hydrateStoredBundle(parsed, root, jobId);
+  const { selection: _selection, excludedFiles: _excludedFiles, ...base } = snapshot;
+  const metadata = parseWorkspaceSyncSelectionMetadata(isRecord(parsed) ? parsed : {});
+  return {
+    ...base,
+    ...metadata,
+    fileSources: stored.fileSources,
+    statusExcludedSummary: {
+      ...toWorkspaceSyncStatusExcludedSummary(snapshot.excludedSummary),
+      ...(metadata.excludedFiles
+        ? {
+            ignoredCount: metadata.excludedFiles.filter((file) => file.reason === 'project-ignore')
+              .length,
+          }
+        : {}),
+    },
+  };
 }
 
 function snapshotFromBundle(
@@ -916,6 +965,8 @@ function stageManifestCapture(
         : MANIFEST_SNAPSHOT_STORAGE_VERSION,
       workspaceUuid: snapshot.workspaceUuid,
       manifest: snapshot.manifest,
+      selection: snapshot.selection,
+      excludedFiles: snapshot.excludedFiles,
       excludedSummary: snapshot.excludedSummary,
       files: descriptors,
       ...(scientific ?? {}),
@@ -1032,6 +1083,7 @@ function hydrateManifestCapture(
     }
   }
   const excludedSummary = value.excludedSummary;
+  const selectionMetadata = parseWorkspaceSyncSelectionMetadata(value);
   let recoveryOnly: WorkspaceSyncUploadCapture['recoveryOnly'];
   if (value.recoveryOnly !== undefined) {
     const metadata = value.recoveryOnly;
@@ -1056,7 +1108,17 @@ function hydrateManifestCapture(
     includedFileCount: manifest.files.length,
     includedBytes: manifest.files.reduce((total, file) => total + file.sizeBytes, 0),
     excludedSummary,
-    statusExcludedSummary: toWorkspaceSyncStatusExcludedSummary(excludedSummary),
+    ...selectionMetadata,
+    statusExcludedSummary: {
+      ...toWorkspaceSyncStatusExcludedSummary(excludedSummary),
+      ...(selectionMetadata.excludedFiles
+        ? {
+            ignoredCount: selectionMetadata.excludedFiles.filter(
+              (file) => file.reason === 'project-ignore'
+            ).length,
+          }
+        : {}),
+    },
     ...(scientific ? { ...scientific, scientificBlobSources } : {}),
     ...(recoveryOnly ? { recoveryOnly } : {}),
   };

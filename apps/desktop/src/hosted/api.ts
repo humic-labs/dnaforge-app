@@ -1,3 +1,4 @@
+import { parseWorkspaceSyncPublicationPolicy } from '@waypoint/share-bundle';
 import { Upload } from 'tus-js-client';
 import {
   mergeWorkspaceSessionFiles,
@@ -551,6 +552,19 @@ async function publishHostedManifest(args: {
   publicationCondition?: WorkspaceSessionPublicationCondition;
 }): Promise<HostedWorkspacePublishResult> {
   const expectedAccountId = requireHostedMutationAccountId(args.expectedAccountId);
+  const policy = await requestJson<unknown>(
+    `/api/hosted-workspaces/${encodeURIComponent(args.workspaceId)}/storage-policy?fileSelectionVersion=1`,
+    { headers: accountHeaders(expectedAccountId) }
+  );
+  try {
+    parseWorkspaceSyncPublicationPolicy(policy);
+  } catch {
+    throw new HostedWorkspaceApiError(
+      426,
+      'UPGRADE_REQUIRED',
+      'The service must be updated before this project can publish shared file selection.'
+    );
+  }
   const manifest = hostedManifestBody(args.files);
   const resourceIdentities = args.files
     .filter((file): file is HostedManifestFile & { resourceId: string } => !!file.resourceId)
@@ -579,6 +593,7 @@ async function publishHostedManifest(args: {
     }),
     body: JSON.stringify({
       baseVersionId: args.baseVersionId,
+      fileSelectionVersion: 1,
       manifest,
       ...(resourceIdentities.length > 0 ? { resourceIdentities } : {}),
       ...(args.publicationCondition ? { publicationCondition: args.publicationCondition } : {}),
