@@ -217,6 +217,46 @@ describe('SequenceViewer controlled navigation', () => {
     expect(scrollContainer.scrollTop).toBeGreaterThan(0);
   });
 
+  it('keeps an animated destination pending until the viewport has measurable dimensions', async () => {
+    let height = 0;
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(() => height);
+    vi.useFakeTimers();
+    try {
+      const onComplete = vi.fn();
+      const onViewportChange = vi.fn<(range: ViewportRange) => void>();
+      const { container } = render(
+        <SequenceViewer
+          sequence={sequence}
+          scrollToPosition={3000}
+          scrollCommandId={1}
+          onScrollToPositionComplete={onComplete}
+          onViewportChange={onViewportChange}
+        />
+      );
+      const viewport = container.querySelector<HTMLElement>(
+        '[data-testid="sequence-scroll-container"]'
+      )!;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(400);
+      });
+      expect(onComplete).not.toHaveBeenCalled();
+      expect(viewport.scrollTop).toBe(0);
+
+      height = 96;
+      act(() => window.dispatchEvent(new Event('resize')));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(400);
+      });
+      expect(onComplete).toHaveBeenCalledTimes(1);
+      expect(viewport.scrollTop).toBeGreaterThan(0);
+      expect(
+        Math.abs((onViewportChange.mock.calls.at(-1)?.[0].centerColumn ?? NaN) - 2999)
+      ).toBeLessThanOrEqual(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('acknowledges an instant jump once and does not replay it on a layout change', async () => {
     const onComplete = vi.fn();
     const { rerender, container } = render(
