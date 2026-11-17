@@ -1425,7 +1425,11 @@ export class PartitionedInstancedTranscriptLayer {
         : null;
     if (appearanceBuffer) this.appearanceBuffers.set(appearanceBuffer, featureIndices);
     const attributes = {
-      aCorner: { buffer: this.cornerBuffer, format: 'float32' as const },
+      aCorner: {
+        buffer: this.cornerBuffer,
+        format: 'float32' as const,
+        stride: Float32Array.BYTES_PER_ELEMENT,
+      },
       ...(appearanceBuffer
         ? {
             aDataAppearance: {
