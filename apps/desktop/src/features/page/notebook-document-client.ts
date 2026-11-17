@@ -1,8 +1,11 @@
+import { notebookTableData } from '../../shared/table-document-reference';
+import { TABLE_NOTEBOOK_BLOCK } from '../../shared/table-notebook-contract';
+import { mergeTableDataPatch } from '../../shared/notebook-model/table/utils/merge-table-data';
 import { userMessage, userMessageWithValues, userMessageValue } from '@waypoint/user-messages';
 import { Extension, type Editor, type JSONContent } from '@tiptap/core';
 import type { Transaction } from '@tiptap/pm/state';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
-import { undo as undoPM, redo as redoPM } from '@tiptap/pm/history';
+import { undo as undoPM, redo as redoPM, closeHistory } from '@tiptap/pm/history';
 import { platform } from '../../platform';
 import type { FileDocumentFlushPurpose } from '../../shared/file-document-client-sync';
 import type {
@@ -135,6 +138,7 @@ export class NativeNotebookDocumentClient {
   private inputVersion = 0;
   private tableSave: NativeTableNotebookSave | null = null;
   private notebookContent: JSONContent | null = null;
+  private projectedContent: JSONContent | null = null;
   private readonly capturedSaves = new Map<number, Promise<boolean>>();
   private listeners = new Set<() => void>();
   private readonly editors = new Map<Editor, (() => Promise<void>) | undefined>();
@@ -142,6 +146,7 @@ export class NativeNotebookDocumentClient {
   private retiring = false;
   private retirement: Promise<void> | undefined;
   private readonly admittedOperations = new Set<Promise<unknown>>();
+  private notificationVersion = 0;
   private applying = false;
   private acknowledgedCapture: {
     revision: string;
@@ -149,6 +154,12 @@ export class NativeNotebookDocumentClient {
     nativeAfter: ProseMirrorNode;
   } | null = null;
   constructor(readonly pageId: string) {}
+  get content(): JSONContent | null {
+    return this.projectedContent ?? this.snapshot?.copy.content ?? null;
+  }
+  get viewRevision(): number {
+    return this.notificationVersion;
+  }
   get nativeDocumentId(): string {
     return this.snapshot?.documentId ?? this.pageId;
   }
@@ -174,7 +185,20 @@ export class NativeNotebookDocumentClient {
     };
   };
   private notify(): void {
-    for (const listener of this.listeners) listener();
+    this.notificationVersion++;
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch (error) {
+        try {
+          console.error(
+            '[NativeNotebookDocumentClient] Observer notification failed:',
+            { documentId: this.nativeDocumentId, path: this.snapshot?.path },
+            error
+          );
+        } catch {}
+      }
+    }
   }
   private assertActive(): void {
     if (this.retiring)
@@ -226,7 +250,10 @@ export class NativeNotebookDocumentClient {
       }
     }
     this.snapshot = snapshot;
-    if (!this.pending && !this.error) this.project();
+    if (!this.pending && !this.error) {
+      this.projectedContent = snapshot.copy.content;
+      this.project();
+    }
     this.notify();
   }
   attach(editor: Editor, retire?: () => Promise<void>): () => void {
@@ -254,6 +281,7 @@ export class NativeNotebookDocumentClient {
     this.inputVersion++;
     this.tableSave = content ? captureNativeTableNotebookSave(this.pageId, content) : null;
     this.notebookContent = content ?? null;
+    this.projectedContent = content ?? transaction.doc.toJSON();
     this.pending++;
     this.notify();
     const work = this.tail
@@ -296,11 +324,39 @@ export class NativeNotebookDocumentClient {
       })
       .finally(() => {
         this.pending--;
-        if (!this.pending && !this.error) this.project();
+        if (!this.pending && !this.error) {
+          this.projectedContent = this.snapshot?.copy.content ?? null;
+          this.project();
+        }
         this.notify();
       });
     this.tail = work;
     void work.catch(() => {});
+  }
+  updateTable(blockId: string, patch: Record<string, unknown>): void {
+    if (!this.snapshot || this.error || this.snapshot.readOnly || this.snapshot.recovery)
+      throw new Error(this.error ?? 'The native notebook working copy is not ready for editing.');
+    const content = this.content;
+    if (!content) throw new Error('The native notebook working copy is unavailable.');
+    const data = mergeTableDataPatch(notebookTableData(content, blockId), patch);
+    const validated = TABLE_NOTEBOOK_BLOCK.parseData(data);
+    if (!validated.ok) throw new Error(validated.reason);
+    const model = new NotebookDocumentModel(content, this.snapshot.title);
+    let position: number | undefined;
+    model.state.doc.descendants((node, index) => {
+      if (node.type.name === 'embed' && node.attrs.type === 'table' && node.attrs.refId === blockId)
+        position = index;
+    });
+    if (position === undefined)
+      throw new Error('This notebook has no unique table with that identity.');
+    const node = model.state.doc.nodeAt(position)!;
+    const transaction = closeHistory(model.state.tr).setNodeMarkup(position, undefined, {
+      ...node.attrs,
+      data,
+    });
+    if (canonicalNotebookJson(content) === canonicalNotebookJson(transaction.doc.toJSON())) return;
+    this.capture(transaction, transaction.doc.toJSON());
+    this.projectEditors(this.content!);
   }
   async flush(purpose: FileDocumentFlushPurpose = 'synchronize'): Promise<void> {
     if (purpose === 'retire') {
@@ -485,18 +541,17 @@ export class NativeNotebookDocumentClient {
     void this.enqueueCommand({ kind: direction }).catch(() => {});
     return true;
   }
-  private project(): void {
+  private projectEditors(content: JSONContent): void {
     const snapshot = this.snapshot;
     if (!snapshot) return;
     this.applying = true;
     try {
       for (const editor of this.editors.keys()) {
         if (editor.isDestroyed) continue;
-        const changed =
-          canonicalNotebookJson(editor.getJSON()) !== canonicalNotebookJson(snapshot.copy.content);
+        const changed = canonicalNotebookJson(editor.getJSON()) !== canonicalNotebookJson(content);
         if (changed) {
           const selection = editor.state.selection;
-          editor.commands.setContent(snapshot.copy.content, { emitUpdate: false });
+          editor.commands.setContent(content, { emitUpdate: false });
           const size = editor.state.doc.content.size;
           editor.commands.setTextSelection({
             from: Math.min(selection.from, size),
@@ -508,10 +563,15 @@ export class NativeNotebookDocumentClient {
           false
         );
       }
-      projectNotebookDocumentSnapshot(snapshot);
     } finally {
       this.applying = false;
     }
+  }
+  private project(): void {
+    const snapshot = this.snapshot;
+    if (!snapshot) return;
+    this.projectEditors(snapshot.copy.content);
+    projectNotebookDocumentSnapshot(snapshot);
   }
   private offerRecovery(): void {
     const recovery = this.snapshot?.recovery;

@@ -1282,6 +1282,86 @@
                         ],
                         "additionalProperties": false
                       },
+                      "tableReference": {
+                        "type": "object",
+                        "properties": {
+                          "version": { "type": "number", "const": 1 },
+                          "documentId": { "type": "string", "minLength": 1, "maxLength": 1000 },
+                          "backing": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "notebook-inline" },
+                                  "notebookDocumentId": {
+                                    "$ref": "#/properties/operation/anyOf/0/anyOf/3/properties/tableReference/properties/documentId"
+                                  },
+                                  "blockId": {
+                                    "$ref": "#/properties/operation/anyOf/0/anyOf/3/properties/tableReference/properties/documentId"
+                                  }
+                                },
+                                "required": ["kind", "notebookDocumentId", "blockId"],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "rich-file" },
+                                  "projectId": { "type": "string", "format": "uuid" },
+                                  "tableId": { "type": "string", "format": "uuid" },
+                                  "fileDocumentId": {
+                                    "$ref": "#/properties/operation/anyOf/0/anyOf/3/properties/tableReference/properties/documentId"
+                                  },
+                                  "pathHint": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4096
+                                  }
+                                },
+                                "required": ["kind", "projectId", "tableId"],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "delimited-file" },
+                                  "fileDocumentId": {
+                                    "$ref": "#/properties/operation/anyOf/0/anyOf/3/properties/tableReference/properties/documentId"
+                                  },
+                                  "format": { "type": "string", "enum": ["csv", "tsv"] }
+                                },
+                                "required": ["kind", "fileDocumentId", "format"],
+                                "additionalProperties": false
+                              }
+                            ]
+                          },
+                          "binding": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": { "kind": { "type": "string", "const": "current" } },
+                                "required": ["kind"],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "saved-version" },
+                                  "savedVersionId": {
+                                    "$ref": "#/properties/operation/anyOf/0/anyOf/3/properties/tableReference/properties/documentId"
+                                  },
+                                  "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+                                },
+                                "required": ["kind", "savedVersionId", "sha256"],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        },
+                        "required": ["version", "documentId", "backing", "binding"],
+                        "additionalProperties": false
+                      },
+                      "presentation": { "type": "string", "enum": ["embed", "link"] },
                       "label": { "type": "string", "minLength": 1, "maxLength": 500 }
                     },
                     "required": ["kind", "index"],
@@ -3190,6 +3270,104 @@
                             "properties": { "kind": { "type": "string", "const": "redo" } },
                             "required": ["kind"],
                             "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "set-column-width" },
+                              "column": { "type": "integer", "minimum": 0 },
+                              "width": { "type": "number", "minimum": 20, "maximum": 5000 }
+                            },
+                            "required": ["kind", "column", "width"],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "set-row-height" },
+                              "row": { "type": "integer", "minimum": 0 },
+                              "height": { "type": "number", "minimum": 16, "maximum": 5000 }
+                            },
+                            "required": ["kind", "row", "height"],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "rename" },
+                              "name": { "type": "string", "minLength": 1, "maxLength": 200 }
+                            },
+                            "required": ["kind", "name"],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "sort" },
+                              "column": { "type": "integer", "minimum": 0 },
+                              "direction": {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["asc", "desc"] },
+                                  { "type": "null" }
+                                ]
+                              }
+                            },
+                            "required": ["kind", "column", "direction"],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "filter" },
+                              "column": { "type": "integer", "minimum": 0 },
+                              "value": { "type": "string", "maxLength": 1000 }
+                            },
+                            "required": ["kind", "column", "value"],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "clear-filters" }
+                            },
+                            "required": ["kind"],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "format-cells" },
+                              "range": {
+                                "type": "object",
+                                "properties": {
+                                  "startRow": { "type": "integer", "minimum": 0 },
+                                  "endRow": { "type": "integer", "minimum": 0 },
+                                  "startCol": { "type": "integer", "minimum": 0 },
+                                  "endCol": { "type": "integer", "minimum": 0 }
+                                },
+                                "required": ["startRow", "endRow", "startCol", "endCol"],
+                                "additionalProperties": false
+                              },
+                              "format": {
+                                "type": "object",
+                                "properties": {
+                                  "bold": { "type": "boolean" },
+                                  "italic": { "type": "boolean" },
+                                  "underline": { "type": "boolean" },
+                                  "strikethrough": { "type": "boolean" },
+                                  "wrap": { "type": "boolean" },
+                                  "align": {
+                                    "type": "string",
+                                    "enum": ["left", "center", "right"]
+                                  },
+                                  "textColor": { "type": "string", "maxLength": 100 },
+                                  "bgColor": { "type": "string", "maxLength": 100 }
+                                },
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": ["kind", "range", "format"],
+                            "additionalProperties": false
                           }
                         ]
                       }
@@ -3496,6 +3674,105 @@
                                 ],
                                 "additionalProperties": false
                               },
+                              "tableReference": {
+                                "type": "object",
+                                "properties": {
+                                  "version": { "type": "number", "const": 1 },
+                                  "documentId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                  },
+                                  "backing": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "notebook-inline" },
+                                          "notebookDocumentId": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 1000
+                                          },
+                                          "blockId": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 1000
+                                          }
+                                        },
+                                        "required": ["kind", "notebookDocumentId", "blockId"],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "rich-file" },
+                                          "projectId": { "type": "string", "format": "uuid" },
+                                          "tableId": { "type": "string", "format": "uuid" },
+                                          "fileDocumentId": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 1000
+                                          },
+                                          "pathHint": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 4096
+                                          }
+                                        },
+                                        "required": ["kind", "projectId", "tableId"],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "delimited-file" },
+                                          "fileDocumentId": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 1000
+                                          },
+                                          "format": { "type": "string", "enum": ["csv", "tsv"] }
+                                        },
+                                        "required": ["kind", "fileDocumentId", "format"],
+                                        "additionalProperties": false
+                                      }
+                                    ]
+                                  },
+                                  "binding": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "current" }
+                                        },
+                                        "required": ["kind"],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "saved-version" },
+                                          "savedVersionId": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 1000
+                                          },
+                                          "sha256": {
+                                            "type": "string",
+                                            "pattern": "^sha256:[a-f0-9]{64}$"
+                                          }
+                                        },
+                                        "required": ["kind", "savedVersionId", "sha256"],
+                                        "additionalProperties": false
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": ["version", "documentId", "backing", "binding"],
+                                "additionalProperties": false
+                              },
+                              "presentation": { "type": "string", "enum": ["embed", "link"] },
                               "label": { "type": "string", "minLength": 1, "maxLength": 500 }
                             },
                             "required": ["kind", "index"],
@@ -3937,6 +4214,7 @@
                             "text",
                             "csv",
                             "tsv",
+                            "table",
                             "sequence",
                             "notebook",
                             "design",
@@ -3981,7 +4259,7 @@
                   "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
                   "documentId": { "type": "string" },
                   "path": { "type": "string" },
-                  "type": { "type": "string", "enum": ["text", "csv", "tsv"] },
+                  "type": { "type": "string", "enum": ["text", "csv", "tsv", "table"] },
                   "kind": {
                     "$ref": "#/properties/result/anyOf/0/properties/documents/items/properties/kind"
                   },
@@ -4238,6 +4516,17 @@
                       }
                     ]
                   },
+                  "tableDocument": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string", "format": "uuid" },
+                      "snapshotSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                      "persistedSnapshotSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                      "status": { "type": "string", "enum": ["active", "pending-promotion"] }
+                    },
+                    "required": ["id", "snapshotSha256", "persistedSnapshotSha256", "status"],
+                    "additionalProperties": false
+                  },
                   "applied": { "type": "boolean", "const": true },
                   "saved": { "type": "boolean" }
                 },
@@ -4295,6 +4584,9 @@
                   "capabilities": { "$ref": "#/properties/result/anyOf/1/properties/capabilities" },
                   "recoveryId": { "$ref": "#/properties/result/anyOf/1/properties/recoveryId" },
                   "reason": { "$ref": "#/properties/result/anyOf/1/properties/reason" },
+                  "tableDocument": {
+                    "$ref": "#/properties/result/anyOf/1/properties/tableDocument"
+                  },
                   "applied": { "$ref": "#/properties/result/anyOf/1/properties/applied" },
                   "saved": { "$ref": "#/properties/result/anyOf/1/properties/saved" }
                 },
@@ -4492,6 +4784,9 @@
                   "text": { "$ref": "#/properties/result/anyOf/1/properties/text" },
                   "nextOffset": { "$ref": "#/properties/result/anyOf/1/properties/nextOffset" },
                   "table": { "$ref": "#/properties/result/anyOf/1/properties/table" },
+                  "tableDocument": {
+                    "$ref": "#/properties/result/anyOf/1/properties/tableDocument"
+                  },
                   "applied": { "$ref": "#/properties/result/anyOf/1/properties/applied" },
                   "sequence": {
                     "type": "object",
@@ -4608,6 +4903,9 @@
                   "length": { "$ref": "#/properties/result/anyOf/1/properties/length" },
                   "nextOffset": { "$ref": "#/properties/result/anyOf/1/properties/nextOffset" },
                   "table": { "$ref": "#/properties/result/anyOf/1/properties/table" },
+                  "tableDocument": {
+                    "$ref": "#/properties/result/anyOf/1/properties/tableDocument"
+                  },
                   "applied": { "$ref": "#/properties/result/anyOf/1/properties/applied" },
                   "saved": { "$ref": "#/properties/result/anyOf/1/properties/saved" },
                   "notebook": {

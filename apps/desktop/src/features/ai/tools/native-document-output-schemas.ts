@@ -13,6 +13,7 @@ const nativeKind = z.enum([
   'text',
   'csv',
   'tsv',
+  'table',
   'sequence',
   'notebook',
   'design',
@@ -303,6 +304,12 @@ const fileBase = z
           .strict(),
       ])
       .optional(),
+    tableDocument: z.object({
+      id: z.string().uuid(),
+      snapshotSha256: z.string().regex(/^[a-f0-9]{64}$/),
+      persistedSnapshotSha256: z.string().regex(/^[a-f0-9]{64}$/),
+      status: z.enum(['active', 'pending-promotion']),
+    }).strict().optional(),
     applied: z.literal(true).optional(),
     saved: z.boolean().optional(),
   })
@@ -329,7 +336,7 @@ export const nativeFileDocumentOutputSchema = z.union([
   z
     .object({ ...ok, documents: z.array(dirtyDocument), nextCursor: z.string().nullable() })
     .strict(),
-  fileBase.extend({ type: z.enum(['text', 'csv', 'tsv']) }).strict(),
+  fileBase.extend({ type: z.enum(['text', 'csv', 'tsv', 'table']) }).strict(),
   fileBase
     .omit({ text: true, length: true, nextOffset: true, table: true })
     .extend({

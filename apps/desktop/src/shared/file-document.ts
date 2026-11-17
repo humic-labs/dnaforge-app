@@ -1,3 +1,4 @@
+import { tableEditorCommandSchema } from './table-editor-command';
 import { z } from 'zod';
 import type { TableData } from './table-document-types';
 import {
@@ -11,7 +12,6 @@ import {
 } from './notebook-document';
 
 const index = z.number().int().min(0);
-const range = z.object({ startRow: index, endRow: index, startCol: index, endCol: index }).strict();
 export const fileDocumentInspectSchema = z
   .object({
     kind: z.literal('inspect'),
@@ -23,35 +23,7 @@ export const fileDocumentInspectSchema = z
     columnLimit: z.number().int().min(1).max(50).default(20),
   })
   .strict();
-export const fileDocumentTableCommandSchema = z.discriminatedUnion('kind', [
-  z
-    .object({
-      kind: z.literal('inspect'),
-      rowOffset: index.default(0),
-      rowLimit: z.number().int().min(1).max(50).default(20),
-      columnOffset: index.default(0),
-      columnLimit: z.number().int().min(1).max(50).default(20),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('set-cell'),
-      row: index,
-      column: index,
-      value: z.string().max(10000),
-    })
-    .strict(),
-  z.object({ kind: z.literal('add-row') }).strict(),
-  z.object({ kind: z.literal('remove-row'), index }).strict(),
-  z.object({ kind: z.literal('add-column') }).strict(),
-  z.object({ kind: z.literal('remove-column'), index }).strict(),
-  z
-    .object({ kind: z.literal('set-column-label'), column: index, label: z.string().max(1000) })
-    .strict(),
-  z.object({ kind: z.literal('clear-cells'), range }).strict(),
-  z.object({ kind: z.literal('undo') }).strict(),
-  z.object({ kind: z.literal('redo') }).strict(),
-]);
+export const fileDocumentTableCommandSchema = tableEditorCommandSchema;
 export const fileDocumentOperationSchema = z.discriminatedUnion('kind', [
   fileDocumentInspectSchema,
   z
@@ -118,6 +90,12 @@ export type FileDocumentInspection = {
   length?: number;
   nextOffset?: number | null;
   table?: Record<string, unknown>;
+  tableDocument?: {
+    id: string;
+    snapshotSha256: string;
+    persistedSnapshotSha256: string;
+    status: 'active' | 'pending-promotion';
+  };
   recoveryId?: string;
   reason?: string;
 };

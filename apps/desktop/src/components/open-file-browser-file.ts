@@ -7,6 +7,7 @@ import { resolveSequencePackageProductPath } from '../features/sequence/sequence
 import { scientificPackageMetaPath } from '../shared/scientific-package';
 import { useToastStore } from '../stores/toast-store';
 import { getTabTypeForFile } from '../utils/fileTypes';
+import { tablePackagePaths } from '../shared/table-package';
 
 export async function openFileBrowserFile(
   entry: {
@@ -47,9 +48,11 @@ export async function openFileBrowserFile(
     const path =
       entry.packageKind === 'sequence'
         ? await resolveSequencePackageProductPath(entry.path)
-        : entry.packageKind === 'protocol' || entry.packageKind === 'protocol-run'
-          ? scientificPackageMetaPath(entry.path, entry.packageKind)
-          : entry.path;
+        : entry.packageKind === 'table'
+          ? tablePackagePaths(entry.path).headPath
+          : entry.packageKind === 'protocol' || entry.packageKind === 'protocol-run'
+            ? scientificPackageMetaPath(entry.path, entry.packageKind)
+            : entry.path;
     present(path, getTabTypeForFile(path));
   } catch (error) {
     useToastStore.getState().addToast(toUserMessage(error, 'operation.failed'), {
