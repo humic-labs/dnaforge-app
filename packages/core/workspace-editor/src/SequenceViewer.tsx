@@ -3485,13 +3485,18 @@ function WorkspaceEditorInner(
 
   scrollToBiologicalPositionRef.current = scrollToBiologicalPositionNow;
 
+  const navigationViewportReady =
+    scrollToPosition != null &&
+    liveScrollContainerHeight > 0 &&
+    containerWidth > 0 &&
+    Math.abs((scrollContainerElement?.clientWidth ?? 0) - containerWidth) <= 1;
   useEffect(() => {
     if (scrollToPosition == null) {
       controlledScrollCommandRef.current?.cancel?.();
       controlledScrollCommandRef.current = null;
       return;
     }
-    if (!containerRef.current || !layout.lines.length) return;
+    if (!navigationViewportReady || !layout.lines.length) return;
     const previous = controlledScrollCommandRef.current;
     const alreadyHandled =
       scrollCommandId != null
@@ -3519,6 +3524,7 @@ function WorkspaceEditorInner(
     scrollToPosition,
     scrollCommandId,
     scrollAnimate,
+    navigationViewportReady,
     layout.lines.length,
     scrollToBiologicalPositionNow,
     onScrollToPositionComplete,
