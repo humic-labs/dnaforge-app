@@ -1,3 +1,4 @@
+import { TABLE_REFERENCE_NOTEBOOK_BLOCK } from '../shared/table-reference-notebook-contract';
 import type { JSONContent } from '@tiptap/core';
 
 import { TABLE_NOTEBOOK_BLOCK } from '../shared/table-notebook-contract';
@@ -30,6 +31,7 @@ function linkMarkToMarkdown(text: string, attrs: Readonly<Record<string, unknown
 
 export const notebookContentExtensions = createNotebookContentExtensionRegistry([
   TABLE_NOTEBOOK_BLOCK,
+  TABLE_REFERENCE_NOTEBOOK_BLOCK,
   {
     kind: 'rich-block',
     type: 'image',

@@ -8,7 +8,7 @@ const { buildMacUpdateStatusHelper } = require('./update-status-packaging.cjs');
 const { relocateMacHelperMetadata } = require('./lib/mac-helper-metadata.cjs');
 const { stageMacosVulkanLoader } = require('./lib/macos-vulkan-loader.cjs');
 
-exports.default = async function afterPack(context) {
+exports.default = async function afterPack(context, { inspectSigningPublisher } = {}) {
   const platform = context.electronPlatformName;
   const resourcesDir =
     platform === 'darwin'
@@ -42,6 +42,7 @@ exports.default = async function afterPack(context) {
         appPath,
         bundleIdentifier: context.packager.appInfo.macBundleIdentifier,
         sources,
+        inspect: inspectSigningPublisher,
       });
     }
   }

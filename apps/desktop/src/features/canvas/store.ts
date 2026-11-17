@@ -113,6 +113,7 @@ function retargetTabDocument(tab: Tab, identity: CanvasTabIdentity, updates: Tab
           proteinRunPreview: undefined,
           artifactDocument: undefined,
           recoveredDraft: undefined,
+          tableDocument: undefined,
         }
       : {}),
     ...(identity.type !== 'sequence'

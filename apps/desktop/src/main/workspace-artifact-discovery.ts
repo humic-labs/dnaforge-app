@@ -11,6 +11,8 @@ import {
   isTextSequenceFileKind,
 } from '../shared/catalog-file-kind';
 import { HARD_CAP_BYTES } from '../shared/oversized-guard';
+import { readTablePackageInMain } from './table-package';
+import { tablePackagePaths } from '../shared/table-package';
 import type {
   WorkspaceArtifactDiscoveryRequest,
   WorkspaceArtifactDiscoveryResult,
@@ -29,6 +31,7 @@ const CATALOG_KINDS = new Set([
   'waypoint-residue-selection',
   'waypoint-protocol',
   'waypoint-protocol-run',
+  'dnaforge-table',
   'pdb',
   'mmcif',
   'binary-cif',
@@ -128,6 +131,40 @@ export async function discoverWorkspaceArtifacts(
   ): Promise<void> {
     if (depth > MAX_DEPTH || projection.scannedFileCount >= MAX_FILES) {
       traversalComplete = false;
+      return;
+    }
+    const tableHeadPath = tablePackagePaths(directoryPath).headPath;
+    let tablePackageFound = false;
+    try {
+      tablePackageFound = (await stat(tableHeadPath)).isFile();
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        result.errors.push({
+          path: tableHeadPath,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        traversalComplete = false;
+        return;
+      }
+    }
+    if (tablePackageFound) {
+      projection.scannedFileCount += 1;
+      projection.visibleFileCount += 1;
+      observePath(tableHeadPath);
+      try {
+        const table = await readTablePackageInMain({
+          workspaceRoot: rootPath,
+          packageRoot: directoryPath,
+        });
+        if (table.head.status !== 'active')
+          throw new Error('The table migration is pending recovery.');
+        await addCatalogCandidate(tableHeadPath, 'dnaforge-table');
+      } catch (error) {
+        result.errors.push({
+          path: tableHeadPath,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
       return;
     }
     let entries: Dirent[];

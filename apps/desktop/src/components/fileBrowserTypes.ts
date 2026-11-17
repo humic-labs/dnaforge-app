@@ -9,7 +9,13 @@ export interface WorkspaceCreationContext {
 
 export type WorkspaceCreateHandler = (context?: WorkspaceCreationContext) => void | Promise<void>;
 
-export type PendingArtifactKind = 'notebook' | 'assembly' | 'dna-sequence' | 'text-file' | 'folder';
+export type PendingArtifactKind =
+  | 'notebook'
+  | 'assembly'
+  | 'table'
+  | 'dna-sequence'
+  | 'text-file'
+  | 'folder';
 
 export interface PendingArtifactCreate {
   id: string;

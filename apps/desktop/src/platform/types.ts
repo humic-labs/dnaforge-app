@@ -748,6 +748,9 @@ export interface PlatformBridge {
     retainLegacyFileDraft(draft: LegacyFileDraft): Promise<LegacyFileDraftRetention>;
     assertFileDocumentsClean(path: string): Promise<void>;
     fileDocument(request: FileDocumentRequest): Promise<FileDocumentSnapshot>;
+    tableDocument(
+      command: import('../shared/table-document-command').TableDocumentCommand
+    ): Promise<import('../shared/table-document-command').TableDocumentCommandResult>;
     subscribeFileDocuments(listener: (snapshot: FileDocumentSnapshot) => void): () => void;
     beginWorkspaceMutation(
       workspaceRoot: string,

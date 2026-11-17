@@ -10,6 +10,7 @@ import {
   SUPPORTED_SEQUENCE_EXTENSIONS,
 } from '../shared/scientific-file-types';
 import { scientificPackageKindForMetaPath } from '../shared/scientific-package';
+import { isForgePackageMetaPath } from '../shared/forge-package-path';
 
 export { getStructureFileFormat, type StructureFileFormat } from '../shared/scientific-file-types';
 
@@ -151,6 +152,7 @@ export function getFilename(path: string): string {
 }
 
 export function getTabTypeForFile(path: string): TabType {
+  if (isForgePackageMetaPath(path, 'table.json')) return 'table';
   const ext = getExtension(path);
   const filename = getFilename(path);
   const lowerFilename = filename.toLowerCase();
@@ -275,6 +277,7 @@ export type FileIconCategory =
   | 'generic';
 
 export function getFileIconCategory(path: string): FileIconCategory {
+  if (isForgePackageMetaPath(path, 'table.json')) return 'spreadsheet';
   if (getTabTypeForFile(path) === 'design') return 'design';
   const ext = getExtension(path);
   const filename = getFilename(path);

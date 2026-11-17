@@ -4,6 +4,7 @@ export type NativeDocumentKind =
   | 'text'
   | 'csv'
   | 'tsv'
+  | 'table'
   | 'sequence'
   | 'notebook'
   | 'design'
