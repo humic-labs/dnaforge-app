@@ -12,6 +12,9 @@ import {
 import type { NativeSequenceWorkingCopyOwner } from './native-sequence-working-copy';
 import { notebookDocumentSchema } from '../shared/notebook-document';
 import type { NativeNotebookWorkingCopyOwner } from './notebook-document-owner';
+import { tableDocumentCommandSchema } from '../shared/table-document-command';
+import type { NativeTableDocumentCommands } from './table-document-commands';
+import { tableDocumentAgentResult } from '../shared/table-document-command-output';
 import { workspaceSearchSchema } from '../shared/workspace-search-owner';
 import { projectHistoryAgentRequestSchema } from '../shared/project-history';
 import { importReviewSchema } from '../shared/import-review-command';
@@ -68,6 +71,14 @@ const commandSchema = z.discriminatedUnion('command', [
       projectScope: agentProjectScopeSchema,
       command: z.literal('notebook.execute'),
       request: notebookDocumentSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('table.execute'),
+      request: tableDocumentCommandSchema,
     })
     .strict(),
   z
@@ -157,6 +168,7 @@ export async function startNativeDocumentCommandServer(options: {
   fileOwner?: Pick<NativeDocumentDispatcher, 'executeAgent'>;
   sequenceOwner?: Pick<NativeSequenceWorkingCopyOwner, 'execute'>;
   notebookOwner?: Pick<NativeNotebookWorkingCopyOwner, 'executePublic'>;
+  tableOwner?: Pick<NativeTableDocumentCommands, 'execute'>;
   flushFileClients?(): Promise<void>;
   workspaceCommands?: Pick<ReturnType<typeof createNativeWorkspaceCommands>, 'search' | 'history'>;
   importReviews?: Pick<NativeImportReviews, 'executeAgent'>;
@@ -288,6 +300,24 @@ export async function startNativeDocumentCommandServer(options: {
           assertCurrent();
           accepted = true;
           const result = await run();
+          json(res, 200, { ok: true, ownerInstanceId: authority.ownerInstanceId, result });
+          return;
+        }
+        if (body.command === 'table.execute') {
+          if (!options.tableOwner) {
+            failure(res, 503, 'NATIVE_DOCUMENT_OWNER_UNAVAILABLE', false);
+            return;
+          }
+          if (
+            body.request.kind !== 'resolve' &&
+            body.request.kind !== 'open' &&
+            body.request.kind !== 'list-promotions'
+          )
+            await options.flushFileClients?.();
+          assertCurrent();
+          accepted = true;
+          const result = tableDocumentAgentResult(await options.tableOwner.execute(body.request));
+          assertCurrent();
           json(res, 200, { ok: true, ownerInstanceId: authority.ownerInstanceId, result });
           return;
         }
