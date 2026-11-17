@@ -348,6 +348,8 @@ export async function applyNativeDataLayerExample(
         dataset.reference.length
       );
     } else if (dataset.mapping?.kind === 'positions') {
+      const startColumn = dataset.mapping.startColumn;
+      if (!startColumn) throw new Error('The source has no declared coordinate column.');
       if (!dataset.valueColumns) throw new Error('The source has no declared measurement columns.');
       const values = numericValues(csv, dataset.valueColumns);
       const maximum = Math.max(...values.map(Math.abs));
@@ -385,7 +387,7 @@ export async function applyNativeDataLayerExample(
       focusIndexed(
         view,
         label,
-        numericValues(csv, [dataset.mapping.startColumn]).map((position) => position - offset),
+        numericValues(csv, [startColumn]).map((position) => position - offset),
         dataset.reference.length
       );
     } else {
