@@ -208,6 +208,7 @@ export function createNativeFileDocuments(options: {
   return new NativeFileDocumentOwner({
     normalizePath: workspaceMutationRootIdentity,
     beginLegacyMigration() {
+      if (migrationRunning) return;
       migrationRunning = true;
       migrationFinished = new Promise<void>((resolve) => {
         finishMigration = resolve;
