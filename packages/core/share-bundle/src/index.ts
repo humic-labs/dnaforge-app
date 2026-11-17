@@ -159,7 +159,7 @@ export function workspaceSyncResourceMediaType(relativePath: string): string | n
   if (
     isSafeRelativePath(relativePath) &&
     !hasReservedWindowsName(relativePath) &&
-    relativePath.split('/').at(-1) === '.gitignore' &&
+    relativePath.split('/').slice(-1)[0] === '.gitignore' &&
     relativePath
       .split('/')
       .slice(0, -1)
