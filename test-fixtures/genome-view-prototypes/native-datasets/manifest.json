@@ -496,6 +496,34 @@
         "exponential"
       ],
       "unresolvedPolicy": "reject"
+    },
+    {
+      "id": "09-termseq",
+      "sourceId": "09-termseq",
+      "file": "indexed-signals/09-termseq/data.csv",
+      "metadata": "indexed-signals/09-termseq/metadata.json",
+      "referenceFile": "../native-references/CP009273.1/CP009273.1.fa.gz",
+      "reference": {
+        "id": "CP009273.1",
+        "length": 4631469,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "3761072f8884add5e9facdafc583de5d81a4cf5dbc7e51023ba966f3cf4887ce",
+        "citation": "https://www.ncbi.nlm.nih.gov/nuccore/CP009273.1"
+      },
+      "rows": 118,
+      "unit": "RNA 3′-end read count",
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start0",
+        "endColumn": "end0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "valueColumns": [
+        "rep1",
+        "rep2",
+        "rep3"
+      ],
+      "unresolvedPolicy": "reject"
     }
   ],
   "sourceSnapshots": {
@@ -740,6 +768,29 @@
         "sha256": "eeee3da7f5755d485e10b84197760465da627d0010ac3a7f677bb2a43ebde6ef",
         "bytes": 4914,
         "citation": "https://doi.org/10.1038/ncomms11055"
+      }
+    ],
+    "09-termseq": [
+      {
+        "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE109nnn/GSE109766/suppl/GSE109766_ecoli_termseq_rep1-3.counts_per_position.txt.gz",
+        "file": "raw/regulation/GSE109766_termseq.txt.gz",
+        "sha256": "c6d8fd4ce227383dab9e71328519b85137bdc3872dde526c43d8e00c76827ab8",
+        "bytes": 1067437,
+        "citation": "https://doi.org/10.1093/nar/gky274"
+      },
+      {
+        "url": "https://www.ebi.ac.uk/biostudies/files/S-EPMC6061677/gky274_supplemental_files.xlsx",
+        "file": "raw/regulation/Dar_termination.xlsx",
+        "sha256": "8a276c749249a1fb40e89709be1f69c702d159e128ef0b785fe5c518c7187027",
+        "bytes": 231614,
+        "citation": "https://doi.org/10.1093/nar/gky274"
+      },
+      {
+        "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM2966927&targ=self&form=text&view=full",
+        "file": "raw/regulation/GSM2966927.soft",
+        "sha256": "21bdedc310e80060f417d6806bef79bfe099169e441080abb2c702d707a6450f",
+        "bytes": 1983,
+        "citation": "https://doi.org/10.1093/nar/gky274"
       }
     ]
   },
@@ -1013,6 +1064,31 @@
       "file": "indexed-signals/14-supercoiling/source-records.json",
       "sha256": "26dc98f0e363eb90d42306399a20e96da48af1fa158786e4494140d64ca5eefa",
       "bytes": 269129
+    },
+    {
+      "file": "indexed-signals/09-termseq/sequence-anchors.json",
+      "sha256": "c339b3a4625c754b3342e4df83e036cc768aab524b0657515d6fc0d771372c66",
+      "bytes": 73049
+    },
+    {
+      "file": "indexed-signals/09-termseq/metadata.json",
+      "sha256": "9dafbdcad94e21e9fda8a6c2dfffce84ba6e6783b8f649ea7f0ddaf344f5cb80",
+      "bytes": 7679
+    },
+    {
+      "file": "indexed-signals/09-termseq/snapshot.json",
+      "sha256": "4cd5bad69f21e03739f6f9194a9cf09f9d09f15b0d5e494025d934895395f39e",
+      "bytes": 102304
+    },
+    {
+      "file": "indexed-signals/09-termseq/data.csv",
+      "sha256": "f1df6f6ae1b7a3a722f0557424557ef5516ae048546c90d2bdcc3f6b5a421e7f",
+      "bytes": 37633
+    },
+    {
+      "file": "indexed-signals/09-termseq/source-records.json",
+      "sha256": "07b5dd02aee1dd6b463cb105682624716c8d7a43f84df1d535c19e4db2642864",
+      "bytes": 228020
     }
   ]
 }

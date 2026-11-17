@@ -106,7 +106,7 @@ export class PixiGenomicSignalTrackRenderer implements PixiLinearTrackRenderer<R
     state.detail.style.fill = color;
     state.heading.text = `${data.style.geometry === 'matrix' ? `${data.sampleRows.length} samples` : data.sampleId} · ${data.unit}`;
     state.heading.position.set(10, 6);
-    state.detail.text = `${domain[0].toPrecision(3)} to ${domain[domain.length - 1].toPrecision(3)}`;
+    state.detail.text = `${data.style.colorScale.kind === 'continuous' && data.style.colorScale.transform === 'log10' ? 'log10 · ' : ''}${domain[0].toPrecision(3)} to ${domain[domain.length - 1].toPrecision(3)}`;
     state.detail.position.set(10, h - 20);
     const baseline = data.style.geometry === 'arcs' ? h - 34 : zero;
     if (data.style.geometry === 'matrix') {

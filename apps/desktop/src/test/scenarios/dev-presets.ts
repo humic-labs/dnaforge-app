@@ -1346,6 +1346,16 @@ export const DEV_SCENARIO_PRESET_GROUPS: readonly DevScenarioPresetGroup[] = [
         noAutoReplay: true,
       })),
       {
+        id: 'native-09-termseq',
+        label: 'RNA ends · three measured replicates',
+        description:
+          '118 sequence-anchored positions and three read-count replicates on exact CP009273.1. Original endpoint conventions and their limitations are retained with the source.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes/native-references/CP009273.1',
+        nativeDataLayerExample: '09-termseq',
+        noAutoReplay: true,
+      },
+      {
         id: 'indexed-mg1655-reference',
         label: 'Indexed MG1655 reference',
         description:

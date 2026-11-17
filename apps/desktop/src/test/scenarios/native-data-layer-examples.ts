@@ -37,6 +37,7 @@ export type NativeDataLayerExample =
   | '17-conservation'
   | '05-ribosome-profiling'
   | '08-tss-coverage'
+  | '09-termseq'
   | '14-supercoiling';
 
 type Dataset = (typeof manifest.datasets)[number];
@@ -355,13 +356,15 @@ export async function applyNativeDataLayerExample(
           ? 'Ribosome footprint density'
           : id === '08-tss-coverage'
             ? 'Strand-specific RNA coverage'
-            : 'Psoralen crosslinking signal';
+            : id === '09-termseq'
+              ? 'RNA 3′-end read counts'
+              : 'Psoralen crosslinking signal';
       await addCsvLayer({
         project: project.rootPath,
         view,
         dataset,
         label,
-        geometry: id === '14-supercoiling' ? 'matrix' : 'bars',
+        geometry: id === '14-supercoiling' ? 'matrix' : id === '09-termseq' ? 'points' : 'bars',
         palette: id === '14-supercoiling' ? 'balance' : 'cividis',
         domain: id === '14-supercoiling' ? [-maximum, maximum] : [Math.min(0, ...values), maximum],
       });
