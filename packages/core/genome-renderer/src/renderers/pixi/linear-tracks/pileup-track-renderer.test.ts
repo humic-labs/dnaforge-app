@@ -2215,6 +2215,10 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
     };
     const exactArgs = paintArgsZoom(container, data, 8, { start: 90, end: 190 }, 800);
     renderer.paint(exactArgs);
+    for (let frame = 0; renderer.hasPendingPaintWork(container) && frame < 20; frame += 1) {
+      renderer.paint(exactArgs);
+    }
+    expect(renderer.hasPendingPaintWork(container)).toBe(false);
     const hit = renderer.hitTestReadEvent(container, {
       trackId: 'tumor-bam',
       localX: 105 * 8,
