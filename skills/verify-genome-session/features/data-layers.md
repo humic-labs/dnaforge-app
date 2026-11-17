@@ -55,12 +55,17 @@ a prepared annotation file up to 32 MiB and at most 100,000 source features. It
 must refuse changed identities before reading, without installing a reference.
 
 Use the existing indexed gutter eye and gear to select samples, change geometry
-and palette. Indexed compiled annotations retain their own colors; per-feature
-dataset recoloring is not supported by their painter. Click a signal mark and
-require its exact genomic interval. Save the native Track view, close it and
-reopen it from the reference library. Require the same retained layer revision,
-sample and style. A changed retained artifact revision must stay unavailable and
-must not paint.
+and palette. For annotation-mapped data, enable Annotation colors and require
+actual annotation bodies to change according to the selected sample. Unmapped
+annotations use the missing-data color. Check both detailed glyphs and the
+whole-genome overview, including an actual palette change. The overview may
+remain detailed on a wide canvas; open Files to exercise its narrower layout.
+Require the current per-track raster owner and its source RGB appearance, rather
+than the legacy single-owner diagnostic. Source bindings alone do not prove
+painted bodies. Click a signal mark and require its exact genomic interval. Save
+the native Track view, close it and reopen it from the reference library.
+Require the same retained layer revision, sample, palette and annotation colors.
+A changed retained artifact revision must stay unavailable and must not paint.
 
 Ordinary documents and indexed references have distinct target owners and share
 the saved dataset, mapping and drawing contracts. Circular signal geometry,
@@ -112,3 +117,21 @@ treatment tracks contain 609 ciprofloxacin, 527 oxolinic-acid and 80 microcin
 trusted-site calls in the supplied 500 kb subset. Heights preserve source N3E
 signal on one shared scale. Absence from a treatment call set is unreported,
 with no invented strand, zero-filled condition or substituted MG1655 coordinate.
+
+Open RNA decay and require 631 exact single-gene transcript associations, two
+published lifetime means and 198 explicitly excluded original transcripts. No
+multi-gene transcription-unit boundaries or values are inferred. Open Nucleoid
+binding and require separate native Fis and H-NS interval tracks with 157 and 38
+records. The source supplies extent, with no measured strength or strand.
+
+Open Evolution and require 14,572 allele-verified SNPs on the exact deposited
+REL606 reference. Heights count clones carrying each reported SNP. Complex
+events stay in the source records and outside this SNP layer. Native annotation
+IDs are unique; the author's reused identifiers remain in original_id without
+invented Parent relationships or changed feature coordinates.
+
+Open Methylation and require 4,197 source adenine/strand calls, three baseline
+fraction rows and a separate read-coverage track. The four below-threshold
+fractions remain missing, with their reported coverage preserved. Cohen et al.
+2016 supplies these per-site calls on exact NC_000913.2; the separate original
+motif census supplies aggregate counts and cannot identify measured sites.
