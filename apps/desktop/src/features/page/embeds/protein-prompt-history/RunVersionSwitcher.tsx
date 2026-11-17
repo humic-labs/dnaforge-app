@@ -40,13 +40,19 @@ export async function applyProteinComparisonToTab(
   const latest = useCanvasStore.getState().panels[panelId]?.tabs.find((tab) => tab.id === tabId);
   if (!latest || latest.entityId !== expectedSavedViewId)
     throw new Error('The structure tab changed before the comparison could open.');
-  useCanvasStore.getState().updateTab(panelId, tabId, {
-    entityId: savedViewId,
-    label: comparison.title,
-    initialStructureAttrs: molecularViewAttrs(savedViewId, comparison),
-    viewState: undefined,
-    pendingViewState: undefined,
-  });
+  useCanvasStore
+    .getState()
+    .retargetTab(
+      panelId,
+      tabId,
+      { type: 'structure', entityId: savedViewId },
+      {
+        label: comparison.title,
+        initialStructureAttrs: molecularViewAttrs(savedViewId, comparison),
+        viewState: undefined,
+        pendingViewState: undefined,
+      }
+    );
   return reference.id;
 }
 
@@ -152,13 +158,17 @@ export async function applyProteinSavedViewReferenceToTab(
   const current = canvas.panels[panelId]?.tabs.find((tab) => tab.id === tabId);
   if (!current || current.entityId !== expectedSavedViewId)
     throw new Error('The structure tab changed before the version could open.');
-  canvas.updateTab(panelId, tabId, {
-    entityId: savedViewId,
-    label: view.title,
-    initialStructureAttrs: molecularViewAttrs(savedViewId, view),
-    viewState: undefined,
-    pendingViewState: undefined,
-  });
+  canvas.retargetTab(
+    panelId,
+    tabId,
+    { type: 'structure', entityId: savedViewId },
+    {
+      label: view.title,
+      initialStructureAttrs: molecularViewAttrs(savedViewId, view),
+      viewState: undefined,
+      pendingViewState: undefined,
+    }
+  );
 }
 
 export function ProteinRunVersionSwitcher({

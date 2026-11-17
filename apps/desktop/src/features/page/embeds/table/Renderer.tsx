@@ -1,3 +1,9 @@
+import { isElectron } from '../../../../utils/environment';
+import {
+  notebookTableReference,
+  tableDocumentKey,
+} from '../../../../shared/table-document-reference';
+import { normalizeLegacyTableData } from '../../../../shared/notebook-model/table/normalize-table-data';
 import { useNativeNotebookTable } from '../../hooks/useNativeNotebookTable';
 ('use client');
 
@@ -17,6 +23,8 @@ import type { TableData } from './types';
 import { TelemetryBlockedSurface } from '../../../../components/TelemetryBlockedSurface';
 import type { TableOperationObservation } from '../../../../shared/table-notebook-observation';
 import { tableOperationObservation } from './utils/operation-observation';
+import { PromoteTableButton } from './components/PromoteTableButton';
+import { TablePromotionRecoveryButton } from './components/TablePromotionRecoveryButton';
 
 function isConfigured(data: TableData): boolean {
   return (
@@ -55,6 +63,7 @@ function ConfiguredTable({
   onUpdateAttrs,
   onSelect,
   onOpenTable,
+  autoFocus,
 }: {
   data: TableData;
   refId: string;
@@ -63,6 +72,7 @@ function ConfiguredTable({
   onUpdateAttrs?: (attrs: Record<string, unknown>, observation?: TableOperationObservation) => void;
   onSelect?: () => void;
   onOpenTable?: (open: () => boolean) => void;
+  autoFocus: boolean;
 }) {
   const referenceContext = useOptionalReferenceContext();
   const sourcePageId = referenceContext?.pageId;
@@ -72,7 +82,11 @@ function ConfiguredTable({
 
   const stableOnUpdateAttrs = useStableCallback(onUpdateAttrs);
 
-  const tableId = data.id ?? refId;
+  const tableReference = useMemo(
+    () => (isElectron() && sourcePageId ? notebookTableReference(sourcePageId, refId) : null),
+    [sourcePageId, refId]
+  );
+  const tableId = tableReference ? tableDocumentKey(tableReference) : (data.id ?? refId);
 
   const registerTable = useTableStore((state) => state.registerTable);
   const unbindSource = useTableStore((state) => state.unbindSource);
@@ -88,7 +102,7 @@ function ConfiguredTable({
   const isOpenInPanel = hasTabForTable;
 
   useEffect(() => {
-    if (hasTabForTable) {
+    if (hasTabForTable && !tableReference) {
       registerTable(tableId, data, `Table`, {
         sourcePageId,
         referenceWorkspaceRoot,
@@ -103,16 +117,21 @@ function ConfiguredTable({
     sourcePageId,
     referenceWorkspaceRoot,
     stableOnUpdateAttrs,
+    tableReference,
   ]);
 
   useEffect(
     () => () => {
-      if (stableOnUpdateAttrs) unbindSource(tableId, stableOnUpdateAttrs);
+      if (!tableReference && stableOnUpdateAttrs) unbindSource(tableId, stableOnUpdateAttrs);
     },
-    [tableId, stableOnUpdateAttrs, unbindSource]
+    [tableId, stableOnUpdateAttrs, unbindSource, tableReference]
   );
 
-  const nativeTable = useNativeNotebookTable(sourcePageId, tableId, data);
+  const nativeTable = useNativeNotebookTable(
+    sourcePageId,
+    tableReference?.backing.kind === 'notebook-inline' ? tableReference.backing.blockId : tableId,
+    data
+  );
   const tableCommands = useTableData({
     data,
     onUpdateAttrs,
@@ -236,6 +255,22 @@ function ConfiguredTable({
 
   const handleExpand = useCallback(() => {
     const open = () => {
+      if (tableReference) {
+        const tabId = openWithSmartPlacement('table', tableId, name, undefined, {
+          tableDocument: tableReference,
+        });
+        return Object.values(useCanvasStore.getState().panels).some(
+          (panel) =>
+            panel.activeTabId === tabId &&
+            panel.tabs.some(
+              (tab) =>
+                tab.id === tabId &&
+                tab.type === 'table' &&
+                tab.entityId === tableId &&
+                tab.tableDocument?.documentId === tableReference.documentId
+            )
+        );
+      }
       registerTable(tableId, data, name, {
         sourcePageId,
         referenceWorkspaceRoot,
@@ -264,6 +299,7 @@ function ConfiguredTable({
     referenceWorkspaceRoot,
     stableOnUpdateAttrs,
     onOpenTable,
+    tableReference,
   ]);
 
   const handleFocusPanel = useCallback(() => {
@@ -305,6 +341,19 @@ function ConfiguredTable({
         onKeyDown={handleKeyDown}
         onMouseDown={handleTableMouseDown}
       >
+        {tableReference && (
+          <div className="space-y-2 px-3 py-2">
+            <TablePromotionRecoveryButton
+              reference={tableReference}
+              workspaceRoot={referenceWorkspaceRoot}
+            />
+            {hasWriter && (
+              <div className="flex justify-end">
+                <PromoteTableButton reference={tableReference} title={name} />
+              </div>
+            )}
+          </div>
+        )}
         {}
         {isOpenInPanel && (
           <div
@@ -320,6 +369,7 @@ function ConfiguredTable({
         )}
         <div className={isOpenInPanel ? 'opacity-50 pointer-events-none' : ''}>
           <TableGrid
+            autoFocus={autoFocus}
             readOnly={!hasWriter}
             displayCells={displayCells}
             cells={cells}
@@ -384,8 +434,9 @@ export function TableRenderer({
   onBlurToEditor,
   onOpenTable,
 }: EmbedRendererProps) {
-  const data = attrs as TableData;
+  const data = normalizeLegacyTableData(attrs as TableData);
   const configured = isConfigured(data);
+  const focusAfterConfigure = useRef(false);
 
   const handleConfigure = useCallback(
     (rows: number, cols: number) => {
@@ -398,6 +449,7 @@ export function TableRenderer({
         staleCount: 0,
         unavailableCount: 0,
       });
+      focusAfterConfigure.current = true;
       if (observation) onUpdateAttrs?.(next, { ...observation, rows, columns: cols });
       else onUpdateAttrs?.(next);
     },
@@ -434,6 +486,7 @@ export function TableRenderer({
       onUpdateAttrs={onUpdateAttrs}
       onSelect={onSelect}
       onOpenTable={onOpenTable}
+      autoFocus={focusAfterConfigure.current}
     />
   );
 }

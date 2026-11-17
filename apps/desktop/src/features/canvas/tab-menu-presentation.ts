@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useCanvasStore } from './store';
 import { resolveTabEditor } from './tab-editor';
+import { classifyTabSession } from './tab-document-session';
 import { isTabDirty } from './artifact-document-lifecycle';
 import type { PanelState, Tab, TabType } from './types';
 import { sequenceDisplayName } from '../../shared/sequence-presentation';
@@ -33,6 +34,7 @@ export interface TabStripPresentation {
 
 export function projectTabStripTab(tab: Tab): TabStripPresentation {
   const editor = resolveTabEditor(tab);
+  const session = classifyTabSession(tab);
   return {
     id: tab.id,
     type: editor.type,
@@ -41,9 +43,7 @@ export function projectTabStripTab(tab: Tab): TabStripPresentation {
     ...(tab.type === 'structure' && tab.initialStructureAttrs?.molecularDocumentId
       ? { isMolecularDocument: true }
       : {}),
-    isIndexedSequence:
-      editor.type === 'sequence' &&
-      (tab.sequenceDocument?.kind === 'indexed-sequence' || Boolean(tab.indexedGenome)),
+    isIndexedSequence: session.kind === 'sequence' && session.editor === 'indexed',
   };
 }
 

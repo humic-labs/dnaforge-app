@@ -60,6 +60,7 @@ export function restoreRegisteredActiveProjects(entries: readonly ProjectEditFol
       };
     });
   }
+  void useWorkspaceStore.getState().acceptMountedWorkspaceSelection();
 }
 
 function beginRestorationObservation(path: string, reference: boolean) {

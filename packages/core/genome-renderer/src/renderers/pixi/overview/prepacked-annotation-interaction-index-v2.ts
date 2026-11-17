@@ -927,6 +927,30 @@ export function decodePrepackedAnnotationInteractionFeatureV2(
   };
 }
 
+export function prepackedAnnotationInteractionFeatureMatchesResidentV2(
+  index: PrepackedAnnotationFeatureLookupIndexV2,
+  featureIndex: number,
+  resident: Pick<
+    PrepackedAnnotationInteractionFeatureInputV2,
+    'startBp' | 'endBp' | 'direction' | 'type' | 'transcriptId' | 'displayName'
+  >
+): boolean {
+  requireFeatureIndex(index, featureIndex);
+  const view = prepareViews(index).featureRecords;
+  const offset = featureIndex * PREPACKED_ANNOTATION_INTERACTION_FEATURE_RECORD_BYTES;
+  if (
+    recordStart(view, featureIndex) !== resident.startBp ||
+    recordEnd(view, featureIndex) !== resident.endBp ||
+    decodeDirection(view.getUint32(offset + RECORD.direction, true)) !== resident.direction
+  ) {
+    return false;
+  }
+  if (decodeString(index, view, offset + RECORD.type, false) !== resident.type) return false;
+  return resident.transcriptId
+    ? decodeString(index, view, offset + RECORD.transcriptId, true) === resident.transcriptId
+    : decodeString(index, view, offset + RECORD.displayName, false) === resident.displayName;
+}
+
 export function prepackedAnnotationInteractionFeatureStartBpV2(
   index: PrepackedAnnotationFeatureLookupIndexV2,
   featureIndex: number

@@ -37,6 +37,10 @@ import {
   uploadWorkspaceSyncFileDirect,
 } from './workspace-sync-direct-upload';
 import {
+  recordWorkspaceSyncUploadCaptureIdentity,
+  acknowledgeWorkspaceSyncUpload,
+  supersedeWorkspaceSyncUploadFailures,
+  attachRunningWorkspaceSyncSnapshot,
   claimNextWorkspaceSyncJob,
   enqueueWorkspaceSyncJob,
   getWorkspaceSyncQueueJob,
@@ -606,7 +610,7 @@ export class WorkspaceSyncUploadWorker {
             assertWorkspaceSyncUploadSnapshotFitsWire(prepared.snapshot, job.baseRemoteVersionId, {
               allowManifest: uploadClient.supportsManifest === true,
             });
-            updateRunningJobSnapshot(this.db, {
+            attachRunningWorkspaceSyncSnapshot(this.db, {
               id: job.id,
               localHeadSha: job.localHeadSha,
               bundleContentSha256: prepared.snapshot.contentSha256,
@@ -1223,24 +1227,12 @@ export class WorkspaceSyncUploadWorker {
     await this.withDatabaseFence(() =>
       this.db.transaction(() => {
         this.assertCaptureBindingCurrent(binding);
-        const updated = this.db
-          .prepare(
-            `UPDATE workspace_sync_queue
-             SET idempotency_key = @idempotencyKey,
-                 bundle_content_sha256 = @contentSha256,
-                 updated_at = @nowMs
-             WHERE id = @jobId
-               AND status = 'running'`
-          )
-          .run({
-            jobId: job.id,
-            idempotencyKey,
-            contentSha256: snapshot.contentSha256,
-            nowMs: this.nowMs(),
-          });
-        if (updated.changes !== 1) {
-          throw new Error(`Workspace sync job ${job.id} changed before snapshot persistence.`);
-        }
+        recordWorkspaceSyncUploadCaptureIdentity(this.db, {
+          jobId: job.id,
+          idempotencyKey,
+          contentSha256: snapshot.contentSha256,
+          nowMs: this.nowMs(),
+        });
         persistedSnapshot = this.recordDurableUploadSnapshot(job.id, snapshot, this.nowMs());
       })()
     );
@@ -1893,29 +1885,6 @@ function requireBindingByWorkspaceId(
   return row;
 }
 
-function updateRunningJobSnapshot(
-  db: Database.Database,
-  input: { id: string; localHeadSha: string | null; bundleContentSha256: string; nowMs: number }
-): void {
-  const updated = db
-    .prepare(
-      `UPDATE workspace_sync_queue
-       SET local_head_sha = COALESCE(local_head_sha, @localHeadSha),
-           bundle_content_sha256 = COALESCE(bundle_content_sha256, @bundleContentSha256),
-           updated_at = @nowMs
-       WHERE id = @id
-         AND status = 'running'
-         AND (local_head_sha IS NULL OR local_head_sha IS @localHeadSha)
-         AND (bundle_content_sha256 IS NULL OR bundle_content_sha256 = @bundleContentSha256)`
-    )
-    .run(input);
-  if (updated.changes !== 1) {
-    throw durableUploadInvalidError(
-      `Workspace sync job ${input.id} no longer names the captured upload bytes.`
-    );
-  }
-}
-
 function recordUploadSuccess(
   db: Database.Database,
   input: {
@@ -1942,40 +1911,11 @@ function recordUploadSuccess(
       nowMs: input.nowMs,
     });
 
-    const terminalUpdate = db
-      .prepare(
-        `UPDATE workspace_sync_queue
-         SET status = 'succeeded',
-             next_attempt_at = NULL,
-             locked_at = NULL,
-             locked_by_device_id = NULL,
-             error_code = NULL,
-             error_message = NULL,
-             updated_at = @nowMs
-         WHERE id = @jobId
-           AND status = 'running'
-           AND locked_by_device_id = @deviceId
-           AND locked_at = @lockedAt
-           AND attempt_count = @attemptCount
-           AND accepted_operation_id IS @acceptedOperationId`
-      )
-      .run({
-        jobId: input.job.id,
-        deviceId: input.deviceId,
-        lockedAt: input.job.lockedAt,
-        attemptCount: input.job.attemptCount,
-        acceptedOperationId: input.job.acceptedOperationId,
-        nowMs: input.nowMs,
-      });
-    if (terminalUpdate.changes !== 1) {
-      throw Object.assign(
-        new Error('Workspace sync upload lease changed before acknowledgement.'),
-        {
-          code: 'STALE_UPLOAD_RESULT',
-          retryable: false,
-        }
-      );
-    }
+    acknowledgeWorkspaceSyncUpload(db, {
+      job: input.job,
+      deviceId: input.deviceId,
+      nowMs: input.nowMs,
+    });
 
     const collision = db
       .prepare(
@@ -2071,23 +2011,11 @@ function recordUploadSuccess(
       excludeJobId: input.job.id,
       root: input.uploadSnapshotRoot,
     });
-    db.prepare(
-      `UPDATE workspace_sync_queue
-       SET status = 'canceled',
-           next_attempt_at = NULL,
-           locked_at = NULL,
-           locked_by_device_id = NULL,
-           error_code = 'SUPERSEDED_BY_UPLOAD_SUCCESS',
-           error_message = 'A newer upload completed successfully.',
-           updated_at = @nowMs
-       WHERE workspace_id = @workspaceId
-         AND operation = 'upload'
-         AND (
-           status = 'failed'
-           OR (status = 'canceled' AND error_code = 'SYNC_DISABLED')
-         )
-         AND id <> @jobId`
-    ).run({ workspaceId: input.job.workspaceId, jobId: input.job.id, nowMs: input.nowMs });
+    supersedeWorkspaceSyncUploadFailures(db, {
+      workspaceId: input.job.workspaceId,
+      completedJobId: input.job.id,
+      nowMs: input.nowMs,
+    });
     deleteWorkspaceSyncUploadSnapshot(db, input.job.id, { root: input.uploadSnapshotRoot });
     settleWorkspaceSyncUploadTelemetry(db, {
       job: input.job,

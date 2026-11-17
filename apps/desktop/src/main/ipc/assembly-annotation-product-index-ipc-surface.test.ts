@@ -47,6 +47,7 @@ describe('assembly annotation product index IPC surface', () => {
     const preparation = source('../../features/sequence/prepareAssemblyAnnotationProductSet.ts');
     const indexedViewer = source('../../features/sequence/components/IndexedGenomeViewer.tsx');
     const indexedTab = source('../../features/sequence/components/IndexedGenomeTab.tsx');
+    const liveSession = source('../../features/sequence/genome-live-session.ts');
 
     expect(preparation).toContain(
       'await platform().genome.readAssemblyAnnotationProductSetInventoryV1'
@@ -56,6 +57,8 @@ describe('assembly annotation product index IPC surface', () => {
     expect(preparation).not.toContain('platform().genome.getAnnotationTile');
     expect(indexedViewer).not.toContain('scheduleAssemblyAnnotationProductSetIndexV1');
     expect(indexedTab).not.toContain('scheduleAssemblyAnnotationProductSetIndexV1');
+    expect(liveSession).not.toContain('scheduleAssemblyAnnotationProductSetIndexV1');
+    expect(indexedTab).not.toContain('platform().genome.open(');
     const productAdmission = openAssembly.indexOf('const ordinaryProductAdmission =');
     const mountCall = openAssembly.indexOf('return mountOpenAssemblyTab({', productAdmission);
     const mountHelper = openAssembly.indexOf('function mountOpenAssemblyTab(');
@@ -66,10 +69,17 @@ describe('assembly annotation product index IPC surface', () => {
     const restoredPreparation = indexedTab.indexOf(
       'await prepareCurrentAssemblyAnnotationProductSet(assembly'
     );
-    expect(restoredPreparation).toBeGreaterThan(-1);
-    expect(restoredPreparation).toBeLessThan(
-      indexedTab.indexOf('await platform().genome.open(source)')
-    );
+    const sessionOpen = indexedTab.indexOf('liveSession.open({');
+    const prepareSource = indexedTab.indexOf('prepareSource: async () => {', sessionOpen);
+    const preparedSourceReturn = indexedTab.indexOf('return source;', restoredPreparation);
+    expect(sessionOpen).toBeGreaterThan(-1);
+    expect(prepareSource).toBeGreaterThan(sessionOpen);
+    expect(restoredPreparation).toBeGreaterThan(prepareSource);
+    expect(preparedSourceReturn).toBeGreaterThan(restoredPreparation);
+    const ownerPreparation = liveSession.indexOf('await attempt.input.prepareSource()');
+    const nativeOpen = liveSession.indexOf('await platform().genome.open(source)');
+    expect(ownerPreparation).toBeGreaterThan(-1);
+    expect(nativeOpen).toBeGreaterThan(ownerPreparation);
   });
 
   it('keeps runtime policy absent from immutable product identity', async () => {

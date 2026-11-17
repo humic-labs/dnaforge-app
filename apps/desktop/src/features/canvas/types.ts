@@ -1,3 +1,4 @@
+import type { TableDocumentReference } from '../../shared/table-document-reference';
 import type {
   IndexedGenomeInitialAnnotationMapperPolicy,
   IndexedGenomeTabState,
@@ -142,6 +143,8 @@ export interface Tab {
 
   sequenceDocument?: SequenceDocumentRef;
 
+  tableDocument?: TableDocumentReference;
+
   assemblyEditDesignId?: string;
   isDirty?: boolean;
   viewState?: TabViewState;
@@ -168,6 +171,14 @@ export interface Tab {
 
   recoveredDraft?: Record<string, string>;
 }
+
+export type CanvasTabIdentity =
+  | { type: 'sequence'; sequenceDocument: SequenceDocumentRef }
+  | { type: Exclude<TabType, 'sequence'>; entityId: string };
+
+export type TabUpdates = Partial<
+  Omit<Tab, 'id' | 'type' | 'entityId' | 'sequenceDocument' | 'assemblyEditDesignId'>
+>;
 
 export interface PanelState {
   id: string;

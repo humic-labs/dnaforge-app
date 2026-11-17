@@ -1,3 +1,4 @@
+import { conversationExecution } from './conversation-execution';
 import { isReferenceCreationTool } from '../references/constants';
 import { commitChatTurnTerminalState, type DBChatTurnStatus } from '../../../db';
 import { isChatConversationDeleted, setConversationState, type ChatStoreSet } from './chat-runtime';
@@ -189,6 +190,7 @@ export function createChatTurnLifecycle({
       kind: status,
     });
     if (nextReductionState === reductionState) return;
+    conversationExecution(conversationId).beginSettlement(turnId);
     const artifactClaims = collectCreatedArtifactClaims(
       pendingMessages.map(({ message }) => message)
     );
@@ -276,6 +278,7 @@ export function createChatTurnLifecycle({
     if (!commit.committed) return;
 
     reductionState = nextReductionState;
+    conversationExecution(conversationId).committed(turnId);
     try {
       materializedLedgerAppender?.(
         {

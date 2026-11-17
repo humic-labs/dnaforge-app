@@ -38,7 +38,8 @@ export function findProviderContinuation(
           AND turn.status IN ('completed', 'stopped', 'cancelled', 'interrupted')
           AND session.conversation_id = ?
           AND session.provider = ?
-          AND session.status IN ('completed', 'stop_requested', 'cancelled', 'interrupted')
+          AND session.status IN ('completed', 'stop_unconfirmed', 'cancelled', 'interrupted')
+          AND session.completed_at IS NOT NULL
           AND session.provider_conversation_id IS NOT NULL
           AND length(trim(session.provider_conversation_id)) > 0
         ORDER BY session.started_at DESC, session.rowid DESC

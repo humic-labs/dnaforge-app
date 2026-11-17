@@ -466,7 +466,6 @@ export {
   projectIntronColumns,
 } from './renderers/pixi/shared/project-codon-columns';
 export type { CodonInfo, IntronInfo, CodonMutationInfo } from './biology/translation';
-export { findCutSites } from './biology/restriction-sites';
 export type { CutSite } from './biology/restriction-sites';
 export {
   PRIMER_COLOR,
@@ -706,6 +705,7 @@ export type {
   TrackHoverArgs,
   TrackHitResult,
   PixiLinearTrackRenderer,
+  TrackReadPresentationSnapshot,
 } from './renderers/pixi/linear-tracks';
 
 export { PixiCytobandTrackRenderer } from './renderers/pixi/linear-tracks';

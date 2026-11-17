@@ -1026,7 +1026,7 @@ export const electronBridge: PlatformBridge = {
   startup: forwardGroup(startupContract, () => api().startup),
   app: {
     ...forwardGroup(appDirtyStateContract, () => api().app),
-    saveAllDone: (requestId) => api().app.saveAllDone(requestId),
+    saveAllDone: (requestId, result) => api().app.saveAllDone(requestId, result),
   },
   update: {
     ...forwardGroup(updateContract, () => api().update),

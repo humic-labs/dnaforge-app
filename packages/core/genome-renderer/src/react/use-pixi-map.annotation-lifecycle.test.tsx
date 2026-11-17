@@ -45,6 +45,7 @@ const lifecycle = vi.hoisted(() => ({
   appInitPartialFailureGate: null as Deferred | null,
   initGate: null as Deferred | null,
   appInitFailures: 0,
+  appInitPreferences: [] as unknown[],
   rendererInitFailures: 0,
   appDestroyCount: 0,
   canvasConnectedAtClear: [] as boolean[],
@@ -114,7 +115,8 @@ vi.mock('pixi.js', () => ({
     constructor() {
       lifecycle.applications.push(this);
     }
-    async init() {
+    async init(options: { preference?: unknown }) {
+      lifecycle.appInitPreferences.push(options.preference);
       if (lifecycle.appInitFailures > 0) {
         lifecycle.appInitFailures -= 1;
         throw new Error('injected Pixi init failure');
@@ -453,6 +455,7 @@ describe('usePixiMap annotation/source lifecycle', () => {
     lifecycle.appInitPartialFailureGate = null;
     lifecycle.initGate = null;
     lifecycle.appInitFailures = 0;
+    lifecycle.appInitPreferences.length = 0;
     lifecycle.rendererInitFailures = 0;
     lifecycle.appDestroyCount = 0;
     lifecycle.eventTargetDetachCount = 0;
@@ -529,6 +532,15 @@ describe('usePixiMap annotation/source lifecycle', () => {
     expect(latestHandle?.getLinearRenderer()).toBeInstanceOf(PixiLinearRenderer);
     expect(latestHandle?.getLinearRenderer()).not.toBeInstanceOf(IndexedPixiLinearRenderer);
   });
+
+  it.each([false, true])(
+    'requests only the supported WebGL backend for indexed=%s',
+    async (indexed) => {
+      render(<Harness genome={genome('backend')} indexed={indexed} />);
+      await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
+      expect(lifecycle.appInitPreferences).toEqual([['webgl']]);
+    }
+  );
 
   it('reinitializes from the live genome after the performance mode changes', async () => {
     const source = genome('performance-mode-source');

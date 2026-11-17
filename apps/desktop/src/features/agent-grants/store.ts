@@ -3,7 +3,7 @@ export type AgentGrantKind = 'in-app' | 'stdio-mcp' | 'http-api-key';
 export type AgentGrantOrigin = 'app' | 'tool-key' | 'local-mcp' | 'dev-test';
 export type AgentGrantStoreSource = 'pending' | 'fixture' | 'connected';
 
-import { configureSidecarApiClient } from '../../services/sidecar-session';
+import { resolveSidecarApiClient } from '../../services/sidecar-session';
 import {
   createApiKeyGrantAgentGrantsApiKeysPost,
   isApiError,
@@ -304,9 +304,9 @@ function activeGrantState(options: AgentGrantStoreSnapshotOptions): {
 export async function revokeAgentGrant(grantId: string): Promise<void> {
   assertGrantStoreWritable();
   if (storeSource === 'connected') {
-    await configureSidecarApiClient('Agent grants');
+    const apiClient = await resolveSidecarApiClient('Agent grants');
     try {
-      const response = await revokeAgentGrantAgentGrantsGrantIdDelete(grantId);
+      const response = await revokeAgentGrantAgentGrantsGrantIdDelete(grantId, apiClient.options());
       assertSuccessfulAgentGrantEnvelope(response.data as Record<string, unknown>);
     } catch (error) {
       rethrowAgentGrantRequestError(error);
@@ -331,10 +331,13 @@ export async function createApiKeyAgentGrant(
   }
 
   if (storeSource === 'connected') {
-    await configureSidecarApiClient('Agent grants');
+    const apiClient = await resolveSidecarApiClient('Agent grants');
     let response: Awaited<ReturnType<typeof createApiKeyGrantAgentGrantsApiKeysPost>>;
     try {
-      response = await createApiKeyGrantAgentGrantsApiKeysPost({ label, scopes });
+      response = await createApiKeyGrantAgentGrantsApiKeysPost(
+        { label, scopes },
+        apiClient.options()
+      );
     } catch (error) {
       rethrowAgentGrantRequestError(error);
     }
@@ -380,13 +383,16 @@ function assertGrantStoreWritable(): void {
 async function fetchAgentGrantStoreSnapshot(
   options: AgentGrantStoreSnapshotOptions
 ): Promise<AgentGrantStoreSnapshot> {
-  await configureSidecarApiClient('Agent grants');
+  const apiClient = await resolveSidecarApiClient('Agent grants');
   let data: Record<string, unknown>;
   try {
-    const response = await listAgentGrantsAgentGrantsGet({
-      includeDevTest: options.includeDevelopment,
-      cursor: options.cursor,
-    });
+    const response = await listAgentGrantsAgentGrantsGet(
+      {
+        includeDevTest: options.includeDevelopment,
+        cursor: options.cursor,
+      },
+      apiClient.options()
+    );
     data = response.data as Record<string, unknown>;
     assertSuccessfulAgentGrantEnvelope(data);
   } catch (error) {

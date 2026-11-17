@@ -1,9 +1,9 @@
+import { TRACK_DEFAULT_COLORS } from '@waypoint/sequence-utils';
 import type { ActiveStressDataset } from './lane-contract-store';
 import type { AlignedReadSourceGenerationV1 } from '../../shared/aligned-read-source-generation';
 import type { PileupSource } from './pileup-source';
 
 export const ALIGNMENT_TRACK_DIALOG_EXTENSIONS = ['bam', 'cram'];
-export const READ_PILEUP_DEFAULT_COLOR = 0xa8ceff;
 export const READ_PILEUP_DEFAULT_ROW_HEIGHT_PX = 3;
 export const READ_PILEUP_DEFAULT_MAX_ROWS = 80;
 export const READ_PILEUP_DEFAULT_OVERFLOW_BAND_HEIGHT_PX = 36;
@@ -50,7 +50,7 @@ export function buildReadPileupDataset({
     trackType: 'pileup-genomewide',
     trackId: `pileup-${assemblyId}-${stableSourceHash(sourceIdentity ?? bamPath)}`,
     label: `${assemblyDisplayName}: ${fileName}`,
-    color: READ_PILEUP_DEFAULT_COLOR,
+    color: TRACK_DEFAULT_COLORS.pileupLight,
     laneHeightPx: READ_PILEUP_DEFAULT_ROW_HEIGHT_PX,
     maxLanes: READ_PILEUP_DEFAULT_MAX_ROWS,
     overflowBandHeightPx: READ_PILEUP_DEFAULT_OVERFLOW_BAND_HEIGHT_PX,

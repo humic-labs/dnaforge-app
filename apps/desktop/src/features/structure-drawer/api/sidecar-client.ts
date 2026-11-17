@@ -118,12 +118,12 @@ type SuccessData<TResponse> = TResponse extends { status: 200; data: infer TData
 
 async function sidecarCall<TResponse extends SidecarResponse>(
   route: StructureSidecarRoute,
-  call: () => Promise<TResponse>
+  call: (options: RequestInit) => Promise<TResponse>
 ): Promise<SuccessData<TResponse> | null> {
-  serviceManager.bindExternalLookupClient();
+  const apiClient = serviceManager.externalLookupClient();
   let response: TResponse;
   try {
-    response = await call();
+    response = await call(apiClient.options());
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') throw err;
     if (isApiError(err)) {
@@ -229,7 +229,9 @@ async function runUniProtSearchOnce(
   };
   const hits = hitsOf(
     route,
-    await sidecarCall(route, () => postUniprotSearchExternalUniprotSearchPost(request, { signal }))
+    await sidecarCall(route, (requestOptions) =>
+      postUniprotSearchExternalUniprotSearchPost(request, { ...requestOptions, signal })
+    )
   );
   return (hits ?? []).flatMap(toUniProtSearchHit);
 }
@@ -302,8 +304,11 @@ export async function sidecarUniProtBySequence(
     workspace_id: opts.workspaceId,
     granted_capabilities: [...RENDERER_XREF_CAPABILITIES],
   };
-  const result = await sidecarCall(route, () =>
-    postUniprotBySequenceExternalUniprotBySequencePost(request, { signal })
+  const result = await sidecarCall(route, (requestOptions) =>
+    postUniprotBySequenceExternalUniprotBySequencePost(request, {
+      ...requestOptions,
+      signal,
+    })
   );
   const wireHits = hitsOf(route, result);
   if (result === null || wireHits === null) return null;
@@ -333,8 +338,8 @@ export async function sidecarFetchRcsbMetadata(
     workspace_id: opts.workspaceId,
     granted_capabilities: [...RENDERER_DEFAULT_CAPABILITIES],
   };
-  const result = await sidecarCall('/external/fetch', () =>
-    postFetchExternalFetchPost(request, { signal })
+  const result = await sidecarCall('/external/fetch', (requestOptions) =>
+    postFetchExternalFetchPost(request, { ...requestOptions, signal })
   );
   if (!result || !result.metadata) return null;
   const metadata = result.metadata;
@@ -384,8 +389,11 @@ export async function sidecarRcsbSequenceSearch(
   };
   const hits = hitsOf(
     route,
-    await sidecarCall(route, () =>
-      postRcsbSequenceSearchExternalRcsbSequenceSearchPost(request, { signal })
+    await sidecarCall(route, (requestOptions) =>
+      postRcsbSequenceSearchExternalRcsbSequenceSearchPost(request, {
+        ...requestOptions,
+        signal,
+      })
     )
   );
   return (hits ?? []).flatMap(toRcsbSequenceHit);
@@ -566,8 +574,8 @@ export async function sidecarValidateAfdb(
     workspace_id: opts.workspaceId,
     granted_capabilities: [...RENDERER_DEFAULT_CAPABILITIES],
   };
-  const result = await sidecarCall('/external/alphafold/validate', () =>
-    postAfdbValidateExternalAlphafoldValidatePost(request, { signal })
+  const result = await sidecarCall('/external/alphafold/validate', (requestOptions) =>
+    postAfdbValidateExternalAlphafoldValidatePost(request, { ...requestOptions, signal })
   );
   if (!result || !result.exists || !result.accession) return null;
   return {
@@ -589,10 +597,10 @@ export async function getExternalResourceByExternalId(
   const route = '/external/resource/by-external-id';
   let row: ExternalResourceModel | null;
   try {
-    row = await sidecarCall(route, () =>
+    row = await sidecarCall(route, (requestOptions) =>
       getResourceByExternalIdExternalResourceByExternalIdGet(
         { provider, external_id: externalId },
-        { signal }
+        { ...requestOptions, signal }
       )
     );
   } catch (err) {
@@ -649,8 +657,8 @@ export async function sidecarFetchUniProtEntry(
       evidence: opts.bindTo.evidence ?? 'asserted',
     };
   }
-  const result = await sidecarCall('/external/fetch', () =>
-    postFetchExternalFetchPost(request, { signal })
+  const result = await sidecarCall('/external/fetch', (requestOptions) =>
+    postFetchExternalFetchPost(request, { ...requestOptions, signal })
   );
   if (!result) return null;
   const row = await getExternalResourceByExternalId('uniprot', accession, signal);

@@ -1,3 +1,4 @@
+import { TRACK_DEFAULT_COLORS } from '@waypoint/sequence-utils';
 import {
   DEFAULT_QUANTITATIVE_TRACK_PRESENTATION,
   createIndexedBbiTrackId,
@@ -13,8 +14,6 @@ import type { AlignmentReferenceIdentity } from './alignment-header-client';
 import { assemblyContigNaming } from './contig-name-map';
 import { admitIndexedBigWigSource } from './indexed-track-admission';
 import { useLaneContractStore, type ActiveStressDataset } from './lane-contract-store';
-
-export const INDEXED_BIGWIG_LANE_COLOR = 0x3b82f6;
 
 export interface AttachIndexedBigWigInput {
   readonly laneOwnerId: string;
@@ -61,7 +60,7 @@ export function quantitativeIndexedBigWigDataset(input: {
     trackType: BUILTIN_TRACK_TYPES.quantitative,
     trackId: input.trackId,
     label: input.label,
-    color: INDEXED_BIGWIG_LANE_COLOR,
+    color: TRACK_DEFAULT_COLORS.importedData,
     laneHeightPx: 8,
     maxLanes: 32,
     trackPx:

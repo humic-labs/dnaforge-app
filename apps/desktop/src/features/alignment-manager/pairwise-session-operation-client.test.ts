@@ -90,7 +90,11 @@ describe('pairwise session alignment operation client', () => {
     vi.mocked(managedOperations.startRegisteredOperation)
       .mockReset()
       .mockImplementation((start, submissionKey) =>
-        start({ scopeId: 'workspace-a', submissionKey: submissionKey ?? 'submission-1' })
+        start({
+          apiClient: { options: (options: RequestInit = {}) => options },
+          scopeId: 'workspace-a',
+          submissionKey: submissionKey ?? 'submission-1',
+        })
       );
     vi.mocked(managedOperations.waitForTerminal)
       .mockReset()
@@ -137,7 +141,7 @@ describe('pairwise session alignment operation client', () => {
         },
         input: INPUT,
       },
-      undefined
+      {}
     );
   });
 

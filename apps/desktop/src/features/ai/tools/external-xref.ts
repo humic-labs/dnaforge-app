@@ -13,7 +13,7 @@ import { resultTool, toolFailure, toolSuccess } from '../../agent-bridge/public/
 import { externalXrefPayloadSchema } from './external-output-schemas';
 export { externalXrefOutputSchema } from './external-output-schemas';
 import { z } from 'zod';
-import { configureSidecarApiClient } from './sidecar-client';
+import { resolveSidecarApiClient } from './sidecar-client';
 import {
   ApiResponseParseError,
   getXrefsExternalXrefsGet,
@@ -37,7 +37,7 @@ export const externalXrefTool = resultTool({
     args: z.infer<typeof externalXrefSchema>,
     context: { abortSignal?: AbortSignal }
   ) => {
-    await configureSidecarApiClient('external.xref');
+    const apiClient = await resolveSidecarApiClient('external.xref');
     let payload: {
       resource_id: string;
       target_provider?: string | null;
@@ -52,7 +52,7 @@ export const externalXrefTool = resultTool({
           external_id: args.external_id,
           target_provider: args.target_provider,
         },
-        { signal: context.abortSignal }
+        apiClient.options({ signal: context.abortSignal })
       );
       const parsed = externalXrefPayloadSchema.safeParse(response.data);
       if (!parsed.success) return { status: response.status, ...toolFailure({

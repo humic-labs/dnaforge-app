@@ -4,6 +4,7 @@ import { createHash, webcrypto } from 'node:crypto';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TextViewerTab } from './TextViewerTab';
+import { getFileDocumentClient } from '../features/workspace/public/file-document-client';
 import { Panel } from '../features/canvas/components/Panel';
 import { CommandScopeProvider } from '../commands/CommandScopeProvider';
 import { useCanvasStore } from '../features/canvas/store';
@@ -56,7 +57,7 @@ vi.mock('../utils/environment', async (original) => ({
 }));
 vi.mock('../lib/workflow-telemetry', () => ({ observeWorkflowAction: vi.fn() }));
 vi.mock('../features/sequence/save-all-sequences', () => ({
-  saveAllDirtySequences: async () => {},
+  saveAllDirtySequences: async () => ({ saved: 0, failed: [] }),
 }));
 vi.mock('../features/canvas/components/TabPortalTarget', () => ({
   TabPortalTarget: ({ tab }: { tab: Tab }) => (
@@ -488,6 +489,127 @@ describe('text Save and Close durable revision', () => {
     expect(io.files.get(filePath)).toBe(editB);
     await waitFor(() => expect(stillOpen()).toBe(false));
   });
+
+  it('records the original write failure while retaining the unsaved text', async () => {
+    await mount();
+    const failure = new Error('EACCES: text write denied');
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      edit(editA);
+      save();
+      await finish(0, failure);
+      expect(report).toHaveBeenCalledWith(
+        '[TextViewerTab] Save failed:',
+        { filePath, tabId, documentId: io.records.get(filePath)?.documentId },
+        failure
+      );
+      expect(io.records.get(filePath)?.documentId).toMatch(/^file-document:/);
+      expect(editor()).toHaveValue(editA);
+      expect(io.files.get(filePath)).toBe(baseline);
+      expect(stillOpen()).toBe(true);
+    } finally {
+      report.mockRestore();
+    }
+  });
+
+  it('preserves an unacknowledged newer edit when an older save fails', async () => {
+    const writeFailure = new Error('EACCES: older save denied');
+    const editFailure = new Error('Edit transaction was not acknowledged');
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await mount();
+      edit(editA);
+      save();
+      await waitFor(() => expect(writes).toHaveLength(1));
+      const execute = io.fileDocument.getMockImplementation();
+      if (!execute) throw new Error('Missing native document executor');
+      io.fileDocument.mockImplementation((request) =>
+        request.operation.kind === 'text-transaction'
+          ? Promise.reject(editFailure)
+          : execute(request)
+      );
+      edit(editB);
+      const client = getFileDocumentClient(filePath);
+      await waitFor(() => expect(client.error).toBe(editFailure.message));
+      await finish(0, writeFailure);
+      expect(editor()).toHaveValue(editB);
+      expect(client.content).toBe(editB);
+      expect(client.error).toBe(editFailure.message);
+      expect(io.files.get(filePath)).toBe(baseline);
+      save();
+      await waitFor(() =>
+        expect(
+          report.mock.calls.some((call) =>
+            call.some(
+              (value) =>
+                value instanceof Error &&
+                value.message.includes('FILE_DOCUMENT_CLIENT_UNSYNCHRONIZED')
+            )
+          )
+        ).toBe(true)
+      );
+      expect(writes).toHaveLength(1);
+      expect(editor()).toHaveValue(editB);
+      expect(io.files.get(filePath)).toBe(baseline);
+    } finally {
+      report.mockRestore();
+    }
+  });
+
+  it('reports the original write failure if completion inspection also fails', async () => {
+    const failure = new Error('EACCES: original text write denied');
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await mount();
+      edit(editA);
+      save();
+      await waitFor(() => expect(writes).toHaveLength(1));
+      const execute = io.fileDocument.getMockImplementation();
+      if (!execute) throw new Error('Missing native document executor');
+      io.fileDocument.mockImplementation((request) =>
+        request.operation.kind === 'inspect'
+          ? Promise.reject(new Error('Completion status unavailable'))
+          : execute(request)
+      );
+      await finish(0, failure);
+      expect(report).toHaveBeenCalledWith(
+        '[TextViewerTab] Save failed:',
+        { filePath, tabId, documentId: io.records.get(filePath)?.documentId },
+        failure
+      );
+      expect(editor()).toHaveValue(editA);
+      expect(io.files.get(filePath)).toBe(baseline);
+    } finally {
+      report.mockRestore();
+    }
+  });
+
+  it.each(['deferred', 'immediate'] as const)(
+    'enables the Save button after a %s write failure and retries through that button',
+    async (timing) => {
+      const failure = new Error('EACCES: controlled text write denied');
+      const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        if (timing === 'immediate') io.writeTextFileAtomic.mockRejectedValueOnce(failure);
+        await mount();
+        edit(editA);
+        save();
+        if (timing === 'deferred') await finish(0, failure);
+        await waitFor(() => expect(report).toHaveBeenCalled());
+        await waitFor(() =>
+          expect(screen.getByRole('button', { name: 'Save', exact: true })).toBeEnabled()
+        );
+        expect(editor()).toHaveValue(editA);
+        expect(io.files.get(filePath)).toBe(baseline);
+        fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
+        await finish(timing === 'deferred' ? 1 : 0);
+        expect(io.files.get(filePath)).toBe(editA);
+        expect(stillOpen()).toBe(true);
+      } finally {
+        report.mockRestore();
+      }
+    }
+  );
 
   it('shares same-revision keyboard, editor, and close requests in one write', async () => {
     await mount();

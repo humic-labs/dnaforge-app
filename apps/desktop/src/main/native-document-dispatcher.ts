@@ -115,6 +115,7 @@ const kindFor = (
     return 'scientific';
   if (/\.primer\.json$/i.test(path)) return 'primer';
   if (/\.protein\.json$/i.test(path)) return 'protein';
+  if (fileKind === 'dnaforge-table') return 'table';
   if (fileKind === 'csv') return 'csv';
   if (fileKind === 'tsv') return 'tsv';
   if (

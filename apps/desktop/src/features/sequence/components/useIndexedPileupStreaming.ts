@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 
 import type { CoverageSignal, PileupRecord, PileupTrackData } from '@waypoint/genome-data';
 import {
@@ -381,6 +381,7 @@ export function useIndexedPileupStreaming({
   const tileEngineLastRangeRef = useRef<PendingTileEngineReplay | null>(null);
   const tileEnginePendingCommitRef = useRef<PendingTileEngineReplay | null>(null);
   const tileEngineCommitTimerRef = useRef<number | null>(null);
+  const flushPendingTileEngineCommitRef = useRef<() => void>(() => undefined);
   const tileEngineLastCommitMsRef = useRef<number | null>(null);
   const tileEngineLastCommitPlanKeyRef = useRef<string | null>(null);
   const streamPileupViaTileEngineRef = useRef<
@@ -598,6 +599,38 @@ export function useIndexedPileupStreaming({
       ) {
         continue;
       }
+      if (pending.kind === 'reads' || pending.kind === 'empty') {
+        const presentation = currentRenderer?.getReadPresentationSnapshot?.(trackId);
+        const payload = tileEnginePublishedPayloadsRef.current.get(trackId);
+        const sourceGenerationKey = payload?.readSource?.sourceGenerationKey ?? '';
+        const presentationOwnerKey =
+          payload?.readSource?.presentationOwnerKey ?? sourceGenerationKey;
+        if (
+          !presentation ||
+          !payload ||
+          presentation.kind !== pending.kind ||
+          presentation.sourceGenerationKey !== sourceGenerationKey ||
+          presentation.presentationOwnerKey !== presentationOwnerKey ||
+          !pileupRangesEqual(
+            { start: presentation.viewStartBp, end: presentation.viewEndBp },
+            currentRange
+          ) ||
+          presentation.sourceCoversViewport !== true ||
+          presentation.truncated !== false ||
+          (pending.kind === 'reads' &&
+            (!Number.isFinite(presentation.meshCoverageFraction) ||
+              presentation.meshCoverageFraction < 0.999 ||
+              presentation.visible !== true ||
+              !Number.isSafeInteger(presentation.recordCount) ||
+              presentation.recordCount <= 0)) ||
+          (pending.kind === 'empty' &&
+            (presentation.visible !== false || presentation.recordCount !== 0))
+        ) {
+          if (trackLifecycle.getSnapshot()[trackId]?.phase === 'ready')
+            beginTrackStreaming(trackId, entry);
+          continue;
+        }
+      }
       entry.pendingPresentation = null;
       entry.lastPresentedRange = pending.range;
       const recovery = tileEngineRecoveryRef.current.get(trackId);
@@ -617,6 +650,7 @@ export function useIndexedPileupStreaming({
     }
     detachPresentedFrameSubscriptionIfIdle();
   }, [
+    beginTrackStreaming,
     clearTrackRecovery,
     clearTrackStallWatch,
     containerWidth,
@@ -1144,6 +1178,92 @@ export function useIndexedPileupStreaming({
               scheduleTrackRecovery(trackId, driver, reason, {
                 requiredReadBand: key.sourceId.startsWith('aln:'),
               }),
+            onReadPresentationReuse: (presentation) => {
+              if (!enabledRef.current) return;
+              const currentAssembly = rendererAssemblyRef.current;
+              const currentDataset = activeStressDatasetsRef.current.find(
+                (dataset) => dataset.trackId === trackId && isTileEngineOwnedPileupDataset(dataset)
+              );
+              const currentMap = webglRef.current;
+              const renderer = currentMap?.getLinearRenderer?.();
+              const currentEntry = tileEngineDriversRef.current.get(trackId);
+              const payload = tileEnginePublishedPayloadsRef.current.get(trackId);
+              const currentRange = currentAssembly
+                ? normalizeTileEngineDataRange(
+                    currentMap?.getViewportRange?.(),
+                    currentAssembly.totalLengthBp
+                  )
+                : null;
+              const reusedRange = currentAssembly
+                ? normalizeTileEngineDataRange(
+                    presentation.viewRange,
+                    currentAssembly.totalLengthBp
+                  )
+                : null;
+              const currentPlanKey =
+                currentRange && currentAssembly
+                  ? tileEngineCommitPlanKey(
+                      currentRange,
+                      currentAssembly,
+                      containerWidthRef.current
+                    )
+                  : null;
+              const kind = alignedReadReadyKindForFeed(presentation.feed);
+              if (
+                !isCurrentTileEngineFeedSource({
+                  currentAssembly,
+                  currentBaseUrl: tileEngineBaseUrlRef.current,
+                  currentDataset,
+                  sourceKey,
+                  referencePathsKey: referencePathsKeyRef.current,
+                }) ||
+                currentEntry?.driver !== driver ||
+                currentEntry.sourceKey !== sourceKey ||
+                !currentMap ||
+                !renderer ||
+                currentEntry.publishedRenderer !== renderer ||
+                renderer !== presentationRendererRef.current ||
+                payload?.records !== presentation.feed.records ||
+                !currentRange ||
+                !pileupRangesEqual(currentRange, reusedRange) ||
+                !pileupRangesEqual(currentEntry.currentRange, currentRange) ||
+                currentEntry.planKey !== currentPlanKey ||
+                (kind !== 'reads' && kind !== 'empty')
+              )
+                return;
+              firstInteractionReadinessRef.current.noteCoverageFeed(
+                renderer,
+                trackId,
+                currentRange,
+                { ...presentation.feed, viewRange: currentRange }
+              );
+              const status = trackLifecycle.getSnapshot()[trackId];
+              if (
+                (pileupRangesEqual(currentEntry.pendingPresentation?.range ?? null, currentRange) &&
+                  currentEntry.pendingPresentation?.kind === kind &&
+                  currentEntry.pendingPresentation.requiredReadBandReady ===
+                    presentation.requiredReadBandReady) ||
+                (pileupRangesEqual(currentEntry.lastPresentedRange, currentRange) &&
+                  status?.phase === 'ready' &&
+                  status.kind === kind)
+              )
+                return;
+              if (status?.phase === 'ready') beginTrackStreaming(trackId, currentEntry);
+              tileEnginePublicationSequenceRef.current += 1;
+              currentEntry.pendingPresentation = {
+                sourceKey: currentEntry.sourceKey,
+                generation: currentEntry.generation,
+                rendererGeneration: presentationRendererGenerationRef.current,
+                requestSequence: currentEntry.requestSequence,
+                publicationSequence: tileEnginePublicationSequenceRef.current,
+                planKey: currentEntry.planKey,
+                range: currentRange,
+                kind,
+                requiredReadBandReady: presentation.requiredReadBandReady,
+              };
+              ensurePresentedFrameSubscription(currentMap);
+              currentMap.requestRender?.();
+            },
             onCoverageAtlasReuse: (presentation) => {
               if (!enabledRef.current) return;
               const currentAssembly = rendererAssemblyRef.current;
@@ -1364,6 +1484,7 @@ export function useIndexedPileupStreaming({
                       sourceGenerationKey: alignedReadSourceGenerationKey(
                         currentDataset?.source?.generation
                       ),
+                      presentationOwnerKey: sourceKey,
                     }
                   : undefined;
               const publishedPayload: PileupTrackData = {
@@ -1666,6 +1787,9 @@ export function useIndexedPileupStreaming({
     }
     commitTileEnginePending(pending);
   }, [commitTileEnginePending]);
+  useLayoutEffect(() => {
+    flushPendingTileEngineCommitRef.current = flushPendingTileEngineCommit;
+  }, [flushPendingTileEngineCommit]);
 
   const streamPileupViaTileEngine = useCallback(
     (range: PileupRange | null | undefined): boolean => {
@@ -1763,7 +1887,7 @@ export function useIndexedPileupStreaming({
 
         if (tileEngineCommitTimerRef.current == null) {
           tileEngineCommitTimerRef.current = window.setTimeout(
-            flushPendingTileEngineCommit,
+            () => flushPendingTileEngineCommitRef.current(),
             Math.max(0, TILE_ENGINE_CAMERA_COMMIT_MIN_MS - elapsed)
           );
         }
@@ -2177,7 +2301,16 @@ function rendererCoverageOverlapsRange(
 }
 
 function pileupRangesEqual(a: PileupRange | null, b: PileupRange | null): boolean {
-  return Boolean(a && b && a.start === b.start && a.end === b.end);
+  if (!a || !b || ![a.start, a.end, b.start, b.end].every(Number.isFinite)) return false;
+  const equalCoordinate = (left: number, right: number): boolean => {
+    if (left === right) return true;
+    const magnitude = Math.max(Math.abs(left), Math.abs(right));
+    let exponent = Math.floor(Math.log2(magnitude));
+    if (2 ** exponent > magnitude) exponent -= 1;
+    const ulp = Math.max(Number.MIN_VALUE, 2 ** (exponent - 52));
+    return Math.abs(left - right) <= Math.min(1e-6, ulp * 4);
+  };
+  return equalCoordinate(a.start, b.start) && equalCoordinate(a.end, b.end);
 }
 
 function alignedReadFeedProgressSignature(feed: TileEngineFeed): string {

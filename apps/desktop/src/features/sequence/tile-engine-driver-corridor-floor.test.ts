@@ -105,6 +105,52 @@ function manualPostPaintScheduler() {
 }
 
 describe('TileEngineDriver verified corridor floor', () => {
+  it('releases obsolete whole-genome HTTP coverage before preparing a local exact-read view', async () => {
+    const assembly = grch38Assembly();
+    const requests: Array<{ url: string; signal: AbortSignal }> = [];
+    const fetchImpl = vi.fn((url: string | URL | Request, init?: RequestInit) => {
+      const signal = init!.signal!;
+      requests.push({ url: String(url), signal });
+      return new Promise<Response>((_resolve, reject) => {
+        signal.addEventListener('abort', () => {
+          reject(new DOMException('aborted', 'AbortError'));
+        });
+      });
+    }) as typeof fetch;
+    const driver = new TileEngineDriver({
+      assembly,
+      source: { bamPath: '/data/HG002.bam', indexPath: '/data/HG002.bam.bai' },
+      baseUrl: 'http://sidecar',
+      onFeed: () => undefined,
+      fetchImpl,
+      corridorFloorLoader: async () => null,
+    });
+    const drain = async () => {
+      for (let i = 0; i < 80; i++) await Promise.resolve();
+    };
+    try {
+      driver.setViewport({ start: 0, end: assembly.totalLengthBp }, 1768);
+      await drain();
+      const broad = requests.filter(({ url }) => /\/coverage-assembly\/21\//.test(url));
+      expect(broad.length).toBeGreaterThan(0);
+      expect(broad.every(({ signal }) => !signal.aborted)).toBe(true);
+      const previousRequests = requests.length;
+
+      driver.setViewport({ start: 1_809_369_836, end: 1_809_396_448 }, 1768);
+      await drain();
+
+      expect(broad.every(({ signal }) => signal.aborted)).toBe(true);
+      const current = requests.slice(previousRequests);
+      expect(current.some(({ url }) => /\/alignment\/2\//.test(url))).toBe(true);
+      expect(current.some(({ url }) => /\/coverage-assembly\/4\//.test(url))).toBe(true);
+      expect(current.some(({ url }) => /\/coverage-assembly\/21\//.test(url))).toBe(false);
+      expect(current.every(({ signal }) => !signal.aborted)).toBe(true);
+    } finally {
+      driver.dispose();
+      await drain();
+    }
+  });
+
   it('acknowledges unchanged full-assembly atlas camera moves without another feed or fetch', async () => {
     const assembly = grch38Assembly();
     const feeds = vi.fn();

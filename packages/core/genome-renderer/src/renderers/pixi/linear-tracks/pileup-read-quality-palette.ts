@@ -1,9 +1,10 @@
+import { TRACK_DEFAULT_COLORS } from '@waypoint/sequence-utils';
 export type PileupReadQualityTheme = 'light' | 'dark';
 export type PileupReadQualityRgb = readonly [red: number, green: number, blue: number];
 
 export const PILEUP_READ_BODY_COLOR_BY_THEME = {
-  light: 0xa8ceff,
-  dark: 0x1d4ed8,
+  light: TRACK_DEFAULT_COLORS.pileupLight,
+  dark: TRACK_DEFAULT_COLORS.pileupDark,
 } as const;
 
 function rgbFromNumber(color: number): PileupReadQualityRgb {

@@ -253,7 +253,8 @@ type DetailRenderer = {
   preparePrepackedAnnotationFineViews(
     viewportStartBp: number,
     viewportEndBp: number,
-    themeMode?: 'light' | 'dark'
+    themeMode?: 'light' | 'dark',
+    deadlineMs?: number
   ): PrepackedAnnotationFinePreparationResult;
   admitPrepackedAnnotationViewportDetailRoster(
     viewportStartBp: number,
@@ -1039,7 +1040,7 @@ export async function scheduleViewportDetailRendererAdmissionV1(input: {
         fail(error);
       }
     };
-    const admit = (deadlineMs = performance.now()): void => {
+    const admit = (deadlineMs?: number): void => {
       try {
         if (input.cancelled()) {
           finish('staged-cancelled');
@@ -1073,9 +1074,14 @@ export async function scheduleViewportDetailRendererAdmissionV1(input: {
           fine = input.renderer.preparePrepackedAnnotationFineViews(
             input.finePrewarmRange.startBp,
             input.finePrewarmRange.endBp,
-            input.loadInput.metadata.themeMode
+            input.loadInput.metadata.themeMode,
+            deadlineMs
           );
-        } while (fine.pendingOwnerCount > 0 && performance.now() < deadlineMs);
+        } while (
+          fine.pendingOwnerCount > 0 &&
+          deadlineMs !== undefined &&
+          performance.now() < deadlineMs
+        );
         if (fine.status === 'waiting-residents') {
           finish('staged-waiting-residents');
           return;

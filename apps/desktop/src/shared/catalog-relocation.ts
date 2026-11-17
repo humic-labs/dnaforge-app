@@ -1,4 +1,5 @@
 import { isNotebookPackageMetaPath } from '../db/notebook-package';
+import { isForgePackageMetaPath } from './forge-package-path';
 import { isSequencePackageFileKind, isSequencePackageMetaPath } from '../db/sequence-package';
 import {
   pathIsAtOrUnder,
@@ -34,6 +35,7 @@ function inferCatalogFileKind(filePath: string): string {
   if (lowerName.endsWith('.wpdesign.json')) return 'waypoint-design';
   if (lowerName.endsWith('.wpselection.json')) return 'waypoint-residue-selection';
   if (isNotebookPackageMetaPath(filePath)) return 'waypoint-notebook';
+  if (isForgePackageMetaPath(filePath, 'table.json')) return 'dnaforge-table';
   if (isSequencePackageMetaPath(filePath)) return 'waypoint-sequence';
   const extension = name.includes('.') ? name.split('.').pop()?.toLowerCase() : undefined;
   if (!extension) return 'file';
@@ -90,6 +92,7 @@ export function planCatalogFileRelocation(
     file.file_kind === 'folder' ||
     file.file_kind === 'waypoint-notebook' ||
     file.file_kind === 'waypoint-design' ||
+    file.file_kind === 'dnaforge-table' ||
     isSequencePackageFileKind(file.file_kind)
       ? file.file_kind
       : inferCatalogFileKind(movedPath);

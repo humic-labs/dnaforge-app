@@ -2,13 +2,12 @@ import { usePresentationListener } from '../../../../presentation/PresentationSu
 import { type UserMessage, toUserMessage, userMessage } from '@waypoint/user-messages';
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import type { Annotation } from '@waypoint/sequence-utils';
+import { DEFAULT_MANUAL_ANNOTATION_COLOR, type Annotation } from '@waypoint/sequence-utils';
 import { PlannotateSpinner } from '@/components/icons';
 import type { AnnotationDraft } from '../../types';
 import {
   ANNOTATION_GRID,
   EMPTY_HIDDEN_KEYS,
-  DEFAULT_MANUAL_ANNOTATION_COLOR,
   type AnnotationRange,
   type AnnotationSavePayload,
 } from './helpers';

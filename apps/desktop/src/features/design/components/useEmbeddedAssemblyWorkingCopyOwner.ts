@@ -1,3 +1,4 @@
+import { reportSaveFailure } from '../../../lib/report-save-failure';
 import { useSequenceStore } from '../../sequence/public/store';
 import { useDocumentLifecycle } from '../../../shared/use-document-lifecycle';
 import { toUserMessage } from '@waypoint/user-messages';
@@ -120,6 +121,11 @@ export function useEmbeddedAssemblyWorkingCopyOwner({
               await saveWorkingCopy();
               return true;
             } catch (error) {
+              reportSaveFailure(
+                '[EmbeddedAssembly] Save failed:',
+                { designId, tabId: tab.id },
+                error
+              );
               useToastStore
                 .getState()
                 .addToast(

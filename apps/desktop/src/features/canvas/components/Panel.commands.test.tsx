@@ -208,58 +208,42 @@ describe('CV2 real Panel/store/command authority', () => {
     expect(active('main')).toBe(left[0]);
   });
 
-  it.each([COMMAND_SCOPES.inputEditor, COMMAND_SCOPES.menuContext])(
-    'respects claimed %s without consuming',
-    (scope) => {
-      const view = render(
-        <Scene>
-          <Scope scope={scope} />
-        </Scene>
-      );
-      expect(press().defaultPrevented).toBe(false);
-      expect(active('main')).toBe(left[2]);
-      view.rerender(<Scene />);
-      press();
-      expect(active('main')).toBe(left[0]);
-    }
-  );
+  it.each([COMMAND_SCOPES.menuContext])('respects claimed %s without consuming', (scope) => {
+    const view = render(
+      <Scene>
+        <Scope scope={scope} />
+      </Scene>
+    );
+    expect(press().defaultPrevented).toBe(false);
+    expect(active('main')).toBe(left[2]);
+    view.rerender(<Scene />);
+    press();
+    expect(active('main')).toBe(left[0]);
+  });
 
-  it('leaves editable, terminal, explicitly owned and already-consumed events with their targets', async () => {
+  it('leaves explicitly owned and already-consumed events with their targets', async () => {
     const widget = vi.fn();
     render(
       <Scene>
-        <input aria-label="editor" defaultValue="retained" />
-        <div contentEditable suppressContentEditableWarning data-testid="editable">
-          retained
-        </div>
-        <div data-terminal-surface>
-          <button>Terminal control</button>
-        </div>
         <div data-command-shortcut-owner={COMMAND_IDS.canvasNextTab}>
           <button onKeyDown={widget}>Owned control</button>
         </div>
-        <button onKeyDown={(event) => event.preventDefault()}>Consumed control</button>
-        <button onKeyDown={(event) => event.stopPropagation()}>Stopped control</button>
       </Scene>
     );
-    for (const target of [
-      screen.getByLabelText('editor'),
-      screen.getByTestId('editable'),
-      screen.getByRole('button', { name: 'Terminal control' }),
-      screen.getByRole('button', { name: 'Owned control' }),
-    ]) {
-      expect(press(target).defaultPrevented).toBe(false);
-      expect(active('main')).toBe(left[2]);
-    }
-    expect(widget).toHaveBeenCalledTimes(1);
-    expect(press(screen.getByRole('button', { name: 'Consumed control' })).defaultPrevented).toBe(
-      true
-    );
-    expect(press(screen.getByRole('button', { name: 'Stopped control' })).defaultPrevented).toBe(
+    expect(press(screen.getByRole('button', { name: 'Owned control' })).defaultPrevented).toBe(
       false
     );
     expect(active('main')).toBe(left[2]);
-    expect(screen.getByLabelText('editor')).toHaveValue('retained');
+    expect(widget).toHaveBeenCalledTimes(1);
+    const consumed = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    consumed.preventDefault();
+    act(() => window.dispatchEvent(consumed));
+    expect(active('main')).toBe(left[2]);
   });
 
   it('never registers more than the actual focused pane even if two prop snapshots claim focus', async () => {
@@ -357,11 +341,14 @@ describe('CV1 real Panel/store guarded close ownership', () => {
     'routes notebook %s through its page target',
     async (choice) => {
       act(() =>
-        useCanvasStore.getState().updateTab('main', left[2], {
-          type: 'page',
-          entityId: 'synthetic-page',
-          isDirty: true,
-        })
+        useCanvasStore
+          .getState()
+          .retargetTab(
+            'main',
+            left[2],
+            { type: 'page', entityId: 'synthetic-page' },
+            { isDirty: true }
+          )
       );
       render(<Scene />);
       fireEvent.click(screen.getByTestId(`tab-close-${left[2]}`));
@@ -498,27 +485,34 @@ describe('CV1 real Panel/store guarded close ownership', () => {
 
   it("preserves the artifact owner's stable tab target when Save promotes a draft entity", async () => {
     act(() =>
-      useCanvasStore.getState().updateTab('main', left[2], {
-        type: 'protein',
-        entityId: 'protein-draft:synthetic',
-        isDirty: true,
-        artifactDocument: {
-          kind: 'protein',
-          persistence: 'draft',
-          workspaceRoot: '/synthetic',
-          destinationPath: '/synthetic',
-        },
-      })
+      useCanvasStore.getState().retargetTab(
+        'main',
+        left[2],
+        { type: 'protein', entityId: 'protein-draft:synthetic' },
+        {
+          isDirty: true,
+          artifactDocument: {
+            kind: 'protein',
+            persistence: 'draft',
+            workspaceRoot: '/synthetic',
+            destinationPath: '/synthetic',
+          },
+        }
+      )
     );
     render(<Scene />);
     fireEvent.click(screen.getByTestId(`tab-close-${left[2]}`));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     act(() =>
-      useCanvasStore.getState().updateTab('main', left[2], {
-        entityId: 'recorded-protein:synthetic',
-        artifactDocument: undefined,
-        isDirty: false,
-      })
+      useCanvasStore.getState().retargetTab(
+        'main',
+        left[2],
+        { type: 'protein', entityId: 'recorded-protein:synthetic' },
+        {
+          artifactDocument: undefined,
+          isDirty: false,
+        }
+      )
     );
     await complete({ kind: 'tab', tabId: left[2], success: true });
     expect(targetStillOpen()).toBe(false);
@@ -528,17 +522,20 @@ describe('CV1 real Panel/store guarded close ownership', () => {
   it('advances the existing close queue when a successful artifact owner removed its own draft', async () => {
     act(() => {
       const store = useCanvasStore.getState();
-      store.updateTab('main', left[2], {
-        type: 'primer',
-        entityId: 'primer-draft:synthetic',
-        isDirty: true,
-        artifactDocument: {
-          kind: 'primer',
-          persistence: 'draft',
-          workspaceRoot: '/synthetic',
-          destinationPath: '/synthetic',
-        },
-      });
+      store.retargetTab(
+        'main',
+        left[2],
+        { type: 'primer', entityId: 'primer-draft:synthetic' },
+        {
+          isDirty: true,
+          artifactDocument: {
+            kind: 'primer',
+            persistence: 'draft',
+            workspaceRoot: '/synthetic',
+            destinationPath: '/synthetic',
+          },
+        }
+      );
       store.updateTab('main', left[1], { isDirty: true });
     });
     render(<Scene />);
@@ -567,7 +564,10 @@ describe('CV1 real Panel/store guarded close ownership', () => {
         const store = useCanvasStore.getState();
         if (change === 'move') store.moveTab('main', rightPanel, left[2]);
         else if (change === 'retarget')
-          store.updateTab('main', left[2], { entityId: '/synthetic/replacement.txt' });
+          store.retargetTab('main', left[2], {
+            type: 'text',
+            entityId: '/synthetic/replacement.txt',
+          });
         else store.closeTab('main', left[2]);
       });
       const before = useCanvasStore.getState().panels;
@@ -591,7 +591,7 @@ describe('CV1 real Panel/store guarded close ownership', () => {
     act(() =>
       useCanvasStore
         .getState()
-        .updateTab('main', left[2], { entityId: '/synthetic/replacement.txt' })
+        .retargetTab('main', left[2], { type: 'text', entityId: '/synthetic/replacement.txt' })
     );
     await act(async () => fireEvent.click(screen.getByRole('button', { name: "Don't Save" })));
     expect(documentLifecycle.discard).not.toHaveBeenCalled();

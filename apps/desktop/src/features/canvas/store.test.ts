@@ -128,7 +128,7 @@ describe('sequence presentation at the canvas boundary', () => {
     const store = useCanvasStore.getState();
     const entityId = logicalSequenceId('promoted');
     const id = store.openTab('main', createTab({ type: 'text', entityId, label: 'Promoted.gb' }));
-    store.updateTab('main', id, {
+    store.retargetTab('main', id, {
       type: 'sequence',
       sequenceDocument: { kind: 'catalog-sequence', entityId },
     });
@@ -156,11 +156,15 @@ describe('useCanvasStore', () => {
         ...useCanvasStore.getState().panels.main.tabs[0],
         loadStatus: 'missing' as const,
       };
-      store.updateTab('main', id, {
-        entityId: '/synthetic/current.txt',
-        loadStatus: 'loaded',
-        fileSizeBytes: 42,
-      });
+      store.retargetTab(
+        'main',
+        id,
+        { type: 'file', entityId: '/synthetic/current.txt' },
+        {
+          loadStatus: 'loaded',
+          fileSizeBytes: 42,
+        }
+      );
       const current = useCanvasStore.getState().panels.main.tabs[0];
       store.openTab('main', createTab({ type: 'text', entityId: '/synthetic/newly-opened.txt' }));
       store.applyOversizeScan({ main: [scanned] });
@@ -190,7 +194,8 @@ describe('useCanvasStore', () => {
         ...useCanvasStore.getState().panels.main.tabs[0],
         loadStatus: 'missing' as const,
       };
-      store.updateTab('main', id, {
+      store.retargetTab('main', id, {
+        type: 'sequence',
         sequenceDocument: {
           kind: 'managed-sequence',
           packageId: 'sequence-document:package',

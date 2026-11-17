@@ -15,7 +15,12 @@ import { writeMolecularTrialSentPromptSnapshot } from '../molecular-prompt-trial
 import { reprojectInlineTextDocument } from '../references/inline/document';
 import { createInlineReferenceSession } from '../references/inline/session';
 import { blocksToMessages, createdAtAfter } from './chat-projections';
-import { setConversationState, type ChatStoreGet, type ChatStoreSet } from './chat-runtime';
+import {
+  chatProviderPhase,
+  setConversationState,
+  type ChatStoreGet,
+  type ChatStoreSet,
+} from './chat-runtime';
 import { EMPTY_CONV_STATE } from './chat-store-types';
 import type { ChatMessage } from './chat-types';
 import { referenceCompletionFallback } from './reference-completion';
@@ -127,7 +132,8 @@ export async function executeHostedCodexTurn(
     permissions: options.permissions,
   };
 
-  setConversationState(set, conversationId, () => ({ isStreaming: true, streamingBlocks: [] }));
+  chatProviderPhase(set, conversationId, controller, 'streaming');
+  setConversationState(set, conversationId, () => ({ streamingBlocks: [] }));
   const inlineReferences = createInlineReferenceSession({
     roots: options.folders,
     workspaceScope: options.workspaceScope,
@@ -249,10 +255,10 @@ export async function executeHostedCodexTurn(
   const keepPartialMessages = async (): Promise<void> => {
     const messages = await finalizeMessages(true);
     if (messages.length === 0) return;
+    chatProviderPhase(set, conversationId, controller, 'settling');
     setConversationState(set, conversationId, (previous) => ({
       messages: [...previous.messages, ...messages],
       streamingBlocks: [],
-      isStreaming: false,
     }));
     messages.forEach((message) => queueTerminalMessage(message, message.referenceIds));
   };
@@ -316,10 +322,10 @@ export async function executeHostedCodexTurn(
         });
       }
     }
+    chatProviderPhase(set, conversationId, controller, 'settling');
     setConversationState(set, conversationId, (previous) => ({
       messages: [...previous.messages, ...messages],
       streamingBlocks: [],
-      isStreaming: false,
       error: null,
     }));
     messages.forEach((message) => queueTerminalMessage(message, message.referenceIds));

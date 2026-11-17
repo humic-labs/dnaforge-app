@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RendererType } from 'pixi.js';
 import { PREPACKED_TRANSCRIPT_FINE_PREWARM_MAX_SPAN_BP } from '../overview/partitioned-instanced-transcript-layer';
 import {
@@ -137,6 +137,65 @@ describe('indexed prepacked scene lifecycle presenter', () => {
     expect(lifecycle.prepackedAnnotationSceneGpuPreparations).toBe(1);
     expect(next.layer.isGpuPrepared).toBe(true);
   });
+
+  it.each(['fine', 'coarse'] as const)(
+    'keeps expired %s work pending and forwards the next slice deadline',
+    (kind) => {
+      let finePrepared = kind === 'coarse';
+      const prewarmFineViews = vi.fn(() => {
+        finePrepared = true;
+      });
+      const prepareNextCoarseFallbackView = vi.fn(() => {
+        next.layer.isCoarseFallbackPrepared = true;
+      });
+      const next = resident({
+        layer: {
+          isGpuPrepared: true,
+          isCoarseFallbackPrepared: kind === 'fine',
+          areFineViewsPrewarmed: () => finePrepared,
+          prepareGpuResources: vi.fn(),
+          prewarmFineViews,
+          prepareNextCoarseFallbackView,
+        },
+      });
+      const lifecycle = host({
+        prepackedAnnotationSceneResidents: new Map([[next.ownerKey, next]]),
+      });
+      const clock = vi.spyOn(performance, 'now').mockReturnValue(10);
+      try {
+        expect(preparePrepackedAnnotationFineViews(lifecycle, 0, 500, 'light', 9)).toEqual({
+          status: 'prepared',
+          preparedOwnerKey: null,
+          pendingOwnerCount: 1,
+        });
+        expect(prewarmFineViews).not.toHaveBeenCalled();
+        expect(prepareNextCoarseFallbackView).not.toHaveBeenCalled();
+        expect(next.viewportDetailPresentationAdmitted).toBe(false);
+        expect(preparePrepackedAnnotationFineViews(lifecycle, 0, 500, 'light', 20)).toEqual({
+          status: 'complete',
+          preparedOwnerKey: 'mrna',
+          pendingOwnerCount: 0,
+        });
+        if (kind === 'fine') {
+          expect(prewarmFineViews).toHaveBeenCalledExactlyOnceWith(
+            0,
+            500,
+            lifecycle.pixiRenderer,
+            undefined,
+            20
+          );
+        } else {
+          expect(prepareNextCoarseFallbackView).toHaveBeenCalledExactlyOnceWith(
+            lifecycle.pixiRenderer,
+            20
+          );
+        }
+        expect(next.viewportDetailPresentationAdmitted).toBe(false);
+      } finally {
+        clock.mockRestore();
+      }
+    }
+  );
 
   it('admits a complete viewport-detail roster', () => {
     const next = resident();

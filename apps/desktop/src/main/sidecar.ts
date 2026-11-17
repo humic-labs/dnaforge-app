@@ -36,7 +36,7 @@ import {
   prepareSidecarSpawn,
   sidecarSessionAuthority,
 } from './sidecar-session-runtime';
-import type { SidecarSessionSnapshot } from './sidecar-session-authority';
+import type { SidecarSessionSnapshot, SidecarSessionState } from './sidecar-session-authority';
 import { stopChildProcessTree } from './sidecar-process-tree';
 import { isSidecarOwnershipMismatch, readSidecarSessionErrorCode } from './sidecar-health-auth';
 import { sidecarControlPlaneEnv, sidecarProfileLockPath } from './sidecar-control-plane-env';
@@ -86,25 +86,21 @@ interface SidecarSupervisorState {
   started: boolean;
   mainWindow: BrowserWindow | null;
   rendererBridge?: RendererBridgeConfig;
-  intentionalStop: boolean;
   restartAttempts: number;
   restartTimer: NodeJS.Timeout | null;
   launchId: number;
   bootstrap: Promise<void> | null;
   starting: Promise<void> | null;
-  shutdownRequested: boolean;
 }
 
 const supervisorState: SidecarSupervisorState = {
   started: false,
   mainWindow: null,
-  intentionalStop: false,
   restartAttempts: 0,
   restartTimer: null,
   launchId: 0,
   bootstrap: null,
   starting: null,
-  shutdownRequested: false,
 };
 
 function isSidecarTestHarness(): boolean {
@@ -247,43 +243,40 @@ export function preflightSidecarRuntime(): void {
   }
 }
 
-export type SidecarStatus = 'starting' | 'ready' | 'stopped' | 'error' | 'timeout' | 'restarting';
+export type SidecarStatus = SidecarSessionState;
 
-let lastSidecarStatus: SidecarStatus = 'starting';
+sidecarSessionAuthority.subscribe(({ state }) => sendStatus(supervisorState.mainWindow, state));
 
 export function getLastSidecarStatus(): SidecarStatus {
-  return lastSidecarStatus;
+  return sidecarSessionAuthority.snapshot().state;
 }
 
 export async function refreshSidecarStatus(): Promise<SidecarStatus> {
-  if (supervisorState.shutdownRequested || sidecarSessionAuthority.snapshot().state === 'stopped')
-    return 'stopped';
-  if (lastSidecarStatus === 'ready' || lastSidecarStatus === 'restarting') {
-    return lastSidecarStatus;
+  if (sidecarSessionAuthority.snapshot().state === 'stopped') return 'stopped';
+  const currentStatus = sidecarSessionAuthority.snapshot().state;
+  if (currentStatus === 'ready' || currentStatus === 'restarting') {
+    return sidecarSessionAuthority.snapshot().state;
   }
 
   try {
     await ensureApiPort();
-    const statusAtProbeStart = lastSidecarStatus;
     const snapshot = sidecarSessionAuthority.snapshot();
     const result = await probeSidecarHealth(snapshot);
     await waitForTestRefreshResultLatch();
-    if (lastSidecarStatus !== statusAtProbeStart || !sidecarSessionAuthority.isCurrent(snapshot)) {
-      return lastSidecarStatus;
+    if (!sidecarSessionAuthority.isCurrent(snapshot)) {
+      return sidecarSessionAuthority.snapshot().state;
     }
     if (result.state === 'ok') {
-      if (!sidecarSessionAuthority.markReady(snapshot.generation)) return lastSidecarStatus;
-      const mainWindow = supervisorState.mainWindow;
+      if (!sidecarSessionAuthority.markReady(snapshot.generation))
+        return sidecarSessionAuthority.snapshot().state;
       setMcpHttpInternalPort(result.body.mcp_http_internal_port);
-      sendStatus(mainWindow, 'ready');
     } else if (result.state === 'mismatch') {
-      if (lastSidecarStatus !== 'error') {
+      if (snapshot.state !== 'error') {
         console.warn(
           `[Sidecar] Status refresh rejected sidecar: ${describeHealthProbeFailure(result)}`
         );
       }
-      const mainWindow = supervisorState.mainWindow;
-      sendStatus(mainWindow, 'error');
+      sidecarSessionAuthority.markFailed(snapshot.generation, 'error');
     }
   } catch (err) {
     console.warn(
@@ -292,12 +285,11 @@ export async function refreshSidecarStatus(): Promise<SidecarStatus> {
     );
   }
 
-  return lastSidecarStatus;
+  return sidecarSessionAuthority.snapshot().state;
 }
 
 function sendStatus(win: BrowserWindow | null, status: SidecarStatus): void {
-  if (status !== lastSidecarStatus || status === 'ready') appendBootLog(`sidecar_status=${status}`);
-  lastSidecarStatus = status;
+  appendBootLog(`sidecar_status=${status}`);
   if (status !== 'ready') setMcpHttpInternalPort(null);
   if (win && !win.isDestroyed()) {
     sendRendererIpc(win.webContents, 'sidecar:status', status);
@@ -718,10 +710,7 @@ async function probeAlreadyRunning(snapshot: SidecarSessionSnapshot): Promise<He
   return result;
 }
 
-function reportExistingSidecarMismatch(
-  mainWindow: BrowserWindow | null,
-  result: Extract<HealthProbe, { state: 'mismatch' }>
-): void {
+function reportExistingSidecarMismatch(result: Extract<HealthProbe, { state: 'mismatch' }>): void {
   const reason = describeHealthProbeFailure(result);
   recordSidecarLifecycle('health_mismatch', {
     reason,
@@ -729,7 +718,7 @@ function reportExistingSidecarMismatch(
     success: false,
     retryAttempt: supervisorState.restartAttempts,
   });
-  sendStatus(mainWindow, 'error');
+  sidecarSessionAuthority.markFailed(sidecarSessionAuthority.snapshot().generation, 'error');
 }
 
 export function startSidecar(
@@ -753,7 +742,7 @@ async function startSidecarBootstrap(
   supervisorState.started = true;
   supervisorState.mainWindow = mainWindow;
   supervisorState.rendererBridge = rendererBridge;
-  if (supervisorState.shutdownRequested) return;
+  if (sidecarSessionAuthority.snapshot().state === 'stopped') return;
   if (crashLoopBreaker.isSafeMode()) return;
 
   try {
@@ -774,22 +763,23 @@ async function startSidecarBootstrap(
       `[Compute] Could not inspect interrupted provider removals: ${error instanceof Error ? error.message : String(error)}`
     );
   }
-  if (supervisorState.shutdownRequested) return;
+  if (sidecarSessionAuthority.snapshot().state === 'stopped') return;
   if (crashLoopBreaker.isSafeMode()) return;
 
   await ensureApiPort();
-  if (supervisorState.shutdownRequested) return;
+  if (sidecarSessionAuthority.snapshot().state === 'stopped') return;
   if (crashLoopBreaker.isSafeMode()) return;
   await waitForTestPreSpawnDelay();
-  if (supervisorState.shutdownRequested) return;
+  if (sidecarSessionAuthority.snapshot().state === 'stopped') return;
   if (crashLoopBreaker.isSafeMode()) return;
 
   const existingSession = sidecarSessionAuthority.snapshot();
   const existingProbe = await probeAlreadyRunning(existingSession);
-  if (supervisorState.shutdownRequested) return;
+  if (!sidecarSessionAuthority.isCurrent(existingSession)) return;
+  if (sidecarSessionAuthority.snapshot().state === 'stopped') return;
   if (crashLoopBreaker.isSafeMode()) return;
   if (existingProbe.state === 'mismatch') {
-    reportExistingSidecarMismatch(mainWindow, existingProbe);
+    reportExistingSidecarMismatch(existingProbe);
     return;
   }
   if (existingProbe.state === 'ok') {
@@ -799,7 +789,6 @@ async function startSidecarBootstrap(
     recordSidecarLifecycle('already_running', { success: true });
     if (!sidecarSessionAuthority.markReady(existingSession.generation)) return;
     setMcpHttpInternalPort(existingProbe.body.mcp_http_internal_port);
-    sendStatus(mainWindow, 'ready');
     return;
   }
 
@@ -807,11 +796,10 @@ async function startSidecarBootstrap(
 }
 
 async function launchSidecar(reason: 'initial' | 'respawn' | 'manual_restart'): Promise<void> {
-  const mainWindow = supervisorState.mainWindow;
   if (!supervisorState.started) {
     throw new Error('[Sidecar] Cannot launch sidecar before its host is registered');
   }
-  if (supervisorState.shutdownRequested) return;
+  if (sidecarSessionAuthority.snapshot().state === 'stopped') return;
   if (crashLoopBreaker.isSafeMode()) return;
 
   if (supervisorState.starting) {
@@ -819,17 +807,15 @@ async function launchSidecar(reason: 'initial' | 'respawn' | 'manual_restart'): 
   }
 
   const launchPromise = (async () => {
-    if (supervisorState.shutdownRequested) return;
+    if (sidecarSessionAuthority.snapshot().state === 'stopped') return;
     if (crashLoopBreaker.isSafeMode()) return;
     clearRestartTimer();
     const launchId = ++supervisorState.launchId;
     const launchSession = prepareSidecarSpawn(reason);
-    if (supervisorState.shutdownRequested) return;
+    if (sidecarSessionAuthority.snapshot().state === 'stopped') return;
     if (crashLoopBreaker.isSafeMode()) return;
-    supervisorState.intentionalStop = false;
     sidecarStderrTail = '';
 
-    sendStatus(mainWindow, reason === 'initial' ? 'starting' : 'restarting');
     recordSidecarLifecycle(reason, {
       manual: reason === 'manual_restart',
       retryAttempt: supervisorState.restartAttempts,
@@ -847,9 +833,15 @@ async function launchSidecar(reason: 'initial' | 'respawn' | 'manual_restart'): 
         success: false,
         retryAttempt: supervisorState.restartAttempts,
       });
-      sendStatus(mainWindow, 'error');
+      sidecarSessionAuthority.markFailed(launchSession.generation, 'error');
       return;
     }
+
+    if (
+      sidecarSessionAuthority.snapshot().state === 'stopped' ||
+      !sidecarSessionAuthority.isCurrent(launchSession)
+    )
+      return;
 
     let launchedChild: ChildProcess;
     try {
@@ -864,7 +856,7 @@ async function launchSidecar(reason: 'initial' | 'respawn' | 'manual_restart'): 
         fatal: true,
         success: false,
       });
-      sendStatus(mainWindow, 'error');
+      sidecarSessionAuthority.markFailed(launchSession.generation, 'error');
       return;
     }
 
@@ -895,7 +887,7 @@ async function launchSidecar(reason: 'initial' | 'respawn' | 'manual_restart'): 
         }
 
         if (sidecarProcess === launchedChild) sidecarProcess = null;
-        if (supervisorState.intentionalStop) {
+        if (sidecarSessionAuthority.snapshot().state === 'stopped') {
           recordSidecarLifecycle('stopped', {
             spawnedAt: launchedAt,
             pid: launchedChild.pid,
@@ -903,7 +895,7 @@ async function launchSidecar(reason: 'initial' | 'respawn' | 'manual_restart'): 
             signal,
             success: true,
           });
-          sendStatus(mainWindow, 'stopped');
+          sidecarSessionAuthority.markStopped();
           return;
         }
 
@@ -939,7 +931,7 @@ async function launchSidecar(reason: 'initial' | 'respawn' | 'manual_restart'): 
         scheduleRestart('spawn_error', launchId);
       });
 
-      await pollHealthCheck(mainWindow, launchId, launchSession, launchedChild);
+      await pollHealthCheck(launchId, launchSession, launchedChild);
     } catch (err) {
       console.error(`[Sidecar] Start failed:`, err);
       recordSidecarLifecycle('start_failed', {
@@ -965,7 +957,6 @@ async function launchSidecar(reason: 'initial' | 'respawn' | 'manual_restart'): 
 }
 
 async function pollHealthCheck(
-  mainWindow: BrowserWindow | null,
   launchId: number,
   launchSession: SidecarSessionSnapshot,
   launchedChild: ChildProcess
@@ -978,7 +969,7 @@ async function pollHealthCheck(
       !sidecarProcess ||
       sidecarProcess !== launchedChild ||
       launchId !== supervisorState.launchId ||
-      supervisorState.shutdownRequested
+      sidecarSessionAuthority.snapshot().state === 'stopped'
     ) {
       console.log('[Sidecar] Process exited or launch was superseded, aborting health check');
       return;
@@ -987,7 +978,7 @@ async function pollHealthCheck(
     if (
       sidecarProcess !== launchedChild ||
       launchId !== supervisorState.launchId ||
-      supervisorState.shutdownRequested
+      sidecarSessionAuthority.snapshot().state === 'stopped'
     ) {
       return;
     }
@@ -995,7 +986,7 @@ async function pollHealthCheck(
     if (
       sidecarProcess !== launchedChild ||
       launchId !== supervisorState.launchId ||
-      supervisorState.shutdownRequested
+      sidecarSessionAuthority.snapshot().state === 'stopped'
     ) {
       return;
     }
@@ -1010,7 +1001,6 @@ async function pollHealthCheck(
       supervisorState.restartAttempts = 0;
       recordSidecarLifecycle('ready', { success: true });
       setMcpHttpInternalPort(result.body.mcp_http_internal_port);
-      sendStatus(mainWindow, 'ready');
       return;
     }
     if (result.state === 'mismatch') {
@@ -1025,14 +1015,14 @@ async function pollHealthCheck(
         success: false,
         retryAttempt: supervisorState.restartAttempts,
       });
-      sendStatus(mainWindow, 'error');
+      sidecarSessionAuthority.markFailed(launchSession.generation, 'error');
       return;
     }
     await new Promise((r) => setTimeout(r, intervalMs));
     if (
       sidecarProcess !== launchedChild ||
       launchId !== supervisorState.launchId ||
-      supervisorState.shutdownRequested
+      sidecarSessionAuthority.snapshot().state === 'stopped'
     ) {
       return;
     }
@@ -1041,7 +1031,7 @@ async function pollHealthCheck(
   if (
     sidecarProcess !== launchedChild ||
     launchId !== supervisorState.launchId ||
-    supervisorState.shutdownRequested
+    sidecarSessionAuthority.snapshot().state === 'stopped'
   ) {
     return;
   }
@@ -1051,7 +1041,7 @@ async function pollHealthCheck(
     success: false,
     retryAttempt: supervisorState.restartAttempts,
   });
-  sendStatus(mainWindow, 'timeout');
+  sidecarSessionAuthority.markFailed(launchSession.generation, 'timeout');
   if (await terminateCurrentSidecarForRestart(launchId, launchedChild, 'health_timeout')) {
     scheduleRestart('health_timeout', launchId);
   }
@@ -1082,23 +1072,17 @@ async function terminateCurrentSidecarForRestart(
       success: false,
       retryAttempt: supervisorState.restartAttempts,
     });
-    const mainWindow = supervisorState.mainWindow;
-    sendStatus(mainWindow, 'error');
+    if (launchId === supervisorState.launchId) {
+      sidecarSessionAuthority.markFailed(sidecarSessionAuthority.snapshot().generation, 'error');
+    }
     return false;
   }
 }
 
 function scheduleRestart(reason: string, originatingLaunchId: number): void {
-  const mainWindow = supervisorState.mainWindow;
   if (originatingLaunchId !== supervisorState.launchId) return;
-  if (
-    !supervisorState.started ||
-    supervisorState.intentionalStop ||
-    supervisorState.shutdownRequested
-  )
-    return;
+  if (!supervisorState.started || sidecarSessionAuthority.snapshot().state === 'stopped') return;
   if (crashLoopBreaker.isSafeMode()) return;
-  sidecarSessionAuthority.markRestarting();
   if (supervisorState.restartTimer) return;
 
   if (supervisorState.restartAttempts >= MAX_AUTO_RESTART_ATTEMPTS) {
@@ -1111,7 +1095,7 @@ function scheduleRestart(reason: string, originatingLaunchId: number): void {
       fatal: true,
       success: false,
     });
-    sendStatus(mainWindow, 'error');
+    sidecarSessionAuthority.markFailed(sidecarSessionAuthority.snapshot().generation, 'error');
     return;
   }
 
@@ -1124,7 +1108,7 @@ function scheduleRestart(reason: string, originatingLaunchId: number): void {
     retryAttempt: attempt,
     success: true,
   });
-  sendStatus(mainWindow, 'restarting');
+  sidecarSessionAuthority.markRestarting();
   supervisorState.restartTimer = setTimeout(() => {
     supervisorState.restartTimer = null;
     void launchSidecar('respawn');
@@ -1133,20 +1117,19 @@ function scheduleRestart(reason: string, originatingLaunchId: number): void {
 
 export function restartSidecar(): Promise<void> {
   if (restartPromise) return restartPromise;
-  if (supervisorState.shutdownRequested) {
+  if (sidecarSessionAuthority.snapshot().state === 'stopped') {
     return Promise.reject(new Error('[Sidecar] Cannot restart during shutdown'));
   }
   const tracked = performRestartSidecar()
     .catch((error: unknown) => {
-      const mainWindow = supervisorState.mainWindow;
-      if (!supervisorState.shutdownRequested && supervisorState.started) {
+      if (sidecarSessionAuthority.snapshot().state !== 'stopped' && supervisorState.started) {
         recordSidecarLifecycle('manual_restart_failed', {
           manual: true,
           fatal: true,
           success: false,
           reason: error instanceof Error ? error.message : String(error),
         });
-        sendStatus(mainWindow, 'error');
+        sidecarSessionAuthority.markFailed(sidecarSessionAuthority.snapshot().generation, 'error');
       }
       throw error;
     })
@@ -1158,7 +1141,6 @@ export function restartSidecar(): Promise<void> {
 }
 
 async function performRestartSidecar(): Promise<void> {
-  const mainWindow = supervisorState.mainWindow;
   if (!supervisorState.started) {
     throw new Error('[Sidecar] Cannot restart before sidecar has been started once');
   }
@@ -1166,10 +1148,8 @@ async function performRestartSidecar(): Promise<void> {
   supervisorState.restartAttempts = 0;
   recordSidecarLifecycle('manual_restart_requested', { manual: true, success: true });
   sidecarSessionAuthority.markRestarting();
-  sendStatus(mainWindow, 'restarting');
   await waitForTestManualRestartDelay();
   if (sidecarProcess) {
-    supervisorState.intentionalStop = true;
     const oldLaunchId = supervisorState.launchId;
     restartTerminatedLaunches.add(oldLaunchId);
     const child = sidecarProcess;
@@ -1180,31 +1160,27 @@ async function performRestartSidecar(): Promise<void> {
   const currentSession = sidecarSessionAuthority.snapshot();
   if (currentSession.owner === 'external' && !sidecarProcess) {
     const existingProbe = await probeAlreadyRunning(currentSession);
-    if (supervisorState.shutdownRequested) return;
+    if (!sidecarSessionAuthority.isCurrent(currentSession)) return;
+    if (sidecarSessionAuthority.snapshot().state === 'stopped') return;
     if (crashLoopBreaker.isSafeMode()) return;
     if (existingProbe.state === 'mismatch') {
-      reportExistingSidecarMismatch(mainWindow, existingProbe);
+      reportExistingSidecarMismatch(existingProbe);
       return;
     }
     if (existingProbe.state === 'ok') {
-      supervisorState.intentionalStop = false;
       if (!sidecarSessionAuthority.markReady(currentSession.generation)) return;
       setMcpHttpInternalPort(existingProbe.body.mcp_http_internal_port);
-      sendStatus(mainWindow, 'ready');
       return;
     }
   }
-  if (supervisorState.shutdownRequested) return;
+  if (sidecarSessionAuthority.snapshot().state === 'stopped') return;
   if (crashLoopBreaker.isSafeMode()) return;
   supervisorState.starting = null;
-  supervisorState.intentionalStop = false;
   await ensureApiPort();
   await launchSidecar('manual_restart');
 }
 
 export async function killSidecar(): Promise<void> {
-  supervisorState.shutdownRequested = true;
-  supervisorState.intentionalStop = true;
   sidecarSessionAuthority.markStopped();
   clearRestartTimer();
   const stopCurrentChild = async (): Promise<void> => {
@@ -1221,7 +1197,6 @@ export async function killSidecar(): Promise<void> {
   );
   if (inFlight.length > 0) await Promise.allSettled(inFlight);
   await stopCurrentChild();
-  supervisorState.intentionalStop = true;
   sidecarSessionAuthority.markStopped();
 }
 
@@ -1254,7 +1229,7 @@ async function waitForTestRefreshResultLatch(): Promise<void> {
   if (
     !isSidecarTestHarness() ||
     process.env.DNAFORGE_TEST_SIDECAR_REFRESH_RESULT_LATCH !== '1' ||
-    (requiredStatus && lastSidecarStatus !== requiredStatus) ||
+    (requiredStatus && sidecarSessionAuthority.snapshot().state !== requiredStatus) ||
     testRefreshResultLatchConsumed
   ) {
     return;
@@ -1307,7 +1282,23 @@ export function setTestSidecarStatus(status: SidecarStatus): void {
   if (!isSidecarTestHarness()) {
     throw new Error('[Sidecar] Test status override is unavailable outside the test harness');
   }
-  lastSidecarStatus = status;
+  switch (status) {
+    case 'ready':
+      sidecarSessionAuthority.markReady(sidecarSessionAuthority.snapshot().generation);
+      break;
+    case 'starting':
+      prepareSidecarSpawn('initial');
+      break;
+    case 'restarting':
+      sidecarSessionAuthority.markRestarting();
+      break;
+    case 'stopped':
+      sidecarSessionAuthority.markStopped();
+      break;
+    case 'error':
+    case 'timeout':
+      sidecarSessionAuthority.markFailed(sidecarSessionAuthority.snapshot().generation, status);
+  }
 }
 
 onCrashLoop(() => {

@@ -1,4 +1,5 @@
 import { platform } from '../platform';
+import { SaveAllError, failedSaveAllResult } from './save-all-result';
 import { usePageStore } from '../features/page/store';
 import { useSequenceStore } from '../features/sequence/store';
 import { saveAllDirtySequences } from '../features/sequence/save-all-sequences';
@@ -105,11 +106,7 @@ export async function saveAllUnsavedWork(): Promise<void> {
     isDesktopRuntime() && typeof bridge.fs?.settleDirtyDocuments === 'function';
   if (nativeDocumentsSettled) {
     const result = await bridge.fs.settleDirtyDocuments({ action: 'save' });
-    if (result.failures.length || result.remaining.length)
-      throw new Error(
-        result.failures.map((item) => item.error).join('\n') ||
-          'Some native documents still have unsaved work.'
-      );
+    if (result.failures.length || result.remaining.length) throw new SaveAllError(result.failures);
   }
   const nativeSequences = getNativeSequenceDocumentClient();
   const excluded = nativeDocumentsSettled
@@ -120,7 +117,14 @@ export async function saveAllUnsavedWork(): Promise<void> {
       )
     : new Set<string>();
   const pending: Array<Promise<unknown>> = [
-    saveAllDirtySequences({ excludeDocumentIds: excluded }),
+    saveAllDirtySequences({ excludeDocumentIds: excluded }).then((result) => {
+      if (!result.failed.length) return true;
+      console.error('[Save All] Sequence saves not completed:', {
+        documentIds: result.failed,
+        failedCount: result.failed.length,
+      });
+      return false;
+    }),
   ];
   for (const panel of Object.values(useCanvasStore.getState().panels)) {
     for (const tab of panel.tabs) {
@@ -137,6 +141,9 @@ export async function saveAllUnsavedWork(): Promise<void> {
     }
   }
   const results = await Promise.allSettled(pending);
+  for (const result of results) {
+    if (result.status === 'rejected') console.error('[Save All] Save failed:', result.reason);
+  }
   if (results.some((result) => result.status === 'rejected' || result.value === false))
     throw new Error('Some documents still have unsaved work.');
 }
@@ -144,8 +151,14 @@ export async function saveAllUnsavedWork(): Promise<void> {
 export function initSaveAllHandler(): () => void {
   const bridge = platform();
   return bridge.on('app:saveAll', (requestId) => {
-    void saveAllUnsavedWork()
-      .catch((error) => console.error('[Save All] Some changes were not saved:', error))
-      .finally(() => bridge.app.saveAllDone(requestId));
+    void saveAllUnsavedWork().then(
+      () => bridge.app.saveAllDone(requestId, { status: 'saved' }),
+      (error) => {
+        try {
+          console.error('[Save All] Some changes were not saved:', error);
+        } catch {}
+        bridge.app.saveAllDone(requestId, failedSaveAllResult(error));
+      }
+    );
   });
 }

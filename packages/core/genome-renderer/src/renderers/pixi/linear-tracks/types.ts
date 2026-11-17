@@ -85,6 +85,19 @@ export interface TrackCoverageDepthSnapshot {
   coverageDepthMax: number | null;
 }
 
+export interface TrackReadPresentationSnapshot {
+  kind: 'reads' | 'empty' | 'pending';
+  sourceGenerationKey: string;
+  presentationOwnerKey: string;
+  viewStartBp: number;
+  viewEndBp: number;
+  sourceCoversViewport: boolean;
+  meshCoverageFraction: number;
+  truncated: boolean;
+  visible: boolean;
+  recordCount: number;
+}
+
 export interface PixiLinearTrackRenderer<TData = unknown> {
   readonly type: TrackType;
   prepareGpuPrograms?(renderer: Renderer): void;
@@ -98,5 +111,6 @@ export interface PixiLinearTrackRenderer<TData = unknown> {
   getDiagnostics?(container: Container): object | null;
   getColdGestureDiagnostics?(container: Container): object | null;
   getCoverageDepthSnapshot?(container: Container): TrackCoverageDepthSnapshot | null;
+  getReadPresentationSnapshot?(container: Container): TrackReadPresentationSnapshot | null;
   unmount(container: Container): void;
 }

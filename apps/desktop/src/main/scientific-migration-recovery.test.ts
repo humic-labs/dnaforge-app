@@ -266,6 +266,15 @@ describe('scientific enrollment and isolated legacy recovery pressure', { timeou
     f.db
       .prepare('INSERT INTO administration_preferences VALUES (?, ?, ?)')
       .run('active-account', JSON.stringify({ accountId: 'original-account' }), 1);
+    f.db
+      .prepare(
+        `INSERT INTO agent_sessions (
+          id, provider, authority_profile_id, authority_class, release_mode, status, cwd,
+          provider_versions_json, authority_json, started_at, updated_at, completed_at
+        ) VALUES ('stopped-session', 'codex-sdk', 'codex-sdk:app-supervised',
+          'app-supervised', 'read_only', 'stop_unconfirmed', ?, '{}', '{}', 1, 2, 2)`
+      )
+      .run(f.root);
     await f.ensure();
     const [baseline] = await checkpoints(f);
     expect(baseline.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
@@ -278,6 +287,7 @@ describe('scientific enrollment and isolated legacy recovery pressure', { timeou
       expect(recovered.pragma('user_version', { simple: true })).toBe(41);
       expect(recovered.prepare('SELECT * FROM administration_actions').all()).toEqual([]);
       expect(recovered.prepare('SELECT * FROM administration_preferences').all()).toEqual([]);
+      expect(recovered.prepare('SELECT * FROM agent_sessions').all()).toEqual([]);
       expect(recovered.pragma('foreign_key_check')).toEqual([]);
       expect(await readFile(join(result.projectPath, 'contents/template.fasta'), 'utf8')).toBe(
         '>baseline\nACGTACGT\n'
@@ -287,13 +297,39 @@ describe('scientific enrollment and isolated legacy recovery pressure', { timeou
     }
   });
 
-  it('refuses a schema 47 label without the actual current native tables', async () => {
+  it.each([47, 48])(
+    'refuses a schema %s label without the qualified native tables',
+    async (version) => {
+      const f = await fixture();
+      f.db.pragma(`user_version = ${version}`);
+      f.db.exec('DROP TABLE administration_actions');
+      const before = Buffer.from(f.db.serialize());
+      await expect(f.ensure()).rejects.toThrow(`schema ${version} is incomplete or inconsistent`);
+      expect(f.store.read().head).toBeNull();
+      expect(Buffer.from(f.db.serialize())).toEqual(before);
+    }
+  );
+
+  it('retains qualified schema 47 recovery after the agent-stop schema migration', async () => {
     const f = await fixture();
-    f.db.exec('DROP TABLE administration_actions');
+    f.db.pragma('user_version = 47');
+    await f.ensure();
+    const [baseline] = await checkpoints(f);
+    expect(baseline.schemaVersion).toBe(47);
+    accept(f);
     const before = Buffer.from(f.db.serialize());
-    await expect(f.ensure()).rejects.toThrow('schema 47 is incomplete or inconsistent');
-    expect(f.store.read().head).toBeNull();
+    const result = await recover(f);
     expect(Buffer.from(f.db.serialize())).toEqual(before);
+    const recovered = openFileTestDb(join(result.profilePath, 'dnaforge.db'));
+    try {
+      expect(recovered.pragma('user_version', { simple: true })).toBe(41);
+      expect(recovered.pragma('foreign_key_check')).toEqual([]);
+      expect(await readFile(join(result.projectPath, 'contents/template.fasta'), 'utf8')).toBe(
+        '>baseline\nACGTACGT\n'
+      );
+    } finally {
+      recovered.close();
+    }
   });
 
   it('creates one complete baseline before enrollment, then retains it without recapturing newer work', async () => {

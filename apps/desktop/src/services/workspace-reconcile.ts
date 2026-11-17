@@ -362,6 +362,7 @@ function isHidden(name: string): boolean {
 }
 
 function entityTypeForKind(fileKind: string, path: string): CatalogEntityType | null {
+  if (fileKind === 'dnaforge-table') return 'file';
   if (fileKind === 'fasta' && getTabTypeForFile(path) === 'protein') return 'protein';
   if (['genbank', 'fasta', 'fastq'].includes(fileKind)) return 'sequence';
   if (fileKind === 'alignment') return 'alignment';

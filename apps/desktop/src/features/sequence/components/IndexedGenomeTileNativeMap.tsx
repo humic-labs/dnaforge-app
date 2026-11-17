@@ -127,6 +127,7 @@ export interface IndexedGenomeTileNativeMapProps {
 
   allowSparseCanvasCrop?: boolean;
   hasQuantitativeTracks?: boolean;
+  hasPileupTracks?: boolean;
 
   canvasLayoutKey?: string;
   geometryHeight?: number;
@@ -195,6 +196,7 @@ export const IndexedGenomeTileNativeMap = memo(
         height,
         allowSparseCanvasCrop = true,
         hasQuantitativeTracks = false,
+        hasPileupTracks = false,
         canvasLayoutKey,
         geometryHeight,
         width,
@@ -466,7 +468,7 @@ export const IndexedGenomeTileNativeMap = memo(
         genome,
         antialias: hasQuantitativeTracks,
         resolution: hasQuantitativeTracks ? pixelRatio : Math.min(1.5, pixelRatio),
-        minimumFrameIntervalMs: hasQuantitativeTracks ? 0 : 13,
+        minimumFrameIntervalMs: hasQuantitativeTracks || hasPileupTracks ? 0 : 13,
         capCanvasToProvidedHeight: true,
 
         hiddenMapIdlePolicy: 'short-timeout',

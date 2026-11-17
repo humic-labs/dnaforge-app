@@ -116,8 +116,11 @@ export class NotebookMigrationInterruptedError extends Error {
 export class NotebookExternalConflictError extends Error {
   readonly code = 'NOTEBOOK_EXTERNAL_CONFLICT';
 
-  constructor(readonly canonicalPath: string) {
-    super(`Notebook Markdown changed on disk before save: ${canonicalPath}`);
+  constructor(
+    readonly canonicalPath: string,
+    options?: ErrorOptions
+  ) {
+    super(`Notebook Markdown changed on disk before save: ${canonicalPath}`, options);
     this.name = 'NotebookExternalConflictError';
   }
 }
@@ -538,8 +541,9 @@ async function writePackageMetadata(
         mutationToken: input.mutationToken,
       });
       return true;
-    } catch {
-      throw new NotebookExternalConflictError(path);
+    } catch (error) {
+      if (!(error instanceof Error) || error.name !== 'WorkspaceFilePreconditionError') throw error;
+      throw new NotebookExternalConflictError(path, { cause: error });
     }
   }
   if ((await ops.readTextFile(path)) !== expectedV1) {
@@ -814,9 +818,11 @@ async function publishNotebookPackageV2Unlocked(
           artifactNoun: 'notebook',
           mutationToken: input.mutationToken,
         });
-      } catch {
+      } catch (error) {
         await removeFileIfPresent(ops, stagePath);
-        throw new NotebookExternalConflictError(paths.markdownPath);
+        if (!(error instanceof Error) || error.name !== 'WorkspaceFilePreconditionError')
+          throw error;
+        throw new NotebookExternalConflictError(paths.markdownPath, { cause: error });
       }
       await removeFileIfPresent(ops, stagePath);
     } else {

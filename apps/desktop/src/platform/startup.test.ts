@@ -12,8 +12,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('./electron', () => ({ electronBridge: mocks.bridge }));
 vi.mock('./browser-mock', () => ({ browserMockBridge: mocks.bridge }));
 vi.mock('../services/service-manager', () => ({ serviceManager: { setBaseUrl: vi.fn() } }));
-vi.mock('../services/sidecar-session', () => ({
-  configureRendererSidecarApiClient: mocks.configure,
+vi.mock('@waypoint/api-client', () => ({
+  configureApiClient: mocks.configure,
 }));
 
 describe('platform startup', () => {
@@ -63,7 +63,7 @@ describe('platform startup', () => {
     expect(second).toBe(first);
     resolveUrl('http://localhost:8123');
     await second;
-    expect(mocks.configure).toHaveBeenCalledWith('http://localhost:8123');
+    expect(mocks.configure).toHaveBeenCalledWith({ baseUrl: 'http://localhost:8123' });
   });
 
   it('fails visibly when essential native configuration cannot be read', async () => {

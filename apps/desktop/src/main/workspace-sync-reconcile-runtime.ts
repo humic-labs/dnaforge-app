@@ -30,7 +30,10 @@ import {
   type DesktopSyncWorkspaceSummaryResponse,
   type WorkspaceSyncProjectsClient,
 } from './workspace-sync-projects';
-import { enqueueWorkspaceSyncJob } from './workspace-sync-queue';
+import {
+  cancelReconciledWorkspaceSyncConflicts,
+  enqueueWorkspaceSyncJob,
+} from './workspace-sync-queue';
 import {
   reconcileWithChoices,
   reconcileWorkspaceBundles,
@@ -108,8 +111,6 @@ interface ConflictPayload {
   localCaptureComplete?: boolean;
 }
 
-const RESOLVABLE_CONFLICT_CODES = "('CONFLICT', 'SYNC_CONFLICT')";
-
 export async function reconcileWorkspaceSyncConflict(
   db: Database.Database,
   workspaceUuid: string,
@@ -153,7 +154,7 @@ export async function reconcileWorkspaceSyncConflict(
     });
     const baseVersionId = binding.remote_latest_version_id;
     if (latest.version.id === baseVersionId) {
-      clearConflictJobs(
+      cancelReconciledWorkspaceSyncConflicts(
         db,
         binding.workspace_id,
         nowMs(deps),
@@ -534,7 +535,12 @@ async function applyMergedTree(
   if (!mergedHead) throw new Error('The merged project could not be committed.');
   const at = nowMs(deps);
   db.transaction(() => {
-    clearConflictJobs(db, input.binding.workspace_id, at, 'CONFLICT_RESOLVED_MERGED');
+    cancelReconciledWorkspaceSyncConflicts(
+      db,
+      input.binding.workspace_id,
+      at,
+      'CONFLICT_RESOLVED_MERGED'
+    );
     enqueueWorkspaceSyncJob(db, {
       id: deps.createId?.() ?? randomUUID(),
       workspaceId: input.binding.workspace_id,
@@ -675,21 +681,6 @@ function supersedeOpenConflicts(db: Database.Database, workspaceId: number, at: 
      SET status = 'superseded', updated_at = ?
      WHERE workspace_id = ? AND status = 'open'`
   ).run(at, workspaceId);
-}
-
-function clearConflictJobs(
-  db: Database.Database,
-  workspaceId: number,
-  at: number,
-  code: string
-): void {
-  db.prepare(
-    `UPDATE workspace_sync_queue
-     SET status = 'canceled', error_code = ?, updated_at = ?
-     WHERE workspace_id = ?
-       AND status = 'failed'
-       AND error_code IN ${RESOLVABLE_CONFLICT_CODES}`
-  ).run(code, at, workspaceId);
 }
 
 function readConflictView(

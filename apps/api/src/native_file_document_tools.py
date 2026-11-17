@@ -108,9 +108,9 @@ async def native_file_document_handler(
             retriable=False,
         )
     listing = args["operation"]["kind"] == "list-dirty"
+    if _uses_renderer(args):
+        return await call_renderer_bridge("file_document", args, context)
     if "target" not in args and not listing:
-        if isinstance(args.get("tabId"), str):
-            return await call_renderer_bridge("file_document", args, context)
         raise ToolExecutionFailure(
             code="FILE_TARGET_REQUIRED",
             message="Use an admitted file path or the documentId returned by inspection. A tab locator requires the graphical app.",
@@ -185,6 +185,14 @@ async def native_file_document_handler(
     return {"ok": True, "result": {**public, "ok": True}}
 
 
+def _uses_renderer(args: dict[str, Any]) -> bool:
+    return (
+        "target" not in args
+        and args["operation"]["kind"] != "list-dirty"
+        and isinstance(args.get("tabId"), str)
+    )
+
+
 def register_native_file_document_tool() -> None:
     config = next(
         spec for spec in RENDERER_TOOL_SPECS if spec["name"] == "file_document"
@@ -196,5 +204,8 @@ def register_native_file_document_tool() -> None:
         }
     )
     agent_tool_registry.register(
-        spec, native_file_document_handler, replay_policy=ToolReplayPolicy.EXECUTE
+        spec,
+        native_file_document_handler,
+        replay_policy=ToolReplayPolicy.EXECUTE,
+        completion_owner=lambda args: "renderer" if _uses_renderer(args) else "job",
     )

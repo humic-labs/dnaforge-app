@@ -16,6 +16,7 @@ import { decodeAnnotationPolicyProjectionFeatureV1 } from '../overview/annotatio
 import {
   decodePrepackedAnnotationInteractionFeatureV2,
   findPrepackedAnnotationFeatureByCanonicalIdentityV2,
+  prepackedAnnotationInteractionFeatureMatchesResidentV2,
   queryPrepackedAnnotationInteractionIndexV2,
   type PrepackedAnnotationFeatureLookupIndexV2,
 } from '../overview/prepacked-annotation-interaction-index-v2';
@@ -96,24 +97,25 @@ export function prepackedPolicyFeatureIndexForResidentFeature(
 
   let match: number | null = null;
   let ambiguous = false;
+  const residentFeature = {
+    startBp: feature.start,
+    endBp: feature.end,
+    direction: feature.direction,
+    type: feature.type,
+    transcriptId: feature.transcriptId ?? null,
+    displayName: feature.displayName,
+  };
   queryPrepackedAnnotationInteractionIndexV2(
     interactionIndex,
     feature.start,
     Math.min(host.genomeLength, feature.start + 1),
     (candidateIndex) => {
-      const candidate = decodePrepackedAnnotationInteractionFeatureV2(
-        interactionIndex,
-        candidateIndex
-      );
-      const stableIdentityMatches = feature.transcriptId
-        ? candidate.transcriptId === feature.transcriptId
-        : candidate.displayName === feature.displayName;
       if (
-        !stableIdentityMatches ||
-        candidate.startBp !== feature.start ||
-        candidate.endBp !== feature.end ||
-        candidate.type !== feature.type ||
-        candidate.direction !== feature.direction
+        !prepackedAnnotationInteractionFeatureMatchesResidentV2(
+          interactionIndex,
+          candidateIndex,
+          residentFeature
+        )
       ) {
         return;
       }

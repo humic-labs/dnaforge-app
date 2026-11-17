@@ -9,7 +9,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../../services/sidecar-session', () => ({
-  configureSidecarApiClient: mocks.configure,
+  resolveSidecarApiClient: async (caller: string) => {
+    await mocks.configure(caller);
+    return { options: (options: RequestInit = {}) => options };
+  },
 }));
 
 vi.mock('@waypoint/api-client', () => ({
@@ -297,7 +300,7 @@ describe('useAgentJobsStore', () => {
     await useAgentJobsStore.getState().refresh();
 
     expect(mocks.configure).toHaveBeenCalledWith('Agent jobs');
-    expect(mocks.list).toHaveBeenCalledWith({ limit: 200, offset: 0 });
+    expect(mocks.list).toHaveBeenCalledWith({ limit: 200, offset: 0 }, {});
     expect(useAgentJobsStore.getState()).toMatchObject({
       jobs: [JOB],
       jobCount: 1,
@@ -350,7 +353,7 @@ describe('useAgentJobsStore', () => {
 
     await useAgentJobsStore.getState().cancel('action-1');
 
-    expect(mocks.cancel).toHaveBeenCalledWith('action-1');
+    expect(mocks.cancel).toHaveBeenCalledWith('action-1', {});
     expect(useAgentJobsStore.getState()).toMatchObject({
       jobs: [expect.objectContaining({ id: 'action-1', state: 'canceled' })],
       activeCount: 0,

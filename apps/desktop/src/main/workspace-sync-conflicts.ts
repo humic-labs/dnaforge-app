@@ -7,7 +7,12 @@ import type {
   WorkspaceSyncConflictResolution,
   WorkspaceSyncResolveConflictResult,
 } from '../shared/workspace-sync-ipc';
-import { enqueueWorkspaceSyncJob } from './workspace-sync-queue';
+import {
+  cancelResolvedWorkspaceSyncConflicts,
+  type WorkspaceSyncConflictSnapshot,
+  enqueueWorkspaceSyncJob,
+  selectResolvableWorkspaceSyncConflicts,
+} from './workspace-sync-queue';
 import {
   createWorkspaceSyncProjectsClient,
   openWorkspaceSyncProject,
@@ -83,17 +88,9 @@ interface ConflictBindingRow {
   updated_at: number;
 }
 
-interface ConflictJobRow {
-  id: string;
-  error_code: string | null;
-  error_message: string | null;
-}
-
 interface RemoteVersionRow {
   workspace_id: number;
 }
-
-const RESOLVABLE_CONFLICT_CODES = new Set(['CONFLICT', 'SYNC_CONFLICT']);
 
 export async function resolveWorkspaceSyncConflict(
   db: Database.Database,
@@ -114,7 +111,7 @@ export async function resolveWorkspaceSyncConflict(
       throw new Error('Workspace is not bound to a cloud sync project.');
     }
 
-    const conflictJobs = selectResolvableConflictJobs(db, binding.workspace_id);
+    const conflictJobs = selectResolvableWorkspaceSyncConflicts(db, binding.workspace_id);
     if (conflictJobs.length === 0) {
       throw new Error('No stale-base sync conflict is pending for this workspace.');
     }
@@ -136,7 +133,7 @@ async function resolveKeepLocal(
   db: Database.Database,
   input: ResolveWorkspaceSyncConflictInput,
   binding: ConflictBindingRow,
-  conflictJobs: readonly ConflictJobRow[]
+  conflictJobs: readonly WorkspaceSyncConflictSnapshot[]
 ): Promise<WorkspaceSyncResolveConflictResult> {
   if (hasScientificCloudHistoryBinding(db, binding.workspace_id)) {
     if (!input.withReplacementSourceQuiesced)
@@ -175,7 +172,7 @@ async function resolveKeepLocal(
       nowMs,
       binding.workspace_id
     );
-    cancelConflictJobs(db, conflictJobs, 'CONFLICT_RESOLVED_KEEP_LOCAL', nowMs);
+    cancelResolvedWorkspaceSyncConflicts(db, conflictJobs, 'CONFLICT_RESOLVED_KEEP_LOCAL', nowMs);
     enqueueWorkspaceSyncJob(db, {
       id: input.createJobId?.() ?? randomUUID(),
       workspaceId: binding.workspace_id,
@@ -194,7 +191,7 @@ async function resolveScientificKeepLocal(
   db: Database.Database,
   input: ResolveWorkspaceSyncConflictInput,
   binding: ConflictBindingRow,
-  conflictJobs: readonly ConflictJobRow[]
+  conflictJobs: readonly WorkspaceSyncConflictSnapshot[]
 ): Promise<WorkspaceSyncResolveConflictResult> {
   const transport = client(input);
   const accountId =
@@ -270,7 +267,12 @@ async function resolveScientificKeepLocal(
           remoteAccess(remote).source,
           binding.workspace_id
         );
-        cancelConflictJobs(db, conflictJobs, 'CONFLICT_RESOLVED_KEEP_LOCAL', nowMs);
+        cancelResolvedWorkspaceSyncConflicts(
+          db,
+          conflictJobs,
+          'CONFLICT_RESOLVED_KEEP_LOCAL',
+          nowMs
+        );
         enqueueWorkspaceSyncJob(db, {
           id: input.createJobId?.() ?? randomUUID(),
           workspaceId: binding.workspace_id,
@@ -304,7 +306,7 @@ async function resolveUseRemote(
   db: Database.Database,
   input: ResolveWorkspaceSyncConflictInput,
   binding: ConflictBindingRow,
-  conflictJobs: readonly ConflictJobRow[]
+  conflictJobs: readonly WorkspaceSyncConflictSnapshot[]
 ): Promise<WorkspaceSyncResolveConflictResult> {
   if (hasScientificCloudHistoryBinding(db, binding.workspace_id)) {
     if (!input.withReplacementSourceQuiesced)
@@ -346,7 +348,7 @@ async function resolveScientificUseRemote(
   db: Database.Database,
   input: ResolveWorkspaceSyncConflictInput,
   binding: ConflictBindingRow,
-  conflictJobs: readonly ConflictJobRow[]
+  conflictJobs: readonly WorkspaceSyncConflictSnapshot[]
 ): Promise<WorkspaceSyncResolveConflictResult> {
   const transport = client(input);
   const accountId =
@@ -424,7 +426,7 @@ async function resolveScientificUseRemote(
       )
         throw new Error('Scientific remote choice changed before its conflict could settle.');
       const nowMs = input.nowMs?.() ?? Date.now();
-      cancelConflictJobs(db, conflictJobs, 'CONFLICT_RESOLVED_USE_REMOTE', nowMs);
+      cancelResolvedWorkspaceSyncConflicts(db, conflictJobs, 'CONFLICT_RESOLVED_USE_REMOTE', nowMs);
 
       if (remoteAccess(remote).role !== 'viewer')
         enqueueWorkspaceSyncJob(db, {
@@ -470,23 +472,6 @@ function requireConflictBinding(db: Database.Database, workspaceUuid: string): C
     .get(workspaceUuid) as ConflictBindingRow | undefined;
   if (!row) throw new Error(`Workspace sync binding not found for ${workspaceUuid}.`);
   return row;
-}
-
-function selectResolvableConflictJobs(
-  db: Database.Database,
-  workspaceId: number
-): ConflictJobRow[] {
-  const rows = db
-    .prepare(
-      `SELECT id, error_code, error_message
-       FROM workspace_sync_queue
-       WHERE workspace_id = ?
-         AND status = 'failed'
-         AND error_code IN ('CONFLICT', 'SYNC_CONFLICT')
-       ORDER BY updated_at DESC, created_at DESC, id`
-    )
-    .all(workspaceId) as ConflictJobRow[];
-  return rows.filter((row) => RESOLVABLE_CONFLICT_CODES.has(row.error_code ?? ''));
 }
 
 function recordRemoteLatestVersion(
@@ -552,45 +537,10 @@ function selectRemoteVersion(
   return row ?? null;
 }
 
-function cancelConflictJobs(
-  db: Database.Database,
-  jobs: readonly ConflictJobRow[],
-  code: 'CONFLICT_RESOLVED_KEEP_LOCAL' | 'CONFLICT_RESOLVED_USE_REMOTE',
-  nowMs: number
-): void {
-  const update = db.prepare(
-    `UPDATE workspace_sync_queue
-     SET status = 'canceled',
-         next_attempt_at = NULL,
-         locked_at = NULL,
-         locked_by_device_id = NULL,
-         error_code = ?,
-         error_message = ?,
-         updated_at = ?
-     WHERE id = ?
-       AND status = 'failed'
-       AND error_code IS ?
-       AND error_message IS ?`
-  );
-  for (const job of jobs) {
-    const changed = update.run(
-      code,
-      'Sync conflict was resolved by explicit user action.',
-      nowMs,
-      job.id,
-      job.error_code,
-      job.error_message
-    ).changes;
-    if (changed !== 1) {
-      throw new Error('The pending sync conflict changed before resolution could commit.');
-    }
-  }
-}
-
 function commitUseRemoteCutover(
   db: Database.Database,
   binding: ConflictBindingRow,
-  conflictJobs: readonly ConflictJobRow[],
+  conflictJobs: readonly WorkspaceSyncConflictSnapshot[],
   nowMs: number
 ): void {
   const changed = db
@@ -627,7 +577,7 @@ function commitUseRemoteCutover(
   if (changed !== 1) {
     throw new Error('The synced project binding changed before replacement could commit.');
   }
-  cancelConflictJobs(db, conflictJobs, 'CONFLICT_RESOLVED_USE_REMOTE', nowMs);
+  cancelResolvedWorkspaceSyncConflicts(db, conflictJobs, 'CONFLICT_RESOLVED_USE_REMOTE', nowMs);
 }
 
 async function currentLocalHeadSha(

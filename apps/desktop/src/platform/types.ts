@@ -2,6 +2,7 @@ import type {
   AppendProjectMemoryEventInput,
   ProjectMemorySnapshot,
 } from '../db/project-memory-owner';
+import type { SaveAllResult } from '../shared/save-all-result';
 import type { SqliteIpcValue } from '../shared/sqlite-ipc';
 import type { ArtifactFiles, ArtifactDatabase, ArtifactRegistryIO } from '../shared/artifact-io';
 import type {
@@ -750,6 +751,9 @@ export interface PlatformBridge {
     retainLegacyFileDraft(draft: LegacyFileDraft): Promise<LegacyFileDraftRetention>;
     assertFileDocumentsClean(path: string): Promise<void>;
     fileDocument(request: FileDocumentRequest): Promise<FileDocumentSnapshot>;
+    tableDocument(
+      command: import('../shared/table-document-command').TableDocumentCommand
+    ): Promise<import('../shared/table-document-command').TableDocumentCommandResult>;
     subscribeFileDocuments(listener: (snapshot: FileDocumentSnapshot) => void): () => void;
     beginWorkspaceMutation(
       workspaceRoot: string,
@@ -1175,7 +1179,7 @@ export interface PlatformBridge {
   };
   app: {
     reportDirtyState(state: DirtyWorkState): void;
-    saveAllDone(requestId: string): void;
+    saveAllDone(requestId: string, result?: SaveAllResult): void;
   };
   update: {
     install(expectedVersion?: string): Promise<UpdateInstallResult>;

@@ -2305,9 +2305,9 @@ export function SequenceTab({
         );
       }
       forgetFinalizedPlasmid(sequenceDocumentId);
-      useCanvasStore.getState().updateTab(sequenceTab.panelId, sequenceTab.tabId, {
-        assemblyEditDesignId: result.designId,
-      });
+      useCanvasStore
+        .getState()
+        .setSequenceAssemblyEdit(sequenceTab.panelId, sequenceTab.tabId, result.designId);
     },
     [
       managedDocument,

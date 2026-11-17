@@ -74,6 +74,8 @@ export function linkCatalogEntitiesInDb(
   const evidence = json(input.evidence, 'relationship evidence');
   return db.transaction(() => {
     const from = requireCatalogEntity(db, input.sourceEntityId);
+    if (from.type === 'molecular-document' && relation === 'uses-source')
+      throw new Error('Molecular document source links require their saved-file projection owner.');
     const to = requireCatalogEntity(db, input.targetEntityId);
     const existing = db
       .prepare(

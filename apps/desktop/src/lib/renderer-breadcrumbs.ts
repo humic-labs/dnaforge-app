@@ -3,6 +3,18 @@ import { redactTelemetryText } from '../shared/redact-telemetry';
 const DEFAULT_CAP = 200;
 const MAX_LINE_CHARS = 500;
 const FLUSH_DELAY_MS = 2000;
+const UUID_ID = '[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}';
+const OPAQUE_DOCUMENT_ID = new RegExp(
+  `^(?:file-document:|ws(?:0|[1-9][0-9]{0,15})::|${UUID_ID}::)?${UUID_ID}$`,
+  'i'
+);
+const CONTEXT_IDS = ['pageId', 'documentId', 'entityId', 'tabId', 'designId'] as const;
+const CONTEXT_VALUES: Readonly<Record<string, ReadonlySet<string>>> = {
+  operation: new Set(['autosave', 'manual', 'flush', 'save', 'save-all']),
+  phase: new Set(['autosave', 'manual', 'flush']),
+  kind: new Set(['page', 'sequence-document', 'file', 'tab']),
+  reason: new Set(['owner-not-unique', 'owner-returned-false']),
+};
 
 export interface BreadcrumbBuffer {
   push(line: string): void;
@@ -22,12 +34,57 @@ export function createBreadcrumbBuffer(cap = DEFAULT_CAP): BreadcrumbBuffer {
   };
 }
 
-function safeStringify(value: unknown): string {
+function safeStringify(value: unknown, seen = new Set<unknown>()): string {
   if (typeof value === 'string') return value;
   try {
-    return JSON.stringify(value);
+    if (value instanceof Error) {
+      if (seen.has(value) || seen.size >= 4) return '[nested error]';
+      seen.add(value);
+      const code = Object.getOwnPropertyDescriptor(value, 'code')?.value;
+      const cause = Object.getOwnPropertyDescriptor(value, 'cause')?.value;
+      const errors = Object.getOwnPropertyDescriptor(value, 'errors')?.value;
+      return [
+        `${value.name}: ${value.message}`,
+        typeof code === 'string' ? `code=${code}` : '',
+        cause === undefined ? '' : `cause=${safeStringify(cause, seen)}`,
+        Array.isArray(errors)
+          ? errors
+              .slice(0, 3)
+              .map((error) => safeStringify(error, seen))
+              .join('; ')
+          : '',
+        value.stack ?? '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+    }
+    return JSON.stringify(value) ?? String(value);
   } catch {
     return String(value);
+  }
+}
+
+function safeContextTokens(value: unknown, prefix: '' | 'target.' = ''): string[] {
+  if (!value || typeof value !== 'object' || value instanceof Error || Array.isArray(value))
+    return [];
+  try {
+    const tokens: string[] = [];
+    for (const [key, allowed] of Object.entries(CONTEXT_VALUES)) {
+      const item = Object.getOwnPropertyDescriptor(value, key)?.value;
+      if (typeof item === 'string' && allowed.has(item)) tokens.push(`${prefix}${key}=${item}`);
+    }
+    for (const key of CONTEXT_IDS) {
+      const item = Object.getOwnPropertyDescriptor(value, key)?.value;
+      if (typeof item === 'string' && OPAQUE_DOCUMENT_ID.test(item))
+        tokens.push(`${prefix}${key}=${item}`);
+    }
+    if (!prefix)
+      tokens.push(
+        ...safeContextTokens(Object.getOwnPropertyDescriptor(value, 'target')?.value, 'target.')
+      );
+    return tokens;
+  } catch {
+    return [];
   }
 }
 
@@ -39,6 +96,16 @@ export function installBreadcrumbCapture(target: Window = window): () => void {
   const buffer = createBreadcrumbBuffer();
   const bridge = (target as Window & { electronAPI?: BreadcrumbBridge }).electronAPI;
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const flushNow = (): void => {
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    try {
+      bridge?.sendBreadcrumbs?.(buffer.snapshot());
+    } catch {}
+  };
 
   const scheduleFlush = (): void => {
     if (flushTimer || !bridge?.sendBreadcrumbs) return;
@@ -57,9 +124,19 @@ export function installBreadcrumbCapture(target: Window = window): () => void {
     originals[level] = original;
     console[level] = (...args: unknown[]): void => {
       try {
-        const line = redactTelemetryText(`${level}: ${args.map(safeStringify).join(' ')}`);
+        const [first, ...rest] = args;
+        const ordered = [
+          first,
+          rest.flatMap((value) => safeContextTokens(value)).join(' '),
+          ...rest.filter((value) => value instanceof Error),
+          ...rest.filter((value) => !(value instanceof Error)),
+        ];
+        const line = redactTelemetryText(
+          `${level}: ${new Date().toISOString()} ${ordered.map((value) => safeStringify(value)).join(' ')}`
+        );
         buffer.push(line.slice(0, MAX_LINE_CHARS));
-        scheduleFlush();
+        if (level === 'error' && args.some((value) => value instanceof Error)) flushNow();
+        else scheduleFlush();
       } catch {}
       original(...args);
     };
@@ -68,15 +145,6 @@ export function installBreadcrumbCapture(target: Window = window): () => void {
   wrap('warn');
   wrap('error');
 
-  const flushNow = (): void => {
-    if (flushTimer) {
-      clearTimeout(flushTimer);
-      flushTimer = null;
-    }
-    try {
-      bridge?.sendBreadcrumbs?.(buffer.snapshot());
-    } catch {}
-  };
   target.addEventListener('pagehide', flushNow);
 
   return () => {

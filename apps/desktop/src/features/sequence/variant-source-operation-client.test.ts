@@ -74,7 +74,11 @@ describe('variant source operation client', () => {
     vi.mocked(managedOperations.startRegisteredOperation)
       .mockReset()
       .mockImplementation((start) =>
-        start({ scopeId: 'workspace-a', submissionKey: 'submission-1' })
+        start({
+          apiClient: { options: (options: RequestInit = {}) => options },
+          scopeId: 'workspace-a',
+          submissionKey: 'submission-1',
+        })
       );
     vi.mocked(managedOperations.waitForTerminal)
       .mockReset()
@@ -108,14 +112,17 @@ describe('variant source operation client', () => {
     expect(managedOperations.waitForTerminal).not.toHaveBeenCalled();
     expect(
       startVariantSourcePreparationOperationOperationsVariantSourcePreparationPost
-    ).toHaveBeenCalledWith({
-      submission_key: 'submission-1',
-      subject: { scope_id: 'workspace-a' },
-      input: {
-        variantPath: '/data/calls.vcf',
-        references: [{ name: 'chr1', length: 1_000 }],
+    ).toHaveBeenCalledWith(
+      {
+        submission_key: 'submission-1',
+        subject: { scope_id: 'workspace-a' },
+        input: {
+          variantPath: '/data/calls.vcf',
+          references: [{ name: 'chr1', length: 1_000 }],
+        },
       },
-    });
+      {}
+    );
   });
 
   it('detaches observation with the caller signal and reads the bound retained result', async () => {

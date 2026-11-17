@@ -119,6 +119,7 @@ describe('startAlignmentCoverageOperation', () => {
       .mockImplementation(async (start) => {
         submissions += 1;
         const snapshot = await start({
+          apiClient: { options: (options: RequestInit = {}) => options },
           scopeId: 'workspace-a',
           submissionKey: `submission-${submissions}`,
         });
@@ -140,11 +141,14 @@ describe('startAlignmentCoverageOperation', () => {
     expect(managedOperations.startRegisteredOperation).toHaveBeenCalledOnce();
     expect(
       startAlignmentCoveragePreparationOperationOperationsAlignmentCoveragePreparationPost
-    ).toHaveBeenCalledWith({
-      submission_key: 'submission-1',
-      subject: { scope_id: 'workspace-a' },
-      input: inputWithMtime('10'),
-    });
+    ).toHaveBeenCalledWith(
+      {
+        submission_key: 'submission-1',
+        subject: { scope_id: 'workspace-a' },
+        input: inputWithMtime('10'),
+      },
+      {}
+    );
   });
 
   it('rejects a response that is not the admitted coverage kind', async () => {

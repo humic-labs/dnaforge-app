@@ -24,7 +24,7 @@ import {
 } from './shared/codon-carrier-translation';
 import { projectCodonColumns, projectIntronColumns } from './shared/project-codon-columns';
 import { createBaseReader } from './shared/base-reader';
-import { findCutSites, type CutSite } from '../../biology/restriction-sites';
+import type { CutSite } from '../../biology/restriction-sites';
 import {
   KeyedTextPool,
   formatRulerLabel,
@@ -89,6 +89,7 @@ import {
   type BpRange,
   type PixiLinearTrackRenderer,
   type TrackCoverageDepthSnapshot,
+  type TrackReadPresentationSnapshot,
   type TrackHoverArgs,
   type TrackHitResult,
 } from './linear-tracks';
@@ -867,6 +868,15 @@ export class PixiLinearRenderer {
     return renderer.getCoverageDepthSnapshot(container);
   }
 
+  getReadPresentationSnapshot(trackId: string): TrackReadPresentationSnapshot | null {
+    const track = this.trackInstancesById.get(trackId);
+    if (!track) return null;
+    const container = this.trackContainers.get(track.id);
+    const renderer = this.trackRenderers.get(track.type);
+    if (!container || !renderer?.getReadPresentationSnapshot) return null;
+    return renderer.getReadPresentationSnapshot(container);
+  }
+
   getColdGestureSnapshot(trackId: string): PixiLinearRendererColdGestureSnapshot {
     const track = this.trackInstancesById.get(trackId) ?? null;
     const diagnostics = track ? this.collectColdTrackDiagnostics(track) : null;
@@ -1445,11 +1455,7 @@ export class PixiLinearRenderer {
     this.syncAnnotationLaneEnvelopeFromOverlay();
     this.codonTrack.reset();
     this.orfTrack.loadGenome(genome);
-    const skip =
-      typeof window !== 'undefined' &&
-      (window as Window & { __webglSkipInternalCutSites?: boolean }).__webglSkipInternalCutSites !==
-        false;
-    this.cutSites = genome.sequence && !skip ? findCutSites(genome.sequence) : [];
+    this.cutSites = [];
     this.codonCache.clear();
     this.transientAnnotationSearchCodonCache = null;
     this.residentAnnotationSearchFocusResolution = null;

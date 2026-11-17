@@ -43,14 +43,14 @@ export function recordedReceiptDependencies(
       }),
     read: (path, maxBytes) => platform().fs.readFileBounded(path, maxBytes),
     submit: (candidate) => {
-      serviceManager.bindGeneratedClient();
+      const apiClient = serviceManager.client();
       return customFetch<importRecordedAnnotationOperationOperationsAnnotationImportRecordedPostResponse>(
         getImportRecordedAnnotationOperationOperationsAnnotationImportRecordedPostUrl(),
-        {
+        apiClient.options({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(candidate),
-        }
+        })
       );
     },
   };

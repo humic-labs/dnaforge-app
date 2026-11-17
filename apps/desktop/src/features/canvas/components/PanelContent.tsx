@@ -16,6 +16,7 @@ import { StructureInspectionTab } from '../../structure-drawer/public/components
 import { debugLog } from '../../../utils/debug-log';
 import type { Tab } from '../types';
 import { resolveTabEditor } from '../tab-editor';
+import { classifyTabSession } from '../tab-document-session';
 import { isLegacyChatConversationId, useCanvasStore } from '../store';
 import { useChatStore } from '../../ai/public/hooks/useChat';
 import { useFileContent } from '../../../hooks/useFileContent';
@@ -190,8 +191,8 @@ function SequenceDocumentTabContent({ tab }: { tab: Tab }) {
             tab.entityId !== resolved.documentId ||
             JSON.stringify(ref) !== JSON.stringify(resolved.ref)
           ) {
-            useCanvasStore.getState().updateTabByEntityId(tab.entityId, {
-              entityId: resolved.documentId,
+            useCanvasStore.getState().retargetTabsByEntityId(tab.entityId, {
+              type: 'sequence',
               sequenceDocument: resolved.ref,
             });
           }
@@ -422,10 +423,14 @@ function PanelContentInternal({
     const found = useCanvasStore.getState().findTab('chat', tab.entityId);
     if (!found || found.tabId !== tab.id) return;
 
-    useCanvasStore.getState().updateTab(found.panelId, found.tabId, {
-      entityId: replacementConversationId,
-      label: tab.label || 'New Chat',
-    });
+    useCanvasStore
+      .getState()
+      .retargetTab(
+        found.panelId,
+        found.tabId,
+        { type: 'chat', entityId: replacementConversationId },
+        { label: tab.label || 'New Chat' }
+      );
   }, [currentConversationId, tab]);
 
   useEffect(() => {
@@ -459,12 +464,16 @@ function PanelContentInternal({
         .conversations.find((conversation) => conversation.id === nextConversationId)
         ?.title.trim();
 
-      updateTab(panelId, tab.id, {
-        entityId: nextConversationId,
-        ...(nextTitle ? { label: nextTitle } : {}),
-      });
+      useCanvasStore
+        .getState()
+        .retargetTab(
+          panelId,
+          tab.id,
+          { type: 'chat', entityId: nextConversationId },
+          { ...(nextTitle ? { label: nextTitle } : {}) }
+        );
     },
-    [panelId, tab, updateTab]
+    [panelId, tab]
   );
 
   const retryStat = useCallback(async (currentTab: Tab) => {
@@ -552,13 +561,8 @@ function PanelContentInternal({
         </TabErrorBoundary>
       );
     }
-    if (
-      tab.type === 'sequence' &&
-      (tab.indexedGenome ||
-        tab.loadStatus === 'indexed-pending' ||
-        tab.loadStatus === 'indexed' ||
-        tab.loadStatus === 'indexed-error')
-    ) {
+    const session = classifyTabSession(tab);
+    if (session.kind === 'sequence' && session.editor === 'indexed') {
       return (
         <TabErrorBoundary key={tab.id} label={tab.label} onClose={handleClose}>
           <IndexedGenomeTab tab={tab} isActive={isActive} />
@@ -713,7 +717,14 @@ function PanelContentInternal({
             />
           );
         }
-        return <TablePanel key={tab.entityId} tableId={tab.entityId} />;
+        return (
+          <TablePanel
+            key={tab.entityId}
+            tableId={tab.entityId}
+            tableDocument={tab.tableDocument}
+            canvasTabId={tab.id}
+          />
+        );
 
       case 'design':
         return (
@@ -725,7 +736,7 @@ function PanelContentInternal({
               panelId={panelId}
               onExitToSequence={
                 editor.packageOwned
-                  ? () => updateTab(panelId, tab.id, { assemblyEditDesignId: undefined })
+                  ? () => useCanvasStore.getState().setSequenceAssemblyEdit(panelId, tab.id, null)
                   : undefined
               }
             />

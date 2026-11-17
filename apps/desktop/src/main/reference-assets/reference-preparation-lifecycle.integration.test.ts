@@ -1,9 +1,7 @@
-import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { promisify } from 'node:util';
 
 import {
   unpackPrepackedAnnotationSearchIndexV1,
@@ -13,8 +11,11 @@ import {
 } from '@waypoint/genome-data';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runReferenceAssetPreparation } from './reference-preparation-engine';
+import {
+  parsePreparedReferenceDefinition,
+  preparedReferenceAssemblyEntry,
+} from './reference-preparation-manifest';
 
-const execFileAsync = promisify(execFile);
 const ENABLED = process.env.WAYPOINT_REFERENCE_PREPARATION_INTEGRATION === '1';
 const PROJECT_ROOT = resolve(process.cwd(), '../..');
 const MANIFEST_PATH = join(PROJECT_ROOT, 'test-fixtures/reference-preparation/puc19.v1.json');
@@ -157,9 +158,19 @@ describe.skipIf(!ENABLED)('manifest-driven reference preparation lifecycle', () 
     const sourceBefore = await stat(sourcePath);
 
     const otherProfileRoot = join(repairCacheRoot, 'other-profile');
+    const inheritedDefinition = parsePreparedReferenceDefinition(
+      JSON.parse(
+        await readFile(
+          join(prepared.sourceGenerationRoot, 'prepared-reference-definition.v1.json'),
+          'utf8'
+        )
+      )
+    );
     const inherited = await runReferenceAssetPreparation({
       command: 'ensure',
-      manifestPath: preparationManifestPath,
+      assemblyId: 'puc19-local-fixture',
+      publishedEntry: preparedReferenceAssemblyEntry(inheritedDefinition),
+      expectedPublishedSource: inheritedDefinition.source,
       projectRoot: PROJECT_ROOT,
       cacheRoot: repairCacheRoot,
       publicationRoot: otherProfileRoot,
@@ -169,10 +180,17 @@ describe.skipIf(!ENABLED)('manifest-driven reference preparation lifecycle', () 
       indexerBinary: INDEXER_PATH,
       runCompilersDirectly: true,
     });
-    expect(inherited.status).toBe('needs-refresh');
-    await expect(
-      stat(join(otherProfileRoot, 'puc19-local-fixture', 'current-reference-assets.v1.json'))
-    ).rejects.toThrow();
+    expect(inherited.status, inherited.message).toBe('ready');
+    expect(inherited.publication?.publicationId).not.toBe(publication.publicationId);
+    expect(inherited.publication?.productLayout?.storage).toBe('publication-generation-root.v1');
+    expect(
+      JSON.parse(
+        await readFile(
+          join(otherProfileRoot, 'puc19-local-fixture', 'current-reference-assets.v1.json'),
+          'utf8'
+        )
+      )
+    ).toEqual(inherited.publication);
     expect(JSON.parse(await readFile(pointerPath, 'utf8'))).toEqual(publication);
 
     const repaired = await runReferenceAssets(
@@ -322,39 +340,30 @@ async function runReferenceAssets(
   allowNeedsRefresh = false
 ): Promise<ReferenceAssetReceipt> {
   await stat(INDEXER_PATH);
-  let stdout: string;
-  try {
-    ({ stdout } = await execFileAsync(
-      'pnpm',
-      [
-        'reference-assets',
-        command,
-        `--manifest=${manifestPath}`,
-        `--cache-root=${cacheRoot}`,
-        '--theme=light',
-        '--json',
-      ],
-      {
-        cwd: PROJECT_ROOT,
-        env: { ...process.env, DNA_INDEXER_PATH: INDEXER_PATH },
-        maxBuffer: 16 * 1024 * 1024,
-        timeout: 60_000,
-      }
-    ));
-  } catch (error) {
-    const failed = error as Error & { code?: number; stdout?: string; stderr?: string };
-    if (allowNeedsRefresh && failed.code === 2 && failed.stdout) {
-      stdout = failed.stdout;
-    } else {
-      throw new Error([failed.message, failed.stdout, failed.stderr].filter(Boolean).join('\n'));
-    }
+  const receipt = await runReferenceAssetPreparation({
+    command,
+    manifestPath,
+    cacheRoot,
+    projectRoot: PROJECT_ROOT,
+    themeMode: 'light',
+    sourceBuildFingerprint: 'focused-reference-preparation-lifecycle',
+    indexerBinary: INDEXER_PATH,
+    runCompilersDirectly: true,
+  });
+  if (!receipt.publication || !receipt.sourceGenerationRoot) {
+    throw new Error('Reference preparation did not publish a source generation.');
   }
-  const jsonLine = stdout
-    .split(/\r?\n/)
-    .reverse()
-    .find((line) => line.startsWith('{'));
-  if (!jsonLine) throw new Error(`reference-assets emitted no JSON receipt:\n${stdout}`);
-  return JSON.parse(jsonLine) as ReferenceAssetReceipt;
+  if (receipt.status === 'needs-refresh' && !allowNeedsRefresh) {
+    throw new Error(receipt.message ?? `Reference preparation needs refresh: ${receipt.reason}`);
+  }
+  return {
+    status: receipt.status,
+    workspaceRoot: receipt.workspaceRoot,
+    sourceGenerationRoot: receipt.sourceGenerationRoot,
+    publication: receipt.publication,
+    trackTypes: 'trackTypes' in receipt ? [...receipt.trackTypes] : [],
+    ...('message' in receipt ? { message: receipt.message } : {}),
+  };
 }
 
 async function copyFixtureOutsideProject(cacheRoot: string): Promise<string> {

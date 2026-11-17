@@ -124,6 +124,57 @@ function currentReadBandHarness() {
 }
 
 describe('tile-engine transport scheduling', () => {
+  it('starts current surfaces in a free slot while older margin work remains active', async () => {
+    const older = deferred<Awaited<ReturnType<TileTransport>>>();
+    const started: number[] = [];
+    const limited = limitConcurrency((req) => {
+      started.push(req.tileIndex);
+      return req.tileIndex === 0 ? older.promise : Promise.resolve(okCoverage());
+    }, 2);
+    const signal = new AbortController().signal;
+    const pending = [
+      limited(
+        alignmentRequest(0, {
+          purpose: 'current',
+          epoch: 1,
+          core: false,
+          marginDistanceTiles: 1,
+        }),
+        signal
+      ),
+    ];
+    try {
+      await settleTilePromises();
+      expect(started).toEqual([0]);
+      pending.push(
+        limited(
+          coverageRequest(1, {
+            purpose: 'current',
+            epoch: 2,
+            core: true,
+            marginDistanceTiles: 0,
+          }),
+          signal
+        ),
+        limited(
+          alignmentRequest(2, {
+            purpose: 'current',
+            epoch: 2,
+            core: true,
+            marginDistanceTiles: 0,
+          }),
+          signal
+        )
+      );
+      await settleTilePromises();
+      expect(started).toContain(1);
+      expect(started).toContain(2);
+    } finally {
+      older.resolve(okCoverage());
+      await Promise.all(pending);
+    }
+  });
+
   describe('native remote required read scheduling', () => {
     function harness(optIn = true, initialLevel = 0) {
       const started: Array<{

@@ -4,6 +4,7 @@ export type NativeDocumentKind =
   | 'text'
   | 'csv'
   | 'tsv'
+  | 'table'
   | 'sequence'
   | 'notebook'
   | 'design'
@@ -112,14 +113,37 @@ export class DocumentLifecycle {
 
   async save(target: SaveDocumentTarget, tabId?: string): Promise<boolean> {
     const owners = this.matching(target, tabId);
-    if (owners.length !== 1) return false;
+    if (owners.length !== 1) {
+      console.warn('[DocumentLifecycle] Save not completed:', {
+        target,
+        tabId,
+        reason: 'owner-not-unique',
+        ownerCount: owners.length,
+      });
+      return false;
+    }
     const owner = owners[0];
     const pending = this.saves.get(owner);
     if (pending) return pending;
     let run: Promise<boolean>;
     try {
-      run = owner.save().catch(() => false);
-    } catch {
+      run = owner.save().then(
+        (success) => {
+          if (!success)
+            console.warn('[DocumentLifecycle] Save not completed:', {
+              target,
+              tabId,
+              reason: 'owner-returned-false',
+            });
+          return success;
+        },
+        (error: unknown) => {
+          console.error('[DocumentLifecycle] Save failed:', { target, tabId }, error);
+          return false;
+        }
+      );
+    } catch (error) {
+      console.error('[DocumentLifecycle] Save failed:', { target, tabId }, error);
       return false;
     }
     this.saves.set(owner, run);

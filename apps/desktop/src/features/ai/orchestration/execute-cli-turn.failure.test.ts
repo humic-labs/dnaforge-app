@@ -99,7 +99,7 @@ vi.mock('./chat-projections', () => ({
   createdAtAfter: vi.fn(() => 1),
   hasMaterializedAssistantText: vi.fn(() => false),
 }));
-vi.mock('./chat-runtime', () => ({ setConversationState }));
+vi.mock('./chat-runtime', () => ({ setConversationState, chatProviderPhase: vi.fn() }));
 vi.mock('../references/inline/session', () => ({ createInlineReferenceSession }));
 
 import { executeCliTurn } from './execute-cli-turn';
