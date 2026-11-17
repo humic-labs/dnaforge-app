@@ -586,6 +586,28 @@ describe('Panel', () => {
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     });
 
+    it('restores the original active tab when Close All is cancelled on another dirty tab', async () => {
+      const first = createTab({ id: 'dirty-one', label: 'first.txt', isDirty: true });
+      const second = createTab({ id: 'dirty-two', label: 'second.txt', isDirty: true });
+      const panel = createPanel({ tabs: [first, second], activeTabId: second.id });
+      renderPanel(panel, true);
+
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('artifact-document-close-request', {
+            detail: { panelId: panel.id, tabIds: [first.id, second.id] },
+          })
+        );
+      });
+      expect(await screen.findByRole('dialog')).toHaveTextContent('first.txt');
+      expect(canvasRuntime.panels[panel.id].activeTabId).toBe(first.id);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      expect(canvasRuntime.panels[panel.id].activeTabId).toBe(second.id);
+      expect(mockCloseTab).not.toHaveBeenCalled();
+    });
+
     it('closes tab after its save promise succeeds', async () => {
       const dirtyTab = createTab({
         isDirty: true,
