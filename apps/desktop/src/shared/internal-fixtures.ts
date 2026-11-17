@@ -76,6 +76,18 @@ export interface RegisterScenarioFixtureFilesRequest {
   files: ScenarioFixtureFile[];
 }
 
+export interface SeedMissingAuthorityArchiveRequest {
+  workspaceRoot: string;
+  packageRelativeRoot: string;
+  expectedPackageId: string;
+}
+
+export interface SeedMissingAuthorityArchiveResult {
+  entityId: string;
+  workspaceId: number;
+  archiveEventSeq: number;
+}
+
 export const MOCLO_SCENARIO_PRESETS = {
   'cidar-moclo-red-fluorescent-tu': 'cidar',
   'cidar-moclo-mixed-route-red-fluorescent-tu': 'cidar',

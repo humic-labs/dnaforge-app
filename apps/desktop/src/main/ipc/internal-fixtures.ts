@@ -17,6 +17,7 @@ import { isDisposableScenarioProfileAuthorized } from '../scenario-profile';
 import { isScenarioMutationRequested } from '../../shared/scenario-mutation';
 import { registerScenarioFixtureFiles } from '../scenario-fixture-files';
 import { materializeMocloScenarioKit } from '../moclo-scenario-fixtures';
+import { seedMissingAuthorityArchiveInMain } from '../lims-startup-repair-fixture';
 import {
   admitRegisteredProjectRootInMain,
   managedProjectStorageRoot,
@@ -121,6 +122,39 @@ export function registerInternalFixtureHandlers(): void {
               }),
               assertCurrent
             )
+          );
+        },
+        { requireAbsolute: true }
+      );
+    },
+    seedMissingAuthorityArchive: async (_event, request) => {
+      if (!scenarioFixtureWritesAllowed())
+        throw new Error(
+          'Seeding historical Registry archives requires an approved disposable scenario profile.'
+        );
+      const db = getDb();
+      return withSafeWritablePath(
+        request.workspaceRoot,
+        (workspaceRoot) => {
+          const assertCurrent = () => {
+            if (getDb() !== db || !scenarioFixtureWritesAllowed())
+              throw new Error(
+                'The approved scenario profile changed during historical Registry seeding.'
+              );
+            admitRegisteredProjectRootInMain(workspaceRoot, {
+              db,
+              managedRootDir: managedProjectStorageRoot(),
+              protectedAppDataRoot: app.getPath('userData'),
+            });
+            assertKnownWorkspaceContentWritable(db, workspaceRoot);
+          };
+          assertCurrent();
+          return withDeclaredWorkspaceMutation(db, workspaceRoot, [workspaceRoot], () =>
+            seedMissingAuthorityArchiveInMain({
+              db,
+              input: { ...request, workspaceRoot },
+              assertCurrent,
+            })
           );
         },
         { requireAbsolute: true }
