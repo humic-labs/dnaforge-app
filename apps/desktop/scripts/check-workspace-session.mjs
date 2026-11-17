@@ -91,6 +91,7 @@ try {
     return folder;
   }
   async function archive(folder, refusal = false) {
+    receipt.lastArchive = { path: folder.path, refusal, before: await observe() };
     await page.keyboard.press('Escape');
     await page
       .locator(
@@ -105,9 +106,13 @@ try {
       assert.ok((await observe()).folders.some((f) => f.path === folder.path));
     } else {
       const confirm = page.getByRole('button', { name: 'Archive', exact: true });
-      if (await confirm.isVisible()) await confirm.click();
+      await confirm.click();
       await expect
-        .poll(async () => (await observe()).folders.some((f) => f.path === folder.path))
+        .poll(async () => {
+          const observed = await observe();
+          receipt.lastArchive.after = { ...observed, observedAt: new Date().toISOString() };
+          return observed.folders.some((f) => f.path === folder.path);
+        })
         .toBe(false);
     }
   }
