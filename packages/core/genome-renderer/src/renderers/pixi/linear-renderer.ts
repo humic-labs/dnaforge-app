@@ -1,4 +1,24 @@
-import { cdsZoomBandCenterOffset } from '@waypoint/platform';
+import {
+  comparisonPlot,
+  hitTestComparison,
+  panComparisonCamera,
+  resolveComparisonCamera,
+  zoomComparisonCamera,
+  type ComparisonCamera,
+  type ComparisonHit,
+} from '../../comparison-projection';
+import { ComparisonProjectionPainter } from './comparison-projection-painter';
+import { cdsZoomBandCenterOffset, dataColor } from '@waypoint/platform';
+import {
+  contactCellRect,
+  contactPlotRect,
+  hitTestContactCell,
+  panContactCamera,
+  resolveContactCamera,
+  zoomContactCamera,
+  type ContactCamera,
+  type ContactHit,
+} from '../../contact-projection';
 import { Application, Graphics, Container, Rectangle, Text, TextStyle } from 'pixi.js';
 import { compareProjectedCodons } from '../../biology/codon-mutations';
 import { TRACK_STACK_ABOVE_ZONE_PAD_PX } from '../../track-stack-layout-contract';
@@ -27,6 +47,7 @@ import { createBaseReader } from './shared/base-reader';
 import type { CutSite } from '../../biology/restriction-sites';
 import {
   KeyedTextPool,
+  TextPool,
   formatRulerLabel,
   computeTickStep,
   LABEL_FONT_FAMILY,
@@ -561,6 +582,7 @@ interface UnifiedLayoutCache {
   readonly orfReverseLanes: number;
   readonly aboveZoneHeight: number;
   readonly belowZoneHeight: number;
+  readonly annotationTopReservePx: number;
   readonly trackScrollTop: number | null;
   readonly trackStackEndReservePx: number | undefined;
   readonly layout: UnifiedLayout;
@@ -587,6 +609,7 @@ function unifiedLayoutCacheMatches(
     orfReverseLanes: number;
     aboveZoneHeight: number;
     belowZoneHeight: number;
+    annotationTopReservePx: number;
     requestedTrackScrollTop: number | null;
     trackStackEndReservePx: number | undefined;
     overlayRegistry: OverlayRegistry;
@@ -614,6 +637,7 @@ function unifiedLayoutCacheMatches(
     cached.orfReverseLanes === input.orfReverseLanes &&
     cached.aboveZoneHeight === input.aboveZoneHeight &&
     cached.belowZoneHeight === input.belowZoneHeight &&
+    cached.annotationTopReservePx === input.annotationTopReservePx &&
     Object.is(cached.trackScrollTop, input.requestedTrackScrollTop) &&
     Object.is(cached.trackStackEndReservePx, input.trackStackEndReservePx) &&
     input.overlayRegistry.layoutCacheKeysMatch(
@@ -654,6 +678,12 @@ export class PixiLinearRenderer {
   protected getState!: () => RenderState;
 
   private scrollingLayer = new Container();
+  private comparisonPainter = new ComparisonProjectionPainter();
+  private contactLayer = new Container();
+  private contactGraphics = new Graphics();
+  private contactTextPool!: TextPool;
+  private contactPaintedCells = 0;
+  private contactThemeMode: WebGLThemeMode | null = null;
   private scrollingMask = new Graphics();
   private scrollingBounds = new Rectangle();
   private rulerLayer = new Container();
@@ -1342,6 +1372,15 @@ export class PixiLinearRenderer {
   async init(app: Application, genome: Genome, getState: () => RenderState): Promise<void> {
     this.app = app;
     this.getState = getState;
+    this.contactLayer.visible = false;
+    this.contactLayer.eventMode = 'none';
+    this.contactLayer.addChild(this.contactGraphics);
+    this.contactTextPool = new TextPool(
+      this.contactLayer,
+      new TextStyle({ fontSize: RULER_FONT_SIZE, fill: RULER_COLOR, fontFamily: LABEL_FONT_FAMILY })
+    );
+    this.app.stage.addChild(this.contactLayer);
+    this.app.stage.addChild(this.comparisonPainter.container);
     this.scrollingLayer.mask = this.scrollingMask;
     this.scrollingLayer.hitArea = this.scrollingBounds;
     this.scrollingMask.eventMode = 'none';
@@ -1480,6 +1519,7 @@ export class PixiLinearRenderer {
   }
 
   getMinZoom(state: RenderState): number {
+    if (state.contactProjection || state.comparisonProjection) return 1;
     const pixelsPerBp = state.sequencePresentation?.minSequencePixelsPerBp;
     if (
       !this.genome ||
@@ -1493,6 +1533,12 @@ export class PixiLinearRenderer {
   }
 
   getMaxZoom(state: RenderState): number {
+    if (state.comparisonProjection) return state.comparisonProjection.layout.columnLength;
+    if (state.contactProjection)
+      return Math.min(
+        state.contactProjection.xReference.length,
+        state.contactProjection.yReference.length
+      );
     const hasAnySequence =
       !!this.genome?.sequence || !!this.genome?.sequenceWindow || this.genome?.sequenceAvailable;
     if (!this.genome || !hasAnySequence) return Number.POSITIVE_INFINITY;
@@ -1558,6 +1604,20 @@ export class PixiLinearRenderer {
 
   render(state: RenderState): boolean {
     if (!this.genome) return false;
+    if (state.comparisonProjection) {
+      this.contactLayer.visible = false;
+      this.scrollingLayer.visible = false;
+      this.app.stage.scale.set(1);
+      this.app.stage.position.set(0, 0);
+      state.comparisonCamera = this.getComparisonCamera(state)!;
+      this.comparisonPainter.paint(state.comparisonProjection, state.comparisonCamera, state);
+      this.recordRendererCompletedFrame();
+      return false;
+    }
+    this.comparisonPainter.container.visible = false;
+    if (state.contactProjection) return this.renderContactProjection(state);
+    this.contactLayer.visible = false;
+    this.scrollingLayer.visible = true;
 
     this.annotationOverlay.reconcileAnnotationLaneEnvelopeForFrame();
     this.syncAnnotationLaneEnvelopeFromOverlay();
@@ -1676,6 +1736,12 @@ export class PixiLinearRenderer {
 
     const registeredTrackZoneLayout = this.getRegisteredTrackZoneLayout(state.height);
     const { aboveZoneHeight, belowZoneHeight } = registeredTrackZoneLayout;
+    const annotationTopReservePx =
+      this.annotationOverlay instanceof SequenceAnnotationOverlay &&
+      this.annotationOverlay.enabled &&
+      (aboveZoneHeight > 0 || belowZoneHeight > 0 || this.trackStackEndReservePx !== undefined)
+        ? this.annotationOverlay.floatingLabelTopReservePx()
+        : 0;
     this.updateScrollingBounds(width, height, aboveZoneHeight);
 
     const pixelsPerBp = 1 / bpPerPixel;
@@ -1715,6 +1781,7 @@ export class PixiLinearRenderer {
       orfReverseLanes,
       aboveZoneHeight,
       belowZoneHeight,
+      annotationTopReservePx,
       requestedTrackScrollTop: this.requestedTrackScrollTop,
       trackStackEndReservePx: this.trackStackEndReservePx,
       overlayRegistry: this.overlayRegistry,
@@ -1743,6 +1810,7 @@ export class PixiLinearRenderer {
         orfForwardLanes,
         orfReverseLanes,
         topOffsetMin: aboveZoneHeight,
+        annotationTopReservePx,
         bottomReserve: belowZoneHeight,
         trackScrollTop: this.requestedTrackScrollTop ?? undefined,
         trackStackEndReservePx: this.trackStackEndReservePx,
@@ -1774,6 +1842,7 @@ export class PixiLinearRenderer {
             orfReverseLanes,
             aboveZoneHeight,
             belowZoneHeight,
+            annotationTopReservePx,
             trackScrollTop: this.requestedTrackScrollTop === null ? null : layout.trackScrollTop,
             trackStackEndReservePx: this.trackStackEndReservePx,
             layout,
@@ -1881,6 +1950,227 @@ export class PixiLinearRenderer {
     });
     this.recordRendererCompletedFrame();
     return registeredTrackPaintPending || sequenceRender.preparationPending;
+  }
+
+  getComparisonCamera(state: RenderState = this.getState()): ComparisonCamera | null {
+    return state.comparisonProjection
+      ? resolveComparisonCamera(state.comparisonProjection, state.comparisonCamera)
+      : null;
+  }
+
+  setComparisonCamera(
+    camera: ComparisonCamera,
+    state: RenderState = this.getState()
+  ): ComparisonCamera | null {
+    if (!state.comparisonProjection) return null;
+    state.comparisonCamera = resolveComparisonCamera(state.comparisonProjection, camera);
+    return { ...state.comparisonCamera };
+  }
+
+  panComparison(deltaPx: number, state: RenderState): ComparisonCamera | null {
+    if (!state.comparisonProjection) return null;
+    state.comparisonCamera = panComparisonCamera(
+      state.comparisonProjection,
+      state.comparisonCamera,
+      deltaPx,
+      comparisonPlot(state.width, state.height)
+    );
+    return { ...state.comparisonCamera };
+  }
+
+  zoomComparison(factor: number, x: number, state: RenderState): ComparisonCamera | null {
+    if (!state.comparisonProjection) return null;
+    state.comparisonCamera = zoomComparisonCamera(
+      state.comparisonProjection,
+      state.comparisonCamera,
+      factor,
+      x,
+      comparisonPlot(state.width, state.height)
+    );
+    return { ...state.comparisonCamera };
+  }
+
+  hitTestComparison(x: number, y: number, state: RenderState): ComparisonHit | null {
+    return state.comparisonProjection
+      ? hitTestComparison(
+          state.comparisonProjection,
+          this.getComparisonCamera(state)!,
+          comparisonPlot(state.width, state.height),
+          x,
+          y
+        )
+      : null;
+  }
+
+  getComparisonProjectionDiagnostics(): object | null {
+    return this.comparisonPainter.getDiagnostics();
+  }
+
+  getContactCamera(state: RenderState = this.getState()): ContactCamera | null {
+    const projection = state.contactProjection;
+    return projection ? resolveContactCamera(projection, state.contactCamera) : null;
+  }
+
+  setContactCamera(
+    camera: ContactCamera,
+    state: RenderState = this.getState()
+  ): ContactCamera | null {
+    const projection = state.contactProjection;
+    if (!projection) return null;
+    state.contactCamera = resolveContactCamera(projection, camera);
+    return { ...state.contactCamera };
+  }
+
+  panContact(deltaX: number, deltaY: number, state: RenderState): ContactCamera | null {
+    const projection = state.contactProjection;
+    if (!projection) return null;
+    state.contactCamera = panContactCamera(
+      projection,
+      this.getContactCamera(state)!,
+      deltaX,
+      deltaY,
+      contactPlotRect(state.width, state.height)
+    );
+    return { ...state.contactCamera };
+  }
+
+  zoomContact(factor: number, x: number, y: number, state: RenderState): ContactCamera | null {
+    const projection = state.contactProjection;
+    if (!projection) return null;
+    state.contactCamera = zoomContactCamera(
+      projection,
+      this.getContactCamera(state)!,
+      factor,
+      x,
+      y,
+      contactPlotRect(state.width, state.height)
+    );
+    return { ...state.contactCamera };
+  }
+
+  hitTestContact(x: number, y: number, state: RenderState): ContactHit | null {
+    const projection = state.contactProjection;
+    return projection
+      ? hitTestContactCell(
+          projection,
+          this.getContactCamera(state)!,
+          contactPlotRect(state.width, state.height),
+          x,
+          y
+        )
+      : null;
+  }
+
+  getContactProjectionDiagnostics() {
+    const state = this.getState?.();
+    const projection = state?.contactProjection;
+    if (!projection || !state) return null;
+    return {
+      projectionId: projection.id,
+      xReference: { ...projection.xReference },
+      yReference: { ...projection.yReference },
+      camera: this.getContactCamera(state),
+      plot: contactPlotRect(state.width, state.height),
+      sourceCellCount: projection.cells.length,
+      xBinCount: new Set(projection.cells.map((cell) => `${cell.start}:${cell.end}`)).size,
+      yBinCount: new Set(projection.cells.map((cell) => `${cell.targetStart}:${cell.targetEnd}`))
+        .size,
+      paintedCellCount: this.contactPaintedCells,
+      hoveredContact: state.hoveredContact ? structuredClone(state.hoveredContact) : null,
+      selectedContact: state.selectedContact ? structuredClone(state.selectedContact) : null,
+      visible: this.contactLayer.visible,
+    };
+  }
+
+  private renderContactProjection(state: RenderState): boolean {
+    const projection = state.contactProjection!;
+    const camera = this.getContactCamera(state)!;
+    state.contactCamera = camera;
+    const plot = contactPlotRect(state.width, state.height);
+    const theme = webglThemeForMode(state.themeMode);
+    this.scrollingLayer.visible = false;
+    this.contactLayer.visible = true;
+    this.app.stage.scale.set(1);
+    this.app.stage.position.set(0, 0);
+    const graphics = this.contactGraphics.clear();
+    this.contactTextPool.reset();
+    if (this.contactThemeMode !== theme.mode) {
+      this.contactThemeMode = theme.mode;
+      this.contactTextPool.setStyle(
+        new TextStyle({
+          fontSize: RULER_FONT_SIZE,
+          fill: theme.rulerText,
+          fontFamily: LABEL_FONT_FAMILY,
+        })
+      );
+    }
+    this.contactPaintedCells = 0;
+    for (const cell of projection.cells) {
+      const rect = contactCellRect(cell, camera, plot);
+      if (!rect) continue;
+      const color = dataColor(cell.value, projection.colorScale);
+      graphics
+        .rect(rect.x, rect.y, rect.width, rect.height)
+        .fill(Number.parseInt(color.slice(1), 16));
+      this.contactPaintedCells += 1;
+    }
+    for (const hit of [state.hoveredContact, state.selectedContact]) {
+      if (hit?.projectionId !== projection.id) continue;
+      const cell = projection.cells.find((candidate) => candidate.id === hit.cellId);
+      const rect = cell && contactCellRect(cell, camera, plot);
+      if (!rect) continue;
+      graphics.rect(rect.x, rect.y, rect.width, rect.height).stroke({
+        color: theme.rulerText,
+        width: hit === state.selectedContact ? 2 : 1,
+      });
+    }
+    graphics
+      .rect(plot.x, plot.y, plot.width, plot.height)
+      .stroke({ color: theme.rulerText, width: 1 });
+    const label = (value: string, x: number, y: number, anchorX = 0.5, rotation = 0) => {
+      const text = this.contactTextPool.acquire();
+      text.text = value;
+      text.anchor.set(anchorX, 0.5);
+      text.position.set(x, y);
+      text.rotation = rotation;
+    };
+    const drawTicks = (axis: 'x' | 'y', start: number, end: number, spanPx: number) => {
+      const step = computeTickStep(end - start, spanPx);
+      for (let bp = Math.ceil(start / step) * step; bp <= end; bp += step) {
+        const fraction = (bp - start) / (end - start);
+        if (axis === 'x') {
+          const x = plot.x + fraction * plot.width;
+          graphics
+            .moveTo(x, plot.y + plot.height)
+            .lineTo(x, plot.y + plot.height + 4)
+            .stroke({ color: theme.rulerText, width: 1 });
+          label(formatRulerLabel(bp, step), x, plot.y + plot.height + 15);
+        } else {
+          const y = plot.y + fraction * plot.height;
+          graphics
+            .moveTo(plot.x - 4, y)
+            .lineTo(plot.x, y)
+            .stroke({ color: theme.rulerText, width: 1 });
+          label(formatRulerLabel(bp, step), plot.x - 8, y, 1);
+        }
+      }
+    };
+    drawTicks('x', camera.xStart, camera.xEnd, plot.width);
+    drawTicks('y', camera.yStart, camera.yEnd, plot.height);
+    label(
+      projection.xReference.label ?? projection.xReference.chrom,
+      plot.x + plot.width / 2,
+      state.height - 12
+    );
+    label(
+      projection.yReference.label ?? projection.yReference.chrom,
+      13,
+      plot.y + plot.height / 2,
+      0.5,
+      -Math.PI / 2
+    );
+    this.recordRendererCompletedFrame();
+    return false;
   }
 
   private renderOverlaysForLayout(
@@ -2972,6 +3262,10 @@ export class PixiLinearRenderer {
   }
 
   getViewCenterBp(state: RenderState): number {
+    const comparison = this.getComparisonCamera(state);
+    if (comparison) return (comparison.startColumn + comparison.endColumn) / 2;
+    const contactCamera = this.getContactCamera(state);
+    if (contactCamera) return (contactCamera.xStart + contactCamera.xEnd) / 2;
     const bpPerPixel = this.genome.length / (state.width * state.zoom);
     const scrollBp = state.viewOffset * this.genome.length;
     const xOffset = linearGenomeXOffset(state.width, state.zoom);
@@ -2981,6 +3275,28 @@ export class PixiLinearRenderer {
   }
 
   setViewCenterBp(bp: number, state: RenderState): void {
+    const comparison = this.getComparisonCamera(state);
+    if (comparison && Number.isFinite(bp)) {
+      const span = comparison.endColumn - comparison.startColumn;
+      this.setComparisonCamera(
+        {
+          projectionId: comparison.projectionId,
+          startColumn: bp - span / 2,
+          endColumn: bp + span / 2,
+        },
+        state
+      );
+      return;
+    }
+    const contactCamera = this.getContactCamera(state);
+    if (contactCamera && Number.isFinite(bp)) {
+      const span = contactCamera.xEnd - contactCamera.xStart;
+      this.setContactCamera(
+        { ...contactCamera, xStart: bp - span / 2, xEnd: bp + span / 2 },
+        state
+      );
+      return;
+    }
     if (!this.genome?.length || state.zoom <= 0 || state.width <= 0) return;
     const targetBp = Math.max(0, Math.min(this.genome.length - 1, bp));
     const bpPerPixel = this.genome.length / (state.width * state.zoom);
@@ -3191,6 +3507,10 @@ export class PixiLinearRenderer {
   }
 
   destroy(): void {
+    this.comparisonPainter.destroy();
+    this.contactTextPool?.destroy();
+    this.contactGraphics.destroy();
+    this.contactLayer.destroy();
     let registeredTrackTeardownError: unknown;
     try {
       this.destroyRegisteredTracks();

@@ -1,3 +1,14 @@
+import {
+  comparisonPlot,
+  resolveComparisonCamera,
+  zoomComparisonCamera,
+} from '../comparison-projection';
+import {
+  assertContactProjection,
+  contactPlotRect,
+  resolveContactCamera,
+  zoomContactCamera,
+} from '../contact-projection';
 import type { PixiPresentedFrame } from './types';
 
 import { useRef, useEffect, useLayoutEffect, useCallback } from 'react';
@@ -136,7 +147,11 @@ export function usePixiMap(options: UsePixiMapOptions): {
 } {
   return usePixiMapImpl({
     ...options,
-    rendererKind: options.circular ? 'stadium' : 'sequence',
+    circular: options.contactProjection || options.comparisonProjection ? false : options.circular,
+    rendererKind:
+      options.circular && !options.contactProjection && !options.comparisonProjection
+        ? 'stadium'
+        : 'sequence',
   });
 }
 
@@ -167,6 +182,14 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     resident: AnnotationResidentPagePublication | undefined;
   } | null>(null);
   const stateRef = useRef<RenderState>({
+    contactProjection: options.contactProjection,
+    comparisonProjection: options.comparisonProjection,
+    comparisonCamera: null,
+    hoveredComparison: null,
+    selectedComparison: null,
+    contactCamera: null,
+    hoveredContact: null,
+    selectedContact: null,
     performanceMode: options.performanceMode ?? 'default',
     morph: options.morph ?? 0,
     viewOffset: 0,
@@ -256,6 +279,18 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
   const pendingViewCenterBpRef = useRef<number | null>(null);
 
   const getViewCenter = useCallback((): number | null => {
+    const current = stateRef.current;
+    if (current.comparisonProjection) {
+      const camera = resolveComparisonCamera(
+        current.comparisonProjection,
+        current.comparisonCamera
+      );
+      return (camera.startColumn + camera.endColumn) / 2;
+    }
+    if (current.contactProjection) {
+      const camera = resolveContactCamera(current.contactProjection, current.contactCamera);
+      return (camera.xStart + camera.xEnd) / 2;
+    }
     const renderer = rendererRef.current as
       | {
           getViewCenterBp?: (state: RenderState) => number;
@@ -500,6 +535,38 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     stateRef.current.sequencePresentation = options.sequencePresentation;
     invalidateRender();
   }, [invalidateRender, options.annotationChangeDecorations, options.sequencePresentation]);
+
+  useLayoutEffect(() => {
+    const state = stateRef.current;
+    const projection = options.comparisonProjection;
+    if (state.comparisonProjection?.id !== projection?.id) {
+      state.hoveredComparison = null;
+      state.selectedComparison = null;
+      state.comparisonCamera = null;
+    }
+    state.comparisonProjection = projection;
+    if (projection)
+      state.comparisonCamera = resolveComparisonCamera(projection, state.comparisonCamera);
+    interactionRef.current?.cancelGesture?.();
+    interactionRef.current?.cancelMotion();
+    invalidateRender();
+  }, [invalidateRender, options.comparisonProjection]);
+
+  useLayoutEffect(() => {
+    const projection = options.contactProjection;
+    if (projection) assertContactProjection(projection);
+    const state = stateRef.current;
+    if (state.contactProjection?.id !== projection?.id) {
+      state.hoveredContact = null;
+      state.selectedContact = null;
+      state.contactCamera = null;
+    }
+    state.contactProjection = projection;
+    interactionRef.current?.cancelGesture?.();
+    if (projection) state.contactCamera = resolveContactCamera(projection, state.contactCamera);
+    interactionRef.current?.cancelMotion();
+    invalidateRender();
+  }, [invalidateRender, options.contactProjection]);
 
   useEffect(() => {
     stateRef.current.showResidueNumbers = options.showResidueNumbers ?? false;
@@ -1592,6 +1659,15 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
   ]);
 
   const getViewportRange = useCallback((): { start: number; end: number } | null => {
+    const state = stateRef.current;
+    if (state.comparisonProjection) {
+      const camera = resolveComparisonCamera(state.comparisonProjection, state.comparisonCamera);
+      return { start: camera.startColumn, end: camera.endColumn };
+    }
+    if (state.contactProjection) {
+      const camera = resolveContactCamera(state.contactProjection, state.contactCamera);
+      return { start: camera.xStart, end: camera.xEnd };
+    }
     const center = getViewCenter();
     const genomeLength = genomeRef.current?.length;
     const zoom = stateRef.current.zoom;
@@ -1612,6 +1688,44 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
   }, [getViewCenter]);
 
   const handle: PixiMapHandle = {
+    getComparisonCamera: useCallback(() => {
+      const state = stateRef.current;
+      return state.comparisonProjection
+        ? resolveComparisonCamera(state.comparisonProjection, state.comparisonCamera)
+        : null;
+    }, []),
+    setComparisonCamera: useCallback(
+      (camera) => {
+        const state = stateRef.current;
+        if (!state.comparisonProjection) return null;
+        interactionRef.current?.cancelGesture?.();
+        interactionRef.current?.cancelMotion();
+        state.comparisonCamera = resolveComparisonCamera(state.comparisonProjection, camera);
+        optionsRef.current.onComparisonCameraChange?.(state.comparisonCamera, 'scroll');
+        invalidateRender();
+        return { ...state.comparisonCamera };
+      },
+      [invalidateRender]
+    ),
+    getContactCamera: useCallback(() => {
+      const state = stateRef.current;
+      return state.contactProjection
+        ? resolveContactCamera(state.contactProjection, state.contactCamera)
+        : null;
+    }, []),
+    setContactCamera: useCallback(
+      (camera) => {
+        const state = stateRef.current;
+        if (!state.contactProjection) return null;
+        interactionRef.current?.cancelGesture?.();
+        interactionRef.current?.cancelMotion();
+        state.contactCamera = resolveContactCamera(state.contactProjection, camera);
+        optionsRef.current.onContactCameraChange?.(state.contactCamera, 'scroll');
+        invalidateRender();
+        return { ...state.contactCamera };
+      },
+      [invalidateRender]
+    ),
     getState: useCallback(() => stateRef.current, []),
     requestRender: useCallback(() => {
       invalidateRender();
@@ -1630,6 +1744,14 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     getViewCenter,
     getViewportRange,
     getZoomBounds: useCallback(() => {
+      const comparison = stateRef.current.comparisonProjection;
+      if (comparison) return { min: 1, max: comparison.layout.columnLength };
+      const projection = stateRef.current.contactProjection;
+      if (projection)
+        return {
+          min: 1,
+          max: Math.min(projection.xReference.length, projection.yReference.length),
+        };
       const renderer = rendererRef.current as
         | {
             getMinZoom?: (state: RenderState) => number;
@@ -1645,6 +1767,18 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
       return max < min ? { min: max, max: min } : { min, max };
     }, []),
     getCameraCenter: useCallback(() => {
+      const current = stateRef.current;
+      if (current.comparisonProjection) {
+        const camera = resolveComparisonCamera(
+          current.comparisonProjection,
+          current.comparisonCamera
+        );
+        return (camera.startColumn + camera.endColumn) / 2;
+      }
+      if (current.contactProjection) {
+        const camera = resolveContactCamera(current.contactProjection, current.contactCamera);
+        return (camera.xStart + camera.xEnd) / 2;
+      }
       const renderer = rendererRef.current as
         | {
             getViewCenterBp?: (state: RenderState) => number;
@@ -1707,6 +1841,43 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     setZoom: useCallback(
       (zoom: number) => {
         if (frameCircuitIsOpen()) return;
+        const state = stateRef.current;
+        if (state.comparisonProjection) {
+          interactionRef.current?.cancelGesture?.();
+          const projection = state.comparisonProjection;
+          const camera = resolveComparisonCamera(projection, state.comparisonCamera);
+          const currentZoom =
+            projection.layout.columnLength / (camera.endColumn - camera.startColumn);
+          const plot = comparisonPlot(state.width, state.height);
+          state.comparisonCamera = zoomComparisonCamera(
+            projection,
+            camera,
+            zoom / currentZoom,
+            plot.x + plot.width / 2,
+            plot
+          );
+          optionsRef.current.onComparisonCameraChange?.(state.comparisonCamera, 'zoom');
+          invalidateRender();
+          return;
+        }
+        if (state.contactProjection) {
+          interactionRef.current?.cancelGesture?.();
+          const projection = state.contactProjection;
+          const camera = resolveContactCamera(projection, state.contactCamera);
+          const currentZoom = projection.xReference.length / (camera.xEnd - camera.xStart);
+          const plot = contactPlotRect(state.width, state.height);
+          state.contactCamera = zoomContactCamera(
+            projection,
+            camera,
+            zoom / currentZoom,
+            plot.x + plot.width / 2,
+            plot.y + plot.height / 2,
+            plot
+          );
+          optionsRef.current.onContactCameraChange?.(state.contactCamera, 'zoom');
+          invalidateRender();
+          return;
+        }
         if (stateRef.current.zoom !== zoom) interactionRef.current?.cancelMotion();
         stateRef.current.zoom = zoom;
         invalidateRender();
@@ -1725,6 +1896,34 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     setCameraViewport: useCallback(
       (startBp: number, endBp: number) => {
         if (frameCircuitIsOpen()) return null;
+        const state = stateRef.current;
+        if (state.comparisonProjection) {
+          if (!Number.isFinite(startBp) || !Number.isFinite(endBp) || endBp <= startBp) return null;
+          interactionRef.current?.cancelGesture?.();
+          state.comparisonCamera = resolveComparisonCamera(state.comparisonProjection, {
+            projectionId: state.comparisonProjection.id,
+            startColumn: startBp,
+            endColumn: endBp,
+          });
+          optionsRef.current.onComparisonCameraChange?.(state.comparisonCamera, 'zoom');
+          invalidateRender();
+          return {
+            start: state.comparisonCamera.startColumn,
+            end: state.comparisonCamera.endColumn,
+          };
+        }
+        if (state.contactProjection) {
+          if (!Number.isFinite(startBp) || !Number.isFinite(endBp) || endBp <= startBp) return null;
+          interactionRef.current?.cancelGesture?.();
+          state.contactCamera = resolveContactCamera(state.contactProjection, {
+            ...resolveContactCamera(state.contactProjection, state.contactCamera),
+            xStart: startBp,
+            xEnd: endBp,
+          });
+          optionsRef.current.onContactCameraChange?.(state.contactCamera, 'zoom');
+          invalidateRender();
+          return { start: state.contactCamera.xStart, end: state.contactCamera.xEnd };
+        }
         let committedRange: { start: number; end: number } | null = null;
         stateRef.current.viewportRange = [startBp, endBp];
         const visibleBp = endBp - startBp;
@@ -1775,6 +1974,38 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     setViewCenter: useCallback(
       (centerBp: number) => {
         if (frameCircuitIsOpen()) return;
+        const state = stateRef.current;
+        if (state.comparisonProjection) {
+          if (!Number.isFinite(centerBp)) return;
+          interactionRef.current?.cancelGesture?.();
+          const camera = resolveComparisonCamera(
+            state.comparisonProjection,
+            state.comparisonCamera
+          );
+          const span = camera.endColumn - camera.startColumn;
+          state.comparisonCamera = resolveComparisonCamera(state.comparisonProjection, {
+            projectionId: state.comparisonProjection.id,
+            startColumn: centerBp - span / 2,
+            endColumn: centerBp + span / 2,
+          });
+          optionsRef.current.onComparisonCameraChange?.(state.comparisonCamera, 'scroll');
+          invalidateRender();
+          return;
+        }
+        if (state.contactProjection) {
+          if (!Number.isFinite(centerBp)) return;
+          interactionRef.current?.cancelGesture?.();
+          const camera = resolveContactCamera(state.contactProjection, state.contactCamera);
+          const span = camera.xEnd - camera.xStart;
+          state.contactCamera = resolveContactCamera(state.contactProjection, {
+            ...camera,
+            xStart: centerBp - span / 2,
+            xEnd: centerBp + span / 2,
+          });
+          optionsRef.current.onContactCameraChange?.(state.contactCamera, 'scroll');
+          invalidateRender();
+          return;
+        }
         const currentCenter = getViewCenter();
         if (currentCenter === null || Math.abs(currentCenter - centerBp) > 1e-7)
           interactionRef.current?.cancelMotion();

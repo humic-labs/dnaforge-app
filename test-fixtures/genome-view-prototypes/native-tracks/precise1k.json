@@ -1,0 +1,1018 @@
+{
+  "schema": "dnaforge.native-track-fixtures.v1",
+  "dataset": "PRECISE-1K",
+  "sourceDatasetSha256": "d471ba82626626122720b34c48fed67270d351e750725e7f563374f4a545b158",
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/SBRG/precise1k/master/data/precise1k/log_tpm_qc.csv",
+      "file": "raw/genes/precise1k-expression.csv",
+      "sha256": "8bdb286aecd305a38323ad5a5c18eb264702739824dfcb708c5c5b595abb84d6",
+      "citation": "https://doi.org/10.1093/nar/gkad750"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/SBRG/precise1k/master/data/precise1k/metadata_qc.csv",
+      "file": "raw/genes/precise1k-metadata.csv",
+      "sha256": "a1358525a0431ac68b44f85f56169b7e8af4efb9186be6b43ba2cacb7b56e1cf",
+      "citation": "https://doi.org/10.1093/nar/gkad750"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/SBRG/precise1k/master/data/annotation/gene_info.csv",
+      "file": "raw/genes/precise1k-gene-info.csv",
+      "sha256": "355de1157a4837180cb0c3d625a7a4f26903ba0d50f2bf3ca769949e90dbcb90",
+      "citation": "https://doi.org/10.1093/nar/gkad750"
+    }
+  ],
+  "processing": "Published log2 TPM per sample stored as sparse native BigWig gene intervals. No extra logarithm or interpolation. Bases shared by multiple gene intervals use an explicit arithmetic mean, with every affected interval and contributing gene retained in each track descriptor. BigWig values have native float32 precision. Regions without measurements remain missing.",
+  "tracks": [
+    {
+      "file": "precise1k-p1k_00001.bw",
+      "label": "control__wt_glc__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00001",
+        "label": "control__wt_glc__1",
+        "project": "control",
+        "condition": "wt_glc",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 2.8822042134999997
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 4.9384040735
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 1.372098883
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "c3c9d9d1cb6639add6bfba4a7187d927c93ca06730f4c3115c9b37a3a1b0aeb5",
+      "sizeBytes": 1913,
+      "displayLabel": "Glucose"
+    },
+    {
+      "file": "precise1k-p1k_00003.bw",
+      "label": "fur__wt_dpd__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00003",
+        "label": "fur__wt_dpd__1",
+        "project": "fur",
+        "condition": "wt_dpd",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 2.614364643
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 9.216341356000001
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 1.4044991745000002
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "60bd62d18603ee7976120f4f822b432003662af0794605e8ee5904377f97e648",
+      "sizeBytes": 1913,
+      "displayLabel": "DPD 0.2 mM"
+    },
+    {
+      "file": "precise1k-p1k_00011.bw",
+      "label": "acid__wt_ph5__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00011",
+        "label": "acid__wt_ph5__1",
+        "project": "acid",
+        "condition": "wt_ph5",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 2.5015173500000003
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 4.4530843865000005
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 1.173384622
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "1315cab5780c515f88d87b2e6c833426c5af7b8dc4867bfa51b3f41b2522f239",
+      "sizeBytes": 1914,
+      "displayLabel": "pH 5.5"
+    },
+    {
+      "file": "precise1k-p1k_00019.bw",
+      "label": "oxidative__wt_pq__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00019",
+        "label": "oxidative__wt_pq__1",
+        "project": "oxidative",
+        "condition": "wt_pq",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 11.836385060000001
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 8.792277243000001
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 1.898028946
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "87994357526a534ade4f2fe68b0f891ecfb23ac942d458a73e8a432cb5114c1d",
+      "sizeBytes": 1920,
+      "displayLabel": "PQ 250 µM"
+    },
+    {
+      "file": "precise1k-p1k_00027.bw",
+      "label": "nac_ntrc__wt_csn__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00027",
+        "label": "nac_ntrc__wt_csn__1",
+        "project": "nac_ntrc",
+        "condition": "wt_csn",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "W2"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 2.8972536725
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 5.481577510499999
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 13.35460058
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "604f934f767b3384b450a8e6ed8a19b3e4936075b08613c2b5b75b5d00f9adb0",
+      "sizeBytes": 1918,
+      "displayLabel": "wt_csn"
+    },
+    {
+      "file": "precise1k-p1k_00041.bw",
+      "label": "misc__wt_no_te__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00041",
+        "label": "misc__wt_no_te__1",
+        "project": "misc",
+        "condition": "wt_no_te",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 11.739591915
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 9.691767146
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 1.14686134
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "e769bc71529589085af97132aac8a765abaede2b442b7681f37854a7a9e80f8e",
+      "sizeBytes": 1919,
+      "displayLabel": "No trace elements"
+    },
+    {
+      "file": "precise1k-p1k_00050.bw",
+      "label": "omics__wt_glu__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00050",
+        "label": "omics__wt_glu__1",
+        "project": "omics",
+        "condition": "wt_glu",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 2.794486255
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 2.369346666
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 0.9648155905
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "3aae97141b92ef29a91c027c7e639c601c7fa9d947cc5a731d0d94fe75782bf7",
+      "sizeBytes": 1909,
+      "displayLabel": "Glutamate 10 mM"
+    },
+    {
+      "file": "precise1k-p1k_00064.bw",
+      "label": "ompr__wt_nacl__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00064",
+        "label": "ompr__wt_nacl__1",
+        "project": "ompr",
+        "condition": "wt_nacl",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 9.5077210965
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 8.746987702
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 1.2844329115000002
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "479814cc291e5c0d438a6807721c2aa4abbb89f6f020b91f071461a2903a6f7a",
+      "sizeBytes": 1920,
+      "displayLabel": "NaCl 0.3 M"
+    },
+    {
+      "file": "precise1k-p1k_00068.bw",
+      "label": "minspan__wt_ade__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00068",
+        "label": "minspan__wt_ade__1",
+        "project": "minspan",
+        "condition": "wt_ade",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 4.0364453195
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 2.656945924
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 0.514768144
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "4f6b00b4d3eea2b18b6b3bb7f61e61ad3bf96329496a28304f617e54a48c8ff2",
+      "sizeBytes": 1904,
+      "displayLabel": "Adenine 10 mM"
+    },
+    {
+      "file": "precise1k-p1k_00082.bw",
+      "label": "cra_crp__wt_ac__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00082",
+        "label": "cra_crp__wt_ac__1",
+        "project": "cra_crp",
+        "condition": "wt_ac",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 2.3926709429999997
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 6.799979047
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 1.3859038735000002
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "2c7513554b75c116090b06d6150acb89bdb25bef97e703def9e402e4e7d133e7",
+      "sizeBytes": 1909,
+      "displayLabel": "Acetate"
+    },
+    {
+      "file": "precise1k-p1k_00092.bw",
+      "label": "rpoB__wt_031__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00092",
+        "label": "rpoB__wt_031__1",
+        "project": "rpoB",
+        "condition": "wt_031",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 10.970066615
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 3.35197522
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 7.4035400095
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "7b6c689dbdb405af466ff94bf22dcc06aea78917d94156329be1c89a129b1cc8",
+      "sizeBytes": 1908,
+      "displayLabel": "Chemostat 0.31/h"
+    },
+    {
+      "file": "precise1k-p1k_00105.bw",
+      "label": "crp__wt_fru__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00105",
+        "label": "crp__wt_fru__1",
+        "project": "crp",
+        "condition": "wt_fru",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 3.3486624695000007
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 4.1005206905
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 0.524227269
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "caa53f39c5e756df676cfdbe3e15872657d53322d6eb00d2dd968b4387f01763",
+      "sizeBytes": 1909,
+      "displayLabel": "Fructose"
+    },
+    {
+      "file": "precise1k-p1k_00125.bw",
+      "label": "glu__glu_ale3__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00125",
+        "label": "glu__glu_ale3__1",
+        "project": "glu",
+        "condition": "glu_ale3",
+        "strain": "Escherichia coli GLU.3.412.1",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 11.039930479999999
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 6.41199114
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 0.621879139
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "7aeca755283680364b1c0a53e7c6415c8adf21f035f74ce280372ec707bdf0be",
+      "sizeBytes": 1915,
+      "displayLabel": "Glucose ALE 3"
+    },
+    {
+      "file": "precise1k-p1k_00132.bw",
+      "label": "42c__wt_42c__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00132",
+        "label": "42c__wt_42c__1",
+        "project": "42c",
+        "condition": "wt_42c",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 3.8372133175
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 3.836649866
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 1.4704771465
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "c06275769f3fa4b3517fe0cc4741384302b58cb5d09e965494760dceb33845ad",
+      "sizeBytes": 1901,
+      "displayLabel": "42 °C"
+    },
+    {
+      "file": "precise1k-p1k_00142.bw",
+      "label": "ssw__wt_ac__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00142",
+        "label": "ssw__wt_ac__1",
+        "project": "ssw",
+        "condition": "wt_ac",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 2.3119579134999997
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 7.7284666914999995
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 0.7163155415
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "956c2e39349f0aa05d865df64ca40cafd8ab8fb7b1181bb586c38d2a3456e92d",
+      "sizeBytes": 1911,
+      "displayLabel": "Acetate 4 g/L"
+    },
+    {
+      "file": "precise1k-p1k_00161.bw",
+      "label": "ica__wt_glc__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00161",
+        "label": "ica__wt_glc__1",
+        "project": "ica",
+        "condition": "wt_glc",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 2.771920854
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 4.627133772500001
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 0.9165448685
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "7a17f546abd84446edcbb30ccdf72b1cd2dcf3392f50d0774b58033cae0562e2",
+      "sizeBytes": 1916,
+      "displayLabel": "ICA glucose"
+    },
+    {
+      "file": "precise1k-p1k_00191.bw",
+      "label": "ytf__wt_glc__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00191",
+        "label": "ytf__wt_glc__1",
+        "project": "ytf",
+        "condition": "wt_glc",
+        "strain": "Escherichia coli K-12 MG1655",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 3.1290982505000002
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 7.975099955499999
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 0.7789563005
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "080c74f41ffbf45b824e1d1b19e04fe2f0d9ae21e4ef12ac11027a3e2c5e9cec",
+      "sizeBytes": 1914,
+      "displayLabel": "yTF glucose"
+    },
+    {
+      "file": "precise1k-p1k_00219.bw",
+      "label": "fps__bw_glc__1 · log2 TPM",
+      "sample": {
+        "id": "p1k_00219",
+        "label": "fps__bw_glc__1",
+        "project": "fps",
+        "condition": "bw_glc",
+        "strain": "Escherichia coli BW25113",
+        "media": "M9"
+      },
+      "genes": 48,
+      "intervals": 51,
+      "overlapAggregation": {
+        "method": "arithmetic mean only on overlapping gene bases",
+        "regions": [
+          {
+            "start": 312513,
+            "end": 312514,
+            "genes": [
+              "b4506",
+              "b0296"
+            ],
+            "displayValue": 3.458964168
+          },
+          {
+            "start": 614156,
+            "end": 614160,
+            "genes": [
+              "b4511",
+              "b0586"
+            ],
+            "displayValue": 4.641396838
+          },
+          {
+            "start": 1072862,
+            "end": 1072863,
+            "genes": [
+              "b1011",
+              "b1012"
+            ],
+            "displayValue": 0.6779078569999999
+          }
+        ]
+      },
+      "unit": "published log2 TPM",
+      "reference": {
+        "id": "NC_000913.3",
+        "length": 4641652
+      },
+      "coordinateMapping": "Exact locus_tag join against retained NC_000913.3 GFF gene/pseudogene; [start-1,end).",
+      "sha256": "e0d804663e697e884147cb11e80dcf66c3b38a597b32783bcecb5127e22bb027",
+      "sizeBytes": 1916,
+      "displayLabel": "BW25113 glucose"
+    }
+  ]
+}

@@ -7,6 +7,7 @@ export type {
   TrackHoverArgs,
   TrackHitResult,
   PixiLinearTrackRenderer,
+  SupplementalLinearTrack,
   TrackCoverageDepthSnapshot,
 } from './types';
 

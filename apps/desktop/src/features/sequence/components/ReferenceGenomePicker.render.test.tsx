@@ -113,6 +113,8 @@ vi.mock('../../../platform', () => ({
       onHostedInstallProgress: mockOnHostedInstallProgress,
       onPreparationProgress: mockOnReferencePreparationProgress,
     },
+    contactSources: { read: vi.fn(async () => ({})) },
+    comparisonSources: { read: vi.fn(async () => ({})) },
     trackViews: {
       list: mockListTrackViews,
       read: mockReadTrackView,
@@ -400,9 +402,15 @@ describe('ReferenceGenomePicker — assemblies section', () => {
     expect(mockOpenSavedTrackView).not.toHaveBeenCalled();
   });
 
-  it.each(['all', 'chromosome', 'locus'] as const)(
-    'retains the saved managed %s scope when opening its native file',
-    async (kind) => {
+  it.each([
+    ['all', null],
+    ['chromosome', null],
+    ['locus', null],
+    ['all', 'contactProjection'],
+    ['all', 'comparisonProjection'],
+  ] as const)(
+    'retains the saved managed %s scope and %s when opening its native file',
+    async (kind, projectionField) => {
       const catalog = referenceAssemblyById('grch38');
       if (!catalog) throw new Error('Missing GRCh38 catalog fixture');
       const bundleFingerprint = 'a'.repeat(64);
@@ -436,6 +444,43 @@ describe('ReferenceGenomePicker — assemblies section', () => {
           : kind === 'chromosome'
             ? { kind, chrom: 'chr2' }
             : { kind, chrom: 'chr2', start: 100, end: 800 };
+      const axis = {
+        id: 'chr2',
+        chrom: 'chr2',
+        length: assembly.chromosomes.find((chromosome) => chromosome.chrom === 'chr2')!.length,
+      };
+      const projection =
+        projectionField === 'contactProjection'
+          ? {
+              kind: 'contact-matrix',
+              project: '/tmp/project',
+              source: {
+                schema: 'dnaforge.contact-source.v1',
+                path: 'contacts.json',
+                sha256: 'e'.repeat(64),
+                xReference: axis,
+                yReference: axis,
+              },
+              camera: { projectionId: 'contacts', xStart: 100, xEnd: 800, yStart: 900, yEnd: 1600 },
+            }
+          : projectionField === 'comparisonProjection'
+            ? {
+                kind: 'aligned-genomes',
+                project: '/tmp/project',
+                source: {
+                  schema: 'dnaforge.comparison-source.v1',
+                  path: 'comparison.paf',
+                  sha256: 'e'.repeat(64),
+                  targetReference: axis,
+                  queryReference: { id: 'query', chrom: 'query', length: 2000 },
+                },
+                camera: {
+                  projectionId: `comparison:${'e'.repeat(64)}`,
+                  startColumn: 140,
+                  endColumn: 870,
+                },
+              }
+            : null;
       const saved: SavedTrackView = {
         path: '/tmp/saved-scope.dnaforge-track-view.json',
         workspaceRoot: '/tmp',
@@ -459,6 +504,7 @@ describe('ReferenceGenomePicker — assemblies section', () => {
             inventoryFingerprint,
           },
           viewport: { start0: offset + 100, end0: offset + 800 },
+          ...(projectionField ? { [projectionField]: projection } : {}),
           scope,
         }),
       };
@@ -480,6 +526,7 @@ describe('ReferenceGenomePicker — assemblies section', () => {
         expect.objectContaining({
           restoreView: expect.objectContaining({
             scope,
+            ...(projectionField ? { [projectionField]: projection } : {}),
             indexedViewport: saved.document.viewport,
           }),
         })

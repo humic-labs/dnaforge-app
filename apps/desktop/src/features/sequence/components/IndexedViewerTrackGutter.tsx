@@ -1,4 +1,8 @@
-import { TRACK_COLOR_PRESETS, TRACK_DEFAULT_COLORS } from '@waypoint/sequence-utils';
+import {
+  SCIENTIFIC_COLOR_PALETTES,
+  TRACK_COLOR_PRESETS,
+  TRACK_DEFAULT_COLORS,
+} from '@waypoint/sequence-utils';
 import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import {
   toUserMessage,
@@ -1276,7 +1280,7 @@ function TrackSettingsPanel({
   const { dataset } = lane;
   const commit = (patch: TrackPresentationPatch): UpdateLanePresentationResult => {
     const result = updateLanePresentation(bucket, dataset.trackId, patch);
-    setError(toUserMessage(result, 'sequence.failed'));
+    setError(result.status === 'updated' ? null : toUserMessage(result, 'sequence.failed'));
     return result;
   };
   const canSetColor =
@@ -1297,7 +1301,7 @@ function TrackSettingsPanel({
         value={dataset.label}
         onCommit={(label) => commit({ label })}
       />
-      {canSetColor ? (
+      {canSetColor && dataset.quantitativePresentation?.graph !== 'band' ? (
         <TrackColorControl
           trackId={dataset.trackId}
           label={dataset.label}
@@ -1636,7 +1640,72 @@ function QuantitativeTrackSettings({
 
   return (
     <fieldset className="flex min-w-0 flex-col gap-2 border-t border-border/60 pt-2.5">
-      <legend className="mb-0.5 font-semibold text-fg">Signal scale</legend>
+      <legend className="mb-0.5 font-semibold text-fg">Signal</legend>
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-medium">Draw as</span>
+        <div
+          role="group"
+          aria-label={`Drawing style for ${dataset.label}`}
+          className="flex overflow-hidden rounded-md border border-border"
+        >
+          {(['bar', 'band', 'points'] as const).map((graph) => {
+            const name = graph === 'bar' ? 'Bars' : graph === 'band' ? 'Heatmap' : 'Points';
+            return (
+              <button
+                key={graph}
+                type="button"
+                aria-label={`${name} for ${dataset.label}`}
+                title={name}
+                aria-pressed={presentation.graph === graph}
+                onClick={() => update({ ...presentation, graph })}
+                className="flex h-7 w-9 items-center justify-center border-l border-border text-fg-muted outline-none first:border-l-0 hover:bg-bg-muted aria-pressed:bg-fg/10 aria-pressed:text-fg focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-fg-subtle"
+              >
+                <svg aria-hidden viewBox="0 0 20 16" className="h-4 w-5" fill="currentColor">
+                  {graph === 'bar' ? (
+                    <path d="M2 9h3v5H2zm6-6h3v11H8zm6 3h3v8h-3z" />
+                  ) : graph === 'band' ? (
+                    <>
+                      <path opacity=".3" d="M1 3h5v10H1z" />
+                      <path opacity=".6" d="M7 3h5v10H7z" />
+                      <path d="M13 3h6v10h-6z" />
+                    </>
+                  ) : (
+                    <>
+                      <circle cx="4" cy="11" r="2" />
+                      <circle cx="10" cy="4" r="2" />
+                      <circle cx="16" cy="8" r="2" />
+                    </>
+                  )}
+                </svg>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {presentation.graph === 'band' ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-medium">Palette</span>
+          <div className="flex gap-1.5">
+            {Object.entries(SCIENTIFIC_COLOR_PALETTES).map(([key, palette]) => (
+              <button
+                key={key}
+                type="button"
+                aria-label={`${palette.name} palette for ${dataset.label}`}
+                title={palette.name}
+                aria-pressed={(presentation.palette ?? 'viridis') === key}
+                onClick={() =>
+                  update({
+                    ...presentation,
+                    palette: key as NonNullable<QuantitativeTrackPresentationV1['palette']>,
+                  })
+                }
+                className="h-5 w-7 rounded border border-border outline-none ring-offset-1 ring-offset-bg aria-pressed:ring-1 aria-pressed:ring-fg focus-visible:ring-1 focus-visible:ring-fg"
+                style={{ background: `linear-gradient(to right, ${palette.colors.join(', ')})` }}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
       <SelectSetting
         label="Range"
         value={presentation.scale.mode}
@@ -1722,13 +1791,15 @@ function QuantitativeTrackSettings({
         </div>
       ) : null}
       <label className="flex h-7 cursor-pointer items-center justify-between rounded-md px-0.5 outline-none">
-        <span className="font-medium">Show y-axis</span>
+        <span className="font-medium">
+          {presentation.graph === 'band' ? 'Show color scale' : 'Show y-axis'}
+        </span>
         <span className="relative inline-flex h-4 w-7 shrink-0">
           <input
             type="checkbox"
             checked={presentation.showRange}
             onChange={(event) => update({ ...presentation, showRange: event.target.checked })}
-            aria-label={`Show y-axis for ${dataset.label}`}
+            aria-label={`Show ${presentation.graph === 'band' ? 'color scale' : 'y-axis'} for ${dataset.label}`}
             className="peer sr-only"
           />
           <span className="absolute inset-0 rounded-full border border-border bg-bg-muted transition-colors peer-checked:border-blue-500/70 peer-checked:bg-blue-500 peer-focus-visible:ring-1 peer-focus-visible:ring-fg-subtle/30" />

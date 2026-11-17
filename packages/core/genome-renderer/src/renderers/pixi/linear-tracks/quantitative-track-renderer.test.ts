@@ -10,12 +10,20 @@ import type {
 } from '@waypoint/genome-data';
 
 beforeAll(() => {
+  vi.stubGlobal('CanvasRenderingContext2D', class {});
   HTMLCanvasElement.prototype.getContext = ((contextId: string) => {
     if (contextId !== '2d') return null;
     return {
       fillStyle: '',
       fillRect: () => undefined,
       drawImage: () => undefined,
+      measureText: (text: string) => ({
+        width: text.length * 6,
+        actualBoundingBoxAscent: 9,
+        actualBoundingBoxDescent: 3,
+        fontBoundingBoxAscent: 9,
+        fontBoundingBoxDescent: 3,
+      }),
       getImageData: () => ({ data: new Uint8ClampedArray(4) }),
     } as unknown as CanvasRenderingContext2D;
   }) as typeof HTMLCanvasElement.prototype.getContext;
@@ -68,6 +76,38 @@ function paintArgs(
 }
 
 describe('PixiQuantitativeTrackRenderer', () => {
+  it('changes native drawing geometry and palette through uniforms without rebuilding genomic buffers', async () => {
+    const { PixiQuantitativeTrackRenderer } = await import('./quantitative-track-renderer');
+    const renderer = new PixiQuantitativeTrackRenderer({ type: 'quantitative', mode: 'signal' });
+    const container = renderer.mount({ chromosome: CHROMOSOME, theme: webglThemeForMode('light') });
+    const records = [{ chrom: 'chr1', start: 1000, end: 1050, value: 3 }];
+    renderer.paint(paintArgs(container, records, '#2563eb', NO_SMOOTHING));
+    const mesh = container.children[0] as unknown as {
+      shader: { resources: { quantitativeUniforms: { uniforms: { uGraphMode: number } } } };
+    };
+    const buildCount = renderer.getDiagnostics(container)?.geometryBuildCount;
+    renderer.paint(
+      paintArgs(container, records, '#2563eb', {
+        ...NO_SMOOTHING,
+        graph: 'band',
+        palette: 'cividis',
+      })
+    );
+    expect(mesh.shader.resources.quantitativeUniforms.uniforms.uGraphMode).toBe(1);
+    expect(renderer.getDiagnostics(container)).toMatchObject({
+      graph: 'band',
+      palette: 'cividis',
+      geometryBuildCount: buildCount,
+    });
+    renderer.paint(paintArgs(container, records, '#2563eb', { ...NO_SMOOTHING, graph: 'points' }));
+    expect(mesh.shader.resources.quantitativeUniforms.uniforms.uGraphMode).toBe(2);
+    expect(renderer.getDiagnostics(container)).toMatchObject({
+      graph: 'points',
+      geometryBuildCount: buildCount,
+    });
+    renderer.unmount(container);
+  });
+
   it.each([
     ['signal', 0x2563eb],
     ['peak', 0x7c3aed],
@@ -107,6 +147,41 @@ describe('PixiQuantitativeTrackRenderer', () => {
     }
   );
 
+  it('keeps measured zero distinct from missing intervals in native heatmap hover and selection', async () => {
+    const { PixiQuantitativeTrackRenderer } = await import('./quantitative-track-renderer');
+    const renderer = new PixiQuantitativeTrackRenderer({ type: 'quantitative', mode: 'signal' });
+    const container = renderer.mount({ chromosome: CHROMOSOME, theme: webglThemeForMode('light') });
+    const args = paintArgs(
+      container,
+      [{ chrom: 'chr1', start: 1000, end: 1050, value: 0 }],
+      '#2563eb',
+      {
+        ...NO_SMOOTHING,
+        graph: 'band',
+        scale: { mode: 'fixed', transform: 'linear', min: 0, max: 16 },
+      }
+    );
+    renderer.paint(args);
+    const hover = { ...args, localX: 250, localY: 30 };
+    renderer.updateHover(hover);
+    expect(renderer.getDiagnostics(container)).toMatchObject({
+      hovered: { start: 1000, end: 1050, rawValue: 0, presentedValue: 0 },
+    });
+    renderer.paint(args);
+    expect(renderer.getDiagnostics(container)).toMatchObject({
+      hovered: { start: 1000, end: 1050, rawValue: 0, presentedValue: 0 },
+    });
+    expect(renderer.hitTest(hover)).toMatchObject({
+      kind: 'select-bp-range',
+      startBp: 1000,
+      endBp: 1050,
+    });
+    expect(renderer.hitTest({ ...hover, localX: 310 })).toBeNull();
+    renderer.clearHover(container);
+    expect(renderer.getDiagnostics(container)).toMatchObject({ hovered: null });
+    renderer.unmount(container);
+  });
+
   it('turns signed BigWig values into a visible retained signal mesh', async () => {
     const { PixiQuantitativeTrackRenderer } = await import('./quantitative-track-renderer');
     const renderer = new PixiQuantitativeTrackRenderer({
@@ -130,10 +205,13 @@ describe('PixiQuantitativeTrackRenderer', () => {
       )
     );
 
-    expect(container.children).toHaveLength(1);
+    expect(container.children).toHaveLength(3);
     expect(container.children[0]?.visible).toBe(true);
     expect(renderer.getDiagnostics(container)).toEqual({
       mode: 'signal',
+      graph: 'bar',
+      palette: 'viridis',
+      hovered: null,
       surfaceKind: 'continuous-fill',
       recordCount: 2,
       barCount: 2,

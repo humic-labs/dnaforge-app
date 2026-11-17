@@ -77,6 +77,12 @@ export function mergeIndexedGenomePersistState(
       persisted?.assemblySearchReadiness ??
       prev?.assemblySearchReadiness,
     scope: next.scope ?? persisted?.scope ?? prev?.scope,
+    contactProjection: Object.hasOwn(next, 'contactProjection')
+      ? next.contactProjection
+      : (persisted?.contactProjection ?? prev?.contactProjection),
+    comparisonProjection: Object.hasOwn(next, 'comparisonProjection')
+      ? next.comparisonProjection
+      : (persisted?.comparisonProjection ?? prev?.comparisonProjection),
     bamTracks: next.bamTracks ?? persisted?.bamTracks ?? prev?.bamTracks,
     dataTracks: next.dataTracks ?? persisted?.dataTracks ?? prev?.dataTracks,
     signalReadPileupViews:

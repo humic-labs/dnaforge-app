@@ -1,3 +1,6 @@
+import { comparisonTargetViewport } from '../comparison-projection-navigation';
+import type { ComparisonProjectionProps } from './comparison-projection-props';
+import type { ContactProjectionProps } from './contact-projection-props';
 import { toUserMessage } from '@waypoint/user-messages';
 import { assemblyContigNaming } from '../contig-name-map';
 import {
@@ -371,7 +374,7 @@ function liveRendererMatchesPrepackedPresentation(
 
 const EMPTY_TRACK_LANES: ReadonlyArray<Lane> = [];
 
-interface IndexedGenomeViewerProps {
+interface IndexedGenomeViewerProps extends ContactProjectionProps, ComparisonProjectionProps {
   laneOwnerId?: string;
   allowAutomaticSignalReadPileupViews?: boolean;
   onAddVariantTrackRequest?: (request: TrackAdmissionRequestV1) => Promise<void>;
@@ -681,6 +684,13 @@ interface SequenceWindowState {
 export function IndexedGenomeViewer({
   laneOwnerId = '__standalone-indexed-genome-viewer__',
   allowAutomaticSignalReadPileupViews = true,
+  comparisonProjection,
+  comparisonCamera,
+  onComparisonCameraChange,
+  contactProjection,
+  contactCamera,
+  contactUnit,
+  onContactCameraChange,
   onAddVariantTrackRequest,
   onOpenMutationNavigator,
   manifest,
@@ -758,7 +768,7 @@ export function IndexedGenomeViewer({
   );
   const compiledBroadSurfaceRequirement = useMemo(
     () =>
-      rendererAssembly
+      rendererAssembly && !contactProjection && !comparisonProjection
         ? {
             identityKey: `indexed-full-assembly:${rendererAssembly.id}`,
             genomeLengthBp: rendererAssembly.totalLengthBp,
@@ -767,7 +777,7 @@ export function IndexedGenomeViewer({
             ),
           }
         : null,
-    [rendererAssembly]
+    [comparisonProjection, contactProjection, rendererAssembly]
   );
   const compiledBroadOwnsAssembly = isCompiledBroadOwnedAssembly(
     rendererAssembly,
@@ -1769,6 +1779,7 @@ export function IndexedGenomeViewer({
     reconnectRemoteTrack: bamImport.reconnectRemoteTrack,
   });
   useIndexedLaneContractTracks({
+    onTrackSelection: onSelectionChange,
     webglRef,
     rendererReadyEpoch,
     rendererAssembly,
@@ -3509,11 +3520,32 @@ export function IndexedGenomeViewer({
     <IndexedGenomeViewerSurface
       compiledBroadOwnsAssembly={compiledBroadOwnsAssembly}
       state={state}
+      comparisonProjection={comparisonProjection}
+      comparisonCamera={comparisonCamera}
+      onComparisonCameraChange={(camera, reason) => {
+        onComparisonCameraChange?.(camera, reason);
+        if (!comparisonProjection) return;
+        const range = comparisonTargetViewport(comparisonProjection, camera);
+        if (range) handleCameraChange((range.start + range.end) / 2, reason, undefined, range);
+      }}
+      contactProjection={contactProjection}
+      contactCamera={contactCamera}
+      contactUnit={contactUnit}
+      onContactCameraChange={(camera, reason) => {
+        onContactCameraChange?.(camera, reason);
+        const range = { start: camera.xStart, end: camera.xEnd };
+        const zoom = contactProjection
+          ? contactProjection.xReference.length / (camera.xEnd - camera.xStart)
+          : undefined;
+        handleCameraChange((camera.xStart + camera.xEnd) / 2, reason, zoom, range);
+      }}
       manifest={manifest}
       sessionId={sessionId}
       length={length}
       height={height}
-      hasDataTracks={activeStressDatasets.length > 0}
+      hasDataTracks={
+        activeStressDatasets.length > 0 || Boolean(contactProjection || comparisonProjection)
+      }
       hasQuantitativeTracks={allTrackLanes.some((lane) => isQuantitativeDataset(lane.dataset))}
       containerWidth={containerWidth}
       glyphV2Enabled={glyphV2Enabled}
