@@ -1,10 +1,10 @@
-import { parseWorkspaceSyncPublicationPolicy } from '@waypoint/share-bundle';
 import { Upload } from 'tus-js-client';
 import {
   mergeWorkspaceSessionFiles,
   type WorkspaceSessionPublicationCondition,
 } from '@waypoint/domain-services';
 import {
+  parseWorkspaceSyncPublicationPolicy,
   WORKSPACE_SYNC_MANIFEST_MAX_FILES,
   WORKSPACE_SYNC_MANIFEST_MAX_PATH_LENGTH,
   WORKSPACE_SYNC_MANIFEST_MAX_CONTENT_TYPE_LENGTH,
