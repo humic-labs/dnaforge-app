@@ -289,7 +289,9 @@ export function useMolstarInteraction(
         const hoverSub = plugin.behaviors.interaction.hover.subscribe(
           (event: { current: { loci: Loci }; buttons?: number }) => {
             if (typeof event.buttons === 'number') {
-              primaryPointerDownRef.current = (event.buttons & 1) !== 0;
+              primaryPointerDownRef.current =
+                (event.buttons & 1) !== 0 ||
+                (primaryPointerDownRef.current && canvas?.matches(':active') === true);
             }
             if (primaryPointerDownRef.current) return;
             pendingEventAt = performance.now();
