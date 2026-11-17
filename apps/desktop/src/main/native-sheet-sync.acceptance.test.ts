@@ -1,3 +1,4 @@
+/** @vitest-environment node */
 import type Database from 'better-sqlite3';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
