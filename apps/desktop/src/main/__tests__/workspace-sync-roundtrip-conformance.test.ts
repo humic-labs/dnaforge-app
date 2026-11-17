@@ -326,6 +326,7 @@ class CurrentWorkspaceSyncAdapter implements WorkspaceRoundTripAdapter<
 
   private async captureSymlinkPackage(db: Database.Database): Promise<unknown> {
     const root = await this.tempRoot('sync-roundtrip-symlink-');
+    await initManagedRepo(root);
     const packageRoot = join(root, 'Symlink package');
     await mkdir(join(packageRoot, '.forge'), { recursive: true });
     await writeFile(join(root, 'outside.gb'), genbank('outside'), 'utf8');
