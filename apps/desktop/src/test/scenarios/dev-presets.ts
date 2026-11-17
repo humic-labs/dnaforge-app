@@ -1345,6 +1345,11 @@ export const DEV_SCENARIO_PRESET_GROUPS: readonly DevScenarioPresetGroup[] = [
             'Chromosome topology · condition matrix',
             'Stationary and exponential psoralen crosslinking signals on NC_000913.2. Values describe published signal ratios.',
           ],
+          [
+            '15-methylation',
+            'Methylation · fractions and read support',
+            'Three baseline biological replicates from Cohen et al.2016 on exact NC_000913.2. Measured site fractions and read coverage remain separate; below-threshold fractions stay missing. The original motif census is retained separately.',
+          ],
         ] as const
       ).map(([id, label, description]) => ({
         id: `native-${id}`,

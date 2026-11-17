@@ -60,8 +60,20 @@
     "fastaFile": "REL606.fa.gz",
     "fastaSha256": "b2ebccf4201c3cbc88b5a5c6c549ab10db51db53d7a262b9dd24af29d9c26b58",
     "gffFile": "REL606.gff3.gz",
-    "gffSha256": "3591557625e7392f87eede3e54703d4c396647b7c96ceda21dc65849e626666b",
-    "referenceSubstitutionApplied": false
+    "gffSha256": "4bb0f768aace8d08fe991d5ef4792848e027eeb026290e0de4deba930c8c4ab5",
+    "referenceSubstitutionApplied": false,
+    "annotationIdentifierNormalization": {
+      "scheme": "REL606.feature.<six-digit 1-based feature ordinal in the immutable author GFF before sorting>",
+      "featureRows": 8894,
+      "uniqueGeneratedIds": 8894,
+      "authorIdsInOriginalId": 8821,
+      "distinctReusedAuthorIds": 4386,
+      "originallyUnidentifiedRows": 73,
+      "originalIdQualifier": "original_id retains the exact author ID on rows that supplied one; it is absent on originally unidentified rows.",
+      "parentRelationships": "The author supplied zero Parent attributes. Normalization adds zero Parent attributes or inferred gene/CDS relationships.",
+      "preservation": "All source columns1–8 and every other qualifier are preserved exactly in the source fixture. Replacing generated IDs with original_id, removing original_id, and removing IDs from originally unidentified rows reconstructs the author annotation-row multiset.",
+      "snpPlacement": "SNP placement depends on the unchanged exact reference sequence and reported point coordinates, not feature IDs."
+    }
   },
   "mapping": {
     "kind": "positions",

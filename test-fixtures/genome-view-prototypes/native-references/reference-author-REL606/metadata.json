@@ -3,7 +3,7 @@
   "accession": "REL606",
   "organism": "Escherichia coli B REL606",
   "reportedBaseAccession": "NC_012967.1",
-  "referenceIdentity": "Exact author-deposited REL606.gff3 from Dryad 10.5061/dryad.6226d, byte-identical Zenodo mirror; embedded sequence and author feature annotations.",
+  "referenceIdentity": "Exact author-deposited REL606 sequence, feature coordinates, types, strands and other qualifiers from Dryad10.5061/dryad.6226d, byte-identical Zenodo source. Source feature IDs are normalized per row; original_id retains author IDs.",
   "topology": "circular",
   "length": 4629812,
   "normalizedSequenceSha256": "1416d1f031651da4e440638305422af58bb7a45e9218eb52a364f1c19ecee478",
@@ -19,7 +19,7 @@
   ],
   "transformation": {
     "fasta": "Extract embedded ##FASTA sequence without changing bases; preserve author sequence ID REL606.",
-    "annotation": "Remove embedded FASTA, preserve every nine-column author feature row and attribute, and sort by sequence/start/end for tabix.",
+    "annotation": "Remove embedded FASTA. Assign deterministic per-row IDs from immutable author feature ordinals and retain supplied IDs as original_id. Preserve all source columns1–8 and all other qualifiers. Sort by sequence/start/end for tabix.",
     "featureRows": 8894,
     "featureTypes": {
       "region": 1,
@@ -31,7 +31,20 @@
       "rRNA": 22,
       "tRNA": 85,
       "misc_feature": 10
-    }
+    },
+    "identifierNormalization": {
+      "scheme": "REL606.feature.<six-digit 1-based feature ordinal in the immutable author GFF before sorting>",
+      "featureRows": 8894,
+      "uniqueGeneratedIds": 8894,
+      "authorIdsInOriginalId": 8821,
+      "distinctReusedAuthorIds": 4386,
+      "originallyUnidentifiedRows": 73,
+      "originalIdQualifier": "original_id retains the exact author ID on rows that supplied one; it is absent on originally unidentified rows.",
+      "parentRelationships": "The author supplied zero Parent attributes. Normalization adds zero Parent attributes or inferred gene/CDS relationships.",
+      "preservation": "All source columns1–8 and every other qualifier are preserved exactly in the source fixture. Replacing generated IDs with original_id, removing original_id, and removing IDs from originally unidentified rows reconstructs the author annotation-row multiset.",
+      "snpPlacement": "SNP placement depends on the unchanged exact reference sequence and reported point coordinates, not feature IDs."
+    },
+    "normalizedUncompressedAnnotationSha256": "88cc3738d5a9b91b0f5198c4cfbbaf170ecc33b5da015d325bbb26108d69f93d"
   },
   "nativeIndexedManifestRelativePaths": {
     "fastaPath": "REL606.fa.gz",
@@ -46,8 +59,8 @@
     "REL606.fa.gz": "b2ebccf4201c3cbc88b5a5c6c549ab10db51db53d7a262b9dd24af29d9c26b58",
     "REL606.fa.gz.fai": "144df6b6c1eb11ca7527ab6a2fe1ab3c9027017da214f069d0c4172827922741",
     "REL606.fa.gz.gzi": "e053fba3afa1c0cf518c04bbce193fbe0d929ba07cf89e491b39f8ad00aa2e5a",
-    "REL606.gff3.gz": "3591557625e7392f87eede3e54703d4c396647b7c96ceda21dc65849e626666b",
-    "REL606.gff3.gz.tbi": "03da0ba4b71af915a54f046fdfc6d124937ce2a109fef119d61c95864ca08a04"
+    "REL606.gff3.gz": "4bb0f768aace8d08fe991d5ef4792848e027eeb026290e0de4deba930c8c4ab5",
+    "REL606.gff3.gz.tbi": "13fa57416a2e8fe4100e544f0b348a91fbcbb99368550f5256194e21a0c28220"
   },
   "unbundledDerivedArtifacts": [
     {
@@ -59,8 +72,16 @@
     {
       "name": "REL606.annotations.gff3",
       "sha256": "1b0998758c121daa9eaa6c3b2dc269f06f68533da62abed3ecd98e389ed871df",
-      "derivation": "Remove embedded FASTA, preserve every nine-column author feature row and attribute, and sort by sequence/start/end for tabix.",
+      "derivation": "Original author annotation rows with embedded FASTA removed and coordinate sorting only, before per-row feature-ID normalization.",
       "availability": "Uncompressed preparation derivative is not bundled. The exact source is the deposited REL606.gff3 named in authoritativeSources."
     }
-  ]
+  ],
+  "nativeCompatibility": {
+    "featureRows": 8894,
+    "featureTypeStartEndStrandRowsPreserved": true,
+    "nonIdQualifiersPreserved": true,
+    "cdsPhasesPreserved": true,
+    "nativeIdentifierEmission": "The existing native importer emits its own coordinate/type IDs; original_id remains available.",
+    "nonCdsPhases": "The existing native importer emits . for non-CDS phases; the source fixture retains the author phase column unchanged."
+  }
 }

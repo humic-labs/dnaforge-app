@@ -42,6 +42,7 @@ export type NativeDataLayerExample =
   | '11-hns-fis'
   | '13-gyrase'
   | '14-supercoiling'
+  | '15-methylation'
   | '19-evolution';
 
 type Dataset = (typeof manifest.datasets)[number];
@@ -386,6 +387,34 @@ export async function applyNativeDataLayerExample(
       focusIndexed(
         view,
         'Gyrase cleavage · author W3110-Mu reference',
+        numericValues(csv, ['start0']),
+        dataset.reference.length
+      );
+    } else if (id === '15-methylation') {
+      const source = await addCsvLayer({
+        project: project.rootPath,
+        view,
+        dataset,
+        label: 'Baseline methylated fractions',
+        geometry: 'matrix',
+        palette: 'cividis',
+        domain: [0, 1],
+      });
+      const coverage = datasetById('15-methylation-coverage');
+      const values = numericValues(csv, coverage.valueColumns!);
+      await addCsvLayer({
+        project: project.rootPath,
+        view,
+        dataset: coverage,
+        label: 'Methylation read support',
+        geometry: 'bars',
+        palette: 'cividis',
+        domain: [0, Math.max(...values)],
+        source,
+      });
+      focusIndexed(
+        view,
+        'Methylation fractions and coverage · baseline replicates',
         numericValues(csv, ['start0']),
         dataset.reference.length
       );

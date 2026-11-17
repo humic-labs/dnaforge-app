@@ -735,6 +735,62 @@
         "presentCloneCount"
       ],
       "unresolvedPolicy": "reject"
+    },
+    {
+      "sourceId": "15-methylation",
+      "file": "indexed-signals/15-methylation/data.csv",
+      "metadata": "indexed-signals/15-methylation/metadata.json",
+      "referenceFile": "../native-references/NC_000913.2/NC_000913.2.fa.gz",
+      "reference": {
+        "id": "NC_000913.2",
+        "length": 4639675,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+        "citation": "https://doi.org/10.1038/ng.3530"
+      },
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start0",
+        "endColumn": "end0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "rows": 4197,
+      "unresolvedPolicy": "reject",
+      "id": "15-methylation",
+      "unit": "fraction of molecules with methylation signal (0–1)",
+      "valueColumns": [
+        "0h_1",
+        "0h_2",
+        "0h_3"
+      ]
+    },
+    {
+      "sourceId": "15-methylation",
+      "file": "indexed-signals/15-methylation/data.csv",
+      "metadata": "indexed-signals/15-methylation/metadata.json",
+      "referenceFile": "../native-references/NC_000913.2/NC_000913.2.fa.gz",
+      "reference": {
+        "id": "NC_000913.2",
+        "length": 4639675,
+        "nucleicAcid": "DNA",
+        "normalizedSequenceSha256": "b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+        "citation": "https://doi.org/10.1038/ng.3530"
+      },
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start0",
+        "endColumn": "end0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "rows": 4197,
+      "unresolvedPolicy": "reject",
+      "id": "15-methylation-coverage",
+      "unit": "source-reported per-site read coverage",
+      "valueColumns": [
+        "0h_1_coverage",
+        "0h_2_coverage",
+        "0h_3_coverage"
+      ]
     }
   ],
   "sourceSnapshots": {
@@ -1604,8 +1660,8 @@
     },
     {
       "file": "indexed-signals/19-evolution/metadata.json",
-      "sha256": "6b54dc0c8db210a0a8c1370c4c4b065a7b86e2df07216592b10b6c4e4c54b003",
-      "bytes": 7843
+      "sha256": "88350884bdb678adde9cdd44f4385518e8588876636611e2beddb03b5d936386",
+      "bytes": 8903
     },
     {
       "file": "indexed-signals/19-evolution/snapshot.json",
@@ -1639,18 +1695,43 @@
     },
     {
       "file": "../native-references/reference-author-REL606/REL606.gff3.gz",
-      "sha256": "3591557625e7392f87eede3e54703d4c396647b7c96ceda21dc65849e626666b",
-      "bytes": 148347
+      "sha256": "4bb0f768aace8d08fe991d5ef4792848e027eeb026290e0de4deba930c8c4ab5",
+      "bytes": 186499
     },
     {
       "file": "../native-references/reference-author-REL606/REL606.gff3.gz.tbi",
-      "sha256": "03da0ba4b71af915a54f046fdfc6d124937ce2a109fef119d61c95864ca08a04",
-      "bytes": 138
+      "sha256": "13fa57416a2e8fe4100e544f0b348a91fbcbb99368550f5256194e21a0c28220",
+      "bytes": 140
     },
     {
       "file": "../native-references/reference-author-REL606/metadata.json",
-      "sha256": "845faecf2d3f8746ec785ea0a9cba10381cfb709fba861b51a76d6d4112851c5",
-      "bytes": 3006
+      "sha256": "299934f7c0a471e3beae90125474132d074cdbe277c000cd67e5328fced982a1",
+      "bytes": 4816
+    },
+    {
+      "file": "indexed-signals/15-methylation/data.csv",
+      "bytes": 536754,
+      "sha256": "1904602ae34aebb58b05fa5ab7aa999b8c524e6c73aaabe2f896bf2a02c55cb6"
+    },
+    {
+      "file": "indexed-signals/15-methylation/legacy-motif-census.json",
+      "bytes": 2807,
+      "sha256": "76afe99e2a3ff20d45535e701c141cbfc0dde2f05d5afdc28f16a7915d501cd1"
+    },
+    {
+      "file": "indexed-signals/15-methylation/metadata.json",
+      "bytes": 8596,
+      "sha256": "824e4310cbf038f3d5f7bb7c1fe20917e1c67ce13e9cdfe5e81a191458107e3e"
+    },
+    {
+      "file": "indexed-signals/15-methylation/snapshot.json",
+      "bytes": 1917597,
+      "sha256": "a648d9ab85ffdb3f828e2a59cbb3522ffc5a15e0679529bd371963ff75a7d4ef"
+    },
+    {
+      "file": "indexed-signals/15-methylation/source-records.json",
+      "bytes": 2847764,
+      "sha256": "7cbb48a35f58ad350455bc5910f8163a4de0c5e17da7713b9430b0745503afe0"
     }
   ]
 }
