@@ -91,13 +91,13 @@ export function FieldMappingPicker({
             <span
               data-testid={`${testId}-custom`}
               title="A custom field you added to this type (not a built-in registry field)"
-              className="text-[9px] uppercase tracking-wide text-fg-subtle"
+              className="uppercase tracking-wide text-fg-subtle"
             >
               custom
             </span>
           ) : null}
           {taken && !selected ? (
-            <span data-testid={`${testId}-inuse`} className="text-[10px] text-fg-subtle">
+            <span data-testid={`${testId}-inuse`} className="text-fg-subtle">
               In use
             </span>
           ) : null}
@@ -132,7 +132,7 @@ export function FieldMappingPicker({
           {isMapped && current?.custom ? (
             <span
               data-testid={`lims-import-colmap-${columnName}-customtag`}
-              className="text-[9px] uppercase tracking-wide text-fg-subtle"
+              className="uppercase tracking-wide text-fg-subtle"
             >
               custom
             </span>

@@ -125,7 +125,7 @@ export function ExplorerAddHeader({
         <>
           <FolderOpenIcon className="h-4 w-4 flex-none text-fg-muted" />
           <div className="min-w-0 leading-tight">
-            <div className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">
+            <div className="font-medium uppercase tracking-wide text-fg-muted">
               Add to folder
             </div>
             <div

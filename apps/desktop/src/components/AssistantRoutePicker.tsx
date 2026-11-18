@@ -260,7 +260,7 @@ export function AssistantRoutePicker({
                     <span className="flex min-w-0 items-center gap-2">
                       <span>{display.primary}</span>
                       {!option.configured && (
-                        <span className="rounded bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                        <span className="rounded bg-warning/10 px-1.5 py-0.5 font-medium text-warning">
                           {option.readinessLabel ?? 'Needs setup'}
                         </span>
                       )}
