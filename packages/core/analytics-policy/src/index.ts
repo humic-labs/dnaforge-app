@@ -59,6 +59,46 @@ export const ANALYTICS_CONSENT_VERSION = '3' as const;
 export const TELEMETRY_ACTORS = ['user', 'maintainer', 'ci', 'canary', 'dev'] as const;
 export type TelemetryActor = (typeof TELEMETRY_ACTORS)[number];
 
+export type TelemetryOriginClassification =
+  | 'synthetic'
+  | 'private'
+  | 'unknown'
+  | 'eligible_release';
+
+export function classifyTelemetryOrigin(
+  runtime: Readonly<{
+    isSynthetic: boolean;
+    telemetryActor: TelemetryActor;
+    environment: string;
+  }> | null,
+  buildKind: string
+): TelemetryOriginClassification {
+  return runtime?.isSynthetic || ['canary', 'ci'].includes(runtime?.telemetryActor ?? '')
+    ? 'synthetic'
+    : runtime?.telemetryActor === 'maintainer' ||
+        ['local', 'development', 'test'].includes(buildKind)
+      ? 'private'
+      : buildKind === 'release' &&
+          runtime?.environment === 'production' &&
+          runtime.telemetryActor === 'user'
+        ? 'eligible_release'
+        : 'unknown';
+}
+
+export function sanitizeTelemetryOriginClassification(
+  value: unknown
+): TelemetryOriginClassification | undefined {
+  switch (value) {
+    case 'synthetic':
+    case 'private':
+    case 'unknown':
+    case 'eligible_release':
+      return value;
+    default:
+      return undefined;
+  }
+}
+
 export const INTERNAL_OPERATORS = ['operator_a', 'operator_b'] as const;
 export type InternalOperator = (typeof INTERNAL_OPERATORS)[number];
 
@@ -489,6 +529,7 @@ const COMMON_CUSTOM_PROPERTY_KEYS = new Set([
   'is_synthetic',
   'telemetry_canary_id',
   'telemetry_actor',
+  'runtime_origin_class',
   'ci_run_id',
   'internal_operator',
   'identity_kind',
@@ -718,6 +759,11 @@ export function sanitizeSdkEvent(
     if (Number.isInteger(eventVersion) && eventVersion >= 1) {
       properties.event_version = eventVersion;
     }
+  }
+  if ('runtime_origin_class' in properties) {
+    const classification = sanitizeTelemetryOriginClassification(properties.runtime_origin_class);
+    if (classification === undefined) delete properties.runtime_origin_class;
+    else properties.runtime_origin_class = classification;
   }
   if (properties.telemetry_actor !== 'ci') delete properties.ci_run_id;
 

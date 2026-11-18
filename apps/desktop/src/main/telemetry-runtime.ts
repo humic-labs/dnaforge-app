@@ -1,3 +1,5 @@
+import { classifyTelemetryOrigin } from '@waypoint/analytics-policy';
+import { APP_BUILD } from '../lib/app-build';
 import { app } from 'electron';
 import type { AnalyticsRuntimeConfig } from '../shared/analytics-types';
 import {
@@ -90,6 +92,7 @@ export function telemetryRuntimeProperties(dimensions: RuntimeDimensions): Recor
     is_synthetic: dimensions.isSynthetic,
     ...(dimensions.telemetryCanaryId ? { telemetry_canary_id: dimensions.telemetryCanaryId } : {}),
     telemetry_actor: dimensions.telemetryActor,
+    runtime_origin_class: classifyTelemetryOrigin(dimensions, APP_BUILD.kind),
     ...(dimensions.ciRunId ? { ci_run_id: dimensions.ciRunId } : {}),
   };
 }
