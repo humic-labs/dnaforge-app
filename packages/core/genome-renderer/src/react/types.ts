@@ -1,4 +1,10 @@
+import type {
+  ComparisonProjection,
+  ComparisonCamera,
+  ComparisonHit,
+} from '../comparison-projection';
 import type { CanvasFrustration } from './canvas-frustration';
+import type { ContactCamera, ContactHit, ContactProjection } from '../contact-projection';
 import type { AnnotationRolePaletteOverridesV1 } from '../annotation-role-palette';
 import type {
   Primer,
@@ -91,6 +97,14 @@ export interface SelectedCodonInfo {
 export type HiddenMapIdlePolicy = 'short-timeout' | 'bounded-lru' | 'host-retained';
 
 export interface UsePixiMapOptions {
+  comparisonProjection?: ComparisonProjection | null;
+  onComparisonHover?: (hit: ComparisonHit | null) => void;
+  onComparisonClick?: (hit: ComparisonHit | null) => void;
+  onComparisonCameraChange?: (camera: ComparisonCamera, reason: 'scroll' | 'zoom') => void;
+  contactProjection?: ContactProjection | null;
+  onContactHover?: (hit: ContactHit | null) => void;
+  onContactClick?: (hit: ContactHit | null) => void;
+  onContactCameraChange?: (camera: ContactCamera, reason: 'scroll' | 'zoom') => void;
   onUiFrustration?: (event: CanvasFrustration) => void;
   genome: Genome | null;
 
@@ -248,6 +262,10 @@ export interface PixiPresentedFrame {
 }
 
 export interface PixiMapHandle {
+  getComparisonCamera: () => ComparisonCamera | null;
+  setComparisonCamera: (camera: ComparisonCamera) => ComparisonCamera | null;
+  getContactCamera: () => ContactCamera | null;
+  setContactCamera: (camera: ContactCamera) => ContactCamera | null;
   getState: () => RenderState | null;
 
   requestRender: () => void;

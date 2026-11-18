@@ -4,6 +4,23 @@ import type { IndexedGenomeManifest } from '@waypoint/genome-data';
 import { LocalIndexedGenomeDataSource } from '@waypoint/genome-data/node';
 
 import { getOrCreateAnnotationOverviewTile } from '../ipc/genome-overview-tile-cache';
+import { buildOverviewAnnotationTileFromRawFeatures } from '../ipc/genome-overview-tile-cache';
+
+export async function readRetainedAnnotationSourceSummaryV1(manifest: IndexedGenomeManifest) {
+  if (!manifest.length) throw new Error('Retained annotation source length is unavailable.');
+  const source = new LocalIndexedGenomeDataSource(manifest, {
+    checkFileMtimeOnRead: false,
+    featureCacheEntries: 1,
+    sequenceCacheEntries: 1,
+  });
+  try {
+    return buildOverviewAnnotationTileFromRawFeatures(
+      await source.getFeatures(manifest.chrom, 0, manifest.length, 0)
+    );
+  } finally {
+    await source.close();
+  }
+}
 
 export interface ChromosomeSourceSummaryJobV1 {
   readonly manifest: IndexedGenomeManifest;

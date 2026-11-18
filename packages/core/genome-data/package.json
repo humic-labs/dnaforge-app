@@ -36,6 +36,7 @@
   },
   "license": "GPL-3.0-only",
   "dependencies": {
+    "@waypoint/platform": "workspace:*",
     "@gmod/indexedfasta": "^5.0.5",
     "@gmod/tabix": "^3.3.3",
     "@waypoint/sequence-utils": "workspace:*",

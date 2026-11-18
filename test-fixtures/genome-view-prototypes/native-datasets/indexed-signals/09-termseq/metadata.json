@@ -1,0 +1,156 @@
+{
+  "schema": "dnaforge.sequence-data-layer-fixture.v1",
+  "dataset": {
+    "number": 9,
+    "id": "09-termseq",
+    "title": "RNA 3′ ends / termination",
+    "study": "Dar & Sorek 2018",
+    "sourceReference": "E. coli BW25113, CP009273"
+  },
+  "snapshot": {
+    "file": "snapshot.json",
+    "originalSha256": "ec6b397b9b9a22799e039efcf4a08616340c5c005ba7549bef76101fe3879d60",
+    "sha256": "4cd5bad69f21e03739f6f9194a9cf09f9d09f15b0d5e494025d934895395f39e",
+    "scientificRecordsPreserved": true,
+    "presentationFieldsRemoved": true,
+    "coordinateStatement": "The original snapshot coordinate warning is retained as historical source metadata; the independently reproduced sequence anchors below establish the conversion used in data.csv."
+  },
+  "sourceFiles": [
+    {
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE109nnn/GSE109766/suppl/GSE109766_ecoli_termseq_rep1-3.counts_per_position.txt.gz",
+      "file": "raw/regulation/GSE109766_termseq.txt.gz",
+      "sha256": "c6d8fd4ce227383dab9e71328519b85137bdc3872dde526c43d8e00c76827ab8",
+      "bytes": 1067437,
+      "citation": "https://doi.org/10.1093/nar/gky274"
+    },
+    {
+      "url": "https://www.ebi.ac.uk/biostudies/files/S-EPMC6061677/gky274_supplemental_files.xlsx",
+      "file": "raw/regulation/Dar_termination.xlsx",
+      "sha256": "8a276c749249a1fb40e89709be1f69c702d159e128ef0b785fe5c518c7187027",
+      "bytes": 231614,
+      "citation": "https://doi.org/10.1093/nar/gky274"
+    },
+    {
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM2966927&targ=self&form=text&view=full",
+      "file": "raw/regulation/GSM2966927.soft",
+      "sha256": "21bdedc310e80060f417d6806bef79bfe099169e441080abb2c702d707a6450f",
+      "bytes": 1983,
+      "citation": "https://doi.org/10.1093/nar/gky274"
+    }
+  ],
+  "targetReference": {
+    "accession": "CP009273.1",
+    "organism": "Escherichia coli BW25113",
+    "length": 4631469,
+    "normalizedSequenceSha256": "3761072f8884add5e9facdafc583de5d81a4cf5dbc7e51023ba966f3cf4887ce",
+    "normalizedSequenceFingerprint": "sha256:3761072f8884add5e9facdafc583de5d81a4cf5dbc7e51023ba966f3cf4887ce",
+    "directory": "reference-CP009273.1",
+    "fastaFile": "CP009273.1.fa.gz",
+    "fastaSha256": "8ab3a736f1b7a2a59e9031b848db5ddf37377a369e8b2436088e9a1a55fe2840",
+    "gffFile": "CP009273.1.gff3.gz",
+    "gffSha256": "d4d7f1387afbc7ac9f3561e46fc1c01ad4e592d0933cdf3c784c851b3d83a160",
+    "referenceSubstitutionApplied": false
+  },
+  "mapping": {
+    "kind": "positions",
+    "startColumn": "start0",
+    "endColumn": "end0",
+    "coordinateSystem": "zero-based-half-open"
+  },
+  "coordinateSystem": "zero-based-half-open",
+  "valueColumns": [
+    "rep1",
+    "rep2",
+    "rep3"
+  ],
+  "unit": "RNA 3′-end read count",
+  "aggregation": "none",
+  "unresolvedPolicy": "reject",
+  "files": {
+    "csv": "data.csv",
+    "snapshot": "snapshot.json",
+    "sourceRecords": "source-records.json",
+    "sequenceAnchors": "sequence-anchors.json"
+  },
+  "counts": {
+    "sourceRows": 118,
+    "csvRows": 118,
+    "replicateColumns": 3,
+    "replicateCells": 354,
+    "measuredReplicateCells": 354,
+    "missingReplicateCells": 0,
+    "explicitZeroReplicateCells": 1,
+    "positiveStrandRows": 78,
+    "negativeStrandRows": 40,
+    "uniqueSequenceAnchors": 118,
+    "uniqueStrandPositions": 118,
+    "classifiedRows": 57,
+    "unclassifiedRows": 61,
+    "minimumStart0": 307,
+    "maximumEnd0": 496986
+  },
+  "coordinateEvidence": {
+    "referenceAccession": "CP009273.1",
+    "exactReferenceSequenceSha256": "3761072f8884add5e9facdafc583de5d81a4cf5dbc7e51023ba966f3cf4887ce",
+    "pointConversion": "start0 = reportedPosition - 1; end0 = reportedPosition. Each row is one base on its source gene/RNA strand.",
+    "sequenceAnchorsVerified": 118,
+    "wholeReferenceUniquePairedContextAnchors": 118,
+    "positiveStrand": {
+      "rows": 78,
+      "upstream": "reference[p0-len(upstream):p0]",
+      "downstream": "reference[p0+1:p0+1+len(downstream)]",
+      "observedPointInclusion": "Neither positive-strand flank includes the reported point base at p0. The two supplied flanks leave that one-base gap."
+    },
+    "negativeStrand": {
+      "rows": 40,
+      "upstream": "reverseComplement(reference[p0:p0+len(upstream)])",
+      "downstream": "reverseComplement(reference[p0-len(downstream):p0])",
+      "observedPointInclusion": "The negative-strand upstream flank includes the reported point base at p0; the downstream flank excludes it."
+    },
+    "formulaConvention": "p0 = reportedPosition - 1. Python-style slice bounds are zero-based and end-exclusive on the forward reference sequence.",
+    "sourceDescriptionDiscrepancy": "Table S1 field descriptions say the upstream and downstream flanks include the 3′ end. The literal sequences instead obey the asymmetric formulas above. The source strings and positions are preserved; no flank sequence is corrected.",
+    "confidence": {
+      "referenceAndSequenceAnchor": "high; both reference formats match and all 118 paired contexts have exactly one full-reference anchor at p0",
+      "authorPointSemantics": "moderate; the source flank descriptions conflict with the observed strand-specific inclusion of the reported point base"
+    }
+  },
+  "measurementMeaning": "Three source replicate counts at each selected study-curated dominant RNA 3′ end. The source integer-truncated mean and unrounded replicate mean remain audit values and are not substituted for any replicate.",
+  "replicateProvenance": {
+    "rawTableHeader": [
+      "Genomic_position",
+      "strand",
+      "reads_rep1",
+      "reads_rep2",
+      "reads_rep3"
+    ],
+    "sampleLabels": [
+      "rep1",
+      "rep2",
+      "rep3"
+    ],
+    "countJoin": "Exact reported genomic position and opposite GEO count-table strand. Every selected count triplet is read directly from the original table and reproduces the source integer-truncated mean.",
+    "geoSeries": "GSE109766",
+    "sourceSampleMetadata": "GSM2966927",
+    "strain": "BW25113",
+    "genomeBuildDeclaredByGEO": "CP009273",
+    "growthConditionFromGSM2966927": "LB, aerobic, 37°C, OD 0.5",
+    "scope": "The available sample metadata names replicate 1. Replicates 2 and 3 retain the combined raw-table column labels; no additional accession or sample condition is inferred."
+  },
+  "missingness": {
+    "replicates": "All 354 selected replicate cells are measured integers. Literal zero counts remain 0. Missing numeric values would be empty CSV cells and JSON null; absent genomic positions are not added.",
+    "optionalClassification": "Missing Table S2 Rho-dependence remains an empty CSV cell and is absent in the original record. Unclassified mechanism labels are preserved."
+  },
+  "limits": [
+    "118 curated ends below reported position 500000, not the complete study map.",
+    "Study termination classifications are preserved without inferring new mechanisms.",
+    "Predicted RNAfold structure and stability are computational source annotations, not measured folding energies.",
+    "The observed flank asymmetry supports a unique coordinate anchor but does not resolve the inconsistent author descriptions of point inclusion.",
+    "No cross-replicate normalization, read-count averaging, reference substitution or zero filling is applied."
+  ],
+  "fileSha256": {
+    "data.csv": "f1df6f6ae1b7a3a722f0557424557ef5516ae048546c90d2bdcc3f6b5a421e7f",
+    "sequence-anchors.json": "c339b3a4625c754b3342e4df83e036cc768aab524b0657515d6fc0d771372c66",
+    "snapshot.json": "4cd5bad69f21e03739f6f9194a9cf09f9d09f15b0d5e494025d934895395f39e",
+    "source-records.json": "07b5dd02aee1dd6b463cb105682624716c8d7a43f84df1d535c19e4db2642864"
+  }
+}

@@ -15,6 +15,7 @@ import {
   type Assembly,
   type PixiLinearRenderer,
   type Track,
+  type SupplementalLinearTrack,
 } from '@waypoint/genome-renderer';
 
 import type { ActiveStressDataset } from '../lane-contract-store';
@@ -26,6 +27,8 @@ import type { IndexedGenomeTileNativeMapHandle } from './IndexedGenomeTileNative
 import { useTrackGutterLayoutStore } from './track-gutter-layout-store';
 
 interface UseIndexedLaneContractTracksOptions {
+  supplementalTracks?: readonly SupplementalLinearTrack[];
+  onTrackSelection?: (start: number, end: number) => void;
   webglRef: { readonly current: IndexedGenomeTileNativeMapHandle | null };
   rendererReadyEpoch?: number;
   rendererAssembly: Assembly | null;
@@ -47,6 +50,7 @@ const PILEUP_READ_BODY_SCALE = 1.2;
 const DEFAULT_PILEUP_ROW_PITCH_PX = 3;
 const DEFAULT_PILEUP_MAX_ROWS = 60;
 const MAX_IMPORTED_INTERVAL_LABELS = 96;
+const EMPTY_SUPPLEMENTAL_TRACKS: readonly SupplementalLinearTrack[] = [];
 
 function pileupPresentationGeometry(dataset: ActiveStressDataset): {
   rowPitchPx: number;
@@ -67,6 +71,8 @@ function roundLayoutPx(value: number): number {
 }
 
 export function useIndexedLaneContractTracks({
+  supplementalTracks = EMPTY_SUPPLEMENTAL_TRACKS,
+  onTrackSelection,
   webglRef,
   rendererReadyEpoch = 0,
   rendererAssembly,
@@ -78,6 +84,8 @@ export function useIndexedLaneContractTracks({
   experimentalHybridStreaming,
   recordEvent,
 }: UseIndexedLaneContractTracksOptions): void {
+  const trackSelectionRef = useRef(onTrackSelection);
+  trackSelectionRef.current = onTrackSelection;
   const pileupStreamingRef = useRef(pileupStreaming);
   pileupStreamingRef.current = pileupStreaming;
   const ucscStreamingRef = useRef(ucscStreaming);
@@ -141,6 +149,7 @@ export function useIndexedLaneContractTracks({
     const expectedTrackIds = [
       ...(cytobandTrack ? [cytobandTrack.id] : []),
       ...mountableDatasets.map((dataset) => dataset.trackId),
+      ...supplementalTracks.map((binding) => binding.track.id),
     ];
 
     const wire = (renderer: PixiLinearRenderer, reason: string) => {
@@ -165,6 +174,7 @@ export function useIndexedLaneContractTracks({
           webglRef.current?.setViewport({ start: result.startBp, end: result.endBp });
         } else if (result.kind === 'select-bp-range') {
           webglRef.current?.setSelection?.(result.startBp, result.endBp - 1);
+          trackSelectionRef.current?.(result.startBp, result.endBp - 1);
         }
       });
 
@@ -242,7 +252,13 @@ export function useIndexedLaneContractTracks({
         });
       }
 
+      for (const binding of supplementalTracks) {
+        registerTrackIdempotently(renderer, binding.renderer);
+        instances.push({ ...binding.track, assemblyId: manifestChrom });
+      }
       renderer.setTrackInstances(instances);
+      for (const binding of supplementalTracks)
+        renderer.setTrackData(binding.track.id, binding.data);
       syncTrackColors(renderer, liveDatasetsRef.current);
       const previousWiring = lastWiredDatasetsRef.current;
       const previousDatasets =
@@ -372,6 +388,7 @@ export function useIndexedLaneContractTracks({
     rendererAssembly,
     rendererReadyEpoch,
     webglRef,
+    supplementalTracks,
   ]);
 
   useEffect(() => {

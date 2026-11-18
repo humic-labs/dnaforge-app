@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "scope": "Built-in registered actions and canonical aliases. Runtime-installed provider manifests are discovered through their existing provider registry.",
   "source": "apps/api/src/concurrency/builtins.py#register_builtin_agent_tools",
-  "sharedCatalogSha256": "59ec95ca9043f5c2cea950c6e2b61a83d750344bb444de3fc3491a8fe12c10fe",
+  "sharedCatalogSha256": "4fe2be750b7f42646705613d61d5741c95ac68acca082d5b91ffcc934224e53b",
   "tools": [
     {
       "name": "add_design_region",
@@ -6006,6 +6006,29 @@
       "conditionallyRequiresWorkspace": false,
       "replayPolicy": "reuse_result",
       "contractRef": "packages/core/agent-tools/renderer-tool-manifest.json#tools/seq_list_annotations"
+    },
+    {
+      "name": "sequence_data_layers",
+      "handlerRef": "renderer_bridge.sequence_data_layers",
+      "home": "renderer",
+      "runtime": "service",
+      "handlerRegistered": true,
+      "effects": [
+        "read-only",
+        "mutating"
+      ],
+      "requiredCapabilities": [
+        "read-workspace",
+        "read-sequences"
+      ],
+      "conditionalCapabilities": [
+        "create-entity",
+        "write-workspace"
+      ],
+      "requiresWorkspace": true,
+      "conditionallyRequiresWorkspace": false,
+      "replayPolicy": "reuse_result",
+      "contractRef": "packages/core/agent-tools/renderer-tool-manifest.json#tools/sequence_data_layers"
     },
     {
       "name": "sequence_document",

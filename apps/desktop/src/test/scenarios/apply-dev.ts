@@ -190,6 +190,7 @@ async function openPresetReferenceAssemblyIfAny(
 ): Promise<{ panelId: string; tabId: string } | null> {
   const strategies = [
     preset.referenceAssemblyId,
+    preset.referenceSourcePath,
     preset.indexedReference,
     preset.hostedReferenceCatalogId,
   ].filter((value) => value != null);
@@ -200,6 +201,38 @@ async function openPresetReferenceAssemblyIfAny(
     throw new Error(`Dev preset ${preset.id} declares a hosted mode without a hosted reference.`);
   }
   if (strategies.length === 0) return null;
+
+  if (preset.referenceSourcePath) {
+    const [{ platform }, { openAssembly }] = await Promise.all([
+      import('../../platform'),
+      import('../../features/sequence/openAssembly'),
+    ]);
+    const projectRoot = await platform().path.projectRoot();
+    if (!projectRoot) throw new Error('Reference examples require a development checkout.');
+    const result = await platform().referenceAssets.importLocal({
+      operationId: crypto.randomUUID(),
+      themeMode: 'light',
+      sourcePath: `${projectRoot}/${preset.referenceSourcePath}`,
+    });
+    if (result.status !== 'ready') throw new Error('Example reference import did not complete.');
+    const deadline = Date.now() + 120000;
+    while (true) {
+      const status = await platform().referenceAssets.getLocalPreparationStatus({
+        assemblyId: result.entry.id,
+      });
+      if (status?.status === 'ready') break;
+      if (status?.status === 'failed') throw new Error(status.label);
+      if (Date.now() > deadline) throw new Error('Example reference preparation is still running.');
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+    const entry = (await platform().referenceAssets.listLocal()).find(
+      (e) => e.id === result.entry.id
+    );
+    if (!entry) throw new Error('The prepared example reference is unavailable.');
+    const tabId = await openAssembly(entry, { annotationThemeMode: 'light' });
+    if (!tabId) throw new Error('The example reference could not open.');
+    return findOpenTab(tabId);
+  }
 
   const active = activeIndexedAssembly();
 
@@ -486,6 +519,60 @@ async function applyResolvedDevScenarioPreset(
     );
     if (openReferenceAfterScenario) {
       openedReference = await openPresetReferenceAssemblyIfAny(preset);
+    }
+    if (preset.nativeContactProjection) {
+      if (!openedReference) throw new Error('The contact example requires its indexed reference.');
+      const [{ platform }, { NATIVE_CONTACT_FIXTURE }, { materializeNativeProjectionSource }] =
+        await Promise.all([
+          import('../../platform'),
+          import('./native-contact-fixture'),
+          import('./native-projection-source-fixture'),
+        ]);
+      const materialized = await materializeNativeProjectionSource({
+        projectName: 'Chromosome contacts',
+        relativePath: NATIVE_CONTACT_FIXTURE.path,
+        sha256: NATIVE_CONTACT_FIXTURE.sha256,
+      });
+      const source = { ...NATIVE_CONTACT_FIXTURE, path: materialized.path };
+      const loaded = await platform().contactSources.read({
+        project: materialized.project,
+        source,
+      });
+      const panel = useCanvasStore.getState().panels[openedReference.panelId];
+      const current = panel?.tabs.find((tab) => tab.id === openedReference.tabId);
+      if (!current?.indexedGenome)
+        throw new Error('The contact reference was closed before attachment.');
+      useCanvasStore.getState().updateTab(openedReference.panelId, openedReference.tabId, {
+        label: loaded.label,
+        indexedGenome: {
+          ...current.indexedGenome,
+          contactProjection: {
+            kind: 'contact-matrix',
+            project: materialized.project,
+            source,
+          },
+        },
+      });
+    }
+    if (preset.nativeComparisonProjection) {
+      if (!openedReference)
+        throw new Error('The comparison example requires its indexed reference.');
+      const { applyNativeComparisonProjection } = await import('./native-comparison-view');
+      await applyNativeComparisonProjection(openedReference.tabId);
+    }
+    if (preset.nativeExpressionTracks) {
+      if (!openedReference)
+        throw new Error('The expression example requires its indexed reference.');
+      const { applyNativeExpressionTracks } = await import('./native-expression-tracks');
+      await applyNativeExpressionTracks(openedReference.tabId);
+    }
+    if (preset.nativeOrdinaryExpression) {
+      const { applyNativeOrdinaryExpression } = await import('./native-ordinary-expression');
+      await applyNativeOrdinaryExpression();
+    }
+    if (preset.nativeDataLayerExample) {
+      const { applyNativeDataLayerExample } = await import('./native-data-layer-examples');
+      await applyNativeDataLayerExample(preset.nativeDataLayerExample, openedReference?.tabId);
     }
     await applyPresetUcscCatalogTracksIfAny(preset);
     const composedTabId = await applyPresetTrackViewCompositionIfAny(preset);

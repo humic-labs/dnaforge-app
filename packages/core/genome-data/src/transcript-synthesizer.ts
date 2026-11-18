@@ -16,6 +16,7 @@ export interface TranscriptSynthesisInput {
   exonParts: ReadonlyArray<BpInterval>;
   cdsParts: ReadonlyArray<BpInterval>;
   attributes?: Record<string, string[]>;
+  sourceAnnotationAliases?: readonly string[];
   cdsTranslations?: ReadonlyArray<string>;
   raw?: string;
   score?: string | null;
@@ -53,6 +54,14 @@ export function synthesizeTranscript(input: TranscriptSynthesisInput): ResolvedT
     score: input.score ?? null,
     strand: input.strand,
     phase: input.phase ?? null,
+    sourceAnnotationAliases: [
+      ...new Set([
+        ...(input.sourceAnnotationAliases ?? []),
+        ...['ID', 'locus_tag', 'gene_id', 'transcript_id'].flatMap(
+          (key) => input.attributes?.[key] ?? []
+        ),
+      ]),
+    ].sort(),
     attributes: {
       ...(input.attributes ?? {}),
       ID: [input.transcriptId],
@@ -87,6 +96,14 @@ export function promoteBacterialCds(
     score: cdsRow.score,
     strand: cdsRow.strand,
     phase: cdsRow.phase,
+    sourceAnnotationAliases: [
+      ...new Set([
+        ...(cdsRow.sourceAnnotationAliases ?? []),
+        ...['ID', 'locus_tag', 'gene_id', 'transcript_id'].flatMap(
+          (key) => cdsRow.attributes[key] ?? []
+        ),
+      ]),
+    ].sort(),
     attributes: {
       ...cdsRow.attributes,
       ID: [transcriptId],

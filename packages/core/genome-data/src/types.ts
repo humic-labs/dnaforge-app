@@ -24,6 +24,7 @@ export interface GenomeFeature {
   strand: '+' | '-' | '.';
   phase: string | null;
   attributes: Record<string, string[]>;
+  sourceAnnotationAliases?: readonly string[];
   raw: string;
   fileOffset?: number;
 }

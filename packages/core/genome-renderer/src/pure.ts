@@ -368,6 +368,7 @@ export {
   COMPILED_BROAD_SURFACE_RGBA8_CELL_V1,
   CompiledBroadSurfaceRasterCancelledError,
   compilePackedTranscriptBroadSurfaceRgba8V1,
+  compilePackedTranscriptAppearancePayloadV1,
   COMPILED_BROAD_SURFACE_MAX_WEIGHTED_ROLES_V1,
   type CompilePackedTranscriptBroadSurfaceRgba8V1Input,
   type CompiledBroadSurfaceRgba8CellV1,
@@ -446,3 +447,6 @@ export {
   type PackedCompiledBroadAnnotationInteractionBinaryV1,
   type UnpackedCompiledBroadAnnotationInteractionBinaryV1,
 } from './renderers/pixi/overview/compiled-broad-annotation-interaction-binary-v1';
+export * from './contact-projection';
+export * from './comparison-projection';
+export * from './annotation-data-appearance';

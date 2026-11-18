@@ -32,6 +32,7 @@ import {
   perfLog as plog,
   perfMark as pmark,
   recordWebGLSelectionDebug,
+  resolveAnnotationDataColors,
 } from '@waypoint/genome-renderer';
 import type {
   AnnotationChangeDecoration,
@@ -58,6 +59,8 @@ export interface WebGLMapProps {
   plasmid: ParsedPlasmid;
 
   changedAnnotationNames?: ReadonlySet<string>;
+  annotationColorsByIdentity?: ReadonlyMap<string, string>;
+  missingAnnotationColor?: string;
   height?: number;
 
   geometryHeight?: number;
@@ -167,6 +170,8 @@ export const WebGLMap = memo(
     const {
       plasmid,
       changedAnnotationNames,
+      annotationColorsByIdentity,
+      missingAnnotationColor,
       height = 200,
       geometryHeight,
       width = 800,
@@ -223,17 +228,36 @@ export const WebGLMap = memo(
     } = props;
 
     const editablePrimerPbsEndpoints = !!onPrimerPbsEndpointCommit;
-    const genome = useMemo(
-      () =>
-        convertPlasmid(plasmid, {
-          showFeatures,
-          showPrimers,
-          orfs,
-          candidateOrf,
-          editablePrimerPbsEndpoints,
-        }),
-      [plasmid, showFeatures, showPrimers, orfs, candidateOrf, editablePrimerPbsEndpoints]
-    );
+    const genome = useMemo(() => {
+      const converted = convertPlasmid(plasmid, {
+        showFeatures,
+        showPrimers,
+        orfs,
+        candidateOrf,
+        editablePrimerPbsEndpoints,
+      });
+      if (!annotationColorsByIdentity) return converted;
+      const colors = resolveAnnotationDataColors(
+        genomeFeatures(converted),
+        annotationColorsByIdentity,
+        missingAnnotationColor
+      );
+      return {
+        ...converted,
+        features: genomeFeatures(converted).map((feature) =>
+          colors.has(feature.id) ? { ...feature, color: colors.get(feature.id)! } : feature
+        ),
+      };
+    }, [
+      plasmid,
+      showFeatures,
+      showPrimers,
+      orfs,
+      candidateOrf,
+      editablePrimerPbsEndpoints,
+      annotationColorsByIdentity,
+      missingAnnotationColor,
+    ]);
     const performanceMode = useMemo(
       () => resolveWebGLPerformanceMode(genome, explicitPerformanceMode ?? performancePreference),
       [explicitPerformanceMode, genome, performancePreference]
@@ -536,6 +560,11 @@ export const WebGLMap = memo(
     );
 
     const hiddenMapIdlePolicy = useHiddenMapIdlePolicy('bounded-lru');
+    const [rendererReadyEpoch, setRendererReadyEpoch] = useState(0);
+    const handleRendererReady = useCallback(() => {
+      setRendererReadyEpoch((epoch) => epoch + 1);
+      onRendererReady?.();
+    }, [onRendererReady]);
 
     const { containerRef, handle } = usePixiMap({
       genome,
@@ -580,11 +609,26 @@ export const WebGLMap = memo(
       onPositionClick,
       onPositionDoubleClick,
       onCameraChange,
-      onRendererReady,
+      onRendererReady: handleRendererReady,
       syncViewportRangeOnCameraScroll,
       viewportIndicatorVisible,
       onContextMenu: handleContextMenu,
     });
+
+    useEffect(() => {
+      const renderer = handle.getLinearRenderer();
+      if (!renderer) return;
+      renderer.setTrackHitHandler((hit) => {
+        if (hit.kind === 'select-bp-range') {
+          const state = handle.getState();
+          if (state) state.highlightRange = [hit.startBp, hit.endBp - 1];
+          handleSelectionChange(hit.startBp, hit.endBp - 1);
+          handle.requestRender();
+        } else if (hit.kind === 'jump-to-bp') handle.setViewCenter(hit.bp);
+        else if (hit.kind === 'frame-bp-range') handle.setCameraViewport(hit.startBp, hit.endBp);
+      });
+      return () => renderer.setTrackHitHandler(null);
+    }, [handle, rendererReadyEpoch, handleSelectionChange]);
 
     const { subscribeToPresentedFrames, requestRender } = handle;
     useEffect(() => {

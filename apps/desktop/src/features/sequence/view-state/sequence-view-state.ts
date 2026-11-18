@@ -1,4 +1,9 @@
-import type { TabViewState } from '../../canvas/public/types';
+import type { SequenceDataLayerViewSelection, TabViewState } from '../../canvas/public/types';
+import {
+  sequenceDataLayerIdSchema,
+  sequenceDataLayerPresentationSchema,
+  type SequenceDataLayerPresentation,
+} from '../../../shared/sequence-data-layer';
 import { normalizeSequenceViewportZoomLevel } from '../components/sequence-viewport-state';
 import {
   DEFAULT_ANNOTATION_COLOR_MODE,
@@ -86,6 +91,7 @@ export interface SequenceViewState {
   annotationColorMode: AnnotationColorMode;
   display: SequenceDisplayToggles;
   annotationCatalogLayout?: AnnotationTrackLayout;
+  dataLayerSelection?: SequenceDataLayerViewSelection;
 }
 
 export interface SequenceViewStatePatch {
@@ -112,6 +118,7 @@ export interface SequenceViewStatePatch {
   annotationColorMode?: AnnotationColorMode;
   display?: Partial<SequenceDisplayToggles>;
   annotationCatalogLayout?: AnnotationTrackLayout | null;
+  dataLayerSelection?: SequenceDataLayerViewSelection | null;
 }
 
 export const DEFAULT_SEQUENCE_VIEW_STATE: SequenceViewState = {
@@ -369,6 +376,54 @@ function assignParsedAnnotationCatalogLayout(
   if (parsed.ok) patch.annotationCatalogLayout = parsed.layout;
 }
 
+function assignDataLayerSelection(
+  input: Record<string, unknown>,
+  patch: SequenceViewStatePatch
+): void {
+  if (!('dataLayerSelection' in input)) return;
+  const raw = input.dataLayerSelection;
+  if (raw === null) {
+    patch.dataLayerSelection = null;
+    return;
+  }
+  if (
+    isPlainObject(raw) &&
+    typeof raw.project === 'string' &&
+    raw.project.trim().length > 0 &&
+    raw.project.length <= 4096 &&
+    (raw.layerId === null ||
+      (typeof raw.layerId === 'string' && /^layer-[a-f0-9]{64}$/u.test(raw.layerId)))
+  ) {
+    const selection: SequenceDataLayerViewSelection = {
+      project: raw.project,
+      layerId: raw.layerId,
+    };
+    if (raw.visibleLayerIds !== undefined) {
+      if (
+        !Array.isArray(raw.visibleLayerIds) ||
+        raw.visibleLayerIds.length > 64 ||
+        new Set(raw.visibleLayerIds).size !== raw.visibleLayerIds.length ||
+        raw.visibleLayerIds.some((id) => !sequenceDataLayerIdSchema.safeParse(id).success)
+      )
+        return;
+      selection.visibleLayerIds = [...raw.visibleLayerIds];
+    }
+    if (raw.presentationByLayerId !== undefined) {
+      if (!isPlainObject(raw.presentationByLayerId)) return;
+      const entries = Object.entries(raw.presentationByLayerId);
+      if (entries.length > 64) return;
+      const presentations: Record<string, SequenceDataLayerPresentation> = {};
+      for (const [id, value] of entries) {
+        const presentation = sequenceDataLayerPresentationSchema.safeParse(value);
+        if (!sequenceDataLayerIdSchema.safeParse(id).success || !presentation.success) return;
+        presentations[id] = presentation.data;
+      }
+      selection.presentationByLayerId = presentations;
+    }
+    patch.dataLayerSelection = selection;
+  }
+}
+
 export function normalizeSequenceViewStatePatch(input: unknown): SequenceViewStatePatch {
   if (!isPlainObject(input)) return {};
   const patch: SequenceViewStatePatch = {};
@@ -395,6 +450,7 @@ export function normalizeSequenceViewStatePatch(input: unknown): SequenceViewSta
   assignClampedWebglMorph(input, patch);
   assignNormalizedDisplay(input, patch);
   assignParsedAnnotationCatalogLayout(input, patch);
+  assignDataLayerSelection(input, patch);
   assignSequenceRanges(input, patch);
   assignSelection(input, patch);
   return patch;
@@ -484,6 +540,7 @@ export function resolveSeededViewState(layers: {
   const mapPlacement = resolveSeededMapPlacement(tab, memory, layers.circular ?? false);
   const mapLayout = resolveSeededMapLayout(tab, memory, mapPlacement);
   const annotationCatalogLayout = pickPresentNullable(tab, memory, 'annotationCatalogLayout', null);
+  const dataLayerSelection = pickPresentNullable(tab, memory, 'dataLayerSelection', null);
   return {
     rendererVisibility: pickDefined(
       tab,
@@ -575,6 +632,7 @@ export function resolveSeededViewState(layers: {
       ...tab.display,
     },
     ...(annotationCatalogLayout ? { annotationCatalogLayout } : {}),
+    ...(dataLayerSelection ? { dataLayerSelection } : {}),
   };
 }
 
@@ -599,6 +657,7 @@ const SEQUENCE_VIEW_PATCH_SCALAR_KEYS = [
   'minimapGeometryHeight',
   'annotationColorMode',
   'annotationCatalogLayout',
+  'dataLayerSelection',
   'sequenceRanges',
   'selection',
 ] as const satisfies readonly (keyof SequenceViewStatePatch)[];
@@ -672,6 +731,7 @@ const TAB_TO_MODEL_SCALAR = [
   { tab: 'sequenceMinimapGeometryHeight', model: 'minimapGeometryHeight' },
   { tab: 'sequenceAnnotationColorMode', model: 'annotationColorMode' },
   { tab: 'sequenceAnnotationCatalogLayout', model: 'annotationCatalogLayout' },
+  { tab: 'sequenceDataLayerSelection', model: 'dataLayerSelection' },
   { tab: 'sequenceRanges', model: 'sequenceRanges' },
   { tab: 'selection', model: 'selection' },
 ] as const satisfies ReadonlyArray<{
