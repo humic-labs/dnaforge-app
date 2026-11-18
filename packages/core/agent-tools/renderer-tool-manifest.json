@@ -66763,7 +66763,7 @@
     },
     {
       "name": "submit_scientific_changes",
-      "description": "Submit complete mapped scientific working files or an immutable Git commit through atomic database acceptance. File writes and Git commits alone do not advance accepted state. Use the exact head from list_scientific_objects; inspect acceptance receipts and file-delivery status separately.",
+      "description": "Submit complete mapped scientific working files or an immutable Git commit through atomic database acceptance. Explicit initializeEmptyNamespace:true with null expectedHead and no gitCommit sets up versioned designs in an unenrolled project without an authored map; it does not migrate legacy files or create DNA. File writes and Git commits alone do not advance accepted state. Use the exact head from list_scientific_objects; inspect acceptance receipts and file-delivery status separately.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -66780,7 +66780,8 @@
             "type": "string",
             "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$",
             "description": "Full immutable Git commit ID to submit instead of current working files. Branch names and HEAD are not accepted."
-          }
+          },
+          "initializeEmptyNamespace": { "type": "boolean", "const": true }
         },
         "required": ["expectedHead"],
         "additionalProperties": false
@@ -66842,6 +66843,14 @@
               },
               "source": {
                 "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": { "type": "string", "const": "initialize-empty-namespace" }
+                    },
+                    "required": ["kind"],
+                    "additionalProperties": false
+                  },
                   {
                     "type": "object",
                     "properties": { "kind": { "type": "string", "const": "working-files" } },

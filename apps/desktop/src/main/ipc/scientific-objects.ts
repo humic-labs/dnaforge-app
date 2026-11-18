@@ -105,12 +105,19 @@ export function registerScientificObjectHandlers(resolveDb: () => Database.Datab
           .deferred()
       );
     },
-    submit: (event, input): Promise<ScientificWorkspaceSubmitResult> =>
-      submitScientificObjectInMain(resolveDb(), input, {
+    submit: (event, input): Promise<ScientificWorkspaceSubmitResult> => {
+      const assertCurrent = () => {
+        if (event.sender.isDestroyed()) throw new Error('The setup caller is no longer available.');
+      };
+      return submitScientificObjectInMain(resolveDb(), input, {
         renderer: {
           ownerId: event.sender.id,
           ...(input.mutationToken ? { mutationToken: input.mutationToken } : {}),
         },
-      }),
+        ...(input.request.source.kind === 'initialize-empty-namespace'
+          ? { beforeAccept: assertCurrent, beforePublish: assertCurrent }
+          : {}),
+      });
+    },
   });
 }

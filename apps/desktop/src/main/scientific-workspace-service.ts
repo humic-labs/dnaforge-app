@@ -13,6 +13,7 @@ import {
   inspectResourceRevision,
   inspectResourceState,
   parseOperationId,
+  parseRefName,
   parseResourceId,
   parseResourceRevisionId,
   parseWorkspacePath,
@@ -29,6 +30,7 @@ import {
 import { exportCanonicalClosure } from '@waypoint/workspace-revisions/codec';
 import {
   compileScientificWorkspace,
+  applyScientificBatch,
   createScientificReader,
   compileScientificAssembly,
   defineScientificAssemblyDraft,
@@ -72,6 +74,10 @@ import { reconcileScientificNativeProjectionsInsideTx } from './scientific-nativ
 import { projectAcceptedPrimerInsideTx } from './scientific-primer-projection';
 import { assertLimsSafetyNotQuarantined } from './lims-safety-quarantine';
 import {
+  captureScientificDesignSetupOwner,
+  captureScientificDesignSetupAbsence,
+} from './scientific-design-setup';
+import {
   prepareScientificRelocation,
   prepareScientificRestoration,
   prepareScientificReversion,
@@ -95,6 +101,7 @@ export async function submitScientificWorkspace(input: {
   readonly mutationLease?: () => void;
   readonly databaseFence?: () => void;
   readonly beforeAccept?: () => void;
+  readonly beforePublish?: () => void;
 
   readonly publication?: {
     readonly mutations: readonly WorkspaceMutation[];
@@ -114,6 +121,8 @@ export async function submitScientificWorkspace(input: {
       ? null
       : must(parseWorkspaceVersionId(input.request.expectedHead));
   const source = snapshotSource(input.request.source);
+  if (source.kind === 'initialize-empty-namespace' && expectedHead !== null)
+    throw new TypeError('Versioned-design setup requires a null accepted head.');
   const publication = input.publication && {
     mutations: Object.freeze(
       input.publication.mutations.map((mutation) => Object.freeze({ ...mutation }))
@@ -136,9 +145,53 @@ export async function submitScientificWorkspace(input: {
     }
     const release = input.databaseFence ? null : await acquireWorkspaceSyncDatabaseFence(input.db);
     try {
-      const { graph } = store.read();
-      const recovery = await materializeScientificWorkspace(store);
-      if (recovery.kind === 'blocked' && !hasOperationReceipt(graph, operationId))
+      const { graph, head } = store.read();
+      const setup =
+        source.kind === 'initialize-empty-namespace'
+          ? captureScientificDesignSetupOwner(
+              input.db,
+              input.workspaceId,
+              root,
+              input.beforePublish
+            )
+          : null;
+      let setupReplay = false;
+      let assertSetupAbsent: (() => void) | undefined;
+      if (setup) {
+        if (hasOperationReceipt(graph, operationId)) {
+          const plan = compileScientificWorkspace({
+            graph,
+            head: null,
+            entries: [],
+            codecs: scientificNativeCodecs,
+          });
+          const submitted = new Map(plan.blobs.map((bytes) => [defineBlob(bytes).hash, bytes]));
+          const probe = applyScientificBatch({
+            graph,
+            refName: must(parseRefName('accepted')),
+            operationId,
+            expectedHead: null,
+            mutations: plan.mutations,
+            readBlob: (blob) => submitted.get(blob.hash) ?? store.readBlob(blob),
+            codecs: scientificNativeCodecs,
+            purpose: 'initialize-empty-namespace',
+          });
+          if (
+            probe.kind !== 'replay' ||
+            (probe.original.outcome !== 'changed' && probe.original.outcome !== 'no-op')
+          )
+            return { acceptance: probe, currentHead: head, delivery: null };
+          setupReplay = true;
+        } else if (head === null) {
+          assertSetupAbsent = await captureScientificDesignSetupAbsence(setup.root);
+        }
+      }
+      const materializationOptions = setup ? { beforePublish: setup.assertCurrent } : {};
+      const recovery = await materializeScientificWorkspace(store, materializationOptions);
+      if (
+        recovery.kind === 'blocked' &&
+        !(setup ? setupReplay : hasOperationReceipt(graph, operationId))
+      )
         throw new Error(`Scientific file delivery is pending: ${recovery.error}`);
       const workspaceIdentity = exportCanonicalClosure(graph).workspaceId;
       const replay = hasOperationReceipt(graph, operationId);
@@ -417,12 +470,15 @@ export async function submitScientificWorkspace(input: {
             throw new Error(`Scientific working file changed during submission: ${path}`);
         }
       }
+      setup?.assertCurrent();
+      assertSetupAbsent?.();
       input.beforeAccept?.();
       const acceptance = store.submit(
         {
           operationId,
           expectedHead,
           ...plan,
+          ...(setup ? { purpose: 'initialize-empty-namespace' as const } : {}),
           ...(restoredWorkingFiles ? { completeWorkspace: true } : {}),
           ...(missingWorkingFiles.size ? { missingWorkingFiles } : {}),
           ...(captured
@@ -436,6 +492,8 @@ export async function submitScientificWorkspace(input: {
                   : {}),
         },
         () => {
+          setup?.assertCurrent();
+          assertSetupAbsent?.();
           input.beforeAccept?.();
           publication?.onAcceptedInsideTx();
           metadata?.onAcceptedInsideTx();
@@ -471,7 +529,7 @@ export async function submitScientificWorkspace(input: {
         delivery: successful
           ? recovery.kind === 'blocked' && !resumedMetadata
             ? recovery
-            : await materializeScientificWorkspace(store)
+            : await materializeScientificWorkspace(store, materializationOptions)
           : null,
       };
     } finally {
@@ -541,6 +599,11 @@ async function validateAcceptedSourceTree(
 function snapshotSource(
   source: ScientificWorkspaceSubmission['source']
 ): ScientificWorkspaceSubmission['source'] & { readonly entries?: readonly ScientificFileEntry[] } {
+  if (source.kind === 'initialize-empty-namespace') {
+    if (Object.keys(source).length !== 1)
+      throw new TypeError('Versioned-design setup accepts only its source purpose.');
+    return Object.freeze({ kind: 'initialize-empty-namespace' });
+  }
   if (source.kind === 'sequence-metadata') {
     if (typeof source.metadataText !== 'string')
       throw new TypeError('Sequence metadata requires native text.');

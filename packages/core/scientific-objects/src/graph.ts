@@ -149,6 +149,7 @@ export function createScientificReaderFamily(input: Omit<ScientificGraphInput, '
 }
 
 export interface ApplyScientificBatchInput extends Omit<ApplyBatchInput, 'validation'> {
+  readonly purpose?: 'initialize-empty-namespace';
   readonly readBlob: ScientificGraphInput['readBlob'];
   readonly codecs?: readonly ScientificFileCodec[];
 }
@@ -157,7 +158,10 @@ export function applyScientificBatch(input: ApplyScientificBatchInput): ApplyMut
   return applyWorkspaceBatch({
     ...input,
     validation: {
-      version: 'scientific-objects-v1',
+      version:
+        input.purpose === 'initialize-empty-namespace'
+          ? 'scientific-objects-initialize-empty-namespace-v1'
+          : 'scientific-objects-v1',
       validate: ({ graph, head }) => {
         try {
           const before = createScientificReader({

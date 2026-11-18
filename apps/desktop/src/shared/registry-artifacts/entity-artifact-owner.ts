@@ -28,6 +28,7 @@ import {
 } from '../entity-artifact';
 import type { RegistryChangeEmitter } from '../registry-change';
 import { scientificIdentityPath } from '@waypoint/scientific-objects';
+import { parseWorkspacePath, pathCollisionKey } from '@waypoint/workspace-revisions';
 import type { ScientificAcceptedDocumentRevision } from '@waypoint/domain-services';
 import {
   NativeArtifactPublicationPendingError,
@@ -136,6 +137,30 @@ export function createEntityArtifactOwner(dependencies: createEntityArtifactOwne
     (async (_root, operation, token) => operation(token));
   const readScientificNamespace = (root: string) =>
     dependencies.scientific?.namespace(root) ?? Promise.resolve(null);
+  function scientificPathsCollide(left: string | null, right: string): boolean {
+    if (left === right) return true;
+    const a = left === null ? null : parseWorkspacePath(left);
+    const b = parseWorkspacePath(right);
+    return Boolean(a?.ok && b.ok && pathCollisionKey(a.value) === pathCollisionKey(b.value));
+  }
+  function assertLegacyStrainUnclaimed(
+    namespace: Awaited<ReturnType<typeof readScientificNamespace>>,
+    id: string,
+    path: string,
+    existingFile: boolean
+  ): void {
+    if (
+      namespace?.entries.some(
+        (entry) =>
+          entry.resourceId === id ||
+          (!entry.tombstone && scientificPathsCollide(entry.path, path)) ||
+          (existingFile && entry.tombstone && scientificPathsCollide(entry.lastPath, path))
+      )
+    )
+      throw new Error(
+        'The strain identity or path is already accepted. Open it to edit or restore it explicitly.'
+      );
+  }
   const readScientificText = (path: string, root: string) =>
     dependencies.scientific?.readText(path, root) ??
     dependencies
@@ -233,13 +258,22 @@ export function createEntityArtifactOwner(dependencies: createEntityArtifactOwne
             throw new Error('Registry records must be saved inside an open project.');
 
           const exists = await platform().fs.exists(artifactPath);
+          const identity = namespace?.entries.find((slot) => slot.resourceId === id);
+          const pathOwner = namespace?.entries.find(
+            (slot) => !slot.tombstone && scientificPathsCollide(slot.path, relativePath)
+          );
+          if (
+            (identity && (identity.tombstone || identity.path !== relativePath)) ||
+            (pathOwner && (pathOwner.resourceId !== id || pathOwner.path !== relativePath))
+          )
+            throw new Error(
+              'The strain identity or path is already accepted. Open it to edit or restore it explicitly.'
+            );
           const acceptedExisting = namespace?.entries.find(
             (slot) => slot.resourceId === id && !slot.tombstone
           );
-          if (namespace && exists && !acceptedExisting)
-            throw new Error(
-              `A working file already exists at ${relativePath}. Choose a new location or enroll it explicitly.`
-            );
+          const legacyExistingRetry = exists && !acceptedExisting;
+          if (legacyExistingRetry) assertLegacyStrainUnclaimed(namespace, id, relativePath, true);
           const existingContent = acceptedExisting
             ? (await readScientificText(artifactPath, input.workspaceRoot)).content
             : exists
@@ -355,7 +389,7 @@ export function createEntityArtifactOwner(dependencies: createEntityArtifactOwne
             sourceMetadata: entityArtifactSourceMetadata(artifact),
           };
           const content = serializeEntityArtifact(artifact);
-          if (namespace) {
+          if (namespace && !legacyExistingRetry) {
             const existing = namespace.entries.find((slot) => slot.resourceId === id);
             const pathOwner = namespace.entries.find(
               (slot) => !slot.tombstone && slot.path === relativePath
@@ -500,6 +534,13 @@ export function createEntityArtifactOwner(dependencies: createEntityArtifactOwne
           receipt.affectedCount = exists ? 0 : 1;
 
           try {
+            if (input.kind === 'strain')
+              assertLegacyStrainUnclaimed(
+                await readScientificNamespace(input.workspaceRoot),
+                id,
+                relativePath,
+                exists
+              );
             await dependencies.projectArtifact(artifact, content, artifactPath, {
               ...input,
               mutationToken,

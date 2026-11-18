@@ -1,3 +1,4 @@
+import { ScientificDesignSetup } from '../sequence/public/scientific-design-setup';
 import { FrozenProtocolDefinition } from './FrozenProtocolDefinition';
 import { reportSaveFailure } from '../../lib/report-save-failure';
 import { documentLifecycle } from '../../shared/document-lifecycle';
@@ -1038,6 +1039,27 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
       ) : null}
 
       <main className="min-h-0 flex-1 overflow-auto p-5">
+        {document.kind === 'protocol_run' && nativePackage && resolvedWorkspaceRoot ? (
+          <div className="mx-auto mb-6 max-w-5xl">
+            <ScientificDesignSetup
+              key={`${nativePackage.projectId}:${resolvedWorkspaceRoot}`}
+              scope={{
+                projectId: nativePackage.projectId,
+                workspace: nativePackage.workspaceScope,
+                workspaceRoot: resolvedWorkspaceRoot,
+              }}
+              canWrite={
+                workspaceUnlocked &&
+                !nativeReadOnly &&
+                !dirty &&
+                !saving &&
+                !loading &&
+                !packagePending &&
+                !valueEditor
+              }
+            />
+          </div>
+        ) : null}
         {protocolBody}
         {document.kind === 'protocol_run' ? (
           <ProtocolRunBody

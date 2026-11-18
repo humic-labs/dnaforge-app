@@ -1,9 +1,9 @@
 import type Database from 'better-sqlite3';
 import { verifyLimsAuditHashChainInDb } from './lims-projection-rebuild';
 import { randomUUID } from 'node:crypto';
-import { constants } from 'node:fs';
+import { constants, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { copyFile, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
-import { isAbsolute, join } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { getDirtyState } from './dirty-state-cache';
 import { acquireWorkspaceSyncDatabaseFence } from './workspace-sync-database-fence';
@@ -13,6 +13,11 @@ import {
 } from './workspace-sync-mutation-lease';
 import { assertScientificWorkspaceLocalOnly } from './scientific-cloud-admission';
 import { syncDirectory } from './fs-durability';
+import {
+  parseSequencePackageDocument,
+  sequencePackageMetaPaths,
+  sequencePackagePaths,
+} from '../db/sequence-package';
 import {
   captureScientificRecoveryCheckpoint,
   copyScientificRecoveryTree,
@@ -229,7 +234,9 @@ export function assertScientificLegacyRegistryHistoryCanRelocate(db: Database.Da
       } | null;
       const fields = entity?.fields;
       if (!fields) continue;
-      const sequence = fields.sequence as { mode?: unknown; relPath?: unknown } | undefined;
+      const sequence = fields.sequence as
+        | { mode?: unknown; relPath?: unknown; documentId?: unknown }
+        | undefined;
       const managed = fields._managedSequenceDocument as
         | {
             kind?: unknown;
@@ -283,11 +290,80 @@ export function assertScientificLegacyRegistryHistoryCanRelocate(db: Database.Da
       const boundNotebookRegistration =
         entity?.kind === 'notebook' &&
         isBoundRegistrationPath(fields.packagePath, 'waypoint-notebook');
+      const boundManagedProduct = (() => {
+        if (
+          typeof entity?.id !== 'string' ||
+          entity.id !== event.subject_id ||
+          entity.workspaceId !== event.workspace_id ||
+          !['sequence', 'dna_sequence', 'rna_sequence'].includes(String(entity.kind)) ||
+          managed?.kind !== 'managed-sequence' ||
+          managed.packageId !== entity.id ||
+          typeof managed.packageRoot !== 'string' ||
+          !isAbsolute(managed.packageRoot) ||
+          managed.packageRoot.split(/[\\/]/u).includes('..')
+        )
+          return null;
+        const bindings = db
+          .prepare(
+            "SELECT workspace_id,path,file_kind FROM catalog_entity_files WHERE entity_id=? AND status='current'"
+          )
+          .all(entity.id) as { workspace_id: number | null; path: string; file_kind: string }[];
+        if (bindings.length !== 1) return null;
+        const binding = bindings[0];
+        const root = roots.find((candidate) => candidate.id === binding.workspace_id);
+        if (
+          !root ||
+          binding.workspace_id !== entity.workspaceId ||
+          binding.file_kind !== 'waypoint-sequence'
+        )
+          return null;
+        try {
+          const owner = realpathSync(root.path),
+            packageRoot = realpathSync(binding.path);
+          const member = relative(owner, packageRoot);
+          if (
+            owner !== resolve(root.path) ||
+            packageRoot !== resolve(binding.path) ||
+            packageRoot !== managed.packageRoot ||
+            !member ||
+            member.startsWith('..') ||
+            isAbsolute(member) ||
+            !lstatSync(packageRoot).isDirectory() ||
+            lstatSync(packageRoot).isSymbolicLink()
+          )
+            return null;
+          const markers = sequencePackageMetaPaths(packageRoot).filter((path) => {
+            try {
+              return lstatSync(path).isFile() && !lstatSync(path).isSymbolicLink();
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+              throw error;
+            }
+          });
+          if (markers.length !== 1 || realpathSync(markers[0]) !== markers[0]) return null;
+          const document = parseSequencePackageDocument(readFileSync(markers[0], 'utf8'));
+          if (document.id !== entity.id) return null;
+          const product = sequencePackagePaths(packageRoot, {
+            productFile: document.product.file,
+          }).productPath;
+          const stat = lstatSync(product);
+          return stat.isFile() && !stat.isSymbolicLink() && realpathSync(product) === product
+            ? product
+            : null;
+        } catch {
+          return null;
+        }
+      })();
+      const boundManagedSequence =
+        boundManagedProduct !== null &&
+        sequence?.mode === 'file' &&
+        sequence.documentId === entity?.id &&
+        sequence.relPath === boundManagedProduct;
 
       for (const [path, safelyBound] of [
         [fields.packagePath, boundNotebookRegistration],
-        [managed?.packageRoot, boundRegistration],
-        [sequence?.mode === 'file' ? sequence.relPath : undefined, false],
+        [managed?.packageRoot, boundRegistration || boundManagedProduct !== null],
+        [sequence?.mode === 'file' ? sequence.relPath : undefined, boundManagedSequence],
       ] as const) {
         if (
           !safelyBound &&

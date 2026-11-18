@@ -20,6 +20,7 @@ import { submitScientificWorkspace } from './scientific-workspace-service';
 import { scientificCopyResourceId } from './scientific-resource-operations';
 import type { DesktopScientificWorkspaceRequest } from '../shared/scientific-objects-ipc';
 import type { DesktopScientificWorkspaceSubmitRequest } from '../shared/scientific-objects-ipc';
+import { scientificDesignSetupRequestSchema } from '../shared/scientific-design-setup';
 const must = <T, E>(result: Result<T, E>): T => {
   if (!result.ok)
     throw new TypeError(`Invalid scientific identity: ${JSON.stringify(result.error)}`);
@@ -64,10 +65,13 @@ export async function submitScientificObjectInMain(
     mutationLease?: () => void;
     databaseFence?: () => void;
     beforeAccept?: () => void;
+    beforePublish?: () => void;
   } = {}
 ): Promise<ScientificWorkspaceSubmitResult> {
   if (db.inTransaction)
     throw new Error('Scientific workspace commands cannot enter an open database transaction.');
+  if (input.request.source.kind === 'initialize-empty-namespace')
+    input = scientificDesignSetupRequestSchema.parse(input);
   const workspaceId = resolveScientificWorkspace(db, input);
   const assemblyProduct =
     input.request.source.kind === 'accepted-assembly'
@@ -92,6 +96,7 @@ export async function submitScientificObjectInMain(
     ...(options.mutationLease ? { mutationLease: options.mutationLease } : {}),
     ...(options.databaseFence ? { databaseFence: options.databaseFence } : {}),
     ...(options.beforeAccept ? { beforeAccept: options.beforeAccept } : {}),
+    ...(options.beforePublish ? { beforePublish: options.beforePublish } : {}),
   });
   const receipt = scientificSubmissionReceipt(result.acceptance);
   const acceptedHead =

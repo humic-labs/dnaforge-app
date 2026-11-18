@@ -73,6 +73,7 @@ export interface ScientificStoreSubmission {
   readonly expectedHead: WorkspaceVersionId | null;
   readonly mutations: readonly WorkspaceMutation[];
   readonly blobs: readonly Uint8Array[];
+  readonly purpose?: 'initialize-empty-namespace';
 
   readonly workingFileHashes?: ReadonlyMap<WorkspacePath, BlobHash | null>;
   readonly completeWorkspace?: boolean;
@@ -555,6 +556,7 @@ export class ScientificObjectStore {
           mutations: input.mutations,
           readBlob,
           codecs: scientificNativeCodecs,
+          ...(input.purpose ? { purpose: input.purpose } : {}),
         });
         if (result.kind === 'replay') {
           if (result.original.outcome === 'changed' || result.original.outcome === 'no-op')

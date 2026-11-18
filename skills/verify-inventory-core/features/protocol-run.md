@@ -244,3 +244,42 @@ full restart, `run-value-attributions-reopen` reads both generations, retained
 source and unfiltered history without repeating accepted actions. Scroll each
 claimed original/current/status section into view and preserve static images and
 the interaction video.
+
+## Explicit versioned-design setup prerequisite
+
+An existing saved Run shows **Versioned designs** for its owning project. **Set
+up versioned designs** explicitly creates the initial accepted identity history
+through the existing scientific submission owner. It accepts no legacy files,
+creates no DNA or stock and leaves inventory unchanged. A catalog head alone is
+**accepted, publication unconfirmed**; **Finish setup** explicitly uses the
+existing write-capable reconciliation owner. An unknown acknowledgement retains
+its exact original request and offers **Retry same setup**, which may complete
+that original acceptance. It never rebases an empty request onto a newer
+accepted head.
+
+Use `design-setup` with the exact completed attribution fixture. The ordinary
+pointer path captures the setup request before submission and the accepted
+result immediately afterward, verifies an empty scientific list plus delivered
+format1 identity map, and retries the same operation. Files → New… → DNA
+sequences → Create then creates one full empty managed package. Type explicit
+short synthetic bases in the real sequence editor and use its ordinary Save;
+read the exact accepted nonempty DNA revision and same-project material
+projection. The existing native editor inspection is read-only proof of the
+actual typed draft, never a setter or shortcut around those controls.
+
+Retry the original setup again after the DNA advances the accepted head. The
+original receipt version remains original while current head/design/format2 map
+remain newer. Inventory102, all219 existing global journal entries, physical
+state and old26 project files remain exact; the new scientific map/design,
+accepted history and ordinary project-data publication are intentional
+additions. Existing legacy objects keep their individual owners rather than
+becoming implicitly accepted by this setup.
+
+Preserve original media and checkpoints. `design-setup-resume` reuses the exact
+retained setup request and reconciles a created design by its already captured
+name/resource; it never creates another identity after uncertainty or appends
+the same bases twice. After a full native restart, `design-setup-reopen` retries
+only the original setup and reads the exact accepted design/current map. It
+performs no new creation, sequence edit or inventory action. Capture static
+states scrolled into view plus real pointer/typing video. This prerequisite does
+not qualify physical DNA production, product identity verification or release.

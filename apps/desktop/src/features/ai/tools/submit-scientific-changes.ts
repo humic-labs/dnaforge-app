@@ -13,7 +13,7 @@ export { submitScientificChangesSchema };
 export function createSubmitScientificChangesTool(folders: WorkspaceFolder[], operationId: string) {
   return resultTool({
     description:
-      'Submit the complete scientific identity map and its native files from current working data, or from one immutable Git commit, through the existing atomic acceptance owner. Working file writes and Git commits alone do not change accepted scientific state. Read list_scientific_objects for expectedHead first. Acceptance, conflicts and file delivery are reported separately; never replace an operation ID merely to hide an unresolved outcome.',
+      'Submit the complete scientific identity map and its native files from current working data, or from one immutable Git commit, through the existing atomic acceptance owner. For an unenrolled project with no authored map, explicitly set initializeEmptyNamespace:true with expectedHead:null and no gitCommit to set up versioned designs; this does not enroll legacy files or create DNA. Working file writes and Git commits alone do not change accepted scientific state. Read list_scientific_objects for expectedHead first. Acceptance, conflicts and file delivery are reported separately; never replace an operation ID merely to hide an unresolved outcome.',
     inputSchema: submitScientificChangesSchema,
     execute: async (input: z.infer<typeof submitScientificChangesSchema>, context) => {
       let attempted = false;
@@ -32,15 +32,18 @@ export function createSubmitScientificChangesTool(folders: WorkspaceFolder[], op
         if (!scope) throw new Error('The owning project identity is unavailable.');
         context.abortSignal?.throwIfAborted();
         attempted = true;
+        const source = input.initializeEmptyNamespace
+          ? { kind: 'initialize-empty-namespace' as const }
+          : input.gitCommit
+            ? { kind: 'git-commit' as const, commit: input.gitCommit }
+            : { kind: 'working-files' as const };
         const result = await platform().scientificObjects.submit({
           workspaceRoot: project.path,
           request: {
             workspace: parseWorkspaceIdentity(scope),
             operationId,
             expectedHead: input.expectedHead,
-            source: input.gitCommit
-              ? { kind: 'git-commit', commit: input.gitCommit }
-              : { kind: 'working-files' },
+            source,
           },
         });
         if (result.receipt.outcome === 'conflict' || result.receipt.outcome === 'rejected')
@@ -68,9 +71,7 @@ export function createSubmitScientificChangesTool(folders: WorkspaceFolder[], op
           receipt: result.receipt,
           currentHead: result.currentHead,
           delivery: result.delivery,
-          source: input.gitCommit
-            ? { kind: 'git-commit', commit: input.gitCommit }
-            : { kind: 'working-files' },
+          source,
         });
       } catch (error) {
         return toolFailure({

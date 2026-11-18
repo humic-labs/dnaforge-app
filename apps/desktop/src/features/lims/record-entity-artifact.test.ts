@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   failed: vi.fn(),
   registerCatalogEntity: vi.fn(),
   bindCatalogEntityToFile: vi.fn(),
+  sourceWrites: vi.fn(),
 }));
 
 let limsBridge: PlatformBridge['lims'];
@@ -59,6 +60,7 @@ vi.mock('../../platform', () => ({
       writeWorkspaceTextFileAtomic: async (
         input: Parameters<PlatformBridge['fs']['writeWorkspaceTextFileAtomic']>[0]
       ) => {
+        mocks.sourceWrites(input);
         await mkdir(dirname(input.path), { recursive: true });
         await writeFile(input.path, input.content, { flag: input.mode === 'create' ? 'wx' : 'w' });
         mocks.files.set(input.path, input.content);
@@ -145,6 +147,7 @@ beforeEach(async () => {
     workspace_id: 7,
   }));
   mocks.bindCatalogEntityToFile.mockReset().mockResolvedValue({});
+  mocks.sourceWrites.mockReset();
   const bridge = createLimsTestBridge();
   openDbs.push(bridge.db);
   limsBridge = bridge.lims;
@@ -655,6 +658,149 @@ describe('recordEntityArtifact', () => {
         affectedCount: 1,
       })
     );
+  });
+
+  it('recovers an exact legacy strain creation after an unrelated accepted namespace appears', async () => {
+    const input = {
+      id: 'legacy-strain',
+      artifactStem: 'legacy-strain',
+      kind: 'strain',
+      name: 'Legacy strain',
+      fields: { genotypeCanonical: 'recA1' },
+      workspaceRoot,
+      destinationDir: join(workspaceRoot, 'strains'),
+    };
+    const first = await recordEntityArtifact(input);
+    const original = await readFile(first.artifactPath, 'utf8');
+    const schema = (await limsBridge.listSchemas()).find((entry) => entry.entityKind === 'strain')!;
+    await limsBridge.refineSchema({
+      schemaId: schema.schemaId,
+      fields: [
+        ...schema.fields,
+        { key: 'later_required', label: 'Later', type: 'text', required: true },
+      ],
+    });
+    openDbs[0].prepare('DELETE FROM lims_entity WHERE id=?').run(input.id);
+    mocks.namespace.mockResolvedValue({ head: `wv_${'a'.repeat(64)}`, entries: [] });
+    mocks.sourceWrites.mockClear();
+
+    const recovered = await recordEntityArtifact(input);
+
+    expect(recovered).toMatchObject({
+      created: false,
+      artifact: { id: first.artifact.id, schemaSnapshot: first.artifact.schemaSnapshot },
+    });
+    expect(await readFile(first.artifactPath, 'utf8')).toBe(original);
+    expect(mocks.sourceWrites).not.toHaveBeenCalled();
+    expect(mocks.publish).not.toHaveBeenCalled();
+    expect(await limsBridge.queryEntities({ id: input.id })).toEqual([
+      expect.objectContaining({ id: input.id, schemaRevisionId: first.artifact.schemaRevisionId }),
+    ]);
+  });
+
+  it.each([
+    'moved',
+    'removed',
+    'claimed-path',
+    'collision-path',
+    'removed-path',
+    'changed',
+    'late-claim',
+  ])('guards legacy strain creation after namespace change: %s', async (kind) => {
+    const input = {
+      id: 'guarded-strain',
+      artifactStem: 'guarded-strain',
+      kind: 'strain',
+      name: 'Guarded strain',
+      fields: { genotypeCanonical: 'recA1' },
+      workspaceRoot,
+      destinationDir: workspaceRoot,
+    };
+    const first = await recordEntityArtifact(input);
+    const original = await readFile(first.artifactPath, 'utf8');
+    const entry = {
+      resourceId:
+        kind === 'moved' || kind === 'removed' || kind === 'late-claim'
+          ? input.id
+          : 'another-owner',
+      revisionId: `rr_${'b'.repeat(64)}`,
+      path:
+        kind === 'moved'
+          ? 'moved.entity.json'
+          : kind === 'collision-path'
+            ? first.relativePath.toUpperCase()
+            : first.relativePath,
+      lastPath: first.relativePath,
+      tombstone: kind === 'removed' || kind === 'removed-path',
+    };
+    const unclaimed = { head: `wv_${'a'.repeat(64)}`, entries: [] };
+    mocks.namespace.mockResolvedValue(
+      kind === 'changed' ? unclaimed : { ...unclaimed, entries: [entry] }
+    );
+    if (kind === 'late-claim') mocks.namespace.mockResolvedValueOnce(unclaimed);
+    mocks.sourceWrites.mockClear();
+    mocks.registerCatalogEntity.mockClear();
+    mocks.bindCatalogEntityToFile.mockClear();
+
+    await expect(
+      recordEntityArtifact(
+        kind === 'changed' ? { ...input, fields: { genotypeCanonical: 'recA2' } } : input
+      )
+    ).rejects.toThrow();
+
+    expect(await readFile(first.artifactPath, 'utf8')).toBe(original);
+    expect(mocks.sourceWrites).not.toHaveBeenCalled();
+    expect(mocks.publish).not.toHaveBeenCalled();
+    expect(mocks.registerCatalogEntity).not.toHaveBeenCalled();
+    expect(mocks.bindCatalogEntityToFile).not.toHaveBeenCalled();
+  });
+
+  it('keeps new missing-file strain creation on the accepted owner at a reusable path', async () => {
+    const head = `wv_${'a'.repeat(64)}`;
+    const acceptedRevision = {
+      kind: 'accepted-object' as const,
+      resourceId: 'new-strain',
+      resourceRevisionId: `rr_${'b'.repeat(64)}`,
+      workspaceVersionId: `wv_${'c'.repeat(64)}`,
+      contentSha256: 'd'.repeat(64),
+      sequenceEditParentEventId: null,
+    };
+    mocks.namespace.mockResolvedValue({
+      head,
+      entries: [
+        {
+          resourceId: 'removed-owner',
+          revisionId: `rr_${'e'.repeat(64)}`,
+          path: null,
+          lastPath: 'reusable.entity.json',
+          tombstone: true,
+        },
+      ],
+    });
+    mocks.publish.mockRejectedValue(
+      new NativeArtifactPublicationPendingError(acceptedRevision, 'delivery pending')
+    );
+
+    await expect(
+      recordEntityArtifact({
+        id: acceptedRevision.resourceId,
+        artifactStem: 'reusable',
+        kind: 'strain',
+        name: 'New strain',
+        fields: { genotypeCanonical: 'recA1' },
+        workspaceRoot,
+        destinationDir: workspaceRoot,
+      })
+    ).rejects.toMatchObject({ acceptedRevision });
+
+    expect(mocks.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prior: null,
+        expectedHead: head,
+        resourceId: acceptedRevision.resourceId,
+      })
+    );
+    expect(mocks.sourceWrites).not.toHaveBeenCalled();
   });
 
   it('reuses an identical deterministic artifact and rebuilds its missing projection', async () => {

@@ -53,6 +53,7 @@ import {
   type PrimerAnnealingSegment,
 } from './primer-artifact';
 import { scientificIdentityPath } from '@waypoint/scientific-objects';
+import { parseWorkspacePath, pathCollisionKey } from '@waypoint/workspace-revisions';
 import { pathRelativeToBoundary } from '../path-boundary';
 import {
   NativeArtifactPublicationPendingError,
@@ -345,6 +346,28 @@ export function createPrimerArtifactOwner(dependencies: PrimerArtifactDependenci
   const platform = dependencies.io;
   const readScientificNamespace = (root: string) =>
     dependencies.scientific?.namespace(root) ?? Promise.resolve(null);
+  function scientificPathsCollide(left: string | null, right: string): boolean {
+    if (left === right) return true;
+    const a = left === null ? null : parseWorkspacePath(left);
+    const b = parseWorkspacePath(right);
+    return Boolean(a?.ok && b.ok && pathCollisionKey(a.value) === pathCollisionKey(b.value));
+  }
+  function assertLegacyPrimerUnclaimed(
+    namespace: Awaited<ReturnType<typeof readScientificNamespace>>,
+    id: string,
+    path: string
+  ): void {
+    if (
+      namespace?.entries.some(
+        (entry) =>
+          entry.resourceId === id ||
+          scientificPathsCollide(entry.tombstone ? entry.lastPath : entry.path, path)
+      )
+    )
+      throw new Error(
+        'The primer identity or path is already accepted. Open it to edit or restore it explicitly.'
+      );
+  }
   const readScientificText = (
     path: string,
     root: string,
@@ -594,10 +617,21 @@ export function createPrimerArtifactOwner(dependencies: PrimerArtifactDependenci
       throw new Error('The selected target no longer matches its stable sequence identity.');
     }
     if (namespace) {
+      const identity = input.artifactId
+        ? namespace.entries.find((slot) => slot.resourceId === input.artifactId)
+        : undefined;
+      if (identity && (identity.tombstone || identity.path !== pathValidation.relativePath))
+        throw new Error(
+          'The primer identity is already accepted elsewhere or removed. Open it to edit or restore it explicitly.'
+        );
       const existing = namespace.entries.find(
-        (slot) => !slot.tombstone && slot.path === pathValidation.relativePath
+        (slot) => !slot.tombstone && scientificPathsCollide(slot.path, pathValidation.relativePath)
       );
       if (existing) {
+        if (existing.path !== pathValidation.relativePath)
+          throw new Error(
+            'The primer path collides with an accepted record. Choose a new file name.'
+          );
         const loaded = await readScientificText(artifactPath, input.workspaceRoot);
         const artifact = parsePrimerArtifact(loaded.content);
         if (
@@ -619,18 +653,17 @@ export function createPrimerArtifactOwner(dependencies: PrimerArtifactDependenci
         );
         return { artifactPath, artifact, ...projected, limsPathsBefore, created: false };
       }
-      if (await platform().fs.exists(artifactPath))
-        throw new Error(
-          'A working file already exists at that location. Choose a new file name or enroll it explicitly.'
-        );
     }
-    if (!namespace && (await platform().fs.exists(artifactPath))) {
+    if (await platform().fs.exists(artifactPath)) {
       let existingArtifact: PrimerArtifactV1;
       try {
         existingArtifact = parsePrimerArtifact(await platform().fs.readTextFile(artifactPath));
       } catch {
         throw new Error('A file already exists at that location. Choose a new file name.');
       }
+      if (existingArtifact.file.workspaceRelativePath !== pathValidation.relativePath)
+        throw new Error('The primer artifact manifest does not match its saved project path.');
+      assertLegacyPrimerUnclaimed(namespace, existingArtifact.id, pathValidation.relativePath);
       if (!matchesRetry(existingArtifact, input, target)) {
         throw new Error(
           'A different primer artifact already exists there. Choose a new file name.'
@@ -639,6 +672,11 @@ export function createPrimerArtifactOwner(dependencies: PrimerArtifactDependenci
       const limsPathsBefore = await currentDirtyLimsPaths(input.workspaceRoot, mutationToken);
       let projected: { limsEntity: LimsEntity; primer: Primer };
       try {
+        assertLegacyPrimerUnclaimed(
+          await readScientificNamespace(input.workspaceRoot),
+          existingArtifact.id,
+          pathValidation.relativePath
+        );
         projected = await projectPrimerArtifact(existingArtifact, input.workspaceRoot, {
           mutationToken,
           parentActionId,
@@ -2117,6 +2155,7 @@ export function createPrimerArtifactOwner(dependencies: PrimerArtifactDependenci
         throw new Error('Accepted primer projection is unavailable. Reopen the project.');
       return { limsEntity, primer };
     }
+    assertLegacyPrimerUnclaimed(namespace, artifact.id, artifact.file.workspaceRelativePath);
     const existingCatalogEntity = await getCatalogEntity(artifact.id);
     if (existingCatalogEntity && existingCatalogEntity.type !== 'primer') {
       throw new Error(

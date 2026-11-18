@@ -21,5 +21,16 @@ export const submitScientificChangesSchema = z
       .describe(
         'Full immutable Git commit ID to submit instead of current working files. Branch names and HEAD are not accepted.'
       ),
+    initializeEmptyNamespace: z.literal(true).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.initializeEmptyNamespace &&
+      (value.expectedHead !== null || value.gitCommit !== undefined)
+    )
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Empty namespace setup requires a null head and no Git commit.',
+      });
+  });

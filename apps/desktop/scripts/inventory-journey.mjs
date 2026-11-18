@@ -1,4 +1,9 @@
 import {
+  runInventoryDesignSetup,
+  runInventoryDesignSetupResume,
+  runInventoryDesignSetupReopen,
+} from './journeys/inventory-design-setup.mjs';
+import {
   runInventoryRunValueAttributions,
   runInventoryRunValueAttributionsResume,
   runInventoryRunValueAttributionsReopen,
@@ -156,6 +161,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const args = process.argv.slice(2);
 const option = (name) => args[args.indexOf(name) + 1];
 const stage = args.includes('--stage') ? option('--stage') : 'doctor';
+const designSetupStages = {
+  'design-setup': runInventoryDesignSetup,
+  'design-setup-resume': runInventoryDesignSetupResume,
+  'design-setup-reopen': runInventoryDesignSetupReopen,
+};
 const runValueAttributionStages = {
   'run-value-attributions': runInventoryRunValueAttributions,
   'run-value-attributions-resume': runInventoryRunValueAttributionsResume,
@@ -192,6 +202,7 @@ assert.ok(
     ...Object.keys(recordedWorkStages),
     ...Object.keys(runValueStages),
     ...Object.keys(runValueAttributionStages),
+    ...Object.keys(designSetupStages),
     ...Object.keys(platePlanObservationStages),
     ...Object.keys(platePlanStages),
     ...Object.keys(citationStages),
@@ -347,6 +358,32 @@ const files = execFileSync(
     'packages/core/domain-services/src/index.ts',
     'packages/core/domain-services/package.json',
     'packages/core/scientific-objects/package.json',
+    'apps/desktop/src/features/sequence',
+    'apps/desktop/src/components/FileBrowser.tsx',
+    'apps/desktop/src/components/FileTreeItem.tsx',
+    'apps/desktop/src/components/RootFolder.tsx',
+    ':(glob)apps/desktop/src/main/scientific-*',
+    'apps/desktop/src/main/ipc/scientific-objects.ts',
+    ':(glob)apps/desktop/src/shared/scientific-*',
+    'apps/desktop/src/shared/ipc/scientific-objects.contract.ts',
+    'apps/desktop/src/shared/sequence-document-model.ts',
+    'apps/desktop/src/shared/sequence-document.ts',
+    'apps/desktop/src/shared/sequence-edit-lineage.ts',
+    'apps/desktop/src/shared/primer-artifacts',
+    'apps/desktop/src/shared/registry-artifacts',
+    'apps/desktop/src/services/publish-native-artifact.ts',
+    'apps/desktop/src/services/read-scientific-namespace.ts',
+    'apps/desktop/src/services/workspace-mutation-transaction.ts',
+    'apps/desktop/src/services/sequence-document-save-completion.ts',
+    'apps/desktop/src/features/ai/tools/submit-scientific-changes.ts',
+    ':(glob)apps/desktop/src/features/ai/tools/scientific-*',
+    'apps/desktop/src/features/agent-bridge/catalog/scientific-authoring.ts',
+    'packages/core/domain-services/src/scientific-objects.ts',
+    'packages/core/domain-services/src/scientific-documents.ts',
+    'packages/core/workspace-revisions/src',
+    'packages/core/scientific-objects/src',
+    'packages/core/scientific-artifacts/src',
+    'packages/core/workspace-editor/src',
     'packages/core/scientific-objects/src/unique-json.ts',
     'packages/core/scientific-objects/src/delimited-rows.ts',
     'apps/desktop/src/shared/delimited-rows.ts',
@@ -965,6 +1002,24 @@ try {
           ? runInventoryStockroomCorrectionsResume
           : runInventoryStockroomCorrectionsReopen
     )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
+  if (Object.hasOwn(designSetupStages, stage)) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the exact attribution or setup checkpoint fixture.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    receipt.expected = await designSetupStages[stage]({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+    });
   }
   if (Object.hasOwn(runValueAttributionStages, stage)) {
     assert.ok(

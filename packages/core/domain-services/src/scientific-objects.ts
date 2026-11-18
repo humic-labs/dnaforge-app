@@ -18,6 +18,7 @@ export interface ScientificWorkspaceSubmission {
   readonly operationId: string;
   readonly expectedHead: string | null;
   readonly source:
+    | { readonly kind: 'initialize-empty-namespace' }
     | {
         readonly kind: 'documents';
         readonly entries: readonly ScientificSubmittedFile[];

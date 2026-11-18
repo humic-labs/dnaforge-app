@@ -2071,3 +2071,46 @@ empty maps in memory and refuse supplied future maps. Receipt context 11 admits
 the new record and withdrawal kinds. Earlier receipt contexts refuse this new
 family throughout nested archive adoption while preserving their existing
 historical interpretation. Protocol file receipt formats remain separate.
+
+## Versioned scientific designs
+
+The saved Run view offers explicit **Set up versioned designs** for a project
+that has no accepted scientific history. Setup uses the existing scientific
+submission, recovery checkpoint and file-delivery owner. It initializes an empty
+identity map. It creates no DNA design, physical stock or inventory operation,
+and leaves older files under their existing resource owners.
+
+```mermaid
+stateDiagram-v2
+    [*] --> NeedsSetup: no accepted head or retained attempt
+    NeedsSetup --> Sending: retain exact setup request before submission
+    Sending --> UnknownOriginal: acknowledgement unavailable
+    UnknownOriginal --> Sending: retry identical operation
+    Sending --> AcceptedPending: accepted, file delivery incomplete
+    AcceptedPending --> Sending: resume original operation
+    Sending --> Ready: accepted and delivered
+    Sending --> Refused: definite rejection or conflict
+```
+
+Current accepted head, the original request's receipt and file delivery remain
+separate facts. A catalog read cannot confirm an unknown request or complete
+pending delivery. An original setup retry retains its null expected head and
+purpose. It returns its original outcome after later design changes, without
+replacing the newer namespace. A fresh null-head request conflicts once another
+actor has initialized the project.
+
+An existing scientific map blocks empty initialization before acceptance. The
+existing explicit submission flow handles authored maps. External file changes
+after acceptance can block delivery while preserving both the accepted record
+and the external bytes. No atomic filesystem/database guarantee is implied.
+
+After setup, use **Files → New… → DNA sequences → Create** and the normal
+sequence editor and Save. An empty DNA package and a saved nonempty accepted
+design are distinct steps. Neither establishes physical production or quality.
+
+An unrelated accepted head does not enroll an older primer or strain. Exact
+legacy creation retries retain the saved identity and existing projection
+recovery. Accepted identity/path ownership, tombstones, changed intent and
+misplaced files still prevent legacy fallback. Legacy projection repair may
+write its existing catalog or registry records; it does not rewrite the source
+artifact or publish a new accepted design.

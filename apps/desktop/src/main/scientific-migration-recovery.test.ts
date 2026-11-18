@@ -1,6 +1,15 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFile, lstat, mkdir, readFile, readdir, realpath, writeFile } from 'node:fs/promises';
+import {
+  copyFile,
+  lstat,
+  mkdir,
+  readFile,
+  readdir,
+  realpath,
+  rename,
+  writeFile,
+} from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineScientificDocument } from '@waypoint/scientific-objects';
@@ -18,14 +27,23 @@ vi.mock('electron', () => ({
 }));
 vi.mock('./analytics', () => ({ trackEvent: vi.fn() }));
 
-import { createFileTestDb, openFileTestDb } from './__tests__/test-db';
+import { createFileTestDb, openFileTestDb, openReadonlyFileTestDb } from './__tests__/test-db';
 import { CURRENT_SCHEMA_VERSION, ensureSchema } from './schema';
 import { ScientificObjectStore } from './scientific-object-store';
 import {
   insertAuditEvent,
   registerLimsEntityInsideTx,
   seedLimsBuiltinsInDb,
+  updateLimsEntityInsideTx,
 } from './lims-engine-core';
+import { serializeGenBank } from '@waypoint/sequence-utils';
+import {
+  buildSequencePackageDocument,
+  sequencePackagePaths,
+  serializeSequencePackageDocument,
+} from '../db/sequence-package';
+import { projectManagedSequenceRegistry } from '../shared/managed-sequence-registry-projection';
+import { assertFileBackedRegistryMutation } from './file-backed-registry-mutation';
 import { rebuildLimsProjectionInDb, verifyLimsAuditHashChainInDb } from './lims-projection-rebuild';
 import { revertLimsEntityInsideTx } from './lims-entity-lifecycle';
 import type { ComputeJobRegistry } from './compute/jobs';
@@ -37,6 +55,7 @@ import { acquireWorkspaceSyncMutationLease } from './workspace-sync-mutation-lea
 import {
   createScientificLegacyRecovery,
   ensureScientificEnrollmentCheckpoint,
+  assertScientificLegacyDatabaseCanRelocate,
   listScientificRecoveryCheckpoints,
   prepareScientificLegacyDatabase,
 } from './scientific-migration-recovery';
@@ -708,6 +727,175 @@ describe('scientific enrollment and isolated legacy recovery pressure', { timeou
       expect(Buffer.from(f.db.serialize())).toEqual(originalDb);
       expect(await inventoryScientificRecoveryTree(f.root)).toEqual(originalFiles);
       expect(await inventoryScientificRecoveryTree(f.otherRoot)).toEqual(otherFiles);
+    }
+  );
+
+  it.each([
+    'bound',
+    'package-id',
+    'document-id',
+    'foreign-binding',
+    'outside-product',
+    'other-product',
+  ])('qualifies native managed history through schema reprojection: %s', async (variant) => {
+    const f = await fixture(),
+      entityId = 'native-managed-history',
+      packageRoot = join(f.root, 'imports', entityId),
+      paths = sequencePackagePaths(packageRoot, { productFile: 'product.gb' });
+    const text = serializeGenBank({
+      id: entityId,
+      name: 'Managed history',
+      sequence: 'ACGT',
+      length: 4,
+      circular: false,
+      annotations: [],
+    });
+    const hash = `sha256:${createHash('sha256').update(text).digest('hex')}`;
+    const document = buildSequencePackageDocument({
+      id: entityId,
+      name: 'Managed history',
+      product: { file: 'product.gb', genBankChecksum: hash },
+    });
+    const marker = serializeSequencePackageDocument(document);
+    await mkdir(paths.metaDir, { recursive: true });
+    await writeFile(paths.metaPath, marker);
+    await writeFile(paths.productPath, text);
+    seedLimsBuiltinsInDb(f.db);
+    const managed = { kind: 'managed-sequence', packageId: entityId, packageRoot };
+    const entity = f.db.transaction(() =>
+      registerLimsEntityInsideTx(f.db, {
+        id: entityId,
+        kind: 'dna_sequence',
+        name: document.name,
+        workspaceId: f.workspaceId,
+        fields: {
+          _managedSequenceDocument: {
+            ...managed,
+            packageId: variant === 'package-id' ? 'another-package' : entityId,
+          },
+          sequence: {
+            mode: 'file',
+            documentId: variant === 'document-id' ? 'another-document' : entityId,
+            relPath:
+              variant === 'outside-product'
+                ? join(f.otherRoot, 'untouched.txt')
+                : variant === 'other-product'
+                  ? join(packageRoot, 'other.gb')
+                  : paths.productPath,
+            topology: 'linear',
+            length: 4,
+            contentHash: hash,
+            fileContentHash: hash,
+          },
+        },
+      })
+    )();
+    f.db
+      .prepare(
+        `INSERT INTO catalog_entities(id,type,name,locator,storage_type,workspace_id,created_at,updated_at)
+        VALUES (?, 'sequence', ?, ?, 'filesystem', ?, 1, 1)`
+      )
+      .run(entityId, entity.name, `file://${packageRoot}`, f.workspaceId);
+    f.db
+      .prepare(
+        `INSERT INTO catalog_entity_files(id,entity_id,workspace_id,path,relative_path,file_kind,status,created_at,updated_at)
+        VALUES (?, ?, ?, ?, ?, 'waypoint-sequence', 'current', 1, 1)`
+      )
+      .run(
+        'native-managed-binding',
+        entityId,
+        variant === 'foreign-binding' ? f.otherId : f.workspaceId,
+        packageRoot,
+        `imports/${entityId}`
+      );
+    const projected = await projectManagedSequenceRegistry(
+      document,
+      { length: 4, topology: 'linear', fileContentHash: hash },
+      3,
+      marker
+    );
+    f.db.transaction(() =>
+      updateLimsEntityInsideTx(f.db, {
+        id: entityId,
+        actor: 'workspace-reconcile',
+        workspaceId: f.workspaceId,
+        replaceFields: true,
+        name: projected.name,
+        fields: { ...projected.fields, _managedSequenceDocument: managed },
+        projectionSchema: {
+          kind: projected.kind,
+          schemaRevisionId: projected.schemaRevisionId,
+          schemaSnapshot: projected.schemaSnapshot,
+        },
+      })
+    )();
+    const audit = f.db.prepare('SELECT * FROM lims_audit ORDER BY event_seq').all();
+    expect(audit).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ payload: '{"change":"file_authority_schema_reprojection"}' }),
+      ])
+    );
+    const original = Buffer.from(f.db.serialize());
+    if (variant !== 'bound') {
+      await expect(f.ensure()).rejects.toThrow(/histor|locator|relocate/iu);
+      expect(f.store.read().head).toBeNull();
+    } else {
+      await f.ensure();
+      const result = await recover(f);
+      const legacy = openFileTestDb(join(result.profilePath, 'dnaforge.db'));
+      const parked = join(f.tmpDir, 'parked-original-project');
+      await rename(f.root, parked);
+      try {
+        rebuildLimsProjectionInDb(legacy);
+        const row = legacy.prepare('SELECT fields FROM lims_entity WHERE id=?').get(entityId) as {
+          fields: string;
+        };
+        expect(JSON.parse(row.fields)._managedSequenceDocument.packageRoot).toBe(
+          join(result.projectPath, 'imports', entityId)
+        );
+        await expect(
+          assertFileBackedRegistryMutation(legacy, 'revert', { id: entityId })
+        ).rejects.toThrow(/owning file operation/u);
+        expect(legacy.prepare('SELECT * FROM lims_audit ORDER BY event_seq').all()).toEqual(audit);
+        expect(verifyLimsAuditHashChainInDb(legacy).ok).toBe(true);
+        expect(
+          await readFile(join(result.projectPath, 'imports', entityId, 'product.gb'), 'utf8')
+        ).toBe(text);
+      } finally {
+        legacy.close();
+        await rename(parked, f.root);
+      }
+    }
+    expect(Buffer.from(f.db.serialize())).toEqual(original);
+    expect(f.db.prepare('SELECT * FROM lims_audit ORDER BY event_seq').all()).toEqual(audit);
+  });
+
+  it.skipIf(!process.env.SCIENTIFIC_RECOVERY_CHECKPOINT_DATABASE)(
+    'validates a supplied immutable recovery checkpoint without database writes',
+    async () => {
+      const path = process.env.SCIENTIFIC_RECOVERY_CHECKPOINT_DATABASE!;
+      const sourceRoot = process.env.SCIENTIFIC_RECOVERY_CHECKPOINT_ROOT!;
+      const workspaceId = Number(process.env.SCIENTIFIC_RECOVERY_CHECKPOINT_WORKSPACE);
+      expect(sourceRoot).toBeTruthy();
+      expect(Number.isSafeInteger(workspaceId)).toBe(true);
+      const original = createHash('sha256')
+        .update(await readFile(path))
+        .digest('hex');
+      const db = openReadonlyFileTestDb(path);
+      try {
+        const audit = db.prepare('SELECT * FROM lims_audit ORDER BY event_seq').all();
+        assertScientificLegacyDatabaseCanRelocate({ db, workspaceId, sourceRoot });
+        expect(db.prepare('SELECT total_changes() AS n').get()).toEqual({ n: 0 });
+        expect(db.prepare('SELECT * FROM lims_audit ORDER BY event_seq').all()).toEqual(audit);
+        expect(verifyLimsAuditHashChainInDb(db).ok).toBe(true);
+      } finally {
+        db.close();
+      }
+      expect(
+        createHash('sha256')
+          .update(await readFile(path))
+          .digest('hex')
+      ).toBe(original);
     }
   );
 

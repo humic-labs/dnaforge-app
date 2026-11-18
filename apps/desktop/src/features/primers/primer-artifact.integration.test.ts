@@ -20,7 +20,32 @@ const mocks = vi.hoisted(() => ({
   gitRepo: false,
   gitCommitFails: false,
   nebFetch: vi.fn(),
+  namespace: vi.fn(),
+  publish: vi.fn(),
+  acceptedRead: null as {
+    content: string;
+    acceptedRevision: import('@waypoint/domain-services').ScientificAcceptedDocumentRevision;
+  } | null,
 }));
+
+vi.mock('../../services/read-scientific-namespace', () => ({
+  readScientificNamespace: mocks.namespace,
+}));
+vi.mock('../../services/publish-native-artifact', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../services/publish-native-artifact')>()),
+  publishNativeArtifact: mocks.publish,
+}));
+vi.mock('../scientific-document/services/read-scientific-text', async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import('../scientific-document/services/read-scientific-text')>();
+  return {
+    ...original,
+    readScientificText: (...args: Parameters<typeof original.readScientificText>) =>
+      mocks.acceptedRead
+        ? Promise.resolve(mocks.acceptedRead)
+        : original.readScientificText(...args),
+  };
+});
 
 vi.mock('../design/algorithms/neb-tm-client', () => ({ makeNebFetch: () => mocks.nebFetch }));
 
@@ -121,6 +146,7 @@ import {
 import { useSettingsStore } from '../junction-workbench/settings';
 import { createPrimer, deletePrimer, importBatch, updatePrimer } from './primer-service';
 import { refreshPrimerRecoveryInventory } from './primer-recovery-report';
+import { NativeArtifactPublicationPendingError } from '../../services/publish-native-artifact';
 import {
   getCatalogEntity,
   getCatalogEventsForEntity,
@@ -250,6 +276,9 @@ beforeEach(async () => {
   mocks.gitRepo = false;
   mocks.gitCommitFails = false;
   mocks.nebFetch.mockReset();
+  mocks.namespace.mockReset().mockResolvedValue(null);
+  mocks.publish.mockReset();
+  mocks.acceptedRead = null;
   useSettingsStore.setState({
     tmModel: DEFAULT_TM_MODEL,
     tmModelExplicit: false,
@@ -1599,6 +1628,204 @@ describe('primer artifact reconciliation against the real LIMS engine', () => {
         id: 'primer-custom-schema-1',
       }
     );
+  });
+
+  it('recovers an exact legacy primer creation after an unrelated accepted namespace appears', async () => {
+    const input = {
+      name: 'Legacy retry',
+      sequence: 'ATGCGTACGTAGCTAGCTAG',
+      artifactPath: join(workspaceRoot, 'primers', 'legacy-retry.primer.json'),
+      workspaceRoot,
+      requireRegistry: true as const,
+      artifactId: 'legacy-retry',
+    };
+    const first = await savePrimerArtifact(input);
+    const original = readFileSync(input.artifactPath, 'utf8');
+    db.prepare('DELETE FROM primers WHERE id=?').run(first.artifact.id);
+    db.prepare('DELETE FROM lims_entity WHERE id=?').run(first.artifact.id);
+    mocks.namespace.mockResolvedValue({ head: `wv_${'a'.repeat(64)}`, entries: [] });
+    vi.mocked(platformBridge().fs.writeWorkspaceTextFileAtomic).mockClear();
+
+    const recovered = await savePrimerArtifact(input);
+
+    expect(recovered).toMatchObject({
+      created: false,
+      artifact: { id: first.artifact.id, catalogNumber: first.artifact.catalogNumber },
+      limsEntity: { id: first.limsEntity.id },
+    });
+    expect(readFileSync(input.artifactPath, 'utf8')).toBe(original);
+    expect(platformBridge().fs.writeWorkspaceTextFileAtomic).not.toHaveBeenCalled();
+    expect(mocks.publish).not.toHaveBeenCalled();
+    expect(db.prepare('SELECT id FROM primers WHERE id=?').get(first.artifact.id)).toEqual({
+      id: first.artifact.id,
+    });
+    await expect(savePrimerArtifact(input)).resolves.toMatchObject({ created: false });
+    expect(
+      db
+        .prepare(
+          "SELECT COUNT(*) AS count FROM lims_audit WHERE event_type='entity_registered' AND subject_id=?"
+        )
+        .get(first.artifact.id)
+    ).toEqual({ count: 1 });
+  });
+
+  it.each([
+    'moved',
+    'removed',
+    'claimed-path',
+    'collision-path',
+    'removed-path',
+    'changed',
+    'misplaced',
+    'late-claim',
+  ])('guards legacy primer creation after namespace change: %s', async (kind) => {
+    const input = {
+      name: 'Guarded legacy',
+      sequence: 'ATGCGTACGTAGCTAGCTAG',
+      artifactPath: join(workspaceRoot, 'primers', 'guarded.primer.json'),
+      workspaceRoot,
+      requireRegistry: true as const,
+      artifactId: 'guarded-legacy',
+    };
+    const first = await savePrimerArtifact(input);
+    if (kind === 'misplaced') {
+      const changed = structuredClone(first.artifact);
+      changed.file.workspaceRelativePath = 'primers/elsewhere.primer.json';
+      writeFileSync(input.artifactPath, serializePrimerArtifact(changed));
+    }
+    const original = readFileSync(input.artifactPath, 'utf8');
+    const entry = {
+      resourceId:
+        kind === 'moved' || kind === 'removed' || kind === 'late-claim'
+          ? input.artifactId
+          : 'another-owner',
+      revisionId: `rr_${'b'.repeat(64)}`,
+      path:
+        kind === 'moved'
+          ? 'primers/moved.primer.json'
+          : kind === 'collision-path'
+            ? 'PRIMERS/GUARDED.PRIMER.JSON'
+            : 'primers/guarded.primer.json',
+      lastPath: 'primers/guarded.primer.json',
+      tombstone: kind === 'removed' || kind === 'removed-path',
+    };
+    const unclaimed = { head: `wv_${'a'.repeat(64)}`, entries: [] };
+    const claimed = { ...unclaimed, entries: [entry] };
+    mocks.namespace.mockResolvedValue(
+      kind === 'changed' || kind === 'misplaced' ? unclaimed : claimed
+    );
+    if (kind === 'late-claim') mocks.namespace.mockResolvedValueOnce(unclaimed);
+    vi.mocked(platformBridge().fs.writeWorkspaceTextFileAtomic).mockClear();
+    const projection = vi.spyOn(platformBridge().db, 'replacePrimerProjection');
+
+    await expect(
+      savePrimerArtifact(kind === 'changed' ? { ...input, sequence: 'T'.repeat(20) } : input)
+    ).rejects.toThrow();
+
+    expect(readFileSync(input.artifactPath, 'utf8')).toBe(original);
+    expect(platformBridge().fs.writeWorkspaceTextFileAtomic).not.toHaveBeenCalled();
+    expect(mocks.publish).not.toHaveBeenCalled();
+    expect(projection).not.toHaveBeenCalled();
+  });
+
+  it('preserves the accepted owner for an exact primer retry when its delivered file is absent', async () => {
+    const input = {
+      name: 'Accepted retry',
+      sequence: 'ATGCGTACGTAGCTAGCTAG',
+      artifactPath: join(workspaceRoot, 'primers', 'accepted-retry.primer.json'),
+      workspaceRoot,
+      requireRegistry: true as const,
+      artifactId: 'accepted-retry',
+    };
+    const first = await savePrimerArtifact(input);
+    const content = readFileSync(input.artifactPath, 'utf8');
+    rmSync(input.artifactPath);
+    const acceptedRevision = {
+      kind: 'accepted-object' as const,
+      resourceId: first.artifact.id,
+      resourceRevisionId: `rr_${'b'.repeat(64)}`,
+      workspaceVersionId: `wv_${'c'.repeat(64)}`,
+      contentSha256: 'd'.repeat(64),
+      sequenceEditParentEventId: null,
+    };
+    mocks.namespace.mockResolvedValue({
+      head: acceptedRevision.workspaceVersionId,
+      entries: [
+        {
+          resourceId: first.artifact.id,
+          revisionId: acceptedRevision.resourceRevisionId,
+          path: first.artifact.file.workspaceRelativePath,
+          lastPath: first.artifact.file.workspaceRelativePath,
+          tombstone: false,
+        },
+      ],
+    });
+    mocks.acceptedRead = { content, acceptedRevision };
+    mocks.publish.mockResolvedValue(acceptedRevision);
+    vi.mocked(platformBridge().fs.writeWorkspaceTextFileAtomic).mockClear();
+    const projection = vi.spyOn(platformBridge().db, 'replacePrimerProjection');
+
+    await expect(savePrimerArtifact(input)).resolves.toMatchObject({
+      created: false,
+      acceptedRevision,
+    });
+
+    expect(mocks.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prior: acceptedRevision,
+        representation: { format: 'primer-v2', text: content },
+      })
+    );
+    expect(projection).not.toHaveBeenCalled();
+    expect(platformBridge().fs.writeWorkspaceTextFileAtomic).not.toHaveBeenCalled();
+  });
+
+  it('keeps new missing-file primer creation on the accepted owner at a reusable path', async () => {
+    const acceptedRevision = {
+      kind: 'accepted-object' as const,
+      resourceId: 'new-at-reused-path',
+      resourceRevisionId: `rr_${'b'.repeat(64)}`,
+      workspaceVersionId: `wv_${'c'.repeat(64)}`,
+      contentSha256: 'd'.repeat(64),
+      sequenceEditParentEventId: null,
+    };
+    const head = `wv_${'a'.repeat(64)}`;
+    mocks.namespace.mockResolvedValue({
+      head,
+      entries: [
+        {
+          resourceId: 'removed-owner',
+          revisionId: `rr_${'e'.repeat(64)}`,
+          path: null,
+          lastPath: 'primers/reusable.primer.json',
+          tombstone: true,
+        },
+      ],
+    });
+    mocks.publish.mockRejectedValue(
+      new NativeArtifactPublicationPendingError(acceptedRevision, 'delivery pending')
+    );
+    vi.mocked(platformBridge().fs.writeWorkspaceTextFileAtomic).mockClear();
+
+    await expect(
+      savePrimerArtifact({
+        name: 'New accepted',
+        sequence: 'ATGCGTACGTAGCTAGCTAG',
+        artifactPath: join(workspaceRoot, 'primers', 'reusable.primer.json'),
+        workspaceRoot,
+        requireRegistry: true,
+        artifactId: acceptedRevision.resourceId,
+      })
+    ).rejects.toMatchObject({ acceptedRevision });
+
+    expect(mocks.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prior: null,
+        expectedHead: head,
+        resourceId: acceptedRevision.resourceId,
+      })
+    );
+    expect(platformBridge().fs.writeWorkspaceTextFileAtomic).not.toHaveBeenCalled();
   });
 
   it('preserves supplied spreadsheet row identities across retry and equal-content rows', async () => {

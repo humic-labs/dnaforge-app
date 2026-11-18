@@ -54,14 +54,18 @@ const pcrEvidence = {
       reverseAnnealingLength: count,
     })
     .strict(),
-  inputs: z.array(z.object({ documentId: z.string(), name: z.string(), revision: revisionPin }).strict()),
+  inputs: z.array(
+    z.object({ documentId: z.string(), name: z.string(), revision: revisionPin }).strict()
+  ),
   candidates: z.array(
     z
       .object({
         index: count,
         length: count,
         templateSegments: z.array(
-          z.object({ start: count, end: count, strand: z.union([z.literal(1), z.literal(-1)]) }).strict()
+          z
+            .object({ start: count, end: count, strand: z.union([z.literal(1), z.literal(-1)]) })
+            .strict()
         ),
       })
       .strict()
@@ -131,6 +135,7 @@ export const submitScientificChangesOutputSchema = z
       ])
       .nullable(),
     source: z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('initialize-empty-namespace') }).strict(),
       z.object({ kind: z.literal('git-commit'), commit: z.string() }).strict(),
       z.object({ kind: z.literal('working-files') }).strict(),
     ]),

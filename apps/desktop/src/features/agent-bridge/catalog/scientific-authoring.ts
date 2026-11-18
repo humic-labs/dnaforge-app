@@ -121,7 +121,7 @@ export const scientificAuthoringTools = defineRendererToolCatalog({
   submit_scientific_changes: {
     name: 'submit_scientific_changes',
     description:
-      'Submit complete mapped scientific working files or an immutable Git commit through atomic database acceptance. File writes and Git commits alone do not advance accepted state. Use the exact head from list_scientific_objects; inspect acceptance receipts and file-delivery status separately.',
+      'Submit complete mapped scientific working files or an immutable Git commit through atomic database acceptance. Explicit initializeEmptyNamespace:true with null expectedHead and no gitCommit sets up versioned designs in an unenrolled project without an authored map; it does not migrate legacy files or create DNA. File writes and Git commits alone do not advance accepted state. Use the exact head from list_scientific_objects; inspect acceptance receipts and file-delivery status separately.',
     shape: 'app-action',
     required_capabilities: ['read-workspace', 'write-workspace'],
     conditional_required_capabilities: [],

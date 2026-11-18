@@ -33,7 +33,10 @@ export type ScientificMaterializationResult =
 
 export async function materializeScientificWorkspace(
   store: ScientificObjectStore,
-  options: { readonly afterFile?: (path: WorkspacePath) => void } = {}
+  options: {
+    readonly afterFile?: (path: WorkspacePath) => void;
+    readonly beforePublish?: () => void;
+  } = {}
 ): Promise<ScientificMaterializationResult> {
   const completedVersions: string[] = [];
   const root = store.workspaceRoot();
@@ -81,6 +84,7 @@ export async function materializeScientificWorkspace(
           if (current !== null) {
             if (current !== file.expectedHash)
               throw new Error(`Unsubmitted working change at ${file.path}`);
+            options.beforePublish?.();
             await unlink(candidate);
           }
           await syncExistingParent(candidate);
@@ -88,6 +92,7 @@ export async function materializeScientificWorkspace(
           const bytes = store.readBlob(file.blob);
           if (!bytes) throw new Error(`Scientific blob unavailable: ${file.blob.hash}`);
           if (current === file.blob.hash) {
+            options.beforePublish?.();
             await flushExistingFile(canonicalRoot, candidate, bytes, current);
           } else {
             if (current !== file.expectedHash)
@@ -101,6 +106,7 @@ export async function materializeScientificWorkspace(
               },
               {
                 durable: true,
+                ...(options.beforePublish ? { beforePublish: options.beforePublish } : {}),
                 mode: current === null ? 'create' : 'replace',
                 ...(current === null
                   ? {}
