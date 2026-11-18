@@ -6,9 +6,7 @@ import type {
 import { ActionMenu, type ActionMenuEntry } from './ActionMenu';
 import {
   ChatTabIcon,
-  AssemblyTabIcon,
   FolderOpenIcon,
-  GenericFileIcon,
   ImportIcon,
   OpenExternalIcon,
   PlusIcon,
@@ -16,7 +14,6 @@ import {
 } from './icons';
 import { isHostedCapabilityShown } from '../hosted/capabilities';
 import { isElectron } from '../utils/environment';
-import { SpreadsheetFileIcon } from './icons/glyphs';
 
 export type ExplorerAddPickerLaunchSource = 'context-menu' | 'registry';
 export type ExplorerEntityImportRequest = EntityImportRequest;
@@ -106,13 +103,7 @@ export type ExplorerAddEntriesOptions = Omit<
 >;
 
 function entityTypeIcon(entityType: PickerEntityType) {
-  return entityType.id === 'table' ? (
-    <SpreadsheetFileIcon className="h-4 w-4" />
-  ) : entityType.id === 'assembly' ? (
-    <AssemblyTabIcon className="h-4 w-4" />
-  ) : (
-    (iconForEntityKind(entityType.id, 'h-4 w-4') ?? <GenericFileIcon className="h-4 w-4" />)
-  );
+  return iconForEntityKind(entityType.id, 'h-4 w-4') ?? iconForEntityKind('generic', 'h-4 w-4');
 }
 
 export function ExplorerAddHeader({
@@ -123,11 +114,9 @@ export function ExplorerAddHeader({
     <div className="flex min-h-10 items-center gap-2 border-b border-border px-3 py-2">
       {launchSource === 'context-menu' ? (
         <>
-          <FolderOpenIcon className="h-4 w-4 flex-none text-fg-muted" />
+          <FolderOpenIcon className="h-4 w-4 flex-none" colorFamily="neutral" />
           <div className="min-w-0 leading-tight">
-            <div className="font-medium uppercase tracking-wide text-fg-muted">
-              Add to folder
-            </div>
+            <div className="font-medium uppercase tracking-wide text-fg-muted">Add to folder</div>
             <div
               data-testid="explorer-add-picker-destination"
               className="truncate font-mono text-sm font-semibold text-fg"
@@ -184,7 +173,7 @@ export function buildExplorerAddEntries({
             {
               id: 'schema',
               label: 'From schema…',
-              icon: <AssemblyTabIcon className="h-4 w-4" />,
+              icon: iconForEntityKind('assembly', 'h-4 w-4'),
               onSelect: commit(() =>
                 onCreateAssembly({ mode: 'schema', destinationPath: destinationPath ?? null })
               ),

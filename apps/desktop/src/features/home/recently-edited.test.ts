@@ -731,6 +731,49 @@ describe('getRecentlyEdited (merge)', () => {
     expect(result[1].id).toBe('design-1');
   });
 
+  it('retains canonical RNA metadata when newer Git history supplies its row timestamp', async () => {
+    const relativePath = 'primers/sheet-cf5f97c9-a32a-4330-9b28-164d09c7092f-row.primer.json';
+    const path = `/ws/lab/${relativePath}`;
+    mockSelect
+      .mockResolvedValueOnce([{ id: 1, name: 'Lab', path: '/ws/lab', last_opened_at: 900 }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    mockGetRecentlyEditedCatalogEntities.mockResolvedValueOnce([
+      {
+        id: 'primer-readable',
+        type: 'primer',
+        iconContext: { kind: 'rna_oligo' },
+        name: 'Excel Forward A',
+        locator: 'waypoint://primer/primer-readable',
+        storage_type: 'file',
+        current_file_path: path,
+        workspace_id: 1,
+        workspace_path: '/ws/lab',
+        workspace_name: 'Lab',
+        updated_at: 1000,
+      },
+    ]);
+    mockGitRepoRootForDir.mockResolvedValueOnce('/ws/lab');
+    mockGitRecentlyChangedFiles.mockResolvedValueOnce([
+      {
+        path: relativePath,
+        hash: 'primer-commit',
+        date: '2026-11-09T00:00:00Z',
+        relativeDate: 'now',
+      },
+    ]);
+    expect(await getRecentlyEdited(8)).toEqual([
+      expect.objectContaining({
+        title: 'Excel Forward A',
+        iconContext: { kind: 'rna_oligo' },
+        updatedAt: Date.parse('2026-11-09T00:00:00Z'),
+        workspaceRoot: '/ws/lab',
+        open: { kind: 'file', path, tabType: 'primer' },
+      }),
+    ]);
+  });
+
   it('keeps a primer catalog name when newer Git history supplies its timestamp and file target', async () => {
     const relativePath = 'primers/sheet-cf5f97c9-a32a-4330-9b28-164d09c7092f-row.primer.json';
     const path = `/ws/lab/${relativePath}`;

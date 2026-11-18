@@ -5376,7 +5376,18 @@
                     "resourceUri": { "type": "string" },
                     "importRequired": { "type": "boolean" },
                     "biologyMatches": { "type": "array", "items": { "type": "string" } },
-                    "biologySearchPartial": { "type": "boolean" }
+                    "biologySearchPartial": { "type": "boolean" },
+                    "iconContext": {
+                      "type": "object",
+                      "properties": {
+                        "kind": { "type": "string" },
+                        "molecule": { "type": "string" },
+                        "path": { "type": "string" },
+                        "packageKind": { "type": "string" },
+                        "isDirectory": { "type": "boolean" }
+                      },
+                      "additionalProperties": false
+                    }
                   },
                   "required": ["name", "type", "isBiologyFile"],
                   "additionalProperties": false
@@ -6694,7 +6705,18 @@
                           "id": { "type": "string" },
                           "type": { "type": "string" },
                           "entityId": { "type": "string" },
-                          "label": { "type": "string" }
+                          "label": { "type": "string" },
+                          "iconContext": {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string" },
+                              "molecule": { "type": "string" },
+                              "path": { "type": "string" },
+                              "packageKind": { "type": "string" },
+                              "isDirectory": { "type": "boolean" }
+                            },
+                            "additionalProperties": false
+                          }
                         },
                         "required": ["id", "type", "entityId", "label"],
                         "additionalProperties": false

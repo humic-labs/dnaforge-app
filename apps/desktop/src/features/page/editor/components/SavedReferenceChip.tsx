@@ -106,6 +106,7 @@ export function SavedReferenceChip({ node, extension }: NodeViewProps) {
     >
       <EntityReferenceChip
         entityType={entityType}
+        iconContext={reference?.iconContext}
         label={label}
         busy={loading || opening}
         onOpen={reference && molecular !== undefined ? open : undefined}

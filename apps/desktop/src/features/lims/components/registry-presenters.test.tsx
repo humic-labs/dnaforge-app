@@ -27,13 +27,26 @@ describe('iconForLimsKind', () => {
     }
   });
 
-  it('has no icon for DNA and RNA sequence kinds yet ', () => {
-    expect(iconForLimsKind('dna_sequence')).toBeNull();
-    expect(iconForLimsKind('rna_sequence')).toBeNull();
+  it('uses distinct DNA and RNA families for sequence kinds', () => {
+    const { container } = render(
+      <>
+        {['dna_sequence', 'rna_sequence'].map((kind) => (
+          <span key={kind}>{iconForLimsKind(kind)}</span>
+        ))}
+      </>
+    );
+    expect(
+      [...container.querySelectorAll('svg')].map((icon) =>
+        icon.getAttribute('data-entity-color-family')
+      )
+    ).toEqual(['dna', 'rna']);
   });
 
-  it('renders no icon for an unknown/user-defined kind', () => {
-    expect(iconForLimsKind('organism')).toBeNull();
+  it('uses the neutral family for organisms and preserves the unknown-kind fallback', () => {
+    const { container } = render(<>{iconForLimsKind('organism')}</>);
+    expect(container.querySelector('svg')?.getAttribute('data-entity-color-family')).toBe(
+      'neutral'
+    );
     expect(iconForLimsKind('some-custom-kind')).toBeNull();
   });
 });

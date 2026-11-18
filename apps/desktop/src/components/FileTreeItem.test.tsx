@@ -4,6 +4,8 @@ import { FileTreeItem } from './FileTreeItem';
 import { OligoIcon } from './icons';
 import { startFileDrag } from '../hooks/useFileDrag';
 import type { FileEntry } from '../hooks/useFileBrowser';
+import { useCanvasStore } from '../features/canvas/store';
+import { useSequenceStore } from '../features/sequence/store';
 
 vi.mock('../hooks/useFileDrag', () => ({ startFileDrag: vi.fn() }));
 
@@ -82,6 +84,71 @@ function renderItem(entry: FileEntry) {
 }
 
 describe('FileTreeItem icon ', () => {
+  it('uses the protein glyph and color for a typed native record artifact', () => {
+    const { container } = renderItem({
+      ...makeEntry('Native_protein.entity.json', 'json'),
+      iconContext: { kind: 'protein' },
+    });
+    expect(container.querySelector('svg[data-file-type-icon="structure"]')).toHaveAttribute(
+      'data-entity-color-family',
+      'protein'
+    );
+  });
+
+  it.each(['import-source-sequence', 'catalog-sequence'] as const)(
+    'uses loaded RNA metadata for an ordinary file opened as %s',
+    (kind) => {
+      const documentId = 'rna-color-test-document';
+      const path = '/ws/transcript.gb';
+      const panels = useCanvasStore.getState().panels;
+      const sequences = useSequenceStore.getState().sequences;
+      try {
+        useCanvasStore.setState({
+          panels: {
+            main: {
+              id: 'main',
+              activeTabId: 'rna-color-test-tab',
+              tabs: [
+                {
+                  id: 'rna-color-test-tab',
+                  type: 'sequence',
+                  entityId: documentId,
+                  label: 'transcript',
+                  sourceFileName: path,
+                  sequenceDocument:
+                    kind === 'import-source-sequence'
+                      ? { kind, documentId, sourcePath: path }
+                      : { kind, entityId: documentId },
+                },
+              ],
+            },
+          },
+        });
+        useSequenceStore.setState({
+          sequences: {
+            ...sequences,
+            [documentId]: {
+              id: documentId,
+              name: 'transcript',
+              sequence: 'AUGC',
+              length: 4,
+              annotations: [],
+              molecule: 'RNA',
+            },
+          },
+        });
+        const { container, unmount } = renderItem(makeSequenceEntry('transcript', 'transcript.gb'));
+        expect(container.querySelector('svg')).toHaveAttribute('data-entity-color-family', 'rna');
+        unmount();
+      } finally {
+        act(() => {
+          useCanvasStore.setState({ panels });
+          useSequenceStore.setState({ sequences });
+        });
+      }
+    }
+  );
+
   it.each(['NoGitIdentity.primer.json', 'NoGitIdentity.PRIMER.JSON'])(
     'shows the oligo glyph for %s in a Windows project',
     (name) => {

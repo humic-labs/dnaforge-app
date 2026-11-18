@@ -1,7 +1,8 @@
 import { userMessage } from '@waypoint/user-messages';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest';
 import { act, render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { HomePanel } from '../HomePanel';
+import { useSequenceStore } from '../../features/sequence/store';
 import {
   publishRecentlyEditedSnapshot,
   resetRecentlyEditedSnapshotForTests,
@@ -87,7 +88,7 @@ const mockCanvasState = {
         type: string;
         entityId: string;
         label: string;
-        sequenceDocument?: { kind: 'indexed-sequence'; documentId: string };
+        sequenceDocument?: import('../../shared/managed-sequence-document').SequenceDocumentRef;
       }>;
     }
   >,
@@ -102,6 +103,72 @@ vi.mock('../../features/canvas/store', () => {
 });
 
 describe('HomePanel', () => {
+  it.each([
+    ['rna_oligo', 'primer', 'rna'],
+    ['protein', 'scientific-document', 'protein'],
+  ] as const)(
+    'retains authoritative %s metadata in Recently edited icons',
+    (kind, tabType, family) => {
+      seedRecentlyEdited([
+        {
+          id: 'native-recent',
+          title: 'A display name',
+          workspaceRoot: '/project',
+          workspaceName: 'Project',
+          updatedAt: 1,
+          iconContext: { kind },
+          open: { kind: 'file', path: '/project/Native.primer.json', tabType },
+        },
+      ]);
+      render(<HomePanel />);
+      expect(
+        screen.getByTestId('home-recently-edited-native-recent').querySelector('svg')
+      ).toHaveAttribute('data-entity-color-family', family);
+    }
+  );
+
+  it('updates Home Open tabs when an existing sequence loads RNA metadata', async () => {
+    const documentId = 'home-rna-document';
+    const before = useSequenceStore.getState().sequences;
+    onTestFinished(() => act(() => useSequenceStore.setState({ sequences: before })));
+    mockCanvasState.panels = {
+      main: {
+        id: 'main',
+        tabs: [
+          {
+            id: 'home-rna-tab',
+            type: 'sequence',
+            entityId: documentId,
+            label: 'RNA transcript',
+            sequenceDocument: { kind: 'catalog-sequence', entityId: documentId },
+          },
+        ],
+      },
+    };
+    render(<HomePanel />);
+    act(() =>
+      useSequenceStore.setState({
+        sequences: {
+          ...before,
+          [documentId]: {
+            id: documentId,
+            name: 'RNA transcript',
+            sequence: 'ACGU',
+            length: 4,
+            annotations: [],
+            molecule: 'RNA',
+          },
+        },
+      })
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('home-open-tab-home-rna-tab').querySelector('svg')).toHaveAttribute(
+        'data-entity-color-family',
+        'rna'
+      )
+    );
+  });
+
   beforeEach(() => {
     resetRecentlyEditedSnapshotForTests();
     mockNewConversation.mockReset().mockResolvedValue('conv-1');

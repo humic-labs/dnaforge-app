@@ -385,11 +385,12 @@ export function createHostedMemoryDb(
       (row) => row.path === root && row.archived_at == null && row.trashed_at == null
     );
     if (!workspace) return [];
-    const currentFiles = new Set(
+    const currentFiles = new Map(
       table('catalog_entity_files')
         .filter((file) => file.workspace_id === workspace.id && file.status === 'current')
-        .map((file) => file.entity_id)
+        .map((file) => [file.entity_id, file.path] as const)
     );
+    const iconKinds = new Map(table('lims_entity').map((entity) => [entity.id, entity.kind]));
     const pages = new Set(table('pages').map((page) => page.id));
     const rows = table('catalog_entities').flatMap((row) => {
       if (
@@ -407,6 +408,10 @@ export function createHostedMemoryDb(
           name: row.name,
           storage_type: String(row.storage_type ?? ''),
           metadata: typeof row.metadata === 'string' ? row.metadata : null,
+          icon_kind:
+            typeof iconKinds.get(row.id) === 'string' ? String(iconKinds.get(row.id)) : null,
+          icon_path:
+            typeof currentFiles.get(row.id) === 'string' ? String(currentFiles.get(row.id)) : null,
           workspace_root: root,
           workspace_name: String(workspace.name ?? ''),
           updated_at: Number(row.updated_at ?? 0),
