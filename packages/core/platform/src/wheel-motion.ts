@@ -139,17 +139,19 @@ export function installNativeWheelMetadataSource(
   document: Document,
   subscribe: (listener: (packet: NativeWheelMetadata) => void) => () => void
 ): () => void {
+  const clock = document.defaultView?.performance;
   const packets: NativeWheelMetadata[] = [];
   const disposeSource = installNativeWheelSource(document);
   const unsubscribe = subscribe((packet) => {
-    packets.push(packet);
+    if (!clock) return;
+    const timestamp = packet.timestamp - Date.now() + clock.now();
+    packets.push({ ...packet, timestamp });
     if (packets.length > 512) packets.splice(0, packets.length - 512);
   });
   const onWheel = (event: WheelEvent) => {
-    const origin = document.defaultView?.performance.timeOrigin;
-    if (origin === undefined) return;
-    const timestamp = origin + event.timeStamp;
-    const candidates = packets.filter((packet) => Math.abs(packet.timestamp - timestamp) <= 1);
+    const candidates = packets.filter(
+      (packet) => Math.abs(packet.timestamp - event.timeStamp) <= 1
+    );
     const packet = candidates.at(-1);
     if (packet && candidates.every((candidate) => candidate.precise === packet.precise)) {
       nativePrecision.set(event, packet.precise);
