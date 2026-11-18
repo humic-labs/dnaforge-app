@@ -136,7 +136,7 @@ describe('compiled-broad frame presenter', () => {
       ownerRosterForTheme: vi.fn(() => [
         { trackId: 'mRNA', currentOwner: owner, candidateOwner: null, owner },
       ]),
-      laneStart: vi.fn(() => 0),
+      rosterLaneStarts: () => () => 0,
       provenanceIsCurrent: vi.fn(() => true),
       candidateRegistrationMatches: vi.fn(() => true),
       finalizeCandidateOwner: vi.fn(),
@@ -193,7 +193,7 @@ describe('compiled-broad frame presenter', () => {
       ownerRosterForTheme: vi.fn(() => [
         { trackId: 'mRNA', currentOwner: owner, candidateOwner: null, owner },
       ]),
-      laneStart: vi.fn(() => 0),
+      rosterLaneStarts: () => () => 0,
       provenanceIsCurrent: vi.fn(() => true),
       candidateRegistrationMatches: vi.fn(() => true),
       finalizeCandidateOwner: vi.fn(),

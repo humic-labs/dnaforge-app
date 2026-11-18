@@ -26,11 +26,6 @@ export type CompiledBroadTrackLayoutHost = {
     policy: AnnotationPolicyGpuRuntimeV1,
     preserveLegacyFixedCapacity?: boolean
   ): number;
-  compiledBroadSurfaceLaneStart(
-    trackId: string,
-    requestedLayerTypes: readonly string[],
-    policy: AnnotationPolicyGpuRuntimeV1
-  ): number;
 };
 
 export function installCompiledBroadSurfaceCandidateOwner(
@@ -99,19 +94,42 @@ export function finalizeCompiledBroadSurfaceCandidateOwner(
   }
 }
 
+const preferredTrackPriority = new Map(
+  ['gene', 'mRNA', 'lncRNA', 'lnc_RNA', 'ncRNA', 'miRNA', 'snoRNA', 'tRNA'].map(
+    (type, index) => [type, index] as const
+  )
+);
+
+function orderedCompiledBroadTracks(requestedLayerTypes: readonly string[]): string[] {
+  return [...new Set(requestedLayerTypes)].sort((left, right) => {
+    const leftRank = preferredTrackPriority.get(left) ?? Number.MAX_SAFE_INTEGER;
+    const rightRank = preferredTrackPriority.get(right) ?? Number.MAX_SAFE_INTEGER;
+    return leftRank === rightRank ? left.localeCompare(right) : leftRank - rightRank;
+  });
+}
+
+export function compiledBroadSurfaceRosterLaneStarts(
+  host: Pick<CompiledBroadTrackLayoutHost, 'annotationTrackRealizedLaneCapacity'>,
+  requestedLayerTypes: readonly string[],
+  policy: AnnotationPolicyGpuRuntimeV1
+): (trackId: string) => number {
+  const ordered = orderedCompiledBroadTracks(requestedLayerTypes);
+  const starts = new Map<string, number>();
+  let nextLane = 0;
+  for (const trackId of ordered) {
+    starts.set(trackId, nextLane);
+    nextLane += host.annotationTrackRealizedLaneCapacity(trackId, policy, ordered.length <= 1) + 1;
+  }
+  return (trackId) => starts.get(trackId) ?? nextLane;
+}
+
 export function compiledBroadSurfaceLaneStart(
   host: CompiledBroadTrackLayoutHost,
   trackId: string,
   requestedLayerTypes: readonly string[],
   policy: AnnotationPolicyGpuRuntimeV1
 ): number {
-  const preferred = ['gene', 'mRNA', 'lncRNA', 'lnc_RNA', 'ncRNA', 'miRNA', 'snoRNA', 'tRNA'];
-  const priority = new Map(preferred.map((type, index) => [type, index]));
-  const ordered = [...new Set(requestedLayerTypes)].sort((left, right) => {
-    const leftRank = priority.get(left) ?? Number.MAX_SAFE_INTEGER;
-    const rightRank = priority.get(right) ?? Number.MAX_SAFE_INTEGER;
-    return leftRank === rightRank ? left.localeCompare(right) : leftRank - rightRank;
-  });
+  const ordered = orderedCompiledBroadTracks(requestedLayerTypes);
   let laneStart = 0;
   for (const requestedTrackId of ordered) {
     if (requestedTrackId === trackId) return laneStart;
@@ -128,12 +146,7 @@ export function annotationTrackRealizedLaneCapacity(
   preserveLegacyFixedCapacity = host.annotationLayerTypesForPresentation().length <= 1
 ): number {
   const owner = host.compiledBroadSurfaceOwnerForTrack(trackId);
-  const resident = host.prepackedAnnotationSceneResidentForTrack(trackId);
   const artifactLaneCount = owner?.manifest.laneRowCounts[policy.isoformMode];
-  const residentLaneCount = resident?.policyTrackLaneMaxima
-    ? resident.policyTrackLaneMaxima[policy.isoformMode] + 1
-    : null;
-  const realizedLaneCount = artifactLaneCount ?? residentLaneCount ?? 1;
   if (
     policy.laneLimit !== null &&
     !owner &&
@@ -142,6 +155,11 @@ export function annotationTrackRealizedLaneCapacity(
   ) {
     return policy.laneLimit;
   }
+  const realizedLaneCount =
+    artifactLaneCount ??
+    (host.prepackedAnnotationSceneResidentForTrack(trackId)?.policyTrackLaneMaxima?.[
+      policy.isoformMode
+    ] ?? 0) + 1;
   return Math.max(
     1,
     policy.laneLimit === null ? realizedLaneCount : Math.min(realizedLaneCount, policy.laneLimit)
@@ -153,11 +171,15 @@ export function annotationTrackStackMaxLane(
   policy: AnnotationPolicyGpuRuntimeV1
 ): number {
   const requestedLayerTypes = host.annotationLayerTypesForPresentation();
-  let maxLane = -1;
-  for (const trackId of requestedLayerTypes) {
-    const laneStart = host.compiledBroadSurfaceLaneStart(trackId, requestedLayerTypes, policy);
-    const laneCapacity = host.annotationTrackRealizedLaneCapacity(trackId, policy);
-    maxLane = Math.max(maxLane, laneStart + laneCapacity - 1);
+  const uniqueTracks = new Set(requestedLayerTypes);
+  if (uniqueTracks.size === 0) return -1;
+  let laneCount = uniqueTracks.size - 1;
+  for (const trackId of uniqueTracks) {
+    laneCount += host.annotationTrackRealizedLaneCapacity(
+      trackId,
+      policy,
+      requestedLayerTypes.length <= 1
+    );
   }
-  return maxLane;
+  return laneCount - 1;
 }
