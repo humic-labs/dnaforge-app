@@ -1,3 +1,4 @@
+import { queryWorkRecordDates } from '../work-record-dates';
 import {
   startWorkReminderScheduler,
   readWorkReminders,
@@ -25,6 +26,10 @@ export function registerWorkTaskHandlers(
   resolveDb: () => Database.Database = getDb
 ): void {
   handleGroup(workTasksContract, {
+    dates: (event, input) => {
+      const db = resolveDb();
+      return withRendererDatabaseRead(db, event.sender, () => queryWorkRecordDates(db, input));
+    },
     reminders: (_event, input) => readWorkReminders(resolveDb(), input.workspaceRoot),
     reminderCommand: (_event, input) => workReminderCommand(resolveDb(), input),
     query: (event, input) => {

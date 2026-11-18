@@ -101,7 +101,7 @@ export function workSourceReader(
     const legacy =
       definition.type === 'datetime'
         ? parseLimsTemporalField('datetime', raw)
-        : classifyLegacyWorkDate(raw, source.zone ?? '');
+        : classifyLegacyWorkDate(raw, source.zone ?? definition.agenda?.zone ?? '');
     return legacy.kind === 'exact'
       ? { kind: 'resolved', spec: { kind: 'fixed', value: legacy.value }, revisionId }
       : legacy.kind === 'missing'
