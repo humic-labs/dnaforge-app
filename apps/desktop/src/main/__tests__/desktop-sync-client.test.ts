@@ -318,7 +318,7 @@ describe('desktop sync client', () => {
       {
         status: 426,
         body: { code: 'UPGRADE_REQUIRED', message: 'update DNAForge' },
-        code: 'VALIDATION',
+        code: 'UPGRADE_REQUIRED',
         retryable: false,
         terminal: true,
       },

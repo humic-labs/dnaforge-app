@@ -186,6 +186,7 @@ describe('workspace sync IPC contract', () => {
       'cloudSync:transferOrganizationOwnership',
       'cloudSync:unsubscribeStatus',
       'cloudSync:updateOrganization',
+      'cloudSync:updateSelection',
     ]);
   });
 

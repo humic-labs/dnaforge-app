@@ -1,3 +1,5 @@
+import { ensureWorkspaceSyncAcceptedPaths } from '../workspace-sync-membership';
+import type { WorkspaceSyncSelectionUpdate } from '../../shared/workspace-sync-selection';
 import { handleGroup, mainIpc, sendRendererIpc } from '../../shared/ipc-contract';
 import { organizationRegistryContract } from '../../shared/ipc/organization-registry.contract';
 import { scientificRecoveryContract } from '../../shared/ipc/scientific-recovery.contract';
@@ -18,6 +20,7 @@ import {
   parseWorkspaceSyncConflictResolution,
   parseWorkspaceSyncEnabled,
   parseWorkspaceSyncEnableOptions,
+  parseWorkspaceSyncSelectionUpdate,
   parseWorkspaceSyncHistoryOptions,
   parseWorkspaceSyncCreateOrganizationRequest,
   parseWorkspaceSyncUpdateOrganizationRequest,
@@ -180,6 +183,11 @@ export interface WorkspaceSyncActionHandlers extends OrganizationRegistryActionH
     resolution: 'keep_local' | 'use_remote'
   ): Promise<WorkspaceSyncResolveConflictResult>;
   deleteCloudCopy(workspaceUuid: string): Promise<WorkspaceSyncDeleteCloudCopyResult>;
+  updateSelection(
+    workspaceUuid: string,
+    request: WorkspaceSyncSelectionUpdate,
+    options?: WorkspaceSyncEnableOptions
+  ): Promise<WorkspaceSyncUploadPreviewResult>;
   previewUpload(
     workspaceUuid: string,
     options?: WorkspaceSyncEnableOptions
@@ -268,6 +276,7 @@ const defaultActions: WorkspaceSyncActionHandlers = {
       managedRootDir: managedRootDir(),
     }),
   deleteCloudCopy: async () => workspaceSyncNotImplemented('deleteCloudCopy'),
+  updateSelection: async () => workspaceSyncNotImplemented('updateSelection'),
   previewUpload: async (workspaceUuid, options) => {
     try {
       const auth = getAuthState();
@@ -279,9 +288,11 @@ const defaultActions: WorkspaceSyncActionHandlers = {
         };
       const { createDesktopSyncClient } = await import('../desktop-sync-client');
       const { readWorkspaceSyncPreviewPolicy } = await import('../workspace-sync-storage-policy');
+      const client = createDesktopSyncClient();
+      await hydrateSelectionOwnership(workspaceUuid, client, auth.session.accountId);
       const storagePolicy = await readWorkspaceSyncPreviewPolicy(
         getDb(),
-        createDesktopSyncClient(),
+        client,
         workspaceUuid,
         auth.session.accountId,
         options
@@ -294,6 +305,8 @@ const defaultActions: WorkspaceSyncActionHandlers = {
         includedFileCount: preview.includedFileCount,
         includedBytes: preview.includedBytes,
         excludedSummary: preview.statusExcludedSummary,
+        excludedFiles: preview.excludedFiles,
+        selection: preview.selection,
         limits: preview.limits,
       };
     } catch (error) {
@@ -469,6 +482,12 @@ export function registerWorkspaceSyncHandlers(deps: RegisterWorkspaceSyncHandler
       ),
     deleteCloudCopy: async (_event, workspaceUuid: unknown) =>
       actions.deleteCloudCopy(parseWorkspaceUuid(workspaceUuid)),
+    updateSelection: async (_event, workspaceUuid: unknown, request: unknown, options?: unknown) =>
+      actions.updateSelection(
+        parseWorkspaceUuid(workspaceUuid),
+        parseWorkspaceSyncSelectionUpdate(request),
+        parseWorkspaceSyncEnableOptions(options)
+      ),
     previewUpload: async (_event, workspaceUuid: unknown, options?: unknown) =>
       actions.previewUpload(
         parseWorkspaceUuid(workspaceUuid),
@@ -531,4 +550,27 @@ export function getDefaultStatusPublisher(): WorkspaceSyncStatusPublisher {
     getCurrentLocalHeadSha: (workspace) => resolveHeadCommitSync(workspace.path),
   });
   return defaultStatusPublisher;
+}
+
+async function hydrateSelectionOwnership(
+  workspaceUuid: string,
+  client: import('../desktop-sync-client').DesktopSyncClient,
+  accountId: string
+): Promise<void> {
+  const { createWorkspaceSyncProjectsClient } = await import('../workspace-sync-projects');
+  await ensureWorkspaceSyncAcceptedPaths(
+    getDb(),
+    workspaceUuid,
+    async (remoteId, versionId, ownerAccountId) => {
+      if (ownerAccountId !== accountId)
+        throw new Error('This project belongs to a different signed-in account.');
+      await client.assertAccount?.(accountId);
+      const paths = await createWorkspaceSyncProjectsClient(client).readVersionPaths!(
+        remoteId,
+        versionId
+      );
+      await client.assertAccount?.(accountId);
+      return paths;
+    }
+  );
 }

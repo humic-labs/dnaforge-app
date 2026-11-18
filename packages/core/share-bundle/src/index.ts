@@ -21,6 +21,7 @@ export * from './desktop-sync-claim';
 export * from './workspace-sync-manifest';
 export * from './sequence-package-admission';
 export * from './workspace-sync-storage-policy';
+export * from './workspace-sync-publication-policy';
 export { BUNDLE_SCHEMA_CAPABILITY_HEADER, WORKSPACE_SYNC_BUNDLE_SCHEMA_VERSION } from './protocol';
 export {
   DEFAULT_SHARE_BUNDLE_LIMITS,
@@ -155,6 +156,17 @@ const WORKSPACE_RESOURCE_MEDIA_TYPES: Readonly<Record<string, string>> = {
 };
 
 export function workspaceSyncResourceMediaType(relativePath: string): string | null {
+  if (
+    isSafeRelativePath(relativePath) &&
+    !hasReservedWindowsName(relativePath) &&
+    relativePath.split('/').slice(-1)[0] === '.gitignore' &&
+    relativePath
+      .split('/')
+      .slice(0, -1)
+      .every((part) => part.toLowerCase() !== '.git')
+  ) {
+    return 'text/plain';
+  }
   if (
     !isSafeRelativePath(relativePath) ||
     hasReservedWindowsName(relativePath) ||

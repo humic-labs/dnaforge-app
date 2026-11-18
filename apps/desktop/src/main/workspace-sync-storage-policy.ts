@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import {
   parseWorkspaceSyncStoragePolicy,
+  parseWorkspaceSyncPublicationPolicy,
   type WorkspaceSyncStoragePolicy,
 } from '@waypoint/share-bundle';
 import { DesktopSyncClientError, type DesktopSyncClient } from './desktop-sync-client';
@@ -13,16 +14,20 @@ export async function readWorkspaceSyncStoragePolicy(
   signal?: AbortSignal
 ): Promise<WorkspaceSyncStoragePolicy> {
   const value = await client.requestJson(
-    `/api/desktop-sync/workspaces/${encodeURIComponent(remoteWorkspaceId)}/storage-policy`,
+    `/api/desktop-sync/workspaces/${encodeURIComponent(remoteWorkspaceId)}/storage-policy?fileSelectionVersion=1`,
     { method: 'GET', expectedAccountId, signal, maxResponseBytes: 4096 }
   );
   try {
-    return parseWorkspaceSyncStoragePolicy(value);
+    return parseWorkspaceSyncPublicationPolicy(value).policy;
   } catch {
-    throw new DesktopSyncClientError('BAD_RESPONSE', 'Storage policy is unavailable.', {
-      retryable: true,
-      terminal: false,
-    });
+    throw new DesktopSyncClientError(
+      'UPGRADE_REQUIRED',
+      'The service must be updated before this project can use shared file selection.',
+      {
+        retryable: true,
+        terminal: false,
+      }
+    );
   }
 }
 
@@ -35,7 +40,7 @@ export async function readWorkspaceSyncCapturePolicy(
     runDatabase?: <T>(operation: () => T) => Promise<T>;
   }
 ): Promise<WorkspaceSyncStoragePolicy> {
-  const key = `workspace_sync_storage_policy:${encodeURIComponent(input.expectedAccountId)}:${encodeURIComponent(input.remoteWorkspaceId)}`;
+  const key = `workspace_sync_publication_policy:${encodeURIComponent(input.expectedAccountId)}:${encodeURIComponent(input.remoteWorkspaceId)}`;
   const runDatabase = input.runDatabase ?? (async <T>(operation: () => T) => operation());
   try {
     const policy = parseWorkspaceSyncStoragePolicy(await input.readPolicy());
@@ -102,18 +107,24 @@ export async function readWorkspaceSyncPreviewPolicy(
     });
   }
   const query =
-    options.owner?.kind === 'org' ? `?orgId=${encodeURIComponent(options.owner.orgId)}` : '';
+    options.owner?.kind === 'org'
+      ? `?fileSelectionVersion=1&orgId=${encodeURIComponent(options.owner.orgId)}`
+      : '?fileSelectionVersion=1';
   const value = await client.requestJson(`/api/desktop-sync/account/storage-policy${query}`, {
     method: 'GET',
     expectedAccountId,
     maxResponseBytes: 4096,
   });
   try {
-    return parseWorkspaceSyncStoragePolicy(value);
+    return parseWorkspaceSyncPublicationPolicy(value).policy;
   } catch {
-    throw new DesktopSyncClientError('BAD_RESPONSE', 'Storage policy is unavailable.', {
-      retryable: true,
-      terminal: false,
-    });
+    throw new DesktopSyncClientError(
+      'UPGRADE_REQUIRED',
+      'The service must be updated before this project can use shared file selection.',
+      {
+        retryable: true,
+        terminal: false,
+      }
+    );
   }
 }

@@ -1,3 +1,18 @@
+import { updateWorkspaceSyncSelection } from './workspace-sync-selection-actions';
+import type { WorkspaceSyncSelectionUpdate } from '../shared/workspace-sync-selection';
+import { readWorkspaceSyncPreviewPolicy } from './workspace-sync-storage-policy';
+import {
+  previewWorkspaceSyncUpload,
+  previewWorkspaceSyncUploadWithHeldMutationLease,
+} from './workspace-sync-snapshotter';
+import {
+  approveWorkspaceSyncMembership,
+  assertWorkspaceSyncSelectionActive,
+  ensureWorkspaceSyncAcceptedPaths,
+  readWorkspaceSyncMembership,
+  WorkspaceSyncSelectionError,
+} from './workspace-sync-membership';
+import { acquireWorkspaceSyncMutationLease } from './workspace-sync-mutation-lease';
 import { cancelWorkspaceSyncUploadsBeforeStart } from './workspace-sync-queue';
 import { userMessage, type UserMessage } from '@waypoint/user-messages';
 import type Database from 'better-sqlite3';
@@ -13,6 +28,7 @@ import {
   type WorkspaceSyncReconcileResult,
   type WorkspaceSyncResolveMergeRequest,
   type WorkspaceSyncSetEnabledResult,
+  type WorkspaceSyncUploadPreviewResult,
 } from '../shared/workspace-sync-ipc';
 import {
   changeWorkspaceSyncOrganizationMemberRole,
@@ -135,6 +151,8 @@ export function createWorkspaceSyncActionHandlers(
     setEnabled: (workspaceUuid, enabled, options) =>
       setWorkspaceSyncEnabled(db, workspaceUuid, enabled, deps, options),
     forceSync: (workspaceUuid) => forceWorkspaceSync(db, workspaceUuid, deps),
+    updateSelection: (workspaceUuid, request, options) =>
+      updateWorkspaceSyncSelectionAction(db, workspaceUuid, request, deps, options),
     listOrganizations: () => listWorkspaceSyncOrganizations(accessDeps),
     createOrganization: (request) => createWorkspaceSyncOrganization(request, accessDeps),
     updateOrganization: (orgId, request) =>
@@ -310,6 +328,66 @@ function workspaceSyncActionFailed(result: unknown): boolean {
   return typeof result !== 'object' || result === null || !('ok' in result) || result.ok !== true;
 }
 
+export async function updateWorkspaceSyncSelectionAction(
+  db: Database.Database,
+  workspaceUuid: string,
+  request: WorkspaceSyncSelectionUpdate,
+  deps: WorkspaceSyncActionDeps,
+  options: WorkspaceSyncEnableOptions = {}
+): Promise<WorkspaceSyncUploadPreviewResult> {
+  const session = await activeSession(deps);
+  if (!session) return actionError('Sign in to change project sync rules.');
+  deps.runtime.pauseWorkspace(workspaceUuid);
+  try {
+    await deps.runtime.waitForIdle(workspaceUuid);
+    const client = createDesktopSyncClient();
+    const { createWorkspaceSyncProjectsClient } = await import('./workspace-sync-projects');
+    await ensureWorkspaceSyncAcceptedPaths(
+      db,
+      workspaceUuid,
+      async (remoteId, versionId, accountId) => {
+        if (session.accountId !== accountId)
+          throw new Error('This project belongs to a different signed-in account.');
+        await client.assertAccount?.(accountId);
+        const paths = await createWorkspaceSyncProjectsClient(client).readVersionPaths!(
+          remoteId,
+          versionId
+        );
+        await client.assertAccount?.(accountId);
+        return paths;
+      }
+    );
+    const storagePolicy = await readWorkspaceSyncPreviewPolicy(
+      db,
+      client,
+      workspaceUuid,
+      session.accountId,
+      options
+    );
+    const preview = await updateWorkspaceSyncSelection(db, {
+      workspaceUuid,
+      request,
+      storagePolicy,
+    });
+    const binding = readActionBinding(db, workspaceUuid);
+    if (binding)
+      cancelWorkspaceSyncUploadsBeforeStart(db, binding.workspace_id, deps.nowMs?.() ?? Date.now());
+    deps.statusPublisher?.invalidate(workspaceUuid, 'queue_changed');
+    deps.runtime.resumeWorkspace(workspaceUuid);
+    if (request.kind === 'approve' && binding?.enabled === 1) {
+      const uploaded = await forceWorkspaceSync(db, workspaceUuid, deps);
+      if (!uploaded.ok) return uploaded;
+      const refreshed = await previewWorkspaceSyncUpload(db, { workspaceUuid, storagePolicy });
+      return { ok: true, ...refreshed, excludedSummary: refreshed.statusExcludedSummary };
+    }
+    return { ok: true, ...preview, excludedSummary: preview.statusExcludedSummary };
+  } catch (error) {
+    return actionError(messageFromError(error));
+  } finally {
+    deps.runtime.resumeWorkspace(workspaceUuid);
+  }
+}
+
 export async function setWorkspaceSyncEnabled(
   db: Database.Database,
   workspaceUuid: string,
@@ -338,6 +416,25 @@ export async function setWorkspaceSyncEnabled(
   if (!session) return actionError('Sign in before enabling desktop sync.');
 
   try {
+    const reviewedPolicy = options.selectionRevision
+      ? await readWorkspaceSyncPreviewPolicy(
+          db,
+          createDesktopSyncClient(),
+          workspaceUuid,
+          session.accountId,
+          options
+        )
+      : undefined;
+    const reviewed = options.selectionRevision
+      ? await previewWorkspaceSyncUpload(db, { workspaceUuid, storagePolicy: reviewedPolicy })
+      : null;
+    if (reviewed) {
+      if (reviewed.selection.revision !== options.selectionRevision)
+        throw new WorkspaceSyncSelectionError(
+          'The project files changed. Review the current selection before enabling backup.'
+        );
+      assertWorkspaceSyncSelectionActive(reviewed.selection);
+    }
     const deviceId = readOrCreateWorkspaceSyncDeviceId(db, { nowMs: deps.nowMs });
 
     const ownerOrgId = options.owner?.kind === 'org' ? options.owner.orgId : null;
@@ -351,6 +448,32 @@ export async function setWorkspaceSyncEnabled(
         deps.createClaimClient?.(deviceId) ??
         createWorkspaceSyncClaimClient(deviceId),
     });
+    if (reviewed) {
+      const workspace = db
+        .prepare('SELECT path FROM workspaces WHERE repo_uuid = ?')
+        .get(workspaceUuid) as { path: string };
+      const release = await acquireWorkspaceSyncMutationLease(workspace.path);
+      try {
+        const current = await previewWorkspaceSyncUploadWithHeldMutationLease(db, {
+          workspaceUuid,
+          storagePolicy: reviewedPolicy,
+        });
+        if (
+          JSON.stringify(current.selection.ruleFiles) !==
+            JSON.stringify(reviewed.selection.ruleFiles) ||
+          JSON.stringify(current.includedFiles) !== JSON.stringify(reviewed.includedFiles)
+        )
+          throw new WorkspaceSyncSelectionError(
+            'The project selection changed while connecting. Review it before uploading.'
+          );
+        approveWorkspaceSyncMembership(
+          db,
+          await readWorkspaceSyncMembership(db, { workspaceUuid, repoPath: workspace.path })
+        );
+      } finally {
+        release();
+      }
+    }
     publishWorkspaceSyncEnablementTelemetry(db);
     db.prepare(
       `UPDATE workspace_sync_bindings
