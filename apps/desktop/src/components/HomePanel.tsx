@@ -1,3 +1,4 @@
+import { WorkInbox, WorkPanel } from '../features/work/public/work';
 import { APP_BUILD } from '../lib/app-build';
 import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { userEntityLabel, toUserMessage, userMessage } from '@waypoint/user-messages';
@@ -230,6 +231,9 @@ export function HomePanel({
               </button>
             ) : null}
           </div>
+
+          <WorkPanel mode="mine" />
+          <WorkInbox />
 
           {(hasOpenTabs || hasRecentlyEdited) && (
             <div

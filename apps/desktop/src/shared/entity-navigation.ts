@@ -31,6 +31,18 @@ export const entityNavigationTargetSchema = z
   .strict();
 
 export type EntityNavigationTarget = z.infer<typeof entityNavigationTargetSchema>;
+export const WORK_TASK_NAVIGATION_PREFIX = 'work-task:';
+
+export function workTaskNavigationTarget(
+  projectId: string,
+  taskId: string
+): EntityNavigationTarget {
+  identity.parse(taskId);
+  return entityNavigationTargetSchema.parse({
+    projectId,
+    entityId: WORK_TASK_NAVIGATION_PREFIX + taskId,
+  });
+}
 
 export function isEntityNavigationUrl(value: string): boolean {
   try {

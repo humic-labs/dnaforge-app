@@ -1,4 +1,5 @@
 import type { EntityNavigationTarget } from '../shared/entity-navigation';
+import { openWorkTask } from '../features/work/public/work';
 import {
   presentResolvedReference,
   type ReferenceNavigationOptions,
@@ -52,10 +53,15 @@ export async function openEntityNavigationTarget(
   const root =
     resolved.kind === 'reference'
       ? resolved.reference.workspace_root_path
-      : resolved.kind === 'catalog'
+      : resolved.kind === 'catalog' || resolved.kind === 'work-task'
         ? resolved.root
         : null;
   if (root) await mountOwner(root);
+  if (resolved.kind === 'work-task') {
+    if (!openWorkTask({ workspaceRoot: resolved.root, taskId: resolved.taskId }))
+      throw new Error('Finish the current task edit before opening another task.');
+    return { entityId: resolved.taskId };
+  }
   if (resolved.kind === 'reference') {
     await mountReferenceOwners(resolved.reference);
     return presentResolvedReference(resolved.reference, options);

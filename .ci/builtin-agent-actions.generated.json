@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "scope": "Built-in registered actions and canonical aliases. Runtime-installed provider manifests are discovered through their existing provider registry.",
   "source": "apps/api/src/concurrency/builtins.py#register_builtin_agent_tools",
-  "sharedCatalogSha256": "482272dd5f49067f576a79574f6ea0e232bdb43fe612453b4f6c3d09da51af6b",
+  "sharedCatalogSha256": "1b6246857027befcc636ca7bfcb1423b37cbe96ea81a5643c32cc97e2935528e",
   "tools": [
     {
       "name": "add_design_region",
@@ -6394,6 +6394,27 @@
       "conditionallyRequiresWorkspace": false,
       "replayPolicy": "reuse_result",
       "contractRef": "packages/core/agent-tools/renderer-tool-manifest.json#tools/virtual_digest"
+    },
+    {
+      "name": "work_tasks",
+      "handlerRef": "renderer_bridge.work_tasks",
+      "home": "renderer",
+      "runtime": "service",
+      "handlerRegistered": true,
+      "effects": [
+        "read-only",
+        "mutating"
+      ],
+      "requiredCapabilities": [
+        "read-workspace"
+      ],
+      "conditionalCapabilities": [
+        "write-workspace"
+      ],
+      "requiresWorkspace": true,
+      "conditionallyRequiresWorkspace": false,
+      "replayPolicy": "reuse_result",
+      "contractRef": "packages/core/agent-tools/renderer-tool-manifest.json#tools/work_tasks"
     },
     {
       "name": "workflow.prepare_run",

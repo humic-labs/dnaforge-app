@@ -2,6 +2,7 @@ import {
   PLASMID_SCHEMA_FIELD_DEFINITIONS,
   SEQUENCE_SCHEMA_V1_FIELD_DEFINITIONS,
 } from './sequence-entity-schema';
+import { parseWorkTime } from '@waypoint/scientific-objects';
 import type {
   EntitySchemaFieldSnapshot,
   ProjectableEntitySchemaRevisionSnapshot,
@@ -54,6 +55,7 @@ export const LIMS_FIELD_TYPES = [
   'boolean',
   'enum',
   'date',
+  'datetime',
   'dna_sequence',
   'rna_sequence',
   'protein_sequence',
@@ -233,6 +235,7 @@ export interface LimsFieldDefinition {
   maxValue?: number;
   minDate?: string;
   maxDate?: string;
+  agenda?: { role: 'milestone' | 'deadline' | 'observation'; zone?: string };
   description?: string;
 
   requireResolved?: boolean;
@@ -968,6 +971,7 @@ export type LimsRegistryOpenTarget =
 
 export interface LimsRegistrySummary {
   id: string;
+  workspaceId?: number | null;
   kind: string;
 
   schemaSnapshot: ProjectableEntitySchemaRevisionSnapshot;
@@ -1016,6 +1020,13 @@ export interface LimsRegistrySummary {
   archived: boolean;
 }
 
+export interface LimsRegistryDateFilter {
+  schemaId: string;
+  fieldKey: string;
+  mode: 'on' | 'before' | 'after' | 'missing' | 'unresolved';
+  value?: string;
+}
+
 export interface LimsQueryRegistrySummariesInput {
   workspaceIds?: readonly number[];
 
@@ -1042,6 +1053,8 @@ export interface LimsQueryRegistrySummariesInput {
   updatedAfter?: number;
   updatedBefore?: number;
   updatedOn?: number;
+  dateFilters?: readonly LimsRegistryDateFilter[];
+  dateSort?: { schemaId: string; fieldKey: string; direction: 'asc' | 'desc' };
   sort?: LimsRegistrySort;
   limit?: number;
   offset?: number;
@@ -2237,6 +2250,13 @@ function validateFieldValue(
     }
     case 'date':
       return validateDateField(field, value);
+    case 'datetime':
+      try {
+        if (parseWorkTime(value).kind !== 'timed') return `${field.key} requires a date and time`;
+        return null;
+      } catch {
+        return `${field.key} requires a valid date, time and named zone`;
+      }
     case 'number': {
       if (typeof value !== 'number' || !Number.isFinite(value)) {
         return `${field.key} must be a finite number`;

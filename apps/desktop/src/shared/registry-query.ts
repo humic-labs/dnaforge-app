@@ -7,6 +7,13 @@ import {
 } from './lims-registry';
 import { rollUpToSpeciesTaxon, type SpeciesTaxon } from './lims-taxonomy';
 import { registryRepresentationForEntity } from './registry-entity-opening';
+import { calendarDay } from '@waypoint/scientific-objects';
+import { parseLimsTemporalField } from '@waypoint/scientific-artifacts/shared/lims-temporal';
+
+export type RegistryDateFieldReader = (
+  entity: LimsEntity,
+  key: string
+) => { schemaId: string; type: 'date' | 'datetime' } | null;
 
 export interface RegistryEntityPage {
   entities: LimsEntity[];
@@ -16,7 +23,8 @@ export interface RegistryEntityPage {
 }
 
 export function createRegistryQuery(
-  input: LimsQueryRegistrySummariesInput = {}
+  input: LimsQueryRegistrySummariesInput = {},
+  readDateField?: RegistryDateFieldReader
 ): (candidates: readonly LimsEntity[]) => RegistryEntityPage {
   const limit = Math.min(Math.max(input.limit ?? 100, 1), 500);
   const offset = Math.max(input.offset ?? 0, 0);
@@ -41,6 +49,63 @@ export function createRegistryQuery(
     throw new Error('Registry project filters require valid project IDs.');
   }
   const projectFilter = input.workspaceIds ? new Set(input.workspaceIds) : null;
+  const filters = input.dateFilters ?? [];
+  if (!Array.isArray(filters) || filters.length > 20)
+    throw new Error('Choose at most twenty date filters.');
+  const numericDate = (value: string, type: 'date' | 'datetime'): number | string => {
+    if (type === 'date') return calendarDay(value).toString();
+    if (
+      !/^\d{4}-\d{2}-\d{2}T\d\d:\d\d(?::\d\d(?:\.\d{1,3})?)?(?:Z|[+-]\d\d:\d\d)$/u.test(value) ||
+      !Number.isFinite(Date.parse(value))
+    )
+      throw new Error('Date and time filters require an explicit UTC offset.');
+    calendarDay(value.slice(0, 10));
+    return Date.parse(value);
+  };
+  const fieldValue = (entity: LimsEntity, schemaId: string, fieldKey: string) => {
+    const definition = readDateField?.(entity, fieldKey);
+    if (!definition || definition.schemaId !== schemaId) return null;
+    const parsed = parseLimsTemporalField(definition.type, entity.fields[fieldKey]);
+    return {
+      definition,
+      parsed,
+      sort:
+        parsed.kind !== 'exact'
+          ? null
+          : parsed.value.kind === 'day'
+            ? parsed.value.date
+            : parsed.value.instant,
+    };
+  };
+  for (const filter of filters) {
+    if (
+      !filter ||
+      typeof filter.schemaId !== 'string' ||
+      typeof filter.fieldKey !== 'string' ||
+      !['on', 'before', 'after', 'missing', 'unresolved'].includes(filter.mode) ||
+      (!['missing', 'unresolved'].includes(filter.mode) && typeof filter.value !== 'string')
+    )
+      throw new Error('Invalid scientific date filter.');
+  }
+  const compiledFilters = filters.map((filter) => ({
+    ...filter,
+    bound:
+      filter.value === undefined
+        ? null
+        : numericDate(
+            filter.value,
+            /^\d{4}-\d{2}-\d{2}$/u.test(filter.value) ? 'date' : 'datetime'
+          ),
+  }));
+  if (
+    input.dateSort &&
+    (!['asc', 'desc'].includes(input.dateSort.direction) ||
+      typeof input.dateSort.schemaId !== 'string' ||
+      typeof input.dateSort.fieldKey !== 'string')
+  )
+    throw new Error('Invalid scientific date sort.');
+  if ((filters.length || input.dateSort) && !readDateField)
+    throw new Error('Scientific date definitions are unavailable.');
 
   return (candidates) => {
     const filtered = candidates.filter((entity) => {
@@ -86,6 +151,25 @@ export function createRegistryQuery(
       if (registryIdLike && !(entity.registryId ?? '').toLowerCase().includes(registryIdLike)) {
         return false;
       }
+      for (const filter of compiledFilters) {
+        const field = fieldValue(entity, filter.schemaId, filter.fieldKey);
+        if (!field) return false;
+        if (filter.mode === 'missing' || filter.mode === 'unresolved') {
+          if (field.parsed.kind !== filter.mode) return false;
+        } else {
+          const bound = filter.bound!;
+          if (
+            field.sort === null ||
+            typeof field.sort !== typeof bound ||
+            (filter.mode === 'on'
+              ? field.sort !== bound
+              : filter.mode === 'before'
+                ? field.sort >= bound
+                : field.sort <= bound)
+          )
+            return false;
+        }
+      }
 
       if (input.updatedOn !== undefined) {
         const start = startOfDayMs(input.updatedOn);
@@ -103,7 +187,21 @@ export function createRegistryQuery(
       }
       return true;
     });
-    filtered.sort((a, b) => compareRegistrySummaries(a, b, sort));
+    filtered.sort((a, b) => {
+      if (input.dateSort) {
+        const { schemaId, fieldKey, direction } = input.dateSort;
+        const left = fieldValue(a, schemaId, fieldKey)?.sort ?? null;
+        const right = fieldValue(b, schemaId, fieldKey)?.sort ?? null;
+        if (left === null && right !== null) return 1;
+        if (right === null && left !== null) return -1;
+        if (left !== null && right !== null && typeof left !== typeof right)
+          return typeof left === 'string' ? -1 : 1;
+        if (left !== null && right !== null && left !== right)
+          return (left < right ? -1 : 1) * (direction === 'asc' ? 1 : -1);
+        return a.id.localeCompare(b.id);
+      }
+      return compareRegistrySummaries(a, b, sort);
+    });
 
     return {
       entities: filtered.slice(offset, offset + limit),
