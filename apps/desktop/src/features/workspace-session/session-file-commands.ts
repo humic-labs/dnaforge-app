@@ -38,19 +38,31 @@ export function createWorkspaceSessionFileCommands(
     }
   }
 
+  function ownsActiveFile(relativePath: string, absolutePath: string): boolean {
+    const root = findContainingPathBoundary(useWorkspaceStore.getState().folders, absolutePath);
+    const target = adapter.resolveTarget(absolutePath, root?.path ?? null);
+    return (
+      target?.workspaceId === controller.getState().activeWorkspaceId &&
+      target?.relativePath === relativePath
+    );
+  }
+
   return {
     captureIntent: () => captureSessionIntent(controller),
     configureCanvasSource: canvasBindings.configure,
-    bindTab: canvasBindings.bind,
-    closeFile: (relativePath: string) => controller.closeFile(relativePath),
+    bindTab(tabId: string, relativePath: string, absolutePath: string): void {
+      if (ownsActiveFile(relativePath, absolutePath)) canvasBindings.bind(tabId, relativePath);
+    },
+    closeFile(relativePath: string, absolutePath: string): void {
+      if (ownsActiveFile(relativePath, absolutePath)) controller.closeFile(relativePath);
+    },
     async openFile(absolutePath: string): Promise<string | null> {
       const root = findContainingPathBoundary(useWorkspaceStore.getState().folders, absolutePath);
       const target = adapter.resolveTarget(absolutePath, root?.path ?? null);
       if (!target) return null;
 
       await selectWorkspace(target.workspaceId);
-      if (adapter.canReadAcknowledgedFile) {
-        const acknowledged = await adapter.canReadAcknowledgedFile(absolutePath);
+      const assertMountedTarget = (): void => {
         const currentRoot = findContainingPathBoundary(
           useWorkspaceStore.getState().folders,
           absolutePath
@@ -60,15 +72,23 @@ export function createWorkspaceSessionFileCommands(
           !currentRoot ||
           currentRoot.mountRequest !== root?.mountRequest ||
           currentTarget?.workspaceId !== target.workspaceId ||
-          currentTarget.relativePath !== target.relativePath ||
-          controller.getState().activeWorkspaceId !== target.workspaceId
+          currentTarget.relativePath !== target.relativePath
         )
           throw new Error('The project changed while verifying the acknowledged sequence read.');
+      };
+      if (adapter.canReadAcknowledgedFile) {
+        const acknowledged = await adapter.canReadAcknowledgedFile(absolutePath);
+        assertMountedTarget();
         if (acknowledged) return null;
       }
-      const snapshot = adapter.refreshBeforeOpen
-        ? await controller.refreshActiveWorkspace()
-        : controller.getState().snapshot;
+      let snapshot = controller.getState().snapshot;
+      if (adapter.refreshBeforeOpen) {
+        if (controller.getState().activeWorkspaceId === target.workspaceId)
+          snapshot = await controller.refreshActiveWorkspace();
+        if (snapshot?.workspaceId !== target.workspaceId)
+          snapshot = await controller.peekWorkspace(target.workspaceId);
+        assertMountedTarget();
+      }
       let file = snapshot?.files.find((candidate) => candidate.path === target.relativePath);
       if (!file && !adapter.refreshBeforeOpen) {
         await controller.refreshActiveWorkspace();
@@ -77,7 +97,16 @@ export function createWorkspaceSessionFileCommands(
           .snapshot?.files.find((candidate) => candidate.path === target.relativePath);
       }
       if (!file || file.sizeBytes >= SOFT_WARN_BYTES) return null;
+      if (adapter.refreshBeforeOpen && snapshot && controller.getState().snapshot !== snapshot) {
+        await controller.peekFile(snapshot, file);
+        assertMountedTarget();
+        return null;
+      }
       await controller.openFile(file.path);
+      if (adapter.refreshBeforeOpen) {
+        assertMountedTarget();
+        if (controller.getState().activeWorkspaceId !== target.workspaceId) return null;
+      }
       return file.path;
     },
     async refreshForPath(

@@ -88,7 +88,7 @@ export async function openSelectedDocument(
     return { status: 'blocked', message };
   }
   if (signal?.aborted || (pendingTrackView && !admitGenomeViewFileOpen(pendingTrackView))) {
-    if (sessionPath) closeElectronWorkspaceSessionFile(sessionPath);
+    if (sessionPath) closeElectronWorkspaceSessionFile(sessionPath, path);
     return cancelledDocumentOpen();
   }
   const result = trackViewOpening
@@ -106,10 +106,10 @@ export async function openSelectedDocument(
       pendingTrackView.id
     );
   if (result.status === 'presented') {
-    if (sessionPath) bindElectronWorkspaceSessionTab(result.tabId, sessionPath);
+    if (sessionPath) bindElectronWorkspaceSessionTab(result.tabId, sessionPath, path);
     return result;
   }
-  if (sessionPath) closeElectronWorkspaceSessionFile(sessionPath);
+  if (sessionPath) closeElectronWorkspaceSessionFile(sessionPath, path);
   if ('message' in result) {
     console.error('[openSelectedDocument] Document opening failed:', {
       path,

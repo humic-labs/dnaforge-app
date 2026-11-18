@@ -71,7 +71,11 @@ describe('selected-document guarded result authority', () => {
     await expect(opening).resolves.toEqual({ ...presented, tabId: original.tabId });
     expect(state.session).toHaveBeenCalledWith(path);
     expect(state.open).not.toHaveBeenCalled();
-    expect(state.bind).toHaveBeenCalledExactlyOnceWith(original.tabId, '/PRIVATE_SESSION_PATH');
+    expect(state.bind).toHaveBeenCalledExactlyOnceWith(
+      original.tabId,
+      '/PRIVATE_SESSION_PATH',
+      path
+    );
     expect(state.close).not.toHaveBeenCalled();
     expect(useCanvasStore.getState().panels.main.tabs.map((tab) => tab.id)).toEqual([
       original.tabId,
@@ -89,7 +93,11 @@ describe('selected-document guarded result authority', () => {
         target: { kind: 'file', path: '/PRIVATE_FILE.gb', tabType: 'sequence' },
       })
     );
-    expect(state.bind).toHaveBeenCalledWith('opaque-tab', '/PRIVATE_SESSION_PATH');
+    expect(state.bind).toHaveBeenCalledWith(
+      'opaque-tab',
+      '/PRIVATE_SESSION_PATH',
+      '/PRIVATE_FILE.gb'
+    );
     expect(state.close).not.toHaveBeenCalled();
   });
 
@@ -114,7 +122,7 @@ describe('selected-document guarded result authority', () => {
     } satisfies DocumentOpenResult;
     state.open.mockResolvedValue(refused);
     await expect(openSelectedDocument('/PRIVATE_FILE.gb', 'sequence')).resolves.toBe(refused);
-    expect(state.close).toHaveBeenCalledWith('/PRIVATE_SESSION_PATH');
+    expect(state.close).toHaveBeenCalledWith('/PRIVATE_SESSION_PATH', '/PRIVATE_FILE.gb');
     expect(state.bind).not.toHaveBeenCalled();
     expect(state.toast).toHaveBeenCalledOnce();
     expect(state.toast).toHaveBeenCalledWith(
@@ -171,7 +179,7 @@ describe('selected-document guarded result authority', () => {
     controller.abort();
     finish('/PRIVATE_SESSION_PATH');
     await expect(opening).resolves.toMatchObject({ status: 'cancelled' });
-    expect(state.close).toHaveBeenCalledWith('/PRIVATE_SESSION_PATH');
+    expect(state.close).toHaveBeenCalledWith('/PRIVATE_SESSION_PATH', '/PRIVATE_FILE.gb');
     expect(state.open).not.toHaveBeenCalled();
   });
 
