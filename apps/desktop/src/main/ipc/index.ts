@@ -201,6 +201,33 @@ export function registerAllIpcHandlers(deps: RegisterAllIpcHandlersDeps = {}): v
     },
   });
 
+  const recoverLegacyComputeResult = async (
+    job: import('../../shared/compute-jobs-ipc').ComputeJobRecord,
+    assertJobCurrent: () => void = () => {}
+  ) => {
+    if (!job.workspaceRoot || !job.remoteId)
+      throw new Error('The compute result has no native project or provider identity.');
+    const db = getDb();
+    const root = job.workspaceRoot;
+    const assertWorkspace = nativeDocuments.workspaces.capture(root);
+    const assertCurrent = () => {
+      assertJobCurrent();
+      if (getDb() !== db)
+        throw new Error('The application profile changed during result conversion.');
+      assertWorkspace();
+    };
+    await nativeDocuments.flushDirtyDocumentClients();
+    assertCurrent();
+    return nativeDocuments.fileDocuments.withCleanPaths(
+      [resolve(root, 'compute', job.provider, job.remoteId)],
+      () =>
+        recoverComputeResult(
+          db,
+          { workspaceRoot: root, provider: job.provider, remoteId: job.remoteId! },
+          { assertCurrent }
+        )
+    );
+  };
   const computeJobs = new ComputeJobRegistry({
     db: getDb,
     sidecarFetch,
@@ -208,6 +235,7 @@ export function registerAllIpcHandlers(deps: RegisterAllIpcHandlersDeps = {}): v
     grantedCapabilities: () => [...DEFAULT_MCP_GRANT_CAPABILITIES],
     notifyTerminal: deps.sendComputeJobTerminal,
     observeLifecycle: trackComputeJobObserved,
+    recoverLegacyResult: recoverLegacyComputeResult,
   });
   registerComputeHandlers({
     sidecarFetch: async (pathOrUrl, init) => {
@@ -216,21 +244,14 @@ export function registerAllIpcHandlers(deps: RegisterAllIpcHandlersDeps = {}): v
     },
     grantedCapabilities: () => [...DEFAULT_MCP_GRANT_CAPABILITIES],
     jobs: computeJobs,
-    recoverLegacyResult: async (job) => {
-      const root = job.workspaceRoot!;
-      const assertCurrent = nativeDocuments.workspaces.capture(root);
-      return recoverComputeResult(
-        getDb(),
-        { workspaceRoot: root, provider: job.provider, remoteId: job.remoteId! },
-        { assertCurrent }
-      );
-    },
+    recoverLegacyResult: recoverLegacyComputeResult,
     userManifestsDir: computeUserManifestsDir(app.getPath('userData')),
     restartSidecar,
   });
 
   registerMolecularCatalogHandlers(new MolecularCatalogService(getDb, computeJobs));
   registerMolecularDataHandlers(new MolecularDataService(getDb));
+  nativeDocuments.onLegacyDraftMigrationCompleted(() => computeJobs.retryLegacyResultMigrations());
   computeJobs.start();
   const recoverFeedbackTelemetry = registerFeedbackHandlers({
     captureOrigin: captureFeedbackTelemetryOrigin,

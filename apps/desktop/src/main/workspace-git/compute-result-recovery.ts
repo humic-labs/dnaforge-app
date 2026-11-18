@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { chmod, link, lstat, mkdir, mkdtemp, readFile, unlink } from 'node:fs/promises';
+import { chmod, link, lstat, mkdir, mkdtemp, readFile, rm, unlink } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import type Database from 'better-sqlite3';
 import type { ComputeRecoveryResult } from '../../shared/compute-jobs-ipc';
@@ -18,9 +18,16 @@ import {
   retainComputeSource,
 } from './compute-result-retention';
 import { materializeCoordinatePackage } from './coordinate-package-import';
+import { settleCompletedMolecularMigrationLinks } from './molecular-migration-journal';
+import {
+  captureComputeNativeMembers,
+  computeNativePlanSchema,
+} from './compute-native-result-members';
+import { parseSequencePackageDocument, sequencePackagePaths } from '../../db/sequence-package';
 import {
   isConstructSequenceFile,
   materializeImportedSequencePackages,
+  previewImportedSequencePackages,
 } from './sequence-package-import';
 
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -64,7 +71,7 @@ const inventory = z
     treeSha256: hash,
   })
   .strict();
-const manifestSchema = z
+export const computeRecoveryManifestSchema = z
   .object({
     schema: z.literal('dnaforge.compute-result-recovery.v1'),
     operationId: hash,
@@ -84,9 +91,10 @@ const manifestSchema = z
       .strict(),
     source: inventory,
     output: inventory,
+    native: computeNativePlanSchema.optional(),
   })
   .strict();
-type Manifest = z.infer<typeof manifestSchema>;
+type Manifest = z.infer<typeof computeRecoveryManifestSchema>;
 export type ComputeRecoveryPhase =
   | 'prepared'
   | 'file-published'
@@ -142,14 +150,14 @@ export async function recoverComputeResult(
       const witness = captureComputeResultJob(db, { ...input, sourceRelativePath });
       assertWorkspaceProjectionPathSafe(input.workspaceRoot, sourceRoot);
       const source = await inventoryComputeSource(sourceRoot);
-      if (
-        source.entries.some(
-          (item) =>
-            item.relativePath.split('/').includes('.forge') ||
-            item.relativePath.endsWith('.dnaforge-molecular.json')
-        )
-      )
-        throw new Error('COMPUTE_RECOVERY_EXISTING_DOCUMENT_REQUIRES_IDENTITY_TRANSFER');
+      const native = await captureComputeNativeMembers(db, {
+        workspaceRoot: input.workspaceRoot,
+        sourceRoot,
+        workspaceId: witness.workspaceId,
+        source,
+        importedPaths: JSON.parse(witness.previousPathsJson) as string[],
+        targetRoot: join(input.workspaceRoot, targetRelativePath),
+      });
       assertWorkspaceProjectionPathSafe(input.workspaceRoot, baseRoot);
       await mkdir(baseRoot, { recursive: true });
       const attemptRoot = await mkdtemp(join(baseRoot, 'attempt-'));
@@ -165,27 +173,88 @@ export async function recoverComputeResult(
           .map((item) => join(outputRoot, item.relativePath)),
       ])
         await chmod(directory, 0o700);
+      for (const member of native.members.filter((member) =>
+        member.disposition.startsWith('retain-')
+      )) {
+        assertCurrent();
+        const path = join(outputRoot, member.path);
+        assertWorkspaceProjectionPathSafe(input.workspaceRoot, path);
+        await rm(path, { recursive: true });
+      }
       for (const item of source.entries) {
         if (
           item.kind !== 'file' ||
-          item.relativePath.split('/').some((part) => part.startsWith('.'))
+          item.relativePath.split('/').some((part) => part.startsWith('.')) ||
+          native.members.some(
+            (member) =>
+              !(
+                member.kind === 'file' &&
+                member.disposition === 'transfer' &&
+                !member.preserveDirect
+              ) &&
+              (item.relativePath === member.path || item.relativePath.startsWith(member.path + '/'))
+          )
         )
           continue;
         assertCurrent();
         const filePath = join(outputRoot, item.relativePath);
+        const bound = native.members.find(
+          (member) =>
+            member.kind === 'file' &&
+            member.disposition === 'transfer' &&
+            member.path === item.relativePath
+        );
         if (isConstructSequenceFile(filePath)) {
+          if (bound) {
+            const preview = await previewImportedSequencePackages(filePath, { automatic: true });
+            if (preview.kind === 'blocked') {
+              if (
+                ![
+                  'source_too_large',
+                  'automatic_split_required',
+                  'non_dna_content',
+                  'lossless_conversion_blocked',
+                  'unsupported_source_kind',
+                ].includes(preview.reasonCode ?? '')
+              )
+                throw new Error(`COMPUTE_RECOVERY_CONVERSION_REFUSED: ${preview.reason}`);
+              bound.preserveDirect = true;
+              bound.directReason = preview.reason;
+              continue;
+            }
+          }
           const result = await materializeImportedSequencePackages(filePath, undefined, {
             automatic: true,
             expectedSourceSha256: item.sha256,
+            ...(bound ? { packageId: bound.entityId } : {}),
           });
           if (result.skippedReason)
             throw new Error(`COMPUTE_RECOVERY_CONVERSION_REFUSED: ${result.skippedReason}`);
+          if (bound) {
+            const owned = [];
+            for (const pkg of result.packages)
+              if (
+                parseSequencePackageDocument(
+                  await readFile(sequencePackagePaths(pkg.packageRoot).metaPath, 'utf8')
+                ).id === bound.entityId
+              )
+                owned.push(pkg);
+            if (!result.converted || owned.length !== 1)
+              throw new Error('COMPUTE_RECOVERY_NATIVE_SEQUENCE_NOT_PACKAGED');
+            bound.targetPath = owned[0].packageRoot
+              .slice(outputRoot.length + 1)
+              .replaceAll('\\', '/');
+          }
         } else {
           const result = await materializeCoordinatePackage(filePath, { removeSource: unlink });
           if (!result.converted && result.skippedReason)
             throw new Error(`COMPUTE_RECOVERY_CONVERSION_REFUSED: ${result.skippedReason}`);
         }
       }
+      await settleCompletedMolecularMigrationLinks(outputRoot, {
+        scope: 'unpublished-compute-staging',
+        assertCurrent,
+      });
       const output = await inventoryComputeSource(outputRoot);
       for (const item of output.entries)
         if (item.kind === 'file') await flushFile(join(outputRoot, item.relativePath));
@@ -200,12 +269,13 @@ export async function recoverComputeResult(
         witness,
         source,
         output,
+        ...(native.members.length || native.catalogHeadWitness !== null ? { native } : {}),
       };
       await durable('manifest', manifest);
       bytes = await readOptional(input.workspaceRoot, manifestPath);
       await options.checkpoint?.('prepared');
     }
-    manifest = manifestSchema.parse(JSON.parse(bytes!.toString('utf8')));
+    manifest = computeRecoveryManifestSchema.parse(JSON.parse(bytes!.toString('utf8')));
     if (
       manifest.operationId !== operationId ||
       manifest.witness.workspaceRoot !== input.workspaceRoot ||
@@ -233,6 +303,9 @@ export async function recoverComputeResult(
         )
         .map((item) => `${targetRelativePath}/${item.relativePath}`),
       previews: [],
+      ...(manifest.native
+        ? { native: manifest.native, nativeTargetRelativeRoot: targetRelativePath }
+        : {}),
     };
     if (publication.targetRelativePaths.length === 0)
       publication.targetRelativePaths.push(targetRelativePath);

@@ -13,6 +13,9 @@ import {
 } from '../shared/first-project';
 import { refreshPrimerRecoveryInventory } from '../features/primers/public/primer-recovery-report';
 import { reportPrimerRecoveryInventory } from '../services/workspace-reconcile-report';
+import { saveLegacyPrimerLibraryAsFiles } from '../services/primer-library-file-recovery';
+import { isWorkspaceSyncDatabaseBusyError } from '../shared/workspace-sync-errors';
+import { isWorkspaceMutationBusyError } from '../services/workspace-mutation-transaction';
 import {
   beginProjectLifecycle,
   bindProjectLifecycle,
@@ -50,11 +53,79 @@ export function useFirstProjectBootstrap({
     )
       return;
     primerRecoveryInventoryStarted.current = true;
-    void refreshPrimerRecoveryInventory()
-      .then(reportPrimerRecoveryInventory)
-      .catch((error: unknown) => {
+    let disposed = false;
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let retryDelay = 250;
+    let recoveryPending = false;
+    let expectedProfile: string | undefined;
+    const runtime = platform().runtime;
+    const readProfile = async () => {
+      if (!runtime?.getProvenance) return undefined;
+      const profile = await runtime.getProvenance();
+      return profile.kind === 'electron-main' && profile.userDataPath
+        ? JSON.stringify([profile.userDataPath, profile.pid, profile.startedAtMs])
+        : undefined;
+    };
+    const isCurrent = async () =>
+      !disposed &&
+      (expectedProfile === undefined || (await readProfile()) === expectedProfile) &&
+      !disposed;
+    const transient = (error: unknown) =>
+      isWorkspaceSyncDatabaseBusyError(error) || isWorkspaceMutationBusyError(error);
+    const retry = () => {
+      if (disposed || expectedProfile === undefined) return;
+      timer = setTimeout(() => {
+        timer = undefined;
+        void run();
+      }, retryDelay);
+      retryDelay = Math.min(retryDelay * 2, 5000);
+    };
+    const run = async () => {
+      try {
+        if (expectedProfile === undefined) expectedProfile = await readProfile();
+        if (!(await isCurrent())) return;
+        const inventory = await refreshPrimerRecoveryInventory();
+        if (!(await isCurrent())) return;
+        reportPrimerRecoveryInventory(inventory);
+        if (
+          recoveryPending ||
+          inventory.entries.some((entry) => entry.status === 'legacy-library')
+        ) {
+          const result = await saveLegacyPrimerLibraryAsFiles(
+            reportPrimerRecoveryInventory,
+            isCurrent
+          );
+          if (!(await isCurrent())) return;
+          if (
+            result.status === 'cancelled' ||
+            (result.status === 'failed' && transient(result.error)) ||
+            (result.status === 'pending' &&
+              result.errors.length > 0 &&
+              result.errors.every(({ message }) => transient(new Error(message))))
+          ) {
+            recoveryPending = true;
+            retry();
+            return;
+          }
+        }
+        settled = true;
+      } catch (error: unknown) {
+        if (disposed) return;
+        if (transient(error)) {
+          retry();
+          return;
+        }
+        settled = true;
         console.warn('[PrimerRecovery] Could not refresh the recovery inventory:', error);
-      });
+      }
+    };
+    void run();
+    return () => {
+      disposed = true;
+      if (timer !== undefined) clearTimeout(timer);
+      if (!settled) primerRecoveryInventoryStarted.current = false;
+    };
   }, [libraryLoaded, workspaceLoading]);
 
   useEffect(() => {

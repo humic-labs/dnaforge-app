@@ -277,6 +277,7 @@ const hostedImplemented: Partial<PlatformBridge> = {
     onChanged: () => () => {},
   },
   notebook: {
+    migrateLegacyProjectFiles: async () => unavailable('notebook.migrateLegacyProjectFiles'),
     create: async () => unavailable('notebook.create'),
     completeLegacyDraftMigration: async () => unavailable('notebook.completeLegacyDraftMigration'),
     execute: async () => unavailable('notebook.execute'),

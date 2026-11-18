@@ -14,6 +14,7 @@ import type {
   NotebookDocumentSnapshot,
   NativeNotebookCreateRequest,
   NativeNotebookCreateResult,
+  NotebookLegacyProjectMigrationResult,
 } from '../notebook-document';
 import type {
   ResolveNotebookResourceReferenceRequest,
@@ -21,6 +22,10 @@ import type {
 } from '../project-resource-reference';
 
 export const notebookContract = defineGroup('notebook', {
+  migrateLegacyProjectFiles: invoke<
+    [request: { workspaceRoot: string }],
+    NotebookLegacyProjectMigrationResult
+  >(),
   resolveResourceReference: invoke<
     [request: ResolveNotebookResourceReferenceRequest],
     ResolvedProjectResourceReference
