@@ -11,6 +11,24 @@ export type LimsTemporalValue =
   | { kind: 'unresolved'; raw: unknown }
   | { kind: 'exact'; value: WorkTime };
 
+export function assertLimsAgendaDefinition(field: LimsFieldDefinition): void {
+  if (field.agenda === undefined) return;
+  if (
+    !['date', 'datetime'].includes(field.type) ||
+    !field.agenda ||
+    !['milestone', 'deadline', 'observation'].includes(field.agenda.role)
+  )
+    throw new Error(`${field.label} requires a supported date role.`);
+  const zone = field.agenda.zone;
+  if (field.type === 'date' && (!zone || !zone.trim()))
+    throw new Error(`${field.label} needs a named time zone to appear in the agenda.`);
+  if (zone !== undefined) {
+    if (typeof zone !== 'string' || !zone.trim() || /^[+-]/u.test(zone))
+      throw new Error(`${field.label} needs a named time zone.`);
+    new Intl.DateTimeFormat('en', { timeZone: zone });
+  }
+}
+
 export function parseLimsTemporalField(type: string, value: unknown): LimsTemporalValue {
   if (value === undefined || value === null || value === '') return { kind: 'missing' };
   try {

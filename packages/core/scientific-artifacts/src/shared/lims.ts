@@ -235,6 +235,7 @@ export interface LimsFieldDefinition {
   maxValue?: number;
   minDate?: string;
   maxDate?: string;
+  agenda?: { role: 'milestone' | 'deadline' | 'observation'; zone?: string };
   description?: string;
 
   requireResolved?: boolean;
