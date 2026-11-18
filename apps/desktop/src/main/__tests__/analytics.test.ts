@@ -2110,6 +2110,100 @@ describe('analytics main process', () => {
     }
   );
 
+  it('keeps private, unknown and synthetic runtime provenance distinct on Reference SDK publication', async () => {
+    const file = createFileTestDb('reference-runtime-provenance');
+    const { ensureSchema } = await import('../schema');
+    ensureSchema(file.db, file.dbPath);
+    const setting = file.db.prepare(
+      'INSERT OR REPLACE INTO settings (key,value,updated_at) VALUES (?,?,?)'
+    );
+    setting.run('analytics_consent', 'true', 0);
+    setting.run('analytics_consent_version', '3', 0);
+    const publications = new Map<'private' | 'unknown' | 'synthetic', Record<string, unknown>[]>();
+    const correlationProperties = new Set([
+      'operation_id',
+      'occurred_at_ms',
+      'origin_started_at_ms',
+      '$session_id',
+      'app_session_id',
+      'pseudonymous_install_id',
+      'telemetry_canary_id',
+      'ci_run_id',
+    ]);
+    try {
+      for (const subject of [
+        { kind: 'test', packaged: true, synthetic: false, classification: 'private' },
+        { kind: 'unknown', packaged: true, synthetic: false, classification: 'unknown' },
+        { kind: 'test', packaged: false, synthetic: true, classification: 'synthetic' },
+      ] as const) {
+        vi.resetModules();
+        mockPostHog.capture.mockClear();
+        mockGetDb.mockReturnValue(file.db);
+        electronAppState.isPackaged = subject.packaged;
+        vi.stubGlobal('__DNAFORGE_APP_BUILD__', {
+          kind: subject.kind,
+          version: '1.0.0',
+          sourceReleaseVersion: '1.0.0',
+          sourceCommit: '1234567890123456789012345678901234567890',
+          sourceModified: false,
+        });
+        vi.stubGlobal('__DNAFORGE_RELEASE_CHANNEL__', 'closed_beta');
+        vi.stubGlobal('__DNAFORGE_BUILD_TAG__', actorBuildTagStamp);
+        vi.stubGlobal('__POSTHOG_API_KEY__', 'phc_test123');
+        delete process.env.POSTHOG_API_KEY;
+        vi.stubEnv('DNAFORGE_TELEMETRY_CANARY_ID', '');
+        vi.stubEnv('DNAFORGE_TELEMETRY_ENVIRONMENT', '');
+        const analytics = await import('../analytics');
+        const { beginHostedReferenceInstallObservation } =
+          await import('../reference-assets/hosted-reference-install-telemetry');
+        try {
+          analytics.initAnalyticsMain(
+            subject.synthetic
+              ? { DNAFORGE_TELEMETRY_CANARY_ID: '66666666-6666-4666-8666-666666666666' }
+              : {},
+            { consent: 'true', version: '3' }
+          );
+          expect(analytics.syncAnalyticsIdentityContext(CONTEXT)).toBe(true);
+          expect(analytics.captureOptionalTelemetryOrigin()?.classification).toBe(
+            subject.classification
+          );
+          beginHostedReferenceInstallObservation(
+            (observation) =>
+              analytics.trackAllowedEvent('hosted_reference_install_observed', observation),
+            () => 100
+          );
+          const outgoing = mockPostHog.capture.mock.calls
+            .filter(([value]) => value.event === 'hosted_reference_install_observed')
+            .map(([value]) => value.properties);
+          expect(outgoing).toHaveLength(1);
+          expect(outgoing).toMatchObject([
+            {
+              feature_area: 'scientific_workflow',
+              install_phase: 'started',
+              is_synthetic: subject.synthetic,
+              telemetry_actor: subject.synthetic ? 'canary' : 'user',
+            },
+          ]);
+          publications.set(
+            subject.classification,
+            outgoing.map((properties) =>
+              Object.fromEntries(
+                Object.entries(properties).filter(([key]) => !correlationProperties.has(key))
+              )
+            )
+          );
+        } finally {
+          await analytics.shutdownAnalytics();
+        }
+      }
+      expect(publications.get('synthetic')).not.toEqual(publications.get('private'));
+      expect(publications.get('synthetic')).not.toEqual(publications.get('unknown'));
+      expect(publications.get('private')).not.toEqual(publications.get('unknown'));
+    } finally {
+      file.cleanup();
+    }
+  });
+
   function optionalInput() {
     const id = randomUUID();
     return {
