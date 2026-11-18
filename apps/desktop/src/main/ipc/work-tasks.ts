@@ -1,3 +1,8 @@
+import {
+  startWorkReminderScheduler,
+  readWorkReminders,
+  workReminderCommand,
+} from '../work-reminder-service';
 import type { NativeNotebookWorkingCopyOwner } from '../notebook-document-owner';
 import type Database from 'better-sqlite3';
 import { handleGroup } from '../../shared/ipc-contract';
@@ -20,6 +25,8 @@ export function registerWorkTaskHandlers(
   resolveDb: () => Database.Database = getDb
 ): void {
   handleGroup(workTasksContract, {
+    reminders: (_event, input) => readWorkReminders(resolveDb(), input.workspaceRoot),
+    reminderCommand: (_event, input) => workReminderCommand(resolveDb(), input),
     query: (event, input) => {
       const db = resolveDb();
       return withRendererDatabaseRead(db, event.sender, () => queryWorkTasks(db, input));
@@ -58,4 +65,5 @@ export function registerWorkTaskHandlers(
         notebooks
       ),
   });
+  startWorkReminderScheduler(resolveDb);
 }

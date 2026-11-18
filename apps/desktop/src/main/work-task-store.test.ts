@@ -1,3 +1,4 @@
+import { parseWorkspaceIdentity } from '@waypoint/domain-services';
 import { createNativeNotebookWorkingCopies } from './native-notebook-working-copies';
 import { mkdir, readFile, readdir, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -85,7 +86,7 @@ it('publishes a task once, retains completion after restart and refuses unscoped
         submitScientificObjectInMain(reopenedDb, {
           workspaceRoot: root,
           request: {
-            workspace: saved.task!.project.id,
+            workspace: parseWorkspaceIdentity(saved.task!.project.id),
             expectedHead: completed.task!.head,
             operationId: 'direct-edit',
             source: { kind: 'documents', entries: [] },

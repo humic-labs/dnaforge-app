@@ -441,6 +441,12 @@ export async function submitScientificWorkspace(input: {
         },
         () => {
           input.beforeAccept?.();
+          if (!replay && source.kind === 'restore-workspace')
+            input.db
+              .prepare(
+                "UPDATE scientific_work_dispatch SET state='suspended',epoch=epoch+1 WHERE workspace_id=? AND state='local'"
+              )
+              .run(input.workspaceId);
           publication?.onAcceptedInsideTx();
           metadata?.onAcceptedInsideTx();
 

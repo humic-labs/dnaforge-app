@@ -1,3 +1,8 @@
+import type {
+  WorkReminderView,
+  WorkReminderRequest,
+  WorkReminderResult,
+} from '../work-reminders-ipc';
 import type { WorkOccurrence } from '@waypoint/domain-services';
 import type {
   WorkPlacementIntent,
@@ -17,6 +22,8 @@ import { defineGroup, invoke } from './contract';
 export const workTasksContract = defineGroup('workTasks', {
   query: invoke<[input: WorkTaskQuery], WorkTaskQueryResult>(),
   assignees: invoke<[input: { workspaceRoot: string }], WorkAssigneeListing>(),
+  reminders: invoke<[input: { workspaceRoot: string }], WorkReminderView>(),
+  reminderCommand: invoke<[input: WorkReminderRequest], WorkReminderResult>(),
   placements: invoke<
     [input: { workspaceRoot: string; documentId: string }],
     WorkPlacementIntent[]

@@ -1,3 +1,4 @@
+import { parseLimsTemporalField } from '@waypoint/scientific-artifacts/shared/lims-temporal';
 import type Database from 'better-sqlite3';
 import {
   classifyLegacyWorkDate,
@@ -94,9 +95,13 @@ export function workSourceReader(
       getSchemaRevisionForEntity(db, { ...entity, schema_revision_id: target.schemaRevisionId })
         .fieldsJson
     ).fields.find((f) => f.key === source.role);
-    if (!definition || definition.type !== 'date') return { kind: 'unsupported' };
+    if (!definition || (definition.type !== 'date' && definition.type !== 'datetime'))
+      return { kind: 'unsupported' };
     const raw = target.fields[definition.key];
-    const legacy = classifyLegacyWorkDate(raw, source.zone ?? '');
+    const legacy =
+      definition.type === 'datetime'
+        ? parseLimsTemporalField('datetime', raw)
+        : classifyLegacyWorkDate(raw, source.zone ?? '');
     return legacy.kind === 'exact'
       ? { kind: 'resolved', spec: { kind: 'fixed', value: legacy.value }, revisionId }
       : legacy.kind === 'missing'
