@@ -45138,6 +45138,7 @@
                   "type": "object",
                   "properties": {
                     "id": { "type": "string" },
+                    "workspaceId": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
                     "kind": { "type": "string" },
                     "schemaSnapshot": {
                       "type": "object",
@@ -45774,6 +45775,7 @@
                 "type": "object",
                 "properties": {
                   "id": { "type": "string" },
+                  "workspaceId": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
                   "kind": { "type": "string" },
                   "schemaSnapshot": {
                     "type": "object",

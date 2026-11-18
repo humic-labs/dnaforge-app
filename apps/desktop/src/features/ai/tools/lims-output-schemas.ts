@@ -169,6 +169,7 @@ export const limsOpenTargetOutputSchema = z.discriminatedUnion('kind', [
 const gapStatus = z.enum(['no_hypothesis', 'no_verified', 'unresolved', 'match', 'mismatch']);
 const limsRegistrySummary = z.object({
   id: z.string(),
+  workspaceId: z.number().int().nullable().optional(),
   kind: z.string(),
   schemaSnapshot: limsSchemaSnapshotOutputSchema,
   fieldValues,
