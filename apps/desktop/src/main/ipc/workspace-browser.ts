@@ -8,7 +8,7 @@ import type { CatalogRecordPresentationKind } from '../../shared/catalog-entity'
 import { isSafeWorkspaceRelativePath, pathIsAtOrUnder } from '../../shared/path-boundary';
 import type {
   WorkspaceBrowserCatalogEntry,
-  WorkspaceBrowserEntry,
+  WorkspaceBrowserFilesystemEntry,
   WorkspaceListChildrenRequest,
   WorkspaceListChildrenResult,
   NativeCatalogRecordReconcileRequest,
@@ -61,8 +61,8 @@ export async function listWorkspaceChildren(
     throw new Error('WORKSPACE_BROWSER_UNSAFE_PARENT: parent resolves outside the workspace.');
   }
 
-  const filesystemEntries = (await readdir(safeParentPath, { withFileTypes: true })).map(
-    (entry): WorkspaceBrowserEntry => ({
+  let filesystemEntries = (await readdir(safeParentPath, { withFileTypes: true })).map(
+    (entry): WorkspaceBrowserFilesystemEntry => ({
       kind: 'filesystem',
       entryId: `filesystem:${join(safeParentPath, entry.name)}`,
       name: entry.name,
@@ -84,6 +84,42 @@ export async function listWorkspaceChildren(
   let catalogEntries: WorkspaceBrowserCatalogEntry[] = [];
   let partialError: WorkspaceListChildrenResult['partialError'] = null;
   try {
+    const contexts = new Map<string, ReturnType<typeof catalogIconContext>>();
+    for (let offset = 0; offset < filesystemEntries.length; offset += 500) {
+      const paths = filesystemEntries.slice(offset, offset + 500).map((entry) => entry.path);
+      const rows = db
+        .prepare(
+          `SELECT binding.path, entity.type, entity.metadata, lims.kind AS icon_kind
+           FROM catalog_entity_files AS binding
+           JOIN catalog_entities AS entity ON entity.id = binding.entity_id
+           LEFT JOIN lims_entity AS lims ON lims.id = entity.id
+           WHERE binding.workspace_id = ?
+             AND entity.workspace_id = ?
+             AND binding.status = 'current'
+             AND entity.status = 'active'
+             AND binding.path IN (${paths.map(() => '?').join(', ')})`
+        )
+        .all(workspace.id, workspace.id, ...paths) as Array<{
+        path: string;
+        type: string;
+        metadata: string | null;
+        icon_kind: string | null;
+      }>;
+      for (const row of rows) {
+        contexts.set(
+          row.path,
+          catalogIconContext({
+            kind: row.icon_kind ?? row.type,
+            path: row.path,
+            metadata: row.metadata,
+          })
+        );
+      }
+    }
+    filesystemEntries = filesystemEntries.map((entry) => {
+      const iconContext = contexts.get(entry.path);
+      return iconContext ? { ...entry, iconContext } : entry;
+    });
     catalogEntries = db
       .prepare(
         `SELECT placement.entity_id, placement.parent_relative_path,

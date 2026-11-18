@@ -49,7 +49,9 @@ export function getTabIcon(
   className = 'w-3.5 h-3.5 flex-shrink-0',
   context?: EntityColorContext
 ) {
-  const shared = iconForEntityKind(tabType, className, context);
+  const shared =
+    iconForEntityKind(context?.kind ?? tabType, className, context) ??
+    iconForEntityKind(tabType, className, context);
   const colorFamily = entityColorFamily({ kind: tabType, ...context });
   if (shared) return shared;
 

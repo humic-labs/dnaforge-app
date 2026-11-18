@@ -87,6 +87,10 @@ const FileIcon = ({ entry }: { entry: FileEntry }) => {
     ...entry.iconContext,
     molecule: molecule ?? entry.iconContext?.molecule,
   };
+  if (entry.iconContext?.kind && !['file', 'text', 'generic'].includes(entry.iconContext.kind)) {
+    const typed = iconForEntityKind(entry.iconContext.kind, 'w-4 h-4 flex-shrink-0', context);
+    if (typed) return <>{typed}</>;
+  }
   if (entry.packageKind) {
     const packaged = iconForEntityKind(entry.packageKind, 'w-4 h-4 flex-shrink-0', context);
     if (packaged) return <>{packaged}</>;

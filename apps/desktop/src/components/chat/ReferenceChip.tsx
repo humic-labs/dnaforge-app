@@ -10,6 +10,8 @@ import { resolveMolecularReference } from '../../shared/molecular-reference';
 import type { MolecularView } from '../../shared/molecular-view';
 import { molecularDocumentReferenceLocator } from '../../shared/molecular-document-reference';
 import { catalogIconContext } from '../../shared/catalog-icon-context';
+import type { EntityColorContext } from '../../shared/entity-color-family';
+import { resolveEntityReferenceIconContext } from '../../services/entity-reference-presentation';
 
 interface ReferenceChipProps {
   reference: DBEntityReference;
@@ -121,6 +123,25 @@ export function ReferenceChip({
   phase,
   onRemove,
 }: ReferenceChipProps) {
+  const [primerIconContext, setPrimerIconContext] = useState<{
+    reference: DBEntityReference;
+    context: EntityColorContext | undefined;
+  } | null>(null);
+  useEffect(() => {
+    if (reference.entity_type !== 'primer') return;
+    let current = true;
+    void resolveEntityReferenceIconContext(reference).then(
+      (context) => {
+        if (current) setPrimerIconContext({ reference, context });
+      },
+      () => {
+        if (current) setPrimerIconContext({ reference, context: undefined });
+      }
+    );
+    return () => {
+      current = false;
+    };
+  }, [reference]);
   const molecular = useMemo(() => {
     try {
       return { subject: resolveMolecularReference(reference), invalid: false };
@@ -290,10 +311,17 @@ export function ReferenceChip({
             entityType={reference.entity_type}
             kindLabel={molecularKind ?? undefined}
             iconOverride={molecularIcon}
-            iconContext={catalogIconContext({
-              path: workspaceDeclaration?.segments.join('/'),
-              metadata: reference.data,
-            })}
+            iconContext={
+              reference.entity_type === 'primer'
+                ? ((primerIconContext?.reference === reference
+                    ? primerIconContext.context
+                    : undefined) ?? { kind: 'reference' })
+                : (reference.iconContext ??
+                  catalogIconContext({
+                    path: workspaceDeclaration?.segments.join('/'),
+                    metadata: reference.data,
+                  }))
+            }
             label={reference.display_label}
             detail={reference.locator}
             onOpen={onClick ? () => onClick(reference) : undefined}

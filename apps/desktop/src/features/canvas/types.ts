@@ -132,6 +132,7 @@ export interface Tab {
   id: string;
   type: TabType;
   entityId: string;
+  entityKind?: string;
   label: string;
 
   sourceFileName?: string;

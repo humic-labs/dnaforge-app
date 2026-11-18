@@ -14,6 +14,7 @@ export type WorkspaceBrowserFilesystemEntry = Readonly<{
   path: string;
   isDirectory: boolean;
   isFile: boolean;
+  iconContext?: EntityColorContext;
 }>;
 
 export type WorkspaceBrowserCatalogEntry = Readonly<{

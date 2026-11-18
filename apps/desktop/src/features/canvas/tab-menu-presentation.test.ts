@@ -7,6 +7,18 @@ import {
 } from './tab-menu-presentation';
 
 describe('tab menu projection', () => {
+  it('preserves a protein entity color when its editor is a record', () => {
+    const tab = projectTabStripTab({
+      id: 'protein-record-tab',
+      type: 'record',
+      entityKind: 'protein',
+      entityId: 'protein-record-id',
+      label: 'Saved protein',
+    });
+    expect(tab.type).toBe('record');
+    expect(tab.iconContext?.kind).toBe('protein');
+  });
+
   it('identifies the active package assembly editor rather than its sequence storage kind', () => {
     const tab = projectTabStripTab({
       id: 'package-tab',

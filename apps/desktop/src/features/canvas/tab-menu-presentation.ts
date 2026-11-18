@@ -56,7 +56,7 @@ export function projectTabStripTab(tab: Tab): TabStripPresentation {
     label: tab.type === 'sequence' ? sequenceDisplayName(tab.label) : tab.label,
     isDirty: isTabDirty(tab),
     iconContext: {
-      kind: tab.trackView ? 'track-view' : editor.type,
+      kind: tab.entityKind ?? (tab.trackView ? 'track-view' : editor.type),
       molecule,
       path: sourcePath,
     },

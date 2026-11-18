@@ -204,7 +204,7 @@ async function readDirectoryEntries(
         : undefined;
       const packageKind = detectedPackage?.kind;
       let sequenceDocument: ManagedSequenceDocumentRef | undefined;
-      let iconContext: EntityColorContext | undefined;
+      let iconContext: EntityColorContext | undefined = entry.iconContext;
       let packageName: string | undefined;
       if (packageKind === 'sequence') {
         try {
@@ -214,7 +214,7 @@ async function readDirectoryEntries(
             await platform().fs.readTextFile(metadataPath)
           );
           packageName = sequenceDisplayName(document.name);
-          iconContext = { kind: document.entity.schema.name };
+          iconContext = { kind: document.entity.schema.name, ...iconContext };
           sequenceDocument = {
             kind: 'managed-sequence',
             packageId: document.id,
@@ -224,7 +224,7 @@ async function readDirectoryEntries(
           packageName = 'Sequence';
         }
       }
-      if (!isDir && entry.name.toLowerCase().endsWith('.primer.json')) {
+      if (!iconContext && !isDir && entry.name.toLowerCase().endsWith('.primer.json')) {
         try {
           const entity = await getCatalogEntityForFilePath(fullPath);
           iconContext = catalogIconContext({ path: fullPath, metadata: entity?.metadata });

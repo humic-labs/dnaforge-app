@@ -84,6 +84,17 @@ function renderItem(entry: FileEntry) {
 }
 
 describe('FileTreeItem icon ', () => {
+  it('uses the protein glyph and color for a typed native record artifact', () => {
+    const { container } = renderItem({
+      ...makeEntry('Native_protein.entity.json', 'json'),
+      iconContext: { kind: 'protein' },
+    });
+    expect(container.querySelector('svg[data-file-type-icon="structure"]')).toHaveAttribute(
+      'data-entity-color-family',
+      'protein'
+    );
+  });
+
   it.each(['import-source-sequence', 'catalog-sequence'] as const)(
     'uses loaded RNA metadata for an ordinary file opened as %s',
     (kind) => {
