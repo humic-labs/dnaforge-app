@@ -1,8 +1,8 @@
 import type { InventoryTableSha256, InventoryTableTarget } from './inventory-table-types';
 import type {
-  InventoryAuthority,
+  InventoryLocalAuthority,
   InventoryErrorCode,
-  InventoryPrincipal,
+  InventoryLocalPrincipal,
   InventoryRecordedPrincipal,
   InventoryStock,
   InventoryVessel,
@@ -66,8 +66,8 @@ export type InventoryPlatePlanVersionExisting =
 export interface InventoryPlatePlanVersionPreviewInput extends InventoryPlatePlanVersionChoices {
   readonly target: InventoryTableTarget;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
 }
 export interface InventoryPlatePlanVersionApplication extends InventoryPlatePlanVersionChoices {
   readonly target: InventoryTableTarget;
@@ -107,8 +107,8 @@ export interface InventoryPlatePlanBindingPreviewInput {
   readonly target: InventoryTableTarget;
   readonly binding: InventoryPlatePlanBinding;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
 }
 interface BindingPreviewFacts {
   readonly schema: 'dnaforge.inventory-plate-plan-binding-preview.v1';
@@ -117,7 +117,7 @@ interface BindingPreviewFacts {
   readonly definitionSha256: InventoryTableSha256;
   readonly bindingSha256: InventoryTableSha256 | null;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
   readonly nextBoundaryAt: number | null;
 }
 export type InventoryPlatePlanBindingPreview = BindingPreviewFacts &

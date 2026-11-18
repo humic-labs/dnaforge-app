@@ -1,7 +1,7 @@
 import type {
-  InventoryAuthority,
+  InventoryLocalAuthority,
   InventoryExecutionContext,
-  InventoryPrincipal,
+  InventoryLocalPrincipal,
   InventoryQuality,
   InventoryState,
 } from './inventory-types';
@@ -137,8 +137,8 @@ export interface InventoryMappedTablePreviewInput {
   readonly options: InventoryMappedTableChoices;
   readonly bindings: readonly InventoryMappedTableBindingObservation[];
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
   readonly maxBytes: number;
 }
 export interface InventoryMappedTableApplication {

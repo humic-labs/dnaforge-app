@@ -1,9 +1,9 @@
 import type { InventoryTableSourceRevision } from './inventory-source-revision-types';
 import type {
-  InventoryAuthority,
+  InventoryLocalAuthority,
   InventoryCommand,
   InventoryExecutionContext,
-  InventoryPrincipal,
+  InventoryLocalPrincipal,
   InventoryState,
   InventoryVesselPlacement,
 } from './inventory-types';
@@ -128,8 +128,8 @@ export interface InventoryTablePreviewInput {
   readonly options: InventoryTableChoices;
   readonly bindings: readonly InventoryTableBindingObservation[];
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
   readonly maxBytes: number;
 }
 export interface InventoryTableApplication {

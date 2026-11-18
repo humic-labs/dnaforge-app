@@ -1,7 +1,7 @@
 import type {
   InventoryCommand,
   InventoryErrorCode,
-  InventoryExecutionContext,
+  InventoryPhysicalExecutionContext,
   InventoryLot,
   InventoryState,
   InventoryStock,
@@ -288,7 +288,7 @@ export function inventoryUseStockIds(
 export function inventoryValidityUseGuard(
   state: ValidityState & Pick<InventoryState, 'storage' | 'vessels'>,
   command: InventoryCommand,
-  context?: InventoryExecutionContext
+  context?: InventoryPhysicalExecutionContext
 ): Failure | null {
   const { stockIds, action } = inventoryUseStockIds(state, command);
   for (const id of new Set(stockIds)) {
@@ -319,7 +319,7 @@ export interface InventoryValidityDraft extends Omit<
 export function applyInventoryValidityCommand(
   state: InventoryValidityDraft,
   command: InventoryCommand,
-  context?: InventoryExecutionContext
+  context?: InventoryPhysicalExecutionContext
 ): Failure | null | undefined {
   if (
     command.kind !== 'record-stock-opening' &&

@@ -28,7 +28,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v30. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v31. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -2304,3 +2304,61 @@ remain imported; an imported Remove review cannot authorize local use until a
 local review supersedes it. Retained initial and historical positions never
 become claims about today's location. No sensor automation or team
 synchronization is implied.
+
+## Account authority and execution scope
+
+Canonical v31 can retain organization-account attribution as an organization ID
+and account ID. Replica client IDs and login sessions are separate provenance;
+changing devices does not create a new reservation holder. Imported attribution
+stays historical and never grants current custody or reservation ownership. Raw
+v1–v30 states keep their original actor grammar. Older receipt capabilities
+reject new-format raw state, including actor-empty state, throughout nested
+archives. Reading an old snapshot only upcasts memory.
+
+Format support does not authorize a scope. Local execution and previews retain
+profile or agent principals and local profile authority. Local receipt context
+14 supports the current format while contexts 1–13 retain their old codecs. The
+organization port separately correlates account and authority with an explicit
+organization inventory target. Its caller must obtain real current
+authentication and permission; a pure context object is not a permission grant.
+
+The organization action port supports consumption and whole storage/vessel moves
+through the existing copied-state dispatcher. The setup specification is a
+bounded initial storage/vessel/stock report with separately admitted material
+IDs and positive known amounts. It only applies to an absent or empty revision
+zero inventory. It does not import project inventory, create scientific
+identities or enable arbitrary command batches. Reservation fulfillment, manager
+cancellation, custody recovery and scientific reports require their own
+explicitly supported authority paths. All quantity, placement, custody,
+reservation, validity, lot and incident guards continue to apply.
+
+```mermaid
+stateDiagram-v2
+    [*] --> ParseScope
+    ParseScope --> Refused: invalid context or mismatched attribution
+    ParseScope --> CheckBase: explicit local or organization port
+    CheckBase --> Refused: stale expected revision
+    CheckBase --> CopiedState: current base
+    CopiedState --> Refused: any existing physical guard refuses
+    CopiedState --> Candidate: all allowed commands succeed
+```
+
+A candidate is a pure result, not accepted shared work. The storage owner must
+atomically accept its base, state and operation. The conservative organization
+admission boundary covers every stock validity deadline, active reservation
+deadline and checked-out due time in the initial and successful final states.
+One consume/move has those two endpoints; initial setup only adds items and
+cannot rewrite timed facts, so no intermediate deadline can disappear. New
+actions must establish the same coverage before reusing this helper.
+
+A hosted owner also needs a finite authoritative time lease and final clock
+check under its acceptance locks. Passing a deadline never releases a hold.
+Lease expiry on an unchanged base may re-evaluate the same exact operation; a
+competing revision is a no-effect conflict and cannot silently rebase the
+request. These portable contracts do not establish backend deployment, offline
+acceptance or two-client synchronization.
+
+Inventory export v1 remains a local project format. It accepts current local
+state but refuses organization attribution, including imported organization
+actors. Organization export and adoption need an explicit scope-aware format; an
+organization ID cannot stand in for a project ID.

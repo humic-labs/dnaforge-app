@@ -1,3 +1,9 @@
+export type * from './inventory-organization-types';
+import type {
+  InventoryOrganizationPrincipal,
+  InventoryOrganizationAuthority,
+  InventoryOrganizationExecutionContext,
+} from './inventory-organization-types';
 import type {
   InventoryEquipmentIncident,
   InventoryEquipmentIncidentReviewRoot,
@@ -100,7 +106,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v30' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v31' as const;
+export const INVENTORY_EQUIPMENT_INCIDENT_SCHEMA = 'dnaforge.inventory.v30' as const;
 export const INVENTORY_SCIENTIFIC_PRODUCTION_SCHEMA = 'dnaforge.inventory.v29' as const;
 export const INVENTORY_RUN_VALUE_ATTRIBUTION_SCHEMA = 'dnaforge.inventory.v28' as const;
 export const INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA = 'dnaforge.inventory.v27' as const;
@@ -395,9 +402,10 @@ export interface InventoryState {
   readonly reservations: Readonly<Record<string, InventoryReservation>>;
 }
 
-export type InventoryPrincipal =
+export type InventoryLocalPrincipal =
   | { readonly kind: 'local-profile'; readonly profileKey: string }
   | { readonly kind: 'agent'; readonly identityId: string };
+export type InventoryPrincipal = InventoryLocalPrincipal | InventoryOrganizationPrincipal;
 
 export interface InventoryAdoptionSource {
   readonly archiveSha256: string;
@@ -466,15 +474,20 @@ export type InventoryItemCodeCommand =
     }
   | { readonly kind: 'retire-item-code'; readonly codeId: string; readonly reason: string };
 
-export interface InventoryAuthority {
+export interface InventoryLocalAuthority {
   readonly kind: 'local-profile';
   readonly profileKey: string;
 }
 
+export type InventoryAuthority = InventoryLocalAuthority | InventoryOrganizationAuthority;
+export type InventoryPhysicalExecutionContext =
+  | InventoryExecutionContext
+  | InventoryOrganizationExecutionContext;
+
 export interface InventoryExecutionContext {
   readonly at: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
 }
 
 export type InventoryReservationLifecycle =

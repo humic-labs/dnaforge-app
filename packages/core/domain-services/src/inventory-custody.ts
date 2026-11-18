@@ -6,7 +6,7 @@ import type {
   InventoryCustodyCommand,
   InventoryEffectiveCustody,
   InventoryErrorCode,
-  InventoryExecutionContext,
+  InventoryPhysicalExecutionContext,
   InventoryItemCustody,
   InventoryLocationObservation,
   InventoryLocationPathEntry,
@@ -250,7 +250,7 @@ function setCustody(
 export function applyInventoryCustodyCommand(
   state: InventoryCustodyDraft,
   command: InventoryCommand,
-  context?: InventoryExecutionContext
+  context?: InventoryPhysicalExecutionContext
 ): Failure | null | undefined {
   if (
     ![
@@ -275,6 +275,7 @@ export function applyInventoryCustodyCommand(
       : false;
   const recover =
     context.principal.kind === 'local-profile' &&
+    context.authority.kind === 'local-profile' &&
     context.principal.profileKey === context.authority.profileKey;
   if (custodyCommand.kind === 'return-item' || custodyCommand.kind === 'locate-item') {
     if (
@@ -418,7 +419,7 @@ export function applyInventoryCustodyCommand(
 export function inventoryCustodyGuard(
   state: CustodyState,
   command: InventoryCommand,
-  context?: InventoryExecutionContext
+  context?: InventoryPhysicalExecutionContext
 ): Failure | null {
   const moving: InventoryPhysicalItem[] = [];
   const access: InventoryPhysicalItem[] = [];

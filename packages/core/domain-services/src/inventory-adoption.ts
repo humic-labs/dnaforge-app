@@ -1,3 +1,4 @@
+import { inventoryHasOrganizationAttribution } from './inventory-actor-scope';
 import type {
   InventoryEquipmentIncidentHolderSnapshot,
   InventoryEquipmentIncidentVesselSnapshot,
@@ -575,6 +576,8 @@ export function adoptInventoryState(
     source = parseInventoryAdoptionSource(options.source);
     context = parseInventoryExecutionContext(context);
     state = parseInventoryState(sourceState);
+    if (inventoryHasOrganizationAttribution(state))
+      throw new TypeError('Local inventory adoption cannot contain organization attribution.');
     if (state.revision !== source.revision)
       return {
         ok: false,

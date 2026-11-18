@@ -1,8 +1,8 @@
 import type {
-  InventoryAuthority,
+  InventoryLocalAuthority,
   InventoryCommand,
   InventoryLayout,
-  InventoryPrincipal,
+  InventoryLocalPrincipal,
   InventoryStoragePlacement,
 } from './inventory-types';
 import type {
@@ -89,8 +89,8 @@ export interface InventoryHierarchyPreviewInput {
   readonly sourceText: string;
   readonly options: InventoryHierarchyChoices;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
   readonly maxBytes: number;
 }
 export interface InventoryHierarchyApplication {

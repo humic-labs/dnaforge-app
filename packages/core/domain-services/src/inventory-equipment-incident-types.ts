@@ -8,13 +8,13 @@ import type {
   InventoryLocationPathEntry,
   InventoryPhysicalItem,
   InventoryPlacement,
-  InventoryPrincipal,
+  InventoryLocalPrincipal,
   InventoryRecordedPrincipal,
   InventoryState,
   InventoryStock,
   InventoryLot,
   InventoryStoragePlacement,
-  InventoryAuthority,
+  InventoryLocalAuthority,
   InventoryErrorCode,
 } from './inventory-types';
 import type { InventoryTableSha256, InventoryTableTarget } from './inventory-table-types';
@@ -265,7 +265,7 @@ export interface InventoryEquipmentIncidentActionPreviewFacts {
   readonly intentSha256: InventoryTableSha256 | null;
   readonly incidentId: string | null;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
   readonly nextBoundaryAt: number | null;
 }
 export type InventoryEquipmentIncidentActionPreview = InventoryEquipmentIncidentActionPreviewFacts &
@@ -298,8 +298,8 @@ export type InventoryEquipmentIncidentActionPreview = InventoryEquipmentIncident
 export interface InventoryEquipmentIncidentActionPreviewInput extends InventoryEquipmentIncidentActionChoices {
   readonly target: InventoryTableTarget;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
 }
 export interface InventoryEquipmentIncidentActionApplication extends InventoryEquipmentIncidentActionChoices {
   readonly target: InventoryTableTarget;

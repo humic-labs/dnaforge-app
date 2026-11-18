@@ -119,3 +119,46 @@ it('preserves imported and agent attribution regardless of current comparison id
     'Agent recorded-agent'
   );
 });
+
+it('labels organization accounts by their exact organization and account comparison', () => {
+  const holder = {
+    kind: 'organization-account' as const,
+    orgId: 'organization-a',
+    accountId: 'account-a',
+  };
+  expect(inventoryPrincipalLabel(holder)).toBe('Organization account account-a · organization-a');
+  expect(inventoryPrincipalLabel(holder, { ...holder })).toBe('You');
+  expect(inventoryPrincipalLabel(holder, { ...holder, orgId: 'organization-b' })).toBe(
+    'Organization account account-a · organization-a'
+  );
+  expect(inventoryPrincipalLabel(holder, { ...holder, accountId: 'account-b' })).toBe(
+    'Organization account account-a · organization-a'
+  );
+  expect(
+    inventoryPrincipalLabel(holder, { kind: 'local-profile', profileKey: 'a'.repeat(64) })
+  ).toBe('Organization account account-a · organization-a');
+});
+
+it('keeps imported organization accounts historical even when their account matches', () => {
+  const holder = {
+    kind: 'organization-account' as const,
+    orgId: 'organization-a',
+    accountId: 'account-a',
+  };
+  const imported = {
+    kind: 'imported' as const,
+    principal: holder,
+    source: {
+      archiveSha256: `sha256:${'b'.repeat(64)}`,
+      projectId: 'source-project',
+      inventoryId: 'source-inventory',
+      revision: 3,
+    },
+  };
+  expect(inventoryPrincipalLabel(imported, holder)).toBe(
+    'Imported organization account account-a · organization-a · source-project / source-inventory'
+  );
+  expect(
+    inventoryPrincipalLabel({ kind: 'local-profile', profileKey: 'a'.repeat(64) }, holder)
+  ).toBe('Desktop profile');
+});

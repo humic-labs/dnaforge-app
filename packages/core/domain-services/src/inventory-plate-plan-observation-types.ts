@@ -12,8 +12,8 @@ import type {
   InventoryScientificVesselSnapshot,
 } from './inventory-scientific-types';
 import type {
-  InventoryAuthority,
-  InventoryPrincipal,
+  InventoryLocalAuthority,
+  InventoryLocalPrincipal,
   InventoryRecordedPrincipal,
   InventoryStock,
   InventoryStoragePlacement,
@@ -102,8 +102,8 @@ export interface InventoryPlatePlanObservationPreviewInput extends InventoryPlat
   readonly target: InventoryTableTarget;
   readonly source: InventoryScientificContextSource | null;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
 }
 export interface InventoryPlatePlanObservationApplication extends InventoryPlatePlanObservationChoices {
   readonly target: InventoryTableTarget;
@@ -117,7 +117,7 @@ interface PreviewFacts {
   readonly intentSha256: InventoryTableSha256 | null;
   readonly sourceSha256: InventoryTableSha256 | null;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
   readonly nextBoundaryAt: number | null;
 }
 export type InventoryPlatePlanObservationPreview = PreviewFacts &

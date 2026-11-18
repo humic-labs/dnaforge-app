@@ -2,7 +2,7 @@ import {
   inventoryTableCanonicalJson,
   inventoryTableSha256,
   type InventoryPlatePlanDiagramArtifact,
-  type InventoryPrincipal,
+  type InventoryLocalPrincipal,
 } from '@waypoint/domain-services';
 import type { InventoryClient } from '../../shared/inventory-client';
 import {
@@ -191,7 +191,7 @@ export class InventoryPlatePlanReadSession {
     this.invalidate();
     this.set({ destinationPlateId, sources: { ...sources }, feasibility: { kind: 'draft' } });
   }
-  setPrincipal(principal: InventoryPrincipal | undefined) {
+  setPrincipal(principal: InventoryLocalPrincipal | undefined) {
     const key = principal ? JSON.stringify(principal) : null;
     if (this.principalKey !== null && key !== this.principalKey) this.invalidate();
     this.principalKey = key;

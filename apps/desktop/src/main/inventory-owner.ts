@@ -76,11 +76,12 @@ import {
   inventoryResolveItemCode,
   inventoryStorageConditionsProjection,
   parseInventoryState,
+  assertInventoryActorScope,
   parseInventoryReceiveTableSource,
   inspectInventoryBenchlingCapture,
   inventoryArrivalMaterialChoices,
   type InventoryArrivalDocumentRead,
-  type InventoryPrincipal,
+  type InventoryLocalPrincipal,
   type InventoryEquipmentCatalogEntry,
   type InventoryEquipmentCatalogUpdatePreview,
   type InventoryState,
@@ -322,6 +323,7 @@ function materialProject(db: Database.Database, id: string, fieldsJson: string):
 function stateFromRow(row: InventoryRow): InventoryState {
   try {
     const state = parseInventoryState(parsedJson(row.state_json));
+    assertInventoryActorScope(state, { kind: 'project-local' });
     if (state.revision !== row.revision) return dataError();
     return state;
   } catch {
@@ -374,7 +376,7 @@ export function createNativeInventoryOwner(options: {
     kind: 'local-profile',
     profileKey: options.profileKey,
   });
-  const principal = (invocation: NativeInventoryInvocation): InventoryPrincipal =>
+  const principal = (invocation: NativeInventoryInvocation): InventoryLocalPrincipal =>
     inventoryPrincipalSchema.parse(invocation.principal ?? authority);
   const nativeNow = (): number => {
     const now = (options.now ?? Date.now)();
@@ -664,7 +666,7 @@ export function createNativeInventoryOwner(options: {
         }
         const recordedAt = observationTime(previous);
         const context = inventoryReceiptContextSchema.parse({
-          version: 13,
+          version: 14,
           principal: principal(invocation),
           authority,
           ...(productionCapture ? { acceptedDesign: productionCapture.witness } : {}),
@@ -1350,6 +1352,7 @@ export function createNativeInventoryOwner(options: {
             message: result.message,
             currentRevision: previous.revision,
           };
+        assertInventoryActorScope(result.state, { kind: 'project-local' });
         const receipt: NativeInventoryReceipt = inventoryReceiptSchema.parse({
           status: 'committed',
           inventoryId: request.inventoryId,
@@ -4703,5 +4706,5 @@ export interface NativeInventoryInvocation {
   beforeScientificRead?(): Promise<void>;
   beforeScientificCommit?(): Promise<void>;
   readonly actor?: string;
-  readonly principal?: InventoryPrincipal;
+  readonly principal?: InventoryLocalPrincipal;
 }

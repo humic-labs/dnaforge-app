@@ -21,7 +21,7 @@ import type {
   InventoryAvailabilityBlocker,
   InventoryCommand,
   InventoryErrorCode,
-  InventoryExecutionContext,
+  InventoryPhysicalExecutionContext,
   InventoryPhysicalItem,
   InventoryPrincipal,
   InventoryQuantity,
@@ -307,7 +307,7 @@ function locationTarget(placement: {
 export function inventoryReservationGuard(
   state: ReservationState,
   command: InventoryCommand,
-  context?: InventoryExecutionContext
+  context?: InventoryPhysicalExecutionContext
 ): Failure | null {
   const mixingFailure = inventoryMixingDimensionFailure(state, command);
   if (mixingFailure) return mixingFailure;
@@ -416,7 +416,7 @@ export function inventoryReservationGuard(
 export function applyInventoryReservationCommand(
   state: InventoryReservationDraft,
   command: InventoryCommand,
-  context?: InventoryExecutionContext
+  context?: InventoryPhysicalExecutionContext
 ): Failure | null | undefined {
   if (
     ![
@@ -543,6 +543,7 @@ export function applyInventoryReservationCommand(
     if (
       command.kind === 'cancel-reservation' &&
       (context.principal.kind !== 'local-profile' ||
+        context.authority.kind !== 'local-profile' ||
         context.principal.profileKey !== context.authority.profileKey)
     )
       return refuse(
@@ -569,7 +570,7 @@ export function applyInventoryReservationCommand(
 export function prepareInventoryFulfillment(
   state: InventoryReservationDraft,
   command: Extract<InventoryReservationCommand, { kind: 'fulfill-reservations' }>,
-  context?: InventoryExecutionContext
+  context?: InventoryPhysicalExecutionContext
 ): Failure | null {
   if (!context)
     return refuse(

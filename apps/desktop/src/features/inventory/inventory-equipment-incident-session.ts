@@ -10,7 +10,7 @@ import {
   type InventoryEquipmentIncidentActionProof,
   type InventoryEquipmentIncidentSummary,
   type InventoryEquipmentIncidentActionSummary,
-  type InventoryPrincipal,
+  type InventoryLocalPrincipal,
 } from '@waypoint/domain-services';
 import type { InventoryClient } from '../../shared/inventory-client';
 import {
@@ -205,7 +205,7 @@ export class InventoryEquipmentIncidentSession {
     if (this.writable !== value) this.invalidate();
     this.writable = value;
   }
-  setPrincipal(value: InventoryPrincipal) {
+  setPrincipal(value: InventoryLocalPrincipal) {
     const key = inventoryTableCanonicalJson(value);
     if (this.principalKey !== null && this.principalKey !== key) this.invalidate();
     this.principalKey = key;

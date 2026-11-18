@@ -13,6 +13,12 @@ export function inventoryPrincipalMatchesActor(
   actor: InventoryPrincipal | undefined
 ): boolean {
   if (!actor || recorded.kind === 'imported' || recorded.kind !== actor.kind) return false;
+  if (recorded.kind === 'organization-account')
+    return (
+      actor.kind === 'organization-account' &&
+      recorded.orgId === actor.orgId &&
+      recorded.accountId === actor.accountId
+    );
   return recorded.kind === 'agent'
     ? actor.kind === 'agent' && recorded.identityId === actor.identityId
     : actor.kind === 'local-profile' && recorded.profileKey === actor.profileKey;
@@ -32,7 +38,10 @@ function* incidentSnapshotPrincipals(
   )
     yield snapshot.contents.by;
 }
-function* recordedPrincipals(state: InventoryState): Generator<InventoryRecordedPrincipal> {
+export function* inventoryRecordedPrincipals(
+  state: InventoryState
+): Generator<InventoryRecordedPrincipal> {
+  if (state.origin.kind === 'archive-adoption') yield state.origin.by;
   for (const row of [...Object.values(state.storage), ...Object.values(state.vessels)]) {
     if ('contentsKnowledge' in row && row.contentsKnowledge.kind !== 'recorded')
       yield row.contentsKnowledge.by;
@@ -123,10 +132,16 @@ function* recordedPrincipals(state: InventoryState): Generator<InventoryRecorded
 }
 
 export function inventoryHasImportedAttribution(state: InventoryState): boolean {
-  for (const principal of recordedPrincipals(state)) if (principal.kind === 'imported') return true;
+  for (const principal of inventoryRecordedPrincipals(state))
+    if (principal.kind === 'imported') return true;
   return Object.values(state.reservations).some(
     (reservation) =>
       reservation.lifecycle.kind === 'cancelled' &&
       reservation.lifecycle.authority.kind === 'imported'
   );
+}
+
+export function* inventoryRecordedAuthorities(state: InventoryState) {
+  for (const reservation of Object.values(state.reservations))
+    if (reservation.lifecycle.kind === 'cancelled') yield reservation.lifecycle.authority;
 }

@@ -7,7 +7,7 @@ import {
   normalizeInventoryAmount,
   type AcceptedDnaProductionSelection,
   type InventoryScientificProduction,
-  type InventoryPrincipal,
+  type InventoryLocalPrincipal,
 } from '@waypoint/domain-services';
 import type { InventoryClient } from '../../shared/inventory-client';
 import {
@@ -160,7 +160,7 @@ export class InventoryScientificProductionSession {
     if (this.writable !== value) this.invalidate();
     this.writable = value;
   }
-  setPrincipal(principal: InventoryPrincipal) {
+  setPrincipal(principal: InventoryLocalPrincipal) {
     const key = inventoryTableCanonicalJson(principal);
     if (this.principalKey !== null && key !== this.principalKey) this.invalidate();
     this.principalKey = key;

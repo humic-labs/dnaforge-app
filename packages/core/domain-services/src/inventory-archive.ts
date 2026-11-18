@@ -1,3 +1,4 @@
+import { inventoryHasOrganizationAttribution } from './inventory-actor-scope';
 import { parseUniqueJson } from '@waypoint/scientific-objects/unique-json';
 import { inventoryScientificReferences } from './inventory-adoption';
 import { parseInventoryState } from './inventory-validation';
@@ -186,6 +187,7 @@ export function parseInventoryArchive(
     readonly allowRunValueAttributions?: boolean;
     readonly allowScientificProductions?: boolean;
     readonly allowEquipmentIncidents?: boolean;
+    readonly allowOrganizationAuthority?: boolean;
   } = {}
 ): InventoryValidatedArchive {
   const depth = options.depth ?? 0;
@@ -269,6 +271,8 @@ export function parseInventoryArchive(
     const decodedState = json(stateJson, '/content/state/json');
     try {
       state = parseInventoryState(decodedState, options);
+      if (inventoryHasOrganizationAttribution(state))
+        throw new TypeError('Local inventory archives cannot contain organization attribution.');
     } catch (error) {
       return fail(
         'INVALID_ARCHIVE_STATE',
@@ -313,6 +317,9 @@ export function parseInventoryArchive(
         source: scope,
         rows: parsedJournal,
         depth,
+        ...(options.allowOrganizationAuthority === undefined
+          ? {}
+          : { allowOrganizationAuthority: options.allowOrganizationAuthority }),
         ...(options.allowEquipmentIncidents === undefined
           ? {}
           : { allowEquipmentIncidents: options.allowEquipmentIncidents }),
@@ -323,6 +330,8 @@ export function parseInventoryArchive(
           ? {}
           : { allowRunValueAttributions: options.allowRunValueAttributions }),
       });
+      if (inventoryHasOrganizationAttribution(replayed))
+        throw new TypeError('Local inventory archives cannot contain organization attribution.');
     } catch (error) {
       if (error instanceof InventoryArchiveError) throw error;
       return fail(
@@ -366,6 +375,8 @@ export function createInventoryArchive(
 ): InventoryArchiveArtifact {
   const decodedState = capture.state ? json(capture.state.json, '/content/state/json') : null;
   const state = decodedState === null ? null : parseInventoryState(decodedState);
+  if (state && inventoryHasOrganizationAttribution(state))
+    throw new TypeError('Local inventory archives cannot contain organization attribution.');
   const content: InventoryArchiveContent = {
     source: {
       projectId: capture.projectId,

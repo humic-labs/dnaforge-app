@@ -1,8 +1,8 @@
 import type {
-  InventoryAuthority,
+  InventoryLocalAuthority,
   InventoryCommand,
   InventoryExecutionContext,
-  InventoryPrincipal,
+  InventoryLocalPrincipal,
   InventoryQuality,
   InventoryQuantity,
   InventoryQuantityInput,
@@ -170,8 +170,8 @@ export interface InventoryArrivalPreviewInput {
   readonly options: InventoryArrivalChoices;
   readonly bindings: readonly InventoryTableBindingObservation[];
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
   readonly maxBytes: number;
 }
 interface InventoryArrivalPreviewFacts {

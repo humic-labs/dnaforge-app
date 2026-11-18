@@ -1,8 +1,8 @@
 import type {
-  InventoryAuthority,
+  InventoryLocalAuthority,
   InventoryCommand,
   InventoryItemCustody,
-  InventoryPrincipal,
+  InventoryLocalPrincipal,
   InventoryQuantityInput,
   InventoryStockAvailability,
 } from './inventory-types';
@@ -112,8 +112,8 @@ export interface InventoryStocktakePreviewInput {
   readonly sourceText: string;
   readonly options: InventoryStocktakeChoices;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
   readonly maxBytes: number;
 }
 export interface InventoryStocktakeApplication {

@@ -1,6 +1,6 @@
 {
   "name": "@waypoint/workspace-revisions",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pure workspace revision graph and merge contracts",
   "type": "module",
   "main": "./src/index.ts",

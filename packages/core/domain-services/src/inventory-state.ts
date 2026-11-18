@@ -1,3 +1,5 @@
+import { assertInventoryActorScope } from './inventory-actor-scope';
+import type { InventoryExecutionContext } from './inventory-types';
 import {
   inventoryIncidentCaptureTransition,
   inventoryIncidentTransition,
@@ -28,7 +30,7 @@ import {
   type InventoryCommand,
   type InventoryCommandBatch,
   type InventoryErrorCode,
-  type InventoryExecutionContext,
+  type InventoryPhysicalExecutionContext,
   type InventoryLayout,
   type InventoryLot,
   type InventoryPhysicalItem,
@@ -177,7 +179,7 @@ function stockVessel(state: Draft, stock: InventoryStock): InventoryVessel | Fai
 function applyCommand(
   state: Draft,
   command: InventoryCommand,
-  context?: InventoryExecutionContext,
+  context?: InventoryPhysicalExecutionContext,
   revision = recordingRevisions.get(state) ?? 0
 ): Failure | null {
   const incidentUse = inventoryIncidentUseGuard(state, command);
@@ -191,7 +193,7 @@ const recordingRevisions = new WeakMap<object, number>();
 function applyCommandBody(
   state: Draft,
   command: InventoryCommand,
-  context?: InventoryExecutionContext
+  context?: InventoryPhysicalExecutionContext
 ): Failure | null {
   const observation = applyInventoryObservationCommand(state, command, context, (inner) =>
     applyCommand(state, inner, context)
@@ -425,11 +427,20 @@ export function applyInventoryCommandBatch(
   try {
     batch = parseInventoryCommandBatch(batch);
     if (context !== undefined) context = parseInventoryExecutionContext(context);
+    assertInventoryActorScope(state, { kind: 'project-local' });
   } catch (error) {
-    if (error instanceof InventoryValidationError)
+    if (error instanceof InventoryValidationError || error instanceof TypeError)
       return failure('INVALID_INVENTORY_INPUT', error.message);
     throw error;
   }
+  return applyInventoryParsedCommandBatch(state, batch, context);
+}
+
+export function applyInventoryParsedCommandBatch(
+  state: InventoryState,
+  batch: InventoryCommandBatch,
+  context?: InventoryPhysicalExecutionContext
+): InventoryTransition {
   if (state.revision !== batch.expectedRevision)
     return failure(
       'REVISION_CONFLICT',

@@ -99,6 +99,7 @@ export const inventoryReceiptContextSchema = z
       z.literal(11),
       z.literal(12),
       z.literal(13),
+      z.literal(14),
     ]),
     principal: inventoryPrincipalSchema,
     authority: z.object({ kind: z.literal('local-profile'), profileKey }).strict(),

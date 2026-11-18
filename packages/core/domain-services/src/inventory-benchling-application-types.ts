@@ -1,9 +1,9 @@
 import type {
-  InventoryAuthority,
+  InventoryLocalAuthority,
   InventoryCommand,
   InventoryHierarchyBinding,
   InventoryLayout,
-  InventoryPrincipal,
+  InventoryLocalPrincipal,
   InventoryQuality,
   InventoryVesselBinding,
   InventoryTableBinding,
@@ -197,8 +197,8 @@ export interface InventoryBenchlingCapturePreviewInput {
     | { readonly kind: 'unavailable'; readonly reason: string }
   ))[];
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
   readonly maxBytes: number;
 }
 export interface InventoryBenchlingCaptureApplication {

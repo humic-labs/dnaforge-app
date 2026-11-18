@@ -11,7 +11,7 @@ import { inventoryStockAvailabilityFacts } from './inventory-reservations';
 import type {
   InventoryCommand,
   InventoryErrorCode,
-  InventoryExecutionContext,
+  InventoryPhysicalExecutionContext,
   InventoryPrincipal,
   InventoryState,
 } from './inventory-types';
@@ -147,7 +147,7 @@ export function inventoryArrivalAllocationBalance(
 export function applyInventoryStockroomCommand(
   state: InventoryStockroomDraft,
   command: InventoryCommand,
-  context?: InventoryExecutionContext
+  context?: InventoryPhysicalExecutionContext
 ): Failure | null | undefined {
   if (
     ![

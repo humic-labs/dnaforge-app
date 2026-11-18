@@ -1,9 +1,9 @@
 import type { InventoryProtocolRunSavedSource } from './inventory-scientific-types';
 import type { InventoryTableSha256, InventoryTableTarget } from './inventory-table-types';
 import type {
-  InventoryAuthority,
+  InventoryLocalAuthority,
   InventoryErrorCode,
-  InventoryPrincipal,
+  InventoryLocalPrincipal,
   InventoryRecordedPrincipal,
 } from './inventory-types';
 import type {
@@ -167,8 +167,8 @@ export type InventoryRunValueAttributionComparison =
 interface NativeInput {
   readonly target: InventoryTableTarget;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
 }
 export interface InventoryRunValueAttributionPreviewInput
   extends InventoryRunValueAttributionChoices, NativeInput {

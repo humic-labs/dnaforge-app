@@ -1,6 +1,6 @@
 import type {
   InventoryCommand,
-  InventoryExecutionContext,
+  InventoryPhysicalExecutionContext,
   InventoryState,
   InventoryTransition,
 } from './inventory-types';
@@ -17,7 +17,7 @@ const refusal = (code: Failure['code'], message: string): Failure => ({ ok: fals
 export function applyInventoryObservationCommand(
   state: ObservationState,
   command: InventoryCommand,
-  context: InventoryExecutionContext | undefined,
+  context: InventoryPhysicalExecutionContext | undefined,
   apply: (command: InventoryCommand) => Failure | null
 ): Failure | null | undefined {
   if (

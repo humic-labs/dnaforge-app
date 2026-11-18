@@ -4,9 +4,9 @@ import type {
 } from './inventory-scientific-types';
 import type { InventoryTableSha256, InventoryTableTarget } from './inventory-table-types';
 import type {
-  InventoryAuthority,
+  InventoryLocalAuthority,
   InventoryErrorCode,
-  InventoryPrincipal,
+  InventoryLocalPrincipal,
   InventoryRecordedPrincipal,
   InventoryTransition,
   InventoryExecutionContext,
@@ -136,8 +136,8 @@ export type InventoryScientificCitationWithdrawalPreview =
 interface PreviewInput {
   readonly target: InventoryTableTarget;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
 }
 export interface InventoryScientificCitationPreviewInput
   extends InventoryScientificCitationChoices, PreviewInput {

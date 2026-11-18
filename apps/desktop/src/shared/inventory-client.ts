@@ -97,7 +97,7 @@ import type {
   InventoryLocationPathEntry,
   InventoryPhysicalItem,
   InventoryPhysicalItemProjection,
-  InventoryPrincipal,
+  InventoryLocalPrincipal,
   InventoryState,
   InventoryStorageConditionsProjection,
   InventoryStock,
@@ -197,7 +197,7 @@ export interface InventoryScientificContextsSnapshot {
   readonly inventoryId: string;
   readonly revision: number;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
   readonly pages: readonly {
     readonly kind: 'notebook-page';
     readonly projectId: string;
@@ -212,7 +212,7 @@ export type InventoryScientificTransferPreviewSnapshot = InventoryScientificTran
   readonly inventoryId: string;
   readonly revision: number;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
 };
 export type InventoryScientificSourceRead =
   | {
@@ -228,7 +228,7 @@ export interface InventoryScientificContextsV2Snapshot {
   readonly inventoryId: string;
   readonly revision: number;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
   readonly contexts: readonly {
     readonly kind: 'notebook-page' | 'protocol-run';
     readonly projectId: string;
@@ -243,7 +243,7 @@ export type InventoryScientificTransferV2PreviewSnapshot = InventoryScientificTr
   readonly inventoryId: string;
   readonly revision: number;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
 };
 export interface InventoryProject {
   readonly projectId: string;
@@ -288,7 +288,7 @@ export interface InventoryStockroomSnapshot extends InventoryStockroomProjection
   readonly inventoryId: string;
   readonly revision: number;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
 }
 
 export interface InventoryAvailabilitySnapshot extends InventoryAvailability {
@@ -296,14 +296,14 @@ export interface InventoryAvailabilitySnapshot extends InventoryAvailability {
   readonly inventoryId: string;
   readonly revision: number;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
 }
 
 export interface InventoryStorageConditionsSnapshot extends InventoryStorageConditionsProjection {
   readonly projectId: string;
   readonly inventoryId: string;
   readonly revision: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
 }
 
 export interface InventoryItemCodeTargetSnapshot {
@@ -323,7 +323,7 @@ export interface InventoryItemCodeLookupSnapshot {
   readonly inventoryId: string;
   readonly revision: number;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
   readonly resolution: InventoryItemCodeResolution;
   readonly targets: readonly InventoryItemCodeTargetSnapshot[];
 }
@@ -334,7 +334,7 @@ export interface InventoryLabelArtifact {
   readonly inventoryId: string;
   readonly sourceRevision: number;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
   readonly binding: InventoryItemCode;
   readonly target: InventoryItemCodeTargetSnapshot;
   readonly rendered: InventoryRenderedLabel;
@@ -343,50 +343,50 @@ export interface InventoryLabelArtifact {
 
 export interface InventoryExportSnapshot extends InventoryArchiveArtifact {
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
 }
 export type InventoryImportPreviewSnapshot = InventoryImportPreview & {
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
 };
 export type InventoryTablePreviewSnapshot = InventoryTablePreview & {
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
 };
 
 export type InventoryStocktakePreviewSnapshot = InventoryStocktakePreview & {
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
 };
 
 export type InventorySourceRevisionPreviewSnapshot = InventorySourceRevisionPreview & {
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
 };
 
 export type InventoryHierarchyPreviewSnapshot = InventoryHierarchyPreview & {
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
 };
 
 export type InventoryMappedTablePreviewSnapshot = InventoryMappedTablePreview & {
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
 };
 
 export type InventoryBenchlingCaptureSnapshot = InventoryBenchlingCaptureInspection & {
   readonly target: InventoryImportTarget;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
 };
 export type InventoryBenchlingCapturePreviewSnapshot = InventoryBenchlingCapturePreview & {
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
 };
 
 export type InventoryArrivalPreviewSnapshot = InventoryArrivalPreview & {
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
 };
 export type { InventoryArrivalDocumentRead };
 

@@ -1,8 +1,8 @@
 import type {
-  InventoryAuthority,
+  InventoryLocalAuthority,
   InventoryExecutionContext,
   InventoryItemCustody,
-  InventoryPrincipal,
+  InventoryLocalPrincipal,
   InventoryRecordedPrincipal,
   InventoryState,
   InventoryStock,
@@ -108,8 +108,8 @@ export interface InventorySourceRevisionPreviewInput {
   readonly options: InventorySourceRevisionChoices;
   readonly preimages: readonly InventorySourceRevisionPreimage[];
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
   readonly maxBytes: number;
 }
 

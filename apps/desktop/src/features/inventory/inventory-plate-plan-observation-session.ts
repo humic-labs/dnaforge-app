@@ -3,7 +3,7 @@ import {
   inventoryPlatePlanObservationId,
   inventoryPlatePlanObservationIntentSha256,
   type InventoryPlatePlanVersion,
-  type InventoryPrincipal,
+  type InventoryLocalPrincipal,
 } from '@waypoint/domain-services';
 import type { InventoryClient } from '../../shared/inventory-client';
 import {
@@ -141,7 +141,7 @@ export class InventoryPlatePlanObservationSession {
     this.boundary = null;
     if (!this.busy()) this.publish({ kind: 'editing' });
   }
-  setPrincipal(principal: InventoryPrincipal | undefined) {
+  setPrincipal(principal: InventoryLocalPrincipal | undefined) {
     const key = principal ? inventoryTableCanonicalJson(principal) : null;
     if (this.principalKey !== null && key !== this.principalKey) this.invalidate();
     this.principalKey = key;

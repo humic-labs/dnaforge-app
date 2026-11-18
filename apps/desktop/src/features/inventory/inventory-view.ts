@@ -79,10 +79,18 @@ export function inventoryPrincipalLabel(
     const person =
       holder.principal.kind === 'agent'
         ? `agent ${holder.principal.identityId}`
-        : 'desktop profile';
+        : holder.principal.kind === 'organization-account'
+          ? `organization account ${holder.principal.accountId} · ${holder.principal.orgId}`
+          : 'desktop profile';
     return `Imported ${person} · ${holder.source.projectId} / ${holder.source.inventoryId}`;
   }
   if (holder.kind === 'agent') return `Agent ${holder.identityId}`;
+  if (holder.kind === 'organization-account')
+    return current?.kind === 'organization-account' &&
+      current.orgId === holder.orgId &&
+      current.accountId === holder.accountId
+      ? 'You'
+      : `Organization account ${holder.accountId} · ${holder.orgId}`;
   if (current?.kind !== 'local-profile') return 'Desktop profile';
   return holder.profileKey === current.profileKey
     ? 'This desktop profile'

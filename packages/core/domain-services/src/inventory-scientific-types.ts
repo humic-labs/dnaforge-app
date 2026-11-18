@@ -1,10 +1,10 @@
 import type { InventoryAmount, InventoryCanonicalAmount } from './inventory-amount';
 import type { InventoryTableSha256, InventoryTableTarget } from './inventory-table-types';
 import type {
-  InventoryAuthority,
+  InventoryLocalAuthority,
   InventoryExecutionContext,
   InventoryErrorCode,
-  InventoryPrincipal,
+  InventoryLocalPrincipal,
   InventoryRecordedPrincipal,
   InventoryState,
   InventoryStock,
@@ -124,8 +124,8 @@ export interface InventoryScientificTransferPreviewInput extends InventoryScient
   readonly target: InventoryTableTarget;
   readonly source: InventoryNotebookSavedSource | null;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
 }
 interface InventoryScientificTransferPreviewFacts<Schema extends string> {
   readonly schema: Schema;
@@ -174,8 +174,8 @@ export interface InventoryScientificTransferPreviewInputV2 extends InventoryScie
   readonly target: InventoryTableTarget;
   readonly source: InventoryScientificContextSource | null;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
 }
 export interface InventoryScientificTransferApplicationV2 extends InventoryScientificTransferChoicesV2 {
   readonly target: InventoryTableTarget;

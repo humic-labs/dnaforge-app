@@ -2,7 +2,7 @@ import type {
   InventoryCommand,
   InventoryContribution,
   InventoryErrorCode,
-  InventoryExecutionContext,
+  InventoryPhysicalExecutionContext,
   InventoryLot,
   InventoryQuantity,
   InventoryReservation,
@@ -127,7 +127,7 @@ export function inventoryWithdrawalResult(
 
 function physicalValidity(
   refs: readonly InventoryInheritedValidity[],
-  context: InventoryExecutionContext | undefined
+  context: InventoryPhysicalExecutionContext | undefined
 ): readonly InventoryInheritedValidity[] | Refusal {
   if (refs.length && !context)
     return refuse(
@@ -192,7 +192,7 @@ export function inventoryMixingDimensionFailure(
 export function applyInventoryMaterialCommand(
   state: InventoryMaterialDraft,
   command: InventoryCommand,
-  context?: InventoryExecutionContext
+  context?: InventoryPhysicalExecutionContext
 ): Refusal | null | undefined {
   const mixingFailure = inventoryMixingDimensionFailure(state, command);
   if (mixingFailure) return mixingFailure;

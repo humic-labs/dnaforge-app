@@ -47,6 +47,7 @@ export const nativeInventoryArchiveRuntime: InventoryArchiveRuntime = {
     allowRunValueAttributions,
     allowScientificProductions,
     allowEquipmentIncidents,
+    allowOrganizationAuthority,
   }) => {
     if (
       allowRunValueAttributions === false &&
@@ -65,6 +66,11 @@ export const nativeInventoryArchiveRuntime: InventoryArchiveRuntime = {
       Number(source.storedSchema?.match(/^dnaforge\.inventory\.v([1-9]\d*)$/)?.[1]) >= 30
     )
       throw Error('INVENTORY_DATA_INVALID: A pre-V13 ancestor cannot admit incident schemas.');
+    if (
+      allowOrganizationAuthority === false &&
+      Number(source.storedSchema?.match(/^dnaforge\.inventory\.v([1-9]\d*)$/)?.[1]) >= 31
+    )
+      throw Error('INVENTORY_DATA_INVALID: A pre-V14 ancestor cannot admit organization schemas.');
     return replayNativeInventoryJournal(
       rows.map((row) =>
         parseNativeInventoryJournalEntry(
@@ -78,7 +84,12 @@ export const nativeInventoryArchiveRuntime: InventoryArchiveRuntime = {
         )
       ),
       depth + 1,
-      { allowRunValueAttributions, allowScientificProductions, allowEquipmentIncidents }
+      {
+        allowRunValueAttributions,
+        allowScientificProductions,
+        allowEquipmentIncidents,
+        allowOrganizationAuthority,
+      }
     );
   },
 };
@@ -132,10 +143,12 @@ export function applyNativeInventoryAdoption(
       | 11
       | 12
       | 13
+      | 14
       | undefined;
     readonly allowRunValueAttributions?: boolean;
     readonly allowScientificProductions?: boolean;
     readonly allowEquipmentIncidents?: boolean;
+    readonly allowOrganizationAuthority?: boolean;
   }
 ) {
   const allowRunValueAttributions = replay
@@ -147,11 +160,15 @@ export function applyNativeInventoryAdoption(
   const allowEquipmentIncidents = replay
     ? replay.allowEquipmentIncidents !== false && (replay.receiptContextVersion ?? 1) >= 13
     : true;
+  const allowOrganizationAuthority = replay
+    ? replay.allowOrganizationAuthority !== false && (replay.receiptContextVersion ?? 1) >= 14
+    : true;
   const archive = parseInventoryArchive(request.sourceText, nativeInventoryArchiveRuntime, {
     depth,
     allowRunValueAttributions,
     allowScientificProductions,
     allowEquipmentIncidents,
+    allowOrganizationAuthority,
   });
   if (
     replay &&
@@ -302,6 +319,7 @@ export function replayNativeInventoryJournal(
     readonly allowRunValueAttributions?: boolean;
     readonly allowScientificProductions?: boolean;
     readonly allowEquipmentIncidents?: boolean;
+    readonly allowOrganizationAuthority?: boolean;
   } = {}
 ): InventoryState {
   return replayNativeInventoryEntries(
@@ -312,6 +330,7 @@ export function replayNativeInventoryJournal(
         allowRunValueAttributions: options.allowRunValueAttributions,
         allowScientificProductions: options.allowScientificProductions,
         allowEquipmentIncidents: options.allowEquipmentIncidents,
+        allowOrganizationAuthority: options.allowOrganizationAuthority,
       }),
     applyNativeInventoryTable,
     applyNativeInventoryStocktake,

@@ -1,6 +1,6 @@
 import type {
   InventoryCommand,
-  InventoryExecutionContext,
+  InventoryPhysicalExecutionContext,
   InventoryState,
   InventoryTransition,
   InventoryVessel,
@@ -68,7 +68,7 @@ export function inventoryVesselStockAdmission(
 export function applyInventoryContentsCommand(
   state: ContentsDraft,
   command: InventoryCommand,
-  context?: InventoryExecutionContext
+  context?: InventoryPhysicalExecutionContext
 ): Failure | null | undefined {
   if (
     command.kind !== 'record-vessel-contents' &&

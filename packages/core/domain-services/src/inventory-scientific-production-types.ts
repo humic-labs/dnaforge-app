@@ -13,8 +13,8 @@ import type {
   InventoryCommand,
   InventoryErrorCode,
   InventoryRecordedPrincipal,
-  InventoryPrincipal,
-  InventoryAuthority,
+  InventoryLocalPrincipal,
+  InventoryLocalAuthority,
 } from './inventory-types';
 export type AcceptedDnaProductionRevision = Omit<
   ScientificAcceptedDocumentRevision,
@@ -114,8 +114,8 @@ export interface InventoryScientificProductionPreviewInput extends InventoryScie
   readonly source: InventoryProtocolRunSavedSource | null;
   readonly designBinding: VerifiedAcceptedDnaProductionBinding | null;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
-  readonly authority: InventoryAuthority;
+  readonly principal: InventoryLocalPrincipal;
+  readonly authority: InventoryLocalAuthority;
 }
 export interface InventoryScientificProductionApplication extends InventoryScientificProductionChoices {
   readonly target: InventoryTableTarget;
@@ -130,7 +130,7 @@ export interface InventoryScientificProductionPreviewFacts {
   readonly intentSha256: InventoryTableSha256 | null;
   readonly sourceSha256: InventoryTableSha256 | null;
   readonly asOf: number;
-  readonly principal: InventoryPrincipal;
+  readonly principal: InventoryLocalPrincipal;
   readonly nextBoundaryAt: number | null;
 }
 export type InventoryScientificProductionPreview = InventoryScientificProductionPreviewFacts &

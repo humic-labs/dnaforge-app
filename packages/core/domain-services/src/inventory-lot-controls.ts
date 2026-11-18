@@ -1,7 +1,7 @@
 import type {
   InventoryCommand,
   InventoryErrorCode,
-  InventoryExecutionContext,
+  InventoryPhysicalExecutionContext,
   InventoryLot,
   InventoryLotOrigin,
   InventoryState,
@@ -191,7 +191,7 @@ export interface InventoryLotControlDraft extends Omit<
 export function applyInventoryLotControlCommand(
   state: InventoryLotControlDraft,
   command: InventoryCommand,
-  context?: InventoryExecutionContext
+  context?: InventoryPhysicalExecutionContext
 ): Failure | null | undefined {
   if (
     command.kind !== 'manage-lot' &&

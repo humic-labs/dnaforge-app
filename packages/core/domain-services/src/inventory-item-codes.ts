@@ -1,6 +1,6 @@
 import type {
   InventoryCommand,
-  InventoryExecutionContext,
+  InventoryPhysicalExecutionContext,
   InventoryItemCode,
   InventoryItemCodeResolution,
   InventoryState,
@@ -55,7 +55,7 @@ export function inventoryResolveItemCode(
 export function applyInventoryItemCodeCommand(
   state: ItemCodeDraft,
   command: InventoryCommand,
-  context: InventoryExecutionContext | undefined
+  context: InventoryPhysicalExecutionContext | undefined
 ): Failure | null | undefined {
   if (command.kind !== 'attach-item-code' && command.kind !== 'retire-item-code') return undefined;
   if (!context)

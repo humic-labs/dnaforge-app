@@ -5,7 +5,7 @@ import { inventoryReservationDestinationFailure } from './inventory-reservation-
 import type {
   InventoryCommand,
   InventoryConfigurationCommand,
-  InventoryExecutionContext,
+  InventoryPhysicalExecutionContext,
   InventoryState,
   InventoryStorage,
   InventoryVessel,
@@ -317,7 +317,7 @@ function version(rows: readonly { version: number }[]): number {
 export function applyInventoryConfigurationCommand(
   state: InventoryConfigurationDraft,
   command: InventoryCommand,
-  context: InventoryExecutionContext | undefined,
+  context: InventoryPhysicalExecutionContext | undefined,
   apply: (command: InventoryCommand) => Failure | null
 ): Failure | null | undefined {
   if (

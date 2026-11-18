@@ -11,7 +11,7 @@ import {
 } from './inventory-equipment-incident-identity';
 import type {
   InventoryCommand,
-  InventoryExecutionContext,
+  InventoryPhysicalExecutionContext,
   InventoryPhysicalItem,
   InventoryState,
   InventoryTransition,
@@ -154,7 +154,7 @@ export function inventoryIncidentMakeRoot(
   state: T.InventoryEquipmentIncidentState,
   incident: T.InventoryEquipmentIncident,
   vesselId: string,
-  context: InventoryExecutionContext,
+  context: InventoryPhysicalExecutionContext,
   revision: number,
   initial: boolean
 ): T.InventoryEquipmentIncidentReviewRoot | null {
@@ -246,7 +246,7 @@ function terminal(
   root: T.InventoryEquipmentIncidentReviewRoot,
   stockId: string | null,
   reason: string,
-  context: InventoryExecutionContext,
+  context: InventoryPhysicalExecutionContext,
   revision: number
 ) {
   if (inventoryIncidentEpisodeTerminal(after, root.id)) return;
@@ -278,7 +278,7 @@ export function inventoryIncidentTransition(
   before: T.InventoryEquipmentIncidentState | null,
   after: IncidentMutable,
   command: InventoryCommand,
-  context: InventoryExecutionContext | undefined,
+  context: InventoryPhysicalExecutionContext | undefined,
   revision: number
 ): Extract<InventoryTransition, { ok: false }> | null {
   if (!before) return null;

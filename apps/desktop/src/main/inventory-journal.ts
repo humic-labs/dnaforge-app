@@ -6,6 +6,8 @@ import {
 import { createHash } from 'node:crypto';
 import {
   applyInventoryCommandBatch,
+  assertInventoryActorScope,
+  inventoryHasOrganizationAttribution,
   inventoryNotebookSourceSha256,
   inventoryProtocolRunSourceSha256,
   parseProtocolPackage,
@@ -184,7 +186,7 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryApplyImportRequest,
     context: InventoryExecutionContext,
-    receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | undefined
+    receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | undefined
   ) => InventoryTransition,
   table: (
     target: InventoryState | null,
@@ -225,6 +227,7 @@ export function replayNativeInventoryEntries(
     readonly allowRunValueAttributions?: boolean;
     readonly allowScientificProductions?: boolean;
     readonly allowEquipmentIncidents?: boolean;
+    readonly allowOrganizationAuthority?: boolean;
   } = {}
 ): InventoryState {
   let state = createInventoryState();
@@ -430,6 +433,14 @@ export function replayNativeInventoryEntries(
     }
     if (!result.ok)
       throw new Error('INVENTORY_DATA_INVALID: The saved inventory journal could not be replayed.');
+    assertInventoryActorScope(result.state, { kind: 'project-local' });
+    if (
+      (contextVersion < 14 || options.allowOrganizationAuthority === false) &&
+      inventoryHasOrganizationAttribution(result.state)
+    )
+      throw Error(
+        'INVENTORY_DATA_INVALID: Organization authority cannot enter through pre-V14 semantics or ancestry.'
+      );
     if (
       !cumulativeLotSemantics &&
       (Object.values(result.state.lots).some((lot) => lot.controls.kind === 'managed') ||

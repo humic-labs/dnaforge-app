@@ -2,7 +2,7 @@ import type {
   InventoryCommand,
   InventoryState,
   InventoryPhysicalItem,
-  InventoryExecutionContext,
+  InventoryPhysicalExecutionContext,
   InventoryTransition,
   InventoryTemperatureClaim,
   InventoryTemperatureClaimProjection,
@@ -113,7 +113,7 @@ function installationSnapshot(
 export function applyInventoryTemperatureCommand(
   state: Draft,
   command: InventoryCommand,
-  context: InventoryExecutionContext | undefined
+  context: InventoryPhysicalExecutionContext | undefined
 ): Failure | null | undefined {
   if (
     ![

@@ -1,3 +1,5 @@
+import { inventoryHasOrganizationAttribution } from './inventory-actor-scope';
+import type { InventoryOrganizationExecutionContext } from './inventory-organization-types';
 import { validateInventoryEquipmentIncidents } from './inventory-equipment-incident-validation';
 import type * as Incident from './inventory-equipment-incident-types';
 import {
@@ -125,6 +127,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_EQUIPMENT_INCIDENT_SCHEMA,
   INVENTORY_SCIENTIFIC_PRODUCTION_SCHEMA,
   INVENTORY_RUN_VALUE_ATTRIBUTION_SCHEMA,
   INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA,
@@ -359,6 +362,9 @@ const id = text('Inventory identifier', 512, true);
 const vesselId = text('Vessel identifier', 1_024, true);
 const name = text('Inventory name');
 const reason = text('Inventory change reason', 2_000);
+export function parseInventoryReason(value: unknown): string {
+  return reason.parse(value);
+}
 const slot = text('Slot identifier', 512, true);
 const slots = array(slot, MAX_INVENTORY_STORAGE_SLOTS, 0, true);
 const revision = integer('Inventory revision', 0, Number.MAX_SAFE_INTEGER);
@@ -397,6 +403,19 @@ const principal = union('Inventory acting principal', [
   authority,
   fields('Inventory agent principal', { kind: literal('agent'), identityId: id }),
 ]);
+const organizationPrincipal = fields('Inventory organization account', {
+  kind: literal('organization-account'),
+  orgId: id,
+  accountId: id,
+});
+const organizationAuthority = fields('Inventory organization authority', {
+  kind: literal('organization-inventory'),
+  orgId: id,
+  inventoryId: id,
+  accountId: id,
+});
+const currentPrincipal = union('Inventory current principal', [principal, organizationPrincipal]);
+const currentAuthority = union('Inventory current authority', [authority, organizationAuthority]);
 const adoptionSource = fields('Inventory archive source', {
   archiveSha256: text('Archive SHA-256', 71, true, '^sha256:[a-f0-9]{64}$'),
   projectId: text('Archive project identifier', 4096, true),
@@ -404,19 +423,19 @@ const adoptionSource = fields('Inventory archive source', {
   revision: integer('Archive source revision', 1, Number.MAX_SAFE_INTEGER),
 });
 const recordedPrincipal = union('Inventory recorded attribution', [
-  principal,
+  currentPrincipal,
   fields('Imported inventory attribution', {
     kind: literal('imported'),
     source: adoptionSource,
-    principal,
+    principal: currentPrincipal,
   }),
 ]);
 const recordedAuthority = union('Inventory recorded authority', [
-  authority,
+  currentAuthority,
   fields('Imported inventory authority', {
     kind: literal('imported'),
     source: adoptionSource,
-    authority,
+    authority: currentAuthority,
   }),
 ]);
 const inventoryOrigin = union('Inventory origin', [
@@ -425,7 +444,7 @@ const inventoryOrigin = union('Inventory origin', [
     kind: literal('archive-adoption'),
     source: adoptionSource,
     at: timestamp,
-    by: principal,
+    by: currentPrincipal,
   }),
 ]);
 
@@ -479,6 +498,21 @@ const executionContext: Codec<InventoryExecutionContext> = checked(
 
 export function parseInventoryExecutionContext(value: unknown): InventoryExecutionContext {
   return executionContext.parse(value);
+}
+export function parseInventoryOrganizationExecutionContext(
+  value: unknown
+): InventoryOrganizationExecutionContext {
+  const parsed = fields('Organization inventory execution context', {
+    at: timestamp,
+    principal: organizationPrincipal,
+    authority: organizationAuthority,
+  }).parse(value);
+  if (
+    parsed.principal.orgId !== parsed.authority.orgId ||
+    parsed.principal.accountId !== parsed.authority.accountId
+  )
+    invalid('The organization account must match its inventory authority.');
+  return parsed;
 }
 const custodyDestination = union('Custody destination', [
   root,
@@ -3813,10 +3847,15 @@ export function parseInventoryState(
   options: {
     readonly allowScientificProductions?: boolean;
     readonly allowEquipmentIncidents?: boolean;
+    readonly allowOrganizationAuthority?: boolean;
   } = {}
 ): InventoryState {
   const original = object(value, 'Inventory state');
-  const incidentCurrent = original.schema === INVENTORY_SCHEMA;
+  const organizationCurrent = original.schema === INVENTORY_SCHEMA;
+  if (options.allowOrganizationAuthority === false && organizationCurrent)
+    invalid('This history context does not support organization authority.');
+  const incidentCurrent =
+    organizationCurrent || original.schema === INVENTORY_EQUIPMENT_INCIDENT_SCHEMA;
   const hasRawIncidentFields =
     ['equipmentIncidents', 'equipmentIncidentReviewRoots', 'equipmentIncidentFacts'].some((key) =>
       Object.hasOwn(original, key)
@@ -3836,7 +3875,7 @@ export function parseInventoryState(
       Object.hasOwn(row, 'scientificProductions'))
   )
     invalid('This history context does not support scientific productions.');
-  const current = row.schema === INVENTORY_SCHEMA;
+  const current = incidentCurrent;
   const productionRecords = current || row.schema === INVENTORY_SCIENTIFIC_PRODUCTION_SCHEMA;
   const runValueAttributionRecords =
     productionRecords || row.schema === INVENTORY_RUN_VALUE_ATTRIBUTION_SCHEMA;
@@ -3870,6 +3909,7 @@ export function parseInventoryState(
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_EQUIPMENT_INCIDENT_SCHEMA),
       literal(INVENTORY_SCIENTIFIC_PRODUCTION_SCHEMA),
       literal(INVENTORY_RUN_VALUE_ATTRIBUTION_SCHEMA),
       literal(INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA),
@@ -4371,6 +4411,11 @@ export function parseInventoryState(
     )
       invalid('An original table destination must reference existing storage.');
   }
+  if (
+    (!organizationCurrent || options.allowOrganizationAuthority === false) &&
+    inventoryHasOrganizationAttribution(state)
+  )
+    invalid('This inventory format cannot contain organization attribution.');
   validateState(state);
   try {
     validateInventoryScientificState(state);
