@@ -167,7 +167,7 @@ function activateChat() {
 
 async function clickResource(kind: keyof typeof resources) {
   const chip = await screen.findByRole('link', {
-    name: `${labels[kind]}, ${kind === 'directory' ? 'Folder' : 'File'}`,
+    name: `${labels[kind]}, ${kind === 'view' ? 'Track View' : kind === 'directory' ? 'Folder' : 'File'}`,
   });
   await waitFor(() => {
     expect(chip).not.toHaveAttribute('aria-disabled', 'true');
@@ -376,7 +376,7 @@ describe(' real pooled chat and Markdown sequential resource activation', () => 
     fireEvent.click(screen.getByTestId('ai-history-button'));
     const chat = screen.getByTestId('full-chat-view');
     expect(chat).toHaveAttribute('data-history-pinned', 'true');
-    const viewChip = await screen.findByRole('link', { name: `${labels.view}, File` });
+    const viewChip = await screen.findByRole('link', { name: `${labels.view}, Track View` });
     await waitFor(() => expect(viewChip).not.toHaveAttribute('aria-busy', 'true'));
     fireEvent.pointerDown(viewChip);
     fireEvent.mouseDown(viewChip);

@@ -85,6 +85,7 @@ export function ProjectResourceReferenceChip({ node, extension }: NodeViewProps)
       <EntityReferenceChip
         entityType={entityType}
         label={label}
+        detail={resource?.path}
         busy={loading || opening}
         onOpen={resource ? open : undefined}
         unavailable={!loading && !resource}

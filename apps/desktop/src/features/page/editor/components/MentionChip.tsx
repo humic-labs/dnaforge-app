@@ -113,6 +113,7 @@ function WorkspaceMentionChip({ node, extension }: NodeViewProps) {
         kindLabel={intent.entityType === 'registry' ? registryKindLabel(registryKind) : undefined}
         iconOverride={registryIcon}
         label={intent.label}
+        detail={portablePath}
         onOpen={canOpen ? open : undefined}
         onReveal={portablePath ? reveal : undefined}
         unavailable={!canOpen}
