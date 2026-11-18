@@ -26,6 +26,7 @@ const schemaField = z.object({
   maxValue: z.number().optional(),
   minDate: z.string().optional(),
   maxDate: z.string().optional(),
+  agenda: z.object({ role: z.enum(['milestone', 'deadline', 'observation']), zone: z.string().optional() }).optional(),
   description: z.string().optional(),
   requireResolved: z.boolean().optional(),
   intrinsic: z.enum(['sequence.length', 'sequence.topology', 'sequence.geneticCode']).optional(),

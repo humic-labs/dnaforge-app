@@ -1257,6 +1257,18 @@
                       "kind": { "type": "string", "const": "insert-reference" },
                       "index": { "type": "integer", "minimum": 0 },
                       "referenceId": { "type": "string", "format": "uuid" },
+                      "workTask": {
+                        "type": "object",
+                        "properties": {
+                          "projectId": { "type": "string", "minLength": 1, "maxLength": 500 },
+                          "taskId": {
+                            "$ref": "#/properties/operation/anyOf/0/anyOf/3/properties/workTask/properties/projectId"
+                          },
+                          "placementId": { "type": "string", "format": "uuid" }
+                        },
+                        "required": ["projectId", "taskId", "placementId"],
+                        "additionalProperties": false
+                      },
                       "documentReference": {
                         "type": "object",
                         "properties": {
@@ -3646,6 +3658,20 @@
                               "kind": { "type": "string", "const": "insert-reference" },
                               "index": { "type": "integer", "minimum": 0 },
                               "referenceId": { "type": "string", "format": "uuid" },
+                              "workTask": {
+                                "type": "object",
+                                "properties": {
+                                  "projectId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  },
+                                  "taskId": { "type": "string", "minLength": 1, "maxLength": 500 },
+                                  "placementId": { "type": "string", "format": "uuid" }
+                                },
+                                "required": ["projectId", "taskId", "placementId"],
+                                "additionalProperties": false
+                              },
                               "documentReference": {
                                 "type": "object",
                                 "properties": {
@@ -44593,6 +44619,18 @@
                               "maxValue": { "type": "number" },
                               "minDate": { "type": "string" },
                               "maxDate": { "type": "string" },
+                              "agenda": {
+                                "type": "object",
+                                "properties": {
+                                  "role": {
+                                    "type": "string",
+                                    "enum": ["milestone", "deadline", "observation"]
+                                  },
+                                  "zone": { "type": "string" }
+                                },
+                                "required": ["role"],
+                                "additionalProperties": false
+                              },
                               "description": { "type": "string" },
                               "requireResolved": { "type": "boolean" },
                               "intrinsic": {
@@ -45036,6 +45074,34 @@
           "updatedOn": { "type": "integer" },
           "updatedAfter": { "type": "integer" },
           "updatedBefore": { "type": "integer" },
+          "dateFilters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "schemaId": { "type": "string", "minLength": 1 },
+                "fieldKey": { "type": "string", "minLength": 1 },
+                "mode": {
+                  "type": "string",
+                  "enum": ["on", "before", "after", "missing", "unresolved"]
+                },
+                "value": { "type": "string" }
+              },
+              "required": ["schemaId", "fieldKey", "mode"],
+              "additionalProperties": false
+            },
+            "maxItems": 20
+          },
+          "dateSort": {
+            "type": "object",
+            "properties": {
+              "schemaId": { "type": "string", "minLength": 1 },
+              "fieldKey": { "type": "string", "minLength": 1 },
+              "direction": { "type": "string", "enum": ["asc", "desc"] }
+            },
+            "required": ["schemaId", "fieldKey", "direction"],
+            "additionalProperties": false
+          },
           "sort": {
             "type": "string",
             "enum": [
@@ -45097,6 +45163,18 @@
                               "maxValue": { "type": "number" },
                               "minDate": { "type": "string" },
                               "maxDate": { "type": "string" },
+                              "agenda": {
+                                "type": "object",
+                                "properties": {
+                                  "role": {
+                                    "type": "string",
+                                    "enum": ["milestone", "deadline", "observation"]
+                                  },
+                                  "zone": { "type": "string" }
+                                },
+                                "required": ["role"],
+                                "additionalProperties": false
+                              },
                               "description": { "type": "string" },
                               "requireResolved": { "type": "boolean" },
                               "intrinsic": {
@@ -45721,6 +45799,18 @@
                             "maxValue": { "type": "number" },
                             "minDate": { "type": "string" },
                             "maxDate": { "type": "string" },
+                            "agenda": {
+                              "type": "object",
+                              "properties": {
+                                "role": {
+                                  "type": "string",
+                                  "enum": ["milestone", "deadline", "observation"]
+                                },
+                                "zone": { "type": "string" }
+                              },
+                              "required": ["role"],
+                              "additionalProperties": false
+                            },
                             "description": { "type": "string" },
                             "requireResolved": { "type": "boolean" },
                             "intrinsic": {
@@ -47172,6 +47262,2397 @@
       "required_capabilities": ["read-workspace", "modify-tabs"],
       "audit_required": true,
       "requiresWorkspace": false,
+      "exposure": { "kind": "shared" }
+    },
+    {
+      "name": "work_tasks",
+      "description": "Create, inspect, schedule, assign, complete and reopen project tasks. Query and inspect first. Retain taskId, operationId, expectedRevisionId and unchanged inputs when retrying an uncertain mutation. Plan and deadline are independent. Dates retain their named zone; repeated local hours require an earlier/later choice. Completion/cancellation freeze their schedules and history. Follow declared scientific field roles or task plan-start/plan-end/deadline with explicit offsets. Read bounded occurrences and act on their original slot. Split future repetitions atomically using a retained successorId, keeping the original clock and zone. Inspect opted-in record dates and personal reminder/inbox/calendar settings. Reminder commands retain requestId on retry; channel consent is explicit. Scientific source dates keep their native owners.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "project": { "type": "string", "minLength": 1 },
+          "operation": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "query" },
+                  "state": { "type": "string", "enum": ["active", "all", "done"] },
+                  "assignee": { "type": "string", "enum": ["me", "unassigned", "all"] },
+                  "subjectId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "search": { "type": "string", "maxLength": 500 },
+                  "offset": { "type": "integer", "minimum": 0 },
+                  "limit": { "type": "integer", "minimum": 1, "maximum": 500 }
+                },
+                "required": ["kind"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "inspect" },
+                  "taskId": { "type": "string", "minLength": 1, "maxLength": 200 }
+                },
+                "required": ["kind", "taskId"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "history" },
+                  "taskId": { "type": "string", "minLength": 1, "maxLength": 200 }
+                },
+                "required": ["kind", "taskId"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "dates" },
+                  "offset": { "type": "integer", "minimum": 0 },
+                  "limit": { "type": "integer", "minimum": 1, "maximum": 500 }
+                },
+                "required": ["kind"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": { "kind": { "type": "string", "const": "reminders" } },
+                "required": ["kind"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "reminder-command" },
+                  "requestId": { "type": "string", "format": "uuid" },
+                  "command": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "action": { "type": "string", "const": "consent" },
+                          "expectedRevision": { "type": "integer", "minimum": 0 },
+                          "inbox": { "type": "boolean" },
+                          "desktop": { "type": "boolean" },
+                          "email": { "type": "boolean" }
+                        },
+                        "required": ["action", "expectedRevision", "inbox", "email"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "action": { "type": "string", "const": "rule" },
+                          "ruleId": { "type": "string", "format": "uuid" },
+                          "taskId": { "type": "string", "minLength": 1 },
+                          "role": { "type": "string", "enum": ["start", "deadline"] },
+                          "offsetMs": { "type": "integer", "minimum": 0, "maximum": 31536000000 },
+                          "dayTime": {
+                            "anyOf": [
+                              { "type": "string", "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$" },
+                              { "type": "null" }
+                            ]
+                          },
+                          "dayFold": { "type": "string", "enum": ["earlier", "later"] },
+                          "email": { "type": "boolean" },
+                          "desktop": { "type": "boolean" }
+                        },
+                        "required": ["action", "taskId", "role", "offsetMs", "email"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "action": { "type": "string", "const": "retire-rule" },
+                          "ruleId": { "type": "string", "format": "uuid" },
+                          "expectedGeneration": { "type": "integer", "minimum": 0 }
+                        },
+                        "required": ["action", "ruleId", "expectedGeneration"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "action": { "type": "string", "const": "inbox" },
+                          "id": { "type": "string", "format": "uuid" },
+                          "expectedRevision": { "type": "integer", "minimum": 0 },
+                          "state": {
+                            "type": "string",
+                            "enum": ["unread", "read", "snoozed", "dismissed"]
+                          },
+                          "wakeAt": { "type": "string", "format": "date-time" }
+                        },
+                        "required": ["action", "id", "expectedRevision", "state"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "action": { "type": "string", "const": "handoff" },
+                          "expectedEpoch": { "type": "integer", "minimum": 0 },
+                          "sourceOfferId": { "type": "string", "format": "uuid" }
+                        },
+                        "required": ["action", "expectedEpoch"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "action": { "type": "string", "const": "rearm" },
+                          "expectedEpoch": { "type": "integer", "minimum": 0 }
+                        },
+                        "required": ["action", "expectedEpoch"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "action": { "type": "string", "const": "suspend" },
+                          "expectedEpoch": { "type": "integer", "minimum": 0 }
+                        },
+                        "required": ["action", "expectedEpoch"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "action": { "type": "string", "const": "calendar-issue" },
+                          "roles": {
+                            "type": "array",
+                            "items": { "type": "string", "enum": ["plan", "deadline"] },
+                            "minItems": 1,
+                            "maxItems": 2
+                          },
+                          "expiresAt": { "type": "string", "format": "date-time" }
+                        },
+                        "required": ["action", "roles", "expiresAt"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "action": { "type": "string", "const": "calendar-rotate" },
+                          "id": { "type": "string", "format": "uuid" },
+                          "expectedGeneration": { "type": "integer", "minimum": 0 }
+                        },
+                        "required": ["action", "id", "expectedGeneration"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "action": { "type": "string", "const": "calendar-revoke" },
+                          "id": { "type": "string", "format": "uuid" },
+                          "expectedGeneration": { "type": "integer", "minimum": 0 }
+                        },
+                        "required": ["action", "id", "expectedGeneration"],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": ["kind", "requestId", "command"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "occurrences" },
+                  "taskId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "from": { "type": "string" },
+                  "through": { "type": "string" }
+                },
+                "required": ["kind", "taskId", "from", "through"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "create" },
+                  "taskId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "name": { "type": "string", "minLength": 1, "maxLength": 500 },
+                  "description": { "type": "string", "maxLength": 20000 },
+                  "assignee": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "enum": ["local", "member"] },
+                          "id": { "type": "string", "minLength": 1, "maxLength": 200 }
+                        },
+                        "required": ["kind", "id"],
+                        "additionalProperties": false
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "links": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "projectId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                        "resourceId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                        "role": { "type": "string", "minLength": 1, "maxLength": 200 },
+                        "revisionId": { "type": "string", "minLength": 1, "maxLength": 200 }
+                      },
+                      "required": ["projectId", "resourceId"],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 100
+                  },
+                  "plan": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "fixed" },
+                                  "value": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "day" },
+                                          "date": { "type": "string" },
+                                          "zone": { "type": "string" }
+                                        },
+                                        "required": ["kind", "date", "zone"],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "timed" },
+                                          "local": { "type": "string" },
+                                          "zone": { "type": "string" },
+                                          "fold": { "type": "string", "enum": ["earlier", "later"] }
+                                        },
+                                        "required": ["kind", "local", "zone"],
+                                        "additionalProperties": false
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": ["kind", "value"],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "relative" },
+                                  "source": {
+                                    "type": "object",
+                                    "properties": {
+                                      "projectId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "resourceId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "role": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "revisionId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "zone": { "type": "string" }
+                                    },
+                                    "required": ["projectId", "resourceId", "role"],
+                                    "additionalProperties": false
+                                  },
+                                  "offset": {
+                                    "type": "object",
+                                    "properties": {
+                                      "unit": {
+                                        "type": "string",
+                                        "enum": ["days", "milliseconds"]
+                                      },
+                                      "amount": { "type": "integer" }
+                                    },
+                                    "required": ["unit", "amount"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["kind", "source", "offset"],
+                                "additionalProperties": false
+                              }
+                            ]
+                          },
+                          "end": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "fixed" },
+                                  "value": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "day" },
+                                          "date": { "type": "string" },
+                                          "zone": { "type": "string" }
+                                        },
+                                        "required": ["kind", "date", "zone"],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "timed" },
+                                          "local": { "type": "string" },
+                                          "zone": { "type": "string" },
+                                          "fold": { "type": "string", "enum": ["earlier", "later"] }
+                                        },
+                                        "required": ["kind", "local", "zone"],
+                                        "additionalProperties": false
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": ["kind", "value"],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "relative" },
+                                  "source": {
+                                    "type": "object",
+                                    "properties": {
+                                      "projectId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "resourceId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "role": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "revisionId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "zone": { "type": "string" }
+                                    },
+                                    "required": ["projectId", "resourceId", "role"],
+                                    "additionalProperties": false
+                                  },
+                                  "offset": {
+                                    "type": "object",
+                                    "properties": {
+                                      "unit": {
+                                        "type": "string",
+                                        "enum": ["days", "milliseconds"]
+                                      },
+                                      "amount": { "type": "integer" }
+                                    },
+                                    "required": ["unit", "amount"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["kind", "source", "offset"],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        },
+                        "required": ["start"],
+                        "additionalProperties": false
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "deadline": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "fixed" },
+                              "value": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "day" },
+                                      "date": { "type": "string" },
+                                      "zone": { "type": "string" }
+                                    },
+                                    "required": ["kind", "date", "zone"],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "timed" },
+                                      "local": { "type": "string" },
+                                      "zone": { "type": "string" },
+                                      "fold": { "type": "string", "enum": ["earlier", "later"] }
+                                    },
+                                    "required": ["kind", "local", "zone"],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            },
+                            "required": ["kind", "value"],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "relative" },
+                              "source": {
+                                "type": "object",
+                                "properties": {
+                                  "projectId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "resourceId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "role": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                  "revisionId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "zone": { "type": "string" }
+                                },
+                                "required": ["projectId", "resourceId", "role"],
+                                "additionalProperties": false
+                              },
+                              "offset": {
+                                "type": "object",
+                                "properties": {
+                                  "unit": { "type": "string", "enum": ["days", "milliseconds"] },
+                                  "amount": { "type": "integer" }
+                                },
+                                "required": ["unit", "amount"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": ["kind", "source", "offset"],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "recurrence": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "frequency": { "type": "string", "enum": ["daily", "weekly", "monthly"] },
+                          "interval": { "type": "integer", "minimum": 1, "maximum": 1000 },
+                          "weekdays": {
+                            "type": "array",
+                            "items": { "type": "integer", "minimum": 1, "maximum": 7 },
+                            "maxItems": 7
+                          },
+                          "count": { "type": "integer", "minimum": 1, "maximum": 100000 },
+                          "until": { "type": "string" },
+                          "fold": { "type": "string", "enum": ["earlier", "later"] },
+                          "state": { "type": "string", "enum": ["active", "paused", "ended"] },
+                          "anchor": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "day" },
+                                  "date": { "type": "string" },
+                                  "zone": { "type": "string" }
+                                },
+                                "required": ["kind", "date", "zone"],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "timed" },
+                                  "local": { "type": "string" },
+                                  "zone": { "type": "string" },
+                                  "fold": { "type": "string", "enum": ["earlier", "later"] }
+                                },
+                                "required": ["kind", "local", "zone"],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        },
+                        "required": ["frequency", "interval", "fold", "state", "anchor"],
+                        "additionalProperties": false
+                      },
+                      { "type": "null" }
+                    ]
+                  }
+                },
+                "required": ["kind", "taskId", "operationId", "name"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "edit" },
+                  "taskId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "expectedRevisionId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "name": { "type": "string", "minLength": 1, "maxLength": 500 },
+                  "description": { "type": "string", "maxLength": 20000 },
+                  "assignee": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "enum": ["local", "member"] },
+                          "id": { "type": "string", "minLength": 1, "maxLength": 200 }
+                        },
+                        "required": ["kind", "id"],
+                        "additionalProperties": false
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "links": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "projectId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                        "resourceId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                        "role": { "type": "string", "minLength": 1, "maxLength": 200 },
+                        "revisionId": { "type": "string", "minLength": 1, "maxLength": 200 }
+                      },
+                      "required": ["projectId", "resourceId"],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 100
+                  },
+                  "plan": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "fixed" },
+                                  "value": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "day" },
+                                          "date": { "type": "string" },
+                                          "zone": { "type": "string" }
+                                        },
+                                        "required": ["kind", "date", "zone"],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "timed" },
+                                          "local": { "type": "string" },
+                                          "zone": { "type": "string" },
+                                          "fold": { "type": "string", "enum": ["earlier", "later"] }
+                                        },
+                                        "required": ["kind", "local", "zone"],
+                                        "additionalProperties": false
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": ["kind", "value"],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "relative" },
+                                  "source": {
+                                    "type": "object",
+                                    "properties": {
+                                      "projectId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "resourceId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "role": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "revisionId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "zone": { "type": "string" }
+                                    },
+                                    "required": ["projectId", "resourceId", "role"],
+                                    "additionalProperties": false
+                                  },
+                                  "offset": {
+                                    "type": "object",
+                                    "properties": {
+                                      "unit": {
+                                        "type": "string",
+                                        "enum": ["days", "milliseconds"]
+                                      },
+                                      "amount": { "type": "integer" }
+                                    },
+                                    "required": ["unit", "amount"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["kind", "source", "offset"],
+                                "additionalProperties": false
+                              }
+                            ]
+                          },
+                          "end": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "fixed" },
+                                  "value": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "day" },
+                                          "date": { "type": "string" },
+                                          "zone": { "type": "string" }
+                                        },
+                                        "required": ["kind", "date", "zone"],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "timed" },
+                                          "local": { "type": "string" },
+                                          "zone": { "type": "string" },
+                                          "fold": { "type": "string", "enum": ["earlier", "later"] }
+                                        },
+                                        "required": ["kind", "local", "zone"],
+                                        "additionalProperties": false
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": ["kind", "value"],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "relative" },
+                                  "source": {
+                                    "type": "object",
+                                    "properties": {
+                                      "projectId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "resourceId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "role": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "revisionId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "zone": { "type": "string" }
+                                    },
+                                    "required": ["projectId", "resourceId", "role"],
+                                    "additionalProperties": false
+                                  },
+                                  "offset": {
+                                    "type": "object",
+                                    "properties": {
+                                      "unit": {
+                                        "type": "string",
+                                        "enum": ["days", "milliseconds"]
+                                      },
+                                      "amount": { "type": "integer" }
+                                    },
+                                    "required": ["unit", "amount"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["kind", "source", "offset"],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        },
+                        "required": ["start"],
+                        "additionalProperties": false
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "deadline": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "fixed" },
+                              "value": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "day" },
+                                      "date": { "type": "string" },
+                                      "zone": { "type": "string" }
+                                    },
+                                    "required": ["kind", "date", "zone"],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "timed" },
+                                      "local": { "type": "string" },
+                                      "zone": { "type": "string" },
+                                      "fold": { "type": "string", "enum": ["earlier", "later"] }
+                                    },
+                                    "required": ["kind", "local", "zone"],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            },
+                            "required": ["kind", "value"],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "relative" },
+                              "source": {
+                                "type": "object",
+                                "properties": {
+                                  "projectId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "resourceId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "role": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                  "revisionId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "zone": { "type": "string" }
+                                },
+                                "required": ["projectId", "resourceId", "role"],
+                                "additionalProperties": false
+                              },
+                              "offset": {
+                                "type": "object",
+                                "properties": {
+                                  "unit": { "type": "string", "enum": ["days", "milliseconds"] },
+                                  "amount": { "type": "integer" }
+                                },
+                                "required": ["unit", "amount"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": ["kind", "source", "offset"],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "recurrence": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "frequency": { "type": "string", "enum": ["daily", "weekly", "monthly"] },
+                          "interval": { "type": "integer", "minimum": 1, "maximum": 1000 },
+                          "weekdays": {
+                            "type": "array",
+                            "items": { "type": "integer", "minimum": 1, "maximum": 7 },
+                            "maxItems": 7
+                          },
+                          "count": { "type": "integer", "minimum": 1, "maximum": 100000 },
+                          "until": { "type": "string" },
+                          "fold": { "type": "string", "enum": ["earlier", "later"] },
+                          "state": { "type": "string", "enum": ["active", "paused", "ended"] },
+                          "anchor": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "day" },
+                                  "date": { "type": "string" },
+                                  "zone": { "type": "string" }
+                                },
+                                "required": ["kind", "date", "zone"],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "timed" },
+                                  "local": { "type": "string" },
+                                  "zone": { "type": "string" },
+                                  "fold": { "type": "string", "enum": ["earlier", "later"] }
+                                },
+                                "required": ["kind", "local", "zone"],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        },
+                        "required": ["frequency", "interval", "fold", "state", "anchor"],
+                        "additionalProperties": false
+                      },
+                      { "type": "null" }
+                    ]
+                  }
+                },
+                "required": ["kind", "taskId", "operationId", "expectedRevisionId"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "split" },
+                  "taskId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "expectedRevisionId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "successorId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "firstSlot": { "type": "string" },
+                  "replacement": {
+                    "type": "object",
+                    "properties": {
+                      "frequency": { "type": "string", "enum": ["daily", "weekly", "monthly"] },
+                      "interval": { "type": "integer", "minimum": 1, "maximum": 1000 },
+                      "weekdays": {
+                        "type": "array",
+                        "items": { "type": "integer", "minimum": 1, "maximum": 7 },
+                        "maxItems": 7
+                      },
+                      "count": { "type": "integer", "minimum": 1, "maximum": 100000 },
+                      "until": { "type": "string" },
+                      "fold": { "type": "string", "enum": ["earlier", "later"] },
+                      "state": { "type": "string", "enum": ["active", "paused", "ended"] },
+                      "anchor": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "day" },
+                              "date": { "type": "string" },
+                              "zone": { "type": "string" }
+                            },
+                            "required": ["kind", "date", "zone"],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "timed" },
+                              "local": { "type": "string" },
+                              "zone": { "type": "string" },
+                              "fold": { "type": "string", "enum": ["earlier", "later"] }
+                            },
+                            "required": ["kind", "local", "zone"],
+                            "additionalProperties": false
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["frequency", "interval", "fold", "state", "anchor"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "kind",
+                  "taskId",
+                  "operationId",
+                  "expectedRevisionId",
+                  "successorId",
+                  "firstSlot",
+                  "replacement"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "start" },
+                  "taskId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "expectedRevisionId": { "type": "string", "minLength": 1, "maxLength": 200 }
+                },
+                "required": ["kind", "taskId", "operationId", "expectedRevisionId"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "todo" },
+                  "taskId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "expectedRevisionId": { "type": "string", "minLength": 1, "maxLength": 200 }
+                },
+                "required": ["kind", "taskId", "operationId", "expectedRevisionId"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "complete" },
+                  "taskId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "expectedRevisionId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "actualAt": { "type": "integer" },
+                  "evidence": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "projectId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                        "resourceId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                        "role": { "type": "string", "minLength": 1, "maxLength": 200 },
+                        "revisionId": { "type": "string", "minLength": 1, "maxLength": 200 }
+                      },
+                      "required": ["projectId", "resourceId"],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 100
+                  }
+                },
+                "required": ["kind", "taskId", "operationId", "expectedRevisionId"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "cancel" },
+                  "taskId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "expectedRevisionId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "reason": { "type": "string", "maxLength": 2000 }
+                },
+                "required": ["kind", "taskId", "operationId", "expectedRevisionId"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "reopen" },
+                  "taskId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "expectedRevisionId": { "type": "string", "minLength": 1, "maxLength": 200 }
+                },
+                "required": ["kind", "taskId", "operationId", "expectedRevisionId"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "occurrence" },
+                  "taskId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "operationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "expectedRevisionId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                  "slot": { "type": "string" },
+                  "action": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "move" },
+                          "plan": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "start": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "fixed" },
+                                          "value": {
+                                            "anyOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": { "type": "string", "const": "day" },
+                                                  "date": { "type": "string" },
+                                                  "zone": { "type": "string" }
+                                                },
+                                                "required": ["kind", "date", "zone"],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": { "type": "string", "const": "timed" },
+                                                  "local": { "type": "string" },
+                                                  "zone": { "type": "string" },
+                                                  "fold": {
+                                                    "type": "string",
+                                                    "enum": ["earlier", "later"]
+                                                  }
+                                                },
+                                                "required": ["kind", "local", "zone"],
+                                                "additionalProperties": false
+                                              }
+                                            ]
+                                          }
+                                        },
+                                        "required": ["kind", "value"],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "relative" },
+                                          "source": {
+                                            "type": "object",
+                                            "properties": {
+                                              "projectId": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              },
+                                              "resourceId": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              },
+                                              "role": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              },
+                                              "revisionId": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              },
+                                              "zone": { "type": "string" }
+                                            },
+                                            "required": ["projectId", "resourceId", "role"],
+                                            "additionalProperties": false
+                                          },
+                                          "offset": {
+                                            "type": "object",
+                                            "properties": {
+                                              "unit": {
+                                                "type": "string",
+                                                "enum": ["days", "milliseconds"]
+                                              },
+                                              "amount": { "type": "integer" }
+                                            },
+                                            "required": ["unit", "amount"],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        "required": ["kind", "source", "offset"],
+                                        "additionalProperties": false
+                                      }
+                                    ]
+                                  },
+                                  "end": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "fixed" },
+                                          "value": {
+                                            "anyOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": { "type": "string", "const": "day" },
+                                                  "date": { "type": "string" },
+                                                  "zone": { "type": "string" }
+                                                },
+                                                "required": ["kind", "date", "zone"],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": { "type": "string", "const": "timed" },
+                                                  "local": { "type": "string" },
+                                                  "zone": { "type": "string" },
+                                                  "fold": {
+                                                    "type": "string",
+                                                    "enum": ["earlier", "later"]
+                                                  }
+                                                },
+                                                "required": ["kind", "local", "zone"],
+                                                "additionalProperties": false
+                                              }
+                                            ]
+                                          }
+                                        },
+                                        "required": ["kind", "value"],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "relative" },
+                                          "source": {
+                                            "type": "object",
+                                            "properties": {
+                                              "projectId": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              },
+                                              "resourceId": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              },
+                                              "role": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              },
+                                              "revisionId": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 200
+                                              },
+                                              "zone": { "type": "string" }
+                                            },
+                                            "required": ["projectId", "resourceId", "role"],
+                                            "additionalProperties": false
+                                          },
+                                          "offset": {
+                                            "type": "object",
+                                            "properties": {
+                                              "unit": {
+                                                "type": "string",
+                                                "enum": ["days", "milliseconds"]
+                                              },
+                                              "amount": { "type": "integer" }
+                                            },
+                                            "required": ["unit", "amount"],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        "required": ["kind", "source", "offset"],
+                                        "additionalProperties": false
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": ["start"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
+                          },
+                          "deadline": {
+                            "anyOf": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "fixed" },
+                                      "value": {
+                                        "anyOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": { "type": "string", "const": "day" },
+                                              "date": { "type": "string" },
+                                              "zone": { "type": "string" }
+                                            },
+                                            "required": ["kind", "date", "zone"],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": { "type": "string", "const": "timed" },
+                                              "local": { "type": "string" },
+                                              "zone": { "type": "string" },
+                                              "fold": {
+                                                "type": "string",
+                                                "enum": ["earlier", "later"]
+                                              }
+                                            },
+                                            "required": ["kind", "local", "zone"],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": ["kind", "value"],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "relative" },
+                                      "source": {
+                                        "type": "object",
+                                        "properties": {
+                                          "projectId": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          },
+                                          "resourceId": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          },
+                                          "role": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          },
+                                          "revisionId": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 200
+                                          },
+                                          "zone": { "type": "string" }
+                                        },
+                                        "required": ["projectId", "resourceId", "role"],
+                                        "additionalProperties": false
+                                      },
+                                      "offset": {
+                                        "type": "object",
+                                        "properties": {
+                                          "unit": {
+                                            "type": "string",
+                                            "enum": ["days", "milliseconds"]
+                                          },
+                                          "amount": { "type": "integer" }
+                                        },
+                                        "required": ["unit", "amount"],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "required": ["kind", "source", "offset"],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              { "type": "null" }
+                            ]
+                          }
+                        },
+                        "required": ["kind", "plan", "deadline"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": { "kind": { "type": "string", "const": "skip" } },
+                        "required": ["kind"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": { "kind": { "type": "string", "const": "restore" } },
+                        "required": ["kind"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": { "kind": { "type": "string", "const": "start" } },
+                        "required": ["kind"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": { "kind": { "type": "string", "const": "todo" } },
+                        "required": ["kind"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": { "kind": { "type": "string", "const": "reopen" } },
+                        "required": ["kind"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "complete" },
+                          "actualAt": { "type": "integer" },
+                          "evidence": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "projectId": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                "resourceId": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "role": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                "revisionId": { "type": "string", "minLength": 1, "maxLength": 200 }
+                              },
+                              "required": ["projectId", "resourceId"],
+                              "additionalProperties": false
+                            },
+                            "maxItems": 100
+                          }
+                        },
+                        "required": ["kind"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "cancel" },
+                          "reason": { "type": "string", "maxLength": 2000 }
+                        },
+                        "required": ["kind"],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "taskId",
+                  "operationId",
+                  "expectedRevisionId",
+                  "slot",
+                  "action"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": ["project", "operation"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": { "const": true },
+          "result": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "type": "boolean", "const": true },
+                  "kind": { "type": "string", "const": "split" },
+                  "task": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+                          "revisionId": {
+                            "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                          },
+                          "project": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                              },
+                              "name": { "type": "string" }
+                            },
+                            "required": ["id", "name"],
+                            "additionalProperties": false
+                          },
+                          "name": { "type": "string" },
+                          "description": { "type": "string" },
+                          "status": {
+                            "type": "string",
+                            "enum": ["todo", "in-progress", "done", "canceled"]
+                          },
+                          "assignee": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "enum": ["local", "member"] },
+                                  "id": {
+                                    "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                                  }
+                                },
+                                "required": ["kind", "id"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
+                          },
+                          "links": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "projectId": {
+                                  "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                                },
+                                "resourceId": {
+                                  "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                                },
+                                "role": {
+                                  "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                                },
+                                "revisionId": {
+                                  "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                                }
+                              },
+                              "required": ["projectId", "resourceId"],
+                              "additionalProperties": false
+                            }
+                          },
+                          "plan": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "start": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "fixed" },
+                                          "value": {
+                                            "anyOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": { "type": "string", "const": "day" },
+                                                  "date": { "type": "string" },
+                                                  "zone": { "type": "string" }
+                                                },
+                                                "required": ["kind", "date", "zone"],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": { "type": "string", "const": "timed" },
+                                                  "local": { "type": "string" },
+                                                  "zone": { "type": "string" },
+                                                  "instant": { "type": "number" }
+                                                },
+                                                "required": ["kind", "local", "zone", "instant"],
+                                                "additionalProperties": false
+                                              }
+                                            ]
+                                          }
+                                        },
+                                        "required": ["kind", "value"],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "relative" },
+                                          "source": {
+                                            "type": "object",
+                                            "properties": {
+                                              "projectId": {
+                                                "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                                              },
+                                              "resourceId": {
+                                                "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                                              },
+                                              "role": {
+                                                "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                                              },
+                                              "revisionId": {
+                                                "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/links/items/properties/revisionId"
+                                              },
+                                              "zone": { "type": "string" }
+                                            },
+                                            "required": ["projectId", "resourceId", "role"],
+                                            "additionalProperties": false
+                                          },
+                                          "offset": {
+                                            "type": "object",
+                                            "properties": {
+                                              "unit": {
+                                                "type": "string",
+                                                "enum": ["days", "milliseconds"]
+                                              },
+                                              "amount": { "type": "integer" }
+                                            },
+                                            "required": ["unit", "amount"],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        "required": ["kind", "source", "offset"],
+                                        "additionalProperties": false
+                                      }
+                                    ]
+                                  },
+                                  "end": {
+                                    "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/plan/anyOf/0/properties/start"
+                                  }
+                                },
+                                "required": ["start"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
+                          },
+                          "deadline": {
+                            "anyOf": [
+                              {
+                                "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/plan/anyOf/0/properties/start"
+                              },
+                              { "type": "null" }
+                            ]
+                          },
+                          "recurrence": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "frequency": {
+                                    "type": "string",
+                                    "enum": ["daily", "weekly", "monthly"]
+                                  },
+                                  "interval": { "type": "integer", "minimum": 1, "maximum": 1000 },
+                                  "weekdays": {
+                                    "type": "array",
+                                    "items": { "type": "integer", "minimum": 1, "maximum": 7 },
+                                    "maxItems": 7
+                                  },
+                                  "count": { "type": "integer", "minimum": 1, "maximum": 100000 },
+                                  "until": { "type": "string" },
+                                  "fold": { "type": "string", "enum": ["earlier", "later"] },
+                                  "state": {
+                                    "type": "string",
+                                    "enum": ["active", "paused", "ended"]
+                                  },
+                                  "anchor": {
+                                    "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/plan/anyOf/0/properties/start/anyOf/0/properties/value"
+                                  },
+                                  "excludedSlots": {
+                                    "type": "array",
+                                    "items": { "type": "string" }
+                                  },
+                                  "pauses": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "start": { "type": "number" },
+                                        "end": { "type": ["number", "null"] }
+                                      },
+                                      "required": ["start", "end"],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": ["frequency", "interval", "fold", "state", "anchor"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
+                          },
+                          "schedule": {
+                            "type": "object",
+                            "properties": {
+                              "start": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "missing" }
+                                    },
+                                    "required": ["kind"],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "unresolved" },
+                                      "reason": { "type": "string" }
+                                    },
+                                    "required": ["kind", "reason"],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "resolved" },
+                                      "value": {
+                                        "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/plan/anyOf/0/properties/start/anyOf/0/properties/value"
+                                      },
+                                      "sources": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "projectId": {
+                                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                                            },
+                                            "resourceId": {
+                                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                                            },
+                                            "role": {
+                                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                                            },
+                                            "revisionId": {
+                                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/links/items/properties/revisionId"
+                                            },
+                                            "zone": { "type": "string" }
+                                          },
+                                          "required": ["projectId", "resourceId", "role"],
+                                          "additionalProperties": false
+                                        }
+                                      }
+                                    },
+                                    "required": ["kind", "value", "sources"],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "end": {
+                                "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/schedule/properties/start"
+                              },
+                              "deadline": {
+                                "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/schedule/properties/start"
+                              }
+                            },
+                            "required": ["start", "end", "deadline"],
+                            "additionalProperties": false
+                          },
+                          "due": {
+                            "type": "string",
+                            "enum": [
+                              "terminal",
+                              "unscheduled",
+                              "unresolved",
+                              "upcoming",
+                              "today",
+                              "overdue"
+                            ]
+                          },
+                          "completion": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "actualAt": { "type": "number" },
+                                  "recordedAt": { "type": "number" },
+                                  "reported": { "type": "boolean" },
+                                  "actor": { "type": "string" },
+                                  "assignee": {
+                                    "anyOf": [
+                                      {
+                                        "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/assignee/anyOf/0"
+                                      },
+                                      { "type": "null" }
+                                    ]
+                                  },
+                                  "evidence": {
+                                    "type": "array",
+                                    "items": {
+                                      "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/links/items"
+                                    }
+                                  },
+                                  "schedule": {
+                                    "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/schedule"
+                                  }
+                                },
+                                "required": [
+                                  "actualAt",
+                                  "recordedAt",
+                                  "reported",
+                                  "actor",
+                                  "assignee",
+                                  "evidence",
+                                  "schedule"
+                                ],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
+                          },
+                          "cancellation": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "recordedAt": { "type": "number" },
+                                  "actor": { "type": "string" },
+                                  "reason": { "type": ["string", "null"] },
+                                  "schedule": {
+                                    "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/schedule"
+                                  }
+                                },
+                                "required": ["recordedAt", "actor", "reason", "schedule"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "revisionId",
+                          "project",
+                          "name",
+                          "description",
+                          "status",
+                          "assignee",
+                          "links",
+                          "plan",
+                          "deadline",
+                          "recurrence",
+                          "schedule",
+                          "due",
+                          "completion",
+                          "cancellation"
+                        ],
+                        "additionalProperties": false
+                      },
+                      { "type": "null" }
+                    ]
+                  },
+                  "successor": {
+                    "anyOf": [
+                      { "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0" },
+                      { "type": "null" }
+                    ]
+                  },
+                  "operationId": {
+                    "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                  },
+                  "replayed": { "type": "boolean" },
+                  "outcome": { "type": "string", "enum": ["changed", "no-op"] },
+                  "fileDelivery": { "type": "string", "enum": ["complete", "pending"] }
+                },
+                "required": [
+                  "ok",
+                  "kind",
+                  "task",
+                  "successor",
+                  "operationId",
+                  "replayed",
+                  "outcome",
+                  "fileDelivery"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "type": "boolean", "const": true },
+                  "kind": { "type": "string", "const": "dates" },
+                  "total": { "type": "number" },
+                  "nextOffset": { "type": ["number", "null"] },
+                  "rows": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                        },
+                        "project": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                            },
+                            "name": { "type": "string" }
+                          },
+                          "required": ["id", "name"],
+                          "additionalProperties": false
+                        },
+                        "entityId": {
+                          "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                        },
+                        "entityName": { "type": "string" },
+                        "fieldKey": {
+                          "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                        },
+                        "label": { "type": "string" },
+                        "role": {
+                          "type": "string",
+                          "enum": ["milestone", "deadline", "observation"]
+                        },
+                        "revisionId": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                            },
+                            { "type": "null" }
+                          ]
+                        },
+                        "schemaRevisionId": {
+                          "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                        },
+                        "status": { "type": "string", "enum": ["resolved", "unresolved"] },
+                        "value": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/plan/anyOf/0/properties/start/anyOf/0/properties/value"
+                            },
+                            { "type": "null" }
+                          ]
+                        },
+                        "raw": { "type": ["string", "null"] }
+                      },
+                      "required": [
+                        "id",
+                        "project",
+                        "entityId",
+                        "entityName",
+                        "fieldKey",
+                        "label",
+                        "role",
+                        "revisionId",
+                        "schemaRevisionId",
+                        "status",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["ok", "kind", "total", "nextOffset", "rows"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "type": "boolean", "const": true },
+                  "kind": { "type": "string", "const": "reminders" },
+                  "view": {
+                    "type": "object",
+                    "properties": {
+                      "authority": {
+                        "type": "string",
+                        "enum": ["local", "fenced", "hosted", "unarmed", "suspended"]
+                      },
+                      "scope": { "type": "string", "enum": ["local", "shared"] },
+                      "available": { "type": "boolean" },
+                      "epoch": { "type": "number" },
+                      "canOfferHandoff": { "type": "boolean" },
+                      "canAcceptHandoff": { "type": "boolean" },
+                      "pendingHandoff": {
+                        "type": "object",
+                        "properties": {
+                          "requestId": {
+                            "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                          },
+                          "expectedEpoch": { "type": "number" }
+                        },
+                        "required": ["requestId", "expectedEpoch"],
+                        "additionalProperties": false
+                      },
+                      "offers": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                            },
+                            "epoch": { "type": "number" }
+                          },
+                          "required": ["id", "epoch"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "consent": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "inbox_enabled": { "type": "boolean" },
+                              "desktop_enabled": { "type": "boolean" },
+                              "email_enabled": { "type": "boolean" },
+                              "revision": { "type": "number" }
+                            },
+                            "required": ["inbox_enabled", "email_enabled", "revision"],
+                            "additionalProperties": false
+                          },
+                          { "type": "null" }
+                        ]
+                      },
+                      "rules": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                            },
+                            "task_id": {
+                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                            },
+                            "role": { "type": "string", "enum": ["start", "deadline"] },
+                            "offset_ms": { "type": "number" },
+                            "day_time": { "type": ["string", "null"] },
+                            "day_fold": { "type": "string", "enum": ["earlier", "later"] },
+                            "generation": { "type": "number" },
+                            "state": { "type": "string", "enum": ["armed", "retired"] },
+                            "email_enabled": { "type": "boolean" },
+                            "desktop_enabled": { "type": "boolean" }
+                          },
+                          "required": [
+                            "id",
+                            "task_id",
+                            "role",
+                            "offset_ms",
+                            "day_time",
+                            "day_fold",
+                            "generation",
+                            "state",
+                            "email_enabled"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "inbox": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                            },
+                            "effect_key": { "type": "string" },
+                            "task_id": {
+                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                            },
+                            "state": {
+                              "type": "string",
+                              "enum": ["unread", "read", "snoozed", "dismissed"]
+                            },
+                            "revision": { "type": "number" },
+                            "wake_at": { "type": ["string", "null"] },
+                            "created_at": { "type": "string" },
+                            "sourceCurrent": { "type": "boolean" }
+                          },
+                          "required": [
+                            "id",
+                            "effect_key",
+                            "task_id",
+                            "state",
+                            "revision",
+                            "wake_at",
+                            "created_at",
+                            "sourceCurrent"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "deliveries": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "effectKey": { "type": "string" },
+                            "state": { "type": "string" },
+                            "suppressionReason": { "type": ["string", "null"] },
+                            "providerId": { "type": ["string", "null"] },
+                            "admittedAt": { "type": ["string", "null"] }
+                          },
+                          "required": [
+                            "effectKey",
+                            "state",
+                            "suppressionReason",
+                            "providerId",
+                            "admittedAt"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "subscriptions": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                            },
+                            "generation": { "type": "number" },
+                            "roles": {
+                              "type": "array",
+                              "items": { "type": "string", "enum": ["plan", "deadline"] }
+                            },
+                            "state": { "type": "string", "enum": ["active", "revoked"] },
+                            "expires_at": { "type": "string" }
+                          },
+                          "required": ["id", "generation", "roles", "state", "expires_at"],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "authority",
+                      "scope",
+                      "available",
+                      "epoch",
+                      "consent",
+                      "rules",
+                      "inbox",
+                      "deliveries",
+                      "subscriptions"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["ok", "kind", "view"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "type": "boolean", "const": true },
+                  "kind": { "type": "string", "const": "reminder-command" },
+                  "result": {
+                    "type": "object",
+                    "properties": {
+                      "outcome": { "type": "string", "const": "applied" },
+                      "id": {
+                        "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                      },
+                      "url": { "type": "string" },
+                      "secretUnavailable": { "type": "boolean" },
+                      "bearerNotice": { "type": "string" },
+                      "state": { "type": "string" },
+                      "revision": { "type": "number" },
+                      "epoch": { "type": "number" }
+                    },
+                    "required": ["outcome"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["ok", "kind", "result"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "type": "boolean", "const": true },
+                  "kind": { "type": "string", "const": "occurrences" },
+                  "occurrences": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "slot": { "type": "string" },
+                        "nominal": {
+                          "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/plan/anyOf/0/properties/start/anyOf/0/properties/value"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": ["todo", "in-progress", "done", "canceled", "skipped"]
+                        },
+                        "schedule": {
+                          "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/schedule"
+                        },
+                        "assignee": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/assignee/anyOf/0"
+                            },
+                            { "type": "null" }
+                          ]
+                        },
+                        "recurrence": {
+                          "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/recurrence/anyOf/0"
+                        },
+                        "completion": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/completion/anyOf/0"
+                            },
+                            { "type": "null" }
+                          ]
+                        },
+                        "cancellation": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/cancellation/anyOf/0"
+                            },
+                            { "type": "null" }
+                          ]
+                        },
+                        "override": {
+                          "type": "object",
+                          "properties": {
+                            "plan": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "start": {
+                                      "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/plan/anyOf/0/properties/start"
+                                    },
+                                    "end": {
+                                      "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/plan/anyOf/0/properties/start"
+                                    }
+                                  },
+                                  "required": ["start"],
+                                  "additionalProperties": false
+                                },
+                                { "type": "null" }
+                              ]
+                            },
+                            "deadline": {
+                              "anyOf": [
+                                {
+                                  "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/plan/anyOf/0/properties/start"
+                                },
+                                { "type": "null" }
+                              ]
+                            }
+                          },
+                          "required": ["plan", "deadline"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "slot",
+                        "nominal",
+                        "status",
+                        "schedule",
+                        "assignee",
+                        "recurrence",
+                        "completion",
+                        "cancellation"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["ok", "kind", "occurrences"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "type": "boolean", "const": true },
+                  "kind": { "type": "string", "const": "query" },
+                  "tasks": {
+                    "type": "array",
+                    "items": { "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0" }
+                  },
+                  "total": { "type": "number" },
+                  "nextOffset": { "type": ["number", "null"] },
+                  "unavailableProjects": { "type": "number" }
+                },
+                "required": ["ok", "kind", "tasks", "total", "nextOffset", "unavailableProjects"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "type": "boolean", "const": true },
+                  "kind": { "type": "string", "const": "inspect" },
+                  "task": {
+                    "anyOf": [
+                      { "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0" },
+                      { "type": "null" }
+                    ]
+                  }
+                },
+                "required": ["ok", "kind", "task"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "type": "boolean", "const": true },
+                  "kind": { "type": "string", "const": "history" },
+                  "revisions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "revisionId": {
+                          "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                        },
+                        "status": { "type": "string" },
+                        "name": { "type": "string" },
+                        "recordedAt": { "type": "number" },
+                        "actor": { "type": "string" },
+                        "plan": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "start": {
+                                  "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/plan/anyOf/0/properties/start"
+                                },
+                                "end": {
+                                  "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/plan/anyOf/0/properties/start"
+                                }
+                              },
+                              "required": ["start"],
+                              "additionalProperties": false
+                            },
+                            { "type": "null" }
+                          ]
+                        },
+                        "deadline": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/plan/anyOf/0/properties/start"
+                            },
+                            { "type": "null" }
+                          ]
+                        },
+                        "completion": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/completion/anyOf/0"
+                            },
+                            { "type": "null" }
+                          ]
+                        },
+                        "cancellation": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/cancellation/anyOf/0"
+                            },
+                            { "type": "null" }
+                          ]
+                        },
+                        "occurrences": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/properties/result/anyOf/4/properties/occurrences/items"
+                          }
+                        }
+                      },
+                      "required": [
+                        "revisionId",
+                        "status",
+                        "name",
+                        "recordedAt",
+                        "actor",
+                        "plan",
+                        "deadline",
+                        "completion",
+                        "cancellation",
+                        "occurrences"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["ok", "kind", "revisions"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "type": "boolean", "const": true },
+                  "kind": { "type": "string", "const": "mutate" },
+                  "task": {
+                    "anyOf": [
+                      { "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0" },
+                      { "type": "null" }
+                    ]
+                  },
+                  "operationId": {
+                    "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0/properties/id"
+                  },
+                  "replayed": { "type": "boolean" },
+                  "outcome": { "type": "string", "enum": ["changed", "no-op"] },
+                  "fileDelivery": { "type": "string", "enum": ["complete", "pending"] }
+                },
+                "required": [
+                  "ok",
+                  "kind",
+                  "task",
+                  "operationId",
+                  "replayed",
+                  "outcome",
+                  "fileDelivery"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": ["ok", "result"],
+        "additionalProperties": true
+      },
+      "shape": "data-service",
+      "effects": ["read-only", "mutating"],
+      "required_capabilities": ["read-workspace"],
+      "audit_required": true,
+      "conditional_required_capabilities": ["write-workspace"],
+      "requiresWorkspace": true,
+      "workspaceGrounding": "always",
       "exposure": { "kind": "shared" }
     },
     {

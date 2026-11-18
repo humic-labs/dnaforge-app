@@ -23,7 +23,7 @@ const registryRepresentationKindSchema = z.enum([
   'unresolved',
   'none',
 ]);
-                                                                          
+
 const registrySortSchema = z.enum(LIMS_REGISTRY_SORTS);
 
 export const limsQueryEntitiesSchema = z
@@ -62,6 +62,27 @@ export const limsQueryRegistrySummariesSchema = z
     updatedOn: z.number().int().optional(),
     updatedAfter: z.number().int().optional(),
     updatedBefore: z.number().int().optional(),
+    dateFilters: z
+      .array(
+        z
+          .object({
+            schemaId: z.string().min(1),
+            fieldKey: z.string().min(1),
+            mode: z.enum(['on', 'before', 'after', 'missing', 'unresolved']),
+            value: z.string().optional(),
+          })
+          .strict()
+      )
+      .max(20)
+      .optional(),
+    dateSort: z
+      .object({
+        schemaId: z.string().min(1),
+        fieldKey: z.string().min(1),
+        direction: z.enum(['asc', 'desc']),
+      })
+      .strict()
+      .optional(),
     sort: registrySortSchema.optional(),
     limit: z.number().int().min(1).max(500).optional(),
     offset: z.number().int().min(0).optional(),
@@ -191,7 +212,10 @@ export const limsOpenEntityTool = resultTool({
           retriable: false,
           stateChanged,
           partialEffects: navigationChanged ? [{ kind: 'navigation', view: 'lims' }] : [],
-          details: { ...(priorResult ? publicRecord(priorResult) : {}), registryPresentation: result },
+          details: {
+            ...(priorResult ? publicRecord(priorResult) : {}),
+            registryPresentation: result,
+          },
         });
       return toolSuccess({ entityId, status: 'registry-presented', presented: true });
     };
