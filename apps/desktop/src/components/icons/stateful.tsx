@@ -150,7 +150,12 @@ export function PlannotateSpinner({ size = 16, className }: IconProps) {
   );
 }
 
-export function AnnotationsIcon({ size = 16, className, hovered }: AnnotationsIconProps) {
+export function AnnotationsIcon({
+  colorFamily,
+  size = 16,
+  className,
+  hovered,
+}: AnnotationsIconProps) {
   const C = 2 * Math.PI * 9;
   const arc1Len = (90 / 360) * C;
   const arc1Offset = -(100 / 360) * C;
@@ -166,6 +171,7 @@ export function AnnotationsIcon({ size = 16, className, hovered }: AnnotationsIc
       stroke="currentColor"
       strokeLinecap="round"
       className={className}
+      data-entity-color-family={colorFamily}
     >
       {}
       <g
@@ -202,7 +208,7 @@ export function AnnotationsIcon({ size = 16, className, hovered }: AnnotationsIc
   );
 }
 
-export function AlignmentIcon({ size = 16, className, hovered }: AlignmentIconProps) {
+export function AlignmentIcon({ colorFamily, size = 16, className, hovered }: AlignmentIconProps) {
   const reads = [
     { x1: 4, x2: 14, shift: 1 },
     { x1: 7, x2: 19, shift: 2 },
@@ -223,6 +229,7 @@ export function AlignmentIcon({ size = 16, className, hovered }: AlignmentIconPr
       stroke="currentColor"
       strokeLinecap="round"
       className={className}
+      data-entity-color-family={colorFamily}
     >
       {}
       <line x1="2" y1="3.5" x2="22" y2="3.5" strokeWidth="2.2" opacity="0.7" strokeLinecap="butt" />

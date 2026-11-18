@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   files: vi.fn(),
   read: vi.fn(),
   getReference: vi.fn(),
+  oligo: vi.fn(),
   root: vi.fn(),
   scope: vi.fn(),
 }));
@@ -23,6 +24,7 @@ vi.mock('../../db/workspace-catalog', () => ({
   resolveWorkspaceScope: mocks.scope,
 }));
 vi.mock('../../db/entity-references', () => ({ getEntityReference: mocks.getReference }));
+vi.mock('../primers/primer-references', () => ({ getCanonicalOligoEntity: mocks.oligo }));
 import {
   molecularDocumentReferenceForFile,
   resolveMolecularDocumentReference,
@@ -55,6 +57,7 @@ const document: MolecularDocument = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.oligo.mockResolvedValue({ id: 'oligo-rna', kind: 'rna_oligo' });
   mocks.files.mockImplementation(async (scope?: string) =>
     [
       {
@@ -82,6 +85,23 @@ beforeEach(() => {
   mocks.getReference.mockResolvedValue(null);
 });
 describe('file-owned molecular document reference resolution', () => {
+  it('resolves old saved primer references with the current canonical RNA kind', async () => {
+    const reference = {
+      id: 'a25ea0f6-aa8a-45e3-bd55-60028d7b7dc9',
+      entity_type: 'primer',
+      locator: 'entity://primer/oligo-rna',
+      data: JSON.stringify({ registryEntityId: 'oligo-rna', localOnly: true }),
+    };
+    mocks.getReference.mockResolvedValue(reference);
+    const resolved = await resolveMolecularReferenceRecord(
+      'dnaforge-chat://reference/' + reference.id,
+      'Saved oligo'
+    );
+    expect(resolved).toMatchObject({ ...reference, iconContext: { kind: 'rna_oligo' } });
+    expect(mocks.oligo).toHaveBeenCalledWith('oligo-rna');
+    expect(reference).not.toHaveProperty('iconContext');
+  });
+
   it('derives inserted references through the owning project and refuses a missing identity', async () => {
     await expect(molecularDocumentReferenceForFile('/project', document)).resolves.toEqual(
       await molecularDocumentReferenceFor(projectId, document)

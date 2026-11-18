@@ -64,10 +64,7 @@ function WorkspaceMentionChip({ node, extension }: NodeViewProps) {
     shape.kind === 'record' ? shape.ref.path : shape.kind === 'legacy-path' ? shape.path : null;
 
   const localOnly = !portablePath && Boolean(intent.entityId);
-  const registryKind =
-    intent.entityType === 'registry' && typeof node.attrs.registryKind === 'string'
-      ? node.attrs.registryKind
-      : null;
+  const registryKind = typeof node.attrs.registryKind === 'string' ? node.attrs.registryKind : null;
   const registryIcon = useMemo(
     () =>
       intent.entityType === 'registry'
@@ -114,6 +111,10 @@ function WorkspaceMentionChip({ node, extension }: NodeViewProps) {
         entityType={intent.entityType}
         kindLabel={intent.entityType === 'registry' ? registryKindLabel(registryKind) : undefined}
         iconOverride={registryIcon}
+        iconContext={{
+          kind: registryKind ?? intent.entityType,
+          path: portablePath ?? intent.path ?? undefined,
+        }}
         label={intent.label}
         onOpen={canOpen ? open : undefined}
         onReveal={portablePath ? reveal : undefined}

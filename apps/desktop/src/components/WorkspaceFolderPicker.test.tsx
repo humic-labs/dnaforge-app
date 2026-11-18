@@ -177,7 +177,10 @@ describe('WorkspaceFolderPicker (shared folder chooser)', () => {
     expect(root.innerHTML).toContain(projectIcon);
     const folder = (await screen.findByText('sequences')).closest('[data-entry-path]');
     expect(folder).not.toBeNull();
-    expect(folder?.innerHTML).toContain(renderToStaticMarkup(<FolderIcon expanded={false} />));
+    const expectedFolder = render(<FolderIcon expanded={false} />).container.querySelector('svg');
+    expect(folder?.querySelector('svg[data-entity-color-family="neutral"]')?.innerHTML).toBe(
+      expectedFolder?.innerHTML
+    );
     fireEvent.click(root);
     expect(root.innerHTML).toContain(projectIcon);
   });

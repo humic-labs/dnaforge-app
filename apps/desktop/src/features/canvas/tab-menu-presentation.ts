@@ -5,6 +5,9 @@ import { classifyTabSession } from './tab-document-session';
 import { isTabDirty } from './artifact-document-lifecycle';
 import type { PanelState, Tab, TabType } from './types';
 import { sequenceDisplayName } from '../../shared/sequence-presentation';
+import type { EntityColorContext } from '../../shared/entity-color-family';
+import { sequenceDocumentKey } from '../../shared/managed-sequence-document';
+import { sequenceDocumentModel } from '../sequence/public/store';
 import {
   getCurrentCatalogFileForEntity,
   getCurrentSequenceFileForDocumentId,
@@ -30,16 +33,33 @@ export interface TabStripPresentation {
   readonly isDirty: boolean;
   readonly isIndexedSequence: boolean;
   readonly isMolecularDocument?: boolean;
+  readonly iconContext?: EntityColorContext;
 }
 
 export function projectTabStripTab(tab: Tab): TabStripPresentation {
   const editor = resolveTabEditor(tab);
   const session = classifyTabSession(tab);
+  const documentId = tab.sequenceDocument ? sequenceDocumentKey(tab.sequenceDocument) : undefined;
+  const molecule =
+    tab.artifactDocument?.orderType ??
+    (documentId ? sequenceDocumentModel.getState().sequences[documentId]?.molecule : undefined);
+  const sourcePath =
+    tab.trackView?.path ??
+    (tab.sequenceDocument?.kind === 'import-source-sequence'
+      ? tab.sequenceDocument.sourcePath
+      : undefined) ??
+    tab.sourceFileName ??
+    (DIRECT_FILE_TYPES.has(tab.type) ? tab.entityId : undefined);
   return {
     id: tab.id,
     type: editor.type,
     label: tab.type === 'sequence' ? sequenceDisplayName(tab.label) : tab.label,
     isDirty: isTabDirty(tab),
+    iconContext: {
+      kind: tab.entityKind ?? (tab.trackView ? 'track-view' : editor.type),
+      molecule,
+      path: sourcePath,
+    },
     ...(tab.type === 'structure' && tab.initialStructureAttrs?.molecularDocumentId
       ? { isMolecularDocument: true }
       : {}),

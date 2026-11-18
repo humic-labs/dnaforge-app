@@ -84,7 +84,12 @@ export function TrackViewLibraryEntries({
           onClick={() => onOpenView(saved.path)}
           className={`${INTERACTION_CLASS} flex w-full min-w-0 items-center gap-1.5 py-1 pl-7 pr-2 text-left text-sm`}
         >
-          <FileTypeIcon category="genome" className="h-4 w-4 shrink-0" />
+          <FileTypeIcon
+            category="genome"
+            path={saved.path}
+            context={{ kind: 'track-view' }}
+            className="h-4 w-4 shrink-0"
+          />
           <span className="truncate">{saved.document.name}</span>
         </button>
       ))}

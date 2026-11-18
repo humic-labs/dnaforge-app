@@ -7,7 +7,9 @@ import { startFileDrag } from '../hooks/useFileDrag';
 import type { GitFileStatus } from '../features/workspace/git';
 import { safeFocus, scrollIntoNearestScrollContainer } from '../shared/utils/safeFocus';
 import { FileTypeIcon, FolderIcon } from './icons';
-import { fileColorFamily } from '../shared/file-type-colors';
+import { useSequenceStore } from '../features/sequence/store';
+import { useCanvasStore } from '../features/canvas/store';
+import { sequenceDocumentKey } from '../shared/managed-sequence-document';
 import {
   entityIconKindForCatalogPresentation,
   iconForEntityKind,
@@ -61,18 +63,51 @@ function focusTreeItemWithinActiveRoot(item: HTMLElement | null): void {
 }
 
 const FileIcon = ({ entry }: { entry: FileEntry }) => {
+  const documentId = useCanvasStore((state) => {
+    if (entry.sequenceDocument) return sequenceDocumentKey(entry.sequenceDocument);
+    for (const panel of Object.values(state.panels)) {
+      for (const tab of panel.tabs) {
+        if (tab.type !== 'sequence' || !tab.sequenceDocument) continue;
+        const sourcePath =
+          tab.sequenceDocument.kind === 'import-source-sequence'
+            ? tab.sequenceDocument.sourcePath
+            : tab.sourceFileName;
+        if (sourcePath?.replace(/\\/g, '/') === entry.path.replace(/\\/g, '/'))
+          return sequenceDocumentKey(tab.sequenceDocument);
+      }
+    }
+    return undefined;
+  });
+  const molecule = useSequenceStore((state) =>
+    documentId ? state.sequences[documentId]?.molecule : undefined
+  );
+  const context = {
+    path: entry.path,
+    packageKind: entry.packageKind,
+    ...entry.iconContext,
+    molecule: molecule ?? entry.iconContext?.molecule,
+  };
+  if (entry.iconContext?.kind && !['file', 'text', 'generic'].includes(entry.iconContext.kind)) {
+    const typed = iconForEntityKind(entry.iconContext.kind, 'w-4 h-4 flex-shrink-0', context);
+    if (typed) return <>{typed}</>;
+  }
   if (entry.packageKind) {
-    const packaged = iconForEntityKind(entry.packageKind, 'w-4 h-4 flex-shrink-0 text-fg-subtle');
+    const packaged = iconForEntityKind(entry.packageKind, 'w-4 h-4 flex-shrink-0', context);
     if (packaged) return <>{packaged}</>;
   }
   if (getTabTypeForFile(entry.name) === 'primer') {
-    return <>{iconForEntityKind('primer', 'w-4 h-4 flex-shrink-0 text-fg-subtle')}</>;
+    return <>{iconForEntityKind('primer', 'w-4 h-4 flex-shrink-0', context)}</>;
   }
   const category = entry.isBiologyFile ? 'biology' : getFileIconCategory(entry.name);
   return (
-    <span className={`file-type-color file-type-color-${fileColorFamily(entry.name, category)}`}>
-      <FileTypeIcon category={category} className="w-4 h-4 flex-shrink-0" />
-    </span>
+    <FileTypeIcon
+      category={category}
+      className="w-4 h-4 flex-shrink-0"
+      context={{
+        ...context,
+        ...(category === 'genome' ? { kind: 'track-view' } : {}),
+      }}
+    />
   );
 };
 
@@ -187,7 +222,8 @@ function CatalogTreeItem({
       isSelected={isSelected}
       icon={iconForEntityKind(
         entityIconKindForCatalogPresentation(entry.presentationKind),
-        'w-4 h-4 flex-shrink-0 text-fg-subtle'
+        'w-4 h-4 flex-shrink-0',
+        entry.iconContext
       )}
       label={entry.name}
       labelTitle={entry.name}
@@ -465,7 +501,13 @@ function FilesystemTreeItem({
         className={[entry.isBiologyFile ? 'font-medium' : '', isRenaming ? 'bg-bg-muted' : '']
           .filter(Boolean)
           .join(' ')}
-        icon={entry.isDirectory ? <FolderIcon expanded={isExpanded} /> : <FileIcon entry={entry} />}
+        icon={
+          entry.isDirectory ? (
+            <FolderIcon expanded={isExpanded} className="w-4 h-4 flex-shrink-0" />
+          ) : (
+            <FileIcon entry={entry} />
+          )
+        }
         labelClassName={isRenaming ? 'flex-1 min-w-0' : gitTextClass}
         labelTitle={
           isRenaming ? undefined : isDesign ? displayName(entry) : (entry.displayName ?? entry.name)
