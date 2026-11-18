@@ -1,4 +1,14 @@
 import {
+  inventoryRunValueCandidatesRequestSchema,
+  inventoryPreviewRunValueAttributionRequestSchema,
+  inventoryApplyRunValueAttributionRequestSchema,
+  inventoryPreviewRunValueAttributionWithdrawalRequestSchema,
+  inventoryApplyRunValueAttributionWithdrawalRequestSchema,
+  inventoryRunValueAttributionsRequestSchema,
+  inventoryRunValueAttributionRequestSchema,
+  inventoryRunValueAttributionSourceRequestSchema,
+} from '../../../shared/inventory-run-value-attributions';
+import {
   inventoryPreviewPlatePlanVersionRequestSchema,
   inventoryApplyPlatePlanVersionRequestSchema,
   inventoryPlatePlanVersionsRequestSchema,
@@ -69,6 +79,32 @@ const identity = z.string().min(1).max(256);
 const revision = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const scope = { project, inventoryId: identity };
 const plainInput = z.discriminatedUnion('kind', [
+  inventoryRunValueCandidatesRequestSchema
+    .extend({ kind: z.literal('run-value-candidates') })
+    .strict(),
+  inventoryPreviewRunValueAttributionRequestSchema
+    .extend({ kind: z.literal('preview-run-value-attribution') })
+    .strict(),
+  inventoryApplyRunValueAttributionRequestSchema
+    .extend({ kind: z.literal('apply-run-value-attribution') })
+    .strict(),
+  inventoryPreviewRunValueAttributionWithdrawalRequestSchema
+    .extend({ kind: z.literal('preview-run-value-attribution-withdrawal') })
+    .strict(),
+  inventoryApplyRunValueAttributionWithdrawalRequestSchema
+    .extend({ kind: z.literal('apply-run-value-attribution-withdrawal') })
+    .strict(),
+  inventoryRunValueAttributionsRequestSchema
+    .innerType()
+    .extend({ kind: z.literal('run-value-attributions') })
+    .strict(),
+  inventoryRunValueAttributionRequestSchema
+    .extend({ kind: z.literal('run-value-attribution') })
+    .strict(),
+  inventoryRunValueAttributionSourceRequestSchema
+    .extend({ kind: z.literal('run-value-attribution-source') })
+    .strict(),
+
   inventoryPreviewPlatePlanObservationRequestSchema
     .extend({ kind: z.literal('preview-plate-plan-observation') })
     .strict(),
@@ -258,6 +294,23 @@ const material = z
   .object({ id: z.string(), name: z.string(), kind: z.string(), registryId: z.string().nullable() })
   .strict();
 export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
+  z.object({ ...ok, kind: z.literal('run-value-candidates'), result: jsonObjectSchema }).strict(),
+  z
+    .object({ ...ok, kind: z.literal('run-value-attribution-preview'), preview: jsonObjectSchema })
+    .strict(),
+  z
+    .object({
+      ...ok,
+      kind: z.literal('run-value-attribution-withdrawal-preview'),
+      preview: jsonObjectSchema,
+    })
+    .strict(),
+  z.object({ ...ok, kind: z.literal('run-value-attributions'), result: jsonObjectSchema }).strict(),
+  z.object({ ...ok, kind: z.literal('run-value-attribution'), result: jsonObjectSchema }).strict(),
+  z
+    .object({ ...ok, kind: z.literal('run-value-attribution-source'), result: jsonObjectSchema })
+    .strict(),
+
   z
     .object({ ...ok, kind: z.literal('plate-plan-observation-preview'), preview: jsonObjectSchema })
     .strict(),
@@ -367,6 +420,7 @@ export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
 ]);
 
 export const INVENTORY_DESCRIPTION =
+  'Associate an exact saved Run value with an existing recorded physical subject using run-value-candidates, preview-run-value-attribution and apply-run-value-attribution. Candidate rows provide inventory source-packet and complete raw-row SHA pins; never substitute a Protocol package hash. The value describes the subject and does not establish that this Run consumed or produced it. These writes only append metadata. Current comparison in exact run-value-attribution detail is independent from Active or Withdrawn history; restoring matching bytes never revives a withdrawal. Use preview/apply-run-value-attribution-withdrawal for terminal source-free correction, and an explicit fresh identity plus four exact predecessor pins for a same-Run/file/slot successor. Read bounded run-value-attributions summaries and retained run-value-attribution-source evidence; foreign saved contexts are never silently relocalized. Preserve original operation and intent after an unknown acknowledgement. ' +
   'Read scientific-works-for-context with explicit project, inventoryId and context {kind,entityId} for immutable completed manual transfers recorded with that exact Notebook or Run. Pages are bounded, ordered by recorded time and work ID, and pinned to one inventory revision; pass the native nextCursor unchanged and restart first page on revision change. Ready zero rows, inventory-absent and unavailable are distinct. These are historical stock effects and saved source pins, not declared Run inputs, produced material or current stock availability. Current source edits or removal do not erase recorded work. Use scientific-source lazily by returned workId for its retained source; listing and source viewing never write inventory or a Run. ' +
   'Read stockroom for expected delivery progress, original received-component allocation remainders and reorder reports at one native projectId/inventoryId/revision/principal/asOf. Use generic execute for record-expected-delivery, allocate-arrival, withdraw-arrival-allocation, close-expected-delivery-remainder, reopen-expected-delivery, record-reorder-rule and retire-reorder-rule. Expectations record explicit scientific material, positive amount, supplier or null, optional externalReference and reason; they never place an order or create on-hand stock. Allocate only original identified known received component amounts by arrivalId+componentKey, never current remaining quantity or package labels. Active allocations are capped across all lines by the original receipt and each line expectation; same scientific material and dimension are required. Use, movement, disposal and eligibility changes never unfulfill an allocation. Close only positive unmatched remainder; reopen explicitly before further matching or withdrawing an allocation on that line. Withdrawn allocations are immutable history and corrections get new IDs. Reorder rules declare positive exact threshold, actionBasis reserve or withdraw, and validityBasis current-recorded-rules or confirmed-current-validity without defaults. Known eligible unreserved stock is a lower bound; reaching threshold proves adequate even with unknown amounts, otherwise relevant eligible unknowns require measurement. Other dimensions and excluded physical stock remain explicit; expected quantities never enter the subtotal. Current-recorded-rules can include disclosed untracked validity and does not prove unexpired material; confirmed-current-validity requires coverage and the selected reserve/withdraw admission. Read nextBoundaryAt and request a new native snapshot at boundaries; never store low/expired flags or use renderer time as business authority. Recording expected deliveries, matching and reports send no vendor messages, purchases or spending. ' +
   'Report one exactly completed full manual plate-plan occurrence with preview-plate-plan-observation and apply-plate-plan-observation. Select a stable namespace/observationId, exact saved version and physical binding, saved Notebook or Protocol Run context pin, and reason. Only apply atomically records the whole ordered batch and immutable grouped source before/final balances plus each output aliquot. It never actuates equipment or records partial or uncertain physical outcomes. Preserve the exact occurrence and accepted request after unknown RPC outcome; same occurrence and intent never debits again, including after source edits or later stock use. Read bounded plate-plan-observations summaries with optional conjunctive version pin and local context identity filters, then lazy plate-plan-observation detail and plate-plan-observation-source by exact record ID and intent pin. Historical plate geometry, positions and retained scientific source remain separate from current navigation. Plan previews and source reads have no effects; no Run completion, produced scientific material or biological-success claim follows. ' +

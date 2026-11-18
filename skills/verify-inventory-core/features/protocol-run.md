@@ -202,3 +202,45 @@ files remain unchanged; the NEW Protocol/Run files and native catalog/receipts
 are intentional additions. Capture visible declaration/value controls and
 outcomes with their sections scrolled into view, plus interaction video. This
 workflow does not qualify exact physical-result attribution or a real assay.
+
+## Saved Run values and recorded physical subjects
+
+A clean saved Run offers **Saved values and recorded subjects** → **Associate
+saved value**. Choose an exact saved field, a recorded plate-plan use, its
+historical source or resulting aliquot, and a reason. Native candidates supply
+the saved source and complete row pins. Preview changes no stock or metadata;
+**Add association** saves only the assertion that this value describes this
+subject. It does not establish consumption, production or scientific acceptance.
+
+The detail separates the original saved value and original retained Run source
+from a fresh comparison with the current Run. A normal typed value edit must
+invalidate that comparison without requiring an inventory revision. Withdrawal
+keeps original facts and reasons. Restoring matching source content never
+reactivates a withdrawn assertion. **Associate again or correct** explicitly
+creates a successor pinned to its attribution and withdrawal, within the same
+Run file and field.
+
+Inventory's **Saved value associations** lists unfiltered history, including
+imported associations. It offers original evidence and source-free withdrawal
+without requiring a currently available Run. Foreign sources are never resolved
+through a local identifier suffix. Creation and correction stay on the clean
+local Run; this history does not add a global Run chooser.
+
+Use `run-value-attributions` with the exact completed typed-value fixture. The
+ordinary workflow associates its numeric0 output with the older recorded A3
+aliquot4µL, edits0→1 through the existing typed editor, observes old0/current1,
+withdraws, restores0, verifies the base stays withdrawn and a fresh equivalent
+base preview offers no Save, then explicitly adds a successor. Inventory
+revisions100/101/102 contain only those three metadata changes; old216 journal
+entries, physical state, other values and measurement recording times stay
+exact. File edits have their separate native purpose receipts. Exact restored
+source bytes are asserted only after reading them from the actual native owner.
+
+Every file or inventory request is checkpointed before submission and its
+accepted result immediately afterward. Preserve failures. Resume with
+`run-value-attributions-resume` and the latest exact checkpoint; retain a live
+prepared editor/request instead of regenerating identity or field keys. After a
+full restart, `run-value-attributions-reopen` reads both generations, retained
+source and unfiltered history without repeating accepted actions. Scroll each
+claimed original/current/status section into view and preserve static images and
+the interaction video.

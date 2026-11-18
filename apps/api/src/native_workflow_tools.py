@@ -92,6 +92,8 @@ def _required(name: str, args: dict[str, Any]) -> list[str]:
             "apply-hierarchy",
             "apply-mapped-table",
             "apply-benchling-capture",
+            "apply-run-value-attribution",
+            "apply-run-value-attribution-withdrawal",
             "apply-plate-plan-observation",
             "apply-plate-plan-version",
             "apply-scientific-citation",
@@ -229,6 +231,14 @@ async def execute_native_workflow(
             "inspect-benchling-capture",
             "preview-benchling-capture",
             "apply-benchling-capture",
+            "run-value-candidates",
+            "preview-run-value-attribution",
+            "apply-run-value-attribution",
+            "preview-run-value-attribution-withdrawal",
+            "apply-run-value-attribution-withdrawal",
+            "run-value-attributions",
+            "run-value-attribution",
+            "run-value-attribution-source",
             "preview-plate-plan-observation",
             "apply-plate-plan-observation",
             "plate-plan-observations",
@@ -271,6 +281,10 @@ async def execute_native_workflow(
         request = {key: value for key, value in operation.items() if key != "kind"}
         if operation["kind"] == "scientific-contexts-v2":
             request["kind"] = request.pop("contextKind", None)
+        elif operation["kind"] == "apply-run-value-attribution":
+            request["kind"] = "record-run-value-attribution"
+        elif operation["kind"] == "apply-run-value-attribution-withdrawal":
+            request["kind"] = "withdraw-run-value-attribution"
         elif operation["kind"] == "apply-plate-plan-observation":
             request["kind"] = "record-plate-plan-observation"
         elif operation["kind"] == "apply-plate-plan-version":

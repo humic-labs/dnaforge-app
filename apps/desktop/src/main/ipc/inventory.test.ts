@@ -869,6 +869,41 @@ it('routes exact plate-plan reads and source-free saves through the current desk
   expect(applyPlatePlanVersion).toHaveBeenCalledTimes(1);
 });
 
+it('routes saved Run attribution reads and fences its asynchronous desktop caller', async () => {
+  const current = owner!;
+  const runValueCandidates = vi.fn(async () => ({ kind: 'unavailable' }));
+  const runValueAttributions = vi.fn(() => ({ kind: 'ready', entries: [] }));
+  const applyRunValueAttribution = vi.fn(async () => ({ status: 'committed' }));
+  Object.assign(current, { runValueCandidates, runValueAttributions, applyRunValueAttribution });
+  const read = captured.handlers.runValueCandidates as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => Promise<unknown>;
+  await expect(
+    read(event, { project: 'project', inventoryId: 'inventory', runId: 'project::run' })
+  ).resolves.toEqual({ kind: 'unavailable' });
+  expect(runValueCandidates).toHaveBeenCalledOnce();
+  let finish: (() => void) | undefined;
+  runValueCandidates.mockImplementationOnce(async () => {
+    await new Promise<void>((resolve) => (finish = resolve));
+    return { kind: 'unavailable' };
+  });
+  const pending = read(event, {});
+  owner = null;
+  finish!();
+  await expect(pending).rejects.toThrow('INVENTORY_OWNER_UNAVAILABLE');
+  owner = current;
+  expect(
+    (
+      captured.handlers.runValueAttributions as (
+        event: IpcMainInvokeEvent,
+        input: unknown
+      ) => unknown
+    )(event, {})
+  ).toEqual({ kind: 'ready', entries: [] });
+  expect(execute).not.toHaveBeenCalled();
+});
+
 it('routes full plate-plan observation reads and preserves the current caller on asynchronous reports', async () => {
   const platePlanObservations = vi.fn(() => ({ kind: 'ready', observations: [] }));
   const platePlanObservation = vi.fn(() => ({ kind: 'unavailable' }));

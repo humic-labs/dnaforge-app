@@ -2,6 +2,7 @@ import { sharedInventoryPendingCoordinator } from './inventory-pending-coordinat
 import { InventoryScientificForm } from './InventoryScientificForm';
 import { InventoryStockroomForm } from './InventoryStockroomForm';
 import { InventoryArrivalForm } from './InventoryArrivalForm';
+import { InventorySavedValueAssociations } from './InventoryRunValueAttributions';
 import { InventoryPlatePlans } from './InventoryPlatePlans';
 import {
   useEffect,
@@ -105,6 +106,8 @@ type InventorySourceKind = Exclude<
   | 'withdraw-scientific-citation'
   | 'save-plate-plan-version'
   | 'record-plate-plan-observation'
+  | 'record-run-value-attribution'
+  | 'withdraw-run-value-attribution'
 >;
 const sourceHistoryCopy: Readonly<
   Record<
@@ -231,6 +234,9 @@ export function InventoryPanel() {
   const [drawer, setDrawer] = useState<Drawer>({ kind: 'closed' });
   const [dialog, setDialog] = useState<InventoryDialog>({ kind: 'none' });
   const [platePlanProject, setPlatePlanProject] = useState<InventoryProject | null>(null);
+  const [valueAssociationProject, setValueAssociationProject] = useState<InventoryProject | null>(
+    null
+  );
   const [search, setSearch] = useState('');
   const [shown, setShown] = useState(100);
   const [shownPositions, setShownPositions] = useState(200);
@@ -296,6 +302,10 @@ export function InventoryPanel() {
     if (currentProjectId && platePlanProject?.projectId !== currentProjectId)
       setPlatePlanProject(null);
   }, [currentProjectId, platePlanProject]);
+  useEffect(() => {
+    if (currentProjectId && valueAssociationProject?.projectId !== currentProjectId)
+      setValueAssociationProject(null);
+  }, [currentProjectId, valueAssociationProject]);
   const materialProject = useRef(currentProjectId);
   materialProject.current = currentProjectId;
   const stocks = state
@@ -546,18 +556,22 @@ export function InventoryPanel() {
             >
               <p className="font-medium text-fg">
                 {'kind' in entry.request
-                  ? entry.request.kind === 'record-scientific-citation'
-                    ? 'Added saved scientific citation'
-                    : entry.request.kind === 'withdraw-scientific-citation'
-                      ? 'Withdrew scientific citation'
-                      : entry.request.kind === 'save-plate-plan-version'
-                        ? 'Saved reusable plate-plan version'
-                        : entry.request.kind === 'record-plate-plan-observation'
-                          ? 'Recorded completed manual plate-plan use'
-                          : entry.request.kind === 'record-scientific-transfer' ||
-                              entry.request.kind === 'record-scientific-transfer-v2'
-                            ? 'Recorded observed scientific transfer'
-                            : sourceHistoryCopy[entry.request.kind].title
+                  ? entry.request.kind === 'record-run-value-attribution'
+                    ? 'Associated a saved Run value and recorded subject'
+                    : entry.request.kind === 'withdraw-run-value-attribution'
+                      ? 'Withdrew a saved value association'
+                      : entry.request.kind === 'record-scientific-citation'
+                        ? 'Added saved scientific citation'
+                        : entry.request.kind === 'withdraw-scientific-citation'
+                          ? 'Withdrew scientific citation'
+                          : entry.request.kind === 'save-plate-plan-version'
+                            ? 'Saved reusable plate-plan version'
+                            : entry.request.kind === 'record-plate-plan-observation'
+                              ? 'Recorded completed manual plate-plan use'
+                              : entry.request.kind === 'record-scientific-transfer' ||
+                                  entry.request.kind === 'record-scientific-transfer-v2'
+                                ? 'Recorded observed scientific transfer'
+                                : sourceHistoryCopy[entry.request.kind].title
                   : entry.request.commands
                       .map((command) => (state ? historyLabel(command, state) : ''))
                       .join(' · ')}
@@ -613,6 +627,16 @@ export function InventoryPanel() {
                   <p>
                     One operator-reported whole manual use with its recorded stock effects and saved
                     scientific context.
+                  </p>
+                </div>
+              ) : 'kind' in entry.request &&
+                (entry.request.kind === 'record-run-value-attribution' ||
+                  entry.request.kind === 'withdraw-run-value-attribution') ? (
+                <div className="space-y-1 text-xs">
+                  <p>{entry.request.choices.reason}</p>
+                  <p>
+                    Original values, subjects, and withdrawal history remain available in Saved
+                    value associations.
                   </p>
                 </div>
               ) : 'kind' in entry.request && entry.request.kind === 'save-plate-plan-version' ? (
@@ -750,6 +774,7 @@ export function InventoryPanel() {
               setRegistryIds({});
               setDialog({ kind: 'none' });
               setPlatePlanProject(null);
+              setValueAssociationProject(null);
               choose({ kind: 'all' });
               void controller.selectProject(id);
             }}
@@ -775,6 +800,9 @@ export function InventoryPanel() {
         </Button>
         <Button disabled={!data} onClick={() => data && setPlatePlanProject(data.project)}>
           Plate plans
+        </Button>
+        <Button disabled={!data} onClick={() => data && setValueAssociationProject(data.project)}>
+          Saved value associations
         </Button>
         <Button disabled={!data} onClick={() => setDialog({ kind: 'receive-delivery' })}>
           Receive delivery
@@ -1763,6 +1791,16 @@ export function InventoryPanel() {
           ) : null}
         </div>
       )}
+      {valueAssociationProject ? (
+        <InventorySavedValueAssociations
+          key={`${valueAssociationProject.projectId}:${valueAssociationProject.defaultInventoryId}`}
+          scope={{
+            project: valueAssociationProject.projectId,
+            inventoryId: valueAssociationProject.defaultInventoryId,
+          }}
+          onClose={() => setValueAssociationProject(null)}
+        />
+      ) : null}
       {platePlanProject ? (
         <InventoryPlatePlans
           key={`${platePlanProject.projectId}:${platePlanProject.defaultInventoryId}`}

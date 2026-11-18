@@ -1,3 +1,9 @@
+import type {
+  InventoryRunValueAttribution,
+  InventoryRunValueAttributionWithdrawal,
+} from './inventory-run-value-attribution-types';
+import { parseInventoryRunValueSnapshot } from './inventory-run-value-attribution-value';
+import { validateInventoryRunValueAttributions } from './inventory-run-value-attribution-validation';
 import type { InventoryPlatePlanObservation } from './inventory-plate-plan-observation-types';
 import { validateInventoryPlatePlanObservations } from './inventory-plate-plan-observation-validation';
 import type { InventoryPlatePlanVersion } from './inventory-plate-plan-types';
@@ -96,6 +102,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA,
   INVENTORY_PLATE_PLAN_SCHEMA,
   INVENTORY_CITATION_SCHEMA,
   INVENTORY_RUN_CONTEXT_SCHEMA,
@@ -2423,6 +2430,92 @@ const scientificCitationWithdrawalRecord: Codec<InventoryScientificCitationWithd
   }
 );
 
+const runValueAttributionRecord: Codec<InventoryRunValueAttribution> = fields(
+  'Saved Run value attribution',
+  {
+    id,
+    identity: fields('Run value attribution identity', {
+      namespace: arrivalKey,
+      attributionId: arrivalKey,
+    }),
+    intentSha256: sha256,
+    runValue: fields('Exact saved Run value', {
+      entityId: id,
+      sourceSha256: sha256,
+      collection: union('Run value collection', [
+        literal('inputs'),
+        literal('outputs'),
+        literal('measurements'),
+      ]),
+      key: arrivalKey,
+      rowSha256: sha256,
+    }),
+    physical: fields('Recorded physical subject', {
+      observationId: id,
+      observationIntentSha256: sha256,
+      subject: union('Plate-plan observation subject', [
+        fields('Recorded source stock', { kind: literal('source-stock'), stockId: id }),
+        fields('Recorded output action', {
+          kind: literal('output-action'),
+          actionId: arrivalKey,
+          stockId: id,
+        }),
+      ]),
+    }),
+    predecessor: union('Run value attribution predecessor', [
+      nullValue,
+      fields('Withdrawn Run value attribution', {
+        attributionId: id,
+        attributionIntentSha256: sha256,
+        withdrawalId: id,
+        withdrawalIntentSha256: sha256,
+      }),
+    ]),
+    source: fields('Native observed saved Run value source', {
+      kind: literal('native-observed-saved-source'),
+      projectId: id,
+      workspaceScope: id,
+      fileObjectUuid: id,
+      title: text('Saved Run source title', 17 * 1024 * 1024),
+    }),
+    valueSnapshot: { schema: { type: 'object' }, parse: parseInventoryRunValueSnapshot },
+    origin: union('Saved Run value origin', [
+      fields('Local actual value', { kind: literal('local-actual') }),
+      fields('Frozen declaration value', {
+        kind: literal('frozen-declaration'),
+        definitionSha256: sha256,
+      }),
+    ]),
+    at: timestamp,
+    by: recordedPrincipal,
+    reason,
+  }
+);
+const runValueAttributionWithdrawalRecord: Codec<InventoryRunValueAttributionWithdrawal> = fields(
+  'Run value attribution withdrawal',
+  {
+    id,
+    identity: fields('Run value attribution withdrawal identity', {
+      namespace: arrivalKey,
+      withdrawalId: arrivalKey,
+    }),
+    intentSha256: sha256,
+    attributionId: id,
+    attributionIntentSha256: sha256,
+    at: timestamp,
+    by: recordedPrincipal,
+    reason,
+  }
+);
+export function parseInventoryRunValueAttribution(value: unknown): InventoryRunValueAttribution {
+  return runValueAttributionRecord.parse(value);
+}
+export function parseInventoryRunValueAttributionWithdrawal(
+  value: unknown
+): InventoryRunValueAttributionWithdrawal {
+  return runValueAttributionWithdrawalRecord.parse(value);
+}
+
 const platePlanObservationRecord: Codec<InventoryPlatePlanObservation> = fields(
   'Completed manual plate-plan observation',
   {
@@ -3191,7 +3284,10 @@ export function parseInventoryScientificWork(value: unknown): InventoryScientifi
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const platePlanRecords = current || row.schema === INVENTORY_PLATE_PLAN_SCHEMA;
+  const platePlanObservationRecords =
+    current || row.schema === INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA;
+  const platePlanRecords =
+    platePlanObservationRecords || row.schema === INVENTORY_PLATE_PLAN_SCHEMA;
   const citationRecords = platePlanRecords || row.schema === INVENTORY_CITATION_SCHEMA;
   const runContextRecords = citationRecords || row.schema === INVENTORY_RUN_CONTEXT_SCHEMA;
   const scientificRecords = runContextRecords || row.schema === INVENTORY_NOTEBOOK_CONTEXT_SCHEMA;
@@ -3218,6 +3314,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA),
       literal(INVENTORY_PLATE_PLAN_SCHEMA),
       literal(INVENTORY_CITATION_SCHEMA),
       literal(INVENTORY_RUN_CONTEXT_SCHEMA),
@@ -3247,6 +3344,15 @@ export function parseInventoryState(value: unknown): InventoryState {
     ]),
     revision,
     ...(current
+      ? {
+          runValueAttributions: { schema: { type: 'object' }, parse: (input: unknown) => input },
+          runValueAttributionWithdrawals: {
+            schema: { type: 'object' },
+            parse: (input: unknown) => input,
+          },
+        }
+      : {}),
+    ...(platePlanObservationRecords
       ? { platePlanObservations: { schema: { type: 'object' }, parse: (input: unknown) => input } }
       : {}),
     ...(platePlanRecords
@@ -3385,7 +3491,13 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   let state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    platePlanObservations: current
+    runValueAttributions: current
+      ? records(shape.runValueAttributions, parseInventoryRunValueAttribution)
+      : Object.create(null),
+    runValueAttributionWithdrawals: current
+      ? records(shape.runValueAttributionWithdrawals, parseInventoryRunValueAttributionWithdrawal)
+      : Object.create(null),
+    platePlanObservations: platePlanObservationRecords
       ? records(shape.platePlanObservations, parseInventoryPlatePlanObservation)
       : Object.create(null),
     platePlanVersions: platePlanRecords
@@ -3681,6 +3793,7 @@ export function parseInventoryState(value: unknown): InventoryState {
     validateInventoryScientificCitations(state);
     validateInventoryPlatePlans(state);
     validateInventoryPlatePlanObservations(state);
+    validateInventoryRunValueAttributions(state);
     validateInventoryStockroomState(state);
     validateInventoryArrivalState(state);
     validateInventoryValidityState(state);

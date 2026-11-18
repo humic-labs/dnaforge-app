@@ -47,7 +47,8 @@ it('upcasts retained v26 plan versions without rewriting bytes and rejects futur
       by: { kind: 'local-profile' as const, profileKey: 'profile' },
       reason: 'Keep original reusable instructions',
     };
-  const { platePlanObservations, ...old } = createInventoryState();
+  const { runValueAttributions, runValueAttributionWithdrawals, platePlanObservations, ...old } =
+    createInventoryState();
   const previous = {
       ...old,
       schema: 'dnaforge.inventory.v26',
@@ -57,11 +58,17 @@ it('upcasts retained v26 plan versions without rewriting bytes and rejects futur
     },
     bytes = JSON.stringify(previous),
     current = parseInventoryState(previous);
-  expect(current.schema).toBe('dnaforge.inventory.v27');
+  expect(current.schema).toBe('dnaforge.inventory.v28');
   expect(current.platePlanObservations).toEqual({});
   expect(current.platePlanVersions).toEqual({ [id]: version });
   expect(JSON.stringify(previous)).toBe(bytes);
-  const { platePlanObservations: currentObservations, schema, ...unchanged } = current;
+  const {
+    runValueAttributions: currentAttributions,
+    runValueAttributionWithdrawals: currentWithdrawals,
+    platePlanObservations: currentObservations,
+    schema,
+    ...unchanged
+  } = current;
   const { schema: previousSchema, ...original } = previous;
   expect(unchanged).toEqual(original);
   for (const invalid of [

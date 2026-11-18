@@ -1,4 +1,14 @@
 import {
+  inventoryRunValueCandidatesRequestSchema,
+  inventoryPreviewRunValueAttributionRequestSchema,
+  inventoryApplyRunValueAttributionRequestSchema,
+  inventoryPreviewRunValueAttributionWithdrawalRequestSchema,
+  inventoryApplyRunValueAttributionWithdrawalRequestSchema,
+  inventoryRunValueAttributionsRequestSchema,
+  inventoryRunValueAttributionRequestSchema,
+  inventoryRunValueAttributionSourceRequestSchema,
+} from '../shared/inventory-run-value-attributions';
+import {
   inventoryPreviewPlatePlanVersionRequestSchema,
   inventoryApplyPlatePlanVersionRequestSchema,
   inventoryPlatePlanVersionsRequestSchema,
@@ -125,6 +135,79 @@ const selection = target
   })
   .strict();
 const commandSchema = z.discriminatedUnion('command', [
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.run-value-candidates'),
+      request: inventoryRunValueCandidatesRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-run-value-attribution'),
+      request: inventoryPreviewRunValueAttributionRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.apply-run-value-attribution'),
+      request: inventoryApplyRunValueAttributionRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-run-value-attribution-withdrawal'),
+      request: inventoryPreviewRunValueAttributionWithdrawalRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.apply-run-value-attribution-withdrawal'),
+      request: inventoryApplyRunValueAttributionWithdrawalRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.run-value-attributions'),
+      request: inventoryRunValueAttributionsRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.run-value-attribution'),
+      request: inventoryRunValueAttributionRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.run-value-attribution-source'),
+      request: inventoryRunValueAttributionSourceRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+
   z
     .object({
       ownerInstanceId: identity,
@@ -752,6 +835,14 @@ export async function startNativeDocumentCommandServer(options: {
   inventory?: Pick<
     ReturnType<typeof createNativeInventoryOwner>,
     | 'execute'
+    | 'runValueCandidates'
+    | 'previewRunValueAttribution'
+    | 'applyRunValueAttribution'
+    | 'previewRunValueAttributionWithdrawal'
+    | 'applyRunValueAttributionWithdrawal'
+    | 'runValueAttributions'
+    | 'runValueAttribution'
+    | 'runValueAttributionSource'
     | 'previewPlatePlanObservation'
     | 'applyPlatePlanObservation'
     | 'platePlanObservations'
@@ -972,6 +1063,14 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'project-history.execute' ||
           body.command === 'import-review.execute' ||
           body.command === 'administration.execute' ||
+          body.command === 'inventory.run-value-candidates' ||
+          body.command === 'inventory.preview-run-value-attribution' ||
+          body.command === 'inventory.apply-run-value-attribution' ||
+          body.command === 'inventory.preview-run-value-attribution-withdrawal' ||
+          body.command === 'inventory.apply-run-value-attribution-withdrawal' ||
+          body.command === 'inventory.run-value-attributions' ||
+          body.command === 'inventory.run-value-attribution' ||
+          body.command === 'inventory.run-value-attribution-source' ||
           body.command === 'inventory.preview-plate-plan-observation' ||
           body.command === 'inventory.apply-plate-plan-observation' ||
           body.command === 'inventory.plate-plan-observations' ||
@@ -1037,6 +1136,8 @@ export async function startNativeDocumentCommandServer(options: {
               body.agent
             ) {
               const required =
+                body.command === 'inventory.apply-run-value-attribution' ||
+                body.command === 'inventory.apply-run-value-attribution-withdrawal' ||
                 body.command === 'inventory.apply-plate-plan-observation' ||
                 body.command === 'inventory.apply-plate-plan-version' ||
                 body.command === 'inventory.apply-scientific-citation' ||
@@ -1091,6 +1192,68 @@ export async function startNativeDocumentCommandServer(options: {
                       principal: { kind: 'agent' as const, identityId: body.agent.identityId },
                     }
                   : undefined;
+              if (body.command === 'inventory.run-value-candidates')
+                return async () => {
+                  const result = await receiver.runValueCandidates(body.request, {
+                    ...planInvocation,
+                    beforeScientificRead: authorizeInventoryRequest,
+                  });
+                  assertCurrent();
+                  return { kind: 'run-value-candidates', result };
+                };
+              if (body.command === 'inventory.preview-run-value-attribution')
+                return async () => {
+                  const result = await receiver.previewRunValueAttribution(body.request, {
+                    ...planInvocation,
+                    beforeScientificRead: authorizeInventoryRequest,
+                  });
+                  assertCurrent();
+                  return { kind: 'run-value-attribution-preview', preview: result };
+                };
+              if (body.command === 'inventory.apply-run-value-attribution')
+                return async () => ({
+                  kind: 'execution',
+                  execution: await receiver.applyRunValueAttribution(body.request, assertCurrent, {
+                    ...planInvocation,
+                    beforeScientificCommit: authorizeInventoryRequest,
+                  }),
+                });
+              if (body.command === 'inventory.preview-run-value-attribution-withdrawal')
+                return () => ({
+                  kind: 'run-value-attribution-withdrawal-preview',
+                  preview: receiver.previewRunValueAttributionWithdrawal(
+                    body.request,
+                    planInvocation
+                  ),
+                });
+              if (body.command === 'inventory.apply-run-value-attribution-withdrawal')
+                return async () => ({
+                  kind: 'execution',
+                  execution: await receiver.applyRunValueAttributionWithdrawal(
+                    body.request,
+                    assertCurrent,
+                    { ...planInvocation, beforeScientificCommit: authorizeInventoryRequest }
+                  ),
+                });
+              if (body.command === 'inventory.run-value-attributions')
+                return () => ({
+                  kind: 'run-value-attributions',
+                  result: receiver.runValueAttributions(body.request),
+                });
+              if (body.command === 'inventory.run-value-attribution')
+                return async () => {
+                  const result = await receiver.runValueAttribution(body.request, {
+                    ...planInvocation,
+                    beforeScientificRead: authorizeInventoryRequest,
+                  });
+                  assertCurrent();
+                  return { kind: 'run-value-attribution', result };
+                };
+              if (body.command === 'inventory.run-value-attribution-source')
+                return () => ({
+                  kind: 'run-value-attribution-source',
+                  result: receiver.runValueAttributionSource(body.request),
+                });
               if (body.command === 'inventory.preview-plate-plan-observation')
                 return async () => {
                   const preview = await receiver.previewPlatePlanObservation(body.request, {
@@ -1625,6 +1788,12 @@ export async function startNativeDocumentCommandServer(options: {
             body.command !== 'inventory.operation' &&
             body.command !== 'inventory.history';
           if (
+            body.command === 'inventory.run-value-candidates' ||
+            body.command === 'inventory.preview-run-value-attribution' ||
+            body.command === 'inventory.preview-run-value-attribution-withdrawal' ||
+            body.command === 'inventory.run-value-attributions' ||
+            body.command === 'inventory.run-value-attribution' ||
+            body.command === 'inventory.run-value-attribution-source' ||
             body.command === 'inventory.preview-plate-plan-observation' ||
             body.command === 'inventory.plate-plan-observations' ||
             body.command === 'inventory.plate-plan-observation' ||

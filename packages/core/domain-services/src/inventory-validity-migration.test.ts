@@ -106,6 +106,8 @@ describe('opening and expiry snapshot integrity', () => {
     const {
       scientificWorks: _scientificWorks,
       scientificCitations: _scientificCitations,
+      runValueAttributions: _runValueAttributions,
+      runValueAttributionWithdrawals: _runValueAttributionWithdrawals,
       platePlanObservations: _platePlanObservations,
       platePlanVersions: _platePlanVersions,
       scientificCitationWithdrawals: _scientificCitationWithdrawals,

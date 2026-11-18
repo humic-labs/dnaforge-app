@@ -1,3 +1,13 @@
+import {
+  inventoryApplyRunValueAttributionRequestSchema,
+  inventoryApplyRunValueAttributionWithdrawalRequestSchema,
+  type InventoryApplyRunValueAttributionRequest,
+  type InventoryApplyRunValueAttributionWithdrawalRequest,
+} from './inventory-run-value-attributions';
+export type {
+  InventoryApplyRunValueAttributionRequest,
+  InventoryApplyRunValueAttributionWithdrawalRequest,
+} from './inventory-run-value-attributions';
 import { z } from 'zod';
 import {
   inventoryApplyPlatePlanObservationRequestSchema,
@@ -72,6 +82,7 @@ export const inventoryReceiptContextSchema = z
       z.literal(8),
       z.literal(9),
       z.literal(10),
+      z.literal(11),
     ]),
     principal: inventoryPrincipalSchema,
     authority: z.object({ kind: z.literal('local-profile'), profileKey }).strict(),
@@ -936,6 +947,8 @@ export const inventoryExecuteRequestSchema = inventoryReadRequestSchema
   }));
 
 export const inventoryAcceptedRequestSchema = z.union([
+  inventoryApplyRunValueAttributionRequestSchema,
+  inventoryApplyRunValueAttributionWithdrawalRequestSchema,
   inventoryApplyPlatePlanVersionRequestSchema,
   inventoryApplyPlatePlanObservationRequestSchema,
   inventoryApplyScientificCitationRequestSchema,
@@ -1096,6 +1109,8 @@ export type InventoryAcknowledgeSourceRequest = InventoryReadRequest & {
   readonly expectedPlanDigest: `sha256:${string}`;
 };
 export type InventoryAcceptedRequest =
+  | InventoryApplyRunValueAttributionRequest
+  | InventoryApplyRunValueAttributionWithdrawalRequest
   | InventoryApplyPlatePlanVersionRequest
   | InventoryApplyPlatePlanObservationRequest
   | InventoryApplyScientificCitationRequest

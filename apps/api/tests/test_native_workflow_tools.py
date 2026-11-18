@@ -508,6 +508,46 @@ async def test_inventory_work_query_keeps_context_cursor_and_only_current_read_g
 
 
 @pytest.mark.asyncio
+async def test_run_value_attribution_routes_preserve_pins_and_write_scope(native):
+    state, context = native
+    kinds = [
+        "run-value-candidates",
+        "preview-run-value-attribution",
+        "apply-run-value-attribution",
+        "preview-run-value-attribution-withdrawal",
+        "apply-run-value-attribution-withdrawal",
+        "run-value-attributions",
+        "run-value-attribution",
+        "run-value-attribution-source",
+    ]
+    for kind in kinds:
+        operation = {
+            "kind": kind,
+            "project": "project",
+            "inventoryId": "inventory",
+            "operationId": "same",
+            "choices": {"reason": "Exact raw pins", "sourceSha256": "sha256:" + "a" * 64},
+        }
+        state["scope"] = ["read-workspace"]
+        before = len(state["calls"])
+        if kind.startswith("apply-"):
+            with pytest.raises(ToolExecutionFailure) as denied:
+                await execute_native_workflow("inventory", {"operation": operation}, context)
+            assert denied.value.code == "INSUFFICIENT_SCOPE"
+            assert len(state["calls"]) == before
+            state["scope"].append("write-workspace")
+        state["result"] = {"kind": "execution"}
+        await execute_native_workflow("inventory", {"operation": operation}, context)
+        expected = {key: value for key, value in operation.items() if key != "kind"}
+        if kind == "apply-run-value-attribution":
+            expected["kind"] = "record-run-value-attribution"
+        if kind == "apply-run-value-attribution-withdrawal":
+            expected["kind"] = "withdraw-run-value-attribution"
+        assert state["calls"][-1]["command"] == "inventory." + kind
+        assert state["calls"][-1]["request"] == expected
+
+
+@pytest.mark.asyncio
 async def test_protocol_typed_edits_keep_exact_choices_and_need_current_write(native):
     state, context = native
     for kind in ("edit-protocol-declarations", "record-run-values"):

@@ -64,6 +64,8 @@ import { applyInventoryContentsCommand, inventoryVesselStockAdmission } from './
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
 interface Draft {
+  runValueAttributions: InventoryState['runValueAttributions'];
+  runValueAttributionWithdrawals: InventoryState['runValueAttributionWithdrawals'];
   scientificWorks: InventoryState['scientificWorks'];
   platePlanObservations: InventoryState['platePlanObservations'];
   platePlanVersions: InventoryState['platePlanVersions'];
@@ -415,6 +417,8 @@ export function applyInventoryCommandBatch(
   if (context && context.at < state.lastRecordedAt)
     return failure('CLOCK_REGRESSION', 'The trusted timestamp precedes the inventory clock floor.');
   const draft: Draft = {
+    runValueAttributions: state.runValueAttributions,
+    runValueAttributionWithdrawals: state.runValueAttributionWithdrawals,
     scientificWorks: state.scientificWorks,
     platePlanObservations: state.platePlanObservations,
     platePlanVersions: state.platePlanVersions,

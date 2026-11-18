@@ -1,3 +1,11 @@
+export * from './inventory-run-value-attribution-types';
+export * from './inventory-run-value-attribution-value';
+export * from './inventory-run-value-attribution-identity';
+export * from './inventory-run-value-attributions';
+export {
+  parseInventoryRunValueAttribution,
+  parseInventoryRunValueAttributionWithdrawal,
+} from './inventory-validation';
 export * from './inventory-plate-plan-observation-types';
 export * from './inventory-plate-plan-observation-identity';
 export * from './inventory-plate-plan-observations';

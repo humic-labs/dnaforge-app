@@ -36,6 +36,11 @@ import {
 import { applyNativeInventoryPlatePlanObservation } from './inventory-plate-plan-observations';
 import { applyNativeInventoryPlatePlanVersion } from './inventory-plate-plans';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
+import {
+  applyNativeInventoryRunValueAttribution,
+  applyNativeInventoryRunValueAttributionWithdrawal,
+  verifyNativeInventoryRunValueAttributionSource,
+} from './inventory-run-value-attributions';
 
 export interface NativeInventoryJournalRow {
   readonly inventory_id: string;
@@ -61,7 +66,8 @@ export function parseNativeInventoryJournalEntry(
     (request.kind === 'record-scientific-transfer' ||
       request.kind === 'record-scientific-transfer-v2' ||
       request.kind === 'record-scientific-citation' ||
-      request.kind === 'record-plate-plan-observation');
+      request.kind === 'record-plate-plan-observation' ||
+      request.kind === 'record-run-value-attribution');
   if (scientific) {
     const version = receipt.context?.version;
     const retained = receipt.context?.scientificSource;
@@ -71,13 +77,16 @@ export function parseNativeInventoryJournalEntry(
       version < 6 ||
       (request.kind === 'record-scientific-transfer-v2' && version < 7) ||
       (request.kind === 'record-scientific-citation' && version < 8) ||
-      (request.kind === 'record-plate-plan-observation' && version < 10)
+      (request.kind === 'record-plate-plan-observation' && version < 10) ||
+      (request.kind === 'record-run-value-attribution' && version < 11)
     )
       throw new Error(
         'INVENTORY_DATA_INVALID: Scientific work requires its matching native source witness.'
       );
     if (request.kind === 'record-scientific-citation')
       verifyNativeInventoryScientificCitationSource(request, retained);
+    if (request.kind === 'record-run-value-attribution')
+      verifyNativeInventoryRunValueAttributionSource(request, retained);
     const selection =
       request.kind === 'record-scientific-transfer'
         ? {
@@ -85,7 +94,13 @@ export function parseNativeInventoryJournalEntry(
             entityId: request.choices.pageId,
             sourceSha256: request.choices.expectedSourceSha256,
           }
-        : request.choices.context;
+        : request.kind === 'record-run-value-attribution'
+          ? {
+              kind: 'protocol-run',
+              entityId: request.choices.runValue.entityId,
+              sourceSha256: request.choices.runValue.sourceSha256,
+            }
+          : request.choices.context;
     if (selection.kind === 'notebook-page') {
       const source = notebookSavedSourceSchema.parse(retained);
       if (
@@ -108,6 +123,12 @@ export function parseNativeInventoryJournalEntry(
     }
   } else if (receipt.context?.scientificSource)
     throw new Error('INVENTORY_DATA_INVALID: Only scientific work may retain a source witness.');
+  if (
+    'kind' in request &&
+    request.kind === 'withdraw-run-value-attribution' &&
+    (receipt.context?.version ?? 1) < 11
+  )
+    throw Error('INVENTORY_DATA_INVALID: Run value attribution withdrawal requires V11 semantics.');
   if (
     'kind' in request &&
     request.kind === 'withdraw-scientific-citation' &&
@@ -140,7 +161,7 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryApplyImportRequest,
     context: InventoryExecutionContext,
-    receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | undefined
+    receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | undefined
   ) => InventoryTransition,
   table: (
     target: InventoryState | null,
@@ -176,7 +197,8 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryApplyArrivalRequest,
     context: InventoryExecutionContext
-  ) => InventoryTransition
+  ) => InventoryTransition,
+  options: { readonly allowRunValueAttributions?: boolean } = {}
 ): InventoryState {
   let state = createInventoryState();
   let highestContextVersion = 1;
@@ -238,7 +260,25 @@ export function replayNativeInventoryEntries(
     if (request.expectedRevision !== state.revision)
       throw new Error('INVENTORY_DATA_INVALID: The saved inventory journal is not contiguous.');
     let result: InventoryTransition;
-    if ('kind' in request && request.kind === 'record-plate-plan-observation') {
+    if (
+      'kind' in request &&
+      (request.kind === 'record-run-value-attribution' ||
+        request.kind === 'withdraw-run-value-attribution')
+    ) {
+      if (contextVersion < 11 || !context || options.allowRunValueAttributions === false)
+        throw Error(
+          'INVENTORY_DATA_INVALID: Saved Run value attribution requires V11 semantics without a pre-V11 ancestor.'
+        );
+      result =
+        request.kind === 'record-run-value-attribution'
+          ? applyNativeInventoryRunValueAttribution(
+              state,
+              request,
+              context,
+              entry.receipt.context?.scientificSource
+            )
+          : applyNativeInventoryRunValueAttributionWithdrawal(state, request, context);
+    } else if ('kind' in request && request.kind === 'record-plate-plan-observation') {
       if (contextVersion < 10 || !context || !entry.receipt.context?.scientificSource)
         throw Error(
           'INVENTORY_DATA_INVALID: Completed manual occurrences require V10 native source semantics.'
@@ -393,6 +433,14 @@ export function replayNativeInventoryEntries(
     if (contextVersion < 10 && Object.keys(result.state.platePlanObservations).length > 0)
       throw Error(
         'INVENTORY_DATA_INVALID: Manual plan occurrences cannot enter through pre-V10 receipt semantics.'
+      );
+    if (
+      (contextVersion < 11 || options.allowRunValueAttributions === false) &&
+      (Object.keys(result.state.runValueAttributions).length > 0 ||
+        Object.keys(result.state.runValueAttributionWithdrawals).length > 0)
+    )
+      throw Error(
+        'INVENTORY_DATA_INVALID: Saved Run value attributions cannot enter through pre-V11 semantics or ancestry.'
       );
     state = cumulativeLotSemantics
       ? result.state

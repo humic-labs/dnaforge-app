@@ -259,6 +259,17 @@ function mapAttribution(state: InventoryState, source: InventoryAdoptionSource):
     value.kind === 'available' ? value : { ...value, by: principal(value.by) };
   return {
     ...state,
+    runValueAttributions: mapRecords(state.runValueAttributions, (attribution) => ({
+      ...attribution,
+      by: principal(attribution.by),
+    })),
+    runValueAttributionWithdrawals: mapRecords(
+      state.runValueAttributionWithdrawals,
+      (withdrawal) => ({
+        ...withdrawal,
+        by: principal(withdrawal.by),
+      })
+    ),
     platePlanObservations: mapRecords(state.platePlanObservations, (observation) => ({
       ...observation,
       by: principal(observation.by),

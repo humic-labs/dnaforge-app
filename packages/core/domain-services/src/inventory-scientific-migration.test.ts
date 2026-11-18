@@ -126,6 +126,8 @@ function runObserved(): InventoryState {
 it('upcasts v22 without changing stockroom facts or persisting invented scientific work', () => {
   const state = fixture();
   const {
+    runValueAttributions,
+    runValueAttributionWithdrawals,
     platePlanObservations,
     platePlanVersions,
     scientificWorks,
@@ -167,6 +169,8 @@ it('preserves historical before and after quantities when current stock changes'
 it('upcasts v23 without changing a saved notebook observation or its source and intent pins', () => {
   const state = observed();
   const {
+    runValueAttributions,
+    runValueAttributionWithdrawals,
     platePlanObservations,
     platePlanVersions,
     scientificCitations,
@@ -186,6 +190,8 @@ it('admits explicit run context only under v24 without reinterpreting notebook-s
   const state = runObserved();
   expect(parseInventoryState(state)).toEqual(state);
   const {
+    runValueAttributions,
+    runValueAttributionWithdrawals,
     platePlanObservations,
     platePlanVersions,
     scientificCitations,

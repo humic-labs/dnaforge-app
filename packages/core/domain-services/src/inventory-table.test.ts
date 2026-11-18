@@ -536,6 +536,8 @@ describe('strict canonical receive tables', () => {
       observations: _observations,
       scientificWorks: _scientificWorks,
       scientificCitations: _scientificCitations,
+      runValueAttributions: _runValueAttributions,
+      runValueAttributionWithdrawals: _runValueAttributionWithdrawals,
       platePlanObservations: _platePlanObservations,
       platePlanVersions: _platePlanVersions,
       scientificCitationWithdrawals: _scientificCitationWithdrawals,

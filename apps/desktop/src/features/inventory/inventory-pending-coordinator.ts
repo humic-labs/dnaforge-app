@@ -222,5 +222,9 @@ export function executeInventoryAcceptedRequest(
       return client.applyPlatePlanVersion(request);
     case 'record-plate-plan-observation':
       return client.applyPlatePlanObservation(request);
+    case 'record-run-value-attribution':
+      return client.applyRunValueAttribution(request);
+    case 'withdraw-run-value-attribution':
+      return client.applyRunValueAttributionWithdrawal(request);
   }
 }

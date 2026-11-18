@@ -1,3 +1,7 @@
+import {
+  inventoryApplyRunValueAttributionRequestSchema,
+  inventoryApplyRunValueAttributionWithdrawalRequestSchema,
+} from '../../shared/inventory-run-value-attributions';
 import type { IpcMainInvokeEvent, WebContents } from 'electron';
 import { InventoryValidationError } from '@waypoint/domain-services';
 import { ZodError } from 'zod';
@@ -162,6 +166,8 @@ export function registerInventoryHandlers(options: {
     event: IpcMainInvokeEvent,
     input: unknown,
     method:
+      | 'applyRunValueAttribution'
+      | 'applyRunValueAttributionWithdrawal'
       | 'applyPlatePlanObservation'
       | 'applyPlatePlanVersion'
       | 'applyScientificTransfer'
@@ -171,6 +177,8 @@ export function registerInventoryHandlers(options: {
   ) => {
     assertCaller(event);
     const schema = {
+      applyRunValueAttribution: inventoryApplyRunValueAttributionRequestSchema,
+      applyRunValueAttributionWithdrawal: inventoryApplyRunValueAttributionWithdrawalRequestSchema,
       applyPlatePlanObservation: inventoryApplyPlatePlanObservationRequestSchema,
       applyPlatePlanVersion: inventoryApplyPlatePlanVersionRequestSchema,
       applyScientificTransfer: inventoryApplyScientificTransferRequestSchema,
@@ -222,6 +230,28 @@ export function registerInventoryHandlers(options: {
     return result;
   };
   return handleGroup(inventoryContract, {
+    runValueCandidates: (event, request) =>
+      previewCitation(event, (owner) => owner.runValueCandidates(request)),
+    previewRunValueAttribution: (event, request) =>
+      previewCitation(event, (owner) => owner.previewRunValueAttribution(request)),
+    applyRunValueAttribution: (event, request) =>
+      mutateScientific(event, request, 'applyRunValueAttribution'),
+    previewRunValueAttributionWithdrawal: (event, request) => {
+      assertCaller(event);
+      return currentOwner().previewRunValueAttributionWithdrawal(request);
+    },
+    applyRunValueAttributionWithdrawal: (event, request) =>
+      mutateScientific(event, request, 'applyRunValueAttributionWithdrawal'),
+    runValueAttributions: (event, request) => {
+      assertCaller(event);
+      return currentOwner().runValueAttributions(request);
+    },
+    runValueAttribution: (event, request) =>
+      previewCitation(event, (owner) => owner.runValueAttribution(request)),
+    runValueAttributionSource: (event, request) => {
+      assertCaller(event);
+      return currentOwner().runValueAttributionSource(request);
+    },
     previewPlatePlanObservation: (event, request) =>
       previewCitation(event, (owner) => owner.previewPlatePlanObservation(request)),
     applyPlatePlanObservation: (event, request) =>

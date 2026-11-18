@@ -2011,3 +2011,63 @@ transition function directly. The workspace map drives the genuine Electron
 receive, move, use and history journey and checks exact state after application
 restart. These checks do not establish a deployed service, real freezer fit,
 cross-device behavior or robot execution.
+
+## Saved values and recorded physical subjects
+
+A value association asserts that one exact saved Run value describes one
+recorded physical subject. The subject is a source stock or output action in an
+existing manual plate-plan observation. Its historical quantity and the Run
+value remain separate facts. Recording the association changes metadata only.
+
+The association retains the complete selected JSON row, its canonical hash, the
+complete original Run source witness, the file binding, and the exact
+observation and subject identities. Opaque row members remain intact. New
+associations admit text, finite safe numbers, booleans and canonical UTC dates.
+Other saved value kinds remain readable without being coerced into those types.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Active
+    Active --> Withdrawn: explicit reasoned withdrawal
+    Withdrawn --> Withdrawn: retry or restored source content
+    Withdrawn --> Successor: explicit fresh identity and predecessor pins
+```
+
+Withdrawal is terminal. A successor retains the same Run, file binding,
+collection and value key, and names the exact prior association and withdrawal.
+It may deliberately select a changed saved value or a different physical
+subject. There is no mutable latest-association pointer. Exact and semantic
+retries return the original record, including its withdrawn status.
+
+Current content comparison is independent of that lifecycle.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Unavailable
+    Unavailable --> SameSource: current source admitted
+    SameSource --> ChangedSourceSameRow: another part of the Run changes
+    SameSource --> ChangedRow: selected row changes
+    ChangedRow --> SameSource: exact original content restored
+    SameSource --> MissingRow: selected row disappears
+    SameSource --> ReplacedBinding: native file identity changes
+    SameSource --> Unavailable: current proof cannot be obtained
+```
+
+A matching hash establishes content equality, not edit history or scientific
+acceptance. Restoring old content never reactivates a withdrawn association.
+File-change events invalidate cached comparisons even when inventory revision
+has not changed. Foreign adopted sources remain readable as historical records;
+the current local Run is never substituted for them.
+
+Candidate and history reads are bounded and revision-bound. Candidates also pin
+the current source hash. Detail reads obtain a fresh independent comparison;
+retained-source reads obtain the original witness from accepted history without
+falling back to the current file. Source-free withdrawal remains available when
+the Run is missing or foreign. Mutations reuse the inventory pending-attempt
+owner so an interrupted response retains the exact original request.
+
+Canonical schema 28 adds two append-only association maps. Older schemas upcast
+empty maps in memory and refuse supplied future maps. Receipt context 11 admits
+the new record and withdrawal kinds. Earlier receipt contexts refuse this new
+family throughout nested archive adoption while preserving their existing
+historical interpretation. Protocol file receipt formats remain separate.

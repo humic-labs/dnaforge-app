@@ -1,4 +1,9 @@
 import {
+  runInventoryRunValueAttributions,
+  runInventoryRunValueAttributionsResume,
+  runInventoryRunValueAttributionsReopen,
+} from './journeys/inventory-run-value-attributions.mjs';
+import {
   runInventoryRunValues,
   runInventoryRunValuesResume,
   runInventoryRunValuesReopen,
@@ -151,6 +156,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const args = process.argv.slice(2);
 const option = (name) => args[args.indexOf(name) + 1];
 const stage = args.includes('--stage') ? option('--stage') : 'doctor';
+const runValueAttributionStages = {
+  'run-value-attributions': runInventoryRunValueAttributions,
+  'run-value-attributions-resume': runInventoryRunValueAttributionsResume,
+  'run-value-attributions-reopen': runInventoryRunValueAttributionsReopen,
+};
 const runValueStages = {
   'run-values': runInventoryRunValues,
   'run-values-resume': runInventoryRunValuesResume,
@@ -181,6 +191,7 @@ assert.ok(
   [
     ...Object.keys(recordedWorkStages),
     ...Object.keys(runValueStages),
+    ...Object.keys(runValueAttributionStages),
     ...Object.keys(platePlanObservationStages),
     ...Object.keys(platePlanStages),
     ...Object.keys(citationStages),
@@ -954,6 +965,24 @@ try {
           ? runInventoryStockroomCorrectionsResume
           : runInventoryStockroomCorrectionsReopen
     )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
+  if (Object.hasOwn(runValueAttributionStages, stage)) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the exact typed-value or attribution checkpoint fixture.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    receipt.expected = await runValueAttributionStages[stage]({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+    });
   }
   if (Object.hasOwn(runValueStages, stage)) {
     assert.ok(

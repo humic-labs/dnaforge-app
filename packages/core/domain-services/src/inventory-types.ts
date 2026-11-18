@@ -1,3 +1,8 @@
+import type {
+  InventoryRunValueAttribution,
+  InventoryRunValueAttributionWithdrawal,
+} from './inventory-run-value-attribution-types';
+export type * from './inventory-run-value-attribution-types';
 import type { InventoryPlatePlanObservation } from './inventory-plate-plan-observation-types';
 export type * from './inventory-plate-plan-observation-types';
 import type { InventoryPlatePlanVersion } from './inventory-plate-plan-types';
@@ -87,7 +92,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v27' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v28' as const;
+export const INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA = 'dnaforge.inventory.v27' as const;
 export const INVENTORY_PLATE_PLAN_SCHEMA = 'dnaforge.inventory.v26' as const;
 export const INVENTORY_CITATION_SCHEMA = 'dnaforge.inventory.v25' as const;
 export const INVENTORY_RUN_CONTEXT_SCHEMA = 'dnaforge.inventory.v24' as const;
@@ -330,6 +336,10 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly runValueAttributions: Readonly<Record<string, InventoryRunValueAttribution>>;
+  readonly runValueAttributionWithdrawals: Readonly<
+    Record<string, InventoryRunValueAttributionWithdrawal>
+  >;
   readonly platePlanObservations: Readonly<Record<string, InventoryPlatePlanObservation>>;
   readonly platePlanVersions: Readonly<Record<string, InventoryPlatePlanVersion>>;
   readonly scientificCitations: Readonly<Record<string, InventoryScientificCitation>>;
@@ -900,6 +910,10 @@ export type InventoryErrorCode =
   | 'ARRIVAL_ALLOCATION_NOT_ACTIVE'
   | 'REORDER_RULE_NOT_FOUND'
   | 'REORDER_RULE_NOT_ACTIVE'
+  | 'RUN_VALUE_ATTRIBUTION_CONFLICT'
+  | 'RUN_VALUE_ATTRIBUTION_TARGET_MISMATCH'
+  | 'RUN_VALUE_ATTRIBUTION_PREDECESSOR_MISMATCH'
+  | 'RUN_VALUE_ATTRIBUTION_WITHDRAWAL_CONFLICT'
   | 'PLATE_PLAN_OBSERVATION_CONFLICT'
   | 'PLATE_PLAN_VERSION_MISMATCH'
   | 'SCIENTIFIC_CITATION_CONFLICT'
@@ -920,6 +934,11 @@ export type InventoryTransition =
 export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
+    runValueAttributions: Object.create(null) as Record<string, InventoryRunValueAttribution>,
+    runValueAttributionWithdrawals: Object.create(null) as Record<
+      string,
+      InventoryRunValueAttributionWithdrawal
+    >,
     platePlanObservations: Object.create(null) as Record<string, InventoryPlatePlanObservation>,
     platePlanVersions: Object.create(null) as Record<string, InventoryPlatePlanVersion>,
     scientificCitations: Object.create(null) as Record<string, InventoryScientificCitation>,

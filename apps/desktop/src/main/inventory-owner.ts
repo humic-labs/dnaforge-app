@@ -1,7 +1,21 @@
 import { createHash } from 'node:crypto';
+import * as runValueWire from '../shared/inventory-run-value-attributions';
+import {
+  applyNativeInventoryRunValueAttribution,
+  applyNativeInventoryRunValueAttributionWithdrawal,
+  findNativeInventoryRunValueAttributionSource,
+} from './inventory-run-value-attributions';
 import type Database from 'better-sqlite3';
 import {
   applyInventoryCommandBatch,
+  inventoryRunValueCandidates,
+  inventoryRunValueAttributionComparison,
+  inventoryRunValueAttributionExisting,
+  inventoryRunValueAttributionWithdrawalExisting,
+  inventoryRunValueAttributionPreview,
+  inventoryRunValueAttributionWithdrawalPreview,
+  inventoryRunValueAttributions,
+  inventoryRunValueAttributionSummary,
   inventoryPlatePlanObservationExisting,
   inventoryPlatePlanObservationPreview,
   inventoryPlatePlanObservations,
@@ -575,14 +589,15 @@ export function createNativeInventoryOwner(options: {
         const previous = row ? stateFromRow(row) : createInventoryState();
         const recordedAt = observationTime(previous);
         const context = inventoryReceiptContextSchema.parse({
-          version: 10,
+          version: 11,
           principal: principal(invocation),
           authority,
           ...('kind' in request &&
           (request.kind === 'record-scientific-transfer' ||
             request.kind === 'record-scientific-transfer-v2' ||
             request.kind === 'record-scientific-citation' ||
-            request.kind === 'record-plate-plan-observation') &&
+            request.kind === 'record-plate-plan-observation' ||
+            request.kind === 'record-run-value-attribution') &&
           scientificCapture
             ? { scientificSource: scientificCapture.source }
             : {}),
@@ -597,7 +612,49 @@ export function createNativeInventoryOwner(options: {
         });
         let result: InventoryTransition;
         let assertStockroomMaterials = () => {};
-        if ('kind' in request && request.kind === 'record-plate-plan-observation') {
+        if (
+          'kind' in request &&
+          (request.kind === 'record-run-value-attribution' ||
+            request.kind === 'withdraw-run-value-attribution')
+        ) {
+          const existing =
+            request.kind === 'record-run-value-attribution'
+              ? inventoryRunValueAttributionExisting(previous, request.choices)
+              : inventoryRunValueAttributionWithdrawalExisting(previous, request.choices);
+          if (existing.kind === 'no-change')
+            return reject(
+              request.kind === 'record-run-value-attribution'
+                ? 'INVENTORY_RUN_VALUE_ATTRIBUTION_NO_CHANGES'
+                : 'INVENTORY_RUN_VALUE_ATTRIBUTION_WITHDRAWAL_NO_CHANGES',
+              'This exact saved-value assertion history is already recorded. Read its original record and terminal withdrawal.'
+            );
+          if (existing.kind === 'blocked')
+            return reject(existing.issue.code, existing.issue.message);
+          if (request.expectedRevision !== previous.revision)
+            return reject(
+              'REVISION_CONFLICT',
+              'Inventory changed after the saved-value assertion was previewed.'
+            );
+          if (request.kind === 'record-run-value-attribution') {
+            if (!scientificCapture)
+              return reject(
+                'SCIENTIFIC_CONTEXT_MISMATCH',
+                'A checked native saved Run is required for a new assertion.'
+              );
+            scientificCapture.assertCurrent();
+            result = applyNativeInventoryRunValueAttribution(
+              previous,
+              request,
+              { at: recordedAt, principal: context.principal, authority },
+              scientificCapture.source
+            );
+          } else
+            result = applyNativeInventoryRunValueAttributionWithdrawal(previous, request, {
+              at: recordedAt,
+              principal: context.principal,
+              authority,
+            });
+        } else if ('kind' in request && request.kind === 'record-plate-plan-observation') {
           const existingObservation = inventoryPlatePlanObservationExisting(
             previous,
             request.choices
@@ -1196,7 +1253,9 @@ export function createNativeInventoryOwner(options: {
             request.kind === 'record-scientific-transfer-v2' ||
             request.kind === 'record-scientific-citation' ||
             request.kind === 'withdraw-scientific-citation' ||
-            request.kind === 'record-plate-plan-observation') &&
+            request.kind === 'record-plate-plan-observation' ||
+            request.kind === 'record-run-value-attribution' ||
+            request.kind === 'withdraw-run-value-attribution') &&
           Buffer.byteLength(canonicalNativeMutationRequest({ request, receipt }), 'utf8') >
             NATIVE_DOCUMENT_MAX_BODY_BYTES
         )
@@ -1303,7 +1362,523 @@ export function createNativeInventoryOwner(options: {
     assertProject();
     return structuredClone(result);
   };
+  const runValueUnavailable = (code: string, message: string, retryable = false) => ({
+    kind: 'unavailable' as const,
+    code,
+    message,
+    retryable,
+  });
+  const boundRunValueRead = <T>(result: T): T | ReturnType<typeof runValueUnavailable> =>
+    Buffer.byteLength(canonicalNativeMutationRequest(result), 'utf8') <=
+    NATIVE_DOCUMENT_MAX_BODY_BYTES - 2048
+      ? result
+      : runValueUnavailable(
+          'INVENTORY_QUERY_TOO_LARGE',
+          'The complete saved-value read exceeds the inline limit. Choose a smaller page.'
+        );
   return {
+    async runValueCandidates(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<runValueWire.InventoryRunValueCandidatesRead> {
+      const request = runValueWire.inventoryRunValueCandidatesRequestSchema.parse(input),
+        current = read({ project: request.project, inventoryId: request.inventoryId }),
+        filter = { collection: request.collection ?? null };
+      const observe = async (
+        capture: ProtocolSavedSourceCapture | null
+      ): Promise<runValueWire.InventoryRunValueCandidatesRead> => {
+        await invocation.beforeScientificRead?.();
+        capture?.assertCurrent();
+        return boundRunValueRead(
+          inventorySnapshotRead(
+            request,
+            false,
+            (_db, project, state): runValueWire.InventoryRunValueCandidatesRead => {
+              try {
+                if (!state)
+                  return {
+                    kind: 'inventory-absent',
+                    projectId: project.projectId,
+                    inventoryId: request.inventoryId,
+                    revision: 0,
+                    runId: request.runId,
+                    filter,
+                  };
+                if (!capture)
+                  return runValueUnavailable(
+                    'INVENTORY_RUN_VALUE_SOURCE_UNAVAILABLE',
+                    'The current saved Run is unavailable.',
+                    true
+                  );
+                const values = inventoryRunValueCandidates(capture.source),
+                  querySha256 = nativeInventorySha256(
+                    canonicalNativeMutationRequest([
+                      'dnaforge.inventory-run-value-candidates.v1',
+                      project.projectId,
+                      request.inventoryId,
+                      request.runId,
+                      filter,
+                    ])
+                  );
+                if (
+                  values.run.entityId !== request.runId ||
+                  values.run.projectId !== project.projectId ||
+                  values.run.workspaceScope !== project.projectId
+                )
+                  return runValueUnavailable(
+                    'FOREIGN_RUN_CONTEXT',
+                    'Choose an exact saved Run in this project.'
+                  );
+                const rows = values.rows
+                  .map((row, ordinal) => ({ ...row, ordinal }))
+                  .filter(
+                    (row) => filter.collection === null || row.collection === filter.collection
+                  );
+                let start = 0;
+                if (request.cursor) {
+                  const c = request.cursor;
+                  if (
+                    c.querySha256 !== querySha256 ||
+                    c.revision !== state.revision ||
+                    c.sourceSha256 !== values.run.sourceSha256
+                  )
+                    return runValueUnavailable(
+                      'INVENTORY_QUERY_STALE',
+                      'The inventory or saved Run changed. Read the first candidate page again.',
+                      true
+                    );
+                  const at = rows.findIndex(
+                    (row) => row.ordinal === c.after.ordinal && row.rowSha256 === c.after.rowSha256
+                  );
+                  if (at < 0)
+                    return runValueUnavailable(
+                      'INVENTORY_QUERY_CURSOR_INVALID',
+                      'The candidate cursor does not identify an exact saved row.'
+                    );
+                  start = at + 1;
+                }
+                const page = rows.slice(start, start + (request.limit ?? 20)),
+                  last = page.at(-1);
+                return {
+                  kind: 'ready',
+                  projectId: project.projectId,
+                  inventoryId: request.inventoryId,
+                  revision: state.revision,
+                  asOf: observationTime(state),
+                  run: values.run,
+                  filter,
+                  rows: page,
+                  nextCursor:
+                    last && start + page.length < rows.length
+                      ? {
+                          querySha256,
+                          revision: state.revision,
+                          sourceSha256: values.run.sourceSha256,
+                          after: { ordinal: last.ordinal, rowSha256: last.rowSha256 },
+                        }
+                      : null,
+                };
+              } finally {
+                capture?.assertCurrent();
+              }
+            }
+          )
+        );
+      };
+      if (!current.row) return observe(null);
+      if (!request.runId.startsWith(`${current.project.projectId}::`))
+        return runValueUnavailable(
+          'FOREIGN_RUN_CONTEXT',
+          'Choose a saved Run in the current project.'
+        );
+      try {
+        if (options.protocolSources)
+          return await options.protocolSources.withSavedRunSource(
+            current.project.projectId,
+            request.runId,
+            observe
+          );
+      } catch (error) {
+        if (error instanceof NativeDocumentCommandError) throw error;
+      }
+      return observe(null);
+    },
+    async previewRunValueAttribution(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<runValueWire.InventoryRunValueAttributionPreviewSnapshot> {
+      const request = runValueWire.inventoryPreviewRunValueAttributionRequestSchema.parse(input),
+        current = read({ project: request.project, inventoryId: request.inventoryId }),
+        saved = current.row ? stateFromRow(current.row) : createInventoryState();
+      const observe = async (
+        capture: ProtocolSavedSourceCapture | null
+      ): Promise<runValueWire.InventoryRunValueAttributionPreviewSnapshot> => {
+        await invocation.beforeScientificRead?.();
+        capture?.assertCurrent();
+        return boundRunValueRead(
+          inventorySnapshotRead(request, false, (_db, project, state) => {
+            try {
+              const value = state ?? createInventoryState(),
+                asOf = observationTime(value),
+                caller = principal(invocation);
+              return {
+                ...inventoryRunValueAttributionPreview(value, {
+                  ...request.choices,
+                  target: {
+                    projectId: project.projectId,
+                    inventoryId: request.inventoryId,
+                    present: state !== null,
+                    revision: request.expectedRevision,
+                  },
+                  source: capture?.source ?? null,
+                  asOf,
+                  principal: caller,
+                  authority,
+                }),
+                projectId: project.projectId,
+                inventoryId: request.inventoryId,
+                revision: value.revision,
+                asOf,
+                principal: caller,
+              };
+            } finally {
+              capture?.assertCurrent();
+            }
+          })
+        );
+      };
+      if (inventoryRunValueAttributionExisting(saved, request.choices).kind !== 'new')
+        return observe(null);
+      try {
+        if (options.protocolSources)
+          return await options.protocolSources.withSavedRunSource(
+            current.project.projectId,
+            request.choices.runValue.entityId,
+            observe
+          );
+      } catch (error) {
+        if (error instanceof NativeDocumentCommandError) throw error;
+      }
+      return observe(null);
+    },
+    async applyRunValueAttribution(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<NativeInventoryExecution> {
+      const request = runValueWire.inventoryApplyRunValueAttributionRequestSchema.parse(input),
+        project = resolveProject(request.project, true),
+        row = inventory(options.db(), request.inventoryId, project.projectId),
+        state = row ? stateFromRow(row) : createInventoryState();
+      const known = options
+        .db()
+        .prepare('SELECT 1 FROM inventory_journal WHERE inventory_id=? AND operation_id=?')
+        .get(request.inventoryId, request.operationId);
+      if (known || inventoryRunValueAttributionExisting(state, request.choices).kind !== 'new')
+        return commit(request, assertCurrent, invocation);
+      try {
+        if (options.protocolSources)
+          return await options.protocolSources.withSavedRunSource(
+            project.projectId,
+            request.choices.runValue.entityId,
+            async (capture) => {
+              await invocation.beforeScientificCommit?.();
+              return commit(request, assertCurrent, invocation, capture);
+            }
+          );
+        throw Error('The saved Run source owner is unavailable.');
+      } catch (error) {
+        if (error instanceof NativeDocumentCommandError) throw error;
+        throw new NativeDocumentCommandError(
+          'INVENTORY_SCIENTIFIC_SOURCE_CHANGED',
+          error instanceof Error ? error.message : String(error),
+          false
+        );
+      }
+    },
+    previewRunValueAttributionWithdrawal(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): runValueWire.InventoryRunValueAttributionWithdrawalPreviewSnapshot {
+      const request =
+        runValueWire.inventoryPreviewRunValueAttributionWithdrawalRequestSchema.parse(input);
+      return boundRunValueRead(
+        inventorySnapshotRead(request, false, (_db, project, state) => {
+          const value = state ?? createInventoryState(),
+            asOf = observationTime(value),
+            caller = principal(invocation);
+          return {
+            ...inventoryRunValueAttributionWithdrawalPreview(value, {
+              ...request.choices,
+              target: {
+                projectId: project.projectId,
+                inventoryId: request.inventoryId,
+                present: state !== null,
+                revision: request.expectedRevision,
+              },
+              asOf,
+              principal: caller,
+              authority,
+            }),
+            projectId: project.projectId,
+            inventoryId: request.inventoryId,
+            revision: value.revision,
+            asOf,
+            principal: caller,
+          };
+        })
+      );
+    },
+    async applyRunValueAttributionWithdrawal(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<NativeInventoryExecution> {
+      return commit(
+        runValueWire.inventoryApplyRunValueAttributionWithdrawalRequestSchema.parse(input),
+        assertCurrent,
+        invocation
+      );
+    },
+    runValueAttributions(input: unknown): runValueWire.InventoryRunValueAttributionsRead {
+      const request = runValueWire.inventoryRunValueAttributionsRequestSchema.parse(input),
+        filters = { run: request.run ?? null, slot: request.slot ?? null };
+      return boundRunValueRead(
+        inventorySnapshotRead(
+          request,
+          false,
+          (_db, project, state): runValueWire.InventoryRunValueAttributionsRead => {
+            if (!state)
+              return {
+                kind: 'inventory-absent',
+                projectId: project.projectId,
+                inventoryId: request.inventoryId,
+                revision: 0,
+                filters,
+              };
+            if (request.run && !request.run.entityId.startsWith(`${project.projectId}::`))
+              return runValueUnavailable(
+                'FOREIGN_RUN_CONTEXT',
+                'Choose an exact Run in the current project.'
+              );
+            const entries = inventoryRunValueAttributions(state, {
+                ...(request.run
+                  ? {
+                      run: {
+                        ...request.run,
+                        projectId: project.projectId,
+                        workspaceScope: project.projectId,
+                      },
+                    }
+                  : {}),
+                ...(request.slot ? { slot: request.slot } : {}),
+              }),
+              querySha256 = nativeInventorySha256(
+                canonicalNativeMutationRequest([
+                  'dnaforge.inventory-run-value-attributions.v1',
+                  project.projectId,
+                  request.inventoryId,
+                  filters,
+                ])
+              );
+            let start = 0;
+            if (request.cursor) {
+              const c = request.cursor;
+              if (c.querySha256 !== querySha256 || c.revision !== state.revision)
+                return runValueUnavailable(
+                  'INVENTORY_QUERY_STALE',
+                  'Inventory changed. Read the first assertion page again.',
+                  true
+                );
+              const at = entries.findIndex(
+                (row) =>
+                  row.attribution.id === c.after.attributionId && row.attribution.at === c.after.at
+              );
+              if (at < 0)
+                return runValueUnavailable(
+                  'INVENTORY_QUERY_CURSOR_INVALID',
+                  'The assertion cursor does not identify an exact record.'
+                );
+              start = at + 1;
+            }
+            const page = entries.slice(start, start + (request.limit ?? 20)),
+              last = page.at(-1);
+            return {
+              kind: 'ready',
+              projectId: project.projectId,
+              inventoryId: request.inventoryId,
+              revision: state.revision,
+              filters,
+              entries: page.map((row) => ({
+                attribution: inventoryRunValueAttributionSummary(row.attribution),
+                withdrawal: row.withdrawal,
+              })),
+              nextCursor:
+                last && start + page.length < entries.length
+                  ? {
+                      querySha256,
+                      revision: state.revision,
+                      after: { at: last.attribution.at, attributionId: last.attribution.id },
+                    }
+                  : null,
+            };
+          }
+        )
+      );
+    },
+    async runValueAttribution(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<runValueWire.InventoryRunValueAttributionRead> {
+      const request = runValueWire.inventoryRunValueAttributionRequestSchema.parse(input),
+        baseline = inventorySnapshotRead(request, false, (_db, project, state) => ({
+          projectId: project.projectId,
+          record: state?.runValueAttributions[request.attributionId] ?? null,
+        }));
+      const observe = async (
+        capture: ProtocolSavedSourceCapture | null,
+        failure?: ReturnType<typeof runValueUnavailable>
+      ): Promise<runValueWire.InventoryRunValueAttributionRead> => {
+        await invocation.beforeScientificRead?.();
+        capture?.assertCurrent();
+        return boundRunValueRead(
+          inventorySnapshotRead(
+            request,
+            false,
+            (_db, project, state): runValueWire.InventoryRunValueAttributionRead => {
+              try {
+                const attribution = state?.runValueAttributions[request.attributionId];
+                if (!state || !attribution)
+                  return runValueUnavailable(
+                    'INVENTORY_RUN_VALUE_ATTRIBUTION_NOT_FOUND',
+                    'The exact saved-value assertion is unavailable.'
+                  );
+                if (attribution.intentSha256 !== request.intentSha256)
+                  return runValueUnavailable(
+                    'INVENTORY_RUN_VALUE_ATTRIBUTION_PIN_MISMATCH',
+                    'The assertion does not match its original intent pin.'
+                  );
+                const withdrawal =
+                    Object.values(state.runValueAttributionWithdrawals).find(
+                      (row) => row.attributionId === attribution.id
+                    ) ?? null,
+                  observation = state.platePlanObservations[attribution.physical.observationId];
+                if (!observation) return dataError();
+                const currentComparison =
+                  attribution.source.projectId !== project.projectId ||
+                  attribution.source.workspaceScope !== project.projectId
+                    ? runValueUnavailable(
+                        'FOREIGN_RUN_CONTEXT',
+                        'The original assertion cites a foreign Run context. No local source is substituted.'
+                      )
+                    : (failure ??
+                      inventoryRunValueAttributionComparison(
+                        { attribution, withdrawal },
+                        capture?.source ?? null
+                      ));
+                return {
+                  kind: 'available',
+                  projectId: project.projectId,
+                  inventoryId: request.inventoryId,
+                  revision: state.revision,
+                  asOf: observationTime(state),
+                  attribution,
+                  withdrawal,
+                  observation,
+                  currentComparison,
+                };
+              } finally {
+                capture?.assertCurrent();
+              }
+            }
+          )
+        );
+      };
+      const record = baseline.record;
+      if (
+        !record ||
+        record.intentSha256 !== request.intentSha256 ||
+        record.source.projectId !== baseline.projectId ||
+        record.source.workspaceScope !== baseline.projectId
+      )
+        return observe(null);
+      try {
+        if (options.protocolSources)
+          return await options.protocolSources.withSavedRunSource(
+            baseline.projectId,
+            record.runValue.entityId,
+            observe
+          );
+      } catch (error) {
+        if (error instanceof NativeDocumentCommandError) throw error;
+        return observe(
+          null,
+          runValueUnavailable(
+            'INVENTORY_RUN_VALUE_CURRENT_UNAVAILABLE',
+            error instanceof Error ? error.message : String(error),
+            true
+          )
+        );
+      }
+      return observe(
+        null,
+        runValueUnavailable(
+          'INVENTORY_RUN_VALUE_CURRENT_UNAVAILABLE',
+          'The current saved Run source owner is unavailable.',
+          true
+        )
+      );
+    },
+    runValueAttributionSource(input: unknown): runValueWire.InventoryRunValueAttributionSourceRead {
+      const request = runValueWire.inventoryRunValueAttributionSourceRequestSchema.parse(input);
+      return boundRunValueRead(
+        inventorySnapshotRead(
+          request,
+          false,
+          (db, project, state): runValueWire.InventoryRunValueAttributionSourceRead => {
+            const attribution = state?.runValueAttributions[request.attributionId];
+            if (!state || !attribution)
+              return runValueUnavailable(
+                'INVENTORY_RUN_VALUE_ATTRIBUTION_NOT_FOUND',
+                'The exact saved-value assertion is unavailable.'
+              );
+            if (attribution.intentSha256 !== request.intentSha256)
+              return runValueUnavailable(
+                'INVENTORY_RUN_VALUE_ATTRIBUTION_PIN_MISMATCH',
+                'The assertion does not match its original intent pin.'
+              );
+            const entries = (
+              db
+                .prepare(
+                  'SELECT * FROM inventory_journal WHERE inventory_id=? ORDER BY revision ASC'
+                )
+                .all(request.inventoryId) as JournalRow[]
+            ).map((row) => entryFromRow(row, project.projectId));
+            if (
+              canonicalNativeMutationRequest(replayNativeInventoryJournal(entries)) !==
+              canonicalNativeMutationRequest(state)
+            )
+              return dataError();
+            const source = findNativeInventoryRunValueAttributionSource(attribution, entries);
+            return source
+              ? {
+                  kind: 'available',
+                  projectId: project.projectId,
+                  inventoryId: request.inventoryId,
+                  revision: state.revision,
+                  attributionId: attribution.id,
+                  intentSha256: attribution.intentSha256,
+                  sourceSha256: attribution.runValue.sourceSha256,
+                  source,
+                }
+              : runValueUnavailable(
+                  'INVENTORY_RUN_VALUE_SOURCE_UNAVAILABLE',
+                  'The original saved Run witness is unavailable.'
+                );
+          }
+        )
+      );
+    },
     async previewPlatePlanObservation(
       input: unknown,
       invocation: NativeInventoryInvocation = {}

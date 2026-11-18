@@ -18,6 +18,8 @@ const recordMaps = [
   'expectedDeliveries',
   'arrivalAllocations',
   'reorderRules',
+  'runValueAttributions',
+  'runValueAttributionWithdrawals',
   'scientificWorks',
   'platePlanObservations',
   'platePlanVersions',

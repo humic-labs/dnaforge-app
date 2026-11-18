@@ -1,4 +1,36 @@
 import type {
+  InventoryRunValueCandidatesRequest,
+  InventoryRunValueCandidatesRead,
+  InventoryPreviewRunValueAttributionRequest,
+  InventoryRunValueAttributionPreviewSnapshot,
+  InventoryApplyRunValueAttributionRequest,
+  InventoryPreviewRunValueAttributionWithdrawalRequest,
+  InventoryRunValueAttributionWithdrawalPreviewSnapshot,
+  InventoryApplyRunValueAttributionWithdrawalRequest,
+  InventoryRunValueAttributionsRequest,
+  InventoryRunValueAttributionsRead,
+  InventoryRunValueAttributionRequest,
+  InventoryRunValueAttributionRead,
+  InventoryRunValueAttributionSourceRequest,
+  InventoryRunValueAttributionSourceRead,
+} from './inventory-run-value-attributions';
+export type {
+  InventoryRunValueCandidatesRequest,
+  InventoryRunValueCandidatesRead,
+  InventoryPreviewRunValueAttributionRequest,
+  InventoryRunValueAttributionPreviewSnapshot,
+  InventoryApplyRunValueAttributionRequest,
+  InventoryPreviewRunValueAttributionWithdrawalRequest,
+  InventoryRunValueAttributionWithdrawalPreviewSnapshot,
+  InventoryApplyRunValueAttributionWithdrawalRequest,
+  InventoryRunValueAttributionsRequest,
+  InventoryRunValueAttributionsRead,
+  InventoryRunValueAttributionRequest,
+  InventoryRunValueAttributionRead,
+  InventoryRunValueAttributionSourceRequest,
+  InventoryRunValueAttributionSourceRead,
+} from './inventory-run-value-attributions';
+import type {
   InventoryAvailability,
   InventoryScientificTransferPreview,
   InventoryScientificTransferPreviewV2,
@@ -352,6 +384,31 @@ export type {
   InventoryPlatePlanObservationSourceRead,
 } from './inventory-plate-plan-observations';
 export interface InventoryClient {
+  runValueCandidates(
+    input: InventoryRunValueCandidatesRequest
+  ): Promise<InventoryRunValueCandidatesRead>;
+  previewRunValueAttribution(
+    input: InventoryPreviewRunValueAttributionRequest
+  ): Promise<InventoryRunValueAttributionPreviewSnapshot>;
+  applyRunValueAttribution(
+    input: InventoryApplyRunValueAttributionRequest
+  ): Promise<NativeInventoryExecution>;
+  previewRunValueAttributionWithdrawal(
+    input: InventoryPreviewRunValueAttributionWithdrawalRequest
+  ): Promise<InventoryRunValueAttributionWithdrawalPreviewSnapshot>;
+  applyRunValueAttributionWithdrawal(
+    input: InventoryApplyRunValueAttributionWithdrawalRequest
+  ): Promise<NativeInventoryExecution>;
+  runValueAttributions(
+    input: InventoryRunValueAttributionsRequest
+  ): Promise<InventoryRunValueAttributionsRead>;
+  runValueAttribution(
+    input: InventoryRunValueAttributionRequest
+  ): Promise<InventoryRunValueAttributionRead>;
+  runValueAttributionSource(
+    input: InventoryRunValueAttributionSourceRequest
+  ): Promise<InventoryRunValueAttributionSourceRead>;
+
   previewPlatePlanObservation(
     input: InventoryPreviewPlatePlanObservationRequest
   ): Promise<InventoryPlatePlanObservationPreviewSnapshot>;
@@ -489,6 +546,14 @@ export function unavailableInventoryClient(): InventoryClient {
     message: 'Inventory requires the connected desktop owner.',
   });
   return {
+    runValueCandidates: unavailable,
+    previewRunValueAttribution: unavailable,
+    applyRunValueAttribution: unavailableMutation,
+    previewRunValueAttributionWithdrawal: unavailable,
+    applyRunValueAttributionWithdrawal: unavailableMutation,
+    runValueAttributions: unavailable,
+    runValueAttribution: unavailable,
+    runValueAttributionSource: unavailable,
     previewPlatePlanObservation: unavailable,
     applyPlatePlanObservation: unavailableMutation,
     platePlanObservations: unavailable,

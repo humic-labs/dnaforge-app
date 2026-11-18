@@ -70,6 +70,10 @@ import {
   RunRecordedPhysicalWork,
   type InventoryRunResource,
 } from '../inventory/public/recorded-physical-work';
+import {
+  RunSavedValueAssociations,
+  type RunValueAssociationResource,
+} from '../inventory/public/run-value-attributions';
 import { RunRecordedPlatePlanUses } from '../inventory/public/recorded-plate-plan-uses';
 import { commitReadableContent, failReadableContent } from '../../lib/readable-content-telemetry';
 
@@ -1043,6 +1047,25 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
             onAddAmendment={addAmendment}
             onAmendmentChange={setAmendment}
             runResource={runResource}
+            associationResource={
+              nativePackage?.kind === 'protocol-run'
+                ? {
+                    projectId: nativePackage.projectId,
+                    workspaceScope: nativePackage.workspaceScope,
+                    entityId: nativePackage.entityId,
+                    fileObjectUuid: nativePackage.fileObjectUuid,
+                  }
+                : null
+            }
+            canAssociate={
+              workspaceUnlocked &&
+              !nativeReadOnly &&
+              !dirty &&
+              !saving &&
+              !loading &&
+              !packagePending &&
+              !valueEditor
+            }
           />
         ) : null}
         {document.kind === 'legacy_collection' ? (
@@ -1291,6 +1314,8 @@ function ProtocolRunBody({
   onAddAmendment,
   onAmendmentChange,
   runResource,
+  associationResource,
+  canAssociate,
 }: {
   amendment: AmendmentDraft;
   canAmend: boolean;
@@ -1298,6 +1323,8 @@ function ProtocolRunBody({
   onAddAmendment: () => Promise<void>;
   onAmendmentChange: (value: AmendmentDraft) => void;
   runResource: InventoryRunResource | null;
+  associationResource: RunValueAssociationResource | null;
+  canAssociate: boolean;
 }) {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -1309,6 +1336,7 @@ function ProtocolRunBody({
       <FrozenProtocolDefinition raw={document.raw} />
       <RunRecordedPhysicalWork resource={runResource} />
       <RunRecordedPlatePlanUses resource={runResource} />
+      <RunSavedValueAssociations resource={associationResource} canCreate={canAssociate} />
       <div className="grid gap-4 md:grid-cols-3">
         <RunValues title="Inputs" values={document.inputs} />
         <RunValues title="Outputs" values={document.outputs} />

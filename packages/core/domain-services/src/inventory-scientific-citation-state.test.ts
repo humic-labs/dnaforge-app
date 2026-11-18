@@ -190,6 +190,8 @@ it('upcasts v24 Run and older empty state without changing the supplied bytes', 
     }),
   };
   const {
+    runValueAttributions,
+    runValueAttributionWithdrawals,
     platePlanObservations,
     platePlanVersions,
     scientificCitations,
@@ -358,7 +360,13 @@ it('keeps citation IDs global and imported source provenance exact during adopti
 
 it('upcasts v25 without rewriting existing citation generations or withdrawal/source pins', () => {
   const { state } = fixture();
-  const { platePlanObservations, platePlanVersions, ...old } = state;
+  const {
+    runValueAttributions,
+    runValueAttributionWithdrawals,
+    platePlanObservations,
+    platePlanVersions,
+    ...old
+  } = state;
   const prior = { ...old, schema: 'dnaforge.inventory.v25' },
     bytes = JSON.stringify(prior);
   const current = parseInventoryState(prior);

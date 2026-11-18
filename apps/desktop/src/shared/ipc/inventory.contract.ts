@@ -1,3 +1,19 @@
+import type {
+  InventoryRunValueCandidatesRequest,
+  InventoryRunValueCandidatesRead,
+  InventoryPreviewRunValueAttributionRequest,
+  InventoryRunValueAttributionPreviewSnapshot,
+  InventoryApplyRunValueAttributionRequest,
+  InventoryPreviewRunValueAttributionWithdrawalRequest,
+  InventoryRunValueAttributionWithdrawalPreviewSnapshot,
+  InventoryApplyRunValueAttributionWithdrawalRequest,
+  InventoryRunValueAttributionsRequest,
+  InventoryRunValueAttributionsRead,
+  InventoryRunValueAttributionRequest,
+  InventoryRunValueAttributionRead,
+  InventoryRunValueAttributionSourceRequest,
+  InventoryRunValueAttributionSourceRead,
+} from '../inventory-run-value-attributions';
 import { defineGroup, event, invoke } from './contract';
 import type {
   InventoryPreviewPlatePlanObservationRequest,
@@ -110,6 +126,39 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  runValueCandidates: invoke<
+    [request: InventoryRunValueCandidatesRequest],
+    InventoryRunValueCandidatesRead
+  >(),
+  previewRunValueAttribution: invoke<
+    [request: InventoryPreviewRunValueAttributionRequest],
+    InventoryRunValueAttributionPreviewSnapshot
+  >(),
+  applyRunValueAttribution: invoke<
+    [request: InventoryApplyRunValueAttributionRequest],
+    NativeInventoryExecution
+  >(),
+  previewRunValueAttributionWithdrawal: invoke<
+    [request: InventoryPreviewRunValueAttributionWithdrawalRequest],
+    InventoryRunValueAttributionWithdrawalPreviewSnapshot
+  >(),
+  applyRunValueAttributionWithdrawal: invoke<
+    [request: InventoryApplyRunValueAttributionWithdrawalRequest],
+    NativeInventoryExecution
+  >(),
+  runValueAttributions: invoke<
+    [request: InventoryRunValueAttributionsRequest],
+    InventoryRunValueAttributionsRead
+  >(),
+  runValueAttribution: invoke<
+    [request: InventoryRunValueAttributionRequest],
+    InventoryRunValueAttributionRead
+  >(),
+  runValueAttributionSource: invoke<
+    [request: InventoryRunValueAttributionSourceRequest],
+    InventoryRunValueAttributionSourceRead
+  >(),
+
   previewPlatePlanObservation: invoke<
     [request: InventoryPreviewPlatePlanObservationRequest],
     InventoryPlatePlanObservationPreviewSnapshot

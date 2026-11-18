@@ -40,8 +40,15 @@ export const nativeInventorySha256 = (text: string): InventoryArchiveSha256 =>
 export const nativeInventoryArchiveRuntime: InventoryArchiveRuntime = {
   maxBytes: NATIVE_DOCUMENT_MAX_BODY_BYTES,
   sha256: nativeInventorySha256,
-  replayJournal: ({ source, rows, depth }) =>
-    replayNativeInventoryJournal(
+  replayJournal: ({ source, rows, depth, allowRunValueAttributions }) => {
+    if (
+      allowRunValueAttributions === false &&
+      Number(source.storedSchema?.match(/^dnaforge\.inventory\.v([1-9]\d*)$/)?.[1]) >= 28
+    )
+      throw Error(
+        'INVENTORY_DATA_INVALID: A pre-V11 ancestor cannot admit saved Run value attribution schemas.'
+      );
+    return replayNativeInventoryJournal(
       rows.map((row) =>
         parseNativeInventoryJournalEntry(
           {
@@ -53,8 +60,10 @@ export const nativeInventoryArchiveRuntime: InventoryArchiveRuntime = {
           row
         )
       ),
-      depth + 1
-    ),
+      depth + 1,
+      { allowRunValueAttributions }
+    );
+  },
 };
 
 export function nativeInventoryArchive(capture: InventoryArchiveCapture) {
@@ -91,11 +100,28 @@ export function applyNativeInventoryAdoption(
   request: InventoryApplyImportRequest,
   context: InventoryExecutionContext,
   depth = 0,
-  replay?: { readonly receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | undefined }
+  replay?: {
+    readonly receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | undefined;
+    readonly allowRunValueAttributions?: boolean;
+  }
 ) {
+  const allowRunValueAttributions = replay
+    ? replay.allowRunValueAttributions !== false && (replay.receiptContextVersion ?? 1) >= 11
+    : true;
   const archive = parseInventoryArchive(request.sourceText, nativeInventoryArchiveRuntime, {
     depth,
+    allowRunValueAttributions,
   });
+  if (
+    replay &&
+    (replay.receiptContextVersion ?? 1) < 11 &&
+    Number(
+      archive.document.content.source.storedSchema?.match(/^dnaforge\.inventory\.v([1-9]\d*)$/)?.[1]
+    ) >= 28
+  )
+    throw Error(
+      'INVENTORY_DATA_INVALID: A pre-V11 receipt cannot adopt saved Run value attributions.'
+    );
   if (
     replay &&
     (replay.receiptContextVersion ?? 1) < 2 &&
@@ -230,18 +256,23 @@ export function applyNativeInventoryAdoption(
 
 export function replayNativeInventoryJournal(
   entries: readonly NativeInventoryHistoryEntry[],
-  depth = 0
+  depth = 0,
+  options: { readonly allowRunValueAttributions?: boolean } = {}
 ): InventoryState {
   return replayNativeInventoryEntries(
     entries,
     (target, request, context, receiptContextVersion) =>
-      applyNativeInventoryAdoption(target, request, context, depth, { receiptContextVersion }),
+      applyNativeInventoryAdoption(target, request, context, depth, {
+        receiptContextVersion,
+        allowRunValueAttributions: options.allowRunValueAttributions,
+      }),
     applyNativeInventoryTable,
     applyNativeInventoryStocktake,
     applyNativeInventoryHierarchy,
     applyNativeInventorySourceRevision,
     applyNativeInventoryMappedTable,
     applyNativeInventoryBenchlingCapture,
-    applyNativeInventoryArrival
+    applyNativeInventoryArrival,
+    options
   );
 }

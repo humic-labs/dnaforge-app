@@ -181,7 +181,7 @@ function history(value: unknown): readonly InventoryArchiveJournalEntry[] {
 export function parseInventoryArchive(
   sourceText: string,
   runtime: InventoryArchiveRuntime,
-  options: { readonly depth?: number } = {}
+  options: { readonly depth?: number; readonly allowRunValueAttributions?: boolean } = {}
 ): InventoryValidatedArchive {
   const depth = options.depth ?? 0;
   if (!Number.isSafeInteger(depth) || depth < 0 || depth > MAX_INVENTORY_ARCHIVE_DEPTH)
@@ -304,7 +304,14 @@ export function parseInventoryArchive(
     });
     let replayed: InventoryState;
     try {
-      replayed = runtime.replayJournal({ source: scope, rows: parsedJournal, depth });
+      replayed = runtime.replayJournal({
+        source: scope,
+        rows: parsedJournal,
+        depth,
+        ...(options.allowRunValueAttributions === undefined
+          ? {}
+          : { allowRunValueAttributions: options.allowRunValueAttributions }),
+      });
     } catch (error) {
       if (error instanceof InventoryArchiveError) throw error;
       return fail(
