@@ -461,13 +461,15 @@ export function useFileBrowser(
             lifecycle,
             phase: nextPartialError ? 'tree_partial' : 'tree_ready',
           });
-          nextEntries = preserveExpandedChildren(
-            nextEntries,
-            entriesRef.current,
-            expandedPathsRef.current
-          );
-          entriesRef.current = nextEntries;
-          setEntries(nextEntries);
+          setEntries((currentEntries) => {
+            const next = preserveExpandedChildren(
+              nextEntries,
+              currentEntries,
+              expandedPathsRef.current
+            );
+            entriesRef.current = next;
+            return next;
+          });
           setCatalogEntriesByParent((previous) => {
             const next = new Map(nextCatalogEntries);
             for (const path of expandedPathsRef.current) {
@@ -571,6 +573,7 @@ export function useFileBrowser(
           setEntries((prev) => {
             const next = updateEntriesWithChildren(prev, path, children.files, false);
             entriesRef.current = next;
+            expandedPathsRef.current = new Set([...expandedPathsRef.current, path]);
             return next;
           });
           setCatalogEntriesByParent((previous) => new Map(previous).set(path, children.catalog));
