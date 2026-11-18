@@ -499,14 +499,16 @@ export function createWorkTasksTool(folders: readonly WorkspaceFolder[]) {
             requestId: operation.requestId,
             command: operation.command,
           });
-          if (result.outcome === 'rejected')
+          if (result.outcome === 'rejected') {
+            const confirmed = result.confirmedRequestId === operation.requestId;
             return toolFailure({
-              code: 'WORK_REMINDER_REJECTED',
+              code: confirmed ? 'WORK_REMINDER_REJECTED' : 'WORK_REMINDER_OUTCOME_UNAVAILABLE',
               error: result.error,
-              retriable: false,
-              stateChanged: false,
+              retriable: !confirmed,
+              stateChanged: confirmed ? false : 'unknown',
               partialEffects: [],
             });
+          }
           return toolSuccess({ kind: 'reminder-command' as const, result });
         }
         if (operation.kind === 'query') {

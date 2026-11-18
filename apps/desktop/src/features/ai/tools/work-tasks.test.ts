@@ -7,11 +7,31 @@ const native = vi.hoisted(() => ({
   read: vi.fn(),
   history: vi.fn(),
   mutate: vi.fn(),
+  reminderCommand: vi.fn(),
 }));
 vi.mock('../../../platform', () => ({ platform: () => ({ workTasks: native }) }));
 
 beforeEach(() => {
   vi.resetAllMocks();
+});
+
+it('distinguishes an original reminder rejection from a current refusal while recovering it', async () => {
+  const requestId = 'f14f9fe4-1500-43d3-8bcc-53e5b65f89fa';
+  const operation = {
+    kind: 'reminder-command',
+    requestId,
+    command: { action: 'consent', expectedRevision: 0, inbox: true, email: false },
+  };
+  native.reminderCommand.mockResolvedValueOnce({ outcome: 'rejected', error: 'Access unavailable' });
+  expect(await run(operation)).toMatchObject({
+    ok: false, retriable: true, stateChanged: 'unknown',
+  });
+  native.reminderCommand.mockResolvedValueOnce({
+    outcome: 'rejected', error: 'Original request refused', confirmedRequestId: requestId,
+  });
+  expect(await run(operation)).toMatchObject({
+    ok: false, retriable: false, stateChanged: false,
+  });
 });
 
 async function run(operation: unknown, pinned = false) {
