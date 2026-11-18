@@ -174,6 +174,32 @@ describe('waitForPluginInteractionReady', () => {
     expect(ready).toBe(true);
   });
 
+  it('waits for the outline and overlay programs used by the first visible highlight', async () => {
+    vi.useFakeTimers();
+    const plugin = readinessPlugin({ busy: false, representations: 1, canvasRepresentations: 1 });
+    const marking = { enabled: true };
+    let compiled = false;
+    const prepare = vi.fn(() => compiled);
+    Object.assign(plugin.canvas3d!, { props: { marking } });
+    Object.assign(plugin, {
+      canvas3dContext: {
+        webgl: { resources: { linkPrograms: vi.fn(), finalizePrograms: () => true } },
+        passes: { draw: { marking: { prepare } } },
+      },
+    });
+    let ready = false;
+    const result = waitForPluginInteractionReady(plugin, { stableMs: 50, pollMs: 25 }).then(() => {
+      ready = true;
+    });
+    await advance(100);
+    expect(ready).toBe(false);
+    expect(prepare).toHaveBeenCalledWith(marking);
+    compiled = true;
+    await advance(100);
+    await result;
+    expect(ready).toBe(true);
+  });
+
   it('fails closed when Molstar never settles', async () => {
     vi.useFakeTimers();
     const state = { busy: true, representations: 12, canvasRepresentations: 4 };

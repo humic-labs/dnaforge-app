@@ -164,8 +164,12 @@ export async function waitForPluginInteractionReady(
     let isBusy = plugin.isBusy === true || isUpdating || camera?.transition.inTransition === true;
     const resources = plugin.canvas3dContext?.webgl.resources;
     if (!isBusy && canvasRepresentationCount > 0 && resources) {
+      const marking = plugin.canvas3d?.props?.marking;
       resources.linkPrograms(pointerProgramVariants);
-      isBusy = !resources.finalizePrograms(pointerProgramVariants, false);
+      const sceneReady = resources.finalizePrograms(pointerProgramVariants, false);
+      const highlightReady =
+        !marking?.enabled || plugin.canvas3dContext!.passes.draw.marking.prepare(marking);
+      isBusy = !sceneReady || !highlightReady;
     }
     const signature = `${content.structureCount}:${content.representationCount}:${canvasRepresentationCount}:${camera ? JSON.stringify(camera.getSnapshot()) : ''}`;
 
