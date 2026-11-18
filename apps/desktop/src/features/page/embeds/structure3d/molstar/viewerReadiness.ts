@@ -1,4 +1,7 @@
+import type { ProgramVariant } from 'molstar/lib/mol-gl/webgl/render-item';
 import type { MolstarPlugin } from './cache';
+
+const pointerProgramVariants: ProgramVariant[] = ['pick', 'marking'];
 
 export const STRUCTURE_FIRST_PAINT_HARD_CEILING_MS = 10_000;
 export const STRUCTURE_FIRST_PAINT_TIMEOUT_MESSAGE =
@@ -158,7 +161,12 @@ export async function waitForPluginInteractionReady(
       (plugin.canvas3d as { reprCount?: { value?: number } } | undefined)?.reprCount?.value ?? 0;
     const isUpdating = plugin.behaviors?.state?.isUpdating?.value === true;
     const camera = options.includeCamera ? plugin.canvas3d?.camera : undefined;
-    const isBusy = plugin.isBusy === true || isUpdating || camera?.transition.inTransition === true;
+    let isBusy = plugin.isBusy === true || isUpdating || camera?.transition.inTransition === true;
+    const resources = plugin.canvas3dContext?.webgl.resources;
+    if (!isBusy && canvasRepresentationCount > 0 && resources) {
+      resources.linkPrograms(pointerProgramVariants);
+      isBusy = !resources.finalizePrograms(pointerProgramVariants, false);
+    }
     const signature = `${content.structureCount}:${content.representationCount}:${canvasRepresentationCount}:${camera ? JSON.stringify(camera.getSnapshot()) : ''}`;
 
     if (!isBusy && signature === stableSignature) {
