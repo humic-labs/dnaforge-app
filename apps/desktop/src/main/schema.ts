@@ -37,6 +37,7 @@ import { createAgentStateCapsuleTable } from './hosted-codex/agent-state-capsule
 import { migrateLegacyWorkspaceSyncRendererRefresh } from './workspace-sync-renderer-refresh-pending';
 import { CURRENT_SCHEMA_VERSION } from './schema-version';
 import { createAdministrationTables } from './administration-schema';
+import { createWorkReminderTables } from './work-reminder-schema';
 import { createScientificObjectTables } from './scientific-object-schema';
 import { createCatalogNameSearchIndex } from './catalog-name-search-index';
 import {
@@ -629,6 +630,7 @@ function repairCurrentSchema(db: Database.Database): void {
   if (ensureWorkspaceAccessModeColumn(db)) {
     backfillReferenceWorkspaceAccess(db);
   }
+  createWorkReminderTables(db);
 }
 
 function ensureCatalogSequenceFingerprint(db: Database.Database): void {

@@ -1,8 +1,15 @@
-import { createWorkReminderTables } from './work-reminder-schema';
 import type Database from 'better-sqlite3';
 
+export const scientificWorkTables = [
+  'scientific_work_commands',
+  'scientific_work_consent',
+  'scientific_work_dispatch',
+  'scientific_work_effects',
+  'scientific_work_reminder_receipts',
+  'scientific_work_rules',
+] as const;
+
 export function createScientificObjectTables(db: Database.Database): void {
-  createWorkReminderTables(db);
   db.exec(`
     CREATE TABLE IF NOT EXISTS scientific_work_commands (
       workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
