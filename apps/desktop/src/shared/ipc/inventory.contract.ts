@@ -1,4 +1,19 @@
 import type {
+  InventoryOrganizationDirectoryRequest,
+  InventoryOrganizationDirectoryRead,
+  InventoryOrganizationSnapshotRequest,
+  InventoryOrganizationSnapshotRead,
+  InventoryOrganizationPreviewRequest,
+  InventoryOrganizationPreviewRead,
+  InventoryOrganizationSubmitRequest,
+  InventoryOrganizationCancelPreviewRequest,
+  InventoryOrganizationCancelPreviewRead,
+  InventoryOrganizationAttemptRequest,
+  InventoryOrganizationRecoverRequest,
+  InventoryOrganizationActionAttemptRead,
+  InventoryOrganizationAttemptRead,
+} from '../inventory-organization-client';
+import type {
   InventoryPreviewEquipmentIncidentActionRequest,
   InventoryEquipmentIncidentActionPreviewSnapshot,
   InventoryApplyEquipmentIncidentActionRequest,
@@ -152,6 +167,34 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  organizationCancelPreview: invoke<
+    [request: InventoryOrganizationCancelPreviewRequest],
+    InventoryOrganizationCancelPreviewRead
+  >(),
+  organizationSubmit: invoke<
+    [request: InventoryOrganizationSubmitRequest],
+    InventoryOrganizationActionAttemptRead
+  >(),
+  organizationAttempt: invoke<
+    [request: InventoryOrganizationAttemptRequest],
+    InventoryOrganizationAttemptRead
+  >(),
+  organizationRecover: invoke<
+    [request: InventoryOrganizationRecoverRequest],
+    InventoryOrganizationActionAttemptRead
+  >(),
+  organizationDirectory: invoke<
+    [request: InventoryOrganizationDirectoryRequest],
+    InventoryOrganizationDirectoryRead
+  >(),
+  organizationSnapshot: invoke<
+    [request: InventoryOrganizationSnapshotRequest],
+    InventoryOrganizationSnapshotRead
+  >(),
+  organizationPreview: invoke<
+    [request: InventoryOrganizationPreviewRequest],
+    InventoryOrganizationPreviewRead
+  >(),
   previewEquipmentIncidentAction: invoke<
     [request: InventoryPreviewEquipmentIncidentActionRequest],
     InventoryEquipmentIncidentActionPreviewSnapshot

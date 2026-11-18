@@ -63,6 +63,8 @@ const mocks = vi.hoisted(() => ({
     history: vi.fn(),
   },
   inventoryOptions: [] as Array<{ profileKey: string; actor(): string }>,
+  organizationOptions: [] as Array<{ db: unknown }>,
+  organizationOwners: [] as Array<{ dispose: ReturnType<typeof vi.fn> }>,
 }));
 
 vi.mock('../analytics', () => ({ trackEvent: mocks.saveTelemetry }));
@@ -134,6 +136,14 @@ vi.mock('../inventory-owner', () => ({
     return mocks.inventory;
   },
 }));
+vi.mock('../organization-inventory-owner', () => ({
+  createOrganizationInventoryOwner: (options: { db: unknown }) => {
+    mocks.organizationOptions.push(options);
+    const owner = { dispose: vi.fn() };
+    mocks.organizationOwners.push(owner);
+    return owner;
+  },
+}));
 vi.mock('../native-annotation-document-owner', () => ({
   NativeAnnotationDocumentOwner: class {
     constructor(options: OwnerOptions) {
@@ -176,6 +186,7 @@ vi.mock('./test-hooks', () => ({
 }));
 
 import { createNativeDocuments } from './native-documents';
+import { getDb } from '../ipc/database';
 
 const AUTHORITY = { ownerInstanceId: 'owner-1' };
 const ROOT = '/projects/alpha';
@@ -205,6 +216,8 @@ beforeEach(() => {
   mocks.owners.length = 0;
   mocks.recoveries.length = 0;
   mocks.inventoryOptions.length = 0;
+  mocks.organizationOptions.length = 0;
+  mocks.organizationOwners.length = 0;
   mocks.authority.value = AUTHORITY;
   mocks.snapshotState.value = 'ready';
   mocks.startServer.mockResolvedValue({ url: 'http://127.0.0.1:4100/', close: mocks.serverClose });
@@ -299,6 +312,34 @@ describe('native documents main feature', () => {
         canAssertNoEditingClient: () => true,
       })
     ).rejects.toThrow('Native documents started before their profile.');
+  });
+
+  it('captures the profile database and disposes organization inventory on restart, profile change, and shutdown', async () => {
+    const firstDb = {} as ReturnType<typeof getDb>;
+    vi.mocked(getDb).mockReturnValueOnce(firstDb);
+    const { documents, start } = started('renderer');
+    await start;
+    expect(mocks.organizationOptions[0].db).toBe(firstDb);
+    const first = mocks.organizationOwners[0];
+    documents.bindProfile('/user-data');
+    expect(first.dispose).not.toHaveBeenCalled();
+
+    const secondDb = {} as ReturnType<typeof getDb>;
+    vi.mocked(getDb).mockReturnValueOnce(secondDb);
+    await documents.start({ editingClient: 'renderer', canAssertNoEditingClient: () => true });
+    expect(first.dispose).toHaveBeenCalledTimes(1);
+    expect(mocks.organizationOptions[1].db).toBe(secondDb);
+    const second = mocks.organizationOwners[1];
+    documents.bindProfile('/different-user-data');
+    expect(second.dispose).toHaveBeenCalledTimes(1);
+
+    await documents.start({ editingClient: 'renderer', canAssertNoEditingClient: () => true });
+    const third = mocks.organizationOwners[2];
+    await documents.closeServerAndRecovery();
+    await documents.closeServerAndRecovery();
+    expect(third.dispose).toHaveBeenCalledTimes(1);
+    expect(first.dispose).toHaveBeenCalledTimes(1);
+    expect(second.dispose).toHaveBeenCalledTimes(1);
   });
 
   it('starts nothing without a native authority, except the managed runtime refuses', async () => {

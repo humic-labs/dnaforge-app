@@ -10,6 +10,7 @@ import { InventoryStockroomForm } from './InventoryStockroomForm';
 import { InventoryArrivalForm } from './InventoryArrivalForm';
 import { InventorySavedValueAssociations } from './InventoryRunValueAttributions';
 import { InventoryPlatePlans } from './InventoryPlatePlans';
+import { InventoryOrganizationPanel } from './InventoryOrganizationPanel';
 import {
   useEffect,
   useMemo,
@@ -231,6 +232,34 @@ function lotInputs(
 }
 
 export function InventoryPanel() {
+  const [scope, setScope] = useState('local');
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-bg text-fg">
+      <div className="flex items-center gap-3 border-b border-border px-5 py-3">
+        <label htmlFor="inventory-scope" className="text-sm font-medium">
+          Inventory scope
+        </label>
+        <div className="w-60">
+          <Select
+            id="inventory-scope"
+            ariaLabel="Inventory scope"
+            value={scope}
+            options={[
+              { value: 'local', label: 'Local project' },
+              { value: 'organization', label: 'Organization inventory' },
+            ]}
+            onValueChange={setScope}
+          />
+        </div>
+      </div>
+      <div className="min-h-0 flex-1">
+        {scope === 'organization' ? <InventoryOrganizationPanel /> : <LocalInventoryPanel />}
+      </div>
+    </div>
+  );
+}
+
+function LocalInventoryPanel() {
   const controller = useMemo(sharedController, []);
   const { projects, status, projectsError, catalog, itemCodeLookup } = useSyncExternalStore(
     controller.subscribe,

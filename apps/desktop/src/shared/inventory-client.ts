@@ -1,4 +1,25 @@
 import type {
+  InventoryOrganizationClient,
+  InventoryOrganizationUnavailable,
+} from './inventory-organization-client';
+export type {
+  InventoryOrganizationClient,
+  InventoryOrganizationDirectoryRequest,
+  InventoryOrganizationDirectoryRead,
+  InventoryOrganizationSnapshotRequest,
+  InventoryOrganizationSnapshotRead,
+  InventoryOrganizationPreviewRequest,
+  InventoryOrganizationPreviewRead,
+  InventoryOrganizationActionAttempt,
+  InventoryOrganizationActionAttemptRead,
+  InventoryOrganizationAttemptRead,
+  InventoryOrganizationSubmitRequest,
+  InventoryOrganizationCancelPreviewRequest,
+  InventoryOrganizationCancelPreviewRead,
+  InventoryOrganizationAttemptRequest,
+  InventoryOrganizationRecoverRequest,
+} from './inventory-organization-client';
+import type {
   InventoryPreviewEquipmentIncidentActionRequest,
   InventoryEquipmentIncidentActionPreviewSnapshot,
   InventoryApplyEquipmentIncidentActionRequest,
@@ -435,7 +456,7 @@ export type {
   InventoryPlatePlanObservationRead,
   InventoryPlatePlanObservationSourceRead,
 } from './inventory-plate-plan-observations';
-export interface InventoryClient {
+export interface InventoryClient extends InventoryOrganizationClient {
   previewEquipmentIncidentAction(
     input: InventoryPreviewEquipmentIncidentActionRequest
   ): Promise<InventoryEquipmentIncidentActionPreviewSnapshot>;
@@ -622,6 +643,12 @@ export interface InventoryClient {
 }
 
 export function unavailableInventoryClient(): InventoryClient {
+  const unavailableOrganization = async (): Promise<InventoryOrganizationUnavailable> => ({
+    kind: 'unavailable',
+    code: 'INVENTORY_OWNER_UNAVAILABLE',
+    message: 'Organization inventory requires the connected desktop owner.',
+    retryable: false,
+  });
   const unavailable = async (): Promise<never> => {
     throw new Error('INVENTORY_OWNER_UNAVAILABLE: Inventory requires the connected desktop owner.');
   };
@@ -635,6 +662,13 @@ export function unavailableInventoryClient(): InventoryClient {
     message: 'Inventory requires the connected desktop owner.',
   });
   return {
+    organizationDirectory: unavailableOrganization,
+    organizationSnapshot: unavailableOrganization,
+    organizationPreview: unavailableOrganization,
+    organizationCancelPreview: unavailableOrganization,
+    organizationSubmit: unavailableOrganization,
+    organizationAttempt: unavailableOrganization,
+    organizationRecover: unavailableOrganization,
     previewEquipmentIncidentAction: unavailable,
     applyEquipmentIncidentAction: unavailableMutation,
     equipmentIncidents: unavailable,

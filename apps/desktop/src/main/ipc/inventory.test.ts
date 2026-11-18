@@ -5,6 +5,8 @@ import type {
   NativeInventoryExecution,
 } from '../../shared/inventory-command';
 import type { NativeInventoryOwner } from '../inventory-owner';
+import type { OrganizationInventoryOwner } from '../organization-inventory-owner';
+import { unavailableInventoryClient } from '../../shared/inventory-client';
 import { NativeDocumentCommandError } from '../../shared/native-document-error';
 
 const captured = vi.hoisted(() => ({ handlers: {} as Record<string, unknown> }));
@@ -113,6 +115,129 @@ beforeEach(() => {
     acknowledgeSource,
   } as unknown as NativeInventoryOwner;
   registerInventoryHandlers({ owner: () => owner, target: () => target });
+});
+
+it.each(['organizationDirectory', 'organizationSnapshot', 'organizationPreview'] as const)(
+  'forwards %s only through the optional current organization owner',
+  async (method) => {
+    const result = { kind: 'unavailable', code: 'OFFLINE', message: 'Offline.', retryable: true };
+    const read = vi.fn(async (_request, assertCurrent: () => void) => {
+      assertCurrent();
+      return result;
+    });
+    const organizationOwner = { [method]: read } as unknown as OrganizationInventoryOwner;
+    registerInventoryHandlers({
+      owner: () => owner,
+      organizationOwner: () => organizationOwner,
+      target: () => target,
+    });
+    const handler = captured.handlers[method] as (
+      event: IpcMainInvokeEvent,
+      request: unknown
+    ) => Promise<unknown>;
+    const input = { exact: 'retained request' };
+    await expect(handler(event, input)).resolves.toEqual(result);
+    expect(read).toHaveBeenCalledExactlyOnceWith(
+      input,
+      expect.any(Function),
+      ...(method === 'organizationPreview' ? [target] : [])
+    );
+    await expect(
+      handler({ ...event, senderFrame: {} } as IpcMainInvokeEvent, input)
+    ).rejects.toMatchObject({
+      code: 'INVENTORY_DESKTOP_CALLER_UNAVAILABLE',
+    });
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(execute).not.toHaveBeenCalled();
+  }
+);
+
+it.each(['organizationPreview', 'organizationCancelPreview', 'organizationSubmit'] as const)(
+  'passes a stable native WebContents key and fresh current callbacks to %s',
+  async (method) => {
+    const read = vi.fn(async (_request: unknown, assertCurrent: () => void, callerKey: object) => {
+      assertCurrent();
+      expect(callerKey).toBe(target);
+      return { kind: 'unavailable', code: 'TEST', message: 'No effect.', retryable: false };
+    });
+    const organizationOwner = { [method]: read } as unknown as OrganizationInventoryOwner;
+    registerInventoryHandlers({
+      owner: () => owner,
+      organizationOwner: () => organizationOwner,
+      target: () => target,
+    });
+    const handler = captured.handlers[method] as (
+      event: IpcMainInvokeEvent,
+      input: unknown
+    ) => Promise<unknown>;
+    await handler(event, {});
+    await handler(event, {});
+    expect(read.mock.calls[0][2]).toBe(read.mock.calls[1][2]);
+    expect(read.mock.calls[0][1]).not.toBe(read.mock.calls[1][1]);
+    await expect(
+      handler({ ...event, senderFrame: {} } as IpcMainInvokeEvent, {})
+    ).rejects.toMatchObject({ code: 'INVENTORY_DESKTOP_CALLER_UNAVAILABLE' });
+    expect(read).toHaveBeenCalledTimes(2);
+  }
+);
+
+it.each(['owner', 'caller'] as const)(
+  'discards an awaited organization response after its %s changes',
+  async (changed) => {
+    let finish!: (value: unknown) => void;
+    const pending = new Promise((resolve) => {
+      finish = resolve;
+    });
+    const read = vi.fn((_request: unknown, _assertCurrent: () => void) => pending);
+    let organizationOwner: OrganizationInventoryOwner | null = {
+      organizationSnapshot: read,
+    } as unknown as OrganizationInventoryOwner;
+    let currentTarget = target;
+    registerInventoryHandlers({
+      owner: () => owner,
+      organizationOwner: () => organizationOwner,
+      target: () => currentTarget,
+    });
+    const handler = captured.handlers.organizationSnapshot as (
+      event: IpcMainInvokeEvent,
+      request: unknown
+    ) => Promise<unknown>;
+    const response = handler(event, {});
+    const assertCurrent = read.mock.calls[0][1] as () => void;
+    if (changed === 'owner') organizationOwner = null;
+    else currentTarget = { ...target, id: 9 } as WebContents;
+    expect(assertCurrent).toThrow(NativeDocumentCommandError);
+    finish({ kind: 'current' });
+    await expect(response).rejects.toMatchObject({
+      code:
+        changed === 'owner'
+          ? 'INVENTORY_OWNER_UNAVAILABLE'
+          : 'INVENTORY_DESKTOP_CALLER_UNAVAILABLE',
+    });
+  }
+);
+
+it('keeps legacy registrations usable without an organization owner and returns explicit unavailable platform reads', async () => {
+  const read = captured.handlers.organizationDirectory as (
+    event: IpcMainInvokeEvent,
+    request: unknown
+  ) => Promise<unknown>;
+  await expect(read(event, {})).rejects.toMatchObject({ code: 'INVENTORY_OWNER_UNAVAILABLE' });
+  expect(call()).toMatchObject({ status: 'committed' });
+  const client = unavailableInventoryClient();
+  const unavailable = {
+    kind: 'unavailable',
+    code: 'INVENTORY_OWNER_UNAVAILABLE',
+    retryable: false,
+  };
+  await expect(client.organizationDirectory({} as never)).resolves.toMatchObject(unavailable);
+  await expect(client.organizationSnapshot({} as never)).resolves.toMatchObject(unavailable);
+  await expect(client.organizationPreview({} as never)).resolves.toMatchObject(unavailable);
+  await expect(client.organizationCancelPreview({} as never)).resolves.toMatchObject(unavailable);
+  await expect(client.organizationSubmit({} as never)).resolves.toMatchObject(unavailable);
+  await expect(client.organizationAttempt({} as never)).resolves.toMatchObject(unavailable);
+  await expect(client.organizationRecover({} as never)).resolves.toMatchObject(unavailable);
+  await expect(client.inspect({} as never)).rejects.toThrow('INVENTORY_OWNER_UNAVAILABLE');
 });
 
 it('reads physical work under its exact scoped query without any mutation method', () => {

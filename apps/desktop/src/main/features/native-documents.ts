@@ -39,6 +39,7 @@ import { NativeDocumentStartupRecovery } from '../native-document-startup-recove
 import { NativeDocumentWorkspaces } from '../native-document-workspaces';
 import { getDb } from '../ipc/database';
 import { createNativeInventoryOwner } from '../inventory-owner';
+import { createOrganizationInventoryOwner } from '../organization-inventory-owner';
 import { createNativeAgentGrantAuthorizer } from '../agent-grant-authority';
 import {
   nativeDocumentFetch,
@@ -160,6 +161,7 @@ export function createNativeDocuments(
   });
   let administration: AdministrationOwner | null = null;
   let inventory: ReturnType<typeof createNativeInventoryOwner> | null = null;
+  let organizationInventory: ReturnType<typeof createOrganizationInventoryOwner> | null = null;
   let protocols: ReturnType<typeof createNativeProtocolPackages> | null = null;
   let detachInventoryPublisher: (() => void) | null = null;
   let notebookTarget: (() => WebContents | null) | null = null;
@@ -184,6 +186,8 @@ export function createNativeDocuments(
       detachInventoryPublisher?.();
       detachInventoryPublisher = null;
       inventory = null;
+      organizationInventory?.dispose();
+      organizationInventory = null;
       protocols = null;
     }
     profileDirectory = userDataPath;
@@ -193,6 +197,8 @@ export function createNativeDocuments(
   }
 
   async function start({ editingClient, canAssertNoEditingClient }: NativeDocumentsStart) {
+    organizationInventory?.dispose();
+    organizationInventory = null;
     fileEditingClient = editingClient;
     assertNoFileEditingClient = canAssertNoEditingClient;
     if (profileKey === null) throw new Error('Native documents started before their profile.');
@@ -204,6 +210,7 @@ export function createNativeDocuments(
       throw new Error('The managed runtime requires its own native document authority.');
     }
     if (!nativeAuthority) return;
+    organizationInventory = createOrganizationInventoryOwner({ db: getDb() });
     detachInventoryPublisher?.();
     const boundProfileDirectory = profileDirectory;
     if (!boundProfileDirectory) throw new Error('Protocol packages started before their profile.');
@@ -373,7 +380,11 @@ export function createNativeDocuments(
 
   function registerWorkspaceRootsHandler(isCurrentRendererLoad: CurrentRendererLoad): void {
     registerProtocolHandlers({ owner: () => protocols, target: () => notebookTarget?.() ?? null });
-    registerInventoryHandlers({ owner: () => inventory, target: () => notebookTarget?.() ?? null });
+    registerInventoryHandlers({
+      owner: () => inventory,
+      organizationOwner: () => organizationInventory,
+      target: () => notebookTarget?.() ?? null,
+    });
     handleGroup(importReviewContract, {
       call: (_event, request) => importReviews.call(request),
       snapshot: (_event, id) => importReviews.snapshot(id),
@@ -421,6 +432,8 @@ export function createNativeDocuments(
   }
 
   async function closeServerAndRecovery(): Promise<void> {
+    organizationInventory?.dispose();
+    organizationInventory = null;
     detachInventoryPublisher?.();
     detachInventoryPublisher = null;
     inventory = null;

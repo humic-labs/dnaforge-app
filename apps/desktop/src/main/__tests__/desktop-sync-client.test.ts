@@ -808,6 +808,90 @@ describe('desktop sync client', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['initial', 'preflight refresh', '401 refresh'] as const)(
+    'does not dispatch under a replacement desktop session after %s',
+    async (stage) => {
+      activeSession = session({
+        accessToken: 'at-old',
+        expiresAt: stage === 'preflight refresh' ? pastIso() : futureIso(),
+        desktopSessionId: stage === 'initial' ? 'session-b' : 'session-a',
+      });
+      performRefresh.mockImplementationOnce(async () => {
+        activeSession = session({
+          accessToken: 'at-new',
+          expiresAt: futureIso(),
+          desktopSessionId: 'session-b',
+        });
+        return { status: 'refreshed' };
+      });
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse(stage === '401 refresh' ? 401 : 200, { ok: true })
+      );
+      fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+
+      await expect(
+        makeClient().requestJson('/api/desktop-sync/organizations/org-a/inventories/v1', {
+          method: 'POST',
+          body: { operationId: 'operation-a' },
+          expectedAccountId: 'account-a',
+          expectedDesktopSessionId: 'session-a',
+        })
+      ).rejects.toMatchObject({
+        code: 'SESSION_CHANGED',
+        retryable: true,
+        terminal: false,
+        authPaused: true,
+        details: { expectedDesktopSessionId: 'session-a', activeDesktopSessionId: 'session-b' },
+      });
+
+      expect(fetchMock).toHaveBeenCalledTimes(stage === '401 refresh' ? 1 : 0);
+      expect(performRefresh).toHaveBeenCalledTimes(stage === 'initial' ? 0 : 1);
+    }
+  );
+
+  it.each(['preflight refresh', '401 refresh'] as const)(
+    'allows a token rotation within the pinned desktop session after %s',
+    async (stage) => {
+      activeSession = session({
+        accessToken: 'at-old',
+        expiresAt: stage === 'preflight refresh' ? pastIso() : futureIso(),
+      });
+      if (stage === '401 refresh') fetchMock.mockResolvedValueOnce(jsonResponse(401, {}));
+      fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+
+      await expect(
+        makeClient().requestJson('/api/desktop-sync/workspaces', {
+          method: 'GET',
+          expectedAccountId: 'account-a',
+          expectedDesktopSessionId: 'session-a',
+        })
+      ).resolves.toEqual({ ok: true });
+
+      expect(performRefresh).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(stage === '401 refresh' ? 2 : 1);
+      expect(fetchMock.mock.lastCall?.[1].headers.Authorization).toBe('Bearer at-new');
+    }
+  );
+
+  it('preserves unpinned same-account session replacement on a 401 retry', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(401, {}));
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+    performRefresh.mockImplementationOnce(async () => {
+      activeSession = session({
+        accessToken: 'at-new',
+        expiresAt: futureIso(),
+        desktopSessionId: 'session-b',
+      });
+      return { status: 'refreshed' };
+    });
+
+    await expect(
+      makeClient().requestJson('/api/desktop-sync/workspaces', { method: 'GET' })
+    ).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.lastCall?.[1].headers.Authorization).toBe('Bearer at-new');
+  });
+
   function makeClient(overrides: Partial<DesktopSyncClientDeps> = {}) {
     const deps: DesktopSyncClientDeps = {
       baseUrl: 'https://web.test',
@@ -825,10 +909,11 @@ function session(input: {
   accessToken: string;
   expiresAt: string;
   accountId?: string;
+  desktopSessionId?: string;
 }): StoredSession {
   return {
     accountId: input.accountId ?? 'account-a',
-    desktopSessionId: 'session-a',
+    desktopSessionId: input.desktopSessionId ?? 'session-a',
     accessToken: input.accessToken,
     accessTokenExpiresAt: input.expiresAt,
     refreshToken: 'refresh-a',

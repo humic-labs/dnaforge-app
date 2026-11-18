@@ -2,6 +2,7 @@ export type DesktopSyncClientErrorCode =
   | 'SIGNED_OUT'
   | 'SESSION_REVOKED'
   | 'ACCOUNT_CHANGED'
+  | 'SESSION_CHANGED'
   | 'NETWORK'
   | 'CONFLICT'
   | 'IDEMPOTENCY_CONFLICT'

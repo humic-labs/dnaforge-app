@@ -41,6 +41,7 @@ export interface DesktopSyncRequestOptions {
   blobUploadProtocol?: 's3-multipart-v1';
 
   expectedAccountId?: string;
+  expectedDesktopSessionId?: string;
 }
 
 export interface DesktopSyncClient {
@@ -94,11 +95,19 @@ async function requestResponse(
   path: string,
   options: DesktopSyncRequestOptions
 ): Promise<Response> {
-  const firstSession = await getFreshSession(deps, options.expectedAccountId);
+  const firstSession = await getFreshSession(
+    deps,
+    options.expectedAccountId,
+    options.expectedDesktopSessionId
+  );
   let response = await performFetch(deps, path, options, firstSession.accessToken);
 
   if (response.status === 401) {
-    const refreshed = await renewSession(deps, firstSession.accountId);
+    const refreshed = await renewSession(
+      deps,
+      firstSession.accountId,
+      options.expectedDesktopSessionId
+    );
     if (refreshed.accessToken === firstSession.accessToken) {
       throw badResponseError('Authentication refresh did not replace the rejected access token.');
     }
@@ -115,24 +124,33 @@ async function requestResponse(
 
 async function getFreshSession(
   deps: NormalizedDeps,
-  expectedAccountId: string | undefined
+  expectedAccountId: string | undefined,
+  expectedDesktopSessionId?: string
 ): Promise<StoredSession> {
   const session = await deps.getActiveStoredSession();
   if (!session) throw signedOutError();
   if (expectedAccountId !== undefined) assertSameAccount(expectedAccountId, session);
+  if (expectedDesktopSessionId !== undefined)
+    assertSameDesktopSession(expectedDesktopSessionId, session);
 
   const expiresAt = Date.parse(session.accessTokenExpiresAt);
   if (Number.isFinite(expiresAt) && expiresAt <= deps.nowMs() + FRESH_TOKEN_LEAD_MS) {
-    return renewSession(deps, session.accountId);
+    return renewSession(deps, session.accountId, expectedDesktopSessionId);
   }
 
   return session;
 }
 
-async function renewSession(deps: NormalizedDeps, accountId: string): Promise<StoredSession> {
+async function renewSession(
+  deps: NormalizedDeps,
+  accountId: string,
+  expectedDesktopSessionId?: string
+): Promise<StoredSession> {
   const outcome = await refreshOrThrow(deps);
   const refreshed = await deps.getActiveStoredSession();
   if (refreshed) assertSameAccount(accountId, refreshed);
+  if (refreshed && expectedDesktopSessionId !== undefined)
+    assertSameDesktopSession(expectedDesktopSessionId, refreshed);
   if (outcome === 'signed_out' || !refreshed) throw sessionRevokedError();
   assertFreshSession(deps, refreshed);
   return refreshed;
@@ -148,6 +166,20 @@ function assertSameAccount(expectedAccountId: string, session: StoredSession): v
       terminal: false,
       authPaused: true,
       details: { expectedAccountId, activeAccountId: session.accountId },
+    }
+  );
+}
+
+function assertSameDesktopSession(expectedDesktopSessionId: string, session: StoredSession): void {
+  if (session.desktopSessionId === expectedDesktopSessionId) return;
+  throw new DesktopSyncClientError(
+    'SESSION_CHANGED',
+    'The signed-in session changed before this sync request was sent.',
+    {
+      retryable: true,
+      terminal: false,
+      authPaused: true,
+      details: { expectedDesktopSessionId, activeDesktopSessionId: session.desktopSessionId },
     }
   );
 }

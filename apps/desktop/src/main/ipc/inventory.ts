@@ -32,9 +32,11 @@ import { inventoryApplyPlatePlanVersionRequestSchema } from '../../shared/invent
 import { inventoryApplyPlatePlanObservationRequestSchema } from '../../shared/inventory-plate-plan-observations';
 import { NativeDocumentCommandError } from '../../shared/native-document-error';
 import type { NativeInventoryOwner } from '../inventory-owner';
+import type { OrganizationInventoryOwner } from '../organization-inventory-owner';
 
 export function registerInventoryHandlers(options: {
   owner(): NativeInventoryOwner | null;
+  organizationOwner?(): OrganizationInventoryOwner | null;
   target(): WebContents | null;
 }): () => void {
   const currentOwner = () => {
@@ -235,7 +237,61 @@ export function registerInventoryHandlers(options: {
       );
     return result;
   };
+  const readOrganization = async <T>(
+    event: IpcMainInvokeEvent,
+    read: (owner: OrganizationInventoryOwner, assertCurrent: () => void) => Promise<T>
+  ): Promise<T> => {
+    assertCaller(event);
+    const owner = options.organizationOwner?.();
+    if (!owner)
+      throw new NativeDocumentCommandError(
+        'INVENTORY_OWNER_UNAVAILABLE',
+        'The desktop organization inventory owner is not ready.',
+        false
+      );
+    const assertCurrent = () => {
+      assertCaller(event);
+      if (options.organizationOwner?.() !== owner)
+        throw new NativeDocumentCommandError(
+          'INVENTORY_OWNER_UNAVAILABLE',
+          'The desktop organization inventory owner changed.',
+          false
+        );
+    };
+    assertCurrent();
+    const result = await read(owner, assertCurrent);
+    assertCurrent();
+    return result;
+  };
   return handleGroup(inventoryContract, {
+    organizationDirectory: (event, request) =>
+      readOrganization(event, (owner, assertCurrent) =>
+        owner.organizationDirectory(request, assertCurrent)
+      ),
+    organizationSnapshot: (event, request) =>
+      readOrganization(event, (owner, assertCurrent) =>
+        owner.organizationSnapshot(request, assertCurrent)
+      ),
+    organizationPreview: (event, request) =>
+      readOrganization(event, (owner, assertCurrent) =>
+        owner.organizationPreview(request, assertCurrent, event.sender)
+      ),
+    organizationCancelPreview: (event, request) =>
+      readOrganization(event, (owner, assertCurrent) =>
+        owner.organizationCancelPreview(request, assertCurrent, event.sender)
+      ),
+    organizationSubmit: (event, request) =>
+      readOrganization(event, (owner, assertCurrent) =>
+        owner.organizationSubmit(request, assertCurrent, event.sender)
+      ),
+    organizationAttempt: (event, request) =>
+      readOrganization(event, (owner, assertCurrent) =>
+        owner.organizationAttempt(request, assertCurrent)
+      ),
+    organizationRecover: (event, request) =>
+      readOrganization(event, (owner, assertCurrent) =>
+        owner.organizationRecover(request, assertCurrent)
+      ),
     previewEquipmentIncidentAction: (event, request) =>
       previewCitation(event, (owner) => owner.previewEquipmentIncidentAction(request)),
     applyEquipmentIncidentAction: (event, request) =>

@@ -37,6 +37,8 @@ import { createAgentStateCapsuleTable } from './hosted-codex/agent-state-capsule
 import { migrateLegacyWorkspaceSyncRendererRefresh } from './workspace-sync-renderer-refresh-pending';
 import { CURRENT_SCHEMA_VERSION } from './schema-version';
 import { createAdministrationTables } from './administration-schema';
+import { createOrganizationInventoryProjectionTable } from './organization-inventory-cache';
+import { createOrganizationInventoryAttemptTable } from './organization-inventory-attempts';
 import { createScientificObjectTables } from './scientific-object-schema';
 import { createCatalogNameSearchIndex } from './catalog-name-search-index';
 import {
@@ -452,6 +454,10 @@ export function ensureSchema(
 
     if (version < 46) createAdministrationTables(db);
     if (version < 47) ensureWorkspaceSyncOperationIdentityColumns(db);
+    if (version < 48) {
+      createOrganizationInventoryProjectionTable(db);
+      createOrganizationInventoryAttemptTable(db);
+    }
 
     repairCurrentSchemaWithLimsWriteGuards(db, version < 26, isVirginDatabase);
   } catch (err) {
@@ -567,6 +573,8 @@ function formatBackupDate(backupPath: string): string {
 }
 
 function repairCurrentSchema(db: Database.Database): void {
+  createOrganizationInventoryProjectionTable(db);
+  createOrganizationInventoryAttemptTable(db);
   createAdministrationTables(db);
   createCatalogNameSearchIndex(db);
   ensureConversationTitleLock(db);
