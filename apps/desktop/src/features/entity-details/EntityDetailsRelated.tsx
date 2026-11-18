@@ -1,3 +1,4 @@
+import { WorkPanel } from '../work/public/work';
 import { toUserMessage } from '@waypoint/user-messages';
 import {
   formatLimsRelationshipType,
@@ -103,6 +104,17 @@ export function EntityDetailsRelated({
     !fileAuthoritativeTrackView && (Boolean(originalSourceRequest) || canMutateLifecycle);
   return (
     <>
+      {registryPreview.entity.workspaceId != null && (
+        <div className="py-3">
+          <WorkPanel
+            key={registryPreview.entity.id}
+            mode="record"
+            workspaceId={registryPreview.entity.workspaceId}
+            subjectId={registryPreview.entity.id}
+            subjectName={registryPreview.entity.name}
+          />
+        </div>
+      )}
       {showActionBar ? (
         <div
           data-testid={`${actionId}-actions`}

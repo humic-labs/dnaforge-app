@@ -568,6 +568,7 @@ export interface ElectronAPI {
   molecularData: ClientOf<typeof molecularDataContract>;
   scientificDocuments: ClientOf<typeof scientificDocumentsContract>;
   entityNavigation: ClientOf<typeof entityNavigationContract>;
+  workTasks: ClientOf<typeof import('../shared/ipc/work-tasks.contract').workTasksContract>;
   scientificObjects: ClientOf<
     typeof import('../shared/ipc/scientific-objects.contract').scientificObjectsContract
   >;

@@ -13,6 +13,8 @@ import { dirname, resolve } from 'node:path';
 import { getDb, registerDatabaseHandlers } from './database';
 import { registerFilesystemHandlers } from './filesystem';
 import { registerScientificDocumentHandlers } from './scientific-documents';
+import { registerWorkTaskHandlers } from './work-tasks';
+import { requestEntityNavigation } from '../features/entity-navigation';
 import { registerScientificObjectHandlers } from './scientific-objects';
 import { registerPdfExtractionHandlers } from '../pdf-extraction';
 import { registerDialogHandlers } from './dialog';
@@ -180,6 +182,7 @@ export function registerAllIpcHandlers(deps: RegisterAllIpcHandlersDeps = {}): v
   registerFilesystemHandlers();
   registerScientificDocumentHandlers();
   registerScientificObjectHandlers();
+  registerWorkTaskHandlers(nativeDocuments.notebookDocuments, requestEntityNavigation, getDb);
   registerInlineReferenceTargetHandlers();
   registerPdfExtractionHandlers();
   registerDialogHandlers();

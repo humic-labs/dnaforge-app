@@ -1,3 +1,4 @@
+import { temporalFieldValue, temporalFieldDraft } from '../registry-temporal-input';
 import {
   LIMS_BUILTIN_ENTITY_SCHEMAS,
   type LimsFieldDefinition,
@@ -86,8 +87,16 @@ export function editablePrimerSchemaFields(
 
 export function parsePrimerSchemaFieldValue(
   field: LimsFieldDefinition,
-  value: string | boolean
+  value: string | boolean,
+  original?: unknown
 ): unknown {
+  if (
+    (field.type === 'date' || field.type === 'datetime') &&
+    original !== undefined &&
+    value === temporalFieldDraft(original)
+  )
+    return original;
+  if (field.type === 'datetime') return temporalFieldValue('datetime', String(value)) ?? undefined;
   if (field.type === 'boolean') return value === true;
   const text = String(value).trim();
   if (!text) return undefined;

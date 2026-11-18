@@ -339,7 +339,10 @@ export class NativeNotebookDocumentClient {
     await this.tail;
     if (this.error) throw new Error(this.error);
   }
-  async command(operation: NativeNotebookRequest['operation']): Promise<NotebookDocumentSnapshot> {
+  async command(
+    operation: NativeNotebookRequest['operation'],
+    intent?: { requestId: string; expectedRevision: string }
+  ): Promise<NotebookDocumentSnapshot> {
     if (
       !['inspect', 'inspect-copy', 'schema', 'capture-save', 'await-save', 'keep-local'].includes(
         operation.kind
@@ -358,8 +361,8 @@ export class NativeNotebookDocumentClient {
         acknowledgement = this.acknowledgedCapture;
       const snapshot = await platform().notebook.execute({
         documentId: this.nativeDocumentId,
-        expectedRevision: current.revision,
-        requestId: crypto.randomUUID(),
+        expectedRevision: intent?.expectedRevision ?? current.revision,
+        requestId: intent?.requestId ?? crypto.randomUUID(),
         operation,
       });
       if (

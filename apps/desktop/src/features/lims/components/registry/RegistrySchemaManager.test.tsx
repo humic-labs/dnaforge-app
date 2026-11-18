@@ -30,6 +30,34 @@ beforeEach(() => {
 });
 
 describe('RegistrySchemaManager', () => {
+  it('opts a calendar day into the project schedule only with an explicit named zone', async () => {
+    const dated = {
+      ...plasmid,
+      fields: [{ key: 'expiry', label: 'Expiry', type: 'date' as const }],
+    };
+    const onRevise = vi.fn().mockResolvedValue(undefined);
+    render(<RegistrySchemaManager schemas={[dated]} onChanged={vi.fn()} onRefine={onRevise} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit schema' }));
+    fireEvent.change(screen.getByLabelText('Expiry project schedule role'), {
+      target: { value: 'deadline' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(onRevise).not.toHaveBeenCalled();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/time zone/);
+    fireEvent.change(screen.getByLabelText('Expiry project schedule time zone'), {
+      target: { value: 'Europe/Paris' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(onRevise).toHaveBeenCalledTimes(1));
+    expect(onRevise.mock.calls[0][0].fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'expiry',
+          agenda: { role: 'deadline', zone: 'Europe/Paris' },
+        }),
+      ])
+    );
+  });
   it('uses one library for same-name schemas and saves to the selected organization authority', async () => {
     const organizationSchema = {
       ...plasmid,

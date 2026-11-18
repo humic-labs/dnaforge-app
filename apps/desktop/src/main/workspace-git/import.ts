@@ -87,6 +87,7 @@ import {
   SharedProjectViewOnlyError,
 } from '../shared-project-write-access';
 import { claimRegularFileNoClobber } from './exclusive-file-claim';
+import { assertIndependentWorkImport, isWorkImportCandidate } from '../work-task-import';
 import { copyIndependentFile } from './copy-independent-file';
 import { admitProjectRootInMain } from '../project-filesystem-authority';
 import { isPathInsideBoundary } from '../../shared/path-boundary';
@@ -864,7 +865,7 @@ export async function importIntoManagedWorkspaceRepo(
     };
   }
 
-  const scan = await scanImportTree(originPath, largeFileThresholdBytes);
+  const scan = await scanImportTree(originPath, largeFileThresholdBytes, true);
   const largeFiles = scan.largeFiles;
   const largeFilePolicy = await selectLargeFilePolicy(largeFiles, deps, largeFileThresholdBytes);
   if (largeFilePolicy === 'cancel') {
@@ -1803,6 +1804,9 @@ export async function importFileIntoWorkspaceRoot(
       skipped: true,
     };
   }
+
+  if (isWorkImportCandidate(realSource))
+    assertIndependentWorkImport(realSource, await readFile(realSource, 'utf8'));
 
   let relPath: string;
   let destPath: string;
@@ -3102,6 +3106,13 @@ export async function importContentIntoWorkspaceRoot(
     };
   }
 
+  if (isWorkImportCandidate(base)) {
+    const text = request.contentBytes
+      ? Buffer.from(request.contentBytes).toString('utf8')
+      : request.content!;
+    assertIndependentWorkImport(base, text);
+  }
+
   if (request.content !== undefined && isConstructSequenceFile(base)) {
     const nativeResult = await runNativeSequenceContentImport(
       {
@@ -3261,6 +3272,8 @@ export async function importFolderIntoWorkspaceRoot(
 
   await assertKnownImportDestination(request.targetRoot, { db, managedRootDir });
 
+  await scanImportTree(realSource, LARGE_MANAGED_IMPORT_FILE_THRESHOLD_BYTES, true);
+
   const folderName = basename(realSource) || 'imported';
   let relPath = folderName;
   let destDir = join(request.targetRoot, relPath);
@@ -3320,6 +3333,9 @@ export async function importFileAsNewManagedWorkspace(
   if (!sourceStat.isFile()) {
     throw new Error(`Cannot create a workspace from a non-file: ${sourceFile}`);
   }
+
+  if (isWorkImportCandidate(realSource))
+    assertIndependentWorkImport(realSource, await readFile(realSource, 'utf8'));
 
   const workspaceUuid = randomUUID();
   const repoPath = join(managedRootDir, workspaceUuid, 'repo');
@@ -3882,10 +3898,14 @@ export async function findLargeWorkspaceFiles(
   return (await scanImportTree(sourceRoot, thresholdBytes)).largeFiles;
 }
 
-async function scanImportTree(sourceRoot: string, thresholdBytes: number): Promise<ImportTreeScan> {
+async function scanImportTree(
+  sourceRoot: string,
+  thresholdBytes: number,
+  independent = false
+): Promise<ImportTreeScan> {
   const rootPath = await realpath(sourceRoot);
   const scan: ImportTreeScan = { largeFiles: [], totalFiles: 0, totalBytes: 0 };
-  await collectImportTree(rootPath, rootPath, thresholdBytes, scan);
+  await collectImportTree(rootPath, rootPath, thresholdBytes, scan, independent);
   return scan;
 }
 
@@ -3893,7 +3913,8 @@ async function collectImportTree(
   rootPath: string,
   currentPath: string,
   thresholdBytes: number,
-  scan: ImportTreeScan
+  scan: ImportTreeScan,
+  independent: boolean
 ): Promise<void> {
   const entries = await readdir(currentPath, { withFileTypes: true });
   for (const entry of entries) {
@@ -3901,10 +3922,12 @@ async function collectImportTree(
     if (entry.isSymbolicLink()) continue;
     const sourcePath = join(currentPath, entry.name);
     if (entry.isDirectory()) {
-      await collectImportTree(rootPath, sourcePath, thresholdBytes, scan);
+      await collectImportTree(rootPath, sourcePath, thresholdBytes, scan, independent);
       continue;
     }
     if (!entry.isFile()) continue;
+    if (independent && isWorkImportCandidate(sourcePath))
+      assertIndependentWorkImport(sourcePath, await readFile(sourcePath, 'utf8'));
     const sourceStat = await stat(sourcePath);
     scan.totalFiles += 1;
     scan.totalBytes += sourceStat.size;

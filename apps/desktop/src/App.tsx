@@ -1,3 +1,4 @@
+import { WorkTaskDialogHost } from './features/work/public/work';
 import {
   toUserMessage,
   userMessage,
@@ -2030,6 +2031,7 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
 
         {}
         <ConfirmDialogHost />
+        <WorkTaskDialogHost />
 
         {}
 

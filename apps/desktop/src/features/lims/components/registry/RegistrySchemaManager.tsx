@@ -1,3 +1,4 @@
+import { assertLimsAgendaDefinition } from '@waypoint/scientific-artifacts/shared/lims-temporal';
 import {
   toUserMessage,
   userMessage,
@@ -45,6 +46,7 @@ const EDITABLE_TYPES: { value: LimsFieldType; label: string }[] = [
   { value: 'number', label: 'Number' },
   { value: 'boolean', label: 'Yes / no' },
   { value: 'date', label: 'Date' },
+  { value: 'datetime', label: 'Date and time' },
   { value: 'enum', label: 'Choice' },
   { value: 'string_array', label: 'Text list' },
   { value: 'record_relationship', label: 'Entity link' },
@@ -57,6 +59,7 @@ const FIELD_TYPE_LABELS: Record<LimsFieldType, string> = {
   boolean: 'Yes / no',
   enum: 'Choice',
   date: 'Date',
+  datetime: 'Date and time',
   dna_sequence: 'DNA sequence',
   rna_sequence: 'RNA sequence',
   protein_sequence: 'Protein sequence',
@@ -155,6 +158,15 @@ function validateDraft(
       return userMessage('guidance.field-keys-must-be-unique-including-inherited-fields');
     }
     keys.add(definition.key);
+    if (definition.agenda) {
+      try {
+        assertLimsAgendaDefinition(definition);
+      } catch {
+        return userMessageWithValues('validation.fieldInvalid', {
+          field: userMessageValue(definition.label + ' project schedule time zone'),
+        });
+      }
+    }
     if (
       definition.type === 'enum' &&
       !definition.enumOptions?.some((option) => option.trim().length > 0)
@@ -779,6 +791,15 @@ function FieldTable({
                           definition: {
                             ...item.definition,
                             type,
+                            agenda:
+                              type === 'date' || type === 'datetime'
+                                ? item.definition.agenda && {
+                                    role: item.definition.agenda.role,
+                                    ...(type === 'date'
+                                      ? { zone: item.definition.agenda.zone ?? '' }
+                                      : {}),
+                                  }
+                                : undefined,
                             enumOptions:
                               type === 'enum' ? (item.definition.enumOptions ?? []) : undefined,
                           },
@@ -827,6 +848,67 @@ function FieldTable({
                   </Button>
                 ) : null}
               </div>
+              {(field.definition.type === 'date' || field.definition.type === 'datetime') &&
+                (editing || field.definition.agenda) && (
+                  <div className="col-span-5 grid gap-2 text-xs sm:grid-cols-2">
+                    <label className="flex flex-col gap-1 font-medium text-fg-muted">
+                      Project schedule
+                      <select
+                        aria-label={field.definition.label + ' project schedule role'}
+                        className="rounded border border-border bg-bg px-2 py-1.5 text-fg"
+                        disabled={!editing || disabled}
+                        value={field.definition.agenda?.role ?? ''}
+                        onChange={(e) => {
+                          const role = e.target.value as
+                            | 'milestone'
+                            | 'deadline'
+                            | 'observation'
+                            | '';
+                          change(index, (item) => ({
+                            ...item,
+                            definition: {
+                              ...item.definition,
+                              agenda: role
+                                ? {
+                                    role,
+                                    ...(item.definition.type === 'date'
+                                      ? { zone: item.definition.agenda?.zone ?? '' }
+                                      : {}),
+                                  }
+                                : undefined,
+                            },
+                          }));
+                        }}
+                      >
+                        <option value="">Do not include</option>
+                        <option value="milestone">Milestone</option>
+                        <option value="deadline">Deadline</option>
+                        <option value="observation">Observation</option>
+                      </select>
+                    </label>
+                    {field.definition.type === 'date' && field.definition.agenda && (
+                      <label className="flex flex-col gap-1 font-medium text-fg-muted">
+                        Date time zone
+                        <TextField
+                          aria-label={field.definition.label + ' project schedule time zone'}
+                          required
+                          disabled={!editing || disabled}
+                          value={field.definition.agenda.zone ?? ''}
+                          placeholder="America/New_York"
+                          onChange={(e) =>
+                            change(index, (item) => ({
+                              ...item,
+                              definition: {
+                                ...item.definition,
+                                agenda: { ...item.definition.agenda!, zone: e.target.value },
+                              },
+                            }))
+                          }
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
               {field.definition.type === 'enum' ? (
                 <label className="col-span-5 flex flex-col gap-1 text-xs font-medium text-fg-muted">
                   Choices (one per line)

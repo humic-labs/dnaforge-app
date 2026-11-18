@@ -11,6 +11,7 @@ import { originalProjectContract } from './original-project.contract';
 import { organizationRegistryContract } from './organization-registry.contract';
 
 import { scientificRecoveryContract } from './scientific-recovery.contract';
+import { workTasksContract } from './work-tasks.contract';
 import { scientificObjectsContract } from './scientific-objects.contract';
 import type { AssertTrue, DisjointGroups } from './contract';
 import { analyticsContract } from './analytics.contract';
@@ -92,6 +93,7 @@ export const ipcContracts = [
   looseSequenceFilesContract,
   agentFeedbackContract,
   analyticsContract,
+  workTasksContract,
   scientificObjectsContract,
   computeContract,
   feedbackContract,
