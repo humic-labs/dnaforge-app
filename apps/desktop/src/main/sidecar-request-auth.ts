@@ -14,7 +14,10 @@ function isOperationPath(url: URL): boolean {
 }
 
 function isNativeDocumentPath(url: URL): boolean {
-  return url.pathname.startsWith('/internal/managed-documents/');
+  return (
+    url.pathname.startsWith('/internal/managed-documents/') ||
+    /^\/agent-grants\/[^/]+\/organization-inventory\/(?:claim-policy|lease)$/.test(url.pathname)
+  );
 }
 
 export const SIDECAR_AUTH_REQUEST_FILTER: { urls: string[] } = { urls: ['<all_urls>'] };

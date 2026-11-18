@@ -52,6 +52,11 @@ import {
   getSidecarProcessPid,
 } from './sidecar';
 import { sidecarFetch, sidecarSessionAuthority } from './sidecar-session-runtime';
+import { createNativeAgentGrantInspector } from './agent-grant-authority';
+import {
+  createOrganizationInventoryAgentClaimsClient,
+  organizationInventoryAgentLeaseRequestSchema,
+} from './organization-inventory-agent-claims';
 import { setSequenceImportBeforeClaimForTest } from './workspace-git/import';
 import {
   acquireWorkspaceSyncMutationLease,
@@ -510,6 +515,39 @@ export function installMainTestBridge(deps: MainTestBridgeDeps): void {
         status: response.status,
         body: await response.text(),
       };
+    },
+    inspectOrganizationInventoryAgentClaimForTest: async (input: {
+      identityId: string;
+      unenrolledRequest?: unknown;
+    }) => {
+      if (app.isPackaged || process.env.NODE_ENV !== 'test')
+        throw new Error('Claim inspection is available only in the test harness.');
+      const captured = sidecarSessionAuthority.snapshot();
+      if (captured.state !== 'ready') throw new Error('The actual compute session is not ready.');
+      const assertCurrent = () => {
+        if (!sidecarSessionAuthority.isCurrent(captured))
+          throw new Error('The actual compute session changed.');
+      };
+      const grant = await createNativeAgentGrantInspector(sidecarFetch)(input.identityId);
+      assertCurrent();
+      if (!grant?.scopes || grant.revokedAt) throw new Error('The actual grant is unavailable.');
+      const client = createOrganizationInventoryAgentClaimsClient({
+        agent: { identityId: input.identityId, capabilities: grant.scopes },
+        assertCurrent,
+      });
+      const policy = await client.policyStatus();
+      assertCurrent();
+      if (input.unenrolledRequest === undefined) return { policy };
+      if (policy.kind !== 'policy' || policy.policy !== null)
+        throw new Error('This probe may inspect only an unenrolled grant.');
+      const request = organizationInventoryAgentLeaseRequestSchema.parse(input.unenrolledRequest);
+      if (request.purpose.kind !== 'observe')
+        throw new Error('This probe cannot admit a physical command.');
+      const admission = await client.acquireLease(request);
+      assertCurrent();
+      if (admission.kind === 'granted')
+        throw new Error('An unenrolled grant unexpectedly received admission.');
+      return { policy, admission };
     },
     stubQuitAndInstall: (onInstall?: () => void) => {
       testGlobals.__quitAndInstallCalled = false;

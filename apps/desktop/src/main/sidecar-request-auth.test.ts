@@ -261,6 +261,62 @@ describe('injectReadySidecarSessionHeader', () => {
 });
 
 describe('createSidecarFetch', () => {
+  it.each(['claim-policy', 'lease'])(
+    'injects native authority only for the exact organization inventory %s path',
+    async (endpoint) => {
+      const fetchImpl = vi.fn(
+        async (_input: Parameters<typeof fetch>[0], _init?: RequestInit) => new Response('{}')
+      );
+      const privateFetch = createSidecarFetch({
+        getBaseUrl: () => 'http://127.0.0.1:8012',
+        getCurrentToken: () => 'session',
+        getNativeDocumentToken: () => 'native',
+        fetchImpl,
+      });
+      await privateFetch(`/agent-grants/agent%20one/organization-inventory/${endpoint}`);
+      expect(
+        new Headers(fetchImpl.mock.calls[0][1]?.headers).get('X-DNAForge-Native-Document-Authority')
+      ).toBe('native');
+    }
+  );
+
+  it('does not expand private authority to other grant routes or to renderer claim requests', async () => {
+    const captured: Headers[] = [];
+    const privateFetch = createSidecarFetch({
+      getBaseUrl: () => 'http://127.0.0.1:8012',
+      getCurrentToken: () => 'session',
+      getNativeDocumentToken: () => 'native',
+      fetchImpl: async (_url, init) => {
+        captured.push(new Headers(init?.headers));
+        return new Response('{}');
+      },
+    });
+    for (const path of [
+      '/agent-grants',
+      '/agent-grants/agent-one',
+      '/agent-grants/agent-one/organization-inventory',
+      '/agent-grants/agent-one/organization-inventory/claim-policy/',
+      '/agent-grants/agent-one/organization-inventory/lease/extra',
+      '/agent-grants/agent/one/organization-inventory/lease',
+    ])
+      await privateFetch(path, { headers: { 'X-DNAForge-Native-Document-Authority': 'forged' } });
+    expect(captured.every((headers) => !headers.has('X-DNAForge-Native-Document-Authority'))).toBe(
+      true
+    );
+    const authority = new SidecarSessionAuthority();
+    const snapshot = authority.prepareManagedSpawn('initial');
+    authority.markReady(snapshot.generation);
+    const renderer = await injectReadySidecarSessionHeader({
+      requestUrl: 'http://127.0.0.1:8012/agent-grants/agent-one/organization-inventory/lease',
+      sidecarBaseUrl: 'http://127.0.0.1:8012',
+      authority,
+      requestHeaders: { 'X-DNAForge-Native-Document-Authority': 'forged' },
+    });
+    expect(
+      new Headers(renderer as Record<string, string>).has('X-DNAForge-Native-Document-Authority')
+    ).toBe(false);
+  });
+
   it('does not turn the ordinary main request proxy into native write authority', async () => {
     const fetchImpl = vi.fn(
       async (_input: Parameters<typeof fetch>[0], _init?: RequestInit) => new Response('{}')
