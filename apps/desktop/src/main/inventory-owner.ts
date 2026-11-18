@@ -2,6 +2,11 @@ import { createHash } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import {
   applyInventoryCommandBatch,
+  inventoryPlatePlanVersionExisting,
+  inventoryPlatePlanVersionPreview,
+  inventoryPlatePlanVersions,
+  inventoryPlatePlanBindingPreview,
+  renderInventoryPlatePlanDiagram,
   inventoryScientificCitationExisting,
   inventoryScientificCitationWithdrawalExisting,
   inventoryScientificCitationPreview,
@@ -123,6 +128,18 @@ import {
   applyNativeInventoryScientificTransfer,
   findNativeInventoryScientificSource,
 } from './inventory-scientific';
+import {
+  inventoryPreviewPlatePlanVersionRequestSchema,
+  inventoryApplyPlatePlanVersionRequestSchema,
+  inventoryPlatePlanVersionsRequestSchema,
+  inventoryPlatePlanVersionRequestSchema,
+  inventoryPreviewPlatePlanBindingRequestSchema,
+  type InventoryPlatePlanVersionPreviewSnapshot,
+  type InventoryPlatePlanVersionsRead,
+  type InventoryPlatePlanVersionRead,
+  type InventoryPlatePlanBindingPreviewSnapshot,
+} from '../shared/inventory-plate-plans';
+import { applyNativeInventoryPlatePlanVersion } from './inventory-plate-plans';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import {
   applyNativeInventoryScientificCitation,
@@ -540,7 +557,7 @@ export function createNativeInventoryOwner(options: {
         const previous = row ? stateFromRow(row) : createInventoryState();
         const recordedAt = observationTime(previous);
         const context = inventoryReceiptContextSchema.parse({
-          version: 8,
+          version: 9,
           principal: principal(invocation),
           authority,
           ...('kind' in request &&
@@ -561,7 +578,26 @@ export function createNativeInventoryOwner(options: {
         });
         let result: InventoryTransition;
         let assertStockroomMaterials = () => {};
-        if (
+        if ('kind' in request && request.kind === 'save-plate-plan-version') {
+          const existingVersion = inventoryPlatePlanVersionExisting(previous, request.choices);
+          if (existingVersion.kind === 'no-change')
+            return reject(
+              'INVENTORY_PLATE_PLAN_VERSION_NO_CHANGES',
+              'This exact plan version is already saved. Its original reason and recorder remain unchanged.'
+            );
+          if (existingVersion.kind === 'blocked')
+            return reject(existingVersion.issue.code, existingVersion.issue.message);
+          if (request.expectedRevision !== previous.revision)
+            return reject(
+              'REVISION_CONFLICT',
+              'Inventory changed after the plan version was previewed.'
+            );
+          result = applyNativeInventoryPlatePlanVersion(previous, request, {
+            at: recordedAt,
+            principal: context.principal,
+            authority,
+          });
+        } else if (
           'kind' in request &&
           (request.kind === 'record-scientific-citation' ||
             request.kind === 'withdraw-scientific-citation')
@@ -1119,6 +1155,16 @@ export function createNativeInventoryOwner(options: {
             'INVENTORY_SCIENTIFIC_SOURCE_TOO_LARGE',
             'The complete scientific request and retained source exceed the native inline limit.'
           );
+        if (
+          'kind' in request &&
+          request.kind === 'save-plate-plan-version' &&
+          Buffer.byteLength(canonicalNativeMutationRequest({ request, receipt }), 'utf8') >
+            NATIVE_DOCUMENT_MAX_BODY_BYTES
+        )
+          return reject(
+            'INVENTORY_PLATE_PLAN_TOO_LARGE',
+            'The complete plan request and receipt exceed the native inline limit.'
+          );
         assertCurrent();
         assertStockroomMaterials();
         scientificCapture?.assertCurrent();
@@ -1165,7 +1211,7 @@ export function createNativeInventoryOwner(options: {
     return execution;
   };
 
-  const citationRead = <T>(
+  const inventorySnapshotRead = <T>(
     scope: { project: string; inventoryId: string },
     mutating: boolean,
     action: (db: Database.Database, project: RegisteredProject, state: InventoryState | null) => T
@@ -1189,7 +1235,7 @@ export function createNativeInventoryOwner(options: {
       if (canonicalNativeMutationRequest(snapshot()) !== captured)
         throw new NativeDocumentCommandError(
           'PROJECT_ACCESS_CHANGED',
-          'The citation project authority changed.',
+          'The inventory project authority changed.',
           false
         );
       if (mutating) assertAcceptingSharedProjectContentWritable(db, project.path);
@@ -1209,6 +1255,257 @@ export function createNativeInventoryOwner(options: {
     return structuredClone(result);
   };
   return {
+    previewPlatePlanVersion(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventoryPlatePlanVersionPreviewSnapshot {
+      const request = inventoryPreviewPlatePlanVersionRequestSchema.parse(input);
+      return inventorySnapshotRead(request, false, (_db, project, saved) => {
+        const state = saved ?? createInventoryState(),
+          asOf = observationTime(state),
+          caller = principal(invocation);
+        return {
+          ...inventoryPlatePlanVersionPreview(state, {
+            ...request.choices,
+            target: {
+              projectId: project.projectId,
+              inventoryId: request.inventoryId,
+              present: saved !== null,
+              revision: request.expectedRevision,
+            },
+            asOf,
+            principal: caller,
+            authority,
+          }),
+          projectId: project.projectId,
+          inventoryId: request.inventoryId,
+          revision: state.revision,
+          asOf,
+          principal: caller,
+        };
+      });
+    },
+    applyPlatePlanVersion(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): NativeInventoryExecution {
+      return commit(
+        inventoryApplyPlatePlanVersionRequestSchema.parse(input),
+        assertCurrent,
+        invocation
+      );
+    },
+    platePlanVersions(input: unknown): InventoryPlatePlanVersionsRead {
+      const request = inventoryPlatePlanVersionsRequestSchema.parse(input);
+      const result = inventorySnapshotRead(
+        request,
+        false,
+        (_db, project, state): InventoryPlatePlanVersionsRead => {
+          const identity = request.identity ?? null;
+          if (!state)
+            return {
+              kind: 'inventory-absent',
+              projectId: project.projectId,
+              inventoryId: request.inventoryId,
+              identity,
+            };
+          const versions = inventoryPlatePlanVersions(state, request.identity),
+            querySha256 = nativeInventorySha256(
+              canonicalNativeMutationRequest([
+                'dnaforge.inventory-plate-plan-versions-query.v1',
+                project.projectId,
+                request.inventoryId,
+                identity,
+              ])
+            );
+          let start = 0;
+          if (request.cursor) {
+            if (request.cursor.querySha256 !== querySha256)
+              return {
+                kind: 'unavailable',
+                code: 'INVENTORY_QUERY_CURSOR_INVALID',
+                message: 'This cursor belongs to another plan-version query.',
+                retryable: false,
+              };
+            if (request.cursor.revision !== state.revision)
+              return {
+                kind: 'unavailable',
+                code: 'INVENTORY_QUERY_REVISION_CHANGED',
+                message: 'Inventory changed. Read the first plan-version page again.',
+                retryable: true,
+              };
+            const index = versions.findIndex(
+              (version) =>
+                version.id === request.cursor!.after.versionId &&
+                version.at === request.cursor!.after.at
+            );
+            if (index < 0)
+              return {
+                kind: 'unavailable',
+                code: 'INVENTORY_QUERY_CURSOR_INVALID',
+                message: 'The cursor does not identify a version in this query.',
+                retryable: false,
+              };
+            start = index + 1;
+          }
+          const page = versions.slice(start, start + (request.limit ?? 20)),
+            last = page.at(-1);
+          return {
+            kind: 'ready',
+            projectId: project.projectId,
+            inventoryId: request.inventoryId,
+            revision: state.revision,
+            identity,
+            versions: page,
+            nextCursor:
+              last && start + page.length < versions.length
+                ? {
+                    querySha256,
+                    revision: state.revision,
+                    after: { at: last.at, versionId: last.id },
+                  }
+                : null,
+          };
+        }
+      );
+      return Buffer.byteLength(canonicalNativeMutationRequest(result), 'utf8') <=
+        NATIVE_DOCUMENT_MAX_BODY_BYTES - 2048
+        ? result
+        : {
+            kind: 'unavailable',
+            code: 'INVENTORY_QUERY_TOO_LARGE',
+            message: 'The plan-version page exceeds the inline read limit. Choose a smaller page.',
+            retryable: false,
+          };
+    },
+    platePlanVersion(input: unknown): InventoryPlatePlanVersionRead {
+      const request = inventoryPlatePlanVersionRequestSchema.parse(input);
+      return inventorySnapshotRead(
+        request,
+        false,
+        (_db, project, state): InventoryPlatePlanVersionRead => {
+          const version =
+            state && Object.hasOwn(state.platePlanVersions, request.versionId)
+              ? state.platePlanVersions[request.versionId]
+              : undefined;
+          if (!state || !version)
+            return {
+              kind: 'unavailable',
+              code: 'INVENTORY_PLATE_PLAN_VERSION_NOT_FOUND',
+              message: 'The exact saved plan version is unavailable.',
+              retryable: false,
+            };
+          if (version.definitionSha256 !== request.definitionSha256)
+            return {
+              kind: 'unavailable',
+              code: 'INVENTORY_PLATE_PLAN_PIN_MISMATCH',
+              message: 'The saved plan version does not match the selected definition pin.',
+              retryable: false,
+            };
+          let result: InventoryPlatePlanVersionRead = {
+            kind: 'available',
+            projectId: project.projectId,
+            inventoryId: request.inventoryId,
+            revision: state.revision,
+            version,
+            diagram: renderInventoryPlatePlanDiagram(version),
+          };
+          if (
+            Buffer.byteLength(canonicalNativeMutationRequest(result), 'utf8') >
+            NATIVE_DOCUMENT_MAX_BODY_BYTES - 2048
+          )
+            result = {
+              ...result,
+              diagram: {
+                kind: 'refused',
+                code: 'INVENTORY_PLATE_PLAN_DIAGRAM_TOO_LARGE',
+                message:
+                  'The diagram exceeds the inline read limit. The exact plan definition remains available.',
+              },
+            };
+          return Buffer.byteLength(canonicalNativeMutationRequest(result), 'utf8') <=
+            NATIVE_DOCUMENT_MAX_BODY_BYTES - 2048
+            ? result
+            : {
+                kind: 'unavailable',
+                code: 'INVENTORY_QUERY_TOO_LARGE',
+                message: 'The saved plan definition exceeds the inline read limit.',
+                retryable: false,
+              };
+        }
+      );
+    },
+    previewPlatePlanBinding(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventoryPlatePlanBindingPreviewSnapshot {
+      const request = inventoryPreviewPlatePlanBindingRequestSchema.parse(input);
+      const result = inventorySnapshotRead(
+        request,
+        false,
+        (_db, project, state): InventoryPlatePlanBindingPreviewSnapshot => {
+          const version =
+            state && Object.hasOwn(state.platePlanVersions, request.binding.versionId)
+              ? state.platePlanVersions[request.binding.versionId]
+              : undefined;
+          if (!state || !version)
+            return {
+              kind: 'unavailable',
+              code: 'INVENTORY_PLATE_PLAN_VERSION_NOT_FOUND',
+              message: 'The exact saved plan version is unavailable.',
+              retryable: false,
+            };
+          if (version.definitionSha256 !== request.binding.definitionSha256)
+            return {
+              kind: 'unavailable',
+              code: 'INVENTORY_PLATE_PLAN_PIN_MISMATCH',
+              message: 'The selected plan definition pin changed.',
+              retryable: false,
+            };
+          const asOf = observationTime(state),
+            caller = principal(invocation);
+          return {
+            ...inventoryPlatePlanBindingPreview(state, {
+              target: {
+                projectId: project.projectId,
+                inventoryId: request.inventoryId,
+                present: true,
+                revision: request.expectedRevision,
+              },
+              binding: request.binding,
+              asOf,
+              principal: caller,
+              authority,
+            }),
+            projectId: project.projectId,
+            inventoryId: request.inventoryId,
+            revision: state.revision,
+          };
+        }
+      );
+      if (
+        result.kind !== 'unavailable' &&
+        result.nextBoundaryAt !== null &&
+        nativeNow() >= result.nextBoundaryAt
+      )
+        return {
+          kind: 'unavailable',
+          code: 'INVENTORY_PLATE_PLAN_PREVIEW_STALE',
+          message:
+            'A relevant time boundary passed before this preview could be returned. Check the binding again.',
+          retryable: true,
+        };
+      return Buffer.byteLength(canonicalNativeMutationRequest(result), 'utf8') <=
+        NATIVE_DOCUMENT_MAX_BODY_BYTES - 2048
+        ? result
+        : {
+            kind: 'unavailable',
+            code: 'INVENTORY_QUERY_TOO_LARGE',
+            message: 'The binding preview exceeds the inline read limit.',
+            retryable: false,
+          };
+    },
     async previewScientificCitation(
       input: unknown,
       invocation: NativeInventoryInvocation = {}
@@ -1216,7 +1513,7 @@ export function createNativeInventoryOwner(options: {
       const request = inventoryPreviewScientificCitationRequestSchema.parse(input);
       const observe = (capture: NotebookSavedSourceCapture | ProtocolSavedSourceCapture | null) => {
         capture?.assertCurrent();
-        const result = citationRead(request, true, (_db, project, saved) => {
+        const result = inventorySnapshotRead(request, true, (_db, project, saved) => {
           const state = saved ?? createInventoryState(),
             asOf = observationTime(state),
             caller = principal(invocation);
@@ -1316,7 +1613,7 @@ export function createNativeInventoryOwner(options: {
       invocation: NativeInventoryInvocation = {}
     ): InventoryScientificCitationWithdrawalPreviewSnapshot {
       const request = inventoryPreviewScientificCitationWithdrawalRequestSchema.parse(input);
-      return citationRead(request, true, (_db, project, saved) => {
+      return inventorySnapshotRead(request, true, (_db, project, saved) => {
         const state = saved ?? createInventoryState(),
           asOf = observationTime(state),
           caller = principal(invocation);
@@ -1363,7 +1660,7 @@ export function createNativeInventoryOwner(options: {
     },
     scientificCitations(input: unknown): InventoryScientificCitationsRead {
       const request = inventoryScientificCitationsRequestSchema.parse(input);
-      const result = citationRead(
+      const result = inventorySnapshotRead(
         request,
         false,
         (_db, project, state): InventoryScientificCitationsRead => {
@@ -1451,7 +1748,7 @@ export function createNativeInventoryOwner(options: {
     },
     scientificCitationSource(input: unknown): InventoryScientificCitationSourceRead {
       const request = inventoryScientificCitationSourceRequestSchema.parse(input);
-      const result = citationRead(
+      const result = inventorySnapshotRead(
         request,
         false,
         (db, project, state): InventoryScientificCitationSourceRead => {

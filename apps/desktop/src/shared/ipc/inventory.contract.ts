@@ -1,5 +1,16 @@
 import { defineGroup, event, invoke } from './contract';
 import type {
+  InventoryPreviewPlatePlanVersionRequest,
+  InventoryApplyPlatePlanVersionRequest,
+  InventoryPlatePlanVersionsRequest,
+  InventoryPlatePlanVersionRequest,
+  InventoryPreviewPlatePlanBindingRequest,
+  InventoryPlatePlanVersionPreviewSnapshot,
+  InventoryPlatePlanVersionsRead,
+  InventoryPlatePlanVersionRead,
+  InventoryPlatePlanBindingPreviewSnapshot,
+} from '../inventory-plate-plans';
+import type {
   InventoryPreviewScientificCitationRequest,
   InventoryApplyScientificCitationRequest,
   InventoryPreviewScientificCitationWithdrawalRequest,
@@ -88,6 +99,27 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  previewPlatePlanVersion: invoke<
+    [request: InventoryPreviewPlatePlanVersionRequest],
+    InventoryPlatePlanVersionPreviewSnapshot
+  >(),
+  applyPlatePlanVersion: invoke<
+    [request: InventoryApplyPlatePlanVersionRequest],
+    NativeInventoryExecution
+  >(),
+  platePlanVersions: invoke<
+    [request: InventoryPlatePlanVersionsRequest],
+    InventoryPlatePlanVersionsRead
+  >(),
+  platePlanVersion: invoke<
+    [request: InventoryPlatePlanVersionRequest],
+    InventoryPlatePlanVersionRead
+  >(),
+  previewPlatePlanBinding: invoke<
+    [request: InventoryPreviewPlatePlanBindingRequest],
+    InventoryPlatePlanBindingPreviewSnapshot
+  >(),
+
   previewScientificCitation: invoke<
     [request: InventoryPreviewScientificCitationRequest],
     InventoryScientificCitationPreviewSnapshot

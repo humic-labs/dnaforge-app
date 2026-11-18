@@ -1,4 +1,9 @@
 import {
+  runInventoryPlatePlans,
+  runInventoryPlatePlansResume,
+  runInventoryPlatePlansReopen,
+} from './journeys/inventory-plate-plans.mjs';
+import {
   runInventoryScientificCitations,
   runInventoryScientificCitationsResume,
   runInventoryScientificCitationsReopen,
@@ -136,6 +141,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const args = process.argv.slice(2);
 const option = (name) => args[args.indexOf(name) + 1];
 const stage = args.includes('--stage') ? option('--stage') : 'doctor';
+const platePlanStages = {
+  'plate-plans': runInventoryPlatePlans,
+  'plate-plans-resume': runInventoryPlatePlansResume,
+  'plate-plans-reopen': runInventoryPlatePlansReopen,
+};
 const citationStages = {
   'scientific-citations': runInventoryScientificCitations,
   'scientific-citations-resume': runInventoryScientificCitationsResume,
@@ -150,6 +160,7 @@ const recordedWorkStages = {
 assert.ok(
   [
     ...Object.keys(recordedWorkStages),
+    ...Object.keys(platePlanStages),
     ...Object.keys(citationStages),
     'doctor',
     'before',
@@ -914,6 +925,31 @@ try {
           ? runInventoryStockroomCorrectionsResume
           : runInventoryStockroomCorrectionsReopen
     )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
+  if (Object.hasOwn(platePlanStages, stage)) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the exact current inventory fixture or plate-plan checkpoint.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    const existing = page.getByTestId('inventory-plate-plans');
+    if (await existing.isVisible()) {
+      if (await page.getByRole('option').count()) await page.keyboard.press('Escape');
+      await existing.getByRole('button', { name: 'Close plate plans', exact: true }).click();
+    }
+    await openInventory(fixture.project.name);
+    receipt.expected = await platePlanStages[stage]({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+      nativeDialogs: args.includes('--native-dialogs'),
+    });
   }
   if (Object.hasOwn(citationStages, stage)) {
     assert.ok(

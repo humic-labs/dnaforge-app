@@ -29,6 +29,8 @@ const message = (cause: unknown) => (cause instanceof Error ? cause.message : St
 export class InventoryTextOutputSession<T> {
   private output: InventoryTextOutput<T> = { kind: 'not-exported' };
   private disposed = false;
+  private generation = 0;
+  private choosing: { generation: number; previous: InventoryTextOutput<T> } | null = null;
 
   constructor(
     private readonly port: InventoryTextOutputPort,
@@ -45,14 +47,20 @@ export class InventoryTextOutputSession<T> {
   async export(artifact: T, defaultPath: string): Promise<void> {
     if (this.disposed || inventoryTextOutputLocked(this.output)) return;
     const previous = this.output;
+    const generation = ++this.generation;
+    this.choosing = { generation, previous };
     this.set({ kind: 'choosing', artifact });
     let path: string | null;
     try {
       path = await this.port.chooseDestination(defaultPath);
     } catch (cause) {
+      if (this.disposed || generation !== this.generation) return;
+      this.choosing = null;
       this.set({ kind: 'failed', artifact, message: message(cause) });
       return;
     }
+    if (this.disposed || generation !== this.generation) return;
+    this.choosing = null;
     if (path === null) {
       this.set(previous);
       return;
@@ -122,7 +130,17 @@ export class InventoryTextOutputSession<T> {
     this.set({ kind: 'not-exported' });
   }
 
+  cancelChoosing(): void {
+    const choosing = this.choosing;
+    if (!choosing || this.output.kind !== 'choosing') return;
+    this.choosing = null;
+    ++this.generation;
+    this.set(choosing.previous);
+  }
+
   dispose(): void {
+    this.cancelChoosing();
     this.disposed = true;
+    ++this.generation;
   }
 }

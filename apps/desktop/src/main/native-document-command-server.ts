@@ -1,3 +1,10 @@
+import {
+  inventoryPreviewPlatePlanVersionRequestSchema,
+  inventoryApplyPlatePlanVersionRequestSchema,
+  inventoryPlatePlanVersionsRequestSchema,
+  inventoryPlatePlanVersionRequestSchema,
+  inventoryPreviewPlatePlanBindingRequestSchema,
+} from '../shared/inventory-plate-plans';
 import { timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { z } from 'zod';
@@ -111,6 +118,52 @@ const selection = target
   })
   .strict();
 const commandSchema = z.discriminatedUnion('command', [
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-plate-plan-version'),
+      request: inventoryPreviewPlatePlanVersionRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.apply-plate-plan-version'),
+      request: inventoryApplyPlatePlanVersionRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.plate-plan-versions'),
+      request: inventoryPlatePlanVersionsRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.plate-plan-version'),
+      request: inventoryPlatePlanVersionRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-plate-plan-binding'),
+      request: inventoryPreviewPlatePlanBindingRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+
   z
     .object({
       ownerInstanceId: identity,
@@ -646,6 +699,11 @@ export async function startNativeDocumentCommandServer(options: {
   inventory?: Pick<
     ReturnType<typeof createNativeInventoryOwner>,
     | 'execute'
+    | 'previewPlatePlanVersion'
+    | 'applyPlatePlanVersion'
+    | 'platePlanVersions'
+    | 'platePlanVersion'
+    | 'previewPlatePlanBinding'
     | 'previewScientificCitation'
     | 'applyScientificCitation'
     | 'previewScientificCitationWithdrawal'
@@ -850,6 +908,11 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'project-history.execute' ||
           body.command === 'import-review.execute' ||
           body.command === 'administration.execute' ||
+          body.command === 'inventory.preview-plate-plan-version' ||
+          body.command === 'inventory.apply-plate-plan-version' ||
+          body.command === 'inventory.plate-plan-versions' ||
+          body.command === 'inventory.plate-plan-version' ||
+          body.command === 'inventory.preview-plate-plan-binding' ||
           body.command === 'inventory.preview-scientific-citation' ||
           body.command === 'inventory.apply-scientific-citation' ||
           body.command === 'inventory.preview-scientific-citation-withdrawal' ||
@@ -905,6 +968,7 @@ export async function startNativeDocumentCommandServer(options: {
               body.agent
             ) {
               const required =
+                body.command === 'inventory.apply-plate-plan-version' ||
                 body.command === 'inventory.apply-scientific-citation' ||
                 body.command === 'inventory.apply-scientific-citation-withdrawal' ||
                 body.command === 'inventory.apply-scientific-transfer' ||
@@ -950,6 +1014,42 @@ export async function startNativeDocumentCommandServer(options: {
           const run = (() => {
             if (options.inventory) {
               const receiver = options.inventory;
+              const planInvocation =
+                'agent' in body && body.agent
+                  ? {
+                      actor: `agent:${body.agent.identityId}`,
+                      principal: { kind: 'agent' as const, identityId: body.agent.identityId },
+                    }
+                  : undefined;
+              if (body.command === 'inventory.preview-plate-plan-version')
+                return () => ({
+                  kind: 'plate-plan-version-preview',
+                  preview: receiver.previewPlatePlanVersion(body.request, planInvocation),
+                });
+              if (body.command === 'inventory.apply-plate-plan-version')
+                return () => ({
+                  kind: 'execution',
+                  execution: receiver.applyPlatePlanVersion(
+                    body.request,
+                    assertCurrent,
+                    planInvocation
+                  ),
+                });
+              if (body.command === 'inventory.plate-plan-versions')
+                return () => ({
+                  kind: 'plate-plan-versions',
+                  result: receiver.platePlanVersions(body.request),
+                });
+              if (body.command === 'inventory.plate-plan-version')
+                return () => ({
+                  kind: 'plate-plan-version',
+                  result: receiver.platePlanVersion(body.request),
+                });
+              if (body.command === 'inventory.preview-plate-plan-binding')
+                return () => ({
+                  kind: 'plate-plan-binding-preview',
+                  preview: receiver.previewPlatePlanBinding(body.request, planInvocation),
+                });
               if (body.command === 'inventory.scientific-citations')
                 return () => ({
                   kind: 'scientific-citations',
@@ -1423,6 +1523,10 @@ export async function startNativeDocumentCommandServer(options: {
             body.command !== 'inventory.operation' &&
             body.command !== 'inventory.history';
           if (
+            body.command === 'inventory.preview-plate-plan-version' ||
+            body.command === 'inventory.plate-plan-versions' ||
+            body.command === 'inventory.plate-plan-version' ||
+            body.command === 'inventory.preview-plate-plan-binding' ||
             body.command === 'inventory.preview-scientific-citation' ||
             body.command === 'inventory.preview-scientific-citation-withdrawal' ||
             body.command === 'inventory.scientific-citations' ||

@@ -218,5 +218,7 @@ export function executeInventoryAcceptedRequest(
       return client.applyScientificCitation(request);
     case 'withdraw-scientific-citation':
       return client.applyScientificCitationWithdrawal(request);
+    case 'save-plate-plan-version':
+      return client.applyPlatePlanVersion(request);
   }
 }

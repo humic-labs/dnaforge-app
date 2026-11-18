@@ -1,3 +1,9 @@
+import type { InventoryPlatePlanVersion } from './inventory-plate-plan-types';
+import { parseInventoryPlatePlanDefinition } from './inventory-plate-plan-definition';
+import {
+  validateInventoryPlatePlanVersion,
+  validateInventoryPlatePlans,
+} from './inventory-plate-plan-validation';
 import type {
   InventoryScientificCitation,
   InventoryScientificCitationWithdrawal,
@@ -88,6 +94,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_CITATION_SCHEMA,
   INVENTORY_RUN_CONTEXT_SCHEMA,
   INVENTORY_NOTEBOOK_CONTEXT_SCHEMA,
   INVENTORY_STOCKROOM_SCHEMA,
@@ -2320,6 +2327,41 @@ const scientificWorkRecord: Codec<InventoryScientificWork> = fields('Scientific 
   by: recordedPrincipal,
   reason,
 });
+const platePlanVersionRecord: Codec<InventoryPlatePlanVersion> = fields(
+  'Reusable plate plan version',
+  {
+    id,
+    identity: fields('Plate plan family identity', { namespace: arrivalKey, planId: arrivalKey }),
+    definitionSha256: sha256,
+    definition: { schema: { type: 'object' }, parse: parseInventoryPlatePlanDefinition },
+    at: timestamp,
+    by: recordedPrincipal,
+    reason,
+  }
+);
+
+export function parseInventoryPlatePlanVersion(value: unknown): InventoryPlatePlanVersion {
+  const version = platePlanVersionRecord.parse(value);
+  try {
+    validateInventoryPlatePlanVersion(version);
+  } catch (error) {
+    invalid(error instanceof Error ? error.message : 'Invalid plate plan version.');
+  }
+  return version;
+}
+export function parseInventoryRecordedPrincipal(value: unknown) {
+  return recordedPrincipal.parse(value);
+}
+export function parseInventoryStorage(value: unknown) {
+  return storageRecord.parse(value);
+}
+export function parseInventoryStock(value: unknown) {
+  return stockRecord.parse(value);
+}
+export function parseInventoryVessel(value: unknown) {
+  return vesselRecord.parse(value);
+}
+
 const scientificCitationContext = fields('Saved scientific citation context', {
   kind: union('Scientific citation source kind', [
     literal('notebook-page'),
@@ -3063,7 +3105,8 @@ export function parseInventoryScientificWork(value: unknown): InventoryScientifi
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const runContextRecords = current || row.schema === INVENTORY_RUN_CONTEXT_SCHEMA;
+  const citationRecords = current || row.schema === INVENTORY_CITATION_SCHEMA;
+  const runContextRecords = citationRecords || row.schema === INVENTORY_RUN_CONTEXT_SCHEMA;
   const scientificRecords = runContextRecords || row.schema === INVENTORY_NOTEBOOK_CONTEXT_SCHEMA;
   const stockroomRecords = scientificRecords || row.schema === INVENTORY_STOCKROOM_SCHEMA;
   const arrivalRecords = stockroomRecords || row.schema === INVENTORY_ARRIVAL_SCHEMA;
@@ -3088,6 +3131,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_CITATION_SCHEMA),
       literal(INVENTORY_RUN_CONTEXT_SCHEMA),
       literal(INVENTORY_NOTEBOOK_CONTEXT_SCHEMA),
       literal(INVENTORY_STOCKROOM_SCHEMA),
@@ -3115,6 +3159,9 @@ export function parseInventoryState(value: unknown): InventoryState {
     ]),
     revision,
     ...(current
+      ? { platePlanVersions: { schema: { type: 'object' }, parse: (input: unknown) => input } }
+      : {}),
+    ...(citationRecords
       ? {
           scientificCitations: { schema: { type: 'object' }, parse: (input: unknown) => input },
           scientificCitationWithdrawals: {
@@ -3247,10 +3294,13 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   let state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    scientificCitations: current
+    platePlanVersions: current
+      ? records(shape.platePlanVersions, parseInventoryPlatePlanVersion)
+      : Object.create(null),
+    scientificCitations: citationRecords
       ? records(shape.scientificCitations, (raw) => scientificCitationRecord.parse(raw))
       : Object.create(null),
-    scientificCitationWithdrawals: current
+    scientificCitationWithdrawals: citationRecords
       ? records(shape.scientificCitationWithdrawals, (raw) =>
           scientificCitationWithdrawalRecord.parse(raw)
         )
@@ -3535,6 +3585,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   try {
     validateInventoryScientificState(state);
     validateInventoryScientificCitations(state);
+    validateInventoryPlatePlans(state);
     validateInventoryStockroomState(state);
     validateInventoryArrivalState(state);
     validateInventoryValidityState(state);

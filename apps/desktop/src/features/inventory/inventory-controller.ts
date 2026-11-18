@@ -1,3 +1,4 @@
+import { InventoryPlatePlanReadSession } from './inventory-plate-plan-read-session';
 import {
   InventoryPendingCoordinator,
   coordinatorForStorage,
@@ -161,6 +162,7 @@ export class InventoryController {
   };
   private readonly listeners = new Set<() => void>();
   private readonly pending: InventoryPendingCoordinator;
+  private readonly platePlanSessions = new Map<string, InventoryPlatePlanReadSession>();
   private readonly observedRevision = new Map<string, number>();
   private generation = 0;
   private projectsGeneration = 0;
@@ -186,6 +188,19 @@ export class InventoryController {
   }
 
   getSnapshot = (): InventoryControllerSnapshot => this.snapshot;
+
+  platePlanSession(
+    source: InventoryReadRequest,
+    output: InventoryTextOutputPort
+  ): InventoryPlatePlanReadSession {
+    const key = scopeKey(source.project, source.inventoryId);
+    let session = this.platePlanSessions.get(key);
+    if (!session) {
+      session = new InventoryPlatePlanReadSession(source, this.client, output);
+      this.platePlanSessions.set(key, session);
+    }
+    return session;
+  }
 
   archiveSession(
     source: InventoryReadRequest,
@@ -1118,6 +1133,8 @@ export class InventoryController {
     this.labelSessions.clear();
     for (const session of this.archiveSessions.values()) session.dispose();
     this.archiveSessions.clear();
+    for (const session of this.platePlanSessions.values()) session.dispose();
+    this.platePlanSessions.clear();
     this.listeners.clear();
   }
 }

@@ -306,7 +306,44 @@ export type InventoryArrivalPreviewSnapshot = InventoryArrivalPreview & {
 };
 export type { InventoryArrivalDocumentRead };
 
+import type {
+  InventoryPreviewPlatePlanVersionRequest,
+  InventoryApplyPlatePlanVersionRequest,
+  InventoryPlatePlanVersionsRequest,
+  InventoryPlatePlanVersionRequest,
+  InventoryPreviewPlatePlanBindingRequest,
+  InventoryPlatePlanVersionPreviewSnapshot,
+  InventoryPlatePlanVersionsRead,
+  InventoryPlatePlanVersionRead,
+  InventoryPlatePlanBindingPreviewSnapshot,
+} from './inventory-plate-plans';
+export type {
+  InventoryPreviewPlatePlanVersionRequest,
+  InventoryApplyPlatePlanVersionRequest,
+  InventoryPlatePlanVersionsRequest,
+  InventoryPlatePlanVersionRequest,
+  InventoryPreviewPlatePlanBindingRequest,
+  InventoryPlatePlanVersionPreviewSnapshot,
+  InventoryPlatePlanVersionsRead,
+  InventoryPlatePlanVersionRead,
+  InventoryPlatePlanBindingPreviewSnapshot,
+} from './inventory-plate-plans';
+
 export interface InventoryClient {
+  previewPlatePlanVersion(
+    input: InventoryPreviewPlatePlanVersionRequest
+  ): Promise<InventoryPlatePlanVersionPreviewSnapshot>;
+  applyPlatePlanVersion(
+    input: InventoryApplyPlatePlanVersionRequest
+  ): Promise<NativeInventoryExecution>;
+  platePlanVersions(
+    input: InventoryPlatePlanVersionsRequest
+  ): Promise<InventoryPlatePlanVersionsRead>;
+  platePlanVersion(input: InventoryPlatePlanVersionRequest): Promise<InventoryPlatePlanVersionRead>;
+  previewPlatePlanBinding(
+    input: InventoryPreviewPlatePlanBindingRequest
+  ): Promise<InventoryPlatePlanBindingPreviewSnapshot>;
+
   previewScientificCitation(
     input: InventoryPreviewScientificCitationRequest
   ): Promise<InventoryScientificCitationPreviewSnapshot>;
@@ -414,6 +451,11 @@ export function unavailableInventoryClient(): InventoryClient {
     message: 'Inventory requires the connected desktop owner.',
   });
   return {
+    previewPlatePlanVersion: unavailable,
+    applyPlatePlanVersion: unavailableMutation,
+    platePlanVersions: unavailable,
+    platePlanVersion: unavailable,
+    previewPlatePlanBinding: unavailable,
     previewScientificCitation: unavailable,
     applyScientificCitation: unavailableMutation,
     previewScientificCitationWithdrawal: unavailable,

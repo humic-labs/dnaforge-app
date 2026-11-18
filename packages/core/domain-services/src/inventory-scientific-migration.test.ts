@@ -125,8 +125,13 @@ function runObserved(): InventoryState {
 
 it('upcasts v22 without changing stockroom facts or persisting invented scientific work', () => {
   const state = fixture();
-  const { scientificWorks, scientificCitations, scientificCitationWithdrawals, ...previous } =
-    state;
+  const {
+    platePlanVersions,
+    scientificWorks,
+    scientificCitations,
+    scientificCitationWithdrawals,
+    ...previous
+  } = state;
   const old = { ...previous, schema: 'dnaforge.inventory.v22' };
   const original = JSON.stringify(old);
   const current = parseInventoryState(old);
@@ -160,7 +165,8 @@ it('preserves historical before and after quantities when current stock changes'
 
 it('upcasts v23 without changing a saved notebook observation or its source and intent pins', () => {
   const state = observed();
-  const { scientificCitations, scientificCitationWithdrawals, ...previous } = state;
+  const { platePlanVersions, scientificCitations, scientificCitationWithdrawals, ...previous } =
+    state;
   const old = { ...previous, schema: 'dnaforge.inventory.v23' };
   const original = JSON.stringify(old);
   const workBytes = JSON.stringify(old.scientificWorks);
@@ -173,7 +179,8 @@ it('upcasts v23 without changing a saved notebook observation or its source and 
 it('admits explicit run context only under v24 without reinterpreting notebook-shaped records', () => {
   const state = runObserved();
   expect(parseInventoryState(state)).toEqual(state);
-  const { scientificCitations, scientificCitationWithdrawals, ...previous } = state;
+  const { platePlanVersions, scientificCitations, scientificCitationWithdrawals, ...previous } =
+    state;
   expect(() => parseInventoryState({ ...previous, schema: 'dnaforge.inventory.v23' })).toThrow(
     'v23'
   );

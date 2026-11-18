@@ -1,3 +1,16 @@
+export * from './inventory-plate-plan-types';
+export * from './inventory-plate-plan-definition';
+export * from './inventory-plate-plan-identity';
+export * from './inventory-plate-plans';
+export * from './inventory-plate-plan-binding';
+export * from './inventory-plate-plan-diagram';
+export {
+  parseInventoryPlatePlanVersion,
+  parseInventoryRecordedPrincipal,
+  parseInventoryStorage,
+  parseInventoryStock,
+  parseInventoryVessel,
+} from './inventory-validation';
 export * from './inventory-scientific-citation-types';
 export * from './inventory-scientific-citation-identity';
 export * from './inventory-scientific-citations';

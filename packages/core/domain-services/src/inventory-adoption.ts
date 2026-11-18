@@ -233,6 +233,10 @@ function mapAttribution(state: InventoryState, source: InventoryAdoptionSource):
     value.kind === 'available' ? value : { ...value, by: principal(value.by) };
   return {
     ...state,
+    platePlanVersions: mapRecords(state.platePlanVersions, (version) => ({
+      ...version,
+      by: principal(version.by),
+    })),
     scientificCitations: mapRecords(state.scientificCitations, (citation) => ({
       ...citation,
       by: principal(citation.by),

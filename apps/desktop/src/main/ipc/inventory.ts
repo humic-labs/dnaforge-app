@@ -22,6 +22,7 @@ import {
   inventoryApplyScientificCitationRequestSchema,
   inventoryApplyScientificCitationWithdrawalRequestSchema,
 } from '../../shared/inventory-scientific-citations';
+import { inventoryApplyPlatePlanVersionRequestSchema } from '../../shared/inventory-plate-plans';
 import { NativeDocumentCommandError } from '../../shared/native-document-error';
 import type { NativeInventoryOwner } from '../inventory-owner';
 
@@ -160,6 +161,7 @@ export function registerInventoryHandlers(options: {
     event: IpcMainInvokeEvent,
     input: unknown,
     method:
+      | 'applyPlatePlanVersion'
       | 'applyScientificTransfer'
       | 'applyScientificTransferV2'
       | 'applyScientificCitation'
@@ -167,6 +169,7 @@ export function registerInventoryHandlers(options: {
   ) => {
     assertCaller(event);
     const schema = {
+      applyPlatePlanVersion: inventoryApplyPlatePlanVersionRequestSchema,
       applyScientificTransfer: inventoryApplyScientificTransferRequestSchema,
       applyScientificTransferV2: inventoryApplyScientificTransferV2RequestSchema,
       applyScientificCitation: inventoryApplyScientificCitationRequestSchema,
@@ -216,6 +219,24 @@ export function registerInventoryHandlers(options: {
     return result;
   };
   return handleGroup(inventoryContract, {
+    previewPlatePlanVersion: (event, request) => {
+      assertCaller(event);
+      return currentOwner().previewPlatePlanVersion(request);
+    },
+    applyPlatePlanVersion: (event, request) =>
+      mutateScientific(event, request, 'applyPlatePlanVersion'),
+    platePlanVersions: (event, request) => {
+      assertCaller(event);
+      return currentOwner().platePlanVersions(request);
+    },
+    platePlanVersion: (event, request) => {
+      assertCaller(event);
+      return currentOwner().platePlanVersion(request);
+    },
+    previewPlatePlanBinding: (event, request) => {
+      assertCaller(event);
+      return currentOwner().previewPlatePlanBinding(request);
+    },
     previewScientificCitation: (event, request) =>
       previewCitation(event, (owner) => owner.previewScientificCitation(request)),
     applyScientificCitation: (event, request) =>

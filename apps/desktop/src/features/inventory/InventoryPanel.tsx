@@ -2,6 +2,7 @@ import { sharedInventoryPendingCoordinator } from './inventory-pending-coordinat
 import { InventoryScientificForm } from './InventoryScientificForm';
 import { InventoryStockroomForm } from './InventoryStockroomForm';
 import { InventoryArrivalForm } from './InventoryArrivalForm';
+import { InventoryPlatePlans } from './InventoryPlatePlans';
 import {
   useEffect,
   useMemo,
@@ -25,6 +26,7 @@ import { Button, Notice, Select, TextField, TextArea } from '../../components/ui
 import { platform } from '../../platform';
 import { safeFocus } from '../../shared/utils/safeFocus';
 import type { NativeInventoryHistoryEntry } from '../../shared/inventory-command';
+import type { InventoryProject } from '../../shared/inventory-client';
 import { InventoryController, inventoryData, inventoryCanEdit } from './inventory-controller';
 import { InventoryMaterialForm, isInventoryMaterialDialog } from './InventoryMaterialForm';
 import { InventoryLotControlsForm, InventoryStockLotControls } from './InventoryLotControlsForm';
@@ -101,6 +103,7 @@ type InventorySourceKind = Exclude<
   | 'record-scientific-transfer-v2'
   | 'record-scientific-citation'
   | 'withdraw-scientific-citation'
+  | 'save-plate-plan-version'
 >;
 const sourceHistoryCopy: Readonly<
   Record<
@@ -226,6 +229,7 @@ export function InventoryPanel() {
   const [selection, setSelection] = useState<InventorySelection>({ kind: 'all' });
   const [drawer, setDrawer] = useState<Drawer>({ kind: 'closed' });
   const [dialog, setDialog] = useState<InventoryDialog>({ kind: 'none' });
+  const [platePlanProject, setPlatePlanProject] = useState<InventoryProject | null>(null);
   const [search, setSearch] = useState('');
   const [shown, setShown] = useState(100);
   const [shownPositions, setShownPositions] = useState(200);
@@ -287,6 +291,10 @@ export function InventoryPanel() {
         : 'All stock');
   const currentProjectId =
     data?.project.projectId ?? ('project' in status ? status.project?.projectId : '') ?? '';
+  useEffect(() => {
+    if (currentProjectId && platePlanProject?.projectId !== currentProjectId)
+      setPlatePlanProject(null);
+  }, [currentProjectId, platePlanProject]);
   const materialProject = useRef(currentProjectId);
   materialProject.current = currentProjectId;
   const stocks = state
@@ -541,10 +549,12 @@ export function InventoryPanel() {
                     ? 'Added saved scientific citation'
                     : entry.request.kind === 'withdraw-scientific-citation'
                       ? 'Withdrew scientific citation'
-                      : entry.request.kind === 'record-scientific-transfer' ||
-                          entry.request.kind === 'record-scientific-transfer-v2'
-                        ? 'Recorded observed scientific transfer'
-                        : sourceHistoryCopy[entry.request.kind].title
+                      : entry.request.kind === 'save-plate-plan-version'
+                        ? 'Saved reusable plate-plan version'
+                        : entry.request.kind === 'record-scientific-transfer' ||
+                            entry.request.kind === 'record-scientific-transfer-v2'
+                          ? 'Recorded observed scientific transfer'
+                          : sourceHistoryCopy[entry.request.kind].title
                   : entry.request.commands
                       .map((command) => (state ? historyLabel(command, state) : ''))
                       .join(' · ')}
@@ -588,6 +598,18 @@ export function InventoryPanel() {
                     Original citation details and saved context remain in the recorded work's
                     citation history.
                   </p>
+                </div>
+              ) : 'kind' in entry.request && entry.request.kind === 'save-plate-plan-version' ? (
+                <div className="space-y-1 text-xs">
+                  <p>{entry.request.choices.definition.title}</p>
+                  <p>{entry.request.choices.reason}</p>
+                  <p>Reusable instructions saved independently of physical inventory.</p>
+                  <details>
+                    <summary>Saved definition</summary>
+                    <pre className="max-h-64 overflow-auto whitespace-pre-wrap">
+                      {JSON.stringify(entry.request.choices, null, 2)}
+                    </pre>
+                  </details>
                 </div>
               ) : 'kind' in entry.request ? (
                 <details
@@ -711,6 +733,7 @@ export function InventoryPanel() {
               setMaterialNames({});
               setRegistryIds({});
               setDialog({ kind: 'none' });
+              setPlatePlanProject(null);
               choose({ kind: 'all' });
               void controller.selectProject(id);
             }}
@@ -733,6 +756,9 @@ export function InventoryPanel() {
         </Button>
         <Button disabled={!data} onClick={() => setDialog({ kind: 'stockroom' })}>
           Stockroom
+        </Button>
+        <Button disabled={!data} onClick={() => data && setPlatePlanProject(data.project)}>
+          Plate plans
         </Button>
         <Button disabled={!data} onClick={() => setDialog({ kind: 'receive-delivery' })}>
           Receive delivery
@@ -1721,6 +1747,15 @@ export function InventoryPanel() {
           ) : null}
         </div>
       )}
+      {platePlanProject ? (
+        <InventoryPlatePlans
+          key={`${platePlanProject.projectId}:${platePlanProject.defaultInventoryId}`}
+          project={platePlanProject}
+          data={data ?? undefined}
+          controller={controller}
+          onClose={() => setPlatePlanProject(null)}
+        />
+      ) : null}
       {dialog.kind !== 'none' && data ? (
         dialog.kind === 'export-archive' ? (
           <InventoryArchiveExportForm

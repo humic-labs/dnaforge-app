@@ -101,6 +101,10 @@ export class InventoryArchiveSession {
     this.fileOutput.forget();
   }
 
+  cancelChoosing(): void {
+    this.fileOutput.cancelChoosing();
+  }
+
   dispose(): void {
     this.disposed = true;
     ++this.generation;

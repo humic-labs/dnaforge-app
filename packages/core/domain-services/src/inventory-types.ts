@@ -1,3 +1,5 @@
+import type { InventoryPlatePlanVersion } from './inventory-plate-plan-types';
+export type * from './inventory-plate-plan-types';
 import type {
   InventoryScientificCitation,
   InventoryScientificCitationWithdrawal,
@@ -83,7 +85,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v25' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v26' as const;
+export const INVENTORY_CITATION_SCHEMA = 'dnaforge.inventory.v25' as const;
 export const INVENTORY_RUN_CONTEXT_SCHEMA = 'dnaforge.inventory.v24' as const;
 export const INVENTORY_NOTEBOOK_CONTEXT_SCHEMA = 'dnaforge.inventory.v23' as const;
 export const INVENTORY_STOCKROOM_SCHEMA = 'dnaforge.inventory.v22' as const;
@@ -324,6 +327,7 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly platePlanVersions: Readonly<Record<string, InventoryPlatePlanVersion>>;
   readonly scientificCitations: Readonly<Record<string, InventoryScientificCitation>>;
   readonly scientificCitationWithdrawals: Readonly<
     Record<string, InventoryScientificCitationWithdrawal>
@@ -892,6 +896,7 @@ export type InventoryErrorCode =
   | 'ARRIVAL_ALLOCATION_NOT_ACTIVE'
   | 'REORDER_RULE_NOT_FOUND'
   | 'REORDER_RULE_NOT_ACTIVE'
+  | 'PLATE_PLAN_VERSION_MISMATCH'
   | 'SCIENTIFIC_CITATION_CONFLICT'
   | 'SCIENTIFIC_CITATION_WITHDRAWAL_CONFLICT'
   | 'SCIENTIFIC_CITATION_TARGET_MISMATCH'
@@ -910,6 +915,7 @@ export type InventoryTransition =
 export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
+    platePlanVersions: Object.create(null) as Record<string, InventoryPlatePlanVersion>,
     scientificCitations: Object.create(null) as Record<string, InventoryScientificCitation>,
     scientificCitationWithdrawals: Object.create(null) as Record<
       string,

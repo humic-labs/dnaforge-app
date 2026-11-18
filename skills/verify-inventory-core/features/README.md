@@ -8,6 +8,9 @@
 - [Lots and material operations](material-operations.md): batches, aliquots,
   pooling, tracked dilution, container limits and restart parity.
 
+- [Reusable plate plans](plate-plans.md): immutable logical definitions, exact
+  grids, definition SVG output and cumulative read-only physical binding checks.
+
 - [Plates, tube boxes and stacks](layouts.md): permanent wells, aggregate moves
   and disposal, ordered retrieval and refusal.
 

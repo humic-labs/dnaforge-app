@@ -33,6 +33,7 @@ import {
   applyNativeInventoryScientificCitationWithdrawal,
   verifyNativeInventoryScientificCitationSource,
 } from './inventory-scientific-citations';
+import { applyNativeInventoryPlatePlanVersion } from './inventory-plate-plans';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 
 export interface NativeInventoryJournalRow {
@@ -111,6 +112,12 @@ export function parseNativeInventoryJournalEntry(
   )
     throw Error('INVENTORY_DATA_INVALID: Citation withdrawal requires V8 semantics.');
   if (
+    'kind' in request &&
+    request.kind === 'save-plate-plan-version' &&
+    (receipt.context?.version ?? 1) < 9
+  )
+    throw Error('INVENTORY_DATA_INVALID: Plate-plan versions require V9 semantics.');
+  if (
     request.project !== project ||
     request.inventoryId !== row.inventory_id ||
     request.operationId !== row.operation_id ||
@@ -130,7 +137,7 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryApplyImportRequest,
     context: InventoryExecutionContext,
-    receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | undefined
+    receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | undefined
   ) => InventoryTransition,
   table: (
     target: InventoryState | null,
@@ -228,7 +235,11 @@ export function replayNativeInventoryEntries(
     if (request.expectedRevision !== state.revision)
       throw new Error('INVENTORY_DATA_INVALID: The saved inventory journal is not contiguous.');
     let result: InventoryTransition;
-    if (
+    if ('kind' in request && request.kind === 'save-plate-plan-version') {
+      if (contextVersion < 9 || !context)
+        throw Error('INVENTORY_DATA_INVALID: Plate-plan versions require V9 semantics.');
+      result = applyNativeInventoryPlatePlanVersion(state, request, context);
+    } else if (
       'kind' in request &&
       (request.kind === 'record-scientific-citation' ||
         request.kind === 'withdraw-scientific-citation')
@@ -360,6 +371,10 @@ export function replayNativeInventoryEntries(
     )
       throw new Error(
         'INVENTORY_DATA_INVALID: Stockroom facts cannot enter through pre-V5 receipt semantics.'
+      );
+    if (contextVersion < 9 && Object.keys(result.state.platePlanVersions).length > 0)
+      throw Error(
+        'INVENTORY_DATA_INVALID: Plate-plan versions cannot enter through pre-V9 receipt semantics.'
       );
     state = cumulativeLotSemantics
       ? result.state

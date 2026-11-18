@@ -28,7 +28,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v25. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v26. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -600,6 +600,80 @@ through the existing retained-source reader; current Run navigation resolves its
 canonical identity independently. This read path does not write stock, Run
 files, inventory revisions or receipts. It does not reinterpret the observation
 as a declared Run input, produced material or scientific success.
+
+## Reusable plate plans
+
+A reusable plan is a saved declaration of intended aliquot transfers. Its
+logical grid, source roles and ordered instructions contain no physical stock,
+plate or execution identity. An unplanned cell says Unplanned. It does not
+assert that a physical well is empty.
+
+Canonical v26 adds immutable `platePlanVersions`. Older snapshots gain an empty
+map in memory without changing stored bytes, revision or history. Native receipt
+version 9 admits `save-plate-plan-version`; earlier versions cannot save plans
+or adopt a raw v26 archive. A plan save has no scientific source witness. The
+existing scientific transfer and citation witness rules remain intact.
+
+Family identity is exact namespace and plan ID. Version identity combines that
+family with the complete canonical definition hash, including title, labels,
+layout, source-role order and instruction order. Instructions use positive exact
+canonical µL amounts and distinct canonical destinations. At most 256 intended
+transfers are supported in a logical grid of at most 10,000 positions. Roles
+express intended use, without inferring a required scientific material.
+
+```mermaid
+stateDiagram-v2
+    [*] --> DraftA
+    DraftA --> SavedA: save intended definition
+    SavedA --> DraftB: edit as new version in the same family
+    DraftB --> SavedB: append different content
+    SavedB --> SelectedA: explicitly open original A
+    SelectedA --> ExistingA: equivalent save preserves original record
+```
+
+A→B→A retains two versions. There is no native current or latest pointer.
+Equivalent content preserves the original save reason, actor and time; another
+reason does not create a version or receipt. A changed request under the same
+committed operation ID remains a conflict. Saving can initialize an otherwise
+absent inventory with metadata only; it creates no physical plate or stock.
+
+`previewPlatePlanVersion` and `applyPlatePlanVersion` share that save contract.
+`platePlanVersions` returns bounded summary pages with an exact optional family
+filter and query/revision-bound cursors. `platePlanVersion` reads an exact
+version and definition hash, plus a rendered or explicitly refused printable
+SVG. Definition-only diagrams retain the chosen version, coordinates, source
+legend, amounts and instruction order. They are not to physical scale and make
+no stock availability, reservation, execution or printer claim. File export uses
+the existing destination/write/read-back owner and its exact artifact.
+
+`previewPlatePlanBinding` separately selects an existing compatible fixed-well
+plate and exact source stocks for that version. Several roles may bind the same
+stock. One ordered command batch simulates all withdrawals on an isolated copy,
+including existing quantity, hold, custody, position, lot, validity, capacity
+and occupancy guards. Demand aggregates by actual stock ID. Known-zero stock
+still occupies a well. Unplanned occupied wells remain unchanged. The simulated
+candidate and transient stock IDs are discarded; the response is a read-only
+observation with real well IDs and projected remaining balances.
+
+```mermaid
+stateDiagram-v2
+    [*] --> BindingDraft
+    BindingDraft --> Checking: choose exact version, plate and sources
+    Checking --> FeasibleAtNativeTime: whole cumulative batch succeeds
+    Checking --> BlockedAtNativeTime: a current guard refuses
+    FeasibleAtNativeTime --> NeedsRecheck: scope, revision, principal or time changes
+    BlockedAtNativeTime --> NeedsRecheck: relevant facts change
+    NeedsRecheck --> Checking: request a fresh observation
+```
+
+A blocked preview has observed facts and issues, without partial projected
+success. A feasible preview can project zero remaining volume. It saves no
+stock, reservation, scientific work, citation, source file or inventory event.
+Native observation time and the next relevant boundary accompany the result.
+Expiry can change feasibility without a revision. An overdue active hold stays
+held until an explicit existing command changes it. Cached feasibility becomes
+Needs recheck on its boundary, selection changes or resume; it is never restored
+as current authority after reopen.
 
 ## Saved citations and correction history
 

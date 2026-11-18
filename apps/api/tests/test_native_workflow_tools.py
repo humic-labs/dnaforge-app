@@ -1253,3 +1253,79 @@ async def test_inventory_citation_routes_preserve_pins_and_use_current_write_gra
         await execute_native_workflow("inventory", {"operation": operations[2]}, context)
     assert revoked.value.code == "GRANT_REVOKED"
     assert len(state["calls"]) == 4
+
+
+@pytest.mark.asyncio
+async def test_inventory_plate_plan_routes_keep_canonical_choices_and_only_save_requires_write(
+    native,
+):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    scope = {"project": "project", "inventoryId": "inventory"}
+    digest = "sha256:" + "a" * 64
+    choices = {
+        "identity": {"namespace": "plans", "planId": "stable-family"},
+        "reason": "Original reason",
+        "definition": {
+            "schema": "dnaforge.inventory-plate-plan-definition.v1",
+            "title": "Plan β",
+            "layout": {"kind": "fixed-well", "rows": 1, "columns": 1},
+            "sourceSlots": [{"key": "sample", "label": "Sample"}],
+            "transfers": [
+                {
+                    "actionId": "aliquot",
+                    "sourceSlotKey": "sample",
+                    "destinationPosition": "A1",
+                    "quantity": {"value": "4", "unit": "uL"},
+                    "label": "Aliquot",
+                }
+            ],
+        },
+    }
+    operations = [
+        {"kind": "preview-plate-plan-version", **scope, "expectedRevision": 0, "choices": choices},
+        {"kind": "plate-plan-versions", **scope, "identity": choices["identity"], "limit": 20},
+        {
+            "kind": "plate-plan-version",
+            **scope,
+            "versionId": "plate-plan-version:" + "b" * 64,
+            "definitionSha256": digest,
+        },
+        {
+            "kind": "preview-plate-plan-binding",
+            **scope,
+            "expectedRevision": 1,
+            "binding": {
+                "versionId": "plate-plan-version:" + "b" * 64,
+                "definitionSha256": digest,
+                "destinationPlateId": "plate",
+                "sources": [{"sourceSlotKey": "sample", "stockId": "stock"}],
+            },
+        },
+    ]
+    for operation in operations:
+        await execute_native_workflow("inventory", {"operation": operation}, context)
+        assert state["calls"][-1]["command"] == "inventory." + operation["kind"]
+        assert state["calls"][-1]["request"] == {
+            key: value for key, value in operation.items() if key != "kind"
+        }
+        assert state["calls"][-1]["agent"]["capabilities"] == ["read-workspace"]
+    apply = {
+        **operations[0],
+        "kind": "apply-plate-plan-version",
+        "operationId": "same-save",
+        "expectedPlanDigest": digest,
+    }
+    with pytest.raises(ToolExecutionFailure) as denied:
+        await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert denied.value.code == "INSUFFICIENT_SCOPE"
+    assert len(state["calls"]) == 4
+    state["scope"] = ["read-workspace", "write-workspace"]
+    await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert state["calls"][-1]["request"] == {**apply, "kind": "save-plate-plan-version"}
+    assert state["calls"][-1]["request"]["choices"] == choices
+    state["revoked"] = True
+    with pytest.raises(ToolExecutionFailure) as revoked:
+        await execute_native_workflow("inventory", {"operation": operations[2]}, context)
+    assert revoked.value.code == "GRANT_REVOKED"
+    assert len(state["calls"]) == 5

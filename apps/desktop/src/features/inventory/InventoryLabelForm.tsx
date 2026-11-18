@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { Button, Notice, Select } from '../../components/ui';
 import { platform } from '../../platform';
 import type {
@@ -44,6 +44,7 @@ export function InventoryLabelForm({
       ),
     [controller, project, inventoryId, codeId]
   );
+  useEffect(() => () => session.cancelChoosing(), [session]);
   const { mediaProfileId, preparation, output } = useSyncExternalStore(
     session.subscribe,
     session.getSnapshot

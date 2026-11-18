@@ -796,3 +796,75 @@ it('routes source-free citation withdrawal with a current desktop caller guard',
   ).rejects.toThrow();
   expect(applyScientificCitationWithdrawal).toHaveBeenCalledTimes(1);
 });
+
+it('routes exact plate-plan reads and source-free saves through the current desktop owner', async () => {
+  const previewPlatePlanVersion = vi.fn(() => ({ kind: 'no-change' }));
+  const platePlanVersions = vi.fn(() => ({ kind: 'ready', versions: [] }));
+  const platePlanVersion = vi.fn(() => ({ kind: 'unavailable' }));
+  const previewPlatePlanBinding = vi.fn(() => ({ kind: 'blocked' }));
+  const applyPlatePlanVersion = vi.fn(
+    (_request: unknown, _guard: () => void, _invocation: unknown) => ({ status: 'committed' })
+  );
+  owner = {
+    ...owner,
+    previewPlatePlanVersion,
+    platePlanVersions,
+    platePlanVersion,
+    previewPlatePlanBinding,
+    applyPlatePlanVersion,
+  } as unknown as NativeInventoryOwner;
+  const input = { project: 'project', inventoryId: 'inventory' };
+  for (const [method, spy] of [
+    ['previewPlatePlanVersion', previewPlatePlanVersion],
+    ['platePlanVersions', platePlanVersions],
+    ['platePlanVersion', platePlanVersion],
+    ['previewPlatePlanBinding', previewPlatePlanBinding],
+  ] as const) {
+    (captured.handlers[method] as (event: IpcMainInvokeEvent, input: unknown) => unknown)(
+      event,
+      input
+    );
+    expect(spy).toHaveBeenCalledExactlyOnceWith(input);
+  }
+  const request = {
+    ...input,
+    kind: 'save-plate-plan-version',
+    operationId: 'same-plan-save',
+    expectedRevision: 0,
+    expectedPlanDigest: `sha256:${'a'.repeat(64)}`,
+    choices: {
+      identity: { namespace: 'plans', planId: 'plan' },
+      reason: 'Reusable definition',
+      definition: {
+        schema: 'dnaforge.inventory-plate-plan-definition.v1',
+        title: 'Plan',
+        layout: { kind: 'fixed-well', rows: 1, columns: 1 },
+        sourceSlots: [{ key: 'sample', label: 'Sample' }],
+        transfers: [
+          {
+            actionId: 'aliquot',
+            sourceSlotKey: 'sample',
+            destinationPosition: 'A1',
+            quantity: { value: '1', unit: 'uL' },
+            label: 'Aliquot',
+          },
+        ],
+      },
+    },
+  };
+  const apply = captured.handlers.applyPlatePlanVersion as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => Promise<unknown>;
+  await apply(event, request);
+  expect(applyPlatePlanVersion).toHaveBeenCalledExactlyOnceWith(request, expect.any(Function), {
+    actor: 'human:desktop:7',
+  });
+  const guard = applyPlatePlanVersion.mock.calls[0][1];
+  owner = null;
+  expect(guard).toThrow('owner changed');
+  await expect(
+    apply(event, { ...request, scientificSource: { content: 'caller witness' } })
+  ).rejects.toThrow();
+  expect(applyPlatePlanVersion).toHaveBeenCalledTimes(1);
+});

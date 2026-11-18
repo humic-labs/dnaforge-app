@@ -45,6 +45,7 @@ export function InventoryArchiveExportForm({
     write: (path, content) => platform().fs.writeTextFileAtomic({ path, content }),
     read: readInventoryArchiveFile,
   });
+  useEffect(() => () => session.cancelChoosing(), [session]);
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const { capture, output } = snapshot;
   const artifact = capture.kind === 'captured' ? capture.artifact : null;
