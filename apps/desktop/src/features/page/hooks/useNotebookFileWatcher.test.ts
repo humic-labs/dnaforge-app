@@ -138,6 +138,30 @@ describe('useNotebookFileWatcher', () => {
     await waitFor(() => expect(onReload).toHaveBeenCalledOnce());
   });
 
+  it('keeps the observed external revision when the catalog republishes the same notebook', async () => {
+    const onKeepLocal = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useNotebookFileWatcher({
+        pageId: 'page-1',
+        workspaceRoot: '/workspace',
+        isDirty: true,
+        onKeepLocal,
+      })
+    );
+    await waitFor(() =>
+      expect(result.current.expectedCanonicalFingerprint()).toBe(contentFingerprint(markdown))
+    );
+    markdown = 'external edit';
+    act(() => listeners.forEach((listener) => listener('/workspace/Notebook/Notebook.md')));
+    await waitFor(() => expect(result.current.state).toBe('conflict'));
+    await act(async () => bumpReferenceGeneration());
+    await waitFor(() => expect(getCurrentCatalogFileForEntity).toHaveBeenCalledTimes(2));
+    act(() => result.current.dismissExternalChange());
+    await waitFor(() => expect(result.current.state).toBe('current'));
+    expect(onKeepLocal).toHaveBeenCalledWith(contentFingerprint(markdown));
+    expect(watchFile).toHaveBeenCalledOnce();
+  });
+
   it('keeps watching the flat legacy authority until package cutover completes', async () => {
     getCurrentCatalogFileForEntity.mockResolvedValue({
       path: '/workspace/Legacy.wpnote.json',
