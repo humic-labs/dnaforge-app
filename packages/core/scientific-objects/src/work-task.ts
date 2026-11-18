@@ -250,11 +250,12 @@ function completion(value: unknown): WorkCompletion | null {
 
 function cancellation(value: unknown): WorkCancellation | null {
   if (value === null) return null;
-  const v = record(value, 'recordedAt actor reason');
+  const v = record(value, 'recordedAt actor reason schedule');
   return {
     recordedAt: instant(v.recordedAt),
     actor: string(v.actor),
     reason: v.reason === null ? null : string(v.reason),
+    schedule: schedule(v.schedule),
   };
 }
 
@@ -415,6 +416,7 @@ function transition(
           recordedAt: context.now,
           actor: context.actor,
           reason: command.reason === undefined ? null : string(command.reason),
+          schedule: currentSchedule(),
         },
       };
     case 'complete':

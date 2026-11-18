@@ -65,6 +65,7 @@ export interface WorkCancellation {
   recordedAt: number;
   actor: string;
   reason: string | null;
+  schedule: WorkSchedule;
 }
 
 export interface WorkRecurrence {

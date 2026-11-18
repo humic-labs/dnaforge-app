@@ -251,6 +251,35 @@ it('starts a delayed successor series at its chosen anchor while keeping the old
   });
 });
 
+it('freezes the resolved schedule when canceling followed work', () => {
+  let source = fixed('2026-11-18');
+  const context = {
+    actor: 'owner',
+    now,
+    readSource: () => ({ kind: 'resolved' as const, spec: source, revisionId: 'source-one' }),
+  };
+  const task = applyWorkTaskCommand(
+    null,
+    {
+      kind: 'create',
+      name: 'Followed review',
+      deadline: {
+        kind: 'relative',
+        source: { projectId: 'project', resourceId: 'source', role: 'deadline' },
+        offset: { unit: 'days', amount: 0 },
+      },
+    },
+    context
+  );
+  const canceled = applyWorkTaskCommand(task, { kind: 'cancel' }, context);
+  source = fixed('2026-11-30');
+  expect(canceled.cancellation?.schedule.deadline).toMatchObject({
+    kind: 'resolved',
+    value: { date: '2026-11-18' },
+    sources: [{ revisionId: 'source-one' }],
+  });
+});
+
 it('retains a recorded instant across changes to zone rules and checks current rules on new schedules', () => {
   const base = run(null, { kind: 'create', name: 'Inspection' });
   const earlierRules = {
