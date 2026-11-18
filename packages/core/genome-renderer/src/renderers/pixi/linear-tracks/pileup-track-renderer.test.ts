@@ -5,6 +5,7 @@ import type { PileupRecord, PileupTrackData } from '@waypoint/genome-data';
 
 import { startWebGLRenderLoop, type WebGLRenderLoop } from '../../../react/webgl-render-loop';
 import { webglThemeForMode, type WebGLRenderTheme } from '../shared/theme';
+import * as readVertices from './annotation-record-vertices';
 import { buildCoverageGpuAtlas } from './coverage-gpu-atlas';
 import { PENDING_INTERVAL_BAND_HEIGHT_PX } from './pileup-pending-interval-layer';
 import { PersistentRowLayout } from './pileup-row-layout';
@@ -3082,6 +3083,72 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       }
     });
 
+    it.each(['all overlap', 'touches the left boundary', 'touches the right boundary'] as const)(
+      'counts drawable rows for a source window when the input %s',
+      (bounds) => {
+        const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test', maxRows: 3 });
+        const container = renderer.mount(mountArgs);
+        const assigned = vi.spyOn(PersistentRowLayout.prototype, 'finishAssignment');
+        const vertices = vi.spyOn(readVertices, 'beginAnnotationRecordVerticesJob');
+        const clock = vi.spyOn(performance, 'now').mockReturnValue(1000);
+        try {
+          let boundsReadsBeforeVertices = 0;
+          const interior = read(155, 170, 'interior');
+          Object.defineProperty(interior, 'end', {
+            get() {
+              if (assigned.mock.calls.length > 0 && vertices.mock.calls.length === 0) {
+                boundsReadsBeforeVertices++;
+              }
+              return 170;
+            },
+          });
+          const records = [
+            read(90, 111, 'crosses-left'),
+            read(122, 135, 'first-row'),
+            read(122, 136, 'second-row'),
+            read(122, 137, 'third-row'),
+            read(123, 138, 'hidden'),
+            interior,
+            read(190, 210, 'crosses-right'),
+          ];
+          if (bounds === 'touches the left boundary') records.unshift(read(80, 100));
+          if (bounds === 'touches the right boundary') records.push(read(200, 215));
+          const args = paintArgsZoom(
+            container,
+            {
+              dataAuthority: 'tile-engine',
+              coverage: {
+                bins: [4, 4],
+                binSize: 100,
+                maxDepth: 4,
+                provenance: { exact: true, method: 'pyramid-maxpool', source: 'tile-engine' },
+              },
+              records,
+              readSource: { truncated: false, windowStartBp: 100, windowEndBp: 200 },
+            },
+            4 / 150,
+            { start: 100, end: 200 }
+          );
+          paintCommittedReadFront(renderer, args);
+          expect(renderer.getDiagnostics(container)).toMatchObject({
+            rowsMeshVisible: true,
+            rowsUsed: 3,
+            rowsMeshRecordCount: 7,
+            rowsVertexCount: 36,
+            hiddenReadCount: 1,
+          });
+          expect(assigned).toHaveBeenCalledOnce();
+          expect(vertices).toHaveBeenCalledOnce();
+          if (bounds === 'all overlap') expect(boundsReadsBeforeVertices).toBe(0);
+        } finally {
+          assigned.mockRestore();
+          vertices.mockRestore();
+          clock.mockRestore();
+          renderer.unmount(container);
+        }
+      }
+    );
+
     it('uses remaining preparation time for drawing when assignment finishes', () => {
       const renderer = new PixiPileupTrackRenderer({
         type: 'pileup-test',
@@ -3123,41 +3190,41 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       const r = new PixiPileupTrackRenderer({ type: 'pileup-test' });
       const c = r.mount(mountArgs);
       const records = makeWindowReads(5_500, 100_000);
-      const advance = PersistentRowLayout.prototype.advanceAssignmentWithinBudget;
-      const assignment = vi
-        .spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget')
-        .mockImplementation(function (this: PersistentRowLayout, job, maxRecords, budgetMs) {
-          return advance.call(this, job, maxRecords, budgetMs, () => job.processedCount * 0.001);
-        });
-      let meshClock: ReturnType<typeof vi.spyOn> | undefined;
+      const msPerRecord = 0.001;
+      const recordsPerBudgetCheck = 4;
+      let clockReads = 0;
+      const clock = vi
+        .spyOn(performance, 'now')
+        .mockImplementation(() => ++clockReads * recordsPerBudgetCheck * msPerRecord);
+      const assignment = vi.spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget');
       try {
         r.paint(readPaint(c, records));
         expect(assignment.mock.lastCall?.[1]).toBe(4_096);
         expect(assignment.mock.lastCall?.[2]).toBeGreaterThan(0);
         expect(assignment.mock.lastCall?.[2]).toBeLessThanOrEqual(2);
         let d = r.getDiagnostics(c)!;
-        const expectedRecords = Math.floor(assignment.mock.lastCall![2] * 1_000);
+        const expectedRecords = Math.floor(assignment.mock.lastCall![2] / msPerRecord);
         expect(d.rowsAssignmentBuildRecordsLastFrame).toBeGreaterThanOrEqual(expectedRecords);
-        expect(d.rowsAssignmentBuildRecordsLastFrame).toBeLessThanOrEqual(expectedRecords + 4);
+        expect(d.rowsAssignmentBuildRecordsLastFrame).toBeLessThanOrEqual(
+          expectedRecords + recordsPerBudgetCheck
+        );
         expect(d.rowsAssignmentBuildInProgress).toBe(true);
-        while (d.rowsAssignmentBuildInProgress) {
+        for (let frame = 0; d.rowsAssignmentBuildInProgress && frame < 100; frame++) {
           r.paint(readPaint(c, records));
           d = r.getDiagnostics(c)!;
         }
-        let clock = 0;
-        meshClock = vi.spyOn(performance, 'now').mockImplementation(() => (clock += 0.01));
-        let mesh = r.getDiagnostics(c)!;
-        for (let frame = 0; frame < 100; frame++) {
+        expect(d.rowsAssignmentBuildInProgress).toBe(false);
+        let mesh = d;
+        for (let frame = 0; mesh.rowsMeshBuildRecordsLastFrame === 0 && frame < 100; frame++) {
+          expect(r.hasPendingPaintWork(c)).toBe(true);
           r.paint(readPaint(c, records));
           mesh = r.getDiagnostics(c)!;
-          if (mesh.rowsMeshBuildRecordsLastFrame > 0) break;
-          expect(r.hasPendingPaintWork(c)).toBe(true);
         }
         expect(mesh.rowsMeshBuildRecordsLastFrame).toBeGreaterThan(0);
         expect(mesh.rowsMeshBuildRecordsLastFrame).toBeLessThan(records.length);
         expect(mesh.rowsMeshBuildInProgress).toBe(true);
       } finally {
-        meshClock?.mockRestore();
+        clock.mockRestore();
         assignment.mockRestore();
         r.unmount(c);
       }
@@ -6794,6 +6861,70 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
     expect(d.morphRowsMeshVisible).toBe(false);
     expect(d.renderedReadMorphRowsAlpha).toBe(0);
     expect(d.renderedReadRowsAlpha + d.renderedReadDensityAlpha).toBeCloseTo(1, 2);
+  });
+
+  it('prepares row heights only when the same exact reads switch from tiled to static coverage', () => {
+    const renderer = new PixiPileupTrackRenderer({
+      type: 'pileup-test',
+      rowHeightPx: 10,
+      maxRows: 8,
+    });
+    const container = renderer.mount(mountArgs);
+    const tiled: PileupTrackData = {
+      dataAuthority: 'tile-engine',
+      coverage: {
+        bins: Array(20).fill(12),
+        binSize: 100,
+        maxDepth: 120,
+        provenance: { exact: true, method: 'pyramid-maxpool', source: 'tile-engine' },
+      },
+      records: [read(0, 400, 'first'), read(20, 420, 'second')],
+      readSource: {
+        truncated: false,
+        windowStartBp: 0,
+        windowEndBp: 2000,
+        sourceGenerationKey: 'same-bam',
+      },
+    };
+    const prepare = vi.spyOn(rowHeightField, 'beginReadRowHeightFieldJob');
+    const paint = (data: PileupTrackData) => {
+      const args = paintArgsZoom(container, data, 4 / 150, { start: 100, end: 350 });
+      renderer.paint(args);
+      for (let i = 0; renderer.hasPendingPaintWork(container) && i < 20; i++) renderer.paint(args);
+      expect(renderer.hasPendingPaintWork(container)).toBe(false);
+      const diagnostics = renderer.getDiagnostics(container)!;
+      expect(diagnostics.rowsMeshVisible).toBe(true);
+      for (const [row, readId] of ['first', 'second'].entries()) {
+        const localX = args.pathMapper.bpLeftX(200);
+        const localY = diagnostics.readRowsTopPx + diagnostics.effectiveRowHeightPx * (row + 0.5);
+        expect(
+          renderer.hitTestReadEvent(container, {
+            trackId: 'test-bam',
+            localX,
+            localY,
+            screenX: localX,
+            screenY: args.containerTopPx + localY,
+            pathMapper: args.pathMapper,
+            chromosomeGlobalStartBp: 0,
+          })
+        ).toMatchObject({ readId, sourceGenerationKey: 'same-bam' });
+      }
+      return diagnostics;
+    };
+    try {
+      const native = paint(tiled);
+      expect(native.aggregateDepthSource).toBe('tile-engine-coverage');
+      expect(native.readDensityMorph).toBe(0);
+      const tiledPreparationCount = prepare.mock.calls.length;
+      const legacy = paint({ ...tiled, dataAuthority: 'static' });
+      expect(legacy.readDensityMorph).toBeGreaterThan(0.95);
+      expect(legacy.readDensityRowStackMaxFill).toBeGreaterThan(0);
+      expect(legacy.readDensityMaxFill).toBeCloseTo(legacy.readDensityRowStackMaxFill, 2);
+      expect(tiledPreparationCount).toBe(0);
+    } finally {
+      prepare.mockRestore();
+      renderer.unmount(container);
+    }
   });
 
   it('morphs aggregate height from coverage depth toward lane-packed row height', async () => {

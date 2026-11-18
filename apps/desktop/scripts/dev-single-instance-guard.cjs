@@ -1304,17 +1304,24 @@ async function startRawDev(launchTarget) {
 }
 
 async function terminatePids(pids, force, graceMs = 5000) {
+  const signal = (pid, name) => {
+    try {
+      process.kill(pid, name);
+    } catch (error) {
+      if (error.code !== 'ESRCH') throw error;
+    }
+  };
   const live = pids.filter(pidIsAlive);
   if (live.length === 0) return true;
 
   for (const pid of live) {
-    process.kill(pid, 'SIGTERM');
+    signal(pid, 'SIGTERM');
   }
   if (await waitForPidsToExit(live, graceMs)) return true;
 
   if (!force) return false;
   for (const pid of live.filter(pidIsAlive)) {
-    process.kill(pid, 'SIGKILL');
+    signal(pid, 'SIGKILL');
   }
   return waitForPidsToExit(live, 2000);
 }
@@ -1328,33 +1335,56 @@ async function stopWorktreeStack(state) {
     ['sidecar/API', apiPort],
   ].filter(([, port]) => Number.isInteger(port));
   const pidsAt = (port) => (port === apiPort ? sidecarAllPids(port) : listenerPids(port));
-  const assertOwned = (pids) => {
+  const verified = new Set();
+  const graceMs = state.kind.startsWith('stale-') ? 2000 : 5000;
+  const assertOwned = async (pids) => {
     for (const pid of pids.filter(pidIsAlive)) {
       const cwd = processCwd(pid);
       if (!cwd || !(cwd === REPO_ROOT || cwd.startsWith(REPO_ROOT + path.sep))) {
+        if (!pidIsAlive(pid)) continue;
+        if (!cwd && verified.has(pid) && (await waitForPidsToExit([pid], graceMs))) continue;
         throw new Error(`Refusing to stop PID ${pid}: ownership of ${APP_DIR} is unverified`);
       }
+      verified.add(pid);
     }
   };
-  assertOwned([...new Set([...state.debugPids, ...sweep.flatMap(([, port]) => pidsAt(port))])]);
+  await assertOwned([...new Set([...state.debugPids, ...sweep.flatMap(([, port]) => pidsAt(port))])]);
   console.log('ELECTRON_DEV_STOPPING');
   printState(state);
-  const graceMs = state.kind.startsWith('stale-') ? 2000 : 5000;
   if (!(await terminatePids(state.debugPids, true, graceMs))) return false;
   for (const [, port] of sweep) {
     const pids = pidsAt(port).filter(pidIsAlive);
-    assertOwned(pids);
+    await assertOwned(pids);
     if (!(await terminatePids(pids, true))) throw new Error(`Owned port ${port} did not stop`);
   }
   const bound = [];
-  for (const entry of sweep) {
-    if (pidsAt(entry[1]).length > 0 || (await tcpPortAcceptsConnections(entry[1])))
-      bound.push(entry);
+  for (const [name, port] of sweep) {
+    const pids = pidsAt(port);
+    const acceptsConnections = pids.length > 0 ? null : await tcpPortAcceptsConnections(port);
+    if (pids.length > 0 || acceptsConnections) bound.push({ name, port, pids, acceptsConnections });
   }
-  if (bound.length)
+  if (bound.length) {
+    const ports = [];
+    for (const observation of bound) {
+      const { name, port } = observation;
+      ports.push({
+        name,
+        port,
+        initial: observation,
+        processes: pidsAt(port).map((pid) => ({
+          pid,
+          alive: pidIsAlive(pid),
+          cwd: processCwd(pid) ?? null,
+          previouslyVerified: verified.has(pid),
+        })),
+        acceptsConnections: await tcpPortAcceptsConnections(port),
+      });
+    }
+    console.error(`ELECTRON_DEV_TEARDOWN_INCOMPLETE ${JSON.stringify({ ports })}`);
     throw new Error(
-      `Worktree teardown incomplete: ${bound.map(([name, port]) => `${name}:${port}`).join(', ')}`
+      `Worktree teardown incomplete: ${bound.map(({ name, port }) => `${name}:${port}`).join(', ')}`
     );
+  }
   console.log('ELECTRON_DEV_STOPPED');
   console.log(
     `Freed ports (incl. sidecar — no orphan): ${sweep.map(([, port]) => port).join(', ')}`

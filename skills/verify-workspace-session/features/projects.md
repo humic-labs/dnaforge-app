@@ -15,7 +15,9 @@ final writable project is protected from removal.
 
 ## Driving it with Playwright and Vitest
 
-Run the transitions phase from the skill and the focused ownership pin. Verify
+Run the transitions phase from the skill and the focused ownership pin. Before
+archiving each seeded project during setup, wait for the native document roots
+to be enrolled and for indexing of that project to finish. Verify
 displayed roots and `current_workspace_path` against accepted commands, preserve
 transient video, and assert that stale completion cannot remount a removed root
 or overwrite a newer preference.

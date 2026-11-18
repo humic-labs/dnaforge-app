@@ -5,11 +5,14 @@ export interface PileupRowAssignment {
   rowCount: number;
   hiddenReadCount: number;
   readHitIndex: PileupReadHitIndex;
+  recordStats: Readonly<PileupReadRecordStats>;
 }
 
 interface PileupReadRecordStats {
   startBp: number;
   endBp: number;
+  earliestEndBp: number;
+  latestStartBp: number;
   forwardReadCount: number;
   reverseReadCount: number;
   pairedReadCount: number;
@@ -237,6 +240,8 @@ export class PersistentRowLayout implements PileupRowLayout {
       recordStats: {
         startBp: Infinity,
         endBp: -Infinity,
+        earliestEndBp: Infinity,
+        latestStartBp: -Infinity,
         forwardReadCount: 0,
         reverseReadCount: 0,
         pairedReadCount: 0,
@@ -256,6 +261,8 @@ export class PersistentRowLayout implements PileupRowLayout {
       const rec = job.records[idx];
       if (rec.start < job.recordStats.startBp) job.recordStats.startBp = rec.start;
       if (rec.end > job.recordStats.endBp) job.recordStats.endBp = rec.end;
+      job.recordStats.earliestEndBp = Math.min(job.recordStats.earliestEndBp, rec.end);
+      job.recordStats.latestStartBp = Math.max(job.recordStats.latestStartBp, rec.start);
       if (rec.strand === '-') job.recordStats.reverseReadCount++;
       else job.recordStats.forwardReadCount++;
       if (rec.pair?.paired === true) job.recordStats.pairedReadCount++;
@@ -311,6 +318,7 @@ export class PersistentRowLayout implements PileupRowLayout {
     this.baseline = null;
     return {
       rows: job.rows,
+      recordStats: job.recordStats,
       rowCount: job.rowCount,
       hiddenReadCount: job.hiddenReadCount,
       readHitIndex: new PileupReadHitIndex(

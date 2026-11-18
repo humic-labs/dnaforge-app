@@ -1533,6 +1533,47 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
     }
   });
 
+  it('keeps a pending read tile when successive pan plans request the same tile ahead', async () => {
+    const decode = deferred<void>();
+    const requests: AbortSignal[] = [];
+    const fetchImpl: typeof fetch = async (url, init) => {
+      const pathname = new URL(String(url)).pathname;
+      const data = pathname.includes('/alignment/')
+        ? { reads: [], count: 0, truncated: false }
+        : { bins: [], count: 0 };
+      const response = Response.json(data);
+      if (pathname === '/tiles/alignment/2/50') {
+        requests.push(init!.signal!);
+        const json = response.json.bind(response);
+        response.json = async () => {
+          await decode.promise;
+          return json();
+        };
+      }
+      return response;
+    };
+    const driver = new TileEngineDriver({
+      assembly: twoChromAssembly(),
+      source: { bamPath: '/local/reads.bam' },
+      baseUrl: 'http://sidecar',
+      onFeed: () => undefined,
+      corridorFloorLoader: async () => null,
+      fetchImpl,
+    });
+    try {
+      for (const start of [145_000, 146_100, 147_200]) {
+        driver.setViewport({ start, end: start + 44_000 }, 1416, 1416);
+        await flushFeedCycle();
+      }
+      expect(requests).toHaveLength(1);
+      expect(requests[0].aborted).toBe(false);
+    } finally {
+      decode.resolve();
+      await flushFeedCycle();
+      driver.dispose();
+    }
+  });
+
   it('cancels obsolete local alignment HTTP work while keeping coverage and current reads alive', async () => {
     const alignments: Array<{ url: string; signal: AbortSignal }> = [];
     const coverageSignals: AbortSignal[] = [];

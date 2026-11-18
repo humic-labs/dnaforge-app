@@ -322,6 +322,81 @@ def nucleotide_alignment_fixture(tmp_path: Path) -> dict[str, str]:
     }
 
 
+@pytest.fixture()
+def matching_alignment_files(tmp_path: Path) -> tuple[str, str]:
+    fasta = tmp_path / "reference.fa"
+    fasta.write_text(">chrT\n" + "A" * 100 + "\n", encoding="ascii")
+    pysam.faidx(str(fasta))
+    bam = tmp_path / "matching.bam"
+    header = {
+        "HD": {"VN": "1.6", "SO": "coordinate"},
+        "SQ": [{"SN": "chrT", "LN": 100}],
+    }
+    with pysam.AlignmentFile(str(bam), "wb", header=header) as writer:
+        writer.write(
+            _aligned_read(name="matching", sequence="AAAA", start=10, cigar=[(0, 4)], tags=[])
+        )
+    pysam.index(str(bam))
+    return str(bam), str(fasta)
+
+
+@pytest.mark.parametrize("guides_only", [False, True])
+def test_matching_tile_preserves_rows_without_calculating_guide_depth(
+    matching_alignment_files, monkeypatch, guides_only: bool
+) -> None:
+    bam, fasta = matching_alignment_files
+    depth_reads = []
+    eligible = alignment_tiles._usable_for_aggregate
+
+    def observe_depth(read):
+        depth_reads.append(read.query_name)
+        return eligible(read)
+
+    monkeypatch.setattr(alignment_tiles, "_usable_for_aggregate", observe_depth)
+    tile = alignment_tiles.alignment_tile(
+        bam, "chrT", 0, 80, level=0, tile_index=0,
+        index_path=bam + ".bai", reference_fasta=fasta, guides_only=guides_only,
+    )
+    expected_read = {
+        "start": 10, "end": 14, "strand": "+", "mapq": 60, "readId": "matching",
+        "flag": 0, "blocks": [{"start": 10, "end": 14}],
+    }
+    assert tile["reads"] == ([] if guides_only else [expected_read])
+    assert tile["sourceCount"] == 1
+    assert tile["count"] == len(tile["reads"])
+    assert tile["truncated"] is False
+    assert tile["alternateColumns"] == []
+    assert depth_reads == []
+
+
+def test_cancelled_matching_guide_tile_never_returns_empty_success(
+    matching_alignment_files, monkeypatch
+) -> None:
+    bam, fasta = matching_alignment_files
+    retired = threading.Event()
+    decode = alignment_tiles._events_from_reference
+
+    def retire_after_last_read(read, **reference):
+        result = decode(read, **reference)
+        assert result == []
+        retired.set()
+        return result
+
+    class ExtractionRetired(Exception):
+        pass
+
+    def check_cancelled():
+        if retired.is_set():
+            raise ExtractionRetired
+
+    monkeypatch.setattr(alignment_tiles, "_events_from_reference", retire_after_last_read)
+    with pytest.raises(ExtractionRetired):
+        alignment_tiles.alignment_tile(
+            bam, "chrT", 0, 80, level=0, tile_index=0, index_path=bam + ".bai",
+            reference_fasta=fasta, guides_only=True, check_cancelled=check_cancelled,
+        )
+
+
 def test_alignment_tile_emits_sparse_events_and_credible_alternate_columns(
     nucleotide_alignment_fixture: dict[str, str],
 ) -> None:
