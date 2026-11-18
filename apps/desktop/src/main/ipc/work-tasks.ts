@@ -1,3 +1,4 @@
+import type { EntityNavigationTarget } from '../../shared/entity-navigation';
 import { splitProjectWorkTask } from '../work-task-split';
 import { queryWorkRecordDates } from '../work-record-dates';
 import {
@@ -24,6 +25,7 @@ import { getDb } from './database';
 
 export function registerWorkTaskHandlers(
   notebooks: NativeNotebookWorkingCopyOwner,
+  navigate: (target: EntityNavigationTarget) => void,
   resolveDb: () => Database.Database = getDb
 ): void {
   handleGroup(workTasksContract, {
@@ -76,5 +78,5 @@ export function registerWorkTaskHandlers(
         notebooks
       ),
   });
-  startWorkReminderScheduler(resolveDb);
+  startWorkReminderScheduler(resolveDb, navigate);
 }

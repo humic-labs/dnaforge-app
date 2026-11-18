@@ -8,6 +8,8 @@ import type {
 } from '../shared/work-reminders-ipc';
 import type { WorkProjectAccess } from './work-task-projects';
 import { assertWorkProjectAtAcceptance, workProfile, workRefused } from './work-task-projects';
+import { workTaskNavigationTarget } from '../shared/entity-navigation';
+import { visibleWorkProjects } from './work-task-projects';
 import { readWorkTask } from './work-task-store';
 import {
   reminderGeneration,
@@ -97,6 +99,35 @@ function effectCurrent(
     )
   );
 }
+export function localReminderNavigationTarget(
+  db: Database.Database,
+  root: string,
+  effectId: string,
+  epoch: number
+) {
+  const project = visibleWorkProjects(db, root)[0];
+  if (!project || project.actor.kind !== 'local' || !project.writable) return null;
+  const dispatch = dispatchRow(db, project);
+  if (
+    dispatch?.state !== 'local' ||
+    dispatch.epoch !== epoch ||
+    dispatch.installation_id !== project.actor.id
+  )
+    return null;
+  const effect = db
+    .prepare(
+      "SELECT * FROM scientific_work_effects WHERE id=? AND workspace_id=? AND principal=? AND channel IN ('submit-intent','accepted')"
+    )
+    .get(effectId, project.workspaceId, reminderPrincipal(project)) as LocalEffect | undefined;
+  if (!effect) return null;
+  const rule = db
+    .prepare('SELECT * FROM scientific_work_rules WHERE id=? AND workspace_id=? AND principal=?')
+    .get(effect.rule_id, project.workspaceId, effect.principal) as LocalRule | undefined;
+  return effectCurrent(db, project, effect, rule)
+    ? workTaskNavigationTarget(project.id, effect.task_id)
+    : null;
+}
+
 export function localReminderView(db: Database.Database, p: WorkProjectAccess): WorkReminderView {
   const dispatch = dispatchRow(db, p),
     consent = localConsent(db, p);
@@ -319,7 +350,7 @@ export function scanLocalWorkReminders(
   db: Database.Database,
   p: WorkProjectAccess,
   now: number,
-  notify: (effect: LocalEffect) => void
+  notify: (effect: LocalEffect, epoch: number) => void
 ) {
   const principal = reminderPrincipal(p);
   if (p.actor.kind !== 'local') return;
@@ -389,6 +420,6 @@ export function scanLocalWorkReminders(
           );
       })
       .immediate();
-    if (updated.changes && allowed) notify(effect);
+    if (updated.changes && allowed) notify(effect, dispatch.epoch);
   }
 }

@@ -13,6 +13,7 @@ import {
   scanLocalWorkReminders,
   localReminderView,
   dispatchRow,
+  localReminderNavigationTarget,
 } from './work-reminder-local';
 import { handoffWorkReminders } from './work-reminder-remote';
 import { withWorkspaceSyncDatabaseFence } from './workspace-sync-database-fence';
@@ -94,6 +95,12 @@ it('retains inbox and OS intent independently and never resumes after an unknown
       });
     });
     expect(deliver).toHaveBeenCalledTimes(1);
+    const [effect, epoch] = deliver.mock.calls[0];
+    expect(localReminderNavigationTarget(f.db, root, effect.id, epoch)).toEqual({
+      entityId: 'work-task:task',
+      projectId: project.id,
+    });
+    expect(localReminderNavigationTarget(f.db, root, effect.id, epoch + 1)).toBeNull();
     const p = { ...project, actor: { kind: 'member' as const, id: randomUUID() } };
     const remoteId = randomUUID(),
       request = randomUUID();
@@ -119,6 +126,7 @@ it('retains inbox and OS intent independently and never resumes after an unknown
     const other = openFileTestDb(f.dbPath);
     try {
       expect(dispatchRow(other, project)?.state).toBe('fenced');
+      expect(localReminderNavigationTarget(other, root, effect.id, epoch)).toBeNull();
       scanLocalWorkReminders(other, project, fire + 130000, deliver);
       expect(deliver).toHaveBeenCalledTimes(1);
       await expect(handoffWorkReminders(other, p, randomUUID(), 0, port)).rejects.toThrow(

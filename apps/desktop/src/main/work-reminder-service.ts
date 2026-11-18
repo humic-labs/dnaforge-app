@@ -1,3 +1,4 @@
+import type { EntityNavigationTarget } from '../shared/entity-navigation';
 import { DesktopSyncClientError } from './desktop-sync-client-errors';
 import { app, Notification, powerMonitor } from 'electron';
 import type Database from 'better-sqlite3';
@@ -11,6 +12,7 @@ import {
 import {
   dispatchRow,
   scanLocalWorkReminders,
+  localReminderNavigationTarget,
   localReminderView,
   changeLocalReminder,
   type LocalEffect,
@@ -89,12 +91,15 @@ export async function workReminderCommand(
   }
 }
 
-export function startWorkReminderScheduler(getDb: () => Database.Database) {
+export function startWorkReminderScheduler(
+  getDb: () => Database.Database,
+  navigate: (target: EntityNavigationTarget) => void
+) {
   let ticking = false,
     closed = false,
     started = false;
   const notificationReceipts = new Set<Notification>();
-  const notify = (db: Database.Database, effect: LocalEffect) => {
+  const notify = (db: Database.Database, root: string, effect: LocalEffect, epoch: number) => {
     const settle = (state: string) => {
       void withWorkspaceSyncDatabaseFence(db, async () => {
         db.prepare(
@@ -112,12 +117,20 @@ export function startWorkReminderScheduler(getDb: () => Database.Database) {
         body: 'A project task has reached its reminder time.',
       });
       notificationReceipts.add(n);
-      const acknowledged = (state: string) => {
+      n.once('show', () => settle('accepted'));
+      n.once('close', () => notificationReceipts.delete(n));
+      n.once('failed', () => {
         notificationReceipts.delete(n);
-        settle(state);
-      };
-      n.once('show', () => acknowledged('accepted'));
-      n.once('failed', () => acknowledged('rejected'));
+        settle('rejected');
+      });
+      n.once('click', () => {
+        notificationReceipts.delete(n);
+        void withWorkspaceSyncDatabaseFence(db, async () => {
+          if (closed) return;
+          const target = localReminderNavigationTarget(db, root, effect.id, epoch);
+          if (target) navigate(target);
+        }).catch(() => {});
+      });
       n.show();
     } catch {
       settle('uncertain');
@@ -144,7 +157,7 @@ export function startWorkReminderScheduler(getDb: () => Database.Database) {
           const p = visibleWorkProjects(db, owner.path)[0];
           if (!p) continue;
           try {
-            scanLocalWorkReminders(db, p, now, (e) => notify(db, e));
+            scanLocalWorkReminders(db, p, now, (e, epoch) => notify(db, owner.path, e, epoch));
           } catch (error) {
             console.warn(
               '[Work reminders] Could not evaluate project reminders.',
