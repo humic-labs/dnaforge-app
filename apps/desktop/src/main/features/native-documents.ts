@@ -70,6 +70,9 @@ export function createNativeDocuments(
   const workspaces = new NativeDocumentWorkspaces({
     authority: projectAuthority,
   });
+  let assertSheetSyncRenderer: (event: IpcMainInvokeEvent) => void = () => {
+    throw new Error('Native spreadsheet renderer authority is unavailable.');
+  };
   let profileKey: string | null = null;
   let profileDirectory: string | null = null;
   const fileRelocations = createWorkspaceFileRelocator({
@@ -223,6 +226,7 @@ export function createNativeDocuments(
   let rendererPublisher: RendererPublisher | null = null;
   let fileClientSync: ReturnType<typeof createFileDocumentClientSync> | null = null;
   let fileEditingClient: 'renderer' | 'none' = 'renderer';
+  let closingDocuments: Promise<void> | undefined;
   let assertNoFileEditingClient: (() => boolean) | undefined;
   let commandServer: CommandServer | null = null;
   let detachCommandServer: (() => void) | null = null;
@@ -403,6 +407,10 @@ export function createNativeDocuments(
     handleGroup(importReviewContract, {
       call: (_event, request) => importReviews.call(request),
       snapshot: (_event, id) => importReviews.snapshot(id),
+      sheetSync: (event, request) => {
+        assertSheetSyncRenderer(event);
+        return importReviews.sheetSync(request);
+      },
     });
     handleGroup(workspaceNativeDocumentsContract, {
       listRegisteredProjects: () => projectAuthority.folders(),
@@ -446,14 +454,18 @@ export function createNativeDocuments(
     );
   }
 
-  async function closeServerAndRecovery(): Promise<void> {
-    await markdownImporter.close();
-    const recovery = startupRecovery;
-    const server = commandServer;
-    startupRecovery = null;
-    commandServer = null;
-    await Promise.all([recovery?.close(), server?.close()]);
-    await fileDocuments.close();
+  function closeServerAndRecovery(): Promise<void> {
+    closingDocuments ??= (async () => {
+      await markdownImporter.close();
+      const recovery = startupRecovery;
+      const server = commandServer;
+      startupRecovery = null;
+      commandServer = null;
+      await Promise.all([recovery?.close(), server?.close()]);
+      await flushDirtyDocumentClients('retire');
+      await fileDocuments.close();
+    })();
+    return closingDocuments;
   }
 
   function detachServer(): void {
@@ -559,6 +571,13 @@ export function createNativeDocuments(
       ack: import('../../shared/file-document-client-sync').FileDocumentClientFlushAck
     ) => fileClientSync?.acknowledge(sender, ack) ?? false,
     importReviews,
+    setSheetSyncProvider(
+      controller: import('../google-sheets/controller').GoogleSheetsController,
+      assertRenderer: (event: IpcMainInvokeEvent) => void
+    ) {
+      importReviews.setGoogleSheetsController(controller);
+      assertSheetSyncRenderer = assertRenderer;
+    },
     bindProfile,
     start,
     startRendererPublisher,

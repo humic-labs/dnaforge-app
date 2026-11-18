@@ -45,6 +45,16 @@ function matchesGitLog(rest: readonly string[], cwd: string): boolean {
     return true;
   }
   if (
+    rest.length === 7 &&
+    rest[0] === '--format=%H%x00%s%x00%aI%x00%ar' &&
+    rest[1] === '--follow' &&
+    rest[2] === '--name-only' &&
+    rest[3] === '-z' &&
+    isShortLogCount(rest[4])
+  ) {
+    return assertTrailingScopedPath(rest, 5, cwd);
+  }
+  if (
     rest.length === 5 &&
     Boolean(rest[0]?.startsWith('--format=')) &&
     rest[1] === '--follow' &&

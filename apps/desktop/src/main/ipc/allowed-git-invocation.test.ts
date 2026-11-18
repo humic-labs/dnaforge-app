@@ -30,6 +30,16 @@ describe('assertAllowedGitInvocation', () => {
     allows(['log', '--format=%H', '-3']);
     allows(['log', '--format=%H', '--follow', '-20', '--', 'pUC19.gb']);
     allows(['log', '--format=%x01%H', '--name-only', '-30', '--', '.']);
+    allows([
+      'log',
+      '--format=%H%x00%s%x00%aI%x00%ar',
+      '--follow',
+      '--name-only',
+      '-z',
+      '-20',
+      '--',
+      'pUC19.gb',
+    ]);
     allows(['log', '--all', '--follow', '--diff-filter=R', '--format=%H', '-1', '--', 'pUC19.gb']);
     allows(['diff-tree', '--no-commit-id', '-r', '--diff-filter=R', '-M', 'a'.repeat(40)]);
     allows(['show', 'abc123']);

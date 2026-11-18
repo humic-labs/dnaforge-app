@@ -15,7 +15,10 @@ import { createPortal } from 'react-dom';
 import { stripDisplayExtension } from '../../utils/fileTypes';
 import { DEFAULT_TOOLTIP_DELAY_MS } from '../../shared/components/Tooltip';
 import { usePresentationEligibility } from '../../presentation/PresentationSurface';
+import { TRACK_VIEW_FILE_SUFFIX } from '../../shared/registry-file-types';
 import { iconForEntityKind } from '../icons/entity-icon-registry';
+import { UI_ENTITY_REFERENCE_KIND_CLASS } from '../ui/styles';
+import { ReferenceChipSurface } from '../ui/controls';
 import type { EntityColorContext } from '../../shared/entity-color-family';
 import { ActionMenu } from '../ActionMenu';
 
@@ -30,7 +33,6 @@ export interface EntityReferenceChipProps {
   kindLabel?: string;
   iconOverride?: ReactNode;
   iconContext?: EntityColorContext;
-  showKindLabel?: boolean;
   label: string;
   preserveExtension?: boolean;
   detail?: unknown;
@@ -43,7 +45,6 @@ export interface EntityReferenceChipProps {
   testId?: string;
   labelTestId?: string;
   detailTestId?: string;
-  iconPlacement?: 'start' | 'end';
   endSlot?: ReactNode;
   attachmentPhase?: 'draft' | 'sent';
 }
@@ -71,6 +72,7 @@ const ENTITY_DETAIL_LABELS: Readonly<Record<string, string>> = {
   sequence_region: 'Sequence region',
   structure: 'Structure',
   text: 'File',
+  'track-view': 'Track View',
 };
 
 function entityDetailLabel(entityType: string): string {
@@ -87,9 +89,9 @@ function EntityReferenceChipInner({
   kindLabel: kindLabelOverride,
   iconOverride,
   iconContext,
-  showKindLabel = false,
   label,
   preserveExtension = false,
+  detail,
   primaryAction,
   busy = false,
   onOpen,
@@ -99,12 +101,17 @@ function EntityReferenceChipInner({
   testId = 'entity-reference-chip',
   labelTestId = 'entity-reference-chip-label',
   detailTestId = 'entity-reference-chip-detail',
-  iconPlacement = 'end',
   endSlot,
   attachmentPhase,
 }: EntityReferenceChipProps) {
+  const presentationType =
+    (entityType === 'file' || entityType === 'text') &&
+    typeof detail === 'string' &&
+    detail.toLowerCase().endsWith(TRACK_VIEW_FILE_SUFFIX)
+      ? 'track-view'
+      : entityType;
   const displayLabel = preserveExtension ? label : stripDisplayExtension(label);
-  const kindLabel = kindLabelOverride ?? entityDetailLabel(entityType);
+  const kindLabel = kindLabelOverride ?? entityDetailLabel(presentationType);
   const displayDetail = `${displayLabel} · ${kindLabel}${unavailable ? ' · Unavailable' : ''}`;
   const resolvedPrimaryAction =
     primaryAction ?? (onOpen ? 'open' : onReveal ? 'reveal' : undefined);
@@ -131,8 +138,8 @@ function EntityReferenceChipInner({
     offset: number;
   } | null>(null);
   const defaultIcon = useMemo(
-    () => iconForEntityKind(entityType, 'h-3.5 w-3.5', iconContext),
-    [entityType, iconContext]
+    () => iconForEntityKind(presentationType, 'h-3.5 w-3.5', iconContext),
+    [presentationType, iconContext]
   );
   const icon = iconOverride ?? defaultIcon;
   const actions = useMemo<MenuAction[]>(() => {
@@ -237,15 +244,14 @@ function EntityReferenceChipInner({
 
   return (
     <>
-      <span
+      <ReferenceChipSurface
         ref={chipRef}
         data-testid={testId}
         data-entity-reference-chip="true"
-        data-entity-type={entityType}
+        data-entity-type={presentationType}
         data-local-only={localOnly ? 'true' : undefined}
-        className={`entity-reference-chip${unavailable ? ' entity-reference-chip--unavailable' : ''}${
-          attachmentPhase ? ` entity-reference-chip--${attachmentPhase}` : ''
-        }`}
+        unavailable={unavailable}
+        attachmentPhase={attachmentPhase}
         role={hasPrimaryAction || unavailable ? 'link' : undefined}
         tabIndex={hasPrimaryAction || unavailable ? 0 : -1}
         aria-label={displayLabel ? `${displayLabel}, ${kindLabel}` : kindLabel}
@@ -276,27 +282,20 @@ function EntityReferenceChipInner({
         }}
         onKeyDown={onChipKeyDown}
       >
-        {iconPlacement === 'start' && icon ? (
+        {icon ? (
           <span aria-hidden="true" className="entity-reference-chip__icon">
             {icon}
           </span>
         ) : null}
-        {showKindLabel && (
-          <span className="shrink-0 text-[10px] font-medium text-fg-muted">
-            {kindLabel}
-            <span aria-hidden="true"> · </span>
-          </span>
-        )}
+        <span className={`entity-reference-chip__kind ${UI_ENTITY_REFERENCE_KIND_CLASS}`}>
+          {kindLabel}
+          <span aria-hidden="true"> · </span>
+        </span>
         <span className="entity-reference-chip__label" data-testid={labelTestId}>
           {displayLabel}
         </span>
-        {iconPlacement === 'end' && icon ? (
-          <span aria-hidden="true" className="entity-reference-chip__icon">
-            {icon}
-          </span>
-        ) : null}
         {endSlot}
-      </span>
+      </ReferenceChipSurface>
       {showDetail && detailPosition
         ? createPortal(
             <span

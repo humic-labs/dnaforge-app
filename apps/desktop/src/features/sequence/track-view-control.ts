@@ -40,7 +40,11 @@ const sessions = new Map<string, TrackViewSession>();
 function supportsTrackView(tab: Tab | undefined) {
   if (!tab) return false;
   const session = classifyTabSession(tab);
-  return session.kind === 'sequence' && session.editor === 'indexed';
+  return (
+    session.kind === 'sequence' &&
+    session.editor === 'indexed' &&
+    Boolean(tab.trackView || tab.indexedGenome?.assembly || tab.entityId.startsWith('assembly:'))
+  );
 }
 function findTab(tabId: string) {
   return Object.values(useCanvasStore.getState().panels)

@@ -1,5 +1,8 @@
 import { INTERACTION_CLASS } from '@waypoint/ui-components';
 export const UI_PROSE_WRAP_CLASS = 'min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]';
+export const UI_ENTITY_REFERENCE_CHIP_CLASS =
+  'px-[calc(0.3em+1px)] py-[calc(0.1em+1px)] text-[0.875rem] font-medium leading-[1.25rem] [transition:background-color_0.15s_ease]';
+export const UI_ENTITY_REFERENCE_KIND_CLASS = 'shrink-0 text-[10px] font-medium text-fg-muted';
 export const UI_PAGE_TITLE_CLASS = 'text-3xl font-bold tracking-tight text-fg';
 export const UI_SUBSECTION_TITLE_CLASS = 'text-xl font-semibold tracking-tight text-fg';
 export const UI_SUBSECTION_DESCRIPTION_CLASS = 'mt-1.5 text-sm leading-5 text-fg-muted';

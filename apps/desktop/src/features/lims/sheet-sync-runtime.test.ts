@@ -3,7 +3,14 @@ import type { LimsImportPlan } from '../../shared/lims';
 import type { SheetSyncConnection, SheetSyncSnapshot } from './sheet-sync-connection';
 import { parseSheetSyncConnection, sheetSyncConnectionRelativePath } from './sheet-sync-connection';
 import { sha256Hex } from '../primers/public/primer-artifact';
-import { createExcelSheetSyncConnection, pullExcelSheetConnection } from './sheet-sync-runtime';
+import { createSheetSyncRuntime } from '../../shared/registry-artifacts/sheet-sync/runtime';
+import { createSheetSyncPersistence } from '../../shared/registry-artifacts/sheet-sync/persistence';
+import { createSheetSyncSources } from '../../shared/registry-artifacts/sheet-sync/sources';
+import { resolveWorkspaceId } from '../../db/workspace-catalog';
+import { withRendererWorkspaceMutation } from '../../services/workspace-mutation-transaction';
+import { readPrimerArtifactAtPath } from '../primers/primer-artifact-service';
+import { createLimsImportPlan } from './ingress';
+import { scientificIdentityPath } from '@waypoint/scientific-objects';
 const mocks = vi.hoisted(() => ({
   fs: { exists: vi.fn(), readTextFile: vi.fn(), writeWorkspaceTextFileAtomic: vi.fn() },
   readSource: vi.fn(),
@@ -37,7 +44,7 @@ vi.mock('../../services/workspace-operations', () => ({
   reconcileWorkspaceAfterFilesChanged: mocks.reconcile,
 }));
 vi.mock('../../services/lims-entity-mutations', () => ({ updateLimsEntity: mocks.update }));
-vi.mock('./sheet-sync-local-state', () => ({
+const localFunctions = {
   localSheetSyncAuthorization: mocks.authorization,
   localGoogleSheetSyncGrant: mocks.googleGrant,
   authorizeGoogleSheetSync: vi.fn(),
@@ -45,7 +52,7 @@ vi.mock('./sheet-sync-local-state', () => ({
   setLocalSheetSyncActive: vi.fn(),
   sheetSyncFinalizationAcknowledged: mocks.acknowledged,
   acknowledgeSheetSyncFinalization: mocks.acknowledgement,
-}));
+};
 vi.mock('../workspace/git', () => ({
   isGitRepo: mocks.gitRepo,
   gitStatus: mocks.gitStatus,
@@ -57,11 +64,11 @@ vi.mock('../primers/primer-artifact-service', () => ({ readPrimerArtifactAtPath:
 vi.mock('./operations', () => ({ queryLimsEntities: mocks.query }));
 vi.mock('./import-set', () => ({ persistImportSet: mocks.importSet }));
 vi.mock('./excel-sync-source', () => ({ readExcelSyncSource: mocks.readSource }));
-vi.mock('./sheet-sync-artifacts', () => ({
+const artifactFunctions = {
   createSheetSyncArtifact: mocks.create,
   updateSheetSyncPrimer: vi.fn(),
   sheetSyncCreateIntent: async (_connection: unknown, row: { key: string }) => ({
-    owner: 'record',
+    owner: 'record' as const,
     key: row.key,
     entityId: crypto.randomUUID(),
   }),
@@ -77,7 +84,52 @@ vi.mock('./sheet-sync-artifacts', () => ({
         .map((key) => [key, entity.fields[key]])
     ),
   }),
-}));
+};
+function unexpectedArtifactPort(): never {
+  throw new Error('This runtime fixture does not configure an artifact owner.');
+}
+const persistenceFiles = { ...mocks.fs, readDir: unexpectedArtifactPort };
+const sources = createSheetSyncSources({
+  createLimsImportPlan,
+  readFile: unexpectedArtifactPort,
+});
+const { createExcelSheetSyncConnection, pullExcelSheetConnection } = createSheetSyncRuntime({
+  fs: persistenceFiles,
+  resolveWorkspaceId,
+  withRendererWorkspaceMutation,
+  recordPrimers: unexpectedArtifactPort,
+  readPrimerArtifactAtPath,
+  reconcilePrimerArtifact: unexpectedArtifactPort,
+  updatePrimerArtifactContent: unexpectedArtifactPort,
+  recordProtein: unexpectedArtifactPort,
+  recordEntityArtifact: unexpectedArtifactPort,
+  resolvePrimerSchema: unexpectedArtifactPort,
+  calculatePrimerTm: unexpectedArtifactPort,
+  queryLimsEntities: mocks.query,
+  reconcileWorkspaceAfterFilesChanged: mocks.reconcile,
+  updateLimsEntity: mocks.update,
+  persistImportSet: mocks.importSet,
+  isGitRepo: mocks.gitRepo,
+  gitStatus: mocks.gitStatus,
+  gitCommitPaths: mocks.gitCommit,
+  gitHead: mocks.gitHead,
+  gitShowCommit: mocks.gitShow,
+  googleSheets: { worksheet: mocks.googleWorksheet, status: unexpectedArtifactPort },
+  newConnectionId: () => crypto.randomUUID(),
+  publicationPaths: async (root, dirty) => {
+    if (
+      files.has(`${root}/${scientificIdentityPath}`) ||
+      [...dirty.keys()].some((path) => path.startsWith('.dnaforge/relationships/'))
+    )
+      throw new Error('This runtime fixture does not configure an accepted scientific namespace.');
+    return [];
+  },
+  ...createSheetSyncPersistence(persistenceFiles),
+  ...sources,
+  ...localFunctions,
+  ...artifactFunctions,
+  readExcelSyncSource: mocks.readSource,
+});
 const files = new Map<string, string>();
 const entities = new Map<
   string,

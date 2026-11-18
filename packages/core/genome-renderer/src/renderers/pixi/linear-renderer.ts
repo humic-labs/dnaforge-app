@@ -72,7 +72,7 @@ import type { PrimerOverlayRenderStats } from './overlays/primer-overlay';
 import {
   capMaxZoomForStabilityMode,
   computeUnifiedLayout,
-  MAX_INDEXED_LINEAR_SEQUENCE_PIXELS_PER_BP,
+  linearSequenceMaxPixelsPerBp,
   maxZoomForSequencePixelsPerBp,
   unifiedLayoutCoreCameraKey,
   type UnifiedLayout,
@@ -575,6 +575,7 @@ interface UnifiedLayoutCache {
   readonly reserveSequenceLayoutEnvelope: boolean;
   readonly showSecondarySequenceRow: boolean;
   readonly showResidueNumbers: boolean;
+  readonly maxSequencePixelsPerBp: number | undefined;
   readonly cdsSizing: 'canvas' | 'indexed' | 'cohesive' | undefined;
   readonly translationLanes: number;
   readonly annotationLanes: number;
@@ -622,6 +623,7 @@ function unifiedLayoutCacheMatches(
     cached !== null &&
     cached.genome === input.genome &&
     cached.cdsSizing === input.cdsSizing &&
+    cached.maxSequencePixelsPerBp === input.state.sequencePresentation?.maxSequencePixelsPerBp &&
     cached.overlayLayoutRevision === input.overlayLayoutRevision &&
     Object.is(cached.coreCameraKey, input.coreCameraKey) &&
     cached.width === input.width &&
@@ -1552,13 +1554,9 @@ export class PixiLinearRenderer {
     const hasAnySequence =
       !!this.genome?.sequence || !!this.genome?.sequenceWindow || this.genome?.sequenceAvailable;
     if (!this.genome || !hasAnySequence) return Number.POSITIVE_INFINITY;
-    const requestedPixelsPerBp = state.sequencePresentation?.maxSequencePixelsPerBp;
-    const maxPixelsPerBp =
-      requestedPixelsPerBp !== undefined &&
-      Number.isFinite(requestedPixelsPerBp) &&
-      requestedPixelsPerBp > 0
-        ? requestedPixelsPerBp
-        : MAX_INDEXED_LINEAR_SEQUENCE_PIXELS_PER_BP;
+    const maxPixelsPerBp = linearSequenceMaxPixelsPerBp(
+      state.sequencePresentation?.maxSequencePixelsPerBp
+    );
     const readableMaxZoom = Math.max(
       0.01,
       maxZoomForSequencePixelsPerBp(this.genome.length, state.width, maxPixelsPerBp)
@@ -1844,6 +1842,7 @@ export class PixiLinearRenderer {
             reserveSequenceLayoutEnvelope,
             showSecondarySequenceRow,
             showResidueNumbers: state.showResidueNumbers === true,
+            maxSequencePixelsPerBp: state.sequencePresentation?.maxSequencePixelsPerBp,
             cdsSizing: state.sequencePresentation?.cdsSizing ?? this.defaultCdsSizing,
             translationLanes,
             annotationLanes: stableAnnotationLanes,

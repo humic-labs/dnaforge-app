@@ -39,6 +39,7 @@ export interface LocalAiTurnTerminalInput {
     | 'tool_failed'
     | 'unknown';
   recovered?: boolean;
+  userStopAcknowledged?: true;
 }
 
 function routeForProvider(provider: AgentProvider): 'local_codex' | 'local_claude' | 'local_grok' {
@@ -98,6 +99,15 @@ function terminalDimensions(input: LocalAiTurnTerminalInput): {
     };
   }
   if (input.status === 'cancelled') {
+    if (input.userStopAcknowledged && !input.recovered) {
+      return {
+        outcome: 'stopped',
+        initiatedBy: 'user',
+        reason: 'user_stop_acknowledged',
+        failureClass: 'none',
+        stage: 'provider_stream',
+      };
+    }
     return {
       outcome: 'cancelled',
       initiatedBy: 'provider',
@@ -135,8 +145,13 @@ export function buildLocalAiTurnFinished(
 ): AiTurnFinishedProperties {
   const terminal = terminalDimensions(input);
   const valueDelivered =
-    terminal.outcome === 'completed' && hasQualifyingAssistantContent(input.visibleAssistantText);
-  const qualificationBasis = valueDelivered ? 'completed_response' : 'none';
+    (terminal.outcome === 'completed' || terminal.outcome === 'stopped') &&
+    hasQualifyingAssistantContent(input.visibleAssistantText);
+  const qualificationBasis = valueDelivered
+    ? terminal.outcome === 'stopped'
+      ? 'partial_response_before_stop'
+      : 'completed_response'
+    : 'none';
   return {
     ...(input.actionId &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(

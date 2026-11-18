@@ -31,7 +31,7 @@ index 89750923b2c4c21a1ff00ed387038b1e576003ec..56e1406cdb6c5fbd8f1d49ec9cac82eb
          innerEdgeFactor: number;
      }>>;
 diff --git a/lib/commonjs/mol-canvas3d/passes/marking.d.ts b/lib/commonjs/mol-canvas3d/passes/marking.d.ts
-index ea3b56a69049af7e68bcaa0117436f76627ea9bb..254e2de38ce81d5a392f82e312b62e98d43cc253 100644
+index ea3b56a69049af7e68bcaa0117436f76627ea9bb..797d9882f883e600b661dd242310b80c6d7dc2c6 100644
 --- a/lib/commonjs/mol-canvas3d/passes/marking.d.ts
 +++ b/lib/commonjs/mol-canvas3d/passes/marking.d.ts
 @@ -14,6 +14,7 @@ export declare const MarkingParams: {
@@ -42,8 +42,15 @@ index ea3b56a69049af7e68bcaa0117436f76627ea9bb..254e2de38ce81d5a392f82e312b62e98
      ghostEdgeStrength: PD.Numeric;
      innerEdgeFactor: PD.Numeric;
  };
+@@ -32,5 +33,6 @@ export declare class MarkingPass {
+     private setOverlayState;
+     setSize(width: number, height: number): void;
+     update(props: MarkingProps): void;
++    prepare(props: MarkingProps): boolean;
+     render(viewport: Viewport, target: RenderTarget): void;
+ }
 diff --git a/lib/commonjs/mol-canvas3d/passes/marking.js b/lib/commonjs/mol-canvas3d/passes/marking.js
-index 47d3ba5837bf9d7ee4bc956d47ca09ac5521dd93..1319859af6fe630f2d308ebb637614bb6047242a 100644
+index 47d3ba5837bf9d7ee4bc956d47ca09ac5521dd93..1141e96a479dd6c79449fa1d587d7e5113187aa6 100644
 --- a/lib/commonjs/mol-canvas3d/passes/marking.js
 +++ b/lib/commonjs/mol-canvas3d/passes/marking.js
 @@ -26,6 +26,7 @@ exports.MarkingParams = {
@@ -63,15 +70,32 @@ index 47d3ba5837bf9d7ee4bc956d47ca09ac5521dd93..1319859af6fe630f2d308ebb637614bb
          const { values: edgeValues } = this.edge;
          const _edgeScale = Math.max(1, Math.round(edgeScale * this.webgl.pixelRatio));
          if (edgeValues.dEdgeScale.ref.value !== _edgeScale) {
-@@ -96,6 +97,7 @@ class MarkingPass {
+@@ -96,6 +97,13 @@ class MarkingPass {
          mol_util_1.ValueCell.updateIfChanged(overlayValues.uGhostEdgeStrength, ghostEdgeStrength);
          mol_util_1.ValueCell.updateIfChanged(overlayValues.uHighlightEdgeStrength, highlightEdgeStrength);
          mol_util_1.ValueCell.updateIfChanged(overlayValues.uSelectEdgeStrength, selectEdgeStrength);
 +        mol_util_1.ValueCell.updateIfChanged(overlayValues.uSelectInnerEdgeStrength, selectInnerEdgeStrength);
++    }
++    prepare(props) {
++        this.update(props);
++        const edgeReady = this.edge.prepare();
++        const overlayReady = this.overlay.prepare();
++        return edgeReady && overlayReady;
      }
      render(viewport, target) {
          if (debug_1.isTimingMode)
-@@ -141,6 +143,7 @@ const OverlaySchema = {
+@@ -130,7 +138,9 @@ function getEdgeRenderable(ctx, maskTexture) {
+     };
+     const schema = { ...EdgeSchema };
+     const renderItem = (0, render_item_1.createComputeRenderItem)(ctx, 'triangles', EdgeShaderCode, schema, values);
+-    return (0, renderable_1.createComputeRenderable)(renderItem, values);
++    return Object.assign((0, renderable_1.createComputeRenderable)(renderItem, values), {
++        prepare: () => renderItem.getProgram('compute').finalize(false)
++    });
+ }
+ //
+ const OverlaySchema = {
+@@ -141,6 +151,7 @@ const OverlaySchema = {
      uSelectEdgeColor: (0, schema_1.UniformSpec)('v3'),
      uHighlightEdgeStrength: (0, schema_1.UniformSpec)('f'),
      uSelectEdgeStrength: (0, schema_1.UniformSpec)('f'),
@@ -79,7 +103,7 @@ index 47d3ba5837bf9d7ee4bc956d47ca09ac5521dd93..1319859af6fe630f2d308ebb637614bb
      uGhostEdgeStrength: (0, schema_1.UniformSpec)('f'),
      uInnerEdgeFactor: (0, schema_1.UniformSpec)('f'),
  };
-@@ -156,6 +159,7 @@ function getOverlayRenderable(ctx, edgeTexture) {
+@@ -156,10 +167,13 @@ function getOverlayRenderable(ctx, edgeTexture) {
          uSelectEdgeColor: mol_util_1.ValueCell.create((0, linear_algebra_1.Vec3)()),
          uHighlightEdgeStrength: mol_util_1.ValueCell.create(1),
          uSelectEdgeStrength: mol_util_1.ValueCell.create(1),
@@ -87,6 +111,13 @@ index 47d3ba5837bf9d7ee4bc956d47ca09ac5521dd93..1319859af6fe630f2d308ebb637614bb
          uGhostEdgeStrength: mol_util_1.ValueCell.create(0),
          uInnerEdgeFactor: mol_util_1.ValueCell.create(0),
      };
+     const schema = { ...OverlaySchema };
+     const renderItem = (0, render_item_1.createComputeRenderItem)(ctx, 'triangles', OverlayShaderCode, schema, values);
+-    return (0, renderable_1.createComputeRenderable)(renderItem, values);
++    return Object.assign((0, renderable_1.createComputeRenderable)(renderItem, values), {
++        prepare: () => renderItem.getProgram('compute').finalize(false)
++    });
+ }
 diff --git a/lib/commonjs/mol-gl/shader/chunks/assign-color-varying.glsl.js b/lib/commonjs/mol-gl/shader/chunks/assign-color-varying.glsl.js
 index fe3ba911fd03cb7e2ee7d03f6fa83e6ecc996516..6f78a79a9f4931c710d57dd9fefb421970234ca0 100644
 --- a/lib/commonjs/mol-gl/shader/chunks/assign-color-varying.glsl.js
@@ -218,7 +249,7 @@ index 89750923b2c4c21a1ff00ed387038b1e576003ec..56e1406cdb6c5fbd8f1d49ec9cac82eb
          innerEdgeFactor: number;
      }>>;
 diff --git a/lib/mol-canvas3d/passes/marking.d.ts b/lib/mol-canvas3d/passes/marking.d.ts
-index ea3b56a69049af7e68bcaa0117436f76627ea9bb..254e2de38ce81d5a392f82e312b62e98d43cc253 100644
+index ea3b56a69049af7e68bcaa0117436f76627ea9bb..797d9882f883e600b661dd242310b80c6d7dc2c6 100644
 --- a/lib/mol-canvas3d/passes/marking.d.ts
 +++ b/lib/mol-canvas3d/passes/marking.d.ts
 @@ -14,6 +14,7 @@ export declare const MarkingParams: {
@@ -229,8 +260,15 @@ index ea3b56a69049af7e68bcaa0117436f76627ea9bb..254e2de38ce81d5a392f82e312b62e98
      ghostEdgeStrength: PD.Numeric;
      innerEdgeFactor: PD.Numeric;
  };
+@@ -32,5 +33,6 @@ export declare class MarkingPass {
+     private setOverlayState;
+     setSize(width: number, height: number): void;
+     update(props: MarkingProps): void;
++    prepare(props: MarkingProps): boolean;
+     render(viewport: Viewport, target: RenderTarget): void;
+ }
 diff --git a/lib/mol-canvas3d/passes/marking.js b/lib/mol-canvas3d/passes/marking.js
-index ed8fcbe81b58793b54f667927be08224de7fda44..18f07b77dd2a6fef976f360d994c494e2a80cfc6 100644
+index ed8fcbe81b58793b54f667927be08224de7fda44..1f27588044abcd14b35bd0537c386b7ee7482a8d 100644
 --- a/lib/mol-canvas3d/passes/marking.js
 +++ b/lib/mol-canvas3d/passes/marking.js
 @@ -23,6 +23,7 @@ export const MarkingParams = {
@@ -250,15 +288,32 @@ index ed8fcbe81b58793b54f667927be08224de7fda44..18f07b77dd2a6fef976f360d994c494e
          const { values: edgeValues } = this.edge;
          const _edgeScale = Math.max(1, Math.round(edgeScale * this.webgl.pixelRatio));
          if (edgeValues.dEdgeScale.ref.value !== _edgeScale) {
-@@ -93,6 +94,7 @@ export class MarkingPass {
+@@ -93,6 +94,13 @@ export class MarkingPass {
          ValueCell.updateIfChanged(overlayValues.uGhostEdgeStrength, ghostEdgeStrength);
          ValueCell.updateIfChanged(overlayValues.uHighlightEdgeStrength, highlightEdgeStrength);
          ValueCell.updateIfChanged(overlayValues.uSelectEdgeStrength, selectEdgeStrength);
 +        ValueCell.updateIfChanged(overlayValues.uSelectInnerEdgeStrength, selectInnerEdgeStrength);
++    }
++    prepare(props) {
++        this.update(props);
++        const edgeReady = this.edge.prepare();
++        const overlayReady = this.overlay.prepare();
++        return edgeReady && overlayReady;
      }
      render(viewport, target) {
          if (isTimingMode)
-@@ -137,6 +139,7 @@ const OverlaySchema = {
+@@ -126,7 +134,9 @@ function getEdgeRenderable(ctx, maskTexture) {
+     };
+     const schema = { ...EdgeSchema };
+     const renderItem = createComputeRenderItem(ctx, 'triangles', EdgeShaderCode, schema, values);
+-    return createComputeRenderable(renderItem, values);
++    return Object.assign(createComputeRenderable(renderItem, values), {
++        prepare: () => renderItem.getProgram('compute').finalize(false)
++    });
+ }
+ //
+ const OverlaySchema = {
+@@ -137,6 +147,7 @@ const OverlaySchema = {
      uSelectEdgeColor: UniformSpec('v3'),
      uHighlightEdgeStrength: UniformSpec('f'),
      uSelectEdgeStrength: UniformSpec('f'),
@@ -266,7 +321,7 @@ index ed8fcbe81b58793b54f667927be08224de7fda44..18f07b77dd2a6fef976f360d994c494e
      uGhostEdgeStrength: UniformSpec('f'),
      uInnerEdgeFactor: UniformSpec('f'),
  };
-@@ -152,6 +155,7 @@ function getOverlayRenderable(ctx, edgeTexture) {
+@@ -152,10 +163,13 @@ function getOverlayRenderable(ctx, edgeTexture) {
          uSelectEdgeColor: ValueCell.create(Vec3()),
          uHighlightEdgeStrength: ValueCell.create(1),
          uSelectEdgeStrength: ValueCell.create(1),
@@ -274,6 +329,13 @@ index ed8fcbe81b58793b54f667927be08224de7fda44..18f07b77dd2a6fef976f360d994c494e
          uGhostEdgeStrength: ValueCell.create(0),
          uInnerEdgeFactor: ValueCell.create(0),
      };
+     const schema = { ...OverlaySchema };
+     const renderItem = createComputeRenderItem(ctx, 'triangles', OverlayShaderCode, schema, values);
+-    return createComputeRenderable(renderItem, values);
++    return Object.assign(createComputeRenderable(renderItem, values), {
++        prepare: () => renderItem.getProgram('compute').finalize(false)
++    });
+ }
 diff --git a/lib/mol-gl/shader/chunks/assign-color-varying.glsl.js b/lib/mol-gl/shader/chunks/assign-color-varying.glsl.js
 index 275a9ea601f60ddeb89edda7908582853ad5e9d6..43bfcbf1b78b6a087a4fab26a0569a817fbba1b3 100644
 --- a/lib/mol-gl/shader/chunks/assign-color-varying.glsl.js

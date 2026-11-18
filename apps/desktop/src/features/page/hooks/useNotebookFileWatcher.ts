@@ -74,6 +74,11 @@ export function useNotebookFileWatcher({
   const [state, setState] = useState<NotebookSyncState>('current');
   const reloadFailureOperationRef = useRef<string>();
   const targetRef = useRef<NotebookWatchTarget | null>(null);
+  const [binding, setBinding] = useState<
+    (NotebookWatchTarget & { pageId: string; workspaceRoot: string | null }) | null
+  >(null);
+  const watchTarget =
+    binding?.pageId === pageId && binding.workspaceRoot === workspaceRoot ? binding : null;
   const baselineFingerprintRef = useRef<string>();
   const conflictFingerprintRef = useRef<string>();
   const isDirtyRef = useRef(isDirty);
@@ -216,7 +221,11 @@ export function useNotebookFileWatcher({
         if (target && target.packageRoot !== target.markdownPath) {
           await readCanonicalNotebookPackage(platform().fs, target.packageRoot);
         }
-        if (generation !== generationRef.current) return;
+        if (
+          generation !== generationRef.current ||
+          (!retry && nextFingerprint === baselineFingerprintRef.current)
+        )
+          return;
         conflictFingerprintRef.current = nextFingerprint;
         setState(retry ? 'conflict' : notebookConflictState);
         return;
@@ -227,17 +236,36 @@ export function useNotebookFileWatcher({
   );
 
   useEffect(() => {
+    let active = true;
+    void resolveWatchTarget(pageId)
+      .then(async (target) => {
+        if (!active) return;
+        if (target && target.markdownPath === targetRef.current?.markdownPath) {
+          if (baselineFingerprintRef.current !== undefined) await inspectDiskChange();
+          return;
+        }
+        setBinding(target ? { ...target, pageId, workspaceRoot } : null);
+      })
+      .catch((error) => {
+        if (active) reportReloadFailure(error, 'watch');
+      });
+    return () => {
+      active = false;
+    };
+  }, [catalogGeneration, inspectDiskChange, pageId, reportReloadFailure, workspaceRoot]);
+
+  useEffect(() => {
+    if (!watchTarget) return;
     const generation = ++generationRef.current;
+    reloadFailureOperationRef.current = undefined;
+    setState('current');
     let disposed = false;
-    let watchedPath: string | null = null;
+    const watchedPath = watchTarget.markdownPath;
     let watchRegistration: Promise<void> | undefined;
     const isCurrent = () => !disposed && generation === generationRef.current;
 
     void (async () => {
-      const target = await resolveWatchTarget(pageId);
-      if (!isCurrent() || !target) return;
-      targetRef.current = target;
-      watchedPath = target.markdownPath;
+      targetRef.current = watchTarget;
       watchRegistration = platform().fs.watchFile(watchedPath);
       await watchRegistration;
       if (!isCurrent()) return;
@@ -280,20 +308,11 @@ export function useNotebookFileWatcher({
       targetRef.current = null;
       baselineFingerprintRef.current = undefined;
       conflictFingerprintRef.current = undefined;
-      const path = watchedPath;
-      if (path && watchRegistration)
-        void watchRegistration.then(() => platform().fs.unwatchFile(path)).catch(() => {});
+      if (watchRegistration)
+        void watchRegistration.then(() => platform().fs.unwatchFile(watchedPath)).catch(() => {});
       unsubscribe();
     };
-  }, [
-    catalogGeneration,
-    inspectDiskChange,
-    pageId,
-    readFingerprint,
-    reloadFromDisk,
-    reportReloadFailure,
-    workspaceRoot,
-  ]);
+  }, [inspectDiskChange, readFingerprint, reloadFromDisk, reportReloadFailure, watchTarget]);
 
   const acceptExternalChange = useCallback(() => {
     const generation = generationRef.current;

@@ -50,7 +50,10 @@ import {
 } from '../shared/molecular-document';
 import { molecularDocumentProjectionFields } from '../shared/molecular-document-projection';
 import { parseTrackViewDocument, TRACK_VIEW_SUFFIX } from '../shared/track-view';
-import { trackViewProjectionFields } from '../shared/track-view-projection';
+import {
+  trackViewProjectionFields,
+  trackViewProjectionOwnership,
+} from '../shared/track-view-projection';
 import { limsEntityFromRow, type LimsEntityRow, type LimsRegistrationStatus } from '../shared/lims';
 import { isDeveloperImportSourcePath } from '../shared/developer-import-sources';
 import { developerImportSourceRootsInDb } from './registry-source-eligibility';
@@ -451,6 +454,14 @@ async function equalitySnapshot(
       },
     };
   }
+  const fileWorkspaceId = workspace?.id ?? null;
+  const registryWorkspaceId =
+    key.adapterKind === 'track-view'
+      ? trackViewProjectionOwnership(
+          fileWorkspaceId,
+          runDatabase(() => registryEntity(db, key.entityId))?.workspaceId
+        ).registryWorkspaceId
+      : fileWorkspaceId;
   const catalogProjection = () => {
     assertNativeProjectionBinding(db, owner);
     const entity = registryEntity(db, key.entityId);
@@ -466,8 +477,8 @@ async function equalitySnapshot(
       entity.kind !== key.adapterKind ||
       catalog.type !== key.adapterKind ||
       entity.name !== catalog.name ||
-      entity.workspaceId !== (workspace?.id ?? null) ||
-      catalog.workspace_id !== (workspace?.id ?? null)
+      entity.workspaceId !== registryWorkspaceId ||
+      catalog.workspace_id !== fileWorkspaceId
     )
       return null;
     const metadata: unknown = JSON.parse(catalog.metadata ?? '{}');
@@ -534,7 +545,7 @@ async function equalitySnapshot(
       fields,
       registrationStatus: 'registered',
       domainStatus: null,
-      workspaceId: workspace?.id ?? null,
+      workspaceId: registryWorkspaceId,
       archived: false,
     } satisfies NativeFileRegistryProjection,
     projection: () => {

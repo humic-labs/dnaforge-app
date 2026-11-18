@@ -216,6 +216,9 @@ export class PixiStadiumRenderer {
   private getState!: () => RenderState;
   private maxReadableZoomCache: { key: string; value: number } | null = null;
   private minimumZoomCache: { key: string; value: number } | null = null;
+  private presentationComplete = false;
+  private destroyed = false;
+  private pendingPresentationPreparation: Promise<unknown> | null = null;
 
   private rulerLayer = new Container();
   private rulerGraphics = new Graphics();
@@ -637,6 +640,7 @@ export class PixiStadiumRenderer {
   }
 
   async loadGenome(genome: Genome): Promise<void> {
+    this.presentationComplete = false;
     ptime(
       'stadium.loadGenome',
       () => {
@@ -660,6 +664,47 @@ export class PixiStadiumRenderer {
       },
       { features: genomeFeatures(genome).length, seqLen: genome.sequence?.length ?? 0 }
     );
+    await this.prepareCurrentPresentation();
+    this.minimumZoomCache = null;
+  }
+
+  private prepareFrameAnnotations(layout: UnifiedLayout): Promise<unknown> {
+    if (this.pendingPresentationPreparation) return this.pendingPresentationPreparation;
+    const preparation = this.annotationOverlay.prepareRetainedOverviewForLayout(
+      layout,
+      (2 * Math.PI * CURVE_SAFETY_MARGIN_PX) / Math.max(1, this.genome.length)
+    );
+    this.pendingPresentationPreparation = preparation;
+    void preparation
+      .finally(() => {
+        if (this.pendingPresentationPreparation === preparation) {
+          this.pendingPresentationPreparation = null;
+        }
+      })
+      .catch(() => {});
+    return preparation;
+  }
+
+  private async prepareCurrentPresentation(): Promise<void> {
+    while (!this.destroyed) {
+      const state = this.getState();
+      const frame = this.computeFrameForState(state, this.getMinZoom(state));
+      await this.prepareFrameAnnotations(frame.layout);
+      if (this.destroyed) return;
+      const latest = this.getState();
+      const latestFrame = this.computeFrameForState(latest, this.getMinZoom(latest));
+      if (
+        this.annotationOverlay.canPresentRetainedOverview(
+          latestFrame.layout,
+          latestFrame.pixelsPerBp
+        )
+      )
+        return;
+    }
+  }
+
+  isCurrentPresentationComplete(): boolean {
+    return this.presentationComplete && !this.destroyed;
   }
 
   setCutSites(sites: CutSite[]): void {
@@ -915,6 +960,7 @@ export class PixiStadiumRenderer {
   }
 
   render(state: RenderState): void {
+    this.presentationComplete = false;
     if (!this.genome) return;
 
     if (
@@ -923,6 +969,13 @@ export class PixiStadiumRenderer {
       stadiumGeometryHeight(state) <= 2 * STADIUM_MIN_PADDING_PX
     )
       return;
+    const frame = this.resolveStadiumRenderFrame(state);
+    if (!this.annotationOverlay.canPresentRetainedOverview(frame.layout, frame.pixelsPerBp)) {
+      void this.prepareFrameAnnotations(frame.layout).catch((error) => {
+        plog('stadium.annotation-preparation-failed', { error: String(error) });
+      });
+      return;
+    }
     this.applyTheme(state);
     resetLabelOccupancy(state);
     const cx = state.width / 2;
@@ -935,7 +988,6 @@ export class PixiStadiumRenderer {
 
     let t0 = performance.now();
 
-    const frame = this.resolveStadiumRenderFrame(state);
     const { dims, geometryHeight, ox, oy, stagePosX, stagePosY, bpPerPixel, layout } = frame;
     this.lastLaneContractDebugFrame = {
       layout,
@@ -1221,6 +1273,7 @@ export class PixiStadiumRenderer {
     }
     this._timings.sequence = performance.now() - t0;
     this.updateVisibleWorkBudget();
+    this.presentationComplete = true;
   }
 
   private updateVisibleWorkBudget(): void {
@@ -2373,6 +2426,8 @@ export class PixiStadiumRenderer {
   }
 
   destroy(): void {
+    this.destroyed = true;
+    this.presentationComplete = false;
     this.editingCursorBlinkActive = false;
     this.clearEditingCursorBlinkTimer();
     for (const t of this.rulerCharPool) destroyPixiText(t);

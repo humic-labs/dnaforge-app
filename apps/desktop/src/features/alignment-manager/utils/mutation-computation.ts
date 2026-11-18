@@ -1,5 +1,13 @@
 import type { MutationMarker } from '@waypoint/workspace-editor';
-import type { FunctionalImpact } from '@waypoint/sequence-utils';
+import {
+  alignmentEvidence,
+  interpretReferenceAlignment,
+  mutationAlignmentColumns,
+  type AlignmentEvidence,
+  type AlignmentObservationSource,
+  type ReferenceAlignmentObservation,
+  type FunctionalImpact,
+} from '@waypoint/sequence-utils';
 import type {
   VerificationTrack,
   Mutation,
@@ -86,8 +94,20 @@ export function convertMutation(
 }
 
 export function convertStructuralAnalysis(
-  apiAnalysis: NonNullable<AlignmentApiResponse['analysis']>
+  apiAnalysis: NonNullable<AlignmentApiResponse['analysis']>,
+  observation: ReferenceAlignmentObservation
 ): StructuralAnalysis {
+  const referencePositions = observation.referencePositions.filter(
+    (position): position is number => position !== null
+  );
+  const globalPosition = (localPosition: number | null): number | null => {
+    if (localPosition === null) return null;
+    const position = referencePositions[localPosition - 1];
+    if (position === undefined) {
+      throw new Error('A structural region falls outside its retained reference columns.');
+    }
+    return position;
+  };
   return {
     structuralRegions: apiAnalysis.structural_regions.map((sr) => ({
       id: sr.id,
@@ -96,8 +116,8 @@ export function convertStructuralAnalysis(
       severity: sr.severity,
       columnStart: sr.column_start,
       columnEnd: sr.column_end,
-      refStart: sr.ref_start,
-      refEnd: sr.ref_end,
+      refStart: globalPosition(sr.ref_start),
+      refEnd: globalPosition(sr.ref_end),
       lengthColumns: sr.length_columns,
       forwardIdentity: sr.forward_identity,
       mutationIndices: sr.mutation_indices,
@@ -137,164 +157,55 @@ export function calculateCoverage(
   alignedRef: string,
   alignedQuery: string
 ): { start: number; end: number } {
-  let start = 0;
-  let end = 0;
-  let refPos = 0;
-  let hasCoverage = false;
-
-  for (let i = 0; i < alignedRef.length; i++) {
-    if (alignedRef[i] !== '-') {
-      refPos++;
-      if (alignedQuery[i] !== '-') {
-        if (!hasCoverage) start = refPos;
-        hasCoverage = true;
-        end = refPos;
-      }
-    }
-  }
-
-  return { start, end };
+  const result = interpretReferenceAlignment(
+    { alignedReference: alignedRef, alignedQuery },
+    { sequence: degap(alignedRef), topology: 'linear' }
+  );
+  return result.kind === 'placed' ? result.value.coverage : { start: 0, end: 0 };
 }
 
-export function getAlignmentEvidence(alignedRef: string, alignedQuery: string) {
-  const first = alignedQuery.search(/[^-]/);
-  const last = alignedQuery.replace(/-+$/, '').length - 1;
-  let total = 0;
-  let unresolved = 0;
-  let ambiguousInsertions = 0;
-  for (let col = 0; col < alignedRef.length; col++) {
-    const ref = alignedRef[col].toUpperCase();
-    const query = (alignedQuery[col] ?? '').toUpperCase();
-    if (ref === '-') {
-      if (query !== '-' && !/^[ACGTU]$/.test(query)) ambiguousInsertions++;
-      continue;
-    }
-    total++;
-    if (
-      first < 0 ||
-      col < first ||
-      col > last ||
-      !/^[ACGTU]$/.test(ref) ||
-      (query !== '-' && !/^[ACGTU]$/.test(query))
-    )
-      unresolved++;
-  }
-  return {
-    total,
-    unresolved,
-    ambiguousInsertions,
-    complete:
-      total > 0 &&
-      alignedRef.length === alignedQuery.length &&
-      unresolved === 0 &&
-      ambiguousInsertions === 0,
-  };
+export function getAlignmentEvidence(source: AlignmentObservationSource): AlignmentEvidence;
+export function getAlignmentEvidence(alignedRef: string, alignedQuery: string): AlignmentEvidence;
+export function getAlignmentEvidence(
+  source: AlignmentObservationSource | string,
+  alignedQuery?: string
+): AlignmentEvidence {
+  return alignmentEvidence(
+    typeof source === 'string'
+      ? {
+          alignedReference: source,
+          alignedQuery: alignedQuery ?? '',
+          circularOffset: 0,
+          referenceLength: degap(source).length,
+        }
+      : source
+  );
 }
 
 export function computeTrackMutations(track: VerificationTrack): MutationMarker[] {
   if (!track.alignment) return [];
 
-  const gappedRef = track.alignment.alignedReference;
-  const gappedQuery = track.alignment.alignedQuery;
-
-  if (!gappedRef || gappedRef.length === 0) return [];
-
-  const refPosToColumnMap = new Map<number, number>();
-  let refPos = 0;
-  let lastRefPos = 0;
-  let lastCol = 0;
-  for (let col = 0; col < gappedRef.length; col++) {
-    if (gappedRef[col] !== '-') {
-      refPos++;
-      refPosToColumnMap.set(refPos, col);
-      lastRefPos = refPos;
-      lastCol = col;
-    }
-  }
-
-  const maxCol = gappedRef.length - 1;
-
   return track.mutations
     .map((mutation): MutationMarker | null => {
-      const startCol = refPosToColumnMap.get(mutation.position);
-
-      if (startCol === undefined) {
+      const columns = mutationAlignmentColumns(
+        track.alignment,
+        mutation,
+        track.testedReference?.topology ??
+          ((track.alignment.circularOffset ?? 0) > 0 ? 'circular' : 'linear')
+      );
+      if (!columns) {
         debugWarn(
-          `[computeTrackMutations] Mutation position ${mutation.position} not found in alignment (ref length: ${lastRefPos})`
+          `[computeTrackMutations] Mutation position ${mutation.position} not found in alignment`
         );
         return null;
       }
-
-      if (mutation.type === 'substitution') {
-        return {
-          column: startCol,
-          type: mutation.type,
-          refBase: mutation.referenceBase,
-          queryBase: mutation.alternateBase,
-          refPosition: mutation.position,
-        };
-      } else if (mutation.type === 'deletion') {
-        const length = mutation.length || 1;
-        const endPos = mutation.position + length - 1;
-
-        let endCol: number;
-        if (endPos > lastRefPos) {
-          endCol = lastCol;
-        } else {
-          endCol = refPosToColumnMap.get(endPos) ?? startCol;
-        }
-
-        return {
-          column: startCol,
-          endColumn: length > 1 ? endCol : undefined,
-          type: mutation.type,
-          refBase: mutation.referenceBase,
-          queryBase: '-',
-          refPosition: mutation.position,
-        };
-      } else {
-        const anchorCol = startCol;
-        const insertionLength = mutation.length || mutation.alternateBase?.length || 1;
-
-        const gapCols: number[] = [];
-        for (let col = anchorCol - 1; col >= 0 && gapCols.length < insertionLength; col--) {
-          if (gappedRef[col] === '-' && gappedQuery[col] !== '-') {
-            gapCols.unshift(col);
-          } else {
-            break;
-          }
-        }
-
-        if (gapCols.length === 0) {
-          for (let col = anchorCol + 1; col <= maxCol && gapCols.length < insertionLength; col++) {
-            if (gappedRef[col] === '-' && gappedQuery[col] !== '-') {
-              gapCols.push(col);
-            } else {
-              break;
-            }
-          }
-        }
-
-        let insertStart: number;
-        let insertEnd: number;
-
-        if (gapCols.length > 0) {
-          insertStart = gapCols[0];
-          insertEnd = gapCols[gapCols.length - 1];
-        } else {
-          insertStart = anchorCol;
-          insertEnd = anchorCol;
-        }
-
-        return {
-          column: insertStart,
-          endColumn: insertEnd !== insertStart ? insertEnd : undefined,
-          type: mutation.type,
-          refBase: '-',
-          queryBase: mutation.alternateBase,
-          refPosition: mutation.position,
-        };
-      }
+      return {
+        ...columns,
+        type: mutation.type,
+        refBase: mutation.type === 'insertion' ? '-' : mutation.referenceBase,
+        queryBase: mutation.type === 'deletion' ? '-' : mutation.alternateBase,
+        refPosition: mutation.position,
+      };
     })
     .filter((marker): marker is MutationMarker => marker !== null);
 }

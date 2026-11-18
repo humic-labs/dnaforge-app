@@ -426,6 +426,25 @@ describe('useMolstarInteraction ligand loci boundary', () => {
     expect(onHover).toHaveBeenLastCalledWith(expect.objectContaining({ position: 34 }));
   });
 
+  it('suppresses a pending zero-button hover while the canvas still has an active press', () => {
+    const scheduleFrame = vi.fn();
+    vi.stubGlobal('requestAnimationFrame', scheduleFrame);
+    const hover = createSubscription<HoverEvent>();
+    const canvas = document.createElement('canvas');
+    vi.spyOn(canvas, 'matches').mockImplementation((selector) => selector === ':active');
+    renderHook(() =>
+      useMolstarInteraction(
+        { canvas3d: { webgl: { gl: { canvas } } }, behaviors: { interaction: { hover } } },
+        { onHover: vi.fn() }
+      )
+    );
+    act(() => {
+      canvas.dispatchEvent(new MouseEvent('pointerdown', { button: 0, buttons: 1 }));
+      hover.emit({ current: { loci: proteinLoci({ authSeqId: 32 }) }, buttons: 0 });
+    });
+    expect(scheduleFrame).not.toHaveBeenCalled();
+  });
+
   it('recovers hover when the viewer reports released buttons after a missed pointer-up', () => {
     const frames: FrameRequestCallback[] = [];
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {

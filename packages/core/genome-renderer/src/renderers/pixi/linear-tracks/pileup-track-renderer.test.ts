@@ -2688,6 +2688,36 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
     r.unmount(c);
   });
 
+  it('reports an empty viewport while retaining committed read rows beyond both edges', () => {
+    const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+    const container = renderer.mount(mountArgs);
+    const records = [read(100, 150, 'left'), read(700, 750, 'right')];
+    const data: PileupTrackDataFixture = {
+      dataAuthority: 'tile-engine',
+      records,
+      readSource: {
+        truncated: false,
+        windowStartBp: 0,
+        windowEndBp: 1000,
+        sourceGenerationKey: 'resident',
+      },
+    };
+    const paint = (start: number, end: number) =>
+      renderer.paint(paintArgsZoom(container, data, 10, { start, end }));
+    for (let frame = 0; frame < 20; frame++) paint(100, 151);
+    expect(renderer.getReadPresentationSnapshot(container)?.kind).toBe('reads');
+    paint(150, 700);
+    expect(renderer.getReadPresentationSnapshot(container)).toMatchObject({
+      kind: 'empty',
+      visible: false,
+      recordCount: 0,
+      sourceCoversViewport: true,
+    });
+    paint(700, 751);
+    expect(renderer.getReadPresentationSnapshot(container)?.kind).toBe('reads');
+    renderer.unmount(container);
+  });
+
   it('reports zero state for a mounted track before paint', async () => {
     const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
     const r = new PixiPileupTrackRenderer({ type: 'pileup-test', maxRows: 60 });

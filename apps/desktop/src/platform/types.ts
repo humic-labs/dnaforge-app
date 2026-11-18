@@ -642,6 +642,9 @@ export interface PlatformBridge {
       ): Promise<string>;
     };
   importReview: {
+    sheetSync(
+      request: import('../shared/registry-artifacts/sheet-sync/command').SheetSyncRequest
+    ): Promise<import('../shared/registry-artifacts/sheet-sync/command').SheetSyncResult>;
     call(request: ImportReviewRequest): Promise<ImportReviewInspection>;
     snapshot(id: string): Promise<ImportReviewDocument>;
     onChanged(listener: (event: ImportReviewChanged) => void): () => void;
@@ -1560,6 +1563,12 @@ export interface PlatformBridge {
     registerScenarioFiles(
       request: import('../shared/internal-fixtures').RegisterScenarioFixtureFilesRequest
     ): Promise<{ manifestPath: string }>;
+    materializeMocloScenarioKit(
+      request: import('../shared/internal-fixtures').MaterializeMocloScenarioKitRequest
+    ): Promise<import('../shared/internal-fixtures').MaterializedMocloScenarioKit>;
+    seedMissingAuthorityArchive(
+      request: import('../shared/internal-fixtures').SeedMissingAuthorityArchiveRequest
+    ): Promise<import('../shared/internal-fixtures').SeedMissingAuthorityArchiveResult>;
   };
   analytics: {
     getRuntimeConfig(): Promise<AnalyticsRuntimeConfig | null>;

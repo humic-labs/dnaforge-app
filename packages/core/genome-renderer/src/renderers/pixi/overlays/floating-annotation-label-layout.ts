@@ -151,6 +151,10 @@ let leaderMaskXMax = new Float64Array(0);
 let leaderMaskYMin = new Float64Array(0);
 let leaderMaskYMax = new Float64Array(0);
 const leaderMaskScratch = { xMin: 0, xMax: 0, yMin: 0, yMax: 0 };
+const leaderMaskOrder: number[] = [];
+const leaderMaskMaxBottom: number[] = [];
+const segmentMasks: number[] = [];
+const ascendingIndex = (a: number, b: number): number => a - b;
 const OUTWARD_EDGE_PROJECTION_EPSILON_PX = 0.01;
 const CIRCULAR_LEADER_ORIENTATION_SAMPLES = Array.from({ length: 32 }, (_, sample) => {
   const angle = (sample / 32) * Math.PI * 2;
@@ -317,6 +321,8 @@ export function floatingLabelOutwardAnchor(
 }
 
 const OBSTACLE_BUCKET_PX = 64;
+const MAX_REPAIR_ANCHOR_DISTANCE_PX =
+  FLOATING_LABEL_MAX_LEADER_PX + FLOATING_LABEL_TEXT_GAP_PX + FLOATING_LABEL_TERMINAL_TICK_PX;
 
 function bucketObstaclesByX(
   obstacles: readonly FloatingAnnotationLabelObstacle[]
@@ -420,48 +426,40 @@ function calloutLeader(
   bounds: FloatingLabelBounds
 ): FloatingAnnotationLabelLeader {
   const labelIsRightOfAnchor = labelCenter.x >= anchor.x;
-  const horizontalEnd = {
-    x: labelIsRightOfAnchor
-      ? bounds.xMin - FLOATING_LABEL_TEXT_GAP_PX
-      : bounds.xMax + FLOATING_LABEL_TEXT_GAP_PX,
-    y: labelCenter.y,
-  };
-  const horizontalElbow = {
-    x: horizontalEnd.x + (labelIsRightOfAnchor ? -1 : 1) * FLOATING_LABEL_TERMINAL_TICK_PX,
-    y: horizontalEnd.y,
-  };
-  const horizontal: FloatingAnnotationLabelLeader = {
-    attachment: labelIsRightOfAnchor ? 'left' : 'right',
-    start: anchor,
-    elbow: horizontalElbow,
-    end: horizontalEnd,
-    length:
-      Math.hypot(horizontalElbow.x - anchor.x, horizontalElbow.y - anchor.y) +
-      FLOATING_LABEL_TERMINAL_TICK_PX,
-  };
-
+  const horizontalEndX = labelIsRightOfAnchor
+    ? bounds.xMin - FLOATING_LABEL_TEXT_GAP_PX
+    : bounds.xMax + FLOATING_LABEL_TEXT_GAP_PX;
+  const horizontalElbowX =
+    horizontalEndX + (labelIsRightOfAnchor ? -1 : 1) * FLOATING_LABEL_TERMINAL_TICK_PX;
+  const horizontalLength =
+    Math.hypot(horizontalElbowX - anchor.x, labelCenter.y - anchor.y) +
+    FLOATING_LABEL_TERMINAL_TICK_PX;
   const labelIsBelowAnchor = labelCenter.y >= anchor.y;
   const verticalEndY = labelIsBelowAnchor
     ? bounds.yMin - FLOATING_LABEL_TEXT_GAP_PX
     : bounds.yMax + FLOATING_LABEL_TEXT_GAP_PX;
   const verticalElbowY =
     verticalEndY + (labelIsBelowAnchor ? -1 : 1) * FLOATING_LABEL_TERMINAL_TICK_PX;
-  const verticalEnd = { x: verticalTickX(anchor.x, bounds), y: verticalEndY };
-  const verticalElbow = { x: verticalEnd.x, y: verticalElbowY };
-  const vertical: FloatingAnnotationLabelLeader = {
-    attachment: labelIsBelowAnchor ? 'top' : 'bottom',
-    start: anchor,
-    elbow: verticalElbow,
-    end: verticalEnd,
-    length:
-      Math.hypot(verticalElbow.x - anchor.x, verticalElbow.y - anchor.y) +
-      FLOATING_LABEL_TERMINAL_TICK_PX,
-  };
-
   const centeredVerticalLength =
     Math.hypot(labelCenter.x - anchor.x, verticalElbowY - anchor.y) +
     FLOATING_LABEL_TERMINAL_TICK_PX;
-  return centeredVerticalLength < horizontal.length ? vertical : horizontal;
+  if (centeredVerticalLength < horizontalLength) {
+    const x = verticalTickX(anchor.x, bounds);
+    return {
+      attachment: labelIsBelowAnchor ? 'top' : 'bottom',
+      start: anchor,
+      elbow: { x, y: verticalElbowY },
+      end: { x, y: verticalEndY },
+      length: Math.hypot(x - anchor.x, verticalElbowY - anchor.y) + FLOATING_LABEL_TERMINAL_TICK_PX,
+    };
+  }
+  return {
+    attachment: labelIsRightOfAnchor ? 'left' : 'right',
+    start: anchor,
+    elbow: { x: horizontalElbowX, y: labelCenter.y },
+    end: { x: horizontalEndX, y: labelCenter.y },
+    length: horizontalLength,
+  };
 }
 
 function insidePane(
@@ -565,12 +563,12 @@ interface PreparedPlacement {
   readonly featureId: number;
   readonly slot: FloatingAnnotationLabelSlot;
   readonly occupancyKeys: readonly number[];
-  readonly ranges: readonly SequenceRange[];
+  readonly ranges: readonly OccupiedSequenceRange[];
 }
 
 interface PreparedPlacementOption {
   readonly option: FloatingAnnotationLabelPlacementOption;
-  ranges?: readonly SequenceRange[] | null;
+  ranges?: readonly OccupiedSequenceRange[] | null;
 }
 
 interface PreparedPlacementChoices {
@@ -589,7 +587,8 @@ function descriptorRanges(
   pixelsPerBp: number,
   genomeLength: number,
   circular: boolean
-): readonly SequenceRange[] {
+): readonly OccupiedSequenceRange[] {
+  const featureId = descriptor.featureId;
   const halfSpanBp =
     (descriptor.textWidth / 2 + LABEL_ASSIGNMENT_GAP_PX / 2) / Math.max(pixelsPerBp, 1e-9);
   if (!finite(halfSpanBp) || halfSpanBp < 0) return [];
@@ -606,6 +605,7 @@ function descriptorRanges(
   if (!circular || genomeLength <= 0) {
     return [
       {
+        featureId,
         start: centerMin - halfSpanBp,
         end: centerMax + halfSpanBp,
       },
@@ -613,13 +613,13 @@ function descriptorRanges(
   }
 
   const totalSpan = centerMax - centerMin + halfSpanBp * 2;
-  if (totalSpan >= genomeLength) return [{ start: 0, end: genomeLength }];
+  if (totalSpan >= genomeLength) return [{ start: 0, end: genomeLength, featureId }];
   const start = modulo(centerMin - halfSpanBp, genomeLength);
   const end = start + totalSpan;
-  if (end <= genomeLength) return [{ start, end }];
+  if (end <= genomeLength) return [{ start, end, featureId }];
   return [
-    { start: 0, end: end - genomeLength },
-    { start, end: genomeLength },
+    { start: 0, end: end - genomeLength, featureId },
+    { start, end: genomeLength, featureId },
   ];
 }
 
@@ -675,19 +675,19 @@ function radialOccupancyKeys(
   return keys;
 }
 
-function maximumProjectedLeaderLength(
+function exceedsProjectedLeaderLimit(
   descriptor: FloatingAnnotationLabelDescriptor,
   option: FloatingAnnotationLabelPlacementOption,
   outwardRow: number,
   circular: boolean
-): number {
+): boolean {
   const baseOutwardDistance =
     LABEL_BODY_GAP_PX + option.outwardClearance + outwardRow * OUTWARD_ROW_STEP_PX;
   const tangentDistance = option.tangentStep * FLOATING_LABEL_TANGENT_STEP_PX;
   const orientationSamples = circular
     ? CIRCULAR_LEADER_ORIENTATION_SAMPLES
     : LINEAR_LEADER_ORIENTATION_SAMPLES;
-  let maximumLength = 0;
+  const limit = FLOATING_LABEL_MAX_LEADER_PX - (circular ? 0.5 : 0);
   for (const orientation of orientationSamples) {
     const labelNormalHalfExtent =
       orientation.absoluteOutwardX * (descriptor.textWidth / 2) +
@@ -701,14 +701,15 @@ function maximumProjectedLeaderLength(
         (descriptor.textWidth / 2 + FLOATING_LABEL_TEXT_GAP_PX + FLOATING_LABEL_TERMINAL_TICK_PX);
     const horizontalLength =
       Math.hypot(horizontalElbowX, centerY) + FLOATING_LABEL_TERMINAL_TICK_PX;
+    if (horizontalLength <= limit) continue;
     const verticalElbowY =
       centerY -
       (centerY >= 0 ? 1 : -1) *
         (descriptor.textHeight / 2 + FLOATING_LABEL_TEXT_GAP_PX + FLOATING_LABEL_TERMINAL_TICK_PX);
     const verticalLength = Math.hypot(centerX, verticalElbowY) + FLOATING_LABEL_TERMINAL_TICK_PX;
-    maximumLength = Math.max(maximumLength, Math.min(horizontalLength, verticalLength));
+    if (Math.min(horizontalLength, verticalLength) > limit) return true;
   }
-  return maximumLength + (circular ? 0.5 : 0);
+  return false;
 }
 
 export function precomputeFloatingAnnotationLabelAssignments(
@@ -759,12 +760,7 @@ export function precomputeFloatingAnnotationLabelAssignments(
       return null;
     }
     if (
-      maximumProjectedLeaderLength(
-        choices.descriptor,
-        prepared.option,
-        outwardRow,
-        options.circular
-      ) > FLOATING_LABEL_MAX_LEADER_PX
+      exceedsProjectedLeaderLimit(choices.descriptor, prepared.option, outwardRow, options.circular)
     ) {
       choices.cache[index] = null;
       return null;
@@ -802,7 +798,7 @@ export function precomputeFloatingAnnotationLabelAssignments(
         occupancy.set(occupancyKey, row);
       }
       for (const range of placement.ranges) {
-        insertRange(row, { ...range, featureId: placement.featureId });
+        insertRange(row, range);
       }
     }
     placements.set(placement.featureId, placement);
@@ -1038,9 +1034,9 @@ function segmentMaskInterval(
 function subtractTextMask(
   segment: FloatingAnnotationLabelLeaderSegment,
   bounds: FloatingLabelBounds
-): FloatingAnnotationLabelLeaderSegment[] {
+): FloatingAnnotationLabelLeaderSegment[] | null {
   const interval = segmentMaskInterval(segment, bounds);
-  if (!interval) return [segment];
+  if (!interval) return null;
   const [entry, exit] = interval;
   const visible: FloatingAnnotationLabelLeaderSegment[] = [];
   if (entry > 1e-9) {
@@ -1079,13 +1075,21 @@ export function floatingAnnotationVisibleLeaderSegments(
   const maskYMin = leaderMaskYMin;
   const maskYMax = leaderMaskYMax;
   let maskIndex = 0;
+  leaderMaskOrder.length = placedCount;
   for (const decision of decisions) {
     if (decision.status !== 'placed') continue;
     maskXMin[maskIndex] = decision.bounds.xMin - maskPadding;
     maskXMax[maskIndex] = decision.bounds.xMax + maskPadding;
     maskYMin[maskIndex] = decision.bounds.yMin - maskPadding;
     maskYMax[maskIndex] = decision.bounds.yMax + maskPadding;
+    leaderMaskOrder[maskIndex] = maskIndex;
     maskIndex += 1;
+  }
+  leaderMaskOrder.sort((a, b) => maskYMin[a] - maskYMin[b]);
+  let bottom = -Infinity;
+  for (let i = 0; i < placedCount; i++) {
+    bottom = Math.max(bottom, maskYMax[leaderMaskOrder[i]]);
+    leaderMaskMaxBottom[i] = bottom;
   }
   const mask = leaderMaskScratch;
   const visible: FloatingAnnotationLabelLeaderSegment[] = [];
@@ -1109,26 +1113,43 @@ export function floatingAnnotationVisibleLeaderSegments(
       const segmentXMax = Math.max(rawSegment.start.x, rawSegment.end.x);
       const segmentYMin = Math.min(rawSegment.start.y, rawSegment.end.y);
       const segmentYMax = Math.max(rawSegment.start.y, rawSegment.end.y);
-      let fragments: FloatingAnnotationLabelLeaderSegment[] = [rawSegment];
-      for (let m = 0; m < placedCount; m += 1) {
+      let fragments: FloatingAnnotationLabelLeaderSegment[] | null = null;
+      let low = 0;
+      let high = placedCount;
+      while (low < high) {
+        const mid = (low + high) >>> 1;
+        if (leaderMaskMaxBottom[mid] <= segmentYMin) low = mid + 1;
+        else high = mid;
+      }
+      segmentMasks.length = 0;
+      for (let i = low; i < placedCount; i++) {
+        const m = leaderMaskOrder[i];
+        if (segmentYMax <= maskYMin[m]) break;
         if (
-          segmentXMax <= maskXMin[m] ||
           segmentXMin >= maskXMax[m] ||
-          segmentYMax <= maskYMin[m] ||
+          segmentXMax <= maskXMin[m] ||
           segmentYMin >= maskYMax[m]
         ) {
           continue;
         }
+        segmentMasks.push(m);
+      }
+      if (segmentMasks.length > 1) segmentMasks.sort(ascendingIndex);
+      for (const m of segmentMasks) {
         mask.xMin = maskXMin[m];
         mask.xMax = maskXMax[m];
         mask.yMin = maskYMin[m];
         mask.yMax = maskYMax[m];
+        if (!fragments) {
+          fragments = subtractTextMask(rawSegment, mask);
+          if (fragments?.length === 0) break;
+          continue;
+        }
         let next: FloatingAnnotationLabelLeaderSegment[] | null = null;
         for (let index = 0; index < fragments.length; index += 1) {
           const fragment = fragments[index];
           const pieces = subtractTextMask(fragment, mask);
-          const untouched = pieces.length === 1 && pieces[0] === fragment;
-          if (untouched) {
+          if (!pieces) {
             next?.push(fragment);
             continue;
           }
@@ -1138,44 +1159,62 @@ export function floatingAnnotationVisibleLeaderSegments(
         if (next) fragments = next;
         if (fragments.length === 0) break;
       }
-      visible.push(...fragments);
+      if (fragments) visible.push(...fragments);
+      else visible.push(rawSegment);
     }
   }
   return visible;
 }
 
+interface RepairSlotCache {
+  readonly clearances: Map<number, number>;
+  readonly slots: FloatingAnnotationLabelSlot[];
+}
+
 const repairSlotsByOptions = new WeakMap<
   readonly FloatingAnnotationLabelPlacementOption[],
-  readonly FloatingAnnotationLabelSlot[]
+  RepairSlotCache
 >();
 const MAX_REPAIR_ATTEMPTS_PER_FRAME = 512;
 
-function repairSlots(
-  candidate: FloatingAnnotationLabelCandidate
-): readonly FloatingAnnotationLabelSlot[] {
+const REPAIR_SLOT_ORDER = FLOATING_LABEL_TANGENT_STEPS.flatMap((tangentStep) =>
+  Array.from({ length: REPAIR_OUTWARD_ROW_COUNT }, (_, outwardRow) => ({
+    outwardRow,
+    tangentStep,
+    outwardClearance: 0,
+  }))
+).sort(
+  (left, right) =>
+    Math.abs(left.tangentStep) +
+      left.outwardRow -
+      (Math.abs(right.tangentStep) + right.outwardRow) ||
+    left.outwardRow - right.outwardRow ||
+    left.tangentStep - right.tangentStep
+);
+
+function repairSlots(candidate: FloatingAnnotationLabelCandidate): RepairSlotCache {
   const cached = repairSlotsByOptions.get(candidate.placementOptions);
   if (cached) return cached;
-  const clearanceByStep = new Map<number, number>();
+  const clearances = new Map<number, number>();
   for (const option of candidate.placementOptions) {
-    clearanceByStep.set(option.tangentStep, option.outwardClearance);
+    clearances.set(option.tangentStep, option.outwardClearance);
   }
-  const slots: FloatingAnnotationLabelSlot[] = [];
-  for (const tangentStep of FLOATING_LABEL_TANGENT_STEPS) {
-    const outwardClearance = clearanceByStep.get(tangentStep) ?? 0;
-    for (let outwardRow = 0; outwardRow < REPAIR_OUTWARD_ROW_COUNT; outwardRow += 1) {
-      slots.push({ outwardRow, tangentStep, outwardClearance });
-    }
-  }
-  const sorted = slots.sort(
-    (left, right) =>
-      Math.abs(left.tangentStep) +
-        left.outwardRow -
-        (Math.abs(right.tangentStep) + right.outwardRow) ||
-      left.outwardRow - right.outwardRow ||
-      left.tangentStep - right.tangentStep
-  );
-  repairSlotsByOptions.set(candidate.placementOptions, sorted);
-  return sorted;
+  const cache = { clearances, slots: [] };
+  repairSlotsByOptions.set(candidate.placementOptions, cache);
+  return cache;
+}
+
+function repairSlotAt(
+  cache: RepairSlotCache,
+  index: number,
+  outwardClearance: number
+): FloatingAnnotationLabelSlot {
+  const cached = cache.slots[index];
+  if (cached) return cached;
+  const slot = REPAIR_SLOT_ORDER[index];
+  const resolved = Object.is(outwardClearance, 0) ? slot : { ...slot, outwardClearance };
+  cache.slots[index] = resolved;
+  return resolved;
 }
 
 interface SlotAttempt {
@@ -1183,6 +1222,7 @@ interface SlotAttempt {
   readonly x: number;
   readonly y: number;
   readonly bounds: FloatingLabelBounds;
+  readonly leader: FloatingAnnotationLabelLeader;
   readonly outsideRunway: boolean;
   readonly blockers: ReadonlySet<string> | null;
 }
@@ -1203,8 +1243,8 @@ export function planFloatingAnnotationLabels(
     candidate: FloatingAnnotationLabelCandidate,
     outward: FloatingLabelPoint,
     slot: FloatingAnnotationLabelSlot,
-    collectAllBlockers: boolean
-  ): SlotAttempt => {
+    assigned: boolean
+  ): SlotAttempt | null => {
     const tangentX = -outward.y;
     const tangentY = outward.x;
     const labelNormalHalfExtent =
@@ -1224,40 +1264,54 @@ export function planFloatingAnnotationLabels(
       yMin: y - candidate.textHeight / 2,
       yMax: y + candidate.textHeight / 2,
     };
-    if (!insideRunway(bounds, viewport)) {
-      return { slot, x, y, bounds, outsideRunway: true, blockers: null };
+    const outsideRunway = !insideRunway(bounds, viewport);
+    if (
+      !assigned &&
+      (outsideRunway || (slot.outwardRow >= OUTWARD_ROW_COUNT && !insidePane(bounds, viewport)))
+    ) {
+      return null;
     }
-    const ownBodyOwner = `body:${candidate.featureId}`;
-    let blockers: Set<string> | null = null;
+    if (!assigned) {
+      const dx = Math.max(0, bounds.xMin - candidate.anchor.x, candidate.anchor.x - bounds.xMax);
+      const dy = Math.max(0, bounds.yMin - candidate.anchor.y, candidate.anchor.y - bounds.yMax);
+      if (dx * dx + dy * dy > MAX_REPAIR_ANCHOR_DISTANCE_PX ** 2) return null;
+    }
     const firstBucket = Math.floor(bounds.xMin / OBSTACLE_BUCKET_PX);
     const lastBucket = Math.floor(bounds.xMax / OBSTACLE_BUCKET_PX);
-    for (let bucket = firstBucket; bucket <= lastBucket; bucket += 1) {
-      const placed = placedBuckets.get(bucket);
-      if (placed) {
+    let blockers: Set<string> | null = null;
+    if (!outsideRunway) {
+      for (let bucket = firstBucket; bucket <= lastBucket; bucket += 1) {
+        const placed = placedBuckets.get(bucket);
+        if (!placed) continue;
         for (const obstacle of placed) {
+          if (bucket !== firstBucket && obstacle.xMin < bucket * OBSTACLE_BUCKET_PX) continue;
           if (!overlaps(bounds, obstacle)) continue;
+          if (!assigned) return null;
           (blockers ??= new Set()).add(obstacle.owner);
-          if (!collectAllBlockers) return { slot, x, y, bounds, outsideRunway: false, blockers };
         }
       }
+    }
+    const leader = calloutLeader(candidate.anchor, { x, y }, bounds);
+    if (!assigned && leader.length > FLOATING_LABEL_MAX_LEADER_PX) return null;
+    if (outsideRunway) return { slot, x, y, bounds, leader, outsideRunway, blockers };
+    const ownBodyOwner = `body:${candidate.featureId}`;
+    for (let bucket = firstBucket; bucket <= lastBucket; bucket += 1) {
       const members = obstacleBuckets.get(bucket);
       if (!members) continue;
       for (const obstacle of members) {
+        if (bucket !== firstBucket && obstacle.xMin < bucket * OBSTACLE_BUCKET_PX) continue;
         if (obstacle.owner === ownBodyOwner) continue;
         if (!floatingLabelBoundsHitObstacle(bounds, obstacle, outlineLookup)) continue;
+        if (!assigned) return null;
         (blockers ??= new Set()).add(obstacle.owner);
-        if (!collectAllBlockers) return { slot, x, y, bounds, outsideRunway: false, blockers };
       }
     }
-    return { slot, x, y, bounds, outsideRunway: false, blockers };
+    return { slot, x, y, bounds, leader, outsideRunway, blockers };
   };
-  const leaderFor = (candidate: FloatingAnnotationLabelCandidate, result: SlotAttempt) =>
-    calloutLeader(candidate.anchor, { x: result.x, y: result.y }, result.bounds);
   const place = (
     index: number,
     candidate: FloatingAnnotationLabelCandidate,
     chosen: SlotAttempt,
-    leader: FloatingAnnotationLabelLeader,
     testedSlotCount: number
   ): void => {
     decisionByIndex[index] = {
@@ -1269,7 +1323,7 @@ export function planFloatingAnnotationLabels(
       x: chosen.x,
       y: chosen.y,
       bounds: chosen.bounds,
-      leader,
+      leader: chosen.leader,
       slot: chosen.slot,
       testedSlotCount,
       assignmentOptions: candidate.placementOptions,
@@ -1292,7 +1346,6 @@ export function planFloatingAnnotationLabels(
     readonly candidate: FloatingAnnotationLabelCandidate;
     readonly outward: FloatingLabelPoint;
     readonly first: SlotAttempt | null;
-    readonly firstLeader: FloatingAnnotationLabelLeader | null;
   }> = [];
   ordered.forEach((candidate, index) => {
     const outward = normalized(candidate.outward);
@@ -1312,81 +1365,84 @@ export function planFloatingAnnotationLabels(
     }
     const assignedSlot = assignments.get(candidate.featureId);
     const first = assignedSlot ? attempt(candidate, outward, assignedSlot, true) : null;
-    const firstLeader = first ? leaderFor(candidate, first) : null;
     if (
       first &&
-      firstLeader &&
       !first.outsideRunway &&
       first.blockers === null &&
-      firstLeader.length <= FLOATING_LABEL_MAX_LEADER_PX
+      first.leader.length <= FLOATING_LABEL_MAX_LEADER_PX
     ) {
-      place(index, candidate, first, firstLeader, 1);
+      place(index, candidate, first, 1);
       return;
     }
-    pending.push({ index, candidate, outward, first, firstLeader });
+    pending.push({ index, candidate, outward, first });
   });
 
   let repairAttemptsRemaining = MAX_REPAIR_ATTEMPTS_PER_FRAME;
-  for (const { index, candidate, outward, first, firstLeader } of pending) {
+  for (const { index, candidate, outward, first } of pending) {
     let testedSlotCount = first ? 1 : 0;
     const anchorOnScreen =
       candidate.anchor.x >= 0 &&
       candidate.anchor.x <= viewport.width &&
       candidate.anchor.y >= 0 &&
       candidate.anchor.y <= viewport.height;
-    if (anchorOnScreen && !first?.outsideRunway) {
-      let repaired: { result: SlotAttempt; leader: FloatingAnnotationLabelLeader } | null = null;
-      for (const slot of repairSlots(candidate)) {
+    if (anchorOnScreen && !first?.outsideRunway && repairAttemptsRemaining > 0) {
+      let repaired: SlotAttempt | null = null;
+      const repairs = repairSlots(candidate);
+      for (let slotIndex = 0; slotIndex < REPAIR_SLOT_ORDER.length; slotIndex++) {
+        const { outwardRow, tangentStep } = REPAIR_SLOT_ORDER[slotIndex];
+        const outwardClearance = repairs.clearances.get(tangentStep) ?? 0;
         if (
           first &&
-          slot.outwardRow === first.slot.outwardRow &&
-          slot.tangentStep === first.slot.tangentStep &&
-          slot.outwardClearance === first.slot.outwardClearance
+          outwardRow === first.slot.outwardRow &&
+          tangentStep === first.slot.tangentStep &&
+          outwardClearance === first.slot.outwardClearance
         ) {
           continue;
         }
         if (repairAttemptsRemaining <= 0) break;
         repairAttemptsRemaining -= 1;
         testedSlotCount += 1;
+        const radialGap =
+          LABEL_BODY_GAP_PX +
+          outwardClearance * candidate.normalScale +
+          outwardRow * OUTWARD_ROW_STEP_PX;
+        if (radialGap > MAX_REPAIR_ANCHOR_DISTANCE_PX) continue;
+        const slot = repairSlotAt(repairs, slotIndex, outwardClearance);
         const result = attempt(candidate, outward, slot, false);
-        if (result.outsideRunway || result.blockers !== null) continue;
-        if (slot.outwardRow >= OUTWARD_ROW_COUNT && !insidePane(result.bounds, viewport)) continue;
-        const leader = leaderFor(candidate, result);
-        if (leader.length > FLOATING_LABEL_MAX_LEADER_PX) continue;
-        repaired = { result, leader };
+        if (!result) continue;
+        repaired = result;
         break;
       }
       if (repaired) {
-        place(index, candidate, repaired.result, repaired.leader, testedSlotCount);
+        place(index, candidate, repaired, testedSlotCount);
         continue;
       }
     }
-    decisionByIndex[index] =
-      first && firstLeader
-        ? {
-            featureId: candidate.featureId,
-            text: candidate.text,
-            anchor: candidate.anchor,
-            bodyBounds: candidate.bodyBounds,
-            status: 'rejected',
-            reason: first.outsideRunway ? 'outside-runway' : 'blocked-fixed-slot',
-            slot: first.slot,
-            plannedPlacement: { x: first.x, y: first.y, bounds: first.bounds, leader: firstLeader },
-            testedSlotCount,
-            blockers: first.blockers ? [...first.blockers].sort() : [],
-          }
-        : {
-            featureId: candidate.featureId,
-            text: candidate.text,
-            anchor: candidate.anchor,
-            bodyBounds: candidate.bodyBounds,
-            status: 'rejected',
-            reason: 'no-assignment',
-            slot: null,
-            testedSlotCount,
-            blockers: [],
-            assignmentOptions: candidate.placementOptions,
-          };
+    decisionByIndex[index] = first
+      ? {
+          featureId: candidate.featureId,
+          text: candidate.text,
+          anchor: candidate.anchor,
+          bodyBounds: candidate.bodyBounds,
+          status: 'rejected',
+          reason: first.outsideRunway ? 'outside-runway' : 'blocked-fixed-slot',
+          slot: first.slot,
+          plannedPlacement: { x: first.x, y: first.y, bounds: first.bounds, leader: first.leader },
+          testedSlotCount,
+          blockers: first.blockers ? [...first.blockers].sort() : [],
+        }
+      : {
+          featureId: candidate.featureId,
+          text: candidate.text,
+          anchor: candidate.anchor,
+          bodyBounds: candidate.bodyBounds,
+          status: 'rejected',
+          reason: 'no-assignment',
+          slot: null,
+          testedSlotCount,
+          blockers: [],
+          assignmentOptions: candidate.placementOptions,
+        };
   }
 
   return floatingAnnotationLabelPlanFromDecisions(

@@ -1,4 +1,4 @@
-export type FileDocumentFlushPurpose = 'synchronize' | 'discard';
+export type FileDocumentFlushPurpose = 'synchronize' | 'discard' | 'retire';
 
 export interface FileDocumentClientFlush {
   requestId: string;

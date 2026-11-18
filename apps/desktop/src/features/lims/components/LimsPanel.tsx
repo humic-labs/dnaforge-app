@@ -517,6 +517,7 @@ export function LimsPanel({
     const el = registryPanelRef.current;
     if (!el) return null;
     const r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return null;
     return {
       top: r.top,
       left: r.left,

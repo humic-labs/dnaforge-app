@@ -72,6 +72,55 @@ describe('document flush readiness', () => {
 });
 
 describe('document flush disposition', () => {
+  it('refuses a previously exact retirement acknowledgement after the live renderer load changes', async () => {
+    sent.mockClear();
+    const target = { id: 17, isDestroyed: () => false } as WebContents;
+    let loadId = 'live';
+    const sync = createFileDocumentClientSync(
+      () => target,
+      () => ({ shellReady: true, loadId })
+    );
+    const pending = sync.flush('retire');
+    const rejected = expect(pending).rejects.toThrow('FILE_DOCUMENT_CLIENT_GONE');
+    const request = sent.mock.calls.at(-1)![2] as FileDocumentClientFlush;
+    loadId = 'replacement';
+    expect(sync.acknowledge(target, { ...request, success: true })).toBe(false);
+    sync.close();
+    await rejected;
+  });
+
+  it('requires the exact live sender, load, request and retirement purpose before releasing shutdown', async () => {
+    const f = fixture();
+    const retiring = f.sync.flush('retire');
+    let released = false;
+    void retiring.then(() => {
+      released = true;
+    });
+    for (const [sender, changed] of [
+      [{ id: 18, isDestroyed: () => false }, {}],
+      [{ id: 17, isDestroyed: () => true }, {}],
+      [f.target, { loadId: 'stale' }],
+      [f.target, { requestId: 'another-request' }],
+      [f.target, { purpose: 'synchronize' }],
+      [f.target, { purpose: 'discard' }],
+      [f.target, { purpose: undefined }],
+    ] as const) {
+      expect(
+        f.sync.acknowledge(sender as WebContents, {
+          ...f.request(),
+          ...changed,
+          success: true,
+        })
+      ).toBe(false);
+      await Promise.resolve();
+      expect(released).toBe(false);
+    }
+    expect(f.sync.acknowledge(f.target, { ...f.request(), success: true })).toBe(true);
+    await retiring;
+    expect(released).toBe(true);
+    f.sync.close();
+  });
+
   it('runs a separate discard drain after a failed synchronization request', async () => {
     const f = fixture();
     const save = f.sync.flush();

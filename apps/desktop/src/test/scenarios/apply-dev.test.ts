@@ -44,6 +44,7 @@ const platformMock = vi.hoisted(() => ({
   registerScenarioFiles: vi.fn(async ({ workspaceRoot }: { workspaceRoot: string }) => ({
     manifestPath: `${workspaceRoot}/.forge/catalog.json`,
   })),
+  materializeMocloScenarioKit: vi.fn(),
   retainTrack: vi.fn(async ({ relativePath }: { relativePath: string }) => ({
     path: `/profile/Track assets/verified/${relativePath.split('/').at(-1)}`,
   })),
@@ -246,6 +247,7 @@ vi.mock('../../platform', () => {
     internalFixtures: {
       retainTrack: platformMock.retainTrack,
       registerScenarioFiles: platformMock.registerScenarioFiles,
+      materializeMocloScenarioKit: platformMock.materializeMocloScenarioKit,
     },
     notebook: { adoptMarkdown: platformMock.adoptMarkdown },
     workspace: {
@@ -376,6 +378,8 @@ import {
 import { sequencePackageAttachTwoClones } from './sequence-package-attach';
 import {
   cidarMocloRedFluorescentTu,
+  cidarMocloMixedRouteRedFluorescentTu,
+  ytkMocloFactoryExpressionCassette,
   realAssemblyGibsonPcrPcrSpacerFinalization,
 } from './assembly-real-pipeline';
 import {
@@ -474,6 +478,34 @@ beforeEach(() => {
   window.localStorage.clear();
   vi.clearAllMocks();
   openWorkspaceFromSourceMock.mockImplementation(projectFixtureWorkspace);
+  platformMock.materializeMocloScenarioKit.mockImplementation(
+    async ({ presetId }: { presetId: string }) => {
+      const scenario =
+        presetId === 'ytk-moclo-factory-expression-cassette'
+          ? ytkMocloFactoryExpressionCassette()
+          : presetId === 'cidar-moclo-mixed-route-red-fluorescent-tu'
+            ? cidarMocloMixedRouteRedFluorescentTu()
+            : cidarMocloRedFluorescentTu();
+      const files = Object.entries(scenario.files!);
+      return {
+        files: files.map(([path]) => path.slice('/workspace/'.length)),
+        packages: files.flatMap(([path, content]) => {
+          const packageRoot = sequencePackageRootForMetaPath(path);
+          if (!packageRoot) return [];
+          const document = parseSequencePackageDocument(String(content));
+          const relativeRoot = packageRoot.slice('/workspace/'.length);
+          return [
+            {
+              sourcePackageId: document.id,
+              packageId: crypto.randomUUID(),
+              relativeRoot,
+              productRelativePath: `${relativeRoot}/${document.product.file}`,
+            },
+          ];
+        }),
+      };
+    }
+  );
 
   platformMock.adoptMarkdown.mockReset().mockImplementation(async ({ workspaceRoot, path }) => ({
     workspaceRoot,
@@ -1191,6 +1223,32 @@ describe('applyScenarioDev', () => {
     );
   });
 
+  it('materializes the shipped CIDAR preset through its native owner without protected generic writes', async () => {
+    vi.mocked(isDesktopRuntime).mockReturnValue(true);
+    allowElectronScenarioMutation();
+    const mkdir = platformMock.mkdir.getMockImplementation();
+    const write = platformMock.writeTextFile.getMockImplementation();
+    const assertUnprotected = (path: string) => {
+      if (path.includes('/.forge/')) throw new Error('PROJECT_FILESYSTEM_AUTHORITY_REQUIRED');
+    };
+    platformMock.mkdir.mockImplementation(async (path) => assertUnprotected(path));
+    platformMock.writeTextFile.mockImplementation(async (path) => assertUnprotected(path));
+    try {
+      await applyDevScenarioPreset('cidar-moclo-red-fluorescent-tu');
+      expect(platformMock.materializeMocloScenarioKit).toHaveBeenCalledWith({
+        workspaceRoot: expect.stringContaining('/managed-workspaces/CIDAR MoClo/repo'),
+        presetId: 'cidar-moclo-red-fluorescent-tu',
+      });
+      expect(platformMock.mkdir.mock.calls.some(([path]) => path.includes('/.forge/'))).toBe(false);
+      expect(
+        platformMock.writeTextFile.mock.calls.some(([path]) => path.includes('/.forge/'))
+      ).toBe(false);
+    } finally {
+      if (mkdir) platformMock.mkdir.mockImplementation(mkdir);
+      if (write) platformMock.writeTextFile.mockImplementation(write);
+    }
+  });
+
   it('gives copied CIDAR packages independent identities and matching design sources', async () => {
     vi.mocked(isDesktopRuntime).mockReturnValue(true);
     allowElectronScenarioMutation();
@@ -1203,12 +1261,12 @@ describe('applyScenarioDev', () => {
     );
     for (const id of originalIds) platformMock.existingCatalogIds.add(id);
     await applyScenarioDev(scenario);
-    const copies = platformMock.writeTextFile.mock.calls
-      .filter(([path]) => sequencePackageRootForMetaPath(path))
-      .map(([, content]) => parseSequencePackageDocument(content));
-    expect(copies).toHaveLength(originalIds.size);
-    const copiedIds = new Set(copies.map(({ id }) => id));
-    expect(copiedIds.size).toBe(copies.length);
+    const copies = await platformMock.materializeMocloScenarioKit.mock.results[0].value;
+    expect(copies.packages).toHaveLength(originalIds.size);
+    const copiedIds = new Set(
+      copies.packages.map(({ packageId }: { packageId: string }) => packageId)
+    );
+    expect(copiedIds.size).toBe(copies.packages.length);
     expect([...copiedIds].some((id) => originalIds.has(id))).toBe(false);
     const state = useDesignStore.getState();
     const design = state.designs[state.activeDesignId!];
@@ -2415,6 +2473,7 @@ describe('registered DevPanel scenario replay', () => {
         }),
       })
     );
+    expect(platformMock.stat).toHaveBeenCalledWith('/profile/Track assets/verified/AGS001841.bw');
     platformMock.stat.mockResolvedValueOnce({
       canonicalPath: '/repo/test-fixtures/indexed/danRer11/pownall-figure-4n/AGS001841.bw',
       size: 2_630,

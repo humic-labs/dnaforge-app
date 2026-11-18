@@ -186,6 +186,52 @@ beforeEach(() => {
 });
 
 describe('native documents main feature', () => {
+  it('waits for the current renderer retirement acknowledgement before closing its real notebook owner', async () => {
+    const { documents, start } = started('renderer');
+    await start;
+    documents.startRendererPublisher(() => ({}) as WebContents);
+    const retired = Promise.withResolvers<void>();
+    mocks.flush.mockImplementationOnce(() => retired.promise);
+    const nativeClose = vi.spyOn(documents.notebookDocuments, 'close');
+    const closing = documents.closeServerAndRecovery();
+    try {
+      await vi.waitFor(() => expect(mocks.flush).toHaveBeenCalledWith('retire'));
+      expect(nativeClose).not.toHaveBeenCalled();
+      expect(documents.rendererPublisher()).toBe(mocks.publisher);
+      retired.resolve();
+      await closing;
+      expect(nativeClose).toHaveBeenCalledOnce();
+      await expect(
+        documents.notebookDocuments.execute({
+          documentId: 'retired-notebook',
+          operation: { kind: 'inspect-copy' },
+        })
+      ).rejects.toMatchObject({ code: 'NOTEBOOK_OWNER_CLOSED' });
+    } finally {
+      retired.resolve();
+      await closing;
+      documents.stopRendererPublisher();
+      nativeClose.mockRestore();
+    }
+  });
+
+  it('keeps the native notebook owner open when renderer retirement is not acknowledged', async () => {
+    const { documents, start } = started('renderer');
+    await start;
+    documents.startRendererPublisher(() => ({}) as WebContents);
+    const refused = new Error('Renderer retirement refused');
+    mocks.flush.mockRejectedValueOnce(refused);
+    const nativeClose = vi.spyOn(documents.notebookDocuments, 'close');
+    try {
+      await expect(documents.closeServerAndRecovery()).rejects.toBe(refused);
+      expect(nativeClose).not.toHaveBeenCalled();
+      expect(documents.rendererPublisher()).toBe(mocks.publisher);
+    } finally {
+      documents.stopRendererPublisher();
+      nativeClose.mockRestore();
+    }
+  });
+
   it('retains a refused native Save All in local diagnostics and safe remote telemetry', async () => {
     const documents = createNativeDocuments();
     const document = {

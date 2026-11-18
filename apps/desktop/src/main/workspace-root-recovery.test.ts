@@ -34,7 +34,11 @@ function workspace() {
   return db.prepare('SELECT * FROM workspaces WHERE id=1').get();
 }
 function relink(selectedPath = movedRoot) {
-  return relinkWorkspaceRoot(db, { repoPath: oldRoot, selectedPath });
+  return relinkWorkspaceRoot(
+    db,
+    { repoPath: oldRoot, selectedPath },
+    join(root, 'managed-workspaces')
+  );
 }
 beforeEach(() => {
   db = createTestDb();
@@ -53,6 +57,20 @@ afterEach(() => {
 });
 
 describe('missing workspace root recovery', () => {
+  it('keeps the original location when a moved project cannot be opened from its new managed storage location', () => {
+    const projectDir = join(root, 'managed-workspaces', uuid);
+    mkdirSync(projectDir, { recursive: true });
+    const renamed = join(projectDir, 'repo-moved');
+    renameSync(oldRoot, renamed);
+    const before = workspace();
+
+    expect(relink(renamed)).toEqual({ status: 'rejected', reason: 'invalid-target' });
+    expect(workspace()).toEqual(before);
+    const canonical = join(projectDir, 'repo');
+    renameSync(renamed, canonical);
+    expect(relink(canonical)).toEqual({ status: 'relinked', workspaceId: 1, repoPath: canonical });
+  });
+
   it('keeps the same owner and original bytes while rebinding live references atomically', () => {
     db.prepare('INSERT INTO settings(key,value,updated_at) VALUES(?,?,1)').run(
       'current_workspace_path',

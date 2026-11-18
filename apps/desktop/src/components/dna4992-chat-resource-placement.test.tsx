@@ -109,7 +109,7 @@ function activateChat() {
 
 async function clickResource(kind: keyof typeof resources) {
   const chip = await screen.findByRole('link', {
-    name: `${labels[kind]}, ${kind === 'directory' ? 'Folder' : 'File'}`,
+    name: `${labels[kind]}, ${kind === 'view' ? 'Track View' : kind === 'directory' ? 'Folder' : 'File'}`,
   });
   await waitFor(() => {
     expect(chip).not.toHaveAttribute('aria-disabled', 'true');

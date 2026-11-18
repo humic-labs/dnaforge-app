@@ -1,13 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  acknowledgeSheetSyncFinalization,
-  authorizeLocalSheetSync,
-  authorizeGoogleSheetSync,
-  localGoogleSheetSyncGrant,
-  localSheetSyncAuthorization,
-  setLocalSheetSyncActive,
-  sheetSyncFinalizationAcknowledged,
-} from './sheet-sync-local-state';
+import { createSheetSyncLocalState } from '../../shared/registry-artifacts/sheet-sync/local-state';
+import { platform } from '../../platform';
+import { resolveWorkspaceScope } from '../../db/workspace-catalog';
 import { parseSheetSyncConnection, type SheetSyncConnection } from './sheet-sync-connection';
 const local = vi.hoisted(() => ({
   scope: 'repo:project-a',
@@ -43,6 +37,19 @@ vi.mock('../../platform', () => ({
     },
   }),
 }));
+const {
+  acknowledgeSheetSyncFinalization,
+  authorizeLocalSheetSync,
+  authorizeGoogleSheetSync,
+  localGoogleSheetSyncGrant,
+  localSheetSyncAuthorization,
+  setLocalSheetSyncActive,
+  sheetSyncFinalizationAcknowledged,
+} = createSheetSyncLocalState({
+  db: platform().db,
+  resolveWorkspaceScope,
+  googleSheets: platform().googleSheets,
+});
 const connection = {
   schema: 'dnaforge.sheet-sync',
   schemaVersion: 1,

@@ -116,6 +116,7 @@ function WorkspaceMentionChip({ node, extension }: NodeViewProps) {
           path: portablePath ?? intent.path ?? undefined,
         }}
         label={intent.label}
+        detail={portablePath}
         onOpen={canOpen ? open : undefined}
         onReveal={portablePath ? reveal : undefined}
         unavailable={!canOpen}

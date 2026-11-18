@@ -106,6 +106,10 @@ def _required(name: str, args: dict[str, Any]) -> list[str]:
             kind == "execute"
             and isinstance(command, dict)
             and command.get("kind") == "inspect"
+            or kind == "sheet-sync"
+            and isinstance(command, dict)
+            and command.get("kind")
+            in {"prepare", "list", "inspect", "inspect-connect", "authorization"}
         ):
             required.append("write-workspace")
     elif name == "administration":
@@ -231,6 +235,18 @@ async def execute_native_workflow(
                 "partialEffects": [receipt] if receipt else [],
                 "reviewId": result.get("id"),
                 "reviewRevision": result.get("revision"),
+            },
+        )
+    if name == "import_review" and result.get("kind") == "partial":
+        raise ToolExecutionFailure(
+            code="SHEET_SYNC_PARTIAL",
+            message=result.get("message", "Inspect the retained spreadsheet connection before recovering it."),
+            retriable=False,
+            details={
+                "stateChanged": "unknown",
+                "partialEffects": [result],
+                "requestId": result.get("requestId"),
+                "connectionId": result.get("connectionId"),
             },
         )
     if (

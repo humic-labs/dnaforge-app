@@ -16,11 +16,23 @@ import {
   transcriptColorForMode,
 } from '../../../feature-colors';
 
+import { OVERVIEW_LOD_COMPRESSED_PIXELS_PER_BP } from './annotation-lod-policy';
+
 const GENOME_LENGTH = 1000;
 
 let AnnotationOverlayClass: typeof import('./sequence-annotation-overlay').SequenceAnnotationOverlay;
 let StadiumPathMapperClass: typeof import('../shared/path-mapper').StadiumPathMapper;
 let getStadiumDimensionsFn: typeof import('../../../geometry/stadium').getStadiumDimensions;
+
+async function prepareRetainedOverviewFixture(
+  overlay: InstanceType<typeof AnnotationOverlayClass>,
+  layout: UnifiedLayout,
+  path: PathMapper
+): Promise<void> {
+  const pixelsPerBp = Math.min(path.pixelsPerBp, OVERVIEW_LOD_COMPRESSED_PIXELS_PER_BP);
+  const receipt = await overlay.prepareRetainedOverviewForLayout(layout, pixelsPerBp, pixelsPerBp);
+  expect(receipt.kind).toBe('ready');
+}
 
 beforeAll(async () => {
   HTMLCanvasElement.prototype.getContext = ((contextId: string) => {
@@ -2717,7 +2729,7 @@ describe('AnnotationOverlay curved labels', () => {
     overlay.destroy();
   });
 
-  it('retains overview annotation bodies across stadium viewOffset camera updates when enabled', () => {
+  it('retains overview annotation bodies across stadium viewOffset camera updates when enabled', async () => {
     const overlay = new AnnotationOverlayClass();
     const genome = createTinyCircularGenesGenome();
     const state = { ...createState(), zoom: 0.01 };
@@ -2730,6 +2742,11 @@ describe('AnnotationOverlay curved labels', () => {
       overlay.loadGenome(genome);
       overlay.setLayout(createAnnotationLayout(false));
 
+      await prepareRetainedOverviewFixture(
+        overlay,
+        createAnnotationLayout(false),
+        createPath(state, genome)
+      );
       expect(
         overlay.updateRetainedCamera({
           path: createPath(state, genome),
@@ -2765,6 +2782,11 @@ describe('AnnotationOverlay curved labels', () => {
       );
 
       state.viewOffset = 0.1;
+      await prepareRetainedOverviewFixture(
+        overlay,
+        createAnnotationLayout(false),
+        createPath(state, genome)
+      );
       expect(
         overlay.updateRetainedCamera({
           path: createPath(state, genome),
@@ -2796,7 +2818,7 @@ describe('AnnotationOverlay curved labels', () => {
     }
   });
 
-  it('keeps retained overview bins at the source annotation color and opacity', () => {
+  it('keeps retained overview bins at the source annotation color and opacity', async () => {
     const overlay = new AnnotationOverlayClass();
     const genome = createTinyCircularGenesGenome();
     const state = { ...createState(), zoom: 0.01 };
@@ -2809,6 +2831,11 @@ describe('AnnotationOverlay curved labels', () => {
       overlay.loadGenome(genome);
       overlay.setLayout(createAnnotationLayout(false));
 
+      await prepareRetainedOverviewFixture(
+        overlay,
+        createAnnotationLayout(false),
+        createPath(state, genome)
+      );
       expect(
         overlay.updateRetainedCamera({
           path: createPath(state, genome),
@@ -2828,7 +2855,7 @@ describe('AnnotationOverlay curved labels', () => {
     }
   });
 
-  it('uploads dark-mode colors for retained overview annotation bodies', () => {
+  it('uploads dark-mode colors for retained overview annotation bodies', async () => {
     const overlay = new AnnotationOverlayClass();
     const genome = createTinyCircularGenesGenome();
     const state = { ...createState(), zoom: 0.01, themeMode: 'dark' as const };
@@ -2847,6 +2874,15 @@ describe('AnnotationOverlay curved labels', () => {
         laneGeometryScale: 1,
       });
 
+      await prepareRetainedOverviewFixture(
+        overlay,
+        {
+          ...createAnnotationLayout(false),
+          overviewLaneScale: 0.1,
+          laneGeometryScale: 1,
+        },
+        createPath(state, genome)
+      );
       expect(
         overlay.updateRetainedCamera({
           path: createPath(state, genome),
@@ -2875,7 +2911,7 @@ describe('AnnotationOverlay curved labels', () => {
     }
   });
 
-  it('maps legacy texture overview styles onto retained-bin rendering', () => {
+  it('maps legacy texture overview styles onto retained-bin rendering', async () => {
     const overlay = new AnnotationOverlayClass();
     const genome = createPartialCoverageCircularGeneGenome();
     const state = { ...createState(), zoom: 0.01 };
@@ -2896,6 +2932,7 @@ describe('AnnotationOverlay curved labels', () => {
       };
 
       retainedFlag.__WAYPOINT_WEBGL_OVERVIEW_ANNOTATION_STYLE = 'retained';
+      await prepareRetainedOverviewFixture(overlay, createAnnotationLayout(false), camera.path);
       expect(overlay.updateRetainedCamera(camera)).toBe(true);
       expect(overlay.getRetainedDebugSnapshot()).toMatchObject({
         mode: 'retained',
@@ -2906,6 +2943,7 @@ describe('AnnotationOverlay curved labels', () => {
       const unsafeStyles = ['texture-exact', 'texture-coverage', 'texture-soft', 'density'];
       for (const style of unsafeStyles) {
         retainedFlag.__WAYPOINT_WEBGL_OVERVIEW_ANNOTATION_STYLE = style;
+        await prepareRetainedOverviewFixture(overlay, createAnnotationLayout(false), camera.path);
         expect(overlay.updateRetainedCamera(camera)).toBe(true);
         expect(overlay.getRetainedDebugSnapshot()).toMatchObject({
           mode: 'retained',
@@ -2921,7 +2959,7 @@ describe('AnnotationOverlay curved labels', () => {
     }
   });
 
-  it('denies hidden texture candidates as alternate annotation renderers', () => {
+  it('denies hidden texture candidates as alternate annotation renderers', async () => {
     const textureCandidates = [
       'shape-raster-coverage',
       'feature-gaussian-field-v1',
@@ -2946,6 +2984,11 @@ describe('AnnotationOverlay curved labels', () => {
         overlay.loadGenome(genome);
         overlay.setLayout(createAnnotationLayout(false));
 
+        await prepareRetainedOverviewFixture(
+          overlay,
+          createAnnotationLayout(false),
+          createPath(state, genome)
+        );
         expect(
           overlay.updateRetainedCamera({
             path: createPath(state, genome),
@@ -2970,7 +3013,7 @@ describe('AnnotationOverlay curved labels', () => {
     }
   });
 
-  it('keeps retained-bin geometry as the only compressed overview across the LOD boundary', () => {
+  it('keeps retained-bin geometry as the only compressed overview across the LOD boundary', async () => {
     const overlay = new AnnotationOverlayClass();
     const genome = createPartialCoverageCircularGeneGenome();
     const state = { ...createState(), zoom: 0.01 };
@@ -2985,6 +3028,11 @@ describe('AnnotationOverlay curved labels', () => {
       overlay.loadGenome(genome);
       overlay.setLayout(createAnnotationLayout(false));
 
+      await prepareRetainedOverviewFixture(
+        overlay,
+        createAnnotationLayout(false),
+        createPath(state, genome)
+      );
       expect(
         overlay.updateRetainedCamera({
           path: createPath(state, genome),
@@ -3014,7 +3062,7 @@ describe('AnnotationOverlay curved labels', () => {
     }
   });
 
-  it('keeps retained-bin overview transitions on retained geometry', () => {
+  it('keeps retained-bin overview transitions on retained geometry', async () => {
     const overlay = new AnnotationOverlayClass();
     const genome = createPartialCoverageCircularGeneGenome();
     const state = { ...createState(), zoom: 0.01 };
@@ -3029,6 +3077,11 @@ describe('AnnotationOverlay curved labels', () => {
       overlay.loadGenome(genome);
       overlay.setLayout(createAnnotationLayout(false));
 
+      await prepareRetainedOverviewFixture(
+        overlay,
+        createAnnotationLayout(false),
+        createPath(state, genome)
+      );
       expect(
         overlay.updateRetainedCamera({
           path: createPath(state, genome),
@@ -3051,7 +3104,7 @@ describe('AnnotationOverlay curved labels', () => {
     }
   });
 
-  it('updates retained-bin overview zoom transitions through camera uniforms', () => {
+  it('updates retained-bin overview zoom transitions through camera uniforms', async () => {
     const overlay = new AnnotationOverlayClass();
     const genome = createPartialCoverageCircularGeneGenome();
     const state = { ...createState(), zoom: 0.01 };
@@ -3066,6 +3119,11 @@ describe('AnnotationOverlay curved labels', () => {
       overlay.loadGenome(genome);
       overlay.setLayout(createAnnotationLayout(false));
 
+      await prepareRetainedOverviewFixture(
+        overlay,
+        createAnnotationLayout(false),
+        createPath(state, genome)
+      );
       expect(
         overlay.updateRetainedCamera({
           path: createPath(state, genome),
@@ -3081,6 +3139,15 @@ describe('AnnotationOverlay curved labels', () => {
         overviewLaneScale: 0.6,
         laneGeometryScale: 1,
       });
+      await prepareRetainedOverviewFixture(
+        overlay,
+        {
+          ...createAnnotationLayout(false),
+          overviewLaneScale: 0.6,
+          laneGeometryScale: 1,
+        },
+        createPath(state, genome)
+      );
       expect(
         overlay.updateRetainedCamera({
           path: createPath(state, genome),
@@ -3102,7 +3169,7 @@ describe('AnnotationOverlay curved labels', () => {
     }
   });
 
-  it('uses retained overview rendering by default for the safe overview LOD', () => {
+  it('uses retained overview rendering by default for the safe overview LOD', async () => {
     const overlay = new AnnotationOverlayClass();
     const genome = createTinyCircularGenesGenome();
     const state = { ...createState(), zoom: 0.01 };
@@ -3115,6 +3182,11 @@ describe('AnnotationOverlay curved labels', () => {
       overlay.loadGenome(genome);
       overlay.setLayout(createAnnotationLayout(false));
 
+      await prepareRetainedOverviewFixture(
+        overlay,
+        createAnnotationLayout(false),
+        createPath(state, genome)
+      );
       expect(
         overlay.updateRetainedCamera({
           path: createPath(state, genome),
@@ -3211,7 +3283,7 @@ describe('AnnotationOverlay curved labels', () => {
     }
   });
 
-  it('retains wide overview annotation bodies instead of falling back to immediate rendering', () => {
+  it('retains wide overview annotation bodies instead of falling back to immediate rendering', async () => {
     const overlay = new AnnotationOverlayClass();
     const genome: Genome = {
       name: 'wide-circular-overview-retained-regression',
@@ -3241,6 +3313,11 @@ describe('AnnotationOverlay curved labels', () => {
       overlay.loadGenome(genome);
       overlay.setLayout(createAnnotationLayout(false));
 
+      await prepareRetainedOverviewFixture(
+        overlay,
+        createAnnotationLayout(false),
+        createPath(state, genome)
+      );
       expect(
         overlay.updateRetainedCamera({
           path: createPath(state, genome),
@@ -3268,7 +3345,7 @@ describe('AnnotationOverlay curved labels', () => {
     }
   });
 
-  it('keeps spliced CDS features out of retained overview bins and renders them as passthrough', () => {
+  it('keeps spliced CDS features out of retained overview bins and renders them as passthrough', async () => {
     const overlay = new AnnotationOverlayClass();
     const genome: Genome = {
       name: 'retained-overview-spliced-passthrough-regression',
@@ -3303,6 +3380,11 @@ describe('AnnotationOverlay curved labels', () => {
       overlay.loadGenome(genome);
       overlay.setLayout(createAnnotationLayout(false));
 
+      await prepareRetainedOverviewFixture(
+        overlay,
+        createAnnotationLayout(false),
+        createPath(state, genome)
+      );
       expect(
         overlay.updateRetainedCamera({
           path: createPath(state, genome),
@@ -3331,7 +3413,7 @@ describe('AnnotationOverlay curved labels', () => {
     }
   });
 
-  it('clears retained passthrough graphics when spliced features become too small to draw', () => {
+  it('clears retained passthrough graphics when spliced features become too small to draw', async () => {
     const overlay = new AnnotationOverlayClass();
     const genome: Genome = {
       name: 'retained-overview-spliced-passthrough-clear-regression',
@@ -3368,6 +3450,11 @@ describe('AnnotationOverlay curved labels', () => {
       const clearSpy = vi.spyOn(graphics, 'clear');
 
       const visibleState = { ...createState(), zoom: 0.01 };
+      await prepareRetainedOverviewFixture(
+        overlay,
+        createAnnotationLayout(false),
+        createPath(visibleState, genome)
+      );
       expect(
         overlay.updateRetainedCamera({
           path: createPath(visibleState, genome),
@@ -3383,6 +3470,11 @@ describe('AnnotationOverlay curved labels', () => {
       expect(clearSpy).toHaveBeenCalledTimes(1);
 
       const hiddenState = { ...createState(), zoom: 0.00001 };
+      await prepareRetainedOverviewFixture(
+        overlay,
+        createAnnotationLayout(false),
+        createPath(hiddenState, genome)
+      );
       expect(
         overlay.updateRetainedCamera({
           path: createPath(hiddenState, genome),
@@ -3402,7 +3494,7 @@ describe('AnnotationOverlay curved labels', () => {
     }
   });
 
-  it('keeps retained overview bodies hit-testable so hover can fall back to immediate outlines', () => {
+  it('keeps retained overview bodies hit-testable so hover can fall back to immediate outlines', async () => {
     const overlay = new AnnotationOverlayClass();
     const genome = createTinyCircularGenesGenome();
     const state = { ...createState(), zoom: 0.01 };
@@ -3411,6 +3503,7 @@ describe('AnnotationOverlay curved labels', () => {
     overlay.loadGenome(genome);
     overlay.setLayout(createAnnotationLayout(false));
 
+    await prepareRetainedOverviewFixture(overlay, createAnnotationLayout(false), path);
     expect(
       overlay.updateRetainedCamera({
         path,
@@ -3439,7 +3532,7 @@ describe('AnnotationOverlay curved labels', () => {
     overlay.destroy();
   });
 
-  it('keeps retained overview bodies active while drawing interaction outlines', () => {
+  it('keeps retained overview bodies active while drawing interaction outlines', async () => {
     const overlay = new AnnotationOverlayClass();
     const genome = createTinyCircularGenesGenome();
     const state = { ...createState(), zoom: 0.01 };
@@ -3453,6 +3546,11 @@ describe('AnnotationOverlay curved labels', () => {
       overlay.loadGenome(genome);
       overlay.setLayout(createAnnotationLayout(false));
 
+      await prepareRetainedOverviewFixture(
+        overlay,
+        createAnnotationLayout(false),
+        createPath(state, genome)
+      );
       expect(
         overlay.updateRetainedCamera({
           path: createPath(state, genome),
@@ -3478,7 +3576,7 @@ describe('AnnotationOverlay curved labels', () => {
     }
   });
 
-  it("emphasizes the hovered feature's floating label letters without drawing a box", () => {
+  it("emphasizes the hovered feature's floating label letters without drawing a box", async () => {
     const overlay = new AnnotationOverlayClass();
     const genome = createTinyCircularGenesGenome();
     const state = { ...createState(), zoom: 0.01 };
@@ -3504,6 +3602,11 @@ describe('AnnotationOverlay curved labels', () => {
     try {
       overlay.loadGenome(genome);
       overlay.setLayout(createAnnotationLayout(false));
+      await prepareRetainedOverviewFixture(
+        overlay,
+        createAnnotationLayout(false),
+        createPath(state, genome)
+      );
       const update = () =>
         overlay.updateRetainedCamera({
           path: createPath(state, genome),

@@ -721,7 +721,9 @@ describe('native sequence document lookup without a view', () => {
 
   it('refuses a replaced package with another identity', async () => {
     await managed('another-document');
-    await expect(resolve(target)).rejects.toThrow(/identity/i);
+    await expect(resolve(target)).rejects.toThrow(
+      'SEQUENCE_DOCUMENT_BINDING_CHANGED: The package on disk does not match the target document identity.'
+    );
   });
 
   it('requires package migration before native editing and leaves the old format untouched', async () => {

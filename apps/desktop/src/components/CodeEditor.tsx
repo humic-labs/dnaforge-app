@@ -279,7 +279,7 @@ export function CodeEditor({
     const current = view.state.sliceDoc();
     if (current === value) return;
     view.dispatch({
-      changes: { from: 0, to: current.length, insert: value },
+      changes: { from: 0, to: view.state.doc.length, insert: value },
       annotations: ExternalSync.of(true),
     });
   }, [value]);

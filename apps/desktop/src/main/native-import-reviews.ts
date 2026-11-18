@@ -1,3 +1,5 @@
+import { createNativeSheetSync } from './native-sheet-sync';
+import { sheetSyncCommandIsReadOnly } from '../shared/registry-artifacts/sheet-sync/command';
 import { userMessagePayload, userMessagePayloadFromError } from '@waypoint/user-messages';
 import { executeImportReviewAgent } from '../shared/import-review-agent';
 import type { ImportReviewAgentInput } from '../shared/import-review-command';
@@ -758,6 +760,12 @@ export function createNativeImportReviews(options: {
     },
     failureReceipt: failedImportReceipt,
   });
+  const sheetSync = createNativeSheetSync({
+    ...options,
+    assertAuthority,
+    validateDestination,
+    persistence,
+  });
   const service = {
     async executeAgent(
       input: ImportReviewAgentInput,
@@ -777,7 +785,9 @@ export function createNativeImportReviews(options: {
         authorize: (required) => authorizeAgent(trusted, required),
       };
       const required =
-        input.operation.kind === 'execute' && input.operation.command.kind === 'inspect'
+        (input.operation.kind === 'execute' && input.operation.command.kind === 'inspect') ||
+        (input.operation.kind === 'sheet-sync' &&
+          sheetSyncCommandIsReadOnly(input.operation.command))
           ? ['read-workspace']
           : ['read-workspace', 'write-workspace'];
       try {
@@ -803,6 +813,7 @@ export function createNativeImportReviews(options: {
             return [{ path, name: named.name, pinned: row.access_mode !== 'writable' }];
           }),
         call: (request) => service.call(request, authority),
+        sheetSync: (request) => sheetSync.call(request, authority),
       });
     },
     async call(request: ImportReviewRequest, authority?: NativeImportReviewAgentExecution) {
@@ -825,6 +836,8 @@ export function createNativeImportReviews(options: {
       };
       return owner.prepare({ ...request, source });
     },
+    sheetSync: sheetSync.call,
+    setGoogleSheetsController: sheetSync.setGoogleSheetsController,
     snapshot: (id: string) => owner.snapshot(id),
     subscribe(listener: (event: ImportReviewChanged) => void) {
       listeners.add(listener);

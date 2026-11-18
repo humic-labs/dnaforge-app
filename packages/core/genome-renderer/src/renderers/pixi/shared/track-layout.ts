@@ -1,5 +1,6 @@
 import {
   canvasCdsMetrics,
+  CDS_GLYPH_STYLE,
   cdsReplacementZoomPresentation,
   cdsZoomBandCenterOffset,
   type CdsZoomPresentation,
@@ -16,7 +17,11 @@ import {
   ANNOTATION_BAR_HEIGHT as CANVAS_ANNOTATION_BAR_HEIGHT,
   ANNOTATION_LANE_SPACING as CANVAS_ANNOTATION_LANE_SPACING,
 } from './theme';
-import { MAX_SEQUENCE_FONT_SIZE, sequenceRowHeightForFontSize } from './sequence-sizing';
+import {
+  linearSequenceMaxPixelsPerBp,
+  MAX_SEQUENCE_FONT_SIZE,
+  sequenceRowHeightForFontSize,
+} from './sequence-sizing';
 export {
   MAX_SEQUENCE_FONT_SIZE,
   MAX_INDEXED_LINEAR_SEQUENCE_PIXELS_PER_BP,
@@ -26,6 +31,7 @@ export {
   SEQUENCE_FONT_SIZE,
   STABILITY_SEQUENCE_DETAIL_FRACTION,
   capMaxZoomForStabilityMode,
+  linearSequenceMaxPixelsPerBp,
   maxZoomForSequencePixelsPerBp,
   sequenceFullViewportPixelsPerBp,
 } from './sequence-sizing';
@@ -846,10 +852,27 @@ export function computeUnifiedLayout(inputs: UnifiedLayoutInputs): UnifiedLayout
   const cdsChevronHeight = canvasCdsSizing
     ? Math.max(5.4, canvasCdsMetrics(pixelsPerBp).aaHeight)
     : (cdsZoomPresentation?.aaHeight ?? rowHeight * TRANSLATION_AA_RATIO);
+  const reservedCdsAaHeight =
+    reserveSequenceLayoutEnvelope && cdsZoomPresentation
+      ? Math.max(
+          CDS_GLYPH_STYLE.labelHeight,
+          canvasCdsMetrics(
+            Math.max(
+              pixelsPerBp,
+              linearSequenceMaxPixelsPerBp(state.sequencePresentation?.maxSequencePixelsPerBp)
+            )
+          ).aaHeight
+        )
+      : null;
   const aaTrackHeight = canvasCdsSizing
     ? Math.max(AA_TRACK_HEIGHT_MIN, cdsChevronHeight)
     : cdsZoomPresentation
-      ? Math.max(indexedAaTrackHeight, cdsZoomPresentation.bandHeight)
+      ? Math.max(
+          indexedAaTrackHeight,
+          reservedCdsAaHeight === null
+            ? cdsZoomPresentation.bandHeight
+            : reservedCdsAaHeight + CDS_GLYPH_STYLE.replacementTopEdgeHeight
+        )
       : indexedAaTrackHeight;
   const {
     residueRowHeight,
@@ -886,7 +909,11 @@ export function computeUnifiedLayout(inputs: UnifiedLayoutInputs): UnifiedLayout
       )
     : annotationLabelHalfHeight;
   const annotationStep = annotationLabelHalfHeight + annotationBottomInset + laneGap;
-  const annotationHeightForLod = Math.max(0, inputs.annotationLanes) * annotationStep;
+  const allocatedAnnotationStep =
+    reservedCdsAaHeight === null
+      ? annotationStep
+      : annotationLabelHalfHeight + CDS_GLYPH_STYLE.labelHeight / 2 + reservedCdsAaHeight + laneGap;
+  const annotationHeightForLod = Math.max(0, inputs.annotationLanes) * allocatedAnnotationStep;
   const aboveHeights = above.map((o) => {
     if (o.id === 'annotations') return annotationHeightForLod;
     return o.computeHeight(genome, state, pixelsPerBp) * compactScale;

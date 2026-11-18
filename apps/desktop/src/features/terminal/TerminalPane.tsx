@@ -928,6 +928,8 @@ export function TerminalPane({
           resizeQueued = false;
           syncTheme();
           if (disposed || retired || element.clientWidth < 10 || element.clientHeight < 10) return;
+          terminal.options.fontFamily = currentAppearance.current.fontFamily;
+          terminal.options.fontSize = currentAppearance.current.fontSize;
           const fixed = currentDimensions.current;
           if (terminal.element) {
             terminal.element.style.width = '';
@@ -953,6 +955,10 @@ export function TerminalPane({
     };
     const observer = new ResizeObserver(resize);
     observer.observe(element);
+    const visibilityObserver = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) resize();
+    });
+    visibilityObserver.observe(element);
     const themeObserver = new MutationObserver(syncTheme);
     themeObserver.observe(document.documentElement, {
       attributes: true,
@@ -1014,6 +1020,7 @@ export function TerminalPane({
       resolveReady();
       cancelFileLookup();
       observer.disconnect();
+      visibilityObserver.disconnect();
       themeObserver.disconnect();
       lifetime.abort();
       surfaceElement.removeEventListener('waypoint-file-drop', dropped);
@@ -1045,11 +1052,9 @@ export function TerminalPane({
     const terminal = handle.current?.terminal;
     if (!terminal) return;
     if (surface.current) syncTerminalTheme(terminal, surface.current);
-    terminal.options.fontSize = appearance.fontSize;
     decorations.current?.configure(appearance);
     terminal.options.scrollback = appearance.scrollback;
     terminal.options.screenReaderMode = appearance.screenReaderMode;
-    terminal.options.fontFamily = appearance.fontFamily;
     terminal.options.fontWeight = appearance.fontWeight;
     terminal.options.fontWeightBold = appearance.fontWeightBold;
     terminal.options.minimumContrastRatio = appearance.minimumContrastRatio;

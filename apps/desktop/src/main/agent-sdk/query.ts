@@ -98,6 +98,7 @@ export interface QueryResult {
   failureReason?: 'admission_rejected';
   durationMs: number;
   stopState?: 'completed' | 'failed' | 'cancelled' | 'stop_requested';
+  userStopAcknowledged?: true;
   providerConversationId?: string;
 }
 
@@ -1011,6 +1012,18 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
             : {}),
         });
         providerConversationId = result.threadId;
+        if (result.stopState === 'cancelled') {
+          return {
+            transport: 'codex-sdk',
+            ok: false,
+            text: result.text,
+            error: result.error,
+            durationMs: Date.now() - start,
+            stopState: 'cancelled',
+            ...(result.userStopAcknowledged ? { userStopAcknowledged: true as const } : {}),
+            providerConversationId,
+          };
+        }
         if (options.abortController?.signal.aborted || result.error === 'Stop requested.') {
           return stoppedResult('codex-sdk', start, providerConversationId);
         }

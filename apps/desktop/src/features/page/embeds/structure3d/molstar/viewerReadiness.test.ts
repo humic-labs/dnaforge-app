@@ -147,6 +147,59 @@ describe('waitForPluginInteractionReady', () => {
     });
   });
 
+  it('keeps pointer interactions pending until picking and marking programs finish linking', async () => {
+    vi.useFakeTimers();
+    const plugin = readinessPlugin({ busy: false, representations: 2, canvasRepresentations: 2 });
+    let compiled = false;
+    const linkPrograms = vi.fn();
+    const finalizePrograms = vi.fn(() => compiled);
+    Object.assign(plugin, {
+      canvas3dContext: { webgl: { resources: { linkPrograms, finalizePrograms } } },
+    });
+    let ready = false;
+    const result = waitForPluginInteractionReady(plugin, {
+      hardCeilingMs: 1_000,
+      stableMs: 50,
+      pollMs: 25,
+    }).then(() => {
+      ready = true;
+    });
+    await advance(100);
+    expect(ready).toBe(false);
+    expect(linkPrograms).toHaveBeenCalledWith(['pick', 'marking']);
+    expect(finalizePrograms).toHaveBeenCalledWith(['pick', 'marking'], false);
+    compiled = true;
+    await advance(100);
+    await result;
+    expect(ready).toBe(true);
+  });
+
+  it('waits for the outline and overlay programs used by the first visible highlight', async () => {
+    vi.useFakeTimers();
+    const plugin = readinessPlugin({ busy: false, representations: 1, canvasRepresentations: 1 });
+    const marking = { enabled: true };
+    let compiled = false;
+    const prepare = vi.fn(() => compiled);
+    Object.assign(plugin.canvas3d!, { props: { marking } });
+    Object.assign(plugin, {
+      canvas3dContext: {
+        webgl: { resources: { linkPrograms: vi.fn(), finalizePrograms: () => true } },
+        passes: { draw: { marking: { prepare } } },
+      },
+    });
+    let ready = false;
+    const result = waitForPluginInteractionReady(plugin, { stableMs: 50, pollMs: 25 }).then(() => {
+      ready = true;
+    });
+    await advance(100);
+    expect(ready).toBe(false);
+    expect(prepare).toHaveBeenCalledWith(marking);
+    compiled = true;
+    await advance(100);
+    await result;
+    expect(ready).toBe(true);
+  });
+
   it('fails closed when Molstar never settles', async () => {
     vi.useFakeTimers();
     const state = { busy: true, representations: 12, canvasRepresentations: 4 };

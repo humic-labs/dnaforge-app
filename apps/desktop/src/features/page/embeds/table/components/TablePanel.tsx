@@ -248,7 +248,7 @@ export function TablePanel({
         if (notebook && native.client) {
           if (!native.writable)
             throw new Error(native.error ?? 'The native table is not available for editing.');
-          native.client.updateTable(notebook.blockId, attrs);
+          native.client.updateTable(notebook.blockId, attrs, observation);
           setUpdateFailed(false);
           return;
         }

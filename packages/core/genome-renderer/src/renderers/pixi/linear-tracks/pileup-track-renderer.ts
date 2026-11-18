@@ -4196,24 +4196,42 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
   getReadPresentationSnapshot(container: Container): TrackReadPresentationSnapshot | null {
     const state = this.containerState.get(container);
     if (!state) return null;
-    const recordCount = state.rows ? state.rowsMeshRecordCount : 0;
+    const records = state.rowsMeshRecordsRef;
+    const committedOverlap =
+      records && state.rowsMeshReadHitIndex
+        ? state.rowsMeshReadHitIndex.overlapsRange(
+            records,
+            state.lastViewportStartBp,
+            state.lastViewportEndBp
+          )
+        : null;
+    const recordCount = state.rows && committedOverlap !== false ? state.rowsMeshRecordCount : 0;
     const visible =
       state.rows?.mesh.visible === true &&
       state.rows.vertexCount > 0 &&
       recordCount > 0 &&
       state.renderedReadRowsAlpha > READ_LOD_MESH_VISIBLE_ALPHA_EPSILON;
     const sourceCoversViewport = this.incomingReadBandCoversViewport(state);
+    const currentMesh = sourceCoversViewport && this.committedReadRowsMatchIncoming(state);
     const readsReady =
       visible &&
-      sourceCoversViewport &&
+      currentMesh &&
       state.rowsMeshViewportCoverageFraction >= 0.999 &&
-      !state.readSourceTruncated &&
-      this.committedReadRowsMatchIncoming(state);
-    const emptyReady =
-      state.rows === null &&
-      state.incomingReadInput?.records?.length === 0 &&
-      sourceCoversViewport &&
       !state.readSourceTruncated;
+    const residentBandEmptyHere =
+      currentMesh &&
+      committedOverlap === false &&
+      state.rowsMeshViewportCoverageFraction >= 0.999 &&
+      (state.rowsMeshHiddenReadCount === 0 ||
+        !state.incomingReadInput?.records?.some(
+          (record) =>
+            record.start < state.lastViewportEndBp && record.end > state.lastViewportStartBp
+        ));
+    const emptyReady =
+      sourceCoversViewport &&
+      !state.readSourceTruncated &&
+      ((state.rows === null && state.incomingReadInput?.records?.length === 0) ||
+        residentBandEmptyHere);
     return {
       kind: readsReady ? 'reads' : emptyReady ? 'empty' : 'pending',
       sourceGenerationKey: state.rows

@@ -1,6 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as XLSX from 'xlsx';
+import { webcrypto } from 'node:crypto';
+import type { SheetSyncRequest } from '../../../shared/registry-artifacts/sheet-sync/command';
+import { createSheetSyncSources } from '../../../shared/registry-artifacts/sheet-sync/sources';
+import { createLimsImportPlan } from '../ingress';
 import type { SheetSyncConnection } from '../sheet-sync-connection';
 import type { SheetSyncView } from '../sheet-sync-projects';
 import { SheetSyncManagerButton } from './SheetSyncManager';
@@ -9,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   readFile: vi.fn(),
   create: vi.fn(),
   createGoogle: vi.fn(),
+  nativeSheetSync: vi.fn(),
   googleMetadata: vi.fn(),
   googleWorksheet: vi.fn(),
   refresh: vi.fn(),
@@ -25,6 +30,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../../platform', () => ({
   platform: () => ({
     dialog: { open: mocks.dialog },
+    importReview: { sheetSync: mocks.nativeSheetSync },
     fs: { readFile: mocks.readFile },
     googleSheets: {
       status: async () => ({
@@ -63,7 +69,8 @@ vi.mock('../sheet-sync-connection', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../sheet-sync-connection')>()),
   loadSheetSyncConnection: mocks.load,
 }));
-vi.mock('../sheet-sync-runtime', () => ({
+vi.mock('../sheet-sync-runtime', async () => ({
+  prepareSheetSyncConnection: (await import('../sheet-sync-client')).prepareSheetSyncConnection,
   createExcelSheetSyncConnection: mocks.create,
   createGoogleSheetSyncConnection: mocks.createGoogle,
   setSheetSyncEnabled: mocks.enabled,
@@ -112,6 +119,34 @@ const connection: SheetSyncConnection = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubGlobal('crypto', webcrypto);
+  const schemaRevisionId = 'test-oligo-schema';
+  const sources = createSheetSyncSources({
+    createLimsImportPlan: (input) => createLimsImportPlan({ ...input, schemaRevisionId }),
+    readFile: mocks.readFile,
+  });
+  mocks.nativeSheetSync.mockImplementation(async ({ command }: SheetSyncRequest) => {
+    if (command.kind !== 'prepare') throw new Error('Expected spreadsheet preparation.');
+    const { source } = command;
+    const { plan, revision } =
+      'provider' in source
+        ? await sources.parseGoogleSyncSource(
+            source,
+            await mocks.googleWorksheet({
+              grantId: command.grantId,
+              spreadsheetId: source.spreadsheetId,
+              sheetId: source.sheetId,
+            })
+          )
+        : await sources.readExcelSyncSource(source);
+    return {
+      kind: 'prepared',
+      preparedId: crypto.randomUUID(),
+      sourceRevision: revision,
+      schemaRevisionId,
+      plan,
+    };
+  });
   mocks.views = [];
   mocks.dialog.mockResolvedValue('/master.xlsx');
   mocks.readFile.mockResolvedValue(workbook());
@@ -121,6 +156,7 @@ beforeEach(() => {
   mocks.retain.mockReturnValue(mocks.release);
   mocks.authorization.mockResolvedValue('required');
 });
+afterEach(() => vi.unstubAllGlobals());
 async function open() {
   fireEvent.click(screen.getByTestId('sheet-sync-open'));
   await waitFor(() =>

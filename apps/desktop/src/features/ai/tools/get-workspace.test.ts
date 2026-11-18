@@ -1,9 +1,12 @@
 import { assertMcpOutput } from '../../../test-utils/mcp-output-test-helper';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getWorkspaceTool } from './get-workspace';
+import { createGetWorkspaceTool, getWorkspaceTool } from './get-workspace';
 import { useCanvasStore } from '../../canvas/store';
 import { resetCanvasStore, mockUUID, execTool as executeTool } from './test-helpers';
 import { useWorkspaceStore } from '../../../stores/workspaceStore';
+import { bindCatalogEntityToFile, registerCatalogEntity, registerWorkspaceFile } from '../../../db/workspace-catalog';
+import { clearMockData } from '../../../test/platform-mocks';
+import { initializeTestSchema } from '../../../test/initializeTestSchema';
 import { createElement } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ToolResultDisplay } from '../../../components/chat/ToolResultDisplay';
@@ -201,6 +204,109 @@ describe('get_workspace tool', () => {
     const result = await execTool<{ focusedPanelId: string | null }>(getWorkspaceTool, {});
 
     expect(result.focusedPanelId).toBe('side');
+  });
+
+  describe('explicit project access', () => {
+    const first = { name: 'First project', path: '/projects/first', addedAt: 1 };
+    const second = { name: 'Second project', path: '/projects/second', addedAt: 2 };
+
+    beforeEach(async () => {
+      clearMockData();
+      await initializeTestSchema();
+      await registerCatalogEntity({
+        id: 'first-notebook',
+        type: 'notebook',
+        name: 'First notebook',
+        locator: 'entity://notebook/first-notebook',
+        storageType: 'database',
+        workspaceRoot: first.path,
+      });
+      await registerWorkspaceFile({ path: '/projects/first/shared.py', workspaceRoot: first.path });
+      const sequence = await registerCatalogEntity({
+        id: 'first-sequence-catalog',
+        type: 'sequence',
+        name: 'Native sequence',
+        locator: 'entity://sequence/first-sequence-catalog',
+        storageType: 'file',
+        workspaceRoot: first.path,
+      });
+      await bindCatalogEntityToFile({
+        entityId: sequence.id,
+        path: '/projects/first/native-sequence.gb',
+        workspaceRoot: first.path,
+        objectUuid: 'native-sequence-document',
+      });
+      await registerCatalogEntity({
+        id: '/projects/first/looks-allowed.py',
+        type: 'file',
+        name: 'Second project file',
+        locator: 'entity://file/second-file',
+        storageType: 'database',
+        workspaceRoot: second.path,
+      });
+      useCanvasStore.setState({
+        panels: {
+          main: {
+            id: 'main',
+            tabs: [
+              { id: 'first-notebook-tab', type: 'page', entityId: 'first-notebook', label: 'First notebook' },
+              { id: 'first-file-tab', type: 'text', entityId: '/projects/first/shared.py', label: 'Shared file' },
+              { id: 'first-sequence-tab', type: 'sequence', entityId: 'native-sequence-document', label: 'Native sequence', sequenceDocument: { kind: 'indexed-sequence', documentId: 'native-sequence-document' } },
+              { id: 'second-file-tab', type: 'text', entityId: '/projects/first/looks-allowed.py', label: 'PRIVATE_SECOND_FILE' },
+              { id: 'unknown-tab', type: 'chat', entityId: 'unknown-conversation', label: 'PRIVATE_UNKNOWN_CHAT' },
+            ],
+            activeTabId: 'second-file-tab',
+          },
+          second: {
+            id: 'second',
+            tabs: [
+              { id: 'second-only-tab', type: 'file', entityId: '/projects/first/looks-allowed.py', label: 'PRIVATE_SECOND_FILE' },
+            ],
+            activeTabId: 'second-only-tab',
+          },
+        },
+        focusedPanelId: 'second',
+        layout: { type: 'panel', panelId: 'main' },
+      });
+    });
+
+    it.each([true, false])('returns only catalog-owned tabs when the granted project is displayed: %s', async (displayFirst) => {
+      useWorkspaceStore.setState({ folders: displayFirst ? [first, second] : [second] });
+      const result = await execTool<{
+        projects: Array<{ path: string }>;
+        folders: Array<{ path: string }>;
+        panels: Array<{ id: string; tabs: Array<{ id: string }>; activeTabId: string | null }>;
+        focusedPanelId: string | null;
+      }>(createGetWorkspaceTool(['read-workspace'], [first, second], { kind: 'project-roots', roots: [first.path] }), {});
+
+      expect(result.projects.map((project) => project.path)).toEqual([first.path]);
+      expect(result.folders.map((folder) => folder.path)).toEqual(displayFirst ? [first.path] : []);
+      expect(result.panels).toEqual([
+        {
+          id: 'main',
+          tabs: [
+            { id: 'first-notebook-tab', type: 'page', entityId: 'first-notebook', label: 'First notebook' },
+            { id: 'first-file-tab', type: 'text', entityId: '/projects/first/shared.py', label: 'Shared file' },
+            { id: 'first-sequence-tab', type: 'sequence', entityId: 'native-sequence-document', label: 'Native sequence' },
+          ],
+          activeTabId: null,
+        },
+      ]);
+      expect(result.focusedPanelId).toBeNull();
+      expect(JSON.stringify(result)).not.toContain('PRIVATE_');
+    });
+
+    it('does not expose canvas metadata to an empty explicit project scope', async () => {
+      useWorkspaceStore.setState({ folders: [first, second] });
+      const result = await execTool<{ panels: unknown[]; focusedPanelId: string | null }>(
+        createGetWorkspaceTool(['read-workspace'], [], { kind: 'project-roots', roots: [] }),
+        {}
+      );
+
+      expect(result.panels).toEqual([]);
+      expect(result.focusedPanelId).toBeNull();
+      expect(JSON.stringify(result)).not.toContain('PRIVATE_');
+    });
   });
 });
 

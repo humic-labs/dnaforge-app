@@ -47,6 +47,8 @@ export function resolveWorkspaceBinding(input: {
     const folders = input.folders.filter(
       (folder) => !roots || roots.has(normalizePathForBoundary(folder.path))
     );
+    if (roots && folders.length === 0)
+      return { ok: false, folders: [], workspaceId: input.currentWorkspaceId };
     return {
       ok: true,
       folders,
@@ -65,6 +67,8 @@ export function resolveWorkspaceBinding(input: {
         const folders = input.folders.filter((folder) =>
           roots.has(normalizePathForBoundary(folder.path))
         );
+        if (folders.length === 0)
+          return { ok: false, folders: [], workspaceId: input.currentWorkspaceId };
         return {
           ok: true,
           folders,

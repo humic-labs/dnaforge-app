@@ -4,6 +4,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useRef } from 'react';
 import { useEditorAutosave } from './useEditorAutosave';
 import type { JSONContent } from '@tiptap/core';
+import { NativeNotebookWorkingCopyOwner } from '../../../main/notebook-document-owner';
 import {
   assertWorkspaceEditorsSettled,
   freezeWorkspaceEditorWrites,
@@ -24,11 +25,12 @@ afterEach(() => {
 function setupHook(opts: {
   initialContent?: JSONContent | null;
   initialPageId?: string;
-  onSave?: (content: JSONContent, pageId: string) => Promise<void>;
+  onSave?: (content: JSONContent, pageId: string) => Promise<void | boolean>;
   onDirtyTransition?: (pageId: string) => void;
   onSaved?: (pageId: string) => void;
   debounceMs?: number;
   workspaceRoot?: string;
+  nativeOwner?: boolean;
 }) {
   const onSave = opts.onSave ?? vi.fn(async () => {});
   const onDirtyTransition = opts.onDirtyTransition ?? vi.fn();
@@ -44,6 +46,7 @@ function setupHook(opts: {
         onSaved,
         debounceMs: opts.debounceMs ?? 1000,
         workspaceRoot: opts.workspaceRoot,
+        nativeOwner: opts.nativeOwner,
       });
       return { api, contentRef, onSave, onDirtyTransition, onSaved };
     },
@@ -52,6 +55,109 @@ function setupHook(opts: {
 }
 
 describe('useEditorAutosave', () => {
+  it('retires a failed native autosave retry without discarding content or flushing again on unmount', async () => {
+    const failure = new Error('Original publication failure');
+    const onSave = vi.fn().mockRejectedValue(failure);
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const content = { type: 'doc', content: [{ type: 'paragraph' }] };
+    const view = setupHook({ initialContent: content, onSave, nativeOwner: true });
+    try {
+      await act(async () => {
+        view.result.current.api.markDirty();
+        expect(await view.result.current.api.saveNow()).toBe(false);
+      });
+      expect(report).toHaveBeenCalledExactlyOnceWith(
+        '[useEditorAutosave] save failed:',
+        { pageId: 'page-1', operation: 'manual' },
+        failure
+      );
+      await act(async () => {
+        await view.result.current.api.retirePendingChanges();
+      });
+      expect(view.result.current.api.saveStatus).toBe('dirty');
+      expect(view.result.current.contentRef.current).toBe(content);
+      view.rerender({ pageId: 'page-2' });
+      act(() => view.result.current.api.markDirty());
+      expect(await view.result.current.api.saveNow()).toBe(false);
+      view.unmount();
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(onSave).toHaveBeenCalledTimes(1);
+      expect(view.result.current.onSaved).not.toHaveBeenCalled();
+    } finally {
+      vi.clearAllTimers();
+      view.unmount();
+      report.mockRestore();
+    }
+  });
+
+  it('keeps an explicitly pending native save dirty and retries without reporting a failure', async () => {
+    const onSave = vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true);
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const view = setupHook({ initialContent: { type: 'doc' }, onSave, nativeOwner: true });
+    try {
+      await act(async () => {
+        view.result.current.api.markDirty();
+        expect(await view.result.current.api.saveNow()).toBe(false);
+      });
+      expect(view.result.current.api.saveStatus).toBe('dirty');
+      expect(view.result.current.onSaved).not.toHaveBeenCalled();
+      expect(report).not.toHaveBeenCalled();
+      expect(captureSaveFailure).not.toHaveBeenCalled();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(onSave).toHaveBeenCalledTimes(2);
+      expect(view.result.current.api.saveStatus).toBe('clean');
+      expect(view.result.current.onSaved).toHaveBeenCalledExactlyOnceWith('page-1');
+    } finally {
+      act(() => view.result.current.api.discardPendingChanges());
+      view.unmount();
+      report.mockRestore();
+    }
+  });
+
+  it.each(['unmount', 'page replacement'] as const)(
+    'does not retry a retired notebook after %s and native owner close',
+    async (lifetime) => {
+      const owner = new NativeNotebookWorkingCopyOwner({} as never);
+      const pending = Promise.withResolvers<void>();
+      const onSave = vi.fn(async () => {
+        await pending.promise;
+        await owner.execute({ documentId: 'page-1', operation: { kind: 'inspect-copy' } });
+      });
+      const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const view = setupHook({ initialContent: { type: 'doc' }, onSave, nativeOwner: true });
+      try {
+        act(() => view.result.current.api.markDirty());
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1000);
+        });
+        expect(onSave).toHaveBeenCalledTimes(1);
+        if (lifetime === 'unmount') view.unmount();
+        else view.rerender({ pageId: 'page-2' });
+        await owner.close();
+        await act(async () => {
+          pending.resolve();
+          await vi.advanceTimersByTimeAsync(0);
+        });
+        expect(report).toHaveBeenCalledExactlyOnceWith(
+          '[useEditorAutosave] save failed:',
+          { pageId: 'page-1', operation: 'autosave' },
+          expect.objectContaining({ code: 'NOTEBOOK_OWNER_CLOSED' })
+        );
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1500);
+        });
+        expect(onSave).toHaveBeenCalledTimes(1);
+      } finally {
+        act(() => view.result.current.api.discardPendingChanges());
+        vi.clearAllTimers();
+        view.unmount();
+        report.mockRestore();
+      }
+    }
+  );
+
   it('reports the original autosave failure and keeps notebook content dirty without claiming a save', async () => {
     const failure = Object.assign(new Error('EACCES: notebook write denied'), { code: 'EACCES' });
     const content = { type: 'doc', content: [{ type: 'text', text: 'Retained notebook edit' }] };

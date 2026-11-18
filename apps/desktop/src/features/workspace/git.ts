@@ -266,6 +266,7 @@ export interface GitLogEntry {
   message: string;
   date: string;
   relativeDate: string;
+  pathAtCommit?: string;
 }
 
 export async function gitFileLog(
@@ -277,10 +278,26 @@ export async function gitFileLog(
     const safeCount = Math.max(1, Math.min(100, Math.floor(count)));
     const format = '%H%x00%s%x00%aI%x00%ar';
     const result = await runGit(
-      ['log', `--format=${format}`, '--follow', `-${safeCount}`, '--', filePath],
+      [
+        'log',
+        `--format=${format}`,
+        '--follow',
+        '--name-only',
+        '-z',
+        `-${safeCount}`,
+        '--',
+        filePath,
+      ],
       cwd
     );
-    return parseStructuredGitLog(result.stdout);
+    const fields = result.stdout.split('\0');
+    const entries: GitLogEntry[] = [];
+    for (let i = 0; i + 4 < fields.length; i += 5) {
+      const [hash, message, date, relativeDate, path] = fields.slice(i, i + 5);
+      if (!hash || !path.startsWith('\n')) continue;
+      entries.push({ hash, message, date, relativeDate, pathAtCommit: path.slice(1) });
+    }
+    return entries;
   } catch {
     return [];
   }
@@ -351,14 +368,18 @@ export function parseGitRecentlyChangedFiles(stdout: string): GitChangedFileEntr
 }
 
 export async function gitShowCommit(
-  filePath: string,
+  filePath: string | { readonly pathAtCommit: string },
   commitHash: string,
   cwd: string,
   mutationToken?: string
 ): Promise<string | null> {
   try {
-    const relResult = await runGit(['ls-files', '--full-name', '--', filePath], cwd, mutationToken);
-    const relativePath = relResult.stdout.trim();
+    const relativePath =
+      typeof filePath === 'string'
+        ? (
+            await runGit(['ls-files', '--full-name', '--', filePath], cwd, mutationToken)
+          ).stdout.trim()
+        : filePath.pathAtCommit;
     if (!relativePath) return null;
 
     const result = await runGit(['show', `${commitHash}:${relativePath}`], cwd, mutationToken);

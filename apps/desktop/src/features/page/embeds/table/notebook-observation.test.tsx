@@ -10,6 +10,8 @@ import { createTestDb } from '../../../../main/__tests__/test-db';
 import { contentFingerprint } from '../../../../db/entity-substrate/adapter';
 import { usePageStore } from '../../store';
 import { useEditorAutosave } from '../../hooks/useEditorAutosave';
+import { NativeNotebookDocumentClient } from '../../notebook-document-client';
+import type { NotebookDocumentSnapshot } from '../../../../shared/notebook-document';
 import { withNotebookAuthorityOperation } from '../../notebook-authority-queue';
 import { openWorkspaceDocument } from '../../open-workspace-document';
 import { useCanvasStore } from '../../../canvas/public/store';
@@ -48,6 +50,7 @@ const state = vi.hoisted(() => ({
   settle: vi.fn(),
   read: vi.fn(),
   writeReceipt: vi.fn(),
+  executeNotebook: vi.fn(),
   repair: vi.fn(),
 }));
 vi.mock('../../../../lib/analytics', () => ({
@@ -77,6 +80,7 @@ vi.mock('../../../../lib/analytics', () => ({
 }));
 vi.mock('../../../../platform', () => ({
   platform: () => ({
+    notebook: { execute: state.executeNotebook },
     db: {
       select: async (sql: string, params: unknown[] = []) => state.db!.prepare(sql).all(...params),
       execute: async (sql: string, params: unknown[] = []) => state.db!.prepare(sql).run(...params),
@@ -650,6 +654,61 @@ describe('real table admission → notebook save → independent open correlatio
     await open();
     expect(events('reopened_confirmed')).toHaveLength(1);
   });
+
+  it.each([true, false])(
+    'records only the acknowledged expanded edit with no notebook editor mounted (accepted=%s)',
+    async (accepted) => {
+      const client = new NativeNotebookDocumentClient(PAGE);
+      const snapshot: NotebookDocumentSnapshot = {
+        documentId: PAGE,
+        pageId: PAGE,
+        path: ROOT + '/Book',
+        workspaceRoot: ROOT,
+        title: TITLE,
+        revision: 'owner:0',
+        persistedRevision: 'owner:0',
+        canonicalFingerprint: 'initial',
+        version: 0,
+        ready: true,
+        readOnly: false,
+        dirty: false,
+        saving: false,
+        canUndo: false,
+        canRedo: false,
+        blockCount: 2,
+        blocks: [],
+        nextOffset: null,
+        copy: { title: TITLE, content: initial },
+      };
+      client.observe(snapshot);
+      const cells = [[{ type: 'text' as const, value: 'changed' }]];
+      state.executeNotebook.mockImplementationOnce(async () => ({
+        ...snapshot,
+        revision: 'owner:1',
+        version: 1,
+        dirty: true,
+        copy: { title: TITLE, content: structuredClone(accepted ? client.content! : initial) },
+      }));
+      client.updateTable(
+        REF,
+        { cells },
+        tableOperationObservation(
+          'edit',
+          'expanded',
+          cells,
+          evaluateTableRevision(cells).calculation
+        )
+      );
+      const content = client.content!;
+      expect(events('table_edit_accepted')).toHaveLength(0);
+      await client.flush();
+      await idle();
+      expect(events('table_edit_accepted').map((event) => event.properties.table_surface)).toEqual(
+        accepted ? ['expanded'] : []
+      );
+      expect(Boolean(captureNativeTableNotebookSave(PAGE, content))).toBe(accepted);
+    }
+  );
 
   it('does not confirm superseded held saves or a replaced source', async () => {
     const owner = source();

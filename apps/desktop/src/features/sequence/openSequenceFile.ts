@@ -15,6 +15,7 @@ import { isDeveloperImportSourcePath } from '../../shared/developer-import-sourc
 import {
   findWorkspaceRootForPath,
   getCatalogEntityForFilePath,
+  getCurrentSequenceFileForDocumentId,
   inferCatalogFileKind,
   registerWorkspaceFile,
   type CatalogEntityType,
@@ -60,6 +61,9 @@ import { readStableWorkspaceGeneration } from '../../services/workspace-sync-ren
 import { withRendererWorkspaceMutation } from '../../services/workspace-mutation-transaction';
 import type { QuickLookPackageReceipt } from '../../shared/file-association-ipc';
 import type { FileAssociationFamilyId } from '../../shared/file-associations';
+import { findEnclosingSequencePackageRoot } from '../../db/sequence-package-io';
+import { resolveSequencePackageProductPath } from './sequence-package-product';
+import { isSequencePackageFileKind } from '../../db/sequence-package';
 import { MANAGED_DNA_FILE_EXTENSIONS } from '@waypoint/sequence-utils/sequence-file-types';
 
 export interface QuickLookSequencePresentation {
@@ -197,6 +201,16 @@ async function openSequenceFileWithTelemetry(
     opts = { ...opts, filePath: await fs.canonicalPath(opts.filePath) };
     if (opts.signal?.aborted) return cancelledDocumentOpen();
   }
+  if (isDeveloperImportSourcePath(opts.filePath)) {
+    const packageRoot =
+      typeof fs.exists === 'function'
+        ? await findEnclosingSequencePackageRoot(opts.filePath, fs)
+        : null;
+    if (opts.signal?.aborted) return cancelledDocumentOpen();
+    return packageRoot
+      ? openDeveloperSourcePackage(packageRoot, opts, requestedTelemetry)
+      : openResolvedSequenceFile({ ...opts, readOnly: true }, undefined, requestedTelemetry);
+  }
   if (typeof fs.exists === 'function') {
     const managed = await managedSequenceRepository.findByMemberPath(opts.filePath);
     if (opts.signal?.aborted) return cancelledDocumentOpen();
@@ -314,6 +328,21 @@ export async function openSequenceDocumentResult(
   ref: SequenceDocumentRef,
   options: Omit<OpenSequenceFileOptions, 'filePath'>
 ): Promise<DocumentOpenResult> {
+  if (ref.kind === 'managed-sequence') {
+    const binding = await getCurrentSequenceFileForDocumentId(ref.packageId);
+    if (!binding || isSequencePackageFileKind(binding.file_kind)) {
+      let packageRoot = binding?.path ?? ref.packageRoot;
+      const fs = platform().fs;
+      if (!isHostedBrowserRuntime() && typeof fs.canonicalPath === 'function') {
+        try {
+          packageRoot = await fs.canonicalPath(packageRoot);
+        } catch {}
+      }
+      if (options.signal?.aborted) return cancelledDocumentOpen();
+      if (isDeveloperImportSourcePath(packageRoot))
+        return openSequencePackageResult(packageRoot, options);
+    }
+  }
   const resolved = await resolveSequenceDocument(ref);
   return openResolvedSequenceFile(
     { ...options, filePath: resolved.sourcePath, label: resolved.name || options.label },
@@ -326,12 +355,34 @@ export async function openSequencePackageResult(
   packageRoot: string,
   options: Omit<OpenSequenceFileOptions, 'filePath'>
 ): Promise<DocumentOpenResult> {
+  if (options.signal?.aborted) return cancelledDocumentOpen();
+  const fs = platform().fs;
+  if (!isHostedBrowserRuntime() && typeof fs.canonicalPath === 'function') {
+    packageRoot = await fs.canonicalPath(packageRoot);
+    if (options.signal?.aborted) return cancelledDocumentOpen();
+  }
+  if (isDeveloperImportSourcePath(packageRoot))
+    return openDeveloperSourcePackage(
+      packageRoot,
+      options,
+      telemetryFor({ ...options, filePath: packageRoot })
+    );
   const managed = await managedSequenceRepository.openPackage(packageRoot);
   return openResolvedSequenceFile(
     { ...options, filePath: managed.productPath, label: managed.document.name || options.label },
     managed.ref,
     telemetryFor({ ...options, filePath: managed.productPath })
   );
+}
+
+async function openDeveloperSourcePackage(
+  packageRoot: string,
+  options: Omit<OpenSequenceFileOptions, 'filePath'>,
+  telemetry: OpenSequenceTelemetryContext
+): Promise<DocumentOpenResult> {
+  const filePath = await resolveSequencePackageProductPath(packageRoot, { readOnly: true });
+  if (options.signal?.aborted) return cancelledDocumentOpen();
+  return openResolvedSequenceFile({ ...options, filePath, readOnly: true }, undefined, telemetry);
 }
 
 function reuseAlreadyOpenSequenceTab(args: {

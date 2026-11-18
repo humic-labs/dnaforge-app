@@ -159,6 +159,22 @@ describe('useGitHistory', () => {
     expect(result.current.selectedCommitSequence).toEqual(MOCK_ANNOTATED_SEQUENCE);
   });
 
+  it('opens a revision using the filename Git followed before a rename', async () => {
+    const original = { ...MOCK_LOG_ENTRIES[0], pathAtCommit: 'original folder/file.gb' };
+    mockGitFileLog.mockResolvedValue([original]);
+    const { result } = renderHook(() => useGitHistory({ filePath: '/repo/current/file.gb' }));
+    await waitFor(() => expect(result.current.log).toEqual([original]));
+
+    await act(async () => result.current.selectCommit(original.hash));
+
+    expect(mockGitShowCommit).toHaveBeenCalledWith(
+      { pathAtCommit: 'original folder/file.gb' },
+      original.hash,
+      '/repo'
+    );
+    expect(result.current.selectedCommitSequence).toEqual(MOCK_ANNOTATED_SEQUENCE);
+  });
+
   it('toggles off when selectCommit is called with the same hash', async () => {
     const { result } = renderHook(() => useGitHistory({ filePath: '/repo/sequence.gb' }));
 

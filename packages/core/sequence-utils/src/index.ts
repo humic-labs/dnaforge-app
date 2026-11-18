@@ -416,3 +416,15 @@ export {
 
 export { indexOfSubsequenceBmh, normalizeProteinSearchQuery } from './protein-search';
 export { normalizeProteinSequence, proteinSequenceValidationError } from './protein-sequence';
+export {
+  alignmentEvidence,
+  alignmentColumnAddress,
+  interpretReferenceAlignment,
+  mutationAlignmentColumns,
+  type AlignmentObservationSource,
+  type AlignmentEvidence,
+  type ReferenceAlignmentContext,
+  type ReferenceAlignmentObservation,
+  type ReferenceAlignmentInterpretation,
+  type AlignmentMutationAddress,
+} from './alignment-observation';

@@ -1043,11 +1043,8 @@ export function SequenceTab({
     selectedTrackId,
     viewMode,
     hiddenTrackIds,
-    alignedReference,
-    alignedQuery,
     alignmentPanelOpen,
     alignmentVisible,
-    selectedTrackHidden,
     getTrackMutations,
   } = useAlignmentDerivedState(sequenceDocumentId);
 
@@ -1065,8 +1062,11 @@ export function SequenceTab({
         label: track.label,
         alignedReference: track.alignment.alignedReference,
         alignedQuery: track.alignment.alignedQuery,
+        circularOffset: track.alignment.circularOffset,
+        referenceLength: track.alignment.referenceLength,
       })),
-      selectedTrackId
+      selectedTrackId,
+      sequence?.circular ? 'circular' : 'linear'
     );
   }, [
     activeSession,
@@ -1076,30 +1076,10 @@ export function SequenceTab({
     viewMode,
     selectedTrackId,
     sequence?.sequence,
+    sequence?.circular,
   ]);
 
-  const coordinateSpace = useMemo((): CoordinateSpace | undefined => {
-    if (alignmentProjection) return alignmentProjection.coordinateSpace;
-    if (
-      !alignmentPanelOpen ||
-      !activeSessionId ||
-      !alignedReference ||
-      !alignedQuery ||
-      !alignmentVisible ||
-      selectedTrackHidden
-    ) {
-      return undefined;
-    }
-    return { mode: 'gapped', gappedSequence: alignedReference, alignedQuery };
-  }, [
-    alignmentProjection,
-    activeSessionId,
-    alignedReference,
-    alignedQuery,
-    alignmentPanelOpen,
-    alignmentVisible,
-    selectedTrackHidden,
-  ]);
+  const coordinateSpace = alignmentProjection?.coordinateSpace;
 
   const effectiveCoordinateSpace = sequenceTabCoordinateSpace(
     coordinateSpace,

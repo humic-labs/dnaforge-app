@@ -8,6 +8,10 @@ import type {
   WorkspaceRootStatus,
 } from '../shared/workspace-root-recovery';
 import { rebindWorkspaceRootInDb } from './dev-profile-workspace-path-migration';
+import {
+  managedProjectStorageRoot,
+  validateProjectStorageLocation,
+} from './project-root-admission';
 
 function rootState(path: string): WorkspaceRootStatus['state'] {
   try {
@@ -28,7 +32,8 @@ export function listWorkspaceRootStatus(db: Database.Database): WorkspaceRootSta
 
 export function relinkWorkspaceRoot(
   db: Database.Database,
-  request: RelinkWorkspaceRootRequest
+  request: RelinkWorkspaceRootRequest,
+  managedRootDir = managedProjectStorageRoot()
 ): RelinkWorkspaceRootResult {
   return db.transaction((): RelinkWorkspaceRootResult => {
     const workspace = db
@@ -76,6 +81,7 @@ export function relinkWorkspaceRoot(
       };
       if (marker.schema !== 1 || marker.workspaceUuid !== workspace.repo_uuid)
         return { status: 'rejected', reason: 'identity-mismatch' };
+      validateProjectStorageLocation(selectedPath, workspace, managedRootDir);
     } catch {
       return { status: 'rejected', reason: 'invalid-target' };
     }

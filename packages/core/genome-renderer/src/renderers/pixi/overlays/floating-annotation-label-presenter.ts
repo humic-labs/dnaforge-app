@@ -390,6 +390,7 @@ export class FloatingAnnotationLabelPresenter {
     { readonly text: string; readonly width: number } | null
   >();
   private _frame: FloatingAnnotationLabelFrameReceipt = emptyFloatingLabelFrame();
+  private visibleLeaderSegments: ReturnType<typeof floatingAnnotationVisibleLeaderSegments> = [];
   private leadersVisibleForTests = true;
   private columnGutter = 0;
 
@@ -454,7 +455,7 @@ export class FloatingAnnotationLabelPresenter {
   }
 
   leaderSegmentsFor(featureId: number): ReturnType<typeof floatingAnnotationVisibleLeaderSegments> {
-    return floatingAnnotationVisibleLeaderSegments(this._frame.decisions, undefined, featureId);
+    return this.visibleLeaderSegments.filter((segment) => segment.featureId === featureId);
   }
 
   hoveredLeaderSegments(
@@ -496,6 +497,7 @@ export class FloatingAnnotationLabelPresenter {
     this.leaderGraphics.visible = false;
     this.hoverLeaderGraphics.clear();
     this.hoverLeaderGraphics.visible = false;
+    this.visibleLeaderSegments = [];
     this._frame = emptyFloatingLabelFrame();
     this.labelsUsedThisFrame.clear();
     for (const label of this.bitmapLabelsByFeature.values()) label.visible = false;
@@ -1369,6 +1371,7 @@ export class FloatingAnnotationLabelPresenter {
       : [];
     if (candidates.length === 0) {
       this.hideUnusedLabels();
+      this.visibleLeaderSegments = [];
       this._frame = this.buildFrame(path, state, preloadMargin, assignmentCache);
       return;
     }
@@ -1402,6 +1405,7 @@ export class FloatingAnnotationLabelPresenter {
       state.themeMode === 'dark' ? FLOATING_LABEL_LEADER_DARK : FLOATING_LABEL_LEADER_LIGHT;
     ptime('annotation.floating-label-leaders', () => {
       const leaderSegments = floatingAnnotationVisibleLeaderSegments(plan.decisions);
+      this.visibleLeaderSegments = leaderSegments;
       this.leaderGraphics.visible = this.leadersVisibleForTests && leaderSegments.length > 0;
       for (const segment of leaderSegments) {
         this.leaderGraphics
@@ -1439,12 +1443,7 @@ export class FloatingAnnotationLabelPresenter {
           const resolution = targetPillLabelTextResolution();
           if (textObject.resolution !== resolution) textObject.resolution = resolution;
         }
-        textObject.roundPixels = false;
-        textObject.anchor.set(0.5, 0.5);
-        textObject.x = decision.x;
-        textObject.y = decision.y;
-        textObject.rotation = 0;
-        textObject.scale.set(1);
+        textObject.position.set(decision.x, decision.y);
         this.host.recordCallout(state, {
           featureId: decision.featureId,
           text: decision.text,
@@ -1533,6 +1532,7 @@ export class FloatingAnnotationLabelPresenter {
     } else {
       text = new BitmapText({
         text: '',
+        anchor: 0.5,
         style: floatingLabelBitmapStyle(fontName, 0x374151),
       });
       this.host.container.addChild(text);
@@ -1553,6 +1553,7 @@ export class FloatingAnnotationLabelPresenter {
     } else {
       text = new Text({
         text: '',
+        anchor: 0.5,
         style: pillLabelTextStyle(0xffffff),
         resolution: targetPillLabelTextResolution(),
       });

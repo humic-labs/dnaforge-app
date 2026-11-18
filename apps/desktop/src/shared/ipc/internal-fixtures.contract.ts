@@ -4,6 +4,10 @@ import type {
   InternalAssemblyFixtureStatusRequest,
   InternalAssemblyFixtureStatusResult,
   RegisterScenarioFixtureFilesRequest,
+  MaterializeMocloScenarioKitRequest,
+  MaterializedMocloScenarioKit,
+  SeedMissingAuthorityArchiveRequest,
+  SeedMissingAuthorityArchiveResult,
 } from '../internal-fixtures';
 import { defineGroup, invoke } from './contract';
 
@@ -20,6 +24,14 @@ export const internalFixturesContract = defineGroup('internalFixtures', {
   registerScenarioFiles: invoke<
     [request: RegisterScenarioFixtureFilesRequest],
     { manifestPath: string }
+  >(),
+  materializeMocloScenarioKit: invoke<
+    [request: MaterializeMocloScenarioKitRequest],
+    MaterializedMocloScenarioKit
+  >(),
+  seedMissingAuthorityArchive: invoke<
+    [request: SeedMissingAuthorityArchiveRequest],
+    SeedMissingAuthorityArchiveResult
   >(),
   status: invoke<
     [request: InternalAssemblyFixtureStatusRequest],

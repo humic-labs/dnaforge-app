@@ -21,6 +21,7 @@ import { PortalMenu } from '../PortalMenu';
 import {
   UI_DANGER_BUTTON_CLASS,
   UI_APPBAR_ACTION_CLASS,
+  UI_ENTITY_REFERENCE_CHIP_CLASS,
   UI_FIELD_CLASS,
   UI_ICON_BUTTON_CLASS,
   UI_LINK_BUTTON_CLASS,
@@ -45,6 +46,25 @@ function withoutAppearance<Props>(props: Props) {
   };
   return nativeProps;
 }
+
+export const ReferenceChipSurface = forwardRef<
+  HTMLSpanElement,
+  Omit<ComponentPropsWithoutRef<'span'>, 'className' | 'style'> & {
+    unavailable?: boolean;
+    attachmentPhase?: 'draft' | 'sent';
+  }
+>(function ReferenceChipSurface({ unavailable = false, attachmentPhase, ...props }, ref) {
+  return (
+    <span
+      {...withoutAppearance(props)}
+      ref={ref}
+      data-ui-control="reference-chip"
+      className={`${UI_ENTITY_REFERENCE_CHIP_CLASS} entity-reference-chip${unavailable ? ' entity-reference-chip--unavailable' : ''}${
+        attachmentPhase ? ` entity-reference-chip--${attachmentPhase}` : ''
+      }`}
+    />
+  );
+});
 
 export function ColumnResizeHandle({
   onMouseDown,

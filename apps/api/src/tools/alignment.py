@@ -843,12 +843,6 @@ async def _execute_pairwise_alignment(
     analysis = analyze_alignment(aligned_query, aligned_reference)
 
     mutations = analysis["mutations"]
-    if circular_offset > 0:
-        for mut in mutations:
-            mut.position = (
-                (mut.position - 1 + circular_offset) % original_ref_length
-            ) + 1
-
     mutations_for_structural = [
         {
             "type": m.type,
@@ -860,14 +854,17 @@ async def _execute_pairwise_alignment(
         }
         for m in mutations
     ]
+    if circular_offset > 0:
+        for mut, structural_mutation in zip(mutations, mutations_for_structural, strict=True):
+            mut.position = ((mut.position - 1 + circular_offset) % original_ref_length) + 1
+            structural_mutation["position"] = mut.position
+
     try:
         structural_analysis = analyze_alignment_structure(
             aligned_reference,
             aligned_query,
             mutations_for_structural,
-            ignored_columns=unresolved_alignment_columns(
-                aligned_query, aligned_reference
-            ),
+            ignored_columns=unresolved_alignment_columns(aligned_query, aligned_reference),
         )
         if unresolved_alignment_columns(aligned_query, aligned_reference):
             if (

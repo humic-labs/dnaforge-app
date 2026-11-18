@@ -64,8 +64,11 @@ export function assertTrackViewReference(
       }
       return;
     }
-    throw new Error(
-      'This reference sequence has changed since the Track view was saved. The saved view has not been opened or changed.'
+    throw withUserMessage(
+      new Error(
+        'This reference sequence has changed since the Track view was saved. The saved view has not been opened or changed.'
+      ),
+      'reference.sequenceChanged'
     );
   }
   if (

@@ -11,7 +11,7 @@ import type { VerificationTrack, StructuralRegion, Mutation } from '../types';
 import { useVerificationStore } from '../store';
 import { safeFocus } from '../../../shared/utils/safeFocus';
 import { debugLog } from '../../../utils/debug-log';
-import { getAlignmentEvidence } from '../utils/mutation-computation';
+import { alignmentColumnAddress, alignmentEvidence } from '@waypoint/sequence-utils';
 import { type MutationMarker } from '@waypoint/workspace-editor';
 import {
   classifyPointMutation,
@@ -20,14 +20,6 @@ import {
   formatStructuralChange,
   getTypeBadgeStyle,
 } from '../utils/mutation-display';
-
-function anchorRefPositionBefore(gappedRef: string, columnStart: number): number {
-  let refPos = 0;
-  for (let col = 0; col < columnStart && col < gappedRef.length; col++) {
-    if (gappedRef[col] !== '-') refPos++;
-  }
-  return refPos;
-}
 
 type UnifiedMutationRow =
   | {
@@ -120,11 +112,7 @@ export function TrackMutationsPanel({
   const mutations = track.mutations;
   const analysis = track.structuralAnalysis;
   const evidence = useMemo(
-    () =>
-      getAlignmentEvidence(
-        track.alignment?.alignedReference ?? '',
-        track.alignment?.alignedQuery ?? ''
-      ),
+    () => alignmentEvidence(track.alignment ?? { alignedReference: '', alignedQuery: '' }),
     [track.alignment]
   );
   const evidenceWarning = !evidence.complete ? (
@@ -227,11 +215,15 @@ export function TrackMutationsPanel({
     );
 
     const gappedRef = track.alignment?.alignedReference;
+    const topology =
+      track.testedReference?.topology ??
+      ((track.alignment?.circularOffset ?? 0) > 0 ? 'circular' : 'linear');
     for (const region of structuralRegions) {
       const isStructuralInsertion = region.refStart == null;
       const anchor =
         isStructuralInsertion && gappedRef
-          ? anchorRefPositionBefore(gappedRef, region.columnStart)
+          ? (alignmentColumnAddress(track.alignment, region.columnStart, topology)
+              ?.insertionBoundary ?? undefined)
           : undefined;
 
       rows.push({
@@ -275,7 +267,13 @@ export function TrackMutationsPanel({
         column: marker.column,
         endColumn: marker.endColumn ?? marker.column,
         refPosition: mutation.position,
-        refEndPosition: isIns ? mutation.position : mutation.position + (mutation.length || 1) - 1,
+        refEndPosition:
+          mutation.type === 'deletion' && track.alignment
+            ? (alignmentColumnAddress(track.alignment, marker.endColumn ?? marker.column, topology)
+                ?.referencePosition ?? mutation.position)
+            : isIns
+              ? mutation.position
+              : mutation.position + (mutation.length || 1) - 1,
         displayType: classifyPointMutation(mutation),
         change: formatPointMutationChange(mutation),
         effect: mutation.effect,

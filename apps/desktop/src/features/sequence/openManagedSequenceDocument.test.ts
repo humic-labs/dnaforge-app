@@ -24,6 +24,7 @@ vi.mock('./managed-sequence-repository', () => ({
 
 vi.mock('../../db/workspace-catalog', () => ({
   findWorkspaceRootForPath: vi.fn(() => null),
+  getCurrentSequenceFileForDocumentId: vi.fn(async () => null),
   inferCatalogFileKind: vi.fn(() => 'genbank'),
   registerWorkspaceFile: vi.fn(),
 }));

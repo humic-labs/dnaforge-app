@@ -84,6 +84,8 @@ export interface AggregatedMutation extends Mutation {
 export interface AlignmentData {
   alignedReference: string;
   alignedQuery: string;
+  circularOffset?: number;
+  referenceLength?: number;
   identity: number;
   coverageStart: number;
   coverageEnd: number;

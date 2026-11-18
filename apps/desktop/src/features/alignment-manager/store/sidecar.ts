@@ -11,6 +11,10 @@ import type {
   SessionAlignmentOperation,
 } from '../types';
 import { getAlignmentEvidence } from '../utils/mutation-computation';
+import {
+  interpretReferenceAlignment,
+  type ReferenceAlignmentContext,
+} from '@waypoint/sequence-utils';
 
 export const SIDECAR_VERSION = '3.0' as const;
 export const SIDECAR_EXTENSION = '.waypoint.json';
@@ -146,7 +150,10 @@ export function sidecarToState(
     alignment: t.alignment,
     mutations: t.mutations,
     structuralAnalysis: t.structuralAnalysis,
-    status: getAlignmentEvidence(t.alignment.alignedReference, t.alignment.alignedQuery).complete
+    status: (t.alignment.circularOffset !== undefined || t.alignment.referenceLength !== undefined
+      ? getAlignmentEvidence(t.alignment)
+      : getAlignmentEvidence(t.alignment.alignedReference, t.alignment.alignedQuery)
+    ).complete
       ? t.status
       : 'incomplete',
     userStatus: t.userStatus,
@@ -184,6 +191,45 @@ export function sidecarToState(
     },
     viewPreferences,
     referenceChecksum: sidecar.reference.checksum || '',
+  };
+}
+
+export function resolveVerificationStateAlignments(
+  state: ReferenceVerificationState,
+  reference?: ReferenceAlignmentContext
+): ReferenceVerificationState {
+  const resolveTrack = (track: VerificationTrack): VerificationTrack => {
+    const interpretation = reference
+      ? interpretReferenceAlignment(track.alignment, reference)
+      : null;
+    const observed = interpretation?.kind === 'placed' ? interpretation.value : null;
+    const alignment = observed
+      ? {
+          ...track.alignment,
+          circularOffset: observed.circularOffset,
+          referenceLength: observed.referenceLength,
+          coverageStart: observed.coverage.start,
+          coverageEnd: observed.coverage.end,
+        }
+      : reference && track.alignment.referenceLength === undefined
+        ? { ...track.alignment, referenceLength: reference.sequence.length }
+        : track.alignment;
+    return {
+      ...track,
+      alignment,
+      status: observed?.evidence.complete ? track.status : 'incomplete',
+      mutations: observed?.completeInReferenceOrder
+        ? track.mutations
+        : track.mutations.map(({ effect: _effect, ...mutation }) => mutation),
+    };
+  };
+  return {
+    ...state,
+    sessions: state.sessions.map((session) => ({
+      ...session,
+      tracks: session.tracks.map(resolveTrack),
+      historicalTracks: session.historicalTracks?.map(resolveTrack),
+    })),
   };
 }
 

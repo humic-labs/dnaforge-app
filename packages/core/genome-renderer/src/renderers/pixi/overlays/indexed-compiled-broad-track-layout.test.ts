@@ -5,6 +5,7 @@ import {
   annotationTrackRealizedLaneCapacity,
   annotationTrackStackMaxLane,
   compiledBroadSurfaceLaneStart,
+  compiledBroadSurfaceRosterLaneStarts,
   disposeCompiledBroadSurfaceRegisteredCandidate,
   finalizeCompiledBroadSurfaceCandidateOwner,
   installCompiledBroadSurfaceCandidateOwner,
@@ -64,9 +65,6 @@ function layoutHost(
         preserveLegacyFixedCapacity
       );
     },
-    compiledBroadSurfaceLaneStart(trackId, requestedLayerTypes, nextPolicy) {
-      return compiledBroadSurfaceLaneStart(host, trackId, requestedLayerTypes, nextPolicy);
-    },
     ...overrides,
   };
   return host;
@@ -100,6 +98,39 @@ describe('indexed compiled-broad track layout', () => {
     expect(host.compiledBroadSurfaceCandidateProvenance).toBeNull();
     expect(host.compiledBroadSurfaceCandidatePresenter).toBeNull();
     expect(disposed).toEqual([previous]);
+  });
+
+  it('reads the capacity of each selected track exactly once for the full stack', () => {
+    const roster = Array.from({ length: 144 }, (_, index) => `track-${index}`);
+    const reads: string[] = [];
+    const host = layoutHost({
+      annotationLayerTypesForPresentation: () => [...roster, roster[0]],
+      annotationTrackRealizedLaneCapacity(trackId) {
+        reads.push(trackId);
+        return 2;
+      },
+    });
+
+    expect(annotationTrackStackMaxLane(host, policy())).toBe(430);
+    expect(reads).toEqual(roster);
+  });
+
+  it('keeps ordered lane starts for case-distinct, duplicate, absent, and single tracks', () => {
+    const roster = ['tRNA', 'Dm88', 'DM88', 'gene', 'Dm88', 'mRNA'];
+    const host = layoutHost({
+      annotationTrackRealizedLaneCapacity(trackId, _policy, single) {
+        return single ? 8 : trackId === 'gene' ? 4 : 2;
+      },
+    });
+
+    for (const selected of [[], ['mRNA'], roster]) {
+      const laneStart = compiledBroadSurfaceRosterLaneStarts(host, selected, policy());
+      for (const trackId of [...selected, 'missing']) {
+        expect(laneStart(trackId)).toBe(
+          compiledBroadSurfaceLaneStart(host, trackId, selected, policy())
+        );
+      }
+    }
   });
 
   it('orders preferred tracks first and uses the legacy laneLimit only on a single-track stack', () => {

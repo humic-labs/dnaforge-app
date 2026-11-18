@@ -126,7 +126,7 @@ export function PageEditor({ pageId, canvasTabId }: PageEditorProps) {
       >
         <p>
           {error
-            ? toUserMessage(error, 'failure.loading-notebooks')
+            ? toUserMessage(error, 'failure.could-not-load-notebooks')
             : userMessage('failure.loading-notebooks')}
         </p>
         {error && (
@@ -337,18 +337,14 @@ function PageEditorInner({
     useCallback(
       async (content: JSONContent, targetPageId: string) => {
         try {
-          await referenceRepairPromiseRef.current;
-          if (nativeNotebookRef.current) {
-            const client = nativeNotebookRef.current;
-            await client.flush();
-            if (!(await client.save()))
-              throw (
-                client.lastCommandError ??
-                new Error('The native notebook owner did not confirm the save.')
-              );
+          const client = nativeNotebookRef.current;
+          if (client) {
+            const saved = await client.save(referenceRepairPromiseRef.current);
+            if (!saved && client.lastCommandError) throw client.lastCommandError;
             recordOwnSave(client.snapshot?.canonicalFingerprint);
-            return;
+            return saved;
           }
+          await referenceRepairPromiseRef.current;
           const committedFingerprint = await savePage(targetPageId, content, {
             expectedCanonicalFingerprint: expectedCanonicalFingerprint(),
             preserveDirtyState: true,
@@ -364,17 +360,23 @@ function PageEditorInner({
     )
   );
 
-  const { saveStatus, markDirty, saveNow, discardPendingChanges, acceptOwnerClean } =
-    useEditorAutosave({
-      pageId,
-      workspaceRoot: referenceContext?.owningRoot,
-      contentRef,
-      onSave: useCallback((content, id) => handleSaveRef.current(content, id), [handleSaveRef]),
-      onDirtyTransition: handleDirtyTransition,
-      onSaved: handleSaved,
-      debounceMs: 1000,
-      nativeOwner: Boolean(nativeNotebook),
-    });
+  const {
+    saveStatus,
+    markDirty,
+    saveNow,
+    discardPendingChanges,
+    acceptOwnerClean,
+    retirePendingChanges,
+  } = useEditorAutosave({
+    pageId,
+    workspaceRoot: referenceContext?.owningRoot,
+    contentRef,
+    onSave: useCallback((content, id) => handleSaveRef.current(content, id), [handleSaveRef]),
+    onDirtyTransition: handleDirtyTransition,
+    onSaved: handleSaved,
+    debounceMs: 1000,
+    nativeOwner: Boolean(nativeNotebook),
+  });
   discardPendingChangesRef.current = discardPendingChanges;
   const isSaving = nativeNotebook ? nativeNotebook.saving : saveStatus === 'saving';
   const hasUnsavedChanges = nativeNotebook ? nativeNotebook.dirty : saveStatus !== 'clean';
@@ -463,7 +465,7 @@ function PageEditorInner({
 
   useEffect(() => {
     if (!nativeNotebook || !editor) return;
-    const detach = nativeNotebook.attach(editor);
+    const detach = nativeNotebook.attach(editor, retirePendingChanges);
     void nativeNotebook.initialize(referenceRepairPromiseRef.current).catch((error) => {
       if (nativeNotebook.databaseOnly) return;
       useToastStore
@@ -473,7 +475,7 @@ function PageEditorInner({
         });
     });
     return detach;
-  }, [nativeNotebook, editor]);
+  }, [nativeNotebook, editor, retirePendingChanges]);
   useEffect(() => {
     if (!nativeNotebook) return;
     return nativeNotebook.subscribe(() => {

@@ -779,6 +779,9 @@ export const browserMockBridge: PlatformBridge = {
     },
   }),
   importReview: {
+    sheetSync: async () => {
+      throw new Error('Native spreadsheet synchronization is unavailable in this runtime.');
+    },
     call: async () => {
       throw new Error('Native import review is unavailable in this runtime.');
     },
@@ -3273,6 +3276,12 @@ ORIGIN
     },
     registerScenarioFiles: async () => {
       throw new Error('Registering scenario files requires Electron.');
+    },
+    materializeMocloScenarioKit: async () => {
+      throw new Error('Materializing MoClo scenario kits requires Electron.');
+    },
+    seedMissingAuthorityArchive: async () => {
+      throw new Error('Seeding startup repair fixtures requires Electron.');
     },
   },
   analytics: {

@@ -26,7 +26,8 @@ vi.mock('../utils/hash', () => ({
   computeReferenceHash: mockComputeReferenceHash,
 }));
 
-vi.mock('@waypoint/sequence-utils', () => ({
+vi.mock('@waypoint/sequence-utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@waypoint/sequence-utils')>()),
   classifyMutation: vi.fn(),
 }));
 

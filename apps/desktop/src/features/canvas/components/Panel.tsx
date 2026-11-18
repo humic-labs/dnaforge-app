@@ -66,6 +66,7 @@ function PanelBody({ panel, isFocused }: PanelProps) {
   const [pendingCloseTab, setPendingCloseTab] = useState<Tab | null>(null);
   const [waitingForSave, setWaitingForSave] = useState(false);
   const closeQueue = useRef<string[]>([]);
+  const bulkCloseOriginalTabRef = useRef<string | null>(null);
   const pendingVisibleTabSwitchRef = useRef<{
     tabId: string;
     type: Tab['type'];
@@ -188,7 +189,10 @@ function PanelBody({ panel, isFocused }: PanelProps) {
     setPendingCloseTab(null);
     for (;;) {
       const tabId = closeQueue.current.shift();
-      if (!tabId) return;
+      if (!tabId) {
+        bulkCloseOriginalTabRef.current = null;
+        return;
+      }
       const tab = useCanvasStore
         .getState()
         .panels[panel.id]?.tabs.find((candidate) => candidate.id === tabId);
@@ -223,6 +227,7 @@ function PanelBody({ panel, isFocused }: PanelProps) {
         metadata.showError(userMessage('record.finishMetadataBeforeClosing'));
         observeCanvasClose(pendingCloseOperationRef.current, 'refused');
         pendingCloseOperationRef.current = null;
+        bulkCloseOriginalTabRef.current = null;
         return;
       }
       if (isTabDirty(tab)) {
@@ -244,9 +249,13 @@ function PanelBody({ panel, isFocused }: PanelProps) {
     (tabIds: readonly string[]) => {
       if (pendingCloseTab) return;
       closeQueue.current = [...new Set(tabIds)];
+      bulkCloseOriginalTabRef.current =
+        closeQueue.current.length > 1
+          ? (useCanvasStore.getState().panels[panel.id]?.activeTabId ?? null)
+          : null;
       advanceCloseQueue();
     },
-    [advanceCloseQueue, pendingCloseTab]
+    [advanceCloseQueue, panel.id, pendingCloseTab]
   );
 
   const handleCloseTab = useCallback(
@@ -270,9 +279,21 @@ function PanelBody({ panel, isFocused }: PanelProps) {
     pendingCloseOperationRef.current = null;
     saveRequestedRef.current = null;
     closeQueue.current = [];
+    const originalTabId = bulkCloseOriginalTabRef.current;
+    bulkCloseOriginalTabRef.current = null;
     setWaitingForSave(false);
     setPendingCloseTab(null);
-  }, []);
+    const currentPanel = useCanvasStore.getState().panels[panel.id];
+    if (
+      originalTabId &&
+      currentPanel &&
+      currentPanel.activeTabId === pendingCloseTab?.id &&
+      currentPanel.activeTabId !== originalTabId &&
+      currentPanel.tabs.some((tab) => tab.id === originalTabId)
+    ) {
+      setActiveTab(panel.id, originalTabId);
+    }
+  }, [panel.id, pendingCloseTab?.id, setActiveTab]);
 
   const pendingTargetIsCurrent = useCallback(() => {
     const current = useCanvasStore
@@ -478,8 +499,15 @@ function PanelBody({ panel, isFocused }: PanelProps) {
       }
     };
 
-    presentationEvents.add(window, 'keydown', handler, true);
-    return () => presentationEvents.remove(window, 'keydown', handler, true);
+    const handleWindowKey = (event: KeyboardEvent) => {
+      if (event.eventPhase === Event.AT_TARGET) handler(event);
+    };
+    presentationEvents.add(document, 'keydown', handler, true);
+    presentationEvents.add(window, 'keydown', handleWindowKey);
+    return () => {
+      presentationEvents.remove(document, 'keydown', handler, true);
+      presentationEvents.remove(window, 'keydown', handleWindowKey);
+    };
   }, [dispatchCommand, isFocused, panel.id, presentationEvents]);
 
   useEffect(() => {

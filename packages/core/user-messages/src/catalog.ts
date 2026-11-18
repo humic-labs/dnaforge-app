@@ -457,6 +457,7 @@ export const USER_MESSAGES = {
   'assistant.needsLogin': 'Needs login',
   'assistant.installCli': 'Install CLI',
   'assistant.editorHost': 'Editor agent host',
+  'reference.sequenceChanged': 'The reference sequence has changed since this view was saved.',
   'reference.preparedOpenFailed': 'The reference was prepared but could not be opened.',
   'reference.assemblyInput': 'Paste an assembly link or a reference assembly accession.',
   'reference.dropInput': 'Drop one FASTA file, one NCBI Datasets ZIP, or one reference folder.',
@@ -1130,7 +1131,7 @@ export const USER_MESSAGES = {
   'failure.could-not-load-saved-presentation': 'Could not load saved presentation.',
   'failure.could-not-load-the-saved-view': 'Could not load the saved view.',
   'failure.could-not-save-the-molecular-view': 'Could not save the molecular view.',
-  'failure.could-not-load-notebooks': 'Could not load notebooks.',
+  'failure.could-not-load-notebooks': 'Notebooks could not be loaded.',
   'failure.could-not-record-the-molecular-view': 'Could not record the molecular view.',
   'failure.the-saved-presentation-is-unavailable': 'The saved presentation is unavailable.',
   'failure.saved-structure-data-could-not-be-verified':

@@ -30,6 +30,7 @@ import {
 } from '../lims/public/details-presenters';
 import { useActionablePendingRefs } from '../lims/public/use-actionable-pending-refs';
 import { useProjectEditFolders } from '../workspace-loader/public/use-project-edit-folders';
+import { managedSequenceEditAccess } from '../lims/public/registry-record-edit-access';
 import { EntityDetailsPanel } from './EntityDetailsPanel';
 import { SequenceOrganizationRecordStatus } from '../sequence/public/organization-record-status';
 import { SavedRecordMetadataContext } from '../lims/public/saved-record-metadata-context';
@@ -166,6 +167,26 @@ function BoundEntityDetails({
   onAssemblyBackboneSegmentsChange,
 }: EntityDetailsProps) {
   const { session, state } = useEntityDetailsSession(target);
+  const folders = useProjectEditFolders();
+  const packageRoot =
+    target.managedSequence?.packageRoot ?? state.definition?.record.sequence?.ref?.packageRoot;
+  const projectAccess = packageRoot ? managedSequenceEditAccess(packageRoot, folders) : null;
+  const projectReadOnlyReason =
+    projectAccess && !projectAccess.canEdit ? projectAccess.message : undefined;
+  const visibleState =
+    projectReadOnlyReason && state.definition
+      ? {
+          ...state,
+          definition: {
+            ...state.definition,
+            record: { ...state.definition.record, readOnlyReason: projectReadOnlyReason },
+            save: undefined,
+            rename: undefined,
+            schemaChoices: undefined,
+          },
+        }
+      : state;
+  const record = visibleState.definition?.record;
   const [metadataRequest, setMetadataRequest] = useState<number>();
   useMetadataEditRequest(
     metadataEditorTabId,
@@ -173,9 +194,8 @@ function BoundEntityDetails({
     () => {
       if (target.managedSequence) setMetadataRequest((value) => (value ?? 0) + 1);
     },
-    Boolean(state.definition?.save) && !state.definition?.record.readOnlyReason && !state.loading
+    Boolean(visibleState.definition?.save) && !record?.readOnlyReason && !state.loading
   );
-  const folders = useProjectEditFolders();
   const pending = useActionablePendingRefs();
   const [organizationBlocked, setOrganizationBlocked] = useState(false);
   useEffect(() => {
@@ -217,7 +237,6 @@ function BoundEntityDetails({
       void session.load();
     }
   }, [folders, session]);
-  const record = state.definition?.record;
   const preview = record?.preview;
   const archivedOrganization = state.definition?.archivedSequenceOrganization;
   const sequenceOrganizationRef = record?.sequence?.ref ?? archivedOrganization?.ref;
@@ -339,7 +358,7 @@ function BoundEntityDetails({
       <EntityDetailsPanel
         key={target.entityId}
         session={session}
-        state={state}
+        state={visibleState}
         readOnly={readOnly}
         onClose={onClose}
         nameEditRequestId={nameEditRequestId}
@@ -366,7 +385,7 @@ function BoundEntityDetails({
           target.recordFile || state.definition?.savedRecord ? (
             <SavedRecordMetadataContext
               session={session}
-              state={state}
+              state={visibleState}
               readOnly={readOnly}
               tabId={tabId}
             />
@@ -378,6 +397,7 @@ function BoundEntityDetails({
               archivedSchema={archivedOrganization ? record.schema : undefined}
               dirty={session.dirty || state.activeField !== null}
               readOnly={
+                Boolean(projectReadOnlyReason) ||
                 (archivedOrganization?.readOnly ?? Boolean(record.readOnlyReason)) ||
                 !onReloadSavedSequence
               }

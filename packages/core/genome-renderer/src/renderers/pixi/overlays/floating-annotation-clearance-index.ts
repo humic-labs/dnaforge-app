@@ -7,24 +7,62 @@ type ClearanceInterval = {
   outwardMagnitude: number;
 };
 
-function lowerBound(values: readonly number[], target: number): number {
-  let low = 0;
-  let high = values.length;
-  while (low < high) {
-    const middle = (low + high) >>> 1;
-    if (values[middle] < target) low = middle + 1;
-    else high = middle;
+class ClearanceRanges {
+  private readonly starts: number[] = [];
+  private readonly afterCoordinate: boolean[] = [];
+  private readonly maxima: number[][] = [[]];
+
+  constructor(tree: Float64Array, leafBase: number, coordinates: readonly number[]) {
+    for (let node = 1; node < leafBase; node++) {
+      const value = tree[node];
+      tree[2 * node] = Math.max(tree[2 * node], value);
+      tree[2 * node + 1] = Math.max(tree[2 * node + 1], value);
+    }
+    const values = this.maxima[0];
+    for (let leaf = 0; leaf < coordinates.length * 2 - 1; leaf++) {
+      const value = tree[leafBase + leaf];
+      if (values.length && values[values.length - 1] === value) continue;
+      this.starts.push(coordinates[leaf >>> 1]);
+      this.afterCoordinate.push((leaf & 1) === 1);
+      values.push(value);
+    }
+    for (let width = 2; width <= values.length; width *= 2) {
+      const previous = this.maxima[this.maxima.length - 1];
+      const level = new Array<number>(values.length - width + 1);
+      for (let i = 0; i < level.length; i++) {
+        level[i] = Math.max(previous[i], previous[i + width / 2]);
+      }
+      this.maxima.push(level);
+    }
   }
-  return low;
+
+  private rangeAt(position: number, low: number): number {
+    let high = this.starts.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      const boundary = this.starts[middle];
+      if (boundary < position || (boundary === position && !this.afterCoordinate[middle])) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    return low - 1;
+  }
+
+  max(start: number, end: number): number | null {
+    const first = this.rangeAt(start, 0);
+    const last = this.rangeAt(end, first + 1);
+    const level = 31 - Math.clz32(last - first + 1);
+    const maxima = this.maxima[level];
+    const value = Math.max(maxima[first], maxima[last + 1 - (1 << level)]);
+    return Number.isFinite(value) ? value : null;
+  }
 }
 
 export class FloatingAnnotationClearanceIndex {
-  private readonly coordinates: number[];
-  private readonly leafCount: number;
-  private readonly negativeLazy: Float64Array;
-  private readonly negativeMax: Float64Array;
-  private readonly positiveLazy: Float64Array;
-  private readonly positiveMax: Float64Array;
+  private readonly negative: ClearanceRanges;
+  private readonly positive: ClearanceRanges;
 
   constructor(
     features: readonly Feature[],
@@ -57,87 +95,37 @@ export class FloatingAnnotationClearanceIndex {
       }
     }
 
-    this.coordinates = [...new Set(coordinates)].sort((a, b) => a - b);
-    this.leafCount = this.coordinates.length * 2 - 1;
-    const size = this.leafCount * 4 + 4;
-    this.negativeLazy = new Float64Array(size).fill(Number.NEGATIVE_INFINITY);
-    this.negativeMax = new Float64Array(size).fill(Number.NEGATIVE_INFINITY);
-    this.positiveLazy = new Float64Array(size).fill(Number.NEGATIVE_INFINITY);
-    this.positiveMax = new Float64Array(size).fill(Number.NEGATIVE_INFINITY);
-
-    const coordinateIndex = new Map(this.coordinates.map((position, index) => [position, index]));
+    const ordered = [...new Set(coordinates)].sort((a, b) => a - b);
+    const coordinateIndex = new Map(ordered.map((position, index) => [position, index * 2]));
+    const leafBase = 2 ** Math.ceil(Math.log2(ordered.length * 2 - 1));
+    const negative = new Float64Array(leafBase * 2).fill(-Infinity);
+    const positive = new Float64Array(leafBase * 2).fill(-Infinity);
     for (const interval of intervals) {
-      const first = coordinateIndex.get(interval.start)! * 2;
-      const last = coordinateIndex.get(interval.end)! * 2;
-      const lazy = interval.side < 0 ? this.negativeLazy : this.positiveLazy;
-      const maxima = interval.side < 0 ? this.negativeMax : this.positiveMax;
-      this.update(lazy, maxima, 1, 0, this.leafCount - 1, first, last, interval.outwardMagnitude);
+      const tree = interval.side < 0 ? negative : positive;
+      let first = leafBase + coordinateIndex.get(interval.start)!;
+      let last = leafBase + coordinateIndex.get(interval.end)!;
+      while (first <= last) {
+        if (first & 1) {
+          tree[first] = Math.max(tree[first], interval.outwardMagnitude);
+          first++;
+        }
+        if (!(last & 1)) {
+          tree[last] = Math.max(tree[last], interval.outwardMagnitude);
+          last--;
+        }
+        first >>>= 1;
+        last >>>= 1;
+      }
     }
+    this.negative = new ClearanceRanges(negative, leafBase, ordered);
+    this.positive = new ClearanceRanges(positive, leafBase, ordered);
   }
 
   maxOutwardMagnitude(side: -1 | 1, start: number, end: number): number | null {
     if (end < start || end < 0 || start > this.genomeLength) return null;
-    const first = this.leafFor(Math.max(0, start));
-    const last = this.leafFor(Math.min(this.genomeLength, end));
-    const lazy = side < 0 ? this.negativeLazy : this.positiveLazy;
-    const maxima = side < 0 ? this.negativeMax : this.positiveMax;
-    const value = this.query(lazy, maxima, 1, 0, this.leafCount - 1, first, last, -Infinity);
-    return Number.isFinite(value) ? value : null;
-  }
-
-  private leafFor(position: number): number {
-    const index = lowerBound(this.coordinates, position);
-    return this.coordinates[index] === position ? index * 2 : index * 2 - 1;
-  }
-
-  private update(
-    lazy: Float64Array,
-    maxima: Float64Array,
-    node: number,
-    left: number,
-    right: number,
-    first: number,
-    last: number,
-    value: number
-  ): void {
-    if (first <= left && right <= last) {
-      lazy[node] = Math.max(lazy[node], value);
-      maxima[node] = Math.max(maxima[node], value);
-      return;
-    }
-    const middle = (left + right) >>> 1;
-    if (first <= middle) this.update(lazy, maxima, node * 2, left, middle, first, last, value);
-    if (last > middle)
-      this.update(lazy, maxima, node * 2 + 1, middle + 1, right, first, last, value);
-    maxima[node] = Math.max(lazy[node], maxima[node * 2], maxima[node * 2 + 1]);
-  }
-
-  private query(
-    lazy: Float64Array,
-    maxima: Float64Array,
-    node: number,
-    left: number,
-    right: number,
-    first: number,
-    last: number,
-    inherited: number
-  ): number {
-    const value = Math.max(inherited, lazy[node]);
-    if (first <= left && right <= last) return Math.max(value, maxima[node]);
-    const middle = (left + right) >>> 1;
-    let result = value;
-    if (first <= middle) {
-      result = Math.max(
-        result,
-        this.query(lazy, maxima, node * 2, left, middle, first, last, value)
-      );
-    }
-    if (last > middle) {
-      result = Math.max(
-        result,
-        this.query(lazy, maxima, node * 2 + 1, middle + 1, right, first, last, value)
-      );
-    }
-    return result;
+    return (side < 0 ? this.negative : this.positive).max(
+      Math.max(0, start),
+      Math.min(this.genomeLength, end)
+    );
   }
 }

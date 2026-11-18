@@ -1315,6 +1315,77 @@ describe('renderer bridge audit behavior', () => {
     expect(records[0].capability_check.reason).toBe('wrong_workspace');
   });
 
+  it.each([{ roots: [] }, { roots: ['/tmp/unregistered-project'] }])(
+    'refuses an explicit project scope with no authorized project before handlers run: %j',
+    async ({ roots }) => {
+      const { sink, records } = makeAuditSink();
+      const { handler, restore } = mockRendererToolHandler('get_workspace', async () =>
+        workspaceReceipt([])
+      );
+
+      try {
+        const response = await callRendererTool(request('get_workspace'), {
+          agentCapabilities: capabilitiesFor('get_workspace'),
+          boundWorkspaceId: '/tmp/unregistered-project',
+          currentWorkspaceId: `folders:${JSON.stringify([folder.path])}`,
+          folders: [folder],
+          projectScope: { kind: 'project-roots', roots },
+          auditSink: sink,
+        });
+
+        expect(expectError(response).error.code).toBe('WRONG_WORKSPACE');
+        expect(handler).not.toHaveBeenCalled();
+        expect(records[0].capability_check.reason).toBe('wrong_workspace');
+      } finally {
+        restore();
+      }
+    }
+  );
+
+  it('keeps an app-following workspace inspection available with no registered projects', async () => {
+    const { sink } = makeAuditSink();
+    const { handler, restore } = mockRendererToolHandler('get_workspace', async () =>
+      workspaceReceipt([])
+    );
+
+    try {
+      const response = await callRendererTool(request('get_workspace'), {
+        agentCapabilities: capabilitiesFor('get_workspace'),
+        currentWorkspaceId: null,
+        folders: [],
+        projectScope: { kind: 'app-following' },
+        auditSink: sink,
+      });
+
+      expect(expectSuccess(response).result).toEqual(workspaceReceipt([]));
+      expect(handler).toHaveBeenCalledOnce();
+    } finally {
+      restore();
+    }
+  });
+
+  it('keeps an explicit project scope available independently of displayed roots', async () => {
+    const { sink } = makeAuditSink();
+    const { handler, restore } = mockRendererToolHandler('get_workspace', async (_args, context) =>
+      workspaceReceipt(context.folders)
+    );
+
+    try {
+      const response = await callRendererTool(request('get_workspace'), {
+        agentCapabilities: capabilitiesFor('get_workspace'),
+        currentWorkspaceId: null,
+        folders: [folder],
+        projectScope: { kind: 'project-roots', roots: [folder.path] },
+        auditSink: sink,
+      });
+
+      expect(expectSuccess(response).result).toEqual(workspaceReceipt([folder]));
+      expect(handler).toHaveBeenCalledOnce();
+    } finally {
+      restore();
+    }
+  });
+
   it('keeps a folder-root grant on its intended project when other roots mount', async () => {
     const { sink } = makeAuditSink();
     const otherFolder: WorkspaceFolder = {

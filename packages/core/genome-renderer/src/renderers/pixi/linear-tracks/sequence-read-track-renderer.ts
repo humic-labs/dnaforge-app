@@ -11,12 +11,14 @@ import type {
 export const SEQUENCE_READ_TRACK_TYPE = 'sequence-read';
 
 export type SequenceReadTrackData =
-  | {
+  | ({
       readonly kind: 'alignment';
       readonly label: string;
       readonly alignedReference: string;
-      readonly alignedQuery: string;
-    }
+    } & (
+      | { readonly alignedQuery: string; readonly queryColumns?: never }
+      | { readonly alignedQuery?: never; readonly queryColumns: ReadonlyArray<string | null> }
+    ))
   | {
       readonly kind: 'sanger';
       readonly label: string;
@@ -48,6 +50,7 @@ interface MountedState {
   readonly marks: Graphics;
   readonly curves: Graphics;
   readonly texts: Text[];
+  data: SequenceReadTrackData | null;
   diagnostics: ReadTrackDiagnostics;
 }
 
@@ -157,6 +160,7 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
       marks,
       curves,
       texts: [],
+      data: null,
       diagnostics: {
         kind: null,
         paintCount: 0,
@@ -182,6 +186,7 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
     curves.clear();
     for (const text of state.texts) text.visible = false;
     const data = args.data;
+    state.data = data;
     if (!data) return;
 
     const width = args.viewportWidthPx;
@@ -191,7 +196,9 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
     const muted = dark ? 0x94a3b8 : 0x64748b;
     const bounds = visibleColumns(
       args,
-      data.kind === 'alignment' ? data.alignedQuery.length : args.chromosome.length
+      data.kind === 'alignment'
+        ? (data.queryColumns ?? data.alignedQuery).length
+        : args.chromosome.length
     );
     background.rect(0, 0, width, height).fill({ color: dark ? 0x17212f : 0xf8fafc });
     background.rect(0, height - 1, width, 1).fill({ color: dark ? 0x334155 : 0xe2e8f0 });
@@ -228,13 +235,26 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
     counts: { baseGlyphs: number; mutationColumns: number }
   ): void {
     const pixelsPerBase = args.pathMapper.pixelsPerBp;
+    const columns = data.queryColumns ?? data.alignedQuery;
     if (pixelsPerBase < 7) {
-      state.marks.rect(0, 25, args.viewportWidthPx, 6).fill({ color: 0x8b5cf6, alpha: 0.55 });
+      let start: number | null = null;
+      for (let column = bounds.start; column <= bounds.end; column++) {
+        if (column < bounds.end && columns[column] != null) {
+          start ??= column;
+        } else if (start !== null) {
+          const left = Math.max(0, args.pathMapper.bpLeftX(start));
+          const right = Math.min(args.viewportWidthPx, args.pathMapper.bpLeftX(column));
+          if (right > left)
+            state.marks.rect(left, 25, right - left, 6).fill({ color: 0x8b5cf6, alpha: 0.55 });
+          start = null;
+        }
+      }
       return;
     }
     let textIndex = 1;
     for (let column = bounds.start; column < bounds.end; column += 1) {
-      const query = data.alignedQuery[column] ?? '-';
+      const query = columns[column];
+      if (query == null) continue;
       const reference = data.alignedReference[column] ?? '-';
       const x = args.pathMapper.bpLeftX(column);
       if (x > args.viewportWidthPx || x + pixelsPerBase < 0) continue;
@@ -381,6 +401,9 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
           args.pathMapper.pixelsPerBp
     );
     if (column < 0 || column >= args.chromosome.length) return null;
+    const data = this.states.get(args.container)?.data;
+    if (data?.kind === 'alignment' && data.queryColumns && data.queryColumns[column] == null)
+      return null;
     return {
       kind: 'select-bp-range',
       startBp: column,

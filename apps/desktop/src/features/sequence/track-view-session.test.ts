@@ -1,3 +1,6 @@
+import { act, cleanup, renderHook } from '@testing-library/react';
+import type { Tab } from '../canvas/types';
+import { useTrackViewSessionSource } from './components/useTrackViewSessionSource';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { documentLifecycle } from '../../shared/document-lifecycle';
 import { trackViewFixture } from '../../shared/track-view-fixture';
@@ -178,5 +181,134 @@ describe('Track view command settlement', () => {
       useCanvasStore.getState().panels.main.tabs.find((tab) => tab.id === tabId)?.entityId
     ).toBe(replacement.id);
     expect(getTrackViewSession(tabId)?.inspect().document.name).toBe('Replacement');
+  });
+});
+
+describe('Track view source admission', () => {
+  afterEach(cleanup);
+
+  function directIndexedTab(sourceExt: 'gff3' | 'fa'): Tab {
+    const documentId = '95c66604-88fb-4da8-a508-0419ea5a353c';
+    const tabId = useCanvasStore.getState().openTab('main', {
+      type: 'sequence',
+      entityId: documentId,
+      label: 'slow',
+      sequenceDocument: { kind: 'indexed-sequence', documentId },
+      loadStatus: 'indexed',
+      indexedGenome: {
+        sourcePath: `/project/slow.${sourceExt}`,
+        sourceExt,
+        chrom: 'slow',
+        manifest: {
+          chrom: 'slow',
+          fastaPath: '/project/.waypoint/genome-index/slow/slow.fa.gz',
+          faiPath: '/project/.waypoint/genome-index/slow/slow.fa.gz.fai',
+          gffPath:
+            sourceExt === 'gff3' ? '/project/.waypoint/genome-index/slow/slow.gff3.gz' : null,
+          tbiPath:
+            sourceExt === 'gff3' ? '/project/.waypoint/genome-index/slow/slow.gff3.gz.tbi' : null,
+          length: 2_000,
+          circular: false,
+        },
+        metadata: { length: 2_000, circular: false },
+      },
+    });
+    return useCanvasStore.getState().panels.main.tabs.find((tab) => tab.id === tabId)!;
+  }
+
+  it.each(['gff3', 'fa'] as const)(
+    'keeps a ready direct %s viewport outside Track view ownership without crashing',
+    (sourceExt) => {
+      const tab = directIndexedTab(sourceExt);
+      const capture = vi.fn(() => {
+        throw new Error('A Track view must be built against a reference assembly.');
+      });
+      let session: ReturnType<typeof getTrackViewSession> | undefined;
+
+      expect(() =>
+        renderHook(() => {
+          session = useTrackViewSessionSource(tab, {
+            referenceName: 'slow',
+            readyForDirtyCheck: true,
+            capture,
+          });
+          return session;
+        })
+      ).not.toThrow();
+
+      expect(session).toBeNull();
+      expect(getTrackViewSession(tab.id)).toBeNull();
+      expect(capture).not.toHaveBeenCalled();
+    }
+  );
+
+  it('admits a reference arriving on the same mounted tab and document identity', () => {
+    const tab = directIndexedTab('gff3');
+    const document = trackViewFixture();
+    const capture = vi.fn(() => document);
+    const { result, rerender } = renderHook(
+      ({ tab }: { tab: Tab }) =>
+        useTrackViewSessionSource(tab, {
+          referenceName: 'Slow reference',
+          readyForDirtyCheck: Boolean(tab.indexedGenome?.assembly),
+          capture,
+        }),
+      { initialProps: { tab } }
+    );
+
+    expect(result.current === null).toBe(true);
+    expect(capture).not.toHaveBeenCalled();
+
+    act(() => {
+      useCanvasStore.getState().updateTab('main', tab.id, {
+        indexedGenome: {
+          ...tab.indexedGenome!,
+          assembly: {
+            assemblyId: 'local-slow',
+            displayName: 'Slow reference',
+            chromosomes: [
+              {
+                chrom: 'slow',
+                displayName: 'slow',
+                length: 2_000,
+                manifest: tab.indexedGenome!.manifest!,
+              },
+            ],
+          },
+        },
+      });
+    });
+    const admitted = useCanvasStore.getState().panels.main.tabs.find((item) => item.id === tab.id)!;
+    expect(admitted.id).toBe(tab.id);
+    expect(admitted.entityId).toBe(tab.entityId);
+
+    rerender({ tab: admitted });
+
+    expect(result.current).not.toBeNull();
+    expect(result.current).toBe(getTrackViewSession(tab.id));
+    expect(capture).toHaveBeenCalledOnce();
+    expect(result.current!.inspect().document.viewport).toEqual(document.viewport);
+  });
+
+  it('retains a saved Track view session while its live indexed reference is absent', () => {
+    const { tabId, document } = open();
+    const tab = useCanvasStore.getState().panels.main.tabs.find((item) => item.id === tabId)!;
+    const capture = vi.fn(() => document);
+
+    expect(tab.indexedGenome).toBeUndefined();
+
+    const { result } = renderHook(() =>
+      useTrackViewSessionSource(tab, {
+        referenceName: document.reference.name,
+        readyForDirtyCheck: true,
+        capture,
+      })
+    );
+
+    expect(result.current).toBe(getTrackViewSession(tabId));
+    expect(result.current).not.toBeNull();
+    expect(capture).toHaveBeenCalledOnce();
+    expect(result.current!.inspect().document.viewport).toEqual(document.viewport);
+    expect(result.current!.inspect().dirty).toBe(false);
   });
 });

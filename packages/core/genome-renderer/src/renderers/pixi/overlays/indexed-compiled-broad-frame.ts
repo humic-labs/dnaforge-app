@@ -1,3 +1,4 @@
+import { compiledBroadSurfaceRosterLaneStarts } from './indexed-compiled-broad-track-layout';
 import { INDEXED_ANNOTATION_COLOR_BASIS_THEME } from '../shared/annotation-runtime-theme';
 import type { RetainedOverlayCameraState } from './overlay-track';
 import type { AnnotationBodyReplacementReadiness } from './annotation-body-presentation-authority';
@@ -99,11 +100,10 @@ export type CompiledBroadFrameHost = {
     candidateOwner: CompiledBroadSurfaceTrackOwnerV2 | null;
     owner: CompiledBroadSurfaceTrackOwnerV2 | null;
   }>;
-  laneStart(
-    trackId: string,
+  rosterLaneStarts(
     requestedLayerTypes: readonly string[],
     policy: AnnotationPolicyGpuRuntimeV1
-  ): number;
+  ): (trackId: string) => number;
   provenanceIsCurrent(
     manifest: CompiledBroadSurfaceManifestV2,
     provenance: CompiledBroadSurfaceAdmissionProvenanceV1
@@ -410,15 +410,7 @@ export function presentRequestedCompiledBroadSurfaces(
   ) {
     return 'complete';
   }
-  const selected = host
-    .ownerRosterForTheme(requestedLayerTypes, requestedThemeMode)
-    .map(({ trackId, currentOwner, candidateOwner, owner }) => ({
-      trackId,
-      currentOwner,
-      candidateOwner,
-      owner,
-      laneStart: host.laneStart(trackId, requestedLayerTypes, policy),
-    }));
+  const selected = host.ownerRosterForTheme(requestedLayerTypes, requestedThemeMode);
   const retainOrFail = (
     status: 'broad-cells-missing' | 'broad-artifact-required' | 'rejected'
   ): AnnotationBodyReplacementReadiness => {
@@ -449,9 +441,11 @@ export function presentRequestedCompiledBroadSurfaces(
   }
   if (rosterPlan.kind === 'retain') return retainOrFail(rosterPlan.status);
 
-  const resolved = selected as Array<
+  const laneStartForTrack = host.rosterLaneStarts(requestedLayerTypes, policy);
+  const owners = selected as Array<
     (typeof selected)[number] & { owner: CompiledBroadSurfaceTrackOwnerV2 }
   >;
+  const resolved = owners.map((row) => ({ ...row, laneStart: laneStartForTrack(row.trackId) }));
 
   let everyFastCameraUpdated = true;
   for (const { owner, laneStart } of resolved) {
@@ -632,6 +626,7 @@ export function retainLastCompleteCompiledBroadSurfaceFrame(
     presenter: CompiledBroadSurfacePixiPresenterV2;
     camera: CompiledBroadSurfacePixiCameraV2;
   }> = [];
+  const laneStartForTrack = host.rosterLaneStarts(host.lastCompleteTrackIds, policy);
   for (const trackId of host.lastCompleteTrackIds) {
     const owner = host.ownerForTrack(trackId);
     if (!owner || !host.provenanceIsCurrent(owner.manifest, owner.provenance)) {
@@ -672,7 +667,7 @@ export function retainLastCompleteCompiledBroadSurfaceFrame(
         return false;
       plan = activePlan;
     }
-    const laneStart = host.laneStart(trackId, host.lastCompleteTrackIds, policy);
+    const laneStart = laneStartForTrack(trackId);
     retained.push({
       presenter: owner.presenter,
       camera: {
@@ -750,10 +745,10 @@ export type CompiledBroadFrameOverlayBindings = {
     candidateOwner: CompiledBroadSurfaceTrackOwnerV2 | null;
     owner: CompiledBroadSurfaceTrackOwnerV2 | null;
   }>;
-  compiledBroadSurfaceLaneStart(
+  annotationTrackRealizedLaneCapacity(
     trackId: string,
-    requestedLayerTypes: readonly string[],
-    policy: AnnotationPolicyGpuRuntimeV1
+    policy: AnnotationPolicyGpuRuntimeV1,
+    preserveLegacyFixedCapacity?: boolean
   ): number;
   compiledBroadSurfaceProvenanceIsCurrent(
     manifest: CompiledBroadSurfaceManifestV2,
@@ -860,8 +855,8 @@ export function createCompiledBroadFrameHost(
         requestedThemeMode
       );
     },
-    laneStart(trackId, requestedLayerTypes, policy) {
-      return overlay.compiledBroadSurfaceLaneStart(trackId, requestedLayerTypes, policy);
+    rosterLaneStarts(requestedLayerTypes, policy) {
+      return compiledBroadSurfaceRosterLaneStarts(overlay, requestedLayerTypes, policy);
     },
     provenanceIsCurrent(manifest, provenance) {
       return overlay.compiledBroadSurfaceProvenanceIsCurrent(manifest, provenance);

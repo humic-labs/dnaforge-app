@@ -5,7 +5,7 @@ import type { TrackViewSource } from '../track-view-session';
 import { useLaneContractStore } from '../lane-contract-store';
 
 export function useTrackViewSessionSource(tab: Tab, source: TrackViewSource) {
-  const session = useMemo(() => getTrackViewSession(tab.id), [tab.id, tab.entityId]);
+  const session = getTrackViewSession(tab.id);
   const token = useMemo(() => Symbol(tab.id), [tab.id]);
   useLaneContractStore((state) => state.lanesByOwnerId[tab.id]);
   useLayoutEffect(() => {
