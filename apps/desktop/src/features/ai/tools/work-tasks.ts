@@ -96,6 +96,7 @@ export const workTasksSchema = z
       z
         .object({
           kind: z.literal('query'),
+          asOf: z.number().int().optional().describe('Reuse the first page now value for later pages.'),
           state: z.enum(['active', 'all', 'done']).optional(),
           assignee: z.enum(['me', 'unassigned', 'all']).optional(),
           subjectId: identity.optional(),
@@ -265,6 +266,7 @@ export const workTasksOutputSchema = z.discriminatedUnion('kind', [
     .object({
       ok: z.literal(true),
       kind: z.literal('dates'),
+      snapshotId: z.string().optional(),
       total: z.number(),
       nextOffset: z.number().nullable(),
       rows: z.array(
@@ -389,6 +391,8 @@ export const workTasksOutputSchema = z.discriminatedUnion('kind', [
     .object({
       ok: z.literal(true),
       kind: z.literal('query'),
+      snapshotId: z.string().optional(),
+      now: z.number(),
       tasks: z.array(taskResult),
       total: z.number(),
       nextOffset: z.number().nullable(),
@@ -516,6 +520,8 @@ export function createWorkTasksTool(folders: readonly WorkspaceFolder[]) {
           const result = await service.query({ workspaceRoot, ...query });
           return toolSuccess({
             kind: 'query' as const,
+            snapshotId: result.snapshotId,
+            now: result.now,
             tasks: result.tasks.map(publicTask),
             total: result.total,
             nextOffset: result.nextOffset,

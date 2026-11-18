@@ -47277,6 +47277,10 @@
                 "type": "object",
                 "properties": {
                   "kind": { "type": "string", "const": "query" },
+                  "asOf": {
+                    "type": "integer",
+                    "description": "Reuse the first page now value for later pages."
+                  },
                   "state": { "type": "string", "enum": ["active", "all", "done"] },
                   "assignee": { "type": "string", "enum": ["me", "unassigned", "all"] },
                   "subjectId": { "type": "string", "minLength": 1, "maxLength": 200 },
@@ -49110,6 +49114,7 @@
                 "properties": {
                   "ok": { "type": "boolean", "const": true },
                   "kind": { "type": "string", "const": "dates" },
+                  "snapshotId": { "type": "string" },
                   "total": { "type": "number" },
                   "nextOffset": { "type": ["number", "null"] },
                   "rows": {
@@ -49500,6 +49505,8 @@
                 "properties": {
                   "ok": { "type": "boolean", "const": true },
                   "kind": { "type": "string", "const": "query" },
+                  "snapshotId": { "type": "string" },
+                  "now": { "type": "number" },
                   "tasks": {
                     "type": "array",
                     "items": { "$ref": "#/properties/result/anyOf/0/properties/task/anyOf/0" }
@@ -49508,7 +49515,15 @@
                   "nextOffset": { "type": ["number", "null"] },
                   "unavailableProjects": { "type": "number" }
                 },
-                "required": ["ok", "kind", "tasks", "total", "nextOffset", "unavailableProjects"],
+                "required": [
+                  "ok",
+                  "kind",
+                  "now",
+                  "tasks",
+                  "total",
+                  "nextOffset",
+                  "unavailableProjects"
+                ],
                 "additionalProperties": false
               },
               {

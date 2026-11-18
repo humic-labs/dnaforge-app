@@ -48,6 +48,11 @@ export function WorkPanel({
   );
   const { result, error, refresh } = useWorkQuery({ workspaceRoot, subjectId, state, assignee });
   const recordDates = useWorkRecordDates(mode === 'project' ? workspaceRoot : undefined);
+  const displayError =
+    error ??
+    (result?.snapshotId && recordDates.snapshotId && result.snapshotId !== recordDates.snapshotId
+      ? 'Project schedule changed while loading. Refresh to try again.'
+      : undefined);
   const projects =
     result?.projects.filter(
       (p) =>
@@ -101,10 +106,17 @@ export function WorkPanel({
           Add task
         </Button>
       </header>
-      {error ? (
+      {displayError ? (
         <div role="alert" className="text-xs text-fg-muted">
-          {error}{' '}
-          <Button variant="ghost" size="xs" onClick={refresh}>
+          {displayError}{' '}
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => {
+              refresh();
+              recordDates.refresh();
+            }}
+          >
             Retry
           </Button>
         </div>

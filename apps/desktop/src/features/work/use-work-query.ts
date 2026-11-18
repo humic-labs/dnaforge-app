@@ -64,7 +64,9 @@ export function useWorkQuery(input: WorkTaskQuery) {
         const tasks = [...first.tasks];
         let offset = first.nextOffset;
         while (current && offset !== null) {
-          const next = await client.query({ ...query, offset, limit: 100 });
+          const next = await client.query({ ...query, offset, limit: 100, asOf: first.now });
+          if (!first.snapshotId || next.snapshotId !== first.snapshotId)
+            throw new Error('Tasks changed while loading. Refresh to try again.');
           if (next.nextOffset !== null && next.nextOffset <= offset)
             throw new Error('Task list changed during loading. Refresh to try again.');
           tasks.push(...next.tasks);

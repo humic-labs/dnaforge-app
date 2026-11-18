@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { platform } from '../../platform';
 import type { WorkRecordDate } from '../../shared/work-tasks-ipc';
 import { navigateToRegistryEntity } from '../lims/public/registry-presentation';
@@ -19,12 +19,14 @@ export function useWorkRecordDates(root?: string) {
   const account = useWorkAccount();
   const key = JSON.stringify([root, account]);
   const [attempt, setAttempt] = useState(0);
+  const refresh = useCallback(() => setAttempt((n) => n + 1), []);
   const [snapshot, setSnapshot] = useState<{
     key: string;
     rows: WorkRecordDate[];
+    snapshotId?: string;
     error?: string;
   }>();
-  useEffect(() => observeWorkChanges(() => setAttempt((n) => n + 1)), []);
+  useEffect(() => observeWorkChanges(refresh), [refresh]);
   useEffect(() => {
     if (!root) return;
     let active = true;
@@ -32,12 +34,16 @@ export function useWorkRecordDates(root?: string) {
       try {
         const rows: WorkRecordDate[] = [];
         let offset: number | null = 0;
+        let snapshotId: string | undefined;
         while (active && offset !== null) {
           const result = await platform().workTasks.dates({
             workspaceRoot: root,
             offset,
             limit: 100,
           });
+          if (offset === 0) snapshotId = result.snapshotId;
+          else if (!snapshotId || result.snapshotId !== snapshotId)
+            throw new Error('Record dates changed while loading. Refresh to try again.');
           if (result.nextOffset !== null && result.nextOffset <= offset)
             throw new Error('Record dates changed while loading. Refresh to try again.');
           rows.push(...result.rows);
@@ -46,6 +52,7 @@ export function useWorkRecordDates(root?: string) {
         if (active)
           setSnapshot({
             key,
+            snapshotId,
             rows: [...new Map(rows.map((row) => [row.id, row])).values()].sort((a, b) =>
               a.status === 'unresolved'
                 ? b.status === 'unresolved'
@@ -70,7 +77,9 @@ export function useWorkRecordDates(root?: string) {
       active = false;
     };
   }, [key, root, attempt]);
-  return snapshot?.key === key ? snapshot : { rows: [], error: undefined };
+  const view: { rows: WorkRecordDate[]; error?: string; snapshotId?: string } =
+    snapshot?.key === key ? snapshot : { rows: [] };
+  return { ...view, refresh };
 }
 
 export function WorkRecordDateAgenda({ rows }: { rows: WorkRecordDate[] }) {

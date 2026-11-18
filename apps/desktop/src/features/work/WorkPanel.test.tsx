@@ -452,4 +452,21 @@ describe('linked work', () => {
     expect(screen.queryByText('No tasks assigned to you.')).toBeNull();
     expect(client.query).toHaveBeenCalledWith(expect.objectContaining({ assignee: 'me' }));
   });
+  it.each(['tasks', 'record dates'])(
+    'rejects pages from different snapshots for %s',
+    async (kind) => {
+      const page = { actor, projects: [project], now, total: 101, unavailable: [] };
+      if (kind === 'tasks') {
+        client.query
+          .mockResolvedValueOnce({ ...page, tasks: [], nextOffset: 100, snapshotId: 'before' })
+          .mockResolvedValueOnce({ ...page, tasks: [], nextOffset: null, snapshotId: 'after' });
+      } else {
+        client.dates
+          .mockResolvedValueOnce({ rows: [], total: 101, nextOffset: 100, snapshotId: 'before' })
+          .mockResolvedValueOnce({ rows: [], total: 101, nextOffset: null, snapshotId: 'after' });
+      }
+      render(<WorkPanel mode="project" workspaceRoot={project.root} />);
+      expect(await screen.findByText(/changed while loading/)).toBeVisible();
+    }
+  );
 });
