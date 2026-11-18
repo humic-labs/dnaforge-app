@@ -258,6 +258,9 @@ export const browserMockBridge: PlatformBridge = {
     onOpen: () => () => undefined,
   },
   workTasks: {
+    assignees: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
     occurrences: async () => {
       throw new Error('Project work is unavailable in this workspace.');
     },

@@ -35,9 +35,11 @@ export function workSourceReader(
       const spec =
         source.role === 'deadline'
           ? task.deadline
-          : source.role === 'plan'
+          : source.role === 'plan' || source.role === 'plan-start'
             ? task.plan?.start
-            : null;
+            : source.role === 'plan-end'
+              ? task.plan?.end
+              : null;
       return spec && row
         ? { kind: 'resolved', spec, revisionId: row.revisionId }
         : { kind: 'missing' };

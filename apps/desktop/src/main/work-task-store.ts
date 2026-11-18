@@ -45,6 +45,7 @@ import {
 } from './work-task-projects';
 import { assertWorkLink, workSourceReader } from './work-task-sources';
 import { scientificWorkTaskSlots } from './scientific-work-task-slots';
+import { authorizeWorkAssignee } from './work-task-assignees';
 import { ScientificObjectStore } from './scientific-object-store';
 import { submitScientificObjectInMain } from './scientific-object-commands';
 import { withWorkspaceSyncDatabaseFence } from './workspace-sync-database-fence';
@@ -307,7 +308,10 @@ function prepare(
       actor,
       now,
       readSource: workSourceReader(db, project, base.reader),
-      canAssign: (value) => value.kind === project.actor.kind && value.id === project.actor.id,
+      canAssign: (value) =>
+        input.command.kind === 'create' || input.command.kind === 'edit'
+          ? input.command.assignee?.kind === value.kind && input.command.assignee.id === value.id
+          : false,
     });
   } catch (error) {
     return workRefused(error instanceof Error ? error.message : 'The task command is invalid.');
@@ -358,13 +362,18 @@ export async function mutateWorkTask(
   const operation = parseOperationId(input.operationId);
   if (!operation.ok || !parseResourceId(input.taskId).ok)
     return workRefused('Invalid task or operation identity.');
+  const store = new ScientificObjectStore(db, project.workspaceId);
+  if (
+    !hasOperationReceipt(store.read().graph, operation.value) &&
+    (input.command.kind === 'create' || input.command.kind === 'edit')
+  )
+    await authorizeWorkAssignee(db, project, input.command.assignee);
   if (input.command.kind === 'create' && input.expectedRevisionId === null)
     await enroll(db, project, renderer);
   const original = await withWorkspaceSyncDatabaseFence(db, async () => {
     assertWorkProjectAtAcceptance(db, project, true);
     return db.transaction(() => prepare(db, project, input)).immediate();
   });
-  const store = new ScientificObjectStore(db, project.workspaceId);
   const beforeAccept = () => {
     assertWorkProjectAtAcceptance(db, project, true);
     const base = store.read();

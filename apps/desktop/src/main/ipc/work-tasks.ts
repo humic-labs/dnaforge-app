@@ -9,6 +9,7 @@ import {
   workTaskOccurrences,
 } from '../work-task-store';
 import { withRendererDatabaseRead } from '../workspace-sync-database-fence';
+import { workAssigneeListing } from '../work-task-assignees';
 import { getDb } from './database';
 
 export function registerWorkTaskHandlers(resolveDb: () => Database.Database = getDb): void {
@@ -16,6 +17,12 @@ export function registerWorkTaskHandlers(resolveDb: () => Database.Database = ge
     query: (event, input) => {
       const db = resolveDb();
       return withRendererDatabaseRead(db, event.sender, () => queryWorkTasks(db, input));
+    },
+    assignees: (event, input) => {
+      const db = resolveDb();
+      return withRendererDatabaseRead(db, event.sender, () =>
+        workAssigneeListing(db, input.workspaceRoot)
+      );
     },
     occurrences: (event, input) => {
       const db = resolveDb();

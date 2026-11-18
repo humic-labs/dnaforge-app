@@ -7,6 +7,11 @@ import type {
 } from '@waypoint/domain-services';
 import type { ScientificWorkspaceSubmitResult } from '@waypoint/domain-services';
 
+export interface WorkAssigneeListing {
+  status: 'local' | 'verified' | 'unavailable';
+  members: { principal: WorkAssignee; label: string }[];
+}
+
 export interface WorkProject {
   id: string;
   workspaceId: number;
