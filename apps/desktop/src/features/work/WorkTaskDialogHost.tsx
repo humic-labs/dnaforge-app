@@ -244,6 +244,7 @@ function TaskEditor({
   }, []);
 
   const recoveryRevision = useRef(loaded.recovery?.revision ?? record?.revisionId ?? null);
+  const notebookPlacement = loaded.recovery?.notebookPlacement ?? context?.notebookPlacement;
   function remember(
     value: TaskDraft,
     intent: WorkTaskMutation | null,
@@ -253,6 +254,7 @@ function TaskEditor({
     writeWorkRecovery(loaded.recoveryKey, {
       taskId,
       workspaceRoot: root,
+      ...(notebookPlacement ? { notebookPlacement } : {}),
       revision: recoveryRevision.current,
       base: baseline,
       draft: value,
@@ -401,7 +403,9 @@ function TaskEditor({
       setNotice(
         result.submission.delivery?.kind === 'blocked'
           ? 'Task saved. File delivery needs attention. ' + result.submission.delivery.error
-          : 'Saved'
+          : result.notebookPlacement
+            ? 'Task saved. Return to the notebook to check its reference.'
+            : 'Saved'
       );
       window.dispatchEvent(new Event(WORK_TASK_CHANGED));
     } catch (cause) {
@@ -449,6 +453,7 @@ function TaskEditor({
       operationId: crypto.randomUUID(),
       expectedRevisionId: record?.revisionId ?? null,
       command,
+      ...(command.kind === 'create' && notebookPlacement ? { notebookPlacement } : {}),
     });
   }
   function save() {
@@ -459,6 +464,7 @@ function TaskEditor({
       const links = context?.subjectIds?.map((resourceId) => ({
         projectId: project.id,
         resourceId,
+        ...(resourceId === notebookPlacement?.documentId ? { role: 'notebook' } : {}),
       }));
       submit(
         record

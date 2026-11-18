@@ -2,6 +2,7 @@ import type { WorkTaskMutation } from '../../shared/work-tasks-ipc';
 import type { TaskDraft } from './task-form';
 
 export interface WorkEditRecovery {
+  notebookPlacement?: WorkTaskMutation['notebookPlacement'];
   workspaceRoot: string;
   taskId: string;
   revision: string | null;

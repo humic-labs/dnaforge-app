@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { WorkNotebookPlacement } from '../../shared/work-task-reference';
 import type { WorkTaskInspection } from '../../shared/work-tasks-ipc';
 
 export interface NewTaskContext {
@@ -7,6 +8,7 @@ export interface NewTaskContext {
   subjectIds?: string[];
   subjectName?: string;
   initialName?: string;
+  notebookPlacement?: WorkNotebookPlacement;
 }
 type Request =
   | { kind: 'open'; target: WorkTaskInspection; occurrenceSlot?: string }

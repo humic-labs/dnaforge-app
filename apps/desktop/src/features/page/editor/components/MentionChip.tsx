@@ -4,6 +4,8 @@ import { memo, useCallback, useMemo } from 'react';
 import { EntityReferenceChip } from '../../../../components/entity-reference/EntityReferenceChip';
 import { iconForEntityKind } from '../../../../components/icons/entity-icon-registry';
 import { readMentionReference } from '../../../../shared/notebook-reference';
+import { parseWorkTaskReferenceHref } from '../../../../shared/work-task-reference';
+import { WorkTaskReferenceChip } from './WorkTaskReferenceChip';
 import { SavedReferenceChip } from './SavedReferenceChip';
 import { ProjectResourceReferenceChip } from './ProjectResourceReferenceChip';
 import { isProjectResourceReferenceHref } from '../../../../shared/project-resource-reference';
@@ -126,6 +128,8 @@ function WorkspaceMentionChip({ node, extension }: NodeViewProps) {
 }
 
 function MentionChipInner(props: NodeViewProps) {
+  const task = parseWorkTaskReferenceHref(props.node.attrs.referenceUri);
+  if (task) return <WorkTaskReferenceChip {...props} reference={task} />;
   if (
     props.node.attrs.entityType === 'project-resource' ||
     (typeof props.node.attrs.referenceUri === 'string' &&
