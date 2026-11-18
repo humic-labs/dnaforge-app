@@ -1,3 +1,4 @@
+import { WorkPanel } from '../features/work/public/work';
 import { APP_BUILD } from '../lib/app-build';
 import { userEntityLabel, toUserMessage, userMessage } from '@waypoint/user-messages';
 import { installedReleaseVersion } from '../shared/app-build-identity';
@@ -218,6 +219,8 @@ export function HomePanel({
               </button>
             ) : null}
           </div>
+
+          <WorkPanel mode="mine" />
 
           {(hasOpenTabs || hasRecentlyEdited) && (
             <div

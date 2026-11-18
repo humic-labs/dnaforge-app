@@ -1,3 +1,4 @@
+import { WorkPanel } from '../features/work/public/work';
 import { useEffect, useState } from 'react';
 import type { GitLogEntry } from '../features/workspace/git';
 import { gitWorkspaceLog } from '../features/workspace/git';
@@ -146,6 +147,9 @@ export function ProjectHome({
           </aside>
 
           <section className="min-w-0 overflow-y-auto p-4">
+            <div className="mb-6">
+              <WorkPanel key={project.repoPath} mode="project" workspaceRoot={project.repoPath} />
+            </div>
             <div className="mb-3 flex items-center gap-2">
               <HistoryIcon />
               <h2 className="text-sm font-semibold text-fg">Project History</h2>
