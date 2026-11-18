@@ -1021,6 +1021,9 @@ importers:
       '@waypoint/scientific-objects':
         specifier: workspace:*
         version: link:../scientific-objects
+      '@waypoint/sequence-utils':
+        specifier: workspace:*
+        version: link:../sequence-utils
       '@waypoint/workspace-revisions':
         specifier: workspace:*
         version: link:../workspace-revisions
