@@ -8,6 +8,8 @@ import {
   realpathSync,
   statSync,
 } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -445,11 +447,13 @@ const WINDOWS_VERSION_ENV_KEYS = [
 ] as const;
 
 export function buildCodexAppServerVersionCheckEnv(
+  isolatedHome: string,
   hostEnv: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform as NodeJS.Platform
 ): NodeJS.ProcessEnv {
-  const childEnv: NodeJS.ProcessEnv = { PATH: '' };
+  const childEnv: NodeJS.ProcessEnv = { PATH: '', HOME: isolatedHome, CODEX_HOME: isolatedHome };
   if (platform !== 'win32') return childEnv;
+  childEnv.USERPROFILE = isolatedHome;
 
   const hostEntries = Object.entries(hostEnv);
   for (const name of WINDOWS_VERSION_ENV_KEYS) {
@@ -466,10 +470,12 @@ export async function verifyCodexAppServerVersion(
   timeoutMs = 10_000
 ): Promise<void> {
   let stdout: string;
+  let isolatedHome: string | undefined;
   try {
+    isolatedHome = await mkdtemp(path.join(tmpdir(), 'dnaforge-codex-version-'));
     const result = await execFileAsync(binary.path, ['--version'], {
       timeout: timeoutMs,
-      env: buildCodexAppServerVersionCheckEnv(),
+      env: buildCodexAppServerVersionCheckEnv(isolatedHome),
     });
     stdout = result.stdout;
   } catch (cause) {
@@ -479,6 +485,8 @@ export async function verifyCodexAppServerVersion(
         cause instanceof Error ? cause.message : String(cause)
       }`
     );
+  } finally {
+    if (isolatedHome) await rm(isolatedHome, { recursive: true, force: true });
   }
 
   const trimmed = stdout.trim();

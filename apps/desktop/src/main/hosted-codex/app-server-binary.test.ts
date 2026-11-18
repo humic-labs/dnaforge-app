@@ -3,8 +3,10 @@ import {
   accessSync,
   chmodSync,
   constants,
+  existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -432,7 +434,9 @@ describe('verifyCodexAppServerVersion', () => {
   });
 
   it('keeps required Windows system variables without inheriting user overrides', () => {
+    const isolatedHome = 'C:\\Temp\\owned-version-check';
     const env = buildCodexAppServerVersionCheckEnv(
+      isolatedHome,
       {
         PATH: 'C:\\untrusted',
         CODEX_HOME: 'C:\\secret',
@@ -447,14 +451,47 @@ describe('verifyCodexAppServerVersion', () => {
 
     expect(env).toEqual({
       PATH: '',
+      HOME: isolatedHome,
+      CODEX_HOME: isolatedHome,
+      USERPROFILE: isolatedHome,
       SystemRoot: 'C:\\Windows',
       WINDIR: 'C:\\Windows',
       TEMP: 'C:\\Temp',
       COMSPEC: 'C:\\Windows\\System32\\cmd.exe',
     });
-    expect(env).not.toHaveProperty('CODEX_HOME');
     expect(env).not.toHaveProperty('NODE_OPTIONS');
   });
+
+  it.each([0, 1])(
+    'provides a private, temporary CLI home and removes it after exit %d',
+    async (code) => {
+      const binary = makeExecutableScript(
+        tmp,
+        'codex',
+        [
+          '#!/bin/sh',
+          '[ -n "$CODEX_HOME" ] && [ "$CODEX_HOME" = "$HOME" ] && [ -d "$CODEX_HOME" ] || exit 2',
+          'printf "%s" "$CODEX_HOME" > "$0.home"',
+          'printf "temporary" > "$CODEX_HOME/version-check"',
+          'echo "codex-cli 0.148.0"',
+          `exit ${code}`,
+        ].join('\n')
+      );
+      const result = verifyCodexAppServerVersion({
+        path: binary,
+        version: '0.148.0',
+        versionOutput: 'codex-cli 0.148.0',
+        triple: 'aarch64-apple-darwin',
+        packageVersion: '0.148.0-darwin-arm64',
+        sha256: 'dummy',
+      });
+      if (code === 0) await result;
+      else await expect(result).rejects.toThrow(/failed to run/);
+      const observed = readFileSync(binary + '.home', 'utf8');
+      expect(path.dirname(observed)).toBe(os.tmpdir());
+      expect(existsSync(observed)).toBe(false);
+    }
+  );
 
   it('accepts the exact expected --version output', async () => {
     const body = '#!/bin/sh\necho "codex-cli 0.148.0"\n';
