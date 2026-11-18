@@ -2297,6 +2297,44 @@ describe('MolstarViewer — Electron E2E stub', () => {
     }
   });
 
+  it('keeps the saved scene current when its underlying display recipe changes during activation', async () => {
+    const rendererHostId = 'pane:loading-saved-view';
+    const cached = seedCachedViewer(getPaneRendererHostCacheKey(rendererHostId), 'saved-pane');
+    cached.loadedStructureKey = 'provider:RCSB:1AAA:ENTRY';
+    const scene = JSON.stringify({ root: { kind: 'root' }, metadata: { version: '1' } });
+    let finish!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const load = vi
+      .spyOn(molViewSpecRuntime, 'loadMolViewSpecScene')
+      .mockImplementation(async () => {
+        await pending;
+      });
+    const bindAssets = vi
+      .spyOn(molViewSpecRuntime, 'bindMolViewSpecPinnedAssets')
+      .mockImplementation(() => {});
+    const props = { pdbId: '2BBB', rendererHostId, height: 240, molViewSpec: scene };
+    const host = render(<MolstarViewer {...props} view={recipeView(createCartoonRecipe())} />);
+    try {
+      await waitFor(() => expect(load).toHaveBeenCalled());
+      const isCurrent = load.mock.calls[0]![2]!;
+      expect(isCurrent()).toBe(true);
+      host.rerender(<MolstarViewer {...props} view={recipeView(createSurfaceRecipe())} />);
+      expect(isCurrent()).toBe(true);
+      host.unmount();
+      expect(isCurrent()).toBe(false);
+    } finally {
+      host.unmount();
+      await act(async () => {
+        finish();
+        await pending;
+      });
+      load.mockRestore();
+      bindAssets.mockRestore();
+    }
+  });
+
   it('restores a saved story camera for a fresh tab while preserving the same live tab camera on reattachment', async () => {
     const rendererHostId = 'pane:saved-camera-reopen';
     const cacheKey = getPaneRendererHostCacheKey(rendererHostId);

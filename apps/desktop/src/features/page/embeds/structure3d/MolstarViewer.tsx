@@ -801,7 +801,7 @@ const MolstarViewerComponent: React.FC<MolstarViewerProps> = ({
       setViewerError(null);
     }
 
-    const revealCachedViewer = async (currentCached: CachedViewer) => {
+    const revealCachedViewer = async (currentCached: CachedViewer): Promise<void> => {
       const requiresPaneActivation =
         !!rendererHostId && currentCached.loadedStructureKey !== structureKey;
       if (
@@ -822,8 +822,14 @@ const MolstarViewerComponent: React.FC<MolstarViewerProps> = ({
         viewerCacheKey,
         renderPlanApplyKeySet
       );
-      const isCurrentRevealPlan = () =>
-        isCurrentLoad() && isLatestRevealPlanKeysForViewerCacheKey(viewerCacheKey, revealPlanKeys);
+      const savedScene = molViewSpecRef.current;
+      const matchesCurrentAppearance = () =>
+        molViewSpecRef.current === savedScene &&
+        (!!savedScene || isLatestRevealPlanKeysForViewerCacheKey(viewerCacheKey, revealPlanKeys));
+      const isCurrentRevealPlan = () => isCurrentLoad() && matchesCurrentAppearance();
+      const revealUpdatedAppearance = () => {
+        if (isCurrentLoad() && !matchesCurrentAppearance()) void revealCachedViewer(currentCached);
+      };
       const applyPlanBeforeReveal = async (
         trackedOverlayRefs: string[],
         isCurrent = isCurrentRevealPlan
@@ -899,15 +905,20 @@ const MolstarViewerComponent: React.FC<MolstarViewerProps> = ({
               if (isCurrentLoad()) onSlowLoadRef.current?.();
             },
           });
-          if (activation.status === 'stale' || !isCurrentRevealPlan()) return;
+          if (activation.status === 'stale' || !isCurrentRevealPlan()) {
+            revealUpdatedAppearance();
+            return;
+          }
           if (
             !(await runPaneSceneOperation(
               currentCached,
               (token) => applyPlanBeforeReveal([], token),
               isCurrentRevealPlan
             ))
-          )
+          ) {
+            revealUpdatedAppearance();
             return;
+          }
         } else {
           wasRestoredFromCacheRef.current = true;
           if (
@@ -916,11 +927,16 @@ const MolstarViewerComponent: React.FC<MolstarViewerProps> = ({
               (token) => applyPlanBeforeReveal(surfaceOverlayRefsRef.current, token),
               isCurrentRevealPlan
             ))
-          )
+          ) {
+            revealUpdatedAppearance();
             return;
+          }
         }
       } catch (err) {
-        if (isMolstarRenderPlanApplyCancelledError(err)) return;
+        if (isMolstarRenderPlanApplyCancelledError(err)) {
+          revealUpdatedAppearance();
+          return;
+        }
         const message =
           err instanceof Error ? err.message : 'Failed to activate cached Mol* structure';
         handleCachedError(message);
@@ -931,6 +947,7 @@ const MolstarViewerComponent: React.FC<MolstarViewerProps> = ({
         !isCurrentRevealPlan() ||
         (rendererHostId && currentCached.loadedStructureKey !== structureKey)
       ) {
+        revealUpdatedAppearance();
         return;
       }
       if (wrapperRef.current) {

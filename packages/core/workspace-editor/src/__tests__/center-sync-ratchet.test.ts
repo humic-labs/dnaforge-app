@@ -126,3 +126,24 @@ describe(' inverse SSOT: getScrollYForSequencePosition round-trips with the forw
     }
   });
 });
+
+it('keeps the circular origin centered when the browser rounds fractional scroll offsets', () => {
+  const layout = computeSequenceLayoutImpl(
+    {
+      id: 'circular',
+      name: 'Circular',
+      sequence: 'A'.repeat(2686),
+      length: 2686,
+      annotations: [],
+      circular: true,
+    },
+    { ...DEFAULT_EDITOR_CONFIG, charsPerLine: 80 },
+    205,
+    6
+  );
+  const y = getScrollYForSequencePosition(0, layout, true, 'center')!;
+  for (const viewportHeight of [400, 401]) {
+    const scrollTop = Math.round(y - viewportHeight / 2);
+    expect(getSequencePositionAtScrollY(scrollTop + viewportHeight / 2, layout)).toBe(0);
+  }
+});
