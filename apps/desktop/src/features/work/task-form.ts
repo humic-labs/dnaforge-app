@@ -12,6 +12,7 @@ export interface DateDraft {
   time: string;
   zone: string;
   fold: '' | 'earlier' | 'later';
+  retained?: WorkTime;
   relative?: Extract<WorkDateSpec, { kind: 'relative' }>;
 }
 
@@ -21,19 +22,41 @@ export function dateDraft(spec?: WorkDateSpec | null): DateDraft {
   const date = value?.kind === 'day' ? value.date : (value?.local.slice(0, 10) ?? '');
   const time = value?.kind === 'timed' ? value.local.slice(11) : '';
   let fold: DateDraft['fold'] = '';
+  let retained: WorkTime | undefined;
   if (value?.kind === 'timed') {
     const input = { kind: 'timed', local: value.local, zone } as const;
-    const first = workTimeFromInput({ ...input, fold: 'earlier' });
-    const last = workTimeFromInput({ ...input, fold: 'later' });
-    if (first.kind === 'timed' && last.kind === 'timed' && first.instant !== last.instant) {
-      fold = value.instant === first.instant ? 'earlier' : 'later';
+    try {
+      const first = workTimeFromInput({ ...input, fold: 'earlier' });
+      const last = workTimeFromInput({ ...input, fold: 'later' });
+      if (first.kind === 'timed' && last.kind === 'timed') {
+        if (value.instant !== first.instant && value.instant !== last.instant) retained = value;
+        else if (first.instant !== last.instant)
+          fold = value.instant === first.instant ? 'earlier' : 'later';
+      }
+    } catch {
+      retained = value;
     }
   }
-  return { date, time, zone, fold, ...(spec?.kind === 'relative' ? { relative: spec } : {}) };
+  return {
+    date,
+    time,
+    zone,
+    fold,
+    ...(retained ? { retained } : {}),
+    ...(spec?.kind === 'relative' ? { relative: spec } : {}),
+  };
 }
 
 export function fieldDate(draft: DateDraft): WorkDateSpec | null {
   if (draft.relative) return draft.relative;
+  const retained = draft.retained;
+  if (
+    retained?.kind === 'timed' &&
+    retained.local.slice(0, 10) === draft.date &&
+    retained.local.slice(11) === draft.time &&
+    retained.zone === draft.zone
+  )
+    return { kind: 'fixed', value: retained };
   if (!draft.date && !draft.time) return null;
   const value = workTimeFromInput(
     draft.time

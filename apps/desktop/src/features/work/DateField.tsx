@@ -15,7 +15,8 @@ export function DateField({
   change(value: DateDraft): void;
 }) {
   const id = useId();
-  const update = (patch: Partial<DateDraft>) => change({ ...value, fold: '', ...patch });
+  const update = (patch: Partial<DateDraft>) =>
+    change({ ...value, retained: undefined, fold: '', ...patch });
   let ambiguous = false;
   if (value.date && value.time && value.zone) {
     const input = {
@@ -82,6 +83,11 @@ export function DateField({
             </label>
           )}
         </details>
+      )}
+      {value.retained && (
+        <p className="text-xs text-fg-muted">
+          This saved time uses earlier time-zone rules. Editing it applies current rules.
+        </p>
       )}
     </div>
   );
