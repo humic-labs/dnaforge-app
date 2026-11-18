@@ -1,9 +1,11 @@
+import { ENTITY_ARTIFACT_CURRENT_SCHEMA, parseEntityArtifact } from '../shared/entity-artifact';
 import { parseLimsTemporalField } from '@waypoint/scientific-artifacts/shared/lims-temporal';
 import type Database from 'better-sqlite3';
 import {
   classifyLegacyWorkDate,
   type WorkLink,
   type WorkSourceReader,
+  type WorkSourceValue,
   type WorkTaskDocument,
 } from '@waypoint/domain-services';
 import type { ScientificReader } from '@waypoint/scientific-objects';
@@ -45,6 +47,26 @@ function pinnedRegistryRecord(db: Database.Database, row: LimsEntityRow, revisio
   };
 }
 
+function registryDateValue(
+  fields: Record<string, unknown>,
+  definition: { key: string; type: string; agenda?: { zone?: string } } | undefined,
+  zone: string | undefined,
+  revisionId: string
+): WorkSourceValue {
+  if (!definition || (definition.type !== 'date' && definition.type !== 'datetime'))
+    return { kind: 'unsupported' };
+  const raw = fields[definition.key];
+  const parsed =
+    definition.type === 'datetime'
+      ? parseLimsTemporalField('datetime', raw)
+      : classifyLegacyWorkDate(raw, zone ?? definition.agenda?.zone ?? '');
+  return parsed.kind === 'exact'
+    ? { kind: 'resolved', spec: { kind: 'fixed', value: parsed.value }, revisionId }
+    : parsed.kind === 'missing'
+      ? { kind: 'missing' }
+      : { kind: 'unresolved' };
+}
+
 export function workSourceReader(
   db: Database.Database,
   project: WorkProject,
@@ -55,27 +77,61 @@ export function workSourceReader(
     if (source.projectId !== project.id) return { kind: 'denied' };
     const id = parseResourceId(source.resourceId);
     const pin = source.revisionId ? parseResourceRevisionId(source.revisionId) : null;
-    const row = !id.ok
-      ? null
-      : pin
-        ? pin.ok
-          ? reader.revision({ resourceId: id.value, revisionId: pin.value })
-          : null
-        : reader.current(id.value);
+    const current = id.ok ? reader.current(id.value) : null;
+    const row =
+      id.ok && pin?.ok
+        ? reader.revision({ resourceId: id.value, revisionId: pin.value })
+        : pin
+          ? null
+          : current;
+    if (source.revisionId && (current || pin?.ok) && !row) return { kind: 'unavailable' };
     const task =
       pending?.id === source.resourceId && !source.revisionId ? pending.document : row?.document;
     if (task?.kind === 'work-task') {
-      const spec =
+      const role =
         source.role === 'deadline'
-          ? task.deadline
+          ? 'deadline'
           : source.role === 'plan' || source.role === 'plan-start'
-            ? task.plan?.start
+            ? 'start'
             : source.role === 'plan-end'
-              ? task.plan?.end
+              ? 'end'
               : null;
-      return spec && row
-        ? { kind: 'resolved', spec, revisionId: row.revisionId }
-        : { kind: 'missing' };
+      if (!role || !row) return { kind: 'missing' };
+      const frozen = (task.completion?.schedule ?? task.cancellation?.schedule)?.[role];
+      if (frozen)
+        return frozen.kind === 'resolved'
+          ? {
+              kind: 'resolved',
+              spec: { kind: 'fixed', value: frozen.value },
+              revisionId: row.revisionId,
+            }
+          : { kind: frozen.kind };
+      const spec = role === 'deadline' ? task.deadline : task.plan?.[role];
+      return spec ? { kind: 'resolved', spec, revisionId: row.revisionId } : { kind: 'missing' };
+    }
+    if (row) {
+      if (row.representation?.format !== 'strain-entity-v1' || !current)
+        return { kind: 'unsupported' };
+      try {
+        const artifact = parseEntityArtifact(row.representation.text);
+        if (artifact.id !== source.resourceId || artifact.schema !== ENTITY_ARTIFACT_CURRENT_SCHEMA)
+          return { kind: 'unsupported' };
+        if (
+          artifact.archived ||
+          (current !== row &&
+            current.representation?.format === 'strain-entity-v1' &&
+            parseEntityArtifact(current.representation.text).archived)
+        )
+          return { kind: 'archived' };
+        return registryDateValue(
+          artifact.fields,
+          artifact.schemaSnapshot.fields.find((f) => f.key === source.role),
+          source.zone,
+          row.revisionId
+        );
+      } catch {
+        return { kind: 'unavailable' };
+      }
     }
     const entity = db
       .prepare('SELECT * FROM lims_entity WHERE id=? AND workspace_id=?')
@@ -95,18 +151,7 @@ export function workSourceReader(
       getSchemaRevisionForEntity(db, { ...entity, schema_revision_id: target.schemaRevisionId })
         .fieldsJson
     ).fields.find((f) => f.key === source.role);
-    if (!definition || (definition.type !== 'date' && definition.type !== 'datetime'))
-      return { kind: 'unsupported' };
-    const raw = target.fields[definition.key];
-    const legacy =
-      definition.type === 'datetime'
-        ? parseLimsTemporalField('datetime', raw)
-        : classifyLegacyWorkDate(raw, source.zone ?? definition.agenda?.zone ?? '');
-    return legacy.kind === 'exact'
-      ? { kind: 'resolved', spec: { kind: 'fixed', value: legacy.value }, revisionId }
-      : legacy.kind === 'missing'
-        ? { kind: 'missing' }
-        : { kind: 'unresolved' };
+    return registryDateValue(target.fields, definition, source.zone, revisionId);
   };
 }
 

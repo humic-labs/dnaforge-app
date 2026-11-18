@@ -46,6 +46,7 @@ import type {
 } from '../shared/work-tasks-ipc';
 import {
   assertWorkProjectAtAcceptance,
+  assertWorkOutcomeReadable,
   publicWorkProject,
   visibleWorkProjects,
   workProfile,
@@ -439,7 +440,7 @@ export async function mutateWorkTask(
     },
     { ...(renderer ? { renderer } : {}), beforeAccept, workTaskCommand: true }
   );
-  assertWorkProjectAtAcceptance(db, project, false);
+  assertWorkOutcomeReadable(db, project);
   const accepted = submission.accepted;
   if (!accepted) return { task: null, submission };
   const { reader } = store.read();

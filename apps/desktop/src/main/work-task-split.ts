@@ -17,7 +17,11 @@ import type { WorkTaskSplitRequest, WorkTaskSplitResult } from '../shared/work-t
 import { ScientificObjectStore } from './scientific-object-store';
 import { scientificNativeCodecs } from './scientific-native-codecs';
 import { submitScientificObjectInMain } from './scientific-object-commands';
-import { assertWorkProjectAtAcceptance, workRefused } from './work-task-projects';
+import {
+  assertWorkOutcomeReadable,
+  assertWorkProjectAtAcceptance,
+  workRefused,
+} from './work-task-projects';
 import { projectFor, workTaskResultRow } from './work-task-store';
 import { authorizeWorkAssignee } from './work-task-assignees';
 import { workSourceReader, assertWorkLink } from './work-task-sources';
@@ -167,7 +171,7 @@ export async function splitProjectWorkTask(
       ...(renderer ? { renderer } : {}),
     }
   );
-  assertWorkProjectAtAcceptance(db, project, false);
+  assertWorkOutcomeReadable(db, project);
   if (!submission.accepted) return { task: null, successor: null, submission };
   const head = parseWorkspaceVersionId(submission.accepted.workspaceVersionId);
   if (!head.ok) throw new Error('Accepted series version is unavailable.');

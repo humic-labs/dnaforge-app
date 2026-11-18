@@ -131,3 +131,13 @@ export function assertWorkProjectAtAcceptance(
       workRefused('Project access changed.');
   } else if (row.owner_account_id !== null) workRefused('Project ownership changed.');
 }
+
+export function assertWorkOutcomeReadable(db: Database.Database, project: WorkProjectAccess) {
+  try {
+    assertWorkProjectAtAcceptance(db, project, false);
+  } catch {
+    throw new Error(
+      'WORK_TASK_OUTCOME_UNAVAILABLE: Project access changed before the result could be returned.'
+    );
+  }
+}
