@@ -491,9 +491,9 @@ export function useFileBrowser(
         }
         return isCurrent();
       } catch (err) {
-        console.error('Failed to read workspace directory:', err);
         if (isCurrent()) {
           options?.beforePublish?.();
+          console.error('Failed to read workspace directory:', err);
           setProjectTreeReceipt({ lifecycle, phase: 'tree_failed' });
           setError(toUserMessage(err, 'failure.failed-to-read-directory'));
           entriesRef.current = [];

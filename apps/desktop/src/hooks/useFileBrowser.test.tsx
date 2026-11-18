@@ -1010,6 +1010,7 @@ describe('post-reconstruction display delivery', () => {
           report = await delivery;
         });
         expect(report!.errors).toEqual([]);
+        expect(consoleError).not.toHaveBeenCalled();
         expect(view.result.current.entries.map((entry) => entry.path)).toEqual([
           '/other/current.txt',
         ]);
