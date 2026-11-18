@@ -839,6 +839,79 @@ source and creation anchors. Protocol and Run creation have no inventory effect;
 an operator records a completed manual transfer through the existing inventory
 observation owner.
 
+## Protocol declarations and typed Run values
+
+Protocol input/output declarations describe intended values. A Run freezes the
+saved definition but starts with actual values absent. Recording a value is an
+explicit edit. Missing values remain Not recorded; numeric zero, No and an
+explicit empty text value retain their different meanings. Required declarations
+do not automatically fill values, complete the Run or prove an experiment
+worked.
+
+`editProtocolDeclarations` and `recordRunValues` use the existing native package
+owner. Their ordered upserts target exact collection/key identities. Existing
+rows keep their order; new rows append. Omission never deletes a row or renames
+a key. Unknown members and unsupported imported values remain intact. The first
+editor supports Text, Number, Yes or no, and Date and time. Existing saved types
+are fixed; quantity, record, attachment and sequence fields remain read only in
+these controls.
+
+Declared Run values pin the exact frozen definition and matching direction/key
+type. Values added for that Run stay local actuals and cannot shadow a declared
+key. Measurements are independent typed values. Their native recording time is
+separate from any user-supplied date value and does not assert an assay time.
+Unchanged measurements keep their original timestamp. A later Protocol edit does
+not retarget existing Run values or replace their frozen declarations.
+
+```mermaid
+stateDiagram-v2
+    [*] --> CleanSaved
+    CleanSaved --> LocalDraft: explicitly open editor
+    LocalDraft --> InvalidDraft: invalid typed value or key
+    InvalidDraft --> LocalDraft: correct input
+    LocalDraft --> CleanSaved: cancel, no write
+    LocalDraft --> RetainedAttempt: prepare exact typed request
+    RetainedAttempt --> Sending: explicit Save
+    Sending --> OriginalReady: native historical result
+    Sending --> OutcomeUnknown: acknowledgement unavailable
+    Sending --> PublishedPending: native repair incomplete
+    OutcomeUnknown --> OriginalReady: inspect or retry same request
+    PublishedPending --> OriginalReady: recover original publication
+    OriginalReady --> CleanSaved: read current source and lifecycle adopts
+```
+
+The two purpose commands use an explicit native package receipt2. Receipt1 and
+its existing creation/save/recovery meanings stay unchanged. Receipt2 retains
+the complete request, original source, native actor/time and validated output at
+Prepared before file publication. Pure validation before Prepared has no file
+effect. There is no separate accepted-only durable phase. Publication and
+catalog repair use the existing recovery owner; they are separate effects.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Prepared: exact request, base and output retained
+    Prepared --> PublishedCatalogPending: exact output published or recovered
+    PublishedCatalogPending --> Ready: matching event and binding committed
+    Prepared --> RecoveryBlocked: authority or original-file conflict
+    PublishedCatalogPending --> RecoveryBlocked: repair unavailable
+    RecoveryBlocked --> Ready: recover same original result
+    Prepared --> Ready: unchanged, no file or catalog event
+    Ready --> Ready: exact request retry preserves historical result
+```
+
+Retry lookup precedes reading today's source or producing another output. A
+changed request under the same identity conflicts. Recovery preserves the
+original recording timestamp and cannot overwrite later edits or recreate a
+removed file. The original saved result remains separate from current file
+availability. Ordinary Save and both editors share the same pending operation
+owner for a document; an unknown outcome cannot be discarded by closing an
+editor.
+
+These edits preserve Protocol/Run v1 source parsing and inventory witness
+semantics. They write no stock, inventory history or physical observation.
+Run-level typed results do not establish exact aliquot attribution, instrument
+evidence, a newly synthesized material or scientific success.
+
 ## Physical custody and observations
 
 Custody is independent of quality, quantity, reservation and lifecycle. Each

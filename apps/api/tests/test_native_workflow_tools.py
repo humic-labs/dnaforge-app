@@ -508,6 +508,38 @@ async def test_inventory_work_query_keeps_context_cursor_and_only_current_read_g
 
 
 @pytest.mark.asyncio
+async def test_protocol_typed_edits_keep_exact_choices_and_need_current_write(native):
+    state, context = native
+    for kind in ("edit-protocol-declarations", "record-run-values"):
+        operation = {
+            "kind": kind,
+            "project": "project",
+            "entityId": "project::document",
+            "requestId": "same-" + kind,
+            "expectedSourceSha256": "sha256:" + "a" * 64,
+            "choices": {
+                "upserts": [{"key": "explicit", "value": False}],
+                "reason": "Exact choices",
+            },
+        }
+        state["scope"] = ["read-workspace"]
+        before = len(state["calls"])
+        with pytest.raises(ToolExecutionFailure) as denied:
+            await execute_native_workflow("protocol_document", {"operation": operation}, context)
+        assert denied.value.code == "INSUFFICIENT_SCOPE"
+        assert len(state["calls"]) == before
+        state["scope"] = ["read-workspace", "write-workspace"]
+        state["result"] = {"kind": "ready", "requestId": operation["requestId"]}
+        await execute_native_workflow("protocol_document", {"operation": operation}, context)
+        assert state["calls"][-1]["request"] == {"operation": operation}
+        assert state["calls"][-1]["command"] == "protocols.execute"
+    state["revoked"] = True
+    with pytest.raises(ToolExecutionFailure) as revoked:
+        await execute_native_workflow("protocol_document", {"operation": operation}, context)
+    assert revoked.value.code == "GRANT_REVOKED"
+
+
+@pytest.mark.asyncio
 async def test_protocol_creation_and_recovery_keep_request_and_current_creation_grant(native):
     state, context = native
     state["scope"] = ["read-workspace"]

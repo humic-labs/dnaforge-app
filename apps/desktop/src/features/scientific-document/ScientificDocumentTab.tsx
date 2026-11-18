@@ -7,7 +7,7 @@ import { toUserMessage, userMessage, userEntityLabel } from '@waypoint/user-mess
 import { DraftSaveOwner } from '../../lib/draft-save-owner';
 import { inferCatalogFileKind } from '../../shared/catalog-file-kind';
 import { openDocument } from '../document-opening/public/open-document';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { JSONContent } from '@tiptap/core';
 import {
   getCatalogEntityForFilePath,
@@ -59,6 +59,8 @@ import {
 import { useScientificDocumentFileWatcher } from './useScientificDocumentFileWatcher';
 import { saveNativeScientificPackage, readNativeScientificPackage } from './native-package';
 import { ProtocolCreationDialog } from './ProtocolCreationDialog';
+import { ScientificValueEditor } from './ScientificValueEditor';
+import { sharedProtocolEntityOperation } from './protocol-operation-session';
 import type { NativeProtocolPackageSnapshot } from '../../shared/protocol-packages';
 import { openProjectResourceReference } from '../../services/notebook-resource-navigation';
 import { withWorkspaceArtifactOpen } from '../../services/workspace-artifact-open';
@@ -72,6 +74,9 @@ import { RunRecordedPlatePlanUses } from '../inventory/public/recorded-plate-pla
 import { commitReadableContent, failReadableContent } from '../../lib/readable-content-telemetry';
 
 type ScientificDocumentTabProps = { filePath: string; canvasTabId?: string };
+const EMPTY_OPERATION = { phase: 'editing' } as const;
+const emptyOperationSnapshot = () => EMPTY_OPERATION;
+const emptySubscribe = () => () => {};
 
 type AmendmentDraft = { path: string; reason: string; value: string };
 type ProtocolStepDraft = { title: string; contentText: string };
@@ -98,7 +103,12 @@ async function savedScientificText(
   filePath: string,
   workspaceRoot: string,
   signal?: AbortSignal
-): Promise<{ text: string; readOnly: boolean; runResource: InventoryRunResource | null }> {
+): Promise<{
+  text: string;
+  readOnly: boolean;
+  runResource: InventoryRunResource | null;
+  nativePackage: NativeProtocolPackageSnapshot | null;
+}> {
   if (
     scientificPackageKindForMetaPath(filePath) ||
     /\.dnaforge-protocol(?:-run)?\.json$/u.test(filePath.toLowerCase())
@@ -106,6 +116,7 @@ async function savedScientificText(
     const saved = await readNativeScientificPackage({ workspaceRoot, metaPath: filePath });
     return {
       text: saved.originalText,
+      nativePackage: saved,
       readOnly: saved.readOnly,
       runResource:
         saved.kind === 'protocol-run'
@@ -133,6 +144,7 @@ async function savedScientificText(
   }
   return {
     text: read.document.content,
+    nativePackage: null,
     readOnly: false,
     runResource,
   };
@@ -149,6 +161,36 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
     {}
   );
   const [nativeReadOnly, setNativeReadOnly] = useState(false);
+  const [nativePackage, setNativePackage] = useState<NativeProtocolPackageSnapshot | null>(null);
+  const [valueEditor, setValueEditor] = useState<'declarations' | 'values' | null>(null);
+  const valueEntry = useRef({ filePath, allowed: false, originalText: null as string | null });
+  const packageOperation = useMemo(
+    () =>
+      nativePackage
+        ? sharedProtocolEntityOperation(
+            platform().protocols,
+            typeof localStorage === 'undefined' ? null : localStorage,
+            nativePackage
+          )
+        : null,
+    [nativePackage?.projectId, nativePackage?.entityId, nativePackage?.path]
+  );
+  const packageOperationState = useSyncExternalStore(
+    packageOperation?.subscribe ?? emptySubscribe,
+    packageOperation?.getSnapshot ?? emptyOperationSnapshot
+  );
+  const packagePending =
+    'attempt' in packageOperationState &&
+    !(packageOperationState.phase === 'result' && packageOperationState.result.kind === 'ready');
+  useEffect(() => {
+    setValueEditor(null);
+  }, [filePath]);
+  useEffect(() => {
+    packageOperation?.refresh();
+    const changed = () => packageOperation?.refresh();
+    window.addEventListener('storage', changed);
+    return () => window.removeEventListener('storage', changed);
+  }, [packageOperation]);
   const [runResource, setRunResource] = useState<InventoryRunResource | null>(null);
   const [workspaceUnlocked, setWorkspaceUnlocked] = useState(false);
   const [resolvedWorkspaceRoot, setResolvedWorkspaceRoot] = useState<string | null>(null);
@@ -210,6 +252,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
     const load = async () => {
       setLoading(true);
       setRunResource(null);
+      setNativePackage(null);
       setError(null);
       setNativeDestinations({});
       setResolvedWorkspaceRoot(migrationWorkspaceRoot);
@@ -242,6 +285,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
         if (cancelled) return;
         const text = readResult.text;
         setNativeReadOnly(readResult.readOnly);
+        setNativePackage(readResult.nativePackage);
         setRunResource(readResult.runResource);
         adoptDocumentText(text);
         commitReadableContent(filePath);
@@ -509,6 +553,19 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
     originalCanonicalText !== null &&
     (prepared.error !== null || prepared.text !== originalCanonicalText)
   );
+  valueEntry.current = {
+    filePath,
+    originalText,
+    allowed: Boolean(
+      !dirty &&
+      !saving &&
+      !loading &&
+      workspaceUnlocked &&
+      !nativeReadOnly &&
+      !packagePending &&
+      document?.mutable
+    ),
+  };
 
   localStartAllowed.current = Boolean(
     document?.kind === 'protocol' &&
@@ -517,9 +574,12 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
     !loading &&
     workspaceUnlocked &&
     !nativeReadOnly &&
+    !packagePending &&
+    !valueEditor &&
     !prepared.error
   );
   async function openStartRun() {
+    packageOperation?.refresh();
     if (!localStartAllowed.current || !resolvedWorkspaceRoot) return;
     setError(null);
     try {
@@ -549,6 +609,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
       if (disposition === 'preserve-draft') {
         const text = result.text;
         setNativeReadOnly(result.readOnly);
+        setNativePackage(result.nativePackage);
         setRunResource(result.runResource);
         const parsed = parseScientificDocument(filePath, text);
         setOriginalText(text);
@@ -557,6 +618,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
       }
       adoptDocumentText(result.text);
       setNativeReadOnly(result.readOnly);
+      setNativePackage(result.nativePackage);
       setRunResource(result.runResource);
       setError(null);
       return true;
@@ -585,6 +647,16 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
     });
 
   const save = useCallback(async (): Promise<boolean> => {
+    packageOperation?.refresh();
+    const pending = packageOperation?.getSnapshot();
+    if (
+      pending &&
+      'attempt' in pending &&
+      !(pending.phase === 'result' && pending.result.kind === 'ready')
+    ) {
+      setError('Confirm the original scientific save before saving other changes.');
+      return false;
+    }
     if (!dirty) return true;
     if (!workspaceUnlocked || nativeReadOnly) {
       setError(userMessage('failure.unlock-the-migrated-project-before-editing-this-document'));
@@ -671,6 +743,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
     }
   }, [
     canvasTabId,
+    packageOperation,
     saveOwner,
     dismissExternalChange,
     dirty,
@@ -761,7 +834,28 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
       </CenteredMessage>
     );
 
-  const canEdit = workspaceUnlocked && !nativeReadOnly && document.mutable;
+  const canEdit = workspaceUnlocked && !nativeReadOnly && document.mutable && !packagePending;
+  async function openValueEditor(mode: 'declarations' | 'values') {
+    if (!resolvedWorkspaceRoot || dirty || saving || !canEdit || valueEditor) return;
+    try {
+      const current = await readNativeScientificPackage({
+        workspaceRoot: resolvedWorkspaceRoot,
+        metaPath: filePath,
+      });
+      if (
+        valueEntry.current.filePath !== filePath ||
+        !valueEntry.current.allowed ||
+        valueEntry.current.originalText !== originalText
+      )
+        return;
+      if (current.originalText !== originalText || current.readOnly)
+        throw Error('The saved source changed. Reload it before editing values.');
+      setNativePackage(current);
+      setValueEditor(mode);
+    } catch (cause) {
+      setError(toUserMessage(cause, 'operation.failed'));
+    }
+  }
   const protocolDocument =
     document.kind === 'protocol'
       ? prepared.document?.kind === 'protocol'
@@ -836,6 +930,48 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
           </button>
         ) : null}
       </header>
+      {nativePackage && document.mutable ? (
+        <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2">
+          <button
+            type="button"
+            className="rounded border border-border px-3 py-1.5 text-xs disabled:opacity-50"
+            disabled={
+              !canEdit || dirty || saving || Boolean(prepared.error) || Boolean(valueEditor)
+            }
+            onClick={() =>
+              void openValueEditor(document.kind === 'protocol' ? 'declarations' : 'values')
+            }
+          >
+            {document.kind === 'protocol'
+              ? 'Edit input and output declarations'
+              : 'Edit recorded values'}
+          </button>
+          {dirty ? (
+            <span className="text-xs">Save existing changes before editing values.</span>
+          ) : null}
+          {packagePending ? (
+            <button
+              type="button"
+              className="rounded border border-border px-3 py-1.5 text-xs"
+              onClick={() =>
+                setValueEditor(document.kind === 'protocol' ? 'declarations' : 'values')
+              }
+            >
+              Confirm original scientific save
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {valueEditor && nativePackage && packageOperation ? (
+        <ScientificValueEditor
+          key={`${nativePackage.projectId}:${nativePackage.entityId}:${valueEditor}`}
+          source={nativePackage}
+          mode={valueEditor}
+          operation={packageOperation}
+          onClose={() => setValueEditor(null)}
+          onSaved={reloadDocumentFromDisk}
+        />
+      ) : null}
       {document.kind === 'protocol' && dirty ? (
         <Notice>Save changes before starting a run.</Notice>
       ) : null}

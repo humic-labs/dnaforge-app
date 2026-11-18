@@ -153,3 +153,52 @@ preview must still show the original withdrawn citation after the child exists,
 with no Add action or extra history. The ordinary citation reopen stage accepts
 the explicit child proof and exact next revision, checks the active child and
 withdrawn base, and performs no new writes.
+
+## Explicit declarations and ordinary Run values
+
+A clean, saved editable Protocol offers Edit input and output declarations. Add
+or explicitly edit keyed input/output declarations, preview and Save
+declarations. Existing saved types and keys stay fixed. Unsupported imported
+types remain visible/read-only. Upserts preserve omitted rows and raw fields;
+there is no deletion, reordering or implicit conversion.
+
+Start run freezes exactly the saved declarations. Its actual arrays remain empty
+until the user explicitly records values. Edit recorded values offers Record
+value for a frozen declaration, and separate Add input value / Add output value
+/ Add measurement for ordinary local entries. Measurements have no invented
+Protocol requirement. Supported controls are Text, Number, Yes or no, and
+explicit UTC Date and time. Unchosen boolean, invalid numeric/date input, zero,
+false and recorded empty text remain distinct. Quantities, records and
+attachments are preserved read-only; these entries do not bind a stock or
+physical observation and do not complete the Run.
+
+The ordinary Save and purpose editors share one canonical project/entity
+operation owner. Check original save and Retry same save use the exact retained
+request through native package receipt recovery. Unknown outcomes block a
+competing save; source changes and navigation cannot silently replace a draft or
+create fresh keys. Native measurement recordedAt is recording time, not an assay
+timestamp.
+
+Use the exact completed manual-plan fixture without repeating its inventory
+operation:
+
+```sh
+node apps/desktop/scripts/inventory-journey.mjs --stage run-values --fixture /absolute/evidence/plate-plan-observation-reopen-fixture.json --out /absolute/evidence/run-values
+```
+
+The real Files path creates a NEW Protocol, adds a required Text input and
+Number output, explicitly saves declarations and starts a NEW Run. It records
+text, numeric0, a local booleanfalse measurement and a local canonical UTC date
+measurement in one values save. Unchosen boolean and an impossible date must
+leave Save disabled before valid input is provided. A later Protocol LABEL edit
+must leave the older frozen Run declarations/actuals intact.
+
+Each create/edit/start/save request is checkpointed before submission; its
+native ready result is checkpointed immediately before later assertions. Keep
+failures and use run-values-resume with the latest exact checkpoint. After full
+native restart run-values-reopen requires exact saved sources, keys, typed
+values and frozen pin. Inventory99/all216 old operations and all older source
+files remain unchanged; the NEW Protocol/Run files and native catalog/receipts
+are intentional additions. Capture visible declaration/value controls and
+outcomes with their sections scrolled into view, plus interaction video. This
+workflow does not qualify exact physical-result attribution or a real assay.

@@ -1,3 +1,4 @@
+export * from './protocol-value-edit';
 export * from './protocol-package';
 export * from './scientific-documents';
 export type * from './scientific-objects';

@@ -6,6 +6,8 @@ import {
   protocolPackageReadSchema,
   protocolPackageListSchema,
   protocolPackageSaveSchema,
+  protocolEditDeclarationsSchema,
+  protocolRecordRunValuesSchema,
 } from './protocol-packages';
 
 export const protocolDocumentAgentRequestSchema = z
@@ -25,6 +27,10 @@ export const protocolDocumentAgentRequestSchema = z
         })
         .strict(),
       protocolPackageSaveSchema.extend({ kind: z.literal('save-package') }).strict(),
+      protocolEditDeclarationsSchema
+        .extend({ kind: z.literal('edit-protocol-declarations') })
+        .strict(),
+      protocolRecordRunValuesSchema.extend({ kind: z.literal('record-run-values') }).strict(),
     ]),
   })
   .strict();
@@ -34,6 +40,11 @@ export function protocolOperationCapabilities(
 ): readonly ('read-workspace' | 'write-workspace' | 'create-entity')[] {
   if (kind === 'create-protocol' || kind === 'start-run' || kind === 'recover-creation')
     return ['read-workspace', 'write-workspace', 'create-entity'];
-  if (kind === 'save-package') return ['read-workspace', 'write-workspace'];
+  if (
+    kind === 'save-package' ||
+    kind === 'edit-protocol-declarations' ||
+    kind === 'record-run-values'
+  )
+    return ['read-workspace', 'write-workspace'];
   return ['read-workspace'];
 }

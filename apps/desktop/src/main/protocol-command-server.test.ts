@@ -27,6 +27,8 @@ async function fixture() {
     }),
     startRun: vi.fn(),
     savePackage: vi.fn(),
+    editProtocolDeclarations: vi.fn(),
+    recordRunValues: vi.fn(),
     recoverCreation: vi.fn(),
     inspectCreation: vi.fn(async () => ({ kind: 'missing' as const, requestId: 'original' })),
     readPackage: vi.fn(),

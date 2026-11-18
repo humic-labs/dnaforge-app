@@ -1,4 +1,9 @@
 import {
+  runInventoryRunValues,
+  runInventoryRunValuesResume,
+  runInventoryRunValuesReopen,
+} from './journeys/inventory-run-values.mjs';
+import {
   runInventoryPlatePlanObservation,
   runInventoryPlatePlanObservationResume,
   runInventoryPlatePlanObservationReopen,
@@ -146,6 +151,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const args = process.argv.slice(2);
 const option = (name) => args[args.indexOf(name) + 1];
 const stage = args.includes('--stage') ? option('--stage') : 'doctor';
+const runValueStages = {
+  'run-values': runInventoryRunValues,
+  'run-values-resume': runInventoryRunValuesResume,
+  'run-values-reopen': runInventoryRunValuesReopen,
+};
 const platePlanObservationStages = {
   'plate-plan-observation': runInventoryPlatePlanObservation,
   'plate-plan-observation-resume': runInventoryPlatePlanObservationResume,
@@ -170,6 +180,7 @@ const recordedWorkStages = {
 assert.ok(
   [
     ...Object.keys(recordedWorkStages),
+    ...Object.keys(runValueStages),
     ...Object.keys(platePlanObservationStages),
     ...Object.keys(platePlanStages),
     ...Object.keys(citationStages),
@@ -286,12 +297,18 @@ const files = execFileSync(
     ':(glob)**/*inventory*',
     'apps/desktop/src/features/inventory',
     'apps/desktop/src/features/scientific-document',
+    'apps/desktop/src/components/ui/styles.ts',
+    'apps/desktop/src/components/ui/controls.tsx',
+    'apps/desktop/src/components/PortalMenu.tsx',
+    'apps/desktop/src/presentation',
     'apps/desktop/src/App.tsx',
     'apps/desktop/src/components/ExplorerAddPicker.tsx',
     'apps/desktop/src/hooks/useWorkspaceArtifactActions.ts',
     'apps/desktop/src/main/native-protocol-packages.ts',
+    ':(glob)apps/desktop/src/main/native-protocol-*',
     'apps/desktop/src/main/ipc/protocols.ts',
     'apps/desktop/src/shared/protocol-packages.ts',
+    ':(glob)apps/desktop/src/shared/protocol-*',
     'apps/desktop/src/shared/protocol-client.ts',
     'apps/desktop/src/shared/protocol-command.ts',
     'apps/desktop/src/shared/ipc/protocols.contract.ts',
@@ -301,6 +318,7 @@ const files = execFileSync(
     'apps/desktop/src/features/ai/tools/protocol-document.ts',
     'apps/desktop/src/services/native-scientific-package-reconcile.ts',
     'packages/core/domain-services/src/protocol-package.ts',
+    ':(glob)packages/core/domain-services/src/protocol-*',
     'packages/core/domain-services/src/protocol-document-structure.ts',
     'packages/core/domain-services/src/protocol-run-model.ts',
     'packages/core/domain-services/src/paper-protocol-model.ts',
@@ -936,6 +954,24 @@ try {
           ? runInventoryStockroomCorrectionsResume
           : runInventoryStockroomCorrectionsReopen
     )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
+  if (Object.hasOwn(runValueStages, stage)) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the exact completed manual-plan inventory fixture or typed value checkpoint.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    receipt.expected = await runValueStages[stage]({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+    });
   }
   if (Object.hasOwn(platePlanObservationStages, stage)) {
     assert.ok(

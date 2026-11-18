@@ -938,6 +938,12 @@ export async function startNativeDocumentCommandServer(options: {
             case 'save-package':
               result = await owner.savePackage(request, invocation);
               break;
+            case 'edit-protocol-declarations':
+              result = await owner.editProtocolDeclarations(request, invocation);
+              break;
+            case 'record-run-values':
+              result = await owner.recordRunValues(request, invocation);
+              break;
             case 'inspect-creation':
               result = await owner.inspectCreation(request);
               break;

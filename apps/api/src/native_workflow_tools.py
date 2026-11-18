@@ -103,7 +103,14 @@ def _required(name: str, args: dict[str, Any]) -> list[str]:
         }:
             required.append("write-workspace")
     elif name == "protocol_document":
-        if kind in {"create-protocol", "start-run", "recover-creation", "save-package"}:
+        if kind in {
+            "create-protocol",
+            "start-run",
+            "recover-creation",
+            "save-package",
+            "edit-protocol-declarations",
+            "record-run-values",
+        }:
             required.append("write-workspace")
         if kind in {"create-protocol", "start-run", "recover-creation"}:
             required.append("create-entity")

@@ -56,6 +56,14 @@ export function registerProtocolHandlers(options: {
       const invocation = capture(event);
       return invocation.owner.savePackage(request, invocation);
     },
+    editProtocolDeclarations: (event, request) => {
+      const invocation = capture(event);
+      return invocation.owner.editProtocolDeclarations(request, invocation);
+    },
+    recordRunValues: (event, request) => {
+      const invocation = capture(event);
+      return invocation.owner.recordRunValues(request, invocation);
+    },
     inspectCreation: async (event, request) => {
       const invocation = capture(event);
       const result = await invocation.owner.inspectCreation(request);

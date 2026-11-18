@@ -13,6 +13,8 @@ export function unavailableProtocolClient(): NativeProtocolPlatformClient {
     readSavedProtocol: unavailable,
     listPackages: unavailable,
     savePackage: unavailable,
+    editProtocolDeclarations: unavailable,
+    recordRunValues: unavailable,
     onChanged: () => () => {},
   };
 }

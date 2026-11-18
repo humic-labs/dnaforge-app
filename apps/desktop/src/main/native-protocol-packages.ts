@@ -10,6 +10,8 @@ import {
   protocolExecutionDefinition,
   parseWorkspaceIdentity,
   parseScientificDocumentIdentity,
+  editProtocolSlotDeclarations,
+  editProtocolRunValues,
 } from '@waypoint/domain-services';
 import {
   protocolCreateSchema,
@@ -23,6 +25,13 @@ import {
   type ProtocolRunSavedSource,
   type NativeProtocolPackageChanged,
 } from '../shared/protocol-packages';
+import {
+  protocolEditDeclarationsSchema,
+  protocolRecordRunValuesSchema,
+  nativeProtocolValueEditReceiptSchema,
+  type NativeProtocolValueEditReceipt,
+  type NativeProtocolValueEditRequest,
+} from '../shared/protocol-value-edits';
 import { scopedProjectionId, stripWorkspaceScope } from '../shared/workspace-scoped-identity';
 import { scientificPackageMetaPath } from '../shared/scientific-package';
 import {
@@ -51,7 +60,7 @@ const hash = (value: string | Uint8Array): `sha256:${string}` =>
   `sha256:${createHash('sha256').update(value).digest('hex')}`;
 const jsonHash = (value: unknown) => hash(canonicalProtocolJson(value));
 type RecordValue = Record<string, unknown>;
-interface Receipt {
+interface ReceiptV1 {
   version: 1;
   requestId: string;
   intentSha256: string;
@@ -70,6 +79,7 @@ interface Receipt {
   expectedFileSha256: string | null;
   protocolSource: NativeProtocolPackageSnapshot | null;
 }
+type Receipt = ReceiptV1 | NativeProtocolValueEditReceipt;
 interface Binding {
   id: string;
   type: string;
@@ -123,6 +133,8 @@ export function createNativeProtocolPackages(options: {
   const receiptPath = (project: string, requestId: string) =>
     join(directory(), hash(`${project}\0${requestId}`).slice(7) + '.json');
   const writeReceipt = async (receipt: Receipt) => {
+    if (receipt.version === 2 && Buffer.byteLength(JSON.stringify(receipt)) > MAX_BYTES)
+      throw new Error('PROTOCOL_EDIT_RECEIPT_TOO_LARGE');
     await mkdir(directory(), { recursive: true, mode: 0o700 });
     const target = receiptPath(receipt.projectId, receipt.requestId),
       temporary = target + '.' + randomUUID() + '.tmp';
@@ -143,7 +155,16 @@ export function createNativeProtocolPackages(options: {
   };
   const loadReceipt = async (project: string, requestId: string): Promise<Receipt | null> => {
     try {
-      const value = JSON.parse(await readFile(receiptPath(project, requestId), 'utf8')) as Receipt;
+      const raw = await readFile(receiptPath(project, requestId), 'utf8');
+      const value = JSON.parse(raw) as Receipt;
+      if (value.version === 2) {
+        if (Buffer.byteLength(raw) > MAX_BYTES) throw new Error('PROTOCOL_RECOVERY_INVALID');
+        const receipt = nativeProtocolValueEditReceiptSchema.parse(value);
+        if (receipt.projectId !== project || receipt.requestId !== requestId)
+          throw new Error('PROTOCOL_RECOVERY_INVALID');
+        verifyValueEditReceipt(receipt);
+        return receipt;
+      }
       if (
         value.version !== 1 ||
         value.projectId !== project ||
@@ -255,6 +276,65 @@ export function createNativeProtocolPackages(options: {
           title: snapshot.title,
           originalText: snapshot.originalText,
         };
+  const valueEditOutput = (
+    request: NativeProtocolValueEditRequest,
+    originalText: string,
+    at: number
+  ) =>
+    request.kind === 'edit-protocol-declarations'
+      ? editProtocolSlotDeclarations(originalText, request.choices.upserts)
+      : editProtocolRunValues(originalText, request.choices.upserts, {
+          recordedAt: new Date(at).toISOString(),
+        });
+  const receiptSourceHash = (
+    receipt: Pick<
+      Receipt,
+      'kind' | 'portableId' | 'projectId' | 'entityId' | 'fileObjectUuid' | 'path'
+    >,
+    originalText: string
+  ) => {
+    const parsed = parseProtocolPackage(originalText);
+    if (
+      (parsed.kind === 'protocol') !== (receipt.kind === 'protocol') ||
+      stripWorkspaceScope(parsed.id) !== receipt.portableId ||
+      scopedProjectionId(receipt.projectId, receipt.portableId) !== receipt.entityId
+    )
+      throw new Error('PROTOCOL_RECOVERY_INVALID');
+    return jsonHash(
+      sourcePacket({
+        readOnly: false,
+        projectId: receipt.projectId,
+        workspaceScope: receipt.projectId,
+        entityId: receipt.entityId,
+        portableId: receipt.portableId,
+        fileObjectUuid: receipt.fileObjectUuid,
+        kind: receipt.kind,
+        title: parsed.title,
+        path: receipt.path,
+        originalText,
+        fileSha256: hash(originalText),
+      })
+    );
+  };
+  const verifyValueEditReceipt = (receipt: NativeProtocolValueEditReceipt) => {
+    const request = receipt.request;
+    const produced = valueEditOutput(request, receipt.base.originalText, receipt.at);
+    if (
+      request.requestId !== receipt.requestId ||
+      request.entityId !== receipt.entityId ||
+      jsonHash(request) !== receipt.intentSha256 ||
+      request.expectedSourceSha256 !== receipt.base.sourceSha256 ||
+      receipt.base.fileSha256 !== hash(receipt.base.originalText) ||
+      receipt.expectedFileSha256 !== receipt.base.fileSha256 ||
+      receipt.base.sourceSha256 !== receiptSourceHash(receipt, receipt.base.originalText) ||
+      receipt.output.fileSha256 !== hash(receipt.text) ||
+      receipt.output.sourceSha256 !== receiptSourceHash(receipt, receipt.text) ||
+      produced.originalText !== receipt.text ||
+      produced.changed !== receipt.output.changed ||
+      (!receipt.output.changed && receipt.phase === 'published')
+    )
+      throw new Error('PROTOCOL_RECOVERY_INVALID');
+  };
   const capture = async (reference: string, entityId: string, allowDisplayFallback = false) => {
     const scope = admit(reference, false),
       before = binding(entityId),
@@ -378,7 +458,13 @@ export function createNativeProtocolPackages(options: {
     };
     scope.assertAuthority();
     assertCurrent();
-    return { snapshot, packet, assertCurrent };
+    return {
+      snapshot,
+      packet,
+      assertCurrent,
+      bindingSha256: beforeSha,
+      referencesSha256: beforeRefs,
+    };
   };
   const packagePath = async (
     project: RegisteredProject,
@@ -480,6 +566,14 @@ export function createNativeProtocolPackages(options: {
       };
     };
     if (receipt.phase === 'ready') return ready();
+    if (receipt.version === 2 && !receipt.output.changed) {
+      await invocation.beforeCommit?.();
+      invocation.assertCurrent?.();
+      const saved = await ready();
+      receipt.phase = 'ready';
+      await writeReceipt(receipt);
+      return saved;
+    }
     const accepted = options
       .db()
       .prepare(
@@ -562,6 +656,15 @@ export function createNativeProtocolPackages(options: {
                 writable.assertAuthority();
                 invocation.assertCurrent?.();
                 assertProtocol();
+                if (receipt.version === 2) {
+                  writable.assertCaptured();
+                  if (
+                    jsonHash(binding(receipt.entityId)) !== receipt.base.bindingSha256 ||
+                    jsonHash(refs(scope.project)) !== receipt.base.referencesSha256
+                  )
+                    throw new Error('PROTOCOL_SOURCE_CHANGED');
+                  guardFile(receipt.root, receipt.path, Buffer.from(receipt.base.originalText));
+                }
               },
             }
           );
@@ -719,6 +822,71 @@ export function createNativeProtocolPackages(options: {
       })
       .catch(() => {});
     return promise;
+  };
+  const editValues = async (
+    input: unknown,
+    kind: NativeProtocolValueEditRequest['kind'],
+    invocation: NativeProtocolInvocation = {}
+  ): Promise<NativeProtocolCreationResult> => {
+    const request: NativeProtocolValueEditRequest =
+      kind === 'edit-protocol-declarations'
+        ? { ...protocolEditDeclarationsSchema.parse(input), kind }
+        : { ...protocolRecordRunValuesSchema.parse(input), kind };
+    const scope = admit(request.project, true),
+      intentSha256 = jsonHash(request);
+    return once(scope.project.projectId, request.requestId, intentSha256, async () => {
+      const existing = await loadReceipt(scope.project.projectId, request.requestId);
+      if (existing) {
+        if (existing.version !== 2 || existing.intentSha256 !== intentSha256)
+          throw new Error('PROTOCOL_REQUEST_CONFLICT');
+        return runReceipt(existing, invocation);
+      }
+      const captured = await capture(scope.project.projectId, request.entityId),
+        before = captured.snapshot;
+      if (before.sourceSha256 !== request.expectedSourceSha256)
+        throw new Error('PROTOCOL_SAVE_SOURCE_CHANGED');
+      const at = Date.now(),
+        produced = valueEditOutput(request, before.originalText, at);
+      const receipt: NativeProtocolValueEditReceipt = {
+        version: 2,
+        requestId: request.requestId,
+        intentSha256,
+        operation: 'save',
+        phase: 'prepared',
+        projectId: scope.project.projectId,
+        root: scope.project.path,
+        entityId: before.entityId,
+        portableId: before.portableId,
+        fileObjectUuid: before.fileObjectUuid,
+        path: before.path,
+        kind: before.kind,
+        text: produced.originalText,
+        at,
+        actor: invocation.actor ?? options.actor(),
+        expectedFileSha256: before.fileSha256,
+        protocolSource: null,
+        request,
+        base: {
+          originalText: before.originalText,
+          sourceSha256: before.sourceSha256,
+          fileSha256: before.fileSha256,
+          bindingSha256: captured.bindingSha256,
+          referencesSha256: captured.referencesSha256,
+        },
+        output: {
+          fileSha256: hash(produced.originalText),
+          sourceSha256: receiptSourceHash(before, produced.originalText),
+          changed: produced.changed,
+        },
+      };
+      nativeProtocolValueEditReceiptSchema.parse(receipt);
+      verifyValueEditReceipt(receipt);
+      captured.assertCurrent();
+      scope.assertAuthority();
+      invocation.assertCurrent?.();
+      await writeReceipt(receipt);
+      return runReceipt(receipt, invocation);
+    });
   };
   const create = async (
     input: unknown,
@@ -920,6 +1088,10 @@ export function createNativeProtocolPackages(options: {
       create(input, 'protocol', invocation),
     startRun: (input: unknown, invocation?: NativeProtocolInvocation) =>
       create(input, 'protocol-run', invocation),
+    editProtocolDeclarations: (input: unknown, invocation?: NativeProtocolInvocation) =>
+      editValues(input, 'edit-protocol-declarations', invocation),
+    recordRunValues: (input: unknown, invocation?: NativeProtocolInvocation) =>
+      editValues(input, 'record-run-values', invocation),
     async readPackage(input: unknown) {
       const request = protocolPackageReadSchema.parse(input);
       return (await capture(request.project, request.entityId, true)).snapshot;

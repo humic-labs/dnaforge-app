@@ -6,6 +6,8 @@ import type {
   NativeProtocolPackageReadRequest,
   NativeProtocolPackageListRequest,
   NativeProtocolPackageSaveRequest,
+  NativeProtocolEditDeclarationsRequest,
+  NativeProtocolRecordRunValuesRequest,
   NativeProtocolCreationResult,
   NativeProtocolPackageSnapshot,
   NativeProtocolPackageChanged,
@@ -32,4 +34,12 @@ export const protocolsContract = defineGroup('protocols', {
     readonly NativeProtocolPackageSnapshot[]
   >(),
   savePackage: invoke<[request: NativeProtocolPackageSaveRequest], NativeProtocolCreationResult>(),
+  editProtocolDeclarations: invoke<
+    [request: NativeProtocolEditDeclarationsRequest],
+    NativeProtocolCreationResult
+  >(),
+  recordRunValues: invoke<
+    [request: NativeProtocolRecordRunValuesRequest],
+    NativeProtocolCreationResult
+  >(),
 });

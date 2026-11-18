@@ -4,7 +4,11 @@ import {
   resolveWorkspaceScope,
 } from '../../db/workspace-catalog';
 import type { NativeProtocolPackageSnapshot } from '../../shared/protocol-packages';
-import { ProtocolOperationSession, type ProtocolOperation } from './protocol-operation-session';
+import {
+  ProtocolOperationSession,
+  sharedProtocolEntityOperation,
+  type ProtocolOperation,
+} from './protocol-operation-session';
 import { platform } from '../../platform';
 import { isSafeWorkspaceRelativePath } from '../../shared/path-boundary';
 import { type ScientificPackageKind } from '../../shared/scientific-package';
@@ -73,9 +77,15 @@ async function completed(
   operation: ProtocolOperation
 ): Promise<NativeProtocolPackageSnapshot> {
   const state = session.getSnapshot();
-  if ('attempt' in state && state.attempt.request.requestId !== operation.request.requestId)
+  const ready = state.phase === 'result' && state.result.kind === 'ready';
+  if (
+    'attempt' in state &&
+    !ready &&
+    state.attempt.request.requestId !== operation.request.requestId
+  )
     throw new Error('Confirm the previous scientific operation before changing its intent.');
-  const result = state.phase === 'editing' ? await session.begin(operation) : await session.retry();
+  const result =
+    state.phase === 'editing' || ready ? await session.begin(operation) : await session.retry();
   if (result?.kind !== 'ready')
     throw new Error(
       result && result.kind !== 'missing'
@@ -95,9 +105,18 @@ export async function saveNativeScientificPackage(input: {
   const project = await projectScope(input.workspaceRoot),
     text = serializeScientificDocument(input.document),
     requestId = `save:${await sha256Hex(JSON.stringify([input.expectedText, text]))}`,
-    session = operationSession(JSON.stringify([project, input.metaPath, 'save'])),
-    pending = session.getSnapshot();
-  if ('attempt' in pending) {
+    entity = await getCatalogEntityForFilePath(input.metaPath),
+    session = entity
+      ? sharedProtocolEntityOperation(
+          platform().protocols,
+          typeof localStorage === 'undefined' ? null : localStorage,
+          { projectId: project, entityId: entity.id, path: input.metaPath }
+        )
+      : null;
+  if (!session) throw new Error('The scientific package is not registered in this project.');
+  session.refresh();
+  const pending = session.getSnapshot();
+  if ('attempt' in pending && !(pending.phase === 'result' && pending.result.kind === 'ready')) {
     if (pending.attempt.request.requestId !== requestId)
       throw new Error('Confirm the previous save before changing this scientific document.');
     const result = await session.retry();

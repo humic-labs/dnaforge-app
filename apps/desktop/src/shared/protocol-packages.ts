@@ -1,4 +1,16 @@
 import { z } from 'zod';
+import type {
+  NativeProtocolEditDeclarationsRequest,
+  NativeProtocolRecordRunValuesRequest,
+} from './protocol-value-edits';
+export {
+  protocolEditDeclarationsSchema,
+  protocolRecordRunValuesSchema,
+} from './protocol-value-edits';
+export type {
+  NativeProtocolEditDeclarationsRequest,
+  NativeProtocolRecordRunValuesRequest,
+} from './protocol-value-edits';
 
 const text = z.string().min(1).max(1024);
 const sha256 = z.string().regex(/^sha256:[a-f0-9]{64}$/);
@@ -123,6 +135,12 @@ export interface NativeProtocolClient {
     request: NativeProtocolPackageListRequest
   ): Promise<readonly NativeProtocolPackageSnapshot[]>;
   savePackage(request: NativeProtocolPackageSaveRequest): Promise<NativeProtocolCreationResult>;
+  editProtocolDeclarations(
+    request: NativeProtocolEditDeclarationsRequest
+  ): Promise<NativeProtocolCreationResult>;
+  recordRunValues(
+    request: NativeProtocolRecordRunValuesRequest
+  ): Promise<NativeProtocolCreationResult>;
 }
 export interface NativeProtocolPlatformClient extends NativeProtocolClient {
   onChanged(listener: (change: NativeProtocolPackageChanged) => void): () => void;

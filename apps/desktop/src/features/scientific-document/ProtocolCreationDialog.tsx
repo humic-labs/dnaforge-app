@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { Button, Notice, TextField } from '../../components/ui';
+import { Button, Notice, TextField, TextArea } from '../../components/ui';
 import { platform } from '../../platform';
 import { resolveWorkspaceScope } from '../../db/workspace-catalog';
 import { openProjectResourceReference } from '../../services/notebook-resource-navigation';
@@ -106,6 +106,16 @@ export function ProtocolCreationDialog({
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [title, setTitle] = useState(protocol ? `${protocol.title} run` : ''),
     [error, setError] = useState<string | null>(null);
+  const [requestId] = useState(() => crypto.randomUUID());
+  const request = {
+    project: projectId,
+    requestId,
+    title: title.trim(),
+    ...(parentPath ? { parentPath } : {}),
+    ...(protocol
+      ? { protocolId: protocol.entityId, expectedSourceSha256: protocol.sourceSha256 }
+      : {}),
+  };
   const busy = snapshot.phase === 'sending';
   const complete = async (pending: ReturnType<typeof session.begin>) => {
     const result = await pending;
@@ -124,6 +134,7 @@ export function ProtocolCreationDialog({
       role="dialog"
       aria-modal="true"
       aria-label={protocol ? 'Start run' : 'Create protocol'}
+      data-testid="scientific-creation-form"
       className="fixed inset-0 z-[10050] grid place-items-center bg-black/40 p-4"
     >
       <section className="w-full max-w-lg space-y-4 rounded border border-border bg-bg p-5">
@@ -133,12 +144,6 @@ export function ProtocolCreationDialog({
           onSubmit={(event) => {
             event.preventDefault();
             if (!sourceReady || !title.trim()) return;
-            const request = {
-              project: projectId,
-              requestId: crypto.randomUUID(),
-              title: title.trim(),
-              ...(parentPath ? { parentPath } : {}),
-            };
             void complete(
               session.begin(
                 protocol
@@ -189,6 +194,19 @@ export function ProtocolCreationDialog({
             </Notice>
           ) : null}
           {error ? <Notice tone="error">{error}</Notice> : null}
+          <details>
+            <summary>Prepared request details</summary>
+            <TextArea
+              readOnly
+              aria-label="Prepared scientific creation request"
+              value={JSON.stringify(
+                'attempt' in snapshot ? snapshot.attempt.request : request,
+                null,
+                2
+              )}
+              rows={7}
+            />
+          </details>
           {'attempt' in snapshot && snapshot.phase !== 'sending' ? (
             <div className="flex gap-2">
               <Button onClick={() => void complete(session.inspect())}>

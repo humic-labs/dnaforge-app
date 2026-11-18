@@ -38,6 +38,8 @@ const boundary = vi.hoisted(() => ({
     readSavedProtocol: vi.fn<NativeProtocolClient['readSavedProtocol']>(),
     listPackages: vi.fn<NativeProtocolClient['listPackages']>(),
     savePackage: vi.fn<NativeProtocolClient['savePackage']>(),
+    editProtocolDeclarations: vi.fn<NativeProtocolClient['editProtocolDeclarations']>(),
+    recordRunValues: vi.fn<NativeProtocolClient['recordRunValues']>(),
   },
   resolveWorkspaceScope: vi.fn<(root: string) => Promise<string | null>>(),
   resolveCatalogEntityIdForWorkspace: vi.fn<(root: string, id: string) => Promise<string>>(),
@@ -213,7 +215,11 @@ describe('native protocol compatibility client', () => {
     await expect(saveNativeScientificPackage(input)).resolves.toBe(savedRun.originalText);
     expect(boundary.native.savePackage).toHaveBeenNthCalledWith(2, firstRequest);
     expect(boundary.native.readPackage).toHaveBeenCalledTimes(2);
-    expect(boundary.getCatalogEntityForFilePath).toHaveBeenCalledTimes(1);
+    expect(boundary.getCatalogEntityForFilePath.mock.calls).toEqual([
+      [created.metaPath],
+      [created.metaPath],
+      [created.metaPath],
+    ]);
   });
 
   it('preserves the authored paper payload and stable intent across capture timestamps while reopening the current package', async () => {
