@@ -7,9 +7,11 @@ import {
   LIMS_BUILTIN_ENTITY_SCHEMAS,
   type LimsFieldDefinition,
   type LimsSchemaDefinitionView,
+  type LimsRecordRelationshipValue,
 } from '../../../shared/lims';
 import { useWorkspaceStore } from '../../../stores/workspaceStore';
 import { getLimsSchemas } from '../operations';
+import { RegistryEntityLinkField } from './registry/RegistryEntityLinkField';
 import type { RecordEntityArtifactInput } from '../record-entity-artifact';
 
 interface StrainCreationFormProps {
@@ -41,7 +43,10 @@ function fieldTestId(field: LimsFieldDefinition): string {
   return `strain-field-${field.key}`;
 }
 
-function parseFieldValue(field: LimsFieldDefinition, value: string | boolean): unknown {
+type FieldValue = string | boolean | LimsRecordRelationshipValue | null;
+function parseFieldValue(field: LimsFieldDefinition, value: FieldValue): unknown {
+  if (field.type === 'record_relationship')
+    return value === '' || value === null ? undefined : value;
   if (field.type === 'boolean') return value === true;
   const text = String(value).trim();
   if (!text) return undefined;
@@ -59,12 +64,34 @@ function SchemaField({
   field,
   value,
   onChange,
+  sourceEntityId,
+  disabled,
 }: {
   field: LimsFieldDefinition;
-  value: string | boolean;
-  onChange: (value: string | boolean) => void;
+  value: FieldValue;
+  onChange: (value: FieldValue) => void;
+  sourceEntityId: string;
+  disabled: boolean;
 }) {
   const id = `strain-create-${field.key}`;
+  if (field.type === 'record_relationship')
+    return (
+      <div className="space-y-2" data-testid={fieldTestId(field)}>
+        <span className={LABEL_CLASS}>
+          {field.label}
+          {field.required ? <span className="ml-1 text-error">*</span> : null}
+        </span>
+        <RegistryEntityLinkField
+          label={field.label}
+          value={value}
+          sourceEntityId={sourceEntityId}
+          required={field.required}
+          disabled={disabled}
+          onCommit={(next) => onChange(next)}
+        />
+      </div>
+    );
+
   if (field.type === 'boolean') {
     return (
       <label className="flex items-center gap-2 text-sm text-fg" htmlFor={id}>
@@ -145,9 +172,10 @@ export function StrainCreationForm({
   onCancel,
 }: StrainCreationFormProps) {
   const [schema, setSchema] = useState<LimsSchemaDefinitionView>(builtinStrainSchema);
+  const [schemaStatus, setSchemaStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [name, setName] = useState('');
   const [creationId] = useState(() => crypto.randomUUID());
-  const [values, setValues] = useState<Record<string, string | boolean>>({});
+  const [values, setValues] = useState<Record<string, FieldValue>>({});
   const [destinationDir, setDestinationDir] = useState(initialSaveDir);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -168,9 +196,21 @@ export function StrainCreationForm({
     getLimsSchemas()
       .then((schemas) => {
         const live = schemas.find((candidate) => candidate.entityKind === 'strain');
-        if (active && live) setSchema(live);
+        if (!active) return;
+        if (live) {
+          setSchema(live);
+          setSchemaStatus('ready');
+        } else {
+          setSchemaStatus('unavailable');
+          setError('The strain schema is unavailable. Reopen this form to retry.');
+        }
       })
-      .catch(() => undefined);
+      .catch((cause) => {
+        if (active) {
+          setSchemaStatus('unavailable');
+          setError(toUserMessage(cause, 'failure.schemas-could-not-be-loaded'));
+        }
+      });
     return () => {
       active = false;
     };
@@ -179,6 +219,7 @@ export function StrainCreationForm({
   const requiredFields = schema.fields.filter((field) => field.required);
   const optionalFields = schema.fields.filter((field) => !field.required);
   const canSave =
+    schemaStatus === 'ready' &&
     name.trim().length > 0 &&
     requiredFields.every((field) => String(values[field.key] ?? '').trim().length > 0) &&
     !saving;
@@ -201,6 +242,8 @@ export function StrainCreationForm({
       await onSave({
         id: creationId,
         kind: 'strain',
+        schemaId: schema.schemaId,
+        expectedSchemaRevisionId: schema.currentRevisionId,
         name: name.trim(),
         fields,
         workspaceRoot: owner.path,
@@ -215,6 +258,9 @@ export function StrainCreationForm({
   return (
     <form
       data-testid="strain-creation-form"
+      data-creation-id={creationId}
+      data-schema-id={schemaStatus === 'ready' ? schema.schemaId : undefined}
+      data-schema-revision-id={schemaStatus === 'ready' ? schema.currentRevisionId : undefined}
       className="flex min-h-0 flex-1 flex-col"
       onSubmit={(event) => {
         event.preventDefault();
@@ -222,6 +268,7 @@ export function StrainCreationForm({
       }}
     >
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+        {schemaStatus === 'loading' ? <p role="status">Loading strain schema…</p> : null}
         <div className="space-y-2">
           <label className={LABEL_CLASS} htmlFor="strain-create-name">
             Name <span className="text-error">*</span>
@@ -240,6 +287,8 @@ export function StrainCreationForm({
           <SchemaField
             key={field.key}
             field={field}
+            sourceEntityId={creationId}
+            disabled={saving}
             value={values[field.key] ?? ''}
             onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))}
           />
@@ -255,6 +304,8 @@ export function StrainCreationForm({
                 <SchemaField
                   key={field.key}
                   field={field}
+                  sourceEntityId={creationId}
+                  disabled={saving}
                   value={values[field.key] ?? ''}
                   onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))}
                 />

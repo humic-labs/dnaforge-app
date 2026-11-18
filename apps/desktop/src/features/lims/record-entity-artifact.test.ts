@@ -660,6 +660,405 @@ describe('recordEntityArtifact', () => {
     );
   });
 
+  it('creates a new local planned strain link after versioned design setup without enrolling its target', async () => {
+    await limsBridge.registerEntity({
+      id: 'legacy-parent',
+      kind: 'strain',
+      name: 'Legacy parent',
+      fields: { genotypeCanonical: 'recA1' },
+      workspaceId: 7,
+    });
+    mocks.namespace.mockResolvedValue({ head: `wv_${'a'.repeat(64)}`, entries: [] });
+    mocks.publish.mockRejectedValue(
+      new TypeError(
+        'Native strain link requires an exact accepted or submitted target of the right kind.'
+      )
+    );
+    const input = {
+      id: 'new-local-child',
+      artifactStem: 'new-local-child',
+      kind: 'strain',
+      name: 'Local planned child',
+      fields: { genotypeCanonical: 'recA2' },
+      relationships: [
+        {
+          type: 'derives_from',
+          fromEntityId: 'new-local-child',
+          toEntityId: 'legacy-parent',
+          payload: { assertion: 'planned', method: 'retain original details' },
+        },
+      ],
+      workspaceRoot,
+      destinationDir: workspaceRoot,
+    };
+
+    const saved = await recordEntityArtifact(input);
+
+    expect(saved).toMatchObject({
+      created: true,
+      artifact: { id: input.id, relationships: input.relationships },
+    });
+    expect(saved.acceptedRevision).toBeUndefined();
+    expect(mocks.publish).not.toHaveBeenCalled();
+    const link = openDbs[0]
+      .prepare('SELECT type,payload FROM lims_link WHERE from_entity_id=? AND tombstone=0')
+      .get(input.id) as { type: string; payload: string };
+    expect(link.type).toBe('derives_from');
+    expect(JSON.parse(link.payload)).toEqual(input.relationships[0].payload);
+    const content = await readFile(saved.artifactPath, 'utf8');
+    await expect(recordEntityArtifact(input)).resolves.toMatchObject({ created: false });
+    expect(await readFile(saved.artifactPath, 'utf8')).toBe(content);
+  });
+
+  it('creates a new local structured strain reference after versioned design setup', async () => {
+    await limsBridge.registerEntity({
+      id: 'legacy-reference',
+      kind: 'strain',
+      name: 'Current target name',
+      fields: { genotypeCanonical: 'recA1' },
+      workspaceId: 7,
+    });
+    const schema = (await limsBridge.listSchemas()).find((entry) => entry.entityKind === 'strain')!;
+    await limsBridge.refineSchema({
+      schemaId: schema.schemaId,
+      fields: [
+        ...schema.fields,
+        {
+          key: 'relatedRecord',
+          label: 'Related record',
+          type: 'record_relationship',
+          required: true,
+        },
+      ],
+    });
+    mocks.namespace.mockResolvedValue({ head: `wv_${'a'.repeat(64)}`, entries: [] });
+    mocks.publish.mockRejectedValue(
+      new TypeError(
+        'Native strain relationships require explicit pinned relationship migration: unsupported references'
+      )
+    );
+
+    const saved = await recordEntityArtifact({
+      id: 'new-local-reference',
+      artifactStem: 'new-local-reference',
+      kind: 'strain',
+      name: 'Local reference',
+      fields: {
+        genotypeCanonical: 'recA2',
+        relatedRecord: {
+          origin: 'native',
+          destinationEntityId: 'legacy-reference',
+          relationType: 'references',
+          label: 'Old label',
+          resolution: 'exact',
+        },
+      },
+      workspaceRoot,
+      destinationDir: workspaceRoot,
+    });
+
+    expect(saved.acceptedRevision).toBeUndefined();
+    expect(saved.artifact.fields.relatedRecord).toMatchObject({
+      destinationEntityId: 'legacy-reference',
+      label: 'Current target name',
+    });
+    expect(saved.artifact.relationships).toEqual([
+      expect.objectContaining({
+        type: 'references',
+        fromEntityId: saved.artifact.id,
+        toEntityId: 'legacy-reference',
+        payload: expect.objectContaining({ fieldKeys: ['relatedRecord'] }),
+      }),
+    ]);
+    expect(mocks.publish).not.toHaveBeenCalled();
+    expect(
+      openDbs[0]
+        .prepare('SELECT type,to_entity_id FROM lims_link WHERE from_entity_id=? AND tombstone=0')
+        .get(saved.artifact.id)
+    ).toEqual({ type: 'references', to_entity_id: 'legacy-reference' });
+  });
+
+  it.each([
+    { name: 'omitted assertion', type: 'derives_from', payload: {}, acceptedTarget: false },
+    {
+      name: 'observed assertion',
+      type: 'derives_from',
+      payload: { assertion: 'observed', retained: [false, 0] },
+      acceptedTarget: false,
+    },
+    {
+      name: 'association to accepted target',
+      type: 'associated_with',
+      payload: { legacy: 'metadata' },
+      acceptedTarget: true,
+    },
+    {
+      name: 'opaque revision',
+      type: 'derives_from',
+      payload: { assertion: 'planned', targetRevisionId: 'legacy revision' },
+      acceptedTarget: false,
+    },
+  ])(
+    'preserves new local strain relationship semantics: $name',
+    async ({ type, payload, acceptedTarget }) => {
+      await limsBridge.registerEntity({
+        id: 'old-peer',
+        kind: 'strain',
+        name: 'Old peer',
+        fields: { genotypeCanonical: 'recA1' },
+        workspaceId: 7,
+      });
+      mocks.namespace.mockResolvedValue({
+        head: `wv_${'a'.repeat(64)}`,
+        entries: acceptedTarget
+          ? [
+              {
+                resourceId: 'old-peer',
+                revisionId: `rr_${'b'.repeat(64)}`,
+                path: 'peer.entity.json',
+                lastPath: 'peer.entity.json',
+                tombstone: false,
+              },
+            ]
+          : [],
+      });
+      mocks.publish.mockRejectedValue(
+        new Error('Legacy metadata must not be published as native evidence')
+      );
+      const relationship = { type, fromEntityId: 'new-peer', toEntityId: 'old-peer', payload };
+
+      const saved = await recordEntityArtifact({
+        id: 'new-peer',
+        artifactStem: 'new-peer',
+        kind: 'strain',
+        name: 'New peer',
+        fields: { genotypeCanonical: 'recA2' },
+        relationships: [relationship],
+        workspaceRoot,
+        destinationDir: workspaceRoot,
+      });
+
+      expect(saved.acceptedRevision).toBeUndefined();
+      expect(saved.artifact.relationships).toEqual([relationship]);
+      const row = openDbs[0]
+        .prepare('SELECT type,payload FROM lims_link WHERE from_entity_id=? AND tombstone=0')
+        .get(saved.artifact.id) as { type: string; payload: string };
+      expect(row.type).toBe(type);
+      expect(JSON.parse(row.payload)).toEqual(payload);
+      expect(mocks.publish).not.toHaveBeenCalled();
+    }
+  );
+
+  it('keeps a new planned strain with an accepted target on native publication after refusal', async () => {
+    mocks.namespace.mockResolvedValue({
+      head: `wv_${'a'.repeat(64)}`,
+      entries: [
+        {
+          resourceId: 'accepted-parent',
+          revisionId: `rr_${'b'.repeat(64)}`,
+          path: 'parent.entity.json',
+          lastPath: 'parent.entity.json',
+          tombstone: false,
+        },
+      ],
+    });
+    const failure = new Error('Native current-source refusal');
+    mocks.publish.mockRejectedValue(failure);
+    const relationship = {
+      type: 'derives_from',
+      fromEntityId: 'accepted-new-child',
+      toEntityId: 'accepted-parent',
+      payload: { assertion: 'planned' },
+    };
+
+    await expect(
+      recordEntityArtifact({
+        id: 'accepted-new-child',
+        artifactStem: 'accepted-new-child',
+        kind: 'strain',
+        name: 'Accepted child',
+        fields: { genotypeCanonical: 'recA2' },
+        relationships: [relationship],
+        workspaceRoot,
+        destinationDir: workspaceRoot,
+      })
+    ).rejects.toBe(failure);
+
+    expect(
+      parseEntityArtifact(mocks.publish.mock.calls[0][0].representation.text).relationships
+    ).toEqual([relationship]);
+    expect(mocks.sourceWrites).not.toHaveBeenCalled();
+    expect(mocks.registerCatalogEntity).not.toHaveBeenCalled();
+  });
+
+  it('protects an accepted carried-by owner from a new local strain relationship', async () => {
+    mocks.namespace.mockResolvedValue({
+      head: `wv_${'a'.repeat(64)}`,
+      entries: [
+        {
+          resourceId: 'accepted-owner',
+          revisionId: `rr_${'b'.repeat(64)}`,
+          path: 'owner.entity.json',
+          lastPath: 'owner.entity.json',
+          tombstone: false,
+        },
+      ],
+    });
+
+    await expect(
+      recordEntityArtifact({
+        id: 'new-carrier',
+        artifactStem: 'new-carrier',
+        kind: 'strain',
+        name: 'New carrier',
+        fields: { genotypeCanonical: 'recA2' },
+        relationships: [
+          {
+            type: 'carried_by',
+            fromEntityId: 'new-carrier',
+            toEntityId: 'accepted-owner',
+            payload: { assertion: 'observed' },
+          },
+        ],
+        workspaceRoot,
+        destinationDir: workspaceRoot,
+      })
+    ).rejects.toThrow('owned by an accepted or removed record');
+
+    expect(mocks.sourceWrites).not.toHaveBeenCalled();
+    expect(mocks.publish).not.toHaveBeenCalled();
+    expect(mocks.registerCatalogEntity).not.toHaveBeenCalled();
+  });
+
+  it('refuses new local strain creation when its dependency authority changes at the final read', async () => {
+    mocks.namespace
+      .mockResolvedValueOnce({ head: `wv_${'a'.repeat(64)}`, entries: [] })
+      .mockResolvedValue({
+        head: `wv_${'b'.repeat(64)}`,
+        entries: [
+          {
+            resourceId: 'now-accepted-parent',
+            revisionId: `rr_${'c'.repeat(64)}`,
+            path: 'parent.entity.json',
+            lastPath: 'parent.entity.json',
+            tombstone: false,
+          },
+        ],
+      });
+
+    await expect(
+      recordEntityArtifact({
+        id: 'new-fenced-child',
+        artifactStem: 'new-fenced-child',
+        kind: 'strain',
+        name: 'Fenced child',
+        fields: { genotypeCanonical: 'recA2' },
+        relationships: [
+          {
+            type: 'derives_from',
+            fromEntityId: 'new-fenced-child',
+            toEntityId: 'now-accepted-parent',
+            payload: { assertion: 'planned' },
+          },
+        ],
+        workspaceRoot,
+        destinationDir: workspaceRoot,
+      })
+    ).rejects.toThrow('publication owner changed');
+
+    expect(mocks.sourceWrites).not.toHaveBeenCalled();
+    expect(mocks.publish).not.toHaveBeenCalled();
+  });
+
+  it('keeps an accepted strain output out of local classification for unsupported new links', async () => {
+    const input = {
+      id: 'owned-output',
+      artifactStem: 'owned-output',
+      kind: 'strain',
+      name: 'Owned output',
+      fields: { genotypeCanonical: 'recA1' },
+      workspaceRoot,
+      destinationDir: workspaceRoot,
+    };
+    const first = await recordEntityArtifact(input);
+    const content = await readFile(first.artifactPath, 'utf8');
+    const acceptedRevision = {
+      kind: 'accepted-object' as const,
+      resourceId: input.id,
+      resourceRevisionId: `rr_${'b'.repeat(64)}`,
+      workspaceVersionId: `wv_${'a'.repeat(64)}`,
+      contentSha256: 'c'.repeat(64),
+      sequenceEditParentEventId: null,
+    };
+    mocks.namespace.mockResolvedValue({
+      head: acceptedRevision.workspaceVersionId,
+      entries: [
+        {
+          resourceId: input.id,
+          revisionId: acceptedRevision.resourceRevisionId,
+          path: first.relativePath,
+          lastPath: first.relativePath,
+          tombstone: false,
+        },
+      ],
+    });
+    mocks.read.mockResolvedValue({ content, acceptedRevision });
+    mocks.sourceWrites.mockClear();
+    mocks.registerCatalogEntity.mockClear();
+
+    await expect(
+      recordEntityArtifact({
+        ...input,
+        relationships: [
+          { type: 'associated_with', fromEntityId: input.id, toEntityId: 'peer', payload: {} },
+        ],
+      })
+    ).rejects.toThrow('different accepted strain');
+
+    expect(await readFile(first.artifactPath, 'utf8')).toBe(content);
+    expect(mocks.sourceWrites).not.toHaveBeenCalled();
+    expect(mocks.publish).not.toHaveBeenCalled();
+    expect(mocks.registerCatalogEntity).not.toHaveBeenCalled();
+  });
+
+  it('refuses a fresh local strain at a removed accepted path before source creation', async () => {
+    mocks.namespace.mockResolvedValue({
+      head: `wv_${'a'.repeat(64)}`,
+      entries: [
+        {
+          resourceId: 'removed-strain',
+          revisionId: `rr_${'b'.repeat(64)}`,
+          path: null,
+          lastPath: 'removed.entity.json',
+          tombstone: true,
+        },
+      ],
+    });
+
+    await expect(
+      recordEntityArtifact({
+        id: 'fresh-local-strain',
+        artifactStem: 'removed',
+        kind: 'strain',
+        name: 'Fresh local',
+        fields: { genotypeCanonical: 'recA1' },
+        relationships: [
+          {
+            type: 'associated_with',
+            fromEntityId: 'fresh-local-strain',
+            toEntityId: 'legacy-target',
+            payload: {},
+          },
+        ],
+        workspaceRoot,
+        destinationDir: workspaceRoot,
+      })
+    ).rejects.toThrow('already accepted');
+
+    expect(mocks.sourceWrites).not.toHaveBeenCalled();
+    expect(mocks.publish).not.toHaveBeenCalled();
+  });
+
   it('recovers an exact legacy strain creation after an unrelated accepted namespace appears', async () => {
     const input = {
       id: 'legacy-strain',

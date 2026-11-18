@@ -2114,3 +2114,46 @@ recovery. Accepted identity/path ownership, tombstones, changed intent and
 misplaced files still prevent legacy fallback. Legacy projection repair may
 write its existing catalog or registry records; it does not rewrite the source
 artifact or publish a new accepted design.
+
+New artifact creation also follows the resource's publication authority. A new
+primer bound to an older, unaccepted local DNA document retains its complete
+binding through the existing local file and projection owner. A new strain with
+local dependencies or relationships outside the native scientific representation
+uses that same local record model, preserving its fields, assertions and
+payloads. An ordinary Registry reference may point to an accepted entity without
+becoming accepted scientific evidence. Local records remain subject to their
+existing schema, endpoint, duplicate and lineage checks. A new local artifact
+must choose a path with no removed accepted owner. Restore or reconcile a
+removed accepted source through its explicit owner; local creation does not
+reuse that path.
+
+```mermaid
+stateDiagram-v2
+    [*] --> InspectOutput
+    InspectOutput --> AcceptedOwner: existing accepted identity and path
+    InspectOutput --> ExistingLocal: existing exact unclaimed file
+    InspectOutput --> ClassifyNew: new unclaimed output
+    InspectOutput --> Refused: moved, removed or colliding ownership
+    ExistingLocal --> LocalProjection: recover original source
+    ClassifyNew --> AcceptedOwner: native representation and accepted dependencies
+    ClassifyNew --> LocalCandidate: legacy representation or local dependency
+    LocalCandidate --> Refused: ownership changed or accepted relationship owner
+    LocalCandidate --> CreateLocal: current resource ownership agrees
+    CreateLocal --> LocalProjection
+    AcceptedOwner --> AcceptedPending: accepted, delivery or projection incomplete
+    AcceptedOwner --> Saved: accepted publication complete
+    AcceptedOwner --> Refused: native admission refuses
+    LocalProjection --> LocalPending: source saved, recovery incomplete
+    LocalProjection --> Saved: projections and history complete
+    AcceptedPending --> AcceptedOwner: recover original publication
+    LocalPending --> ExistingLocal: recover same saved source
+```
+
+Representation is classified before publication using the existing native codec.
+Malformed input and unexpected failures refuse; they do not select a local
+writer. Existing accepted outputs always retain their native owner. A refused or
+pending native publication never falls back to local creation. Known dependency
+identity, path, removal and relationship ownership remain protected; for
+`carried_by`, the strain at the destination owns the biological relationship.
+Exact local retries do not automatically enroll their source when a dependency
+later becomes accepted.

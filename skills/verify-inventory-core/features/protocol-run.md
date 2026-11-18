@@ -283,3 +283,40 @@ only the original setup and reads the exact accepted design/current map. It
 performs no new creation, sequence edit or inventory action. Capture static
 states scrolled into view plus real pointer/typing video. This prerequisite does
 not qualify physical DNA production, product identity verification or release.
+
+## New local artifacts after versioned-design setup
+
+Use `new-artifact-continuity` with the exact qualified design-setup fixture. The
+maintained journey derives a current unaccepted local DNA target from the
+project's actual material/catalog facts, opens it normally, selects its first20
+bases through the real sequence controls and chooses **Create Forward Primer
+→**. The existing drawer's **Save Primer** creates one complete file-backed
+primer with that binding. It does not enroll or rewrite the older target.
+
+The already acknowledged optional `relatedRecord` field belongs to the real
+strain schema; this journey never repeats its schema Save. Files → New… →
+Strains → Create uses **Choose Related record** and the existing Registry picker
+to select that exact existing local DNA. The form preserves the complete native
+relationship value and pins its actually loaded schema ID/revision before
+**Create strain**. The saved artifact retains its schema snapshot, structured
+field and schema-field `references` link. It does not turn that Registry link
+into biological ancestry or accepted scientific evidence.
+
+Checkpoint the original visible input, target/source hash, live creation ID and
+actual schema pins before each Save. Read/checkpoint the original source file
+and native projection IDs immediately before later assertions. Preserve the live
+form/recovery input if a result is uncertain; read the original output path
+before retrying and never create a replacement name/identity for a screenshot.
+`new-artifact-continuity-resume` reconciles already written original artifacts;
+`new-artifact-continuity-reopen` reads the same IDs/full files/relationships
+after restart without creating either artifact again.
+
+Inventory102/all219 existing global requests/receipts, old physical facts, the
+selected older DNA source and the accepted24-base design/revision remain exact.
+The two new artifact files and their normal Registry/catalog/binding/history
+projections and derived exports are intentional data changes; this does not
+claim zero SQL or all32 project files unchanged. Capture the selected link
+itself and Attached primer row scrolled into view, with genuine pointer
+interaction video. Normal readback/restart proof does not claim an actual
+lost-acknowledgement injection; focused existing-owner file/SQLite tests qualify
+that separate boundary.

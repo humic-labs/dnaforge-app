@@ -19,7 +19,7 @@ import {
   parsePrimerArtifact,
   type PrimerArtifactBindingV1,
 } from './shared/primers/primer-artifact';
-import { parseEntityArtifact } from './shared/entity-artifact';
+import { parseEntityArtifact, type EntityArtifactRelationshipV1 } from './shared/entity-artifact';
 import { nativeRecord, parseNativeJson } from './native-json';
 
 export interface NativeStrainRelationship {
@@ -30,9 +30,65 @@ export interface NativeStrainRelationship {
   readonly targetRevisionId: ResourceRevisionId | null;
   readonly fields: CanonicalMap;
 }
+export class UnsupportedNativeStrainRepresentationError extends TypeError {
+  readonly code = 'UNSUPPORTED_NATIVE_STRAIN_REPRESENTATION';
+}
+export interface NativeStrainRelationshipOwnership {
+  readonly strainId: string;
+  readonly targetId: string;
+  readonly kind: 'strain-descent' | 'strain-sequence';
+}
+export function nativeStrainRelationshipOwnership(
+  relationship: Pick<EntityArtifactRelationshipV1, 'type' | 'fromEntityId' | 'toEntityId'>
+): NativeStrainRelationshipOwnership | null {
+  switch (relationship.type) {
+    case 'derives_from':
+      return {
+        strainId: relationship.fromEntityId,
+        targetId: relationship.toEntityId,
+        kind: 'strain-descent',
+      };
+    case 'has_genome':
+      return {
+        strainId: relationship.fromEntityId,
+        targetId: relationship.toEntityId,
+        kind: 'strain-sequence',
+      };
+    case 'carried_by':
+      return {
+        strainId: relationship.toEntityId,
+        targetId: relationship.fromEntityId,
+        kind: 'strain-sequence',
+      };
+    default:
+      return null;
+  }
+}
+export type NativeStrainRepresentation =
+  | { readonly kind: 'native'; readonly claims: readonly NativeStrainRelationship[] }
+  | {
+      readonly kind: 'legacy';
+      readonly reason: {
+        readonly code: 'UNSUPPORTED_NATIVE_STRAIN_REPRESENTATION';
+        readonly message: string;
+      };
+    };
+
+export function classifyNativeStrainRepresentation(text: string): NativeStrainRepresentation {
+  parseEntityArtifact(text);
+  try {
+    return { kind: 'native', claims: parseNativeStrainRelationships(text) };
+  } catch (error) {
+    if (!(error instanceof UnsupportedNativeStrainRepresentationError)) throw error;
+    return { kind: 'legacy', reason: { code: error.code, message: error.message } };
+  }
+}
 function resourceId(value: string): ResourceId {
   const parsed = parseResourceId(value);
-  if (!parsed.ok) throw new TypeError('Native strain relationship identity is invalid.');
+  if (!parsed.ok)
+    throw new UnsupportedNativeStrainRepresentationError(
+      'Native strain relationship identity is invalid.'
+    );
   return parsed.value;
 }
 
@@ -42,49 +98,60 @@ export function parseNativeStrainRelationships(text: string): readonly NativeStr
   if (strain.kind !== 'strain') throw new TypeError('Expected a native strain record.');
   const relationships = raw.relationships;
   if (!Array.isArray(relationships))
-    throw new TypeError('Native strain relationships are malformed.');
+    throw new UnsupportedNativeStrainRepresentationError(
+      'Native strain relationships are malformed.'
+    );
   const seen = new Set<ResourceId>();
   return Object.freeze(
     strain.relationships.map((relationship, index) => {
       const payload = nativeRecord(nativeRecord(relationships[index]).payload);
       const type = relationship.type;
-      if (!['derives_from', 'carried_by', 'has_genome'].includes(type))
-        throw new TypeError(
+      const ownership = nativeStrainRelationshipOwnership(relationship);
+      if (!ownership)
+        throw new UnsupportedNativeStrainRepresentationError(
           `Native strain relationships require explicit pinned relationship migration: unsupported ${type}`
         );
       if (payload.assertion !== 'planned')
-        throw new TypeError(
+        throw new UnsupportedNativeStrainRepresentationError(
           'Native strain link qualification requires an explicit planned assertion; observed links require accepted physical evidence.'
         );
       if (
         type === 'has_genome' &&
         (payload.confidence === 'WGS_verified' || payload.confidence === 'partially_verified')
       )
-        throw new TypeError(
+        throw new UnsupportedNativeStrainRepresentationError(
           'A planned genome link cannot claim verification without accepted physical evidence.'
         );
-      const fromOwner = type !== 'carried_by';
-      if ((fromOwner ? relationship.fromEntityId : relationship.toEntityId) !== strain.id)
-        throw new TypeError('Native strain relationship does not belong to its record.');
+      if (ownership.strainId !== strain.id)
+        throw new UnsupportedNativeStrainRepresentationError(
+          'Native strain relationship does not belong to its record.'
+        );
       let targetRevisionId: ResourceRevisionId | null = null;
       if (Object.hasOwn(payload, 'targetRevisionId')) {
         if (typeof payload.targetRevisionId !== 'string')
-          throw new TypeError('Native strain target revision is invalid.');
+          throw new UnsupportedNativeStrainRepresentationError(
+            'Native strain target revision is invalid.'
+          );
         const parsed = parseResourceRevisionId(payload.targetRevisionId);
-        if (!parsed.ok) throw new TypeError('Native strain target revision is invalid.');
+        if (!parsed.ok)
+          throw new UnsupportedNativeStrainRepresentationError(
+            'Native strain target revision is invalid.'
+          );
         targetRevisionId = parsed.value;
       }
       const id = resourceId(
         `native-strain-link-${defineBlob(new TextEncoder().encode(JSON.stringify([strain.id, type, relationship.fromEntityId, relationship.toEntityId]))).hash.slice('sha256:'.length)}`
       );
       if (seen.has(id))
-        throw new TypeError('Native strain relationship is declared more than once.');
+        throw new UnsupportedNativeStrainRepresentationError(
+          'Native strain relationship is declared more than once.'
+        );
       seen.add(id);
       return Object.freeze({
         resourceId: id,
         strainId: resourceId(strain.id),
-        kind: type === 'derives_from' ? ('strain-descent' as const) : ('strain-sequence' as const),
-        targetId: resourceId(fromOwner ? relationship.toEntityId : relationship.fromEntityId),
+        kind: ownership.kind,
+        targetId: resourceId(ownership.targetId),
         targetRevisionId,
         fields: { nativeRelationshipType: type, payload },
       });

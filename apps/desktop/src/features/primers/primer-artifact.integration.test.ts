@@ -1630,6 +1630,158 @@ describe('primer artifact reconciliation against the real LIMS engine', () => {
     );
   });
 
+  it('creates a new local-bound primer after versioned design setup without enrolling its target', async () => {
+    const targetPath = join(workspaceRoot, 'pUC19.gb');
+    const source = readFileSync(targetPath, 'utf8');
+    const input = {
+      artifactId: 'new-local-bound-primer',
+      name: 'Bound continuity',
+      sequence: 'GCGGGCCTCTTCGCTATTACGCCAGCTGGCGA',
+      artifactPath: join(workspaceRoot, 'primers', 'new-local-bound.primer.json'),
+      workspaceRoot,
+      targetDocumentId,
+      targetFilePath: targetPath,
+      targetLength: 2686,
+      targetTopology: 'circular' as const,
+      requireRegistry: true as const,
+      bindingSequenceId: targetSequenceId,
+      bindingStart: 1711,
+      bindingEnd: 1743,
+      bindingStrand: -1 as const,
+      actor: 'captured-author',
+      application: 'sequencing' as const,
+      notes: 'Retain local binding and provenance',
+    };
+    mocks.namespace.mockResolvedValue({ head: `wv_${'a'.repeat(64)}`, entries: [] });
+    mocks.publish.mockRejectedValue(
+      new TypeError(
+        'Native placement requires an exact matching accepted or submitted target snapshot.'
+      )
+    );
+
+    const saved = await savePrimerArtifact(input);
+
+    expect(saved).toMatchObject({
+      created: true,
+      artifact: {
+        id: input.artifactId,
+        metadata: { actor: input.actor },
+        bindings: [
+          {
+            target: { documentId: targetDocumentId },
+            coordinates: { start: 1711, end: 1743, strand: -1 },
+          },
+        ],
+      },
+      limsEntity: { id: input.artifactId },
+    });
+    expect(saved.acceptedRevision).toBeUndefined();
+    expect(mocks.publish).not.toHaveBeenCalled();
+    expect(readFileSync(targetPath, 'utf8')).toBe(source);
+    const content = readFileSync(input.artifactPath, 'utf8');
+    mocks.namespace.mockResolvedValue({
+      head: `wv_${'b'.repeat(64)}`,
+      entries: [
+        {
+          resourceId: targetDocumentId,
+          revisionId: `rr_${'c'.repeat(64)}`,
+          path: 'pUC19.gb',
+          lastPath: 'pUC19.gb',
+          tombstone: false,
+        },
+      ],
+    });
+    await expect(savePrimerArtifact(input)).resolves.toMatchObject({
+      created: false,
+      artifact: { id: input.artifactId },
+    });
+    expect(readFileSync(input.artifactPath, 'utf8')).toBe(content);
+    expect(mocks.publish).not.toHaveBeenCalled();
+  });
+
+  it.each(['accepted', 'moved', 'removed', 'late-accepted'])(
+    'protects new bound primer publication authority: %s',
+    async (kind) => {
+      const head = `wv_${'a'.repeat(64)}`;
+      const target = {
+        resourceId: targetDocumentId,
+        revisionId: `rr_${'b'.repeat(64)}`,
+        path: kind === 'moved' ? 'moved.gb' : kind === 'removed' ? null : 'pUC19.gb',
+        lastPath: 'pUC19.gb',
+        tombstone: kind === 'removed',
+      };
+      mocks.namespace.mockResolvedValue({ head, entries: [target] });
+      if (kind === 'late-accepted') mocks.namespace.mockResolvedValueOnce({ head, entries: [] });
+      const failure = new Error('Native exact-source refusal');
+      mocks.publish.mockRejectedValue(failure);
+      vi.mocked(platformBridge().fs.writeWorkspaceTextFileAtomic).mockClear();
+      const attempt = savePrimerArtifact({
+        artifactId: 'new-authority-primer',
+        name: 'Authority primer',
+        sequence: 'GCGGGCCTCTTCGCTATTACGCCAGCTGGCGA',
+        artifactPath: join(workspaceRoot, 'primers', 'authority.primer.json'),
+        workspaceRoot,
+        requireRegistry: true,
+        targetDocumentId,
+        targetFilePath: join(workspaceRoot, 'pUC19.gb'),
+        targetLength: 2686,
+        targetTopology: 'circular',
+        bindingSequenceId: targetSequenceId,
+        bindingStart: 1711,
+        bindingEnd: 1743,
+        bindingStrand: -1,
+      });
+
+      if (kind === 'accepted') {
+        await expect(attempt).rejects.toBe(failure);
+        expect(mocks.publish).toHaveBeenCalledOnce();
+        expect(mocks.publish.mock.calls[0][0]).toMatchObject({ prior: null, expectedHead: head });
+      } else {
+        await expect(attempt).rejects.toThrow();
+        expect(mocks.publish).not.toHaveBeenCalled();
+      }
+      expect(platformBridge().fs.writeWorkspaceTextFileAtomic).not.toHaveBeenCalled();
+    }
+  );
+
+  it('refuses a fresh local-bound primer at a removed accepted path before source creation', async () => {
+    mocks.namespace.mockResolvedValue({
+      head: `wv_${'a'.repeat(64)}`,
+      entries: [
+        {
+          resourceId: 'removed-primer',
+          revisionId: `rr_${'b'.repeat(64)}`,
+          path: null,
+          lastPath: 'primers/removed.primer.json',
+          tombstone: true,
+        },
+      ],
+    });
+    vi.mocked(platformBridge().fs.writeWorkspaceTextFileAtomic).mockClear();
+
+    await expect(
+      savePrimerArtifact({
+        artifactId: 'fresh-local-primer',
+        name: 'Fresh local',
+        sequence: 'GCGGGCCTCTTCGCTATTACGCCAGCTGGCGA',
+        artifactPath: join(workspaceRoot, 'primers', 'removed.primer.json'),
+        workspaceRoot,
+        requireRegistry: true,
+        targetDocumentId,
+        targetFilePath: join(workspaceRoot, 'pUC19.gb'),
+        targetLength: 2686,
+        targetTopology: 'circular',
+        bindingSequenceId: targetSequenceId,
+        bindingStart: 1711,
+        bindingEnd: 1743,
+        bindingStrand: -1,
+      })
+    ).rejects.toThrow('already accepted');
+
+    expect(platformBridge().fs.writeWorkspaceTextFileAtomic).not.toHaveBeenCalled();
+    expect(mocks.publish).not.toHaveBeenCalled();
+  });
+
   it('recovers an exact legacy primer creation after an unrelated accepted namespace appears', async () => {
     const input = {
       name: 'Legacy retry',

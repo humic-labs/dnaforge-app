@@ -1,4 +1,9 @@
 import {
+  runInventoryNewArtifactContinuity,
+  runInventoryNewArtifactContinuityResume,
+  runInventoryNewArtifactContinuityReopen,
+} from './journeys/inventory-new-artifact-continuity.mjs';
+import {
   runInventoryDesignSetup,
   runInventoryDesignSetupResume,
   runInventoryDesignSetupReopen,
@@ -161,6 +166,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const args = process.argv.slice(2);
 const option = (name) => args[args.indexOf(name) + 1];
 const stage = args.includes('--stage') ? option('--stage') : 'doctor';
+const newArtifactContinuityStages = {
+  'new-artifact-continuity': runInventoryNewArtifactContinuity,
+  'new-artifact-continuity-resume': runInventoryNewArtifactContinuityResume,
+  'new-artifact-continuity-reopen': runInventoryNewArtifactContinuityReopen,
+};
 const designSetupStages = {
   'design-setup': runInventoryDesignSetup,
   'design-setup-resume': runInventoryDesignSetupResume,
@@ -203,6 +213,7 @@ assert.ok(
     ...Object.keys(runValueStages),
     ...Object.keys(runValueAttributionStages),
     ...Object.keys(designSetupStages),
+    ...Object.keys(newArtifactContinuityStages),
     ...Object.keys(platePlanObservationStages),
     ...Object.keys(platePlanStages),
     ...Object.keys(citationStages),
@@ -359,6 +370,16 @@ const files = execFileSync(
     'packages/core/domain-services/package.json',
     'packages/core/scientific-objects/package.json',
     'apps/desktop/src/features/sequence',
+    'apps/desktop/src/features/primers',
+    'apps/desktop/src/features/lims',
+    'apps/desktop/src/features/entity-creation',
+    'apps/desktop/src/features/entity-details',
+    'apps/desktop/src/components/entity-reference',
+    'apps/desktop/src/shared/entity-field-relationships.ts',
+    'apps/desktop/src/shared/entity-schema.ts',
+    'apps/desktop/src/shared/entity-artifact.ts',
+    ':(glob)apps/desktop/src/main/lims*',
+    'apps/desktop/src/main/registry-semantic-write-admission.ts',
     'apps/desktop/src/components/FileBrowser.tsx',
     'apps/desktop/src/components/FileTreeItem.tsx',
     'apps/desktop/src/components/RootFolder.tsx',
@@ -1002,6 +1023,24 @@ try {
           ? runInventoryStockroomCorrectionsResume
           : runInventoryStockroomCorrectionsReopen
     )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
+  if (Object.hasOwn(newArtifactContinuityStages, stage)) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the qualified setup or exact continuity checkpoint fixture.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    receipt.expected = await newArtifactContinuityStages[stage]({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+    });
   }
   if (Object.hasOwn(designSetupStages, stage)) {
     assert.ok(

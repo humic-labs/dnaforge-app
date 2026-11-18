@@ -368,6 +368,32 @@ export function createPrimerArtifactOwner(dependencies: PrimerArtifactDependenci
         'The primer identity or path is already accepted. Open it to edit or restore it explicitly.'
       );
   }
+  function usesAcceptedPrimerCreation(
+    namespace: Awaited<ReturnType<typeof readScientificNamespace>>,
+    target: Awaited<ReturnType<typeof buildFileDnaSequenceRef>> | null,
+    root: string
+  ): boolean {
+    if (!namespace) return false;
+    if (!target) return true;
+    const path = pathRelativeToBoundary(target.relPath, root);
+    if (!path) throw new Error('The primer target sequence must be inside the owning project.');
+    const identity = namespace.entries.find((entry) => entry.resourceId === target.documentId);
+    const pathOwner = namespace.entries.find(
+      (entry) => !entry.tombstone && scientificPathsCollide(entry.path, path)
+    );
+    if (
+      (identity && (identity.tombstone || identity.path !== path)) ||
+      (pathOwner && (pathOwner.resourceId !== target.documentId || pathOwner.path !== path)) ||
+      (!identity &&
+        namespace.entries.some(
+          (entry) => entry.tombstone && scientificPathsCollide(entry.lastPath, path)
+        ))
+    )
+      throw new Error(
+        'The primer target has accepted ownership at another or removed location. Reopen its current source.'
+      );
+    return Boolean(identity);
+  }
   const readScientificText = (
     path: string,
     root: string,
@@ -693,6 +719,7 @@ export function createPrimerArtifactOwner(dependencies: PrimerArtifactDependenci
       };
     }
 
+    const acceptedCreation = usesAcceptedPrimerCreation(namespace, target, input.workspaceRoot);
     const id = input.artifactId ?? randomId();
     const catalogNumber = await generateCatalogNumber(
       workspaceId ?? 0,
@@ -756,7 +783,7 @@ export function createPrimerArtifactOwner(dependencies: PrimerArtifactDependenci
         concentration: null,
       },
     });
-    if (namespace) {
+    if (namespace && acceptedCreation) {
       const limsPathsBefore = await currentDirtyLimsPaths(input.workspaceRoot, mutationToken);
       const projected = await publishAcceptedPrimerArtifact(
         artifactPath,
@@ -768,6 +795,12 @@ export function createPrimerArtifactOwner(dependencies: PrimerArtifactDependenci
       return { artifactPath, artifact, ...projected, limsPathsBefore, created: true };
     }
 
+    const currentNamespace = await readScientificNamespace(input.workspaceRoot);
+    assertLegacyPrimerUnclaimed(currentNamespace, artifact.id, pathValidation.relativePath);
+    if (usesAcceptedPrimerCreation(currentNamespace, target, input.workspaceRoot))
+      throw new Error(
+        'The primer publication owner changed before creation. Retry with its current source.'
+      );
     await platform().fs.writeWorkspaceTextFileAtomic({
       workspaceRoot: input.workspaceRoot,
       path: artifactPath,

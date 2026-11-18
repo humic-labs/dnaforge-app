@@ -29,6 +29,10 @@ import {
 import type { RegistryChangeEmitter } from '../registry-change';
 import { scientificIdentityPath } from '@waypoint/scientific-objects';
 import { parseWorkspacePath, pathCollisionKey } from '@waypoint/workspace-revisions';
+import {
+  classifyNativeStrainRepresentation,
+  nativeStrainRelationshipOwnership,
+} from '@waypoint/scientific-artifacts/native-references';
 import type { ScientificAcceptedDocumentRevision } from '@waypoint/domain-services';
 import {
   NativeArtifactPublicationPendingError,
@@ -146,20 +150,53 @@ export function createEntityArtifactOwner(dependencies: createEntityArtifactOwne
   function assertLegacyStrainUnclaimed(
     namespace: Awaited<ReturnType<typeof readScientificNamespace>>,
     id: string,
-    path: string,
-    existingFile: boolean
+    path: string
   ): void {
     if (
       namespace?.entries.some(
         (entry) =>
           entry.resourceId === id ||
           (!entry.tombstone && scientificPathsCollide(entry.path, path)) ||
-          (existingFile && entry.tombstone && scientificPathsCollide(entry.lastPath, path))
+          (entry.tombstone && scientificPathsCollide(entry.lastPath, path))
       )
     )
       throw new Error(
         'The strain identity or path is already accepted. Open it to edit or restore it explicitly.'
       );
+  }
+  function usesAcceptedStrainCreation(
+    namespace: Awaited<ReturnType<typeof readScientificNamespace>>,
+    artifact: EntityArtifactV2,
+    content: string
+  ): boolean {
+    if (!namespace) return false;
+    const representation = classifyNativeStrainRepresentation(content);
+    if (
+      representation.kind === 'native' &&
+      representation.claims.every((claim) =>
+        namespace.entries.some((entry) => entry.resourceId === claim.targetId)
+      )
+    )
+      return true;
+    for (const relationship of artifact.relationships) {
+      const ownership = nativeStrainRelationshipOwnership(relationship);
+      if (
+        (ownership &&
+          ownership.strainId !== artifact.id &&
+          namespace.entries.some((entry) => entry.resourceId === ownership.strainId)) ||
+        namespace.entries.some(
+          (entry) =>
+            entry.tombstone &&
+            entry.resourceId !== artifact.id &&
+            (entry.resourceId === relationship.fromEntityId ||
+              entry.resourceId === relationship.toEntityId)
+        )
+      )
+        throw new Error(
+          'The strain relationship is owned by an accepted or removed record. Open its owning source.'
+        );
+    }
+    return false;
   }
   const readScientificText = (path: string, root: string) =>
     dependencies.scientific?.readText(path, root) ??
@@ -273,7 +310,7 @@ export function createEntityArtifactOwner(dependencies: createEntityArtifactOwne
             (slot) => slot.resourceId === id && !slot.tombstone
           );
           const legacyExistingRetry = exists && !acceptedExisting;
-          if (legacyExistingRetry) assertLegacyStrainUnclaimed(namespace, id, relativePath, true);
+          if (legacyExistingRetry) assertLegacyStrainUnclaimed(namespace, id, relativePath);
           const existingContent = acceptedExisting
             ? (await readScientificText(artifactPath, input.workspaceRoot)).content
             : exists
@@ -389,7 +426,11 @@ export function createEntityArtifactOwner(dependencies: createEntityArtifactOwne
             sourceMetadata: entityArtifactSourceMetadata(artifact),
           };
           const content = serializeEntityArtifact(artifact);
-          if (namespace && !legacyExistingRetry) {
+          const acceptedCreation =
+            namespace &&
+            !legacyExistingRetry &&
+            (acceptedExisting || usesAcceptedStrainCreation(namespace, artifact, content));
+          if (namespace && acceptedCreation) {
             const existing = namespace.entries.find((slot) => slot.resourceId === id);
             const pathOwner = namespace.entries.find(
               (slot) => !slot.tombstone && slot.path === relativePath
@@ -521,6 +562,14 @@ export function createEntityArtifactOwner(dependencies: createEntityArtifactOwne
             }
             receipt.recordWriteStatus = 'existing';
           } else {
+            if (input.kind === 'strain') {
+              const currentNamespace = await readScientificNamespace(input.workspaceRoot);
+              assertLegacyStrainUnclaimed(currentNamespace, id, relativePath);
+              if (usesAcceptedStrainCreation(currentNamespace, artifact, content))
+                throw new Error(
+                  'The strain publication owner changed before creation. Retry with its current source.'
+                );
+            }
             await platform().fs.writeWorkspaceTextFileAtomic({
               workspaceRoot: input.workspaceRoot,
               path: artifactPath,
@@ -538,8 +587,7 @@ export function createEntityArtifactOwner(dependencies: createEntityArtifactOwne
               assertLegacyStrainUnclaimed(
                 await readScientificNamespace(input.workspaceRoot),
                 id,
-                relativePath,
-                exists
+                relativePath
               );
             await dependencies.projectArtifact(artifact, content, artifactPath, {
               ...input,
