@@ -424,8 +424,6 @@ export function useChatRouteControls({
         buttonTestId="model-selector-button"
         menuTestId="chat-assistant-route-menu"
         optionTestIdPrefix="chat-assistant-route-option"
-        wrapperClassName="max-w-[14rem]"
-        menuClassName="w-72 sm:w-80"
       />
     );
   };
@@ -481,7 +479,7 @@ export function useChatRouteControls({
           ariaLabel={`${providerLabel} model`}
           title={`${providerLabel} model: ${currentModel}`}
           testId="chat-model-version-select"
-          className="max-w-[14rem]"
+          width="standard"
           options={modelOptions.map((modelOption) => ({
             value: modelOption,
             label: modelOption,
@@ -602,8 +600,6 @@ export function useChatRouteControls({
           }}
           selectTestId="chat-cli-model-select"
           customInputTestId="chat-cli-model-custom-input"
-          wrapperClassName="max-w-[14rem]"
-          customInputWrapperClassName="w-44"
           defaultModel={defaultModel}
           codexAuthMode={
             transport === 'codex-sdk' ? (agentDetection?.codex.authMode ?? null) : undefined
@@ -621,7 +617,7 @@ export function useChatRouteControls({
             ariaLabel={`${TURN_TRANSPORT_LABELS[transport]} reasoning effort`}
             title={`${TURN_TRANSPORT_LABELS[transport]} reasoning effort: ${selectedEffort}`}
             testId="chat-cli-effort-select"
-            className="max-w-[9rem]"
+            width="compact"
             options={effortOptions.map((option) => ({
               value: option.value,
               label: option.label,

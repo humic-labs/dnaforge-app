@@ -247,7 +247,6 @@ function AgentCliModelControls({
           defaultModel={defaultModel}
           codexAuthMode={codexAuthMode}
           availableModels={availableModels}
-          containerClassName="min-w-0"
           customInputPlacement="replace-select"
           ariaLabel={`${AGENT_TRANSPORT_LABELS[transport]} default model`}
           appearance="settings"

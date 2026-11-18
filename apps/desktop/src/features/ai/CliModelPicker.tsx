@@ -25,13 +25,10 @@ export interface CliModelPickerProps {
   defaultModel?: string | null;
   codexAuthMode?: CodexAuthMode;
   availableModels?: readonly AgentCliModelCapabilityShape[];
-  containerClassName?: string;
   customInputPlacement?: 'inline' | 'replace-select';
   disabled?: boolean;
   ariaLabel?: string;
   appearance?: 'settings' | 'inline';
-  wrapperClassName?: string;
-  customInputWrapperClassName?: string;
 }
 
 interface CliModelPickerOption {
@@ -53,12 +50,9 @@ export function CliModelPicker({
   onRefreshModels,
   selectTestId,
   customInputTestId,
-  wrapperClassName = '',
-  customInputWrapperClassName = '',
   defaultModel = null,
   codexAuthMode,
   availableModels = [],
-  containerClassName = 'flex min-w-0 items-center gap-1',
   customInputPlacement = 'inline',
   disabled = false,
   ariaLabel,
@@ -204,7 +198,7 @@ export function CliModelPicker({
   });
 
   const customInput = customInputOpen ? (
-    <div className={`flex min-w-0 items-center gap-1 ${customInputWrapperClassName}`}>
+    <div className={`flex min-w-0 items-center gap-1 ${appearance === 'inline' ? 'w-44' : ''}`}>
       <div className="min-w-0 flex-1">
         <MenuSearchInput
           type="text"
@@ -246,9 +240,9 @@ export function CliModelPicker({
   ) : null;
 
   return (
-    <div className={containerClassName}>
+    <div className={appearance === 'settings' ? 'min-w-0' : 'flex min-w-0 items-center gap-1'}>
       {!replaceSelectWithCustomInput ? (
-        <div className={`min-w-0 ${wrapperClassName}`}>
+        <div className={`min-w-0 ${appearance === 'inline' ? 'max-w-[14rem]' : ''}`}>
           <MenuTrigger
             ref={buttonRef}
             density={density}

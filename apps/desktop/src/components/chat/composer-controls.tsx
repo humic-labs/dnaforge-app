@@ -42,7 +42,7 @@ export interface ChatComposerPickerProps {
   ariaLabel: string;
   title: string;
   testId: string;
-  className?: string;
+  width?: 'content' | 'compact' | 'standard';
 }
 
 export interface ChatComposerOptionGroup {
@@ -235,7 +235,7 @@ export function ChatComposerPicker({
   ariaLabel,
   title,
   testId,
-  className = '',
+  width = 'content',
 }: ChatComposerPickerProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const rowRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -254,7 +254,9 @@ export function ChatComposerPicker({
     },
   });
   return (
-    <div className={`min-w-0 ${className}`}>
+    <div
+      className={`min-w-0 ${width === 'standard' ? 'max-w-[14rem]' : width === 'compact' ? 'max-w-[9rem]' : ''}`}
+    >
       <MenuTrigger
         ref={buttonRef}
         density="compact"

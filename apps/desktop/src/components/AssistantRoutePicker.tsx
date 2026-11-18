@@ -37,8 +37,6 @@ interface AssistantRoutePickerProps {
   menuTestId: string;
   optionTestIdPrefix: string;
   manageTestId?: string;
-  wrapperClassName?: string;
-  menuClassName: string;
   showInlineDetail?: boolean;
   emptyLabel?: string;
 }
@@ -102,8 +100,6 @@ export function AssistantRoutePicker({
   menuTestId,
   optionTestIdPrefix,
   manageTestId,
-  wrapperClassName = '',
-  menuClassName,
   showInlineDetail = false,
   emptyLabel = 'No assistant source is configured.',
 }: AssistantRoutePickerProps) {
@@ -181,7 +177,7 @@ export function AssistantRoutePicker({
     else rowRefs.current.delete(id);
   };
   return (
-    <div className={`min-w-0 ${wrapperClassName}`}>
+    <div className="min-w-0 max-w-[14rem]">
       <MenuTrigger
         ref={buttonRef}
         density="compact"
@@ -218,7 +214,7 @@ export function AssistantRoutePicker({
         role="menu"
         aria-label="Assistant source"
         data-testid={menuTestId}
-        className={menuClassName}
+        className="w-72 sm:w-80"
         density="compact"
         selection
         onRequestClose={menu.close}
