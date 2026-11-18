@@ -78,6 +78,7 @@ export function workSourceReader(
     const id = parseResourceId(source.resourceId);
     const pin = source.revisionId ? parseResourceRevisionId(source.revisionId) : null;
     const current = id.ok ? reader.current(id.value) : null;
+    if (pin?.ok && !current) return { kind: 'unavailable' };
     const row =
       id.ok && pin?.ok
         ? reader.revision({ resourceId: id.value, revisionId: pin.value })
