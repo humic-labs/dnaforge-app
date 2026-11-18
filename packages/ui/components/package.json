@@ -14,7 +14,13 @@
       "types": "./src/keyboard/index.ts",
       "import": "./src/keyboard/index.ts",
       "default": "./src/keyboard/index.ts"
-    }
+    },
+    "./menu": {
+      "types": "./src/menu/index.ts",
+      "import": "./src/menu/index.ts",
+      "default": "./src/menu/index.ts"
+    },
+    "./menu.css": "./src/menu/menu.css"
   },
   "scripts": {
     "build": "tsc",

@@ -1,5 +1,21 @@
+import {
+  MenuSurface,
+  menuShouldRestoreFocus,
+  useMenu,
+  type MenuCloseReason,
+  type MenuController,
+  type MenuSurfaceProps,
+} from '@waypoint/ui-components';
 import { scheduleFocus } from '../shared/utils/safeFocus';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { UI_POPOVER_LAYER_CLASS, UI_SUBMENU_LAYER_CLASS } from './ui/styles';
@@ -20,6 +36,39 @@ interface MenuPlacement {
 }
 
 const MENU_MARGIN = 8;
+
+function tabDestination(
+  anchor: HTMLElement | null,
+  menu: HTMLElement | null,
+  backwards: boolean,
+  containsTarget: (target: Node) => boolean
+): HTMLElement | null {
+  if (!anchor || !menu) return null;
+  const scope = anchor.closest('dialog[open]') ?? anchor.ownerDocument;
+  const candidates = Array.from(
+    scope.querySelectorAll<HTMLElement>(
+      'a[href],button,input,select,textarea,[tabindex],[contenteditable="true"],audio[controls],video[controls],summary'
+    )
+  )
+    .filter((element) => {
+      if (element.tabIndex < 0 || element.matches(':disabled') || containsTarget(element))
+        return false;
+      for (let current: HTMLElement | null = element; current; current = current.parentElement) {
+        if (current.hidden || current.inert || current.hasAttribute('inert')) return false;
+        const style = getComputedStyle(current);
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+      }
+      return true;
+    })
+    .map((element, index) => ({ element, index }))
+    .sort(
+      (a, b) =>
+        (a.element.tabIndex || Infinity) - (b.element.tabIndex || Infinity) || a.index - b.index
+    )
+    .map(({ element }) => element);
+  const index = candidates.indexOf(anchor);
+  return index < 0 ? null : (candidates[index + (backwards ? -1 : 1)] ?? null);
+}
 
 function computePlacement(
   rect: DOMRect,
@@ -71,11 +120,17 @@ function computePlacement(
   };
 }
 
-export interface PortalMenuProps {
+export interface PortalMenuProps extends Pick<
+  MenuSurfaceProps,
+  'density' | 'selection' | 'icons' | 'shortcuts' | 'submenus' | 'content'
+> {
   id?: string;
   open: boolean;
-  anchorRef: RefObject<HTMLElement | null>;
-  onRequestClose: () => void;
+  anchorRef?: RefObject<HTMLElement | null>;
+  anchorPoint?: { x: number; y: number };
+  onRequestClose: (reason: MenuCloseReason) => void;
+  menu?: MenuController;
+  menuId?: string;
   role?: 'listbox' | 'menu' | 'dialog';
   horizontalAlign?: 'start' | 'end';
   preferredSide?: 'top' | 'bottom';
@@ -94,10 +149,64 @@ export interface PortalMenuProps {
   children: ReactNode;
 }
 
-export function PortalMenu({
+const EMPTY_MENU_ITEMS: readonly never[] = [];
+
+export function PortalMenu(props: PortalMenuProps) {
+  return props.menu ? (
+    <PortalMenuSurface {...props} menu={props.menu} />
+  ) : (
+    <OwnedPortalMenu {...props} />
+  );
+}
+
+function OwnedPortalMenu(props: PortalMenuProps) {
+  const menu = useMenu({ items: EMPTY_MENU_ITEMS, defaultOpen: props.open });
+  const current = useRef(menu);
+  current.current = menu;
+  useLayoutEffect(() => {
+    if (props.open && !current.current.isOpen) current.current.openMenu();
+    else if (!props.open && current.current.isOpen) current.current.close('handoff');
+  }, [props.open]);
+  return <PortalMenuSurface {...props} menu={menu} keyboardNavigation={false} />;
+}
+
+type BoundPortalMenuProps = PortalMenuProps & {
+  menu: MenuController;
+  keyboardNavigation?: boolean;
+};
+type MenuPresentation = ReturnType<typeof usePresentationOverlay>;
+const MenuPresentationContext = createContext<{
+  stateRef: MenuController['stateRef'];
+  presentation: MenuPresentation;
+} | null>(null);
+
+function PortalMenuSurface(props: BoundPortalMenuProps) {
+  const inherited = useContext(MenuPresentationContext);
+  return props.menuId && props.menuId !== 'root' && inherited?.stateRef === props.menu.stateRef ? (
+    <BoundPortalMenu {...props} presentation={inherited.presentation} />
+  ) : (
+    <OwnedMenuPresentation {...props} />
+  );
+}
+
+function OwnedMenuPresentation(props: BoundPortalMenuProps) {
+  const presentation = usePresentationOverlay(props.role === 'dialog' ? 'modal' : 'keyboard');
+  return (
+    <MenuPresentationContext.Provider value={{ stateRef: props.menu.stateRef, presentation }}>
+      <BoundPortalMenu {...props} presentation={presentation} />
+    </MenuPresentationContext.Provider>
+  );
+}
+
+function BoundPortalMenu({
   id,
-  open,
+  open: requestedOpen,
+  menu,
+  menuId = 'root',
+  presentation,
+  keyboardNavigation = true,
   anchorRef,
+  anchorPoint,
   onRequestClose,
   role = 'listbox',
   horizontalAlign = 'end',
@@ -110,29 +219,95 @@ export function PortalMenu({
   closeOnEscape = true,
   className = '',
   surfaceVariant = 'default',
+  density,
+  selection,
+  icons,
+  shortcuts,
+  submenus,
+  content,
   privateContent = false,
   'aria-label': ariaLabel,
   'data-testid': testId,
   dataAttributes,
   children,
-}: PortalMenuProps) {
+}: BoundPortalMenuProps & { presentation: MenuPresentation }) {
+  const open =
+    requestedOpen &&
+    menu.isOpen &&
+    (menuId === 'root' || menu.state.levels.some((level) => level.menuId === menuId));
   const parent = usePresentationScope();
-  const presentation = usePresentationOverlay(role === 'dialog' ? 'modal' : 'keyboard');
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const returnAnchorRef = useRef<HTMLElement | null>(null);
   const [placement, setPlacement] = useState<MenuPlacement | null>(null);
+  const requestedOpenRef = useRef(requestedOpen);
+  requestedOpenRef.current = requestedOpen;
   const closeRef = useRef(onRequestClose);
   closeRef.current = onRequestClose;
+  const tabTargetRef = useRef<HTMLElement | null>(null);
+  const controllerRef = useRef(menu);
+  controllerRef.current = menu;
+  const requestClose = useCallback(
+    (reason: MenuCloseReason, session: number) => {
+      if (menuId === 'root') controllerRef.current.close(reason, session);
+      else {
+        const state = controllerRef.current.stateRef.current;
+        if (
+          state.phase === 'closed' ||
+          state.session !== session ||
+          !state.levels.some((level) => level.menuId === menuId)
+        )
+          return;
+        controllerRef.current.send({ type: 'submenu-close', menuId, session });
+        closeRef.current(reason);
+      }
+    },
+    [menuId]
+  );
+  useLayoutEffect(
+    () =>
+      menu.subscribeClose((reason) => {
+        if (menuId !== 'root') return;
+        const tabTarget = reason === 'tab' ? tabTargetRef.current : null;
+        if (tabTarget) presentation.setReturnFocus(tabTarget);
+        presentation.setReturnFocusPolicy(
+          tabTarget ? 'advance' : menuShouldRestoreFocus(reason) ? 'restore' : 'preserve'
+        );
+        tabTargetRef.current = null;
+        if (requestedOpenRef.current) closeRef.current(reason);
+      }),
+    [menuId, menu.subscribeClose, presentation.setReturnFocus, presentation.setReturnFocusPolicy]
+  );
   const insideRefsRef = useRef(insideRefs);
   insideRefsRef.current = insideRefs;
   const assignMenuRef = useCallback(
     (node: HTMLDivElement | null) => {
       menuRef.current = node;
-      if (node) presentation.setReturnFocus(anchorRef.current);
+      if (node && menuId === 'root') {
+        presentation.setReturnFocusPolicy('restore');
+        returnAnchorRef.current =
+          anchorRef?.current ??
+          (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+        presentation.setReturnFocus(returnAnchorRef.current);
+      } else if (
+        !node &&
+        menuId === 'root' &&
+        controllerRef.current.stateRef.current.phase !== 'closed'
+      ) {
+        presentation.setReturnFocusPolicy('preserve');
+      }
       if (surfaceRef) {
         (surfaceRef as { current: HTMLDivElement | null }).current = node;
       }
+      menu.bindSurface(node, menuId);
     },
-    [surfaceRef, presentation.setReturnFocus, anchorRef]
+    [
+      surfaceRef,
+      presentation.setReturnFocus,
+      presentation.setReturnFocusPolicy,
+      anchorRef,
+      menu.bindSurface,
+      menuId,
+    ]
   );
 
   useLayoutEffect(() => {
@@ -140,18 +315,34 @@ export function PortalMenu({
       setPlacement(null);
       return;
     }
+    const session = menu.state.session;
     let placed = false;
     const place = () => {
-      const rect = anchorRef.current?.getBoundingClientRect();
-      if (!rect) return;
+      if (anchorPoint) {
+        setPlacement({
+          left: Math.max(MENU_MARGIN, Math.min(anchorPoint.x, window.innerWidth - MENU_MARGIN)),
+          top: Math.max(MENU_MARGIN, Math.min(anchorPoint.y, window.innerHeight - MENU_MARGIN)),
+          minWidth: 0,
+          maxWidth: window.innerWidth - 2 * MENU_MARGIN,
+          maxHeight: window.innerHeight - 2 * MENU_MARGIN,
+        });
+        controllerRef.current.positioned(session);
+        return;
+      }
+      const rect = anchorRef?.current?.getBoundingClientRect();
+      if (!rect) {
+        requestClose('anchor-lost', session);
+        return;
+      }
       if (placed && rect.width === 0 && rect.height === 0) {
-        closeRef.current();
+        requestClose('anchor-lost', session);
         return;
       }
       setPlacement(
         computePlacement(rect, horizontalAlign, placementMode, preferredSide, allowFlip)
       );
       placed = true;
+      controllerRef.current.positioned(session);
     };
     place();
     window.addEventListener('resize', place);
@@ -160,7 +351,18 @@ export function PortalMenu({
       window.removeEventListener('resize', place);
       window.removeEventListener('scroll', place, true);
     };
-  }, [open, anchorRef, horizontalAlign, placementMode, preferredSide, allowFlip]);
+  }, [
+    open,
+    menu.state.session,
+    anchorRef,
+    anchorPoint?.x,
+    anchorPoint?.y,
+    horizontalAlign,
+    placementMode,
+    preferredSide,
+    allowFlip,
+    requestClose,
+  ]);
 
   useLayoutEffect(() => {
     if (!placement) return;
@@ -174,7 +376,7 @@ export function PortalMenu({
           ? Math.max(MENU_MARGIN, window.innerWidth - MENU_MARGIN - r.width)
           : null;
     const top =
-      placementMode !== 'submenu'
+      placementMode !== 'submenu' && !anchorPoint
         ? null
         : r.top < MENU_MARGIN
           ? MENU_MARGIN
@@ -192,7 +394,7 @@ export function PortalMenu({
           : current
       );
     }
-  }, [placement, placementMode]);
+  }, [placement, placementMode, anchorPoint]);
 
   const mounted = open && placement !== null;
   useLayoutEffect(() => {
@@ -201,16 +403,17 @@ export function PortalMenu({
 
   useEffect(() => {
     if (!open) return;
+    const session = menu.state.session;
     const onDown = (e: MouseEvent) => {
       const target = e.target as Node;
       if (
-        anchorRef.current?.contains(target) ||
-        menuRef.current?.contains(target) ||
+        anchorRef?.current?.contains(target) ||
+        controllerRef.current.containsTarget(target) ||
         insideRefsRef.current.some((ref) => ref.current?.contains(target))
       ) {
         return;
       }
-      closeRef.current();
+      requestClose('outside-pointer', session);
     };
     const onKey = (e: KeyboardEvent) => {
       if (
@@ -221,42 +424,104 @@ export function PortalMenu({
       ) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        presentation.setReturnFocus(anchorRef.current);
-        closeRef.current();
+        requestClose('escape', session);
       }
     };
+    let dialogTabPending = false;
+    const onFocusIn = (event: FocusEvent) => {
+      if (!dialogTabPending) return;
+      dialogTabPending = false;
+      if (
+        !controllerRef.current.containsTarget(event.target as Node) &&
+        !insideRefsRef.current.some((ref) => ref.current?.contains(event.target as Node))
+      )
+        requestClose('tab', session);
+    };
+    const onTab = (e: KeyboardEvent) => {
+      if (
+        e.key !== 'Tab' ||
+        e.defaultPrevented ||
+        !presentation.owner.allowsEvent(presentation.id, 'keyboard', e)
+      )
+        return;
+      if (menuId !== 'root') return;
+      if (role === 'dialog') {
+        dialogTabPending = true;
+        return;
+      }
+      if (controllerRef.current.containsTarget(document.activeElement)) {
+        const destination = tabDestination(
+          anchorRef?.current ?? returnAnchorRef.current,
+          menuRef.current,
+          e.shiftKey,
+          (target) =>
+            controllerRef.current.containsTarget(target) ||
+            insideRefsRef.current.some((ref) => ref.current?.contains(target))
+        );
+        if (destination) {
+          tabTargetRef.current = destination;
+          e.preventDefault();
+        }
+      }
+      requestClose('tab', session);
+    };
+    const onBlur = () => requestClose('window-blur', session);
     document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onTab, true);
+    document.addEventListener('focusin', onFocusIn);
+    window.addEventListener('blur', onBlur);
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onTab, true);
+      document.removeEventListener('focusin', onFocusIn);
+      window.removeEventListener('blur', onBlur);
       document.removeEventListener('keydown', onKey);
     };
   }, [
     open,
     anchorRef,
     closeOnEscape,
+    role,
     presentation.id,
     presentation.owner,
-    presentation.setReturnFocus,
+    menuId,
+    menu.state.session,
+    requestClose,
   ]);
 
   useEffect(() => {
     if (!open) return;
     return presentation.owner.subscribe(() => {
-      if (!parent.owner.allows(parent.id, 'presentation')) closeRef.current();
+      if (!parent.owner.allows(parent.id, 'presentation'))
+        requestClose('owner-revoked', menu.state.session);
     });
-  }, [open, presentation.owner, parent.owner, parent.id]);
+  }, [open, menu.state.session, requestClose, presentation.owner, parent.owner, parent.id]);
 
   if (!open || !placement) return null;
 
   return createPortal(
     <PresentationScopeContext.Provider value={presentation.scope}>
-      <div
+      <MenuSurface
         {...dataAttributes}
         id={id}
-        ref={presentation.bindRef(assignMenuRef, 'menu')}
+        ref={presentation.bindRef(assignMenuRef, `menu:${menuId}`)}
         data-presentation-surface={presentation.id}
         role={role}
+        data-menu-id={menuId}
+        density={density ?? (surfaceVariant === 'settings' ? 'form' : 'compact')}
+        selection={selection}
+        icons={icons}
+        shortcuts={shortcuts}
+        submenus={submenus}
+        content={content}
+        onKeyDown={
+          keyboardNavigation
+            ? (event) => {
+                if (role !== 'dialog' || event.key !== 'Tab') menu.handleKeyDown(event);
+              }
+            : undefined
+        }
         aria-label={ariaLabel}
         data-testid={testId}
         data-ph-no-capture={privateContent || undefined}
@@ -265,11 +530,7 @@ export function PortalMenu({
         data-placement={
           placement.top != null ? 'below' : placement.bottom != null ? 'above' : 'side'
         }
-        className={`fixed ${placementMode === 'submenu' ? UI_SUBMENU_LAYER_CLASS : UI_POPOVER_LAYER_CLASS} overflow-y-auto ${
-          surfaceVariant === 'settings'
-            ? 'rounded-md bg-bg shadow-xl'
-            : 'rounded-lg border border-border bg-bg-subtle shadow-lg'
-        } ${privateContent ? 'ph-no-capture rr-block' : ''} ${className}`}
+        className={`fixed ${placementMode === 'submenu' ? UI_SUBMENU_LAYER_CLASS : UI_POPOVER_LAYER_CLASS} overflow-y-auto ${privateContent ? 'ph-no-capture rr-block' : ''} ${className}`}
         style={{
           ...(placement.left != null ? { left: placement.left } : { right: placement.right }),
           ...(placement.top != null ? { top: placement.top } : { bottom: placement.bottom }),
@@ -279,8 +540,8 @@ export function PortalMenu({
         }}
       >
         {children}
-      </div>
+      </MenuSurface>
     </PresentationScopeContext.Provider>,
-    anchorRef.current?.closest('dialog[open]') ?? document.body
+    (anchorRef?.current ?? returnAnchorRef.current)?.closest('dialog[open]') ?? document.body
   );
 }
