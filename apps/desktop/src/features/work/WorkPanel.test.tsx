@@ -131,14 +131,68 @@ describe('linked work', () => {
     fireEvent.change(name, { target: { value: 'Original' } });
     client.mutate.mockRejectedValueOnce(new Error('Connection interrupted'));
     fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
-    const retry = await screen.findByRole('button', { name: 'Check save outcome' });
+    await screen.findByRole('button', { name: 'Check save outcome' });
     fireEvent.change(name, { target: { value: 'Later draft' } });
-    fireEvent.click(retry);
+    fireEvent.click(screen.getByRole('button', { name: 'Close and keep pending save' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(add);
+    const recoveredName = await screen.findByDisplayValue('Later draft');
+    fireEvent.click(screen.getByRole('button', { name: 'Check save outcome' }));
     await screen.findByText('Saved');
     expect(client.mutate.mock.calls[0]).toEqual(client.mutate.mock.calls[1]);
     expect(stored!.document.name).toBe('Original');
-    expect(name).toHaveValue('Later draft');
+    expect(recoveredName).toHaveValue('Later draft');
     expect(screen.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+  });
+  it('reconciles changed fields against a newer task revision and reports blocked delivery', async () => {
+    const original = applyWorkTaskCommand(
+      null,
+      { kind: 'create', name: 'Original', description: 'Source description' },
+      { actor: actor.id, now }
+    );
+    stored = makeRecord('task-1', original);
+    render(
+      <>
+        <WorkPanel mode="project" workspaceRoot={project.root} />
+        <WorkTaskDialogHost />
+      </>
+    );
+    fireEvent.click(await screen.findByRole('button', { name: /Original/ }));
+    const name = await screen.findByDisplayValue('Original');
+    fireEvent.change(name, { target: { value: 'My new name' } });
+    stored = {
+      ...stored,
+      revisionId: 'r2',
+      document: { ...original, description: 'Shared change' },
+    };
+    client.mutate.mockResolvedValueOnce({
+      task: null,
+      submission: { receipt: { outcome: 'conflict', conflicts: [] }, delivery: null },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
+    await screen.findByText('Shared change');
+    fireEvent.click(screen.getByRole('button', { name: 'Keep my changed fields' }));
+    expect(name).toHaveValue('My new name');
+    expect(screen.getByRole('textbox', { name: 'Description' })).toHaveValue('Shared change');
+    client.mutate.mockImplementationOnce(async (m) => ({
+      task: {
+        ...stored,
+        revisionId: 'r3',
+        document: { ...stored!.document, name: m.command.name },
+      },
+      submission: {
+        receipt: { outcome: 'changed', version: 'h3' },
+        delivery: { kind: 'blocked', versionId: 'h3', error: 'Working file changed' },
+      },
+    }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
+    expect(await screen.findByText(/Task saved. File delivery needs attention/)).toBeVisible();
+    expect(client.mutate.mock.calls[1][0]).toMatchObject({
+      expectedRevisionId: 'r2',
+      command: { kind: 'edit', name: 'My new name' },
+    });
+    expect(client.mutate.mock.calls[1][0].command).not.toHaveProperty('description');
+    expect(screen.queryByRole('button', { name: 'Check save outcome' })).toBeNull();
   });
   it('displays an unavailable project without asserting it has no due work', async () => {
     client.query.mockResolvedValue({
