@@ -85,3 +85,7 @@
 - [Observed scientific transfers with notebook context](scientific.md).
 
 - [Protocol creation, Run-linked observed transfers and recorded physical work reads](protocol-run.md).
+
+- [Equipment incidents](equipment-incidents.md): operator outage reports,
+  retained contents and review restrictions, manual observations and guarded
+  completed whole-holder relocation.

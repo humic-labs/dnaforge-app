@@ -1,3 +1,18 @@
+export * from './inventory-equipment-incidents';
+export * from './inventory-incident-constraints';
+export {
+  parseInventoryEquipmentIncident,
+  parseInventoryEquipmentIncidentReviewRoot,
+  parseInventoryEquipmentIncidentFact,
+  parseInventoryEquipmentIncidentActionProof,
+  parseInventoryEquipmentIncidentActionSummary,
+  parseInventoryEquipmentIncidentSummary,
+  parseInventoryEquipmentIncidentSubjectProjection,
+  parseInventoryEquipmentIncidentFactSummary,
+  parseInventoryEquipmentIncidentManualFactProjection,
+} from './inventory-validation';
+export type * from './inventory-equipment-incident-types';
+export * from './inventory-equipment-incident-identity';
 export * from './inventory-scientific-productions';
 export { parseInventoryScientificProduction } from './inventory-validation';
 export * from './inventory-scientific-production-identity';

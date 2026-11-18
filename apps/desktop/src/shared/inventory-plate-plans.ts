@@ -507,6 +507,9 @@ const blocker = z.discriminatedUnion('code', [
     })
     .strict(),
   z.object({ code: z.literal('ITEM_RESERVED'), reservationIds: z.array(id).readonly() }).strict(),
+  z
+    .object({ code: z.literal('INCIDENT_REVIEW_REQUIRED'), rootIds: z.array(id).readonly() })
+    .strict(),
 ]);
 const admission = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('allowed') }).strict(),

@@ -1,3 +1,18 @@
+import { validateInventoryEquipmentIncidents } from './inventory-equipment-incident-validation';
+import type * as Incident from './inventory-equipment-incident-types';
+import {
+  parseInventoryEquipmentIncidentActionChoices,
+  inventoryEquipmentIncidentActionId,
+  inventoryEquipmentIncidentActionIntentSha256,
+  inventoryEquipmentIncidentReviewRootId,
+  inventoryEquipmentIncidentReviewRootIntentSha256,
+  inventoryEquipmentIncidentContentsFactId,
+  inventoryEquipmentIncidentContentsFactIntentSha256,
+} from './inventory-equipment-incident-identity';
+import {
+  inventoryIncidentTypedSnapshots,
+  upcastInventoryIncidentSnapshots,
+} from './inventory-incident-codec-compat';
 import type { InventoryScientificProduction } from './inventory-scientific-production-types';
 import {
   parseAcceptedDnaProductionSelection,
@@ -110,6 +125,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_SCIENTIFIC_PRODUCTION_SCHEMA,
   INVENTORY_RUN_VALUE_ATTRIBUTION_SCHEMA,
   INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA,
   INVENTORY_PLATE_PLAN_SCHEMA,
@@ -846,7 +862,12 @@ const previousContribution = fields('Previous material contribution', {
   ...previousSourceIdentityFields,
   quantity: volume,
 });
+const incidentRootIds = checked(array(id, 10000, 0, true), (ids) => {
+  if (ids.some((value, index) => index > 0 && ids[index - 1] >= value))
+    invalid('Incident review roots must be sorted unique IDs.');
+});
 const lotRecord = fields('Lot record', {
+  incidentReviewRootIds: incidentRootIds,
   id,
   materialId: id,
   name,
@@ -2269,6 +2290,7 @@ const controlledStockRecord = fields('Previous controlled stock record', {
   lotConstraints,
 });
 const stockRecord = fields('Stock record', {
+  incidentReviewRootIds: incidentRootIds,
   ...materialStockFields,
   quantity: storedQuantity,
   composition: storedComposition,
@@ -3378,19 +3400,446 @@ export function parseInventoryScientificProduction(value: unknown): InventorySci
   return record;
 }
 
+const incidentPinCodec = fields('Equipment incident pin', { incidentId: id, intentSha256: sha256 });
+const incidentFactPinCodec = fields('Incident fact pin', { factId: id, intentSha256: sha256 });
+const incidentRootPinCodec = fields('Incident root pin', { rootId: id, intentSha256: sha256 });
+const incidentOwnerCodec = fields('Original incident owner', { projectId: id, inventoryId: id });
+const incidentChoicesCodec: Codec<Incident.InventoryEquipmentIncidentActionChoices> = {
+  schema: { type: 'object' },
+  parse(value) {
+    try {
+      return parseInventoryEquipmentIncidentActionChoices(value);
+    } catch (error) {
+      return invalid(error instanceof Error ? error.message : 'Invalid incident choices.');
+    }
+  },
+};
+const incidentProofFields = {
+  actionId: id,
+  intentSha256: sha256,
+  choices: incidentChoicesCodec,
+  originalOwner: incidentOwnerCodec,
+};
+const incidentProofCodec = checked(
+  fields('Original incident action proof', incidentProofFields),
+  (v) => {
+    if (
+      v.actionId !== inventoryEquipmentIncidentActionId(v.choices.identity) ||
+      v.intentSha256 !== inventoryEquipmentIncidentActionIntentSha256(v.choices)
+    )
+      invalid('Incident action identity and intent must match original choices.');
+  }
+);
+const incidentHolderCodec = fields('Historical incident holder', {
+  item: reservationItem,
+  name,
+  placement: union('Incident placement', [root, unplaced, located]),
+  custody: custodyRecord,
+  lastKnown: nullable(locationObservation),
+  currentPath: nullable(array(locationPathEntry, 10000)),
+});
+const incidentContentsCodec = union('Incident contents', [
+  fields('Empty contents', { kind: literal('declared-empty') }),
+  fields('Identified contents', { kind: literal('identified'), stockId: id }),
+  fields('Possible contents', {
+    kind: literal('unobserved'),
+    reason,
+    at: timestamp,
+    by: recordedPrincipal,
+  }),
+  fields('Unidentified contents', {
+    kind: literal('unidentified'),
+    reason,
+    at: timestamp,
+    by: recordedPrincipal,
+  }),
+]);
+const incidentVesselCodec = fields('Historical incident vessel', {
+  ...incidentHolderCodecFields(),
+  vesselKind: union('Incident vessel kind', [literal('movable'), literal('fixed-well')]),
+  contents: incidentContentsCodec,
+});
+function incidentHolderCodecFields() {
+  return {
+    item: reservationItem,
+    name,
+    placement: union('Incident placement', [root, unplaced, located]),
+    custody: custodyRecord,
+    lastKnown: nullable(locationObservation),
+    currentPath: nullable(array(locationPathEntry, 10000)),
+  };
+}
+const incidentEquipmentCodec = fields('Incident equipment snapshot', {
+  id,
+  name,
+  configurationRevision: revision,
+  typeVersionId: nullable(id),
+  layout,
+  placement: storagePlacement,
+});
+const incidentEffectCountsCodec = fields('Incident effect counts', {
+  capturedHolders: revision,
+  capturedVessels: revision,
+  createdReviewRoots: revision,
+  identifiedContentsBridges: revision,
+  relocatedHolders: revision,
+  reviewedRoots: revision,
+});
+const equipmentIncidentCodec: Codec<Incident.InventoryEquipmentIncident> = checked(
+  fields('Equipment incident', {
+    ...incidentProofFields,
+    id,
+    binding: fields('Local incident equipment', { storageId: id }),
+    equipment: incidentEquipmentCodec,
+    initial: fields('Original incident cohort', {
+      holders: array(incidentHolderCodec, 10000),
+      vessels: array(incidentVesselCodec, 10000),
+      reviewRootIds: incidentRootIds,
+    }),
+    contentsWhenRecorded: timestamp,
+    at: timestamp,
+    by: recordedPrincipal,
+  }),
+  (v) => {
+    incidentProofCodec.parse({
+      actionId: v.actionId,
+      intentSha256: v.intentSha256,
+      choices: v.choices,
+      originalOwner: v.originalOwner,
+    });
+    if (v.id !== v.actionId || v.choices.action.kind !== 'report')
+      invalid('Incident must retain its original Report action.');
+  }
+);
+const equipmentIncidentRootCodec: Codec<Incident.InventoryEquipmentIncidentReviewRoot> = checked(
+  fields('Incident review root', {
+    id,
+    incident: incidentPinCodec,
+    intentSha256: sha256,
+    originalOwner: incidentOwnerCodec,
+    originSubject: union('Original incident subject', [
+      fields('Original affected stock', { kind: literal('stock'), stockId: id }),
+      fields('Original contents episode', {
+        kind: literal('contents-episode'),
+        vesselId,
+        episode: revision,
+      }),
+    ]),
+    originRevision: revision,
+    origin: union('Incident subject origin', [
+      literal('initial-cohort'),
+      literal('later-knowledge-observation'),
+    ]),
+    qualification: union('Incident subject qualification', [
+      literal('identified-stock-at-recording'),
+      literal('confirmed-unidentified-at-open'),
+      literal('possible-unconfirmed'),
+    ]),
+    binding: union('Local incident subject', [
+      fields('Bound affected stock', { kind: literal('stock'), stockId: id }),
+      fields('Bound contents episode', { kind: literal('contents-episode'), vesselId }),
+    ]),
+    snapshot: union('Original affected subject snapshot', [
+      fields('Affected stock snapshot', {
+        kind: literal('stock'),
+        vessel: incidentVesselCodec,
+        before: stockRecord,
+      }),
+      fields('Affected contents snapshot', {
+        kind: literal('contents-episode'),
+        vessel: incidentVesselCodec,
+      }),
+    ]),
+    at: timestamp,
+    by: recordedPrincipal,
+  }),
+  (v) => {
+    if (
+      v.id !== inventoryEquipmentIncidentReviewRootId(v) ||
+      v.intentSha256 !== inventoryEquipmentIncidentReviewRootIntentSha256(v)
+    )
+      invalid('Incident root must retain its original subject identity.');
+  }
+);
+const incidentConfigurationCodec = fields('Manual observation configuration at recording', {
+  storageId: id,
+  configurationRevision: revision,
+  typeVersionId: nullable(id),
+  thermalContext: nullable(
+    fields('Recorded thermal context', {
+      kind: union('Thermal context', [literal('inherit'), literal('self'), literal('unknown')]),
+    })
+  ),
+});
+const incidentRelocationEffectCodec = fields('Completed incident holder relocation', {
+  item: reservationItem,
+  before: incidentHolderCodec,
+  after: incidentHolderCodec,
+  descendantVesselIds: array(vesselId, 10000, 0, true),
+  descendantStockIds: array(id, 10000, 0, true),
+  reviewRootIds: incidentRootIds,
+});
+const incidentOperatorFactCodec: Codec<Incident.InventoryEquipmentIncidentOperatorFact> = checked(
+  fields('Incident operator fact', {
+    ...incidentProofFields,
+    id,
+    kind: union('Incident fact kind', [
+      literal('manual-temperature'),
+      literal('completed-relocation'),
+      literal('impact-review'),
+      literal('resolve'),
+    ]),
+    incident: incidentPinCodec,
+    effects: union('Incident fact effects', [
+      fields('Manual reading effect', {
+        kind: literal('manual-temperature'),
+        configurationBasisAtRecording: incidentConfigurationCodec,
+      }),
+      fields('Completed relocation effects', {
+        kind: literal('completed-relocation'),
+        commands: array(commandCodec, 256, 1),
+        holders: array(incidentRelocationEffectCodec, 256, 1),
+      }),
+      fields('Impact review effect', { kind: literal('impact-review') }),
+      fields('Resolution effect', { kind: literal('resolve') }),
+    ]),
+    at: timestamp,
+    by: recordedPrincipal,
+  }),
+  (v) => {
+    incidentProofCodec.parse({
+      actionId: v.actionId,
+      intentSha256: v.intentSha256,
+      choices: v.choices,
+      originalOwner: v.originalOwner,
+    });
+    if (v.id !== v.actionId || v.kind !== v.choices.action.kind || v.kind !== v.effects.kind)
+      invalid('Incident fact must retain its original action kind.');
+  }
+);
+const incidentContentsFactCodec: Codec<Incident.InventoryEquipmentIncidentContentsFact> = checked(
+  fields('Incident contents transition', {
+    id,
+    kind: union('Contents terminal kind', [
+      literal('contents-identified'),
+      literal('contents-episode-closed'),
+    ]),
+    incident: incidentPinCodec,
+    root: incidentRootPinCodec,
+    originalTransition: fields('Original contents transition identities', {
+      inventoryRevision: revision,
+      vesselId,
+      stockId: nullable(id),
+      reason,
+    }),
+    binding: fields('Local contents transition references', { vesselId, stockId: nullable(id) }),
+    intentSha256: sha256,
+    at: timestamp,
+    by: recordedPrincipal,
+  }),
+  (v) => {
+    if (
+      v.id !== inventoryEquipmentIncidentContentsFactId(v) ||
+      v.intentSha256 !== inventoryEquipmentIncidentContentsFactIntentSha256(v) ||
+      (v.kind === 'contents-identified') !== (v.originalTransition.stockId !== null) ||
+      (v.kind === 'contents-identified') !== (v.binding.stockId !== null)
+    )
+      invalid('Contents transition must retain its original terminal meaning.');
+  }
+);
+const equipmentIncidentFactCodec: Codec<Incident.InventoryEquipmentIncidentFact> = union(
+  'Incident fact',
+  [incidentOperatorFactCodec, incidentContentsFactCodec]
+);
+const incidentSummaryCodec: Codec<Incident.InventoryEquipmentIncidentSummary> = checked(
+  fields('Incident summary', {
+    id,
+    actionProof: incidentProofCodec,
+    equipment: incidentEquipmentCodec,
+    binding: fields('Bound incident equipment', { storageId: id }),
+    contentsWhenRecorded: timestamp,
+    effectCounts: incidentEffectCountsCodec,
+    at: timestamp,
+    by: recordedPrincipal,
+  }),
+  (v) => {
+    if (v.id !== v.actionProof.actionId || v.actionProof.choices.action.kind !== 'report')
+      invalid('Incident summary retains its original report proof.');
+  }
+);
+const incidentActionSummaryCodec: Codec<Incident.InventoryEquipmentIncidentActionSummary> = checked(
+  fields('Incident action summary', {
+    kind: union('Incident action kind', [
+      literal('report'),
+      literal('manual-temperature'),
+      literal('completed-relocation'),
+      literal('impact-review'),
+      literal('resolve'),
+    ]),
+    actionProof: incidentProofCodec,
+    incident: incidentPinCodec,
+    effectCounts: incidentEffectCountsCodec,
+    at: timestamp,
+    by: recordedPrincipal,
+  }),
+  (v) => {
+    if (
+      v.kind !== v.actionProof.choices.action.kind ||
+      (v.kind === 'report' &&
+        (v.incident.incidentId !== v.actionProof.actionId ||
+          v.incident.intentSha256 !== v.actionProof.intentSha256))
+    )
+      invalid('Incident action summary matches its exact proof.');
+  }
+);
+const incidentFactSummaryCodec: Codec<Incident.InventoryEquipmentIncidentFactSummary> = fields(
+  'Incident fact summary',
+  {
+    id,
+    kind: union('Incident history kind', [
+      literal('manual-temperature'),
+      literal('completed-relocation'),
+      literal('impact-review'),
+      literal('resolve'),
+      literal('contents-identified'),
+      literal('contents-episode-closed'),
+    ]),
+    intentSha256: sha256,
+    incident: incidentPinCodec,
+    at: timestamp,
+    by: recordedPrincipal,
+    actionProof: nullable(incidentProofCodec),
+  }
+);
+const incidentReviewCodec = fields('Current root review', {
+  status: union('Review status', [literal('pending'), literal('reviewed')]),
+  head: nullable(incidentFactPinCodec),
+  disposition: nullable(
+    union('Incident disposition', [
+      literal('keep-incident-restriction'),
+      literal('remove-incident-restriction'),
+    ])
+  ),
+  restriction: union('Current incident restriction', [
+    literal('pending'),
+    literal('kept'),
+    literal('removed'),
+    literal('imported-removal-unconfirmed'),
+  ]),
+});
+const incidentSubjectCodec: Codec<Incident.InventoryEquipmentIncidentSubjectProjection> = union(
+  'Incident subject projection',
+  [
+    ...(['initial', 'current'] as const).flatMap((view) => [
+      fields('Incident holder projection', {
+        view: literal(view),
+        key: id,
+        kind: literal('holder'),
+        snapshot: incidentHolderCodec,
+        reviewRootIds: incidentRootIds,
+      }),
+      fields('Incident vessel projection', {
+        view: literal(view),
+        key: id,
+        kind: literal('vessel'),
+        snapshot: incidentVesselCodec,
+        stock: nullable(stockRecord),
+        reviewRootIds: incidentRootIds,
+      }),
+    ]),
+    fields('Incident review root projection', {
+      view: literal('review'),
+      key: id,
+      kind: literal('root'),
+      root: equipmentIncidentRootCodec,
+      review: incidentReviewCodec,
+    }),
+    fields('Incident stock lineage projection', {
+      view: literal('review'),
+      key: id,
+      kind: literal('stock'),
+      stock: stockRecord,
+      reviewRootIds: incidentRootIds,
+      relation: union('Incident material relationship', [
+        literal('direct-subject'),
+        literal('derived-material'),
+      ]),
+    }),
+    fields('Incident lot lineage projection', {
+      view: literal('review'),
+      key: id,
+      kind: literal('lot'),
+      lot: lotRecord,
+      reviewRootIds: incidentRootIds,
+    }),
+  ]
+);
+const incidentManualProjectionCodec: Codec<Incident.InventoryEquipmentIncidentManualFactProjection> =
+  fields('Selected manual reading', {
+    fact: incidentOperatorFactCodec,
+    configurationApplicability: union('Manual reading configuration applicability', [
+      literal('same-recorded-configuration'),
+      literal('configuration-changed'),
+      literal('equipment-unavailable'),
+    ]),
+    freshness: fields('Manual reading freshness', {
+      state: union('Evidence freshness', [literal('fresh'), literal('stale'), literal('unknown')]),
+      observedAt: nullable(timestamp),
+      ageMs: nullable(timestamp),
+      reason: text('Evidence freshness reason'),
+    }),
+    asOf: timestamp,
+    maxAgeMs: nullable(timestamp),
+  }) as Codec<Incident.InventoryEquipmentIncidentManualFactProjection>;
+export const parseInventoryEquipmentIncident = (v: unknown) => equipmentIncidentCodec.parse(v);
+export const parseInventoryEquipmentIncidentReviewRoot = (v: unknown) =>
+  equipmentIncidentRootCodec.parse(v);
+export const parseInventoryEquipmentIncidentFact = (v: unknown) =>
+  equipmentIncidentFactCodec.parse(v);
+export const parseInventoryEquipmentIncidentActionProof = (v: unknown) =>
+  incidentProofCodec.parse(v);
+export const parseInventoryEquipmentIncidentActionSummary = (v: unknown) =>
+  incidentActionSummaryCodec.parse(v);
+export const parseInventoryEquipmentIncidentSummary = (v: unknown) => incidentSummaryCodec.parse(v);
+export const parseInventoryEquipmentIncidentSubjectProjection = (v: unknown) =>
+  incidentSubjectCodec.parse(v);
+export const parseInventoryEquipmentIncidentFactSummary = (v: unknown) =>
+  incidentFactSummaryCodec.parse(v);
+export const parseInventoryEquipmentIncidentManualFactProjection = (v: unknown) =>
+  incidentManualProjectionCodec.parse(v);
+
 export function parseInventoryState(
   value: unknown,
-  options: { readonly allowScientificProductions?: boolean } = {}
+  options: {
+    readonly allowScientificProductions?: boolean;
+    readonly allowEquipmentIncidents?: boolean;
+  } = {}
 ): InventoryState {
-  const row = object(value, 'Inventory state');
+  const original = object(value, 'Inventory state');
+  const incidentCurrent = original.schema === INVENTORY_SCHEMA;
+  const hasRawIncidentFields =
+    ['equipmentIncidents', 'equipmentIncidentReviewRoots', 'equipmentIncidentFacts'].some((key) =>
+      Object.hasOwn(original, key)
+    ) ||
+    inventoryIncidentTypedSnapshots(original).some((row) =>
+      Object.hasOwn(row, 'incidentReviewRootIds')
+    );
+  if (options.allowEquipmentIncidents === false && (incidentCurrent || hasRawIncidentFields))
+    invalid('This history context does not support equipment incidents.');
+  if (!incidentCurrent && hasRawIncidentFields)
+    invalid('Old inventory schemas cannot contain incident fields.');
+  const row = incidentCurrent ? original : upcastInventoryIncidentSnapshots(original);
   if (
     options.allowScientificProductions === false &&
-    (row.schema === INVENTORY_SCHEMA || Object.hasOwn(row, 'scientificProductions'))
+    (row.schema === INVENTORY_SCHEMA ||
+      row.schema === INVENTORY_SCIENTIFIC_PRODUCTION_SCHEMA ||
+      Object.hasOwn(row, 'scientificProductions'))
   )
     invalid('This history context does not support scientific productions.');
   const current = row.schema === INVENTORY_SCHEMA;
+  const productionRecords = current || row.schema === INVENTORY_SCIENTIFIC_PRODUCTION_SCHEMA;
   const runValueAttributionRecords =
-    current || row.schema === INVENTORY_RUN_VALUE_ATTRIBUTION_SCHEMA;
+    productionRecords || row.schema === INVENTORY_RUN_VALUE_ATTRIBUTION_SCHEMA;
   const platePlanObservationRecords =
     runValueAttributionRecords || row.schema === INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA;
   const platePlanRecords =
@@ -3421,6 +3870,7 @@ export function parseInventoryState(
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_SCIENTIFIC_PRODUCTION_SCHEMA),
       literal(INVENTORY_RUN_VALUE_ATTRIBUTION_SCHEMA),
       literal(INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA),
       literal(INVENTORY_PLATE_PLAN_SCHEMA),
@@ -3452,6 +3902,13 @@ export function parseInventoryState(
     ]),
     revision,
     ...(current
+      ? {
+          equipmentIncidents: { schema: { type: 'object' }, parse: (v: unknown) => v },
+          equipmentIncidentReviewRoots: { schema: { type: 'object' }, parse: (v: unknown) => v },
+          equipmentIncidentFacts: { schema: { type: 'object' }, parse: (v: unknown) => v },
+        }
+      : {}),
+    ...(productionRecords
       ? { scientificProductions: { schema: { type: 'object' }, parse: (input: unknown) => input } }
       : {}),
     ...(runValueAttributionRecords
@@ -3602,7 +4059,16 @@ export function parseInventoryState(
   });
   let state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    scientificProductions: current
+    equipmentIncidents: current
+      ? records(shape.equipmentIncidents, parseInventoryEquipmentIncident)
+      : Object.create(null),
+    equipmentIncidentReviewRoots: current
+      ? records(shape.equipmentIncidentReviewRoots, parseInventoryEquipmentIncidentReviewRoot)
+      : Object.create(null),
+    equipmentIncidentFacts: current
+      ? records(shape.equipmentIncidentFacts, parseInventoryEquipmentIncidentFact)
+      : Object.create(null),
+    scientificProductions: productionRecords
       ? records(shape.scientificProductions, parseInventoryScientificProduction)
       : Object.create(null),
     runValueAttributions: runValueAttributionRecords
@@ -3776,7 +4242,11 @@ export function parseInventoryState(
             return { ...controlledLotRecord.parse(raw), ...emptyInventoryLotValidity() };
           const legacy = ((): Omit<
             InventoryLot,
-            'controls' | 'lotConstraints' | 'validity' | 'inheritedValidity'
+            | 'controls'
+            | 'lotConstraints'
+            | 'validity'
+            | 'inheritedValidity'
+            | 'incidentReviewRootIds'
           > => {
             if (composition) return compositionLotRecord.parse(raw);
             const lot = previousLotRecord.parse(raw);
@@ -3909,6 +4379,7 @@ export function parseInventoryState(
     validateInventoryPlatePlanObservations(state);
     validateInventoryRunValueAttributions(state);
     validateInventoryScientificProductions(state);
+    validateInventoryEquipmentIncidents(state);
     validateInventoryStockroomState(state);
     validateInventoryArrivalState(state);
     validateInventoryValidityState(state);

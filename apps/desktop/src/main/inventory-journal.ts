@@ -1,3 +1,4 @@
+import { applyNativeInventoryEquipmentIncidentAction } from './inventory-equipment-incidents';
 import {
   applyNativeInventoryScientificProduction,
   verifyNativeInventoryScientificProductionSources,
@@ -130,7 +131,7 @@ export function parseNativeInventoryJournalEntry(
   } else if (receipt.context?.scientificSource)
     throw new Error('INVENTORY_DATA_INVALID: Only scientific work may retain a source witness.');
   if ('kind' in request && request.kind === 'record-scientific-production') {
-    if (receipt.context?.version !== 12 || !receipt.context.acceptedDesign)
+    if (!receipt.context || receipt.context.version < 12 || !receipt.context.acceptedDesign)
       throw Error('INVENTORY_DATA_INVALID: Production requires V12 design proof.');
     verifyNativeInventoryScientificProductionSources(
       request,
@@ -158,6 +159,12 @@ export function parseNativeInventoryJournalEntry(
   )
     throw Error('INVENTORY_DATA_INVALID: Plate-plan versions require V9 semantics.');
   if (
+    'kind' in request &&
+    request.kind === 'record-equipment-incident-action' &&
+    (receipt.context?.version ?? 1) < 13
+  )
+    throw Error('INVENTORY_DATA_INVALID: Equipment incidents require V13 semantics.');
+  if (
     request.project !== project ||
     request.inventoryId !== row.inventory_id ||
     request.operationId !== row.operation_id ||
@@ -177,7 +184,7 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryApplyImportRequest,
     context: InventoryExecutionContext,
-    receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | undefined
+    receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | undefined
   ) => InventoryTransition,
   table: (
     target: InventoryState | null,
@@ -217,6 +224,7 @@ export function replayNativeInventoryEntries(
   options: {
     readonly allowRunValueAttributions?: boolean;
     readonly allowScientificProductions?: boolean;
+    readonly allowEquipmentIncidents?: boolean;
   } = {}
 ): InventoryState {
   let state = createInventoryState();
@@ -279,8 +287,14 @@ export function replayNativeInventoryEntries(
     if (request.expectedRevision !== state.revision)
       throw new Error('INVENTORY_DATA_INVALID: The saved inventory journal is not contiguous.');
     let result: InventoryTransition;
-    if ('kind' in request && request.kind === 'record-scientific-production') {
-      if (contextVersion !== 12 || !context || options.allowScientificProductions === false)
+    if ('kind' in request && request.kind === 'record-equipment-incident-action') {
+      if (contextVersion < 13 || !context || options.allowEquipmentIncidents === false)
+        throw Error(
+          'INVENTORY_DATA_INVALID: Equipment incident actions require V13 semantics and ancestry.'
+        );
+      result = applyNativeInventoryEquipmentIncidentAction(state, request, context);
+    } else if ('kind' in request && request.kind === 'record-scientific-production') {
+      if (contextVersion < 12 || !context || options.allowScientificProductions === false)
         throw Error('INVENTORY_DATA_INVALID: Production requires V12 without a pre-V12 ancestor.');
       result = applyNativeInventoryScientificProduction(
         state,
@@ -470,6 +484,19 @@ export function replayNativeInventoryEntries(
     )
       throw Error(
         'INVENTORY_DATA_INVALID: Saved Run value attributions cannot enter through pre-V11 semantics or ancestry.'
+      );
+    if (
+      (contextVersion < 13 || options.allowEquipmentIncidents === false) &&
+      (Object.keys(result.state.equipmentIncidents).length > 0 ||
+        Object.keys(result.state.equipmentIncidentReviewRoots).length > 0 ||
+        Object.keys(result.state.equipmentIncidentFacts).length > 0 ||
+        Object.values(result.state.stocks).some(
+          (stock) => stock.incidentReviewRootIds.length > 0
+        ) ||
+        Object.values(result.state.lots).some((lot) => lot.incidentReviewRootIds.length > 0))
+    )
+      throw Error(
+        'INVENTORY_DATA_INVALID: Equipment incidents cannot enter through pre-V13 semantics or ancestry.'
       );
     state = cumulativeLotSemantics
       ? result.state

@@ -1,4 +1,9 @@
 import {
+  inventoryApplyEquipmentIncidentActionRequestSchema,
+  type InventoryApplyEquipmentIncidentActionRequest,
+} from './inventory-equipment-incidents';
+export type { InventoryApplyEquipmentIncidentActionRequest } from './inventory-equipment-incidents';
+import {
   inventoryApplyScientificProductionRequestSchema,
   type InventoryApplyScientificProductionRequest,
 } from './inventory-scientific-productions';
@@ -93,6 +98,7 @@ export const inventoryReceiptContextSchema = z
       z.literal(10),
       z.literal(11),
       z.literal(12),
+      z.literal(13),
     ]),
     principal: inventoryPrincipalSchema,
     authority: z.object({ kind: z.literal('local-profile'), profileKey }).strict(),
@@ -967,6 +973,7 @@ export const inventoryExecuteRequestSchema = inventoryReadRequestSchema
   }));
 
 export const inventoryAcceptedRequestSchema = z.union([
+  inventoryApplyEquipmentIncidentActionRequestSchema,
   inventoryApplyScientificProductionRequestSchema,
   inventoryApplyRunValueAttributionRequestSchema,
   inventoryApplyRunValueAttributionWithdrawalRequestSchema,
@@ -1130,6 +1137,7 @@ export type InventoryAcknowledgeSourceRequest = InventoryReadRequest & {
   readonly expectedPlanDigest: `sha256:${string}`;
 };
 export type InventoryAcceptedRequest =
+  | InventoryApplyEquipmentIncidentActionRequest
   | InventoryApplyScientificProductionRequest
   | InventoryApplyRunValueAttributionRequest
   | InventoryApplyRunValueAttributionWithdrawalRequest

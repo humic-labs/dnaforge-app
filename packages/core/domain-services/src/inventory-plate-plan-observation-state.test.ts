@@ -48,6 +48,9 @@ it('upcasts retained v26 plan versions without rewriting bytes and rejects futur
       reason: 'Keep original reusable instructions',
     };
   const {
+    equipmentIncidents,
+    equipmentIncidentReviewRoots,
+    equipmentIncidentFacts,
     scientificProductions,
     runValueAttributions,
     runValueAttributionWithdrawals,
@@ -63,11 +66,14 @@ it('upcasts retained v26 plan versions without rewriting bytes and rejects futur
     },
     bytes = JSON.stringify(previous),
     current = parseInventoryState(previous);
-  expect(current.schema).toBe('dnaforge.inventory.v29');
+  expect(current.schema).toBe('dnaforge.inventory.v30');
   expect(current.platePlanObservations).toEqual({});
   expect(current.platePlanVersions).toEqual({ [id]: version });
   expect(JSON.stringify(previous)).toBe(bytes);
   const {
+    equipmentIncidents: currentIncidents,
+    equipmentIncidentReviewRoots: currentRoots,
+    equipmentIncidentFacts: currentFacts,
     scientificProductions: currentProductions,
     runValueAttributions: currentAttributions,
     runValueAttributionWithdrawals: currentWithdrawals,

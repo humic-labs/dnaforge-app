@@ -185,6 +185,7 @@ export function parseInventoryArchive(
     readonly depth?: number;
     readonly allowRunValueAttributions?: boolean;
     readonly allowScientificProductions?: boolean;
+    readonly allowEquipmentIncidents?: boolean;
   } = {}
 ): InventoryValidatedArchive {
   const depth = options.depth ?? 0;
@@ -312,6 +313,9 @@ export function parseInventoryArchive(
         source: scope,
         rows: parsedJournal,
         depth,
+        ...(options.allowEquipmentIncidents === undefined
+          ? {}
+          : { allowEquipmentIncidents: options.allowEquipmentIncidents }),
         ...(options.allowScientificProductions === undefined
           ? {}
           : { allowScientificProductions: options.allowScientificProductions }),

@@ -228,5 +228,7 @@ export function executeInventoryAcceptedRequest(
       return client.applyRunValueAttributionWithdrawal(request);
     case 'record-scientific-production':
       return client.applyScientificProduction(request);
+    case 'record-equipment-incident-action':
+      return client.applyEquipmentIncidentAction(request);
   }
 }

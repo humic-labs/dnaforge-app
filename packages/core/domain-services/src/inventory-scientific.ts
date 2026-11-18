@@ -1,4 +1,5 @@
 import { normalizeInventoryAmount } from './inventory-amount';
+import { inventoryPlanStock } from './inventory-plan-semantics';
 import { inventoryRecordIdExists } from './inventory-identity';
 import { applyInventoryCommandBatch } from './inventory-state';
 import { parseInventoryState } from './inventory-validation';
@@ -251,7 +252,7 @@ function prepare(
         sourceSha256,
         principal: input.principal,
         authority: input.authority,
-        sourceStock: before,
+        sourceStock: inventoryPlanStock(before),
         destinationVessel: state.vessels[destination.vesselId],
       })
     );

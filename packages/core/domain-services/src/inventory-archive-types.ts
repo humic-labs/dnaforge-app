@@ -75,6 +75,7 @@ export interface InventoryArchiveRuntime {
     readonly depth: number;
     readonly allowRunValueAttributions?: boolean;
     readonly allowScientificProductions?: boolean;
+    readonly allowEquipmentIncidents?: boolean;
   }): InventoryState;
 }
 

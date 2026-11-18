@@ -1535,3 +1535,58 @@ async def test_inventory_production_keeps_exact_pins_and_requires_write_only_for
         await execute_native_workflow("inventory", {"operation": operations[4]}, context)
     assert revoked.value.code == "GRANT_REVOKED"
     assert len(state["calls"]) == 6
+
+
+async def test_equipment_incident_operations_keep_original_choices_and_native_write_grant(native):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    scope = {"project": "project", "inventoryId": "inventory"}
+    digest = "sha256:" + "a" * 64
+    choices = {
+        "identity": {"namespace": "manual", "actionId": "outage"},
+        "action": {
+            "kind": "report",
+            "equipment": {"storageId": "freezer", "configurationRevision": 0},
+            "noticedAt": None,
+            "description": "Reported outage",
+            "reason": "Operator observation",
+        },
+    }
+    pin = {"incidentId": "equipment-incident-action:" + "b" * 64, "intentSha256": digest}
+    operations = [
+        {
+            "kind": "preview-equipment-incident-action",
+            **scope,
+            "expectedRevision": 103,
+            "choices": choices,
+        },
+        {"kind": "equipment-incidents", **scope, "limit": 20},
+        {"kind": "equipment-incident", **scope, **pin},
+        {"kind": "equipment-incident-subjects", **scope, **pin, "view": "review"},
+        {"kind": "equipment-incident-facts", **scope, **pin, "query": {"kind": "page"}},
+    ]
+    for operation in operations:
+        await execute_native_workflow("inventory", {"operation": operation}, context)
+        assert state["calls"][-1]["command"] == "inventory." + operation["kind"]
+        assert state["calls"][-1]["request"] == {
+            key: value for key, value in operation.items() if key != "kind"
+        }
+        assert state["calls"][-1]["agent"]["capabilities"] == ["read-workspace"]
+    apply = {
+        **operations[0],
+        "kind": "apply-equipment-incident-action",
+        "operationId": "stable-attempt",
+        "expectedPlanDigest": digest,
+    }
+    with pytest.raises(ToolExecutionFailure) as denied:
+        await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert denied.value.code == "INSUFFICIENT_SCOPE"
+    assert len(state["calls"]) == 5
+    state["scope"] = ["read-workspace", "write-workspace"]
+    await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert state["calls"][-1]["request"] == {**apply, "kind": "record-equipment-incident-action"}
+    state["revoked"] = True
+    with pytest.raises(ToolExecutionFailure) as revoked:
+        await execute_native_workflow("inventory", {"operation": operations[2]}, context)
+    assert revoked.value.code == "GRANT_REVOKED"
+    assert len(state["calls"]) == 6

@@ -383,7 +383,7 @@ it('records one atomic manual production with retained native DNA proof, semanti
     expect(() => refreshed.assertCurrent()).not.toThrow();
     expect(receipt.status, JSON.stringify(receipt)).toBe('committed');
     if (receipt.status !== 'committed') throw Error(JSON.stringify(receipt));
-    expect(receipt.context?.version).toBe(12);
+    expect(receipt.context?.version).toBe(13);
     expect(events).toEqual(['physical', 'accepted-once']);
     const verified = verifyAcceptedDnaProductionWitness(receipt.context!.acceptedDesign);
     expect(verified.binding.document.length).toBe(8);

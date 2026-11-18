@@ -1070,3 +1070,57 @@ it('fences production preview authority before producing a new timed read', asyn
   ).rejects.toThrow('INVENTORY_OWNER_UNAVAILABLE');
   expect(produced).not.toHaveBeenCalled();
 });
+it('routes incident purposes with exact choices and fences the current desktop caller', async () => {
+  const digest = 'sha256:' + 'a'.repeat(64),
+    scope = { project: 'project', inventoryId: 'inventory' };
+  const choices = {
+    identity: { namespace: 'manual', actionId: 'outage' },
+    action: {
+      kind: 'report',
+      equipment: { storageId: 'freezer', configurationRevision: 0 },
+      noticedAt: null,
+      description: 'Outage',
+      reason: 'Operator observation',
+    },
+  };
+  const pin = { incidentId: 'equipment-incident-action:' + 'b'.repeat(64), intentSha256: digest };
+  for (const [method, input] of Object.entries({
+    previewEquipmentIncidentAction: { ...scope, expectedRevision: 103, choices },
+    equipmentIncidents: scope,
+    equipmentIncident: { ...scope, ...pin },
+    equipmentIncidentSubjects: { ...scope, ...pin, view: 'review' },
+    equipmentIncidentFacts: { ...scope, ...pin, query: { kind: 'page' } },
+  })) {
+    const native = vi.fn(async (_input: unknown) => ({ kind: 'unavailable' }));
+    Object.assign(owner!, { [method]: native });
+    await (
+      captured.handlers[method] as (event: IpcMainInvokeEvent, input: unknown) => Promise<unknown>
+    )(event, input);
+    expect(native.mock.calls[0][0]).toEqual(input);
+  }
+  const native = vi.fn((_input: unknown, _guard: () => void) => ({
+    status: 'rejected',
+    operationId: 'once',
+    inventoryId: 'inventory',
+    code: 'INVENTORY_EQUIPMENT_INCIDENT_NO_CHANGES',
+  }));
+  Object.assign(owner!, { applyEquipmentIncidentAction: native });
+  const input = {
+    ...scope,
+    kind: 'record-equipment-incident-action',
+    operationId: 'once',
+    expectedRevision: 103,
+    choices,
+    expectedPlanDigest: digest,
+  };
+  const apply = captured.handlers.applyEquipmentIncidentAction as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => Promise<unknown>;
+  expect(await apply(event, input)).toMatchObject({ status: 'rejected', operationId: 'once' });
+  expect(native.mock.calls[0][0]).toEqual(input);
+  await expect(apply(event, { ...input, scientificSource: { forged: true } })).rejects.toThrow();
+  expect(native).toHaveBeenCalledTimes(1);
+  owner = null;
+  expect(native.mock.calls[0][1]).toThrow('owner changed');
+});

@@ -1,3 +1,4 @@
+import { inventoryApplyEquipmentIncidentActionRequestSchema } from '../../shared/inventory-equipment-incidents';
 import { inventoryApplyScientificProductionRequestSchema } from '../../shared/inventory-scientific-productions';
 import {
   inventoryApplyRunValueAttributionRequestSchema,
@@ -169,6 +170,7 @@ export function registerInventoryHandlers(options: {
     method:
       | 'applyRunValueAttribution'
       | 'applyRunValueAttributionWithdrawal'
+      | 'applyEquipmentIncidentAction'
       | 'applyScientificProduction'
       | 'applyPlatePlanObservation'
       | 'applyPlatePlanVersion'
@@ -181,6 +183,7 @@ export function registerInventoryHandlers(options: {
     const schema = {
       applyRunValueAttribution: inventoryApplyRunValueAttributionRequestSchema,
       applyRunValueAttributionWithdrawal: inventoryApplyRunValueAttributionWithdrawalRequestSchema,
+      applyEquipmentIncidentAction: inventoryApplyEquipmentIncidentActionRequestSchema,
       applyScientificProduction: inventoryApplyScientificProductionRequestSchema,
       applyPlatePlanObservation: inventoryApplyPlatePlanObservationRequestSchema,
       applyPlatePlanVersion: inventoryApplyPlatePlanVersionRequestSchema,
@@ -233,6 +236,19 @@ export function registerInventoryHandlers(options: {
     return result;
   };
   return handleGroup(inventoryContract, {
+    previewEquipmentIncidentAction: (event, request) =>
+      previewCitation(event, (owner) => owner.previewEquipmentIncidentAction(request)),
+    applyEquipmentIncidentAction: (event, request) =>
+      mutateScientific(event, request, 'applyEquipmentIncidentAction'),
+    equipmentIncidents: (event, request) =>
+      previewCitation(event, (owner) => owner.equipmentIncidents(request)),
+    equipmentIncident: (event, request) =>
+      previewCitation(event, (owner) => owner.equipmentIncident(request)),
+    equipmentIncidentSubjects: (event, request) =>
+      previewCitation(event, (owner) => owner.equipmentIncidentSubjects(request)),
+    equipmentIncidentFacts: (event, request) =>
+      previewCitation(event, (owner) => owner.equipmentIncidentFacts(request)),
+
     scientificProductionDesigns: (event, request) =>
       previewCitation(event, (owner) =>
         owner.scientificProductionDesigns(request, {

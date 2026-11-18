@@ -1,3 +1,8 @@
+import {
+  inventoryIncidentCaptureTransition,
+  inventoryIncidentTransition,
+  inventoryIncidentUseGuard,
+} from './inventory-incident-constraints';
 import { applyInventoryStockroomCommand } from './inventory-stockroom';
 import {
   applyInventoryValidityCommand,
@@ -64,6 +69,9 @@ import { applyInventoryContentsCommand, inventoryVesselStockAdmission } from './
 
 type Failure = Extract<InventoryTransition, { ok: false }>;
 interface Draft {
+  equipmentIncidents: InventoryState['equipmentIncidents'];
+  equipmentIncidentReviewRoots: InventoryState['equipmentIncidentReviewRoots'];
+  equipmentIncidentFacts: InventoryState['equipmentIncidentFacts'];
   scientificProductions: InventoryState['scientificProductions'];
   runValueAttributions: InventoryState['runValueAttributions'];
   runValueAttributionWithdrawals: InventoryState['runValueAttributionWithdrawals'];
@@ -167,6 +175,20 @@ function stockVessel(state: Draft, stock: InventoryStock): InventoryVessel | Fai
 }
 
 function applyCommand(
+  state: Draft,
+  command: InventoryCommand,
+  context?: InventoryExecutionContext,
+  revision = recordingRevisions.get(state) ?? 0
+): Failure | null {
+  const incidentUse = inventoryIncidentUseGuard(state, command);
+  if (incidentUse) return incidentUse;
+  const before = inventoryIncidentCaptureTransition(state);
+  const invalid = applyCommandBody(state, command, context);
+  if (invalid) return invalid;
+  return inventoryIncidentTransition(before, state, command, context, revision);
+}
+const recordingRevisions = new WeakMap<object, number>();
+function applyCommandBody(
   state: Draft,
   command: InventoryCommand,
   context?: InventoryExecutionContext
@@ -418,6 +440,9 @@ export function applyInventoryCommandBatch(
   if (context && context.at < state.lastRecordedAt)
     return failure('CLOCK_REGRESSION', 'The trusted timestamp precedes the inventory clock floor.');
   const draft: Draft = {
+    equipmentIncidents: state.equipmentIncidents,
+    equipmentIncidentReviewRoots: state.equipmentIncidentReviewRoots,
+    equipmentIncidentFacts: state.equipmentIncidentFacts,
     scientificProductions: state.scientificProductions,
     runValueAttributions: state.runValueAttributions,
     runValueAttributionWithdrawals: state.runValueAttributionWithdrawals,
@@ -456,6 +481,7 @@ export function applyInventoryCommandBatch(
       state.reservations
     ),
   };
+  recordingRevisions.set(draft, state.revision + 1);
   try {
     for (const command of batch.commands) {
       const invalid = applyCommand(draft, command, context);

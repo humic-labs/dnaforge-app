@@ -1,4 +1,17 @@
 import type {
+  InventoryPreviewEquipmentIncidentActionRequest,
+  InventoryEquipmentIncidentActionPreviewSnapshot,
+  InventoryApplyEquipmentIncidentActionRequest,
+  InventoryEquipmentIncidentsRequest,
+  InventoryEquipmentIncidentsRead,
+  InventoryEquipmentIncidentRequest,
+  InventoryEquipmentIncidentRead,
+  InventoryEquipmentIncidentSubjectsRequest,
+  InventoryEquipmentIncidentSubjectsRead,
+  InventoryEquipmentIncidentFactsRequest,
+  InventoryEquipmentIncidentFactsRead,
+} from '../inventory-equipment-incidents';
+import type {
   InventoryScientificProductionDesignsRequest,
   InventoryScientificProductionDesignsRead,
   InventoryPreviewScientificProductionRequest,
@@ -139,6 +152,30 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  previewEquipmentIncidentAction: invoke<
+    [request: InventoryPreviewEquipmentIncidentActionRequest],
+    InventoryEquipmentIncidentActionPreviewSnapshot
+  >(),
+  applyEquipmentIncidentAction: invoke<
+    [request: InventoryApplyEquipmentIncidentActionRequest],
+    NativeInventoryExecution
+  >(),
+  equipmentIncidents: invoke<
+    [request: InventoryEquipmentIncidentsRequest],
+    InventoryEquipmentIncidentsRead
+  >(),
+  equipmentIncident: invoke<
+    [request: InventoryEquipmentIncidentRequest],
+    InventoryEquipmentIncidentRead
+  >(),
+  equipmentIncidentSubjects: invoke<
+    [request: InventoryEquipmentIncidentSubjectsRequest],
+    InventoryEquipmentIncidentSubjectsRead
+  >(),
+  equipmentIncidentFacts: invoke<
+    [request: InventoryEquipmentIncidentFactsRequest],
+    InventoryEquipmentIncidentFactsRead
+  >(),
   scientificProductionDesigns: invoke<
     [request: InventoryScientificProductionDesignsRequest],
     InventoryScientificProductionDesignsRead

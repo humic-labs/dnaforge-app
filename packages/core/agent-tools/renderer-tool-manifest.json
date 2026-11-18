@@ -46878,12 +46878,1009 @@
     },
     {
       "name": "inventory",
-      "description": "Record one completed manual production using scientific-production-designs, preview-scientific-production and apply-scientific-production. Use an exact saved Run inventory source pin, accepted current nonempty DNA design, stable production identity, distinct ordered stock inputs and independently measured output in an existing empty vessel. Only apply atomically consumes inputs and records one prepared managed unassessed lot and quarantined output stock; no hardware or Run file is changed. Preserve exact raw request and identity after unknown acknowledgement. A requested-operation NO_CHANGES rejection requires exact scientific-production detail and original choices to prove the existing business outcome; never invent a new receipt or repeat physical work. Read scientific-productions summaries and scientific-production-source retained Run and design evidence separately from current navigation. Associate an exact saved Run value with an existing recorded physical subject using run-value-candidates, preview-run-value-attribution and apply-run-value-attribution. Candidate rows provide inventory source-packet and complete raw-row SHA pins; never substitute a Protocol package hash. The value describes the subject and does not establish that this Run consumed or produced it. These writes only append metadata. Current comparison in exact run-value-attribution detail is independent from Active or Withdrawn history; restoring matching bytes never revives a withdrawal. Use preview/apply-run-value-attribution-withdrawal for terminal source-free correction, and an explicit fresh identity plus four exact predecessor pins for a same-Run/file/slot successor. Read bounded run-value-attributions summaries and retained run-value-attribution-source evidence; foreign saved contexts are never silently relocalized. Preserve original operation and intent after an unknown acknowledgement. Read scientific-works-for-context with explicit project, inventoryId and context {kind,entityId} for immutable completed manual transfers recorded with that exact Notebook or Run. Pages are bounded, ordered by recorded time and work ID, and pinned to one inventory revision; pass the native nextCursor unchanged and restart first page on revision change. Ready zero rows, inventory-absent and unavailable are distinct. These are historical stock effects and saved source pins, not declared Run inputs, produced material or current stock availability. Current source edits or removal do not erase recorded work. Use scientific-source lazily by returned workId for its retained source; listing and source viewing never write inventory or a Run. Read stockroom for expected delivery progress, original received-component allocation remainders and reorder reports at one native projectId/inventoryId/revision/principal/asOf. Use generic execute for record-expected-delivery, allocate-arrival, withdraw-arrival-allocation, close-expected-delivery-remainder, reopen-expected-delivery, record-reorder-rule and retire-reorder-rule. Expectations record explicit scientific material, positive amount, supplier or null, optional externalReference and reason; they never place an order or create on-hand stock. Allocate only original identified known received component amounts by arrivalId+componentKey, never current remaining quantity or package labels. Active allocations are capped across all lines by the original receipt and each line expectation; same scientific material and dimension are required. Use, movement, disposal and eligibility changes never unfulfill an allocation. Close only positive unmatched remainder; reopen explicitly before further matching or withdrawing an allocation on that line. Withdrawn allocations are immutable history and corrections get new IDs. Reorder rules declare positive exact threshold, actionBasis reserve or withdraw, and validityBasis current-recorded-rules or confirmed-current-validity without defaults. Known eligible unreserved stock is a lower bound; reaching threshold proves adequate even with unknown amounts, otherwise relevant eligible unknowns require measurement. Other dimensions and excluded physical stock remain explicit; expected quantities never enter the subtotal. Current-recorded-rules can include disclosed untracked validity and does not prove unexpired material; confirmed-current-validity requires coverage and the selected reserve/withdraw admission. Read nextBoundaryAt and request a new native snapshot at boundaries; never store low/expired flags or use renderer time as business authority. Recording expected deliveries, matching and reports send no vendor messages, purchases or spending. Report one exactly completed full manual plate-plan occurrence with preview-plate-plan-observation and apply-plate-plan-observation. Select a stable namespace/observationId, exact saved version and physical binding, saved Notebook or Protocol Run context pin, and reason. Only apply atomically records the whole ordered batch and immutable grouped source before/final balances plus each output aliquot. It never actuates equipment or records partial or uncertain physical outcomes. Preserve the exact occurrence and accepted request after unknown RPC outcome; same occurrence and intent never debits again, including after source edits or later stock use. Read bounded plate-plan-observations summaries with optional conjunctive version pin and local context identity filters, then lazy plate-plan-observation detail and plate-plan-observation-source by exact record ID and intent pin. Historical plate geometry, positions and retained scientific source remain separate from current navigation. Plan previews and source reads have no effects; no Run completion, produced scientific material or biological-success claim follows. Save immutable reusable volume aliquot plans with preview-plate-plan-version and apply-plate-plan-version. Definitions contain logical source roles, canonical fixed-well coordinates and ordered positive canonical uL transfers, no actual stock or plate IDs. Save is metadata only and uses a stable exact accepted operation; same family and definition reuses the original version and reason, including A to B to A. Read bounded plate-plan-versions summaries and explicitly select plate-plan-version by exact versionId and definitionSha256; no implicit latest exists. Exact read includes a rendered or explicitly refused definition-only SVG; rendering/export does not perform or reserve work. Check preview-plate-plan-binding with exact saved pin, existing plate and source-role mappings. Logical roles may alias one stock, so native simulates the whole ordered batch cumulatively on a discarded copy. Ready is a native-time feasibility snapshot only. Respect nextBoundaryAt and recheck after time, scope, principal or revision changes; overdue holds remain held. Blocked source facts contain no projected partial success. No execution, scientific work, Run or physical mutation follows from a plan save or preview. Cite an existing saved Notebook or Protocol Run on immutable recorded physical work using preview-scientific-citation and apply-scientific-citation. Select native saved context kind/entity/source pin and exact work intent; send no source body, actor or time. Additional citations never change the original work, stock, primary context or source files. Read scientific-citations by exact workId and workIntentSha256 with bounded revision-bound replacement pages; withdrawn assertions remain history. Read their retained sources separately through scientific-citation-source, including after withdrawal. Correct with preview-scientific-citation-withdrawal and apply-scientific-citation-withdrawal using exact citation/work pins and a new withdrawal reason; correction requires no current source file. Historical duplicates, including withdrawn assertions, never create aliases or restore a link. Explicit reattachment requires a fresh citation identity plus reinstates pins for the exact predecessor and withdrawal, and current saved source must still match that pin. A changed source pin is a separate base citation. No-change creates no receipt. Recover unknown outcomes with the identical retained request and operation ID. Primary-only scientific-works-for-context and scientific-source retain their original meaning. Link a completed manual transfer into an existing permanent well to an explicit notebook-page or protocol-run context. Use scientific-contexts-v2 with contextKind, then preview-scientific-transfer-v2 and apply-scientific-transfer-v2 with choices.context {kind,entityId,sourceSha256}. Notebook selections retain the original intent meaning, so expressing prior work through this API cannot debit again. Legacy Notebook routes remain supported. Create and start genuine saved Protocol Runs through protocol_document first; inventory does not create them. The selected saved source is native observed evidence, not an accepted scientific revision. Preview creates no physical effect. Apply atomically records one transfer and stable namespace/workId observation with its retained source. Preserve that work identity on retries and duplicates; a fresh operationId cannot repeat the same work. Read the verified original source through scientific-source by canonical workId, separately from current navigation. A Run source retains its complete saved JSON and frozen protocol. This is operator-reported manual work, not hardware verification or biological success. Record actual deliveries with preview-arrival and apply-arrival using exact application-owned dnaforge.inventory-arrival-source.v1 sourceText. Retain original inline supplier documents, explicit full/excerpt scope, package grouping and one reasoned component disposition: identified, unidentified-physical, unobserved-physical, observed-missing or evidence-only. A package batch is distinct from a component lot, product and delivery identity. Bind each identified component to a current admitted scientific material, explicit existing or new managed-unassessed lot, new movable vessel and explicit placement. Known amount needs a separate measurement or exact supported supplier quantity claim; unsupported activity units remain raw evidence and cannot become mass/volume/count. Supplier QC never releases local stock or lot assessment. Preview is read-only. Apply only ready resolved options, original sourceText, planDigest, revision and stable operationId in one atomic transaction, including metadata-only arrivals. Stable namespace plus arrivalId prevents re-receiving after use, movement, disposal or adoption; changed source or original choices need reconciliation. An unchanged delivery is no-change and writes no new receipt or event. A deliberately renamed physical delivery cannot be detected as a duplicate. Recover an uncertain result with the original operation receipt or identical saved request. Read arrival-document by arrivalId, documentKey and expectedSha256 for exact retained bytes through original or nested adopted history; no fetch, OCR or supplier format compatibility is implied. The existing encoded native request limit applies; never split a delivery silently. Opening and validity belong to explicit stock/material episodes. Use record-stock-opening with an observed timestamp or null; correct-stock-opening names the current observation and records opened or unobserved, never a silent reseal/reset. Use record-validity-decision for an independent stock/lot rule family and correct-validity-decision for its exact current head. Preserve sourceText and sourcePrecision separately from an explicit absolute cutoff or positive elapsed milliseconds after the original stock opening. A printed month/year is not a UTC instant or fixed duration. Unresolved and not-required are explicit reasoned decisions; no receipt, movement, quality release or new aliquot invents opening or clears another family. Derived material retains applicable source families and earliest physical derivation bounds, including known-zero destinations; late opening contradictions block rather than extend life. Read native availability.actions.reserve and actions.withdraw instead of filtering blocker codes: a consistently observed sealed stock with an applicable relative rule may reserve, while use requires recording opening first, optionally in the same batch. At native asOf equal to deadline, material is expired; nextBoundaryAt tells clients when to request a fresh native observation. No applicable opening-dependent rule means unobserved opening alone adds no use gate. Imported positive validity requires explicit local reassessment without manufacturing an opening observation; restrictive evidence remains blocking. Recover uncertain operations through their original saved receipt even after later expiry. For new supplier lots and derived preparations, compose create-lot, pool or dilute with manage-lot in the same execute batch. Manage-lot starts local assessment as unassessed; physical receive-lot-stock can record held material but does not release it. Use assess-lot with a reason for released, quarantined or rejected decisions. Stock set-quality remains an independent hold. Record-lot-recall and withdraw-lot-recall retain independent reasoned safety facts; release never clears a recall. Availability discloses all inherited lot restrictions and legacy-partial or untracked coverage. Transfers, preparations and reassociation retain prior lot constraints, so a new lot name cannot erase a hold or recall. Imported released assessments require explicit local reassessment; imported active recalls remain blocking until explicit local withdrawal. Use the original operation receipt for uncertain outcomes. Stock balances have an explicit measurement basis: volume, mass, amount of substance, or whole-item count. Send non-negative decimal strings and an explicit supported unit for known and unknown quantities. Canonical readback uses uL/ng/nmol/item; unknown amount retains its unit. Unitless unknown input is only the retained legacy volume contract. Never interpret package count as content amount or infer density, molecular weight or enzyme activity. Consume, transfer, reserve and fulfill only within the stock basis; ordinary reconciliation or observation application cannot change dimension. Physical capacity/dead-volume and pool/dilute remain volume-specific. Non-volume transfer into existing stock supports unknown mixing only; homogeneous concentration mixing requires volumes. Apply an offline physical capture with preview-benchling-capture and apply-benchling-capture. Retain the original sourceText and explicit per-record choices, field observation references/conflict reasons, layouts, parent/position decisions, source issues and uncaptured-position blocks. The source namespace is in the versioned capture. Empty means selected contents=[] AND exact selected volume zero; unobserved and unidentified contents remain explicit physical vessels, never fake stock. Identify one supported source content through a current local scientific material with explicit quality and exact source volume or a reasoned unknown quantity. Current mass/count units never become volume, and deprecated volume requires an explicit choice. Fixed wells retain plate/coordinate identity; matrix tubes are movable. Preview is read-only. Apply only ready resolved options, material fingerprints, target IDs, canonical source rows and expectedPlanDigest with expectedRevision/stable operationId. One transaction creates all storage/vessel/stock bindings and physical changes; metadata-only new binding changes also commit once without dummy commands. No-change saves no new source or receipt. Bound source IDs survive local movement/use/disposal/adoption and cannot replenish or duplicate stock. Changed stock source requires established source-revision comparison; previous rows come from retained accepted capture history. An uncertain result requires original receipt lookup or the identical saved request. Vessel contents knowledge is separate from stock quantity. Read contentsKnowledge: recorded with no stock means declared empty, recorded with stock means identified even at known zero, and unobserved/unidentified means unresolved. Never infer physical emptiness from no stock. Use record-vessel-contents with vesselId, knowledge and reason to record unobserved or unidentified contents, or record-vessels-contents with a nonempty unique vesselIds list for one atomic bulk declaration. Use declare-vessel-empty only after an explicit empty observation with reason. Use identify-vessel-stock to identify material already present in an unresolved vessel, with id, vesselId, current project materialId, explicit quantity, quality and reason; this is not a new physical receiving event. Actor and time come from the native boundary. Unresolved contents block ordinary receiving and every new-stock material destination; move, custody and disposal remain separate. Contents declarations cannot erase any identified stock, including known zero. Inspect an offline DNAForge Benchling V2 physical capture with inspect-benchling-capture and exact sourceText. This read-only inspection preserves raw responses and exact JSON number tokens and distinguishes omitted fields, explicit null, present values and conflicting observations. Inspect unresolved source facts, placements and pagination without creating inventory, stock, receipts, journal entries or imported authority. It does not connect to Benchling, prove complete exports, support V3 or apply physical inventory. Use preview-mapped-table and apply-mapped-table with mapped-plate-v1 to receive original CSV/TSV plate spreadsheets into existing permanent wells. Preserve the complete raw source and declare every column as source identity, plate, well or reason-bearing evidence only. Bind scientific materials explicitly in the admitted project, map source plate and well labels to existing plate IDs and exact positions, declare unknown quantity with a reason and choose quality per row explicitly. Never strip leading zeros, infer plate dimensions, treat QC labels as quality or interpret box labels as freezers. Preview has no effects; apply accepts only the exact original bytes, resolved fingerprints, choices and ready digest through the existing journal. Stable physical row bindings prevent duplicates; evidence-only edits may yield no physical changes and save no revised source or receipt. Scientific publication and hierarchy creation remain separate visible stages. Compare revised external receive records with preview-source-revision, format receive-v1 and exact sourceText. Supply existing table namespace and explicit same-identity material/location/vessel resolutions plus acknowledgements with sourceId, expectedPreviousRowSha256 and reason. The read-only comparison separates verified previous source fields, revised source fields and actual inventory; missing previous evidence blocks. Acknowledge only a ready plan with acknowledge-source, saved resolved options/preimages, plan digest, expected revision and stable operation ID. This appends source history without receiving, replenishing, renaming, moving, changing quality, custody or holds, or applying measurements. Original bindings remain immutable; scientific rebinding, vessel replacement, vessel-kind changes and unbound rows refuse. Unchanged receive reimports compare the latest accepted source baseline and preserve later use or movement. Original source fields come from retained accepted requests, including archives, never inferred from current stock. A lost acknowledgement requires the original receipt or identical retry. Import explicit hierarchy-v1 CSV/TSV with preview-hierarchy and apply-hierarchy. Required columns are source_id,name,layout_kind,positions,rows,columns,capacity,parent_kind,parent_key,slot. Supply a stable namespace, explicit delimiter, existing-parent mappings and reason-bearing skips. Named positions use a strict JSON array; grids, tube boxes and fixed-well plates require explicit dimensions; stacks require capacity. Parents are explicit root, local source IDs or mapped existing storage. Stack ordinals define order independently of row order. Preview resolves parent graphs and validates the complete existing-command batch without writes. Cycles, missing parents, occupied positions, noncontiguous stacks and oversized atomic batches refuse. Existing source bindings prevent duplication and never reverse later movement or disposal. Changed source facts require separate reconciliation. Apply only the exact ready plan, source, options, revision and stable operation ID; recover uncertain outcomes using the original receipt or identical retry. No equipment specifications, plate dimensions, temperature control, stock or fit qualification are inferred from names. Receive stock in a separate explicit stage. Preview explicit stocktake observations with preview-stocktake, format stocktake-v1 and exact sourceText. Supply a stable observation namespace, explicit delimiter, subject and destination bindings and one explicit decision per observation: record-only, apply with reason, or skip with reason. Required columns are observation_id,subject_key,observed_at,quantity_kind,quantity,unit,presence,location_key,slot,reason. Stock subjects support known or unknown quantity; item subjects support missing or found presence. Unobserved dimensions use not-observed; found requires an explicit destination. Source time is unknown or exact UTC ISO with milliseconds, separate from trusted native recording time. Record-only creates immutable observation facts without changing quantity or custody; a later explicit apply uses the recorded fact once. Quantity measurement preserves holds and custody, including allocation shortfalls. Missing/found corrections preserve quantity and use existing physical custody rules; never infer a plate from a permanent well or missing stock from an omitted row. Reusing an observation identity with changed facts refuses. Reimporting an applied observation never repeats its correction after later use. Apply only a ready preview through apply-stocktake with exact source, options, plan digest, revision and stable operation ID; uncertain outcomes use original receipt recovery or identical retry. Observations and corrections commit through the existing atomic journal and command limit. Changed receive registers are not physical measurements. Preview a strict canonical receive table with preview-table, format receive-v1 and exact sourceText. Supply a stable source namespace, explicit comma or tab delimiter, material/location/existing-vessel bindings and reason-bearing skipped source IDs. The required columns are source_id,name,material_key,quantity_kind,quantity,unit,quality,vessel_kind,vessel_key,location_key,slot. Every column must appear exactly once; no inferred headers, values, units, scientific identities, unplaced choice or silent extra columns. A new vessel requires a name and explicit location key; an existing empty vessel or permanent well requires its bound vessel key and blank name/location/slot fields. Known zero differs from explicit unknown quantity. Preview reports every source row, proposed commands and blocking issues without writes. Stable namespace plus exact source_id prevents duplicates when rows reorder or the file changes. Unchanged imported rows remain unchanged even after later consumption or movement; changed source facts or resolutions require reconciliation and refuse. Apply only a ready preview with apply-table, its exact sourceText, resolved options/fingerprints, expectedPlanDigest, expectedRevision and one stable operationId. All generated commands and source bindings commit atomically under the existing 256-command limit; never split silently. An uncertain result must recover or retry that exact operation. This format does not imply Benchling header compatibility or stocktake correction support. Export a lossless native inventory archive with export-snapshot and format native-v1. It captures one admitted state and complete accepted history without changing inventory or writing a file. Preview an exact sourceText using preview-import and options.bindings [{sourceMaterialId,destinationMaterialId}]. Preview is read-only; it reports source-linked refusals, exact scientific bindings, responsibilities and proposed identities. Only a ready preview supplies complete resolved options with fingerprints and a planDigest. Apply into an absent inventory with apply-import, the identical sourceText, those resolved options, expectedPlanDigest, expectedRevision and one stable operationId. Reuse the original operation or exact request after an uncertain result before creating a new intent. Adoption creates destination records under the current native receipt; imported source history remains evidence. Imported holders never gain current authority by matching an agent ID; source clocks cannot advance native acceptance. No populated-target merging, automatic scientific identity matching, silent chunking or spreadsheet/Benchling compatibility is implied. Read storage-conditions in an explicit project and inventory with required freshnessMaxAgeMs null for no age policy or a nonnegative safe integer in milliseconds. This read returns separate specified capability, operator-reported target and installed qualified-support assessments at one native revision and asOf time. Reported setpoints are not sensor measurements, and a supported temperature assessment is not overall sample suitability. Record the thermal relationship independently with record-thermal-context: inherit uses surroundings, self declares own temperature control, and unknown blocks inheritance. Evidence, withdrawal and reports never change this relationship. New qualified-envelope assertions declare scope physical-and-thermal-arrangement; legacy qualifications with unrecorded thermal scope remain inapplicable. Unknowns, conflicts, source scope and freshness remain explicit. It never changes stock, quality, holds, custody or placement. Record temperature claims, setpoints and stock/lot requirements only through execute with explicit observation time (timestamp or null); trusted recorded time and actor come from the native owner. Use prepare-label with an active exact codeId and mediaProfileId qr-50x30-300dpi or qr-80x50-300dpi to render an immutable existing-code QR SVG artifact. Its symbol contains the exact alias value only; namespace and explicit project/inventory context are required for lookup. The artifact retains full target and binding snapshots, source revision, exact SVG and SHA256. Rendered does not mean independently decoded, saved, printed, attached or physically scanned. Preparation is read-only, grants no access, and refuses retired bindings, disposed targets, unsupported text or layout overflow. Missing custody remains explicit and does not establish location. No file or printer is written. Resolve exact physical item codes with resolve-item-code in an explicit project and inventory. Pass query.namespace as an exact technical namespace or null for all namespaces and query.value as the unchanged code. Case, leading zeros and spaces matter. Invalid, not found, retired and ambiguous are distinct results; never prefer one ambiguous match or fall back to scientific material search. The lookup returns current target facts, custody and stock availability at one revision. Codes grant no access, and URL text is not navigation. Lookup never changes inventory. Use catalog-update-preview with an exact catalogEntryId and inventoryId to classify built-in definitions and inspect source scope and installed references without inventory writes. Any definition conflict blocks applying the entire pack. Apply selected new definitions through execute at the current revision; identical retired definitions remain retired. Inspect and change physical laboratory inventory through the same native owner as the Inventory view. Start with projects, then materials in the exact selected project. Inspect the returned defaultInventoryId before changing it. Read catalog for built-in physical type and equipment recipe definitions without installing them. Existing definition ID conflicts require explicit resolution; never overwrite. Execute only needed definitions plus explicit recipe instantiation as one atomic batch. Read availability at the matching revision for exact on-hand, held and unreserved quantities, item custody, reservation actions and blocking reasons. Execute an atomic typed command batch with the inspected expectedRevision and one stable operationId. Exact retries return the original receipt; changed requests require a new explicitly reviewed operation. A timeout leaves the outcome unknown: inspect the original operationId or retry that identical request. Publish immutable physical type and equipment recipe versions, then instantiate explicit pinned versions. Physical metadata is separate from scientific material identity. Allowed child types constrain placement logically; unknown fit remains unknown, and known geometric contradictions refuse placement. Read the physical projection for installed configuration, metadata issues and fit evidence. Reservations do not subtract on-hand quantity. Expiry requires an explicit recorded command. Checkout, transit and missing reports free the previous position and retain immutable last-known location facts. Planned destinations and last-known positions are not current locations. Return or locate requires an explicit valid destination; use stack-top for a stack. A plate or box governs effective custody of its contents, and permanent wells cannot depart independently. Missing or in-transit items block physical use and additions; reconciliation and quality observations remain distinct. Custody never changes quantity or silently releases reservations. Hold ownership, custody responsibility and execution time come from the native authority. Known zero quantity differs from unknown quantity. Scientific designs do not imply physical possession. Placement, quantity, quality, disposal and storage-layout rules are validated by the inventory owner. History retains accepted requests, trusted actors and durable owner context. Read operations need read-workspace; execute also needs write-workspace.",
+      "description": "Report equipment incidents with preview-equipment-incident-action and apply-equipment-incident-action using stable action identities. Manual temperatures, completed whole-holder relocations, explicit impact reviews and resolution use the same strict action owner. Read equipment-incidents, equipment-incident, equipment-incident-subjects and equipment-incident-facts separately; initial contents, current contents, review restrictions and selected manual observation freshness are distinct. Preserve identical raw requests after unknown acknowledgement and use exact original action proof for business recovery. Record one completed manual production using scientific-production-designs, preview-scientific-production and apply-scientific-production. Use an exact saved Run inventory source pin, accepted current nonempty DNA design, stable production identity, distinct ordered stock inputs and independently measured output in an existing empty vessel. Only apply atomically consumes inputs and records one prepared managed unassessed lot and quarantined output stock; no hardware or Run file is changed. Preserve exact raw request and identity after unknown acknowledgement. A requested-operation NO_CHANGES rejection requires exact scientific-production detail and original choices to prove the existing business outcome; never invent a new receipt or repeat physical work. Read scientific-productions summaries and scientific-production-source retained Run and design evidence separately from current navigation. Associate an exact saved Run value with an existing recorded physical subject using run-value-candidates, preview-run-value-attribution and apply-run-value-attribution. Candidate rows provide inventory source-packet and complete raw-row SHA pins; never substitute a Protocol package hash. The value describes the subject and does not establish that this Run consumed or produced it. These writes only append metadata. Current comparison in exact run-value-attribution detail is independent from Active or Withdrawn history; restoring matching bytes never revives a withdrawal. Use preview/apply-run-value-attribution-withdrawal for terminal source-free correction, and an explicit fresh identity plus four exact predecessor pins for a same-Run/file/slot successor. Read bounded run-value-attributions summaries and retained run-value-attribution-source evidence; foreign saved contexts are never silently relocalized. Preserve original operation and intent after an unknown acknowledgement. Read scientific-works-for-context with explicit project, inventoryId and context {kind,entityId} for immutable completed manual transfers recorded with that exact Notebook or Run. Pages are bounded, ordered by recorded time and work ID, and pinned to one inventory revision; pass the native nextCursor unchanged and restart first page on revision change. Ready zero rows, inventory-absent and unavailable are distinct. These are historical stock effects and saved source pins, not declared Run inputs, produced material or current stock availability. Current source edits or removal do not erase recorded work. Use scientific-source lazily by returned workId for its retained source; listing and source viewing never write inventory or a Run. Read stockroom for expected delivery progress, original received-component allocation remainders and reorder reports at one native projectId/inventoryId/revision/principal/asOf. Use generic execute for record-expected-delivery, allocate-arrival, withdraw-arrival-allocation, close-expected-delivery-remainder, reopen-expected-delivery, record-reorder-rule and retire-reorder-rule. Expectations record explicit scientific material, positive amount, supplier or null, optional externalReference and reason; they never place an order or create on-hand stock. Allocate only original identified known received component amounts by arrivalId+componentKey, never current remaining quantity or package labels. Active allocations are capped across all lines by the original receipt and each line expectation; same scientific material and dimension are required. Use, movement, disposal and eligibility changes never unfulfill an allocation. Close only positive unmatched remainder; reopen explicitly before further matching or withdrawing an allocation on that line. Withdrawn allocations are immutable history and corrections get new IDs. Reorder rules declare positive exact threshold, actionBasis reserve or withdraw, and validityBasis current-recorded-rules or confirmed-current-validity without defaults. Known eligible unreserved stock is a lower bound; reaching threshold proves adequate even with unknown amounts, otherwise relevant eligible unknowns require measurement. Other dimensions and excluded physical stock remain explicit; expected quantities never enter the subtotal. Current-recorded-rules can include disclosed untracked validity and does not prove unexpired material; confirmed-current-validity requires coverage and the selected reserve/withdraw admission. Read nextBoundaryAt and request a new native snapshot at boundaries; never store low/expired flags or use renderer time as business authority. Recording expected deliveries, matching and reports send no vendor messages, purchases or spending. Report one exactly completed full manual plate-plan occurrence with preview-plate-plan-observation and apply-plate-plan-observation. Select a stable namespace/observationId, exact saved version and physical binding, saved Notebook or Protocol Run context pin, and reason. Only apply atomically records the whole ordered batch and immutable grouped source before/final balances plus each output aliquot. It never actuates equipment or records partial or uncertain physical outcomes. Preserve the exact occurrence and accepted request after unknown RPC outcome; same occurrence and intent never debits again, including after source edits or later stock use. Read bounded plate-plan-observations summaries with optional conjunctive version pin and local context identity filters, then lazy plate-plan-observation detail and plate-plan-observation-source by exact record ID and intent pin. Historical plate geometry, positions and retained scientific source remain separate from current navigation. Plan previews and source reads have no effects; no Run completion, produced scientific material or biological-success claim follows. Save immutable reusable volume aliquot plans with preview-plate-plan-version and apply-plate-plan-version. Definitions contain logical source roles, canonical fixed-well coordinates and ordered positive canonical uL transfers, no actual stock or plate IDs. Save is metadata only and uses a stable exact accepted operation; same family and definition reuses the original version and reason, including A to B to A. Read bounded plate-plan-versions summaries and explicitly select plate-plan-version by exact versionId and definitionSha256; no implicit latest exists. Exact read includes a rendered or explicitly refused definition-only SVG; rendering/export does not perform or reserve work. Check preview-plate-plan-binding with exact saved pin, existing plate and source-role mappings. Logical roles may alias one stock, so native simulates the whole ordered batch cumulatively on a discarded copy. Ready is a native-time feasibility snapshot only. Respect nextBoundaryAt and recheck after time, scope, principal or revision changes; overdue holds remain held. Blocked source facts contain no projected partial success. No execution, scientific work, Run or physical mutation follows from a plan save or preview. Cite an existing saved Notebook or Protocol Run on immutable recorded physical work using preview-scientific-citation and apply-scientific-citation. Select native saved context kind/entity/source pin and exact work intent; send no source body, actor or time. Additional citations never change the original work, stock, primary context or source files. Read scientific-citations by exact workId and workIntentSha256 with bounded revision-bound replacement pages; withdrawn assertions remain history. Read their retained sources separately through scientific-citation-source, including after withdrawal. Correct with preview-scientific-citation-withdrawal and apply-scientific-citation-withdrawal using exact citation/work pins and a new withdrawal reason; correction requires no current source file. Historical duplicates, including withdrawn assertions, never create aliases or restore a link. Explicit reattachment requires a fresh citation identity plus reinstates pins for the exact predecessor and withdrawal, and current saved source must still match that pin. A changed source pin is a separate base citation. No-change creates no receipt. Recover unknown outcomes with the identical retained request and operation ID. Primary-only scientific-works-for-context and scientific-source retain their original meaning. Link a completed manual transfer into an existing permanent well to an explicit notebook-page or protocol-run context. Use scientific-contexts-v2 with contextKind, then preview-scientific-transfer-v2 and apply-scientific-transfer-v2 with choices.context {kind,entityId,sourceSha256}. Notebook selections retain the original intent meaning, so expressing prior work through this API cannot debit again. Legacy Notebook routes remain supported. Create and start genuine saved Protocol Runs through protocol_document first; inventory does not create them. The selected saved source is native observed evidence, not an accepted scientific revision. Preview creates no physical effect. Apply atomically records one transfer and stable namespace/workId observation with its retained source. Preserve that work identity on retries and duplicates; a fresh operationId cannot repeat the same work. Read the verified original source through scientific-source by canonical workId, separately from current navigation. A Run source retains its complete saved JSON and frozen protocol. This is operator-reported manual work, not hardware verification or biological success. Record actual deliveries with preview-arrival and apply-arrival using exact application-owned dnaforge.inventory-arrival-source.v1 sourceText. Retain original inline supplier documents, explicit full/excerpt scope, package grouping and one reasoned component disposition: identified, unidentified-physical, unobserved-physical, observed-missing or evidence-only. A package batch is distinct from a component lot, product and delivery identity. Bind each identified component to a current admitted scientific material, explicit existing or new managed-unassessed lot, new movable vessel and explicit placement. Known amount needs a separate measurement or exact supported supplier quantity claim; unsupported activity units remain raw evidence and cannot become mass/volume/count. Supplier QC never releases local stock or lot assessment. Preview is read-only. Apply only ready resolved options, original sourceText, planDigest, revision and stable operationId in one atomic transaction, including metadata-only arrivals. Stable namespace plus arrivalId prevents re-receiving after use, movement, disposal or adoption; changed source or original choices need reconciliation. An unchanged delivery is no-change and writes no new receipt or event. A deliberately renamed physical delivery cannot be detected as a duplicate. Recover an uncertain result with the original operation receipt or identical saved request. Read arrival-document by arrivalId, documentKey and expectedSha256 for exact retained bytes through original or nested adopted history; no fetch, OCR or supplier format compatibility is implied. The existing encoded native request limit applies; never split a delivery silently. Opening and validity belong to explicit stock/material episodes. Use record-stock-opening with an observed timestamp or null; correct-stock-opening names the current observation and records opened or unobserved, never a silent reseal/reset. Use record-validity-decision for an independent stock/lot rule family and correct-validity-decision for its exact current head. Preserve sourceText and sourcePrecision separately from an explicit absolute cutoff or positive elapsed milliseconds after the original stock opening. A printed month/year is not a UTC instant or fixed duration. Unresolved and not-required are explicit reasoned decisions; no receipt, movement, quality release or new aliquot invents opening or clears another family. Derived material retains applicable source families and earliest physical derivation bounds, including known-zero destinations; late opening contradictions block rather than extend life. Read native availability.actions.reserve and actions.withdraw instead of filtering blocker codes: a consistently observed sealed stock with an applicable relative rule may reserve, while use requires recording opening first, optionally in the same batch. At native asOf equal to deadline, material is expired; nextBoundaryAt tells clients when to request a fresh native observation. No applicable opening-dependent rule means unobserved opening alone adds no use gate. Imported positive validity requires explicit local reassessment without manufacturing an opening observation; restrictive evidence remains blocking. Recover uncertain operations through their original saved receipt even after later expiry. For new supplier lots and derived preparations, compose create-lot, pool or dilute with manage-lot in the same execute batch. Manage-lot starts local assessment as unassessed; physical receive-lot-stock can record held material but does not release it. Use assess-lot with a reason for released, quarantined or rejected decisions. Stock set-quality remains an independent hold. Record-lot-recall and withdraw-lot-recall retain independent reasoned safety facts; release never clears a recall. Availability discloses all inherited lot restrictions and legacy-partial or untracked coverage. Transfers, preparations and reassociation retain prior lot constraints, so a new lot name cannot erase a hold or recall. Imported released assessments require explicit local reassessment; imported active recalls remain blocking until explicit local withdrawal. Use the original operation receipt for uncertain outcomes. Stock balances have an explicit measurement basis: volume, mass, amount of substance, or whole-item count. Send non-negative decimal strings and an explicit supported unit for known and unknown quantities. Canonical readback uses uL/ng/nmol/item; unknown amount retains its unit. Unitless unknown input is only the retained legacy volume contract. Never interpret package count as content amount or infer density, molecular weight or enzyme activity. Consume, transfer, reserve and fulfill only within the stock basis; ordinary reconciliation or observation application cannot change dimension. Physical capacity/dead-volume and pool/dilute remain volume-specific. Non-volume transfer into existing stock supports unknown mixing only; homogeneous concentration mixing requires volumes. Apply an offline physical capture with preview-benchling-capture and apply-benchling-capture. Retain the original sourceText and explicit per-record choices, field observation references/conflict reasons, layouts, parent/position decisions, source issues and uncaptured-position blocks. The source namespace is in the versioned capture. Empty means selected contents=[] AND exact selected volume zero; unobserved and unidentified contents remain explicit physical vessels, never fake stock. Identify one supported source content through a current local scientific material with explicit quality and exact source volume or a reasoned unknown quantity. Current mass/count units never become volume, and deprecated volume requires an explicit choice. Fixed wells retain plate/coordinate identity; matrix tubes are movable. Preview is read-only. Apply only ready resolved options, material fingerprints, target IDs, canonical source rows and expectedPlanDigest with expectedRevision/stable operationId. One transaction creates all storage/vessel/stock bindings and physical changes; metadata-only new binding changes also commit once without dummy commands. No-change saves no new source or receipt. Bound source IDs survive local movement/use/disposal/adoption and cannot replenish or duplicate stock. Changed stock source requires established source-revision comparison; previous rows come from retained accepted capture history. An uncertain result requires original receipt lookup or the identical saved request. Vessel contents knowledge is separate from stock quantity. Read contentsKnowledge: recorded with no stock means declared empty, recorded with stock means identified even at known zero, and unobserved/unidentified means unresolved. Never infer physical emptiness from no stock. Use record-vessel-contents with vesselId, knowledge and reason to record unobserved or unidentified contents, or record-vessels-contents with a nonempty unique vesselIds list for one atomic bulk declaration. Use declare-vessel-empty only after an explicit empty observation with reason. Use identify-vessel-stock to identify material already present in an unresolved vessel, with id, vesselId, current project materialId, explicit quantity, quality and reason; this is not a new physical receiving event. Actor and time come from the native boundary. Unresolved contents block ordinary receiving and every new-stock material destination; move, custody and disposal remain separate. Contents declarations cannot erase any identified stock, including known zero. Inspect an offline DNAForge Benchling V2 physical capture with inspect-benchling-capture and exact sourceText. This read-only inspection preserves raw responses and exact JSON number tokens and distinguishes omitted fields, explicit null, present values and conflicting observations. Inspect unresolved source facts, placements and pagination without creating inventory, stock, receipts, journal entries or imported authority. It does not connect to Benchling, prove complete exports, support V3 or apply physical inventory. Use preview-mapped-table and apply-mapped-table with mapped-plate-v1 to receive original CSV/TSV plate spreadsheets into existing permanent wells. Preserve the complete raw source and declare every column as source identity, plate, well or reason-bearing evidence only. Bind scientific materials explicitly in the admitted project, map source plate and well labels to existing plate IDs and exact positions, declare unknown quantity with a reason and choose quality per row explicitly. Never strip leading zeros, infer plate dimensions, treat QC labels as quality or interpret box labels as freezers. Preview has no effects; apply accepts only the exact original bytes, resolved fingerprints, choices and ready digest through the existing journal. Stable physical row bindings prevent duplicates; evidence-only edits may yield no physical changes and save no revised source or receipt. Scientific publication and hierarchy creation remain separate visible stages. Compare revised external receive records with preview-source-revision, format receive-v1 and exact sourceText. Supply existing table namespace and explicit same-identity material/location/vessel resolutions plus acknowledgements with sourceId, expectedPreviousRowSha256 and reason. The read-only comparison separates verified previous source fields, revised source fields and actual inventory; missing previous evidence blocks. Acknowledge only a ready plan with acknowledge-source, saved resolved options/preimages, plan digest, expected revision and stable operation ID. This appends source history without receiving, replenishing, renaming, moving, changing quality, custody or holds, or applying measurements. Original bindings remain immutable; scientific rebinding, vessel replacement, vessel-kind changes and unbound rows refuse. Unchanged receive reimports compare the latest accepted source baseline and preserve later use or movement. Original source fields come from retained accepted requests, including archives, never inferred from current stock. A lost acknowledgement requires the original receipt or identical retry. Import explicit hierarchy-v1 CSV/TSV with preview-hierarchy and apply-hierarchy. Required columns are source_id,name,layout_kind,positions,rows,columns,capacity,parent_kind,parent_key,slot. Supply a stable namespace, explicit delimiter, existing-parent mappings and reason-bearing skips. Named positions use a strict JSON array; grids, tube boxes and fixed-well plates require explicit dimensions; stacks require capacity. Parents are explicit root, local source IDs or mapped existing storage. Stack ordinals define order independently of row order. Preview resolves parent graphs and validates the complete existing-command batch without writes. Cycles, missing parents, occupied positions, noncontiguous stacks and oversized atomic batches refuse. Existing source bindings prevent duplication and never reverse later movement or disposal. Changed source facts require separate reconciliation. Apply only the exact ready plan, source, options, revision and stable operation ID; recover uncertain outcomes using the original receipt or identical retry. No equipment specifications, plate dimensions, temperature control, stock or fit qualification are inferred from names. Receive stock in a separate explicit stage. Preview explicit stocktake observations with preview-stocktake, format stocktake-v1 and exact sourceText. Supply a stable observation namespace, explicit delimiter, subject and destination bindings and one explicit decision per observation: record-only, apply with reason, or skip with reason. Required columns are observation_id,subject_key,observed_at,quantity_kind,quantity,unit,presence,location_key,slot,reason. Stock subjects support known or unknown quantity; item subjects support missing or found presence. Unobserved dimensions use not-observed; found requires an explicit destination. Source time is unknown or exact UTC ISO with milliseconds, separate from trusted native recording time. Record-only creates immutable observation facts without changing quantity or custody; a later explicit apply uses the recorded fact once. Quantity measurement preserves holds and custody, including allocation shortfalls. Missing/found corrections preserve quantity and use existing physical custody rules; never infer a plate from a permanent well or missing stock from an omitted row. Reusing an observation identity with changed facts refuses. Reimporting an applied observation never repeats its correction after later use. Apply only a ready preview through apply-stocktake with exact source, options, plan digest, revision and stable operation ID; uncertain outcomes use original receipt recovery or identical retry. Observations and corrections commit through the existing atomic journal and command limit. Changed receive registers are not physical measurements. Preview a strict canonical receive table with preview-table, format receive-v1 and exact sourceText. Supply a stable source namespace, explicit comma or tab delimiter, material/location/existing-vessel bindings and reason-bearing skipped source IDs. The required columns are source_id,name,material_key,quantity_kind,quantity,unit,quality,vessel_kind,vessel_key,location_key,slot. Every column must appear exactly once; no inferred headers, values, units, scientific identities, unplaced choice or silent extra columns. A new vessel requires a name and explicit location key; an existing empty vessel or permanent well requires its bound vessel key and blank name/location/slot fields. Known zero differs from explicit unknown quantity. Preview reports every source row, proposed commands and blocking issues without writes. Stable namespace plus exact source_id prevents duplicates when rows reorder or the file changes. Unchanged imported rows remain unchanged even after later consumption or movement; changed source facts or resolutions require reconciliation and refuse. Apply only a ready preview with apply-table, its exact sourceText, resolved options/fingerprints, expectedPlanDigest, expectedRevision and one stable operationId. All generated commands and source bindings commit atomically under the existing 256-command limit; never split silently. An uncertain result must recover or retry that exact operation. This format does not imply Benchling header compatibility or stocktake correction support. Export a lossless native inventory archive with export-snapshot and format native-v1. It captures one admitted state and complete accepted history without changing inventory or writing a file. Preview an exact sourceText using preview-import and options.bindings [{sourceMaterialId,destinationMaterialId}]. Preview is read-only; it reports source-linked refusals, exact scientific bindings, responsibilities and proposed identities. Only a ready preview supplies complete resolved options with fingerprints and a planDigest. Apply into an absent inventory with apply-import, the identical sourceText, those resolved options, expectedPlanDigest, expectedRevision and one stable operationId. Reuse the original operation or exact request after an uncertain result before creating a new intent. Adoption creates destination records under the current native receipt; imported source history remains evidence. Imported holders never gain current authority by matching an agent ID; source clocks cannot advance native acceptance. No populated-target merging, automatic scientific identity matching, silent chunking or spreadsheet/Benchling compatibility is implied. Read storage-conditions in an explicit project and inventory with required freshnessMaxAgeMs null for no age policy or a nonnegative safe integer in milliseconds. This read returns separate specified capability, operator-reported target and installed qualified-support assessments at one native revision and asOf time. Reported setpoints are not sensor measurements, and a supported temperature assessment is not overall sample suitability. Record the thermal relationship independently with record-thermal-context: inherit uses surroundings, self declares own temperature control, and unknown blocks inheritance. Evidence, withdrawal and reports never change this relationship. New qualified-envelope assertions declare scope physical-and-thermal-arrangement; legacy qualifications with unrecorded thermal scope remain inapplicable. Unknowns, conflicts, source scope and freshness remain explicit. It never changes stock, quality, holds, custody or placement. Record temperature claims, setpoints and stock/lot requirements only through execute with explicit observation time (timestamp or null); trusted recorded time and actor come from the native owner. Use prepare-label with an active exact codeId and mediaProfileId qr-50x30-300dpi or qr-80x50-300dpi to render an immutable existing-code QR SVG artifact. Its symbol contains the exact alias value only; namespace and explicit project/inventory context are required for lookup. The artifact retains full target and binding snapshots, source revision, exact SVG and SHA256. Rendered does not mean independently decoded, saved, printed, attached or physically scanned. Preparation is read-only, grants no access, and refuses retired bindings, disposed targets, unsupported text or layout overflow. Missing custody remains explicit and does not establish location. No file or printer is written. Resolve exact physical item codes with resolve-item-code in an explicit project and inventory. Pass query.namespace as an exact technical namespace or null for all namespaces and query.value as the unchanged code. Case, leading zeros and spaces matter. Invalid, not found, retired and ambiguous are distinct results; never prefer one ambiguous match or fall back to scientific material search. The lookup returns current target facts, custody and stock availability at one revision. Codes grant no access, and URL text is not navigation. Lookup never changes inventory. Use catalog-update-preview with an exact catalogEntryId and inventoryId to classify built-in definitions and inspect source scope and installed references without inventory writes. Any definition conflict blocks applying the entire pack. Apply selected new definitions through execute at the current revision; identical retired definitions remain retired. Inspect and change physical laboratory inventory through the same native owner as the Inventory view. Start with projects, then materials in the exact selected project. Inspect the returned defaultInventoryId before changing it. Read catalog for built-in physical type and equipment recipe definitions without installing them. Existing definition ID conflicts require explicit resolution; never overwrite. Execute only needed definitions plus explicit recipe instantiation as one atomic batch. Read availability at the matching revision for exact on-hand, held and unreserved quantities, item custody, reservation actions and blocking reasons. Execute an atomic typed command batch with the inspected expectedRevision and one stable operationId. Exact retries return the original receipt; changed requests require a new explicitly reviewed operation. A timeout leaves the outcome unknown: inspect the original operationId or retry that identical request. Publish immutable physical type and equipment recipe versions, then instantiate explicit pinned versions. Physical metadata is separate from scientific material identity. Allowed child types constrain placement logically; unknown fit remains unknown, and known geometric contradictions refuse placement. Read the physical projection for installed configuration, metadata issues and fit evidence. Reservations do not subtract on-hand quantity. Expiry requires an explicit recorded command. Checkout, transit and missing reports free the previous position and retain immutable last-known location facts. Planned destinations and last-known positions are not current locations. Return or locate requires an explicit valid destination; use stack-top for a stack. A plate or box governs effective custody of its contents, and permanent wells cannot depart independently. Missing or in-transit items block physical use and additions; reconciliation and quality observations remain distinct. Custody never changes quantity or silently releases reservations. Hold ownership, custody responsibility and execution time come from the native authority. Known zero quantity differs from unknown quantity. Scientific designs do not imply physical possession. Placement, quantity, quality, disposal and storage-layout rules are validated by the inventory owner. History retains accepted requests, trusted actors and durable owner context. Read operations need read-workspace; execute also needs write-workspace.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "operation": {
             "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "choices": {
+                    "type": "object",
+                    "properties": {
+                      "identity": {
+                        "type": "object",
+                        "properties": {
+                          "namespace": { "type": "string", "minLength": 1, "maxLength": 1024 },
+                          "actionId": { "type": "string", "minLength": 1, "maxLength": 1024 }
+                        },
+                        "required": ["namespace", "actionId"],
+                        "additionalProperties": false
+                      },
+                      "action": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "report" },
+                              "equipment": {
+                                "type": "object",
+                                "properties": {
+                                  "storageId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024
+                                  },
+                                  "configurationRevision": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": ["storageId", "configurationRevision"],
+                                "additionalProperties": false
+                              },
+                              "noticedAt": {
+                                "anyOf": [
+                                  { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                                  { "type": "null" }
+                                ]
+                              },
+                              "description": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 2000
+                              },
+                              "reason": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                            },
+                            "required": ["kind", "equipment", "noticedAt", "description", "reason"],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "manual-temperature" },
+                              "incident": {
+                                "type": "object",
+                                "properties": {
+                                  "incidentId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024
+                                  },
+                                  "intentSha256": {
+                                    "type": "string",
+                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                  }
+                                },
+                                "required": ["incidentId", "intentSha256"],
+                                "additionalProperties": false
+                              },
+                              "reading": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "measured" },
+                                      "temperature": {
+                                        "type": "object",
+                                        "properties": {
+                                          "value": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 128
+                                          },
+                                          "unit": { "type": "string", "const": "C" }
+                                        },
+                                        "required": ["value", "unit"],
+                                        "additionalProperties": false
+                                      },
+                                      "observedAt": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "pointLabel": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 2000
+                                      }
+                                    },
+                                    "required": ["kind", "temperature", "observedAt", "pointLabel"],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "withdrawn" }
+                                    },
+                                    "required": ["kind"],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "supersedes": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "factId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 1024
+                                      },
+                                      "intentSha256": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                      }
+                                    },
+                                    "required": ["factId", "intentSha256"],
+                                    "additionalProperties": false
+                                  },
+                                  { "type": "null" }
+                                ]
+                              },
+                              "reason": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                            },
+                            "required": ["kind", "incident", "reading", "supersedes", "reason"],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "completed-relocation" },
+                              "incident": {
+                                "type": "object",
+                                "properties": {
+                                  "incidentId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024
+                                  },
+                                  "intentSha256": {
+                                    "type": "string",
+                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                  }
+                                },
+                                "required": ["incidentId", "intentSha256"],
+                                "additionalProperties": false
+                              },
+                              "moves": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "item": {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "enum": ["storage", "vessel"] },
+                                        "id": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 1024
+                                        }
+                                      },
+                                      "required": ["kind", "id"],
+                                      "additionalProperties": false
+                                    },
+                                    "destination": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "root" }
+                                          },
+                                          "required": ["kind"],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "unplaced" }
+                                          },
+                                          "required": ["kind"],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "located" },
+                                            "storageId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 1024
+                                            },
+                                            "slotId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 1024
+                                            }
+                                          },
+                                          "required": ["kind", "storageId", "slotId"],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "stack-top" },
+                                            "stackId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 1024
+                                            }
+                                          },
+                                          "required": ["kind", "stackId"],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": ["item", "destination"],
+                                  "additionalProperties": false
+                                },
+                                "minItems": 1,
+                                "maxItems": 256
+                              },
+                              "corrects": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "factId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 1024
+                                      },
+                                      "intentSha256": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                      }
+                                    },
+                                    "required": ["factId", "intentSha256"],
+                                    "additionalProperties": false
+                                  },
+                                  { "type": "null" }
+                                ]
+                              },
+                              "reason": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                            },
+                            "required": ["kind", "incident", "moves", "corrects", "reason"],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "impact-review" },
+                              "incident": {
+                                "type": "object",
+                                "properties": {
+                                  "incidentId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024
+                                  },
+                                  "intentSha256": {
+                                    "type": "string",
+                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                  }
+                                },
+                                "required": ["incidentId", "intentSha256"],
+                                "additionalProperties": false
+                              },
+                              "subjects": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "root": {
+                                      "type": "object",
+                                      "properties": {
+                                        "rootId": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 1024
+                                        },
+                                        "intentSha256": {
+                                          "type": "string",
+                                          "pattern": "^sha256:[a-f0-9]{64}$"
+                                        }
+                                      },
+                                      "required": ["rootId", "intentSha256"],
+                                      "additionalProperties": false
+                                    },
+                                    "supersedes": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "factId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 1024
+                                            },
+                                            "intentSha256": {
+                                              "type": "string",
+                                              "pattern": "^sha256:[a-f0-9]{64}$"
+                                            }
+                                          },
+                                          "required": ["factId", "intentSha256"],
+                                          "additionalProperties": false
+                                        },
+                                        { "type": "null" }
+                                      ]
+                                    }
+                                  },
+                                  "required": ["root", "supersedes"],
+                                  "additionalProperties": false
+                                },
+                                "minItems": 1,
+                                "maxItems": 1000
+                              },
+                              "disposition": {
+                                "type": "string",
+                                "enum": ["keep-incident-restriction", "remove-incident-restriction"]
+                              },
+                              "basis": { "type": "string", "minLength": 1, "maxLength": 2000 },
+                              "reason": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                            },
+                            "required": [
+                              "kind",
+                              "incident",
+                              "subjects",
+                              "disposition",
+                              "basis",
+                              "reason"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "resolve" },
+                              "incident": {
+                                "type": "object",
+                                "properties": {
+                                  "incidentId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024
+                                  },
+                                  "intentSha256": {
+                                    "type": "string",
+                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                  }
+                                },
+                                "required": ["incidentId", "intentSha256"],
+                                "additionalProperties": false
+                              },
+                              "resolution": {
+                                "type": "string",
+                                "enum": ["reported-resolved", "reported-in-error"]
+                              },
+                              "reason": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                            },
+                            "required": ["kind", "incident", "resolution", "reason"],
+                            "additionalProperties": false
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["identity", "action"],
+                    "additionalProperties": false
+                  },
+                  "kind": { "type": "string", "const": "preview-equipment-incident-action" }
+                },
+                "required": ["project", "inventoryId", "expectedRevision", "choices", "kind"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "choices": {
+                    "type": "object",
+                    "properties": {
+                      "identity": {
+                        "type": "object",
+                        "properties": {
+                          "namespace": { "type": "string", "minLength": 1, "maxLength": 1024 },
+                          "actionId": { "type": "string", "minLength": 1, "maxLength": 1024 }
+                        },
+                        "required": ["namespace", "actionId"],
+                        "additionalProperties": false
+                      },
+                      "action": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "report" },
+                              "equipment": {
+                                "type": "object",
+                                "properties": {
+                                  "storageId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024
+                                  },
+                                  "configurationRevision": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": ["storageId", "configurationRevision"],
+                                "additionalProperties": false
+                              },
+                              "noticedAt": {
+                                "anyOf": [
+                                  { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                                  { "type": "null" }
+                                ]
+                              },
+                              "description": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 2000
+                              },
+                              "reason": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                            },
+                            "required": ["kind", "equipment", "noticedAt", "description", "reason"],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "manual-temperature" },
+                              "incident": {
+                                "type": "object",
+                                "properties": {
+                                  "incidentId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024
+                                  },
+                                  "intentSha256": {
+                                    "type": "string",
+                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                  }
+                                },
+                                "required": ["incidentId", "intentSha256"],
+                                "additionalProperties": false
+                              },
+                              "reading": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "measured" },
+                                      "temperature": {
+                                        "type": "object",
+                                        "properties": {
+                                          "value": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 128
+                                          },
+                                          "unit": { "type": "string", "const": "C" }
+                                        },
+                                        "required": ["value", "unit"],
+                                        "additionalProperties": false
+                                      },
+                                      "observedAt": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "pointLabel": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 2000
+                                      }
+                                    },
+                                    "required": ["kind", "temperature", "observedAt", "pointLabel"],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "withdrawn" }
+                                    },
+                                    "required": ["kind"],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "supersedes": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "factId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 1024
+                                      },
+                                      "intentSha256": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                      }
+                                    },
+                                    "required": ["factId", "intentSha256"],
+                                    "additionalProperties": false
+                                  },
+                                  { "type": "null" }
+                                ]
+                              },
+                              "reason": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                            },
+                            "required": ["kind", "incident", "reading", "supersedes", "reason"],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "completed-relocation" },
+                              "incident": {
+                                "type": "object",
+                                "properties": {
+                                  "incidentId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024
+                                  },
+                                  "intentSha256": {
+                                    "type": "string",
+                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                  }
+                                },
+                                "required": ["incidentId", "intentSha256"],
+                                "additionalProperties": false
+                              },
+                              "moves": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "item": {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": { "type": "string", "enum": ["storage", "vessel"] },
+                                        "id": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 1024
+                                        }
+                                      },
+                                      "required": ["kind", "id"],
+                                      "additionalProperties": false
+                                    },
+                                    "destination": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "root" }
+                                          },
+                                          "required": ["kind"],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "unplaced" }
+                                          },
+                                          "required": ["kind"],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "located" },
+                                            "storageId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 1024
+                                            },
+                                            "slotId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 1024
+                                            }
+                                          },
+                                          "required": ["kind", "storageId", "slotId"],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": { "type": "string", "const": "stack-top" },
+                                            "stackId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 1024
+                                            }
+                                          },
+                                          "required": ["kind", "stackId"],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": ["item", "destination"],
+                                  "additionalProperties": false
+                                },
+                                "minItems": 1,
+                                "maxItems": 256
+                              },
+                              "corrects": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "factId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 1024
+                                      },
+                                      "intentSha256": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                      }
+                                    },
+                                    "required": ["factId", "intentSha256"],
+                                    "additionalProperties": false
+                                  },
+                                  { "type": "null" }
+                                ]
+                              },
+                              "reason": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                            },
+                            "required": ["kind", "incident", "moves", "corrects", "reason"],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "impact-review" },
+                              "incident": {
+                                "type": "object",
+                                "properties": {
+                                  "incidentId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024
+                                  },
+                                  "intentSha256": {
+                                    "type": "string",
+                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                  }
+                                },
+                                "required": ["incidentId", "intentSha256"],
+                                "additionalProperties": false
+                              },
+                              "subjects": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "root": {
+                                      "type": "object",
+                                      "properties": {
+                                        "rootId": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 1024
+                                        },
+                                        "intentSha256": {
+                                          "type": "string",
+                                          "pattern": "^sha256:[a-f0-9]{64}$"
+                                        }
+                                      },
+                                      "required": ["rootId", "intentSha256"],
+                                      "additionalProperties": false
+                                    },
+                                    "supersedes": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "factId": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 1024
+                                            },
+                                            "intentSha256": {
+                                              "type": "string",
+                                              "pattern": "^sha256:[a-f0-9]{64}$"
+                                            }
+                                          },
+                                          "required": ["factId", "intentSha256"],
+                                          "additionalProperties": false
+                                        },
+                                        { "type": "null" }
+                                      ]
+                                    }
+                                  },
+                                  "required": ["root", "supersedes"],
+                                  "additionalProperties": false
+                                },
+                                "minItems": 1,
+                                "maxItems": 1000
+                              },
+                              "disposition": {
+                                "type": "string",
+                                "enum": ["keep-incident-restriction", "remove-incident-restriction"]
+                              },
+                              "basis": { "type": "string", "minLength": 1, "maxLength": 2000 },
+                              "reason": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                            },
+                            "required": [
+                              "kind",
+                              "incident",
+                              "subjects",
+                              "disposition",
+                              "basis",
+                              "reason"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "const": "resolve" },
+                              "incident": {
+                                "type": "object",
+                                "properties": {
+                                  "incidentId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024
+                                  },
+                                  "intentSha256": {
+                                    "type": "string",
+                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                  }
+                                },
+                                "required": ["incidentId", "intentSha256"],
+                                "additionalProperties": false
+                              },
+                              "resolution": {
+                                "type": "string",
+                                "enum": ["reported-resolved", "reported-in-error"]
+                              },
+                              "reason": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                            },
+                            "required": ["kind", "incident", "resolution", "reason"],
+                            "additionalProperties": false
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["identity", "action"],
+                    "additionalProperties": false
+                  },
+                  "kind": { "type": "string", "const": "apply-equipment-incident-action" },
+                  "operationId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "expectedPlanDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+                },
+                "required": [
+                  "project",
+                  "inventoryId",
+                  "expectedRevision",
+                  "choices",
+                  "kind",
+                  "operationId",
+                  "expectedPlanDigest"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "equipmentId": { "type": "string", "minLength": 1, "maxLength": 1024 },
+                  "status": { "type": "string", "enum": ["open", "resolved"] },
+                  "limit": { "type": "integer", "minimum": 1, "maximum": 50 },
+                  "cursor": {
+                    "type": "object",
+                    "properties": {
+                      "querySha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+                      "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                      "after": {
+                        "type": "object",
+                        "properties": {
+                          "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                          "incidentId": { "type": "string", "minLength": 1, "maxLength": 1024 }
+                        },
+                        "required": ["at", "incidentId"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["querySha256", "revision", "after"],
+                    "additionalProperties": false
+                  },
+                  "kind": { "type": "string", "const": "equipment-incidents" }
+                },
+                "required": ["project", "inventoryId", "kind"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "incidentId": { "type": "string", "minLength": 1, "maxLength": 1024 },
+                  "intentSha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+                  "kind": { "type": "string", "const": "equipment-incident" }
+                },
+                "required": ["project", "inventoryId", "incidentId", "intentSha256", "kind"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "incidentId": { "type": "string", "minLength": 1, "maxLength": 1024 },
+                  "intentSha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+                  "view": { "type": "string", "enum": ["initial", "current", "review"] },
+                  "freshnessMaxAgeMs": {
+                    "anyOf": [
+                      { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                      { "type": "null" }
+                    ]
+                  },
+                  "limit": { "type": "integer", "minimum": 1, "maximum": 50 },
+                  "cursor": {
+                    "type": "object",
+                    "properties": {
+                      "querySha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+                      "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                      "after": {
+                        "type": "object",
+                        "properties": {
+                          "subjectKey": { "type": "string", "minLength": 1, "maxLength": 1024 }
+                        },
+                        "required": ["subjectKey"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["querySha256", "revision", "after"],
+                    "additionalProperties": false
+                  },
+                  "kind": { "type": "string", "const": "equipment-incident-subjects" }
+                },
+                "required": [
+                  "project",
+                  "inventoryId",
+                  "incidentId",
+                  "intentSha256",
+                  "view",
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "incidentId": { "type": "string", "minLength": 1, "maxLength": 1024 },
+                  "intentSha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+                  "query": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "page" },
+                          "factKind": {
+                            "type": "string",
+                            "enum": [
+                              "manual-temperature",
+                              "completed-relocation",
+                              "impact-review",
+                              "resolve",
+                              "contents-identified",
+                              "contents-episode-closed"
+                            ]
+                          },
+                          "freshnessMaxAgeMs": {
+                            "anyOf": [
+                              { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                              { "type": "null" }
+                            ]
+                          },
+                          "limit": { "type": "integer", "minimum": 1, "maximum": 50 },
+                          "cursor": {
+                            "type": "object",
+                            "properties": {
+                              "querySha256": {
+                                "type": "string",
+                                "pattern": "^sha256:[a-f0-9]{64}$"
+                              },
+                              "revision": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "after": {
+                                "type": "object",
+                                "properties": {
+                                  "at": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "factId": { "type": "string", "minLength": 1, "maxLength": 1024 }
+                                },
+                                "required": ["at", "factId"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": ["querySha256", "revision", "after"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["kind"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "fact" },
+                          "fact": {
+                            "type": "object",
+                            "properties": {
+                              "factId": { "type": "string", "minLength": 1, "maxLength": 1024 },
+                              "intentSha256": {
+                                "type": "string",
+                                "pattern": "^sha256:[a-f0-9]{64}$"
+                              }
+                            },
+                            "required": ["factId", "intentSha256"],
+                            "additionalProperties": false
+                          },
+                          "freshnessMaxAgeMs": {
+                            "anyOf": [
+                              { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                              { "type": "null" }
+                            ]
+                          }
+                        },
+                        "required": ["kind", "fact"],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "kind": { "type": "string", "const": "equipment-incident-facts" }
+                },
+                "required": [
+                  "project",
+                  "inventoryId",
+                  "incidentId",
+                  "intentSha256",
+                  "query",
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
               {
                 "type": "object",
                 "properties": {
@@ -62955,6 +63952,56 @@
                 "type": "object",
                 "properties": {
                   "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                  "kind": { "type": "string", "const": "equipment-incident-action-preview" },
+                  "preview": { "$ref": "#/properties/result/anyOf/0/properties/result" }
+                },
+                "required": ["ok", "kind", "preview"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                  "kind": { "type": "string", "const": "equipment-incidents" },
+                  "result": { "$ref": "#/properties/result/anyOf/0/properties/result" }
+                },
+                "required": ["ok", "kind", "result"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                  "kind": { "type": "string", "const": "equipment-incident" },
+                  "result": { "$ref": "#/properties/result/anyOf/0/properties/result" }
+                },
+                "required": ["ok", "kind", "result"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                  "kind": { "type": "string", "const": "equipment-incident-subjects" },
+                  "result": { "$ref": "#/properties/result/anyOf/0/properties/result" }
+                },
+                "required": ["ok", "kind", "result"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
+                  "kind": { "type": "string", "const": "equipment-incident-facts" },
+                  "result": { "$ref": "#/properties/result/anyOf/0/properties/result" }
+                },
+                "required": ["ok", "kind", "result"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": { "$ref": "#/properties/result/anyOf/0/properties/ok" },
                   "kind": { "type": "string", "const": "scientific-production-preview" },
                   "preview": { "$ref": "#/properties/result/anyOf/0/properties/result" }
                 },
@@ -63455,7 +64502,7 @@
                       "status": { "type": "string", "const": "committed" },
                       "inventoryId": { "type": "string", "minLength": 1, "maxLength": 256 },
                       "operationId": {
-                        "$ref": "#/properties/result/anyOf/45/properties/execution/properties/inventoryId"
+                        "$ref": "#/properties/result/anyOf/50/properties/execution/properties/inventoryId"
                       },
                       "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
                       "actor": { "type": "string", "minLength": 1, "maxLength": 1024 },
@@ -63470,7 +64517,7 @@
                         "properties": {
                           "version": {
                             "type": "number",
-                            "enum": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+                            "enum": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
                           },
                           "principal": {
                             "anyOf": [
@@ -63503,7 +64550,7 @@
                             "properties": {
                               "kind": { "type": "string", "const": "local-profile" },
                               "profileKey": {
-                                "$ref": "#/properties/result/anyOf/45/properties/execution/properties/context/properties/principal/anyOf/0/properties/profileKey"
+                                "$ref": "#/properties/result/anyOf/50/properties/execution/properties/context/properties/principal/anyOf/0/properties/profileKey"
                               }
                             },
                             "required": ["kind", "profileKey"],
@@ -63560,7 +64607,7 @@
                                       "content": {
                                         "type": "array",
                                         "items": {
-                                          "$ref": "#/properties/result/anyOf/45/properties/execution/properties/context/properties/scientificSource/anyOf/0/properties/content"
+                                          "$ref": "#/properties/result/anyOf/50/properties/execution/properties/context/properties/scientificSource/anyOf/0/properties/content"
                                         }
                                       }
                                     },
@@ -63592,13 +64639,13 @@
                                     "maxLength": 1024
                                   },
                                   "workspaceScope": {
-                                    "$ref": "#/properties/result/anyOf/45/properties/execution/properties/context/properties/scientificSource/anyOf/1/properties/projectId"
+                                    "$ref": "#/properties/result/anyOf/50/properties/execution/properties/context/properties/scientificSource/anyOf/1/properties/projectId"
                                   },
                                   "runId": {
-                                    "$ref": "#/properties/result/anyOf/45/properties/execution/properties/context/properties/scientificSource/anyOf/1/properties/projectId"
+                                    "$ref": "#/properties/result/anyOf/50/properties/execution/properties/context/properties/scientificSource/anyOf/1/properties/projectId"
                                   },
                                   "fileObjectUuid": {
-                                    "$ref": "#/properties/result/anyOf/45/properties/execution/properties/context/properties/scientificSource/anyOf/1/properties/projectId"
+                                    "$ref": "#/properties/result/anyOf/50/properties/execution/properties/context/properties/scientificSource/anyOf/1/properties/projectId"
                                   },
                                   "title": { "type": "string", "minLength": 1, "maxLength": 500 },
                                   "originalText": {
@@ -63647,7 +64694,7 @@
                   "kind": { "type": "string", "const": "operation" },
                   "receipt": {
                     "anyOf": [
-                      { "$ref": "#/properties/result/anyOf/45/properties/execution" },
+                      { "$ref": "#/properties/result/anyOf/50/properties/execution" },
                       { "type": "null" }
                     ]
                   }
@@ -63666,7 +64713,7 @@
                       "type": "object",
                       "properties": {
                         "request": { "$ref": "#/properties/result/anyOf/0/properties/result" },
-                        "receipt": { "$ref": "#/properties/result/anyOf/45/properties/execution" }
+                        "receipt": { "$ref": "#/properties/result/anyOf/50/properties/execution" }
                       },
                       "required": ["request", "receipt"],
                       "additionalProperties": false

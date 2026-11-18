@@ -1,4 +1,12 @@
 import {
+  inventoryPreviewEquipmentIncidentActionRequestSchema,
+  inventoryApplyEquipmentIncidentActionRequestSchema,
+  inventoryEquipmentIncidentsRequestSchema,
+  inventoryEquipmentIncidentRequestSchema,
+  inventoryEquipmentIncidentSubjectsRequestSchema,
+  inventoryEquipmentIncidentFactsRequestSchema,
+} from '../shared/inventory-equipment-incidents';
+import {
   inventoryScientificProductionDesignsRequestSchema,
   inventoryPreviewScientificProductionRequestSchema,
   inventoryApplyScientificProductionRequestSchema,
@@ -143,6 +151,61 @@ const selection = target
   })
   .strict();
 const commandSchema = z.discriminatedUnion('command', [
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-equipment-incident-action'),
+      request: inventoryPreviewEquipmentIncidentActionRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.apply-equipment-incident-action'),
+      request: inventoryApplyEquipmentIncidentActionRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.equipment-incidents'),
+      request: inventoryEquipmentIncidentsRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.equipment-incident'),
+      request: inventoryEquipmentIncidentRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.equipment-incident-subjects'),
+      request: inventoryEquipmentIncidentSubjectsRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.equipment-incident-facts'),
+      request: inventoryEquipmentIncidentFactsRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+
   z
     .object({
       ownerInstanceId: identity,
@@ -897,6 +960,12 @@ export async function startNativeDocumentCommandServer(options: {
   inventory?: Pick<
     ReturnType<typeof createNativeInventoryOwner>,
     | 'execute'
+    | 'previewEquipmentIncidentAction'
+    | 'applyEquipmentIncidentAction'
+    | 'equipmentIncidents'
+    | 'equipmentIncident'
+    | 'equipmentIncidentSubjects'
+    | 'equipmentIncidentFacts'
     | 'scientificProductionDesigns'
     | 'previewScientificProduction'
     | 'applyScientificProduction'
@@ -1131,6 +1200,12 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'project-history.execute' ||
           body.command === 'import-review.execute' ||
           body.command === 'administration.execute' ||
+          body.command === 'inventory.preview-equipment-incident-action' ||
+          body.command === 'inventory.apply-equipment-incident-action' ||
+          body.command === 'inventory.equipment-incidents' ||
+          body.command === 'inventory.equipment-incident' ||
+          body.command === 'inventory.equipment-incident-subjects' ||
+          body.command === 'inventory.equipment-incident-facts' ||
           body.command === 'inventory.scientific-production-designs' ||
           body.command === 'inventory.preview-scientific-production' ||
           body.command === 'inventory.apply-scientific-production' ||
@@ -1210,6 +1285,7 @@ export async function startNativeDocumentCommandServer(options: {
               body.agent
             ) {
               const required =
+                body.command === 'inventory.apply-equipment-incident-action' ||
                 body.command === 'inventory.apply-scientific-production' ||
                 body.command === 'inventory.apply-run-value-attribution' ||
                 body.command === 'inventory.apply-run-value-attribution-withdrawal' ||
@@ -1267,6 +1343,40 @@ export async function startNativeDocumentCommandServer(options: {
                       principal: { kind: 'agent' as const, identityId: body.agent.identityId },
                     }
                   : undefined;
+              if (body.command === 'inventory.preview-equipment-incident-action')
+                return () => ({
+                  kind: 'equipment-incident-action-preview',
+                  preview: receiver.previewEquipmentIncidentAction(body.request, planInvocation),
+                });
+              if (body.command === 'inventory.apply-equipment-incident-action')
+                return () => ({
+                  kind: 'execution',
+                  execution: receiver.applyEquipmentIncidentAction(
+                    body.request,
+                    assertCurrent,
+                    planInvocation
+                  ),
+                });
+              if (body.command === 'inventory.equipment-incidents')
+                return () => ({
+                  kind: 'equipment-incidents',
+                  result: receiver.equipmentIncidents(body.request, planInvocation),
+                });
+              if (body.command === 'inventory.equipment-incident')
+                return () => ({
+                  kind: 'equipment-incident',
+                  result: receiver.equipmentIncident(body.request, planInvocation),
+                });
+              if (body.command === 'inventory.equipment-incident-subjects')
+                return () => ({
+                  kind: 'equipment-incident-subjects',
+                  result: receiver.equipmentIncidentSubjects(body.request, planInvocation),
+                });
+              if (body.command === 'inventory.equipment-incident-facts')
+                return () => ({
+                  kind: 'equipment-incident-facts',
+                  result: receiver.equipmentIncidentFacts(body.request, planInvocation),
+                });
               if (body.command === 'inventory.scientific-production-designs')
                 return async () => {
                   const result = await receiver.scientificProductionDesigns(body.request, {

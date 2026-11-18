@@ -104,7 +104,8 @@ export function validateInventoryScientificState(state: InventoryState): void {
       destination.after.quality !== 'usable' ||
       !same(destination.after.source, source.before.source) ||
       !same(destination.after.composition, source.before.composition) ||
-      !same(destination.after.lotConstraints, source.before.lotConstraints)
+      !same(destination.after.lotConstraints, source.before.lotConstraints) ||
+      !same(destination.after.incidentReviewRootIds, source.before.incidentReviewRootIds)
     )
       invalid('The observed aliquot must preserve its scientific identity and lot provenance.');
   }

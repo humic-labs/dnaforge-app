@@ -198,6 +198,7 @@ export function inventoryBlockerLabel(
     LOT_ASSESSMENT_IMPORTED: `Lot ${lot} requires a local release decision`,
     LOT_RECALLED: `Lot ${lot} has an active recall`,
     QUANTITY_UNKNOWN: 'Recorded quantity is unknown',
+    INCIDENT_REVIEW_REQUIRED: 'An equipment incident restriction blocks use',
     STOCK_QUARANTINED: 'This stock is quarantined',
     VESSEL_DISPOSED: 'This container has been disposed',
     ALLOCATION_SHORTFALL: 'Reservations exceed recorded stock',

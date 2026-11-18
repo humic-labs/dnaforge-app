@@ -1,4 +1,8 @@
 import type {
+  InventoryEquipmentIncidentHolderSnapshot,
+  InventoryEquipmentIncidentVesselSnapshot,
+} from './inventory-equipment-incident-types';
+import type {
   InventoryPrincipal,
   InventoryRecordedPrincipal,
   InventoryState,
@@ -14,6 +18,20 @@ export function inventoryPrincipalMatchesActor(
     : actor.kind === 'local-profile' && recorded.profileKey === actor.profileKey;
 }
 
+function* incidentSnapshotPrincipals(
+  snapshot: InventoryEquipmentIncidentHolderSnapshot | InventoryEquipmentIncidentVesselSnapshot
+): Generator<InventoryRecordedPrincipal> {
+  const custody = snapshot.custody;
+  if (custody.kind !== 'available') {
+    if (custody.holder) yield custody.holder;
+    if (custody.kind === 'missing') yield custody.reportedBy;
+  }
+  if (
+    'contents' in snapshot &&
+    (snapshot.contents.kind === 'unobserved' || snapshot.contents.kind === 'unidentified')
+  )
+    yield snapshot.contents.by;
+}
 function* recordedPrincipals(state: InventoryState): Generator<InventoryRecordedPrincipal> {
   for (const row of [...Object.values(state.storage), ...Object.values(state.vessels)]) {
     if ('contentsKnowledge' in row && row.contentsKnowledge.kind !== 'recorded')
@@ -54,6 +72,23 @@ function* recordedPrincipals(state: InventoryState): Generator<InventoryRecorded
   for (const arrival of Object.values(state.arrivals)) yield arrival.by;
   for (const attribution of Object.values(state.runValueAttributions)) yield attribution.by;
   for (const withdrawal of Object.values(state.runValueAttributionWithdrawals)) yield withdrawal.by;
+  for (const incident of Object.values(state.equipmentIncidents)) {
+    yield incident.by;
+    for (const holder of incident.initial.holders) yield* incidentSnapshotPrincipals(holder);
+    for (const vessel of incident.initial.vessels) yield* incidentSnapshotPrincipals(vessel);
+  }
+  for (const root of Object.values(state.equipmentIncidentReviewRoots)) {
+    yield root.by;
+    yield* incidentSnapshotPrincipals(root.snapshot.vessel);
+  }
+  for (const fact of Object.values(state.equipmentIncidentFacts)) {
+    yield fact.by;
+    if ('effects' in fact && fact.effects.kind === 'completed-relocation')
+      for (const effect of fact.effects.holders) {
+        yield* incidentSnapshotPrincipals(effect.before);
+        yield* incidentSnapshotPrincipals(effect.after);
+      }
+  }
   for (const production of Object.values(state.scientificProductions)) {
     yield production.by;
     if (production.effects.lot.after.controls.kind === 'managed')

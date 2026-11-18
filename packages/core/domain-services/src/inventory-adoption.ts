@@ -1,4 +1,8 @@
 import type {
+  InventoryEquipmentIncidentHolderSnapshot,
+  InventoryEquipmentIncidentVesselSnapshot,
+} from './inventory-equipment-incident-types';
+import type {
   InventoryAdoptionSource,
   InventoryCatalogSelectionState,
   InventoryComposition,
@@ -107,6 +111,20 @@ function mapOrigin(
 function mapScientificReferences(state: InventoryState, resolve: ResolveMaterial): InventoryState {
   return {
     ...state,
+    equipmentIncidentReviewRoots: mapRecords(state.equipmentIncidentReviewRoots, (root, id) => ({
+      ...root,
+      snapshot:
+        root.snapshot.kind === 'stock'
+          ? {
+              ...root.snapshot,
+              before: mapIdentity(
+                root.snapshot.before,
+                `/equipmentIncidentReviewRoots/${pointerKey(id)}/snapshot/before`,
+                resolve
+              ),
+            }
+          : root.snapshot,
+    })),
     scientificProductions: mapRecords(state.scientificProductions, (production, id) => ({
       ...production,
       materialBinding: {
@@ -303,10 +321,53 @@ function mapAttribution(state: InventoryState, source: InventoryAdoptionSource):
       ? { ...value.geometryOverride, by: principal(value.geometryOverride.by) }
       : null,
   });
+  const incidentHolder = (
+    value: InventoryEquipmentIncidentHolderSnapshot
+  ): InventoryEquipmentIncidentHolderSnapshot => ({ ...value, custody: custody(value.custody) });
+  const incidentVessel = (
+    value: InventoryEquipmentIncidentVesselSnapshot
+  ): InventoryEquipmentIncidentVesselSnapshot => ({
+    ...value,
+    custody: custody(value.custody),
+    contents:
+      value.contents.kind === 'unidentified' || value.contents.kind === 'unobserved'
+        ? { ...value.contents, by: principal(value.contents.by) }
+        : value.contents,
+  });
   const selection = (value: InventoryCatalogSelectionState): InventoryCatalogSelectionState =>
     value.kind === 'available' ? value : { ...value, by: principal(value.by) };
   return {
     ...state,
+    equipmentIncidents: mapRecords(state.equipmentIncidents, (incident) => ({
+      ...incident,
+      by: principal(incident.by),
+      initial: {
+        ...incident.initial,
+        holders: incident.initial.holders.map(incidentHolder),
+        vessels: incident.initial.vessels.map(incidentVessel),
+      },
+    })),
+    equipmentIncidentReviewRoots: mapRecords(state.equipmentIncidentReviewRoots, (root) => ({
+      ...root,
+      by: principal(root.by),
+      snapshot: { ...root.snapshot, vessel: incidentVessel(root.snapshot.vessel) },
+    })),
+    equipmentIncidentFacts: mapRecords(state.equipmentIncidentFacts, (fact) => ({
+      ...fact,
+      by: principal(fact.by),
+      ...('effects' in fact && fact.effects.kind === 'completed-relocation'
+        ? {
+            effects: {
+              ...fact.effects,
+              holders: fact.effects.holders.map((effect) => ({
+                ...effect,
+                before: incidentHolder(effect.before),
+                after: incidentHolder(effect.after),
+              })),
+            },
+          }
+        : {}),
+    })),
     scientificProductions: mapRecords(state.scientificProductions, (production) => ({
       ...production,
       by: principal(production.by),

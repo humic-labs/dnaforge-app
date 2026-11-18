@@ -1,3 +1,4 @@
+import { inventoryIncidentTypedSnapshots } from './inventory-incident-codec-compat';
 import { expect, it } from 'vitest';
 import {
   inventoryScientificProductionFixture,
@@ -223,11 +224,18 @@ it('maps physical material references and nested actors on adoption while retain
 it('upcasts raw28 without mutating its source and refuses new raw schema or maps under inherited false', () => {
   const f = inventoryScientificProductionFixture(),
     raw = structuredClone(f.state) as unknown as Record<string, unknown>;
+  for (const key of [
+    'equipmentIncidents',
+    'equipmentIncidentReviewRoots',
+    'equipmentIncidentFacts',
+  ])
+    delete raw[key];
+  for (const row of inventoryIncidentTypedSnapshots(raw)) delete row.incidentReviewRootIds;
   raw.schema = 'dnaforge.inventory.v28';
   delete raw.scientificProductions;
   const text = JSON.stringify(raw),
     parsed = parseInventoryState(raw, { allowScientificProductions: false });
-  expect(parsed.schema).toBe('dnaforge.inventory.v29');
+  expect(parsed.schema).toBe('dnaforge.inventory.v30');
   expect(parsed.scientificProductions).toEqual({});
   expect(JSON.stringify(raw)).toBe(text);
   expect(() => parseInventoryState(f.state, { allowScientificProductions: false })).toThrow(

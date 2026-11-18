@@ -28,7 +28,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v29. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v30. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -2223,3 +2223,84 @@ identity, path, removal and relationship ownership remain protected; for
 `carried_by`, the strain at the destination owns the biological relationship.
 Exact local retries do not automatically enroll their source when a dependency
 later becomes accepted.
+
+## Local equipment incidents
+
+An operator can report an outage against existing active physical storage,
+including an untyped location. A name such as “freezer” does not establish
+geometry, a working sensor or temperature qualification. The recorded initial
+cohort reflects contents when accepted; an earlier reported noticed time does
+not backdate that cohort. Initial contents, current containment and retained
+review obligations are distinct.
+
+While an incident is open, new holders and physical material cannot enter its
+transitive scope. The same primitive command owner enforces this for ordinary
+moves, returns, receipts, transfers and compound commands. Existing confirmed
+unidentified contents can be identified without adding material, carrying the
+same review obligation. Initially unobserved contents do not prove presence and
+cannot qualify for that inside-open exception. Declaring an episode empty closes
+it; its old obligation never attaches to unrelated later contents.
+
+Pending review and reviewed Keep block stock reservation and use. Explicit
+Remove removes only that incident restriction. Lot controls, recalls, stock
+quality, validity and custody remain independent. Stock and lot lineage retain
+their flat review-root references through aliquots, preparations and merges, so
+a later restricting review also blocks existing derived material. Unexposed
+siblings of the same original lot do not acquire a stock-specific exposure.
+
+```mermaid
+stateDiagram-v2
+    state Equipment {
+        [*] --> Open
+        Open --> Resolved: explicit reported resolution
+    }
+    state SubjectReview {
+        [*] --> PendingRestriction
+        PendingRestriction --> ReviewedKeep: keep this restriction
+        PendingRestriction --> ReviewedRemove: remove this restriction
+        ReviewedKeep --> ReviewedRemove: exact superseding review
+        ReviewedRemove --> ReviewedKeep: exact superseding correction
+    }
+```
+
+Rescue reports select whole holders and existing destinations. One guarded batch
+records exact original and resulting positions, retaining descendant identities;
+it does not move individual permanent wells or bypass another holder's custody,
+reservations, fit or stack restrictions. Unknown or partial movement uses the
+existing custody and reconciliation owners. Resolution permits inbound placement
+again but never clears subject review or quality controls. Follow-up
+observations and review corrections remain available after resolution.
+
+Manual temperature facts retain their own observed time, point label and
+equipment configuration at recording. They remain separate from setpoints and
+instrument evidence. Independent readings coexist; there is no implicit current
+reading. Freshness uses the selected observation, native time and an explicit
+age policy. Without a policy it remains unknown. Corrections and withdrawals
+append exact predecessor-linked facts rather than rewriting evidence.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Ready: native preview
+    Ready --> Draft: edited or stale scope
+    Ready --> Sending: retain exact request and action identity
+    Sending --> Recorded: matching receipt
+    Sending --> Unknown: acknowledgement unavailable
+    Unknown --> Sending: identical raw retry
+    Unknown --> Existing: exact original action proof
+```
+
+Action identity is independent of request identity. Exact retries never move a
+holder twice. Existing-action recovery requires original choices and intent, not
+an assumed missing operation. Canonical v30 adds incident maps and stock/lot
+review roots. Older snapshots gain empty fields without a write. Older receipt
+contexts refuse new raw incident fields before upcast, including empty fields.
+Typed semantic plan projections preserve existing empty-root plan digests; exact
+request, source and archive hashes remain unchanged.
+
+Adoption preserves original action choices, owners and subject/transition
+identity pins separately from bound physical references. Historical actors
+remain imported; an imported Remove review cannot authorize local use until a
+local review supersedes it. Retained initial and historical positions never
+become claims about today's location. No sensor automation or team
+synchronization is implied.

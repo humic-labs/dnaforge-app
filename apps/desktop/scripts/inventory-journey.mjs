@@ -1,4 +1,9 @@
 import {
+  runInventoryEquipmentIncidents,
+  runInventoryEquipmentIncidentsResume,
+  runInventoryEquipmentIncidentsReopen,
+} from './journeys/inventory-equipment-incidents.mjs';
+import {
   runInventoryScientificProduction,
   runInventoryScientificProductionResume,
   runInventoryScientificProductionReopen,
@@ -171,6 +176,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const args = process.argv.slice(2);
 const option = (name) => args[args.indexOf(name) + 1];
 const stage = args.includes('--stage') ? option('--stage') : 'doctor';
+const equipmentIncidentStages = {
+  'equipment-incidents': runInventoryEquipmentIncidents,
+  'equipment-incidents-resume': runInventoryEquipmentIncidentsResume,
+  'equipment-incidents-reopen': runInventoryEquipmentIncidentsReopen,
+};
 const scientificProductionStages = {
   'scientific-production': runInventoryScientificProduction,
   'scientific-production-resume': runInventoryScientificProductionResume,
@@ -225,6 +235,7 @@ assert.ok(
     ...Object.keys(designSetupStages),
     ...Object.keys(newArtifactContinuityStages),
     ...Object.keys(scientificProductionStages),
+    ...Object.keys(equipmentIncidentStages),
     ...Object.keys(platePlanObservationStages),
     ...Object.keys(platePlanStages),
     ...Object.keys(citationStages),
@@ -1034,6 +1045,24 @@ try {
           ? runInventoryStockroomCorrectionsResume
           : runInventoryStockroomCorrectionsReopen
     )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
+  if (Object.hasOwn(equipmentIncidentStages, stage)) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the accepted outage checkpoint or exact continuation.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    receipt.expected = await equipmentIncidentStages[stage]({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+    });
   }
   if (Object.hasOwn(scientificProductionStages, stage)) {
     assert.ok(

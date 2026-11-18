@@ -1,3 +1,9 @@
+import type {
+  InventoryEquipmentIncident,
+  InventoryEquipmentIncidentReviewRoot,
+  InventoryEquipmentIncidentFact,
+} from './inventory-equipment-incident-types';
+export type * from './inventory-equipment-incident-types';
 import type { InventoryScientificProduction } from './inventory-scientific-production-types';
 export type * from './inventory-scientific-production-types';
 import type {
@@ -94,7 +100,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v29' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v30' as const;
+export const INVENTORY_SCIENTIFIC_PRODUCTION_SCHEMA = 'dnaforge.inventory.v29' as const;
 export const INVENTORY_RUN_VALUE_ATTRIBUTION_SCHEMA = 'dnaforge.inventory.v28' as const;
 export const INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA = 'dnaforge.inventory.v27' as const;
 export const INVENTORY_PLATE_PLAN_SCHEMA = 'dnaforge.inventory.v26' as const;
@@ -314,6 +321,7 @@ export type InventoryLotOrigin =
     };
 
 export interface InventoryLot {
+  readonly incidentReviewRootIds: readonly string[];
   readonly validity: InventoryValidityManagement;
   readonly inheritedValidity: readonly InventoryInheritedValidity[];
   readonly controls: InventoryLotControls;
@@ -325,6 +333,7 @@ export interface InventoryLot {
 }
 
 export interface InventoryStock {
+  readonly incidentReviewRootIds: readonly string[];
   readonly opening: InventoryOpeningState;
   readonly validity: InventoryValidityManagement;
   readonly inheritedValidity: readonly InventoryInheritedValidity[];
@@ -339,6 +348,11 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly equipmentIncidents: Readonly<Record<string, InventoryEquipmentIncident>>;
+  readonly equipmentIncidentReviewRoots: Readonly<
+    Record<string, InventoryEquipmentIncidentReviewRoot>
+  >;
+  readonly equipmentIncidentFacts: Readonly<Record<string, InventoryEquipmentIncidentFact>>;
   readonly scientificProductions: Readonly<Record<string, InventoryScientificProduction>>;
   readonly runValueAttributions: Readonly<Record<string, InventoryRunValueAttribution>>;
   readonly runValueAttributionWithdrawals: Readonly<
@@ -496,6 +510,7 @@ export type InventoryReservation = InventoryReservationFacts &
   );
 
 export type InventoryAvailabilityBlocker =
+  | { readonly code: 'INCIDENT_REVIEW_REQUIRED'; readonly rootIds: readonly string[] }
   | InventoryValidityBlocker
   | InventoryLotEligibilityBlocker
   | { readonly code: 'POSITION_UNAVAILABLE'; readonly item: InventoryPhysicalItem }
@@ -691,6 +706,7 @@ export type InventoryCommand =
       | 'opening'
       | 'validity'
       | 'inheritedValidity'
+      | 'incidentReviewRootIds'
     >)
   | {
       readonly kind: 'move-storage';
@@ -926,6 +942,9 @@ export type InventoryErrorCode =
   | 'SCIENTIFIC_CITATION_PREDECESSOR_MISMATCH'
   | 'SCIENTIFIC_WORK_CONFLICT'
   | 'SCIENTIFIC_PRODUCTION_CONFLICT'
+  | 'EQUIPMENT_INCIDENT_CONFLICT'
+  | 'INCIDENT_INBOUND_BLOCKED'
+  | 'INCIDENT_REVIEW_REQUIRED'
   | 'SCIENTIFIC_CONTEXT_MISMATCH';
 
 export type InventoryTransition =
@@ -939,6 +958,9 @@ export type InventoryTransition =
 export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
+    equipmentIncidents: Object.create(null),
+    equipmentIncidentReviewRoots: Object.create(null),
+    equipmentIncidentFacts: Object.create(null),
     scientificProductions: Object.create(null) as Record<string, InventoryScientificProduction>,
     runValueAttributions: Object.create(null) as Record<string, InventoryRunValueAttribution>,
     runValueAttributionWithdrawals: Object.create(null) as Record<

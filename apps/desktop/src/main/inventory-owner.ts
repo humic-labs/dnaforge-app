@@ -1,3 +1,16 @@
+import * as incidentWire from '../shared/inventory-equipment-incidents';
+import {
+  inventoryEquipmentIncidentActionExisting,
+  inventoryEquipmentIncidentActionPreview,
+} from '@waypoint/domain-services';
+import {
+  applyNativeInventoryEquipmentIncidentAction,
+  readNativeInventoryEquipmentIncidents,
+  readNativeInventoryEquipmentIncident,
+  readNativeInventoryEquipmentIncidentSubjects,
+  readNativeInventoryEquipmentIncidentFacts,
+  boundNativeInventoryEquipmentIncidentAction,
+} from './inventory-equipment-incidents';
 import * as productionWire from '../shared/inventory-scientific-productions';
 import {
   inventoryScientificProductionExisting,
@@ -610,6 +623,24 @@ export function createNativeInventoryOwner(options: {
           return entry.receipt;
         }
         const previous = row ? stateFromRow(row) : createInventoryState();
+        if ('kind' in request && request.kind === 'record-equipment-incident-action') {
+          const found = inventoryEquipmentIncidentActionExisting(previous, request.choices);
+          if (found.kind !== 'new')
+            return {
+              status: 'rejected',
+              inventoryId: request.inventoryId,
+              operationId: request.operationId,
+              currentRevision: previous.revision,
+              code:
+                found.kind === 'no-change'
+                  ? 'INVENTORY_EQUIPMENT_INCIDENT_NO_CHANGES'
+                  : found.issue.code,
+              message:
+                found.kind === 'no-change'
+                  ? 'This incident action is already recorded. Read its original action proof.'
+                  : found.issue.message,
+            };
+        }
         if ('kind' in request && request.kind === 'record-scientific-production') {
           const existingProduction = inventoryScientificProductionExisting(
             previous,
@@ -633,7 +664,7 @@ export function createNativeInventoryOwner(options: {
         }
         const recordedAt = observationTime(previous);
         const context = inventoryReceiptContextSchema.parse({
-          version: 12,
+          version: 13,
           principal: principal(invocation),
           authority,
           ...(productionCapture ? { acceptedDesign: productionCapture.witness } : {}),
@@ -658,7 +689,18 @@ export function createNativeInventoryOwner(options: {
         });
         let result: InventoryTransition;
         let assertStockroomMaterials = () => {};
-        if ('kind' in request && request.kind === 'record-scientific-production') {
+        if ('kind' in request && request.kind === 'record-equipment-incident-action') {
+          if (request.expectedRevision !== previous.revision)
+            return reject(
+              'REVISION_CONFLICT',
+              'Inventory changed after the incident action preview.'
+            );
+          result = applyNativeInventoryEquipmentIncidentAction(previous, request, {
+            at: recordedAt,
+            principal: context.principal,
+            authority,
+          });
+        } else if ('kind' in request && request.kind === 'record-scientific-production') {
           const existing = inventoryScientificProductionExisting(previous, request.choices);
           if (existing.kind === 'no-change')
             return reject(
@@ -1345,6 +1387,15 @@ export function createNativeInventoryOwner(options: {
             'INVENTORY_PLATE_PLAN_TOO_LARGE',
             'The complete plan request and receipt exceed the native inline limit.'
           );
+        if (
+          'kind' in request &&
+          request.kind === 'record-equipment-incident-action' &&
+          !boundNativeInventoryEquipmentIncidentAction(previous, result.state, { request, receipt })
+        )
+          return reject(
+            'INVENTORY_EQUIPMENT_INCIDENT_TOO_LARGE',
+            'The complete incident action exceeds the native inline limit.'
+          );
         assertCurrent();
         assertStockroomMaterials();
         productionCapture?.lease.assertCurrent();
@@ -1475,6 +1526,146 @@ export function createNativeInventoryOwner(options: {
         ])[0]!,
     });
   return {
+    previewEquipmentIncidentAction(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): incidentWire.InventoryEquipmentIncidentActionPreviewSnapshot {
+      const request =
+        incidentWire.inventoryPreviewEquipmentIncidentActionRequestSchema.parse(input);
+      return inventorySnapshotRead(request, false, (db, project, saved) => {
+        const state = saved ?? createInventoryState(),
+          asOf = observationTime(state),
+          caller = principal(invocation);
+        const preview = inventoryEquipmentIncidentActionPreview(state, {
+          ...request.choices,
+          target: {
+            ...importTarget(
+              db,
+              project,
+              request.inventoryId,
+              saved ? inventory(db, request.inventoryId, project.projectId) : undefined
+            ),
+            revision: request.expectedRevision,
+          },
+          asOf,
+          principal: caller,
+          authority,
+        });
+        if (preview.kind === 'ready') {
+          const proposed = applyNativeInventoryEquipmentIncidentAction(
+            state,
+            {
+              ...request,
+              kind: 'record-equipment-incident-action',
+              project: project.projectId,
+              operationId: 'preview',
+              expectedPlanDigest: preview.planDigest,
+            },
+            { at: asOf, principal: caller, authority }
+          );
+          if (
+            !proposed.ok ||
+            !boundNativeInventoryEquipmentIncidentAction(state, proposed.state, request)
+          )
+            return {
+              ...preview,
+              kind: 'blocked',
+              record: null,
+              commands: [],
+              planDigest: null,
+              issues: [
+                {
+                  code: proposed.ok ? 'INVENTORY_DATA_INVALID' : proposed.code,
+                  pointer: '/choices',
+                  message: proposed.ok
+                    ? 'The complete incident action exceeds the native inline limit.'
+                    : proposed.message,
+                },
+              ],
+              projectId: project.projectId,
+              inventoryId: request.inventoryId,
+              revision: state.revision,
+            };
+        }
+        return {
+          ...preview,
+          projectId: project.projectId,
+          inventoryId: request.inventoryId,
+          revision: state.revision,
+        };
+      });
+    },
+    applyEquipmentIncidentAction(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): NativeInventoryExecution {
+      return commit(
+        incidentWire.inventoryApplyEquipmentIncidentActionRequestSchema.parse(input),
+        assertCurrent,
+        invocation
+      );
+    },
+    equipmentIncidents(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): incidentWire.InventoryEquipmentIncidentsRead {
+      const request = incidentWire.inventoryEquipmentIncidentsRequestSchema.parse(input);
+      return inventorySnapshotRead(request, false, (_db, project, state) =>
+        readNativeInventoryEquipmentIncidents(request, state, {
+          projectId: project.projectId,
+          inventoryId: request.inventoryId,
+          revision: state?.revision ?? 0,
+          asOf: observationTime(state ?? createInventoryState()),
+          principal: principal(invocation),
+        })
+      );
+    },
+    equipmentIncident(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): incidentWire.InventoryEquipmentIncidentRead {
+      const request = incidentWire.inventoryEquipmentIncidentRequestSchema.parse(input);
+      return inventorySnapshotRead(request, false, (_db, project, state) =>
+        readNativeInventoryEquipmentIncident(request, state, {
+          projectId: project.projectId,
+          inventoryId: request.inventoryId,
+          revision: state?.revision ?? 0,
+          asOf: observationTime(state ?? createInventoryState()),
+          principal: principal(invocation),
+        })
+      );
+    },
+    equipmentIncidentSubjects(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): incidentWire.InventoryEquipmentIncidentSubjectsRead {
+      const request = incidentWire.inventoryEquipmentIncidentSubjectsRequestSchema.parse(input);
+      return inventorySnapshotRead(request, false, (_db, project, state) =>
+        readNativeInventoryEquipmentIncidentSubjects(request, state, {
+          projectId: project.projectId,
+          inventoryId: request.inventoryId,
+          revision: state?.revision ?? 0,
+          asOf: observationTime(state ?? createInventoryState()),
+          principal: principal(invocation),
+        })
+      );
+    },
+    equipmentIncidentFacts(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): incidentWire.InventoryEquipmentIncidentFactsRead {
+      const request = incidentWire.inventoryEquipmentIncidentFactsRequestSchema.parse(input);
+      return inventorySnapshotRead(request, false, (_db, project, state) =>
+        readNativeInventoryEquipmentIncidentFacts(request, state, {
+          projectId: project.projectId,
+          inventoryId: request.inventoryId,
+          revision: state?.revision ?? 0,
+          asOf: observationTime(state ?? createInventoryState()),
+          principal: principal(invocation),
+        })
+      );
+    },
     async scientificProductionDesigns(
       input: unknown,
       invocation: NativeInventoryInvocation = {}

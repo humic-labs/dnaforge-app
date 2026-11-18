@@ -27,6 +27,7 @@ export const inventoryTools = defineRendererToolCatalog({
     resolveInputAuthorization: (args) => ({
       additionalRequiredCapabilities: [
         'execute',
+        'apply-equipment-incident-action',
         'apply-scientific-production',
         'apply-arrival',
         'apply-scientific-transfer',

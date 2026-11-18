@@ -1,4 +1,30 @@
 import type {
+  InventoryPreviewEquipmentIncidentActionRequest,
+  InventoryEquipmentIncidentActionPreviewSnapshot,
+  InventoryApplyEquipmentIncidentActionRequest,
+  InventoryEquipmentIncidentsRequest,
+  InventoryEquipmentIncidentsRead,
+  InventoryEquipmentIncidentRequest,
+  InventoryEquipmentIncidentRead,
+  InventoryEquipmentIncidentSubjectsRequest,
+  InventoryEquipmentIncidentSubjectsRead,
+  InventoryEquipmentIncidentFactsRequest,
+  InventoryEquipmentIncidentFactsRead,
+} from './inventory-equipment-incidents';
+export type {
+  InventoryPreviewEquipmentIncidentActionRequest,
+  InventoryEquipmentIncidentActionPreviewSnapshot,
+  InventoryApplyEquipmentIncidentActionRequest,
+  InventoryEquipmentIncidentsRequest,
+  InventoryEquipmentIncidentsRead,
+  InventoryEquipmentIncidentRequest,
+  InventoryEquipmentIncidentRead,
+  InventoryEquipmentIncidentSubjectsRequest,
+  InventoryEquipmentIncidentSubjectsRead,
+  InventoryEquipmentIncidentFactsRequest,
+  InventoryEquipmentIncidentFactsRead,
+} from './inventory-equipment-incidents';
+import type {
   InventoryScientificProductionDesignsRequest,
   InventoryScientificProductionDesignsRead,
   InventoryPreviewScientificProductionRequest,
@@ -410,6 +436,24 @@ export type {
   InventoryPlatePlanObservationSourceRead,
 } from './inventory-plate-plan-observations';
 export interface InventoryClient {
+  previewEquipmentIncidentAction(
+    input: InventoryPreviewEquipmentIncidentActionRequest
+  ): Promise<InventoryEquipmentIncidentActionPreviewSnapshot>;
+  applyEquipmentIncidentAction(
+    input: InventoryApplyEquipmentIncidentActionRequest
+  ): Promise<NativeInventoryExecution>;
+  equipmentIncidents(
+    input: InventoryEquipmentIncidentsRequest
+  ): Promise<InventoryEquipmentIncidentsRead>;
+  equipmentIncident(
+    input: InventoryEquipmentIncidentRequest
+  ): Promise<InventoryEquipmentIncidentRead>;
+  equipmentIncidentSubjects(
+    input: InventoryEquipmentIncidentSubjectsRequest
+  ): Promise<InventoryEquipmentIncidentSubjectsRead>;
+  equipmentIncidentFacts(
+    input: InventoryEquipmentIncidentFactsRequest
+  ): Promise<InventoryEquipmentIncidentFactsRead>;
   scientificProductionDesigns(
     input: InventoryScientificProductionDesignsRequest
   ): Promise<InventoryScientificProductionDesignsRead>;
@@ -591,6 +635,12 @@ export function unavailableInventoryClient(): InventoryClient {
     message: 'Inventory requires the connected desktop owner.',
   });
   return {
+    previewEquipmentIncidentAction: unavailable,
+    applyEquipmentIncidentAction: unavailableMutation,
+    equipmentIncidents: unavailable,
+    equipmentIncident: unavailable,
+    equipmentIncidentSubjects: unavailable,
+    equipmentIncidentFacts: unavailable,
     scientificProductionDesigns: unavailable,
     previewScientificProduction: unavailable,
     applyScientificProduction: unavailableMutation,

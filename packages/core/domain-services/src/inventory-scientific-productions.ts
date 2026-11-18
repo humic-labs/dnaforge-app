@@ -1,4 +1,5 @@
 import { applyInventoryCommandBatch } from './inventory-state';
+import { inventoryPlanStock } from './inventory-plan-semantics';
 import { parseInventoryExecutionContext, parseInventoryState } from './inventory-validation';
 import { inventoryRecordIdExists } from './inventory-identity';
 import {
@@ -365,7 +366,7 @@ function prepare(
         materialBinding: production.materialBinding,
         commands,
         sources: production.effects.sources.map((row) => ({
-          stock: row.before,
+          stock: inventoryPlanStock(row.before),
           vessel: state.vessels[row.before.vesselId],
         })),
         destination: state.vessels[choices.output.vesselId],

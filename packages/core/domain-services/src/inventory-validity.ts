@@ -33,16 +33,24 @@ type ValidityState = Pick<
 
 export function emptyInventoryStockValidity(): Pick<
   InventoryStock,
-  'opening' | 'validity' | 'inheritedValidity'
+  'opening' | 'validity' | 'inheritedValidity' | 'incidentReviewRootIds'
 > {
   return {
+    incidentReviewRootIds: [],
     opening: { kind: 'unobserved', observationId: null },
     validity: { kind: 'legacy-untracked' },
     inheritedValidity: [],
   };
 }
-export function emptyInventoryLotValidity(): Pick<InventoryLot, 'validity' | 'inheritedValidity'> {
-  return { validity: { kind: 'legacy-untracked' }, inheritedValidity: [] };
+export function emptyInventoryLotValidity(): Pick<
+  InventoryLot,
+  'validity' | 'inheritedValidity' | 'incidentReviewRootIds'
+> {
+  return {
+    validity: { kind: 'legacy-untracked' },
+    inheritedValidity: [],
+    incidentReviewRootIds: [],
+  };
 }
 export function mergeInventoryInheritedValidity(
   ...collections: readonly (readonly InventoryInheritedValidity[])[]

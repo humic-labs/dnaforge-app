@@ -194,6 +194,7 @@ export function validateInventoryPlatePlanObservations(state: InventoryState): v
       const defaults = emptyInventoryStockValidity(),
         expected = {
           ...defaults,
+          incidentReviewRootIds: source.before.incidentReviewRootIds,
           inheritedValidity: inventoryStockValidityInheritance(source.before, observation.at),
           id: outputId,
           vesselId: wellId,

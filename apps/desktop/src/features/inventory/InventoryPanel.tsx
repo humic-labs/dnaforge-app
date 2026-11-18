@@ -1,3 +1,8 @@
+import {
+  InventoryEquipmentIncidents,
+  InventoryEquipmentIncidentsHistory,
+  equipmentIncidentActionLabel,
+} from './InventoryEquipmentIncidents';
 import { InventorySavedProductions } from './InventoryScientificProductions';
 import { sharedInventoryPendingCoordinator } from './inventory-pending-coordinator';
 import { InventoryScientificForm } from './InventoryScientificForm';
@@ -110,6 +115,7 @@ type InventorySourceKind = Exclude<
   | 'record-run-value-attribution'
   | 'withdraw-run-value-attribution'
   | 'record-scientific-production'
+  | 'record-equipment-incident-action'
 >;
 const sourceHistoryCopy: Readonly<
   Record<
@@ -240,6 +246,7 @@ export function InventoryPanel() {
     null
   );
   const [productionProject, setProductionProject] = useState<InventoryProject | null>(null);
+  const [incidentProject, setIncidentProject] = useState<InventoryProject | null>(null);
   const [search, setSearch] = useState('');
   const [shown, setShown] = useState(100);
   const [shownPositions, setShownPositions] = useState(200);
@@ -313,6 +320,10 @@ export function InventoryPanel() {
     if (currentProjectId && productionProject?.projectId !== currentProjectId)
       setProductionProject(null);
   }, [currentProjectId, productionProject]);
+  useEffect(() => {
+    if (currentProjectId && incidentProject?.projectId !== currentProjectId)
+      setIncidentProject(null);
+  }, [currentProjectId, incidentProject]);
   const materialProject = useRef(currentProjectId);
   materialProject.current = currentProjectId;
   const stocks = state
@@ -563,24 +574,26 @@ export function InventoryPanel() {
             >
               <p className="font-medium text-fg">
                 {'kind' in entry.request
-                  ? entry.request.kind === 'record-scientific-production'
-                    ? 'Recorded completed manual production'
-                    : entry.request.kind === 'record-run-value-attribution'
-                      ? 'Associated a saved Run value and recorded subject'
-                      : entry.request.kind === 'withdraw-run-value-attribution'
-                        ? 'Withdrew a saved value association'
-                        : entry.request.kind === 'record-scientific-citation'
-                          ? 'Added saved scientific citation'
-                          : entry.request.kind === 'withdraw-scientific-citation'
-                            ? 'Withdrew scientific citation'
-                            : entry.request.kind === 'save-plate-plan-version'
-                              ? 'Saved reusable plate-plan version'
-                              : entry.request.kind === 'record-plate-plan-observation'
-                                ? 'Recorded completed manual plate-plan use'
-                                : entry.request.kind === 'record-scientific-transfer' ||
-                                    entry.request.kind === 'record-scientific-transfer-v2'
-                                  ? 'Recorded observed scientific transfer'
-                                  : sourceHistoryCopy[entry.request.kind].title
+                  ? entry.request.kind === 'record-equipment-incident-action'
+                    ? equipmentIncidentActionLabel(entry.request.choices.action.kind)
+                    : entry.request.kind === 'record-scientific-production'
+                      ? 'Recorded completed manual production'
+                      : entry.request.kind === 'record-run-value-attribution'
+                        ? 'Associated a saved Run value and recorded subject'
+                        : entry.request.kind === 'withdraw-run-value-attribution'
+                          ? 'Withdrew a saved value association'
+                          : entry.request.kind === 'record-scientific-citation'
+                            ? 'Added saved scientific citation'
+                            : entry.request.kind === 'withdraw-scientific-citation'
+                              ? 'Withdrew scientific citation'
+                              : entry.request.kind === 'save-plate-plan-version'
+                                ? 'Saved reusable plate-plan version'
+                                : entry.request.kind === 'record-plate-plan-observation'
+                                  ? 'Recorded completed manual plate-plan use'
+                                  : entry.request.kind === 'record-scientific-transfer' ||
+                                      entry.request.kind === 'record-scientific-transfer-v2'
+                                    ? 'Recorded observed scientific transfer'
+                                    : sourceHistoryCopy[entry.request.kind].title
                   : entry.request.commands
                       .map((command) => (state ? historyLabel(command, state) : ''))
                       .join(' · ')}
@@ -656,6 +669,15 @@ export function InventoryPanel() {
                   <p>
                     Original production, stock effects and saved design are available in Saved
                     productions.
+                  </p>
+                </div>
+              ) : 'kind' in entry.request &&
+                entry.request.kind === 'record-equipment-incident-action' ? (
+                <div className="space-y-1 text-xs">
+                  <p>{entry.request.choices.action.reason}</p>
+                  <p>
+                    Original report, contents and review decisions are available in Equipment
+                    incidents.
                   </p>
                 </div>
               ) : 'kind' in entry.request && entry.request.kind === 'save-plate-plan-version' ? (
@@ -795,6 +817,7 @@ export function InventoryPanel() {
               setPlatePlanProject(null);
               setValueAssociationProject(null);
               setProductionProject(null);
+              setIncidentProject(null);
               choose({ kind: 'all' });
               void controller.selectProject(id);
             }}
@@ -826,6 +849,9 @@ export function InventoryPanel() {
         </Button>
         <Button disabled={!data} onClick={() => data && setProductionProject(data.project)}>
           Saved productions
+        </Button>
+        <Button disabled={!data} onClick={() => data && setIncidentProject(data.project)}>
+          Equipment incidents
         </Button>
         <Button disabled={!data} onClick={() => setDialog({ kind: 'receive-delivery' })}>
           Receive delivery
@@ -1087,6 +1113,15 @@ export function InventoryPanel() {
                     item={{ kind: 'storage', id: selectedLocation.id }}
                     editable={editable}
                     onDialog={setDialog}
+                  />
+                  <InventoryEquipmentIncidents
+                    scope={{
+                      project: data.project.projectId,
+                      inventoryId: data.project.defaultInventoryId,
+                    }}
+                    equipmentId={selectedLocation.id}
+                    data={data}
+                    editable={editable}
                   />
                   <InventoryStorageConditions
                     key={`${data.project.projectId}:${selectedLocation.id}`}
@@ -1814,6 +1849,18 @@ export function InventoryPanel() {
           ) : null}
         </div>
       )}
+      {incidentProject ? (
+        <InventoryEquipmentIncidentsHistory
+          key={`${incidentProject.projectId}:${incidentProject.defaultInventoryId}`}
+          scope={{
+            project: incidentProject.projectId,
+            inventoryId: incidentProject.defaultInventoryId,
+          }}
+          data={data?.project.projectId === incidentProject.projectId ? data : undefined}
+          editable={editable && data?.project.projectId === incidentProject.projectId}
+          onClose={() => setIncidentProject(null)}
+        />
+      ) : null}
       {productionProject ? (
         <InventorySavedProductions
           key={`${productionProject.projectId}:${productionProject.defaultInventoryId}`}

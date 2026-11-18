@@ -1,4 +1,5 @@
 import { inventoryRecordIdExists } from './inventory-identity';
+import { inventoryPlanStock } from './inventory-plan-semantics';
 import { applyInventoryCommandBatch } from './inventory-state';
 import { parseInventoryExecutionContext, parseInventoryState } from './inventory-validation';
 import { inventoryPlatePlanBindingPreview } from './inventory-plate-plan-binding';
@@ -377,7 +378,7 @@ function prepare(
         principal: context.principal,
         authority: context.authority,
         sources: [...grouped.keys()].map((id) => ({
-          stock: state.stocks[id],
+          stock: inventoryPlanStock(state.stocks[id]),
           vessel: state.vessels[state.stocks[id].vesselId],
         })),
         plate,

@@ -1,3 +1,4 @@
+import { inventoryIncidentBlockedRootIds } from './inventory-incident-constraints';
 import { inventoryPrincipalMatchesActor } from './inventory-attribution';
 import {
   inventoryPhysicalProjection,
@@ -145,6 +146,9 @@ export function inventoryStockAvailabilityFacts(
   const quantityIndex = blockers.length;
   const eligibility = inventoryStockEligibility(state, stockId, at)!;
   blockers.push(...eligibility.blockers);
+  const incidentRoots = inventoryIncidentBlockedRootIds(state, stock.incidentReviewRootIds);
+  if (incidentRoots.length)
+    blockers.push({ code: 'INCIDENT_REVIEW_REQUIRED', rootIds: incidentRoots });
   if (vessel.lifecycle !== 'active') blockers.push({ code: 'VESSEL_DISPOSED' });
   const itemHolds = active.filter(
     (reservation) =>

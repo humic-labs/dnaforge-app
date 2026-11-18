@@ -1,6 +1,9 @@
 import type { InventoryState } from './inventory-types';
 
 const recordMaps = [
+  'equipmentIncidents',
+  'equipmentIncidentReviewRoots',
+  'equipmentIncidentFacts',
   'storage',
   'vessels',
   'stocks',

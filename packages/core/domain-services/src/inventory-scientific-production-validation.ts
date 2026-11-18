@@ -1,3 +1,4 @@
+import { inventoryIncidentReviewRootIds } from './inventory-incident-constraints';
 import { subtractInventoryAmounts } from './inventory-amount';
 import { inventoryTableCanonicalJson as canonical } from './inventory-table-binding';
 import { inventoryLotConstraints, mergeInventoryLotConstraints } from './inventory-lot-controls';
@@ -111,6 +112,9 @@ export function validateInventoryScientificProductions(state: InventoryState): v
     valid(
       same(lot, {
         ...emptyInventoryLotValidity(),
+        incidentReviewRootIds: inventoryIncidentReviewRootIds(
+          ...row.effects.sources.map((effect) => effect.before.incidentReviewRootIds)
+        ),
         inheritedValidity,
         id: lotId,
         materialId: row.materialBinding.destinationMaterialId,
@@ -131,6 +135,7 @@ export function validateInventoryScientificProductions(state: InventoryState): v
       row.effects.stock.vessel.id === row.output.vesselId &&
         same(row.effects.stock.after, {
           ...emptyInventoryStockValidity(),
+          incidentReviewRootIds: lot.incidentReviewRootIds,
           inheritedValidity: bindInventoryInheritedValidity(lot.inheritedValidity, row.at),
           id: stockId,
           vesselId: row.output.vesselId,
