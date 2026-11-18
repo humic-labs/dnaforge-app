@@ -3058,6 +3058,54 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       }
     );
 
+    it.each([
+      { name: 'a small static input', count: 3, expectedVertices: 18 },
+      { name: 'a fifth record', count: 5, expectedVertices: 0 },
+      { name: 'tile input', count: 3, tiled: true, expectedVertices: 0 },
+      { name: 'mismatch marks', count: 3, marked: true, expectedVertices: 0 },
+      { name: 'a wide height field', count: 3, recordEnd: 100_000, expectedVertices: 0 },
+      { name: 'a wide aggregate field', count: 3, windowEnd: 100_000, expectedVertices: 0 },
+      { name: 'a shorter elapsed budget', count: 3, budgetMs: 0.25, expectedVertices: 0 },
+    ])(
+      'handles $name when the first row assignment starts after its deadline',
+      ({ count, expectedVertices, tiled, marked, recordEnd, windowEnd, budgetMs }) => {
+        const renderer = new PixiPileupTrackRenderer({
+          type: 'pileup-test',
+          maxRows: 16,
+          readRowsAssignWorkBudgetMs: budgetMs,
+        });
+        const container = renderer.mount(mountArgs);
+        const records = makeWindowReads(count, 1_000);
+        if (marked) records[0].mismatches = [{ pos: 102, kind: 'sub', readBase: 'T' }];
+        if (recordEnd) records[0].end = recordEnd;
+        const args = readPaint(container, records, windowEnd ?? 1_000);
+        const data: PileupTrackData = {
+          ...args.data,
+          dataAuthority: tiled ? 'tile-engine' : 'static',
+        };
+        if (!windowEnd) delete data.readSource;
+        let time = 0;
+        const clock = vi.spyOn(performance, 'now').mockImplementation(() => time);
+        const begin = PersistentRowLayout.prototype.beginAssignment;
+        const setup = vi.spyOn(PersistentRowLayout.prototype, 'beginAssignment');
+        try {
+          setup.mockImplementationOnce(function (this: PersistentRowLayout, ...args) {
+            time += 3;
+            return begin.apply(this, args);
+          });
+          renderer.paint({ ...args, data });
+          const first = renderer.getDiagnostics(container)!;
+          expect(first.rowsVertexCount).toBe(expectedVertices);
+          expect(first.rowsUsed > 0).toBe(expectedVertices > 0);
+          renderer.paint({ ...args, data });
+          expect(renderer.getDiagnostics(container)!.rowsVertexCount).toBe(count * 6);
+        } finally {
+          setup.mockRestore();
+          clock.mockRestore();
+        }
+      }
+    );
+
     it('shares the elapsed allowance with height finalization before publishing new reads', () => {
       const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
       const container = renderer.mount(mountArgs);

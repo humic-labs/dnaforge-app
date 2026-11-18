@@ -1,6 +1,6 @@
 import type { PileupRecord } from '@waypoint/genome-data';
 
-const TARGET_BIN_BP = 16;
+export const READ_ROW_HEIGHT_TARGET_BIN_BP = 16;
 const MAX_BINS = 32768;
 
 export interface ReadRowHeightField {
@@ -34,7 +34,9 @@ export function beginReadRowHeightFieldJob(
     rows.length === records.length &&
     endBp > startBp;
   const span = endBp - startBp;
-  const binCount = valid ? Math.min(MAX_BINS, Math.max(1, Math.ceil(span / TARGET_BIN_BP))) : 0;
+  const binCount = valid
+    ? Math.min(MAX_BINS, Math.max(1, Math.ceil(span / READ_ROW_HEIGHT_TARGET_BIN_BP)))
+    : 0;
   return {
     records,
     rows,
