@@ -1,5 +1,5 @@
 import { isRecoveredComputeResultDirectory } from '../../shared/compute-result-path';
-import { promises as fs } from 'node:fs';
+import { type Dirent, promises as fs } from 'node:fs';
 import type { NucleicAcid } from '@waypoint/sequence-utils';
 import { basename, dirname, extname, isAbsolute, join, relative, sep } from 'node:path';
 import {
@@ -38,6 +38,18 @@ import {
 } from '../../shared/native-workspace-manifest';
 
 const EXCLUDED_DIRS = new Set(['.git', 'node_modules', '.svn', '.hg', '__pycache__']);
+
+const INDEXED_FASTA_SUFFIX = /\.(?:fa|fasta|fna|ffn|frn)$/iu;
+const REFERENCE_ANNOTATION_SUFFIX = /\.gff3?(?:\.gz)?$/iu;
+
+function referenceFastaMatcher(entries: Dirent[]): (name: string) => boolean {
+  const stems = new Set(
+    entries
+      .filter((entry) => entry.isFile() && REFERENCE_ANNOTATION_SUFFIX.test(entry.name))
+      .map((entry) => entry.name.replace(REFERENCE_ANNOTATION_SUFFIX, ''))
+  );
+  return (name) => INDEXED_FASTA_SUFFIX.test(name) && stems.has(basename(name, extname(name)));
+}
 
 const MAX_DEPTH = 40;
 const MAX_REMEMBERED_REFUSALS = 10_000;
@@ -303,15 +315,21 @@ export async function convertLooseSequenceFile(
   const protectedPaths = options.automatic
     ? [...(options.protectedPaths ?? []), ...(await declaredNativeMigrationPaths(rootDir))]
     : options.protectedPaths;
+  let isReferenceSource = false;
   if (options.automatic) {
-    for (let directory = dirname(sourcePath); ; directory = dirname(directory)) {
-      if (await isPackageRoot(directory, await fs.readdir(directory, { withFileTypes: true })))
+    const parent = dirname(sourcePath);
+    for (let directory = parent; ; directory = dirname(directory)) {
+      const entries = await fs.readdir(directory, { withFileTypes: true });
+      if (await isPackageRoot(directory, entries))
         return {
           converted: false,
           packageRoots: [],
           reason: 'This file belongs to an existing package and was left unchanged.',
           disposition: 'owned',
         };
+      if (directory === parent && INDEXED_FASTA_SUFFIX.test(sourcePath)) {
+        isReferenceSource = referenceFastaMatcher(entries)(basename(sourcePath));
+      }
       if (directory === rootDir || dirname(directory) === directory) break;
     }
   }
@@ -325,6 +343,9 @@ export async function convertLooseSequenceFile(
       reason: 'This file already belongs to an entity and was left unchanged.',
       disposition: 'owned',
     };
+  if (isReferenceSource) {
+    return { converted: false, packageRoots: [], reason: null, disposition: 'source-only' };
+  }
   assertMigrationPathsAvailable([sourcePath], { ...options, protectedPaths });
   if (
     options.automatic &&
@@ -507,7 +528,10 @@ async function collectConstructFiles(
   const protectedFile = (path: string) =>
     protectedPaths.some((protectedPath) => migrationPathsIntersect(path, protectedPath));
 
-  async function recoverInterruptedConversion(recoveryRoot: string): Promise<void> {
+  async function recoverInterruptedConversion(
+    recoveryRoot: string,
+    isReferenceFasta: (name: string) => boolean
+  ): Promise<void> {
     try {
       const sourcePaths = (await fs.readdir(recoveryRoot)).map((name) =>
         join(dirname(recoveryRoot), name)
@@ -520,7 +544,12 @@ async function collectConstructFiles(
         ? await options.withCleanPaths([recoveryRoot, ...sourcePaths], recover)
         : await recover();
       if (recovery.kind === 'restored') {
-        if (isConstructSequenceFile(basename(recovery.path)) && !protectedFile(recovery.path))
+        const name = basename(recovery.path);
+        if (
+          isConstructSequenceFile(name) &&
+          !isReferenceFasta(name) &&
+          !protectedFile(recovery.path)
+        )
           found.push(recovery.path);
       } else if (recovery.kind === 'stranded') {
         failures.push({ path: recovery.path, message: recovery.reason });
@@ -555,10 +584,11 @@ async function collectConstructFiles(
     )
       return;
 
+    const isReferenceFasta = referenceFastaMatcher(entries);
     for (const entry of entries) {
       if (entry.isDirectory()) {
         if (isConversionSourceDirectoryName(entry.name)) {
-          await recoverInterruptedConversion(join(dirPath, entry.name));
+          await recoverInterruptedConversion(join(dirPath, entry.name), isReferenceFasta);
           continue;
         }
         if (
@@ -574,7 +604,12 @@ async function collectConstructFiles(
       }
       if (!entry.isFile() && !entry.isSymbolicLink()) continue;
       const path = join(dirPath, entry.name);
-      if (isConstructSequenceFile(entry.name) && !protectedFile(path)) found.push(path);
+      if (
+        isConstructSequenceFile(entry.name) &&
+        !isReferenceFasta(entry.name) &&
+        !protectedFile(path)
+      )
+        found.push(path);
     }
   }
 

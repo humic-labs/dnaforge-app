@@ -2,9 +2,11 @@ import { promises as fs } from 'node:fs';
 import { mkdtemp, mkdir, writeFile, readFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   collectPlasmidPackageGitFiles,
+  convertLooseSequenceFile,
   convertTreeToPlasmidPackages,
 } from './convert-tree-to-packages';
 
@@ -20,7 +22,7 @@ describe('convertTreeToPlasmidPackages', () => {
     await fs.rm(root, { recursive: true, force: true });
   });
 
-  async function file(relPath: string, content: string): Promise<string> {
+  async function file(relPath: string, content: string | Buffer): Promise<string> {
     const full = join(root, relPath);
     await mkdir(join(full, '..'), { recursive: true });
     await writeFile(full, content, 'utf8');
@@ -98,6 +100,32 @@ describe('convertTreeToPlasmidPackages', () => {
     expect(await readFile(join(root, 'data', 'results.csv'), 'utf8')).toBe('a,b\n1,2\n');
     expect(result.converted).toBe(1);
   });
+
+  it.each([
+    ['assembly.fna', 'assembly.gff3'],
+    ['reference.v2.fa', 'reference.v2.GFF.gz'],
+  ])(
+    'keeps %s beside its indexed annotation source on mount and individual open',
+    async (name, annotation) => {
+      const fasta = '>reference DNA\nACGTACGTACGT\n';
+      const gffBytes = Buffer.from('##gff-version 3\n');
+      const gff = annotation.endsWith('.gz') ? gzipSync(gffBytes) : gffBytes;
+      const source = await file(`data/${name}`, fasta);
+      const paired = await file(`data/${annotation}`, gff);
+      await file('data/another.fasta', fasta);
+      await file(`other/${name}`, fasta);
+
+      const tree = await convertTreeToPlasmidPackages(root);
+      expect(tree.converted).toBe(2);
+      expect(tree.failures).toEqual([]);
+      expect(await convertLooseSequenceFile(root, source, { automatic: true })).toMatchObject({
+        converted: false,
+        packageRoots: [],
+      });
+      expect(await readFile(source, 'utf8')).toBe(fasta);
+      expect(await readFile(paired)).toEqual(gff);
+    }
+  );
 
   it('leaves an unrelated .gb file in place when it has no GenBank record', async () => {
     const source = await file('Yeast/Collision.gb', 'unmanaged unrelated file');
