@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import {
   getNativeWheelInput,
   installNativeWheelMetadataSource,
@@ -70,4 +70,37 @@ it('unknown, late and ambiguous packets cannot invent exact phase or event ident
   expect(shouldAnimateWheel(ambiguous, document)).toBe(false);
   expect(ambiguous.defaultPrevented).toBe(false);
   dispose();
+});
+
+it('matches AppKit wall time to the original Chromium wheel event after a wall clock adjustment', () => {
+  const view = document.defaultView!;
+  let emit!: (packet: NativeWheelMetadata) => void;
+  const dispose = installNativeWheelMetadataSource(document, (listener) => {
+    emit = listener;
+    return () => undefined;
+  });
+  const skew = 4;
+  const wall = vi
+    .spyOn(Date, 'now')
+    .mockImplementation(() =>
+      Math.floor(view.performance.timeOrigin + view.performance.now() + skew)
+    );
+  try {
+    const event = new WheelEvent('wheel', { bubbles: true, deltaY: 40 });
+    const time = view.performance.now();
+    Object.defineProperty(event, 'timeStamp', { value: time });
+    emit({
+      precise: false,
+      phase: 0,
+      momentumPhase: 0,
+      ordinal: 17,
+      timestamp: view.performance.timeOrigin + time + skew,
+    });
+    document.dispatchEvent(event);
+    expect(getNativeWheelInput(event)?.ordinal).toBe(17);
+    expect(shouldAnimateWheel(event, document)).toBe(true);
+  } finally {
+    wall.mockRestore();
+    dispose();
+  }
 });
