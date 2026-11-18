@@ -15,3 +15,11 @@ export {
   validateNativePrimerReferences,
   validateNativeStrainReferences,
 } from './native-references';
+export {
+  verifyAcceptedDnaProductionWitness,
+  inspectAcceptedDnaProductionSelection,
+} from './accepted-dna-production';
+export type {
+  AcceptedDnaProductionWitness,
+  VerifiedAcceptedDnaProduction,
+} from './accepted-dna-production';

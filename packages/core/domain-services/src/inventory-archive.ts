@@ -181,7 +181,11 @@ function history(value: unknown): readonly InventoryArchiveJournalEntry[] {
 export function parseInventoryArchive(
   sourceText: string,
   runtime: InventoryArchiveRuntime,
-  options: { readonly depth?: number; readonly allowRunValueAttributions?: boolean } = {}
+  options: {
+    readonly depth?: number;
+    readonly allowRunValueAttributions?: boolean;
+    readonly allowScientificProductions?: boolean;
+  } = {}
 ): InventoryValidatedArchive {
   const depth = options.depth ?? 0;
   if (!Number.isSafeInteger(depth) || depth < 0 || depth > MAX_INVENTORY_ARCHIVE_DEPTH)
@@ -263,7 +267,7 @@ export function parseInventoryArchive(
       );
     const decodedState = json(stateJson, '/content/state/json');
     try {
-      state = parseInventoryState(decodedState);
+      state = parseInventoryState(decodedState, options);
     } catch (error) {
       return fail(
         'INVALID_ARCHIVE_STATE',
@@ -308,6 +312,9 @@ export function parseInventoryArchive(
         source: scope,
         rows: parsedJournal,
         depth,
+        ...(options.allowScientificProductions === undefined
+          ? {}
+          : { allowScientificProductions: options.allowScientificProductions }),
         ...(options.allowRunValueAttributions === undefined
           ? {}
           : { allowRunValueAttributions: options.allowRunValueAttributions }),

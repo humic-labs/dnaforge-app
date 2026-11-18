@@ -28,7 +28,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v27. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v29. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -2071,6 +2071,72 @@ empty maps in memory and refuse supplied future maps. Receipt context 11 admits
 the new record and withdrawal kinds. Earlier receipt contexts refuse this new
 family throughout nested archive adoption while preserving their existing
 historical interpretation. Protocol file receipt formats remain separate.
+
+## Recorded manual production
+
+A completed manual production records exact positive amounts consumed from
+distinct existing stocks and an independently measured output in an originally
+empty vessel. The output design must be a selected current accepted, nonempty
+DNA document. The saved Run supplies scientific context; it does not supply
+inventory quantities or claim that a reaction succeeded. Recording does not
+create a design or change the Run. Existing source eligibility, reservations,
+custody, validity and lot restrictions still apply.
+
+One atomic inventory batch consumes the inputs, creates a prepared lot, begins
+its controls as unassessed and receives a quarantined stock. The immutable
+report keeps original input before/after facts, new lot and stock facts,
+original Run and accepted design pins, method, reason and native recording time.
+Output composition remains unknown. Later assessment and stock-quality decisions
+use their existing separate owners; they do not alter the original report.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Ready: exact native preview
+    Draft --> Blocked: source or physical admission refuses
+    Ready --> Draft: source, scope, revision or deadline changes
+    Ready --> Sending: retain exact request
+    Sending --> Recorded: matching committed receipt
+    Sending --> Unknown: acknowledgement unavailable
+    Sending --> CheckingExisting: same business report already exists
+    Unknown --> Sending: identical request and production identity
+    Unknown --> CheckingExisting: no request receipt; inspect exact report
+    CheckingExisting --> AlreadyRecorded: identity, intent and choices match
+    CheckingExisting --> Unknown: original report unavailable
+    Recorded --> Recorded: immutable report
+    AlreadyRecorded --> AlreadyRecorded: no additional physical effect
+```
+
+Production identity identifies one reported occurrence independently of its
+request. The same identity and intent returns its original report before current
+stock or source admission; changing its meaning conflicts. A genuine repeat
+requires another explicit occurrence identity. A fresh duplicate request creates
+no receipt alias or revision. Its original report can establish that the
+business outcome already exists without claiming that the fresh request
+committed.
+
+```mermaid
+stateDiagram-v2
+    state InitialProduct {
+        state LotAssessment {
+            [*] --> Unassessed
+            Unassessed --> Released: existing lot assessment
+        }
+        --
+        state StockQuality {
+            [*] --> Quarantined
+            Quarantined --> Usable: existing stock quality decision
+        }
+    }
+```
+
+Canonical v29 adds `scientificProductions`; older snapshots gain an empty map
+without a write or revision change. Earlier receipt contexts cannot admit the
+new raw schema or map, including an empty map in a nested archive. Export and
+adoption retain original scientific owner and revision pins while explicitly
+mapping physical material references to the destination. Historical initial
+controls and attribution remain intact, with imported principals clearly marked.
+Retained source proof is read separately from current-source navigation.
 
 ## Versioned scientific designs
 

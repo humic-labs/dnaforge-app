@@ -1,4 +1,9 @@
 import {
+  runInventoryScientificProduction,
+  runInventoryScientificProductionResume,
+  runInventoryScientificProductionReopen,
+} from './journeys/inventory-scientific-production.mjs';
+import {
   runInventoryNewArtifactContinuity,
   runInventoryNewArtifactContinuityResume,
   runInventoryNewArtifactContinuityReopen,
@@ -166,6 +171,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const args = process.argv.slice(2);
 const option = (name) => args[args.indexOf(name) + 1];
 const stage = args.includes('--stage') ? option('--stage') : 'doctor';
+const scientificProductionStages = {
+  'scientific-production': runInventoryScientificProduction,
+  'scientific-production-resume': runInventoryScientificProductionResume,
+  'scientific-production-reopen': runInventoryScientificProductionReopen,
+};
 const newArtifactContinuityStages = {
   'new-artifact-continuity': runInventoryNewArtifactContinuity,
   'new-artifact-continuity-resume': runInventoryNewArtifactContinuityResume,
@@ -214,6 +224,7 @@ assert.ok(
     ...Object.keys(runValueAttributionStages),
     ...Object.keys(designSetupStages),
     ...Object.keys(newArtifactContinuityStages),
+    ...Object.keys(scientificProductionStages),
     ...Object.keys(platePlanObservationStages),
     ...Object.keys(platePlanStages),
     ...Object.keys(citationStages),
@@ -1023,6 +1034,25 @@ try {
           ? runInventoryStockroomCorrectionsResume
           : runInventoryStockroomCorrectionsReopen
     )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
+  if (Object.hasOwn(scientificProductionStages, stage)) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the qualified native29 fixture or original production checkpoint.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    receipt.expected = await scientificProductionStages[stage]({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+      pilotRequest: fixture.scientificProductionPilot?.request,
+      evidenceDirectory: out,
+    });
   }
   if (Object.hasOwn(newArtifactContinuityStages, stage)) {
     assert.ok(

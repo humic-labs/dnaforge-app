@@ -1,4 +1,13 @@
 import {
+  inventoryApplyScientificProductionRequestSchema,
+  type InventoryApplyScientificProductionRequest,
+} from './inventory-scientific-productions';
+import {
+  verifyAcceptedDnaProductionWitness,
+  type AcceptedDnaProductionWitness,
+} from '@waypoint/scientific-artifacts';
+export type { InventoryApplyScientificProductionRequest } from './inventory-scientific-productions';
+import {
   inventoryApplyRunValueAttributionRequestSchema,
   inventoryApplyRunValueAttributionWithdrawalRequestSchema,
   type InventoryApplyRunValueAttributionRequest,
@@ -83,9 +92,20 @@ export const inventoryReceiptContextSchema = z
       z.literal(9),
       z.literal(10),
       z.literal(11),
+      z.literal(12),
     ]),
     principal: inventoryPrincipalSchema,
     authority: z.object({ kind: z.literal('local-profile'), profileKey }).strict(),
+    acceptedDesign: z
+      .custom<AcceptedDnaProductionWitness>((value) => {
+        try {
+          verifyAcceptedDnaProductionWitness(value);
+          return true;
+        } catch {
+          return false;
+        }
+      })
+      .optional(),
     scientificSource: z
       .discriminatedUnion('schema', [notebookSavedSourceSchema, protocolRunSavedSourceSchema])
       .optional(),
@@ -947,6 +967,7 @@ export const inventoryExecuteRequestSchema = inventoryReadRequestSchema
   }));
 
 export const inventoryAcceptedRequestSchema = z.union([
+  inventoryApplyScientificProductionRequestSchema,
   inventoryApplyRunValueAttributionRequestSchema,
   inventoryApplyRunValueAttributionWithdrawalRequestSchema,
   inventoryApplyPlatePlanVersionRequestSchema,
@@ -1109,6 +1130,7 @@ export type InventoryAcknowledgeSourceRequest = InventoryReadRequest & {
   readonly expectedPlanDigest: `sha256:${string}`;
 };
 export type InventoryAcceptedRequest =
+  | InventoryApplyScientificProductionRequest
   | InventoryApplyRunValueAttributionRequest
   | InventoryApplyRunValueAttributionWithdrawalRequest
   | InventoryApplyPlatePlanVersionRequest

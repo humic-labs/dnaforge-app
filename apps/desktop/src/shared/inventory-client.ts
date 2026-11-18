@@ -1,4 +1,30 @@
 import type {
+  InventoryScientificProductionDesignsRequest,
+  InventoryScientificProductionDesignsRead,
+  InventoryPreviewScientificProductionRequest,
+  InventoryScientificProductionPreviewSnapshot,
+  InventoryApplyScientificProductionRequest,
+  InventoryScientificProductionsRequest,
+  InventoryScientificProductionsRead,
+  InventoryScientificProductionRequest,
+  InventoryScientificProductionRead,
+  InventoryScientificProductionSourceRequest,
+  InventoryScientificProductionSourceRead,
+} from './inventory-scientific-productions';
+export type {
+  InventoryScientificProductionDesignsRequest,
+  InventoryScientificProductionDesignsRead,
+  InventoryPreviewScientificProductionRequest,
+  InventoryScientificProductionPreviewSnapshot,
+  InventoryApplyScientificProductionRequest,
+  InventoryScientificProductionsRequest,
+  InventoryScientificProductionsRead,
+  InventoryScientificProductionRequest,
+  InventoryScientificProductionRead,
+  InventoryScientificProductionSourceRequest,
+  InventoryScientificProductionSourceRead,
+} from './inventory-scientific-productions';
+import type {
   InventoryRunValueCandidatesRequest,
   InventoryRunValueCandidatesRead,
   InventoryPreviewRunValueAttributionRequest,
@@ -384,6 +410,25 @@ export type {
   InventoryPlatePlanObservationSourceRead,
 } from './inventory-plate-plan-observations';
 export interface InventoryClient {
+  scientificProductionDesigns(
+    input: InventoryScientificProductionDesignsRequest
+  ): Promise<InventoryScientificProductionDesignsRead>;
+  previewScientificProduction(
+    input: InventoryPreviewScientificProductionRequest
+  ): Promise<InventoryScientificProductionPreviewSnapshot>;
+  applyScientificProduction(
+    input: InventoryApplyScientificProductionRequest
+  ): Promise<NativeInventoryExecution>;
+  scientificProductions(
+    input: InventoryScientificProductionsRequest
+  ): Promise<InventoryScientificProductionsRead>;
+  scientificProduction(
+    input: InventoryScientificProductionRequest
+  ): Promise<InventoryScientificProductionRead>;
+  scientificProductionSource(
+    input: InventoryScientificProductionSourceRequest
+  ): Promise<InventoryScientificProductionSourceRead>;
+
   runValueCandidates(
     input: InventoryRunValueCandidatesRequest
   ): Promise<InventoryRunValueCandidatesRead>;
@@ -546,6 +591,12 @@ export function unavailableInventoryClient(): InventoryClient {
     message: 'Inventory requires the connected desktop owner.',
   });
   return {
+    scientificProductionDesigns: unavailable,
+    previewScientificProduction: unavailable,
+    applyScientificProduction: unavailableMutation,
+    scientificProductions: unavailable,
+    scientificProduction: unavailable,
+    scientificProductionSource: unavailable,
     runValueCandidates: unavailable,
     previewRunValueAttribution: unavailable,
     applyRunValueAttribution: unavailableMutation,

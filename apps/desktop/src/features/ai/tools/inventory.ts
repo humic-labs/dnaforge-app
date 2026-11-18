@@ -1,4 +1,12 @@
 import {
+  inventoryScientificProductionDesignsRequestSchema,
+  inventoryPreviewScientificProductionRequestSchema,
+  inventoryApplyScientificProductionRequestSchema,
+  inventoryScientificProductionsRequestSchema,
+  inventoryScientificProductionRequestSchema,
+  inventoryScientificProductionSourceRequestSchema,
+} from '../../../shared/inventory-scientific-productions';
+import {
   inventoryRunValueCandidatesRequestSchema,
   inventoryPreviewRunValueAttributionRequestSchema,
   inventoryApplyRunValueAttributionRequestSchema,
@@ -79,6 +87,13 @@ const identity = z.string().min(1).max(256);
 const revision = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const scope = { project, inventoryId: identity };
 const plainInput = z.discriminatedUnion('kind', [
+  inventoryScientificProductionDesignsRequestSchema.extend({kind:z.literal('scientific-production-designs')}).strict(),
+  inventoryPreviewScientificProductionRequestSchema.extend({kind:z.literal('preview-scientific-production')}).strict(),
+  inventoryApplyScientificProductionRequestSchema.extend({kind:z.literal('apply-scientific-production')}).strict(),
+  inventoryScientificProductionsRequestSchema.extend({kind:z.literal('scientific-productions')}).strict(),
+  inventoryScientificProductionRequestSchema.extend({kind:z.literal('scientific-production')}).strict(),
+  inventoryScientificProductionSourceRequestSchema.extend({kind:z.literal('scientific-production-source')}).strict(),
+
   inventoryRunValueCandidatesRequestSchema
     .extend({ kind: z.literal('run-value-candidates') })
     .strict(),
@@ -294,6 +309,12 @@ const material = z
   .object({ id: z.string(), name: z.string(), kind: z.string(), registryId: z.string().nullable() })
   .strict();
 export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
+  z.object({...ok,kind:z.literal('scientific-production-designs'),result:jsonObjectSchema}).strict(),
+  z.object({...ok,kind:z.literal('scientific-production-preview'),preview:jsonObjectSchema}).strict(),
+  z.object({...ok,kind:z.literal('scientific-productions'),result:jsonObjectSchema}).strict(),
+  z.object({...ok,kind:z.literal('scientific-production'),result:jsonObjectSchema}).strict(),
+  z.object({...ok,kind:z.literal('scientific-production-source'),result:jsonObjectSchema}).strict(),
+
   z.object({ ...ok, kind: z.literal('run-value-candidates'), result: jsonObjectSchema }).strict(),
   z
     .object({ ...ok, kind: z.literal('run-value-attribution-preview'), preview: jsonObjectSchema })
@@ -420,6 +441,7 @@ export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
 ]);
 
 export const INVENTORY_DESCRIPTION =
+  'Record one completed manual production using scientific-production-designs, preview-scientific-production and apply-scientific-production. Use an exact saved Run inventory source pin, accepted current nonempty DNA design, stable production identity, distinct ordered stock inputs and independently measured output in an existing empty vessel. Only apply atomically consumes inputs and records one prepared managed unassessed lot and quarantined output stock; no hardware or Run file is changed. Preserve exact raw request and identity after unknown acknowledgement. A requested-operation NO_CHANGES rejection requires exact scientific-production detail and original choices to prove the existing business outcome; never invent a new receipt or repeat physical work. Read scientific-productions summaries and scientific-production-source retained Run and design evidence separately from current navigation. ' +
   'Associate an exact saved Run value with an existing recorded physical subject using run-value-candidates, preview-run-value-attribution and apply-run-value-attribution. Candidate rows provide inventory source-packet and complete raw-row SHA pins; never substitute a Protocol package hash. The value describes the subject and does not establish that this Run consumed or produced it. These writes only append metadata. Current comparison in exact run-value-attribution detail is independent from Active or Withdrawn history; restoring matching bytes never revives a withdrawal. Use preview/apply-run-value-attribution-withdrawal for terminal source-free correction, and an explicit fresh identity plus four exact predecessor pins for a same-Run/file/slot successor. Read bounded run-value-attributions summaries and retained run-value-attribution-source evidence; foreign saved contexts are never silently relocalized. Preserve original operation and intent after an unknown acknowledgement. ' +
   'Read scientific-works-for-context with explicit project, inventoryId and context {kind,entityId} for immutable completed manual transfers recorded with that exact Notebook or Run. Pages are bounded, ordered by recorded time and work ID, and pinned to one inventory revision; pass the native nextCursor unchanged and restart first page on revision change. Ready zero rows, inventory-absent and unavailable are distinct. These are historical stock effects and saved source pins, not declared Run inputs, produced material or current stock availability. Current source edits or removal do not erase recorded work. Use scientific-source lazily by returned workId for its retained source; listing and source viewing never write inventory or a Run. ' +
   'Read stockroom for expected delivery progress, original received-component allocation remainders and reorder reports at one native projectId/inventoryId/revision/principal/asOf. Use generic execute for record-expected-delivery, allocate-arrival, withdraw-arrival-allocation, close-expected-delivery-remainder, reopen-expected-delivery, record-reorder-rule and retire-reorder-rule. Expectations record explicit scientific material, positive amount, supplier or null, optional externalReference and reason; they never place an order or create on-hand stock. Allocate only original identified known received component amounts by arrivalId+componentKey, never current remaining quantity or package labels. Active allocations are capped across all lines by the original receipt and each line expectation; same scientific material and dimension are required. Use, movement, disposal and eligibility changes never unfulfill an allocation. Close only positive unmatched remainder; reopen explicitly before further matching or withdrawing an allocation on that line. Withdrawn allocations are immutable history and corrections get new IDs. Reorder rules declare positive exact threshold, actionBasis reserve or withdraw, and validityBasis current-recorded-rules or confirmed-current-validity without defaults. Known eligible unreserved stock is a lower bound; reaching threshold proves adequate even with unknown amounts, otherwise relevant eligible unknowns require measurement. Other dimensions and excluded physical stock remain explicit; expected quantities never enter the subtotal. Current-recorded-rules can include disclosed untracked validity and does not prove unexpired material; confirmed-current-validity requires coverage and the selected reserve/withdraw admission. Read nextBoundaryAt and request a new native snapshot at boundaries; never store low/expired flags or use renderer time as business authority. Recording expected deliveries, matching and reports send no vendor messages, purchases or spending. ' +

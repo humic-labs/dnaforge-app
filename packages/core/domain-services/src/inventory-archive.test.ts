@@ -574,3 +574,32 @@ describe('deterministic archive adoption preview', () => {
     });
   });
 });
+
+it('passes inherited production refusal through old raw snapshots to descendant replay', () => {
+  const f = fixture(1);
+  const oldText = rewritten(f.artifact.sourceText, (document) => {
+    const raw = JSON.parse(
+      document.content.state.kind === 'present' ? document.content.state.json : 'null'
+    );
+    raw.schema = 'dnaforge.inventory.v28';
+    delete raw.scientificProductions;
+    const json = JSON.stringify(raw);
+    Object.assign(document.content, {
+      source: { ...document.content.source, storedSchema: raw.schema },
+      state: { kind: 'present', json, sha256: sha256(json) },
+    });
+  });
+  const replay = vi.fn((input: Parameters<InventoryArchiveRuntime['replayJournal']>[0]) =>
+    runtime.replayJournal(input)
+  );
+  const checked = parseInventoryArchive(
+    oldText,
+    { ...runtime, replayJournal: replay },
+    { allowScientificProductions: false }
+  );
+  expect(checked.state?.scientificProductions).toEqual({});
+  expect(replay.mock.calls[0]?.[0].allowScientificProductions).toBe(false);
+  expect(() =>
+    parseInventoryArchive(f.artifact.sourceText, runtime, { allowScientificProductions: false })
+  ).toThrow(/scientific productions/);
+});

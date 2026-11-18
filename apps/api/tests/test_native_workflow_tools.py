@@ -1464,3 +1464,74 @@ async def test_inventory_full_manual_observation_routes_keep_occurrence_and_curr
         await execute_native_workflow("inventory", {"operation": operations[3]}, context)
     assert revoked.value.code == "GRANT_REVOKED"
     assert len(state["calls"]) == 5
+
+
+async def test_inventory_production_keeps_exact_pins_and_requires_write_only_for_report(native):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    scope = {"project": "project", "inventoryId": "inventory"}
+    digest = "sha256:" + "a" * 64
+    choices = {
+        "identity": {"namespace": "manual", "productionId": "stable-production"},
+        "context": {"kind": "protocol-run", "entityId": "project::run", "sourceSha256": digest},
+        "design": {
+            "scientificWorkspaceId": "project",
+            "revision": {
+                "kind": "accepted-object",
+                "resourceId": "design",
+                "resourceRevisionId": "rr",
+                "workspaceVersionId": "wv",
+                "contentSha256": "b" * 64,
+            },
+        },
+        "inputs": [{"stockId": "stock", "quantity": {"value": "4", "unit": "uL"}}],
+        "output": {
+            "vesselId": "empty",
+            "quantity": {"value": "3", "unit": "uL"},
+            "lotName": "Product",
+        },
+        "method": "Manual preparation",
+        "reason": "Completed report",
+    }
+    pin = {"productionId": "scientific-production:" + "c" * 64, "intentSha256": digest}
+    operations = [
+        {"kind": "scientific-production-designs", **scope, "limit": 20},
+        {
+            "kind": "preview-scientific-production",
+            **scope,
+            "expectedRevision": 102,
+            "choices": choices,
+        },
+        {
+            "kind": "scientific-productions",
+            **scope,
+            "context": {"kind": "protocol-run", "entityId": "project::run"},
+        },
+        {"kind": "scientific-production", **scope, **pin},
+        {"kind": "scientific-production-source", **scope, **pin},
+    ]
+    for operation in operations:
+        await execute_native_workflow("inventory", {"operation": operation}, context)
+        assert state["calls"][-1]["command"] == "inventory." + operation["kind"]
+        assert state["calls"][-1]["request"] == {
+            key: value for key, value in operation.items() if key != "kind"
+        }
+        assert state["calls"][-1]["agent"]["capabilities"] == ["read-workspace"]
+    apply = {
+        **operations[1],
+        "kind": "apply-scientific-production",
+        "operationId": "stable-attempt",
+        "expectedPlanDigest": digest,
+    }
+    with pytest.raises(ToolExecutionFailure) as denied:
+        await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert denied.value.code == "INSUFFICIENT_SCOPE"
+    assert len(state["calls"]) == 5
+    state["scope"] = ["read-workspace", "write-workspace"]
+    await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert state["calls"][-1]["request"] == {**apply, "kind": "record-scientific-production"}
+    state["revoked"] = True
+    with pytest.raises(ToolExecutionFailure) as revoked:
+        await execute_native_workflow("inventory", {"operation": operations[4]}, context)
+    assert revoked.value.code == "GRANT_REVOKED"
+    assert len(state["calls"]) == 6

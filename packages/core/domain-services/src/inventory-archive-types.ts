@@ -74,6 +74,7 @@ export interface InventoryArchiveRuntime {
     readonly rows: readonly InventoryArchiveParsedJournalEntry[];
     readonly depth: number;
     readonly allowRunValueAttributions?: boolean;
+    readonly allowScientificProductions?: boolean;
   }): InventoryState;
 }
 

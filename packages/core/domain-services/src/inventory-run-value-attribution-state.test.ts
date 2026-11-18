@@ -99,11 +99,12 @@ function fixture() {
 
 it('upcasts a nonempty v27 observation without rewriting it and refuses future maps on older schemas', () => {
   const { before } = fixture();
-  const { runValueAttributions, runValueAttributionWithdrawals, ...old } = before;
+  const { scientificProductions, runValueAttributions, runValueAttributionWithdrawals, ...old } =
+    before;
   const previous = { ...old, schema: 'dnaforge.inventory.v27' };
   const bytes = JSON.stringify(previous),
     parsed = parseInventoryState(previous);
-  expect(parsed.schema).toBe('dnaforge.inventory.v28');
+  expect(parsed.schema).toBe('dnaforge.inventory.v29');
   expect(parsed.platePlanObservations).toEqual(before.platePlanObservations);
   expect(parsed.runValueAttributions).toEqual({});
   expect(parsed.runValueAttributionWithdrawals).toEqual({});
@@ -197,4 +198,17 @@ it('adopts principals without rebinding saved sources, snapshots, physical ident
     )
   ).toBe(false);
   expect(parseInventoryState(adopted.state)).toEqual(adopted.state);
+});
+
+it('retains complete raw28 attributions and withdrawals while upcasting only the new empty production map', () => {
+  const { state, attribution, withdrawal } = fixture();
+  const { scientificProductions, ...old } = state;
+  const raw = { ...old, schema: 'dnaforge.inventory.v28' },
+    text = JSON.stringify(raw);
+  const parsed = parseInventoryState(raw, { allowScientificProductions: false });
+  expect(parsed.scientificProductions).toEqual({});
+  expect(parsed.runValueAttributions[attribution.id]).toEqual(attribution);
+  expect(parsed.runValueAttributionWithdrawals[withdrawal.id]).toEqual(withdrawal);
+  expect(parsed).toEqual(state);
+  expect(JSON.stringify(raw)).toBe(text);
 });

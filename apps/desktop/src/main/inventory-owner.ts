@@ -1,3 +1,22 @@
+import * as productionWire from '../shared/inventory-scientific-productions';
+import {
+  inventoryScientificProductionExisting,
+  inventoryScientificProductionPreview,
+  inventoryScientificProductions,
+  type AcceptedDnaProductionSelection,
+} from '@waypoint/domain-services';
+import {
+  captureAcceptedDnaProductionDesign,
+  type NativeAcceptedDnaProductionCapture,
+  type NativeAcceptedDnaProductionLease,
+} from './scientific-accepted-dna-design';
+import {
+  applyNativeInventoryScientificProduction,
+  findNativeInventoryScientificProductionSource,
+} from './inventory-scientific-productions';
+import type { AcceptedDnaProductionWitness } from '@waypoint/scientific-artifacts';
+import { ScientificObjectStore } from './scientific-object-store';
+import { scientificHistoryWorkspaceIdentity } from './scientific-history-identity';
 import { createHash } from 'node:crypto';
 import * as runValueWire from '../shared/inventory-run-value-attributions';
 import {
@@ -526,7 +545,11 @@ export function createNativeInventoryOwner(options: {
     parsed: InventoryAcceptedRequest,
     assertCurrent: () => void,
     invocation: NativeInventoryInvocation,
-    scientificCapture?: NotebookSavedSourceCapture | ProtocolSavedSourceCapture
+    scientificCapture?: NotebookSavedSourceCapture | ProtocolSavedSourceCapture,
+    productionCapture?: {
+      witness: AcceptedDnaProductionWitness;
+      lease: NativeAcceptedDnaProductionLease;
+    }
   ): NativeInventoryExecution => {
     const project = resolveProject(parsed.project, true);
     const assertProject = options.projectAuthority.capture(project.projectId, true);
@@ -587,13 +610,36 @@ export function createNativeInventoryOwner(options: {
           return entry.receipt;
         }
         const previous = row ? stateFromRow(row) : createInventoryState();
+        if ('kind' in request && request.kind === 'record-scientific-production') {
+          const existingProduction = inventoryScientificProductionExisting(
+            previous,
+            request.choices
+          );
+          if (existingProduction.kind !== 'new')
+            return {
+              status: 'rejected',
+              inventoryId: request.inventoryId,
+              operationId: request.operationId,
+              currentRevision: previous.revision,
+              code:
+                existingProduction.kind === 'no-change'
+                  ? 'INVENTORY_SCIENTIFIC_PRODUCTION_NO_CHANGES'
+                  : existingProduction.issue.code,
+              message:
+                existingProduction.kind === 'no-change'
+                  ? 'This completed production is already recorded. Read its original report.'
+                  : existingProduction.issue.message,
+            };
+        }
         const recordedAt = observationTime(previous);
         const context = inventoryReceiptContextSchema.parse({
-          version: 11,
+          version: 12,
           principal: principal(invocation),
           authority,
+          ...(productionCapture ? { acceptedDesign: productionCapture.witness } : {}),
           ...('kind' in request &&
-          (request.kind === 'record-scientific-transfer' ||
+          (request.kind === 'record-scientific-production' ||
+            request.kind === 'record-scientific-transfer' ||
             request.kind === 'record-scientific-transfer-v2' ||
             request.kind === 'record-scientific-citation' ||
             request.kind === 'record-plate-plan-observation' ||
@@ -612,7 +658,32 @@ export function createNativeInventoryOwner(options: {
         });
         let result: InventoryTransition;
         let assertStockroomMaterials = () => {};
-        if (
+        if ('kind' in request && request.kind === 'record-scientific-production') {
+          const existing = inventoryScientificProductionExisting(previous, request.choices);
+          if (existing.kind === 'no-change')
+            return reject(
+              'INVENTORY_SCIENTIFIC_PRODUCTION_NO_CHANGES',
+              'This completed production is already recorded. Read its original report.'
+            );
+          if (existing.kind === 'blocked')
+            return reject(existing.issue.code, existing.issue.message);
+          if (request.expectedRevision !== previous.revision)
+            return reject('REVISION_CONFLICT', 'Inventory changed after the production preview.');
+          if (!scientificCapture || !productionCapture)
+            return reject(
+              'SCIENTIFIC_CONTEXT_MISMATCH',
+              'Checked saved Run and accepted DNA design sources are required.'
+            );
+          scientificCapture.assertCurrent();
+          productionCapture.lease.assertCurrent();
+          result = applyNativeInventoryScientificProduction(
+            previous,
+            request,
+            { at: recordedAt, principal: context.principal, authority },
+            scientificCapture.source,
+            productionCapture.witness
+          );
+        } else if (
           'kind' in request &&
           (request.kind === 'record-run-value-attribution' ||
             request.kind === 'withdraw-run-value-attribution')
@@ -1255,7 +1326,8 @@ export function createNativeInventoryOwner(options: {
             request.kind === 'withdraw-scientific-citation' ||
             request.kind === 'record-plate-plan-observation' ||
             request.kind === 'record-run-value-attribution' ||
-            request.kind === 'withdraw-run-value-attribution') &&
+            request.kind === 'withdraw-run-value-attribution' ||
+            request.kind === 'record-scientific-production') &&
           Buffer.byteLength(canonicalNativeMutationRequest({ request, receipt }), 'utf8') >
             NATIVE_DOCUMENT_MAX_BODY_BYTES
         )
@@ -1275,6 +1347,7 @@ export function createNativeInventoryOwner(options: {
           );
         assertCurrent();
         assertStockroomMaterials();
+        productionCapture?.lease.assertCurrent();
         scientificCapture?.assertCurrent();
         db.prepare(
           `INSERT INTO inventory_state (inventory_id,project_id,revision,state_json) VALUES(?,?,?,?)
@@ -1298,6 +1371,7 @@ export function createNativeInventoryOwner(options: {
         assertCurrent();
         assertAcceptingProject();
         assertStockroomMaterials();
+        productionCapture?.lease.assertCurrent();
         scientificCapture?.assertCurrent();
         committed = true;
         return receipt;
@@ -1376,7 +1450,506 @@ export function createNativeInventoryOwner(options: {
           'INVENTORY_QUERY_TOO_LARGE',
           'The complete saved-value read exceeds the inline limit. Choose a smaller page.'
         );
+  const captureProductionDesign = (
+    project: RegisteredProject,
+    selection: AcceptedDnaProductionSelection,
+    request: unknown,
+    source: unknown
+  ) =>
+    captureAcceptedDnaProductionDesign({
+      db: options.db(),
+      workspaceId: project.id,
+      projectId: project.projectId,
+      workspaceScope: project.projectId,
+      selection,
+      remainingWireBytes:
+        NATIVE_DOCUMENT_MAX_BODY_BYTES -
+        Buffer.byteLength(canonicalNativeMutationRequest({ request, source }), 'utf8') -
+        4096,
+      observeMaterial: () =>
+        observeBindings(options.db(), project, [
+          {
+            sourceMaterialId: selection.revision.resourceId,
+            destinationMaterialId: selection.revision.resourceId,
+          },
+        ])[0]!,
+    });
   return {
+    async scientificProductionDesigns(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<productionWire.InventoryScientificProductionDesignsRead> {
+      const request = productionWire.inventoryScientificProductionDesignsRequestSchema.parse(input);
+      await invocation.beforeScientificRead?.();
+      return boundRunValueRead(
+        inventorySnapshotRead(
+          request,
+          false,
+          (db, project, state): productionWire.InventoryScientificProductionDesignsRead => {
+            try {
+              const store = new ScientificObjectStore(db, project.id),
+                snapshot = store.read(),
+                scientificWorkspaceId = scientificHistoryWorkspaceIdentity(db, project.id),
+                query = request.query ?? '';
+              const header = {
+                projectId: project.projectId,
+                inventoryId: request.inventoryId,
+                revision: state?.revision ?? 0,
+                asOf: observationTime(state ?? createInventoryState()),
+                principal: principal(invocation),
+                scientificWorkspaceId,
+                query,
+              };
+              if (!snapshot.head)
+                return {
+                  kind: 'setup-required',
+                  ...header,
+                  acceptedHead: null,
+                  designs: [],
+                  nextCursor: null,
+                };
+              const designs: productionWire.InventoryScientificProductionDesignCandidate[] = [];
+              for (const slot of store.catalog().entries) {
+                if (slot.tombstone) continue;
+                const current = snapshot.reader.current(slot.resourceId);
+                if (
+                  !current ||
+                  current.document.kind !== 'sequence' ||
+                  current.document.molecule !== 'DNA' ||
+                  !current.document.bases.length ||
+                  current.representation?.format !== 'genbank-v1'
+                )
+                  continue;
+                const selection = {
+                  scientificWorkspaceId,
+                  revision: {
+                    kind: 'accepted-object' as const,
+                    resourceId: current.resourceId,
+                    resourceRevisionId: current.revisionId,
+                    workspaceVersionId: snapshot.head,
+                    contentSha256: createHash('sha256')
+                      .update(current.representation.text)
+                      .digest('hex'),
+                  },
+                };
+                if (
+                  query &&
+                  !`${current.document.name} ${current.resourceId}`
+                    .toLowerCase()
+                    .includes(query.toLowerCase())
+                )
+                  continue;
+                const observed = observeBindings(db, project, [
+                  {
+                    sourceMaterialId: current.resourceId,
+                    destinationMaterialId: current.resourceId,
+                  },
+                ])[0]!;
+                const row = db
+                  .prepare('SELECT id,name,kind,registry_id FROM lims_entity WHERE id=?')
+                  .get(current.resourceId) as
+                  | { id: string; name: string; kind: string; registry_id: string | null }
+                  | undefined;
+                designs.push({
+                  selection,
+                  document: {
+                    name: current.document.name,
+                    length: current.document.bases.length,
+                    topology: current.document.topology,
+                    scientificSha256: current.scientificHash,
+                  },
+                  materialAdmission:
+                    observed.kind === 'admitted' && row
+                      ? {
+                          kind: 'admitted',
+                          material: {
+                            id: row.id,
+                            name: row.name,
+                            kind: row.kind,
+                            registryId: row.registry_id,
+                          },
+                        }
+                      : {
+                          kind: 'unavailable',
+                          code: 'INVENTORY_MATERIAL_UNAVAILABLE',
+                          message:
+                            'The accepted design has no active material projection in this project.',
+                        },
+                });
+              }
+              designs.sort((a, b) =>
+                a.selection.revision.resourceId < b.selection.revision.resourceId
+                  ? -1
+                  : a.selection.revision.resourceId > b.selection.revision.resourceId
+                    ? 1
+                    : 0
+              );
+              const querySha256 = nativeInventorySha256(
+                canonicalNativeMutationRequest([
+                  project.projectId,
+                  request.inventoryId,
+                  scientificWorkspaceId,
+                  query,
+                ])
+              );
+              const snapshotSha256 = nativeInventorySha256(
+                canonicalNativeMutationRequest([
+                  snapshot.head,
+                  designs.map((row) => ({
+                    ...row,
+                    materialAdmission:
+                      row.materialAdmission.kind === 'admitted'
+                        ? row.materialAdmission
+                        : { kind: 'unavailable', code: row.materialAdmission.code },
+                  })),
+                ])
+              );
+              let start = 0;
+              if (request.cursor) {
+                const c = request.cursor;
+                if (c.querySha256 !== querySha256)
+                  return runValueUnavailable(
+                    'INVENTORY_QUERY_CURSOR_INVALID',
+                    'This cursor belongs to another design query.'
+                  );
+                if (c.snapshotSha256 !== snapshotSha256 || c.acceptedHead !== snapshot.head)
+                  return runValueUnavailable(
+                    'INVENTORY_QUERY_STALE',
+                    'Accepted designs changed. Read the first page again.',
+                    true
+                  );
+                const index = designs.findIndex(
+                  (row) => row.selection.revision.resourceId === c.after.resourceId
+                );
+                if (index < 0)
+                  return runValueUnavailable(
+                    'INVENTORY_QUERY_CURSOR_INVALID',
+                    'The design cursor boundary is unavailable.'
+                  );
+                start = index + 1;
+              }
+              const page = designs.slice(start, start + (request.limit ?? 20)),
+                last = page.at(-1);
+              return {
+                kind: 'ready',
+                ...header,
+                acceptedHead: snapshot.head,
+                designs: page,
+                nextCursor:
+                  last && start + page.length < designs.length
+                    ? {
+                        querySha256,
+                        snapshotSha256,
+                        acceptedHead: snapshot.head,
+                        after: { resourceId: last.selection.revision.resourceId },
+                      }
+                    : null,
+              };
+            } catch (error) {
+              return runValueUnavailable(
+                'INVENTORY_SCIENTIFIC_PRODUCTION_DESIGNS_UNAVAILABLE',
+                error instanceof Error ? error.message : String(error),
+                true
+              );
+            }
+          }
+        )
+      );
+    },
+    async previewScientificProduction(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<productionWire.InventoryScientificProductionPreviewSnapshot> {
+      const request = productionWire.inventoryPreviewScientificProductionRequestSchema.parse(input),
+        current = read({ project: request.project, inventoryId: request.inventoryId });
+      const observe = async (
+        capture: ProtocolSavedSourceCapture | null,
+        design: NativeAcceptedDnaProductionCapture | null
+      ): Promise<productionWire.InventoryScientificProductionPreviewSnapshot> => {
+        await invocation.beforeScientificRead?.();
+        const latest = read({ project: request.project, inventoryId: request.inventoryId }),
+          saved = latest.row ? stateFromRow(latest.row) : createInventoryState();
+        const existing = inventoryScientificProductionExisting(saved, request.choices);
+        const currentCapture =
+          existing.kind === 'new' ? (capture?.refreshCurrentLocal?.() ?? capture) : null;
+        const lease = existing.kind === 'new' ? design?.refreshCurrent() : undefined;
+        return boundRunValueRead(
+          inventorySnapshotRead(
+            request,
+            false,
+            (db, project, state): productionWire.InventoryScientificProductionPreviewSnapshot => {
+              const value = state ?? createInventoryState(),
+                again = inventoryScientificProductionExisting(value, request.choices);
+              if (again.kind === 'new') {
+                currentCapture?.assertCurrent();
+                lease?.assertCurrent();
+              }
+              const asOf = observationTime(value),
+                caller = principal(invocation);
+              try {
+                return {
+                  ...inventoryScientificProductionPreview(value, {
+                    ...request.choices,
+                    target: {
+                      ...importTarget(
+                        db,
+                        project,
+                        request.inventoryId,
+                        state ? inventory(db, request.inventoryId, project.projectId) : undefined
+                      ),
+                      revision: request.expectedRevision,
+                    },
+                    source: again.kind === 'new' ? (currentCapture?.source ?? null) : null,
+                    designBinding: again.kind === 'new' ? (lease?.verified.binding ?? null) : null,
+                    asOf,
+                    principal: caller,
+                    authority,
+                  }),
+                  projectId: project.projectId,
+                  inventoryId: request.inventoryId,
+                  revision: value.revision,
+                };
+              } finally {
+                if (again.kind === 'new') {
+                  currentCapture?.assertCurrent();
+                  lease?.assertCurrent();
+                }
+              }
+            }
+          )
+        );
+      };
+      const state = current.row ? stateFromRow(current.row) : createInventoryState();
+      if (inventoryScientificProductionExisting(state, request.choices).kind !== 'new')
+        return observe(null, null);
+      try {
+        if (!options.protocolSources) throw Error('The saved Run source owner is unavailable.');
+        return await options.protocolSources.withSavedRunSource(
+          current.project.projectId,
+          request.choices.context.entityId,
+          async (capture) => {
+            const latest = read({ project: request.project, inventoryId: request.inventoryId }),
+              value = latest.row ? stateFromRow(latest.row) : createInventoryState();
+            if (inventoryScientificProductionExisting(value, request.choices).kind !== 'new')
+              return observe(null, null);
+            return observe(
+              capture,
+              captureProductionDesign(
+                latest.project,
+                request.choices.design,
+                request,
+                capture.source
+              )
+            );
+          }
+        );
+      } catch (error) {
+        if (error instanceof NativeDocumentCommandError) throw error;
+        const latest = read({ project: request.project, inventoryId: request.inventoryId }),
+          value = latest.row ? stateFromRow(latest.row) : createInventoryState();
+        if (inventoryScientificProductionExisting(value, request.choices).kind !== 'new')
+          return observe(null, null);
+        return runValueUnavailable(
+          'INVENTORY_SCIENTIFIC_PRODUCTION_SOURCE_UNAVAILABLE',
+          error instanceof Error ? error.message : String(error),
+          true
+        );
+      }
+    },
+    async applyScientificProduction(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<NativeInventoryExecution> {
+      const request = productionWire.inventoryApplyScientificProductionRequestSchema.parse(input),
+        project = resolveProject(request.project, true);
+      const existing = () => {
+        const row = inventory(options.db(), request.inventoryId, project.projectId),
+          state = row ? stateFromRow(row) : createInventoryState();
+        return (
+          Boolean(
+            options
+              .db()
+              .prepare('SELECT 1 FROM inventory_journal WHERE inventory_id=? AND operation_id=?')
+              .get(request.inventoryId, request.operationId)
+          ) || inventoryScientificProductionExisting(state, request.choices).kind !== 'new'
+        );
+      };
+      if (existing()) return commit(request, assertCurrent, invocation);
+      try {
+        if (!options.protocolSources) throw Error('The saved Run source owner is unavailable.');
+        return await options.protocolSources.withSavedRunSource(
+          project.projectId,
+          request.choices.context.entityId,
+          async (capture) => {
+            if (existing()) return commit(request, assertCurrent, invocation);
+            const design = captureProductionDesign(
+              project,
+              request.choices.design,
+              request,
+              capture.source
+            );
+            await invocation.beforeScientificCommit?.();
+            if (existing()) return commit(request, assertCurrent, invocation);
+            const currentCapture = capture.refreshCurrentLocal?.() ?? capture;
+            const lease = design.refreshCurrent();
+            return commit(request, assertCurrent, invocation, currentCapture, {
+              witness: design.witness,
+              lease,
+            });
+          }
+        );
+      } catch (error) {
+        if (error instanceof NativeDocumentCommandError) throw error;
+        if (existing()) return commit(request, assertCurrent, invocation);
+        throw new NativeDocumentCommandError(
+          'INVENTORY_SCIENTIFIC_PRODUCTION_SOURCE_UNAVAILABLE',
+          error instanceof Error ? error.message : String(error),
+          false
+        );
+      }
+    },
+    scientificProductions(input: unknown): productionWire.InventoryScientificProductionsRead {
+      const request = productionWire.inventoryScientificProductionsRequestSchema.parse(input),
+        filters = { context: request.context ?? null };
+      return boundRunValueRead(
+        inventorySnapshotRead(
+          request,
+          false,
+          (_db, project, state): productionWire.InventoryScientificProductionsRead => {
+            const header = {
+              projectId: project.projectId,
+              inventoryId: request.inventoryId,
+              revision: state?.revision ?? 0,
+              filters,
+            };
+            if (request.context && !request.context.entityId.startsWith(`${project.projectId}::`))
+              return runValueUnavailable(
+                'FOREIGN_RUN_CONTEXT',
+                'Choose the exact Run in this project.'
+              );
+            if (!state)
+              return { kind: 'inventory-absent', ...header, productions: [], nextCursor: null };
+            const rows = inventoryScientificProductions(
+                state,
+                request.context
+                  ? {
+                      context: {
+                        ...request.context,
+                        projectId: project.projectId,
+                        workspaceScope: project.projectId,
+                      },
+                    }
+                  : {}
+              ),
+              querySha256 = nativeInventorySha256(
+                canonicalNativeMutationRequest([project.projectId, request.inventoryId, filters])
+              );
+            let start = 0;
+            if (request.cursor) {
+              const c = request.cursor;
+              if (c.querySha256 !== querySha256)
+                return runValueUnavailable(
+                  'INVENTORY_QUERY_CURSOR_INVALID',
+                  'This cursor belongs to another production query.'
+                );
+              if (c.revision !== state.revision)
+                return runValueUnavailable(
+                  'INVENTORY_QUERY_STALE',
+                  'Inventory changed. Read the first page again.',
+                  true
+                );
+              const index = rows.findIndex(
+                (row) => row.id === c.after.productionId && row.at === c.after.at
+              );
+              if (index < 0)
+                return runValueUnavailable(
+                  'INVENTORY_QUERY_CURSOR_INVALID',
+                  'The production cursor boundary is unavailable.'
+                );
+              start = index + 1;
+            }
+            const page = rows.slice(start, start + (request.limit ?? 20)),
+              last = page.at(-1);
+            return {
+              kind: 'ready',
+              ...header,
+              productions: page,
+              nextCursor:
+                last && start + page.length < rows.length
+                  ? {
+                      querySha256,
+                      revision: state.revision,
+                      after: { at: last.at, productionId: last.id },
+                    }
+                  : null,
+            };
+          }
+        )
+      );
+    },
+    scientificProduction(input: unknown): productionWire.InventoryScientificProductionRead {
+      const request = productionWire.inventoryScientificProductionRequestSchema.parse(input);
+      return boundRunValueRead(
+        inventorySnapshotRead(
+          request,
+          false,
+          (_db, project, state): productionWire.InventoryScientificProductionRead => {
+            const production =
+              state && Object.hasOwn(state.scientificProductions, request.productionId)
+                ? state.scientificProductions[request.productionId]
+                : null;
+            return production && production.intentSha256 === request.intentSha256
+              ? {
+                  kind: 'available',
+                  projectId: project.projectId,
+                  inventoryId: request.inventoryId,
+                  revision: state!.revision,
+                  production,
+                }
+              : runValueUnavailable(
+                  'INVENTORY_SCIENTIFIC_PRODUCTION_NOT_FOUND',
+                  'The exact production report is unavailable.'
+                );
+          }
+        )
+      );
+    },
+    scientificProductionSource(
+      input: unknown
+    ): productionWire.InventoryScientificProductionSourceRead {
+      const request = productionWire.inventoryScientificProductionSourceRequestSchema.parse(input);
+      return boundRunValueRead(
+        inventorySnapshotRead(
+          request,
+          false,
+          (db, project, state): productionWire.InventoryScientificProductionSourceRead => {
+            const production =
+              state && Object.hasOwn(state.scientificProductions, request.productionId)
+                ? state.scientificProductions[request.productionId]
+                : null;
+            if (!production || production.intentSha256 !== request.intentSha256)
+              return runValueUnavailable(
+                'INVENTORY_SCIENTIFIC_PRODUCTION_NOT_FOUND',
+                'The exact production report is unavailable.'
+              );
+            const entries = (
+              db
+                .prepare(
+                  'SELECT * FROM inventory_journal WHERE inventory_id=? ORDER BY revision ASC'
+                )
+                .all(request.inventoryId) as JournalRow[]
+            ).map((row) => entryFromRow(row, project.projectId));
+            if (
+              canonicalNativeMutationRequest(replayNativeInventoryJournal(entries)) !==
+              canonicalNativeMutationRequest(state)
+            )
+              return dataError();
+            return findNativeInventoryScientificProductionSource(production, entries);
+          }
+        )
+      );
+    },
     async runValueCandidates(
       input: unknown,
       invocation: NativeInventoryInvocation = {}

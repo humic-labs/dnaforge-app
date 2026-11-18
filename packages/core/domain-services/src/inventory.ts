@@ -1,3 +1,7 @@
+export * from './inventory-scientific-productions';
+export { parseInventoryScientificProduction } from './inventory-validation';
+export * from './inventory-scientific-production-identity';
+export * from './inventory-scientific-production-types';
 export * from './inventory-run-value-attribution-types';
 export * from './inventory-run-value-attribution-value';
 export * from './inventory-run-value-attribution-identity';

@@ -297,6 +297,57 @@ export class ScientificObjectStore {
       .deferred();
   }
 
+  exportHistoryWithBodies(maxBytes: number) {
+    return this.db
+      .transaction(() => {
+        if (!Number.isSafeInteger(maxBytes) || maxBytes < 1)
+          throw new Error('Scientific proof budget is invalid.');
+        const records = this.db
+          .prepare(
+            'SELECT COALESCE(SUM(length(CAST(canonical_json AS BLOB))),0) AS bytes, COUNT(*) AS count FROM scientific_revision_records WHERE workspace_id=?'
+          )
+          .get(this.workspaceId) as { bytes: number; count: number };
+        const blobs = this.db
+          .prepare(
+            'SELECT COALESCE(SUM(4*((byte_length+2)/3)),0) AS bytes, COUNT(*) AS count FROM scientific_revision_blobs WHERE workspace_id=?'
+          )
+          .get(this.workspaceId) as { bytes: number; count: number };
+        if (records.bytes + blobs.bytes + (records.count + blobs.count) * 128 > maxBytes)
+          throw new Error('Scientific proof exceeds the inline budget.');
+        const history = this.exportHistory();
+        const bodies = history.blobs.map((blob) => {
+          const bytes = this.readBlob(blob);
+          if (!bytes) throw new Error('Scientific proof blob is unavailable.');
+          return {
+            blob,
+            body: { encoding: 'base64' as const, value: Buffer.from(bytes).toString('base64') },
+          };
+        });
+        if (Buffer.byteLength(JSON.stringify({ history, blobs: bodies }), 'utf8') > maxBytes)
+          throw new Error('Scientific proof exceeds the inline budget.');
+        return { history, blobs: bodies };
+      })
+      .deferred();
+  }
+
+  captureCurrentReadGuard(): () => void {
+    const observe = () =>
+      JSON.stringify({
+        workspace: this.workspace(),
+        identity: scientificHistoryWorkspaceIdentity(this.db, this.workspaceId),
+        refs: this.db
+          .prepare(
+            'SELECT ref_name,head FROM scientific_revision_refs WHERE workspace_id=? ORDER BY ref_name'
+          )
+          .all(this.workspaceId),
+      });
+    const before = observe();
+    return () => {
+      if (observe() !== before)
+        throw new Error('SCIENTIFIC_SOURCE_CHANGED: Scientific authority changed after capture.');
+    };
+  }
+
   installHistory(
     input: ScientificHistoryInstallation,
     onAcceptedInsideTx?: () => undefined

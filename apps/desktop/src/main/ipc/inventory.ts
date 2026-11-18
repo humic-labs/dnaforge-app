@@ -1,3 +1,4 @@
+import { inventoryApplyScientificProductionRequestSchema } from '../../shared/inventory-scientific-productions';
 import {
   inventoryApplyRunValueAttributionRequestSchema,
   inventoryApplyRunValueAttributionWithdrawalRequestSchema,
@@ -168,6 +169,7 @@ export function registerInventoryHandlers(options: {
     method:
       | 'applyRunValueAttribution'
       | 'applyRunValueAttributionWithdrawal'
+      | 'applyScientificProduction'
       | 'applyPlatePlanObservation'
       | 'applyPlatePlanVersion'
       | 'applyScientificTransfer'
@@ -179,6 +181,7 @@ export function registerInventoryHandlers(options: {
     const schema = {
       applyRunValueAttribution: inventoryApplyRunValueAttributionRequestSchema,
       applyRunValueAttributionWithdrawal: inventoryApplyRunValueAttributionWithdrawalRequestSchema,
+      applyScientificProduction: inventoryApplyScientificProductionRequestSchema,
       applyPlatePlanObservation: inventoryApplyPlatePlanObservationRequestSchema,
       applyPlatePlanVersion: inventoryApplyPlatePlanVersionRequestSchema,
       applyScientificTransfer: inventoryApplyScientificTransferRequestSchema,
@@ -230,6 +233,43 @@ export function registerInventoryHandlers(options: {
     return result;
   };
   return handleGroup(inventoryContract, {
+    scientificProductionDesigns: (event, request) =>
+      previewCitation(event, (owner) =>
+        owner.scientificProductionDesigns(request, {
+          beforeScientificRead: async () => {
+            assertCaller(event);
+            if (currentOwner() !== owner)
+              throw new NativeDocumentCommandError(
+                'INVENTORY_OWNER_UNAVAILABLE',
+                'The desktop inventory owner changed.',
+                false
+              );
+          },
+        })
+      ),
+    previewScientificProduction: (event, request) =>
+      previewCitation(event, (owner) =>
+        owner.previewScientificProduction(request, {
+          beforeScientificRead: async () => {
+            assertCaller(event);
+            if (currentOwner() !== owner)
+              throw new NativeDocumentCommandError(
+                'INVENTORY_OWNER_UNAVAILABLE',
+                'The desktop inventory owner changed.',
+                false
+              );
+          },
+        })
+      ),
+    applyScientificProduction: (event, request) =>
+      mutateScientific(event, request, 'applyScientificProduction'),
+    scientificProductions: (event, request) =>
+      previewCitation(event, (owner) => owner.scientificProductions(request)),
+    scientificProduction: (event, request) =>
+      previewCitation(event, (owner) => owner.scientificProduction(request)),
+    scientificProductionSource: (event, request) =>
+      previewCitation(event, (owner) => owner.scientificProductionSource(request)),
+
     runValueCandidates: (event, request) =>
       previewCitation(event, (owner) => owner.runValueCandidates(request)),
     previewRunValueAttribution: (event, request) =>

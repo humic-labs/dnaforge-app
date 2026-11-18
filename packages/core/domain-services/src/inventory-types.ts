@@ -1,3 +1,5 @@
+import type { InventoryScientificProduction } from './inventory-scientific-production-types';
+export type * from './inventory-scientific-production-types';
 import type {
   InventoryRunValueAttribution,
   InventoryRunValueAttributionWithdrawal,
@@ -92,7 +94,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v28' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v29' as const;
+export const INVENTORY_RUN_VALUE_ATTRIBUTION_SCHEMA = 'dnaforge.inventory.v28' as const;
 export const INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA = 'dnaforge.inventory.v27' as const;
 export const INVENTORY_PLATE_PLAN_SCHEMA = 'dnaforge.inventory.v26' as const;
 export const INVENTORY_CITATION_SCHEMA = 'dnaforge.inventory.v25' as const;
@@ -336,6 +339,7 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly scientificProductions: Readonly<Record<string, InventoryScientificProduction>>;
   readonly runValueAttributions: Readonly<Record<string, InventoryRunValueAttribution>>;
   readonly runValueAttributionWithdrawals: Readonly<
     Record<string, InventoryRunValueAttributionWithdrawal>
@@ -921,6 +925,7 @@ export type InventoryErrorCode =
   | 'SCIENTIFIC_CITATION_TARGET_MISMATCH'
   | 'SCIENTIFIC_CITATION_PREDECESSOR_MISMATCH'
   | 'SCIENTIFIC_WORK_CONFLICT'
+  | 'SCIENTIFIC_PRODUCTION_CONFLICT'
   | 'SCIENTIFIC_CONTEXT_MISMATCH';
 
 export type InventoryTransition =
@@ -934,6 +939,7 @@ export type InventoryTransition =
 export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
+    scientificProductions: Object.create(null) as Record<string, InventoryScientificProduction>,
     runValueAttributions: Object.create(null) as Record<string, InventoryRunValueAttribution>,
     runValueAttributionWithdrawals: Object.create(null) as Record<
       string,

@@ -1,3 +1,11 @@
+import { scientificHistoryCurrentFiles } from '@waypoint/scientific-artifacts';
+import {
+  parseWorkspacePath,
+  pathCollisionKey,
+  validateMaterializedTree,
+} from '@waypoint/workspace-revisions';
+import { ScientificObjectStore } from './scientific-object-store';
+import { scientificHistoryWorkspaceIdentity } from './scientific-history-identity';
 import { createHash, randomUUID } from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { mkdir, open, readFile, rename, rm } from 'node:fs/promises';
@@ -96,6 +104,7 @@ export interface ProtocolSavedSourceCapture {
   source: ProtocolRunSavedSource;
   sourceSha256: `sha256:${string}`;
   assertCurrent(): void;
+  refreshCurrentLocal?(): ProtocolSavedSourceCapture;
 }
 export interface NativeProtocolInvocation {
   actor?: string;
@@ -339,7 +348,8 @@ export function createNativeProtocolPackages(options: {
     const scope = admit(reference, false),
       before = binding(entityId),
       beforeSha = jsonHash(before),
-      beforeRefs = jsonHash(refs(scope.project));
+      beforeRefs = jsonHash(refs(scope.project)),
+      beforeLogicalIdentity = scientificHistoryWorkspaceIdentity(options.db(), scope.project.id);
     if (
       before.status !== 'active' ||
       before.workspace_id !== scope.project.id ||
@@ -456,12 +466,76 @@ export function createNativeProtocolPackages(options: {
         );
       guardFile(scope.project.path, before.path, bytes);
     };
+    const refreshCurrentLocal = (): ProtocolSavedSourceCapture => {
+      scope.assertCaptured();
+      const db = options.db();
+      if (
+        jsonHash(binding(entityId)) !== beforeSha ||
+        scientificHistoryWorkspaceIdentity(db, scope.project.id) !== beforeLogicalIdentity
+      )
+        throw new Error('PROTOCOL_SOURCE_CHANGED: Original local source identity changed.');
+      guardFile(scope.project.path, before.path, bytes);
+      const store = new ScientificObjectStore(db, scope.project.id),
+        current = store.read(),
+        slots = store.catalog().entries;
+      const path = parseWorkspacePath(
+        relative(scope.project.path, before.path).replace(/\\/g, '/')
+      );
+      if (!path.ok) throw new Error('PROTOCOL_SOURCE_CHANGED: Local source path is invalid.');
+      const key = pathCollisionKey(path.value);
+      if (
+        slots.some((slot) => {
+          if (slot.resourceId === entityId || slot.resourceId === portableId) return true;
+          if (!slot.tombstone || !slot.lastPath) return false;
+          const old = pathCollisionKey(slot.lastPath);
+          return old === key || old.startsWith(key + '/') || key.startsWith(old + '/');
+        })
+      )
+        throw new Error(
+          'PROTOCOL_SOURCE_CHANGED: Local source has an accepted identity or tombstone owner.'
+        );
+      const files = scientificHistoryCurrentFiles(current.graph, current.head).map((file) => {
+        const parsed = parseWorkspacePath(file.path);
+        if (!parsed.ok)
+          throw new Error('PROTOCOL_SOURCE_CHANGED: Accepted source path is invalid.');
+        return { owner: file.resourceId, kind: 'file' as const, path: parsed.value };
+      });
+      if (
+        !validateMaterializedTree([...files, { owner: entityId, kind: 'file', path: path.value }])
+          .ok
+      )
+        throw new Error(
+          'PROTOCOL_SOURCE_CHANGED: Local source path has an accepted owner or collision.'
+        );
+      const refreshedRefs = jsonHash(refs(scope.project));
+      const assertRefreshed = () => {
+        scope.assertCaptured();
+        if (
+          jsonHash(binding(entityId)) !== beforeSha ||
+          jsonHash(refs(scope.project)) !== refreshedRefs ||
+          scientificHistoryWorkspaceIdentity(options.db(), scope.project.id) !==
+            beforeLogicalIdentity
+        )
+          throw new Error('PROTOCOL_SOURCE_CHANGED: Refreshed local source authority changed.');
+        guardFile(scope.project.path, before.path, bytes);
+      };
+      assertRefreshed();
+      if (packet.schema !== 'dnaforge.protocol-run-saved-source.v1')
+        throw new Error('PROTOCOL_RUN_REQUIRED');
+      return {
+        source: packet,
+        sourceSha256: snapshot.sourceSha256,
+        assertCurrent: assertRefreshed,
+        refreshCurrentLocal,
+      };
+    };
     scope.assertAuthority();
     assertCurrent();
     return {
       snapshot,
       packet,
       assertCurrent,
+      refreshCurrentLocal,
       bindingSha256: beforeSha,
       referencesSha256: beforeRefs,
     };
@@ -1228,6 +1302,7 @@ export function createNativeProtocolPackages(options: {
         source: current.packet,
         sourceSha256: current.snapshot.sourceSha256,
         assertCurrent: current.assertCurrent,
+        refreshCurrentLocal: current.refreshCurrentLocal,
       });
     },
   };

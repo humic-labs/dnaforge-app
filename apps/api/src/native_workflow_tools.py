@@ -92,6 +92,7 @@ def _required(name: str, args: dict[str, Any]) -> list[str]:
             "apply-hierarchy",
             "apply-mapped-table",
             "apply-benchling-capture",
+            "apply-scientific-production",
             "apply-run-value-attribution",
             "apply-run-value-attribution-withdrawal",
             "apply-plate-plan-observation",
@@ -231,6 +232,12 @@ async def execute_native_workflow(
             "inspect-benchling-capture",
             "preview-benchling-capture",
             "apply-benchling-capture",
+            "scientific-production-designs",
+            "preview-scientific-production",
+            "apply-scientific-production",
+            "scientific-productions",
+            "scientific-production",
+            "scientific-production-source",
             "run-value-candidates",
             "preview-run-value-attribution",
             "apply-run-value-attribution",
@@ -281,6 +288,8 @@ async def execute_native_workflow(
         request = {key: value for key, value in operation.items() if key != "kind"}
         if operation["kind"] == "scientific-contexts-v2":
             request["kind"] = request.pop("contextKind", None)
+        elif operation["kind"] == "apply-scientific-production":
+            request["kind"] = "record-scientific-production"
         elif operation["kind"] == "apply-run-value-attribution":
             request["kind"] = "record-run-value-attribution"
         elif operation["kind"] == "apply-run-value-attribution-withdrawal":

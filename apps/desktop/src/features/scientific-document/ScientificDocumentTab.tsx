@@ -1,3 +1,4 @@
+import { RunScientificProductions } from '../inventory/public/scientific-productions';
 import { ScientificDesignSetup } from '../sequence/public/scientific-design-setup';
 import { FrozenProtocolDefinition } from './FrozenProtocolDefinition';
 import { reportSaveFailure } from '../../lib/report-save-failure';
@@ -1359,6 +1360,7 @@ function ProtocolRunBody({
       <RunRecordedPhysicalWork resource={runResource} />
       <RunRecordedPlatePlanUses resource={runResource} />
       <RunSavedValueAssociations resource={associationResource} canCreate={canAssociate} />
+      <RunScientificProductions resource={associationResource} canCreate={canAssociate} />
       <div className="grid gap-4 md:grid-cols-3">
         <RunValues title="Inputs" values={document.inputs} />
         <RunValues title="Outputs" values={document.outputs} />

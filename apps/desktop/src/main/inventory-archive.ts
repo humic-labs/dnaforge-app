@@ -40,7 +40,13 @@ export const nativeInventorySha256 = (text: string): InventoryArchiveSha256 =>
 export const nativeInventoryArchiveRuntime: InventoryArchiveRuntime = {
   maxBytes: NATIVE_DOCUMENT_MAX_BODY_BYTES,
   sha256: nativeInventorySha256,
-  replayJournal: ({ source, rows, depth, allowRunValueAttributions }) => {
+  replayJournal: ({
+    source,
+    rows,
+    depth,
+    allowRunValueAttributions,
+    allowScientificProductions,
+  }) => {
     if (
       allowRunValueAttributions === false &&
       Number(source.storedSchema?.match(/^dnaforge\.inventory\.v([1-9]\d*)$/)?.[1]) >= 28
@@ -48,6 +54,11 @@ export const nativeInventoryArchiveRuntime: InventoryArchiveRuntime = {
       throw Error(
         'INVENTORY_DATA_INVALID: A pre-V11 ancestor cannot admit saved Run value attribution schemas.'
       );
+    if (
+      allowScientificProductions === false &&
+      Number(source.storedSchema?.match(/^dnaforge\.inventory\.v([1-9]\d*)$/)?.[1]) >= 29
+    )
+      throw Error('INVENTORY_DATA_INVALID: A pre-V12 ancestor cannot admit production schemas.');
     return replayNativeInventoryJournal(
       rows.map((row) =>
         parseNativeInventoryJournalEntry(
@@ -61,7 +72,7 @@ export const nativeInventoryArchiveRuntime: InventoryArchiveRuntime = {
         )
       ),
       depth + 1,
-      { allowRunValueAttributions }
+      { allowRunValueAttributions, allowScientificProductions }
     );
   },
 };
@@ -101,16 +112,21 @@ export function applyNativeInventoryAdoption(
   context: InventoryExecutionContext,
   depth = 0,
   replay?: {
-    readonly receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | undefined;
+    readonly receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | undefined;
     readonly allowRunValueAttributions?: boolean;
+    readonly allowScientificProductions?: boolean;
   }
 ) {
   const allowRunValueAttributions = replay
     ? replay.allowRunValueAttributions !== false && (replay.receiptContextVersion ?? 1) >= 11
     : true;
+  const allowScientificProductions = replay
+    ? replay.allowScientificProductions !== false && (replay.receiptContextVersion ?? 1) >= 12
+    : true;
   const archive = parseInventoryArchive(request.sourceText, nativeInventoryArchiveRuntime, {
     depth,
     allowRunValueAttributions,
+    allowScientificProductions,
   });
   if (
     replay &&
@@ -257,7 +273,10 @@ export function applyNativeInventoryAdoption(
 export function replayNativeInventoryJournal(
   entries: readonly NativeInventoryHistoryEntry[],
   depth = 0,
-  options: { readonly allowRunValueAttributions?: boolean } = {}
+  options: {
+    readonly allowRunValueAttributions?: boolean;
+    readonly allowScientificProductions?: boolean;
+  } = {}
 ): InventoryState {
   return replayNativeInventoryEntries(
     entries,
@@ -265,6 +284,7 @@ export function replayNativeInventoryJournal(
       applyNativeInventoryAdoption(target, request, context, depth, {
         receiptContextVersion,
         allowRunValueAttributions: options.allowRunValueAttributions,
+        allowScientificProductions: options.allowScientificProductions,
       }),
     applyNativeInventoryTable,
     applyNativeInventoryStocktake,

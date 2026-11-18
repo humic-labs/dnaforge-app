@@ -1,3 +1,7 @@
+import {
+  applyNativeInventoryScientificProduction,
+  verifyNativeInventoryScientificProductionSources,
+} from './inventory-scientific-productions';
 import { createHash } from 'node:crypto';
 import {
   applyInventoryCommandBatch,
@@ -63,7 +67,8 @@ export function parseNativeInventoryJournalEntry(
   const receipt = inventoryReceiptSchema.parse(input.receipt);
   const scientific =
     'kind' in request &&
-    (request.kind === 'record-scientific-transfer' ||
+    (request.kind === 'record-scientific-production' ||
+      request.kind === 'record-scientific-transfer' ||
       request.kind === 'record-scientific-transfer-v2' ||
       request.kind === 'record-scientific-citation' ||
       request.kind === 'record-plate-plan-observation' ||
@@ -78,7 +83,8 @@ export function parseNativeInventoryJournalEntry(
       (request.kind === 'record-scientific-transfer-v2' && version < 7) ||
       (request.kind === 'record-scientific-citation' && version < 8) ||
       (request.kind === 'record-plate-plan-observation' && version < 10) ||
-      (request.kind === 'record-run-value-attribution' && version < 11)
+      (request.kind === 'record-run-value-attribution' && version < 11) ||
+      (request.kind === 'record-scientific-production' && version < 12)
     )
       throw new Error(
         'INVENTORY_DATA_INVALID: Scientific work requires its matching native source witness.'
@@ -123,6 +129,16 @@ export function parseNativeInventoryJournalEntry(
     }
   } else if (receipt.context?.scientificSource)
     throw new Error('INVENTORY_DATA_INVALID: Only scientific work may retain a source witness.');
+  if ('kind' in request && request.kind === 'record-scientific-production') {
+    if (receipt.context?.version !== 12 || !receipt.context.acceptedDesign)
+      throw Error('INVENTORY_DATA_INVALID: Production requires V12 design proof.');
+    verifyNativeInventoryScientificProductionSources(
+      request,
+      receipt.context.scientificSource,
+      receipt.context.acceptedDesign
+    );
+  } else if (receipt.context?.acceptedDesign)
+    throw Error('INVENTORY_DATA_INVALID: Only production may retain a design proof.');
   if (
     'kind' in request &&
     request.kind === 'withdraw-run-value-attribution' &&
@@ -161,7 +177,7 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryApplyImportRequest,
     context: InventoryExecutionContext,
-    receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | undefined
+    receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | undefined
   ) => InventoryTransition,
   table: (
     target: InventoryState | null,
@@ -198,7 +214,10 @@ export function replayNativeInventoryEntries(
     request: InventoryApplyArrivalRequest,
     context: InventoryExecutionContext
   ) => InventoryTransition,
-  options: { readonly allowRunValueAttributions?: boolean } = {}
+  options: {
+    readonly allowRunValueAttributions?: boolean;
+    readonly allowScientificProductions?: boolean;
+  } = {}
 ): InventoryState {
   let state = createInventoryState();
   let highestContextVersion = 1;
@@ -260,7 +279,17 @@ export function replayNativeInventoryEntries(
     if (request.expectedRevision !== state.revision)
       throw new Error('INVENTORY_DATA_INVALID: The saved inventory journal is not contiguous.');
     let result: InventoryTransition;
-    if (
+    if ('kind' in request && request.kind === 'record-scientific-production') {
+      if (contextVersion !== 12 || !context || options.allowScientificProductions === false)
+        throw Error('INVENTORY_DATA_INVALID: Production requires V12 without a pre-V12 ancestor.');
+      result = applyNativeInventoryScientificProduction(
+        state,
+        request,
+        context,
+        entry.receipt.context?.scientificSource,
+        entry.receipt.context?.acceptedDesign
+      );
+    } else if (
       'kind' in request &&
       (request.kind === 'record-run-value-attribution' ||
         request.kind === 'withdraw-run-value-attribution')

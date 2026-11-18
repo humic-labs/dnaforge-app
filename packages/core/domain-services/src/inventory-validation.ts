@@ -1,3 +1,11 @@
+import type { InventoryScientificProduction } from './inventory-scientific-production-types';
+import {
+  parseAcceptedDnaProductionSelection,
+  inventoryScientificProductionId,
+  inventoryScientificProductionIntentSha256,
+  inventoryScientificProductionChoices,
+} from './inventory-scientific-production-identity';
+import { validateInventoryScientificProductions } from './inventory-scientific-production-validation';
 import type {
   InventoryRunValueAttribution,
   InventoryRunValueAttributionWithdrawal,
@@ -102,6 +110,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_RUN_VALUE_ATTRIBUTION_SCHEMA,
   INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA,
   INVENTORY_PLATE_PLAN_SCHEMA,
   INVENTORY_CITATION_SCHEMA,
@@ -3281,11 +3290,109 @@ export function parseInventoryScientificWork(value: unknown): InventoryScientifi
   return scientificWorkRecord.parse(value);
 }
 
-export function parseInventoryState(value: unknown): InventoryState {
+const productionContext = fields('Saved production Run', {
+  kind: literal('protocol-run'),
+  projectId: id,
+  workspaceScope: id,
+  entityId: id,
+  source: fields('Saved production Run source', {
+    kind: literal('native-observed-saved-source'),
+    sha256,
+    fileObjectUuid: id,
+    title: text('Saved Run title', 17 * 1024 * 1024),
+  }),
+});
+const productionDesign = fields('Verified accepted production design', {
+  kind: literal('accepted-dna-design'),
+  owner: fields('Accepted design owner', {
+    projectId: id,
+    workspaceScope: id,
+    scientificWorkspaceId: id,
+  }),
+  selection: { schema: { type: 'object' }, parse: parseAcceptedDnaProductionSelection },
+  document: fields('Accepted DNA metadata', {
+    name: text('Accepted design name', 17 * 1024 * 1024),
+    molecule: literal('DNA'),
+    length: integer('DNA length', 1, Number.MAX_SAFE_INTEGER),
+    topology: union('DNA topology', [literal('linear'), literal('circular')]),
+    scientificSha256: sha256,
+  }),
+});
+const scientificProductionRecord: Codec<InventoryScientificProduction> = fields(
+  'Completed scientific production',
+  {
+    id,
+    identity: fields('Production identity', { namespace: arrivalKey, productionId: arrivalKey }),
+    intentSha256: sha256,
+    observation: fields('Manual production observation', {
+      kind: literal('reported-completed-manual-production'),
+    }),
+    context: productionContext,
+    design: productionDesign,
+    materialBinding: fields('Production material binding', {
+      sourceMaterialId: id,
+      destinationMaterialId: id,
+    }),
+    inputs: array(fields('Production input', { stockId: id, quantity: storedAmount }), 253, 1),
+    output: fields('Production output', {
+      lotId: id,
+      stockId: id,
+      vesselId,
+      quantity: storedAmount,
+    }),
+    effects: fields('Production effects', {
+      sources: array(
+        fields('Consumed production stock', {
+          before: stockRecord,
+          after: stockRecord,
+          vessel: scientificVesselSnapshot,
+        }),
+        253,
+        1
+      ),
+      lot: fields('Produced lot', { before: nullValue, after: lotRecord }),
+      stock: fields('Produced stock', {
+        before: nullValue,
+        after: stockRecord,
+        vessel: scientificVesselSnapshot,
+      }),
+    }),
+    method: text('Production method', 2000),
+    reason,
+    at: timestamp,
+    by: recordedPrincipal,
+  }
+);
+export function parseInventoryScientificProduction(value: unknown): InventoryScientificProduction {
+  const record = scientificProductionRecord.parse(value);
+  try {
+    if (
+      record.id !== inventoryScientificProductionId(record.identity) ||
+      record.intentSha256 !==
+        inventoryScientificProductionIntentSha256(inventoryScientificProductionChoices(record))
+    )
+      throw new TypeError('Production identity and intent must match the original report.');
+  } catch (error) {
+    invalid(error instanceof Error ? error.message : 'Invalid production.');
+  }
+  return record;
+}
+
+export function parseInventoryState(
+  value: unknown,
+  options: { readonly allowScientificProductions?: boolean } = {}
+): InventoryState {
   const row = object(value, 'Inventory state');
+  if (
+    options.allowScientificProductions === false &&
+    (row.schema === INVENTORY_SCHEMA || Object.hasOwn(row, 'scientificProductions'))
+  )
+    invalid('This history context does not support scientific productions.');
   const current = row.schema === INVENTORY_SCHEMA;
+  const runValueAttributionRecords =
+    current || row.schema === INVENTORY_RUN_VALUE_ATTRIBUTION_SCHEMA;
   const platePlanObservationRecords =
-    current || row.schema === INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA;
+    runValueAttributionRecords || row.schema === INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA;
   const platePlanRecords =
     platePlanObservationRecords || row.schema === INVENTORY_PLATE_PLAN_SCHEMA;
   const citationRecords = platePlanRecords || row.schema === INVENTORY_CITATION_SCHEMA;
@@ -3314,6 +3421,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_RUN_VALUE_ATTRIBUTION_SCHEMA),
       literal(INVENTORY_PLATE_PLAN_OBSERVATION_SCHEMA),
       literal(INVENTORY_PLATE_PLAN_SCHEMA),
       literal(INVENTORY_CITATION_SCHEMA),
@@ -3344,6 +3452,9 @@ export function parseInventoryState(value: unknown): InventoryState {
     ]),
     revision,
     ...(current
+      ? { scientificProductions: { schema: { type: 'object' }, parse: (input: unknown) => input } }
+      : {}),
+    ...(runValueAttributionRecords
       ? {
           runValueAttributions: { schema: { type: 'object' }, parse: (input: unknown) => input },
           runValueAttributionWithdrawals: {
@@ -3491,10 +3602,13 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   let state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    runValueAttributions: current
+    scientificProductions: current
+      ? records(shape.scientificProductions, parseInventoryScientificProduction)
+      : Object.create(null),
+    runValueAttributions: runValueAttributionRecords
       ? records(shape.runValueAttributions, parseInventoryRunValueAttribution)
       : Object.create(null),
-    runValueAttributionWithdrawals: current
+    runValueAttributionWithdrawals: runValueAttributionRecords
       ? records(shape.runValueAttributionWithdrawals, parseInventoryRunValueAttributionWithdrawal)
       : Object.create(null),
     platePlanObservations: platePlanObservationRecords
@@ -3794,6 +3908,7 @@ export function parseInventoryState(value: unknown): InventoryState {
     validateInventoryPlatePlans(state);
     validateInventoryPlatePlanObservations(state);
     validateInventoryRunValueAttributions(state);
+    validateInventoryScientificProductions(state);
     validateInventoryStockroomState(state);
     validateInventoryArrivalState(state);
     validateInventoryValidityState(state);

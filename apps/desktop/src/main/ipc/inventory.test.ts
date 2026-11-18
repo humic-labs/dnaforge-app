@@ -968,3 +968,105 @@ it('routes full plate-plan observation reads and preserves the current caller on
   ).rejects.toThrow();
   expect(applyPlatePlanObservation).toHaveBeenCalledTimes(1);
 });
+
+it('routes production reads and exact accepted choices through the current native owner', async () => {
+  const digest = 'sha256:' + 'a'.repeat(64),
+    scope = { project: 'project', inventoryId: 'inventory' };
+  const choices = {
+    identity: { namespace: 'manual', productionId: 'once' },
+    context: { kind: 'protocol-run', entityId: 'project::run', sourceSha256: digest },
+    design: {
+      scientificWorkspaceId: 'project',
+      revision: {
+        kind: 'accepted-object',
+        resourceId: 'design',
+        resourceRevisionId: 'rr_' + 'b'.repeat(64),
+        workspaceVersionId: 'wv_' + 'c'.repeat(64),
+        contentSha256: 'd'.repeat(64),
+      },
+    },
+    inputs: [{ stockId: 'source', quantity: { value: '4', unit: 'uL' } }],
+    output: { vesselId: 'output', quantity: { value: '3', unit: 'uL' }, lotName: 'Product' },
+    method: 'Manual',
+    reason: 'Completed report',
+  };
+  const requests = {
+    scientificProductionDesigns: scope,
+    previewScientificProduction: { ...scope, expectedRevision: 1, choices },
+    scientificProductions: scope,
+    scientificProduction: {
+      ...scope,
+      productionId: 'scientific-production:' + 'e'.repeat(64),
+      intentSha256: digest,
+    },
+    scientificProductionSource: {
+      ...scope,
+      productionId: 'scientific-production:' + 'e'.repeat(64),
+      intentSha256: digest,
+    },
+  };
+  for (const [method, input] of Object.entries(requests)) {
+    const native = vi.fn(async (_input: unknown) => ({ kind: 'unavailable' }));
+    Object.assign(owner!, { [method]: native });
+    await (
+      captured.handlers[method] as (event: IpcMainInvokeEvent, input: unknown) => Promise<unknown>
+    )(event, input);
+    expect(native.mock.calls[0][0]).toEqual(input);
+  }
+  const apply = vi.fn(async (_input: unknown) => ({
+    status: 'rejected',
+    operationId: 'once',
+    inventoryId: 'inventory',
+    code: 'INVENTORY_SCIENTIFIC_PRODUCTION_NO_CHANGES',
+  }));
+  Object.assign(owner!, { applyScientificProduction: apply });
+  const input = {
+    ...scope,
+    kind: 'record-scientific-production',
+    operationId: 'once',
+    expectedRevision: 1,
+    choices,
+    expectedPlanDigest: digest,
+  };
+  const result = await (
+    captured.handlers.applyScientificProduction as (
+      event: IpcMainInvokeEvent,
+      input: unknown
+    ) => Promise<unknown>
+  )(event, input);
+  expect(result).toMatchObject({ status: 'rejected', operationId: 'once' });
+  expect(apply.mock.calls[0][0]).toEqual(input);
+  await expect(
+    (
+      captured.handlers.applyScientificProduction as (
+        event: IpcMainInvokeEvent,
+        input: unknown
+      ) => Promise<unknown>
+    )(event, { ...input, acceptedDesign: { forged: true } })
+  ).rejects.toThrow();
+  expect(apply).toHaveBeenCalledTimes(1);
+});
+it('fences production preview authority before producing a new timed read', async () => {
+  const produced = vi.fn();
+  Object.assign(owner!, {
+    previewScientificProduction: async (
+      _input: unknown,
+      invocation: { beforeScientificRead(): Promise<void> }
+    ) => {
+      await Promise.resolve();
+      owner = null;
+      await invocation.beforeScientificRead();
+      produced();
+      return { kind: 'unavailable' };
+    },
+  });
+  await expect(
+    (
+      captured.handlers.previewScientificProduction as (
+        event: IpcMainInvokeEvent,
+        input: unknown
+      ) => Promise<unknown>
+    )(event, {})
+  ).rejects.toThrow('INVENTORY_OWNER_UNAVAILABLE');
+  expect(produced).not.toHaveBeenCalled();
+});

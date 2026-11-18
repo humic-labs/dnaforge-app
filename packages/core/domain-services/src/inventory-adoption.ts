@@ -107,6 +107,54 @@ function mapOrigin(
 function mapScientificReferences(state: InventoryState, resolve: ResolveMaterial): InventoryState {
   return {
     ...state,
+    scientificProductions: mapRecords(state.scientificProductions, (production, id) => ({
+      ...production,
+      materialBinding: {
+        ...production.materialBinding,
+        destinationMaterialId: resolve(
+          production.materialBinding.destinationMaterialId,
+          `/scientificProductions/${pointerKey(id)}/materialBinding/destinationMaterialId`
+        ),
+      },
+      effects: {
+        sources: production.effects.sources.map((effect, index) => ({
+          ...effect,
+          before: mapIdentity(
+            effect.before,
+            `/scientificProductions/${pointerKey(id)}/effects/sources/${index}/before`,
+            resolve
+          ),
+          after: mapIdentity(
+            effect.after,
+            `/scientificProductions/${pointerKey(id)}/effects/sources/${index}/after`,
+            resolve
+          ),
+        })),
+        lot: {
+          ...production.effects.lot,
+          after: {
+            ...production.effects.lot.after,
+            materialId: resolve(
+              production.effects.lot.after.materialId,
+              `/scientificProductions/${pointerKey(id)}/effects/lot/after/materialId`
+            ),
+            origin: mapOrigin(
+              production.effects.lot.after.origin,
+              `/scientificProductions/${pointerKey(id)}/effects/lot/after/origin`,
+              resolve
+            ),
+          },
+        },
+        stock: {
+          ...production.effects.stock,
+          after: mapIdentity(
+            production.effects.stock.after,
+            `/scientificProductions/${pointerKey(id)}/effects/stock/after`,
+            resolve
+          ),
+        },
+      },
+    })),
     platePlanObservations: mapRecords(state.platePlanObservations, (observation, id) => ({
       ...observation,
       effects: {
@@ -259,6 +307,29 @@ function mapAttribution(state: InventoryState, source: InventoryAdoptionSource):
     value.kind === 'available' ? value : { ...value, by: principal(value.by) };
   return {
     ...state,
+    scientificProductions: mapRecords(state.scientificProductions, (production) => ({
+      ...production,
+      by: principal(production.by),
+      effects: {
+        ...production.effects,
+        lot: {
+          ...production.effects.lot,
+          after: {
+            ...production.effects.lot.after,
+            controls:
+              production.effects.lot.after.controls.kind === 'managed'
+                ? {
+                    ...production.effects.lot.after.controls,
+                    assessment: {
+                      ...production.effects.lot.after.controls.assessment,
+                      by: principal(production.effects.lot.after.controls.assessment.by),
+                    },
+                  }
+                : production.effects.lot.after.controls,
+          },
+        },
+      },
+    })),
     runValueAttributions: mapRecords(state.runValueAttributions, (attribution) => ({
       ...attribution,
       by: principal(attribution.by),

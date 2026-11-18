@@ -320,3 +320,43 @@ itself and Attached primer row scrolled into view, with genuine pointer
 interaction video. Normal readback/restart proof does not claim an actual
 lost-acknowledgement injection; focused existing-owner file/SQLite tests qualify
 that separate boundary.
+
+### Completed manual production
+
+From a clean saved Run, use **Record completed production** to select an
+existing accepted nonempty DNA design, existing input stocks and explicit
+amounts, an empty output vessel, a measured output amount, batch name,
+preparation method and reason. Choose the completed manual outcome and preview.
+The preview must show the exact design, saved Run, every input before/after,
+measured product and initial unassessed batch/quarantined stock. Cancel leaves
+inventory unchanged. Refreshing or paging design candidates preserves the
+explicitly selected revision; a later saved Run change requires an explicit
+source choice and a new preview.
+
+Record only an already completed preparation. One accepted report consumes its
+specified inputs and creates one prepared managed batch and quarantined stock in
+one inventory revision. It does not create a DNA design, change a Run, infer
+quantities from Run values, release the product or operate equipment. A partial
+or uncertain physical outcome cannot be recorded through this form.
+
+An uncertain acknowledgement keeps the original report and request. Use
+**Confirm original production report** or **Retry original production request**.
+A matching committed receipt and an exact already-recorded business result are
+separate outcomes; neither permits a second debit. A fresh duplicate with no new
+operation receipt is resolved only by the exact original production and choices.
+Missing evidence remains uncertain.
+
+Use **Recorded productions** on the Run or **Saved productions** in Inventory
+for bounded history, exact original stock/batch facts and **View saved
+production sources**. Retained accepted DNA and Run sources remain historical
+after later source edits or removal. Current navigation is separate and
+unavailable for foreign history. First/Next pages replace the displayed rows;
+unavailable reads must not appear as empty history.
+
+Qualify the first form through an ordinary preview-and-Cancel pilot before
+adding an accepted-report journey. Preserve genuine visible
+Ready/initial-quality captures and native before/after state; then checkpoint
+the exact report identity/request before recording and the accepted result
+immediately afterward. Restart and duplicate checks repeat no physical report.
+Lower-layer acknowledgement fault injection is distinct from normal desktop
+acceptance.

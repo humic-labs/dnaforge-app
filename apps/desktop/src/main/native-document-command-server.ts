@@ -1,4 +1,12 @@
 import {
+  inventoryScientificProductionDesignsRequestSchema,
+  inventoryPreviewScientificProductionRequestSchema,
+  inventoryApplyScientificProductionRequestSchema,
+  inventoryScientificProductionsRequestSchema,
+  inventoryScientificProductionRequestSchema,
+  inventoryScientificProductionSourceRequestSchema,
+} from '../shared/inventory-scientific-productions';
+import {
   inventoryRunValueCandidatesRequestSchema,
   inventoryPreviewRunValueAttributionRequestSchema,
   inventoryApplyRunValueAttributionRequestSchema,
@@ -135,6 +143,60 @@ const selection = target
   })
   .strict();
 const commandSchema = z.discriminatedUnion('command', [
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.scientific-production-designs'),
+      request: inventoryScientificProductionDesignsRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-scientific-production'),
+      request: inventoryPreviewScientificProductionRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.apply-scientific-production'),
+      request: inventoryApplyScientificProductionRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.scientific-productions'),
+      request: inventoryScientificProductionsRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.scientific-production'),
+      request: inventoryScientificProductionRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.scientific-production-source'),
+      request: inventoryScientificProductionSourceRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
   z
     .object({
       ownerInstanceId: identity,
@@ -835,6 +897,12 @@ export async function startNativeDocumentCommandServer(options: {
   inventory?: Pick<
     ReturnType<typeof createNativeInventoryOwner>,
     | 'execute'
+    | 'scientificProductionDesigns'
+    | 'previewScientificProduction'
+    | 'applyScientificProduction'
+    | 'scientificProductions'
+    | 'scientificProduction'
+    | 'scientificProductionSource'
     | 'runValueCandidates'
     | 'previewRunValueAttribution'
     | 'applyRunValueAttribution'
@@ -1063,6 +1131,12 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'project-history.execute' ||
           body.command === 'import-review.execute' ||
           body.command === 'administration.execute' ||
+          body.command === 'inventory.scientific-production-designs' ||
+          body.command === 'inventory.preview-scientific-production' ||
+          body.command === 'inventory.apply-scientific-production' ||
+          body.command === 'inventory.scientific-productions' ||
+          body.command === 'inventory.scientific-production' ||
+          body.command === 'inventory.scientific-production-source' ||
           body.command === 'inventory.run-value-candidates' ||
           body.command === 'inventory.preview-run-value-attribution' ||
           body.command === 'inventory.apply-run-value-attribution' ||
@@ -1136,6 +1210,7 @@ export async function startNativeDocumentCommandServer(options: {
               body.agent
             ) {
               const required =
+                body.command === 'inventory.apply-scientific-production' ||
                 body.command === 'inventory.apply-run-value-attribution' ||
                 body.command === 'inventory.apply-run-value-attribution-withdrawal' ||
                 body.command === 'inventory.apply-plate-plan-observation' ||
@@ -1192,6 +1267,47 @@ export async function startNativeDocumentCommandServer(options: {
                       principal: { kind: 'agent' as const, identityId: body.agent.identityId },
                     }
                   : undefined;
+              if (body.command === 'inventory.scientific-production-designs')
+                return async () => {
+                  const result = await receiver.scientificProductionDesigns(body.request, {
+                    ...planInvocation,
+                    beforeScientificRead: authorizeInventoryRequest,
+                  });
+                  assertCurrent();
+                  return { kind: 'scientific-production-designs', result: result };
+                };
+              if (body.command === 'inventory.preview-scientific-production')
+                return async () => {
+                  const result = await receiver.previewScientificProduction(body.request, {
+                    ...planInvocation,
+                    beforeScientificRead: authorizeInventoryRequest,
+                  });
+                  assertCurrent();
+                  return { kind: 'scientific-production-preview', preview: result };
+                };
+              if (body.command === 'inventory.apply-scientific-production')
+                return async () => ({
+                  kind: 'execution',
+                  execution: await receiver.applyScientificProduction(body.request, assertCurrent, {
+                    ...planInvocation,
+                    beforeScientificCommit: authorizeInventoryRequest,
+                  }),
+                });
+              if (body.command === 'inventory.scientific-productions')
+                return () => ({
+                  kind: 'scientific-productions',
+                  result: receiver.scientificProductions(body.request),
+                });
+              if (body.command === 'inventory.scientific-production')
+                return () => ({
+                  kind: 'scientific-production',
+                  result: receiver.scientificProduction(body.request),
+                });
+              if (body.command === 'inventory.scientific-production-source')
+                return () => ({
+                  kind: 'scientific-production-source',
+                  result: receiver.scientificProductionSource(body.request),
+                });
               if (body.command === 'inventory.run-value-candidates')
                 return async () => {
                   const result = await receiver.runValueCandidates(body.request, {

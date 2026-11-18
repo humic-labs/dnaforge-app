@@ -1,4 +1,17 @@
 import type {
+  InventoryScientificProductionDesignsRequest,
+  InventoryScientificProductionDesignsRead,
+  InventoryPreviewScientificProductionRequest,
+  InventoryScientificProductionPreviewSnapshot,
+  InventoryApplyScientificProductionRequest,
+  InventoryScientificProductionsRequest,
+  InventoryScientificProductionsRead,
+  InventoryScientificProductionRequest,
+  InventoryScientificProductionRead,
+  InventoryScientificProductionSourceRequest,
+  InventoryScientificProductionSourceRead,
+} from '../inventory-scientific-productions';
+import type {
   InventoryRunValueCandidatesRequest,
   InventoryRunValueCandidatesRead,
   InventoryPreviewRunValueAttributionRequest,
@@ -126,6 +139,31 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  scientificProductionDesigns: invoke<
+    [request: InventoryScientificProductionDesignsRequest],
+    InventoryScientificProductionDesignsRead
+  >(),
+  previewScientificProduction: invoke<
+    [request: InventoryPreviewScientificProductionRequest],
+    InventoryScientificProductionPreviewSnapshot
+  >(),
+  applyScientificProduction: invoke<
+    [request: InventoryApplyScientificProductionRequest],
+    NativeInventoryExecution
+  >(),
+  scientificProductions: invoke<
+    [request: InventoryScientificProductionsRequest],
+    InventoryScientificProductionsRead
+  >(),
+  scientificProduction: invoke<
+    [request: InventoryScientificProductionRequest],
+    InventoryScientificProductionRead
+  >(),
+  scientificProductionSource: invoke<
+    [request: InventoryScientificProductionSourceRequest],
+    InventoryScientificProductionSourceRead
+  >(),
+
   runValueCandidates: invoke<
     [request: InventoryRunValueCandidatesRequest],
     InventoryRunValueCandidatesRead
