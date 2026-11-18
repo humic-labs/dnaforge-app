@@ -117,14 +117,17 @@ describe('linked work', () => {
       .mockResolvedValueOnce({
         outcome: 'rejected',
         error: 'WORK_TASK_REFUSED: Project access changed.',
+        confirmedRequestId: 'a-different-request',
       })
       .mockResolvedValueOnce({ outcome: 'applied', revision: 1 });
     const first = render(<WorkTaskReminders task={task} />);
+    fireEvent.click(screen.getByText('Reminders and calendar'));
     await screen.findByLabelText('In-app reminders');
     fireEvent.click(screen.getByLabelText('In-app reminders'));
     await screen.findByText('Reply interrupted');
     first.unmount();
     render(<WorkTaskReminders task={task} />);
+    fireEvent.click(screen.getByText('Reminders and calendar'));
     fireEvent.click(await screen.findByRole('button', { name: 'Retry request' }));
     await screen.findByText(/earlier request still needs confirmation/);
     fireEvent.click(screen.getByRole('button', { name: 'Retry request' }));
@@ -136,6 +139,28 @@ describe('linked work', () => {
       client.reminderCommand.mock.calls[1]![0]
     );
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Retry request' })).toBeNull());
+  });
+  it('clears an interrupted reminder after the native owner confirms its original request was refused', async () => {
+    const task = makeRecord(
+      'reminded-task',
+      applyWorkTaskCommand(null, { kind: 'create', name: 'Review result' }, { actor: 'p1', now })
+    );
+    client.reminderCommand
+      .mockRejectedValueOnce(new Error('Reply interrupted'))
+      .mockImplementationOnce(async (request) => ({
+        outcome: 'rejected',
+        error: 'This reminder was refused.',
+        confirmedRequestId: request.requestId,
+      }));
+    render(<WorkTaskReminders task={task} />);
+    fireEvent.click(screen.getByText('Reminders and calendar'));
+    fireEvent.click(await screen.findByLabelText('In-app reminders'));
+    await screen.findByText('Reply interrupted');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry request' }));
+    expect(await screen.findByText('This reminder was refused.')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Retry request' })).toBeNull();
+    expect(client.reminderCommand.mock.calls[0]).toEqual(client.reminderCommand.mock.calls[1]);
+    expect(screen.getByLabelText('In-app reminders')).toBeEnabled();
   });
   it('creates a task from a source record, then opens its accepted identity from the project', async () => {
     render(

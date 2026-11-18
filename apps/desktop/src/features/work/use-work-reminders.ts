@@ -76,7 +76,11 @@ export function useWorkReminders(workspaceRoot: string) {
     setBusyKey(key);
     try {
       const result = await platform().workTasks.reminderCommand(request);
-      if (retry && result.outcome === 'rejected') {
+      if (
+        retry &&
+        result.outcome === 'rejected' &&
+        (!('confirmedRequestId' in result) || result.confirmedRequestId !== request.requestId)
+      ) {
         if (current.current === key)
           setSnapshot((previous) => ({
             ...previous,
