@@ -604,6 +604,7 @@ const validRendererArgs: Record<string, unknown> = {
   set_sequence_genetic_code: { documentId: 'sequence-document-1', geneticCode: 3 },
   inspect_indexed_current_view: {},
   track_views: { operation: 'references' },
+  sequence_data_layers: { operation: 'list', project: 'Project' },
   configure_indexed_track: {
     trackId: 'signal-1',
     settings: { color: '#e11d48', heightPx: 120 },

@@ -1,3 +1,11 @@
+import {
+  compileAnnotationDataAppearanceV1,
+  type AnnotationDataAppearanceV1,
+  type SourceAnnotationAliasBindingV1,
+} from '@waypoint/genome-renderer/pure';
+import type { SavedSequenceDataLayers } from './saved-sequence-data-layers';
+import type { ComparisonProjectionViewState } from './comparison-source';
+import type { ContactProjectionViewState } from './contact-source';
 import type {
   ReferenceContentIdentity,
   ReferenceVersionIdentity,
@@ -504,8 +512,14 @@ export interface AssemblyAnnotationSceneArtifactContract {
 export async function buildAssemblyCompiledBroadRasterSurfaceManifestV1(input: {
   readonly sceneManifest: PartitionedTranscriptSceneBinaryManifestV4;
   readonly artifact: AssemblyAnnotationSceneArtifactContract;
+  readonly appearance?: AnnotationDataAppearanceV1;
 }) {
   const { sceneManifest, artifact } = input;
+  const appearance = input.appearance
+    ? await compileAnnotationDataAppearanceV1(input.appearance)
+    : undefined;
+  if (appearance && appearance.fingerprint !== input.appearance?.fingerprint)
+    throw new Error('Annotation appearance fingerprint mismatch.');
   if (
     !sceneManifest?.assemblyContract ||
     !sceneManifest.directContract ||
@@ -537,6 +551,7 @@ export async function buildAssemblyCompiledBroadRasterSurfaceManifestV1(input: {
       sceneManifest.assemblyContract.assemblyId,
       sceneManifest.integrity.contractSha256,
       sceneManifest.integrity.payloadSha256,
+      ...(appearance ? ['annotation-data-display-rgb.v1', appearance.fingerprint] : []),
     ].join(':'),
     trackId: artifact.trackType,
     genomeLengthBp: sceneManifest.assemblyContract.assemblyLengthBp,
@@ -881,7 +896,33 @@ export const COMPILED_BROAD_RASTER_OCCUPANCY_TRANSPARENT_WIRE_V1 = 'transparent'
 export interface AssemblyCompiledBroadRasterManifestRequestV1 {
   readonly contract: typeof ASSEMBLY_COMPILED_BROAD_RASTER_WIRE_V1;
   readonly scene: AssemblyAnnotationSceneReadRequest;
+  readonly appearance?: AnnotationDataAppearanceV1;
 }
+
+export interface AssemblyAnnotationAppearancePrepareRequestV1 extends AssemblyCompiledBroadRasterManifestRequestV1 {
+  readonly appearance: AnnotationDataAppearanceV1;
+  readonly prepareAliasesOnly?: boolean;
+}
+
+export type AssemblyAnnotationAppearancePrepareResultV1 = Readonly<
+  | {
+      status: 'ready';
+      appearanceFingerprint: string;
+      sourcePayloadSha256: string;
+      sourceContractSha256: string;
+      surfaceManifestFingerprint: string | null;
+      sourceBinding: SourceAnnotationAliasBindingV1;
+    }
+  | {
+      status: 'unavailable';
+      reason:
+        | 'invalid-request'
+        | 'source-unavailable'
+        | 'source-aliases-unavailable'
+        | 'generation-mismatch'
+        | 'preparation-failed';
+    }
+>;
 
 export interface AssemblyCompiledBroadRasterArtifactRequestV1 extends AssemblyCompiledBroadRasterManifestRequestV1 {
   readonly contract: typeof ASSEMBLY_COMPILED_BROAD_RASTER_WIRE_V1;
@@ -1311,6 +1352,9 @@ export function sameAssemblyReferenceAssetGenerationV1(
 }
 
 export interface IndexedGenomeTabState {
+  sequenceDataLayers?: SavedSequenceDataLayers;
+  contactProjection?: ContactProjectionViewState;
+  comparisonProjection?: ComparisonProjectionViewState;
   sourcePath: string;
   workspaceRoot?: string;
   sourceSizeBytes?: number;

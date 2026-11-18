@@ -1,4 +1,7 @@
 import { trackViewCommandsContract } from '../shared/ipc/track-view-commands.contract';
+import { sequenceDataLayersContract } from '../shared/ipc/sequence-data-layers.contract';
+import { contactSourcesContract } from '../shared/ipc/contact-sources.contract';
+import { comparisonSourcesContract } from '../shared/ipc/comparison-sources.contract';
 import type { SaveAllResult } from '../shared/save-all-result';
 import { notebookContract } from '../shared/ipc/notebook.contract';
 import { importReviewContract } from '../shared/ipc/import-review.contract';
@@ -446,6 +449,9 @@ const api = {
   path: createClient(pathContract),
 
   trackViewCommands: createClient(trackViewCommandsContract),
+  sequenceDataLayers: createClient(sequenceDataLayersContract),
+  contactSources: createClient(contactSourcesContract),
+  comparisonSources: createClient(comparisonSourcesContract),
   trackViews: trackViewsPreloadBridge,
   molecularDocuments: createClient(molecularDocumentsContract),
   trackStore: trackStorePreloadBridge,

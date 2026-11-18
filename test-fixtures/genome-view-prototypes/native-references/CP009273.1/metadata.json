@@ -1,0 +1,78 @@
+{
+  "schema": "dnaforge.exact-reference-source-bundle.v1",
+  "accession": "CP009273.1",
+  "organism": "Escherichia coli BW25113",
+  "topology": "circular",
+  "length": 4631469,
+  "normalizedSequenceSha256": "3761072f8884add5e9facdafc583de5d81a4cf5dbc7e51023ba966f3cf4887ce",
+  "referenceAliasOrSubstitutionUsed": false,
+  "authoritativeSources": [
+    {
+      "file": "CP009273.1.authoritative.fasta",
+      "sha256": "37eade01311f1f81659fad53bf907a93139075a75d115fd3aec2ef09beac2e90",
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=CP009273.1&rettype=fasta&retmode=text",
+      "headerAccession": "CP009273.1"
+    },
+    {
+      "file": "CP009273.1.gb",
+      "sha256": "4fa7ebc92ce853e56dd2bf3d9d6ee5aff8619be79f30d19d0d2358639949e991",
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=CP009273.1&rettype=gbwithparts&retmode=text",
+      "recordVersion": "CP009273.1"
+    }
+  ],
+  "independentFastaGenbankSequencesMatch": true,
+  "conversion": {
+    "program": "dna-indexer",
+    "version": "0.1.0",
+    "schema": 2,
+    "binarySha256": "373ab9fc654d2afc9e622463b3b98f8848df2fcce1139eade10533e0dcf44667",
+    "arguments": [
+      "index",
+      "--in",
+      "CP009273.1.gb",
+      "--out-dir",
+      ".",
+      "--name",
+      "CP009273.1"
+    ],
+    "sourceFeatures": 9462,
+    "outputGffRows": 9523,
+    "sourceCoordinateVerification": "All output feature types, starts, ends and strands match the GenBank locations. Compound CDS parts are emitted separately; other compound features retain their bounding intervals.",
+    "compoundSourceGenes": 18,
+    "compoundSourceCDS": 57,
+    "extraRowsFromCDSParts": 61
+  },
+  "nativeIndexedManifestRelativePaths": {
+    "fastaPath": "CP009273.1.fa.gz",
+    "faiPath": "CP009273.1.fa.gz.fai",
+    "gffPath": "CP009273.1.gff3.gz",
+    "tbiPath": "CP009273.1.gff3.gz.tbi",
+    "chrom": "CP009273.1",
+    "length": 4631469
+  },
+  "gziFile": "CP009273.1.fa.gz.gzi",
+  "gffUncompressedSha256": "40e8ef62c1d71c103e9cf5c3d2765e8c04d088b8d9e791d7a4dad5355514336a",
+  "gffFeatureTypeCounts": {
+    "source": 1,
+    "gene": 4490,
+    "CDS": 4374,
+    "repeat_region": 353,
+    "mobile_element": 48,
+    "ncRNA": 65,
+    "misc_feature": 32,
+    "STS": 47,
+    "rRNA": 22,
+    "tRNA": 88,
+    "tmRNA": 2,
+    "rep_origin": 1
+  },
+  "fileSha256": {
+    "CP009273.1.authoritative.fasta": "37eade01311f1f81659fad53bf907a93139075a75d115fd3aec2ef09beac2e90",
+    "CP009273.1.fa.gz": "8ab3a736f1b7a2a59e9031b848db5ddf37377a369e8b2436088e9a1a55fe2840",
+    "CP009273.1.fa.gz.fai": "29d1ec86c885dab69301cce29113bc3b192cb45924940b1f8dd853f096861174",
+    "CP009273.1.fa.gz.gzi": "3566f5e0e6205387baba42b56f7e95886266a768bbc5826a013a28f38546fe58",
+    "CP009273.1.gb": "4fa7ebc92ce853e56dd2bf3d9d6ee5aff8619be79f30d19d0d2358639949e991",
+    "CP009273.1.gff3.gz": "d4d7f1387afbc7ac9f3561e46fc1c01ad4e592d0933cdf3c784c851b3d83a160",
+    "CP009273.1.gff3.gz.tbi": "d28f5749265ca6d66f88e498916e75e9afaeeb2d5f5231ccdf32751bed30cb36"
+  }
+}

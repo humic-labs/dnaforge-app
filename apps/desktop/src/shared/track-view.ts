@@ -1,3 +1,8 @@
+import { parseSequenceDataLayerIndexedTargetId } from './sequence-data-layer-indexed-target';
+import { savedSequenceDataLayersSchema } from './saved-sequence-data-layers';
+import { QUANTITATIVE_COLOR_PALETTE_IDS } from '@waypoint/genome-data';
+import { comparisonProjectionViewStateSchema } from './comparison-source';
+import { contactProjectionViewStateSchema } from './contact-source';
 import { z } from 'zod';
 import { isRemoteSshTarget } from './remote-ssh-target';
 import { TRACK_VIEW_FILE_SUFFIX } from './registry-file-types';
@@ -81,7 +86,8 @@ const quantitativeScaleBase = {
 const quantitativePresentation = z
   .object({
     version: z.literal(1),
-    graph: z.literal('bar'),
+    graph: z.enum(['bar', 'band', 'points']),
+    palette: z.enum(QUANTITATIVE_COLOR_PALETTE_IDS).optional(),
     showRange: z.boolean(),
     smoothingSigmaBins: finite.min(0).max(MAX_QUANTITATIVE_SMOOTHING_SIGMA_BINS).optional(),
     smoothing: z.enum(['none', 'gaussian-subtle']).optional(),
@@ -330,6 +336,9 @@ const documentSchema = z
       })
       .strict(),
     viewport: z.object({ start0: integer, end0: positive }).strict(),
+    contactProjection: contactProjectionViewStateSchema.optional(),
+    sequenceDataLayers: savedSequenceDataLayersSchema.optional(),
+    comparisonProjection: comparisonProjectionViewStateSchema.optional(),
     scope: z.discriminatedUnion('kind', [
       z.object({ kind: z.literal('all') }).strict(),
       z.object({ kind: z.literal('chromosome'), chrom: text }).strict(),
@@ -483,6 +492,36 @@ const documentSchema = z
     const chromosomeLengths = new Map(
       doc.reference.chromosomes.map((chromosome) => [chromosome.chrom, chromosome.length])
     );
+    if (doc.sequenceDataLayers) {
+      try {
+        const target = parseSequenceDataLayerIndexedTargetId(
+          doc.sequenceDataLayers.targetDocumentId
+        );
+        if (
+          !target ||
+          target.referenceId !== doc.reference.assemblyId ||
+          !chromosomeLengths.has(target.chrom) ||
+          (doc.reference.sequenceIdentity !== undefined &&
+            (target.sequenceIdentity !== doc.reference.sequenceIdentity ||
+              target.annotationIdentity !== doc.reference.annotationIdentity))
+        )
+          fail('The saved data layers do not match this reference version.');
+      } catch {
+        fail('The saved data layers need an exact indexed reference target.');
+      }
+    }
+    if (doc.contactProjection && doc.comparisonProjection)
+      fail('A saved view can use only one native coordinate projection at a time.');
+    if (doc.comparisonProjection) {
+      const axis = doc.comparisonProjection.source.targetReference;
+      if (chromosomeLengths.get(axis.chrom) !== axis.length)
+        fail('The comparison target does not match the saved reference accession and length.');
+    }
+    if (doc.contactProjection) {
+      const axis = doc.contactProjection.source.xReference;
+      if (chromosomeLengths.get(axis.chrom) !== axis.length)
+        fail('The contact X axis does not match the saved reference accession and length.');
+    }
     for (const binding of doc.primerBindings ?? []) {
       const length = chromosomeLengths.get(binding.chrom);
       if (length === undefined || binding.start0 >= binding.end0 || binding.end0 > length) {

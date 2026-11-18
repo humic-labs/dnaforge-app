@@ -646,6 +646,15 @@ export interface ElectronAPI {
     typeof import('../shared/ipc/track-view-commands.contract').trackViewCommandsContract
   >;
   trackViews: TrackViewsBridge;
+  comparisonSources: ClientOf<
+    typeof import('../shared/ipc/comparison-sources.contract').comparisonSourcesContract
+  >;
+  contactSources: ClientOf<
+    typeof import('../shared/ipc/contact-sources.contract').contactSourcesContract
+  >;
+  sequenceDataLayers: ClientOf<
+    typeof import('../shared/ipc/sequence-data-layers.contract').sequenceDataLayersContract
+  >;
   molecularDocuments: MolecularDocumentsBridge;
   trackStore: TrackStoreBridge;
   referenceAssets: ReferenceAssetsBridge;
@@ -683,6 +692,9 @@ export interface ElectronAPI {
     readAssemblyAnnotationRasterV2(
       request: AssemblyAnnotationRasterReadRequestV2
     ): Promise<AssemblyAnnotationRasterReadResultV2 | null>;
+    prepareAssemblyAnnotationAppearanceV1(
+      request: import('../shared/indexed-genome').AssemblyAnnotationAppearancePrepareRequestV1
+    ): Promise<import('../shared/indexed-genome').AssemblyAnnotationAppearancePrepareResultV1>;
     readAssemblyCompiledBroadRasterManifestV1(
       request: AssemblyCompiledBroadRasterManifestRequestV1
     ): Promise<AssemblyCompiledBroadRasterManifestResultV1 | null>;

@@ -23793,6 +23793,204 @@
       "exposure": { "kind": "shared" }
     },
     {
+      "name": "sequence_data_layers",
+      "description": "Inspect exact sequence revisions, map user CSV measurements by explicit coordinates or stable annotation IDs, and save reusable data layers. Reports unmatched and ambiguous rows. Dataset snapshots and mappings survive reopening and are independent of the viewer. Select named scientific palettes with presentation.style.colorScale.paletteId; use colors only for custom RGB scales.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operation": { "type": "string", "enum": ["target", "create", "inspect", "list"] },
+          "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "requestId": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "targetDocumentId": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "expectedSequenceFingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+          "expectedAnnotationFingerprint": {
+            "type": "string",
+            "pattern": "^annotation-(?:mapping|document)-v1:sha256:[a-f0-9]{64}$"
+          },
+          "csv": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "text" },
+                  "text": { "type": "string", "minLength": 1, "maxLength": 1048576 }
+                },
+                "required": ["kind", "text"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "path" },
+                  "path": { "type": "string", "minLength": 1, "maxLength": 4096 }
+                },
+                "required": ["kind", "path"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "layer" },
+                  "source": {
+                    "type": "object",
+                    "properties": {
+                      "project": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                      "id": { "type": "string", "pattern": "^layer-[a-f0-9]{64}$" },
+                      "revision": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+                    },
+                    "required": ["project", "id", "revision"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["kind", "source"],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "mapping": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "positions" },
+                  "startColumn": { "type": "string", "minLength": 1, "maxLength": 512 },
+                  "endColumn": { "type": "string", "minLength": 1, "maxLength": 512 },
+                  "coordinateSystem": {
+                    "type": "string",
+                    "enum": ["zero-based-half-open", "one-based-inclusive"]
+                  }
+                },
+                "required": ["kind", "startColumn", "coordinateSystem"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "annotation" },
+                  "identifierColumn": { "type": "string", "minLength": 1, "maxLength": 512 },
+                  "identifierField": { "type": "string", "enum": ["id", "locus_tag", "ID"] }
+                },
+                "required": ["kind", "identifierColumn", "identifierField"],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "valueColumns": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 512 },
+            "minItems": 1,
+            "maxItems": 32
+          },
+          "label": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "unit": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "unresolvedPolicy": { "type": "string", "enum": ["reject", "exclude"] },
+          "aggregation": { "type": "string", "enum": ["none", "mean"] },
+          "presentation": {
+            "type": "object",
+            "properties": {
+              "sampleId": { "type": "string", "minLength": 1, "maxLength": 512 },
+              "style": {
+                "type": "object",
+                "properties": {
+                  "geometry": {
+                    "type": "string",
+                    "enum": ["bars", "band", "points", "arcs", "matrix"]
+                  },
+                  "colorScale": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "continuous" },
+                          "domain": {
+                            "type": "array",
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "items": true,
+                            "prefixItems": [{ "type": "number" }, { "type": "number" }]
+                          },
+                          "colors": {
+                            "type": "array",
+                            "items": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+                            "minItems": 2,
+                            "maxItems": 32
+                          },
+                          "missingColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+                          "transform": { "type": "string", "enum": ["linear", "log10"] },
+                          "quantization": { "type": "integer", "minimum": 1, "maximum": 256 }
+                        },
+                        "required": ["kind", "domain", "colors", "missingColor", "transform"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "continuous" },
+                          "domain": {
+                            "type": "array",
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "items": true,
+                            "prefixItems": [{ "type": "number" }, { "type": "number" }]
+                          },
+                          "missingColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+                          "transform": { "type": "string", "enum": ["linear", "log10"] },
+                          "quantization": { "type": "integer", "minimum": 1, "maximum": 256 },
+                          "paletteId": {
+                            "type": "string",
+                            "enum": ["ocean", "viridis", "cividis", "balance"]
+                          }
+                        },
+                        "required": ["kind", "domain", "missingColor", "transform", "paletteId"],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": ["geometry", "colorScale"],
+                "additionalProperties": false
+              },
+              "annotationColors": { "type": "boolean" },
+              "signalVisible": { "type": "boolean" }
+            },
+            "required": ["sampleId", "style", "annotationColors", "signalVisible"],
+            "additionalProperties": false
+          },
+          "id": { "type": "string", "pattern": "^layer-[a-f0-9]{64}$" }
+        },
+        "required": ["operation"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": { "const": true },
+          "result": {
+            "type": "object",
+            "properties": {
+              "ok": { "type": "boolean", "const": true },
+              "status": {
+                "type": "string",
+                "enum": ["target", "published", "needs-input", "listed"]
+              },
+              "data": { "type": "object", "additionalProperties": {} }
+            },
+            "required": ["ok", "status", "data"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["ok", "result"],
+        "additionalProperties": true
+      },
+      "shape": "app-action",
+      "effects": ["read-only", "mutating"],
+      "required_capabilities": ["read-workspace", "read-sequences"],
+      "audit_required": true,
+      "conditional_required_capabilities": ["create-entity", "write-workspace"],
+      "requiresWorkspace": true,
+      "exposure": { "kind": "shared" }
+    },
+    {
       "name": "track_views",
       "description": "List reference assemblies, inspect a saved native Track View, or create one from an explicit reference, project, BigWig/BigBed sources, settings and region. Creates a durable document without an open reference tab or UI interaction. Reuse the same requestId and inputs after an uncertain response. Open the returned documentId with app_views using operation kind open and viewId.",
       "inputSchema": {
@@ -23892,6 +24090,20 @@
                               "length": { "type": "number" }
                             },
                             "required": ["chrom", "length"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "sequenceDataLayerTargets": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "chrom": {
+                                "$ref": "#/properties/result/anyOf/0/properties/references/items/properties/id"
+                              },
+                              "targetDocumentId": { "type": "string", "maxLength": 512 }
+                            },
+                            "required": ["chrom", "targetDocumentId"],
                             "additionalProperties": false
                           }
                         }
@@ -24344,7 +24556,11 @@
                       "type": "object",
                       "properties": {
                         "version": { "type": "number", "const": 1 },
-                        "graph": { "type": "string", "const": "bar" },
+                        "graph": { "type": "string", "enum": ["bar", "band", "points"] },
+                        "palette": {
+                          "type": "string",
+                          "enum": ["ocean", "viridis", "cividis", "balance"]
+                        },
                         "showRange": { "type": "boolean" },
                         "smoothingSigmaBins": { "type": "number" },
                         "smoothing": { "type": "string", "enum": ["none", "gaussian-subtle"] },
@@ -25362,6 +25578,16 @@
               "quantitative": {
                 "type": "object",
                 "properties": {
+                  "graph": {
+                    "type": "string",
+                    "enum": ["bar", "band", "points"],
+                    "description": "Native genomic bars, heatmap band, or value points."
+                  },
+                  "palette": {
+                    "type": "string",
+                    "enum": ["ocean", "viridis", "cividis", "balance"],
+                    "description": "Shared scientific color palette used by heatmap bands."
+                  },
                   "mode": {
                     "type": "string",
                     "enum": ["robust-global", "full-global", "visible-window", "fixed"],
@@ -25441,7 +25667,11 @@
                     "type": "object",
                     "properties": {
                       "version": { "type": "number", "const": 1 },
-                      "graph": { "type": "string", "const": "bar" },
+                      "graph": { "type": "string", "enum": ["bar", "band", "points"] },
+                      "palette": {
+                        "type": "string",
+                        "enum": ["ocean", "viridis", "cividis", "balance"]
+                      },
                       "showRange": { "type": "boolean" },
                       "smoothingSigmaBins": { "type": "number" },
                       "smoothing": { "type": "string", "enum": ["none", "gaussian-subtle"] },
@@ -25588,6 +25818,16 @@
                     "quantitative": {
                       "type": "object",
                       "properties": {
+                        "graph": {
+                          "type": "string",
+                          "enum": ["bar", "band", "points"],
+                          "description": "Native genomic bars, heatmap band, or value points."
+                        },
+                        "palette": {
+                          "type": "string",
+                          "enum": ["ocean", "viridis", "cividis", "balance"],
+                          "description": "Shared scientific color palette used by heatmap bands."
+                        },
                         "mode": {
                           "type": "string",
                           "enum": ["robust-global", "full-global", "visible-window", "fixed"],
@@ -25796,7 +26036,11 @@
                       "type": "object",
                       "properties": {
                         "version": { "type": "number", "const": 1 },
-                        "graph": { "type": "string", "const": "bar" },
+                        "graph": { "type": "string", "enum": ["bar", "band", "points"] },
+                        "palette": {
+                          "type": "string",
+                          "enum": ["ocean", "viridis", "cividis", "balance"]
+                        },
                         "showRange": { "type": "boolean" },
                         "smoothingSigmaBins": { "type": "number" },
                         "smoothing": { "type": "string", "enum": ["none", "gaussian-subtle"] },

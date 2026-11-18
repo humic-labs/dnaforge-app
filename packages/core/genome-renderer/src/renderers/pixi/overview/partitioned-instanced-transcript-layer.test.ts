@@ -434,6 +434,57 @@ describe('PartitionedInstancedTranscriptLayer — shared WebGL buffer views', ()
     expect(layer.container.children).toHaveLength(scene.partitions.length);
   });
 
+  it.each([false, true])(
+    'keeps nine real Pixi corner vertices independent of instance counts with dataset colors %s',
+    async (withColors) => {
+      const { Geometry } = await vi.importActual<typeof import('pixi.js')>('pixi.js');
+      const { scene, policyGpuInstanceData } = directBankFixture();
+      const layer = new PartitionedInstancedTranscriptLayer(
+        {
+          ...scene,
+          sourceAnnotationAliases: Array.from({ length: 6 }, (_, featureIndex) => ({
+            featureIndex,
+            aliases: [`gene-${featureIndex}`],
+          })),
+        },
+        { rendererKind: 'webgl', policyGpuInstanceData }
+      );
+      const geometries: InstanceType<typeof Geometry>[] = [];
+      try {
+        if (withColors)
+          layer.setAnnotationDataColors({
+            colors: new Map([['gene-0', 0x440154]]),
+            missingColor: 0xcbd5e1,
+          });
+        expect(new Set(pixiFakes.geometries.map((geometry) => geometry.instanceCount))).toEqual(
+          new Set([1, 2, 3])
+        );
+        for (const produced of pixiFakes.geometries) {
+          const geometry = new Geometry({
+            attributes: Object.fromEntries(
+              Object.entries(produced.attributes).map(([name, attribute]) => [
+                name,
+                { ...attribute, buffer: attribute.buffer.data },
+              ])
+            ),
+            instanceCount: produced.instanceCount,
+            topology: 'triangle-list',
+          });
+          geometries.push(geometry);
+          expect(geometry.attributes.aCorner.instance).toBeFalsy();
+          expect(geometry.attributes.aDataAppearance.instance).toBe(true);
+          expect(geometry.attributes.aPolicyLanes.instance).toBe(true);
+          expect(geometry.instanceCount).toBe(produced.instanceCount);
+          expect(geometry.topology).toBe(produced.topology);
+          expect(geometry.getSize()).toBe(9);
+        }
+      } finally {
+        for (const geometry of geometries) geometry.destroy(true);
+        layer.destroy();
+      }
+    }
+  );
+
   it('switches expanded/canonical and 8/12/24/unlimited policy through uniforms only', () => {
     const policyPrimitives: AnnotationScenePrimitiveV1[] = [
       { ...primitive(0, 10, 20), offsetCenter: -7 },

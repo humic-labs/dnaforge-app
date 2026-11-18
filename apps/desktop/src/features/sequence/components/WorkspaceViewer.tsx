@@ -49,6 +49,7 @@ import {
   useSequenceHasSangerTrace,
 } from '../tracks/SequenceTracksView';
 import { WebGLMap } from '@waypoint/plasmid-viewer';
+import { useSequenceDataLayers } from '../data-layers/useSequenceDataLayers';
 import { SharedSequenceReadViewer } from './SharedSequenceReadViewer';
 import type { SharedAlignmentLane } from './shared-sequence-read-model';
 import type { SequenceComparisonInput } from './sequence-comparison-input';
@@ -215,6 +216,7 @@ interface WorkspaceViewerProps {
   editingPending?: boolean;
   savePending?: boolean;
   sequence: AnnotatedSequence;
+  dataLayerSourceSequence?: AnnotatedSequence;
   plasmid: ParsedPlasmid;
   circular: boolean;
   initialEditMode?: boolean;
@@ -378,6 +380,7 @@ function WorkspaceViewerInternal({
   editingPending = false,
   savePending = false,
   sequence: sourceSequence,
+  dataLayerSourceSequence,
   plasmid: sourcePlasmid,
   circular,
   initialEditMode = false,
@@ -1565,6 +1568,15 @@ function WorkspaceViewerInternal({
     hideMinimap
   );
   const mapCameraZoomVisible = actualWebGLMapVisible;
+  const genomicMarkup = useSequenceDataLayers({
+    documentId: entityId,
+    sequence: sourceSequence,
+    dataLayerSourceSequence,
+    selection: seqView.dataLayerSelection,
+    onSelectionChange: (selection) => patchSeqView({ dataLayerSelection: selection }),
+    signalsSupported: !sharedReadViewerActive && !isSequenceViewTransformed && !mapTopologyCircular,
+    enabled: surface === 'sequence' && !sharedReadViewerActive,
+  });
   const annotationCatalog = useSequenceMapAnnotationCatalog({
     entityId: tabStateKey,
     document: sourceSequence,
@@ -1573,7 +1585,13 @@ function WorkspaceViewerInternal({
     rendererReadyEpoch: webglRendererReadyEpoch,
     mapCircular: mapTopologyCircular,
     layout: seqView.annotationCatalogLayout,
+    supplementalTracks: genomicMarkup.tracks,
   });
+  const mapTracksOwnerId =
+    annotationCatalog?.ownerTabId ??
+    (genomicMarkup.trackControls.rows.length > 0 || genomicMarkup.trackControls.errors.length > 0
+      ? genomicMarkup.ownerTabId
+      : undefined);
 
   useEffect(() => {
     const previousShape = previousEffectiveMapShapeRef.current;
@@ -2867,10 +2885,11 @@ function WorkspaceViewerInternal({
                 onGeometryHeightChange={handleMinimapGeometryHeightChange}
                 onMapZoomChange={handleMapZoomChange}
                 mapControls={
-                  annotationCatalog ? (
+                  mapTracksOwnerId ? (
                     <SequenceAnnotationTracksControl
-                      ownerTabId={annotationCatalog.ownerTabId}
+                      ownerTabId={mapTracksOwnerId}
                       mapCircular={mapTopologyCircular}
+                      dataLayers={genomicMarkup.trackControls}
                     />
                   ) : undefined
                 }
@@ -2885,6 +2904,8 @@ function WorkspaceViewerInternal({
                 webglMap={
                   <WebGLMap
                     changedAnnotationNames={changedAnnotationNames}
+                    annotationColorsByIdentity={genomicMarkup.annotationColorsByIdentity}
+                    missingAnnotationColor={genomicMarkup.missingColor}
                     ref={setMinimapHandle}
                     plasmid={webglPlasmid}
                     width={minimapWidth}

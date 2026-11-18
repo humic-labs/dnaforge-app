@@ -2144,6 +2144,24 @@ export const browserMockBridge: PlatformBridge = {
       throw new Error('Native Track View commands require the desktop app.');
     },
   },
+  comparisonSources: {
+    read: async () => {
+      throw new Error('Comparison sources require the native desktop owner.');
+    },
+    readWindow: async () => {
+      throw new Error('Comparison source windows require the native desktop owner.');
+    },
+  },
+  contactSources: {
+    read: async () => {
+      throw new Error('Contact sources require the native desktop owner.');
+    },
+  },
+  sequenceDataLayers: {
+    run: async () => {
+      throw new Error('Sequence data layers require the native desktop owner.');
+    },
+  },
   trackViews: {
     command: async () => {
       throw new Error('Native Track View commands require the desktop app.');
@@ -2541,6 +2559,10 @@ ORIGIN
     }),
     readAssemblyOverviewTexture: async () => null,
     readAssemblyAnnotationRasterV2: async () => null,
+    prepareAssemblyAnnotationAppearanceV1: async () => ({
+      status: 'unavailable',
+      reason: 'source-unavailable',
+    }),
     readAssemblyCompiledBroadRasterManifestV1: async () => null,
     readAssemblyCompiledBroadRasterCellsV1: async () => ({
       contract: ASSEMBLY_COMPILED_BROAD_RASTER_WIRE_V1,
