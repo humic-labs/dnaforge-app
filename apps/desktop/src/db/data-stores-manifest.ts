@@ -45,6 +45,68 @@ export const SQLITE_TABLE_DATA_STORES = {
       'Adopt existing compatible preferences once; accepted native preferences require explicit user or authorized agent changes.',
   },
 
+  scientific_work_commands: {
+    id: 'sqlite.scientific_work_commands',
+    label: 'Prepared project task commands',
+    kind: 'sqlite-table',
+    table: 'scientific_work_commands',
+    classification: 'AUTHORITATIVE',
+    sourceOfTruth:
+      'The originating actor, exact accepted submission inputs and notebook placement receipts recorded by the native task owner.',
+    rebuildPath:
+      'Restore the originating profile backup to recover prepared and interrupted requests. Accepted task documents live in scientific revision history.',
+  },
+  scientific_work_consent: {
+    id: 'sqlite.scientific_work_consent',
+    label: 'Local reminder preferences',
+    kind: 'sqlite-table',
+    table: 'scientific_work_consent',
+    classification: 'AUTHORITATIVE',
+    sourceOfTruth: 'The selected local profile’s explicit delivery choices for this project.',
+    rebuildPath: 'Restore the profile backup or ask the recipient to choose their channels again.',
+  },
+  scientific_work_dispatch: {
+    id: 'sqlite.scientific_work_dispatch',
+    label: 'Local reminder dispatch authority',
+    kind: 'sqlite-table',
+    table: 'scientific_work_dispatch',
+    classification: 'AUTHORITATIVE',
+    sourceOfTruth:
+      'The originating installation, authority epoch and durable transfer fence accepted by the native scheduler.',
+    rebuildPath: 'Recover the original authority and transfer receipt before resuming delivery.',
+  },
+  scientific_work_effects: {
+    id: 'sqlite.scientific_work_effects',
+    label: 'Local reminder inbox and delivery ledger',
+    kind: 'sqlite-table',
+    table: 'scientific_work_effects',
+    classification: 'AUTHORITATIVE',
+    sourceOfTruth:
+      'The native scheduler’s materialized occurrences, user inbox decisions and recorded notification attempts.',
+    rebuildPath:
+      'Restore the profile backup. An uncertain delivery remains uncertain until the original receipt is available.',
+  },
+  scientific_work_reminder_receipts: {
+    id: 'sqlite.scientific_work_reminder_receipts',
+    label: 'Reminder request receipts',
+    kind: 'sqlite-table',
+    table: 'scientific_work_reminder_receipts',
+    classification: 'AUTHORITATIVE',
+    sourceOfTruth:
+      'The native command owner’s scoped decisions and saved acknowledgments for retryable local or hosted commands.',
+    rebuildPath:
+      'Restore the profile backup and recover interrupted commands using their original request identity.',
+  },
+  scientific_work_rules: {
+    id: 'sqlite.scientific_work_rules',
+    label: 'Local task reminder rules',
+    kind: 'sqlite-table',
+    table: 'scientific_work_rules',
+    classification: 'AUTHORITATIVE',
+    sourceOfTruth:
+      'The local recipient’s chosen timing, channels and retained scheduling position.',
+    rebuildPath: 'Restore the profile backup or explicitly configure a new reminder rule.',
+  },
   scientific_workspace_identities: {
     id: 'sqlite.scientific-workspace-identities',
     label: 'Stable scientific workspace identity',

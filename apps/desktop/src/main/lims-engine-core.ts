@@ -4,6 +4,10 @@ import { existsSync } from 'fs';
 import { dirname, isAbsolute, relative, resolve } from 'path';
 import { isDeepStrictEqual } from 'node:util';
 import type Database from 'better-sqlite3';
+import {
+  assertLimsAgendaDefinition,
+  assertLimsTemporalEdits,
+} from '@waypoint/scientific-artifacts/shared/lims-temporal';
 import { resolveSavedRegistryProject } from './registry-entity-project';
 import { setupEnvironment } from 'dugite';
 
@@ -1482,6 +1486,8 @@ export function updateLimsEntityInsideTx(
       ? input.fields
       : { ...existing.fields, ...input.fields }
     : existing.fields;
+  if (input.fields && !input.projectionSchema)
+    assertLimsTemporalEdits(input.fields, definitions, existing.fields);
   const { incomplete } = assertEntityValid(projectedKind, fields, schema.fieldsJson);
   const formulaKeys = new Set(
     definitions.filter((field) => field.type === 'formula_result').map((field) => field.key)
@@ -2329,6 +2335,7 @@ export function validateSchemaInput(
   }
   const keys = new Set<string>();
   for (const field of fields) {
+    assertLimsAgendaDefinition(field);
     if (!field.key || !/^[A-Za-z][A-Za-z0-9_]*$/.test(field.key)) {
       throw new Error(`Invalid LIMS field key: ${field.key}`);
     }

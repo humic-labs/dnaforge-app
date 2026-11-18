@@ -1,3 +1,4 @@
+import { workTaskReferenceSchema } from './work-task-reference';
 import { tableDocumentReferenceSchema } from './table-document-reference';
 import { molecularDocumentReferenceSchema } from './molecular-document-reference';
 import { z } from 'zod';
@@ -40,6 +41,7 @@ const notebookOperations = {
       kind: z.literal('insert-reference'),
       index: z.number().int().nonnegative(),
       referenceId: z.string().uuid().optional(),
+      workTask: workTaskReferenceSchema.optional(),
       documentReference: molecularDocumentReferenceSchema.optional(),
       tableReference: tableDocumentReferenceSchema.optional(),
       presentation: z.enum(['embed', 'link']).optional(),

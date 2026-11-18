@@ -1,3 +1,5 @@
+import { readWorkTask } from './work-task-store';
+import { workTaskReferenceHref } from '../shared/work-task-reference';
 import type Database from 'better-sqlite3';
 import type { NativeNotebookScope } from './notebook-document-owner';
 import type { NotebookDocumentOperation } from '../shared/notebook-document';
@@ -22,6 +24,28 @@ export async function prepareNotebookReferenceInsertion(
   scope: NativeNotebookScope,
   operation: Extract<NotebookDocumentOperation, { kind: 'insert-reference' }>
 ) {
+  if (operation.workTask) {
+    if (operation.referenceId || operation.documentReference || operation.tableReference)
+      throw new Error('Supply exactly one notebook reference.');
+    const target = operation.workTask;
+    const resolve = () => {
+      scope.assertCurrent();
+      const task = readWorkTask(db, { workspaceRoot: scope.workspaceRoot, taskId: target.taskId });
+      if (!task || task.project.id !== target.projectId)
+        throw new Error('This project task is unavailable.');
+      return task;
+    };
+    const task = resolve();
+    return {
+      block: {
+        type: 'paragraph',
+        content: [notebookReferenceFromHref(workTaskReferenceHref(target), task.document.name)!],
+      },
+      verify: async () => {
+        resolve();
+      },
+    };
+  }
   if (Boolean(operation.referenceId) === Boolean(operation.documentReference))
     throw new Error('Supply exactly one returned documentReference or referenceId.');
   scope.assertCurrent();

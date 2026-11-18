@@ -1,4 +1,5 @@
 import { entityRelationshipKey, schemaFieldRelationships } from '../entity-field-relationships';
+import { assertLimsTemporalEdits } from '@waypoint/scientific-artifacts/shared/lims-temporal';
 import type { ArtifactDatabase } from '../artifact-io';
 import type { ArtifactHistoryPort } from '../artifact-operation-ports';
 import type { ArtifactIO } from '../artifact-io';
@@ -316,6 +317,12 @@ export function createEntityArtifactOwner(dependencies: createEntityArtifactOwne
                   };
           }
 
+          if (!input.source)
+            assertLimsTemporalEdits(
+              fields,
+              schemaSnapshot.fields as LimsFieldDefinition[],
+              existing?.fields
+            );
           const issues = classifyLimsEntityFieldIssues(
             input.kind,
             fields,

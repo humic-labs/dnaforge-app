@@ -138,6 +138,8 @@ export function compileScientificWorkspace(input: {
       throw new TypeError('Primer artifact paths require a native primer representation.');
     if (/\.entity\.json$/iu.test(entry.path) && entry.representation?.format !== 'strain-entity-v1')
       throw new TypeError('Strain artifact paths require a native strain representation.');
+    if (/\.task\.json$/iu.test(entry.path) && entry.representation?.format !== 'work-task-v1')
+      throw new TypeError('Task artifact paths require a native work task representation.');
     blobs.push(new TextEncoder().encode(defined.text));
     const old = previous.get(entry.resourceId);
     if (
