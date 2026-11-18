@@ -1,7 +1,6 @@
 import { join } from 'node:path';
 import { resealPartitionedTranscriptSceneBinaryDatasetContractV4 } from '@waypoint/genome-renderer/pure';
 import { expandedAnnotationSceneAuthorizedInputPaths } from './assembly-expanded-annotation-scene-compiler';
-import { compileRetainedSourceAnnotationAliasesInDedicatedWorkerV1 } from './assembly-expanded-annotation-scene-worker-factory';
 import {
   assemblyAnnotationAppearanceArtifactDirectoryV1,
   prepareAssemblyAnnotationAppearanceV1,
@@ -281,6 +280,8 @@ const {
         return { inputPath, realPath: await realpath(inputPath) };
       })
     );
+    const { compileRetainedSourceAnnotationAliasesInDedicatedWorkerV1 } =
+      await import('./assembly-expanded-annotation-scene-worker-factory');
     const aliases = await compileRetainedSourceAnnotationAliasesInDedicatedWorkerV1(
       {
         request: hit.request,
