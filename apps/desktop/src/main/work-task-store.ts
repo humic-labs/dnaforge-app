@@ -1,8 +1,15 @@
+import {
+  workNotebookPlacementSchema,
+  type WorkPlacementIntent,
+} from '../shared/work-task-reference';
+import type { WorkPlacementResolution } from '../shared/work-tasks-ipc';
+import type { NativeNotebookWorkingCopyOwner } from './notebook-document-owner';
 import type Database from 'better-sqlite3';
 import { createHash } from 'node:crypto';
 import { lstatSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  parseWorkspaceIdentity,
   applyWorkTaskCommand,
   evaluateWorkDueStatus,
   expandWorkOccurrences,
@@ -234,7 +241,7 @@ async function enroll(
     {
       workspaceRoot: project.root,
       request: {
-        workspace: project.id,
+        workspace: parseWorkspaceIdentity(project.registeredId),
         operationId: 'work-enrollment-' + hash(project.id),
         expectedHead: null,
         source: exists ? { kind: 'working-files' } : { kind: 'documents', entries: [] },
@@ -256,7 +263,14 @@ async function enroll(
   if (store.read().head === null) throw new Error('Project enrollment was not accepted.');
 }
 
+type PlacementOwner = Pick<
+  NativeNotebookWorkingCopyOwner,
+  'captureTaskPlacement' | 'confirmTaskPlacement'
+>;
+
 interface Prepared {
+  notebookPlacement?: WorkPlacementIntent;
+  placementDisposition?: WorkPlacementResolution['disposition'];
   request: ScientificWorkspaceSubmission;
   derivation: string;
 }
@@ -280,6 +294,7 @@ function prepare(
       taskId: input.taskId,
       expectedRevisionId: input.expectedRevisionId,
       command: input.command,
+      ...(input.notebookPlacement ? { notebookPlacement: input.notebookPlacement } : {}),
     })
   );
   const actor = project.actor.kind + ':' + project.actor.id;
@@ -328,6 +343,16 @@ function prepare(
     ? catalog.value.find((slot) => slot.resourceId === id.value)?.path
     : null;
   const prepared: Prepared = {
+    ...(input.notebookPlacement
+      ? {
+          notebookPlacement: {
+            ...input.notebookPlacement,
+            taskId: input.taskId,
+            projectId: project.id,
+            operationId: input.operationId,
+          },
+        }
+      : {}),
     derivation: canonicalPayload(live),
     request: {
       operationId: input.operationId,
@@ -355,7 +380,8 @@ function prepare(
 export async function mutateWorkTask(
   db: Database.Database,
   input: WorkTaskMutation,
-  renderer?: Renderer
+  renderer?: Renderer,
+  notebooks?: PlacementOwner
 ): Promise<WorkTaskMutationResult> {
   const project = projectFor(db, input.workspaceRoot);
   if (!project.writable) return workRefused('This project does not admit work changes.');
@@ -368,6 +394,30 @@ export async function mutateWorkTask(
     (input.command.kind === 'create' || input.command.kind === 'edit')
   )
     await authorizeWorkAssignee(db, project, input.command.assignee);
+  let verifyNotebook: (() => void) | undefined;
+  if (input.notebookPlacement) {
+    const placement = workNotebookPlacementSchema.safeParse(input.notebookPlacement);
+    if (!placement.success || input.command.kind !== 'create' || !notebooks)
+      return workRefused('A notebook placement needs a new task and a current notebook selection.');
+    if (
+      !input.command.links?.some(
+        (link) =>
+          link.projectId === project.id &&
+          link.resourceId === placement.data.documentId &&
+          link.role === 'notebook'
+      )
+    )
+      return workRefused('The task must reference the selected notebook.');
+    if (!hasOperationReceipt(store.read().graph, operation.value)) {
+      try {
+        verifyNotebook = await notebooks.captureTaskPlacement(project.root, placement.data);
+      } catch (error) {
+        return workRefused(
+          error instanceof Error ? error.message : 'The notebook selection is unavailable.'
+        );
+      }
+    }
+  }
   if (input.command.kind === 'create' && input.expectedRevisionId === null)
     await enroll(db, project, renderer);
   const original = await withWorkspaceSyncDatabaseFence(db, async () => {
@@ -378,6 +428,7 @@ export async function mutateWorkTask(
     assertWorkProjectAtAcceptance(db, project, true);
     const base = store.read();
     if (hasOperationReceipt(base.graph, operation.value)) return;
+    verifyNotebook?.();
     if (original.request.source.kind !== 'native-artifact')
       throw new Error('Invalid prepared task request.');
     const doc = JSON.parse(original.request.source.entry.representation.text) as WorkTaskDocument;
@@ -389,7 +440,10 @@ export async function mutateWorkTask(
   };
   const submission = await submitScientificObjectInMain(
     db,
-    { workspaceRoot: project.root, request: { ...original.request, workspace: project.id } },
+    {
+      workspaceRoot: project.root,
+      request: { ...original.request, workspace: parseWorkspaceIdentity(project.registeredId) },
+    },
     { ...(renderer ? { renderer } : {}), beforeAccept, workTaskCommand: true }
   );
   assertWorkProjectAtAcceptance(db, project, false);
@@ -407,5 +461,63 @@ export async function mutateWorkTask(
     reader.revision({ resourceId: id.value, revisionId: revision.value }),
     Date.now()
   );
-  return { task, submission };
+  return {
+    task,
+    submission,
+    ...(original.notebookPlacement && !original.placementDisposition
+      ? { notebookPlacement: original.notebookPlacement }
+      : {}),
+  };
+}
+
+const placementRows = `SELECT c.prepared_request FROM scientific_work_commands c
+  JOIN scientific_materialization_jobs j ON j.workspace_id=c.workspace_id AND j.operation_id=c.operation_id
+  WHERE c.workspace_id=? AND c.actor=? AND json_type(c.prepared_request,'$.notebookPlacement')='object'`;
+
+export function workPlacements(
+  db: Database.Database,
+  input: { workspaceRoot: string; documentId: string }
+): WorkPlacementIntent[] {
+  const project = projectFor(db, input.workspaceRoot);
+  const rows = db
+    .prepare(
+      placementRows +
+        " AND json_extract(c.prepared_request,'$.notebookPlacement.documentId')=? AND json_extract(c.prepared_request,'$.placementDisposition') IS NULL"
+    )
+    .all(
+      project.workspaceId,
+      project.actor.kind + ':' + project.actor.id,
+      input.documentId
+    ) as Pick<SavedCommand, 'prepared_request'>[];
+  return rows.map((row) => (JSON.parse(row.prepared_request) as Prepared).notebookPlacement!);
+}
+
+export async function finishWorkPlacement(
+  db: Database.Database,
+  input: WorkPlacementResolution,
+  owner: PlacementOwner
+) {
+  const project = projectFor(db, input.workspaceRoot);
+  if (input.disposition !== 'inserted' && input.disposition !== 'abandoned')
+    return workRefused('Unknown placement disposition.');
+  const actor = project.actor.kind + ':' + project.actor.id;
+  const row = db
+    .prepare(placementRows + ' AND c.operation_id=?')
+    .get(project.workspaceId, actor, input.operationId) as
+    | Pick<SavedCommand, 'prepared_request'>
+    | undefined;
+  const saved = row && (JSON.parse(row.prepared_request) as Prepared);
+  const intent = saved?.notebookPlacement;
+  if (!intent || intent.placementId !== input.placementId)
+    return workRefused('This placement is unavailable.');
+  if (input.disposition === 'inserted') await owner.confirmTaskPlacement(project.root, intent);
+  await withWorkspaceSyncDatabaseFence(db, async () => {
+    assertWorkProjectAtAcceptance(db, project, false);
+    const update = db
+      .prepare(
+        "UPDATE scientific_work_commands SET prepared_request=json_set(prepared_request,'$.placementDisposition',?) WHERE workspace_id=? AND actor=? AND operation_id=? AND (json_extract(prepared_request,'$.placementDisposition') IS NULL OR json_extract(prepared_request,'$.placementDisposition')=?)"
+      )
+      .run(input.disposition, project.workspaceId, actor, input.operationId, input.disposition);
+    if (!update.changes) workRefused('The placement already has a different disposition.');
+  });
 }

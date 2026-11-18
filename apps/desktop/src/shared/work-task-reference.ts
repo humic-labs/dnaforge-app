@@ -6,6 +6,20 @@ const identifier = z
   .min(1)
   .max(500)
   .refine((s) => !/[\u0000-\u001F\u007F]/u.test(s));
+export const workNotebookPlacementSchema = z
+  .object({
+    documentId: identifier,
+    expectedRevision: identifier,
+    index: z.number().int().nonnegative(),
+    placementId: z.string().uuid(),
+  })
+  .strict();
+export type WorkNotebookPlacement = z.infer<typeof workNotebookPlacementSchema>;
+export type WorkPlacementIntent = WorkNotebookPlacement & {
+  projectId: string;
+  taskId: string;
+  operationId: string;
+};
 export const workTaskReferenceSchema = z
   .object({ projectId: identifier, taskId: identifier, placementId: z.string().uuid() })
   .strict();

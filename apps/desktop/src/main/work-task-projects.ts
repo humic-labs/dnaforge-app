@@ -10,6 +10,7 @@ import {
 } from './registered-project-authority';
 import { readSelectedAccountContextNow } from './auth/session-store';
 import { readOrCreateWorkspaceSyncDeviceId } from './workspace-sync-device';
+import { scientificHistoryWorkspaceIdentity } from './scientific-history-identity';
 import { hasScientificCloudHistoryBinding } from './scientific-cloud-admission';
 
 export function workRefused(reason: string): never {
@@ -17,6 +18,7 @@ export function workRefused(reason: string): never {
 }
 
 export interface WorkProjectAccess extends WorkProject {
+  registeredId: string;
   actor: WorkAssignee;
   writable: boolean;
 }
@@ -65,7 +67,8 @@ function projectAccess(
   const team = row.owner_account_id !== null;
   const actor: WorkAssignee = team ? { kind: 'member', id: row.owner_account_id! } : profile;
   return {
-    id: p.projectId,
+    id: scientificHistoryWorkspaceIdentity(db, p.id),
+    registeredId: p.projectId,
     workspaceId: p.id,
     root: row.path,
     name: p.name,
@@ -106,7 +109,8 @@ export function assertWorkProjectAtAcceptance(
   if (
     !row ||
     row.path !== project.root ||
-    workspaceScopeKey(row.repo_uuid, project.workspaceId) !== project.id ||
+    workspaceScopeKey(row.repo_uuid, project.workspaceId) !== project.registeredId ||
+    scientificHistoryWorkspaceIdentity(db, project.workspaceId) !== project.id ||
     row.detached_reason !== null ||
     (mutating && row.access_mode !== 'writable')
   )

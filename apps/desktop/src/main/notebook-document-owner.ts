@@ -1,4 +1,9 @@
-import { workTaskReferenceHref, containsWorkTaskPlacement } from '../shared/work-task-reference';
+import {
+  workTaskReferenceHref,
+  containsWorkTaskPlacement,
+  type WorkNotebookPlacement,
+  type WorkPlacementIntent,
+} from '../shared/work-task-reference';
 import type {
   NotebookConflictComparison,
   NotebookConflictResolution,
@@ -593,6 +598,42 @@ export class NativeNotebookWorkingCopyOwner {
     copy.scope.assertCurrent();
     candidate.canonicalize(aliases?.content ?? references.content);
   }
+  async captureTaskPlacement(root: string, placement: WorkNotebookPlacement): Promise<() => void> {
+    const copy = await this.copy(placement.documentId);
+    const scope = await this.resolveCurrentScope(copy, true);
+    scope.assertCurrent();
+    if (scope.workspaceRoot !== root || scope.readOnly)
+      throw refused('NOTEBOOK_READ_ONLY', 'This notebook cannot accept a project task.');
+    const verify = () => {
+      if (
+        copy.recovery ||
+        this.revision(copy) !== placement.expectedRevision ||
+        placement.index > (copy.model.content.content?.length ?? 0)
+      )
+        throw refused('STALE_NOTEBOOK', 'Choose a position in the current notebook.');
+    };
+    verify();
+    return verify;
+  }
+
+  async confirmTaskPlacement(root: string, intent: WorkPlacementIntent): Promise<void> {
+    const copy = await this.copy(intent.documentId);
+    const scope = await this.resolveCurrentScope(copy, false);
+    scope.assertCurrent();
+    const href = workTaskReferenceHref({
+      projectId: intent.projectId,
+      taskId: intent.taskId,
+      placementId: intent.placementId,
+    });
+    const record = await this.options.loadRecord(intent.documentId);
+    scope.assertCurrent();
+    if (scope.workspaceRoot !== root || record?.taskPlacements?.[intent.placementId]?.href !== href)
+      throw refused(
+        'NOTEBOOK_PLACEMENT_PENDING',
+        'The notebook has no retained insertion receipt.'
+      );
+  }
+
   async locate(id: string): Promise<{ path: string; workspaceRoot: string }> {
     const scope = await this.options.resolve(id, false);
     scope.assertCurrent();

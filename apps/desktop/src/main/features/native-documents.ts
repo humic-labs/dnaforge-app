@@ -1,6 +1,7 @@
 import { createNativeNotebookWorkingCopies } from '../native-notebook-working-copies';
 import { MarkdownNotebookImporter } from '../markdown-notebook-import';
 import { nativeNotebookDocumentAdapter } from '../native-notebook-document-adapter';
+import { registerWorkTaskHandlers } from '../ipc/work-tasks';
 import { registerNotebookOwnerHandlers } from '../ipc/notebook';
 import {
   createFileDocumentClientSync,
@@ -366,6 +367,7 @@ export function createNativeDocuments(
   ): void {
     notebookTarget = getTarget;
     if (!notebookHandlersRegistered) {
+      registerWorkTaskHandlers(notebookDocuments, getDb);
       registerNotebookOwnerHandlers(
         notebookDocuments,
         () => notebookTarget?.() ?? null,

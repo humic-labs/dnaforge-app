@@ -1,10 +1,18 @@
+import { createNativeNotebookWorkingCopies } from './native-notebook-working-copies';
 import { mkdir, readFile, readdir, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it, vi } from 'vitest';
 import { createFileTestDb, openFileTestDb } from './__tests__/test-db';
 import { ensureSchema } from './schema';
-import { mutateWorkTask, queryWorkTasks, readWorkTask, workTaskHistory } from './work-task-store';
+import {
+  finishWorkPlacement,
+  workPlacements,
+  mutateWorkTask,
+  queryWorkTasks,
+  readWorkTask,
+  workTaskHistory,
+} from './work-task-store';
 import { submitScientificObjectInMain } from './scientific-object-commands';
 import { withAgentProjectScope } from './registered-project-authority';
 
@@ -88,6 +96,88 @@ it('publishes a task once, retains completion after restart and refuses unscoped
       reopenedDb.close();
     }
   } finally {
+    f.cleanup();
+  }
+});
+
+it('recovers accepted notebook creation and finishes only after its independent reference is retained', async () => {
+  const f = createFileTestDb('work-placement');
+  const root = join(await realpath(f.tmpDir), 'project');
+  const native = createNativeNotebookWorkingCopies({
+    db: () => f.db,
+    workspaceRoots: () => [root],
+    writableWorkspaceRoots: () => [root],
+    captureWorkspace: () => () => {},
+    profileDirectory: () => join(f.tmpDir, 'profile'),
+    relocateEntityFile: async () => {
+      throw new Error('Unsupported fixture rename.');
+    },
+  });
+  try {
+    ensureSchema(f.db, f.dbPath);
+    await mkdir(root);
+    f.db
+      .prepare('INSERT INTO workspaces(name,path,repo_uuid,created_at) VALUES (?,?,?,1)')
+      .run('Records', root, 'records');
+    const notebook = await native.create({
+      title: 'Certificate log',
+      workspaceRoot: root,
+      requestId: 'notebook-create',
+    });
+    const placement = {
+      documentId: notebook.documentId,
+      expectedRevision: notebook.revision,
+      index: 0,
+      placementId: '404ac673-51f6-4299-b454-afa232ee277d',
+    };
+    const args = {
+      workspaceRoot: root,
+      operationId: 'compound',
+      taskId: 'certificate',
+      expectedRevisionId: null,
+      notebookPlacement: placement,
+      command: {
+        kind: 'create' as const,
+        name: 'Review certificate',
+        links: [{ projectId: 'records', resourceId: notebook.documentId, role: 'notebook' }],
+      },
+    };
+    const task = await mutateWorkTask(f.db, args, undefined, native);
+    expect(task.notebookPlacement).toMatchObject({ ...placement, taskId: 'certificate' });
+    const query = { workspaceRoot: root, documentId: notebook.documentId };
+    const persisted = openFileTestDb(f.dbPath);
+    try {
+      expect(workPlacements(persisted, query)).toEqual([task.notebookPlacement]);
+    } finally {
+      persisted.close();
+    }
+    const ack = {
+      workspaceRoot: root,
+      operationId: 'compound',
+      placementId: placement.placementId,
+      disposition: 'inserted' as const,
+    };
+    await expect(finishWorkPlacement(f.db, ack, native)).rejects.toThrow(
+      'retained insertion receipt'
+    );
+    await native.execute({
+      documentId: notebook.documentId,
+      expectedRevision: notebook.revision,
+      operation: {
+        kind: 'insert-reference',
+        index: 0,
+        workTask: {
+          projectId: 'records',
+          taskId: 'certificate',
+          placementId: placement.placementId,
+        },
+      },
+    });
+    await finishWorkPlacement(f.db, ack, native);
+    expect(workPlacements(f.db, query)).toEqual([]);
+    expect((await mutateWorkTask(f.db, args, undefined, native)).notebookPlacement).toBeUndefined();
+  } finally {
+    await native.close();
     f.cleanup();
   }
 });

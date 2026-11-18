@@ -7,10 +7,42 @@ import {
 } from '@waypoint/domain-services';
 import type { ScientificReader } from '@waypoint/scientific-objects';
 import { parseResourceId, parseResourceRevisionId } from '@waypoint/workspace-revisions';
-import { parseLimsSchemaFields, type LimsEntityRow } from '../shared/lims';
+import {
+  limsEntityFromRow,
+  parseLimsSchemaFields,
+  type LimsEntity,
+  type LimsEntityRow,
+} from '../shared/lims';
 import type { WorkProject } from '../shared/work-tasks-ipc';
 import { getSchemaRevisionForEntity } from './lims-engine-core';
 import { workRefused } from './work-task-projects';
+
+function pinnedRegistryRecord(db: Database.Database, row: LimsEntityRow, revisionId: string) {
+  if (!/^[1-9]\d*$/u.test(revisionId) || !Number.isSafeInteger(Number(revisionId))) return null;
+  const audit = db
+    .prepare(
+      "SELECT after FROM lims_audit WHERE subject_table='lims_entity' AND subject_id=? AND workspace_id=? AND event_seq=? AND tombstone=0"
+    )
+    .get(row.id, row.workspace_id, Number(revisionId)) as { after: string | null } | undefined;
+  if (!audit?.after) return null;
+  const value = JSON.parse(audit.after) as Partial<LimsEntity> | null;
+  if (
+    !value ||
+    value.id !== row.id ||
+    value.workspaceId !== row.workspace_id ||
+    typeof value.schemaRevisionId !== 'string' ||
+    !value.fields ||
+    typeof value.fields !== 'object' ||
+    Array.isArray(value.fields)
+  )
+    return null;
+  return {
+    fields: value.fields,
+    schemaRevisionId: value.schemaRevisionId,
+    archivedAt: value.archivedAt,
+    tombstone: value.tombstone,
+  };
+}
 
 export function workSourceReader(
   db: Database.Database,
@@ -49,13 +81,22 @@ export function workSourceReader(
       .get(source.resourceId, project.workspaceId) as LimsEntityRow | undefined;
     if (!entity) return { kind: 'missing' };
     if (entity.tombstone || entity.archived_at !== null) return { kind: 'archived' };
+    const revisionId =
+      source.revisionId ?? (entity.event_seq === null ? null : String(entity.event_seq));
+    if (!revisionId) return { kind: 'unavailable' };
+    const target =
+      revisionId === String(entity.event_seq)
+        ? limsEntityFromRow(entity)
+        : pinnedRegistryRecord(db, entity, revisionId);
+    if (!target) return { kind: 'unavailable' };
+    if (target.archivedAt || target.tombstone) return { kind: 'archived' };
     const definition = parseLimsSchemaFields(
-      getSchemaRevisionForEntity(db, entity).fieldsJson
+      getSchemaRevisionForEntity(db, { ...entity, schema_revision_id: target.schemaRevisionId })
+        .fieldsJson
     ).fields.find((f) => f.key === source.role);
     if (!definition || definition.type !== 'date') return { kind: 'unsupported' };
-    const revisionId = String(entity.event_seq);
-    if (source.revisionId && source.revisionId !== revisionId) return { kind: 'unavailable' };
-    const legacy = classifyLegacyWorkDate(JSON.parse(entity.fields)[definition.key], 'UTC');
+    const raw = target.fields[definition.key];
+    const legacy = classifyLegacyWorkDate(raw, source.zone ?? '');
     return legacy.kind === 'exact'
       ? { kind: 'resolved', spec: { kind: 'fixed', value: legacy.value }, revisionId }
       : legacy.kind === 'missing'
@@ -79,10 +120,16 @@ export function assertWorkLink(
   } else if (id.ok && reader.current(id.value)) return;
   const row = db
     .prepare(
-      'SELECT event_seq FROM lims_entity WHERE id=? AND workspace_id=? AND archived_at IS NULL AND tombstone=0'
+      'SELECT * FROM lims_entity WHERE id=? AND workspace_id=? AND archived_at IS NULL AND tombstone=0'
     )
-    .get(target.resourceId, project.workspaceId) as { event_seq: number | null } | undefined;
-  if (row && (!target.revisionId || String(row.event_seq) === target.revisionId)) return;
+    .get(target.resourceId, project.workspaceId) as LimsEntityRow | undefined;
+  if (
+    row &&
+    (!target.revisionId ||
+      String(row.event_seq) === target.revisionId ||
+      pinnedRegistryRecord(db, row, target.revisionId))
+  )
+    return;
   if (
     !target.revisionId &&
     db

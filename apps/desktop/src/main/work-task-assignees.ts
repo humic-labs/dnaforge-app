@@ -19,7 +19,7 @@ export async function workAssigneeListing(
   if (!project) return workRefused('This project is unavailable.');
   const members = [{ principal: project.actor, label: 'Me' }];
   if (project.actor.kind === 'local') return { status: 'local', members };
-  const binding = readWorkspaceSyncAccessBinding(db, project.id);
+  const binding = readWorkspaceSyncAccessBinding(db, project.registeredId);
   if (!binding?.remote_workspace_id) return { status: 'unavailable', members };
   let listing;
   try {
@@ -36,7 +36,7 @@ export async function workAssigneeListing(
   return withWorkspaceSyncDatabaseFence(db, async () => {
     assertWorkProjectAtAcceptance(db, project, false);
     if (
-      readWorkspaceSyncAccessBinding(db, project.id)?.remote_workspace_id !==
+      readWorkspaceSyncAccessBinding(db, project.registeredId)?.remote_workspace_id !==
         binding.remote_workspace_id ||
       listing.workspaceId !== binding.remote_workspace_id
     )

@@ -1,3 +1,5 @@
+import type { WorkNotebookPlacement, WorkPlacementIntent } from './work-task-reference';
+export type { WorkPlacementIntent } from './work-task-reference';
 import type {
   WorkAssignee,
   WorkDueStatus,
@@ -57,10 +59,19 @@ export interface WorkTaskMutation {
   operationId: string;
   expectedRevisionId: string | null;
   command: WorkTaskCommand;
+  notebookPlacement?: WorkNotebookPlacement;
   mutationToken?: string;
 }
 
+export interface WorkPlacementResolution {
+  workspaceRoot: string;
+  operationId: string;
+  placementId: string;
+  disposition: 'inserted' | 'abandoned';
+}
+
 export interface WorkTaskMutationResult {
+  notebookPlacement?: WorkPlacementIntent;
   task: WorkTaskRecord | null;
   submission: ScientificWorkspaceSubmitResult;
 }

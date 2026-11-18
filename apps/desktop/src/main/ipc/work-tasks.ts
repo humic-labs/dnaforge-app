@@ -1,7 +1,10 @@
+import type { NativeNotebookWorkingCopyOwner } from '../notebook-document-owner';
 import type Database from 'better-sqlite3';
 import { handleGroup } from '../../shared/ipc-contract';
 import { workTasksContract } from '../../shared/ipc/work-tasks.contract';
 import {
+  finishWorkPlacement,
+  workPlacements,
   mutateWorkTask,
   queryWorkTasks,
   readWorkTask,
@@ -12,18 +15,26 @@ import { withRendererDatabaseRead } from '../workspace-sync-database-fence';
 import { workAssigneeListing } from '../work-task-assignees';
 import { getDb } from './database';
 
-export function registerWorkTaskHandlers(resolveDb: () => Database.Database = getDb): void {
+export function registerWorkTaskHandlers(
+  notebooks: NativeNotebookWorkingCopyOwner,
+  resolveDb: () => Database.Database = getDb
+): void {
   handleGroup(workTasksContract, {
     query: (event, input) => {
       const db = resolveDb();
       return withRendererDatabaseRead(db, event.sender, () => queryWorkTasks(db, input));
     },
-    assignees: (event, input) => {
+    assignees: async (event, input) => {
       const db = resolveDb();
       return withRendererDatabaseRead(db, event.sender, () =>
         workAssigneeListing(db, input.workspaceRoot)
       );
     },
+    placements: (event, input) => {
+      const db = resolveDb();
+      return withRendererDatabaseRead(db, event.sender, () => workPlacements(db, input));
+    },
+    finishPlacement: (_event, input) => finishWorkPlacement(resolveDb(), input, notebooks),
     occurrences: (event, input) => {
       const db = resolveDb();
       return withRendererDatabaseRead(db, event.sender, () => workTaskOccurrences(db, input));
@@ -37,9 +48,14 @@ export function registerWorkTaskHandlers(resolveDb: () => Database.Database = ge
       return withRendererDatabaseRead(db, event.sender, () => workTaskHistory(db, input));
     },
     mutate: (event, input) =>
-      mutateWorkTask(resolveDb(), input, {
-        ownerId: event.sender.id,
-        ...(input.mutationToken ? { mutationToken: input.mutationToken } : {}),
-      }),
+      mutateWorkTask(
+        resolveDb(),
+        input,
+        {
+          ownerId: event.sender.id,
+          ...(input.mutationToken ? { mutationToken: input.mutationToken } : {}),
+        },
+        notebooks
+      ),
   });
 }
