@@ -64,11 +64,11 @@
   "dependencies": {
     "@waypoint/platform": "workspace:*",
     "@waypoint/sequence-utils": "workspace:*",
-    "earcut": "3.0.2",
+    "earcut": "3.2.4",
     "@waypoint/user-messages": "workspace:*"
   },
   "devDependencies": {
-    "@types/earcut": "^3.0.0",
+    "@types/earcut": "^3.2.4",
     "@types/node": "^20.0.0",
     "@types/react": "18.3.18",
     "@types/react-dom": "^18.3.7",
