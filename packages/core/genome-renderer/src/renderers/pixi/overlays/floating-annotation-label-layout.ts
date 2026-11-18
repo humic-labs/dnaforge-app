@@ -563,12 +563,12 @@ interface PreparedPlacement {
   readonly featureId: number;
   readonly slot: FloatingAnnotationLabelSlot;
   readonly occupancyKeys: readonly number[];
-  readonly ranges: readonly SequenceRange[];
+  readonly ranges: readonly OccupiedSequenceRange[];
 }
 
 interface PreparedPlacementOption {
   readonly option: FloatingAnnotationLabelPlacementOption;
-  ranges?: readonly SequenceRange[] | null;
+  ranges?: readonly OccupiedSequenceRange[] | null;
 }
 
 interface PreparedPlacementChoices {
@@ -587,7 +587,8 @@ function descriptorRanges(
   pixelsPerBp: number,
   genomeLength: number,
   circular: boolean
-): readonly SequenceRange[] {
+): readonly OccupiedSequenceRange[] {
+  const featureId = descriptor.featureId;
   const halfSpanBp =
     (descriptor.textWidth / 2 + LABEL_ASSIGNMENT_GAP_PX / 2) / Math.max(pixelsPerBp, 1e-9);
   if (!finite(halfSpanBp) || halfSpanBp < 0) return [];
@@ -604,6 +605,7 @@ function descriptorRanges(
   if (!circular || genomeLength <= 0) {
     return [
       {
+        featureId,
         start: centerMin - halfSpanBp,
         end: centerMax + halfSpanBp,
       },
@@ -611,13 +613,13 @@ function descriptorRanges(
   }
 
   const totalSpan = centerMax - centerMin + halfSpanBp * 2;
-  if (totalSpan >= genomeLength) return [{ start: 0, end: genomeLength }];
+  if (totalSpan >= genomeLength) return [{ start: 0, end: genomeLength, featureId }];
   const start = modulo(centerMin - halfSpanBp, genomeLength);
   const end = start + totalSpan;
-  if (end <= genomeLength) return [{ start, end }];
+  if (end <= genomeLength) return [{ start, end, featureId }];
   return [
-    { start: 0, end: end - genomeLength },
-    { start, end: genomeLength },
+    { start: 0, end: end - genomeLength, featureId },
+    { start, end: genomeLength, featureId },
   ];
 }
 
@@ -673,19 +675,19 @@ function radialOccupancyKeys(
   return keys;
 }
 
-function maximumProjectedLeaderLength(
+function exceedsProjectedLeaderLimit(
   descriptor: FloatingAnnotationLabelDescriptor,
   option: FloatingAnnotationLabelPlacementOption,
   outwardRow: number,
   circular: boolean
-): number {
+): boolean {
   const baseOutwardDistance =
     LABEL_BODY_GAP_PX + option.outwardClearance + outwardRow * OUTWARD_ROW_STEP_PX;
   const tangentDistance = option.tangentStep * FLOATING_LABEL_TANGENT_STEP_PX;
   const orientationSamples = circular
     ? CIRCULAR_LEADER_ORIENTATION_SAMPLES
     : LINEAR_LEADER_ORIENTATION_SAMPLES;
-  let maximumLength = 0;
+  const limit = FLOATING_LABEL_MAX_LEADER_PX - (circular ? 0.5 : 0);
   for (const orientation of orientationSamples) {
     const labelNormalHalfExtent =
       orientation.absoluteOutwardX * (descriptor.textWidth / 2) +
@@ -699,14 +701,15 @@ function maximumProjectedLeaderLength(
         (descriptor.textWidth / 2 + FLOATING_LABEL_TEXT_GAP_PX + FLOATING_LABEL_TERMINAL_TICK_PX);
     const horizontalLength =
       Math.hypot(horizontalElbowX, centerY) + FLOATING_LABEL_TERMINAL_TICK_PX;
+    if (horizontalLength <= limit) continue;
     const verticalElbowY =
       centerY -
       (centerY >= 0 ? 1 : -1) *
         (descriptor.textHeight / 2 + FLOATING_LABEL_TEXT_GAP_PX + FLOATING_LABEL_TERMINAL_TICK_PX);
     const verticalLength = Math.hypot(centerX, verticalElbowY) + FLOATING_LABEL_TERMINAL_TICK_PX;
-    maximumLength = Math.max(maximumLength, Math.min(horizontalLength, verticalLength));
+    if (Math.min(horizontalLength, verticalLength) > limit) return true;
   }
-  return maximumLength + (circular ? 0.5 : 0);
+  return false;
 }
 
 export function precomputeFloatingAnnotationLabelAssignments(
@@ -757,12 +760,7 @@ export function precomputeFloatingAnnotationLabelAssignments(
       return null;
     }
     if (
-      maximumProjectedLeaderLength(
-        choices.descriptor,
-        prepared.option,
-        outwardRow,
-        options.circular
-      ) > FLOATING_LABEL_MAX_LEADER_PX
+      exceedsProjectedLeaderLimit(choices.descriptor, prepared.option, outwardRow, options.circular)
     ) {
       choices.cache[index] = null;
       return null;
@@ -800,7 +798,7 @@ export function precomputeFloatingAnnotationLabelAssignments(
         occupancy.set(occupancyKey, row);
       }
       for (const range of placement.ranges) {
-        insertRange(row, { ...range, featureId: placement.featureId });
+        insertRange(row, range);
       }
     }
     placements.set(placement.featureId, placement);
