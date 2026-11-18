@@ -231,11 +231,12 @@ function fixture() {
       return response.result;
     }),
   };
+  const getActiveSession = vi.fn(async () => active);
   const makeOwner = () =>
     createOrganizationInventoryOwner({
       db,
       client,
-      getActiveSession: async () => active,
+      getActiveSession,
       refreshSession: async () => {},
       nowMs: () => wall,
       monotonicMs: () => mono,
@@ -255,6 +256,7 @@ function fixture() {
       return owner;
     },
     client,
+    getActiveSession,
     accept,
     accepted,
     get serverState() {
@@ -318,6 +320,32 @@ const submitRequest = (read: Extract<InventoryOrganizationPreviewRead, { kind: '
 });
 
 describe('organization submission with real file SQLite and synthetic HTTP boundaries', () => {
+  it('cancels its live handle synchronously before a stalled session read lets Submit authenticate', async () => {
+    const f = fixture();
+    const caller = {};
+    const ready = await f.prepare(caller);
+    const request = submitRequest(ready);
+    const cancelIdentity = deferred<StoredSession>();
+    f.getActiveSession.mockImplementationOnce(() => cancelIdentity.promise);
+    const readsBefore = f.getActiveSession.mock.calls.length;
+    const cancelled = f.owner.organizationCancelPreview(request, noop, caller);
+    await vi.waitFor(() => expect(f.getActiveSession).toHaveBeenCalledTimes(readsBefore + 1));
+    let submitted;
+    let rowsBeforeCancelResolved;
+    try {
+      submitted = await f.owner.organizationSubmit(request, noop, caller);
+      rowsBeforeCancelResolved = attempts(f.db);
+    } finally {
+      cancelIdentity.resolve(syntheticSession());
+    }
+    const cancelResult = await cancelled;
+    expect(submitted).toMatchObject({ kind: 'unavailable', code: 'PREVIEW_NOT_LIVE' });
+    expect(rowsBeforeCancelResolved).toHaveLength(0);
+    expect(f.client.applyAction).not.toHaveBeenCalled();
+    expect(cancelResult.kind).toBe('cancelled');
+    expect(attempts(f.db)).toHaveLength(0);
+  });
+
   it.each(['wrong-caller', 'cancelled', 'monotonic-expiry'] as const)(
     'cannot send a %s ready handle',
     async (scenario) => {

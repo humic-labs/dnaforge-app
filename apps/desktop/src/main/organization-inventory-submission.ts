@@ -306,6 +306,20 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
     ): Promise<InventoryOrganizationCancelPreviewRead> {
       const request = inventoryOrganizationCancelPreviewRequestSchema.parse(input);
       try {
+        deps.assertOwner(assertCurrent);
+        const handle = previews.get(request.previewHandleId);
+        let cancelled = false;
+        if (
+          handle &&
+          handle.callerKey === callerKey &&
+          handle.read.binding.accountId === request.expectedAccountId &&
+          handle.read.binding.desktopSessionId === request.expectedDesktopSessionId &&
+          same(handle.read.binding.target, request.target)
+        ) {
+          deps.assertOwner(handle.assertCurrent);
+          previews.delete(request.previewHandleId);
+          cancelled = true;
+        }
         const session = await deps.identity(
           request.expectedAccountId,
           request.expectedDesktopSessionId,
@@ -318,23 +332,8 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
           previewHandleId: request.previewHandleId,
         });
         if (row) return { kind: 'retained', session, attempt: descriptor(row) };
-        const handle = previews.get(request.previewHandleId);
-        if (
-          handle &&
-          handle.callerKey === callerKey &&
-          handle.read.binding.accountId === session.accountId &&
-          same(handle.read.binding.target, request.target)
-        ) {
-          previews.delete(request.previewHandleId);
-          return {
-            kind: 'cancelled',
-            session,
-            target: request.target,
-            previewHandleId: request.previewHandleId,
-          };
-        }
         return {
-          kind: 'not-live',
+          kind: cancelled ? 'cancelled' : 'not-live',
           session,
           target: request.target,
           previewHandleId: request.previewHandleId,
