@@ -526,12 +526,17 @@ describe('hosted reference asset authority', () => {
     const cacheRoot = await temporaryRoot(temporaryRoots);
     const fastaBytes = await readFile(PUC19_FASTA);
     const gff3Bytes = await readFile(PUC19_GFF3);
+    let markPreparationStarted!: () => void;
+    const preparationStarted = new Promise<void>((resolve) => {
+      markPreparationStarted = resolve;
+    });
     let admitPrepared!: () => void;
     const preparationGate = new Promise<void>((resolve) => {
       admitPrepared = resolve;
     });
     let admitted: ReadonlyArray<PreparedReferenceAssemblyEntryV1> = [];
     const runPreparation = vi.fn<HostedReferencePreparationRunner>(async (input) => {
+      markPreparationStarted();
       input.onProgress?.('published source generation');
       await preparationGate;
       admitted = [PREPARED_ENTRY];
@@ -595,6 +600,7 @@ describe('hosted reference asset authority', () => {
       })
     ).entry;
     expect(shell.members[0]).not.toHaveProperty('manifest');
+    await preparationStarted;
     await vi.waitFor(() => expect(runPreparation).toHaveBeenCalledOnce());
     expect(progress).toContainEqual(
       expect.objectContaining({
@@ -1908,7 +1914,14 @@ describe('hosted reference asset authority', () => {
       return new Response(null, { status: 404 });
     });
     const rawPreparationGate = new Promise<never>(() => undefined);
-    const runPreparation: HostedReferencePreparationRunner = vi.fn(async () => rawPreparationGate);
+    let markPreparationStarted!: () => void;
+    const preparationStarted = new Promise<void>((resolve) => {
+      markPreparationStarted = resolve;
+    });
+    const runPreparation: HostedReferencePreparationRunner = vi.fn(async () => {
+      markPreparationStarted();
+      return rawPreparationGate;
+    });
     const hydratePreparedView = vi.fn(async () => {
       throw new Error('focused view rejection');
     });
@@ -1938,6 +1951,7 @@ describe('hosted reference asset authority', () => {
       status: 'view-ready',
       entry: { id: CATALOG_ENTRY.id },
     });
+    await preparationStarted;
     await vi.waitFor(() => expect(runPreparation).toHaveBeenCalledOnce());
 
     await Promise.all([
