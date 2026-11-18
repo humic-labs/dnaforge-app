@@ -1,4 +1,5 @@
 import { reportSaveFailure } from '../lib/report-save-failure';
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { useDocumentLifecycle } from '../shared/use-document-lifecycle';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { captureWorkspaceSessionIntent } from '../features/workspace-session/public/electron-session';
@@ -41,8 +42,7 @@ const MAX_TABULAR_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_TABULAR_PREVIEW_BYTES = 5 * 1024 * 1024;
 const MAX_PREVIEW_ROWS = 1000;
 const EMPTY_TABLE_DATA: TableData = { cells: [] };
-const TABULAR_TOOLBAR_BUTTON_CLASS =
-  'h-6 px-2 rounded-[5px] border border-border/60 bg-bg text-[11px] font-medium text-fg-muted leading-none transition-colors hover:border-border hover:bg-bg-muted hover:text-fg disabled:cursor-default disabled:opacity-40 disabled:hover:border-border/60 disabled:hover:bg-bg disabled:hover:text-fg-muted';
+const TABULAR_TOOLBAR_BUTTON_CLASS = `${INTERACTION_CLASS} h-6 px-2 rounded-[5px] border border-border/60 bg-bg text-[11px] font-medium text-fg-muted leading-none`;
 
 type LoadState = (
   | { status: 'loading' }
@@ -725,6 +725,7 @@ export function TabularFileViewerTab({
                   onClick={saveChanges}
                   disabled={!dirty || saveState === 'saving'}
                   className={TABULAR_TOOLBAR_BUTTON_CLASS}
+                  data-interaction-border="true"
                   title="Save cell values back to this CSV/TSV file"
                 >
                   {saveState === 'saving' ? 'Saving' : 'Save'}
@@ -734,18 +735,25 @@ export function TabularFileViewerTab({
                   onClick={revertChanges}
                   disabled={!dirty || saveState === 'saving'}
                   className={TABULAR_TOOLBAR_BUTTON_CLASS}
+                  data-interaction-border="true"
                 >
                   Revert
                 </button>
               </>
             )}
-            <button type="button" onClick={openAsText} className={TABULAR_TOOLBAR_BUTTON_CLASS}>
+            <button
+              type="button"
+              onClick={openAsText}
+              className={TABULAR_TOOLBAR_BUTTON_CLASS}
+              data-interaction-border="true"
+            >
               Open as text
             </button>
             <button
               type="button"
               onClick={copyPath}
               className={TABULAR_TOOLBAR_BUTTON_CLASS}
+              data-interaction-border="true"
               title={filePath}
             >
               {copied ? 'Copied' : 'Copy Path'}
@@ -769,10 +777,8 @@ export function TabularFileViewerTab({
               data-testid="tabular-first-row-labels-toggle"
               disabled={!canToggleHeaderMode}
               onClick={() => setFirstRowHeaderMode(!firstRowAsHeader)}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full border transition-colors disabled:opacity-40 ${
-                firstRowAsHeader
-                  ? 'border-accent bg-accent'
-                  : 'border-border bg-bg-muted hover:bg-bg-subtle'
+              className={`${firstRowAsHeader ? '' : INTERACTION_CLASS} relative inline-flex h-5 w-9 items-center rounded-full border transition-colors disabled:opacity-40 ${
+                firstRowAsHeader ? 'border-accent bg-accent' : 'border-border bg-bg-muted '
               }`}
               title={
                 canToggleHeaderMode
@@ -933,14 +939,14 @@ function ActionRow({
       <button
         type="button"
         onClick={onCopyPath}
-        className="px-3 py-1.5 text-sm bg-bg-muted hover:bg-bg-subtle rounded transition-colors"
+        className={`${INTERACTION_CLASS} px-3 py-1.5 text-sm bg-bg-muted rounded transition-colors`}
       >
         {copied ? 'Copied' : 'Copy Path'}
       </button>
       <button
         type="button"
         onClick={onReveal}
-        className="px-3 py-1.5 text-sm bg-bg-muted hover:bg-bg-subtle rounded transition-colors"
+        className={`${INTERACTION_CLASS} px-3 py-1.5 text-sm bg-bg-muted rounded transition-colors`}
       >
         Reveal
       </button>

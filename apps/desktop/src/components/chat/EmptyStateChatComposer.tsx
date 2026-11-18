@@ -152,7 +152,7 @@ export function EmptyStateChatComposer({
               {onAttachFile && (
                 <button
                   onClick={onAttachFile}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-bg-muted hover:text-accent disabled:opacity-30 [&_svg]:stroke-[2.25]"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors wp-interactive hover:text-accent disabled:opacity-30 [&_svg]:stroke-[2.25]"
                   title="Attach file"
                   aria-label="Attach file"
                   data-testid="chat-attach-button"
@@ -190,7 +190,7 @@ export function EmptyStateChatComposer({
             key={suggestion}
             onClick={() => onSuggestionClick(suggestion)}
             className="px-3 py-1.5 rounded-full border border-border bg-bg text-xs font-medium text-fg-muted
-                       hover:bg-bg-muted hover:text-fg hover:border-accent/30 transition-colors"
+ wp-interactive hover:border-accent/30 transition-colors"
           >
             {suggestion}
           </button>

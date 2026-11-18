@@ -1,4 +1,5 @@
 import { APP_BUILD } from '../lib/app-build';
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { userEntityLabel, toUserMessage, userMessage } from '@waypoint/user-messages';
 import { installedReleaseVersion } from '../shared/app-build-identity';
 import { useEffect, useMemo, useRef, useState, useCallback, type KeyboardEvent } from 'react';
@@ -212,7 +213,7 @@ export function HomePanel({
                 type="button"
                 onClick={onMigrateFromBenchling}
                 data-testid="home-migrate-benchling"
-                className="flex-shrink-0 rounded border border-border px-3 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-bg-muted"
+                className={`${INTERACTION_CLASS} flex-shrink-0 rounded border border-border px-3 py-1.5 text-xs font-medium text-fg`}
               >
                 Migrate from Benchling…
               </button>
@@ -235,7 +236,7 @@ export function HomePanel({
                         key={tab.id}
                         type="button"
                         onClick={() => handleOpenTab(panelId, tab.id)}
-                        className="flex min-w-0 items-center gap-3 rounded px-3 py-2 text-left text-sm hover:bg-bg-muted"
+                        className={`${INTERACTION_CLASS} flex min-w-0 items-center gap-3 rounded px-3 py-2 text-left text-sm`}
                         data-testid={`home-open-tab-${tab.id}`}
                       >
                         {getTabIconForTab(projectTabStripTab(tab))}
@@ -266,7 +267,7 @@ export function HomePanel({
                           onClick={() => void handleRecentlyEditedOpen(item)}
                           disabled={openingRecentlyEditedId !== null}
                           aria-busy={isOpening}
-                          className="flex min-w-0 items-center gap-3 rounded px-3 py-2 text-left text-sm hover:bg-bg-muted disabled:cursor-wait disabled:opacity-70"
+                          className={`${INTERACTION_CLASS} flex min-w-0 items-center gap-3 rounded px-3 py-2 text-left text-sm disabled:cursor-wait`}
                           data-testid={`home-recently-edited-${item.id}`}
                         >
                           {isOpening ? (

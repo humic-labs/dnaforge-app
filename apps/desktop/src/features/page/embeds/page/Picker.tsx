@@ -98,7 +98,7 @@ export function PagePicker({ onAdvance, onCancel }: PickerStageProps) {
               onDoubleClick={() => onAdvance({ pageId: page.id, pageName: page.title })}
               className={cn(
                 'w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
-                selectedId === page.id ? 'bg-accent-subtle text-fg' : 'hover:bg-bg-muted'
+                selectedId === page.id ? 'bg-accent-subtle text-fg' : 'wp-interactive'
               )}
             >
               <span>📄</span>

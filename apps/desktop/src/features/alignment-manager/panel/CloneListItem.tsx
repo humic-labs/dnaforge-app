@@ -117,7 +117,7 @@ export const CloneListItem = React.forwardRef<HTMLDivElement, CloneListItemProps
         onClick={() => onSelect(index)}
         onKeyDown={(e) => onKeyDown(e, index, maxIndex)}
         className={`group flex items-center gap-3 px-4 py-2 cursor-pointer outline-none ${
-          isSelected ? 'bg-accent/10' : 'hover:bg-bg-subtle'
+          isSelected ? 'bg-accent/10' : 'wp-interactive'
         } ${isTrackHidden ? 'opacity-50' : ''} ${isStale ? 'opacity-60' : ''}`}
       >
         {}
@@ -127,7 +127,7 @@ export const CloneListItem = React.forwardRef<HTMLDivElement, CloneListItemProps
             onToggleVisibility();
           }}
           className={`p-0.5 rounded transition-colors ${
-            isTrackHidden ? 'text-fg-muted hover:text-fg' : 'text-fg-muted/50 hover:text-fg-muted'
+            isTrackHidden ? 'text-fg-muted wp-interactive' : 'text-fg-muted/50 wp-interactive'
           }`}
           title={isTrackHidden ? 'Show track in viewer' : 'Hide track from viewer'}
         >

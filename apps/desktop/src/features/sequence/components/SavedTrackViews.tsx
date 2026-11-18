@@ -100,7 +100,7 @@ export function SavedTrackViews({
                   type="button"
                   data-testid={`saved-track-view-${document.id}`}
                   onClick={() => onOpenView(saved.path)}
-                  className="grid min-h-12 w-full grid-cols-[minmax(12rem,1.45fr)_minmax(7rem,.7fr)_5rem_6rem_minmax(7rem,.65fr)] items-center px-4 py-2 text-left hover:bg-bg-subtle focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+                  className="grid min-h-12 w-full grid-cols-[minmax(12rem,1.45fr)_minmax(7rem,.7fr)_5rem_6rem_minmax(7rem,.65fr)] items-center px-4 py-2 text-left wp-interactive focus-visible:-outline-offset-2 disabled:opacity-60"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium text-fg">

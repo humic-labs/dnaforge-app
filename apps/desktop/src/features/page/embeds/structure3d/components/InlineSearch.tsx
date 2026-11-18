@@ -1,10 +1,11 @@
+'use client';
+
 import {
   userMessageWithValues,
   userMessageValue,
   userMessage,
   toUserMessage,
 } from '@waypoint/user-messages';
-('use client');
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Structure3dSource, Structure3dAttrs } from '../types';
@@ -341,7 +342,7 @@ export function InlineSearch({
         {stage === 'input' && currentIdBadge && (
           <button
             onClick={() => setCurrentIdBadge(null)}
-            className="px-2 py-0.5 rounded text-xs font-mono bg-bg-muted text-fg hover:bg-bg-subtle transition-colors flex items-center gap-1 shrink-0"
+            className="px-2 py-0.5 rounded text-xs font-mono bg-bg-muted text-fg wp-interactive transition-colors flex items-center gap-1 shrink-0"
             title="Backspace to clear"
           >
             {currentIdBadge}
@@ -388,7 +389,7 @@ export function InlineSearch({
         {isEditing && onCancelEdit && (
           <button
             onClick={onCancelEdit}
-            className="px-2 py-0.5 text-xs text-fg-muted hover:text-fg border border-border rounded hover:bg-bg-muted transition-colors shrink-0"
+            className="px-2 py-0.5 text-xs text-fg-muted wp-interactive border border-border rounded transition-colors shrink-0"
           >
             Cancel
           </button>

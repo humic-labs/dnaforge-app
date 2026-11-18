@@ -165,7 +165,7 @@ export function StructureFileTabContent({
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
-              className="rounded border border-border px-2.5 py-1 text-xs hover:bg-bg-muted"
+              className="rounded border border-border px-2.5 py-1 text-xs wp-interactive"
               onClick={() => setRetryRevision((value) => value + 1)}
             >
               Retry
@@ -173,7 +173,7 @@ export function StructureFileTabContent({
             {attrs?.structureArtifactRef?.format !== 'binary-cif' && filePath && (
               <button
                 type="button"
-                className="rounded border border-border px-2.5 py-1 text-xs hover:bg-bg-muted"
+                className="rounded border border-border px-2.5 py-1 text-xs wp-interactive"
                 onClick={() => openCoordinateFileAsText(tab, filePath)}
               >
                 Open as text
@@ -182,7 +182,7 @@ export function StructureFileTabContent({
             {filePath && (
               <button
                 type="button"
-                className="rounded border border-border px-2.5 py-1 text-xs hover:bg-bg-muted"
+                className="rounded border border-border px-2.5 py-1 text-xs wp-interactive"
                 onClick={() => void platform().shell.revealItemInDir(filePath)}
               >
                 Reveal in Finder

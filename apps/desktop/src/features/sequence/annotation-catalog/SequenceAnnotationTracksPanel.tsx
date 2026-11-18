@@ -178,7 +178,7 @@ function TrackRow({
         {source ? <EvidenceChip label={source.evidenceLabel} /> : null}
         <button
           type="button"
-          className="rounded px-1 text-[13px] leading-none text-fg-muted hover:bg-bg-muted hover:text-fg"
+          className="rounded px-1 text-[13px] leading-none text-fg-muted wp-interactive "
           aria-label={`Remove ${track.label}`}
           title="Remove track"
           onClick={() => run({ kind: 'remove-track', trackId: binding.id })}
@@ -300,7 +300,7 @@ function DataLayerTrackRow({
           aria-expanded={settingsOpen}
           aria-controls={settingsOpen ? `sequence-data-layer-settings-${row.id}` : undefined}
           onClick={() => setSettingsOpen((open) => !open)}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-subtle hover:bg-bg-muted hover:text-fg"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-subtle wp-interactive"
         >
           <SettingsIcon size={14} />
         </button>
@@ -658,7 +658,7 @@ export function SequenceAnnotationTracksControl({
     >
       <button
         type="button"
-        className="webgl-sync-lock-toggle"
+        className="webgl-sync-lock-toggle wp-interactive"
         data-testid="annotation-tracks-toggle"
         aria-expanded={open}
         aria-haspopup="dialog"

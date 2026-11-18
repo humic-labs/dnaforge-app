@@ -29,6 +29,9 @@ describe('ProteinSaveLocationPicker (reuses the workspace file tree)', () => {
 
   it('highlights the selected folder', () => {
     render(<ProteinSaveLocationPicker {...base} selectedDir="/w/proj" />);
-    expect(screen.getByTestId('protein-picker-folder-/w/proj').className).toContain('text-accent');
+    expect(screen.getByTestId('protein-picker-folder-/w/proj')).toHaveAttribute(
+      'data-selected',
+      'true'
+    );
   });
 });

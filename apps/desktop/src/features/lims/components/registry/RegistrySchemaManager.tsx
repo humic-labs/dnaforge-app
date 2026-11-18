@@ -433,7 +433,7 @@ export function RegistrySchemaManager({
                     ? 'page'
                     : undefined
                 }
-                className={`mb-0.5 block w-full rounded px-3 py-2 text-left text-sm ${!creating && selectedEntry?.source.id === source.id && selected?.schemaId === schema.schemaId ? 'bg-accent/10 font-medium text-accent' : 'text-fg hover:bg-bg-muted'}`}
+                className={`mb-0.5 block w-full rounded px-3 py-2 text-left text-sm ${!creating && selectedEntry?.source.id === source.id && selected?.schemaId === schema.schemaId ? 'bg-accent/10 font-medium text-accent' : 'text-fg wp-interactive'}`}
               >
                 <span className="flex min-w-0 items-center gap-2">
                   <span className="min-w-0 flex-1 break-words">{schema.displayName}</span>
@@ -567,7 +567,7 @@ export function RegistrySchemaManager({
                       ).map((option) => (
                         <label
                           key={option.value}
-                          className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm ${visibleDraft.baseKind === option.value ? 'border-accent bg-accent/5 text-accent' : 'border-border text-fg hover:border-fg-muted'}`}
+                          className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm ${visibleDraft.baseKind === option.value ? 'border-accent bg-accent/5 text-accent' : 'border-border text-fg wp-interactive'}`}
                         >
                           <input
                             type="radio"

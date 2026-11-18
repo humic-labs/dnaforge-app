@@ -6,10 +6,11 @@ import {
   type AssistantRouteSelection,
 } from '../../features/ai/assistant-routes';
 import { PortalMenu } from '../PortalMenu';
-import { ChatComposerDisclosureIcon } from '../ChatComposerDisclosureIcon';
 import { ChatComposerPickerLabel } from '../ChatComposerPickerLabel';
 import { EllipsisIcon } from '../icons/glyphs';
-import { scheduleFocus } from '../../shared/utils/safeFocus';
+import { safeFocus } from '../../shared/utils/safeFocus';
+import { MenuTrigger, MenuRow, MenuSearchInput, useMenu } from '@waypoint/ui-components';
+import { ActionMenu, type ActionMenuEntry } from '../ActionMenu';
 
 export const TURN_PROVIDER_LABELS: Record<string, string> = {
   anthropic: 'Anthropic',
@@ -25,10 +26,6 @@ export const TURN_TRANSPORT_LABELS: Record<string, string> = {
   'grok-acp': 'Grok Build',
 };
 
-export const CHAT_COMPOSER_PICKER_CLASS =
-  'inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md px-2 text-left text-xs font-semibold text-fg-muted transition-colors hover:bg-border/40 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-border-hover/60';
-export const CHAT_MODEL_INPUT_CLASS =
-  'h-7 min-w-0 rounded-md border border-transparent bg-bg/50 px-2 text-xs font-semibold text-fg-muted transition-colors hover:bg-border/40 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-bg-muted/40 dark:hover:bg-border-hover/60';
 export const CHAT_COMPOSER_SURFACE_CLASS =
   'rounded-2xl border border-border-hover/70 bg-bg-muted/70 shadow-sm transition-all dark:border-border-hover/80 dark:bg-bg-muted';
 
@@ -45,7 +42,7 @@ export interface ChatComposerPickerProps {
   ariaLabel: string;
   title: string;
   testId: string;
-  className?: string;
+  width?: 'content' | 'compact' | 'standard';
 }
 
 export interface ChatComposerOptionGroup {
@@ -77,240 +74,74 @@ export function ChatComposerNestedOptionsMenu({
   testId: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const parentMenuRef = useRef<HTMLDivElement>(null);
-  const submenuRef = useRef<HTMLDivElement>(null);
-  const submenuAnchorRef = useRef<HTMLButtonElement | null>(null);
-  const activeGroup = groups.find((group) => group.id === activeGroupId) ?? null;
-
-  const close = useCallback(() => {
-    setOpen(false);
-    setActiveGroupId(null);
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    return scheduleFocus(
-      (activeGroup ? submenuRef.current : parentMenuRef.current)?.querySelector<HTMLElement>(
-        '[role="menuitem"], [role="menuitemradio"]'
-      )
-    );
-  }, [activeGroupId, open]);
-
-  const closeSubmenu = useCallback(() => {
-    setActiveGroupId(null);
-  }, []);
-
-  const openGroup = useCallback((groupId: string, anchor: HTMLButtonElement) => {
-    submenuAnchorRef.current = anchor;
-    setActiveGroupId(groupId);
-  }, []);
-
-  const moveFocus = (container: HTMLElement, current: EventTarget | null, delta: number) => {
-    const items = Array.from(
-      container.querySelectorAll<HTMLElement>('[role="menuitem"], [role="menuitemradio"]')
-    ).filter((item) => !item.hasAttribute('disabled'));
-    if (items.length === 0) return;
-    const currentIndex = items.findIndex((item) => item === current);
-    const nextIndex = currentIndex < 0 ? 0 : (currentIndex + delta + items.length) % items.length;
-    items[nextIndex]?.focus();
-  };
-
-  if (groups.length === 0 && actions.length === 0) return null;
-
+  const entries: ActionMenuEntry[] = [
+    ...actions.map(
+      (action): ActionMenuEntry => ({
+        id: action.id,
+        label: action.label,
+        description: action.description,
+        testId: action.testId ?? `${testId}-${action.id}`,
+        onSelect: action.onSelect,
+      })
+    ),
+    ...groups.map(
+      (group): ActionMenuEntry => ({
+        id: group.id,
+        label: group.label,
+        description:
+          (group.options.find((option) => option.value === group.value) ?? group.options[0])
+            ?.label ?? 'Unavailable',
+        testId: `${testId}-${group.id}`,
+        submenuLabel: `${group.label} options`,
+        submenuTestId: `${testId}-submenu`,
+        disabled: group.options.length === 0,
+        children: group.options.map((option) => ({
+          id: option.value,
+          label: option.label,
+          title: option.title,
+          description: option.title,
+          role: 'menuitemradio',
+          selected: option.value === group.value,
+          testId: `${group.optionTestId}-option-${option.value}`,
+          closeReason: 'selection',
+          onSelect: () => {
+            if (option.value !== group.value) group.onChange(option.value);
+          },
+        })),
+      })
+    ),
+  ];
+  if (entries.length === 0) return null;
   return (
     <div className="flex-shrink-0">
-      <button
+      <MenuTrigger
         ref={buttonRef}
-        type="button"
-        onClick={() => {
-          setActiveGroupId(null);
-          setOpen((next) => !next);
-        }}
+        density="compact"
+        variant="toolbar"
+        iconOnly
+        icon={<EllipsisIcon />}
+        open={open}
+        aria-label={ariaLabel}
+        aria-haspopup="menu"
+        title={entries.flatMap((entry) => ('label' in entry ? [entry.label] : [])).join(' · ')}
+        data-testid={testId}
+        onClick={() => setOpen((current) => !current)}
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault();
-            setActiveGroupId(null);
             setOpen(true);
           }
         }}
-        aria-label={ariaLabel}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title={[
-          ...actions.map((action) => action.label),
-          ...groups.map((group) => {
-            const selected =
-              group.options.find((option) => option.value === group.value) ?? group.options[0];
-            return `${group.label}: ${selected?.label ?? 'Unavailable'}`;
-          }),
-        ].join(' · ')}
-        data-testid={testId}
-        className={`${CHAT_COMPOSER_PICKER_CLASS} w-7 justify-center px-0 !text-fg ${
-          open ? 'bg-border/40 text-fg dark:bg-border-hover/60' : ''
-        }`}
-      >
-        <EllipsisIcon className="!h-[18px] !w-[18px] shrink-0 stroke-[3]" />
-      </button>
-      <PortalMenu
+      />
+      <ActionMenu
         open={open}
+        label={ariaLabel}
+        entries={entries}
         anchorRef={buttonRef}
-        role="menu"
-        aria-label={ariaLabel}
-        data-testid={`${testId}-menu`}
-        className="w-64 py-1"
-        onRequestClose={close}
-        surfaceRef={parentMenuRef}
-        insideRefs={[submenuRef]}
-        closeOnEscape={!activeGroup}
-      >
-        <div
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-              event.preventDefault();
-              moveFocus(event.currentTarget, event.target, event.key === 'ArrowDown' ? 1 : -1);
-              return;
-            }
-            if (event.key === 'Home' || event.key === 'End') {
-              event.preventDefault();
-              const items = event.currentTarget.querySelectorAll<HTMLElement>(
-                '[role="menuitem"], [role="menuitemradio"]'
-              );
-              items[event.key === 'Home' ? 0 : items.length - 1]?.focus();
-              return;
-            }
-            if (event.key === 'ArrowRight') {
-              const groupId = (event.target as HTMLElement).dataset.groupId;
-              if (groupId) {
-                event.preventDefault();
-                openGroup(groupId, event.target as HTMLButtonElement);
-              }
-            }
-          }}
-        >
-          {actions.map((action) => (
-            <button
-              key={action.id}
-              type="button"
-              role="menuitem"
-              data-testid={action.testId ?? `${testId}-${action.id}`}
-              onClick={() => {
-                close();
-                action.onSelect();
-              }}
-              className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-border/45 dark:hover:bg-border-hover/65"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-xs font-semibold text-fg">{action.label}</span>
-                {action.description ? (
-                  <span className="mt-0.5 block truncate text-[10px] font-medium text-fg-muted">
-                    {action.description}
-                  </span>
-                ) : null}
-              </span>
-            </button>
-          ))}
-          {groups.map((group) => {
-            const selected =
-              group.options.find((option) => option.value === group.value) ?? group.options[0];
-            const groupOpen = activeGroupId === group.id;
-            return (
-              <button
-                key={group.id}
-                type="button"
-                role="menuitem"
-                aria-haspopup="menu"
-                aria-expanded={groupOpen}
-                data-group-id={group.id}
-                data-testid={`${testId}-${group.id}`}
-                onClick={(event) => openGroup(group.id, event.currentTarget)}
-                className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-border/45 dark:hover:bg-border-hover/65 ${
-                  groupOpen ? 'bg-border/45 dark:bg-border-hover/65' : ''
-                }`}
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block text-xs font-semibold text-fg">{group.label}</span>
-                  <span className="mt-0.5 block truncate text-[10px] font-medium text-fg-muted">
-                    {selected?.label ?? 'Unavailable'}
-                  </span>
-                </span>
-                <span className="text-sm font-bold text-fg-muted" aria-hidden="true">
-                  ›
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </PortalMenu>
-      <PortalMenu
-        key={activeGroup?.id ?? 'closed'}
-        open={open && !!activeGroup}
-        anchorRef={submenuAnchorRef}
-        role="menu"
-        placement="submenu"
-        aria-label={activeGroup ? `${activeGroup.label} options` : undefined}
-        data-testid={`${testId}-submenu`}
-        className="w-64 py-1"
-        onRequestClose={closeSubmenu}
-        surfaceRef={submenuRef}
-        insideRefs={[parentMenuRef]}
-      >
-        <div
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-              event.preventDefault();
-              moveFocus(event.currentTarget, event.target, event.key === 'ArrowDown' ? 1 : -1);
-              return;
-            }
-            if (event.key === 'Home' || event.key === 'End') {
-              event.preventDefault();
-              const items =
-                event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitemradio"]');
-              items[event.key === 'Home' ? 0 : items.length - 1]?.focus();
-              return;
-            }
-            if (event.key === 'ArrowLeft') {
-              event.preventDefault();
-              closeSubmenu();
-            }
-          }}
-        >
-          {activeGroup?.options.map((option) => {
-            const selected = option.value === activeGroup.value;
-            return (
-              <button
-                key={option.value || 'provider-default'}
-                type="button"
-                role="menuitemradio"
-                aria-checked={selected}
-                title={option.title}
-                onClick={() => {
-                  if (!selected) activeGroup.onChange(option.value);
-                  close();
-                }}
-                data-testid={`${activeGroup.optionTestId}-option-${option.value}`}
-                data-value={option.value}
-                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium transition-colors ${
-                  selected
-                    ? 'bg-border/45 font-semibold text-accent dark:bg-border-hover/65'
-                    : 'text-fg-muted hover:bg-border/45 hover:text-fg dark:hover:bg-border-hover/65'
-                }`}
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate">{option.label}</span>
-                  {option.title && (
-                    <span className="mt-0.5 block text-[10px] font-medium leading-4 text-fg-muted">
-                      {option.title}
-                    </span>
-                  )}
-                </span>
-                {selected && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
-              </button>
-            );
-          })}
-        </div>
-      </PortalMenu>
+        testId={`${testId}-menu`}
+        onClose={() => setOpen(false)}
+      />
     </div>
   );
 }
@@ -371,28 +202,29 @@ export function DirectApiModelTextInput({
   }, [draft, model, onCommit]);
 
   return (
-    <input
-      type="text"
-      value={draft}
-      disabled={disabled}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={commitDraft}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          commitDraft();
-        }
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          setDraft(model);
-        }
-      }}
-      placeholder={defaultModel}
-      aria-label="Direct API model"
-      title={title ?? `Model: ${model}`}
-      data-testid="chat-model-version-input"
-      className={`${CHAT_MODEL_INPUT_CLASS} w-40`}
-    />
+    <div className="w-40 min-w-0">
+      <MenuSearchInput
+        type="text"
+        value={draft}
+        disabled={disabled}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commitDraft}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            commitDraft();
+          }
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            setDraft(model);
+          }
+        }}
+        placeholder={defaultModel}
+        aria-label="Direct API model"
+        title={title ?? `Model: ${model}`}
+        data-testid="chat-model-version-input"
+      />
+    </div>
   );
 }
 
@@ -403,67 +235,81 @@ export function ChatComposerPicker({
   ariaLabel,
   title,
   testId,
-  className = '',
+  width = 'content',
 }: ChatComposerPickerProps) {
-  const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const rowRefs = useRef(new Map<string, HTMLButtonElement>());
   const selectedOption = options.find((option) => option.value === value) ?? options[0];
-
+  const menu = useMenu({
+    items: options.map((option) => ({
+      id: option.value,
+      textValue: option.label,
+      closeOnActivate: false,
+    })),
+    selectedId: value,
+    onFocusItem: (id) => safeFocus(rowRefs.current.get(id)),
+    onActivate: (id) => {
+      menu.close('selection');
+      if (id !== value) onChange(id);
+    },
+  });
   return (
-    <div className="min-w-0">
-      <button
+    <div
+      className={`min-w-0 ${width === 'standard' ? 'max-w-[14rem]' : width === 'compact' ? 'max-w-[9rem]' : ''}`}
+    >
+      <MenuTrigger
         ref={buttonRef}
-        type="button"
-        onClick={() => setOpen((next) => !next)}
+        density="compact"
+        variant="toolbar"
+        open={menu.isOpen}
+        disabled={options.length === 0}
+        onClick={() => (menu.isOpen ? menu.close('trigger') : menu.openMenu())}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            menu.openMenu();
+          }
+        }}
         aria-label={ariaLabel}
         aria-haspopup="listbox"
-        aria-expanded={open}
         title={title}
         data-testid={testId}
         data-value={value}
-        className={`${CHAT_COMPOSER_PICKER_CLASS} max-w-full ${className} ${
-          open ? 'bg-border/40 text-fg dark:bg-border-hover/60' : ''
-        }`}
       >
-        <ChatComposerPickerLabel label={selectedOption.label} />
-        <ChatComposerDisclosureIcon open={open} />
-      </button>
+        <ChatComposerPickerLabel label={selectedOption?.label ?? 'Unavailable'} />
+      </MenuTrigger>
       <PortalMenu
-        open={open}
+        menu={menu}
+        open={menu.isOpen}
         anchorRef={buttonRef}
         role="listbox"
+        aria-label={ariaLabel}
         data-testid={`${testId}-menu`}
-        className="py-1"
-        onRequestClose={() => setOpen(false)}
+        density="compact"
+        selection
+        onRequestClose={menu.close}
       >
-        {options.map((option) => {
-          const active = option.value === value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              role="option"
-              aria-selected={active}
-              title={option.title}
-              onClick={() => {
-                setOpen(false);
-                if (option.value !== value) onChange(option.value);
-              }}
-              data-testid={`${testId}-option-${option.value}`}
-              data-value={option.value}
-              className={`flex w-full min-w-0 items-center gap-2 whitespace-nowrap px-2.5 py-1.5 text-left text-xs font-medium transition-colors ${
-                active
-                  ? 'bg-border/45 text-accent dark:bg-border-hover/65'
-                  : 'text-fg-muted hover:bg-border/45 hover:text-fg dark:hover:bg-border-hover/65'
-              }`}
-            >
-              <span className="min-w-0 truncate">{option.label}</span>
-              {active && (
-                <span className="ml-auto h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent" />
-              )}
-            </button>
-          );
-        })}
+        {options.map((option) => (
+          <MenuRow
+            key={option.value}
+            ref={(node) => {
+              if (node) rowRefs.current.set(option.value, node);
+              else rowRefs.current.delete(option.value);
+            }}
+            role="option"
+            selected={option.value === value}
+            active={menu.activeId === option.value}
+            aria-selected={option.value === value}
+            title={option.title}
+            tabIndex={menu.activeId === option.value ? 0 : -1}
+            onPointerEnter={() => menu.point(option.value)}
+            onClick={() => menu.activate(option.value)}
+            data-testid={`${testId}-option-${option.value}`}
+            data-value={option.value}
+          >
+            {option.label}
+          </MenuRow>
+        ))}
       </PortalMenu>
     </div>
   );

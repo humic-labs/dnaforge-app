@@ -86,7 +86,7 @@ it('selects the slash Table command and configures and edits its real node view 
     editor!.view.dom.focus();
     editor!.commands.insertContent('/table');
   });
-  expect(await screen.findByRole('button', { name: /Table$/ })).toBeVisible();
+  expect(await screen.findByRole('option', { name: /Table$/ })).toBeVisible();
   fireEvent.keyDown(editor.view.dom, { key: 'Enter' });
 
   const rows = await screen.findByLabelText('rows');

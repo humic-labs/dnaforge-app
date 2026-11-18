@@ -230,7 +230,7 @@ export function ConnectAiModal({
                   type="button"
                   onClick={back}
                   disabled={saving}
-                  className="text-fg-subtle hover:text-fg disabled:opacity-50"
+                  className="text-fg-subtle wp-interactive disabled:opacity-50"
                   aria-label="Back"
                   data-testid="connect-ai-back"
                 >
@@ -248,7 +248,7 @@ export function ConnectAiModal({
             <button
               type="button"
               onClick={onClose}
-              className="text-fg-subtle hover:text-fg"
+              className="text-fg-subtle wp-interactive"
               aria-label="Close"
               data-testid="connect-ai-close"
             >
@@ -274,7 +274,7 @@ export function ConnectAiModal({
                             onClick={() => void connectHosted(option)}
                             disabled={!ready || saving}
                             aria-current={option.active ? 'true' : undefined}
-                            className={`${UI_CARD_CLASS} text-left text-xs font-medium text-fg transition-colors hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-60`}
+                            className={`${UI_CARD_CLASS} text-left text-xs font-medium text-fg transition-colors wp-interactive disabled:cursor-not-allowed disabled:opacity-60`}
                             data-testid={`connect-ai-hosted-${option.id}`}
                           >
                             {option.label}
@@ -321,7 +321,7 @@ export function ConnectAiModal({
                             key={transport}
                             type="button"
                             onClick={() => chooseLane({ kind: 'cli', transport })}
-                            className={`${UI_CARD_CLASS} text-left text-xs font-medium text-fg transition-colors hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40`}
+                            className={`${UI_CARD_CLASS} text-left text-xs font-medium text-fg transition-colors wp-interactive `}
                             data-testid={`connect-ai-cli-${transport}`}
                           >
                             {AGENT_TRANSPORT_LABELS[transport]}
@@ -343,7 +343,7 @@ export function ConnectAiModal({
                             key={p.name}
                             type="button"
                             onClick={() => chooseLane({ kind: 'api', provider: p.name })}
-                            className={`${UI_CARD_CLASS} flex items-center justify-between text-left text-xs font-medium text-fg transition-colors hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40`}
+                            className={`${UI_CARD_CLASS} flex items-center justify-between text-left text-xs font-medium text-fg transition-colors wp-interactive `}
                             data-testid={`connect-ai-provider-${p.name}`}
                           >
                             {p.label}

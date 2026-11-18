@@ -247,7 +247,6 @@ function AgentCliModelControls({
           defaultModel={defaultModel}
           codexAuthMode={codexAuthMode}
           availableModels={availableModels}
-          containerClassName="min-w-0"
           customInputPlacement="replace-select"
           ariaLabel={`${AGENT_TRANSPORT_LABELS[transport]} default model`}
           appearance="settings"
@@ -2015,7 +2014,7 @@ export function ToolAccessSettingsContent() {
             aria-expanded={scriptOptionsOpen}
             onClick={() => setScriptOptionsOpen((open) => !open)}
             data-testid="agent-grant-script-options"
-            className="text-xs text-fg-muted hover:text-fg"
+            className="text-xs text-fg-muted wp-interactive"
           >
             {scriptOptionsOpen ? 'Hide script access' : 'Script access'}
           </button>
@@ -2157,7 +2156,7 @@ export function ToolAccessSettingsContent() {
                                 className={`flex min-w-0 cursor-pointer gap-2 rounded-md p-2 transition-colors ${
                                   checked
                                     ? 'bg-accent/10'
-                                    : 'bg-black/[0.035] hover:bg-black/[0.06] dark:bg-white/[0.045] dark:hover:bg-white/[0.075]'
+                                    : 'bg-black/[0.035] wp-interactive dark:bg-white/[0.045] '
                                 }`}
                               >
                                 <input

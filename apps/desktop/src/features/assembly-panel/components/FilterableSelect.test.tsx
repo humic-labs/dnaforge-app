@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FilterableSelect } from './FilterableSelect';
 
@@ -20,6 +20,31 @@ function renderSelect(onChange = vi.fn(), value = '') {
 
 describe('FilterableSelect', () => {
   afterEach(cleanup);
+
+  it('retains real combobox focus and native editing while keyboard selection uses the live menu owner', () => {
+    const { combobox, onChange } = renderSelect();
+    act(() => combobox.focus());
+    expect(combobox).toHaveFocus();
+    expect(screen.getByRole('listbox', { name: 'Assembly kit' })).toBeInTheDocument();
+    const first = screen.getByRole('option', { name: 'None (free-form)' });
+    expect(combobox).toHaveAttribute('aria-activedescendant', first.id);
+    for (const key of [' ', 'Home', 'End', 'ArrowLeft', 'ArrowRight']) {
+      const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+      fireEvent(combobox, event);
+      expect(event.defaultPrevented).toBe(false);
+      expect(combobox).toHaveFocus();
+    }
+    fireEvent.keyDown(combobox, { key: 'ArrowDown' });
+    fireEvent.keyDown(combobox, { key: 'ArrowDown' });
+    const active = screen.getByRole('option', { name: /^Yeast Toolkit/ });
+    expect(combobox).toHaveAttribute('aria-activedescendant', active.id);
+    expect(combobox).toHaveFocus();
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.keyDown(combobox, { key: 'Enter' });
+    expect(onChange).toHaveBeenCalledExactlyOnceWith('ytk');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(combobox).toHaveFocus();
+  });
 
   it('shows the selection when closed and opens a filterable list on click', () => {
     const { combobox } = renderSelect(vi.fn(), 'ytk');

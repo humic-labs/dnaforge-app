@@ -88,7 +88,7 @@ function PaneIconButton({
       disabled={disabled}
       data-testid={testId}
       data-zoom-step={zoomStep}
-      className="map-pane-zoom-step-button"
+      className="map-pane-zoom-step-button wp-interactive"
     >
       {children}
     </button>

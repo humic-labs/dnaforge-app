@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { useRef, useState } from 'react';
 import { PortalMenu } from './PortalMenu';
+import { useMenu, type MenuCloseReason } from '@waypoint/ui-components';
 
 let rectSpy: ReturnType<typeof vi.spyOn> | undefined;
 beforeEach(() => {
@@ -47,7 +48,7 @@ function Harness({
         data-testid="menu"
         onRequestClose={() => setOpen(false)}
       >
-        <button data-testid="opt" onClick={() => setOpen(false)}>
+        <button role="menuitem" data-testid="opt" onClick={() => setOpen(false)}>
           option
         </button>
         <span data-testid="inside">stays open on click</span>
@@ -57,6 +58,32 @@ function Harness({
 }
 
 describe('PortalMenu', () => {
+  it.each([5, 45])('aligns the first submenu row after a %ipx inset', (inset) => {
+    rectSpy?.mockImplementation(function (this: HTMLElement) {
+      const surface = this.getAttribute('data-testid') === 'menu';
+      const option = this.getAttribute('data-testid') === 'opt';
+      const menuTop = Number.parseFloat(screen.queryByTestId('menu')?.style.top ?? '400');
+      const top = surface ? menuTop : option ? menuTop + inset : 400;
+      const height = surface ? 160 : 28;
+      return {
+        top,
+        bottom: top + height,
+        left: 100,
+        right: 200,
+        width: 100,
+        height,
+        x: 100,
+        y: top,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
+    render(<Harness placement="submenu" />);
+    fireEvent.click(screen.getByTestId('trigger'));
+    expect(screen.getByTestId('opt').getBoundingClientRect().top).toBe(
+      screen.getByTestId('trigger').getBoundingClientRect().top
+    );
+  });
+
   it('opens below a part when requested without changing the composer default', () => {
     const view = render(<Harness preferredSide="bottom" />);
     fireEvent.click(screen.getByTestId('trigger'));
@@ -215,5 +242,175 @@ describe('PortalMenu', () => {
     expect(menu.style.left).toBe('');
     expect(menu.style.top).toBe('332px');
     expect(menu.style.bottom).toBe('');
+  });
+});
+
+function FocusHarness({
+  onClose,
+  role = 'menu',
+}: {
+  onClose: (reason: MenuCloseReason) => void;
+  role?: 'menu' | 'dialog';
+}) {
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const menu = useMenu({
+    items: [{ id: 'dialog', textValue: 'Open dialog' }],
+    onActivate: () => setDialogOpen(true),
+    onClose,
+  });
+  return (
+    <>
+      <button data-testid="before-menu">Before</button>
+      <button ref={anchorRef} data-testid="focus-trigger" onClick={() => menu.openMenu()}>
+        Open actions
+      </button>
+      <button data-testid="after-menu">After</button>
+      <PortalMenu
+        open={menu.isOpen}
+        menu={menu}
+        anchorRef={anchorRef}
+        onRequestClose={() => {}}
+        role={role}
+        data-testid="focus-menu"
+      >
+        <button data-testid="focus-option" onClick={() => menu.activate('dialog')}>
+          Open dialog
+        </button>
+        <input aria-label="Search actions" />
+        {role === 'dialog' && <input aria-label="Additional details" />}
+      </PortalMenu>
+      {dialogOpen && (
+        <div role="dialog">
+          <input autoFocus aria-label="Dialog name" />
+        </div>
+      )}
+    </>
+  );
+}
+
+function openFocusMenu() {
+  const trigger = screen.getByTestId('focus-trigger');
+  act(() => trigger.focus());
+  fireEvent.click(trigger);
+  const option = screen.getByTestId('focus-option');
+  act(() => option.focus());
+  return { trigger, option };
+}
+
+describe('PortalMenu close focus', () => {
+  it('keeps dialog Tab native inside the form and closes without restoring after focus leaves', async () => {
+    const onClose = vi.fn();
+    render(<FocusHarness onClose={onClose} role="dialog" />);
+    const { trigger } = openFocusMenu();
+    const restore = vi.spyOn(trigger, 'focus');
+    const search = screen.getByRole('textbox', { name: 'Search actions' });
+    const details = screen.getByRole('textbox', { name: 'Additional details' });
+    act(() => search.focus());
+    const internalTab = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    });
+    fireEvent(search, internalTab);
+    expect(internalTab.defaultPrevented).toBe(false);
+    act(() => details.focus());
+    expect(details).toHaveFocus();
+    expect(screen.getByTestId('focus-menu')).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(details, { key: 'Tab' });
+    const destination = screen.getByTestId('after-menu');
+    act(() => destination.focus());
+    await act(async () => {});
+    expect(destination).toHaveFocus();
+    expect(screen.queryByTestId('focus-menu')).not.toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledExactlyOnceWith('tab');
+    expect(restore).not.toHaveBeenCalled();
+  });
+
+  it.each([' ', 'ArrowLeft', 'ArrowRight', 'Home', 'End'])(
+    'preserves native text editing for %j bubbling from a search input',
+    (key) => {
+      const onClose = vi.fn();
+      render(<FocusHarness onClose={onClose} />);
+      openFocusMenu();
+      const search = screen.getByRole('textbox', { name: 'Search actions' });
+      act(() => search.focus());
+      const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+      fireEvent(search, event);
+      expect(event.defaultPrevented).toBe(false);
+      expect(search).toHaveFocus();
+      expect(screen.getByTestId('focus-menu')).toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+    }
+  );
+
+  it('returns Escape to its trigger and reports the reason once', async () => {
+    const onClose = vi.fn();
+    render(<FocusHarness onClose={onClose} />);
+    const { trigger, option } = openFocusMenu();
+    fireEvent.keyDown(option, { key: 'Escape' });
+    await act(async () => {});
+    expect(screen.queryByTestId('focus-menu')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(onClose).toHaveBeenCalledExactlyOnceWith('escape');
+  });
+
+  it('allows an outside pointer destination to take focus without touching the trigger', async () => {
+    const onClose = vi.fn();
+    render(<FocusHarness onClose={onClose} />);
+    const { trigger } = openFocusMenu();
+    const restore = vi.spyOn(trigger, 'focus');
+    const destination = screen.getByTestId('after-menu');
+    fireEvent.mouseDown(destination);
+    act(() => destination.focus());
+    await act(async () => {});
+    expect(destination).toHaveFocus();
+    expect(restore).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledExactlyOnceWith('outside-pointer');
+  });
+
+  it.each([
+    { shiftKey: false, destination: 'after-menu' },
+    { shiftKey: true, destination: 'before-menu' },
+  ])(
+    'continues Tab navigation from a portaled input with shift=$shiftKey',
+    async ({ shiftKey, destination }) => {
+      const onClose = vi.fn();
+      render(<FocusHarness onClose={onClose} />);
+      const { trigger } = openFocusMenu();
+      const restore = vi.spyOn(trigger, 'focus');
+      const search = screen.getByRole('textbox', { name: 'Search actions' });
+      act(() => search.focus());
+      fireEvent.keyDown(search, { key: 'Tab', shiftKey });
+      await act(async () => {});
+      expect(screen.queryByTestId('focus-menu')).not.toBeInTheDocument();
+      expect(screen.getByTestId(destination)).toHaveFocus();
+      expect(restore).not.toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalledExactlyOnceWith('tab');
+    }
+  );
+
+  it('does not restore browser focus when its window loses focus', async () => {
+    const onClose = vi.fn();
+    render(<FocusHarness onClose={onClose} />);
+    const { trigger } = openFocusMenu();
+    const restore = vi.spyOn(trigger, 'focus');
+    fireEvent(window, new Event('blur'));
+    await act(async () => {});
+    expect(screen.queryByTestId('focus-menu')).not.toBeInTheDocument();
+    expect(restore).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledExactlyOnceWith('window-blur');
+  });
+
+  it('keeps focus in a dialog opened by a menu command after queued cleanup', async () => {
+    const onClose = vi.fn();
+    render(<FocusHarness onClose={onClose} />);
+    const { option } = openFocusMenu();
+    fireEvent.click(option);
+    await act(async () => {});
+    expect(screen.getByRole('textbox', { name: 'Dialog name' })).toHaveFocus();
+    expect(screen.queryByTestId('focus-menu')).not.toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledExactlyOnceWith('selection');
   });
 });

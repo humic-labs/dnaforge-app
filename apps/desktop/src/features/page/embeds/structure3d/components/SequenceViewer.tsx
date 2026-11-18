@@ -385,7 +385,7 @@ export const SequenceViewer = memo(function SequenceViewer({
           type="button"
           onClick={toggleAllChainsCollapsed}
           onPointerDown={(event) => event.stopPropagation()}
-          className="rounded px-1.5 py-0.5 font-medium text-fg-muted hover:bg-bg-muted hover:text-fg focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+          className="rounded px-1.5 py-0.5 font-medium text-fg-muted wp-interactive "
           data-testid="structure-chain-collapse-all"
           aria-pressed={allChainsCollapsed}
         >

@@ -59,7 +59,7 @@ export function InlineSessionForm({
         <h3 className="text-sm font-medium text-fg">New Alignment Session</h3>
         <button
           onClick={onCancel}
-          className="text-fg-muted hover:text-fg text-sm"
+          className="text-fg-muted wp-interactive text-sm"
           aria-label="Cancel"
         >
           ✕
@@ -146,7 +146,7 @@ export function InlineSessionForm({
         <button
           onClick={onCancel}
           disabled={isSubmitting}
-          className="px-3 py-1.5 text-sm text-fg-muted hover:text-fg rounded disabled:opacity-50"
+          className="px-3 py-1.5 text-sm text-fg-muted wp-interactive rounded disabled:opacity-50"
         >
           Cancel
         </button>

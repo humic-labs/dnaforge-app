@@ -323,7 +323,7 @@ export function CloudWorkspacePanel({
             disabled={commandInFlight}
             onClick={onReconcile}
             data-testid="account-reconcile-now"
-            className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted hover:bg-bg-muted hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted wp-interactive disabled:cursor-not-allowed disabled:opacity-50"
           >
             {syncBusy === 'reconcile' ? 'Combining…' : 'Combine changes now'}
           </button>
@@ -347,7 +347,7 @@ export function CloudWorkspacePanel({
             }
             onClick={() => onRunAction('enable')}
             data-testid="account-enable-sync"
-            className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted hover:bg-bg-muted hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+            className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted wp-interactive disabled:cursor-not-allowed disabled:opacity-50 "
           >
             Enable
           </button>
@@ -358,7 +358,7 @@ export function CloudWorkspacePanel({
             }
             onClick={() => onRunAction('force')}
             data-testid="account-sync-now"
-            className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted hover:bg-bg-muted hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+            className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted wp-interactive disabled:cursor-not-allowed disabled:opacity-50 "
           >
             {syncBusy === 'force' ? 'Backing up' : 'Backup'}
           </button>
@@ -368,7 +368,7 @@ export function CloudWorkspacePanel({
             onClick={() => onRunAction('share')}
             data-testid="account-copy-sync-link"
             title="Pin a snapshot and copy a public read-only link. This is not an invitation."
-            className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted hover:bg-bg-muted hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+            className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted wp-interactive disabled:cursor-not-allowed disabled:opacity-50 "
           >
             {syncBusy === 'share' ? 'Copying' : 'Public link'}
           </button>
@@ -377,7 +377,7 @@ export function CloudWorkspacePanel({
             disabled={!syncDisplay.canDeleteCloudCopy || commandInFlight}
             onClick={() => onRunAction('delete')}
             data-testid="account-delete-cloud-copy"
-            className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted hover:bg-bg-muted hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+            className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted wp-interactive disabled:cursor-not-allowed disabled:opacity-50 "
           >
             {syncBusy === 'delete' ? 'Removing' : 'Remove'}
           </button>

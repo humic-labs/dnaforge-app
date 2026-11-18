@@ -93,7 +93,7 @@ export function StructureDrawerHeader({
               onClick={onNavigateToSequence}
               aria-label="Center source sequence range"
               title="Center source sequence range"
-              className="flex h-6 w-6 items-center justify-center rounded text-fg-subtle hover:bg-bg-muted hover:text-fg"
+              className="flex h-6 w-6 items-center justify-center rounded text-fg-subtle wp-interactive "
             >
               <LocateSequenceIcon />
             </button>
@@ -104,7 +104,7 @@ export function StructureDrawerHeader({
               onClick={onOpenInTab}
               aria-label="Pop out structure to tab"
               title="Pop out structure to tab"
-              className="flex h-6 w-6 items-center justify-center rounded text-fg-subtle hover:bg-bg-muted hover:text-fg"
+              className="flex h-6 w-6 items-center justify-center rounded text-fg-subtle wp-interactive "
             >
               <PanelRightOpenIcon />
             </button>
@@ -113,7 +113,7 @@ export function StructureDrawerHeader({
             data-testid="structure-drawer-close"
             onClick={onClose}
             aria-label={closeLabel}
-            className="flex h-6 w-6 items-center justify-center rounded text-fg-subtle hover:bg-bg-muted hover:text-fg"
+            className="flex h-6 w-6 items-center justify-center rounded text-fg-subtle wp-interactive "
           >
             ×
           </button>
@@ -168,7 +168,7 @@ export function StructureDrawerHeader({
                   data-testid="structure-candidate-toggle"
                   data-ignore-picker-shortcuts="true"
                   aria-expanded="false"
-                  className="h-6 shrink-0 rounded border border-border px-2 text-[11px] text-fg-muted hover:bg-bg-muted hover:text-fg focus:outline-none focus:ring-1 focus:ring-accent"
+                  className="h-6 shrink-0 rounded border border-border px-2 text-[11px] text-fg-muted wp-interactive "
                   onClick={onChangeStructure}
                 >
                   Choose New Structure

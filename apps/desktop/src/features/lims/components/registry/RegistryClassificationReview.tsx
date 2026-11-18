@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage, userMessageWithValues, userMessageValue } from '@waypoint/user-messages';
 import { useState } from 'react';
 import { platform } from '../../../../platform';
@@ -100,7 +101,7 @@ export function RegistryClassificationReview({
     });
   };
   const button =
-    'rounded border border-border px-2.5 py-1.5 text-xs font-medium text-fg hover:bg-bg-subtle disabled:opacity-50';
+    'rounded border border-border px-2.5 py-1.5 text-xs font-medium text-fg wp-interactive disabled:opacity-50';
   if (!eligible && (state.kind === 'closed' || (state.kind === 'saved' && !state.refreshError)))
     return null;
   if (state.kind === 'closed')
@@ -237,25 +238,27 @@ export function RegistryClassificationReview({
             {state.selection === 'classify' && (
               <label className="flex items-center gap-2 pl-5">
                 Use
-                <select
-                  aria-label="Oligo use"
-                  className="rounded border border-border bg-bg px-2 py-1"
-                  value={state.use ?? ''}
-                  onChange={(event) => {
-                    const selected = event.target.value;
-                    setState({
-                      ...state,
-                      use: LIMS_OLIGO_USES.find((use) => use === selected) ?? null,
-                    });
-                  }}
-                >
-                  <option value="">Not specified</option>
-                  {LIMS_OLIGO_USES.map((use) => (
-                    <option key={use} value={use}>
-                      {use}
-                    </option>
-                  ))}
-                </select>
+                <span className="inline-block min-w-0">
+                  <MenuNativeSelect
+                    density="compact"
+                    aria-label="Oligo use"
+                    value={state.use ?? ''}
+                    onChange={(event) => {
+                      const selected = event.target.value;
+                      setState({
+                        ...state,
+                        use: LIMS_OLIGO_USES.find((use) => use === selected) ?? null,
+                      });
+                    }}
+                  >
+                    <option value="">Not specified</option>
+                    {LIMS_OLIGO_USES.map((use) => (
+                      <option key={use} value={use}>
+                        {use}
+                      </option>
+                    ))}
+                  </MenuNativeSelect>
+                </span>
               </label>
             )}
           </fieldset>

@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { useState, useMemo } from 'react';
 import { useToolboxStatus } from '../hooks/useToolboxStatus';
 import { userMessage } from '@waypoint/user-messages';
@@ -77,7 +78,7 @@ export function SetupBanner() {
       </div>
       <button
         onClick={() => setDismissed(true)}
-        className="text-fg-muted hover:text-fg ml-2"
+        className={`${INTERACTION_CLASS} text-fg-muted ml-2`}
         title="Dismiss (downloads continue in background)"
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
