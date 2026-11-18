@@ -4,6 +4,7 @@ import {
   calendarDay,
   evaluateWorkDueStatus,
   offsetWorkTime,
+  parseWorkTime as time,
   resolveWorkSchedule,
   workDateAt,
   workDatePart,
@@ -74,26 +75,6 @@ function list(value: unknown): readonly unknown[] {
 function oneOf<T extends string>(value: unknown, values: readonly T[]): T {
   if (!values.some((v) => v === value)) reject('Unsupported work record value.');
   return value as T;
-}
-
-function time(value: unknown): WorkTime {
-  const v = value as Partial<WorkTime> | null;
-  if (v?.kind === 'day') {
-    const o = record(v, 'kind date zone');
-    return workTimeFromInput({ kind: 'day', date: string(o.date), zone: string(o.zone) });
-  }
-  const o = record(value, 'kind local zone instant');
-  oneOf(o.kind, ['timed']);
-  const local = string(o.local),
-    zone = string(o.zone),
-    at = instant(o.instant);
-  if (/^[+-]/.test(zone)) reject('Choose a named time zone.');
-  new Intl.DateTimeFormat('en', { timeZone: zone });
-  const wall = workTimeFromInput({ kind: 'timed', local, zone: 'UTC' });
-  if (wall.kind !== 'timed') reject('Expected a timed work value.');
-  const offset = wall.instant - at;
-  if (Math.abs(offset) >= 86_400_000 || offset % 1000 !== 0) reject('Invalid saved UTC offset.');
-  return { kind: 'timed', local: wall.local, zone, instant: at };
 }
 
 function link(value: unknown): WorkLink {

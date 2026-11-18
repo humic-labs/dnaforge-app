@@ -1143,6 +1143,9 @@ importers:
 
   packages/core/scientific-objects:
     dependencies:
+      '@internationalized/date':
+        specifier: 3.12.1
+        version: 3.12.1
       '@waypoint/sequence-utils':
         specifier: workspace:*
         version: link:../sequence-utils

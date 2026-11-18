@@ -72,6 +72,37 @@ export function workTimeFromInput(input: WorkTimeInput): WorkTime {
   };
 }
 
+export function parseWorkTime(value: unknown): WorkTime {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new TypeError('Invalid saved date.');
+  const v = value as Record<string, unknown>;
+  const keys = v.kind === 'day' ? ['kind', 'date', 'zone'] : ['kind', 'local', 'zone', 'instant'];
+  if (
+    Object.keys(v).some((key) => !keys.includes(key)) ||
+    keys.some((key) => !Object.hasOwn(v, key))
+  )
+    throw new TypeError('Invalid saved date fields.');
+  if (v.kind === 'day') return workTimeFromInput(v as WorkTimeInput);
+  if (
+    v.kind !== 'timed' ||
+    typeof v.zone !== 'string' ||
+    !v.zone.trim() ||
+    /^[+-]/u.test(v.zone) ||
+    typeof v.local !== 'string' ||
+    typeof v.instant !== 'number' ||
+    !Number.isSafeInteger(v.instant) ||
+    !Number.isFinite(new Date(v.instant).getTime())
+  )
+    throw new TypeError('Invalid saved time.');
+  new Intl.DateTimeFormat('en', { timeZone: v.zone });
+  const wall = workTimeFromInput({ kind: 'timed', local: v.local, zone: 'UTC' });
+  if (wall.kind !== 'timed') throw new TypeError('Expected a timed value.');
+  const offset = wall.instant - v.instant;
+  if (Math.abs(offset) >= 86_400_000 || offset % 1000 !== 0)
+    throw new TypeError('Invalid saved UTC offset.');
+  return { kind: 'timed', local: wall.local, zone: v.zone, instant: v.instant };
+}
+
 export function workDateAt(instant: number, zone: string): string {
   return toCalendarDate(fromAbsolute(instant, zone)).toString();
 }
