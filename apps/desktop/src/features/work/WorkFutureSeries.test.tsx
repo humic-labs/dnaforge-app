@@ -154,12 +154,17 @@ it('checks the exact original request after reopening an ended series whose repl
   const result = accepted(task, request);
   expect(result.task.document.recurrence?.state).toBe('ended');
   view.unmount();
-  split.mockResolvedValueOnce(result);
+  split
+    .mockRejectedValueOnce(new Error('WORK_TASK_REFUSED: Access changed.'))
+    .mockResolvedValueOnce(result);
   render(<WorkFutureSeries record={result.task} editable />);
   expect(screen.queryByRole('button', { name: 'Change future occurrences' })).toBeNull();
   fireEvent.click(await screen.findByRole('button', { name: 'Check split outcome' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Access changed');
+  fireEvent.click(screen.getByRole('button', { name: 'Check split outcome' }));
   expect(await screen.findByText('New series saved · Weekly review')).toBeVisible();
   expect(split.mock.calls[1][0]).toEqual(request);
+  expect(split.mock.calls[2][0]).toEqual(request);
   expect(screen.queryByRole('button', { name: 'Check split outcome' })).toBeNull();
   expect(
     Object.keys(localStorage).filter((key) => key.startsWith('work-series-split-v1/'))

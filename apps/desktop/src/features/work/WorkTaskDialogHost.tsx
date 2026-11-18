@@ -349,29 +349,41 @@ function TaskEditor({
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
   });
-  async function send(request: WorkTaskMutation) {
+  async function showConflict() {
+    setPending(null);
+    remember(draftRef.current, null);
+    try {
+      const latest = await platform().workTasks.read({ workspaceRoot: projectRoot, taskId });
+      if (!mounted.current) return;
+      setConflict(latest);
+      setError(
+        latest
+          ? 'Another edit was saved. Compare it with your draft before saving.'
+          : 'This task is no longer available.'
+      );
+    } catch (cause) {
+      if (mounted.current)
+        setError(
+          'The task change conflicted. Could not load the current task. ' + errorText(cause)
+        );
+    }
+  }
+  async function send(request: WorkTaskMutation, retry = false) {
     if (inFlight.current) return;
     inFlight.current = true;
     setBusy(true);
     setError('');
     setNotice('');
     setPending(request);
+    let checkingOriginal = retry;
     try {
       remember(draftRef.current, request);
       const result = await platform().workTasks.mutate(request);
+      checkingOriginal = true;
       if (!mounted.current) return;
       const receipt = result.submission.receipt;
       if (receipt.outcome === 'conflict') {
-        const latest = await platform().workTasks.read({ workspaceRoot: projectRoot, taskId });
-        if (!mounted.current) return;
-        setPending(null);
-        setConflict(latest);
-        remember(draftRef.current, null);
-        setError(
-          latest
-            ? 'Another edit was saved. Compare it with your draft before saving.'
-            : 'This task is no longer available.'
-        );
+        await showConflict();
         return;
       }
       if (receipt.outcome === 'rejected') {
@@ -417,24 +429,15 @@ function TaskEditor({
     } catch (cause) {
       if (!mounted.current) return;
       const message = errorText(cause);
-      if (message.includes('WORK_TASK_REFUSED:')) {
+      if (!checkingOriginal && message.includes('WORK_TASK_REFUSED:')) {
         setPending(null);
         remember(draftRef.current, null);
         setError(message.split('WORK_TASK_REFUSED:').pop()!.trim());
         return;
       }
-      if (message.includes('WORK_TASK_CONFLICT:')) {
-        try {
-          const latest = await platform().workTasks.read({ workspaceRoot: projectRoot, taskId });
-          if (!mounted.current) return;
-          setPending(null);
-          setConflict(latest);
-          remember(draftRef.current, null);
-          setError('Another edit was saved. Compare it with your draft.');
-          return;
-        } catch {
-          if (!mounted.current) return;
-        }
+      if (!checkingOriginal && message.includes('WORK_TASK_CONFLICT:')) {
+        await showConflict();
+        return;
       }
       if (mounted.current)
         setError(errorText(cause) + ' Check the save outcome before trying another change.');
@@ -829,7 +832,12 @@ function TaskEditor({
           </>
         )}
         {pending && !busy && (
-          <Button type="button" size="sm" variant="secondary" onClick={() => void send(pending)}>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => void send(pending, true)}
+          >
             Check save outcome
           </Button>
         )}

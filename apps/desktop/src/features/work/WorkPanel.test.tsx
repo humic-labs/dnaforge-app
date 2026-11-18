@@ -114,6 +114,10 @@ describe('linked work', () => {
     );
     client.reminderCommand
       .mockRejectedValueOnce(new Error('Reply interrupted'))
+      .mockResolvedValueOnce({
+        outcome: 'rejected',
+        error: 'WORK_TASK_REFUSED: Project access changed.',
+      })
       .mockResolvedValueOnce({ outcome: 'applied', revision: 1 });
     const first = render(<WorkTaskReminders task={task} />);
     await screen.findByLabelText('In-app reminders');
@@ -122,7 +126,12 @@ describe('linked work', () => {
     first.unmount();
     render(<WorkTaskReminders task={task} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Retry request' }));
-    await waitFor(() => expect(client.reminderCommand).toHaveBeenCalledTimes(2));
+    await screen.findByText(/earlier request still needs confirmation/);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry request' }));
+    await waitFor(() => expect(client.reminderCommand).toHaveBeenCalledTimes(3));
+    expect(client.reminderCommand.mock.calls[0]![0]).toEqual(
+      client.reminderCommand.mock.calls[2]![0]
+    );
     expect(client.reminderCommand.mock.calls[0]![0]).toEqual(
       client.reminderCommand.mock.calls[1]![0]
     );
@@ -190,9 +199,13 @@ describe('linked work', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     fireEvent.click(add);
     const recoveredName = await screen.findByDisplayValue('Later draft');
+    client.mutate.mockRejectedValueOnce(new Error('WORK_TASK_REFUSED: Access changed.'));
+    fireEvent.click(screen.getByRole('button', { name: 'Check save outcome' }));
+    await screen.findByText(/Access changed.*Check the save outcome/);
     fireEvent.click(screen.getByRole('button', { name: 'Check save outcome' }));
     await screen.findByText('Saved');
     expect(client.mutate.mock.calls[0]).toEqual(client.mutate.mock.calls[1]);
+    expect(client.mutate.mock.calls[0]).toEqual(client.mutate.mock.calls[2]);
     expect(stored!.document.name).toBe('Original');
     expect(recoveredName).toHaveValue('Later draft');
     expect(screen.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();

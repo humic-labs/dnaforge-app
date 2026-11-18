@@ -72,10 +72,19 @@ export function useWorkReminders(workspaceRoot: string) {
     };
   }, [key, workspaceRoot, generation]);
 
-  async function submit(request: WorkReminderRequest) {
+  async function submit(request: WorkReminderRequest, retry = false) {
     setBusyKey(key);
     try {
       const result = await platform().workTasks.reminderCommand(request);
+      if (retry && result.outcome === 'rejected') {
+        if (current.current === key)
+          setSnapshot((previous) => ({
+            ...previous,
+            key,
+            error: result.error + ' The earlier request still needs confirmation.',
+          }));
+        return null;
+      }
       localStorage.removeItem(key);
       if (current.current === key) {
         setPending(null);
@@ -121,7 +130,7 @@ export function useWorkReminders(workspaceRoot: string) {
     blocked: blockedKey === key,
     pending: pending?.key === key ? pending.request : null,
     run,
-    retry: () => (pending?.key === key ? submit(pending.request) : Promise.resolve(null)),
+    retry: () => (pending?.key === key ? submit(pending.request, true) : Promise.resolve(null)),
     refresh,
   };
 }
