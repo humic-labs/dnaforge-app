@@ -237,7 +237,10 @@ describe('assembly method selection in the drawer', () => {
     expect(screen.getByTestId('tm-primer-conc')).toBeInTheDocument();
     expect(screen.getByTestId('assembly-workbench-default-pcr-tm')).toBeInTheDocument();
 
-    fireEvent.click(within(configurator).getByTestId('tm-model-select'));
+    const modelSelect = within(configurator).getByTestId('tm-model-select');
+    fireEvent.mouseDown(modelSelect);
+    expect(screen.queryByTestId('assembly-pcr-mix-settings-panel')).not.toBeInTheDocument();
+    fireEvent.click(modelSelect);
     fireEvent.click(screen.getByTestId('tm-model-select-option-q5-0'));
 
     expect(useSettingsStore.getState().tmModel).toEqual({
