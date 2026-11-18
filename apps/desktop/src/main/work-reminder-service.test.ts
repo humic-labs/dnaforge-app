@@ -15,7 +15,9 @@ import {
   dispatchRow,
   localReminderNavigationTarget,
 } from './work-reminder-local';
-import { handoffWorkReminders } from './work-reminder-remote';
+import { workReminderCommand } from './work-reminder-service';
+import { DesktopSyncClientError } from './desktop-sync-client-errors';
+import { handoffWorkReminders, runRemoteReminderCommand } from './work-reminder-remote';
 import { withWorkspaceSyncDatabaseFence } from './workspace-sync-database-fence';
 
 vi.mock('electron', () => ({
@@ -141,6 +143,88 @@ it('retains inbox and OS intent independently and never resumes after an unknown
       });
     } finally {
       other.close();
+    }
+  } finally {
+    f.cleanup();
+  }
+});
+
+it('confirms the exact stored refusal after restart and keeps a previously interrupted remote result unknown', async () => {
+  const f = createFileTestDb('work-refusal');
+  try {
+    ensureSchema(f.db, f.dbPath);
+    const root = join(await realpath(f.tmpDir), 'project');
+    await mkdir(root);
+    f.db
+      .prepare('INSERT INTO workspaces(name,path,repo_uuid,created_at) VALUES(?,?,?,1)')
+      .run('Dates', root, randomUUID());
+    const project = visibleWorkProjects(f.db, root)[0]!;
+    const input = {
+      workspaceRoot: root,
+      requestId: randomUUID(),
+      command: { action: 'consent' as const, expectedRevision: 1, inbox: true, email: false },
+    };
+    const rejected = await workReminderCommand(f.db, input);
+    expect(rejected).toMatchObject({ outcome: 'rejected', confirmedRequestId: input.requestId });
+    expect(
+      await workReminderCommand(f.db, {
+        ...input,
+        requestId: randomUUID(),
+        command: { ...input.command, expectedRevision: 0 },
+      })
+    ).toMatchObject({ outcome: 'applied', revision: 1 });
+    const reopened = openFileTestDb(f.dbPath);
+    try {
+      expect(await workReminderCommand(reopened, input)).toEqual(rejected);
+      expect(
+        await workReminderCommand(reopened, {
+          ...input,
+          command: { ...input.command, inbox: false },
+        })
+      ).not.toHaveProperty('confirmedRequestId');
+      expect(
+        await workReminderCommand(reopened, { ...input, workspaceRoot: join(root, 'missing') })
+      ).not.toHaveProperty('confirmedRequestId');
+      expect(localReminderView(reopened, project).consent?.revision).toBe(1);
+      const member = { ...project, actor: { kind: 'member' as const, id: randomUUID() } };
+      const refused = new DesktopSyncClientError('FORBIDDEN', 'No access.', {
+        status: 403,
+        terminal: true,
+        retryable: false,
+      });
+      const post = vi.fn(async (): Promise<never> => {
+        throw refused;
+      });
+      const port = {
+        id: randomUUID(),
+        post,
+        verify: () => {},
+        read: async () => {
+          throw Error('Unused');
+        },
+      };
+      const fresh = randomUUID();
+      await expect(
+        runRemoteReminderCommand(reopened, member, port, fresh, input.command)
+      ).rejects.toMatchObject({ requestId: fresh });
+      await expect(
+        runRemoteReminderCommand(reopened, member, port, fresh, input.command)
+      ).rejects.toMatchObject({ requestId: fresh });
+      expect(post).toHaveBeenCalledTimes(1);
+      const unknown = randomUUID();
+      post.mockRejectedValueOnce(new Error('Connection lost.'));
+      await expect(
+        runRemoteReminderCommand(reopened, member, port, unknown, input.command)
+      ).rejects.toThrow('Connection lost.');
+      await expect(
+        runRemoteReminderCommand(reopened, member, port, unknown, input.command)
+      ).rejects.toThrow('cannot confirm an earlier request');
+      const pending = reopened
+        .prepare('SELECT result_json FROM scientific_work_reminder_receipts WHERE request_id=?')
+        .get(unknown) as { result_json: string };
+      expect(JSON.parse(pending.result_json)).toMatchObject({ pending: true });
+    } finally {
+      reopened.close();
     }
   } finally {
     f.cleanup();

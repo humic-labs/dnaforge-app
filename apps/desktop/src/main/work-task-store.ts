@@ -101,8 +101,16 @@ export function readWorkTask(
   db: Database.Database,
   input: WorkTaskInspection
 ): WorkTaskRecord | null {
-  const project = projectFor(db, input.workspaceRoot);
-  const id = parseResourceId(input.taskId);
+  return readProjectWorkTask(db, projectFor(db, input.workspaceRoot), input.taskId);
+}
+
+export function readProjectWorkTask(
+  db: Database.Database,
+  project: WorkProjectAccess,
+  taskId: string
+): WorkTaskRecord | null {
+  assertWorkProjectAtAcceptance(db, project, false);
+  const id = parseResourceId(taskId);
   if (!id.ok) return workRefused('Invalid task identity.');
   const { reader, head } = new ScientificObjectStore(db, project.workspaceId).read();
   return workTaskResultRow(db, project, reader, head, reader.current(id.value), Date.now());

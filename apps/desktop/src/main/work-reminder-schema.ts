@@ -28,6 +28,7 @@ export function createWorkReminderTables(db: Database.Database) {
       workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,principal TEXT NOT NULL,
       request_id TEXT NOT NULL,command_json TEXT NOT NULL,result_json TEXT NOT NULL,PRIMARY KEY(workspace_id,principal,request_id)
     );
+    CREATE INDEX IF NOT EXISTS scientific_work_reminder_request ON scientific_work_reminder_receipts(request_id);
     CREATE INDEX IF NOT EXISTS scientific_work_effect_channel ON scientific_work_effects(channel,admitted_at);
     CREATE TRIGGER IF NOT EXISTS scientific_work_dispatch_bound AFTER INSERT ON workspace_sync_bindings
     BEGIN

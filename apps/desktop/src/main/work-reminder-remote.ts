@@ -1,3 +1,4 @@
+import { ConfirmedReminderRejection, reminderReceipt } from './work-reminder-receipts';
 import { workRemoteAck, workRemoteView } from './work-reminder-wire';
 import { getActivePublicSession } from './auth/session-store';
 import { DesktopSyncClientError } from './desktop-sync-client-errors';
@@ -102,21 +103,20 @@ export async function runRemoteReminderCommand(
     db
       .transaction(() => {
         remote.verify();
-        const row = db
-          .prepare(
-            'SELECT command_json,result_json FROM scientific_work_reminder_receipts WHERE workspace_id=? AND principal=? AND request_id=?'
-          )
-          .get(p.workspaceId, principal, requestId) as
-          | { command_json: string; result_json: string }
-          | undefined;
-        if (row) {
-          if (row.command_json !== serialized)
-            return workRefused('This reminder request identity was reused.');
-          return JSON.parse(row.result_json) as {
+        const raw = reminderReceipt(db, p.workspaceId, principal, requestId, serialized);
+        if (raw !== undefined) {
+          const saved = JSON.parse(raw) as {
             pending?: boolean;
+            retried?: boolean;
             response?: WorkReminderResponse;
             error?: string;
           };
+          if (saved.pending && !saved.retried) {
+            db.prepare(
+              'UPDATE scientific_work_reminder_receipts SET result_json=? WHERE workspace_id=? AND principal=? AND request_id=?'
+            ).run('{"pending":true,"retried":true}', p.workspaceId, principal, requestId);
+          }
+          return saved;
         }
         db.prepare('INSERT INTO scientific_work_reminder_receipts VALUES(?,?,?,?,?)').run(
           p.workspaceId,
@@ -130,7 +130,7 @@ export async function runRemoteReminderCommand(
       .immediate()
   );
   if (previous?.response) return workRemoteAck.parse(previous.response);
-  if (previous?.error) return workRefused(previous.error);
+  if (previous?.error) throw new ConfirmedReminderRejection(requestId, previous.error);
   const settle = async (value: object) =>
     withWorkspaceSyncDatabaseFence(db, async () => {
       db.prepare(
@@ -145,9 +145,26 @@ export async function runRemoteReminderCommand(
       error instanceof DesktopSyncClientError &&
       [400, 401, 403, 404, 409, 422].includes(error.status ?? 0)
     ) {
-      if (previous?.pending)
+      if (previous?.pending || error.retryable || error.code === 'IDEMPOTENCY_CONFLICT')
         throw new Error('The shared service cannot confirm an earlier request.');
-      await settle({ error: error.message });
+      const saved = await withWorkspaceSyncDatabaseFence(db, async () => {
+        const result = db
+          .prepare(
+            'UPDATE scientific_work_reminder_receipts SET result_json=? WHERE workspace_id=? AND principal=? AND request_id=? AND result_json=?'
+          )
+          .run(
+            canonicalPayload({ error: error.message }),
+            p.workspaceId,
+            principal,
+            requestId,
+            '{"pending":true}'
+          );
+        remote.verify();
+        return result.changes === 1;
+      });
+      if (!saved)
+        throw new Error('The shared service cannot confirm a concurrent reminder request.');
+      throw new ConfirmedReminderRejection(requestId, error.message);
     }
     throw error;
   }

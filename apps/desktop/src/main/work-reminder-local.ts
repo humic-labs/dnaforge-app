@@ -1,3 +1,4 @@
+import { ConfirmedReminderRejection, reminderReceipt } from './work-reminder-receipts';
 import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { canonicalPayload } from '@waypoint/scientific-objects';
@@ -10,7 +11,7 @@ import type { WorkProjectAccess } from './work-task-projects';
 import { assertWorkProjectAtAcceptance, workProfile, workRefused } from './work-task-projects';
 import { workTaskNavigationTarget } from '../shared/entity-navigation';
 import { visibleWorkProjects } from './work-task-projects';
-import { readWorkTask } from './work-task-store';
+import { readProjectWorkTask, readWorkTask } from './work-task-store';
 import {
   reminderGeneration,
   workReminderFire,
@@ -200,150 +201,156 @@ export function changeLocalReminder(
   now: number
 ): WorkReminderResponse {
   const principal = reminderPrincipal(p),
-    json = canonicalPayload(cmd),
-    local = workProfile(db);
+    json = canonicalPayload(cmd);
   const receipt = db
-    .prepare(
-      'SELECT command_json,result_json FROM scientific_work_reminder_receipts WHERE workspace_id=? AND principal=? AND request_id=?'
-    )
-    .get(p.workspaceId, principal, requestId) as
-    | { command_json: string; result_json: string }
-    | undefined;
-  if (receipt) {
-    if (receipt.command_json !== json)
-      return workRefused('This reminder request identity was reused.');
-    return JSON.parse(receipt.result_json) as WorkReminderResponse;
-  }
-  const dispatch = dispatchRow(db, p);
-  if (p.actor.kind !== 'local' || (dispatch && dispatch.installation_id !== local.id))
-    return workRefused('This device does not own the reminder schedule.');
-  const task =
-    cmd.action === 'rule' ? readWorkTask(db, { workspaceRoot: p.root, taskId: cmd.taskId }) : null;
-  return db
-    .transaction(() => {
+    .transaction((): WorkReminderResponse | { error: string } => {
       assertWorkProjectAtAcceptance(db, p, false);
-      let result: WorkReminderResponse = {};
-      if (cmd.action === 'consent') {
-        if (cmd.email) workRefused('Email delivery requires shared scheduling.');
-        const old = localConsent(db, p);
-        if (old.revision !== cmd.expectedRevision) workRefused('Reminder consent changed.');
-        const rev = old.revision + 1;
-        if (
-          Boolean(old.inbox) !== cmd.inbox ||
-          (cmd.desktop !== undefined && Boolean(old.desktop) !== cmd.desktop)
-        ) {
-          db.prepare(
-            'UPDATE scientific_work_rules SET scanned_at=max(scanned_at,?) WHERE workspace_id=? AND principal=?'
-          ).run(now, p.workspaceId, principal);
-        }
-        if (cmd.desktop === false)
-          db.prepare(
-            "UPDATE scientific_work_effects SET channel='suppressed' WHERE workspace_id=? AND principal=? AND channel='queued'"
-          ).run(p.workspaceId, principal);
-        db.prepare(
-          'INSERT INTO scientific_work_consent VALUES(?,?,?,?,?) ON CONFLICT(workspace_id,principal) DO UPDATE SET inbox=excluded.inbox,desktop=excluded.desktop,revision=excluded.revision'
-        ).run(
-          p.workspaceId,
-          principal,
-          +cmd.inbox,
-          Number(cmd.desktop ?? Boolean(old.desktop)),
-          rev
-        );
-        result = { revision: rev };
-      } else if (cmd.action === 'rule') {
-        const consent = localConsent(db, p);
-        if (!p.writable) workRefused('Local task reminders require a writable project.');
-        if (
-          (dispatch && dispatch.state !== 'local') ||
-          !task ||
-          !['todo', 'in-progress'].includes(task.document.status)
-        )
-          workRefused('The task or local dispatch authority is unavailable.');
-        if (cmd.email || (!consent.inbox && !(consent.desktop && cmd.desktop)))
-          workRefused('Enable the requested delivery channel before arming this rule.');
-        if (
-          task.document.assignee &&
-          (task.document.assignee.kind !== p.actor.kind || task.document.assignee.id !== p.actor.id)
-        )
-          workRefused('This task is assigned to someone else.');
-        const date = task.schedule[cmd.role];
-        if (
-          ((date.kind === 'resolved' && date.value.kind === 'day') ||
-            task.document.recurrence?.anchor.kind === 'day') &&
-          !cmd.dayTime
-        )
-          workRefused('Choose the local alert time for this calendar day.');
-        if (date.kind !== 'resolved' && !(cmd.role === 'start' && task.document.recurrence))
-          workRefused('Choose a resolved task date.');
-        if (!dispatch)
-          db.prepare("INSERT INTO scientific_work_dispatch VALUES(?,?,'local',1,NULL)").run(
-            p.workspaceId,
-            local.id
-          );
-        const id = cmd.ruleId ?? randomUUID();
-        if (db.prepare('SELECT 1 FROM scientific_work_rules WHERE id=?').get(id))
-          workRefused('This rule identity already exists.');
-        db.prepare("INSERT INTO scientific_work_rules VALUES(?,?,?,?,?,?,?,?,?,1,'armed',?)").run(
-          id,
-          p.workspaceId,
-          principal,
-          cmd.taskId,
-          cmd.role,
-          cmd.offsetMs,
-          cmd.dayTime ?? null,
-          cmd.dayFold ?? 'earlier',
-          Number(cmd.desktop ?? false),
-          now
-        );
-        result = { id, state: 'armed' };
-      } else if (cmd.action === 'retire-rule') {
-        const updated = db
-          .prepare(
-            "UPDATE scientific_work_rules SET state='retired',generation=generation+1 WHERE id=? AND workspace_id=? AND principal=? AND state='armed' AND generation=?"
-          )
-          .run(cmd.ruleId, p.workspaceId, principal, cmd.expectedGeneration);
-        if (!updated.changes) workRefused('Reminder rule changed.');
-        result = { id: cmd.ruleId, state: 'retired' };
-      } else if (cmd.action === 'inbox') {
-        const wake = cmd.state === 'snoozed' ? Date.parse(cmd.wakeAt ?? '') : null;
-        if (wake !== null && (!Number.isFinite(wake) || wake <= now))
-          workRefused('Choose a future snooze time.');
-        const updated = db
-          .prepare(
-            "UPDATE scientific_work_effects SET state=?,wake_at=?,revision=revision+1 WHERE id=? AND workspace_id=? AND principal=? AND revision=? AND state!='hidden'"
-          )
-          .run(cmd.state, wake, cmd.id, p.workspaceId, principal, cmd.expectedRevision);
-        if (!updated.changes) workRefused('The inbox item changed.');
-        result = { id: cmd.id, state: cmd.state, revision: cmd.expectedRevision + 1 };
-      } else if (cmd.action === 'suspend' || cmd.action === 'rearm') {
-        if (
-          !dispatch ||
-          dispatch.epoch !== cmd.expectedEpoch ||
-          dispatch.state !== (cmd.action === 'suspend' ? 'local' : 'suspended') ||
-          !p.writable
-        )
-          workRefused('Reminder authority changed.');
-        const state = cmd.action === 'suspend' ? 'suspended' : 'local';
-        db.prepare(
-          'UPDATE scientific_work_dispatch SET state=?,epoch=epoch+1 WHERE workspace_id=?'
-        ).run(state, p.workspaceId);
-        if (cmd.action === 'rearm')
-          db.prepare('UPDATE scientific_work_rules SET scanned_at=? WHERE workspace_id=?').run(
-            now,
-            p.workspaceId
-          );
-        result = { state, epoch: dispatch!.epoch + 1 };
-      } else return workRefused('This command requires a shared project.');
+      if (p.actor.kind !== 'local' || p.actor.id !== workProfile(db).id)
+        return workRefused('This device does not own the reminder schedule.');
+      const previous = reminderReceipt(db, p.workspaceId, principal, requestId, json);
+      if (previous !== undefined) return JSON.parse(previous);
+      const dispatch = dispatchRow(db, p);
+      if (dispatch && dispatch.installation_id !== p.actor.id)
+        return workRefused('This device does not own the reminder schedule.');
+      let value: WorkReminderResponse | { error: string };
+      try {
+        value = db.transaction(() => applyLocalReminder(db, p, cmd, now, dispatch))();
+      } catch (error) {
+        if (!(error instanceof Error) || !error.message.startsWith('WORK_TASK_REFUSED:'))
+          throw error;
+        assertWorkProjectAtAcceptance(db, p, false);
+        value = { error: error.message };
+      }
       db.prepare('INSERT INTO scientific_work_reminder_receipts VALUES(?,?,?,?,?)').run(
         p.workspaceId,
         principal,
         requestId,
         json,
-        canonicalPayload(result)
+        canonicalPayload(value)
       );
-      return result;
+      return value;
     })
     .immediate();
+  if ('error' in receipt) throw new ConfirmedReminderRejection(requestId, receipt.error);
+  return receipt;
+}
+
+function applyLocalReminder(
+  db: Database.Database,
+  p: WorkProjectAccess,
+  cmd: WorkReminderCommand,
+  now: number,
+  dispatch: DispatchRow | undefined
+): WorkReminderResponse {
+  const principal = reminderPrincipal(p);
+  const task = cmd.action === 'rule' ? readProjectWorkTask(db, p, cmd.taskId) : null;
+  let result: WorkReminderResponse = {};
+  if (cmd.action === 'consent') {
+    if (cmd.email) workRefused('Email delivery requires shared scheduling.');
+    const old = localConsent(db, p);
+    if (old.revision !== cmd.expectedRevision) workRefused('Reminder consent changed.');
+    const rev = old.revision + 1;
+    if (
+      Boolean(old.inbox) !== cmd.inbox ||
+      (cmd.desktop !== undefined && Boolean(old.desktop) !== cmd.desktop)
+    ) {
+      db.prepare(
+        'UPDATE scientific_work_rules SET scanned_at=max(scanned_at,?) WHERE workspace_id=? AND principal=?'
+      ).run(now, p.workspaceId, principal);
+    }
+    if (cmd.desktop === false)
+      db.prepare(
+        "UPDATE scientific_work_effects SET channel='suppressed' WHERE workspace_id=? AND principal=? AND channel='queued'"
+      ).run(p.workspaceId, principal);
+    db.prepare(
+      'INSERT INTO scientific_work_consent VALUES(?,?,?,?,?) ON CONFLICT(workspace_id,principal) DO UPDATE SET inbox=excluded.inbox,desktop=excluded.desktop,revision=excluded.revision'
+    ).run(p.workspaceId, principal, +cmd.inbox, Number(cmd.desktop ?? Boolean(old.desktop)), rev);
+    result = { revision: rev };
+  } else if (cmd.action === 'rule') {
+    const consent = localConsent(db, p);
+    if (!p.writable) workRefused('Local task reminders require a writable project.');
+    if (
+      (dispatch && dispatch.state !== 'local') ||
+      !task ||
+      !['todo', 'in-progress'].includes(task.document.status)
+    )
+      workRefused('The task or local dispatch authority is unavailable.');
+    if (cmd.email || (!consent.inbox && !(consent.desktop && cmd.desktop)))
+      workRefused('Enable the requested delivery channel before arming this rule.');
+    if (
+      task.document.assignee &&
+      (task.document.assignee.kind !== p.actor.kind || task.document.assignee.id !== p.actor.id)
+    )
+      workRefused('This task is assigned to someone else.');
+    const date = task.schedule[cmd.role];
+    if (
+      ((date.kind === 'resolved' && date.value.kind === 'day') ||
+        task.document.recurrence?.anchor.kind === 'day') &&
+      !cmd.dayTime
+    )
+      workRefused('Choose the local alert time for this calendar day.');
+    if (date.kind !== 'resolved' && !(cmd.role === 'start' && task.document.recurrence))
+      workRefused('Choose a resolved task date.');
+    if (!dispatch)
+      db.prepare("INSERT INTO scientific_work_dispatch VALUES(?,?,'local',1,NULL)").run(
+        p.workspaceId,
+        p.actor.id
+      );
+    const id = cmd.ruleId ?? randomUUID();
+    if (db.prepare('SELECT 1 FROM scientific_work_rules WHERE id=?').get(id))
+      workRefused('This rule identity already exists.');
+    db.prepare("INSERT INTO scientific_work_rules VALUES(?,?,?,?,?,?,?,?,?,1,'armed',?)").run(
+      id,
+      p.workspaceId,
+      principal,
+      cmd.taskId,
+      cmd.role,
+      cmd.offsetMs,
+      cmd.dayTime ?? null,
+      cmd.dayFold ?? 'earlier',
+      Number(cmd.desktop ?? false),
+      now
+    );
+    result = { id, state: 'armed' };
+  } else if (cmd.action === 'retire-rule') {
+    const updated = db
+      .prepare(
+        "UPDATE scientific_work_rules SET state='retired',generation=generation+1 WHERE id=? AND workspace_id=? AND principal=? AND state='armed' AND generation=?"
+      )
+      .run(cmd.ruleId, p.workspaceId, principal, cmd.expectedGeneration);
+    if (!updated.changes) workRefused('Reminder rule changed.');
+    result = { id: cmd.ruleId, state: 'retired' };
+  } else if (cmd.action === 'inbox') {
+    const wake = cmd.state === 'snoozed' ? Date.parse(cmd.wakeAt ?? '') : null;
+    if (wake !== null && (!Number.isFinite(wake) || wake <= now))
+      workRefused('Choose a future snooze time.');
+    const updated = db
+      .prepare(
+        "UPDATE scientific_work_effects SET state=?,wake_at=?,revision=revision+1 WHERE id=? AND workspace_id=? AND principal=? AND revision=? AND state!='hidden'"
+      )
+      .run(cmd.state, wake, cmd.id, p.workspaceId, principal, cmd.expectedRevision);
+    if (!updated.changes) workRefused('The inbox item changed.');
+    result = { id: cmd.id, state: cmd.state, revision: cmd.expectedRevision + 1 };
+  } else if (cmd.action === 'suspend' || cmd.action === 'rearm') {
+    if (
+      !dispatch ||
+      dispatch.epoch !== cmd.expectedEpoch ||
+      dispatch.state !== (cmd.action === 'suspend' ? 'local' : 'suspended') ||
+      !p.writable
+    )
+      workRefused('Reminder authority changed.');
+    const state = cmd.action === 'suspend' ? 'suspended' : 'local';
+    db.prepare(
+      'UPDATE scientific_work_dispatch SET state=?,epoch=epoch+1 WHERE workspace_id=?'
+    ).run(state, p.workspaceId);
+    if (cmd.action === 'rearm')
+      db.prepare('UPDATE scientific_work_rules SET scanned_at=? WHERE workspace_id=?').run(
+        now,
+        p.workspaceId
+      );
+    result = { state, epoch: dispatch!.epoch + 1 };
+  } else return workRefused('This command requires a shared project.');
+  return result;
 }
 
 export function scanLocalWorkReminders(

@@ -126,7 +126,7 @@ export interface WorkReminderView {
   }[];
 }
 export type WorkReminderResult = WorkReminderResponse &
-  ({ outcome: 'applied' } | { outcome: 'rejected'; error: string });
+  ({ outcome: 'applied' } | { outcome: 'rejected'; error: string; confirmedRequestId?: string });
 export interface WorkReminderResponse {
   id?: string;
   url?: string;

@@ -1,3 +1,4 @@
+import { ConfirmedReminderRejection } from './work-reminder-receipts';
 import type { EntityNavigationTarget } from '../shared/entity-navigation';
 import { DesktopSyncClientError } from './desktop-sync-client-errors';
 import { app, Notification, powerMonitor } from 'electron';
@@ -79,6 +80,8 @@ export async function workReminderCommand(
       });
       if (ownsFence) throw error;
     }
+    if (error instanceof ConfirmedReminderRejection)
+      return { outcome: 'rejected', error: error.message, confirmedRequestId: error.requestId };
     if (
       error instanceof z.ZodError ||
       (error instanceof Error && error.message.startsWith('WORK_TASK_REFUSED:')) ||
