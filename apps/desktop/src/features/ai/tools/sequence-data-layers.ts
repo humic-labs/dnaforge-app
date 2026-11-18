@@ -62,6 +62,9 @@ function reusableSource(layer: PublishedSequenceDataLayer, project: string) {
     source: { project: layer.project ?? project, id: layer.document.id, revision: layer.revision },
     unit: layer.document.unit,
     valueColumns: layer.document.valueColumns,
+    mapping: layer.document.mapping,
+    aggregation: layer.document.aggregation,
+    unresolvedPolicy: layer.document.unresolvedPolicy,
     ...(layer.document.source.origin ? { origin: layer.document.source.origin } : {}),
   };
 }

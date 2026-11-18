@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SCIENTIFIC_COLOR_PALETTES } from '@waypoint/sequence-utils';
 import { createSequenceDataLayersTool, sequenceDataLayersToolSchema } from './sequence-data-layers';
@@ -256,6 +257,58 @@ describe('reusing a retained dataset through the caller boundary', () => {
       alreadyPublished: false,
     };
   }
+
+  it('returns the saved CSV mapping recipe from every reusable response without changing source bytes', async () => {
+    const csv = 'locus_tag,fitness\nb1007,0\nb1008,-3\n';
+    const sha256 = `sha256:${createHash('sha256').update(csv).digest('hex')}`;
+    const recipe = {
+      mapping: {
+        kind: 'annotation' as const,
+        identifierColumn: 'locus_tag',
+        identifierField: 'locus_tag' as const,
+      },
+      aggregation: 'none' as const,
+      unresolvedPolicy: 'exclude' as const,
+    };
+    const saved = published('/canonical/projects/existing');
+    const publication = {
+      ...saved,
+      document: {
+        ...saved.document,
+        ...recipe,
+        source: { ...saved.document.source, csv, sha256 },
+      },
+    };
+    const originalSource = { ...publication.document.source };
+    const metadata = {
+      ...recipe,
+      source: { project: saved.project, id: saved.document.id, revision: saved.revision },
+      unit: saved.document.unit,
+      valueColumns: saved.document.valueColumns,
+    };
+    const tool = createSequenceDataLayersTool([project, sourceProject]);
+    for (const operation of ['create', 'list', 'inspect'] as const) {
+      run.mockResolvedValue(
+        operation === 'list' ? { status: 'listed', layers: [publication], errors: [] } : publication
+      );
+      const input =
+        operation === 'create'
+          ? { ...reuseRequest, ...recipe }
+          : operation === 'inspect'
+            ? { operation, project: project.path, id: saved.document.id }
+            : { operation, project: project.path };
+      const result = await tool.execute!(input, options);
+      expect(result).toMatchObject({
+        ok: true,
+        data: operation === 'list' ? { layers: [metadata] } : metadata,
+      });
+      expect(JSON.stringify(result)).not.toContain(JSON.stringify(csv).slice(1, -1));
+    }
+    expect(publication.document.source).toEqual(originalSource);
+    expect(createHash('sha256').update(publication.document.source.csv).digest('hex')).toBe(
+      sha256.slice('sha256:'.length)
+    );
+  });
 
   it('accepts an exact saved source version and rejects incomplete source references', () => {
     expect(sequenceDataLayersToolSchema.safeParse(reuseRequest).success).toBe(true);
