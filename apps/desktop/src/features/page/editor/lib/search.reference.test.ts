@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render } from '@testing-library/react';
 
 const { mockCatalogSearch, mockPrimerSearch, mockProjectRoots } = vi.hoisted(() => ({
   mockCatalogSearch: vi.fn(),
@@ -29,7 +30,7 @@ vi.mock('../../store', () => ({
   usePageStore: { getState: () => ({ pages: {} }) },
 }));
 
-import { searchEntities } from './search';
+import { getEntityIcon, searchEntities } from './search';
 
 describe('@ search carries a portable path', () => {
   beforeEach(() => {
@@ -38,6 +39,27 @@ describe('@ search carries a portable path', () => {
     mockProjectRoots.mockReset().mockResolvedValue(['/ws/alpha', '/ws/beta']);
     mockCatalogSearch.mockResolvedValue([]);
     mockPrimerSearch.mockResolvedValue([]);
+  });
+
+  it('uses an existing file path to color a code result', () => {
+    const { container } = render(getEntityIcon({ type: 'file', path: 'analysis.py' }));
+    expect(container.querySelector('svg')).toHaveAttribute('data-entity-color-family', 'code');
+  });
+
+  it('retains canonical RNA kind from a primer search result into its menu icon', async () => {
+    mockPrimerSearch.mockResolvedValue([
+      {
+        primerId: 'rna-primer',
+        name: 'RNA primer',
+        workspaceRelativePath: 'primer.primer.json',
+        localOnly: false,
+        iconContext: { kind: 'rna_oligo' },
+      },
+    ]);
+    const result = await searchEntities('RNA', '/ws/beta');
+    const { container } = render(getEntityIcon(result.primers[0]));
+    expect(container.querySelector('svg')).toHaveAttribute('data-entity-color-family', 'rna');
+    expect(result.primers[0].registryKind).toBe('rna_oligo');
   });
 
   it('returns a sequence item carrying its workspace-relative path', async () => {

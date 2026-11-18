@@ -13,6 +13,8 @@ import type { AssistantHostId } from '../features/ai/assistant-hosts';
 import { useCanvasStore } from '../features/canvas/store';
 import { getTabIcon, getTabIconForTab } from '../features/canvas/components/Tab';
 import { projectTabStripTab } from '../features/canvas/tab-menu-presentation';
+import { useSequenceStore } from '../features/sequence/public/store';
+import { sequenceDocumentKey } from '../shared/managed-sequence-document';
 import { EmptyStateChatComposer } from './chat/EmptyStateChatComposer';
 import { getReleaseNote } from '../lib/release-notes';
 import { stripDisplayExtension } from '../utils/fileTypes';
@@ -60,6 +62,15 @@ export function HomePanel({
         panel.tabs.map((tab) => ({ panelId: panel.id, tab }))
       ),
     [panels]
+  );
+  useSequenceStore((state) =>
+    openTabs
+      .map(({ tab }) =>
+        tab.sequenceDocument
+          ? (state.sequences[sequenceDocumentKey(tab.sequenceDocument)]?.molecule ?? '')
+          : ''
+      )
+      .join('|')
   );
   const handleOpenTab = useCallback(
     (panelId: string, tabId: string) => {
@@ -273,7 +284,13 @@ export function HomePanel({
                           {isOpening ? (
                             <SpinnerIcon className="w-4 h-4 flex-shrink-0" />
                           ) : (
-                            getTabIcon(item.open.tabType, 'w-4 h-4 flex-shrink-0 text-fg-subtle')
+                            getTabIcon(
+                              item.open.tabType,
+                              'w-4 h-4 flex-shrink-0',
+                              item.iconContext ?? {
+                                path: item.open.kind === 'file' ? item.open.path : undefined,
+                              }
+                            )
                           )}
                           <span className="min-w-0 flex-1 truncate font-medium text-fg">
                             {userEntityLabel(

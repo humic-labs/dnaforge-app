@@ -1,4 +1,6 @@
 import type { WorkspaceMutationRunner } from '../shared/artifact-operation-ports';
+import type { EntityColorContext } from '../shared/entity-color-family';
+import { catalogIconContext } from '../shared/catalog-icon-context';
 import type { ArtifactIO } from '../shared/artifact-io';
 
 import type { CatalogFileBindingRequest, CatalogFileBindingRow } from '../shared/catalog-binding';
@@ -157,6 +159,7 @@ export interface CatalogCreationContext {
 export { ADOPT_OBJECT_UUID_SQL } from '../shared/catalog-binding';
 
 export interface RecentlyEditedCatalogEntity {
+  iconContext?: EntityColorContext;
   id: string;
   type: CatalogEntityType;
   name: string;
@@ -350,6 +353,66 @@ export function createCatalogRepository(dependencies: CatalogRepositoryDependenc
     );
     if (!files[0]) return null;
     return getCatalogEntity(files[0].entity_id);
+  }
+
+  async function getCatalogIconContextsForPaths(
+    workspaceRoot: string,
+    paths: readonly string[]
+  ): Promise<Map<string, EntityColorContext>> {
+    const contexts = new Map<string, EntityColorContext>();
+    const scopedPaths = [...new Set(paths.filter((path) => pathIsAtOrUnder(path, workspaceRoot)))];
+    if (!scopedPaths.length) return contexts;
+    const sqlite = getConnection();
+    const workspaces = await sqlite.select<
+      Array<{
+        id: number;
+        archived_at: number | null;
+        trashed_at: number | null;
+      }>
+    >('SELECT id, archived_at, trashed_at FROM workspaces WHERE path = ?', [workspaceRoot]);
+    if (
+      workspaces.length !== 1 ||
+      workspaces[0].archived_at != null ||
+      workspaces[0].trashed_at != null
+    )
+      return contexts;
+    const workspaceId = workspaces[0].id;
+    for (let offset = 0; offset < scopedPaths.length; offset += 500) {
+      const batch = scopedPaths.slice(offset, offset + 500);
+      const files = await sqlite.select<Array<{ path: string; entity_id: string }>>(
+        `SELECT path, entity_id FROM catalog_entity_files
+         WHERE workspace_id = ? AND status = ? AND path IN (${batch.map(() => '?').join(', ')})`,
+        [workspaceId, 'current', ...batch]
+      );
+      const ids = [...new Set(files.map((file) => file.entity_id))];
+      if (!ids.length) continue;
+      const entities = await sqlite.select<
+        Array<Pick<DBCatalogEntity, 'id' | 'type' | 'metadata'>>
+      >(
+        `SELECT id, type, metadata FROM catalog_entities
+         WHERE workspace_id = ? AND status = ? AND id IN (${ids.map(() => '?').join(', ')})`,
+        [workspaceId, 'active', ...ids]
+      );
+      if (!entities.length) continue;
+      const activeIds = entities.map((entity) => entity.id);
+      const kinds = await sqlite.select<Array<{ id: string; kind: string }>>(
+        `SELECT id, kind FROM lims_entity WHERE id IN (${activeIds.map(() => '?').join(', ')})`,
+        activeIds
+      );
+      const kindById = new Map(kinds.map((row) => [row.id, row.kind]));
+      const entityById = new Map(entities.map((entity) => [entity.id, entity]));
+      for (const file of files) {
+        const entity = entityById.get(file.entity_id);
+        if (!entity) continue;
+        const context = catalogIconContext({
+          kind: kindById.get(entity.id) ?? entity.type,
+          path: file.path,
+          metadata: entity.metadata,
+        });
+        if (context) contexts.set(file.path, context);
+      }
+    }
+    return contexts;
   }
 
   async function getCatalogFileForPath(path: string): Promise<DBCatalogEntityFile | null> {
@@ -896,11 +959,12 @@ export function createCatalogRepository(dependencies: CatalogRepositoryDependenc
   }
 
   async function getRecentlyEditedCatalogEntities(
-    limit: number = 10
+    limit: number = 10,
+    includeCurrentFilePaths: readonly string[] = []
   ): Promise<RecentlyEditedCatalogEntity[]> {
     const sqlite = getConnection();
     const safeLimit = Math.max(1, Math.min(100, Math.floor(Number.isFinite(limit) ? limit : 10)));
-    const [entities, workspaceRows, catalogFiles] = await Promise.all([
+    const [entities, workspaceRows, catalogFiles, limsEntities] = await Promise.all([
       sqlite.select<DBCatalogEntity[]>('SELECT * FROM catalog_entities'),
       sqlite.select<
         {
@@ -913,7 +977,9 @@ export function createCatalogRepository(dependencies: CatalogRepositoryDependenc
         }[]
       >('SELECT * FROM workspaces'),
       sqlite.select<DBCatalogEntityFile[]>('SELECT * FROM catalog_entity_files'),
+      sqlite.select<{ id: string; kind: string }[]>('SELECT id, kind FROM lims_entity'),
     ]);
+    const iconKindById = new Map(limsEntities.map((entity) => [entity.id, entity.kind]));
     const workspaceById = new Map(workspaceRows.map((w) => [w.id, w]));
     const filesByEntity = new Map<string, DBCatalogEntityFile[]>();
     for (const file of catalogFiles) {
@@ -933,6 +999,16 @@ export function createCatalogRepository(dependencies: CatalogRepositoryDependenc
       );
     };
 
+    const includedPaths = new Set(includeCurrentFilePaths);
+    const ownedCurrentFiles = (entity: DBCatalogEntity): DBCatalogEntityFile[] => {
+      const workspace = entity.workspace_id != null ? workspaceById.get(entity.workspace_id) : null;
+      return (filesByEntity.get(entity.id) ?? []).filter(
+        (file) =>
+          workspace != null &&
+          file.workspace_id === entity.workspace_id &&
+          pathIsAtOrUnder(file.path, workspace.path)
+      );
+    };
     return entities
       .filter(
         (entity) =>
@@ -941,16 +1017,18 @@ export function createCatalogRepository(dependencies: CatalogRepositoryDependenc
           !isWorkspaceHidden(entity.workspace_id)
       )
       .sort((a, b) => b.updated_at - a.updated_at)
-      .slice(0, safeLimit)
+      .filter(
+        (entity, index) =>
+          index < safeLimit ||
+          (includedPaths.size > 0 &&
+            ownedCurrentFiles(entity).some((file) => includedPaths.has(file.path)))
+      )
       .map((entity) => {
         const workspace =
           entity.workspace_id != null ? workspaceById.get(entity.workspace_id) : null;
-        const files = (filesByEntity.get(entity.id) ?? []).filter(
-          (file) =>
-            workspace != null &&
-            file.workspace_id === entity.workspace_id &&
-            pathIsAtOrUnder(file.path, workspace.path)
-        );
+        const files = ownedCurrentFiles(entity);
+        const currentFilePath =
+          entity.storage_type === 'file' && files.length ? pickCanonicalBinding(files).path : null;
         return {
           id: entity.id,
           type: entity.type,
@@ -960,10 +1038,12 @@ export function createCatalogRepository(dependencies: CatalogRepositoryDependenc
           workspace_id: entity.workspace_id,
           workspace_name: workspace?.name ?? null,
           workspace_path: workspace?.path ?? null,
-          current_file_path:
-            entity.storage_type === 'file' && files.length
-              ? pickCanonicalBinding(files).path
-              : null,
+          current_file_path: currentFilePath,
+          iconContext: catalogIconContext({
+            kind: iconKindById.get(entity.id) ?? entity.type,
+            path: currentFilePath,
+            metadata: entity.metadata,
+          }),
           updated_at: entity.updated_at,
         };
       });
@@ -981,6 +1061,7 @@ export function createCatalogRepository(dependencies: CatalogRepositoryDependenc
     getCatalogEntityForWorkspaceRoot,
     getCatalogEntityByLocator,
     getCatalogEntityForFilePath,
+    getCatalogIconContextsForPaths,
     getCatalogFileForPath,
     releaseMissingCatalogFilePath,
     getCatalogWorkspaceRootForFilePath,

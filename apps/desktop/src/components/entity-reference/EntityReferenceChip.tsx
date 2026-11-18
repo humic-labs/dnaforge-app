@@ -16,6 +16,7 @@ import { stripDisplayExtension } from '../../utils/fileTypes';
 import { DEFAULT_TOOLTIP_DELAY_MS } from '../../shared/components/Tooltip';
 import { usePresentationEligibility } from '../../presentation/PresentationSurface';
 import { iconForEntityKind } from '../icons/entity-icon-registry';
+import type { EntityColorContext } from '../../shared/entity-color-family';
 import { ActionMenu } from '../ActionMenu';
 
 function pointerIsOnChipRemove(target: EventTarget | null): boolean {
@@ -28,6 +29,7 @@ export interface EntityReferenceChipProps {
   entityType: string;
   kindLabel?: string;
   iconOverride?: ReactNode;
+  iconContext?: EntityColorContext;
   showKindLabel?: boolean;
   label: string;
   preserveExtension?: boolean;
@@ -84,6 +86,7 @@ function EntityReferenceChipInner({
   entityType,
   kindLabel: kindLabelOverride,
   iconOverride,
+  iconContext,
   showKindLabel = false,
   label,
   preserveExtension = false,
@@ -127,7 +130,10 @@ function EntityReferenceChipInner({
     edge: 'top' | 'bottom';
     offset: number;
   } | null>(null);
-  const defaultIcon = useMemo(() => iconForEntityKind(entityType, 'h-3.5 w-3.5'), [entityType]);
+  const defaultIcon = useMemo(
+    () => iconForEntityKind(entityType, 'h-3.5 w-3.5', iconContext),
+    [entityType, iconContext]
+  );
   const icon = iconOverride ?? defaultIcon;
   const actions = useMemo<MenuAction[]>(() => {
     if (unavailable || busy) return [];

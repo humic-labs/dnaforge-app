@@ -1,5 +1,6 @@
 import { platform } from '../../platform';
 import type { DBEntityReference } from '../../db/entity-references';
+import { resolveEntityReferenceIconContext } from '../../services/entity-reference-presentation';
 import {
   getCurrentMolecularDocumentFiles,
   getWorkspaceRootById,
@@ -195,7 +196,8 @@ export async function resolveMolecularReferenceRecord(
   const id = savedReferenceIdFromHref(href);
   if (!id) return null;
   const reference = await getEntityReference(id);
-  if (reference) return reference;
+  if (reference)
+    return { ...reference, iconContext: await resolveEntityReferenceIconContext(reference) };
   const recovered = await recoverMolecularDocumentRevision(id, sourceNotebookPageId);
   return recovered
     ? molecularDocumentReferenceRecord(recovered.documentReference, recovered.snapshot.title)

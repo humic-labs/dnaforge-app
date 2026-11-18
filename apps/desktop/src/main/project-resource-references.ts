@@ -11,6 +11,7 @@ import {
   type ResolvedProjectResourceReference,
 } from '../shared/project-resource-reference';
 import { canonicalWorkspacePath } from './primer-artifact-files';
+import { catalogIconContext } from '../shared/catalog-icon-context';
 import {
   createRegisteredProjectAuthority,
   type RegisteredProjectAuthority,
@@ -22,6 +23,7 @@ interface CatalogResource {
   type: string;
   path: string;
   workspaceId: number;
+  metadata?: string | null;
 }
 
 export function createProjectResourceReferences(options: {
@@ -33,7 +35,7 @@ export function createProjectResourceReferences(options: {
     options
       .db()
       .prepare(
-        "SELECT e.id AS entityId,e.name,e.type,f.path,e.workspace_id AS workspaceId FROM catalog_entities e JOIN catalog_entity_files f ON f.entity_id=e.id AND f.workspace_id=e.workspace_id WHERE e.id=? AND e.status='active' AND f.status='current'"
+        "SELECT e.id AS entityId,e.name,e.type,e.metadata,f.path,e.workspace_id AS workspaceId FROM catalog_entities e JOIN catalog_entity_files f ON f.entity_id=e.id AND f.workspace_id=e.workspace_id WHERE e.id=? AND e.status='active' AND f.status='current'"
       )
       .all(entityId) as CatalogResource[];
   const resolve = async (
@@ -100,7 +102,7 @@ export function createProjectResourceReferences(options: {
       : (options
           .db()
           .prepare(
-            "SELECT e.id AS entityId,e.name,e.type,f.path,e.workspace_id AS workspaceId FROM catalog_entities e JOIN catalog_entity_files f ON f.entity_id=e.id AND f.workspace_id=e.workspace_id WHERE f.path=? AND f.workspace_id=? AND e.status='active' AND f.status='current'"
+            "SELECT e.id AS entityId,e.name,e.type,e.metadata,f.path,e.workspace_id AS workspaceId FROM catalog_entities e JOIN catalog_entity_files f ON f.entity_id=e.id AND f.workspace_id=e.workspace_id WHERE f.path=? AND f.workspace_id=? AND e.status='active' AND f.status='current'"
           )
           .all(physical.candidate, project.id) as CatalogResource[]);
     if (bindings.length > 1)
@@ -116,6 +118,11 @@ export function createProjectResourceReferences(options: {
       workspaceRoot: project.path,
       path: physical.candidate,
       entityType: binding?.type ?? resourceKind,
+      iconContext: catalogIconContext({
+        kind: binding?.type ?? resourceKind,
+        path: physical.candidate,
+        metadata: binding?.metadata,
+      }),
       label: binding?.name ?? basename(physical.candidate),
     };
   };
