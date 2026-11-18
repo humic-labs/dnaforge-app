@@ -81,6 +81,8 @@ class OperationConnection:
     scope_id: str
     owner_id: str
     mcp_stdio: bool = False
+    pid: int | None = None
+    owner_instance: str | None = None
 
     @classmethod
     def read(cls, path: Path) -> OperationConnection:
@@ -137,9 +139,25 @@ class OperationConnection:
             raise ValueError(
                 "The runtime connection file has an invalid MCP availability marker."
             )
+        pid = body.get("pid")
+        if "pid" in body and (
+            isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0
+        ):
+            raise ValueError(
+                "The runtime connection file has an invalid process identifier."
+            )
+        owner_instance = body.get("owner_instance")
+        if "owner_instance" in body and (
+            not isinstance(owner_instance, str) or not owner_instance
+        ):
+            raise ValueError(
+                "The runtime connection file has an invalid owner instance."
+            )
         return cls(
             **{name: body[name] for name in fields},
             mcp_stdio=mcp_stdio,
+            pid=pid,
+            owner_instance=owner_instance,
         )
 
 
