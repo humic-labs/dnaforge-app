@@ -1,7 +1,8 @@
+import { importIntoManagedWorkspaceRepo } from './workspace-git/import';
 import { splitProjectWorkTask } from './work-task-split';
 import { parseWorkspaceIdentity } from '@waypoint/domain-services';
 import { createNativeNotebookWorkingCopies } from './native-notebook-working-copies';
-import { mkdir, readFile, readdir, realpath } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it, vi } from 'vitest';
@@ -49,6 +50,17 @@ it('publishes a task once, retains completion after restart and refuses unscoped
       name: 'Check certificate',
       status: 'todo',
     });
+    const exported = join(f.tmpDir, 'exported'),
+      managed = join(f.tmpDir, 'independent');
+    await cp(root, exported, { recursive: true });
+    await expect(
+      importIntoManagedWorkspaceRepo(exported, { db: f.db, managedRootDir: managed })
+    ).rejects.toThrow('new identities for an independent copy');
+    expect(await readdir(managed).catch((e: NodeJS.ErrnoException) => e.code)).toBe('ENOENT');
+    expect(queryWorkTasks(f.db, { state: 'all' }).tasks.map((row) => row.id)).toEqual([
+      input.taskId,
+    ]);
+    expect(readWorkTask(f.db, input)?.head).toBe(saved.task!.head);
     const finish = {
       ...input,
       operationId: 'finish-task',
