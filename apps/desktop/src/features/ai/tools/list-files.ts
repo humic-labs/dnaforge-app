@@ -8,11 +8,14 @@ import {
   hasNoUserWorkspace,
   NO_WORKSPACE_TOOL_MESSAGE,
 } from './path-utils';
-import { getCatalogEntityForFilePath } from '../../../db/workspace-catalog';
+import { getCatalogEntityForFilePath, getCatalogIconContextsForPaths } from '../../../db/workspace-catalog';
 import { managedSequenceRepository } from '../../sequence/public/managed-sequence-repository';
 import { sequenceResourceUri } from './get-sequence';
 import { HARD_CAP_BYTES } from '../../../shared/oversized-guard';
 import { resolveExplicitProjectRoot } from '../../../shared/project-root-selection';
+import type { EntityColorContext } from '../../../shared/entity-color-family';
+import { catalogIconContext } from '../../../shared/catalog-icon-context';
+import { sequenceDocumentModel } from '../../sequence/public/store';
 
 const BIOLOGY_EXTENSIONS = new Set(['gb', 'gbk', 'genbank', 'fasta', 'fa', 'fas', 'fna', 'seq']);
 const MAX_BIOLOGY_SEARCH_BYTES = 256 * 1024;
@@ -110,6 +113,7 @@ export interface FileListEntry {
   importRequired?: boolean;
   biologyMatches?: string[];
   biologySearchPartial?: boolean;
+  iconContext?: EntityColorContext;
 }
 
 const projectScopeSchema = z
@@ -172,6 +176,10 @@ export const listFilesOutputSchema = z.object({
       importRequired: z.boolean().optional(),
       biologyMatches: z.array(z.string()).optional(),
       biologySearchPartial: z.boolean().optional(),
+      iconContext: z.object({
+        kind: z.string().optional(), molecule: z.string().optional(), path: z.string().optional(),
+        packageKind: z.string().optional(), isDirectory: z.boolean().optional(),
+      }).optional(),
     })
   ),
   nameQuery: z.string().optional(),
@@ -340,6 +348,7 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
         ? visibleFolders.map((folder) => ({
             target: folder.path,
             pathPrefix: folder.name,
+            workspaceRoot: folder.path,
           }))
         : (() => {
             const resolved = resolveMultiRootPath(scopedFolders, relativePath || '.');
@@ -350,7 +359,7 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
                 ? `${resolved.folder.name}/${resolved.relativePath}`
                 : resolved.folder.name
               : resolved.relativePath || '';
-            return [{ target: resolved.absolutePath, pathPrefix }];
+            return [{ target: resolved.absolutePath, pathPrefix, workspaceRoot: resolved.folder.path }];
           })();
 
       const entries: Array<{
@@ -371,8 +380,14 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
         entries.push({ entry: { ...entry, ...hints }, biologyContentPath });
       };
 
-      async function listDirectory(dirPath: string, basePath: string): Promise<void> {
+      async function listDirectory(dirPath: string, basePath: string, workspaceRoot: string): Promise<void> {
         const items = await platform().fs.readDir(dirPath);
+        const iconContexts = await getCatalogIconContextsForPaths(
+          workspaceRoot,
+          items
+            .filter((item) => !item.isDirectory && !EXCLUDED_DIRS.has(item.name) && !item.name.startsWith('.'))
+            .map((item) => `${dirPath}/${item.name}`)
+        );
 
         for (const item of items) {
           if (EXCLUDED_DIRS.has(item.name) || item.name.startsWith('.')) {
@@ -394,6 +409,11 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
                   isBiologyFile: true,
                   documentId: managed.document.id,
                   resourceUri: sequenceResourceUri(managed.document.id),
+                  iconContext: {
+                    kind: managed.document.entity?.schema?.name ?? 'sequence',
+                    packageKind: 'sequence',
+                    molecule: sequenceDocumentModel.getState().sequences[managed.document.id]?.molecule,
+                  },
                 },
                 managed.productPath
               );
@@ -407,7 +427,7 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
             });
 
             if (recursive) {
-              await listDirectory(absolutePath, relPath);
+              await listDirectory(absolutePath, relPath, workspaceRoot);
             }
           } else {
             if (isBiologyFile(item.name)) {
@@ -422,6 +442,13 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
                       isBiologyFile: true,
                       documentId,
                       resourceUri: sequenceResourceUri(documentId),
+                      iconContext: managed
+                        ? {
+                            kind: managed.document.entity?.schema?.name ?? 'sequence',
+                            packageKind: 'sequence',
+                            molecule: sequenceDocumentModel.getState().sequences[documentId]?.molecule,
+                          }
+                        : catalogIconContext({ kind: catalog?.type ?? 'sequence', metadata: catalog?.metadata }),
                     }
                   : {
                       name: item.name,
@@ -439,13 +466,14 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
               type: 'file',
               extension: getExtension(item.name),
               isBiologyFile: isBiologyFile(item.name),
+              ...(iconContexts.has(absolutePath) ? { iconContext: iconContexts.get(absolutePath) } : {}),
             });
           }
         }
       }
 
       for (const searchTarget of searchTargets) {
-        await listDirectory(searchTarget.target, searchTarget.pathPrefix);
+        await listDirectory(searchTarget.target, searchTarget.pathPrefix, searchTarget.workspaceRoot);
       }
       let biologyFilesSearched = 0;
       let biologyFilesPartiallySearched = 0;

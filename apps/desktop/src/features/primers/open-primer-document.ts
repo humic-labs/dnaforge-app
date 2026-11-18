@@ -1,4 +1,6 @@
 import { findContainingPathBoundary } from '../../shared/path-boundary';
+import { getCatalogEntityForFilePath } from '../../db/workspace-catalog';
+import { catalogIconContext } from '../../shared/catalog-icon-context';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { presentDocument } from '../canvas/public/present-document';
 import {
@@ -31,12 +33,16 @@ export async function openPrimerDocument(
       status: 'blocked',
       message: 'Open the project that owns this primer before editing it.',
     };
+  const entity = await getCatalogEntityForFilePath(path).catch(() => null);
+  if (signal?.aborted) return cancelledDocumentOpen();
+  const iconContext = catalogIconContext({ kind: entity?.type, metadata: entity?.metadata });
   const lastSeparator = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
   const destinationPath = lastSeparator > 0 ? path.slice(0, lastSeparator) : owner.path;
   return presentDocument(
     {
       type: 'primer',
       entityId: path,
+      entityKind: iconContext?.kind,
       readOnly: projectPathIsReadOnly(path, folders),
       label: label.replace(/\.primer\.json$/i, ''),
       artifactDocument: {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { EntityColorContext } from './entity-color-family';
 import { isSafeWorkspaceRelativePath } from './path-boundary';
 
 const identity = z
@@ -38,6 +39,7 @@ export interface ResolvedProjectResourceReference {
   path: string;
   entityType: string;
   label: string;
+  iconContext?: EntityColorContext;
 }
 export interface ResolveNotebookResourceReferenceRequest {
   documentId: string;

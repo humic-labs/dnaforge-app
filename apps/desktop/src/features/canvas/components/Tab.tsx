@@ -2,6 +2,7 @@ import React, { useCallback, useRef, useEffect, useMemo, useState } from 'react'
 import type { TabType } from '../types';
 import type { TabStripPresentation } from '../tab-menu-presentation';
 import { stripDisplayExtension } from '../../../utils/fileTypes';
+import { entityColorFamily, type EntityColorContext } from '../../../shared/entity-color-family';
 
 const TAB_TYPES_SHOWING_RAW_LABEL: ReadonlySet<TabType> = new Set(['sequence', 'chat', 'record']);
 import type { GitFileStatus } from '../../workspace/public/git';
@@ -13,7 +14,6 @@ import {
   BiologyFileIcon,
   ChatTabIcon,
   GenericFileIcon,
-  GenomeAssemblyIcon,
   ImageFileIcon,
   NotebookTabIcon,
   PdfFileIcon,
@@ -44,53 +44,60 @@ interface TabProps {
 
 const INSERT_GAP_WIDTH = 80;
 
-export function getTabIcon(tabType: TabType, className = 'w-3.5 h-3.5 flex-shrink-0') {
-  const shared = iconForEntityKind(tabType, className);
+export function getTabIcon(
+  tabType: TabType,
+  className = 'w-3.5 h-3.5 flex-shrink-0',
+  context?: EntityColorContext
+) {
+  const shared =
+    iconForEntityKind(context?.kind ?? tabType, className, context) ??
+    iconForEntityKind(tabType, className, context);
+  const colorFamily = entityColorFamily({ kind: tabType, ...context });
   if (shared) return shared;
 
   switch (tabType) {
     case 'sequence':
-      return <BiologyFileIcon className={className} />;
+      return <BiologyFileIcon className={className} colorFamily={colorFamily} />;
     case 'image':
-      return <ImageFileIcon className={className} />;
+      return <ImageFileIcon className={className} colorFamily={colorFamily} />;
     case 'pdf':
-      return <PdfFileIcon className={className} />;
+      return <PdfFileIcon className={className} colorFamily={colorFamily} />;
     case 'table':
-      return <SpreadsheetFileIcon className={className} />;
+      return <SpreadsheetFileIcon className={className} colorFamily={colorFamily} />;
     case 'html':
-      return <WebFileIcon className={className} />;
+      return <WebFileIcon className={className} colorFamily={colorFamily} />;
     case 'text':
-      return <TextFileIcon className={className} />;
+      return <TextFileIcon className={className} colorFamily={colorFamily} />;
     case 'terminal':
       return (
-        <span className={className} aria-hidden="true">
+        <span className={className} data-entity-color-family={colorFamily} aria-hidden="true">
           ›_
         </span>
       );
     case 'structure':
-      return <StructureFileIcon className={className} />;
+      return <StructureFileIcon className={className} colorFamily={colorFamily} />;
     case 'chat':
-      return <ChatTabIcon className={className} />;
+      return <ChatTabIcon className={className} colorFamily={colorFamily} />;
     case 'page':
-      return <NotebookTabIcon className={className} />;
+      return <NotebookTabIcon className={className} colorFamily={colorFamily} />;
     case 'scientific-document':
-      return <NotebookTabIcon className={className} />;
+      return <NotebookTabIcon className={className} colorFamily={colorFamily} />;
     case 'design':
     case 'assembly-panel':
     case 'adjacency-graph':
     case 'assembly-browser':
-      return <AssemblyTabIcon className={className} />;
+      return <AssemblyTabIcon className={className} colorFamily={colorFamily} />;
     case 'protein':
-      return <ProteinIcon className={className} />;
+      return <ProteinIcon className={className} colorFamily={colorFamily} />;
     case 'primer':
     case 'record':
       return iconForEntityKind(tabType, className);
     case 'file':
-      return <GenericFileIcon className={className} />;
+      return <GenericFileIcon className={className} colorFamily={colorFamily} />;
     default: {
       const _exhaustive: never = tabType;
       void _exhaustive;
-      return <GenericFileIcon className={className} />;
+      return <GenericFileIcon className={className} colorFamily={colorFamily} />;
     }
   }
 }
@@ -100,11 +107,14 @@ export function getTabIconForTab(
   className = 'w-3.5 h-3.5 flex-shrink-0'
 ) {
   if (tab.type === 'structure' && tab.isMolecularDocument)
-    return iconForEntityKind('molecular-document', className);
+    return iconForEntityKind('molecular-document', className, {
+      ...tab.iconContext,
+      kind: 'molecular-document',
+    });
   if (tab.type === 'sequence' && tab.isIndexedSequence) {
-    return <GenomeAssemblyIcon className={className} />;
+    return iconForEntityKind('genome', className, tab.iconContext);
   }
-  return getTabIcon(tab.type, className);
+  return getTabIcon(tab.type, className, tab.iconContext);
 }
 
 const DRAG_THRESHOLD = 5;
