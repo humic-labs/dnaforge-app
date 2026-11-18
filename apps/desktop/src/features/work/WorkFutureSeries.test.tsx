@@ -195,3 +195,34 @@ it('keeps an invalid successor local and requires a new source revision after a 
   expect(screen.getByLabelText('First original occurrence to change')).toHaveValue('');
   expect(screen.getByLabelText('First original occurrence to change')).toBeEnabled();
 });
+
+it('restores a close-before-submit draft, keeps it bound to its revision and clears it on explicit cancel', async () => {
+  const task = original();
+  const first = render(<WorkFutureSeries record={task} editable />);
+  editFrom('2026-11-01');
+  fireEvent.change(screen.getByLabelText(/First date of new series/), {
+    target: { value: '2026-11-09' },
+  });
+  fireEvent.change(screen.getByLabelText('Repeat frequency'), { target: { value: 'monthly' } });
+  fireEvent.change(screen.getByLabelText('Repeat interval'), { target: { value: '3' } });
+  first.unmount();
+  const next = render(
+    <WorkFutureSeries record={{ ...task, revisionId: 'changed-elsewhere' }} editable />
+  );
+  expect(await screen.findByLabelText('First original occurrence to change')).toHaveValue(
+    '2026-11-01'
+  );
+  expect(screen.getByLabelText(/First date of new series/)).toHaveValue('2026-11-09');
+  expect(screen.getByLabelText('Repeat frequency')).toHaveValue('monthly');
+  expect(screen.getByLabelText('Repeat interval')).toHaveValue(3);
+  expect(
+    screen.getByRole('button', { name: 'Apply to this and future occurrences' })
+  ).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Load current rule' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel series change' }));
+  next.unmount();
+  render(<WorkFutureSeries record={task} editable />);
+  expect(screen.getByRole('button', { name: 'Change future occurrences' })).toBeVisible();
+  expect(screen.queryByLabelText('First original occurrence to change')).toBeNull();
+  expect(split).not.toHaveBeenCalled();
+});

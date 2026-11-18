@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { workDatePart } from '@waypoint/domain-services';
+import { parseWorkTime } from '@waypoint/scientific-objects';
 import { platform } from '../../platform';
 import { Button } from '../../shared/components/Button';
 import type {
@@ -19,6 +20,44 @@ interface Props {
   onAccepted?(result: WorkTaskSplitResult): void;
 }
 type Editor = { firstSlot: string; replacement: RecurrenceDraft; revision: string };
+type DraftEntry = { draft: Editor; operationId?: string };
+
+function readDraft(key: string): DraftEntry | null {
+  const raw = localStorage.getItem(key);
+  if (raw === null) return null;
+  const entry = JSON.parse(raw),
+    draft = entry?.draft,
+    rule = draft?.replacement,
+    anchor = rule?.anchor;
+  const folds = ['', 'earlier', 'later'];
+  if (
+    !draft ||
+    typeof draft.revision !== 'string' ||
+    !draft.revision.trim() ||
+    typeof draft.firstSlot !== 'string' ||
+    (entry.operationId !== undefined && typeof entry.operationId !== 'string') ||
+    !rule ||
+    !['daily', 'weekly', 'monthly'].includes(rule.frequency) ||
+    rule.state !== 'active' ||
+    !['interval', 'count', 'until'].every((key) => typeof rule[key] === 'string') ||
+    !folds.includes(rule.fold) ||
+    !Array.isArray(rule.weekdays) ||
+    !rule.weekdays.every(
+      (day: unknown) => typeof day === 'number' && Number.isInteger(day) && day >= 1 && day <= 7
+    ) ||
+    (rule.excludedSlots !== undefined &&
+      (!Array.isArray(rule.excludedSlots) ||
+        !rule.excludedSlots.every((day: unknown) => typeof day === 'string'))) ||
+    !anchor ||
+    !['date', 'time', 'zone'].every((key) => typeof anchor[key] === 'string') ||
+    !folds.includes(anchor.fold) ||
+    anchor.relative !== undefined ||
+    (anchor.retained !== undefined && parseWorkTime(anchor.retained).kind !== 'timed')
+  )
+    throw new Error('The saved series draft could not be read.');
+  return entry;
+}
+
 function fetchPending(prefix: string, record: WorkTaskRecord): WorkTaskSplitRequest[] {
   return Object.keys(localStorage)
     .filter((key) => key.startsWith(prefix))
@@ -59,10 +98,23 @@ export function WorkFutureSeries(props: Props) {
     record.project.root,
     record.id,
   ]);
-  return <FutureEditor key={scope} {...props} prefix={'work-series-split-v1/' + scope + '/'} />;
+  return (
+    <FutureEditor
+      key={scope}
+      {...props}
+      prefix={'work-series-split-v1/' + scope + '/'}
+      draftKey={'work-series-draft-v1/' + scope}
+    />
+  );
 }
 
-function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix: string }) {
+function FutureEditor({
+  record,
+  editable,
+  onAccepted,
+  prefix,
+  draftKey,
+}: Props & { prefix: string; draftKey: string }) {
   const [draft, setDraft] = useState<Editor | null>(null);
   const [pending, setPending] = useState<WorkTaskSplitRequest[]>([]);
   const [accepted, setAccepted] = useState<{
@@ -76,6 +128,7 @@ function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix
   const [storageError, setStorageError] = useState(false);
   const flight = useRef(false);
   const mounted = useRef(true);
+  const lastDraft = useRef<string | null>(null);
   const rule = record.document.recurrence;
   const relative = [
     record.document.plan?.start,
@@ -84,27 +137,51 @@ function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix
   ].some((field) => field?.kind === 'relative');
   const active =
     !!rule && rule.state === 'active' && !['done', 'canceled'].includes(record.document.status);
-  function readPending() {
+  function readRecovery() {
     try {
       setPending(fetchPending(prefix, record));
+      const saved = readDraft(draftKey);
+      lastDraft.current = saved && JSON.stringify(saved);
+      setDraft(saved?.draft ?? null);
       setStorageError(false);
     } catch (cause) {
-      setError(detail(cause));
+      setError('Could not read series recovery. ' + detail(cause));
       setStorageError(true);
+    }
+  }
+  function revise(next: Editor | null, operationId?: string) {
+    try {
+      const saved = readDraft(draftKey);
+      if ((saved && JSON.stringify(saved)) !== lastDraft.current) {
+        readRecovery();
+        setError('The saved draft changed in another window. Check it before continuing.');
+        return false;
+      }
+      const raw = next && JSON.stringify({ draft: next, ...(operationId ? { operationId } : {}) });
+      if (raw === null) localStorage.removeItem(draftKey);
+      else localStorage.setItem(draftKey, raw);
+      lastDraft.current = raw;
+      setDraft(next);
+      setError('');
+      return true;
+    } catch (cause) {
+      setError('Could not save the series draft. ' + detail(cause));
+      setStorageError(true);
+      return false;
     }
   }
   useEffect(() => {
     mounted.current = true;
-    readPending();
+    readRecovery();
     const observe = (event: StorageEvent) => {
-      if (!event.key || event.key.startsWith(prefix)) readPending();
+      if (!event.key || event.key === draftKey || event.key.startsWith(prefix)) readRecovery();
     };
     window.addEventListener('storage', observe);
     return () => {
       mounted.current = false;
       window.removeEventListener('storage', observe);
     };
-  }, [prefix]);
+  }, [prefix, draftKey]);
   async function send(request: WorkTaskSplitRequest, retry: boolean) {
     if (flight.current) return;
     flight.current = true;
@@ -115,14 +192,14 @@ function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix
     let confirmation: WorkTaskSplitResult | undefined;
     try {
       localStorage.setItem(key, JSON.stringify(request));
-      readPending();
+      readRecovery();
       sent = true;
       const result = await platform().workTasks.split(request);
       const receipt = result.submission.receipt;
       if (receipt.outcome === 'conflict' || receipt.outcome === 'rejected') {
         localStorage.removeItem(key);
         if (!mounted.current) return;
-        readPending();
+        readRecovery();
         if (receipt.outcome === 'conflict') setConflictRevision(request.expectedRevisionId);
         setError(
           receipt.outcome === 'conflict'
@@ -138,11 +215,17 @@ function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix
         result.task.id !== request.taskId
       )
         throw new Error('The accepted series could not be confirmed.');
-      localStorage.removeItem(key);
+      try {
+        if (readDraft(draftKey)?.operationId === request.operationId)
+          localStorage.removeItem(draftKey);
+        localStorage.removeItem(key);
+      } catch (cause) {
+        if (mounted.current)
+          setError('The series was saved. Could not clear its recovery record. ' + detail(cause));
+      }
       window.dispatchEvent(new Event(WORK_TASK_CHANGED));
       if (!mounted.current) return;
-      readPending();
-      setDraft(null);
+      readRecovery();
       setAccepted({
         start: describeDate(request.replacement.anchor),
         name: result.successor.document.name,
@@ -153,7 +236,7 @@ function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix
       if (!mounted.current) return;
       const reason = detail(cause);
       if (!sent) {
-        readPending();
+        readRecovery();
         setError('Could not keep the retry details. ' + reason);
         return;
       }
@@ -162,11 +245,11 @@ function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix
         (reason.includes('WORK_TASK_REFUSED:') || reason.includes('WORK_TASK_CONFLICT:'))
       ) {
         localStorage.removeItem(key);
-        readPending();
+        readRecovery();
         if (reason.includes('WORK_TASK_CONFLICT:')) setConflictRevision(request.expectedRevisionId);
         setError(reason);
       } else {
-        readPending();
+        readRecovery();
         setError('The split outcome needs confirmation. Check the original request. ' + reason);
       }
     } finally {
@@ -203,11 +286,13 @@ function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix
         anchor: { ...draft.replacement.anchor, fold: draft.replacement.fold },
       });
       if (!replacement) throw new Error('Choose a repeat rule for the new series.');
+      const operationId = crypto.randomUUID();
+      if (!revise(draft, operationId)) return;
       void send(
         {
           workspaceRoot: record.project.root,
           taskId: record.id,
-          operationId: crypto.randomUUID(),
+          operationId,
           successorId: crypto.randomUUID(),
           expectedRevisionId: draft.revision,
           firstSlot: draft.firstSlot,
@@ -219,7 +304,7 @@ function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix
       setError(detail(cause));
     }
   }
-  if (!rule && !pending.length && !storageError) return null;
+  if (!rule && !draft && !pending.length && !storageError) return null;
   return (
     <section
       className="space-y-2 text-xs"
@@ -236,7 +321,7 @@ function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix
               type="button"
               size="xs"
               variant="secondary"
-              disabled={busy || record.project.writable === false}
+              disabled={busy || storageError || record.project.writable === false}
               onClick={() => void send(request, true)}
             >
               Check split outcome
@@ -250,6 +335,7 @@ function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix
             disabled={
               !editable ||
               busy ||
+              storageError ||
               draft.revision !== record.revisionId ||
               draft.revision === conflictRevision
             }
@@ -264,7 +350,7 @@ function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix
                 value={draft.firstSlot}
                 onChange={(e) => {
                   const date = e.target.value;
-                  setDraft({
+                  revise({
                     ...draft,
                     firstSlot: date,
                     replacement: {
@@ -287,7 +373,7 @@ function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix
               saved={null}
               start={draft.replacement.anchor}
               value={draft.replacement}
-              change={(replacement) => setDraft({ ...draft, replacement })}
+              change={(replacement) => revise({ ...draft, replacement })}
             />
             <Button
               type="button"
@@ -307,8 +393,7 @@ function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix
                 size="xs"
                 variant="ghost"
                 onClick={() => {
-                  setDraft(initialEditor(record));
-                  setError('');
+                  revise(initialEditor(record));
                 }}
               >
                 Load current rule
@@ -319,11 +404,8 @@ function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix
             type="button"
             size="xs"
             variant="ghost"
-            disabled={busy}
-            onClick={() => {
-              setDraft(null);
-              setError('');
-            }}
+            disabled={busy || storageError}
+            onClick={() => revise(null)}
           >
             Cancel series change
           </Button>
@@ -338,14 +420,26 @@ function FutureEditor({ record, editable, onAccepted, prefix }: Props & { prefix
               !editable || relative || storageError || record.revisionId === conflictRevision
             }
             onClick={() => {
-              setDraft(initialEditor(record));
-              setError('');
-              setAccepted(null);
+              if (revise(initialEditor(record))) setAccepted(null);
             }}
           >
             Change future occurrences
           </Button>
         )
+      )}
+      {draft && !rule && !pending.length && (
+        <div>
+          <p>The saved draft belongs to an earlier repeat rule.</p>
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            disabled={storageError || busy}
+            onClick={() => revise(null)}
+          >
+            Cancel series change
+          </Button>
+        </div>
       )}
       {active && relative && (
         <p className="text-fg-muted">Set fixed series dates before changing future occurrences.</p>
