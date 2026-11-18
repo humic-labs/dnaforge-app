@@ -1,3 +1,4 @@
+import type { NativeWorkTaskFile } from './work-task-preparation';
 import type Database from 'better-sqlite3';
 import type { ScientificWorkspaceSubmission } from '@waypoint/domain-services';
 export type { ScientificWorkspaceSubmission } from '@waypoint/domain-services';
@@ -97,6 +98,7 @@ export async function submitScientificWorkspace(input: {
   readonly databaseFence?: () => void;
   readonly beforeAccept?: () => void;
   readonly workTaskCommand?: boolean;
+  readonly workTaskSuccessor?: NativeWorkTaskFile;
 
   readonly publication?: {
     readonly mutations: readonly WorkspaceMutation[];
@@ -116,6 +118,18 @@ export async function submitScientificWorkspace(input: {
       ? null
       : must(parseWorkspaceVersionId(input.request.expectedHead));
   const source = snapshotSource(input.request.source);
+  const successor = input.workTaskSuccessor && structuredClone(input.workTaskSuccessor);
+  if (
+    successor &&
+    (!input.workTaskCommand ||
+      source.kind !== 'native-artifact' ||
+      !source.expectedRevisionId ||
+      source.entry.representation.format !== 'work-task-v1' ||
+      successor.representation.format !== 'work-task-v1' ||
+      successor.resourceId === source.entry.resourceId)
+  )
+    throw new Error('An additional work task requires an authorized series split.');
+
   const publication = input.publication && {
     mutations: Object.freeze(
       input.publication.mutations.map((mutation) => Object.freeze({ ...mutation }))
@@ -306,7 +320,7 @@ export async function submitScientificWorkspace(input: {
       const submittedEntries = nativeMetadata
         ? []
         : source.kind === 'native-artifact'
-          ? nativeArtifactEntries(store, expectedHead, source)
+          ? nativeArtifactEntries(store, expectedHead, source, successor)
           : (metadata?.entries ??
             copy?.entries ??
             deletion?.entries ??
@@ -721,7 +735,8 @@ function existingPrimerNamePlan(
 function nativeArtifactEntries(
   store: ScientificObjectStore,
   head: ReturnType<typeof store.read>['head'],
-  source: Extract<ScientificWorkspaceSubmission['source'], { kind: 'native-artifact' }>
+  source: Extract<ScientificWorkspaceSubmission['source'], { kind: 'native-artifact' }>,
+  successor?: NativeWorkTaskFile
 ): readonly ScientificFileEntry[] {
   if (head === null)
     throw new Error('Enroll the scientific workspace before creating native artifacts.');
@@ -734,6 +749,15 @@ function nativeArtifactEntries(
   });
   const resourceId = must(parseResourceId(source.entry.resourceId));
   const slots = must(listWorkspaceResources(graph, head));
+  const extra = successor
+    ? {
+        resourceId: must(parseResourceId(successor.resourceId)),
+        path: must(parseWorkspacePath(successor.path)),
+        representation: successor.representation,
+      }
+    : null;
+  if (extra && slots.some((s) => s.resourceId === extra.resourceId))
+    throw new Error('The work series successor identity already exists.');
   const existing = slots.find((slot) => slot.resourceId === resourceId);
   const snapshot = reader.current(resourceId);
   if (source.expectedRevisionId === null) {
@@ -766,6 +790,7 @@ function nativeArtifactEntries(
   });
   return [
     ...entries,
+    ...(extra ? [extra] : []),
     { ...source.entry, resourceId, path: must(parseWorkspacePath(source.entry.path)) },
   ];
 }

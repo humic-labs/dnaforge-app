@@ -1,3 +1,4 @@
+import { splitProjectWorkTask } from '../work-task-split';
 import { queryWorkRecordDates } from '../work-record-dates';
 import {
   startWorkReminderScheduler,
@@ -26,6 +27,11 @@ export function registerWorkTaskHandlers(
   resolveDb: () => Database.Database = getDb
 ): void {
   handleGroup(workTasksContract, {
+    split: (event, input) =>
+      splitProjectWorkTask(resolveDb(), input, {
+        ownerId: event.sender.id,
+        ...(input.mutationToken ? { mutationToken: input.mutationToken } : {}),
+      }),
     dates: (event, input) => {
       const db = resolveDb();
       return withRendererDatabaseRead(db, event.sender, () => queryWorkRecordDates(db, input));

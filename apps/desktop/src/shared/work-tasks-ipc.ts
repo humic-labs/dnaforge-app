@@ -118,3 +118,15 @@ export interface WorkRecordDateResult {
   total: number;
   nextOffset: number | null;
 }
+
+export interface WorkTaskSplitRequest extends WorkTaskInspection {
+  operationId: string;
+  successorId: string;
+  expectedRevisionId: string;
+  firstSlot: string;
+  replacement: import('@waypoint/domain-services').WorkRecurrence;
+  mutationToken?: string;
+}
+export interface WorkTaskSplitResult extends WorkTaskMutationResult {
+  successor: WorkTaskRecord | null;
+}

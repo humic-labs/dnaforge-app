@@ -1,3 +1,4 @@
+import { prepareWorkOperation, workTaskFile } from './work-task-preparation';
 import {
   workNotebookPlacementSchema,
   type WorkPlacementIntent,
@@ -63,13 +64,13 @@ function hash(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
-function projectFor(db: Database.Database, root: string) {
+export function projectFor(db: Database.Database, root: string) {
   const project = visibleWorkProjects(db, root)[0];
   if (!project) return workRefused('The requested project is unavailable.');
   return project;
 }
 
-function resultRow(
+export function workTaskResultRow(
   db: Database.Database,
   project: WorkProjectAccess,
   reader: ScientificReader,
@@ -81,6 +82,7 @@ function resultRow(
   const document = snapshot.document;
   const schedule =
     document.completion?.schedule ??
+    document.cancellation?.schedule ??
     resolveWorkSchedule(document, workSourceReader(db, project, reader));
   return {
     project,
@@ -101,7 +103,7 @@ export function readWorkTask(
   const id = parseResourceId(input.taskId);
   if (!id.ok) return workRefused('Invalid task identity.');
   const { reader, head } = new ScientificObjectStore(db, project.workspaceId).read();
-  return resultRow(db, project, reader, head, reader.current(id.value), Date.now());
+  return workTaskResultRow(db, project, reader, head, reader.current(id.value), Date.now());
 }
 
 export function workTaskOccurrences(db: Database.Database, input: WorkOccurrenceQuery) {
@@ -173,7 +175,7 @@ export function queryWorkTasks(db: Database.Database, input: WorkTaskQuery): Wor
       const base = new ScientificObjectStore(db, project.workspaceId).read();
       const accepted: WorkTaskRecord[] = [];
       for (const slot of scientificWorkTaskSlots(base.graph, base.head)) {
-        const row = resultRow(
+        const row = workTaskResultRow(
           db,
           project,
           base.reader,
@@ -289,92 +291,82 @@ function prepare(
   const id = parseResourceId(input.taskId);
   if (!id.ok || !parseOperationId(input.operationId).ok)
     return workRefused('Invalid work operation identity.');
-  const fingerprint = hash(
-    canonicalPayload({
+  return prepareWorkOperation(
+    db,
+    project,
+    input.operationId,
+    {
       taskId: input.taskId,
       expectedRevisionId: input.expectedRevisionId,
       command: input.command,
       ...(input.notebookPlacement ? { notebookPlacement: input.notebookPlacement } : {}),
-    })
-  );
-  const actor = project.actor.kind + ':' + project.actor.id;
-  const old = db
-    .prepare(
-      'SELECT actor,request_hash,prepared_request FROM scientific_work_commands WHERE workspace_id=? AND operation_id=?'
-    )
-    .get(project.workspaceId, input.operationId) as SavedCommand | undefined;
-  if (old) {
-    if (old.request_hash !== fingerprint || old.actor !== actor)
-      return workRefused('This operation identity was used for another request.');
-    return JSON.parse(old.prepared_request) as Prepared;
-  }
-  const store = new ScientificObjectStore(db, project.workspaceId);
-  const base = store.read();
-  const previous = base.reader.current(id.value);
-  if ((previous?.revisionId ?? null) !== input.expectedRevisionId)
-    throw new Error('WORK_TASK_CONFLICT: Task changed. Read its current revision before editing.');
-  if (previous && previous.document.kind !== 'work-task')
-    return workRefused('The selected resource is not a project task.');
-  const current = previous?.document.kind === 'work-task' ? previous.document : null;
-  const now = Date.now();
-  let next: WorkTaskDocument;
-  try {
-    next = applyWorkTaskCommand(current, input.command, {
-      actor,
-      now,
-      readSource: workSourceReader(db, project, base.reader),
-      canAssign: (value) =>
-        input.command.kind === 'create' || input.command.kind === 'edit'
-          ? input.command.assignee?.kind === value.kind && input.command.assignee.id === value.id
-          : false,
-    });
-  } catch (error) {
-    return workRefused(error instanceof Error ? error.message : 'The task command is invalid.');
-  }
-  for (const link of commandLinks(input.command)) assertWorkLink(db, project, base.reader, link);
-  const live = resolveWorkSchedule(
-    next,
-    workSourceReader(db, project, base.reader, { id: input.taskId, document: next })
-  );
-  if (Object.values(live).some((value) => value.kind === 'unresolved' && value.reason === 'cycle'))
-    workRefused('The task schedule would introduce a date dependency cycle.');
-  const catalog = base.head ? listWorkspaceResources(base.graph, base.head) : null;
-  const path = catalog?.ok
-    ? catalog.value.find((slot) => slot.resourceId === id.value)?.path
-    : null;
-  const prepared: Prepared = {
-    ...(input.notebookPlacement
-      ? {
-          notebookPlacement: {
-            ...input.notebookPlacement,
-            taskId: input.taskId,
-            projectId: project.id,
-            operationId: input.operationId,
-          },
-        }
-      : {}),
-    derivation: canonicalPayload(live),
-    request: {
-      operationId: input.operationId,
-      expectedHead: base.head,
-      source: {
-        kind: 'native-artifact',
-        expectedRevisionId: input.expectedRevisionId,
-        entry: {
-          resourceId: input.taskId,
-          path: path ?? `tasks/${hash(input.taskId)}.task.json`,
-          representation: {
-            format: 'work-task-v1',
-            text: canonicalPayload({ id: input.taskId, ...next }) + '\n',
+    },
+    (actor) => {
+      const store = new ScientificObjectStore(db, project.workspaceId);
+      const base = store.read();
+      const previous = base.reader.current(id.value);
+      if ((previous?.revisionId ?? null) !== input.expectedRevisionId)
+        throw new Error(
+          'WORK_TASK_CONFLICT: Task changed. Read its current revision before editing.'
+        );
+      if (previous && previous.document.kind !== 'work-task')
+        return workRefused('The selected resource is not a project task.');
+      const current = previous?.document.kind === 'work-task' ? previous.document : null;
+      const now = Date.now();
+      let next: WorkTaskDocument;
+      try {
+        next = applyWorkTaskCommand(current, input.command, {
+          actor,
+          now,
+          readSource: workSourceReader(db, project, base.reader),
+          canAssign: (value) =>
+            input.command.kind === 'create' || input.command.kind === 'edit'
+              ? input.command.assignee?.kind === value.kind &&
+                input.command.assignee.id === value.id
+              : false,
+        });
+      } catch (error) {
+        return workRefused(error instanceof Error ? error.message : 'The task command is invalid.');
+      }
+      for (const link of commandLinks(input.command))
+        assertWorkLink(db, project, base.reader, link);
+      const live = resolveWorkSchedule(
+        next,
+        workSourceReader(db, project, base.reader, { id: input.taskId, document: next })
+      );
+      if (
+        Object.values(live).some((value) => value.kind === 'unresolved' && value.reason === 'cycle')
+      )
+        workRefused('The task schedule would introduce a date dependency cycle.');
+      const catalog = base.head ? listWorkspaceResources(base.graph, base.head) : null;
+      const path = catalog?.ok
+        ? catalog.value.find((slot) => slot.resourceId === id.value)?.path
+        : null;
+      const prepared: Prepared = {
+        ...(input.notebookPlacement
+          ? {
+              notebookPlacement: {
+                ...input.notebookPlacement,
+                taskId: input.taskId,
+                projectId: project.id,
+                operationId: input.operationId,
+              },
+            }
+          : {}),
+        derivation: canonicalPayload(live),
+        request: {
+          operationId: input.operationId,
+          expectedHead: base.head,
+          source: {
+            kind: 'native-artifact',
+            expectedRevisionId: input.expectedRevisionId,
+            entry: workTaskFile(input.taskId, next, path),
           },
         },
-      },
-    },
-  };
-  db.prepare(
-    'INSERT INTO scientific_work_commands (workspace_id,operation_id,request_hash,actor,prepared_request) VALUES (?,?,?,?,?)'
-  ).run(project.workspaceId, input.operationId, fingerprint, actor, canonicalPayload(prepared));
-  return prepared;
+      };
+      return prepared;
+    }
+  );
 }
 
 export async function mutateWorkTask(
@@ -453,7 +445,7 @@ export async function mutateWorkTask(
   const id = parseResourceId(input.taskId),
     revision = parseResourceRevisionId(accepted.resourceRevisionId);
   if (!id.ok || !revision.ok) throw new Error('Unrecognizable accepted task identity.');
-  const task = resultRow(
+  const task = workTaskResultRow(
     db,
     project,
     reader,

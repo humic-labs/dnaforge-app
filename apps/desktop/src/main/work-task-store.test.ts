@@ -1,3 +1,4 @@
+import { splitProjectWorkTask } from './work-task-split';
 import { parseWorkspaceIdentity } from '@waypoint/domain-services';
 import { createNativeNotebookWorkingCopies } from './native-notebook-working-copies';
 import { mkdir, readFile, readdir, realpath } from 'node:fs/promises';
@@ -179,6 +180,82 @@ it('recovers accepted notebook creation and finishes only after its independent 
     expect((await mutateWorkTask(f.db, args, undefined, native)).notebookPlacement).toBeUndefined();
   } finally {
     await native.close();
+    f.cleanup();
+  }
+});
+
+it('cuts a series and creates its successor in one accepted version, including exact restart replay', async () => {
+  const f = createFileTestDb('split-series');
+  try {
+    ensureSchema(f.db, f.dbPath);
+    const root = join(await realpath(f.tmpDir), 'project');
+    await mkdir(root);
+    f.db
+      .prepare('INSERT INTO workspaces(name,path,repo_uuid,created_at) VALUES(?,?,?,1)')
+      .run('Runs', root, 'runs');
+    const date = (day: string) => ({ kind: 'day' as const, date: day, zone: 'America/New_York' });
+    const rule = {
+      frequency: 'daily' as const,
+      interval: 1,
+      anchor: date('2028-03-01'),
+      fold: 'earlier' as const,
+      state: 'active' as const,
+    };
+    const saved = await mutateWorkTask(f.db, {
+      workspaceRoot: root,
+      taskId: 'series',
+      operationId: 'initial-series',
+      expectedRevisionId: null,
+      command: {
+        kind: 'create',
+        name: 'Daily check',
+        plan: { start: { kind: 'fixed', value: rule.anchor } },
+        recurrence: rule,
+      },
+    });
+    const input = {
+      workspaceRoot: root,
+      taskId: 'series',
+      successorId: 'new-series',
+      operationId: 'split-weekly',
+      expectedRevisionId: saved.task!.revisionId,
+      firstSlot: '2028-03-05',
+      replacement: { ...rule, frequency: 'weekly' as const, anchor: date('2028-03-07') },
+    };
+    const result = await splitProjectWorkTask(f.db, input);
+    expect(result.task?.document.recurrence?.until).toBe('2028-03-04');
+    expect(result.successor?.document.recurrence?.anchor).toEqual(date('2028-03-07'));
+    expect(result.task?.head).toEqual(result.successor?.head);
+    expect(result.task?.document.links).toContainEqual({
+      projectId: 'runs',
+      resourceId: 'new-series',
+      role: 'series-successor',
+    });
+    expect(result.submission.delivery).toEqual({ kind: 'complete' });
+    expect(await readdir(join(root, 'tasks'))).toHaveLength(2);
+    const reopened = openFileTestDb(f.dbPath);
+    try {
+      expect((await splitProjectWorkTask(reopened, input)).submission.replayed).toBe(true);
+      expect(
+        workTaskHistory(reopened, { workspaceRoot: root, taskId: 'series' }).revisions
+      ).toHaveLength(2);
+      expect(
+        workTaskHistory(reopened, { workspaceRoot: root, taskId: 'new-series' }).revisions
+      ).toHaveLength(1);
+      await expect(
+        splitProjectWorkTask(reopened, {
+          ...input,
+          operationId: 'would-overwrite',
+          expectedRevisionId: result.task!.revisionId,
+        })
+      ).rejects.toThrow('successor identity already exists');
+      expect(readWorkTask(reopened, { workspaceRoot: root, taskId: 'series' })?.head).toBe(
+        result.task?.head
+      );
+    } finally {
+      reopened.close();
+    }
+  } finally {
     f.cleanup();
   }
 });

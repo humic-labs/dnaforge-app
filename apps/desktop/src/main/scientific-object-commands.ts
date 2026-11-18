@@ -1,3 +1,4 @@
+import type { NativeWorkTaskFile } from './work-task-preparation';
 import type Database from 'better-sqlite3';
 import type {
   ScientificSubmissionReceipt,
@@ -65,6 +66,7 @@ export async function submitScientificObjectInMain(
     databaseFence?: () => void;
     beforeAccept?: () => void;
     workTaskCommand?: boolean;
+    workTaskSuccessor?: NativeWorkTaskFile;
   } = {}
 ): Promise<ScientificWorkspaceSubmitResult> {
   if (db.inTransaction)
@@ -89,7 +91,9 @@ export async function submitScientificObjectInMain(
     db,
     workspaceId,
     request: input.request,
-    ...(options.workTaskCommand ? { workTaskCommand: true } : {}),
+    ...(options.workTaskCommand
+      ? { workTaskCommand: true, workTaskSuccessor: options.workTaskSuccessor }
+      : {}),
     ...(options.renderer ? { renderer: options.renderer } : {}),
     ...(options.mutationLease ? { mutationLease: options.mutationLease } : {}),
     ...(options.databaseFence ? { databaseFence: options.databaseFence } : {}),
