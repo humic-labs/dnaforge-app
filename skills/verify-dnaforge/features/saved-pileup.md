@@ -8,6 +8,7 @@
   flanks after panning outside the previous interval.
 - Cross between readable rows and the combined read/coverage presentation with
   continuous zoom and pan input.
+- Inspect a matching read and a read with a known difference at the same zoom.
 - Save As, close and reopen with the same source, annotation selection and
   presentation settings.
 - Measure loading, input stalls, bounded tile caches and retained memory across
@@ -61,6 +62,25 @@ Require the saved file to retain its admitted read source and the reopened view
 to pass the same checks. Apply the unchanged loading, scheduling, cache and
 retained-memory limits in
 [the performance contract](../../../docs/pileup-performance.md).
+
+For row layout and read differences, pan a 44 kb view across its previous
+boundary and retain the recording through the first fully drawn frame. At a
+readable zoom, hover a matching read and one with a known substitution in
+the saved alignment. Check each read identifier and the substitution position
+against the fixture. Keep the viewport, input and fixture identical for the
+before and after captures.
+
+The sidecar’s focused checks exercise both types of reads. From `apps/api` with
+its development environment active, run the following command.
+
+```sh
+python -m pytest tests/test_alignment_tiles_nucleotides.py tests/test_alignment_tiles_payload_contract.py
+```
+
+A full-read tile containing only reference matches retains its read rows and
+returns no alternate columns. The guides-only response omits read rows. In a
+mixed tile both modes count matching reads toward the depth at a substitution.
+A cancelled request must stop before returning a successful result.
 
 ## Gotchas
 
