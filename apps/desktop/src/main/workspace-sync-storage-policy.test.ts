@@ -11,7 +11,11 @@ vi.mock('./desktop-sync-client', () => ({
   },
 }));
 import { createTestDb, createFileTestDb, openFileTestDb } from './__tests__/test-db';
-import { readWorkspaceSyncCapturePolicy } from './workspace-sync-storage-policy';
+import type { DesktopSyncClient } from './desktop-sync-client';
+import {
+  readWorkspaceSyncCapturePolicy,
+  readWorkspaceSyncStoragePolicy,
+} from './workspace-sync-storage-policy';
 const policy = {
   schemaVersion: 1 as const,
   policyKey: 'expanded',
@@ -29,6 +33,46 @@ function database() {
   );
   return db;
 }
+
+describe('negotiated project file selection', () => {
+  it.each([0, 1])(
+    'negotiates support and reads a workspace requiring version %i',
+    async (requiredVersion) => {
+      const requestJson = vi.fn(async () => ({
+        schema: 'dnaforge.workspace-sync-publication-policy/v1',
+        policy,
+        fileSelection: { supportedVersion: 1, requiredVersion },
+      }));
+      const client = { requestJson, requestStream: vi.fn() } as unknown as DesktopSyncClient;
+      expect(await readWorkspaceSyncStoragePolicy(client, 'project/a', 'account-a')).toEqual(
+        policy
+      );
+      expect(requestJson).toHaveBeenCalledWith(
+        '/api/desktop-sync/workspaces/project%2Fa/storage-policy?fileSelectionVersion=1',
+        { method: 'GET', expectedAccountId: 'account-a', signal: undefined, maxResponseBytes: 4096 }
+      );
+    }
+  );
+
+  it.each([
+    policy,
+    {
+      schema: 'dnaforge.workspace-sync-publication-policy/v1',
+      policy,
+      fileSelection: { supportedVersion: 1, requiredVersion: 2 },
+    },
+  ])('refuses an unnegotiated or unsupported service response', async (response) => {
+    const client = {
+      requestJson: vi.fn(async () => response),
+      requestStream: vi.fn(),
+    } as unknown as DesktopSyncClient;
+    await expect(
+      readWorkspaceSyncStoragePolicy(client, 'project-a', 'account-a')
+    ).rejects.toMatchObject({
+      code: 'UPGRADE_REQUIRED',
+    });
+  });
+});
 
 describe('durable policy copy for offline capture', () => {
   it('can queue offline after reopening SQLite and keeps the copy scoped to the account and project', async () => {
@@ -104,6 +148,7 @@ describe('durable policy copy for offline capture', () => {
     'ACCOUNT_CHANGED',
     'SIGNED_OUT',
     'BAD_RESPONSE',
+    'UPGRADE_REQUIRED',
   ])('never uses a cached allowance after %s', async (code) => {
     const db = database();
     try {

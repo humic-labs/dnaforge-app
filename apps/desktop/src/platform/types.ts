@@ -1,3 +1,4 @@
+import type { WorkspaceSyncSelectionUpdate } from '../shared/workspace-sync-selection';
 import type {
   AppendProjectMemoryEventInput,
   ProjectMemorySnapshot,
@@ -1372,6 +1373,11 @@ export interface PlatformBridge {
       resolution: WorkspaceSyncConflictResolution
     ): Promise<WorkspaceSyncResolveConflictResult>;
     deleteCloudCopy(workspaceUuid: string): Promise<WorkspaceSyncDeleteCloudCopyResult>;
+    updateSelection(
+      workspaceUuid: string,
+      request: WorkspaceSyncSelectionUpdate,
+      options?: WorkspaceSyncEnableOptions
+    ): Promise<WorkspaceSyncUploadPreviewResult>;
     previewUpload(
       workspaceUuid: string,
       options?: WorkspaceSyncEnableOptions

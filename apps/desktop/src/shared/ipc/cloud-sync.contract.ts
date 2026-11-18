@@ -1,3 +1,4 @@
+import type { WorkspaceSyncSelectionUpdate } from '../workspace-sync-selection';
 import type {
   WorkspaceSyncAccessListingResult,
   WorkspaceSyncConflictResolution,
@@ -152,6 +153,14 @@ export const cloudSyncContract = defineGroup('cloudSync', {
     WorkspaceSyncResolveConflictResult
   >(),
   deleteCloudCopy: invoke<[workspaceUuid: string], WorkspaceSyncDeleteCloudCopyResult>(),
+  updateSelection: invoke<
+    [
+      workspaceUuid: string,
+      request: WorkspaceSyncSelectionUpdate,
+      options?: WorkspaceSyncEnableOptions,
+    ],
+    WorkspaceSyncUploadPreviewResult
+  >(),
   previewUpload: invoke<
     [workspaceUuid: string, options?: WorkspaceSyncEnableOptions],
     WorkspaceSyncUploadPreviewResult

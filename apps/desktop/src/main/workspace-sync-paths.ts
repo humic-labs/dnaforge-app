@@ -5,20 +5,7 @@ import {
   SEQUENCE_UPGRADE_DIRECTORY,
 } from '../shared/sequence-migration-path';
 
-export const WORKSPACE_SYNC_SKIP_DIRS = new Set([
-  '.git',
-  'node_modules',
-  '.next',
-  'dist',
-  'dist-electron',
-  'build',
-  'coverage',
-  'tmp',
-  'temp',
-  '.tmp',
-  '.cache',
-  'vendor',
-]);
+export const WORKSPACE_SYNC_SKIP_DIRS = new Set(['.git']);
 export const WORKSPACE_SYNC_SKIP_FILES = new Set(['.DS_Store', MANAGED_WORKSPACE_MARKER]);
 export const WORKSPACE_SYNC_SKIP_RELATIVE_DIRS = new Set([
   '.waypoint/lims',

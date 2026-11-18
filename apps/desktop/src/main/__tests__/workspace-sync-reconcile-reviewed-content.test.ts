@@ -38,6 +38,7 @@ import {
   type WorkspaceSyncReconcileDeps,
 } from '../workspace-sync-reconcile-runtime';
 import { buildWorkspaceSyncSnapshot } from '../workspace-sync-snapshotter';
+import { recordWorkspaceSyncReplicaFiles } from '../workspace-sync-replica-files';
 import { createTestDb } from './test-db';
 
 const WORKSPACE = '8a4d99e9-2347-4d04-a447-d3070f7a7f9a';
@@ -142,6 +143,13 @@ describe('a conflict choice authorizes only the exact package contents reviewed'
                   created_at, updated_at
                 ) VALUES (1, 'workspace-a', 'account-a', ?, 1, ?, 1, ?, 1, 1)`
     ).run(WORKSPACE, BASE_ID, baseHead);
+    recordWorkspaceSyncReplicaFiles(db, {
+      workspaceUuid: 'workspace-a',
+      remoteWorkspaceId: WORKSPACE,
+      remoteVersionId: BASE_ID,
+      paths: base.files.map((file) => file.relativePath),
+      nowMs: 1,
+    });
     db.prepare(
       `INSERT INTO workspace_sync_merge_conflicts (
                   id, workspace_id, workspace_uuid, base_remote_version_id, remote_version_id,

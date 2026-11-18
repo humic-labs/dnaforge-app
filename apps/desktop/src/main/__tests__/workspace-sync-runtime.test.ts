@@ -11,6 +11,7 @@ import {
   workspaceSyncManifestHashInput,
   type WorkspaceSyncBundleV1,
   type WorkspaceSyncManifestV1,
+  type WorkspaceSyncStoragePolicy,
 } from '@waypoint/share-bundle';
 
 vi.mock('electron', () => ({
@@ -50,6 +51,7 @@ import {
 } from '../workspace-sync-renderer-refresh-pending';
 import { hasWorkspaceSyncMutationLeaseForTest } from '../workspace-sync-mutation-lease';
 import { createTestDb } from './test-db';
+import { recordWorkspaceSyncReplicaFiles } from '../workspace-sync-replica-files';
 import { prepareWorkspaceSyncProjection } from '../workspace-sync-projection';
 import {
   ManagedWorkspaceSyncWatcher,
@@ -59,6 +61,15 @@ import {
 const CONTENT_A = 'a'.repeat(64);
 const BASE_CONTENT = 'b'.repeat(64);
 const execFileAsync = promisify(execFile);
+const TEST_STORAGE_POLICY: WorkspaceSyncStoragePolicy = {
+  schemaVersion: 1,
+  policyKey: 'test-expanded',
+  revision: 1,
+  maxFileBytes: 12 * 1024 ** 3,
+  maxProjectBytes: 120 * 1024 ** 3,
+  maxFiles: 2000,
+  storageQuotaBytes: 240 * 1024 ** 3,
+};
 
 describe('workspace sync runtime', () => {
   let db: Database.Database;
@@ -125,6 +136,13 @@ describe('workspace sync runtime', () => {
     };
     interval = null;
     seedSyncWorkspace(db, workspacePath);
+    recordWorkspaceSyncReplicaFiles(db, {
+      workspaceUuid: 'workspace-a',
+      remoteWorkspaceId: 'remote-workspace-a',
+      remoteVersionId: 'remote-base-a',
+      paths: ['README.md'],
+      nowMs,
+    });
   });
 
   it('keeps startup upload work queued until the renderer is ready and then delivers once', async () => {
@@ -262,6 +280,54 @@ describe('workspace sync runtime', () => {
     expect(queueCount(db)).toBe(0);
     expect(snapshotWorkspace).not.toHaveBeenCalled();
     expect(createVersion).not.toHaveBeenCalled();
+  });
+
+  it('keeps the accepted commit when selected files are unchanged and only local Registry bytes were added', async () => {
+    const acceptedHead = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: workspacePath,
+      encoding: 'utf8',
+    }).trim();
+    const exportDirectory = join(workspacePath, '.waypoint/lims/log');
+    mkdirSync(exportDirectory, { recursive: true });
+    const localBytes = '{"localRegistryProjection":"keep these bytes local"}\n';
+    const exportPath = join(exportDirectory, '2026-10.jsonl');
+    writeFileSync(exportPath, localBytes);
+    const commit = defaultRuntimeCommit(makeRuntime());
+
+    await expect(commit(workspacePath, { forceInclude: ['README.md'] })).resolves.toBeNull();
+
+    expect(
+      execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: workspacePath,
+        encoding: 'utf8',
+      }).trim()
+    ).toBe(acceptedHead);
+    expect(readFileSync(exportPath, 'utf8')).toBe(localBytes);
+    expect(
+      execFileSync('git', ['ls-files', '--', '.waypoint/lims'], {
+        cwd: workspacePath,
+        encoding: 'utf8',
+      })
+    ).toBe('');
+  });
+
+  it('commits explicitly selected files even when private Git exclusions hide their changes', async () => {
+    const excludedPath = join(workspacePath, '.git/info/exclude');
+    writeFileSync(excludedPath, `${readFileSync(excludedPath, 'utf8')}\nselected-local.txt\n`);
+    const selectedBytes = 'Explicitly selected project bytes.\n';
+    writeFileSync(join(workspacePath, 'selected-local.txt'), selectedBytes);
+    const commit = defaultRuntimeCommit(makeRuntime());
+
+    await expect(commit(workspacePath, { forceInclude: ['selected-local.txt'] })).resolves.toMatch(
+      /^[a-f0-9]{40}$/
+    );
+
+    expect(
+      execFileSync('git', ['show', 'HEAD:selected-local.txt'], {
+        cwd: workspacePath,
+        encoding: 'utf8',
+      })
+    ).toBe(selectedBytes);
   });
 
   it('retries the same durable offline upload after a runtime restart when backoff is due', async () => {
@@ -823,6 +889,13 @@ describe('workspace sync runtime', () => {
            last_acked_local_head_sha = 'head-a'
        WHERE workspace_id = 1`
     ).run(CONTENT_A);
+    recordWorkspaceSyncReplicaFiles(db, {
+      workspaceUuid: 'workspace-a',
+      remoteWorkspaceId: 'remote-workspace-a',
+      remoteVersionId: 'remote-version-b',
+      paths: ['README.md'],
+      nowMs,
+    });
     recordPendingWorkspaceSyncRendererRefresh(db, {
       workspaceId: 1,
       localHeadSha: 'head-a',
@@ -2154,6 +2227,16 @@ describe('workspace sync runtime', () => {
     expect(invalidate).toHaveBeenCalledWith('workspace-a', 'queue_changed');
   });
 
+  function defaultRuntimeCommit(runtime: WorkspaceSyncRuntime) {
+    const deps = Reflect.get(Reflect.get(runtime, 'uploadWorker'), 'deps') as {
+      commitWorkingTreeIfDirty: (
+        path: string,
+        options?: { forceInclude?: readonly string[] }
+      ) => Promise<string | null>;
+    };
+    return deps.commitWorkingTreeIfDirty;
+  }
+
   function makeRuntime(
     options: {
       deviceId?: string;
@@ -2188,7 +2271,7 @@ describe('workspace sync runtime', () => {
       getActiveAccountId: options.getActiveAccountId ?? (async () => activeAccountId),
       getCurrentLocalHeadSha: options.getCurrentLocalHeadSha ?? (() => 'head-a'),
       snapshotWorkspace,
-      client: { createVersion },
+      client: { createVersion, readStoragePolicy: async () => TEST_STORAGE_POLICY },
       replicaClient: options.replicaClient,
       isRendererReady: options.isRendererReady,
       applyRemoteLatest: options.applyRemoteLatest,
