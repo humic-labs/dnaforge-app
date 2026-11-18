@@ -283,8 +283,10 @@ try {
     await step('created-first-project-and-selected-it');
     for (const folder of (await observe()).folders.filter(
       (f) => !f.pinned && f.path !== first.path
-    ))
+    )) {
+      await waitForInitialWorkspaceIndexing(page, [folder.path]);
       await archive(folder);
+    }
     const second = await create(`Session B ${suffix}`);
     await step('created-second-project-and-selected-it');
     await archive(second);

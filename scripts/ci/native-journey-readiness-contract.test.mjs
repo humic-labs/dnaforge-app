@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 
@@ -21,24 +22,28 @@ const ready = (loadId) => ({ loadId, pageLoaded: true, shellReady: true });
 function fixture(
   t,
   states,
-  { prior = ready('old'), reloadElapsed = 0, reloadError, startupError } = {}
+  { prior = ready('old'), reloadElapsed = 0, readElapsed = 0, reloadError, startupError } = {}
 ) {
-  let now = 1000;
   const originalNow = Date.now;
-  Date.now = () => now;
+  let elapsed = 0;
+  Date.now = () => originalNow() + elapsed;
   t.after(() => {
     Date.now = originalNow;
   });
-  let current = structuredClone(prior);
+  let reloaded = false;
   const events = [];
   const observations = [];
-  const predicates = [];
+  const reads = [];
   const window = {
     electronAPI: {
       startup: {
         getState: async () => {
           if (startupError) throw startupError;
-          return structuredClone(current);
+          if (!reloaded) return structuredClone(prior);
+          elapsed += readElapsed;
+          const state = states[Math.min(reads.length, states.length - 1)];
+          reads.push(structuredClone(state));
+          return structuredClone(state);
         },
       },
     },
@@ -46,26 +51,25 @@ function fixture(
   const query = (fn, args) => vm.runInNewContext(`(${fn.toString()})(...args)`, { window, args });
   const page = {
     evaluate: async (fn, ...args) => {
-      events.push({ type: 'evaluate', at: now });
+      events.push({ type: 'evaluate' });
       return query(fn, args);
     },
     reload: async (options) => {
-      events.push({ type: 'reload', at: now, options });
+      events.push({ type: 'reload', options });
       assert.equal(
         options.waitUntil,
         'commit',
         'Navigation must not wait for the unrelated browser load event'
       );
-      now += reloadElapsed;
+      elapsed += reloadElapsed;
       if (reloadError) throw reloadError;
+      reloaded = true;
     },
     waitForFunction: async (fn, arg, options) => {
-      events.push({ type: 'wait', at: now, options });
-      for (const state of states) {
-        current = structuredClone(state);
-        const value = await query(fn, [arg]);
-        predicates.push(Boolean(value));
-        if (value) return { jsonValue: async () => value, dispose: async () => {} };
+      events.push({ type: 'wait', options });
+      for (let attempt = 0; attempt < states.length; attempt++) {
+        const value = query(fn, [arg]);
+        if (value) return { jsonValue: async () => await value, dispose: async () => {} };
       }
       throw new Error('Native readiness timed out');
     },
@@ -74,7 +78,7 @@ function fixture(
     page,
     events,
     observations,
-    predicates,
+    reads,
     observe: (value) => observations.push(structuredClone(value)),
   };
 }
@@ -82,15 +86,16 @@ function fixture(
 test('reload waits for the new fully ready native load before returning and observing success', async (t) => {
   const reload = operation();
   const fresh = ready('new');
-  const f = fixture(t, [
+  const states = [
     ready('old'),
     { ...fresh, pageLoaded: false },
     { ...fresh, shellReady: false },
     fresh,
-  ]);
-  const result = await reload(f.page, { timeoutMs: 100, observe: f.observe });
+  ];
+  const f = fixture(t, states);
+  const result = await reload(f.page, { timeoutMs: 1500, observe: f.observe });
   assert.deepEqual(result, fresh);
-  assert.deepEqual(f.predicates, [false, false, false, true]);
+  assert.deepEqual(f.reads, states);
   assert.deepEqual(f.observations, [
     { phase: 'before', startup: ready('old') },
     { phase: 'after', startup: fresh },
@@ -103,12 +108,16 @@ for (const [name, state] of [
   ['a new load without page readiness', { ...ready('new'), pageLoaded: false }],
   ['a new load without shell readiness', { ...ready('new'), shellReady: false }],
   ['readiness without a valid new identity', { pageLoaded: true, shellReady: true }],
+  ['a numeric new identity', ready(42)],
+  ['an empty new identity', ready('')],
+  ['a false startup observation', false],
 ])
   test(`${name} never counts as successful restoration`, async (t) => {
     const reload = operation();
     const f = fixture(t, [state]);
     await assert.rejects(reload(f.page, { timeoutMs: 100, observe: f.observe }));
-    assert.deepEqual(f.predicates, [false]);
+    assert.ok(f.reads.length > 0);
+    for (const read of f.reads) assert.deepEqual(read, state);
     assert.equal(
       f.observations.some((event) => event.phase === 'after'),
       false
@@ -131,14 +140,13 @@ for (const loadId of [undefined, '', 42])
     );
   });
 
-test('navigation and readiness consume one deadline instead of granting a second full timeout', async (t) => {
+test('navigation and IPC reads must both fit within the original deadline', async (t) => {
   const reload = operation();
-  const f = fixture(t, [ready('new')], { reloadElapsed: 40 });
-  assert.deepEqual(await reload(f.page, { timeoutMs: 100, observe: f.observe }), ready('new'));
+  const f = fixture(t, [ready('new')], { reloadElapsed: 65, readElapsed: 65 });
+  await assert.rejects(reload(f.page, { timeoutMs: 100, observe: f.observe }));
   const navigation = f.events.find((event) => event.type === 'reload');
-  const wait = f.events.find((event) => event.type === 'wait');
   assert.ok(navigation.options.timeout > 0 && navigation.options.timeout <= 100);
-  assert.ok(wait.options.timeout > 0 && wait.options.timeout <= 60);
+  assert.deepEqual(f.observations.map((event) => event.phase), ['before', 'failed']);
 });
 
 test('a navigation that exhausts the deadline cannot qualify even if a fresh state is available', async (t) => {
@@ -191,12 +199,25 @@ test('the workspace fixture waits for every initial root through a slow seed rec
   const roots = ['/sample-project', '/empty-project'];
   const pending = new Map(roots.map((root) => [root, Promise.withResolvers()]));
   const previousWindow = globalThis.window;
-  globalThis.window = { __test: { waitForWorkspaceReconcileIdle: (root) => pending.get(root).promise } };
+  const enrollment = Promise.withResolvers();
+  const observedRoots = [];
+  globalThis.window = { __test: {
+    waitForNativeDocumentReadiness: () => enrollment.promise,
+    waitForWorkspaceReconcileIdle: (root) => {
+      observedRoots.push(root);
+      return pending.get(root).promise;
+    },
+  } };
   t.after(() => { globalThis.window = previousWindow; });
   t.mock.timers.enable({ apis: ['Date', 'setTimeout'] });
   let ready = false;
   const page = { evaluate: (observe, args) => observe(args) };
   const waiting = subject.waitForInitialWorkspaceIndexing(page, roots).then(() => { ready = true; });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(observedRoots, [], 'The new root scans do not exist until native enrollment finishes');
+  enrollment.resolve();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(observedRoots, roots);
   pending.get(roots[1]).resolve();
   t.mock.timers.tick(60_001);
   await new Promise((resolve) => setImmediate(resolve));
@@ -213,6 +234,47 @@ test('the workspace fixture surfaces a missing or failing reconciliation observe
   const page = { evaluate: (observe, args) => observe(args) };
   globalThis.window = { __test: {} };
   await assert.rejects(() => subject.waitForInitialWorkspaceIndexing(page, ['/sample-project']));
+  globalThis.window.__test.waitForWorkspaceReconcileIdle = async () => {};
+  await assert.rejects(() => subject.waitForInitialWorkspaceIndexing(page, ['/sample-project']));
+  globalThis.window.__test.waitForNativeDocumentReadiness = async () => { throw new Error('enrollment failed'); };
+  await assert.rejects(() => subject.waitForInitialWorkspaceIndexing(page, ['/sample-project']), /enrollment failed/u);
+  globalThis.window.__test.waitForNativeDocumentReadiness = async () => {};
   globalThis.window.__test.waitForWorkspaceReconcileIdle = async () => { throw new Error('failed to index project'); };
   await assert.rejects(() => subject.waitForInitialWorkspaceIndexing(page, ['/sample-project']), /failed to index project/);
+});
+
+test('workspace fixture observes each new enrollment before archiving a seeded project', async () => {
+  const source = readFileSync(new URL('../../apps/desktop/scripts/check-workspace-session.mjs', import.meta.url), 'utf8');
+  const start = source.indexOf('    const initialFolders = ');
+  const end = source.indexOf('    const second = await create(', start);
+  assert.ok(start >= 0 && end > start);
+  const run = new vm.Script(`(async ({ assert, page, observe, receipt, create, step, archive, waitForInitialWorkspaceIndexing }) => {${source.slice(start, end)}})`).runInThisContext();
+  const trace = [];
+  const folders = [{ path: '/ordinary' }, { path: '/samples' }, { path: '/reference', pinned: true }];
+  await run({
+    assert,
+    page: { keyboard: { press() {} }, locator: () => ({ allTextContents: async () => [] }) },
+    observe: async () => ({ folders: [...folders] }),
+    receipt: { setup: {}, consoleErrors: [] },
+    create: async () => {
+      trace.push('create Session A');
+      const project = { path: '/Session A' };
+      folders.push(project);
+      return project;
+    },
+    step() {},
+    archive: async (folder) => {
+      trace.push(`archive ${folder.path}`);
+      folders.splice(folders.indexOf(folder), 1);
+    },
+    waitForInitialWorkspaceIndexing: async (_page, roots) => trace.push(['wait', ...roots]),
+  });
+  assert.deepEqual(trace, [
+    ['wait', '/ordinary', '/samples', '/reference'],
+    'create Session A',
+    ['wait', '/ordinary'],
+    'archive /ordinary',
+    ['wait', '/samples'],
+    'archive /samples',
+  ]);
 });

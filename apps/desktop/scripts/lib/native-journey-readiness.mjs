@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { setTimeout as delay } from 'node:timers/promises';
 
 export const NATIVE_JOURNEY_COMMAND_TIMEOUT_MS = 600_000;
 
@@ -8,6 +9,7 @@ export async function waitForInitialWorkspaceIndexing(page, paths) {
     const wait = window.__test?.waitForWorkspaceReconcileIdle;
     if (typeof wait !== 'function')
       throw new Error('Workspace reconciliation readiness observation is unavailable');
+    await window.__test.waitForNativeDocumentReadiness();
     await Promise.all(roots.map((root) => wait(root)));
   }, paths);
 }
@@ -20,40 +22,42 @@ export async function reloadNativePage(page, { timeoutMs = 60000, observe = () =
     assert.ok(timeout > 0, 'Native reload readiness timed out');
     return timeout;
   };
-  const read = () => page.evaluate(() => window.electronAPI.startup.getState());
+  let timer;
+  const expired = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Native reload readiness timed out')), timeoutMs);
+  });
+  const read = () =>
+    Promise.race([page.evaluate(() => window.electronAPI?.startup?.getState?.()), expired]);
+  let startup = null;
   try {
-    const before = await read();
+    startup = await read();
+    const previousLoadId = startup?.loadId;
     assert.ok(
-      typeof before?.loadId === 'string' && before.loadId.length > 0,
+      typeof previousLoadId === 'string' && previousLoadId.length > 0,
       'Native reload needs the current load identity'
     );
-    await observe({ phase: 'before', startup: before });
+    await observe({ phase: 'before', startup });
     await page.reload({ waitUntil: 'commit', timeout: remaining() });
-    const handle = await page.waitForFunction(
-      async (previousLoadId) => {
-        const startup = await window.electronAPI?.startup?.getState?.();
-        return typeof startup?.loadId === 'string' &&
-          startup.loadId.length > 0 &&
-          startup.loadId !== previousLoadId &&
-          startup.pageLoaded === true &&
-          startup.shellReady === true
-          ? startup
-          : false;
-      },
-      before.loadId,
-      { timeout: remaining() }
-    );
-    let startup;
-    try {
-      startup = await handle.jsonValue();
-    } finally {
-      await handle.dispose();
+    while (true) {
+      remaining();
+      startup = await read();
+      remaining();
+      if (
+        typeof startup?.loadId === 'string' &&
+        startup.loadId.length > 0 &&
+        startup.loadId !== previousLoadId &&
+        startup.pageLoaded === true &&
+        startup.shellReady === true
+      ) {
+        await observe({ phase: 'after', startup });
+        return startup;
+      }
+      await delay(Math.min(50, remaining()));
     }
-    remaining();
-    await observe({ phase: 'after', startup });
-    return startup;
   } catch (error) {
-    await observe({ phase: 'failed', startup: await read().catch(() => null) });
+    await observe({ phase: 'failed', startup });
     throw error;
+  } finally {
+    clearTimeout(timer);
   }
 }
