@@ -645,10 +645,19 @@ function occurrenceAt(
 }
 
 function occurrenceTouches(instance: WorkOccurrence, from: string, through: string): boolean {
-  const dates = [instance.schedule.start, instance.schedule.deadline].flatMap((field) =>
-    field.kind === 'resolved' ? [workDatePart(field.value)] : []
-  );
-  return (dates.length ? dates : [instance.slot]).some((date) => date >= from && date <= through);
+  const { start, end, deadline } = instance.schedule;
+  if (start.kind === 'resolved') {
+    const first = workDatePart(start.value);
+    const last = end.kind === 'resolved' ? workDatePart(end.value) : first;
+    const lower = first <= last ? first : last;
+    const upper = first <= last ? last : first;
+    if (lower <= through && upper >= from) return true;
+  }
+  if (deadline.kind === 'resolved') {
+    const due = workDatePart(deadline.value);
+    return due >= from && due <= through;
+  }
+  return start.kind !== 'resolved' && instance.slot >= from && instance.slot <= through;
 }
 
 export function splitWorkSeries(
@@ -757,15 +766,23 @@ export function expandWorkOccurrences(
   if (rule && (rule.state === 'active' || rule.pauses?.length) && !isTerminal(task.status)) {
     const base = resolveWorkSchedule(task, readSource);
     const anchor = calendarDay(workDatePart(rule.anchor));
-    const shifts = new Set<number>();
-    for (const field of [base.start, base.deadline]) {
-      if (field.kind === 'resolved')
-        shifts.add(calendarDay(workDatePart(field.value)).compare(anchor));
+    const dayShift = (value: WorkTime) => calendarDay(workDatePart(value)).compare(anchor);
+    const startShift = base.start.kind === 'resolved' ? dayShift(base.start.value) : 0;
+    const endShift =
+      base.start.kind === 'resolved' && base.end.kind === 'resolved'
+        ? dayShift(base.end.value)
+        : startShift;
+    const firstShift = Math.min(startShift, endShift);
+    const lastShift = Math.max(startShift, endShift);
+    const ranges = [{ firstShift, lastShift }];
+    if (base.deadline.kind === 'resolved') {
+      const dueShift = dayShift(base.deadline.value);
+      if (dueShift < firstShift || dueShift > lastShift)
+        ranges.push({ firstShift: dueShift, lastShift: dueShift });
     }
-    if (base.start.kind !== 'resolved' || shifts.size === 0) shifts.add(0);
-    for (const shift of shifts) {
-      const lower = calendarDay(from).subtract({ days: shift }).toString();
-      const upper = calendarDay(through).subtract({ days: shift }).toString();
+    for (const range of ranges) {
+      const lower = calendarDay(from).subtract({ days: range.lastShift }).toString();
+      const upper = calendarDay(through).subtract({ days: range.firstShift }).toString();
       for (const [slot, nominal] of nominalSlots(rule, lower, upper)) {
         if (overrides.has(slot) || visible.has(slot)) continue;
         const instance = occurrenceAt(task, rule, slot, nominal, base);

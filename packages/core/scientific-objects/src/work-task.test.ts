@@ -297,3 +297,27 @@ it('retains a recorded instant across changes to zone rules and checks current r
     'current time zone rules'
   );
 });
+
+it('includes a plan spanning the entire month and looks up a distant deadline separately', () => {
+  const series = run(null, {
+    kind: 'create',
+    name: 'Instrument reservation',
+    plan: { start: fixed('2026-11-18'), end: fixed('2027-01-10') },
+    deadline: fixed('2050-02-01'),
+    recurrence: {
+      frequency: 'weekly',
+      interval: 1,
+      anchor: day('2026-11-17'),
+      state: 'active',
+      fold: 'earlier',
+      count: 1,
+    },
+  });
+  expect(expandWorkOccurrences(series, '2026-12-01', '2026-12-31').map((o) => o.slot)).toEqual([
+    '2026-11-17',
+  ]);
+  expect(expandWorkOccurrences(series, '2027-01-11', '2027-01-12')).toEqual([]);
+  expect(expandWorkOccurrences(series, '2050-02-01', '2050-02-01').map((o) => o.slot)).toEqual([
+    '2026-11-17',
+  ]);
+});
