@@ -26,6 +26,7 @@ import { RecurrenceEditor } from './RecurrenceEditor';
 import { OccurrencePanel } from './OccurrencePanel';
 import { AssigneeField } from './AssigneeField';
 import { WorkTaskReminders } from './WorkReminders';
+import { WorkFutureSeries } from './WorkFutureSeries';
 import { changedTaskFields, taskDraft, describeDate, type TaskDraft } from './task-form';
 
 import { readWorkRecovery, writeWorkRecovery, type WorkEditRecovery } from './task-recovery';
@@ -716,6 +717,12 @@ function TaskEditor({
           Canceled {new Date(record.document.cancellation.recordedAt).toLocaleString()}
           {record.document.cancellation.reason ? ' · ' + record.document.cancellation.reason : ''}
         </p>
+      )}
+      {record?.document.recurrence && (
+        <WorkFutureSeries
+          record={record}
+          editable={!dirty && !pending && !busy && !conflict && project.writable !== false}
+        />
       )}
       {record && <WorkTaskReminders task={record} />}
       {error && (

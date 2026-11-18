@@ -186,7 +186,7 @@ export function RelativeDateField({
   const elapsedFactors = { hours: 3_600_000, minutes: 60_000, milliseconds: 1 };
   const unit = spec?.offset.unit === 'days' ? 'days' : elapsedUnit;
   const factor = unit === 'days' ? 1 : elapsedFactors[unit];
-  function setOffset(amount: number, chosen = unit) {
+  function setOffset(amount: number, chosen: typeof unit = unit) {
     if (!spec) return;
     const raw = chosen === 'days' ? amount : amount * elapsedFactors[chosen];
     if (!Number.isSafeInteger(raw)) return;

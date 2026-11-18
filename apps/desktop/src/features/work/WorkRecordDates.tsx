@@ -70,7 +70,7 @@ export function useWorkRecordDates(root?: string) {
       active = false;
     };
   }, [key, root, attempt]);
-  return snapshot?.key === key ? snapshot : { rows: [] };
+  return snapshot?.key === key ? snapshot : { rows: [], error: undefined };
 }
 
 export function WorkRecordDateAgenda({ rows }: { rows: WorkRecordDate[] }) {
